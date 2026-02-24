@@ -3,6 +3,11 @@ import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================
 // Mock sharp — jest.mock is hoisted, so the factory must be self-contained
+//
+// The source uses `import * as sharp from "sharp"` (namespace import).
+// Under SWC compilation this becomes an interop that calls sharp.default(...)
+// So the mock must expose the mock function both as the module export AND
+// as the `default` property of the namespace object.
 // ============================================================================
 
 jest.mock("sharp", () => {
@@ -23,6 +28,11 @@ jest.mock("sharp", () => {
   const sharpFn = jest.fn().mockReturnValue(instance);
   // Attach instance reference so tests can inspect calls
   (sharpFn as jest.Mock & { _instance: typeof instance })._instance = instance;
+  // SWC compiles `import * as sharp from "sharp"` with _interop_require_wildcard.
+  // When the factory result has __esModule=true, interop returns the object as-is,
+  // so calling _sharp(...) calls sharpFn directly (it's a function with __esModule).
+  Object.defineProperty(sharpFn, "__esModule", { value: true });
+  Object.assign(sharpFn, { default: sharpFn, _instance: instance });
   return sharpFn;
 });
 
@@ -86,6 +96,8 @@ describe("ExportImageTool", () => {
     });
     sharpMock._instance.resize.mockReturnValue(sharpMock._instance);
     sharpMock.mockReturnValue(sharpMock._instance);
+    // Keep default in sync
+    sharpMock.default = sharpMock;
 
     tool = new ExportImageTool();
   });
@@ -338,6 +350,7 @@ describe("ExportImageTool", () => {
       sharpMock.mockImplementationOnce(() => {
         throw new Error("sharp processing error");
       });
+      sharpMock.default = sharpMock;
 
       const result = await tool.execute(
         { content: SAMPLE_SVG },
@@ -352,6 +365,7 @@ describe("ExportImageTool", () => {
       sharpMock.mockImplementationOnce(() => {
         throw new Error("fail");
       });
+      sharpMock.default = sharpMock;
 
       const result = await tool.execute(
         { content: SAMPLE_SVG },
@@ -387,6 +401,7 @@ describe("ExportImageTool", () => {
       sharpMock.mockImplementationOnce(() => {
         throw new Error("fail");
       });
+      sharpMock.default = sharpMock;
 
       const result = await tool.execute(
         { content: SAMPLE_SVG },

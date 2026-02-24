@@ -11,12 +11,12 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { EvidenceSyncCompensationService } from "../evidence-sync-compensation.service";
-import { EvidenceManagerService } from "@/modules/ai-engine/evidence/services/evidence-manager.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { SaveEvidenceRequest } from "@/modules/ai-engine/evidence/abstractions/evidence.interface";
 
 describe("EvidenceSyncCompensationService", () => {
   let service: EvidenceSyncCompensationService;
-  let engineEvidenceService: jest.Mocked<EvidenceManagerService>;
+  let mockFacade: { evidenceSave: jest.Mock };
 
   // Mock data
   const mockTopicEvidenceId = "topic-evidence-123";
@@ -38,29 +38,17 @@ describe("EvidenceSyncCompensationService", () => {
     relevanceScore: 0.5,
   };
 
-  const mockEngineEvidence = {
-    id: "engine-evidence-123",
-    ...mockSaveRequest,
-    metadata: {
-      relevanceScore: 0.5,
-      citationCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  };
-
   beforeEach(async () => {
-    // Mock EvidenceManagerService
-    const mockEngineEvidenceService = {
-      save: jest.fn(),
+    mockFacade = {
+      evidenceSave: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EvidenceSyncCompensationService,
         {
-          provide: EvidenceManagerService,
-          useValue: mockEngineEvidenceService,
+          provide: AIEngineFacade,
+          useValue: mockFacade,
         },
       ],
     }).compile();
@@ -68,7 +56,6 @@ describe("EvidenceSyncCompensationService", () => {
     service = module.get<EvidenceSyncCompensationService>(
       EvidenceSyncCompensationService,
     );
-    engineEvidenceService = module.get(EvidenceManagerService);
 
     // Clear interval to prevent side effects
     service.onModuleDestroy();
@@ -164,7 +151,7 @@ describe("EvidenceSyncCompensationService", () => {
       await service.processRetryQueue();
 
       // Assert
-      expect(engineEvidenceService.save).not.toHaveBeenCalled();
+      expect(mockFacade.evidenceSave).not.toHaveBeenCalled();
     });
 
     it("should retry pending entries and remove on success", async () => {
@@ -174,15 +161,15 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (engineEvidenceService.save as jest.Mock).mockResolvedValue(
-        mockEngineEvidence,
+      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
+        undefined,
       );
 
       // Act
       await service.processRetryQueue();
 
       // Assert
-      expect(engineEvidenceService.save).toHaveBeenCalledWith(mockSaveRequest);
+      expect(mockFacade.evidenceSave).toHaveBeenCalledWith(mockSaveRequest);
 
       const stats = service.getStats();
       expect(stats.pendingCount).toBe(0); // Removed from queue
@@ -196,7 +183,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Retry failed"),
       );
 
@@ -218,7 +205,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Persistent error"),
       );
 
@@ -245,15 +232,15 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("evidence-2", mockSaveRequest, "Error 2");
       service.queueForRetry("evidence-3", mockSaveRequest, "Error 3");
 
-      (engineEvidenceService.save as jest.Mock).mockResolvedValue(
-        mockEngineEvidence,
+      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
+        undefined,
       );
 
       // Act
       await service.processRetryQueue();
 
       // Assert
-      expect(engineEvidenceService.save).toHaveBeenCalledTimes(3);
+      expect(mockFacade.evidenceSave).toHaveBeenCalledTimes(3);
 
       const stats = service.getStats();
       expect(stats.pendingCount).toBe(0);
@@ -265,8 +252,8 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("evidence-success", mockSaveRequest, "Error");
       service.queueForRetry("evidence-fail", mockSaveRequest, "Error");
 
-      (engineEvidenceService.save as jest.Mock)
-        .mockResolvedValueOnce(mockEngineEvidence) // First succeeds
+      (mockFacade.evidenceSave as jest.Mock)
+        .mockResolvedValueOnce(undefined) // First succeeds
         .mockRejectedValueOnce(new Error("Failed")); // Second fails
 
       // Act
@@ -289,7 +276,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         "String error",
       );
 
@@ -308,7 +295,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Retry failed"),
       );
 
@@ -361,8 +348,8 @@ describe("EvidenceSyncCompensationService", () => {
     it("should track success count correctly", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (engineEvidenceService.save as jest.Mock).mockResolvedValue(
-        mockEngineEvidence,
+      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
+        undefined,
       );
 
       // Act
@@ -376,7 +363,7 @@ describe("EvidenceSyncCompensationService", () => {
     it("should track failed count correctly", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Failed"),
       );
 
@@ -395,7 +382,7 @@ describe("EvidenceSyncCompensationService", () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
       service.queueForRetry("evidence-2", mockSaveRequest, "Error");
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Failed"),
       );
 
@@ -417,9 +404,9 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("pending-1", mockSaveRequest, "Error");
       service.queueForRetry("fail-1", mockSaveRequest, "Error");
 
-      (engineEvidenceService.save as jest.Mock)
-        .mockResolvedValueOnce(mockEngineEvidence) // success-1
-        .mockResolvedValueOnce(mockEngineEvidence) // success-2
+      (mockFacade.evidenceSave as jest.Mock)
+        .mockResolvedValueOnce(undefined) // success-1
+        .mockResolvedValueOnce(undefined) // success-2
         .mockRejectedValueOnce(new Error("Retry")) // pending-1
         .mockRejectedValueOnce(new Error("Fail")); // fail-1
 
@@ -427,7 +414,7 @@ describe("EvidenceSyncCompensationService", () => {
       await service.processRetryQueue();
 
       // More retries for permanent failure
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Fail"),
       );
       await service.processRetryQueue();
@@ -484,7 +471,7 @@ describe("EvidenceSyncCompensationService", () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error 1");
       service.queueForRetry("evidence-2", mockSaveRequest, "Error 2");
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Failed"),
       );
 
@@ -508,15 +495,15 @@ describe("EvidenceSyncCompensationService", () => {
     it("should manually trigger retry process", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (engineEvidenceService.save as jest.Mock).mockResolvedValue(
-        mockEngineEvidence,
+      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
+        undefined,
       );
 
       // Act
       await service.triggerRetry();
 
       // Assert
-      expect(engineEvidenceService.save).toHaveBeenCalled();
+      expect(mockFacade.evidenceSave).toHaveBeenCalled();
       const stats = service.getStats();
       expect(stats.successCount).toBe(1);
     });
@@ -528,7 +515,7 @@ describe("EvidenceSyncCompensationService", () => {
     it("should clear all permanently failed entries", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Failed"),
       );
 
@@ -554,7 +541,7 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("fail-1", mockSaveRequest, "Error");
 
       // Set up mock: fail all attempts for both, but we'll only run 3 batches which processes both 3 times each
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Always fail"),
       );
 
@@ -617,10 +604,10 @@ describe("EvidenceSyncCompensationService", () => {
       );
 
       // First two attempts fail
-      (engineEvidenceService.save as jest.Mock)
+      (mockFacade.evidenceSave as jest.Mock)
         .mockRejectedValueOnce(new Error("Network timeout"))
         .mockRejectedValueOnce(new Error("Connection refused"))
-        .mockResolvedValueOnce(mockEngineEvidence); // Third attempt succeeds
+        .mockResolvedValueOnce(undefined); // Third attempt succeeds
 
       // Act
       await service.processRetryQueue(); // Attempt 1
@@ -648,7 +635,7 @@ describe("EvidenceSyncCompensationService", () => {
         "Database locked",
       );
 
-      (engineEvidenceService.save as jest.Mock).mockRejectedValue(
+      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
         new Error("Database locked"),
       );
 

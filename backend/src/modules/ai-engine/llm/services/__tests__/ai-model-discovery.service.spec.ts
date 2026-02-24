@@ -1,0 +1,664 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { HttpService } from "@nestjs/axios";
+import { of } from "rxjs";
+import { AiModelDiscoveryService } from "../ai-model-discovery.service";
+
+describe("AiModelDiscoveryService", () => {
+  let service: AiModelDiscoveryService;
+  let mockHttpService: jest.Mocked<Pick<HttpService, "get" | "post">>;
+
+  const makeHttpResponse = (data: unknown) => ({
+    data,
+    status: 200,
+    statusText: "OK",
+    headers: {},
+    config: {} as any,
+  });
+
+  beforeEach(async () => {
+    mockHttpService = {
+      get: jest.fn(),
+      post: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiModelDiscoveryService,
+        { provide: HttpService, useValue: mockHttpService },
+      ],
+    }).compile();
+
+    service = module.get<AiModelDiscoveryService>(AiModelDiscoveryService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // ==================== formatModelDisplayName ====================
+
+  describe("formatModelDisplayName", () => {
+    it("should format Gemini Flash", () => {
+      expect(service.formatModelDisplayName("gemini-2.0-flash")).toBe(
+        "Gemini Flash",
+      );
+    });
+
+    it("should format Gemini Pro", () => {
+      expect(service.formatModelDisplayName("gemini-1.5-pro")).toBe(
+        "Gemini Pro",
+      );
+    });
+
+    it("should format Gemini Imagen", () => {
+      expect(service.formatModelDisplayName("gemini-imagen-3")).toBe(
+        "Gemini Imagen",
+      );
+    });
+
+    it("should format generic Gemini", () => {
+      expect(service.formatModelDisplayName("gemini-unknown")).toBe("Gemini");
+    });
+
+    it("should format Grok", () => {
+      expect(service.formatModelDisplayName("grok-2")).toBe("Grok");
+    });
+
+    it("should format GPT-4", () => {
+      expect(service.formatModelDisplayName("gpt-4o")).toBe("GPT-4");
+    });
+
+    it("should format GPT-5", () => {
+      expect(service.formatModelDisplayName("gpt-5")).toBe("GPT-5");
+    });
+
+    it("should format OpenAI o1", () => {
+      expect(service.formatModelDisplayName("o1-mini")).toBe("OpenAI o1");
+    });
+
+    it("should format OpenAI o3", () => {
+      expect(service.formatModelDisplayName("o3-mini")).toBe("OpenAI o3");
+    });
+
+    it("should format Claude Opus", () => {
+      expect(service.formatModelDisplayName("claude-3-opus")).toBe(
+        "Claude Opus",
+      );
+    });
+
+    it("should format Claude Sonnet", () => {
+      expect(
+        service.formatModelDisplayName("claude-3-5-sonnet-20241022"),
+      ).toBe("Claude Sonnet");
+    });
+
+    it("should format Claude Haiku", () => {
+      expect(service.formatModelDisplayName("claude-3-5-haiku")).toBe(
+        "Claude Haiku",
+      );
+    });
+
+    it("should format generic Claude", () => {
+      expect(service.formatModelDisplayName("claude-unknown")).toBe("Claude");
+    });
+
+    it("should format DALL-E", () => {
+      expect(service.formatModelDisplayName("dall-e-3")).toBe("DALL-E");
+    });
+
+    it("should return model as-is if no match", () => {
+      expect(service.formatModelDisplayName("some-unknown-model")).toBe(
+        "some-unknown-model",
+      );
+    });
+  });
+
+  // ==================== getEnvVarNameForProvider ====================
+
+  describe("getEnvVarNameForProvider", () => {
+    it("should return XAI_API_KEY for xai", () => {
+      expect(service.getEnvVarNameForProvider("xai")).toBe("XAI_API_KEY");
+    });
+
+    it("should return XAI_API_KEY for grok", () => {
+      expect(service.getEnvVarNameForProvider("grok")).toBe("XAI_API_KEY");
+    });
+
+    it("should return OPENAI_API_KEY for openai", () => {
+      expect(service.getEnvVarNameForProvider("openai")).toBe("OPENAI_API_KEY");
+    });
+
+    it("should return OPENAI_API_KEY for gpt", () => {
+      expect(service.getEnvVarNameForProvider("gpt")).toBe("OPENAI_API_KEY");
+    });
+
+    it("should return ANTHROPIC_API_KEY for anthropic", () => {
+      expect(service.getEnvVarNameForProvider("anthropic")).toBe(
+        "ANTHROPIC_API_KEY",
+      );
+    });
+
+    it("should return ANTHROPIC_API_KEY for claude", () => {
+      expect(service.getEnvVarNameForProvider("claude")).toBe(
+        "ANTHROPIC_API_KEY",
+      );
+    });
+
+    it("should return GOOGLE_AI_API_KEY for google", () => {
+      expect(service.getEnvVarNameForProvider("google")).toBe(
+        "GOOGLE_AI_API_KEY",
+      );
+    });
+
+    it("should return GOOGLE_AI_API_KEY for gemini", () => {
+      expect(service.getEnvVarNameForProvider("gemini")).toBe(
+        "GOOGLE_AI_API_KEY",
+      );
+    });
+
+    it("should return uppercased provider key for unknown", () => {
+      expect(service.getEnvVarNameForProvider("deepseek")).toBe(
+        "DEEPSEEK_API_KEY",
+      );
+    });
+  });
+
+  // ==================== fetchAvailableModels ====================
+
+  describe("fetchAvailableModels", () => {
+    it("should return error if no API key", async () => {
+      const result = await service.fetchAvailableModels("openai", "");
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("API key");
+    });
+
+    it("should return error for unknown provider", async () => {
+      const result = await service.fetchAvailableModels(
+        "unknown-provider",
+        "test-key",
+      );
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Unknown provider");
+    });
+
+    // xAI models
+    it("should fetch xAI models", async () => {
+      const mockModels = {
+        data: [
+          { id: "grok-2", description: "Grok 2" },
+          { id: "grok-2-vision", description: "Grok 2 Vision" },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("xai", "test-key");
+      expect(result.success).toBe(true);
+      expect(result.models).toBeDefined();
+      expect(result.models!.length).toBeGreaterThan(0);
+    });
+
+    it("should filter xAI embedding models", async () => {
+      const mockModels = {
+        data: [
+          { id: "grok-2" },
+          { id: "v1-embeddings" },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "xai",
+        "test-key",
+        undefined,
+        "EMBEDDING",
+      );
+      expect(result.success).toBe(true);
+      // Should only have embedding model
+      expect(
+        result.models?.every(
+          (m) => m.id.includes("embed") || m.id === "v1",
+        ),
+      ).toBe(true);
+    });
+
+    it("should filter xAI CHAT models (exclude embeddings)", async () => {
+      const mockModels = {
+        data: [
+          { id: "grok-2" },
+          { id: "v1-embeddings" },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "xai",
+        "test-key",
+        undefined,
+        "CHAT",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models?.every((m) => m.id.includes("grok"))).toBe(true);
+    });
+
+    // OpenAI models
+    it("should fetch OpenAI models", async () => {
+      const mockModels = {
+        data: [
+          { id: "gpt-4o", created: 1000 },
+          { id: "gpt-4o-mini", created: 900 },
+          { id: "gpt-3.5-turbo", created: 800 },
+          { id: "dall-e-3", created: 700 },
+          { id: "text-embedding-3-large", created: 600 },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("openai", "test-key");
+      expect(result.success).toBe(true);
+      expect(result.models?.some((m) => m.id.startsWith("gpt-"))).toBe(true);
+    });
+
+    it("should fetch OpenAI embedding models", async () => {
+      const mockModels = {
+        data: [
+          { id: "gpt-4o", created: 1000 },
+          { id: "text-embedding-3-large", created: 800 },
+          { id: "text-embedding-ada-002", created: 600 },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "openai",
+        "test-key",
+        undefined,
+        "EMBEDDING",
+      );
+      expect(result.success).toBe(true);
+      expect(
+        result.models?.every((m) => m.id.includes("embedding") || (m.id.includes("ada") && m.id.includes("002"))),
+      ).toBe(true);
+    });
+
+    it("should fetch OpenAI image generation models", async () => {
+      const mockModels = {
+        data: [
+          { id: "gpt-4o", created: 1000 },
+          { id: "dall-e-3", created: 800 },
+          { id: "dall-e-2", created: 600 },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "openai",
+        "test-key",
+        undefined,
+        "IMAGE_GENERATION",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models?.every((m) => m.id.startsWith("dall-e"))).toBe(
+        true,
+      );
+    });
+
+    it("should fetch OpenAI CHAT_FAST models", async () => {
+      const mockModels = {
+        data: [
+          { id: "gpt-4o", created: 1000 },
+          { id: "gpt-4o-mini", created: 900 },
+          { id: "gpt-3.5-turbo", created: 800 },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "gpt",
+        "test-key",
+        undefined,
+        "CHAT_FAST",
+      );
+      expect(result.success).toBe(true);
+    });
+
+    // Anthropic models (static)
+    it("should return Anthropic models without HTTP call", async () => {
+      const result = await service.fetchAvailableModels(
+        "anthropic",
+        "test-key",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models!.length).toBeGreaterThan(0);
+      expect(mockHttpService.get).not.toHaveBeenCalled();
+    });
+
+    it("should return Claude models for claude provider", async () => {
+      const result = await service.fetchAvailableModels("claude", "test-key");
+      expect(result.success).toBe(true);
+      expect(result.models!.length).toBeGreaterThan(0);
+    });
+
+    it("should return empty for Anthropic embedding", async () => {
+      const result = await service.fetchAvailableModels(
+        "anthropic",
+        "test-key",
+        undefined,
+        "EMBEDDING",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models).toHaveLength(0);
+    });
+
+    it("should return only haiku for Anthropic CHAT_FAST", async () => {
+      const result = await service.fetchAvailableModels(
+        "anthropic",
+        "test-key",
+        undefined,
+        "CHAT_FAST",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models?.every((m) => m.id.includes("haiku"))).toBe(true);
+    });
+
+    // Google models
+    it("should fetch Google models", async () => {
+      const mockModels = {
+        models: [
+          {
+            name: "models/gemini-2.0-flash",
+            displayName: "Gemini 2.0 Flash",
+            description: "Fast Gemini",
+            supportedGenerationMethods: ["generateContent"],
+          },
+          {
+            name: "models/text-embedding-004",
+            displayName: "Embedding 004",
+            supportedGenerationMethods: ["embedContent"],
+          },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("google", "test-key");
+      expect(result.success).toBe(true);
+      expect(result.models?.some((m) => m.id === "gemini-2.0-flash")).toBe(
+        true,
+      );
+    });
+
+    it("should fetch Google embedding models", async () => {
+      const mockModels = {
+        models: [
+          {
+            name: "models/text-embedding-004",
+            displayName: "Embedding 004",
+            supportedGenerationMethods: ["embedContent"],
+          },
+          {
+            name: "models/gemini-2.0-flash",
+            displayName: "Gemini 2.0 Flash",
+            supportedGenerationMethods: ["generateContent"],
+          },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "gemini",
+        "test-key",
+        undefined,
+        "EMBEDDING",
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("should fetch Google imagen models for IMAGE_GENERATION", async () => {
+      const mockModels = {
+        models: [
+          {
+            name: "models/imagen-3.0",
+            displayName: "Imagen 3.0",
+            supportedGenerationMethods: ["generateImage"],
+          },
+          {
+            name: "models/gemini-2.0-flash",
+            displayName: "Gemini 2.0 Flash",
+            supportedGenerationMethods: ["generateContent"],
+          },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "google",
+        "test-key",
+        undefined,
+        "IMAGE_GENERATION",
+      );
+      expect(result.success).toBe(true);
+    });
+
+    // Cohere models (static)
+    it("should return Cohere RERANK models", async () => {
+      const result = await service.fetchAvailableModels(
+        "cohere",
+        "test-key",
+        undefined,
+        "RERANK",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models!.length).toBeGreaterThan(0);
+      expect(result.models?.some((m) => m.id.includes("rerank"))).toBe(true);
+    });
+
+    it("should return Cohere embedding models", async () => {
+      const result = await service.fetchAvailableModels(
+        "cohere",
+        "test-key",
+        undefined,
+        "EMBEDDING",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models?.some((m) => m.id.includes("embed"))).toBe(true);
+    });
+
+    it("should return Cohere CHAT models", async () => {
+      const result = await service.fetchAvailableModels("cohere", "test-key");
+      expect(result.success).toBe(true);
+      expect(result.models?.some((m) => m.id.includes("command"))).toBe(true);
+    });
+
+    // DeepSeek
+    it("should fetch DeepSeek models via OpenAI-compatible API", async () => {
+      const mockModels = {
+        data: [
+          { id: "deepseek-chat" },
+          { id: "deepseek-reasoner" },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("deepseek", "test-key");
+      expect(result.success).toBe(true);
+    });
+
+    it("should return empty array for DeepSeek IMAGE_GENERATION", async () => {
+      const result = await service.fetchAvailableModels(
+        "deepseek",
+        "test-key",
+        undefined,
+        "IMAGE_GENERATION",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models).toHaveLength(0);
+    });
+
+    // Qwen / Alibaba
+    it("should fetch Qwen models", async () => {
+      const mockModels = {
+        data: [{ id: "qwen-plus" }, { id: "qwen-turbo" }],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("qwen", "test-key");
+      expect(result.success).toBe(true);
+    });
+
+    it("should fetch Alibaba models", async () => {
+      const mockModels = {
+        data: [{ id: "qwen-plus" }],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("alibaba", "test-key");
+      expect(result.success).toBe(true);
+    });
+
+    // Doubao / ByteDance
+    it("should fetch Doubao models", async () => {
+      const mockModels = { data: [{ id: "doubao-chat" }] };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("doubao", "test-key");
+      expect(result.success).toBe(true);
+    });
+
+    it("should fetch ByteDance models", async () => {
+      const mockModels = { data: [{ id: "doubao-chat" }] };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "bytedance",
+        "test-key",
+      );
+      expect(result.success).toBe(true);
+    });
+
+    // Zhipu / GLM (static)
+    it("should return Zhipu CHAT models", async () => {
+      const result = await service.fetchAvailableModels("zhipu", "test-key");
+      expect(result.success).toBe(true);
+      expect(result.models?.some((m) => m.id.includes("glm"))).toBe(true);
+    });
+
+    it("should return Zhipu embedding models", async () => {
+      const result = await service.fetchAvailableModels(
+        "zhipu",
+        "test-key",
+        undefined,
+        "EMBEDDING",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models?.some((m) => m.id.includes("embedding"))).toBe(
+        true,
+      );
+    });
+
+    it("should return GLM models for glm provider", async () => {
+      const result = await service.fetchAvailableModels("glm", "test-key");
+      expect(result.success).toBe(true);
+    });
+
+    it("should return empty for Zhipu IMAGE_GENERATION", async () => {
+      const result = await service.fetchAvailableModels(
+        "zhipu",
+        "test-key",
+        undefined,
+        "IMAGE_GENERATION",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models).toHaveLength(0);
+    });
+
+    // Kimi / Moonshot
+    it("should fetch Kimi models", async () => {
+      const mockModels = { data: [{ id: "moonshot-v1-8k" }] };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("kimi", "test-key");
+      expect(result.success).toBe(true);
+    });
+
+    it("should fetch Moonshot models", async () => {
+      const mockModels = { data: [{ id: "moonshot-v1-8k" }] };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("moonshot", "test-key");
+      expect(result.success).toBe(true);
+    });
+
+    // Error handling
+    it("should return error when API call fails", async () => {
+      mockHttpService.get.mockImplementationOnce(() => {
+        throw {
+          response: {
+            status: 401,
+            data: { error: { message: "Invalid API key" } },
+          },
+        };
+      });
+
+      const result = await service.fetchAvailableModels("openai", "bad-key");
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    it("should handle API error with string error field", async () => {
+      mockHttpService.get.mockImplementationOnce(() => {
+        throw {
+          response: {
+            status: 401,
+            data: { error: "Unauthorized" },
+          },
+        };
+      });
+
+      const result = await service.fetchAvailableModels("openai", "bad-key");
+      expect(result.success).toBe(false);
+    });
+
+    it("should handle network error without response", async () => {
+      mockHttpService.get.mockImplementationOnce(() => {
+        throw new Error("Network error");
+      });
+
+      const result = await service.fetchAvailableModels("openai", "test-key");
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Network error");
+    });
+  });
+});

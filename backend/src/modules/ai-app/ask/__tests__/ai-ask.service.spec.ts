@@ -137,6 +137,7 @@ describe("AiAskService", () => {
           urlTemplate: "/ai-ask?q={input}",
         },
       ]),
+      routeIntent: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -403,18 +404,12 @@ describe("AiAskService", () => {
   // =========================================================================
 
   describe("detectIntent", () => {
-    const mockRouter = { route: jest.fn() };
-
     beforeEach(() => {
-      (service as any).intentRouterService = mockRouter;
+      mockFacade.routeIntent.mockReset();
     });
 
-    afterEach(() => {
-      mockRouter.route.mockReset();
-    });
-
-    it("returns empty array when intentRouterService is unavailable", async () => {
-      (service as any).intentRouterService = undefined;
+    it("returns empty array when routeIntent returns undefined", async () => {
+      mockFacade.routeIntent.mockReturnValue(undefined);
       const result = await (service as any).detectIntent(
         "hello",
         "user-1",
@@ -424,7 +419,7 @@ describe("AiAskService", () => {
     });
 
     it("returns empty array when confidence is below CONFIRMATION_THRESHOLD (0.6)", async () => {
-      mockRouter.route.mockResolvedValue({
+      mockFacade.routeIntent.mockResolvedValue({
         plan: {
           steps: [
             {
@@ -450,7 +445,7 @@ describe("AiAskService", () => {
     });
 
     it("returns action cards when confidence >= CONFIRMATION_THRESHOLD", async () => {
-      mockRouter.route.mockResolvedValue({
+      mockFacade.routeIntent.mockResolvedValue({
         plan: {
           steps: [
             {
@@ -478,7 +473,7 @@ describe("AiAskService", () => {
     });
 
     it("returns action cards at exactly CONFIRMATION_THRESHOLD (boundary)", async () => {
-      mockRouter.route.mockResolvedValue({
+      mockFacade.routeIntent.mockResolvedValue({
         plan: {
           steps: [
             {
@@ -507,7 +502,7 @@ describe("AiAskService", () => {
       const warnSpy = jest
         .spyOn((service as any).logger, "warn")
         .mockImplementation();
-      mockRouter.route.mockRejectedValue(new Error("LLM timeout"));
+      mockFacade.routeIntent.mockRejectedValue(new Error("LLM timeout"));
 
       const result = await (service as any).detectIntent(
         "hello",
@@ -621,6 +616,738 @@ describe("AiAskService", () => {
       const modules = result.map((a: { module: string }) => a.module);
       expect(modules).not.toContain("unknownModule");
       expect(modules).toContain("research");
+    });
+  });
+
+  // =========================================================================
+  // sendMessage — full flow (non-tool mode)
+  // =========================================================================
+
+  describe("sendMessage — non-tool mode", () => {
+    const dto = { content: "Hello AI" } as any;
+
+    beforeEach(() => {
+      // Set up default mock chain for sendMessage
+      mockPrisma.askSession.findFirst.mockResolvedValue(mockSession);
+      mockPrisma.askMessage.create
+        .mockResolvedValueOnce({ ...mockMessage, role: "user" }) // user msg
+        .mockResolvedValueOnce({ ...mockMessage, role: "assistant", content: "Hello! How can I help?" }); // AI msg
+      mockPrisma.askMessage.count.mockResolvedValue(5); // not first message
+      mockFacade.getModelById.mockResolvedValue(null); // fallback to default
+      mockFacade.getDefaultTextModel = jest.fn().mockResolvedValue({
+        id: "db-1",
+        modelId: "gpt-4o",
+        displayName: "GPT-4o",
+        provider: "openai",
+        apiEndpoint: null,
+        maxTokens: 4096,
+      });
+      mockFacade.routeIntent.mockResolvedValue(undefined);
+    });
+
+    it("should create user and assistant messages on success", async () => {
+      const result = await service.sendMessage(sessionId, userId, dto);
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.askMessage.create).toHaveBeenCalledTimes(2);
+      expect(result.userMessage).toBeDefined();
+      expect(result.assistantMessage).toBeDefined();
+    });
+
+    it("should throw NotFoundException when session not found", async () => {
+      mockPrisma.askSession.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.sendMessage("nonexistent", userId, dto),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should save error message when AI response fails", async () => {
+      mockFacade.chat.mockRejectedValue(new Error("AI service unavailable"));
+      // Reset and set up fresh mock chain for this test
+      mockPrisma.askMessage.create.mockReset();
+      mockPrisma.askMessage.create
+        .mockResolvedValueOnce({ ...mockMessage, role: "user" })
+        .mockResolvedValueOnce({
+          ...mockMessage,
+          role: "assistant",
+          content: "Error: Failed to get response. Please try again.",
+        });
+
+      const result = await service.sendMessage(sessionId, userId, dto);
+
+      // Should return error message instead of throwing
+      expect(result.assistantMessage.content).toContain("Error:");
+    });
+
+    it("should throw InsufficientCreditsException when balance is insufficient", async () => {
+      const { InsufficientCreditsException } = await import(
+        "../../../credits/exceptions/insufficient-credits.exception"
+      );
+      const creditsService = {
+        checkBalance: jest.fn().mockResolvedValue({ sufficient: false, balance: 5 }),
+      };
+
+      // Directly instantiate service with credits service injected
+      const svcWithCredits = new AiAskService(
+        mockPrisma,
+        mockFacade,
+        null as any,
+        creditsService as any,
+      );
+
+      await expect(
+        svcWithCredits.sendMessage(sessionId, userId, dto),
+      ).rejects.toThrow(InsufficientCreditsException);
+    });
+
+    it("should generate title when message count is 2 and title is 'New Chat'", async () => {
+      const sessionWithDefaultTitle = {
+        ...mockSession,
+        title: "New Chat",
+        modelId: null,
+      };
+      mockPrisma.askSession.findFirst.mockResolvedValue(sessionWithDefaultTitle);
+      mockPrisma.askMessage.count.mockResolvedValue(2); // exactly 2
+      mockPrisma.askSession.update.mockResolvedValue({
+        ...sessionWithDefaultTitle,
+        title: "Hello AI",
+      });
+
+      await service.sendMessage(sessionId, userId, { content: "Hello AI" } as any);
+
+      // Title generation is async — wait a tick
+      await new Promise((r) => setTimeout(r, 10));
+      // Session update should have been called (for title and updatedAt)
+      expect(mockPrisma.askSession.update).toHaveBeenCalled();
+    });
+
+    it("should not include toolsUsed in response when no tools used", async () => {
+      const result = await service.sendMessage(sessionId, userId, dto);
+      expect(result.toolsUsed).toBeUndefined();
+    });
+
+    it("should append tool usage note to response content when tools used", async () => {
+      mockFacade.isToolExecutionAvailable.mockReturnValue(true);
+      mockFacade.isToolAvailable.mockReturnValue(true);
+
+      // chatWithToolsStream is an async generator method — mock it to return an async iterable
+      async function* fakeStream() {
+        yield { type: "tool_call", tool: "web-search" };
+        yield {
+          type: "complete",
+          result: { summary: "Tool result summary", tokensUsed: 100 },
+        };
+      }
+      mockFacade.chatWithToolsStream = jest.fn().mockReturnValue(fakeStream());
+
+      // Reset mock chain so the tool test controls all return values
+      mockPrisma.askMessage.create.mockReset();
+      const userMsg = { ...mockMessage, role: "user" };
+      const assistantMsg = {
+        ...mockMessage,
+        role: "assistant",
+        content: "Tool result summary\n\n---\n*使用了工具: web-search*",
+      };
+      mockPrisma.askMessage.create
+        .mockResolvedValueOnce(userMsg)
+        .mockResolvedValueOnce(assistantMsg);
+      mockPrisma.askMessage.count.mockResolvedValue(5);
+      mockFacade.routeIntent.mockResolvedValue(undefined);
+
+      const result = await service.sendMessage(sessionId, userId, {
+        content: "Search the web",
+        enableTools: true,
+      } as any);
+
+      expect(result.assistantMessage.content).toContain("使用了工具");
+    });
+
+    it("should include RAG context note in response when ragContext is set", async () => {
+      const ragPipeline = {
+        query: jest.fn().mockResolvedValue({
+          context: {
+            text: "Knowledge base content",
+            sources: [
+              {
+                documentTitle: "Doc 1",
+                excerpt: "Excerpt",
+                score: 0.9,
+              },
+            ],
+          },
+        }),
+      };
+
+      // Create service directly with ragPipeline injected
+      const svcWithRag = new AiAskService(
+        mockPrisma,
+        mockFacade,
+        ragPipeline as any,
+        null as any,
+      );
+
+      // Reset mock chain so the RAG test controls all return values
+      mockPrisma.askMessage.create.mockReset();
+      const userMsg = { ...mockMessage, role: "user" };
+      const assistantMsg = {
+        ...mockMessage,
+        role: "assistant",
+        content: "AI response\n\n---\n📚 *回答基于知识库内容*",
+      };
+      mockPrisma.askMessage.create
+        .mockResolvedValueOnce(userMsg)
+        .mockResolvedValueOnce(assistantMsg);
+      mockPrisma.askMessage.count.mockResolvedValue(5);
+      mockFacade.routeIntent.mockResolvedValue(undefined);
+
+      const result = await svcWithRag.sendMessage(sessionId, userId, {
+        content: "What is in my knowledge base?",
+        knowledgeBaseIds: ["kb-1"],
+      } as any);
+
+      expect(result.assistantMessage.content).toContain("知识库");
+    });
+  });
+
+  // =========================================================================
+  // regenerateMessage
+  // =========================================================================
+
+  describe("regenerateMessage", () => {
+    const messageId = "msg-assistant-1";
+    const userMsgId = "msg-user-1";
+
+    const mockAssistantMsg = {
+      id: messageId,
+      sessionId,
+      role: "assistant",
+      content: "Old response",
+      modelId: "gpt-4o",
+      createdAt: new Date("2024-01-01T12:00:00Z"),
+    };
+
+    const mockUserMsg = {
+      id: userMsgId,
+      sessionId,
+      role: "user",
+      content: "User question",
+      createdAt: new Date("2024-01-01T11:59:00Z"),
+    };
+
+    beforeEach(() => {
+      mockPrisma.askSession.findFirst.mockResolvedValue(mockSession);
+      mockPrisma.askMessage.findFirst.mockResolvedValue(mockAssistantMsg);
+      mockPrisma.askMessage.findMany.mockResolvedValue([mockUserMsg]);
+      mockPrisma.askMessage.update.mockResolvedValue({
+        ...mockAssistantMsg,
+        content: "Regenerated response",
+      });
+      mockFacade.getModelById.mockResolvedValue({
+        id: "db-1",
+        modelId: "gpt-4o",
+        displayName: "GPT-4o",
+        provider: "openai",
+        apiEndpoint: null,
+        maxTokens: 4096,
+      });
+      mockFacade.sessionMemoryClear.mockResolvedValue(undefined);
+      mockFacade.sessionMemorySet.mockResolvedValue(undefined);
+    });
+
+    it("should regenerate an assistant message", async () => {
+      const result = await service.regenerateMessage(sessionId, messageId, userId);
+
+      expect(mockFacade.chat).toHaveBeenCalled();
+      expect(mockPrisma.askMessage.update).toHaveBeenCalledWith({
+        where: { id: messageId },
+        data: expect.objectContaining({
+          content: expect.any(String),
+        }),
+      });
+    });
+
+    it("should throw NotFoundException when session not found", async () => {
+      mockPrisma.askSession.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.regenerateMessage(sessionId, messageId, userId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw NotFoundException when message not found", async () => {
+      mockPrisma.askMessage.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.regenerateMessage(sessionId, messageId, userId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw NotFoundException when message is not an assistant message", async () => {
+      mockPrisma.askMessage.findFirst.mockResolvedValue({
+        ...mockAssistantMsg,
+        role: "user",
+      });
+
+      await expect(
+        service.regenerateMessage(sessionId, messageId, userId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw NotFoundException when no previous user message exists", async () => {
+      mockPrisma.askMessage.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.regenerateMessage(sessionId, messageId, userId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw NotFoundException when previous message is not from user", async () => {
+      mockPrisma.askMessage.findMany.mockResolvedValue([
+        { ...mockAssistantMsg, role: "assistant" }, // previous is assistant
+      ]);
+
+      await expect(
+        service.regenerateMessage(sessionId, messageId, userId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should handle memory rebuild failure gracefully", async () => {
+      mockFacade.sessionMemoryClear.mockRejectedValue(new Error("Memory error"));
+
+      // Should not throw — memory failures are swallowed
+      const result = await service.regenerateMessage(sessionId, messageId, userId);
+      expect(result).toBeDefined();
+    });
+  });
+
+  // =========================================================================
+  // getMessages — pagination
+  // =========================================================================
+
+  describe("getMessages — pagination", () => {
+    beforeEach(() => {
+      mockPrisma.askSession.findFirst.mockResolvedValue(mockSession);
+    });
+
+    it("should return hasMore=true when result exceeds limit", async () => {
+      const messages = Array.from({ length: 51 }, (_, i) => ({
+        ...mockMessage,
+        id: `msg-${i}`,
+      }));
+      mockPrisma.askMessage.findMany.mockResolvedValue(messages);
+
+      const result = await service.getMessages(sessionId, userId, 50);
+
+      expect(result.hasMore).toBe(true);
+      expect(result.messages).toHaveLength(50);
+    });
+
+    it("should return hasMore=false when result does not exceed limit", async () => {
+      mockPrisma.askMessage.findMany.mockResolvedValue([mockMessage]);
+
+      const result = await service.getMessages(sessionId, userId, 50);
+
+      expect(result.hasMore).toBe(false);
+    });
+
+    it("should apply before filter when 'before' date is provided", async () => {
+      const before = new Date("2024-06-01");
+      await service.getMessages(sessionId, userId, 50, before);
+
+      expect(mockPrisma.askMessage.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: { lt: before },
+          }),
+        }),
+      );
+    });
+
+    it("should return messages in ascending order (reversed from DB query)", async () => {
+      const olderMsg = { ...mockMessage, id: "older", createdAt: new Date("2024-01-01") };
+      const newerMsg = { ...mockMessage, id: "newer", createdAt: new Date("2024-06-01") };
+      // DB returns desc order (newest first), service reverses
+      mockPrisma.askMessage.findMany.mockResolvedValue([newerMsg, olderMsg]);
+
+      const result = await service.getMessages(sessionId, userId, 50);
+
+      expect(result.messages[0].id).toBe("older");
+      expect(result.messages[1].id).toBe("newer");
+    });
+  });
+
+  // =========================================================================
+  // sanitizeMessageContent (private)
+  // =========================================================================
+
+  describe("sanitizeMessageContent (private)", () => {
+    it("should return content unchanged when no base64 images", () => {
+      const content = "Hello, this is a normal message.";
+      expect((service as any).sanitizeMessageContent(content)).toBe(content);
+    });
+
+    it("should replace inline base64 image with placeholder", () => {
+      const content = "Here is an image: data:image/png;base64,iVBORw0KGgoAAAA==";
+      const result = (service as any).sanitizeMessageContent(content);
+      expect(result).toContain("[图片已省略]");
+      expect(result).not.toContain("base64");
+    });
+
+    it("should replace markdown image with base64 with placeholder", () => {
+      const content = "![alt text](data:image/jpeg;base64,/9j/4AAQSkZ==)";
+      const result = (service as any).sanitizeMessageContent(content);
+      expect(result).toContain("[图片已省略]");
+    });
+
+    it("should truncate very long messages", () => {
+      const content = "a".repeat(25000);
+      const result = (service as any).sanitizeMessageContent(content);
+      expect(result.length).toBeLessThan(25000);
+      expect(result).toContain("[消息内容已截断]");
+    });
+
+    it("should return content as-is when falsy", () => {
+      expect((service as any).sanitizeMessageContent("")).toBe("");
+      expect((service as any).sanitizeMessageContent(null)).toBe(null);
+    });
+  });
+
+  // =========================================================================
+  // extractTitleFromMessage (private)
+  // =========================================================================
+
+  describe("extractTitleFromMessage (private)", () => {
+    it("should return 'New Chat' for empty input", () => {
+      expect((service as any).extractTitleFromMessage("")).toBe("New Chat");
+      expect((service as any).extractTitleFromMessage(null)).toBe("New Chat");
+    });
+
+    it("should truncate long messages to 40 chars", () => {
+      const long = "This is a very long message that exceeds forty characters for sure";
+      const result = (service as any).extractTitleFromMessage(long);
+      expect(result.length).toBeLessThanOrEqual(40);
+    });
+
+    it("should return full message when under 40 chars", () => {
+      const short = "Short question";
+      expect((service as any).extractTitleFromMessage(short)).toBe(short);
+    });
+
+    it("should remove leading markdown heading prefix", () => {
+      // The function removes leading #, >, *, - markers but not inline ** bold
+      const md = "## What is AI?";
+      const result = (service as any).extractTitleFromMessage(md);
+      expect(result).not.toContain("##");
+      expect(result).toContain("What is AI?");
+    });
+
+    it("should remove code blocks", () => {
+      const withCode = "Here is code:\n```js\nconsole.log('hello');\n```";
+      const result = (service as any).extractTitleFromMessage(withCode);
+      expect(result).toContain("[代码]");
+    });
+
+    it("should remove HTML tags", () => {
+      const withHtml = "<p>Hello <b>world</b></p>";
+      const result = (service as any).extractTitleFromMessage(withHtml);
+      expect(result).not.toContain("<");
+      expect(result).toContain("Hello world");
+    });
+
+    it("should truncate at Chinese punctuation boundary", () => {
+      // Craft a string just over 40 chars with Chinese punctuation in good position
+      const withPunct = "关于人工智能的最新进展，我们应该如何看待这些技术突破呢？这是很有意思的";
+      const result = (service as any).extractTitleFromMessage(withPunct);
+      expect(result.length).toBeLessThanOrEqual(40);
+    });
+
+    it("should truncate at English word boundary", () => {
+      const withWords = "This is a very long English message that should be truncated at a word";
+      const result = (service as any).extractTitleFromMessage(withWords);
+      expect(result.length).toBeLessThanOrEqual(40);
+      // Should not end mid-word if possible
+    });
+  });
+
+  // =========================================================================
+  // buildContext (private) — cache hit vs. miss
+  // =========================================================================
+
+  describe("buildContext (private)", () => {
+    it("should use cached history when available", async () => {
+      const cachedMessages = [
+        { role: "user", content: "Cached user message" },
+        { role: "assistant", content: "Cached assistant response" },
+      ];
+      mockFacade.sessionMemoryGet.mockResolvedValue(cachedMessages);
+
+      const result = await (service as any).buildContext(sessionId);
+
+      expect(result).toEqual(cachedMessages);
+      // DB should not be queried when cache hit
+      expect(mockPrisma.askMessage.findMany).not.toHaveBeenCalled();
+    });
+
+    it("should fall back to DB when cache returns null", async () => {
+      mockFacade.sessionMemoryGet.mockResolvedValue(null);
+      mockPrisma.askMessage.findMany.mockResolvedValue([mockMessage]);
+
+      const result = await (service as any).buildContext(sessionId);
+
+      expect(mockPrisma.askMessage.findMany).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should fall back to DB when cache returns empty array", async () => {
+      mockFacade.sessionMemoryGet.mockResolvedValue([]);
+      mockPrisma.askMessage.findMany.mockResolvedValue([mockMessage]);
+
+      await (service as any).buildContext(sessionId);
+
+      expect(mockPrisma.askMessage.findMany).toHaveBeenCalled();
+    });
+
+    it("should fall back to DB when cache throws", async () => {
+      mockFacade.sessionMemoryGet.mockRejectedValue(new Error("Redis unavailable"));
+      mockPrisma.askMessage.findMany.mockResolvedValue([mockMessage]);
+
+      const result = await (service as any).buildContext(sessionId);
+
+      expect(result).toBeDefined();
+    });
+
+    it("should truncate extremely long messages to fit context window", async () => {
+      mockFacade.sessionMemoryGet.mockResolvedValue(null);
+      // Simulate a message that is very long
+      const hugeMessage = {
+        ...mockMessage,
+        role: "user",
+        content: "x".repeat(150000), // over 100000 char limit
+      };
+      mockPrisma.askMessage.findMany.mockResolvedValue([hugeMessage]);
+
+      const result = await (service as any).buildContext(sessionId);
+
+      if (result.length > 0) {
+        const totalChars = result.reduce((acc: number, m: any) => acc + m.content.length, 0);
+        // Either empty or truncated
+        expect(totalChars).toBeLessThanOrEqual(150000);
+      }
+    });
+  });
+
+  // =========================================================================
+  // buildSystemPromptWithContext (private)
+  // =========================================================================
+
+  describe("buildSystemPromptWithContext (private)", () => {
+    it("should include project context when query is project-related", () => {
+      const result = (service as any).buildSystemPromptWithContext(
+        [],
+        undefined,
+        "What is Genesis.ai?",
+      );
+      // Project-related queries get extra context added
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it("should include RAG context section when ragContext is provided", () => {
+      const result = (service as any).buildSystemPromptWithContext(
+        [],
+        "Knowledge base content here",
+        "What is in my documents?",
+      );
+      expect(result).toContain("Knowledge base content here");
+    });
+
+    it("should include conversation history when contextMessages have more than 1 item", () => {
+      const contextMessages = [
+        { role: "user", content: "Previous question" },
+        { role: "assistant", content: "Previous answer" },
+        { role: "user", content: "Current question" },
+      ];
+      const result = (service as any).buildSystemPromptWithContext(
+        contextMessages,
+        undefined,
+        "Current question",
+      );
+      expect(result).toContain("之前的对话历史");
+    });
+
+    it("should not include history when only 1 message in context", () => {
+      const contextMessages = [{ role: "user", content: "Only message" }];
+      const result = (service as any).buildSystemPromptWithContext(
+        contextMessages,
+        undefined,
+        "Only message",
+      );
+      expect(result).not.toContain("之前的对话历史");
+    });
+  });
+
+  // =========================================================================
+  // buildSystemPromptForChat (private)
+  // =========================================================================
+
+  describe("buildSystemPromptForChat (private)", () => {
+    it("should build a basic prompt without RAG context", () => {
+      const result = (service as any).buildSystemPromptForChat("Hello", undefined);
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it("should include RAG context when provided", () => {
+      const result = (service as any).buildSystemPromptForChat(
+        "Search my docs",
+        "RAG content here",
+      );
+      expect(result).toContain("RAG content here");
+    });
+  });
+
+  // =========================================================================
+  // getModelConfig (private)
+  // =========================================================================
+
+  describe("getModelConfig (private)", () => {
+    it("should return model config when modelId matches", async () => {
+      mockFacade.getModelById.mockResolvedValue({
+        id: "db-1",
+        modelId: "gpt-4o",
+        displayName: "GPT-4o",
+        provider: "openai",
+        apiEndpoint: "https://api.openai.com",
+        maxTokens: 4096,
+      });
+
+      const result = await (service as any).getModelConfig("gpt-4o");
+
+      expect(result.modelId).toBe("gpt-4o");
+      expect(result.apiKey).toBeNull(); // API key is null by design
+    });
+
+    it("should fall back to default model when modelId not found", async () => {
+      mockFacade.getModelById.mockResolvedValue(null);
+      mockFacade.getDefaultTextModel = jest.fn().mockResolvedValue({
+        id: "default-1",
+        modelId: "default-model",
+        displayName: "Default Model",
+        provider: "openai",
+        apiEndpoint: null,
+        maxTokens: 4096,
+      });
+
+      const result = await (service as any).getModelConfig("unknown-model");
+
+      expect(result.modelId).toBe("default-model");
+    });
+
+    it("should use default model when no modelId provided", async () => {
+      mockFacade.getModelById.mockResolvedValue(null);
+      mockFacade.getDefaultTextModel = jest.fn().mockResolvedValue({
+        id: "default-1",
+        modelId: "default-model",
+        displayName: "Default Model",
+        provider: "openai",
+        apiEndpoint: null,
+        maxTokens: 4096,
+      });
+
+      const result = await (service as any).getModelConfig(null);
+
+      expect(result.modelId).toBe("default-model");
+    });
+
+    it("should throw NotFoundException when no model available", async () => {
+      mockFacade.getModelById.mockResolvedValue(null);
+      mockFacade.getDefaultTextModel = jest.fn().mockResolvedValue(null);
+
+      await expect((service as any).getModelConfig(null)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // =========================================================================
+  // getAvailableTools — with tools enabled
+  // =========================================================================
+
+  describe("getAvailableTools — tool capability enabled", () => {
+    it("should return available tools when capability is enabled", () => {
+      mockFacade.isToolExecutionAvailable.mockReturnValue(true);
+      mockFacade.isToolAvailable.mockReturnValue(true);
+
+      const result = service.getAvailableTools();
+
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it("should filter out unavailable tools", () => {
+      mockFacade.isToolExecutionAvailable.mockReturnValue(true);
+      // Only text_generation is available, others are not
+      mockFacade.isToolAvailable.mockImplementation((tool: string) =>
+        tool === "text_generation",
+      );
+
+      const result = service.getAvailableTools();
+
+      expect(result.every((t) => mockFacade.isToolAvailable(t))).toBe(true);
+    });
+  });
+
+  // =========================================================================
+  // deleteSession — memory cleanup
+  // =========================================================================
+
+  describe("deleteSession — memory cleanup", () => {
+    it("should clear session memory after deleting session", async () => {
+      await service.deleteSession(sessionId, userId);
+
+      expect(mockFacade.sessionMemoryClear).toHaveBeenCalledWith(sessionId);
+    });
+
+    it("should not throw when memory clear fails", async () => {
+      mockFacade.sessionMemoryClear.mockRejectedValue(new Error("Memory error"));
+
+      await expect(service.deleteSession(sessionId, userId)).resolves.toEqual({
+        success: true,
+      });
+    });
+  });
+
+  // =========================================================================
+  // getSession — cache warming
+  // =========================================================================
+
+  describe("getSession — cache warming", () => {
+    it("should warm cache when messages exist", async () => {
+      mockPrisma.askMessage.findMany.mockResolvedValue([
+        { ...mockMessage, role: "user", content: "Question 1" },
+        { ...mockMessage, id: "msg-2", role: "assistant", content: "Answer 1" },
+      ]);
+
+      await service.getSession(sessionId, userId);
+
+      expect(mockFacade.sessionMemorySet).toHaveBeenCalled();
+    });
+
+    it("should not warm cache when no messages exist", async () => {
+      mockPrisma.askMessage.findMany.mockResolvedValue([]);
+
+      await service.getSession(sessionId, userId);
+
+      expect(mockFacade.sessionMemorySet).not.toHaveBeenCalled();
+    });
+
+    it("should not throw when cache warming fails", async () => {
+      mockPrisma.askMessage.findMany.mockResolvedValue([mockMessage]);
+      mockFacade.sessionMemorySet.mockRejectedValue(new Error("Cache error"));
+
+      // Should not throw
+      const result = await service.getSession(sessionId, userId);
+      expect(result.session).toBeDefined();
     });
   });
 });

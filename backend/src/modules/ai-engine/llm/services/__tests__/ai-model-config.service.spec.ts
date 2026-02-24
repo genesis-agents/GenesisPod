@@ -9,6 +9,7 @@ describe("AiModelConfigService", () => {
   let service: AiModelConfigService;
   let prismaService: jest.Mocked<PrismaService>;
   let secretsService: jest.Mocked<SecretsService>;
+  let userApiKeysService: jest.Mocked<UserApiKeysService>;
 
   const mockChatModel = {
     id: "model-1",
@@ -119,7 +120,10 @@ describe("AiModelConfigService", () => {
       getValueInternal: jest.fn(),
     };
 
-    const mockUserApiKeysService = {};
+    const mockUserApiKeysService = {
+      getPersonalKey: jest.fn().mockResolvedValue(null),
+      getDonatedKey: jest.fn().mockResolvedValue(null),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -133,6 +137,7 @@ describe("AiModelConfigService", () => {
     service = module.get<AiModelConfigService>(AiModelConfigService);
     prismaService = module.get(PrismaService);
     secretsService = module.get(SecretsService);
+    userApiKeysService = module.get(UserApiKeysService);
 
     // Mock initial cache load to avoid async initialization issues
     // Return empty array by default, specific tests will override
@@ -711,6 +716,497 @@ describe("AiModelConfigService", () => {
       expect(diagnostics[0]).toHaveProperty("hasSecretKey", false);
       expect(diagnostics[1]).toHaveProperty("hasApiKey", false);
       expect(diagnostics[1]).toHaveProperty("hasSecretKey", true);
+    });
+  });
+
+  // ==================== resolveApiKey - uncovered branches ====================
+
+  describe("resolveApiKey - additional coverage", () => {
+    it("should return donated key with source=donated when userId is not provided", async () => {
+      (userApiKeysService.getDonatedKey as jest.Mock).mockResolvedValue({
+        apiKey: "donated-key-no-user",
+        apiEndpoint: null,
+      });
+
+      const result = await service.resolveApiKey(mockGeminiModel as any);
+
+      expect(result).toEqual({
+        apiKey: "donated-key-no-user",
+        source: "donated",
+        apiEndpoint: null,
+      });
+      expect(userApiKeysService.getPersonalKey).not.toHaveBeenCalled();
+    });
+
+    it("should warn and fallback when secretKey not found in secrets manager", async () => {
+      (userApiKeysService.getDonatedKey as jest.Mock).mockResolvedValue(null);
+      (secretsService.getValueInternal as jest.Mock).mockResolvedValue(null);
+
+      const modelWithSecretAndFallbackKey = {
+        ...mockGeminiModel,
+        apiKey: "fallback-key-xyz",
+      };
+      const result = await service.resolveApiKey(
+        modelWithSecretAndFallbackKey as any,
+      );
+
+      // Falls back to apiKey after secretKey not found
+      expect(result?.apiKey).toBe("fallback-key-xyz");
+      expect(result?.source).toBe("system");
+    });
+
+    it("should handle donated key fetch error gracefully", async () => {
+      (userApiKeysService.getDonatedKey as jest.Mock).mockRejectedValue(
+        new Error("Donated DB error"),
+      );
+
+      const model = { ...mockChatModel, secretKey: null };
+      const result = await service.resolveApiKey(model as any);
+
+      // Falls through to apiKey
+      expect(result?.source).toBe("system");
+      expect(result?.apiKey).toBe("sk-test-key");
+    });
+  });
+
+  // ==================== getEnabledModelsForFrontend - BYOK paths ====================
+
+  describe("getEnabledModelsForFrontend - BYOK coverage", () => {
+    it("should generate BYOK default models for providers not in DB", async () => {
+      // Enabled models: none from anthropic
+      (prismaService.aIModel.findMany as jest.Mock)
+        .mockResolvedValueOnce([mockChatModel]) // enabled models (openai)
+        .mockResolvedValueOnce([]); // disabled anthropic models - none in DB
+
+      const mockUserApiKeysService = (service as any).userApiKeysService as {
+        getPersonalKey: jest.Mock;
+        getDonatedKey: jest.Mock;
+      };
+      // Simulate user having anthropic key
+      (prismaService as any).userApiKey = {
+        findMany: jest.fn().mockResolvedValue([{ provider: "anthropic" }]),
+      };
+
+      const result = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-with-anthropic",
+      );
+
+      // Should include enabled openai model + BYOK anthropic models
+      const byokModels = result.filter(
+        (m) => (m as Record<string, unknown>).isByokGenerated,
+      );
+      expect(byokModels.length).toBeGreaterThan(0);
+      // They should be marked with isUserKey
+      byokModels.forEach((m) => expect(m.isUserKey).toBe(true));
+    });
+
+    it("should include disabled models from DB for user's provider", async () => {
+      const disabledAnthropicModel = {
+        ...mockChatModel,
+        id: "disabled-model",
+        provider: "anthropic",
+        isEnabled: false,
+        icon: null,
+        color: null,
+        description: null,
+      };
+
+      // Enabled models: only openai
+      (prismaService.aIModel.findMany as jest.Mock)
+        .mockResolvedValueOnce([mockChatModel]) // enabled models
+        .mockResolvedValueOnce([disabledAnthropicModel]); // disabled anthropic models found in DB
+
+      (prismaService as any).userApiKey = {
+        findMany: jest.fn().mockResolvedValue([{ provider: "anthropic" }]),
+      };
+
+      const result = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-anthropic",
+      );
+
+      // Should include openai + the disabled anthropic model (with isUserKey)
+      const anthropicModels = result.filter(
+        (m) => m.provider.toLowerCase() === "anthropic",
+      );
+      expect(anthropicModels.length).toBeGreaterThan(0);
+      anthropicModels.forEach((m) => expect(m.isUserKey).toBe(true));
+    });
+
+    it("should handle user API key fetch error gracefully", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValueOnce([
+        mockChatModel,
+      ]);
+      (prismaService as any).userApiKey = {
+        findMany: jest.fn().mockRejectedValue(new Error("Key fetch error")),
+      };
+
+      const result = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-123",
+      );
+
+      // Should still return enabled models even if user key fetch fails
+      expect(result).toHaveLength(1);
+    });
+
+    it("should filter BYOK generated models by modelType", async () => {
+      // User has anthropic key, but filter by IMAGE modelType
+      (prismaService.aIModel.findMany as jest.Mock)
+        .mockResolvedValueOnce([]) // no enabled models
+        .mockResolvedValueOnce([]); // no disabled models
+      (prismaService as any).userApiKey = {
+        findMany: jest.fn().mockResolvedValue([{ provider: "anthropic" }]),
+      };
+
+      // anthropic BYOK models are all CHAT type, filtering by IMAGE should return none from BYOK
+      const result = await service.getEnabledModelsForFrontend(
+        "IMAGE" as any,
+        "user-123",
+      );
+
+      const byokModels = result.filter(
+        (m) => (m as Record<string, unknown>).isByokGenerated,
+      );
+      // All anthropic default models are CHAT type, filtering by IMAGE = 0 BYOK models
+      expect(byokModels.length).toBe(0);
+    });
+  });
+
+  // ==================== findDisabledModelForUser (via getModelConfig) ====================
+
+  describe("findDisabledModelForUser - via getModelConfig", () => {
+    it("should return disabled model config when user has provider key", async () => {
+      const { RequestContext } = await import(
+        "../../../../../common/context/request-context"
+      );
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue("user-byok-123");
+
+      // Cache miss, DB query for enabled models returns nothing
+      (prismaService.aIModel.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null) // no enabled model found
+        .mockResolvedValueOnce({
+          ...mockChatModel,
+          isEnabled: false,
+          provider: "openai",
+        }); // disabled model found
+
+      // User has key for openai
+      (userApiKeysService.getPersonalKey as jest.Mock).mockResolvedValue({
+        apiKey: "user-openai-key",
+        apiEndpoint: null,
+      });
+
+      const result = await service.getModelConfig("gpt-4o-disabled");
+
+      spy.mockRestore();
+      expect(result).not.toBeNull();
+      expect(result?.provider).toBe("openai");
+    });
+
+    it("should return null when user has no key for provider", async () => {
+      const { RequestContext } = await import(
+        "../../../../../common/context/request-context"
+      );
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue("user-no-key-123");
+
+      (prismaService.aIModel.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null) // no enabled model
+        .mockResolvedValueOnce({
+          ...mockChatModel,
+          isEnabled: false,
+        }); // disabled model found
+
+      // User has no key
+      (userApiKeysService.getPersonalKey as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.getModelConfig("gpt-4o-disabled-no-key");
+
+      spy.mockRestore();
+      expect(result).toBeNull();
+    });
+
+    it("should return null when no user context", async () => {
+      const { RequestContext } = await import(
+        "../../../../../common/context/request-context"
+      );
+      const spy = jest
+        .spyOn(RequestContext, "getUserId")
+        .mockReturnValue(undefined);
+
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.getModelConfig("some-disabled-model");
+      spy.mockRestore();
+      expect(result).toBeNull();
+    });
+  });
+
+  // ==================== getModelsByProvider + getFirstModelByProvider ====================
+
+  describe("getModelsByProvider", () => {
+    it("should return models matching provider name", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel,
+      ]);
+
+      const result = await service.getModelsByProvider("openai");
+      expect(result).toHaveLength(1);
+      expect(result[0].provider).toBe("openai");
+    });
+  });
+
+  describe("getFirstModelByProvider", () => {
+    it("should return first model with apiKey for given provider", async () => {
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(
+        mockChatModel,
+      );
+
+      const result = await service.getFirstModelByProvider("openai");
+      expect(result?.modelId).toBe("gpt-4o");
+    });
+
+    it("should return null when no matching model exists", async () => {
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.getFirstModelByProvider("nonexistent");
+      expect(result).toBeNull();
+    });
+  });
+
+  // ==================== getIconUrl (via getEnabledModelsForFrontend) ====================
+
+  describe("getIconUrl - provider-based icon routing", () => {
+    // getIconUrl checks name first then provider. Each case uses a unique combination
+    // to ensure the expected icon branch fires correctly.
+    const iconTestCases = [
+      // Name-based detection (provider is neutral "custom" to avoid early matches)
+      { name: "grok-model", provider: "custom", expectedIcon: "/icons/ai/grok.svg" },
+      { name: "chatgpt-4", provider: "custom", expectedIcon: "/icons/ai/openai.svg" },
+      { name: "claude-3", provider: "custom", expectedIcon: "/icons/ai/claude.svg" },
+      { name: "gemini-flash", provider: "custom", expectedIcon: "/icons/ai/gemini.svg" },
+      { name: "deepseek-chat", provider: "custom", expectedIcon: "/icons/ai/deepseek.svg" },
+      { name: "qwen-max", provider: "custom", expectedIcon: "/icons/ai/qwen.svg" },
+      { name: "kimi-v1", provider: "custom", expectedIcon: "/icons/ai/kimi.svg" },
+      { name: "glm-4", provider: "custom", expectedIcon: "/icons/ai/zhipu.svg" },
+      { name: "doubao-turbo", provider: "custom", expectedIcon: "/icons/ai/doubao.svg" },
+      // Provider-based detection (name is neutral "unknown-model")
+      { name: "unknown-model", provider: "xai", expectedIcon: "/icons/ai/grok.svg" },
+      { name: "unknown-model", provider: "anthropic", expectedIcon: "/icons/ai/claude.svg" },
+      { name: "unknown-model", provider: "google", expectedIcon: "/icons/ai/gemini.svg" },
+      { name: "unknown-model", provider: "deepseek", expectedIcon: "/icons/ai/deepseek.svg" },
+      { name: "unknown-model", provider: "alibaba", expectedIcon: "/icons/ai/qwen.svg" },
+      { name: "unknown-model", provider: "moonshot", expectedIcon: "/icons/ai/kimi.svg" },
+      { name: "unknown-model", provider: "zhipu", expectedIcon: "/icons/ai/zhipu.svg" },
+      { name: "unknown-model", provider: "bytedance", expectedIcon: "/icons/ai/doubao.svg" },
+      { name: "unknown-model", provider: "openai", expectedIcon: "/icons/ai/openai.svg" },
+    ];
+
+    it.each(iconTestCases)(
+      "maps name='$name' provider='$provider' to '$expectedIcon'",
+      async ({ name, provider, expectedIcon }) => {
+        const modelRow = {
+          ...mockChatModel,
+          id: `test-${name}`,
+          name,
+          displayName: name,
+          provider,
+          modelId: name,
+          icon: null,
+          color: null,
+          description: null,
+        };
+        (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+          modelRow,
+        ]);
+
+        const result = await service.getEnabledModelsForFrontend();
+        expect(result[0].iconUrl).toBe(expectedIcon);
+      },
+    );
+
+    it("returns empty string for unrecognized model/provider", async () => {
+      const modelRow = {
+        ...mockChatModel,
+        name: "mystery-model",
+        displayName: "Mystery",
+        provider: "unknown-corp",
+        modelId: "mystery-1",
+        icon: null,
+        color: null,
+        description: null,
+      };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        modelRow,
+      ]);
+
+      const result = await service.getEnabledModelsForFrontend();
+      expect(result[0].iconUrl).toBe("");
+    });
+  });
+
+  // ==================== buildModelConfig - additional branches ====================
+
+  describe("buildModelConfig - additional inference branches", () => {
+    it("should use DB apiFormat when it does not conflict with provider", async () => {
+      // xai provider with xai apiFormat - no conflict
+      const row = {
+        ...mockChatModel,
+        provider: "xai",
+        modelId: "grok-3",
+        name: "grok-3",
+        apiFormat: "xai",
+      };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([row]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("grok-3");
+      expect(config?.apiFormat).toBe("xai");
+    });
+
+    it("should use 'max_tokens' tokenParamName for non-reasoning model without DB value", async () => {
+      const row = {
+        ...mockChatModel,
+        modelId: "gpt-4o-mini",
+        name: "gpt-4o-mini",
+        isReasoning: false,
+        tokenParamName: null,
+      };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([row]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("gpt-4o-mini");
+      expect(config?.tokenParamName).toBe("max_tokens");
+    });
+
+    it("should use default 300000ms timeout for reasoning model without DB value", async () => {
+      const row = {
+        ...mockChatModel,
+        modelId: "o1-mini",
+        name: "o1-mini",
+        isReasoning: true,
+        defaultTimeoutMs: null,
+      };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([row]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("o1-mini");
+      expect(config?.defaultTimeoutMs).toBe(300000);
+    });
+
+    it("should use default 120000ms timeout for non-reasoning model without DB value", async () => {
+      const row = {
+        ...mockChatModel,
+        modelId: "gpt-4-standard",
+        name: "gpt-4-standard",
+        isReasoning: false,
+        defaultTimeoutMs: null,
+      };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([row]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("gpt-4-standard");
+      expect(config?.defaultTimeoutMs).toBe(120000);
+    });
+
+    it("should default priority to 50 when not set", async () => {
+      const row = {
+        ...mockChatModel,
+        modelId: "gpt-no-priority",
+        name: "gpt-no-priority",
+        priority: null,
+      };
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([row]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("gpt-no-priority");
+      expect(config?.priority).toBe(50);
+    });
+  });
+
+  // ==================== getModelById - additional path coverage ====================
+
+  describe("getModelById - additional paths", () => {
+    it("should find non-CHAT model by direct query when not in CHAT cache", async () => {
+      // Cache has only CHAT models, but IMAGE model exists
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel,
+      ]);
+      await service.refreshModelConfigCache();
+
+      const imageModel = {
+        ...mockChatModel,
+        modelId: "dall-e-3",
+        name: "dall-e-3",
+        modelType: "IMAGE_GENERATION",
+      };
+
+      // First findFirst (from getModelConfig cache miss) = null, then direct query
+      (prismaService.aIModel.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null) // CHAT/CHAT_FAST query miss
+        .mockResolvedValueOnce(imageModel); // direct all-types query
+
+      const { RequestContext } = jest.requireMock(
+        "../../../../../common/context/request-context",
+      );
+      RequestContext.getUserId.mockReturnValue(null);
+
+      const result = await service.getModelById("dall-e-3");
+      expect(result?.modelId).toBe("dall-e-3");
+    });
+
+    it("should handle UUID-based lookup error gracefully", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([]);
+      await service.refreshModelConfigCache();
+
+      const uuid = "550e8400-e29b-41d4-a716-446655440000";
+      (prismaService.aIModel.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null) // getModelConfig miss
+        .mockRejectedValueOnce(new Error("DB error on uuid")) // UUID lookup error
+        .mockResolvedValueOnce(null); // direct query
+
+      const { RequestContext } = jest.requireMock(
+        "../../../../../common/context/request-context",
+      );
+      RequestContext.getUserId.mockReturnValue(null);
+
+      const result = await service.getModelById(uuid);
+      expect(result).toBeNull();
+    });
+  });
+
+  // ==================== getAllEnabledModelsByType - error path ====================
+
+  describe("getAllEnabledModelsByType - additional coverage", () => {
+    it("should not apply modelId filter when excludeModelIds is empty", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel,
+      ]);
+
+      await service.getAllEnabledModelsByType("CHAT" as any);
+
+      const callArg = (prismaService.aIModel.findMany as jest.Mock).mock
+        .calls[0][0];
+      // modelId filter should NOT be present when excludeModelIds is []
+      expect(callArg.where.modelId).toBeUndefined();
+    });
+  });
+
+  // ==================== getDefaultModelByType - error path ====================
+
+  describe("getDefaultModelByType - error path", () => {
+    it("should return null and log error on DB failure", async () => {
+      (prismaService.aIModel.findFirst as jest.Mock).mockRejectedValue(
+        new Error("DB failure"),
+      );
+
+      const result = await service.getDefaultModelByType("CHAT" as any);
+      expect(result).toBeNull();
     });
   });
 });

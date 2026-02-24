@@ -1,0 +1,845 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { HttpService } from "@nestjs/axios";
+import { of } from "rxjs";
+import { AiApiCallerService } from "../ai-api-caller.service";
+
+describe("AiApiCallerService", () => {
+  let service: AiApiCallerService;
+  let mockHttpService: jest.Mocked<Pick<HttpService, "post" | "get">>;
+
+  const makeHttpResponse = (data: unknown) => ({
+    data,
+    status: 200,
+    statusText: "OK",
+    headers: {},
+    config: {} as any,
+  });
+
+  beforeEach(async () => {
+    mockHttpService = {
+      post: jest.fn(),
+      get: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiApiCallerService,
+        { provide: HttpService, useValue: mockHttpService },
+      ],
+    }).compile();
+
+    service = module.get<AiApiCallerService>(AiApiCallerService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // ==================== callOpenAICompatibleAPI ====================
+
+  describe("callOpenAICompatibleAPI", () => {
+    const messages = [{ role: "user" as const, content: "Hello" }];
+
+    it("should call the API and return content", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "Hello back!" } }],
+        usage: { total_tokens: 50 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+        0.7,
+      );
+
+      expect(result.content).toBe("Hello back!");
+      expect(result.tokensUsed).toBe(50);
+      expect(result.model).toBe("gpt-4o");
+    });
+
+    it("should use default endpoint if empty", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "OK" } }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain("openai.com");
+    });
+
+    it("should add reasoning_effort for o1 models", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "reasoning" } }],
+        usage: { total_tokens: 200 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o1-mini",
+        messages,
+        25000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+    });
+
+    it("should add reasoning_effort for o3 models", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "reasoning" } }],
+        usage: { total_tokens: 200 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o3-mini",
+        messages,
+        25000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+    });
+
+    it("should NOT add reasoning_effort for gpt-4o models", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "normal" } }],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).not.toHaveProperty("reasoning_effort");
+    });
+
+    it("should add json response_format when requested", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: '{"key":"val"}' } }],
+        usage: { total_tokens: 20 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+        0.7,
+        120000,
+        "max_tokens",
+        "json",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("response_format", {
+        type: "json_object",
+      });
+    });
+
+    it("should throw on API refusal", async () => {
+      const apiResponse = {
+        choices: [
+          { message: { refusal: "I cannot help with that" } },
+        ],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await expect(
+        service.callOpenAICompatibleAPI(
+          "https://api.openai.com/v1/chat/completions",
+          "test-key",
+          "gpt-4o",
+          messages,
+          4000,
+        ),
+      ).rejects.toThrow("AI 拒绝响应");
+    });
+
+    it("should throw on empty content with finish_reason=length", async () => {
+      const apiResponse = {
+        choices: [
+          { message: { content: null }, finish_reason: "length" },
+        ],
+        usage: { total_tokens: 4000, prompt_tokens: 3990 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await expect(
+        service.callOpenAICompatibleAPI(
+          "https://api.openai.com/v1/chat/completions",
+          "test-key",
+          "gpt-4o",
+          messages,
+          4000,
+        ),
+      ).rejects.toThrow("截断");
+    });
+
+    it("should throw for reasoning model token exhaustion", async () => {
+      const apiResponse = {
+        choices: [
+          { message: { content: "" }, finish_reason: "length" },
+        ],
+        usage: {
+          total_tokens: 1000,
+          prompt_tokens: 100,
+          completion_tokens: 1000,
+          completion_tokens_details: { reasoning_tokens: 990 },
+        },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await expect(
+        service.callOpenAICompatibleAPI(
+          "https://api.openai.com/v1/chat/completions",
+          "test-key",
+          "o1-mini",
+          messages,
+          1000,
+        ),
+      ).rejects.toThrow("推理模型");
+    });
+
+    it("should throw for unknown finish_reason with empty content", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "" }, finish_reason: "stop" }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await expect(
+        service.callOpenAICompatibleAPI(
+          "https://api.openai.com/v1/chat/completions",
+          "test-key",
+          "gpt-4o",
+          messages,
+          4000,
+        ),
+      ).rejects.toThrow("AI 返回空响应");
+    });
+
+    it("should use custom tokenParamName", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "OK" } }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        8000,
+        undefined,
+        120000,
+        "max_completion_tokens",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("max_completion_tokens", 8000);
+      expect(callArgs[1]).not.toHaveProperty("max_tokens");
+    });
+
+    it("should not include temperature when undefined", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "OK" } }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+        undefined,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).not.toHaveProperty("temperature");
+    });
+
+    it("should parse message text as fallback", async () => {
+      const apiResponse = {
+        choices: [{ message: { text: "Text response" } }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+      );
+
+      expect(result.content).toBe("Text response");
+    });
+  });
+
+  // ==================== callAnthropicAPI ====================
+
+  describe("callAnthropicAPI", () => {
+    const messages = [
+      { role: "system" as const, content: "You are a helper" },
+      { role: "user" as const, content: "Hello" },
+    ];
+
+    it("should call Anthropic API and return content", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: "Hello from Claude" }],
+        usage: { input_tokens: 10, output_tokens: 20 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callAnthropicAPI(
+        "https://api.anthropic.com/v1/messages",
+        "test-key",
+        "claude-3-5-sonnet-20241022",
+        messages,
+        4000,
+        0.7,
+      );
+
+      expect(result.content).toBe("Hello from Claude");
+      expect(result.tokensUsed).toBe(30);
+      expect(result.model).toBe("claude-3-5-sonnet-20241022");
+    });
+
+    it("should use default anthropic endpoint if empty", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: "OK" }],
+        usage: { input_tokens: 5, output_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callAnthropicAPI(
+        "",
+        "test-key",
+        "claude-3-5-sonnet-20241022",
+        messages,
+        4000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain("anthropic.com");
+    });
+
+    it("should separate system messages from conversation", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: "OK" }],
+        usage: { input_tokens: 5, output_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callAnthropicAPI(
+        "https://api.anthropic.com/v1/messages",
+        "test-key",
+        "claude-3-5-sonnet-20241022",
+        messages,
+        4000,
+        0.7,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      const body = callArgs[1];
+      expect(body.system).toBe("You are a helper");
+      expect(body.messages).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ role: "system" }),
+        ]),
+      );
+    });
+
+    it("should handle json format warning gracefully", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: '{"result": "ok"}' }],
+        usage: { input_tokens: 5, output_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callAnthropicAPI(
+        "https://api.anthropic.com/v1/messages",
+        "test-key",
+        "claude-3-5-sonnet-20241022",
+        [{ role: "user", content: "return json" }],
+        4000,
+        0.7,
+        120000,
+        "json",
+      );
+
+      expect(result.content).toBeDefined();
+    });
+
+    it("should not include temperature when undefined", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: "OK" }],
+        usage: { input_tokens: 5, output_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callAnthropicAPI(
+        "https://api.anthropic.com/v1/messages",
+        "test-key",
+        "claude-3-5-sonnet-20241022",
+        [{ role: "user", content: "Hello" }],
+        4000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).not.toHaveProperty("temperature");
+    });
+  });
+
+  // ==================== callGoogleAPI ====================
+
+  describe("callGoogleAPI", () => {
+    const messages = [
+      { role: "system" as const, content: "You are helpful" },
+      { role: "user" as const, content: "What is AI?" },
+    ];
+
+    it("should call Google API and return content", async () => {
+      const apiResponse = {
+        candidates: [
+          {
+            content: { parts: [{ text: "AI is artificial intelligence" }] },
+            finishReason: "STOP",
+          },
+        ],
+        usageMetadata: {
+          promptTokenCount: 10,
+          candidatesTokenCount: 20,
+        },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callGoogleAPI(
+        "https://generativelanguage.googleapis.com/v1beta",
+        "test-key",
+        "gemini-2.0-flash",
+        messages,
+        4000,
+        0.7,
+      );
+
+      expect(result.content).toBe("AI is artificial intelligence");
+      expect(result.tokensUsed).toBe(30);
+    });
+
+    it("should return safety message for blocked content", async () => {
+      const apiResponse = {
+        candidates: [
+          {
+            finishReason: "SAFETY",
+          },
+        ],
+        usageMetadata: {},
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callGoogleAPI(
+        "https://generativelanguage.googleapis.com/v1beta",
+        "test-key",
+        "gemini-2.0-flash",
+        messages,
+        4000,
+      );
+
+      expect(result.content).toContain("cannot provide");
+      expect(result.tokensUsed).toBe(0);
+    });
+
+    it("should build URL with /models prefix", async () => {
+      const apiResponse = {
+        candidates: [
+          {
+            content: { parts: [{ text: "OK" }] },
+          },
+        ],
+        usageMetadata: {},
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callGoogleAPI(
+        "https://generativelanguage.googleapis.com/v1beta/models",
+        "test-key",
+        "gemini-2.0-flash",
+        messages,
+        4000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain("gemini-2.0-flash:generateContent");
+    });
+
+    it("should add json mime type when responseFormat=json", async () => {
+      const apiResponse = {
+        candidates: [
+          {
+            content: { parts: [{ text: '{"key":"val"}' }] },
+          },
+        ],
+        usageMetadata: {},
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callGoogleAPI(
+        "https://generativelanguage.googleapis.com/v1beta",
+        "test-key",
+        "gemini-2.0-flash",
+        messages,
+        4000,
+        0.7,
+        120000,
+        "json",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1].generationConfig).toHaveProperty(
+        "responseMimeType",
+        "application/json",
+      );
+    });
+
+    it("should handle URL with :generateContent already", async () => {
+      const apiResponse = {
+        candidates: [
+          {
+            content: { parts: [{ text: "OK" }] },
+          },
+        ],
+        usageMetadata: {},
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callGoogleAPI(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+        "test-key",
+        "gemini-pro",
+        messages,
+        4000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain(":generateContent?key=");
+    });
+  });
+
+  // ==================== callXAIAPI ====================
+
+  describe("callXAIAPI", () => {
+    const messages = [{ role: "user" as const, content: "Hello Grok" }];
+
+    it("should call xAI API and return content", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "Hello from Grok" } }],
+        usage: { total_tokens: 30 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callXAIAPI(
+        "https://api.x.ai/v1/chat/completions",
+        "test-key",
+        "grok-2",
+        messages,
+        4000,
+        0.7,
+      );
+
+      expect(result.content).toBe("Hello from Grok");
+      expect(result.tokensUsed).toBe(30);
+    });
+
+    it("should use default xAI endpoint if empty", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "OK" } }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callXAIAPI("", "test-key", "grok-2", messages, 4000);
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain("api.x.ai");
+    });
+
+    it("should add json response_format", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: '{"key":"val"}' } }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callXAIAPI(
+        "https://api.x.ai/v1/chat/completions",
+        "test-key",
+        "grok-2",
+        messages,
+        4000,
+        0.7,
+        120000,
+        "max_tokens",
+        "json",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("response_format", {
+        type: "json_object",
+      });
+    });
+  });
+
+  // ==================== Embedding APIs ====================
+
+  describe("callOpenAICompatibleEmbeddingAPI", () => {
+    it("should return embeddings", async () => {
+      const apiResponse = {
+        data: [
+          { embedding: [0.1, 0.2, 0.3] },
+          { embedding: [0.4, 0.5, 0.6] },
+        ],
+        usage: { total_tokens: 20 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callOpenAICompatibleEmbeddingAPI(
+        "https://api.openai.com/v1",
+        "test-key",
+        "text-embedding-3-large",
+        ["Hello", "World"],
+      );
+
+      expect(result.embeddings).toHaveLength(2);
+      expect(result.embeddings[0]).toEqual([0.1, 0.2, 0.3]);
+      expect(result.totalTokens).toBe(20);
+    });
+
+    it("should append /embeddings if missing", async () => {
+      const apiResponse = {
+        data: [{ embedding: [0.1] }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleEmbeddingAPI(
+        "https://api.openai.com/v1",
+        "test-key",
+        "text-embedding-3-large",
+        ["test"],
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain("/embeddings");
+    });
+
+    it("should not double-append /embeddings", async () => {
+      const apiResponse = {
+        data: [{ embedding: [0.1] }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleEmbeddingAPI(
+        "https://api.openai.com/v1/embeddings",
+        "test-key",
+        "text-embedding-3-large",
+        ["test"],
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toBe("https://api.openai.com/v1/embeddings");
+    });
+  });
+
+  describe("callGoogleEmbeddingAPI", () => {
+    it("should return Google embeddings", async () => {
+      const apiResponse = {
+        embeddings: [{ values: [0.1, 0.2] }, { values: [0.3, 0.4] }],
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callGoogleEmbeddingAPI(
+        "https://generativelanguage.googleapis.com/v1beta",
+        "test-key",
+        "text-embedding-004",
+        ["Hello", "World"],
+      );
+
+      expect(result.embeddings).toHaveLength(2);
+      expect(result.totalTokens).toBe(0); // Google doesn't return token count
+    });
+
+    it("should normalize URL by stripping trailing /models", async () => {
+      const apiResponse = { embeddings: [{ values: [0.1] }] };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callGoogleEmbeddingAPI(
+        "https://generativelanguage.googleapis.com/v1beta/models/",
+        "test-key",
+        "text-embedding-004",
+        ["test"],
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain("text-embedding-004:batchEmbedContents");
+      expect(callArgs[0]).not.toContain("models/models");
+    });
+  });
+
+  describe("callCohereEmbeddingAPI", () => {
+    it("should return Cohere embeddings", async () => {
+      const apiResponse = {
+        embeddings: [[0.1, 0.2], [0.3, 0.4]],
+        meta: { billed_units: { input_tokens: 15 } },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const result = await service.callCohereEmbeddingAPI(
+        "https://api.cohere.com/v1",
+        "test-key",
+        "embed-english-v3.0",
+        ["Hello", "World"],
+      );
+
+      expect(result.embeddings).toHaveLength(2);
+      expect(result.totalTokens).toBe(15);
+    });
+
+    it("should append /embed if missing", async () => {
+      const apiResponse = {
+        embeddings: [[0.1]],
+        meta: { billed_units: { input_tokens: 5 } },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callCohereEmbeddingAPI(
+        "https://api.cohere.com/v1",
+        "test-key",
+        "embed-english-v3.0",
+        ["test"],
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain("/embed");
+    });
+
+    it("should use custom input_type", async () => {
+      const apiResponse = {
+        embeddings: [[0.1]],
+        meta: {},
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callCohereEmbeddingAPI(
+        "https://api.cohere.com/v1",
+        "test-key",
+        "embed-english-v3.0",
+        ["query text"],
+        "search_query",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("input_type", "search_query");
+    });
+  });
+});

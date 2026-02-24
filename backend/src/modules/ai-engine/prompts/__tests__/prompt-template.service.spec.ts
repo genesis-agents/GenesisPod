@@ -208,5 +208,271 @@ describe('PromptTemplateService', () => {
 
       expect(result.version).toBe(4);
     });
+
+    it('should throw when create fails', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findFirst').mockResolvedValue(null);
+      jest.spyOn(prisma.promptTemplate, 'create').mockRejectedValue(new Error('DB error'));
+
+      await expect(
+        service.createVersion({ taskType: 'X', name: 'X', template: 'X' }),
+      ).rejects.toThrow('DB error');
+    });
+
+    it('should append changeLog to description when both provided', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findFirst').mockResolvedValue(null);
+      const mockCreated = {
+        id: 'id', taskType: 'T', name: 'N', version: 1,
+        template: 'T', variables: null, isActive: false,
+        description: 'My desc\n\n变更说明: changelog text',
+        createdBy: null, createdAt: new Date(), updatedAt: new Date(),
+      };
+      jest.spyOn(prisma.promptTemplate, 'create').mockResolvedValue(mockCreated);
+
+      await service.createVersion(
+        { taskType: 'T', name: 'N', template: 'T', description: 'My desc' },
+        'changelog text',
+      );
+
+      expect(prisma.promptTemplate.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: expect.stringContaining('changelog text'),
+          }),
+        }),
+      );
+    });
+
+    it('should use changeLog as description when dto has no description', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findFirst').mockResolvedValue(null);
+      const mockCreated = {
+        id: 'id', taskType: 'T', name: 'N', version: 1,
+        template: 'T', variables: null, isActive: false,
+        description: 'only-changelog', createdBy: null,
+        createdAt: new Date(), updatedAt: new Date(),
+      };
+      jest.spyOn(prisma.promptTemplate, 'create').mockResolvedValue(mockCreated);
+
+      await service.createVersion(
+        { taskType: 'T', name: 'N', template: 'T' },
+        'only-changelog',
+      );
+
+      expect(prisma.promptTemplate.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ description: 'only-changelog' }),
+        }),
+      );
+    });
+  });
+
+  // =========================================================================
+  // activateVersion
+  // =========================================================================
+
+  describe('activateVersion', () => {
+    const makeTemplate = (overrides: Record<string, unknown> = {}) => ({
+      id: 'tpl-1', taskType: 'PRD', name: 'PRD', version: 1,
+      template: 'Hello', variables: null, isActive: true,
+      description: null, createdBy: null,
+      createdAt: new Date(), updatedAt: new Date(),
+      ...overrides,
+    });
+
+    it('should activate a version and deactivate others', async () => {
+      const tpl = makeTemplate({ version: 2 });
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(tpl as any);
+      jest.spyOn(prisma, '$transaction').mockResolvedValue([{ count: 1 }, tpl] as any);
+      jest.spyOn(prisma.promptTemplate, 'findMany').mockResolvedValue([tpl] as any);
+
+      const result = await service.activateVersion('PRD', 2);
+      expect(result.version).toBe(2);
+    });
+
+    it('should throw NotFoundException when version not found', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(null);
+
+      await expect(service.activateVersion('PRD', 99)).rejects.toThrow(
+        'Template not found: PRD v99',
+      );
+    });
+
+    it('should rethrow when transaction fails', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(makeTemplate() as any);
+      jest.spyOn(prisma, '$transaction').mockRejectedValue(new Error('tx failed'));
+
+      await expect(service.activateVersion('PRD', 1)).rejects.toThrow('tx failed');
+    });
+  });
+
+  // =========================================================================
+  // rollback
+  // =========================================================================
+
+  describe('rollback', () => {
+    it('should call activateVersion with the target version', async () => {
+      const spy = jest
+        .spyOn(service, 'activateVersion')
+        .mockResolvedValue({} as any);
+
+      await service.rollback('PRD', 2);
+
+      expect(spy).toHaveBeenCalledWith('PRD', 2);
+    });
+  });
+
+  // =========================================================================
+  // getAllVersions
+  // =========================================================================
+
+  describe('getAllVersions', () => {
+    it('should return all versions ordered by version desc', async () => {
+      const templates = [
+        { id: '3', taskType: 'PRD', name: 'v3', version: 3, template: 't', variables: null, isActive: false, description: null, createdBy: null, createdAt: new Date(), updatedAt: new Date() },
+        { id: '2', taskType: 'PRD', name: 'v2', version: 2, template: 't', variables: null, isActive: true, description: null, createdBy: null, createdAt: new Date(), updatedAt: new Date() },
+        { id: '1', taskType: 'PRD', name: 'v1', version: 1, template: 't', variables: null, isActive: false, description: null, createdBy: null, createdAt: new Date(), updatedAt: new Date() },
+      ];
+      jest.spyOn(prisma.promptTemplate, 'findMany').mockResolvedValue(templates as any);
+
+      const result = await service.getAllVersions('PRD');
+      expect(result).toHaveLength(3);
+      expect(result[0].version).toBe(3);
+    });
+
+    it('should return empty array on DB error', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findMany').mockRejectedValue(new Error('fail'));
+      const result = await service.getAllVersions('PRD');
+      expect(result).toEqual([]);
+    });
+  });
+
+  // =========================================================================
+  // getAllTaskTypes
+  // =========================================================================
+
+  describe('getAllTaskTypes', () => {
+    it('should return distinct task type strings', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findMany').mockResolvedValue([
+        { taskType: 'A' }, { taskType: 'B' },
+      ] as any);
+      const result = await service.getAllTaskTypes();
+      expect(result).toEqual(['A', 'B']);
+    });
+
+    it('should return empty array on DB error', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findMany').mockRejectedValue(new Error('fail'));
+      const result = await service.getAllTaskTypes();
+      expect(result).toEqual([]);
+    });
+  });
+
+  // =========================================================================
+  // deleteVersion
+  // =========================================================================
+
+  describe('deleteVersion', () => {
+    const makeTemplate = (overrides: Record<string, unknown> = {}) => ({
+      id: 'tpl-1', taskType: 'PRD', name: 'PRD', version: 1,
+      template: 'Hello', variables: null, isActive: false,
+      description: null, createdBy: null,
+      createdAt: new Date(), updatedAt: new Date(),
+      ...overrides,
+    });
+
+    it('should delete an inactive version', async () => {
+      const tpl = makeTemplate({ isActive: false });
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(tpl as any);
+      jest.spyOn(prisma.promptTemplate, 'delete').mockResolvedValue(tpl as any);
+
+      await expect(service.deleteVersion('PRD', 1)).resolves.not.toThrow();
+    });
+
+    it('should throw NotFoundException when not found', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(null);
+      await expect(service.deleteVersion('PRD', 1)).rejects.toThrow('Template not found');
+    });
+
+    it('should throw when trying to delete active version', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(makeTemplate({ isActive: true }) as any);
+      await expect(service.deleteVersion('PRD', 1)).rejects.toThrow(
+        'Cannot delete active version',
+      );
+    });
+
+    it('should rethrow DB error during delete', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(makeTemplate({ isActive: false }) as any);
+      jest.spyOn(prisma.promptTemplate, 'delete').mockRejectedValue(new Error('constraint'));
+      await expect(service.deleteVersion('PRD', 1)).rejects.toThrow('constraint');
+    });
+  });
+
+  // =========================================================================
+  // getActiveTemplateStats
+  // =========================================================================
+
+  describe('getActiveTemplateStats', () => {
+    it('should return total, active counts, and taskTypes count', async () => {
+      jest.spyOn(prisma.promptTemplate, 'count')
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(4);
+      jest.spyOn(prisma.promptTemplate, 'findMany').mockResolvedValue([
+        { taskType: 'A' }, { taskType: 'B' }, { taskType: 'C' },
+      ] as any);
+
+      const result = await service.getActiveTemplateStats();
+      expect(result).toEqual({ totalTemplates: 10, activeTemplates: 4, taskTypes: 3 });
+    });
+
+    it('should return zeros on error', async () => {
+      jest.spyOn(prisma.promptTemplate, 'count').mockRejectedValue(new Error('fail'));
+      const result = await service.getActiveTemplateStats();
+      expect(result).toEqual({ totalTemplates: 0, activeTemplates: 0, taskTypes: 0 });
+    });
+  });
+
+  // =========================================================================
+  // getPrompt — additional edge cases
+  // =========================================================================
+
+  describe('getPrompt — additional edge cases', () => {
+    it('should query DB when version specified and template is found', async () => {
+      const tpl = {
+        id: '1', taskType: 'PRD', name: 'v2', version: 2,
+        template: 't', variables: ['x'], isActive: false,
+        description: null, createdBy: null, createdAt: new Date(), updatedAt: new Date(),
+      };
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockResolvedValue(tpl as any);
+
+      const result = await service.getPrompt('PRD', 2);
+      expect(result?.version).toBe(2);
+    });
+
+    it('should return null on findUnique error (versioned query)', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findUnique').mockRejectedValue(new Error('DB err'));
+      const result = await service.getPrompt('PRD', 2);
+      expect(result).toBeNull();
+    });
+
+    it('should fallback to DB when cache miss (no version)', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findFirst').mockResolvedValue({
+        id: '1', taskType: 'MISS', name: 'N', version: 1,
+        template: 't', variables: null, isActive: true,
+        description: null, createdBy: null, createdAt: new Date(), updatedAt: new Date(),
+      } as any);
+
+      const result = await service.getPrompt('MISS');
+      expect(result?.taskType).toBe('MISS');
+    });
+
+    it('should return null when findFirst returns null (no active template)', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findFirst').mockResolvedValue(null);
+      const result = await service.getPrompt('NO_TEMPLATE');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when findFirst throws (no version)', async () => {
+      jest.spyOn(prisma.promptTemplate, 'findFirst').mockRejectedValue(new Error('fail'));
+      const result = await service.getPrompt('ERR_TYPE');
+      expect(result).toBeNull();
+    });
   });
 });

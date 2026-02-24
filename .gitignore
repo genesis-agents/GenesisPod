@@ -69,9 +69,10 @@ tmp/
 temp/
 *.tmp
 
-# Claude Code logs and orchestrator state
+# Claude Code logs, orchestrator state, and sub-agent worktrees
 .claude/logs/
 .claude/orchestrator/*.json
+.claude/worktrees/
 
 # 操作系统
 .DS_Store

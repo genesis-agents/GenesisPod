@@ -1,0 +1,537 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { AiChatModelConfigService } from "../ai-chat-model-config.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { SecretsService } from "../../../../core/secrets/secrets.service";
+import { AIModelType } from "@prisma/client";
+
+function createMockDbModel(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "db-model-id",
+    name: "gpt-4o",
+    displayName: "GPT-4o",
+    provider: "openai",
+    modelId: "gpt-4o",
+    apiEndpoint: "https://api.openai.com/v1",
+    apiKey: "test-api-key",
+    secretKey: null,
+    maxTokens: 4000,
+    temperature: 0.7,
+    isEnabled: true,
+    isDefault: false,
+    isReasoning: false,
+    apiFormat: "openai",
+    supportsTemperature: true,
+    supportsStreaming: true,
+    supportsFunctionCalling: true,
+    supportsVision: false,
+    tokenParamName: "max_tokens",
+    defaultTimeoutMs: 120000,
+    priceInputPerMillion: null,
+    priceOutputPerMillion: null,
+    priority: 50,
+    modelType: "CHAT",
+    ...overrides,
+  };
+}
+
+describe("AiChatModelConfigService", () => {
+  let service: AiChatModelConfigService;
+  let mockPrisma: any;
+  let mockSecretsService: any;
+
+  beforeEach(async () => {
+    mockPrisma = {
+      aIModel: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
+
+    mockSecretsService = {
+      getValueInternal: jest.fn().mockResolvedValue(null),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiChatModelConfigService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SecretsService, useValue: mockSecretsService },
+      ],
+    }).compile();
+
+    service = module.get<AiChatModelConfigService>(AiChatModelConfigService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // ==================== getApiKeyForModel ====================
+
+  describe("getApiKeyForModel", () => {
+    it("should return apiKey when no secretKey", async () => {
+      const model = {
+        id: "test-id",
+        name: "test",
+        displayName: "Test",
+        provider: "openai",
+        modelId: "gpt-4o",
+        apiEndpoint: "https://api.openai.com/v1",
+        apiKey: "direct-api-key",
+        secretKey: null,
+        maxTokens: 4000,
+        temperature: 0.7,
+        isEnabled: true,
+        isDefault: false,
+      } as any;
+
+      const key = await service.getApiKeyForModel(model);
+      expect(key).toBe("direct-api-key");
+    });
+
+    it("should trim whitespace from apiKey", async () => {
+      const model = {
+        id: "test-id",
+        name: "test",
+        displayName: "Test",
+        provider: "openai",
+        modelId: "gpt-4o",
+        apiEndpoint: "",
+        apiKey: "  key-with-spaces  ",
+        secretKey: null,
+        maxTokens: 4000,
+        temperature: 0.7,
+        isEnabled: true,
+        isDefault: false,
+      } as any;
+
+      const key = await service.getApiKeyForModel(model);
+      expect(key).toBe("key-with-spaces");
+    });
+
+    it("should use secretKey from secrets service", async () => {
+      mockSecretsService.getValueInternal.mockResolvedValue("secret-api-key");
+
+      const model = {
+        id: "test-id",
+        name: "test",
+        displayName: "Test",
+        provider: "openai",
+        modelId: "gpt-4o",
+        apiEndpoint: "",
+        apiKey: "fallback-key",
+        secretKey: "MY_API_KEY_SECRET",
+        maxTokens: 4000,
+        temperature: 0.7,
+        isEnabled: true,
+        isDefault: false,
+      } as any;
+
+      const key = await service.getApiKeyForModel(model);
+      expect(key).toBe("secret-api-key");
+      expect(mockSecretsService.getValueInternal).toHaveBeenCalledWith(
+        "MY_API_KEY_SECRET",
+      );
+    });
+
+    it("should fallback to apiKey if secret not found", async () => {
+      mockSecretsService.getValueInternal.mockResolvedValue(null);
+
+      const model = {
+        id: "test-id",
+        name: "test",
+        displayName: "Test",
+        provider: "openai",
+        modelId: "gpt-4o",
+        apiEndpoint: "",
+        apiKey: "fallback-key",
+        secretKey: "MISSING_SECRET",
+        maxTokens: 4000,
+        temperature: 0.7,
+        isEnabled: true,
+        isDefault: false,
+      } as any;
+
+      const key = await service.getApiKeyForModel(model);
+      expect(key).toBe("fallback-key");
+    });
+
+    it("should return null when no key available", async () => {
+      const model = {
+        id: "test-id",
+        name: "test",
+        displayName: "Test",
+        provider: "openai",
+        modelId: "gpt-4o",
+        apiEndpoint: "",
+        apiKey: null,
+        secretKey: null,
+        maxTokens: 4000,
+        temperature: 0.7,
+        isEnabled: true,
+        isDefault: false,
+      } as any;
+
+      const key = await service.getApiKeyForModel(model);
+      expect(key).toBeNull();
+    });
+  });
+
+  // ==================== inferApiFormat ====================
+
+  describe("inferApiFormat", () => {
+    it("should return anthropic for anthropic provider", () => {
+      expect(service.inferApiFormat("anthropic")).toBe("anthropic");
+    });
+
+    it("should return anthropic for claude provider", () => {
+      expect(service.inferApiFormat("claude")).toBe("anthropic");
+    });
+
+    it("should return google for google provider", () => {
+      expect(service.inferApiFormat("google")).toBe("google");
+    });
+
+    it("should return google for gemini provider", () => {
+      expect(service.inferApiFormat("gemini")).toBe("google");
+    });
+
+    it("should return xai for xai provider", () => {
+      expect(service.inferApiFormat("xai")).toBe("xai");
+    });
+
+    it("should return xai for grok provider", () => {
+      expect(service.inferApiFormat("grok")).toBe("xai");
+    });
+
+    it("should return cohere for cohere provider", () => {
+      expect(service.inferApiFormat("cohere")).toBe("cohere");
+    });
+
+    it("should return openai for unknown provider", () => {
+      expect(service.inferApiFormat("deepseek")).toBe("openai");
+    });
+
+    it("should be case-insensitive", () => {
+      expect(service.inferApiFormat("ANTHROPIC")).toBe("anthropic");
+      expect(service.inferApiFormat("Google")).toBe("google");
+    });
+  });
+
+  // ==================== isReasoningModel ====================
+
+  describe("isReasoningModel", () => {
+    it("should return true for o1 models", () => {
+      expect(service.isReasoningModel("o1-mini")).toBe(true);
+      expect(service.isReasoningModel("o1-preview")).toBe(true);
+    });
+
+    it("should return true for o3 models", () => {
+      expect(service.isReasoningModel("o3-mini")).toBe(true);
+    });
+
+    it("should return true for gpt-5 models", () => {
+      expect(service.isReasoningModel("gpt-5")).toBe(true);
+    });
+
+    it("should return true for deepseek-r1", () => {
+      expect(service.isReasoningModel("deepseek-r1")).toBe(true);
+    });
+
+    it("should return true for models with 'thinking'", () => {
+      expect(service.isReasoningModel("gemini-2.0-flash-thinking")).toBe(true);
+    });
+
+    it("should return true for gemini-2.5", () => {
+      expect(service.isReasoningModel("gemini-2.5-pro")).toBe(true);
+    });
+
+    it("should return false for gpt-4o", () => {
+      expect(service.isReasoningModel("gpt-4o")).toBe(false);
+    });
+
+    it("should return false for gemini-2.0-flash", () => {
+      expect(service.isReasoningModel("gemini-2.0-flash")).toBe(false);
+    });
+
+    it("should return false for claude-3-5-sonnet", () => {
+      expect(service.isReasoningModel("claude-3-5-sonnet-20241022")).toBe(
+        false,
+      );
+    });
+  });
+
+  // ==================== isTemperatureSupported ====================
+
+  describe("isTemperatureSupported", () => {
+    it("should return false for o1 models", () => {
+      expect(service.isTemperatureSupported("o1-mini")).toBe(false);
+    });
+
+    it("should return false for o3 models", () => {
+      expect(service.isTemperatureSupported("o3-mini")).toBe(false);
+    });
+
+    it("should return false for gpt-5 models", () => {
+      expect(service.isTemperatureSupported("gpt-5")).toBe(false);
+    });
+
+    it("should return true for gpt-4o", () => {
+      expect(service.isTemperatureSupported("gpt-4o")).toBe(true);
+    });
+
+    it("should return true for claude models", () => {
+      expect(
+        service.isTemperatureSupported("claude-3-5-sonnet-20241022"),
+      ).toBe(true);
+    });
+
+    it("should return true for gemini models", () => {
+      expect(service.isTemperatureSupported("gemini-2.0-flash")).toBe(true);
+    });
+  });
+
+  // ==================== getTimeoutForModel ====================
+
+  describe("getTimeoutForModel", () => {
+    it("should return longer timeout for reasoning models", () => {
+      const reasoningTimeout = service.getTimeoutForModel("o1-mini", 4000);
+      const normalTimeout = service.getTimeoutForModel("gpt-4o", 4000);
+      expect(reasoningTimeout).toBeGreaterThan(normalTimeout);
+    });
+
+    it("should scale with maxTokens", () => {
+      const smallTokenTimeout = service.getTimeoutForModel("gpt-4o", 1000);
+      const largeTokenTimeout = service.getTimeoutForModel("gpt-4o", 10000);
+      expect(largeTokenTimeout).toBeGreaterThan(smallTokenTimeout);
+    });
+
+    it("should cap at maxTimeout for reasoning models", () => {
+      // Very large token count should be capped
+      const timeout = service.getTimeoutForModel("o1-mini", 100000);
+      expect(timeout).toBeLessThanOrEqual(600000);
+    });
+
+    it("should cap at maxTimeout for normal models", () => {
+      const timeout = service.getTimeoutForModel("gpt-4o", 100000);
+      expect(timeout).toBeLessThanOrEqual(300000);
+    });
+
+    it("should use at least base timeout", () => {
+      const timeout = service.getTimeoutForModel("gpt-4o", 0);
+      expect(timeout).toBeGreaterThanOrEqual(120000);
+    });
+  });
+
+  // ==================== refreshModelConfigCache ====================
+
+  describe("refreshModelConfigCache", () => {
+    it("should load models from database", async () => {
+      const mockModel = createMockDbModel();
+      mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+
+      await service.refreshModelConfigCache();
+
+      // Should now be in cache
+      const config = await service.getModelConfig("gpt-4o");
+      expect(config).toBeDefined();
+      expect(config!.modelId).toBe("gpt-4o");
+    });
+
+    it("should handle database errors gracefully", async () => {
+      mockPrisma.aIModel.findMany.mockRejectedValue(
+        new Error("DB connection failed"),
+      );
+
+      // Should not throw
+      await expect(service.refreshModelConfigCache()).resolves.not.toThrow();
+    });
+
+    it("should index by both modelId and name", async () => {
+      const mockModel = createMockDbModel({
+        name: "my-model",
+        modelId: "gpt-4o-my",
+      });
+      mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+
+      await service.refreshModelConfigCache();
+
+      // Should find by modelId
+      const byModelId = await service.getModelConfig("gpt-4o-my");
+      expect(byModelId).toBeDefined();
+    });
+  });
+
+  // ==================== getModelConfig ====================
+
+  describe("getModelConfig", () => {
+    it("should return null for unknown model", async () => {
+      mockPrisma.aIModel.findFirst.mockResolvedValue(null);
+      const config = await service.getModelConfig("unknown-model");
+      expect(config).toBeNull();
+    });
+
+    it("should normalize #N suffix from modelId", async () => {
+      const mockModel = createMockDbModel({ modelId: "gpt-4o" });
+      mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+      await service.refreshModelConfigCache();
+
+      // Should strip #1 suffix and find the model
+      const config = await service.getModelConfig("gpt-4o#1");
+      expect(config).toBeDefined();
+    });
+
+    it("should do case-insensitive lookup", async () => {
+      const mockModel = createMockDbModel({ modelId: "gpt-4o" });
+      mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("GPT-4O");
+      expect(config).toBeDefined();
+    });
+
+    it("should query database when not in cache", async () => {
+      const mockModel = createMockDbModel({ modelId: "gemini-pro" });
+      mockPrisma.aIModel.findFirst.mockResolvedValue(mockModel);
+
+      const config = await service.getModelConfig("gemini-pro");
+      expect(config).toBeDefined();
+      expect(config!.modelId).toBe("gemini-pro");
+    });
+
+    it("should handle database query failure gracefully", async () => {
+      mockPrisma.aIModel.findFirst.mockRejectedValue(new Error("DB error"));
+
+      const config = await service.getModelConfig("unknown-model");
+      expect(config).toBeNull();
+    });
+
+    it("should infer isReasoning from modelId when not set in DB", async () => {
+      const mockModel = createMockDbModel({
+        modelId: "o1-mini",
+        isReasoning: undefined,
+      });
+      mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("o1-mini");
+      expect(config!.isReasoning).toBe(true);
+    });
+
+    it("should build config with price values as numbers", async () => {
+      const mockModel = createMockDbModel({
+        priceInputPerMillion: "5.00",
+        priceOutputPerMillion: "15.00",
+      });
+      mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getModelConfig("gpt-4o");
+      expect(config!.priceInputPerMillion).toBe(5);
+      expect(config!.priceOutputPerMillion).toBe(15);
+    });
+  });
+
+  // ==================== getDefaultModelConfig ====================
+
+  describe("getDefaultModelConfig", () => {
+    it("should return default model from cache", async () => {
+      const mockModel = createMockDbModel({ isDefault: true });
+      mockPrisma.aIModel.findMany.mockResolvedValue([mockModel]);
+      await service.refreshModelConfigCache();
+
+      const config = await service.getDefaultModelConfig();
+      expect(config).toBeDefined();
+      expect(config!.isDefault).toBe(true);
+    });
+
+    it("should query DB when cache empty", async () => {
+      const mockModel = createMockDbModel({ isDefault: true });
+      mockPrisma.aIModel.findFirst.mockResolvedValue(mockModel);
+
+      const config = await service.getDefaultModelConfig();
+      expect(config).toBeDefined();
+    });
+
+    it("should return first enabled model if no default", async () => {
+      mockPrisma.aIModel.findFirst
+        .mockResolvedValueOnce(null) // no default
+        .mockResolvedValueOnce(createMockDbModel()); // any enabled
+
+      const config = await service.getDefaultModelConfig();
+      expect(config).toBeDefined();
+    });
+
+    it("should return null if no models configured", async () => {
+      mockPrisma.aIModel.findFirst.mockResolvedValue(null);
+
+      const config = await service.getDefaultModelConfig();
+      expect(config).toBeNull();
+    });
+  });
+
+  // ==================== getDefaultModelByType ====================
+
+  describe("getDefaultModelByType", () => {
+    it("should return default model of specified type", async () => {
+      const mockModel = createMockDbModel({
+        isDefault: true,
+        modelType: "EMBEDDING",
+      });
+      mockPrisma.aIModel.findFirst.mockResolvedValue(mockModel);
+
+      const config = await service.getDefaultModelByType(
+        AIModelType.EMBEDDING,
+      );
+      expect(config).toBeDefined();
+    });
+
+    it("should return first model of type when no default", async () => {
+      mockPrisma.aIModel.findFirst
+        .mockResolvedValueOnce(null) // no default embedding
+        .mockResolvedValueOnce(createMockDbModel()); // first embedding
+
+      const config = await service.getDefaultModelByType(
+        AIModelType.EMBEDDING,
+      );
+      expect(config).toBeDefined();
+    });
+
+    it("should return null when no models of type", async () => {
+      mockPrisma.aIModel.findFirst.mockResolvedValue(null);
+
+      const config = await service.getDefaultModelByType(
+        AIModelType.IMAGE_GENERATION,
+      );
+      expect(config).toBeNull();
+    });
+  });
+
+  // ==================== getAllEnabledModelsByType ====================
+
+  describe("getAllEnabledModelsByType", () => {
+    it("should return all enabled models of type", async () => {
+      const models = [createMockDbModel(), createMockDbModel({ modelId: "gpt-4o-mini" })];
+      mockPrisma.aIModel.findMany.mockResolvedValue(models);
+
+      const configs = await service.getAllEnabledModelsByType(AIModelType.CHAT);
+      expect(configs).toHaveLength(2);
+    });
+
+    it("should exclude specified model IDs", async () => {
+      mockPrisma.aIModel.findMany.mockResolvedValue([]);
+
+      const configs = await service.getAllEnabledModelsByType(AIModelType.CHAT, [
+        "gpt-4o",
+      ]);
+      expect(configs).toHaveLength(0);
+      // findMany is called twice: once in constructor's refreshModelConfigCache (empty), once here
+      const allCalls = mockPrisma.aIModel.findMany.mock.calls;
+      const callWithExclude = allCalls.find(
+        (call: any[]) => call[0]?.where?.modelId?.notIn !== undefined,
+      );
+      expect(callWithExclude).toBeDefined();
+      expect(callWithExclude[0].where.modelId.notIn).toContain("gpt-4o");
+    });
+  });
+});

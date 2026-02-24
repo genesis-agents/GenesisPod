@@ -168,10 +168,10 @@ describe("TemplateRenderTool", () => {
   });
 
   // --------------------------------------------------------------------------
-  // Custom helpers
+  // Custom helpers — string operations
   // --------------------------------------------------------------------------
 
-  describe("custom helpers", () => {
+  describe("custom helpers — string operations", () => {
     it("should uppercase string with uppercase helper", async () => {
       const input: TemplateRenderInput = {
         template: "{{uppercase name}}",
@@ -181,6 +181,17 @@ describe("TemplateRenderTool", () => {
       const result = await tool.execute(input, context);
 
       expect(result.data?.result).toBe("ALICE");
+    });
+
+    it("should return empty string from uppercase when value is not string", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{uppercase val}}",
+        variables: { val: 123 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("");
     });
 
     it("should lowercase string with lowercase helper", async () => {
@@ -194,6 +205,17 @@ describe("TemplateRenderTool", () => {
       expect(result.data?.result).toBe("alice");
     });
 
+    it("should return empty string from lowercase when value is not string", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{lowercase val}}",
+        variables: { val: 42 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("");
+    });
+
     it("should capitalize string with capitalize helper", async () => {
       const input: TemplateRenderInput = {
         template: "{{capitalize name}}",
@@ -205,6 +227,235 @@ describe("TemplateRenderTool", () => {
       expect(result.data?.result).toBe("Alice");
     });
 
+    it("should return empty string from capitalize for empty input", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{capitalize name}}",
+        variables: { name: "" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("");
+    });
+
+    it("should return empty string from capitalize when value is not string", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{capitalize val}}",
+        variables: { val: 99 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Custom helpers — date/number formatting
+  // --------------------------------------------------------------------------
+
+  describe("custom helpers — date and number", () => {
+    it("should format date as ISO string", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{formatDate date 'iso'}}",
+        variables: { date: "2024-01-15T00:00:00.000Z" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toContain("2024-01-15");
+    });
+
+    it("should format date as short format", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{formatDate date 'short'}}",
+        variables: { date: "2024-01-15" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.success).toBe(true);
+      // toLocaleDateString returns a string
+      expect(typeof result.data?.result).toBe("string");
+    });
+
+    it("should format date as long format", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{formatDate date 'long'}}",
+        variables: { date: "2024-01-15" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.success).toBe(true);
+    });
+
+    it("should return original value when date is invalid", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{formatDate date 'iso'}}",
+        variables: { date: "not-a-date" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("not-a-date");
+    });
+
+    it("should format number to fixed decimals", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{formatNumber num 2}}",
+        variables: { num: 3.14159 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("3.14");
+    });
+
+    it("should return original value when number is invalid", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{formatNumber val}}",
+        variables: { val: "not-a-number" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("not-a-number");
+    });
+
+    it("should use explicit decimals for formatNumber when provided", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{formatNumber num 3}}",
+        variables: { num: 1.5 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("1.500");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Custom helpers — comparison
+  // --------------------------------------------------------------------------
+
+  describe("custom helpers — comparison", () => {
+    it("should return true with eq helper when values are equal", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (eq a b)}}equal{{/if}}",
+        variables: { a: "foo", b: "foo" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("equal");
+    });
+
+    it("should return empty with eq helper when values differ", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (eq a b)}}equal{{/if}}",
+        variables: { a: "foo", b: "bar" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("");
+    });
+
+    it("should work with ne helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (ne a b)}}not equal{{/if}}",
+        variables: { a: "foo", b: "bar" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("not equal");
+    });
+
+    it("should work with gt helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (gt a b)}}greater{{/if}}",
+        variables: { a: 5, b: 3 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("greater");
+    });
+
+    it("should work with lt helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (lt a b)}}less{{/if}}",
+        variables: { a: 2, b: 5 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("less");
+    });
+
+    it("should work with gte helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (gte a b)}}gte{{/if}}",
+        variables: { a: 5, b: 5 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("gte");
+    });
+
+    it("should work with lte helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (lte a b)}}lte{{/if}}",
+        variables: { a: 3, b: 5 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("lte");
+    });
+
+    it("should work with and helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (and a b)}}both{{/if}}",
+        variables: { a: true, b: true },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("both");
+    });
+
+    it("should work with or helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (or a b)}}either{{/if}}",
+        variables: { a: false, b: true },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("either");
+    });
+
+    it("should work with not helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{#if (not val)}}negated{{/if}}",
+        variables: { val: false },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("negated");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Custom helpers — array operations
+  // --------------------------------------------------------------------------
+
+  describe("custom helpers — arrays", () => {
     it("should join array with join helper", async () => {
       const input: TemplateRenderInput = {
         template: "{{join tags ', '}}",
@@ -216,6 +467,67 @@ describe("TemplateRenderTool", () => {
       expect(result.data?.result).toBe("a, b, c");
     });
 
+    it("should return empty string from join when not an array", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{join val}}",
+        variables: { val: "not-array" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("");
+    });
+
+    it("should get length of array with length helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{length items}}",
+        variables: { items: [1, 2, 3, 4] },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("4");
+    });
+
+    it("should return 0 from length helper when not an array", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{length val}}",
+        variables: { val: "string" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("0");
+    });
+
+    it("should get first element with first helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{first items}}",
+        variables: { items: ["alpha", "beta", "gamma"] },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("alpha");
+    });
+
+    it("should get last element with last helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{last items}}",
+        variables: { items: ["alpha", "beta", "gamma"] },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("gamma");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Custom helpers — JSON
+  // --------------------------------------------------------------------------
+
+  describe("custom helpers — JSON", () => {
     it("should serialize object with json helper", async () => {
       const input: TemplateRenderInput = {
         template: "{{json data}}",
@@ -229,6 +541,23 @@ describe("TemplateRenderTool", () => {
       expect(parsed.key).toBe("value");
     });
 
+    it("should serialize object inline with jsonInline helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{jsonInline data}}",
+        variables: { data: { key: "value" } },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe('{"key":"value"}');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Custom helpers — math
+  // --------------------------------------------------------------------------
+
+  describe("custom helpers — math", () => {
     it("should add numbers with add helper", async () => {
       const input: TemplateRenderInput = {
         template: "{{add a b}}",
@@ -238,6 +567,89 @@ describe("TemplateRenderTool", () => {
       const result = await tool.execute(input, context);
 
       expect(result.data?.result).toBe("8");
+    });
+
+    it("should subtract numbers with subtract helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{subtract a b}}",
+        variables: { a: 10, b: 4 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("6");
+    });
+
+    it("should multiply numbers with multiply helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{multiply a b}}",
+        variables: { a: 3, b: 7 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("21");
+    });
+
+    it("should divide numbers with divide helper", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{divide a b}}",
+        variables: { a: 10, b: 2 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("5");
+    });
+
+    it("should return 0 from divide when divisor is 0", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{divide a b}}",
+        variables: { a: 10, b: 0 },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("0");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Custom helpers — default value
+  // --------------------------------------------------------------------------
+
+  describe("custom helpers — default", () => {
+    it("should use default value when variable is undefined", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{default val 'fallback'}}",
+        variables: {},
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("fallback");
+    });
+
+    it("should use provided value when it is not null/undefined", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{default val 'fallback'}}",
+        variables: { val: "actual" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("actual");
+    });
+
+    it("should use default value when variable is null", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{default val 'fallback'}}",
+        variables: { val: null },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.result).toBe("fallback");
     });
   });
 
@@ -268,6 +680,34 @@ describe("TemplateRenderTool", () => {
 
       expect(result.data?.undefinedVariables).toContain("city");
       expect(result.data?.undefinedVariables).not.toContain("name");
+    });
+
+    it("should track nested variable paths", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{user.name}} lives in {{user.city}}",
+        variables: { user: { name: "Alice" } },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.data?.usedVariables).toContain("user.name");
+      expect(result.data?.undefinedVariables).toContain("user.city");
+    });
+
+    it("should track variables with custom delimiters", async () => {
+      const input: TemplateRenderInput = {
+        template: "<<name>> and <<city>>",
+        variables: { name: "Alice" },
+        options: {
+          delimiters: { start: "<<", end: ">>" },
+        },
+      };
+      const context = createMockContext();
+      // Custom delimiters only affect extractVariables tracking, not Handlebars rendering
+      const result = await tool.execute(input, context);
+
+      // The template with custom delimiters is tracked by extractVariables
+      expect(result.data?.usedVariables).toContain("name");
     });
   });
 
@@ -312,6 +752,20 @@ describe("TemplateRenderTool", () => {
       expect(parsed.key).toBe("hello");
     });
 
+    it("should keep result as-is when format=json but output is not valid JSON", async () => {
+      const input: TemplateRenderInput = {
+        template: "not json: {{name}}",
+        variables: { name: "Alice" },
+        format: "json",
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      // When JSON.parse fails, it keeps original output
+      expect(result.success).toBe(true);
+      expect(result.data?.result).toContain("Alice");
+    });
+
     it("should return plain text for format=text", async () => {
       const input: TemplateRenderInput = {
         template: "Plain: {{value}}",
@@ -322,6 +776,33 @@ describe("TemplateRenderTool", () => {
       const result = await tool.execute(input, context);
 
       expect(result.data?.result).toBe("Plain: content");
+    });
+
+    it("should work with format=markdown", async () => {
+      const input: TemplateRenderInput = {
+        template: "# {{title}}\n\n{{body}}",
+        variables: { title: "My Doc", body: "Content here" },
+        format: "markdown",
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.result).toContain("My Doc");
+    });
+
+    it("should work with format=html", async () => {
+      const input: TemplateRenderInput = {
+        template: "<h1>{{title}}</h1>",
+        variables: { title: "Test" },
+        format: "html",
+        options: { escapeHtml: false },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.result).toContain("Test");
     });
   });
 
@@ -341,6 +822,50 @@ describe("TemplateRenderTool", () => {
 
       // In strict mode, Handlebars throws - BaseTool wraps it as success:false
       expect(result.success).toBe(false);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // escapeHtml option
+  // --------------------------------------------------------------------------
+
+  describe("escapeHtml option", () => {
+    it("should escape HTML when escapeHtml=true is explicitly set", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{content}}",
+        variables: { content: "<script>alert('xss')</script>" },
+        options: { escapeHtml: true },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      // HTML should be escaped
+      expect(result.data?.result).toContain("&lt;script&gt;");
+    });
+
+    it("should not escape HTML when escapeHtml=false (default behavior uses noEscape)", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{content}}",
+        variables: { content: "<b>bold</b>" },
+        options: { escapeHtml: false },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      // noEscape=true means raw HTML is output
+      expect(result.data?.result).toContain("<b>bold</b>");
+    });
+
+    it("should bypass escaping with triple braces", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{{content}}}",
+        variables: { content: "<b>bold</b>" },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      // Triple braces bypass escaping in Handlebars
+      expect(result.data?.result).toContain("<b>bold</b>");
     });
   });
 
@@ -372,6 +897,18 @@ describe("TemplateRenderTool", () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.result).toBe("Static content");
+    });
+
+    it("should handle deeply nested variable access", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{user.address.city}}",
+        variables: { user: { address: { city: "NYC" } } },
+      };
+      const context = createMockContext();
+      const result = await tool.execute(input, context);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.result).toBe("NYC");
     });
   });
 });
