@@ -47,12 +47,12 @@ function makeResource(overrides: Partial<Resource> = {}): Resource {
   return {
     _id: 'res-1',
     title: 'Test Resource',
-    type: 'file' as Resource['type'],
+    type: 'file',
     url: 'https://example.com/file.pdf',
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
     ...overrides,
-  } as Resource;
+  } as unknown as Resource;
 }
 
 function makeDocument(overrides: Partial<Document> = {}): Document {
@@ -233,11 +233,11 @@ describe('useResourceStore', () => {
   describe('updateResource', () => {
     it('should update resource fields by id', () => {
       const { result } = renderHook(() => useResourceStore());
-      act(() => { result.current.addResource(makeResource({ _id: 'res-1', title: 'Old' })); });
+      act(() => { result.current.addResource(makeResource({ _id: 'res-1', title: 'Old' } as unknown as Partial<Resource>)); });
 
-      act(() => { result.current.updateResource('res-1', { title: 'New' }); });
+      act(() => { result.current.updateResource('res-1', { title: 'New' } as unknown as Partial<Resource>); });
 
-      expect(result.current.resources[0].title).toBe('New');
+      expect((result.current.resources[0] as unknown as { title: string }).title).toBe('New');
     });
   });
 
@@ -520,19 +520,19 @@ describe('useDocumentStore', () => {
   describe('restoreVersion', () => {
     it('should restore document content from a saved version', () => {
       const { result } = renderHook(() => useDocumentStore());
-      const doc = makeDocument({ _id: 'doc-1', content: { text: 'Original' } as Document['content'] });
+      const doc = makeDocument({ _id: 'doc-1', content: { text: 'Original' } } as unknown as Partial<Document>);
       act(() => { result.current.addDocument(doc); });
 
       let versionId = '';
       act(() => { versionId = result.current.saveVersion('doc-1', 'manual', 'user_edit'); });
 
       // Modify content
-      act(() => { result.current.updateDocument('doc-1', { content: { text: 'Modified' } as Document['content'] }); });
+      act(() => { result.current.updateDocument('doc-1', { content: { text: 'Modified' } } as unknown as Partial<Document>); });
 
       // Restore
       act(() => { result.current.restoreVersion('doc-1', versionId); });
 
-      const restoredContent = result.current.documents[0].content as { text: string };
+      const restoredContent = result.current.documents[0].content as unknown as { text: string };
       expect(restoredContent.text).toBe('Original');
     });
   });

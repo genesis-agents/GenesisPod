@@ -489,7 +489,7 @@ describe('topicInsightsStore', () => {
   describe('fetchReports', () => {
     it('should set reports on success', async () => {
       const reports = [makeReport({ id: 'r-1' }), makeReport({ id: 'r-2' })];
-      mockApi.getReports.mockResolvedValue({ reports, hasMore: false, nextCursor: null });
+      mockApi.getReports.mockResolvedValue({ reports, hasMore: false, nextCursor: undefined });
 
       const { result } = getStore();
       await act(async () => { await result.current.fetchReports('topic-1'); });
@@ -515,7 +515,7 @@ describe('topicInsightsStore', () => {
       const second = [makeReport({ id: 'r-2' })];
 
       mockApi.getReports.mockResolvedValueOnce({ reports: first, hasMore: true, nextCursor: 'cursor-1' });
-      mockApi.getReports.mockResolvedValueOnce({ reports: second, hasMore: false, nextCursor: null });
+      mockApi.getReports.mockResolvedValueOnce({ reports: second, hasMore: false, nextCursor: undefined });
 
       const { result } = getStore();
       await act(async () => { await result.current.fetchReports('topic-1'); });
@@ -621,8 +621,8 @@ describe('topicInsightsStore', () => {
       const r1 = makeReport({ id: 'r-1' });
       const r2 = makeReport({ id: 'r-2' });
 
-      mockApi.getReports.mockResolvedValue({ reports: [r1, r2], hasMore: false, nextCursor: null });
-      mockApi.deleteReport.mockResolvedValue(undefined);
+      mockApi.getReports.mockResolvedValue({ reports: [r1, r2], hasMore: false, nextCursor: undefined });
+      mockApi.deleteReport.mockResolvedValue({ success: true, message: '' });
 
       const { result } = getStore();
       await act(async () => { await result.current.fetchReports('topic-1'); });
