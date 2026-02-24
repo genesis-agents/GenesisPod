@@ -72,6 +72,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import { TraceCollectorService } from "../../observability/trace-collector.service";
 import { CheckpointManager } from "../../orchestration/checkpoints/checkpoint-manager";
+import { A2AMessageBusService } from "../services/a2a-message-bus.service";
 import {
   ExecutionContext,
   StepResult,
@@ -112,10 +113,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   private readonly config: OrchestratorConfig;
   private readonly handoffCoordinator: HandoffCoordinator;
 
-  // 消息队列（模拟协作通信）
-  private readonly messageQueues = new LruMap<string, CollaborationMessage[]>(
-    500,
-  );
+  // ★ A2A 消息总线（Agent 间通信，可选依赖）
+  private readonly a2aBus?: A2AMessageBusService;
 
   // ★ 存储原始输入，不依赖 Memory 服务（修复数据丢失问题）
   private readonly originalInputs = new LruMap<string, MissionInput>(500);
@@ -144,6 +143,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     private readonly prismaService?: PrismaService,
     traceCollector?: TraceCollectorService,
     checkpointManager?: CheckpointManager,
+    a2aBus?: A2AMessageBusService,
     config?: Partial<OrchestratorConfig>,
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
@@ -179,6 +179,14 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     this.checkpointManager = checkpointManager;
     if (this.checkpointManager) {
       this.logger.log("CheckpointManager initialized for auto-checkpoint");
+    }
+
+    // ★ 存储 A2A Message Bus 引用（可选依赖）
+    this.a2aBus = a2aBus;
+    if (this.a2aBus) {
+      this.logger.log(
+        "A2AMessageBus initialized for inter-agent communication",
+      );
     }
   }
 
@@ -1071,14 +1079,16 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         reason: `执行步骤: ${step.name}`,
         context,
       },
-      // 发送消息回调
+      // 发送消息回调：通过 A2A Bus 广播 handoff 消息
       async (msg: CollaborationMessage) => {
         this.logger.debug(`Handoff message: ${leader.id} → ${member.id}`);
-        // 存储到消息队列
-        if (!this.messageQueues.has(missionId)) {
-          this.messageQueues.set(missionId, []);
-        }
-        this.messageQueues.get(missionId)!.push(msg);
+        void this.a2aBus?.publish({
+          sessionId: missionId,
+          fromAgentId: leader.id,
+          toAgentId: member.id,
+          type: "task_request",
+          payload: msg,
+        });
       },
       // 等待响应回调
       async (_fromAgentId: string, _timeout: number) => {
@@ -1928,7 +1938,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       });
       this.missionTraces.delete(missionId);
     }
-    this.messageQueues.delete(missionId);
+    this.a2aBus?.clearSession(missionId);
     this.originalInputs.delete(missionId);
   }
 

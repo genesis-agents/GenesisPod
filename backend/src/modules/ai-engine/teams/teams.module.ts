@@ -91,6 +91,7 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
         prismaService: PrismaService,
         traceCollector: TraceCollectorService,
         checkpointManager: CheckpointManager,
+        a2aBus: A2AMessageBusService,
       ) => {
         return new MissionOrchestrator(
           constraintEngine,
@@ -104,6 +105,7 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
           prismaService, // ★ 用于从数据库获取默认 AI 模型配置
           traceCollector, // ★ 用于执行链路可视化
           checkpointManager, // ★ 用于自动保存检查点
+          a2aBus, // ★ 用于 Agent 间消息通信
         );
       },
       inject: [
@@ -118,6 +120,7 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
         PrismaService,
         TraceCollectorService,
         CheckpointManager,
+        A2AMessageBusService,
       ],
     },
     // TeamsService 依赖所有上层服务

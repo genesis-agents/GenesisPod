@@ -59,6 +59,7 @@ describe("MissionOrchestrator", () => {
       undefined, // prismaService
       undefined, // traceCollector
       undefined, // checkpointManager
+      undefined, // a2aBus
       {
         enableAutoRetry: false,
         enableParallel: false,
@@ -480,7 +481,6 @@ describe("MissionOrchestrator", () => {
         prompt: "test",
         metadata: {},
       });
-      orchestrator["messageQueues"].set(missionId, []);
 
       // Cancel
       await orchestrator.cancel(missionId);
@@ -491,7 +491,6 @@ describe("MissionOrchestrator", () => {
 
       // Verify cleanup
       expect(orchestrator["originalInputs"].has(missionId)).toBe(false);
-      expect(orchestrator["messageQueues"].has(missionId)).toBe(false);
     });
 
     it("should handle cancellation of non-existent mission gracefully", async () => {
@@ -713,6 +712,7 @@ describe("MissionOrchestrator", () => {
         undefined,
         undefined,
         undefined,
+        undefined, // a2aBus
         {
           enableAutoRetry: false,
           maxRetries: 5,
@@ -731,7 +731,6 @@ describe("MissionOrchestrator", () => {
 
     it("should initialize internal data structures", () => {
       expect(orchestrator["states"]).toBeInstanceOf(Map);
-      expect(orchestrator["messageQueues"]).toBeDefined();
       expect(orchestrator["originalInputs"]).toBeDefined();
       expect(orchestrator["missionTraces"]).toBeDefined();
     });
