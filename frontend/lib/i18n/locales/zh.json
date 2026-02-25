@@ -3055,6 +3055,7 @@
       "monitoring": "监控管理",
       "mcpServer": "MCP 服务",
       "agents": "Agent 管理",
+      "traces": "执行追踪",
       "approvals": "审批管理",
       "eval": "评估管理",
       "researchTemplates": "研究模板"
@@ -3910,6 +3911,7 @@
       "cards": {
         "aiAskEntryDesc": "对话入口，通过 Agent OS 路由到合适的 AI 应用",
         "agentsDesc": "Agent 注册表，管理已注册的 AI Agent 配置",
+        "tracesDesc": "查看 Agent 任务的实时执行轨迹、调用链和状态",
         "intentRouter": "意图路由",
         "intentRouterDesc": "解析用户意图，自动调度到对应 AI 应用模块",
         "mcpServerDesc": "面向 AI Agent 的 MCP 协议端点",

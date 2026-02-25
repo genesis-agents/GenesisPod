@@ -91,11 +91,11 @@ const agentOsLayer: ArchitectureLayer = {
       clickable: false,
     },
     {
-      id: 'agents',
-      i18nKey: 'admin.nav.agents',
-      descriptionKey: 'admin.architecture.cards.agentsDesc',
-      href: '/admin/ai/agents',
-      icon: Cpu,
+      id: 'traces',
+      i18nKey: 'admin.nav.traces',
+      descriptionKey: 'admin.architecture.cards.tracesDesc',
+      href: '/admin/ai/traces',
+      icon: Activity,
       clickable: true,
     },
     {
@@ -274,6 +274,14 @@ const aiEngineLayer: ArchitectureLayer = {
       icon: Bot,
       clickable: true,
       stats: [{ label: '已配置', key: 'aiModels' }],
+    },
+    {
+      id: 'agents',
+      i18nKey: 'admin.nav.agents',
+      descriptionKey: 'admin.architecture.cards.agentsDesc',
+      href: '/admin/ai/agents',
+      icon: Cpu,
+      clickable: true,
     },
     {
       id: 'teams',

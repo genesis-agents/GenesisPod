@@ -3055,6 +3055,7 @@
       "externalServices": "External Services",
       "externalApi": "External API",
       "agents": "Agents",
+      "traces": "Execution Traces",
       "approvals": "Approvals",
       "eval": "Evaluation",
       "researchTemplates": "Research Templates"
@@ -3910,6 +3911,7 @@
       "cards": {
         "aiAskEntryDesc": "Conversation entry point — routes user intent to the right AI app via Agent OS",
         "agentsDesc": "Agent registry — manage registered AI agent configurations",
+        "tracesDesc": "View real-time execution traces, call chains, and status for agent tasks",
         "intentRouter": "Intent Router",
         "intentRouterDesc": "Parses user intent and dispatches to the appropriate AI app module",
         "mcpServerDesc": "MCP protocol endpoint for AI agent tool calls",
