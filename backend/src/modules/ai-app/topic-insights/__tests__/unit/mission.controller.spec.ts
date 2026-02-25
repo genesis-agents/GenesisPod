@@ -19,6 +19,7 @@ import {
   ResearchCheckpointService,
 } from "../../services";
 import { TopicAccessGuard } from "../../guards";
+import { AdminGuard } from "../../../../../common/guards/admin.guard";
 
 import { MOCK_MISSION_EXECUTING } from "../fixtures/topics.fixture";
 
@@ -104,6 +105,8 @@ describe("MissionController", () => {
       ],
     })
       .overrideGuard(TopicAccessGuard)
+      .useValue(mockGuard)
+      .overrideGuard(AdminGuard)
       .useValue(mockGuard)
       .compile();
 

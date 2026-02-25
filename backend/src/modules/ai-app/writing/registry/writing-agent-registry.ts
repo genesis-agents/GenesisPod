@@ -8,19 +8,16 @@
  */
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-// Non-conflicting types via facade
+// All types via facade
 import type {
   IAgent,
   AgentContext,
   AgentResult,
   AgentCapability,
   ExecutionPlan,
+  AgentIfaceOutput as AgentOutput,
+  AgentIfaceEvent as AgentEvent,
 } from "../../../ai-engine/facade";
-// AgentOutput/AgentEvent kept at internal path — facade export conflicts with orchestration types
-import type {
-  AgentOutput,
-  AgentEvent,
-} from "../../../ai-engine/agents/abstractions/agent.interface";
 
 // ==================== Writing Agent 接口 ====================
 
@@ -28,8 +25,10 @@ import type {
  * Writing Agent 接口
  * 所有 Writing Agents 必须实现此接口
  */
-export interface IWritingAgent<TInput = unknown, TOutput = unknown>
-  extends IAgent<TInput, TOutput> {
+export interface IWritingAgent<
+  TInput = unknown,
+  TOutput = unknown,
+> extends IAgent<TInput, TOutput> {
   /**
    * Agent 唯一标识
    */

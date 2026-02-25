@@ -80,13 +80,16 @@ export class CollectionsService {
 
   /**
    * 获取用户的所有收藏集
+   * 使用 _count 获取真实条目数，items 仅加载前 10 条预览，避免全量 eager load
    */
   async getUserCollections(userId: string) {
     const collections = await this.prisma.collection.findMany({
       where: { userId },
       include: {
+        _count: { select: { items: true } },
         items: {
-          include: {
+          select: {
+            id: true,
             resource: {
               select: {
                 id: true,
@@ -97,19 +100,16 @@ export class CollectionsService {
               },
             },
           },
-          orderBy: {
-            position: "asc",
-          },
+          orderBy: { position: "asc" },
+          take: 10,
         },
       },
-      orderBy: {
-        sortOrder: "asc",
-      },
+      orderBy: { sortOrder: "asc" },
     });
 
-    return collections.map((collection) => ({
+    return collections.map(({ _count, ...collection }) => ({
       ...collection,
-      itemCount: collection.items.length,
+      itemCount: _count.items,
     }));
   }
 
@@ -526,28 +526,26 @@ export class CollectionsService {
 
   /**
    * 获取用户的所有标签
+   * 使用 PostgreSQL JSONB 聚合，避免将全部数据加载到 JS 内存
    */
   async getUserTags(userId: string) {
-    const items = await this.prisma.collectionItem.findMany({
-      where: {
-        collection: { userId },
-      },
-      select: { tags: true },
-    });
+    const rows = await this.prisma.$queryRaw<{ name: string; count: bigint }[]>`
+      SELECT tag AS name, COUNT(*) AS count
+      FROM collection_items ci
+      JOIN collections c ON c.id = ci.collection_id
+      CROSS JOIN LATERAL jsonb_array_elements_text(
+        CASE
+          WHEN jsonb_typeof(ci.tags) = 'array' THEN ci.tags
+          ELSE '[]'::jsonb
+        END
+      ) AS tag
+      WHERE c.user_id = ${userId}
+        AND ci.tags IS NOT NULL
+      GROUP BY tag
+      ORDER BY count DESC
+    `;
 
-    const tagCounts: Record<string, number> = {};
-    items.forEach((item) => {
-      const tags = item.tags as string[] | null;
-      if (tags && Array.isArray(tags)) {
-        tags.forEach((tag: string) => {
-          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-        });
-      }
-    });
-
-    return Object.entries(tagCounts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+    return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
   }
 
   /**

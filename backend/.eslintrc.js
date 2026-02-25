@@ -1,7 +1,7 @@
 module.exports = {
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: "tsconfig.json",
+    project: ["tsconfig.json", "tsconfig.eslint.json"],
     tsconfigRootDir: __dirname,
     sourceType: "module",
   },
@@ -85,7 +85,12 @@ module.exports = {
   overrides: [
     {
       // Test files need special handling
-      files: ["**/*.spec.ts", "**/*.test.ts", "**/test/**/*.ts"],
+      files: [
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/test/**/*.ts",
+        "**/__tests__/**/*.ts",
+      ],
       rules: {
         // Jest's expect().toHaveBeenCalled() triggers this incorrectly
         "@typescript-eslint/unbound-method": "off",
@@ -96,6 +101,8 @@ module.exports = {
         "@typescript-eslint/no-unsafe-call": "off",
         "@typescript-eslint/no-unsafe-return": "off",
         "@typescript-eslint/no-unsafe-argument": "off",
+        // Test files may directly import internal paths for mocking purposes
+        "no-restricted-imports": "off",
       },
     },
     {
@@ -103,6 +110,10 @@ module.exports = {
       // See CLAUDE.md: "所有 AI App 模块只通过 AIEngineFacade 和 Registry 访问 AI Engine"
       files: ["**/modules/ai-app/**/*.ts"],
       excludedFiles: [
+        // Test files may directly import internals for mocking
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/__tests__/**/*.ts",
         // Agent files may extend BaseAgent/PlanBasedAgent (inheritance pattern)
         "**/agents/*.agent.ts",
         // Team config files must reference abstract interfaces
@@ -113,9 +124,7 @@ module.exports = {
         "**/office/common/content-analysis.service.ts",
         "**/office/common/content-analysis.types.ts",
         "**/office/common/image-matching.service.ts",
-        // WritingAgentRegistry bridges IAgent/AgentOutput/AgentEvent from agent.interface to the writing module;
-        // facade exports a different AgentOutput (facade.types.ts) so re-export is not possible without a name clash
-        "**/writing/registry/writing-agent-registry.ts",
+        // Note: writing-agent-registry.ts now imports AgentIfaceOutput/AgentIfaceEvent via facade alias
       ],
       rules: {
         "no-restricted-imports": [

@@ -405,6 +405,7 @@ model Collection {
   items CollectionItem[]
 
   @@index([userId])
+  @@index([userId, sortOrder])
   @@map("collections")
 }
 
@@ -430,6 +431,8 @@ model CollectionItem {
 
   @@unique([collectionId, resourceId])
   @@index([collectionId])
+  @@index([collectionId, addedAt(sort: Desc)])
+  @@index([collectionId, readStatus])
   @@index([resourceId])
   @@index([readStatus])
   @@map("collection_items")
@@ -6603,6 +6606,7 @@ model TopicCollaborator {
   // 索引
   @@unique([topicId, userId])
   @@index([userId])
+  @@index([userId, isActive])
   @@index([topicId, isActive])
   @@index([topicId, status])
   @@map("research_topic_collaborators")

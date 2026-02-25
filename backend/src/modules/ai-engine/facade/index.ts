@@ -159,7 +159,9 @@ export {
   parseErrorType,
 } from "../orchestration/utils/error-detection.utils";
 
-// Agent interface types（non-conflicting — AgentEvent/AgentOutput NOT re-exported to avoid conflict）
+// Agent interface types
+// AgentOutput/AgentEvent are aliased to avoid collision with facade.types.ts AgentOutput
+// and function-calling-executor.ts AgentEvent
 export type {
   IAgent,
   AgentContext,
@@ -176,6 +178,8 @@ export type {
   AgentDefinition,
   ReActPlanStep,
   AgentEventType,
+  AgentOutput as AgentIfaceOutput,
+  AgentEvent as AgentIfaceEvent,
 } from "../agents/abstractions/agent.interface";
 
 // Skills interfaces（for office slides module）

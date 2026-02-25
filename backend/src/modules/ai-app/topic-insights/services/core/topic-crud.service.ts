@@ -16,6 +16,7 @@ import {
   ResearchTopicStatus,
   RefreshFrequency,
   DimensionStatus,
+  Prisma,
   type TopicDimension,
 } from "@prisma/client";
 
@@ -119,51 +120,42 @@ export class TopicCrudService {
   async listTopics(userId: string, query: ListTopicsDto) {
     const { type, status, search, skip = 0, take = 20 } = query;
 
-    // 获取用户作为协作者的专题ID列表
-    const collaboratorTopicIds = await this.prisma.topicCollaborator
-      .findMany({
-        where: { userId, isActive: true },
-        select: { topicId: true },
-      })
-      .then((results) => results.map((r) => r.topicId));
-
-    // 使用原始SQL获取可见的专题ID
+    // 单次查询完成权限过滤，避免两步查询
     // 权限规则：
-    // 1. 自己创建的（任何visibility）
-    // 2. visibility为PUBLIC的
-    // 3. 自己是协作者的（visibility为SHARED）
-    const visibleTopicIds = await this.prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM research_topics
-      WHERE "user_id" = ${userId}
-         OR visibility = 'PUBLIC'
-         OR (visibility = 'SHARED' AND id = ANY(${collaboratorTopicIds}::text[]))
-    `;
-
-    const topicIds = visibleTopicIds.map((t) => t.id);
-
-    // 构建最终查询条件
-    const where: Record<string, unknown> = {
-      id: { in: topicIds },
+    // 1. 自己创建的（任何 visibility）
+    // 2. visibility 为 PUBLIC 的
+    // 3. 自己是协作者且 isActive=true 的（visibility 为 SHARED）
+    const visibilityFilter: Prisma.ResearchTopicWhereInput = {
+      OR: [
+        { userId },
+        { visibility: "PUBLIC" },
+        {
+          visibility: "SHARED",
+          collaborators: { some: { userId, isActive: true } },
+        },
+      ],
     };
 
+    const andFilters: Prisma.ResearchTopicWhereInput[] = [visibilityFilter];
+
     if (type) {
-      where.type = type;
+      andFilters.push({ type });
     }
 
     if (status) {
-      where.status = status;
+      andFilters.push({ status });
     }
 
     if (search) {
-      where.AND = [
-        {
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
-          ],
-        },
-      ];
+      andFilters.push({
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      });
     }
+
+    const where: Prisma.ResearchTopicWhereInput = { AND: andFilters };
 
     // 并行执行查询和计数
     const [rawTopics, total] = await Promise.all([

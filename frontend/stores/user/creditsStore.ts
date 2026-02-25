@@ -118,6 +118,9 @@ function getAuthHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${tokens.accessToken}` };
 }
 
+// 飞行中去重：防止多个组件同时触发重复请求
+const inFlight: Record<string, Promise<void>> = {};
+
 /**
  * 积分 Store
  */
@@ -135,48 +138,52 @@ export const useCreditsStore = create<CreditsState>()(
       checkinModalOpen: false,
       checkinResult: null,
 
-      // 获取余额（轻量级）
+      // 获取余额（轻量级）— 带飞行中去重，防止多组件并发重复请求
       fetchBalance: async () => {
-        try {
-          const response = await fetch(API_BASE + '/balance', {
-            headers: getAuthHeaders(),
-          });
-          // Silently ignore 401 - user not authenticated
-          if (response.status === 401) {
-            return;
-          }
-          if (!response.ok) throw new Error('Failed to fetch balance');
-
-          const result = await response.json();
-          if (result.success) {
-            const currentAccount = get().account;
-            set({
-              account: currentAccount
-                ? {
-                    ...currentAccount,
-                    balance: result.data.balance,
-                    isLow: result.data.isLow,
-                    isCritical: result.data.isCritical,
-                    todaySpent: result.data.todaySpent,
-                  }
-                : {
-                    balance: result.data.balance,
-                    totalEarned: 0,
-                    totalSpent: 0,
-                    giftBalance: 0,
-                    giftExpiresAt: null,
-                    isActive: true,
-                    isFrozen: false,
-                    todaySpent: result.data.todaySpent,
-                    isLow: result.data.isLow,
-                    isCritical: result.data.isCritical,
-                  },
-              error: null,
+        if (inFlight['balance']) return inFlight['balance'];
+        inFlight['balance'] = (async () => {
+          try {
+            const response = await fetch(API_BASE + '/balance', {
+              headers: getAuthHeaders(),
             });
+            // Silently ignore 401 - user not authenticated
+            if (response.status === 401) return;
+            if (!response.ok) throw new Error('Failed to fetch balance');
+
+            const result = await response.json();
+            if (result.success) {
+              const currentAccount = get().account;
+              set({
+                account: currentAccount
+                  ? {
+                      ...currentAccount,
+                      balance: result.data.balance,
+                      isLow: result.data.isLow,
+                      isCritical: result.data.isCritical,
+                      todaySpent: result.data.todaySpent,
+                    }
+                  : {
+                      balance: result.data.balance,
+                      totalEarned: 0,
+                      totalSpent: 0,
+                      giftBalance: 0,
+                      giftExpiresAt: null,
+                      isActive: true,
+                      isFrozen: false,
+                      todaySpent: result.data.todaySpent,
+                      isLow: result.data.isLow,
+                      isCritical: result.data.isCritical,
+                    },
+                error: null,
+              });
+            }
+          } catch (error) {
+            set({ error: (error as Error).message });
+          } finally {
+            delete inFlight['balance'];
           }
-        } catch (error) {
-          set({ error: (error as Error).message });
-        }
+        })();
+        return inFlight['balance'];
       },
 
       // 获取完整账户信息
@@ -204,25 +211,29 @@ export const useCreditsStore = create<CreditsState>()(
         }
       },
 
-      // 获取签到状态
+      // 获取签到状态 — 带飞行中去重
       fetchCheckinStatus: async () => {
-        try {
-          const response = await fetch(API_BASE + '/checkin/status', {
-            headers: getAuthHeaders(),
-          });
-          // Silently ignore 401 - user not authenticated
-          if (response.status === 401) {
-            return;
-          }
-          if (!response.ok) throw new Error('Failed to fetch checkin status');
+        if (inFlight['checkin']) return inFlight['checkin'];
+        inFlight['checkin'] = (async () => {
+          try {
+            const response = await fetch(API_BASE + '/checkin/status', {
+              headers: getAuthHeaders(),
+            });
+            // Silently ignore 401 - user not authenticated
+            if (response.status === 401) return;
+            if (!response.ok) throw new Error('Failed to fetch checkin status');
 
-          const result = await response.json();
-          if (result.success) {
-            set({ checkinStatus: result.data });
+            const result = await response.json();
+            if (result.success) {
+              set({ checkinStatus: result.data });
+            }
+          } catch {
+            // Silently fail - don't log error for checkin status
+          } finally {
+            delete inFlight['checkin'];
           }
-        } catch (error) {
-          // Silently fail - don't log error for checkin status
-        }
+        })();
+        return inFlight['checkin'];
       },
 
       // 执行签到

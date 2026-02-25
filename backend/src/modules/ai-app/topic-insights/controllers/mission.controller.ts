@@ -29,6 +29,7 @@ import {
 } from "../dto";
 import { CollaboratorRole } from "../dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { TopicAccessGuard, RequireTopicAccess } from "../guards";
 import {
   ResearchMissionService,
@@ -789,6 +790,7 @@ export class MissionController {
    * 手动触发健康检查
    */
   @Post("admin/health-check")
+  @UseGuards(AdminGuard)
   @ApiOperation({
     summary: "手动触发健康检查",
     description: "管理员手动触发所有活跃任务的健康检查",
@@ -799,7 +801,6 @@ export class MissionController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Add admin role check
     const result = await this.healthService.forceHealthCheck();
     return result;
   }

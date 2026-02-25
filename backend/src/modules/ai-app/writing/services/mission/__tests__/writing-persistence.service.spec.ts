@@ -68,7 +68,9 @@ describe("WritingPersistence", () => {
     });
 
     it("should throw when project not found", async () => {
-      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.verifyProjectAccess("nonexistent", "user-1"),
@@ -89,7 +91,9 @@ describe("WritingPersistence", () => {
   describe("createMissionRecord", () => {
     it("should create a mission record with correct type mapping", async () => {
       const mockMission = { id: "mission-1", projectId: "project-1" };
-      (mockPrisma.writingMission.create as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.create as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
 
       const input = {
         projectId: "project-1",
@@ -156,7 +160,9 @@ describe("WritingPersistence", () => {
   describe("updateMissionRecord", () => {
     it("should update mission to COMPLETED when result is success", async () => {
       const mockMission = { projectId: "project-1" };
-      (mockPrisma.writingMission.update as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.update as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
       (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue({
         currentWords: 5000,
       });
@@ -174,7 +180,9 @@ describe("WritingPersistence", () => {
 
     it("should update mission to FAILED when result is not success", async () => {
       const mockMission = { projectId: "project-1" };
-      (mockPrisma.writingMission.update as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.update as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
       (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue({
         currentWords: 0,
       });
@@ -195,7 +203,9 @@ describe("WritingPersistence", () => {
 
     it("should update project status based on word count", async () => {
       const mockMission = { projectId: "project-1" };
-      (mockPrisma.writingMission.update as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.update as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
       (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue({
         currentWords: 0,
       });
@@ -286,7 +296,9 @@ describe("WritingPersistence", () => {
           result: null,
         },
       ];
-      (mockPrisma.writingMission.findMany as jest.Mock).mockResolvedValue(mockMissions);
+      (mockPrisma.writingMission.findMany as jest.Mock).mockResolvedValue(
+        mockMissions,
+      );
       (mockPrisma.writingMission.count as jest.Mock).mockResolvedValue(1);
 
       const result = await service.getProjectMissions("project-1");
@@ -315,7 +327,9 @@ describe("WritingPersistence", () => {
         id: "mission-1",
         project: { ownerId: "user-1" },
       };
-      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
 
       const result = await service.getMissionStatus("mission-1", "user-1");
 
@@ -323,7 +337,9 @@ describe("WritingPersistence", () => {
     });
 
     it("should throw NotFoundException when mission not found", async () => {
-      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.getMissionStatus("nonexistent", "user-1"),
@@ -383,7 +399,9 @@ describe("WritingPersistence", () => {
         status: "IN_PROGRESS",
         project: { ownerId: "user-1" },
       };
-      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
       (mockPrisma.writingMission.update as jest.Mock).mockResolvedValue({});
 
       const result = await service.cancelMission("mission-1", "user-1");
@@ -404,7 +422,9 @@ describe("WritingPersistence", () => {
         status: "COMPLETED",
         project: { ownerId: "user-1" },
       };
-      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
 
       await expect(
         service.cancelMission("mission-1", "user-1"),
@@ -418,12 +438,21 @@ describe("WritingPersistence", () => {
         id: "mission-1",
         project: { ownerId: "user-1" },
       };
-      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(mockMission);
+      (mockPrisma.writingMission.findUnique as jest.Mock).mockResolvedValue(
+        mockMission,
+      );
 
       const mockLogs = [
-        { id: "log-1", missionId: "mission-1", eventType: "START", content: "开始" },
+        {
+          id: "log-1",
+          missionId: "mission-1",
+          eventType: "START",
+          content: "开始",
+        },
       ];
-      (mockPrisma.writingMissionLog.findMany as jest.Mock).mockResolvedValue(mockLogs);
+      (mockPrisma.writingMissionLog.findMany as jest.Mock).mockResolvedValue(
+        mockLogs,
+      );
 
       const result = await service.getMissionLogs("mission-1", "user-1");
 
@@ -520,6 +549,281 @@ describe("WritingPersistence", () => {
     });
   });
 
+  describe("saveGeneratedContent - additional paths", () => {
+    it("should skip content that starts with CONTINUATION_COMPLETE marker", async () => {
+      await service.saveGeneratedContent(
+        { projectId: "project-1", missionType: "chapter" } as any,
+        "[CONTINUATION_COMPLETE] done",
+        0,
+      );
+
+      expect(mockPrisma.writingChapter.update).not.toHaveBeenCalled();
+    });
+
+    it("should create volume and chapters for full_story mission type", async () => {
+      // createVolumeAndChapters path — no existing chapters, no existing volume
+      (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.writingVolume.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingVolume.create as jest.Mock).mockResolvedValue({
+        id: "vol-new",
+      });
+      (mockPrisma.writingChapter.create as jest.Mock).mockResolvedValue({});
+      // updateProjectWordCount
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-new", chapters: [{ wordCount: 1000 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      await service.saveGeneratedContent(
+        { projectId: "project-1", missionType: "full_story" } as any,
+        "第一章 开始\n故事内容",
+        1000,
+      );
+
+      expect(mockPrisma.writingVolume.create).toHaveBeenCalled();
+      expect(mockPrisma.writingChapter.create).toHaveBeenCalled();
+    });
+
+    it("should create volume and chapters for outline mission type", async () => {
+      (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.writingVolume.findFirst as jest.Mock).mockResolvedValue({
+        id: "existing-vol",
+      });
+      (mockPrisma.writingChapter.create as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "existing-vol", chapters: [{ wordCount: 500 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      await service.saveGeneratedContent(
+        { projectId: "project-1", missionType: "outline" } as any,
+        "内容文本",
+        500,
+      );
+
+      expect(mockPrisma.writingChapter.create).toHaveBeenCalled();
+    });
+
+    it("should update existing chapters when createVolumeAndChapters finds existing chapters", async () => {
+      // existingChapters are present → update path
+      const existingVolume = { id: "vol-1", projectId: "project-1" };
+      (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: "ch-1",
+          chapterNumber: 1,
+          volume: existingVolume,
+        },
+      ]);
+      (mockPrisma.writingChapter.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-1", chapters: [{ wordCount: 800 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      await service.saveGeneratedContent(
+        { projectId: "project-1", missionType: "full_story" } as any,
+        "第一章 更新内容\n正文",
+        800,
+      );
+
+      expect(mockPrisma.writingChapter.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "ch-1" },
+          data: expect.objectContaining({ status: "DRAFT" }),
+        }),
+      );
+    });
+
+    it("should save edit content for chapter mission with chapterId and story bible callback", async () => {
+      (mockPrisma.writingChapter.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue({
+        id: "chapter-1",
+        chapterNumber: 2,
+      });
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-1", chapters: [{ wordCount: 300 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      const storyBibleCallback = jest.fn().mockResolvedValue(undefined);
+
+      await service.saveGeneratedContent(
+        {
+          projectId: "project-1",
+          missionType: "edit",
+          chapterId: "chapter-1",
+        } as any,
+        "修改后内容",
+        300,
+        "mission-1",
+        "model-id",
+        storyBibleCallback,
+      );
+
+      expect(mockPrisma.writingChapter.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "chapter-1" } }),
+      );
+      expect(storyBibleCallback).toHaveBeenCalledWith(
+        "project-1",
+        "mission-1",
+        2,
+        "修改后内容",
+        "model-id",
+      );
+    });
+
+    it("should save edit to latest content when no chapterId provided", async () => {
+      // saveEditToLatestContent path: has latest volume and chapter
+      (mockPrisma.writingVolume.findFirst as jest.Mock).mockResolvedValue({
+        id: "vol-latest",
+      });
+      (mockPrisma.writingChapter.findFirst as jest.Mock).mockResolvedValue({
+        id: "ch-latest",
+      });
+      (mockPrisma.writingChapter.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-latest", chapters: [{ wordCount: 400 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      await service.saveGeneratedContent(
+        { projectId: "project-1", missionType: "edit" } as any,
+        "最新编辑内容",
+        400,
+      );
+
+      expect(mockPrisma.writingChapter.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "ch-latest" } }),
+      );
+    });
+
+    it("should create new chapter in latest volume when latest volume has no chapters", async () => {
+      (mockPrisma.writingVolume.findFirst as jest.Mock).mockResolvedValue({
+        id: "vol-empty",
+      });
+      (mockPrisma.writingChapter.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (mockPrisma.writingChapter.count as jest.Mock).mockResolvedValue(0);
+      (mockPrisma.writingChapter.create as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-empty", chapters: [] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      await service.saveGeneratedContent(
+        { projectId: "project-1", missionType: "edit" } as any,
+        "新建章节内容",
+        300,
+      );
+
+      expect(mockPrisma.writingChapter.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ volumeId: "vol-empty" }),
+        }),
+      );
+    });
+
+    it("should call story bible callback for chapter mission with volumeId", async () => {
+      (mockPrisma.writingChapter.count as jest.Mock).mockResolvedValue(2);
+      (mockPrisma.writingChapter.create as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-1", chapters: [{ wordCount: 500 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      const storyBibleCallback = jest.fn().mockResolvedValue(undefined);
+
+      await service.saveGeneratedContent(
+        {
+          projectId: "project-1",
+          missionType: "chapter",
+          volumeId: "volume-1",
+        } as any,
+        "新章节内容",
+        500,
+        "mission-1",
+        "model-id",
+        storyBibleCallback,
+      );
+
+      expect(storyBibleCallback).toHaveBeenCalledWith(
+        "project-1",
+        "mission-1",
+        2, // chapterCount returned by count mock
+        "新章节内容",
+        "model-id",
+      );
+    });
+
+    it("should not throw when an internal error occurs during save", async () => {
+      // Simulate prisma throwing during chapter findMany
+      (mockPrisma.writingChapter.findMany as jest.Mock).mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      await expect(
+        service.saveGeneratedContent(
+          { projectId: "project-1", missionType: "full_story" } as any,
+          "content",
+          100,
+        ),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("createVolumeAndChapters - new volume creation", () => {
+    it("should create new chapter in existing new volume when no existing chapters", async () => {
+      (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.writingVolume.findFirst as jest.Mock).mockResolvedValue({
+        id: "vol-existing",
+      });
+      (mockPrisma.writingChapter.create as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-existing", chapters: [{ wordCount: 200 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      await service.createVolumeAndChapters(
+        "project-1",
+        "plain content no chapters",
+        200,
+      );
+
+      expect(mockPrisma.writingChapter.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ volumeId: "vol-existing" }),
+        }),
+      );
+    });
+
+    it("should create chapter in existing chapters using firstVolume when new chapter number not found", async () => {
+      const existingVolume = { id: "vol-1", projectId: "project-1" };
+      // Only chapter 1 exists, content has 2 chapters
+      (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: "ch-1",
+          chapterNumber: 1,
+          volume: existingVolume,
+        },
+      ]);
+      (mockPrisma.writingChapter.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingChapter.create as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([
+        { id: "vol-1", chapters: [{ wordCount: 500 }] },
+      ]);
+      (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
+
+      // Content with 2 chapters so chapter 2 needs to be created
+      const content = "第一章 第一章内容\n内容\n第二章 第二章内容\n更多内容";
+      await service.createVolumeAndChapters("project-1", content, 500);
+
+      // Chapter 1 gets updated, Chapter 2 gets created
+      expect(mockPrisma.writingChapter.update).toHaveBeenCalled();
+      expect(mockPrisma.writingChapter.create).toHaveBeenCalled();
+    });
+  });
+
   describe("createOutlineStructure", () => {
     it("should create volumes and chapters from outline", async () => {
       (mockPrisma.writingVolume.findMany as jest.Mock).mockResolvedValue([]);
@@ -531,9 +835,21 @@ describe("WritingPersistence", () => {
 
       const outline = {
         core: { summary: "测试故事", genre: "fantasy", theme: "成长" },
-        volumes: [{ title: "第一卷", conflict: "主角困境", plot: "开始", emotion: "希望" }],
+        volumes: [
+          {
+            title: "第一卷",
+            conflict: "主角困境",
+            plot: "开始",
+            emotion: "希望",
+          },
+        ],
         chapters: [
-          { volumeIndex: 0, title: "第一章", plot: "相遇", keyPoint: "主角登场" },
+          {
+            volumeIndex: 0,
+            title: "第一章",
+            plot: "相遇",
+            keyPoint: "主角登场",
+          },
         ],
       };
 
@@ -549,7 +865,9 @@ describe("WritingPersistence", () => {
       ]);
       (mockPrisma.writingChapter.deleteMany as jest.Mock).mockResolvedValue({});
       (mockPrisma.writingVolume.deleteMany as jest.Mock).mockResolvedValue({});
-      (mockPrisma.writingVolume.create as jest.Mock).mockResolvedValue({ id: "vol-1" });
+      (mockPrisma.writingVolume.create as jest.Mock).mockResolvedValue({
+        id: "vol-1",
+      });
       (mockPrisma.writingChapter.count as jest.Mock).mockResolvedValue(0);
       (mockPrisma.writingChapter.create as jest.Mock).mockResolvedValue({});
 
