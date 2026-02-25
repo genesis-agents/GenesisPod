@@ -105,8 +105,8 @@ export * as Skills from "./skills";
 export * as Agents from "./agents";
 export * as Orchestration from "./orchestration";
 export * as Collaboration from "./collaboration";
-export * as Constraint from "./constraint";
-export * as Guardrails from "./guardrails";
+export * as Constraint from "./safety/constraint";
+export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
 export * as Memory from "./memory";
 export * as MCP from "./mcp";
@@ -118,7 +118,7 @@ export { ToolRegistry } from "./tools/registry";
 export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
 export { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
 export { LongTermMemoryService } from "./memory/stores/long-term-memory.service";
-export { GuardrailsPipelineService } from "./guardrails/guardrails-pipeline.service";
+export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
 // Teams 模块核心服务
 export {

@@ -59,8 +59,9 @@ describe("QualityRegistryService", () => {
       ],
     }).compile();
 
-    registryService =
-      module.get<QualityRegistryService>(QualityRegistryService);
+    registryService = module.get<QualityRegistryService>(
+      QualityRegistryService,
+    );
     qualityGateService = module.get<QualityGateService>(QualityGateService);
 
     // 静默 Logger
@@ -105,7 +106,10 @@ describe("QualityRegistryService", () => {
 
     it("metadata 被正确存储", () => {
       const checker = makeChecker("factual", "Factual", "Factual desc");
-      registryService.register(checker, { priority: 5, dependencies: ["diversity"] });
+      registryService.register(checker, {
+        priority: 5,
+        dependencies: ["diversity"],
+      });
       const meta = registryService.getMetadata("factual");
       expect(meta).toMatchObject<CheckerMetadata>({
         dimension: "factual",
@@ -164,9 +168,7 @@ describe("QualityRegistryService", () => {
         .spyOn(qualityGateService, "registerChecker")
         .mockImplementation(() => undefined);
       const checkers = [makeChecker("diversity"), makeChecker("coherence")];
-      registryService.registerBatch(
-        checkers.map((c) => ({ checker: c })),
-      );
+      registryService.registerBatch(checkers.map((c) => ({ checker: c })));
       expect(spy).toHaveBeenCalledTimes(2);
     });
 

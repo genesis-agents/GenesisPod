@@ -9,7 +9,7 @@ import {
   JsonRpcRequest,
   JsonRpcResponse,
 } from "../abstractions/mcp-server.interface";
-import { GuardrailsPipelineService } from "../../ai-engine/guardrails/guardrails-pipeline.service";
+import { GuardrailsPipelineService } from "../../ai-engine/safety/guardrails/guardrails-pipeline.service";
 import { MCPSessionManager } from "../gateway/mcp-session-manager";
 
 // Mock tool handler

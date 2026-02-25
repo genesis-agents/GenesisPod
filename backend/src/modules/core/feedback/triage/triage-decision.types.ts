@@ -5,6 +5,7 @@
  */
 
 import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../../../ai-engine/facade";
 
 // ============================================
 // 基础类型
@@ -262,8 +263,7 @@ export interface AutoFixThresholds {
 export interface TriageConfig {
   // AI 模型配置
   aiModel: string;
-  maxTokens: number;
-  temperature: number;
+  taskProfile: TaskProfile;
 
   // 自动修复配置
   autoFixEnabled: boolean;
@@ -284,8 +284,7 @@ export interface TriageConfig {
 
 export const DEFAULT_TRIAGE_CONFIG: TriageConfig = {
   aiModel: AIModelType.CHAT,
-  maxTokens: 2000,
-  temperature: 0.3,
+  taskProfile: { creativity: "low", outputLength: "short" },
 
   autoFixEnabled: true,
   autoFixThresholds: {

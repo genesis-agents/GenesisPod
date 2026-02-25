@@ -78,7 +78,9 @@ describe("SchemaValidator", () => {
     });
 
     it("passes for unknown type keyword (treated as any)", () => {
-      expect(validator.validate("anything", { type: "custom-type" }).valid).toBe(true);
+      expect(
+        validator.validate("anything", { type: "custom-type" }).valid,
+      ).toBe(true);
     });
   });
 
@@ -92,7 +94,9 @@ describe("SchemaValidator", () => {
     });
 
     it("fails when value is not in enum", () => {
-      const result = validator.validate("yellow", { enum: ["red", "green", "blue"] });
+      const result = validator.validate("yellow", {
+        enum: ["red", "green", "blue"],
+      });
       expect(result.valid).toBe(false);
       expect(result.errors?.[0].type).toBe("enum");
     });
@@ -128,7 +132,10 @@ describe("SchemaValidator", () => {
     });
 
     it("fails when required field has wrong type", () => {
-      const result = validator.validate({ name: "Alice", age: "thirty" }, schema);
+      const result = validator.validate(
+        { name: "Alice", age: "thirty" },
+        schema,
+      );
       expect(result.valid).toBe(false);
     });
 
@@ -146,9 +153,14 @@ describe("SchemaValidator", () => {
         properties: { name: { type: "string" } },
         additionalProperties: false,
       };
-      const result = validator.validate({ name: "Alice", extra: "bad" }, strictSchema);
+      const result = validator.validate(
+        { name: "Alice", extra: "bad" },
+        strictSchema,
+      );
       expect(result.valid).toBe(false);
-      expect(result.errors?.some((e) => e.type === "additionalProperties")).toBe(true);
+      expect(
+        result.errors?.some((e) => e.type === "additionalProperties"),
+      ).toBe(true);
     });
 
     it("validates nested properties", () => {
@@ -164,7 +176,10 @@ describe("SchemaValidator", () => {
           },
         },
       };
-      const result = validator.validate({ address: { city: "NYC" } }, nestedSchema);
+      const result = validator.validate(
+        { address: { city: "NYC" } },
+        nestedSchema,
+      );
       expect(result.valid).toBe(true);
     });
 
@@ -218,8 +233,12 @@ describe("SchemaValidator", () => {
           properties: { id: { type: "integer" } },
         },
       };
-      expect(validator.validate([{ id: 1 }, { id: 2 }], schema).valid).toBe(true);
-      expect(validator.validate([{ id: 1 }, { notId: "x" }], schema).valid).toBe(false);
+      expect(validator.validate([{ id: 1 }, { id: 2 }], schema).valid).toBe(
+        true,
+      );
+      expect(
+        validator.validate([{ id: 1 }, { notId: "x" }], schema).valid,
+      ).toBe(false);
     });
   });
 
@@ -227,7 +246,9 @@ describe("SchemaValidator", () => {
 
   describe("string constraints", () => {
     it("passes string meeting minLength", () => {
-      expect(validator.validate("hello", { type: "string", minLength: 3 }).valid).toBe(true);
+      expect(
+        validator.validate("hello", { type: "string", minLength: 3 }).valid,
+      ).toBe(true);
     });
 
     it("fails string below minLength", () => {
@@ -237,71 +258,115 @@ describe("SchemaValidator", () => {
     });
 
     it("passes string below maxLength", () => {
-      expect(validator.validate("hi", { type: "string", maxLength: 10 }).valid).toBe(true);
+      expect(
+        validator.validate("hi", { type: "string", maxLength: 10 }).valid,
+      ).toBe(true);
     });
 
     it("fails string above maxLength", () => {
-      const result = validator.validate("hello world", { type: "string", maxLength: 5 });
+      const result = validator.validate("hello world", {
+        type: "string",
+        maxLength: 5,
+      });
       expect(result.valid).toBe(false);
       expect(result.errors?.[0].type).toBe("maxLength");
     });
 
     it("passes string matching pattern", () => {
       expect(
-        validator.validate("abc123", { type: "string", pattern: "^[a-z0-9]+$" }).valid,
+        validator.validate("abc123", { type: "string", pattern: "^[a-z0-9]+$" })
+          .valid,
       ).toBe(true);
     });
 
     it("fails string not matching pattern", () => {
-      const result = validator.validate("ABC!", { type: "string", pattern: "^[a-z0-9]+$" });
+      const result = validator.validate("ABC!", {
+        type: "string",
+        pattern: "^[a-z0-9]+$",
+      });
       expect(result.valid).toBe(false);
       expect(result.errors?.[0].type).toBe("pattern");
     });
 
     describe("format: email", () => {
       it("passes valid email", () => {
-        expect(validator.validate("user@example.com", { type: "string", format: "email" }).valid).toBe(true);
+        expect(
+          validator.validate("user@example.com", {
+            type: "string",
+            format: "email",
+          }).valid,
+        ).toBe(true);
       });
 
       it("fails invalid email", () => {
-        expect(validator.validate("not-an-email", { type: "string", format: "email" }).valid).toBe(false);
+        expect(
+          validator.validate("not-an-email", {
+            type: "string",
+            format: "email",
+          }).valid,
+        ).toBe(false);
       });
     });
 
     describe("format: uri", () => {
       it("passes valid URI", () => {
-        expect(validator.validate("https://example.com/path", { type: "string", format: "uri" }).valid).toBe(true);
+        expect(
+          validator.validate("https://example.com/path", {
+            type: "string",
+            format: "uri",
+          }).valid,
+        ).toBe(true);
       });
 
       it("fails invalid URI", () => {
-        expect(validator.validate("not a url", { type: "string", format: "uri" }).valid).toBe(false);
+        expect(
+          validator.validate("not a url", { type: "string", format: "uri" })
+            .valid,
+        ).toBe(false);
       });
     });
 
     describe("format: date", () => {
       it("passes valid date string", () => {
-        expect(validator.validate("2024-01-15", { type: "string", format: "date" }).valid).toBe(true);
+        expect(
+          validator.validate("2024-01-15", { type: "string", format: "date" })
+            .valid,
+        ).toBe(true);
       });
 
       it("fails invalid date", () => {
-        expect(validator.validate("not-a-date", { type: "string", format: "date" }).valid).toBe(false);
+        expect(
+          validator.validate("not-a-date", { type: "string", format: "date" })
+            .valid,
+        ).toBe(false);
       });
     });
 
     describe("format: uuid", () => {
       it("passes valid UUID", () => {
         expect(
-          validator.validate("550e8400-e29b-41d4-a716-446655440000", { type: "string", format: "uuid" }).valid,
+          validator.validate("550e8400-e29b-41d4-a716-446655440000", {
+            type: "string",
+            format: "uuid",
+          }).valid,
         ).toBe(true);
       });
 
       it("fails invalid UUID", () => {
-        expect(validator.validate("not-a-uuid", { type: "string", format: "uuid" }).valid).toBe(false);
+        expect(
+          validator.validate("not-a-uuid", { type: "string", format: "uuid" })
+            .valid,
+        ).toBe(false);
       });
     });
 
     it("passes for unknown format (treated as valid)", () => {
-      expect(validator.validate("anything", { type: "string", format: "custom-format" }).valid).toBe(true);
+      expect(
+        validator.validate("anything", {
+          type: "string",
+          format: "custom-format",
+        }).valid,
+      ).toBe(true);
     });
   });
 
@@ -309,7 +374,9 @@ describe("SchemaValidator", () => {
 
   describe("number constraints", () => {
     it("passes number >= minimum", () => {
-      expect(validator.validate(5, { type: "number", minimum: 5 }).valid).toBe(true);
+      expect(validator.validate(5, { type: "number", minimum: 5 }).valid).toBe(
+        true,
+      );
     });
 
     it("fails number < minimum", () => {
@@ -319,7 +386,9 @@ describe("SchemaValidator", () => {
     });
 
     it("passes number <= maximum", () => {
-      expect(validator.validate(10, { type: "number", maximum: 10 }).valid).toBe(true);
+      expect(
+        validator.validate(10, { type: "number", maximum: 10 }).valid,
+      ).toBe(true);
     });
 
     it("fails number > maximum", () => {
@@ -339,10 +408,7 @@ describe("SchemaValidator", () => {
 
   describe("oneOf", () => {
     const schema: JsonSchema = {
-      oneOf: [
-        { type: "string" },
-        { type: "number" },
-      ],
+      oneOf: [{ type: "string" }, { type: "number" }],
     };
 
     it("passes when exactly one schema matches", () => {
@@ -357,10 +423,7 @@ describe("SchemaValidator", () => {
     it("fails when more than one schema matches", () => {
       // Both string and null wouldn't match both; but string/string would
       const bothMatch: JsonSchema = {
-        oneOf: [
-          { type: "string" },
-          { type: "string", minLength: 1 },
-        ],
+        oneOf: [{ type: "string" }, { type: "string", minLength: 1 }],
       };
       // "hello" matches both -> should fail
       expect(validator.validate("hello", bothMatch).valid).toBe(false);

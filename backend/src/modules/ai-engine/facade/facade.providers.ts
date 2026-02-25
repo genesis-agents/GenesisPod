@@ -19,8 +19,8 @@ import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.servi
 import { EngineEventEmitterService } from "../realtime/services/engine-event-emitter.service";
 import { ProgressTrackerService } from "../realtime/services/progress-tracker.service";
 // ★ Constraint Feature 依赖
-import { RateLimiter } from "../constraint/guardrails/rate-limiter";
-import { CostController } from "../constraint/guardrails/cost-controller";
+import { RateLimiter } from "../safety/constraint/guardrails/rate-limiter";
+import { CostController } from "../safety/constraint/guardrails/cost-controller";
 
 // ============================================================================
 // Feature Interfaces (re-export from facade)

@@ -17,6 +17,9 @@ import {
   getKnownModelLimit,
 } from "../../ai-engine/llm/types";
 
+/** Minimal model for Perplexity balance check */
+const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";
+
 type ExternalProvider = {
   id: string;
   name: string;
@@ -1989,7 +1992,7 @@ export class AdminService {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "llama-3.1-sonar-small-128k-online",
+            model: PERPLEXITY_VALIDATION_MODEL,
             messages: [{ role: "user", content: "hi" }],
             max_tokens: 1,
           }),

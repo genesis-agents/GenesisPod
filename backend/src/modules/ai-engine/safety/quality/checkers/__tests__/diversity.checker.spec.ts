@@ -143,7 +143,8 @@ describe("DiversityChecker", () => {
     it("句子长度方差较小（variance < 5）时输出 LOW_SENTENCE_VARIETY", async () => {
       // 所有句子等长（方差约为0）
       const sentence = "abcdefghij";
-      const content = Array.from({ length: 10 }, () => sentence).join("。") + "。";
+      const content =
+        Array.from({ length: 10 }, () => sentence).join("。") + "。";
       const result = await checker.check(content);
       const codes = result.issues.map((i) => i.code);
       expect(codes).toContain("LOW_SENTENCE_VARIETY");
@@ -307,8 +308,7 @@ describe("DiversityChecker", () => {
       const c = mod.get<DiversityChecker>(DiversityChecker);
       const repeated = "abc abc abc abc abc abc ".repeat(20);
       const uniform = "abcde".repeat(10);
-      const block =
-        Array.from({ length: 10 }, () => uniform).join("。") + "。";
+      const block = Array.from({ length: 10 }, () => uniform).join("。") + "。";
       const result = await c.check(repeated + block);
       expect(result.issues.length).toBeLessThanOrEqual(1);
     });

@@ -249,7 +249,9 @@ describe("FactualChecker", () => {
       const content =
         "有人说这个。据说那个。有研究表明另一个。专家认为还有这个。";
       const result = await checker.check(content);
-      const vagueIssues = result.issues.filter((i) => i.code === "VAGUE_SOURCE");
+      const vagueIssues = result.issues.filter(
+        (i) => i.code === "VAGUE_SOURCE",
+      );
       expect(vagueIssues.length).toBeLessThanOrEqual(3);
     });
   });

@@ -8,7 +8,7 @@ import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
 import { AIMetricsService } from "../../../core/monitoring";
-import { GuardrailsPipelineService } from "../../guardrails/guardrails-pipeline.service";
+import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import {
   CircuitBreakerService,
   TaskCompletionType,

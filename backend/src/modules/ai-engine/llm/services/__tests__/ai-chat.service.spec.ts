@@ -9,7 +9,7 @@ import {
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
 import { AIMetricsService } from "../../../../core/monitoring";
-import { GuardrailsPipelineService } from "../../../guardrails/guardrails-pipeline.service";
+import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 import { CircuitBreakerService } from "../../../orchestration/services/circuit-breaker.service";
 import { AiConnectionTestService } from "../ai-connection-test.service";
 import { AiModelDiscoveryService } from "../ai-model-discovery.service";
@@ -1600,7 +1600,9 @@ describe("AiChatService", () => {
         tokensUsed: 10,
       });
 
-      await expect(service.validateAIServiceAvailability()).resolves.not.toThrow();
+      await expect(
+        service.validateAIServiceAvailability(),
+      ).resolves.not.toThrow();
     });
   });
 

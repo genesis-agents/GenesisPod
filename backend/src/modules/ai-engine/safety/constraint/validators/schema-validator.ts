@@ -4,7 +4,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { ValidationResult, ValidationIssue } from "../../core";
+import { ValidationResult, ValidationIssue } from "../../../core";
 
 /**
  * JSON Schema 定义（简化版）

@@ -98,7 +98,7 @@ export class FeishuService implements OnModuleDestroy {
     this.cleanupInterval = setInterval(
       () => this.cleanupProcessedEvents(),
       60000,
-    );
+    ).unref();
   }
 
   onModuleDestroy() {

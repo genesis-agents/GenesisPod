@@ -22,6 +22,9 @@ import * as crypto from "crypto";
 /** Valid provider name pattern */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
 
+/** Minimal model for Anthropic API key validation (cheapest available) */
+const ANTHROPIC_VALIDATION_MODEL = "claude-3-haiku-20240307";
+
 /** Provider 默认 API 端点和测试模型映射 */
 const PROVIDER_DEFAULTS: Record<
   string,
@@ -652,7 +655,7 @@ export class UserApiKeysService {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "claude-3-haiku-20240307",
+              model: ANTHROPIC_VALIDATION_MODEL,
               max_tokens: 1,
               messages: [{ role: "user", content: "." }],
             }),

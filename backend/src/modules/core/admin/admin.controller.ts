@@ -21,6 +21,9 @@ import { SecretsService } from "../secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { CreateUserDto } from "./dto/create-user.dto";
 
+/** Minimal model for Perplexity API key validation */
+const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";
+
 /**
  * 管理员控制器
  * 所有接口都需要管理员权限
@@ -779,7 +782,7 @@ export class AdminController {
           httpService.post(
             "https://api.perplexity.ai/chat/completions",
             {
-              model: "llama-3.1-sonar-small-128k-online",
+              model: PERPLEXITY_VALIDATION_MODEL,
               messages: [
                 {
                   role: "user",

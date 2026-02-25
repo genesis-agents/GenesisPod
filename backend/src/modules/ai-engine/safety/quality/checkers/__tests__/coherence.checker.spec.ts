@@ -187,7 +187,8 @@ describe("CoherenceChecker", () => {
       // 含「认为」等主张词，不含「因为/例如」等依据词，超过500字
       // "这很重要。" 是5字 × 100 = 500字，content.length > 500 不满足
       // 将主张词放在最前，通过重复使字数超过501字
-      const claim = "我认为这是正确的。我们应该这样做。必须采取行动。建议立即执行。";
+      const claim =
+        "我认为这是正确的。我们应该这样做。必须采取行动。建议立即执行。";
       const padding = "内容继续。".repeat(100); // 6字 × 100 = 600字
       const content = claim + padding;
       const result = await checker.check(content);
@@ -196,7 +197,8 @@ describe("CoherenceChecker", () => {
     });
 
     it("有依据时不输出 CLAIM_WITHOUT_EVIDENCE", async () => {
-      const claim = "我认为这是正确的。因为研究表明这样做效果更好。例如案例显示。";
+      const claim =
+        "我认为这是正确的。因为研究表明这样做效果更好。例如案例显示。";
       const padding = "内容继续。".repeat(100);
       const content = claim + padding;
       const result = await checker.check(content);
@@ -319,9 +321,7 @@ describe("CoherenceChecker", () => {
       const checkerMax1 = mod.get<CoherenceChecker>(CoherenceChecker);
       // 触发多个问题的内容
       const content =
-        "认为应该必须。".repeat(10) +
-        "内".repeat(600) +
-        "内".repeat(1500);
+        "认为应该必须。".repeat(10) + "内".repeat(600) + "内".repeat(1500);
       const result = await checkerMax1.check(content);
       expect(result.issues.length).toBeLessThanOrEqual(1);
     });

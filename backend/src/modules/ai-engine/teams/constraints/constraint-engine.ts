@@ -31,7 +31,7 @@ import {
   CostBreakdown,
   DegradationStrategy,
 } from "./constraint-engine.interface";
-import { CostController } from "../../constraint/guardrails/cost-controller";
+import { CostController } from "../../safety/constraint/guardrails/cost-controller";
 
 /**
  * 模型成本配置（每 1K tokens）

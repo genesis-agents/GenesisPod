@@ -20,7 +20,7 @@ import {
   MCPToolResponse,
   JSON_RPC_ERRORS,
 } from "./abstractions/mcp-server.interface";
-import { GuardrailsPipelineService } from "../ai-engine/guardrails/guardrails-pipeline.service";
+import { GuardrailsPipelineService } from "../ai-engine/safety/guardrails/guardrails-pipeline.service";
 import { MCPToolBridgeService } from "./bridge/mcp-tool-bridge.service";
 import { MCPResourceProvider } from "./bridge/mcp-resource-provider";
 import { MCPPromptProvider } from "./bridge/mcp-prompt-provider";
@@ -148,7 +148,7 @@ export class MCPServerService implements OnModuleInit {
       return { jsonrpc: "2.0", id: request.id, result };
     } catch (error) {
       if (isNotification) return null;
-      const errObj = error as unknown as Record<string, unknown>;
+      const errObj = error as Record<string, unknown>;
       const code =
         (errObj.code as number) || JSON_RPC_ERRORS.INTERNAL_ERROR.code;
       // 仅暴露已知错误码的消息，内部错误只返回通用文本
@@ -361,7 +361,7 @@ export class MCPServerService implements OnModuleInit {
           context,
         );
         source =
-          this.toolBridge.getBridgedToolMeta(toolName)?.source || "bridge";
+          this.toolBridge.getBridgedToolMeta(toolName)?.source ?? "bridge";
       } else {
         const error = new Error(`Unknown tool: ${toolName}`);
         (error as unknown as Record<string, unknown>).code =
@@ -427,7 +427,7 @@ export class MCPServerService implements OnModuleInit {
         source,
       });
 
-      if ((error as unknown as Record<string, unknown>).code) {
+      if ((error as Record<string, unknown>).code) {
         throw error;
       }
 
@@ -604,7 +604,7 @@ export class MCPServerService implements OnModuleInit {
     }
 
     const bridgeStats = this.toolBridge?.getStats();
-    const bridgedCount = bridgeStats?.total || 0;
+    const bridgedCount = bridgeStats?.total ?? 0;
 
     if (this.toolBridge) {
       for (const bt of this.toolBridge.listBridgedTools()) {
@@ -780,7 +780,7 @@ export class MCPServerService implements OnModuleInit {
       }
 
       // By source
-      const source = metric.source || "curated";
+      const source = metric.source ?? "curated";
       bySource[source] = (bySource[source] || 0) + 1;
     }
 

@@ -271,8 +271,7 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
         { role: "user", content: userPrompt },
       ],
       model: modelName,
-      maxTokens: this.config.maxTokens,
-      temperature: this.config.temperature,
+      taskProfile: this.config.taskProfile,
     });
 
     this.logger.debug(

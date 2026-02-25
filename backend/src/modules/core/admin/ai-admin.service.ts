@@ -206,10 +206,7 @@ import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.s
 import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
 import { SecretsService } from "../secrets/secrets.service";
 import { SearchService } from "../../ai-engine/search/search.service";
-import {
-  MultiKeyRegistry,
-  KeyHealthStatus,
-} from "../../ai-engine/common/multi-key-manager";
+import { MultiKeyRegistry, KeyHealthStatus } from "../../ai-engine/common";
 
 /**
  * AI 能力管理服务

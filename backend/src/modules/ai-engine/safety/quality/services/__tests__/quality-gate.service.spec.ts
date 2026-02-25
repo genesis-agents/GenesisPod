@@ -244,7 +244,9 @@ describe("QualityGateService", () => {
     it("非严格模式下任一分数低于阈值时 passed=false", async () => {
       service.registerChecker(makeChecker("diversity", 90));
       service.registerChecker(makeChecker("coherence", 40)); // 低于阈值 60
-      const config = makeConfig(["diversity", "coherence"], { strictMode: false });
+      const config = makeConfig(["diversity", "coherence"], {
+        strictMode: false,
+      });
       const result = await service.evaluate("内容", config);
       expect(result.passed).toBe(false);
     });
@@ -252,7 +254,9 @@ describe("QualityGateService", () => {
     it("严格模式下所有分数均达阈值时 passed=true", async () => {
       service.registerChecker(makeChecker("diversity", 70));
       service.registerChecker(makeChecker("coherence", 75));
-      const config = makeConfig(["diversity", "coherence"], { strictMode: true });
+      const config = makeConfig(["diversity", "coherence"], {
+        strictMode: true,
+      });
       const result = await service.evaluate("内容", config);
       expect(result.passed).toBe(true);
     });
@@ -260,7 +264,9 @@ describe("QualityGateService", () => {
     it("严格模式下任一分数低于阈值时 passed=false", async () => {
       service.registerChecker(makeChecker("diversity", 90));
       service.registerChecker(makeChecker("coherence", 50)); // 低于阈值 60
-      const config = makeConfig(["diversity", "coherence"], { strictMode: true });
+      const config = makeConfig(["diversity", "coherence"], {
+        strictMode: true,
+      });
       const result = await service.evaluate("内容", config);
       expect(result.passed).toBe(false);
     });
@@ -367,7 +373,9 @@ describe("QualityGateService", () => {
 
     it("score < 40 时为 reject", async () => {
       service.registerChecker(makeChecker("diversity", 35));
-      const config = makeConfig(["diversity"], { thresholds: { diversity: 10 } });
+      const config = makeConfig(["diversity"], {
+        thresholds: { diversity: 10 },
+      });
       const result = await service.evaluate("内容", config);
       expect(result.recommendation).toBe("reject");
     });
@@ -420,9 +428,11 @@ describe("QualityGateService", () => {
         dimension: "diversity",
         name: "slow",
         isAvailable: () => true,
-        check: jest.fn().mockImplementation(
-          () => new Promise((resolve) => setTimeout(resolve, 5000)),
-        ),
+        check: jest
+          .fn()
+          .mockImplementation(
+            () => new Promise((resolve) => setTimeout(resolve, 5000)),
+          ),
       };
       service.registerChecker(slowChecker);
       const config = makeConfig(["diversity"]);

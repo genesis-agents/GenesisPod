@@ -107,7 +107,8 @@ describe("ConsistencyChecker", () => {
     });
 
     it("仅使用第一人称时不输出 PERSON_INCONSISTENCY", async () => {
-      const content = "我们认为这很重要。我们做了测试。我们发现结果。我们继续分析。";
+      const content =
+        "我们认为这很重要。我们做了测试。我们发现结果。我们继续分析。";
       const result = await checker.check(content);
       const codes = result.issues.map((i) => i.code);
       expect(codes).not.toContain("PERSON_INCONSISTENCY");
@@ -220,10 +221,7 @@ describe("ConsistencyChecker", () => {
         contentType: "article",
         previousContent: '这是之前提到的"某系统"的内容。',
       };
-      const result = await checker.check(
-        '这里提到了"某平台"的功能。',
-        context,
-      );
+      const result = await checker.check('这里提到了"某平台"的功能。', context);
       // 不报错也属正常（仅代表无同名实体）
       expect(result.dimension).toBe("consistency");
     });

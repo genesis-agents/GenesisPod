@@ -18,6 +18,9 @@ import {
   QuotaStatus,
 } from "../quota.types";
 
+/** Minimal model for Anthropic quota check (cheapest available) */
+const ANTHROPIC_VALIDATION_MODEL = "claude-3-haiku-20240307";
+
 @Injectable()
 export class AnthropicQuotaProvider extends BaseQuotaProvider {
   readonly provider = "anthropic";
@@ -45,7 +48,7 @@ export class AnthropicQuotaProvider extends BaseQuotaProvider {
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
+          model: ANTHROPIC_VALIDATION_MODEL,
           max_tokens: 1,
           messages: [{ role: "user", content: "Hi" }],
         }),

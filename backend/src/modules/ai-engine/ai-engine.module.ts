@@ -36,7 +36,7 @@ import { AiEngineMemoryModule } from "./ai-engine-memory.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 // ★ P2 能力下沉：新增子模块导入
 import { EvidenceModule } from "./evidence/evidence.module";
-import { QualityModule } from "./quality/quality.module";
+import { QualityModule } from "./safety/quality/quality.module";
 import { CollaborationModule } from "./collaboration/collaboration.module";
 import { RealtimeModule } from "./realtime/realtime.module";
 
@@ -335,7 +335,7 @@ export class AiEngineModule implements OnModuleInit {
       );
     } catch (error) {
       this.logger.error(
-        `[T4] Failed to validate ToolConfig sync: ${error instanceof Error ? error.message : error}`,
+        `[T4] Failed to validate ToolConfig sync: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

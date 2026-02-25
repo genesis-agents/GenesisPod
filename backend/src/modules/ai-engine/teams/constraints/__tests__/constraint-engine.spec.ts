@@ -4,12 +4,14 @@
 
 import { ConstraintEngine } from "../constraint-engine";
 import {
-  ConstraintProfile,
   createConstraintProfile,
   getDefaultConstraintProfile,
 } from "../constraint-profile";
-import { ResourceUsage, ConstraintViolation } from "../constraint-engine.interface";
-import { CostController } from "../../../constraint/guardrails/cost-controller";
+import {
+  ResourceUsage,
+  ConstraintViolation,
+} from "../constraint-engine.interface";
+import { CostController } from "../../../safety/constraint/guardrails/cost-controller";
 
 // ==================== Helpers ====================
 
@@ -55,7 +57,12 @@ describe("ConstraintEngine - validate", () => {
 
   it("should report violation when budget <= 0", () => {
     const profile = createConstraintProfile("balanced", {
-      cost: { budget: 0, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 0.7 },
+      cost: {
+        budget: 0,
+        modelPreference: "balanced",
+        allowOverBudget: false,
+        warningThreshold: 0.7,
+      },
     });
     const result = engine.validate(profile);
     expect(result.valid).toBe(false);
@@ -143,7 +150,9 @@ describe("ConstraintEngine - evaluate - cost", () => {
     const eval_ = engine.evaluate(profile, usage);
 
     expect(eval_.cost.status).toBe("exceeded");
-    expect(eval_.violations.some((v) => v.code === "BUDGET_EXCEEDED")).toBe(true);
+    expect(eval_.violations.some((v) => v.code === "BUDGET_EXCEEDED")).toBe(
+      true,
+    );
     expect(eval_.satisfied).toBe(false);
   });
 });
@@ -179,14 +188,18 @@ describe("ConstraintEngine - evaluate - quality", () => {
     const usage = makeUsage({ qualityScore: 5 });
     const eval_ = engine.evaluate(profile, usage);
     expect(eval_.quality.status).toBe("poor");
-    expect(eval_.violations.some((v) => v.code === "QUALITY_BELOW_THRESHOLD")).toBe(true);
+    expect(
+      eval_.violations.some((v) => v.code === "QUALITY_BELOW_THRESHOLD"),
+    ).toBe(true);
   });
 
   it("should warn when max reworks reached", () => {
     const profile = getDefaultConstraintProfile(); // maxReworks=2
     const usage = makeUsage({ qualityScore: 8, reworkCount: 2 });
     const eval_ = engine.evaluate(profile, usage);
-    expect(eval_.warnings.some((w) => w.code === "MAX_REWORKS_REACHED")).toBe(true);
+    expect(eval_.warnings.some((w) => w.code === "MAX_REWORKS_REACHED")).toBe(
+      true,
+    );
   });
 });
 
@@ -233,14 +246,22 @@ describe("ConstraintEngine - evaluate - healthScore", () => {
 
   it("should return high health score for all-healthy usage", () => {
     const profile = getDefaultConstraintProfile();
-    const usage = makeUsage({ costUsed: 50, timeElapsed: 100000, qualityScore: 9 });
+    const usage = makeUsage({
+      costUsed: 50,
+      timeElapsed: 100000,
+      qualityScore: 9,
+    });
     const eval_ = engine.evaluate(profile, usage);
     expect(eval_.healthScore).toBeGreaterThan(0.8);
   });
 
   it("should return low health score for exceeded budget and poor quality", () => {
     const profile = getDefaultConstraintProfile();
-    const usage = makeUsage({ costUsed: 600, timeElapsed: 2000000, qualityScore: 3 });
+    const usage = makeUsage({
+      costUsed: 600,
+      timeElapsed: 2000000,
+      qualityScore: 3,
+    });
     const eval_ = engine.evaluate(profile, usage);
     expect(eval_.healthScore).toBeLessThan(0.5);
   });
@@ -264,10 +285,19 @@ describe("ConstraintEngine - allocate", () => {
 
   it("should downgrade model tier when estimated cost is too high", () => {
     const profile = createConstraintProfile("balanced", {
-      cost: { budget: 1, modelPreference: "premium", allowOverBudget: false, warningThreshold: 0.7 },
+      cost: {
+        budget: 1,
+        modelPreference: "premium",
+        allowOverBudget: false,
+        warningThreshold: 0.7,
+      },
     });
     const alloc = engine.allocate(
-      { estimatedTokens: 100000, estimatedDuration: 60000, parallelismNeeded: 1 },
+      {
+        estimatedTokens: 100000,
+        estimatedDuration: 60000,
+        parallelismNeeded: 1,
+      },
       profile,
     );
     // Should downgrade from premium
@@ -276,7 +306,12 @@ describe("ConstraintEngine - allocate", () => {
 
   it("should limit parallelism to constraint max", () => {
     const profile = createConstraintProfile("balanced", {
-      efficiency: { maxDuration: 1800000, priority: "normal", allowParallel: true, maxParallelism: 2 },
+      efficiency: {
+        maxDuration: 1800000,
+        priority: "normal",
+        allowParallel: true,
+        maxParallelism: 2,
+      },
     });
     const alloc = engine.allocate(
       { estimatedTokens: 1000, estimatedDuration: 60000, parallelismNeeded: 5 },
@@ -287,7 +322,12 @@ describe("ConstraintEngine - allocate", () => {
 
   it("should set parallelism to 1 when parallel is not allowed", () => {
     const profile = createConstraintProfile("balanced", {
-      efficiency: { maxDuration: 1800000, priority: "normal", allowParallel: false, maxParallelism: 3 },
+      efficiency: {
+        maxDuration: 1800000,
+        priority: "normal",
+        allowParallel: false,
+        maxParallelism: 3,
+      },
     });
     const alloc = engine.allocate(
       { estimatedTokens: 1000, estimatedDuration: 60000, parallelismNeeded: 3 },
@@ -316,7 +356,11 @@ describe("ConstraintEngine - estimateCost", () => {
   it("should flag over budget for large token count", () => {
     const profile = createConstraintProfile("fast"); // budget=100
     const estimate = engine.estimateCost(
-      { estimatedTokens: 10000000, estimatedDuration: 60000, parallelismNeeded: 1 },
+      {
+        estimatedTokens: 10000000,
+        estimatedDuration: 60000,
+        parallelismNeeded: 1,
+      },
       profile,
     );
     expect(estimate.withinBudget).toBe(false);
@@ -328,14 +372,22 @@ describe("ConstraintEngine - estimateCost", () => {
     const profileNoReview = createConstraintProfile("fast"); // reviewRequired=false
 
     const tokens = 5000;
-    const req = { estimatedTokens: tokens, estimatedDuration: 60000, parallelismNeeded: 1 };
+    const req = {
+      estimatedTokens: tokens,
+      estimatedDuration: 60000,
+      parallelismNeeded: 1,
+    };
 
     const withReview = engine.estimateCost(req, profileWithReview);
     const noReview = engine.estimateCost(req, profileNoReview);
 
     // With review should have higher or equal cost due to review overhead
-    expect(withReview.breakdown.some((b) => b.category === "质量审核")).toBe(true);
-    expect(noReview.breakdown.some((b) => b.category === "质量审核")).toBe(false);
+    expect(withReview.breakdown.some((b) => b.category === "质量审核")).toBe(
+      true,
+    );
+    expect(noReview.breakdown.some((b) => b.category === "质量审核")).toBe(
+      false,
+    );
   });
 });
 
@@ -389,7 +441,9 @@ describe("ConstraintEngine - suggestDegradation", () => {
     const violation = makeViolation("cost");
     const strategies = engine.suggestDegradation(violation, profile);
 
-    const downgradeStrategy = strategies.find((s) => s.type === "model_downgrade");
+    const downgradeStrategy = strategies.find(
+      (s) => s.type === "model_downgrade",
+    );
     expect(downgradeStrategy).toBeDefined();
     const result = downgradeStrategy!.apply();
     expect(result.cost?.modelPreference).toBe("cheap");
@@ -435,7 +489,11 @@ describe("ConstraintEngine - canContinue", () => {
 
   it("should return canContinue=true when all within limits", () => {
     const profile = getDefaultConstraintProfile();
-    const usage = makeUsage({ costUsed: 100, timeElapsed: 500000, reworkCount: 1 });
+    const usage = makeUsage({
+      costUsed: 100,
+      timeElapsed: 500000,
+      reworkCount: 1,
+    });
     const result = engine.canContinue(profile, usage);
     expect(result.canContinue).toBe(true);
   });
@@ -485,7 +543,11 @@ describe("ConstraintEngine - recordCost and checkBudget", () => {
     const engine = new ConstraintEngine(mockCostController);
     const cost = engine.recordCost("llm-call", "gpt-4", 100, 200, "mission-1");
 
-    expect(mockCostController.calculateCost).toHaveBeenCalledWith("gpt-4", 100, 200);
+    expect(mockCostController.calculateCost).toHaveBeenCalledWith(
+      "gpt-4",
+      100,
+      200,
+    );
     expect(mockCostController.recordCost).toHaveBeenCalled();
     expect(cost).toBe(1.5);
   });

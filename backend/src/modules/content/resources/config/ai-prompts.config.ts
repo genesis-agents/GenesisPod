@@ -7,7 +7,7 @@ export interface AIPromptTemplate {
   name: string;
   description: string;
   system: string; // 系统提示词
-  user: (resourceData: any) => string; // 用户提示词生成函数
+  user: (resourceData: Record<string, unknown>) => string; // 用户提示词生成函数
 }
 
 /**
@@ -282,18 +282,14 @@ Return valid JSON with: overview, category, subcategories, keyPoints, keywords, 
  */
 export const PromptBestPractices = {
   /**
-   * 调用 AI 服务时的建议参数
+   * 调用 AI 服务时使用 TaskProfile（必须通过 AiChatService + taskProfile 传递，禁止硬编码参数）
    *
-   * TaskProfile 映射:
-   * - temperature: 0.7 → creativity: "medium"
-   * - maxTokens: 2000 → outputLength: "short"
+   * 推荐配置: { creativity: "medium", outputLength: "short" }
+   * - creativity: "medium" → 平衡创意和准确性
+   * - outputLength: "short" → 足以容纳结构化 JSON 输出
    */
   requestDefaults: {
-    temperature: 0.7, // 平衡创意和准确性 (TaskProfile: creativity="medium")
-    maxTokens: 2000, // 足以容纳结构化输出 (TaskProfile: outputLength="short")
-    topP: 0.9, // 多样性采样
-    frequencyPenalty: 0.0,
-    presencePenalty: 0.0,
+    taskProfile: { creativity: "medium", outputLength: "short" } as const,
   },
 
   /**
@@ -336,7 +332,7 @@ export const PromptBestPractices = {
  * 验证 JSON 响应是否符合结构化摘要格式
  */
 export function validateStructuredResponse(
-  response: any,
+  response: Record<string, unknown>,
   resourceType: string = "PAPER",
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];

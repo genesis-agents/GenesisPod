@@ -9,7 +9,7 @@
 import { AgentOrchestrator } from "../agent-orchestrator";
 import { AgentRegistry } from "../agent-registry";
 import { AgentConfigService } from "../../config/agent-config.service";
-import { GuardrailsPipelineService } from "../../../guardrails/guardrails-pipeline.service";
+import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 
 // ------------------------------------------------------------------
 // Helpers
@@ -351,7 +351,8 @@ describe("AgentOrchestrator — with guardrails", () => {
       registry,
       undefined,
       mockGuardrails as GuardrailsPipelineService,
-      { get: jest.fn().mockImplementation((key: string) => {
+      {
+        get: jest.fn().mockImplementation((key: string) => {
           if (key === "GUARDRAILS_FAIL_CLOSED") return "true";
           return undefined;
         }),

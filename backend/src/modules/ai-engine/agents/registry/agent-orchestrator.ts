@@ -7,7 +7,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AgentId, AgentInput, AgentEvent } from "../../core/types/agent.types";
 import { AgentRegistry } from "./agent-registry";
-import { GuardrailsPipelineService } from "../../guardrails/guardrails-pipeline.service";
+import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 
@@ -90,7 +90,7 @@ export class AgentOrchestrator {
     }
 
     // 选择 Agent
-    const selectedAgentId = agentId || (await this.selectAgent(input));
+    const selectedAgentId = agentId ?? this.selectAgent(input);
 
     if (!selectedAgentId) {
       yield {
@@ -171,7 +171,9 @@ export class AgentOrchestrator {
         }
       }
     } catch (error) {
-      this.logger.error(`[execute] Agent execution failed: ${error}`);
+      this.logger.error(
+        `[execute] Agent execution failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       this.registry.recordExecution(selectedAgentId, false);
 
       yield {
@@ -248,8 +250,8 @@ export class AgentOrchestrator {
    * - 匹配率加成：匹配数/总关键词数
    * - 最高分胜出
    */
-  private async selectAgent(input: AgentInput): Promise<AgentId | null> {
-    const prompt = input.prompt?.toLowerCase() || "";
+  private selectAgent(input: AgentInput): AgentId | null {
+    const prompt = input.prompt?.toLowerCase() ?? "";
     const agents = this.registry.getAll();
 
     let bestAgent: AgentId | null = null;
@@ -257,7 +259,7 @@ export class AgentOrchestrator {
 
     for (const agent of agents) {
       const config = agent.getConfig();
-      const keywords = config.selectionKeywords || [];
+      const keywords = config.selectionKeywords ?? [];
       if (keywords.length === 0) continue;
 
       let score = 0;

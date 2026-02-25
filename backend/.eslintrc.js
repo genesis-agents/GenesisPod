@@ -354,5 +354,29 @@ module.exports = {
         ],
       },
     },
+    {
+      // LLM hardcoding guard: ai-app and core modules must use TaskProfile, not raw params.
+      // See CLAUDE.md: "禁止硬编码 model: 'gpt-4o' 或 temperature: 0.7"
+      // Legitimate exceptions (ai-engine LLM internals, common direct API calls) are outside this scope.
+      files: ["**/modules/ai-app/**/*.ts", "**/modules/core/**/*.ts"],
+      excludedFiles: ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**/*.ts"],
+      rules: {
+        "no-restricted-syntax": [
+          "warn",
+          {
+            selector:
+              "ObjectExpression > Property[key.name='temperature'][value.type='Literal']",
+            message:
+              "Hardcoded temperature is not allowed. Use TaskProfile ({ creativity: 'low'|'medium'|'high'|'deterministic' }) via AiChatService instead.",
+          },
+          {
+            selector:
+              "ObjectExpression > Property[key.name='maxTokens'][value.type='Literal']",
+            message:
+              "Hardcoded maxTokens is not allowed. Use TaskProfile ({ outputLength: 'minimal'|'short'|'medium'|'long'|'standard' }) via AiChatService instead.",
+          },
+        ],
+      },
+    },
   ],
 };
