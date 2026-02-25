@@ -83,6 +83,37 @@ onModuleInit() {
 
 > **这些规则从历史 session 中提炼，Claude 必须严格遵守。**
 
+### Facade 边界守护（2026-02-25 提炼）
+
+> **背景**：两次架构审计（83/100 → 86/100）发现的系统性问题。
+
+**Facade 导入三条规则：**
+
+1. **所有 `ai-app` 模块导入 `ai-engine` 内部符号，必须从 `ai-engine/facade` 导入，不得穿透内部路径**
+   - 违规：`import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry"`
+   - 正确：`import { ToolRegistry } from "../../ai-engine/facade"`
+
+2. **新增符号时，先在 `facade/index.ts` 补充 export，再在 App 层使用**
+   - 不得因"facade 没有导出"就改用直接路径绕过
+   - 补充 export 的优先级高于直接路径
+
+3. **禁止内联动态 `import()` 绑过 Facade**
+   - 违规：`plan: import("../../ai-engine/orchestration/services/task-planner.service").TaskPlan`
+   - 正确：在 `facade/index.ts` 补充 `export type { TaskPlan }`，然后顶层导入
+
+**Fire-and-forget Promise 处理规则：**
+
+- WebSocket emit / 后台生成任务属于 fire-and-forget，必须显式声明：`void this.something()`
+- 不能留 unhandled floating promise（会被 ESLint `@typescript-eslint/no-floating-promises` 捕获）
+- 区分：Socket.IO 的 `socket.join/leave` 是异步的（要 `await`）；`socket.emit` 是同步的（不需要）
+
+**LLM 模型名硬编码规则（强化）：**
+
+- 任何 fallback/default 场景，**永远用 `""` 空字符串，不用具体模型名**
+- `dto.model || "gpt-4"` → `dto.model || ""`
+- `modelId = "gpt-4o"` 参数默认值 → `modelId = ""`
+- 原因：空字符串由下游 `AiChatService` 走 `TaskProfile` 自动解析，不会 break
+
 ### 分析先行，禁止猜测
 
 - 诊断任何问题前，**必须先 Read 相关源码**，不得凭记忆或猜测给出结论
@@ -430,6 +461,6 @@ git commit -m "feat(module): description"
 
 ---
 
-**最后更新**: 2026-02-21
+**最后更新**: 2026-02-25
 **维护者**: Claude Code
 **版本**: 2.2
