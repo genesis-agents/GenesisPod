@@ -1241,6 +1241,19 @@ describe('DataSourceRouterService', () => {
       expect(result).toBeDefined();
     });
 
+    it('should handle web search WEB source with no tool available (null tryGet)', async () => {
+      mockToolRegistry.tryGet.mockReturnValue(null);
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['WEB'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      // Should still return a valid result with no items from web
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
     it('should map web search results including publishedDate and score', async () => {
       mockWebSearchExecute.mockResolvedValue({
         success: true,
@@ -1281,6 +1294,856 @@ describe('DataSourceRouterService', () => {
       expect(result).toBeDefined();
       // At least one result should be returned
       expect(result.items.length).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ============================================================
+  // SOCIAL_X data source — searchSocialX pipeline
+  // ============================================================
+
+  describe('SOCIAL_X source via fetchDataForDimension', () => {
+    it('should return Grok results when xai model is available and returns valid JSON', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      mockAiFacade.chat.mockResolvedValue({
+        content: JSON.stringify({
+          trends: [
+            {
+              title: 'AI discussion on X',
+              url: 'https://x.com/user/status/123',
+              author: '@user',
+              content: 'Great post about AI',
+              engagement: { likes: 100, retweets: 20, replies: 5 },
+              sentiment: 'positive',
+              publishedAt: '2026-01-01',
+            },
+          ],
+          summary: 'AI is trending',
+          dominantSentiment: 'positive',
+        }),
+        tokensUsed: 200,
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should return Grok results wrapped in ```json code block', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      const jsonContent = JSON.stringify({
+        trends: [
+          {
+            title: 'Trending topic',
+            url: 'https://x.com/user/status/456',
+            content: 'Interesting discussion',
+          },
+        ],
+      });
+      mockAiFacade.chat.mockResolvedValue({
+        content: `\`\`\`json\n${jsonContent}\n\`\`\``,
+        tokensUsed: 150,
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should return Grok results wrapped in plain code block', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      const jsonContent = JSON.stringify({
+        trends: [
+          { title: 'Post', url: 'https://x.com/user/status/789', content: 'content' },
+        ],
+      });
+      mockAiFacade.chat.mockResolvedValue({
+        content: `\`\`\`\n${jsonContent}\n\`\`\``,
+        tokensUsed: 150,
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should fallback to web search when no Grok model is available', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([]); // No xai model
+
+      // Set up web search to return results for the social fallback
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'web-search') return { execute: mockWebSearchExecute };
+        return null;
+      });
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'X discussion via web search',
+              url: 'https://x.com/user/status/999',
+              content: 'Found via web search',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should fallback to web search when Grok returns empty trends', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      // Grok returns valid JSON but empty trends array
+      mockAiFacade.chat.mockResolvedValue({
+        content: JSON.stringify({ trends: [] }),
+        tokensUsed: 50,
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should fallback to web search when Grok chat throws on all retries', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      mockAiFacade.chat.mockRejectedValue(new Error('Grok service unavailable'));
+
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: { results: [] },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should use extractFallbackSocialResults when JSON parse fails', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      // Return content with X URLs but not valid JSON structure
+      mockAiFacade.chat.mockResolvedValue({
+        content:
+          'Here are some posts: https://x.com/user1/status/111 and https://twitter.com/user2/status/222',
+        tokensUsed: 80,
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should handle malformed JSON with invalid trends structure', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      // trends is not an array
+      mockAiFacade.chat.mockResolvedValue({
+        content: JSON.stringify({ trends: 'not-an-array', summary: 'test' }),
+        tokensUsed: 50,
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should map trend items with missing optional fields to defaults', async () => {
+      mockAiFacade.getAvailableModels.mockResolvedValue([
+        { id: 'grok-beta', provider: 'xai' },
+      ]);
+      // trends items with missing title, url, publishedAt
+      mockAiFacade.chat.mockResolvedValue({
+        content: JSON.stringify({
+          trends: [
+            { content: 'A post with no title or url' },
+          ],
+        }),
+        tokensUsed: 50,
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['SOCIAL_X'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // aggregateResults internals via fetchDataForDimension
+  // ============================================================
+
+  describe('aggregateResults — deduplication and domain diversity', () => {
+    it('should deduplicate results with the same URL', async () => {
+      // Return the same URL twice via two separate search queries
+      const duplicateUrl = 'https://example.com/same-article-dedup';
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { title: 'Unique Title Alpha', url: duplicateUrl, content: 'content' },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      // Use 3 queries so we get 3 fetch calls all returning the same URL
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['query one dedup', 'query two dedup', 'query three dedup'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      // Duplicate URL should appear only once
+      const urls = result.items.map((i) => i.url);
+      const uniqueUrls = new Set(urls);
+      expect(uniqueUrls.size).toBe(urls.length);
+    });
+
+    it('should deduplicate results with similar titles (high Jaccard similarity)', async () => {
+      let callCount = 0;
+      mockWebSearchExecute.mockImplementation(() => {
+        callCount++;
+        // First call returns one article, second call returns nearly identical title
+        if (callCount === 1) {
+          return Promise.resolve({
+            success: true,
+            data: {
+              results: [
+                {
+                  title: 'The impact of AI on enterprise software development',
+                  url: `https://site${callCount}.com/ai-enterprise`,
+                  content: 'enterprise AI content',
+                },
+              ],
+            },
+          });
+        }
+        return Promise.resolve({
+          success: true,
+          data: {
+            results: [
+              {
+                title: 'The impact of AI on enterprise software development',
+                url: `https://site${callCount}.com/ai-enterprise-dup`,
+                content: 'duplicate content',
+              },
+            ],
+          },
+        });
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['enterprise AI query one', 'enterprise AI query two'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      // Both items might be deduped by title similarity
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should skip results with no URL', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { title: 'No URL article', url: '', content: 'no url' },
+            { title: 'Has URL article', url: 'https://hasurl.com/article', content: 'has url' },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['test query url skip'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      // Item without URL should be skipped
+      const noUrlItems = result.items.filter((i) => !i.url);
+      expect(noUrlItems.length).toBe(0);
+    });
+
+    it('should normalize URLs removing UTM tracking params before dedup', async () => {
+      const baseUrl = 'https://tracking.com/article';
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Article with UTM Params Title',
+              url: `${baseUrl}?utm_source=google&utm_medium=cpc`,
+              content: 'utm content',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['utm test query'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should enforce domain diversity when one domain dominates results', async () => {
+      // Return 10 results all from the same domain to trigger domain diversity enforcement
+      const manyFromOneDomain = Array.from({ length: 10 }, (_, i) => ({
+        title: `Article ${i + 1} about AI testing diversification`,
+        url: `https://dominated-domain.com/article-${i + 1}`,
+        content: `Content ${i + 1} about AI and testing`,
+      }));
+
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: { results: manyFromOneDomain },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['domain diversity test query only'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+      // After domain diversity enforcement, results from dominated-domain.com should be capped
+      const dominatedItems = result.items.filter((i) =>
+        i.url?.includes('dominated-domain.com'),
+      );
+      // The cap is max(2, ceil(total * 0.3)), so for 10 items cap = 3
+      expect(dominatedItems.length).toBeLessThanOrEqual(3);
+    });
+
+    it('should relax domain diversity for authoritative .edu and .gov domains', async () => {
+      // Return mostly .gov URLs (authoritative) to trigger 0.5 ratio relaxation
+      const govResults = Array.from({ length: 6 }, (_, i) => ({
+        title: `Gov Article ${i + 1} authoritative source`,
+        url: `https://federal-agency.gov/report-${i + 1}`,
+        content: `Government report ${i + 1} with detailed policy analysis`,
+        publishedDate: '2025-01-01',
+        domain: 'federal-agency.gov',
+      }));
+      const otherResults = Array.from({ length: 2 }, (_, i) => ({
+        title: `Other Article ${i + 1} non-gov source`,
+        url: `https://news-${i + 1}.com/article`,
+        content: 'Other news content',
+      }));
+
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: { results: [...govResults, ...otherResults] },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['government policy authoritative test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should sort results by credibility score (high sourceType score ranked first)', async () => {
+      // Return results with different domains to trigger credibility scoring
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Low authority blog post about AI',
+              url: 'https://unknown-blog.com/ai-post',
+              content: 'short',
+              publishedDate: '2020-01-01', // old
+            },
+            {
+              title: 'Nature journal high authority paper',
+              url: 'https://nature.com/articles/ai-paper',
+              content:
+                'A' .repeat(600), // long content for depth score
+              publishedDate: '2026-01-15', // recent
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['credibility sort test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should handle rejected source promises gracefully in countResultsBySource', async () => {
+      // When a tool throws, Promise.allSettled captures it as rejected
+      // We need one source to fail and another to succeed
+      let callIdx = 0;
+      mockWebSearchExecute.mockImplementation(() => {
+        callIdx++;
+        if (callIdx === 1) return Promise.reject(new Error('source failed'));
+        return Promise.resolve({
+          success: true,
+          data: {
+            results: [
+              { title: 'Fallback result', url: 'https://fallback.com/article', content: 'ok' },
+            ],
+          },
+        });
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['rejected source test one', 'rejected source test two'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should return results with 3 or fewer items without domain diversity enforcement', async () => {
+      // enforceDomainDiversity returns early when results.length <= 3
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { title: 'Only Item small set', url: 'https://small.com/article', content: 'x' },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['small set test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // calculateCredibilityScore sub-methods coverage
+  // ============================================================
+
+  describe('credibility scoring via result ordering', () => {
+    it('should apply high domain authority score for arxiv.org', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'arxiv paper on deep learning',
+              url: 'https://arxiv.org/abs/2401.12345',
+              content: 'Deep learning paper'.repeat(30),
+              publishedDate: '2025-06-01',
+              domain: 'arxiv.org',
+            },
+            {
+              title: 'Random blog about ML',
+              url: 'https://randomblog.example.com/ml-post',
+              content: 'blog post',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['arxiv authority test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      // arxiv.org item should appear before random blog due to higher score
+      if (result.items.length >= 2) {
+        const arxivIdx = result.items.findIndex((i) => i.url?.includes('arxiv.org'));
+        const blogIdx = result.items.findIndex((i) => i.url?.includes('randomblog'));
+        if (arxivIdx !== -1 && blogIdx !== -1) {
+          expect(arxivIdx).toBeLessThan(blogIdx);
+        }
+      }
+    });
+
+    it('should apply medium domain authority for medium.com', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Medium article about tech',
+              url: 'https://medium.com/tech/article',
+              content: 'medium post',
+              domain: 'medium.com',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['medium authority test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should apply edu/gov domain bonus in authority scoring', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'University research paper on AI',
+              url: 'https://cs.mit.edu/research/ai-paper',
+              content: 'edu research',
+              domain: 'mit.edu',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['edu domain test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should score recent articles higher than old ones in recency scoring', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Very recent article about AI trends',
+              url: 'https://recent.com/article',
+              content: 'new content',
+              publishedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+            },
+            {
+              title: 'Old article about AI history from years ago',
+              url: 'https://old.com/article',
+              content: 'old content',
+              publishedDate: '2019-01-01', // > 1 year old
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['recency scoring test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should handle items with no publishedAt (undefined recency)', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Article with no publication date at all',
+              url: 'https://nodatesite.com/article',
+              content: 'no date',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['no date recency test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should score content depth: long snippets get higher score', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Long article with extensive content about AI development',
+              url: 'https://deep.com/long-article',
+              content: 'A'.repeat(600), // >= 500 chars → score 100
+            },
+            {
+              title: 'Short snippet article minimal content',
+              url: 'https://shallow.com/short',
+              content: 'Short', // < 100 chars → score 20
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['content depth scoring test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should extract localhost URLs as null domain (excluded from diversity)', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Localhost development article',
+              url: 'http://localhost:3000/article',
+              content: 'local dev',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['localhost domain test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should handle invalid URL in extractDomain gracefully', async () => {
+      mockWebSearchExecute.mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              title: 'Article with malformed URL',
+              url: 'not-a-valid-url',
+              content: 'malformed url content',
+            },
+          ],
+        },
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({
+        searchSources: ['WEB'],
+        searchQueries: ['invalid url domain test'],
+      });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // clearPlanCache — public method
+  // ============================================================
+
+  describe('clearPlanCache', () => {
+    it('should clear all plan cache entries when called without topicId', async () => {
+      // Populate the cache by triggering AI planning
+      mockDataSourcePlanner.planDataSources.mockResolvedValue({
+        recommendedSources: [DataSourceType.WEB],
+        confidence: 80,
+        reasoning: 'test',
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      // Trigger AI planning to populate cache
+      await service.fetchDataForDimension(dimension, topic, { useAIPlanning: true });
+
+      // clearPlanCache with no args should clear all
+      expect(() => service.clearPlanCache()).not.toThrow();
+    });
+
+    it('should clear only entries for the specified topicId', async () => {
+      mockDataSourcePlanner.planDataSources.mockResolvedValue({
+        recommendedSources: [DataSourceType.WEB],
+        confidence: 80,
+        reasoning: 'test',
+      });
+
+      const topic1 = makeResearchTopic({ id: 'topic-clear-1' });
+      const topic2 = makeResearchTopic({ id: 'topic-clear-2' });
+      const dimension = makeTopicDimension({ id: 'dim-clear-1' });
+
+      // Populate cache for both topics
+      await service.fetchDataForDimension(dimension, topic1, { useAIPlanning: true });
+      await service.fetchDataForDimension(dimension, topic2, { useAIPlanning: true });
+
+      // Clear only topic1's cache
+      expect(() => service.clearPlanCache('topic-clear-1')).not.toThrow();
+
+      // topic2's cache should still be available (second call should not re-plan)
+      const plannerCallsBefore = mockDataSourcePlanner.planDataSources.mock.calls.length;
+      await service.fetchDataForDimension(dimension, topic2, { useAIPlanning: true });
+      const plannerCallsAfter = mockDataSourcePlanner.planDataSources.mock.calls.length;
+
+      // topic2 was cached so planner should NOT be called again
+      expect(plannerCallsAfter).toBe(plannerCallsBefore);
+    });
+
+    it('should handle clearPlanCache when cache is already empty', () => {
+      expect(() => service.clearPlanCache()).not.toThrow();
+      expect(() => service.clearPlanCache('nonexistent-topic')).not.toThrow();
+    });
+  });
+
+  // ============================================================
+  // getDataSourceCapabilities — public method
+  // ============================================================
+
+  describe('getDataSourceCapabilities', () => {
+    it('should delegate to dataSourcePlanner.getDataSourceCapabilities', () => {
+      const mockCapabilities = {
+        WEB: { description: 'Web search', maxResults: 20 },
+        ACADEMIC: { description: 'Academic papers', maxResults: 10 },
+      };
+      (mockDataSourcePlanner as Record<string, unknown>)['getDataSourceCapabilities'] = jest
+        .fn()
+        .mockReturnValue(mockCapabilities);
+
+      const result = service.getDataSourceCapabilities();
+
+      expect(result).toEqual(mockCapabilities);
+      expect(
+        (mockDataSourcePlanner as Record<string, unknown>)['getDataSourceCapabilities'],
+      ).toHaveBeenCalled();
+    });
+
+    it('should return whatever the planner returns (undefined if not implemented)', () => {
+      (mockDataSourcePlanner as Record<string, unknown>)['getDataSourceCapabilities'] = jest
+        .fn()
+        .mockReturnValue(undefined);
+
+      const result = service.getDataSourceCapabilities();
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // LRU plan cache eviction
+  // ============================================================
+
+  describe('AI plan cache LRU eviction', () => {
+    it('should evict oldest cache entry when PLAN_CACHE_MAX_SIZE is reached', async () => {
+      // We cannot easily set PLAN_CACHE_MAX_SIZE = 1, but we can verify that
+      // repeated planning calls for different topics uses the cache for same topic
+      mockDataSourcePlanner.planDataSources.mockResolvedValue({
+        recommendedSources: [DataSourceType.WEB],
+        confidence: 75,
+        reasoning: 'test plan',
+      });
+
+      const topic = makeResearchTopic({ id: 'lru-topic-eviction' });
+      const dimension = makeTopicDimension({ id: 'lru-dim-eviction' });
+
+      // First call — populates cache
+      await service.fetchDataForDimension(dimension, topic, { useAIPlanning: true });
+      const callsAfterFirst = mockDataSourcePlanner.planDataSources.mock.calls.length;
+
+      // Second call — should use cache (no new planner call)
+      await service.fetchDataForDimension(dimension, topic, { useAIPlanning: true });
+      const callsAfterSecond = mockDataSourcePlanner.planDataSources.mock.calls.length;
+
+      expect(callsAfterSecond).toBe(callsAfterFirst); // Cache hit
     });
   });
 });

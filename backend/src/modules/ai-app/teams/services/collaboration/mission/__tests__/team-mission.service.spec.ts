@@ -142,6 +142,7 @@ const mockPrisma = {
   teamMission: {
     create: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     update: jest.fn(),
   },
@@ -1372,6 +1373,304 @@ describe('TeamMissionService', () => {
 
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ============================================================
+  // retryMission (delegates to retryService)
+  // ============================================================
+
+  describe('retryMission', () => {
+    it('should delegate to retryService.retryMission with correct arguments', async () => {
+      const mockRetryResult = { success: true, mode: 'continue', previousStatus: MissionStatus.FAILED, message: 'done' };
+      mockRetryService.retryMission = jest.fn().mockResolvedValue(mockRetryResult);
+
+      const result = await service.retryMission('mission-1', 'user-1', { mode: 'continue' });
+
+      expect(mockRetryService.retryMission).toHaveBeenCalledWith(
+        'mission-1',
+        'user-1',
+        { mode: 'continue' },
+        expect.any(Function), // sendMessageToTopic
+        expect.any(Function), // createLog
+        expect.any(Function), // startMission
+        expect.any(Function), // handleLeaderMentionCommand
+        expect.any(Function), // executeNextTasks
+      );
+      expect(result).toEqual(mockRetryResult);
+    });
+
+    it('should delegate full mode to retryService', async () => {
+      const mockRetryResult = { success: true, mode: 'full', previousStatus: MissionStatus.FAILED, message: 'done' };
+      mockRetryService.retryMission = jest.fn().mockResolvedValue(mockRetryResult);
+
+      await service.retryMission('mission-1', 'user-1', { mode: 'full', reason: 'manual' });
+
+      expect(mockRetryService.retryMission).toHaveBeenCalledWith(
+        'mission-1',
+        'user-1',
+        { mode: 'full', reason: 'manual' },
+        expect.any(Function),
+        expect.any(Function),
+        expect.any(Function),
+        expect.any(Function),
+        expect.any(Function),
+      );
+    });
+  });
+
+  // ============================================================
+  // updateMissionNotification
+  // ============================================================
+
+  describe('updateMissionNotification', () => {
+    it('should delegate to lifecycleService.updateMissionNotification', async () => {
+      mockLifecycleService.updateMissionNotification = jest.fn().mockResolvedValue({
+        id: 'mission-1',
+        notificationEmail: 'test@example.com',
+      });
+
+      await service.updateMissionNotification('mission-1', 'user-1', {
+        notificationEmail: 'test@example.com',
+      });
+
+      expect(mockLifecycleService.updateMissionNotification).toHaveBeenCalledWith(
+        'mission-1',
+        'user-1',
+        { notificationEmail: 'test@example.com' },
+        expect.any(Function),
+      );
+    });
+  });
+
+  // ============================================================
+  // handleLeaderMentionCommand
+  // ============================================================
+
+  describe('handleLeaderMentionCommand', () => {
+    beforeEach(() => {
+      // Default: no in-progress mission
+      mockPrisma.teamMission.findFirst.mockResolvedValue(null);
+      mockPrisma.teamMission.findUnique.mockResolvedValue(null);
+    });
+
+    it('should return handled: false when no mission matches', async () => {
+      mockPrisma.teamMission.findFirst.mockResolvedValue(null);
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', '继续执行');
+
+      expect(result.handled).toBe(false);
+    });
+
+    it('should return handled: false for non-retry keywords', async () => {
+      const inProgressMission = makeMission({
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [makeTask({ status: AgentTaskStatus.PENDING })],
+      });
+      mockPrisma.teamMission.findFirst.mockResolvedValue(inProgressMission);
+      mockPrisma.teamMission.findUnique.mockResolvedValue(inProgressMission);
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', 'hello there');
+
+      // No retry keyword -> check for FAILED/CANCELLED missions
+      expect(result).toBeDefined();
+    });
+
+    it('should handle 继续执行 keyword with IN_PROGRESS mission having pending tasks', async () => {
+      const pendingTask = makeTask({ id: 'task-1', status: AgentTaskStatus.PENDING, dependsOnIds: [] });
+      const inProgressMission = makeMission({
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [pendingTask],
+      });
+      mockPrisma.teamMission.findFirst.mockResolvedValue(inProgressMission);
+      mockPrisma.teamMission.findUnique.mockResolvedValue(inProgressMission);
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', '继续执行');
+
+      expect(result.handled).toBe(true);
+      expect(result.action).toBe('continue_organizing');
+    });
+
+    it('should handle retry keyword with IN_PROGRESS mission having no pending tasks', async () => {
+      const completedTask = makeTask({ id: 'task-1', status: AgentTaskStatus.COMPLETED });
+      const inProgressMission = makeMission({
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [completedTask],
+      });
+      mockPrisma.teamMission.findFirst.mockResolvedValue(inProgressMission);
+      mockPrisma.teamMission.findUnique.mockResolvedValue(inProgressMission);
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', 'retry');
+
+      expect(result.handled).toBe(true);
+    });
+
+    it('should detect stuck AWAITING_REVIEW tasks and re-trigger review', async () => {
+      const stuckTask = makeTask({
+        id: 'task-1',
+        status: AgentTaskStatus.AWAITING_REVIEW,
+        updatedAt: new Date(Date.now() - 10 * 60 * 1000), // 10 min ago
+        result: 'Some result',
+      });
+      const inProgressMission = makeMission({
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [stuckTask],
+      });
+      mockPrisma.teamMission.findFirst.mockResolvedValue(inProgressMission);
+      mockPrisma.teamMission.findUnique.mockResolvedValue({
+        ...inProgressMission,
+        tasks: [{ ...stuckTask, assignedTo: { id: 'member-1', displayName: 'Agent' } }],
+      });
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', '继续');
+
+      expect(result.handled).toBe(true);
+      expect(result.action).toBe('re_review_tasks');
+    });
+
+    it('should detect stuck REVISION_NEEDED tasks and re-trigger revision', async () => {
+      const stuckTask = makeTask({
+        id: 'task-1',
+        status: AgentTaskStatus.REVISION_NEEDED,
+        updatedAt: new Date(Date.now() - 10 * 60 * 1000),
+        leaderFeedback: 'Please revise',
+      });
+      const inProgressMission = makeMission({
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [stuckTask],
+      });
+      mockPrisma.teamMission.findFirst.mockResolvedValue(inProgressMission);
+      mockPrisma.teamMission.findUnique.mockResolvedValue({
+        ...inProgressMission,
+        tasks: [{ ...stuckTask, assignedTo: { id: 'member-1', displayName: 'Agent' } }],
+      });
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', 'continue');
+
+      expect(result.handled).toBe(true);
+      expect(result.action).toBe('re_revision_tasks');
+    });
+
+    it('should return handled: false when updatedMission not found after reset', async () => {
+      const stuckTask = makeTask({
+        id: 'task-1',
+        status: AgentTaskStatus.IN_PROGRESS,
+        startedAt: new Date(Date.now() - 10 * 60 * 1000), // 10 min ago
+      });
+      const inProgressMission = makeMission({
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [stuckTask],
+      });
+      mockPrisma.teamMission.findFirst.mockResolvedValue(inProgressMission);
+      // findUnique returns null after reset
+      mockPrisma.teamMission.findUnique.mockResolvedValue(null);
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', '继续');
+
+      expect(result.handled).toBe(false);
+    });
+
+    it('should handle organize keyword', async () => {
+      const pendingTask = makeTask({ status: AgentTaskStatus.PENDING, dependsOnIds: [] });
+      const inProgressMission = makeMission({
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [pendingTask],
+      });
+      mockPrisma.teamMission.findFirst.mockResolvedValue(inProgressMission);
+      mockPrisma.teamMission.findUnique.mockResolvedValue(inProgressMission);
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', '组织任务');
+
+      expect(result.handled).toBe(true);
+    });
+
+    it('should look for FAILED mission when no IN_PROGRESS mission with retry keyword', async () => {
+      // No in-progress mission
+      mockPrisma.teamMission.findFirst
+        .mockResolvedValueOnce(null) // in-progress search
+        .mockResolvedValueOnce(makeMission({ status: MissionStatus.FAILED })); // failed search
+
+      const result = await service.handleLeaderMentionCommand('topic-1', 'user-1', '重试');
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // getMissionProgress / getMissionStats (if they exist)
+  // ============================================================
+
+  describe('getMissions - additional filter cases', () => {
+    it('should return empty list when topic has no missions', async () => {
+      mockPrisma.teamMission.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getMissions('empty-topic');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should filter by PLANNING status', async () => {
+      mockPrisma.teamMission.findMany.mockResolvedValueOnce([]);
+
+      await service.getMissions('topic-1', { status: MissionStatus.PLANNING });
+
+      expect(mockPrisma.teamMission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: MissionStatus.PLANNING }),
+        }),
+      );
+    });
+
+    it('should filter by COMPLETED status', async () => {
+      const completedMission = makeMission({ status: MissionStatus.COMPLETED });
+      mockPrisma.teamMission.findMany.mockResolvedValueOnce([completedMission]);
+
+      const result = await service.getMissions('topic-1', { status: MissionStatus.COMPLETED });
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  // ============================================================
+  // createMission - additional edge cases
+  // ============================================================
+
+  describe('createMission - edge cases', () => {
+    const dto = {
+      title: 'Test Mission',
+      description: 'Description',
+      objectives: ['obj1', 'obj2'],
+      constraints: ['constraint1'],
+      deliverables: ['deliverable1'],
+      leaderId: 'leader-1',
+      autoStart: false,
+    };
+
+    it('should create mission with multiple objectives and constraints', async () => {
+      const result = await service.createMission('topic-1', 'user-1', dto);
+
+      expect(mockPrisma.teamMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            objectives: dto.objectives,
+            constraints: dto.constraints,
+            deliverables: dto.deliverables,
+          }),
+        }),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should include createdById in the created mission', async () => {
+      await service.createMission('topic-1', 'user-123', dto);
+
+      expect(mockPrisma.teamMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            createdById: 'user-123',
+          }),
+        }),
+      );
     });
   });
 });

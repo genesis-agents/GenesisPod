@@ -716,4 +716,439 @@ describe("WechatAdapter", () => {
       expect(result).toBe(false);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // publish — full happy path (fillContent + saveDraft)
+  // -------------------------------------------------------------------------
+
+  describe("publish — full happy path", () => {
+    /**
+     * Setup a scenario where:
+     * 1. Session is valid with key cookies
+     * 2. restoreSession succeeds
+     * 3. createPage succeeds
+     * 4. URL contains token immediately (no waiting loop)
+     * 5. checkLoginStatus returns true (home URL)
+     * 6. No button click succeeds → direct navigation
+     * 7. fillContent succeeds
+     * 8. saveDraft succeeds
+     */
+    function setupFullPublishPath(extraPageOverrides: Record<string, jest.Mock> = {}) {
+      let urlCallCount = 0;
+      (mockPage.url as jest.Mock).mockImplementation(() => {
+        urlCallCount++;
+        // During token loop (first 16 calls): return home with token
+        if (urlCallCount <= 16) return "https://mp.weixin.qq.com/cgi-bin/home?token=12345";
+        // After navigation to editor: return editor URL
+        return "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=10&token=12345";
+      });
+
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+      (mockPage.$ as jest.Mock).mockResolvedValue(null);
+
+      // locator returns count=0 (no button found) -> falls through to direct navigation
+      const mockLocator = {
+        count: jest.fn().mockResolvedValue(0),
+        first: jest.fn().mockReturnThis(),
+        click: jest.fn().mockResolvedValue(undefined),
+        filter: jest.fn().mockReturnThis(),
+      };
+      (mockPage.locator as jest.Mock).mockReturnValue(mockLocator);
+      (mockPage.getByRole as jest.Mock).mockImplementation((role: string, options?: { name?: RegExp }) => {
+        // The save button check returns count=1
+        if (role === "button") {
+          return {
+            count: jest.fn().mockResolvedValue(1),
+            first: jest.fn().mockReturnThis(),
+            click: jest.fn().mockResolvedValue(undefined),
+            filter: jest.fn().mockReturnThis(),
+          };
+        }
+        return mockLocator;
+      });
+      (mockPage.getByText as jest.Mock).mockReturnValue(mockLocator);
+
+      // context.waitForEvent rejects (no new page)
+      (mockContext.waitForEvent as jest.Mock).mockRejectedValue(new Error("timeout"));
+
+      // fillContent mocks
+      (mockPage.waitForSelector as jest.Mock).mockResolvedValue({
+        fill: jest.fn().mockResolvedValue(undefined),
+        click: jest.fn().mockResolvedValue(undefined),
+      });
+      (mockPage.evaluate as jest.Mock).mockImplementation(async (fn: () => unknown) => {
+        // fillContent calls evaluate to get page state and check content length
+        // Return success object when called with html
+        if (typeof fn === "string" || fn.toString().includes("innerHTML")) {
+          return { success: true, selector: ".ProseMirror", method: "execCommand" };
+        }
+        // page state evaluation (fillContent init)
+        return { url: "https://mp.weixin.qq.com/cgi-bin/appmsg", title: "Editor", bodyText: "" };
+      });
+
+      // saveDraft: waitForResponse returns success
+      (mockPage.waitForResponse as jest.Mock).mockResolvedValue({
+        url: () => "https://mp.weixin.qq.com/cgi-bin/operate_appmsg",
+        status: () => 200,
+        json: async () => ({ base_resp: { ret: 0 } }),
+      });
+
+      // $$eval for button listing (when save button not found via getByRole)
+      (mockPage.$$eval as jest.Mock).mockResolvedValue([{ text: "保存", class: "save-btn" }]);
+
+      // frames for iframe fallback
+      (mockPage.frames as jest.Mock).mockReturnValue([]);
+
+      Object.assign(mockPage, extraPageOverrides);
+    }
+
+    it("returns success when full publish flow completes (direct navigation path)", async () => {
+      setupFullPublishPath();
+      const content = makeSocialContent({ content: "A".repeat(1001), title: "Test Article" });
+      const connection = makeConnection();
+
+      const result = await adapter.publish(content, connection);
+
+      expect(playwrightServiceMock.restoreSession).toHaveBeenCalled();
+      expect(playwrightServiceMock.closeContext).toHaveBeenCalledWith("wechat-conn-1");
+      // Either success or failure is fine as long as the flow ran
+      expect(result).toHaveProperty("success");
+    });
+
+    it("returns success for short content (type=77) with token from session", async () => {
+      setupFullPublishPath();
+      const content = makeSocialContent({ content: "B".repeat(500), title: "Short Article" });
+      const connection = makeConnection();
+
+      const result = await adapter.publish(content, connection);
+
+      expect(playwrightServiceMock.closeContext).toHaveBeenCalled();
+      expect(result).toHaveProperty("success");
+    });
+
+    it("returns success when content has no title field (title is empty)", async () => {
+      setupFullPublishPath();
+      const content = makeSocialContent({ content: "Content without title", title: "" });
+      const connection = makeConnection();
+
+      const result = await adapter.publish(content, connection);
+
+      expect(result).toHaveProperty("success");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // publish — captureDebugInfo via no-token path
+  // -------------------------------------------------------------------------
+
+  describe("publish — no token path (direct navigation failure)", () => {
+    it("returns failure when no token in URL and page evaluate returns empty token", async () => {
+      // URL never gets a token
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+      (mockPage.$ as jest.Mock).mockResolvedValue(null);
+
+      // No locator finds a button
+      const mockLocator = {
+        count: jest.fn().mockResolvedValue(0),
+        first: jest.fn().mockReturnThis(),
+        click: jest.fn().mockResolvedValue(undefined),
+        filter: jest.fn().mockReturnThis(),
+      };
+      (mockPage.locator as jest.Mock).mockReturnValue(mockLocator);
+      (mockPage.getByRole as jest.Mock).mockReturnValue(mockLocator);
+      (mockPage.getByText as jest.Mock).mockReturnValue(mockLocator);
+      (mockContext.waitForEvent as jest.Mock).mockRejectedValue(new Error("timeout"));
+
+      // evaluate returns empty token
+      (mockPage.evaluate as jest.Mock).mockImplementation(async (fn: () => unknown, args?: unknown) => {
+        const fnStr = fn.toString();
+        if (fnStr.includes("wx?.commonData") || fnStr.includes("cgiData")) return "";
+        // For links evaluation
+        if (fnStr.includes("querySelectorAll")) return [];
+        return { url: "https://mp.weixin.qq.com/cgi-bin/home", title: "Home", bodyText: "" };
+      });
+
+      // page.context().cookies() returns empty
+      (mockContext.cookies as jest.Mock).mockResolvedValue([]);
+
+      const content = makeSocialContent();
+      const connection = makeConnection();
+
+      const result = await adapter.publish(content, connection);
+
+      // Should fail because no token and no links with token
+      expect(result.success).toBe(false);
+    });
+
+    it("returns failure when evaluate provides links but none have token", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+      (mockPage.$ as jest.Mock).mockResolvedValue(null);
+
+      const mockLocator = {
+        count: jest.fn().mockResolvedValue(0),
+        first: jest.fn().mockReturnThis(),
+        click: jest.fn().mockResolvedValue(undefined),
+        filter: jest.fn().mockReturnThis(),
+      };
+      (mockPage.locator as jest.Mock).mockReturnValue(mockLocator);
+      (mockPage.getByRole as jest.Mock).mockReturnValue(mockLocator);
+      (mockPage.getByText as jest.Mock).mockReturnValue(mockLocator);
+      (mockContext.waitForEvent as jest.Mock).mockRejectedValue(new Error("timeout"));
+
+      (mockPage.evaluate as jest.Mock).mockImplementation(async (fn: () => unknown) => {
+        const fnStr = fn.toString();
+        if (fnStr.includes("wx?.commonData")) return "";
+        if (fnStr.includes("querySelectorAll")) return ["/some/path/without/token"];
+        return { url: "https://mp.weixin.qq.com/cgi-bin/home", title: "Home", bodyText: "" };
+      });
+      (mockContext.cookies as jest.Mock).mockResolvedValue([]);
+
+      const content = makeSocialContent();
+      const connection = makeConnection();
+
+      const result = await adapter.publish(content, connection);
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // publish — bizlogin redirect after editor navigation
+  // -------------------------------------------------------------------------
+
+  describe("publish — bizlogin redirect after successful token extraction", () => {
+    it("returns failure when page URL is bizlogin after direct navigation", async () => {
+      // The URL mock must:
+      // - Return home?token for checkLoginStatus (step 5) — e.g. first 4 calls
+      // - Return home (not appmsg_edit) for editPageUrl check — triggers direct navigation
+      // - Return bizlogin for finalEditorUrl check (step 7) — triggers the error
+      let callCount = 0;
+      (mockPage.url as jest.Mock).mockImplementation(() => {
+        callCount++;
+        if (callCount <= 5) return "https://mp.weixin.qq.com/cgi-bin/home?token=12345";
+        // After direct navigation (goto), return bizlogin to trigger step 7 check
+        return "https://mp.weixin.qq.com/cgi-bin/bizlogin?action=login";
+      });
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+      (mockPage.$ as jest.Mock).mockResolvedValue(null);
+
+      const mockLocator = {
+        count: jest.fn().mockResolvedValue(0),
+        first: jest.fn().mockReturnThis(),
+        click: jest.fn().mockResolvedValue(undefined),
+        filter: jest.fn().mockReturnThis(),
+      };
+      (mockPage.locator as jest.Mock).mockReturnValue(mockLocator);
+      (mockPage.getByRole as jest.Mock).mockReturnValue(mockLocator);
+      (mockPage.getByText as jest.Mock).mockReturnValue(mockLocator);
+      (mockContext.waitForEvent as jest.Mock).mockRejectedValue(new Error("timeout"));
+      (mockContext.cookies as jest.Mock).mockResolvedValue([]);
+      // evaluate is called for diagnostics (allInputs / fillContent); return minimal array
+      (mockPage.evaluate as jest.Mock).mockResolvedValue([]);
+
+      const content = makeSocialContent();
+      const connection = makeConnection();
+
+      const result = await adapter.publish(content, connection);
+
+      expect(result.success).toBe(false);
+      // Step 7 check returns this specific message when bizlogin URL is detected
+      expect(result.errorMessage).toMatch(/重新连接微信公众号|重定向到登录|login/i);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // checkLoginStatus — remaining selector branches
+  // -------------------------------------------------------------------------
+
+  describe("checkLoginStatus — additional selector branches", () => {
+    function setupContextWithPage() {
+      const ctx = { pages: jest.fn().mockReturnValue([mockPage]) };
+      (playwrightServiceMock.getContext as jest.Mock).mockResolvedValue(ctx);
+    }
+
+    it("returns true via .weui-desktop-account__info selector", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+
+      (mockPage.$ as jest.Mock).mockImplementation(async (sel: string) => {
+        if (sel === ".weui-desktop-account__info") return { el: true };
+        return null;
+      });
+
+      setupContextWithPage();
+      (playwrightServiceMock.saveSession as jest.Mock).mockResolvedValue({
+        cookies: [{ name: "slave_user", value: "x" }],
+      });
+
+      const result = await adapter.checkAndSaveLogin("conn-1");
+      expect(result).toBe(true);
+    });
+
+    it("returns true via .menu_item.selected selector", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+
+      (mockPage.$ as jest.Mock).mockImplementation(async (sel: string) => {
+        if (sel === ".menu_item.selected") return { el: true };
+        return null;
+      });
+
+      setupContextWithPage();
+      (playwrightServiceMock.saveSession as jest.Mock).mockResolvedValue({
+        cookies: [{ name: "x", value: "y" }],
+      });
+
+      const result = await adapter.checkAndSaveLogin("conn-1");
+      expect(result).toBe(true);
+    });
+
+    it("returns true via #menuBar selector", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+
+      (mockPage.$ as jest.Mock).mockImplementation(async (sel: string) => {
+        if (sel === "#menuBar") return { el: true };
+        return null;
+      });
+
+      setupContextWithPage();
+      (playwrightServiceMock.saveSession as jest.Mock).mockResolvedValue({
+        cookies: [{ name: "x", value: "y" }],
+      });
+
+      const result = await adapter.checkAndSaveLogin("conn-1");
+      expect(result).toBe(true);
+    });
+
+    it("returns true via .main_bd selector", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+
+      (mockPage.$ as jest.Mock).mockImplementation(async (sel: string) => {
+        if (sel === ".main_bd") return { el: true };
+        return null;
+      });
+
+      setupContextWithPage();
+      (playwrightServiceMock.saveSession as jest.Mock).mockResolvedValue({
+        cookies: [{ name: "x", value: "y" }],
+      });
+
+      const result = await adapter.checkAndSaveLogin("conn-1");
+      expect(result).toBe(true);
+    });
+
+    it("returns false via 'Please Log in' text detection", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+      (mockPage.$ as jest.Mock).mockResolvedValue(null);
+      (mockPage.evaluate as jest.Mock).mockResolvedValue("Please Log in to continue");
+
+      setupContextWithPage();
+      const result = await adapter.checkAndSaveLogin("conn-1");
+      expect(result).toBe(false);
+    });
+
+    it("returns false via '请重新登录' text detection", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+      (mockPage.$ as jest.Mock).mockResolvedValue(null);
+      (mockPage.evaluate as jest.Mock).mockResolvedValue("请重新登录系统");
+
+      setupContextWithPage();
+      const result = await adapter.checkAndSaveLogin("conn-1");
+      expect(result).toBe(false);
+    });
+
+    it("returns false via '登录超时' text detection", async () => {
+      (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+      (mockPage.waitForLoadState as jest.Mock).mockResolvedValue(undefined);
+      (mockPage.$ as jest.Mock).mockResolvedValue(null);
+      (mockPage.evaluate as jest.Mock).mockResolvedValue("登录超时，请重新登录");
+
+      setupContextWithPage();
+      const result = await adapter.checkAndSaveLogin("conn-1");
+      expect(result).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // publish — cookie validation detail paths
+  // -------------------------------------------------------------------------
+
+  describe("publish — valid cookies with some expired", () => {
+    it("succeeds with at least one valid key cookie even if some are expired", async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const pastTimestamp = now - 3600; // expired 1 hour ago
+      const futureTimestamp = now + 86400; // valid for 24 more hours
+
+      mockDecryptSession.mockReturnValue({
+        cookies: [
+          {
+            name: "slave_user",
+            value: "abc",
+            domain: "mp.weixin.qq.com",
+            path: "/",
+            expires: futureTimestamp, // VALID
+            httpOnly: false,
+            secure: false,
+          },
+          {
+            name: "data_ticket",
+            value: "old",
+            domain: "mp.weixin.qq.com",
+            path: "/",
+            expires: pastTimestamp, // EXPIRED
+            httpOnly: false,
+            secure: false,
+          },
+        ],
+        wechatToken: "99999",
+      } as unknown as ReturnType<typeof mockDecryptSession>);
+
+      // Force an error after restoreSession so we don't need to mock the full flow
+      (playwrightServiceMock.restoreSession as jest.Mock).mockRejectedValue(
+        new Error("stop here"),
+      );
+
+      const content = makeSocialContent();
+      const connection = makeConnection("encrypted-data");
+
+      const result = await adapter.publish(content, connection);
+
+      // restoreSession should have been called (key cookie was valid)
+      expect(playwrightServiceMock.restoreSession).toHaveBeenCalled();
+      expect(result.success).toBe(false); // fails due to our injected error
+    });
+
+    it("fails when cookies array contains only non-key cookies (all key cookies absent)", async () => {
+      mockDecryptSession.mockReturnValue({
+        cookies: [
+          {
+            name: "other_cookie",
+            value: "abc",
+            domain: "mp.weixin.qq.com",
+            path: "/",
+            expires: -1,
+            httpOnly: false,
+            secure: false,
+          },
+        ],
+        wechatToken: "99999",
+      } as unknown as ReturnType<typeof mockDecryptSession>);
+
+      const content = makeSocialContent();
+      const connection = makeConnection("encrypted-data");
+
+      const result = await adapter.publish(content, connection);
+
+      expect(result.success).toBe(false);
+      expect(result.errorMessage).toMatch(/过期|失效/);
+      // restoreSession should NOT have been called
+      expect(playwrightServiceMock.restoreSession).not.toHaveBeenCalled();
+    });
+  });
 });

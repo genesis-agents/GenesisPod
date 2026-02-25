@@ -971,4 +971,368 @@ describe("ResearchLeaderService", () => {
       expect(result).toHaveLength(0);
     });
   });
+
+  // ============================================================
+  // extractClaims
+  // ============================================================
+
+  describe("extractClaims", () => {
+    it("should return claims when AI returns valid claims JSON", async () => {
+      const mockClaims = [
+        { id: "c1", claim: "5G 技术覆盖率达到 60%", confidence: 0.9, sectionId: "section-1" },
+        { id: "c2", claim: "AI 市场规模超过 1000 亿", confidence: 0.85, sectionId: "section-1" },
+      ];
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({ claims: mockClaims }),
+      });
+
+      const result = await service.extractClaims("section-1", "5G 技术发展和 AI 市场分析内容...");
+
+      expect(result).toHaveLength(2);
+      expect(result[0].claim).toBe("5G 技术覆盖率达到 60%");
+    });
+
+    it("should return empty array when AI returns unparseable content", async () => {
+      mockFacade.chat.mockResolvedValue({ content: "not valid json" });
+
+      const result = await service.extractClaims("section-1", "some content");
+
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array when AI call throws", async () => {
+      mockFacade.chat.mockRejectedValue(new Error("API error"));
+
+      const result = await service.extractClaims("section-1", "some content");
+
+      expect(result).toEqual([]);
+    });
+
+    it("should truncate very long section content to 4000 chars", async () => {
+      mockFacade.chat.mockResolvedValue({ content: JSON.stringify({ claims: [] }) });
+
+      const longContent = "x".repeat(10000);
+      await service.extractClaims("section-1", longContent);
+
+      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const promptContent = chatCall.messages[1].content;
+      // The truncated content should appear in the prompt
+      expect(promptContent.length).toBeLessThan(longContent.length);
+    });
+
+    it("should return empty array when response has no claims key", async () => {
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({ other: "data" }),
+      });
+
+      const result = await service.extractClaims("section-1", "content");
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ============================================================
+  // verifyHypotheses
+  // ============================================================
+
+  describe("verifyHypotheses", () => {
+    it("should return empty array when hypotheses list is empty", async () => {
+      const result = await service.verifyHypotheses([], "evidence summary");
+
+      expect(result).toEqual([]);
+      expect(mockFacade.chat).not.toHaveBeenCalled();
+    });
+
+    it("should return verification results when AI returns valid JSON", async () => {
+      const hypotheses = [
+        { id: "h1", statement: "AI 会取代部分工作", confidence: 0.7 },
+      ];
+      const mockResults = [
+        { hypothesisId: "h1", verdict: "supported", evidence: ["data point 1"] },
+      ];
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({ results: mockResults }),
+      });
+
+      const result = await service.verifyHypotheses(hypotheses as never, "detailed evidence summary");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].verdict).toBe("supported");
+    });
+
+    it("should return empty array when AI returns unparseable content", async () => {
+      mockFacade.chat.mockResolvedValue({ content: "not json" });
+
+      const result = await service.verifyHypotheses(
+        [{ id: "h1", statement: "hypothesis", confidence: 0.5 }] as never,
+        "evidence",
+      );
+
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array when AI call throws", async () => {
+      mockFacade.chat.mockRejectedValue(new Error("API error"));
+
+      const result = await service.verifyHypotheses(
+        [{ id: "h1", statement: "hypothesis", confidence: 0.5 }] as never,
+        "evidence",
+      );
+
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array when response has no results key", async () => {
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({ other: "data" }),
+      });
+
+      const result = await service.verifyHypotheses(
+        [{ id: "h1", statement: "test", confidence: 0.8 }] as never,
+        "some evidence",
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ============================================================
+  // handleUserMessage - fallback delete mechanism
+  // ============================================================
+
+  describe("handleUserMessage - fallback delete mechanism", () => {
+    const mockMissionWithDimensions = {
+      id: "mission-001",
+      status: "EXECUTING",
+      topic: {
+        id: "topic-001",
+        name: "AI 趋势研究",
+        dimensions: [
+          { id: "dim-001", name: "技术发展", status: "RESEARCHING" },
+        ],
+      },
+      tasks: [
+        { id: "task-001", status: "COMPLETED", dimensionName: "技术发展" },
+        { id: "task-002", status: "EXECUTING", dimensionName: "市场应用" },
+      ],
+    };
+
+    beforeEach(() => {
+      mockPrisma.researchMission = {
+        findUnique: jest.fn().mockResolvedValue(mockMissionWithDimensions),
+        update: jest.fn().mockResolvedValue({}),
+      };
+      mockPrisma.leaderDecision = {
+        create: jest.fn().mockResolvedValue({ id: "decision-001" }),
+        findMany: jest.fn().mockResolvedValue([]),
+      };
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([
+        { id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true, isAvailable: true },
+      ]);
+      mockFacade.getReasoningModel.mockResolvedValue({
+        id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true,
+      });
+      mockFacade.intentDetector.detectIntent.mockReturnValue({
+        intent: "unknown",
+        confidence: 0.3,
+      });
+    });
+
+    it("should trigger fallback delete when AI omits DELETE_DIMENSION but user message has delete intent", async () => {
+      // AI returns no actions
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({
+          actions: [],
+          response: "好的",
+        }),
+      });
+      mockLeaderToolService.deleteDimension.mockResolvedValue({
+        success: true,
+        action: "DELETE_DIMENSION",
+        message: "技术发展维度已删除",
+      });
+
+      const result = await service.handleUserMessage(
+        "topic-001",
+        "mission-001",
+        "删除技术发展维度",
+      );
+
+      // The fallback delete should have been attempted.
+      // The regex extracts "技术发展维度" from "删除技术发展维度" because
+      // the [维度章节]* part is greedy-zero and the capture group consumes everything.
+      expect(mockLeaderToolService.deleteDimension).toHaveBeenCalledWith(
+        expect.objectContaining({ dimensionName: "技术发展维度" }),
+      );
+    });
+
+    it("should not trigger fallback delete when AI already produced DELETE_DIMENSION action", async () => {
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({
+          actions: [{ type: "DELETE_DIMENSION", params: { dimensionName: "技术发展" } }],
+          response: "已删除",
+        }),
+      });
+      mockLeaderToolService.deleteDimension.mockResolvedValue({
+        success: true,
+        action: "DELETE_DIMENSION",
+        message: "deleted",
+      });
+
+      const callsBefore = mockLeaderToolService.deleteDimension.mock.calls.length;
+
+      await service.handleUserMessage("topic-001", "mission-001", "删除技术发展维度");
+
+      // deleteDimension should be called exactly once (by the action, not fallback)
+      expect(mockLeaderToolService.deleteDimension).toHaveBeenCalledTimes(callsBefore + 1);
+    });
+
+    it("should handle action execution error gracefully and add to actionResults", async () => {
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({
+          actions: [{ type: "CREATE_DIMENSION", params: { name: "新维度" } }],
+          response: "创建维度",
+        }),
+      });
+      mockLeaderToolService.createDimension = jest.fn().mockRejectedValue(
+        new Error("DB constraint"),
+      );
+      mockPrisma.researchTask = {
+        create: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
+      };
+      mockPrisma.researchMission.update = jest.fn().mockResolvedValue({});
+
+      const result = await service.handleUserMessage(
+        "topic-001",
+        "mission-001",
+        "增加一个新维度",
+      );
+
+      const failedActions = result.actionResults?.filter((r) => !r.success);
+      expect(failedActions?.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ============================================================
+  // planResearch - quality_reviewer auto-assignment
+  // ============================================================
+
+  describe("planResearch - quality_reviewer and report_writer assignment", () => {
+    function setupPlanResearchHappy() {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([
+        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
+      ]);
+      mockFacade.getReasoningModel.mockResolvedValue({
+        id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true,
+      });
+      mockPrisma.leaderDecision.create.mockResolvedValue({});
+    }
+
+    it("should auto-assign skills to quality_reviewer agents missing skills", async () => {
+      setupPlanResearchHappy();
+
+      const planWithReviewer = {
+        dimensions: [{ id: "dim-001", name: "技术架构", priority: "high" }],
+        agentAssignments: [
+          {
+            agentId: "reviewer-01",
+            agentName: "质量审核员",
+            agentType: "quality_reviewer",
+            assignedDimensions: [],
+            modelId: "gpt-4o",
+            skills: [],
+            tools: [],
+          },
+        ],
+        strategy: "parallel",
+      };
+
+      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithReviewer) });
+
+      const result = await service.planResearch("topic-001");
+
+      const reviewerAgent = result.agentAssignments?.find(
+        (a) => a.agentType === "quality_reviewer",
+      );
+      expect(reviewerAgent?.skills).toContain("critical_thinking");
+    });
+
+    it("should auto-assign skills to report_writer agents missing skills", async () => {
+      setupPlanResearchHappy();
+
+      const planWithWriter = {
+        dimensions: [{ id: "dim-001", name: "技术架构", priority: "high" }],
+        agentAssignments: [
+          {
+            agentId: "writer-01",
+            agentName: "报告撰写员",
+            agentType: "report_writer",
+            assignedDimensions: [],
+            modelId: "gpt-4o",
+            skills: [],
+            tools: [],
+          },
+        ],
+        strategy: "parallel",
+      };
+
+      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithWriter) });
+
+      const result = await service.planResearch("topic-001");
+
+      const writerAgent = result.agentAssignments?.find(
+        (a) => a.agentType === "report_writer",
+      );
+      expect(writerAgent?.skills).toContain("synthesis");
+    });
+
+    it("should auto-assign assignmentReason to researcher agents missing it", async () => {
+      setupPlanResearchHappy();
+
+      const planWithoutReason = {
+        dimensions: [{ id: "dim-001", name: "技术架构", priority: "high" }],
+        agentAssignments: [
+          {
+            agentId: "agent-001",
+            agentName: "研究员",
+            agentType: "dimension_researcher",
+            assignedDimensions: ["dim-001"],
+            modelId: "gpt-4o",
+            skills: ["deep_dive"],
+            tools: ["web-search"],
+            // no assignmentReason
+          },
+        ],
+        strategy: "parallel",
+      };
+
+      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithoutReason) });
+
+      const result = await service.planResearch("topic-001");
+
+      const researcher = result.agentAssignments?.[0];
+      expect(researcher?.assignmentReason?.agentReason).toBeDefined();
+      expect(researcher?.assignmentReason?.modelReason).toContain("gpt-4o");
+    });
+
+    it("should handle topic with no existing dimensions", async () => {
+      const topicNodims = { ...mockTopicWithDimensions, dimensions: [] };
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(topicNodims);
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
+      mockFacade.getReasoningModel.mockResolvedValue({
+        id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true,
+      });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify(mockLeaderPlanJson),
+      });
+      mockPrisma.leaderDecision.create.mockResolvedValue({});
+
+      const result = await service.planResearch("topic-001", "研究主题");
+
+      expect(result.dimensions).toHaveLength(2);
+    });
+  });
 });

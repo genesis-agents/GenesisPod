@@ -1292,6 +1292,581 @@ describe('AiResponseService', () => {
   });
 
   // ============================================================
+  // generateWithToolsWithRetry (private, tested via generateAIResponse
+  // when shouldUseTools returns true and toolRegistry returns tools)
+  // ============================================================
+
+  describe('generateWithTools path via generateAIResponse', () => {
+    it('falls back to standard mode when generateWithTools throws', async () => {
+      const memberWithCapabilities = makeAIMember({ capabilities: ['web-search'] });
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(memberWithCapabilities);
+      mockTeamMemberAgent.resolveTools.mockReturnValueOnce(['web-search']);
+
+      // Make aiFacade not have functionCallingAdapter — triggers throw in generateWithTools
+      const facadeWithoutFC = {
+        ...mockAiFacade,
+        functionCallingAdapter: undefined,
+        functionCallingExecutor: undefined,
+      };
+      const module = await Test.createTestingModule({
+        providers: [
+          AiResponseService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: AIEngineFacade, useValue: facadeWithoutFC },
+          { provide: ToolRegistry, useValue: mockToolRegistry },
+          { provide: ContextRouterService, useValue: mockContextRouter },
+          { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
+          { provide: TopicEventEmitterService, useValue: mockTopicEventEmitter },
+          { provide: TopicContextRetrievalService, useValue: null },
+          { provide: CreditsService, useValue: mockCreditsService },
+          { provide: MetricsService, useValue: null },
+          { provide: AuditService, useValue: null },
+        ],
+      }).compile();
+
+      const svc = module.get<AiResponseService>(AiResponseService);
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Fallback response', tokensUsed: 100 });
+      // Should fall back and succeed
+      await expect(
+        svc.generateAIResponse('topic-1', 'user-1', 'ai-1', []),
+      ).resolves.not.toThrow();
+    });
+
+    it('uses generateWithTools successfully when functionCallingAdapter is available', async () => {
+      const memberWithCapabilities = makeAIMember({ capabilities: ['web-search'] });
+      mockPrisma.topicAIMember.findFirst.mockResolvedValue(memberWithCapabilities);
+      mockTeamMemberAgent.resolveTools.mockReturnValue(['web-search']);
+
+      async function* mockGenerator() {
+        yield { type: 'tool_call' as const, tool: 'web-search', input: { query: 'test' } };
+        yield { type: 'tool_result' as const, tool: 'web-search', output: { results: [] }, duration: 100 };
+        yield {
+          type: 'complete' as const,
+          result: { summary: 'Generated with tools', tokensUsed: 200, duration: 500 },
+        };
+      }
+
+      const mockFunctionCallingExecutor = {
+        executeWithContext: jest.fn().mockReturnValue(mockGenerator()),
+      };
+      const mockFunctionCallingAdapter = {
+        setConfig: jest.fn(),
+      };
+
+      const facadeWithFC = {
+        ...mockAiFacade,
+        functionCallingAdapter: mockFunctionCallingAdapter,
+        functionCallingExecutor: mockFunctionCallingExecutor,
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          AiResponseService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: AIEngineFacade, useValue: facadeWithFC },
+          { provide: ToolRegistry, useValue: mockToolRegistry },
+          { provide: ContextRouterService, useValue: mockContextRouter },
+          { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
+          { provide: TopicEventEmitterService, useValue: mockTopicEventEmitter },
+          { provide: TopicContextRetrievalService, useValue: null },
+          { provide: CreditsService, useValue: mockCreditsService },
+          { provide: MetricsService, useValue: null },
+          { provide: AuditService, useValue: null },
+        ],
+      }).compile();
+
+      const svc = module.get<AiResponseService>(AiResponseService);
+      mockPrisma.topicMessage.create.mockResolvedValue({
+        id: 'tool-msg-1',
+        content: 'Generated with tools',
+        topicId: 'topic-1',
+        aiMemberId: 'ai-1',
+      });
+
+      const result = await svc.generateAIResponse('topic-1', 'user-1', 'ai-1', []);
+
+      expect(mockFunctionCallingAdapter.setConfig).toHaveBeenCalledWith({
+        aiMemberId: 'ai-1',
+        workspaceId: 'topic-1',
+      });
+      expect(result).toBeDefined();
+    });
+
+    it('handles error event in generateWithTools and uses error fallback content', async () => {
+      const memberWithCapabilities = makeAIMember({ capabilities: ['web-search'] });
+      mockPrisma.topicAIMember.findFirst.mockResolvedValue(memberWithCapabilities);
+      mockTeamMemberAgent.resolveTools.mockReturnValue(['web-search']);
+
+      async function* errorGenerator() {
+        yield { type: 'error' as const, error: 'Tool execution failed', tool: 'web-search' };
+        yield {
+          type: 'complete' as const,
+          result: { summary: '', tokensUsed: 0, duration: 100 },
+        };
+      }
+
+      const mockFunctionCallingExecutor = {
+        executeWithContext: jest.fn().mockReturnValue(errorGenerator()),
+      };
+      const mockFunctionCallingAdapter = { setConfig: jest.fn() };
+
+      const facadeWithFC = {
+        ...mockAiFacade,
+        functionCallingAdapter: mockFunctionCallingAdapter,
+        functionCallingExecutor: mockFunctionCallingExecutor,
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          AiResponseService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: AIEngineFacade, useValue: facadeWithFC },
+          { provide: ToolRegistry, useValue: mockToolRegistry },
+          { provide: ContextRouterService, useValue: mockContextRouter },
+          { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
+          { provide: TopicEventEmitterService, useValue: mockTopicEventEmitter },
+          { provide: TopicContextRetrievalService, useValue: null },
+          { provide: CreditsService, useValue: mockCreditsService },
+          { provide: MetricsService, useValue: null },
+          { provide: AuditService, useValue: null },
+        ],
+      }).compile();
+
+      const svc = module.get<AiResponseService>(AiResponseService);
+      mockPrisma.topicMessage.create.mockResolvedValue({
+        id: 'error-msg-1',
+        content: '工具调用出现错误',
+        topicId: 'topic-1',
+        aiMemberId: 'ai-1',
+      });
+
+      await expect(svc.generateAIResponse('topic-1', 'user-1', 'ai-1', [])).resolves.not.toThrow();
+      // error event should have emitted tool:error
+      expect(mockTopicEventEmitter.emitToTopic).toHaveBeenCalledWith(
+        'topic-1',
+        'tool:error',
+        expect.objectContaining({ aiMemberId: 'ai-1' }),
+      );
+    });
+  });
+
+  // ============================================================
+  // generateWithToolsWithRetry directly (private method)
+  // ============================================================
+
+  describe('generateWithToolsWithRetry (private)', () => {
+    it('retries on retryable errors and eventually succeeds', async () => {
+      const mockGenerateWithTools = jest.fn()
+        .mockRejectedValueOnce(new Error('timeout error'))
+        .mockRejectedValueOnce(new Error('rate limit exceeded'))
+        .mockResolvedValueOnce({ id: 'success-msg', content: 'Success after retries' });
+
+      const svcCasted = service as unknown as {
+        generateWithToolsWithRetry: (
+          topicId: string,
+          aiMember: object,
+          contextMessages: unknown[],
+          toolTypes: unknown[],
+          systemPrompt: string,
+          maxRetries?: number,
+        ) => Promise<unknown>;
+        delay: (ms: number) => Promise<void>;
+        generateWithTools: (...args: unknown[]) => Promise<unknown>;
+      };
+
+      // Patch generateWithTools
+      const original = svcCasted.generateWithTools;
+      svcCasted.generateWithTools = mockGenerateWithTools;
+      // Override delay to be instant
+      svcCasted.delay = jest.fn().mockResolvedValue(undefined);
+
+      const result = await svcCasted.generateWithToolsWithRetry(
+        'topic-1',
+        { id: 'ai-1', aiModel: 'gpt-4o', displayName: 'Bot' },
+        [],
+        [],
+        'system prompt',
+        3,
+      );
+
+      expect(result).toEqual({ id: 'success-msg', content: 'Success after retries' });
+      expect(mockGenerateWithTools).toHaveBeenCalledTimes(3);
+
+      svcCasted.generateWithTools = original;
+    });
+
+    it('throws non-retryable errors immediately without retrying', async () => {
+      const nonRetryableError = new Error('Invalid API key');
+      const mockGenerateWithTools = jest.fn().mockRejectedValueOnce(nonRetryableError);
+
+      const svcCasted = service as unknown as {
+        generateWithToolsWithRetry: (
+          topicId: string,
+          aiMember: object,
+          contextMessages: unknown[],
+          toolTypes: unknown[],
+          systemPrompt: string,
+          maxRetries?: number,
+        ) => Promise<unknown>;
+        generateWithTools: (...args: unknown[]) => Promise<unknown>;
+        delay: (ms: number) => Promise<void>;
+      };
+
+      const original = svcCasted.generateWithTools;
+      svcCasted.generateWithTools = mockGenerateWithTools;
+      svcCasted.delay = jest.fn().mockResolvedValue(undefined);
+
+      await expect(
+        svcCasted.generateWithToolsWithRetry(
+          'topic-1',
+          { id: 'ai-1', aiModel: 'gpt-4o', displayName: 'Bot' },
+          [],
+          [],
+          'system prompt',
+          3,
+        ),
+      ).rejects.toThrow('Invalid API key');
+
+      // Should only call once (non-retryable)
+      expect(mockGenerateWithTools).toHaveBeenCalledTimes(1);
+
+      svcCasted.generateWithTools = original;
+    });
+
+    it('throws lastError when all retries are exhausted', async () => {
+      const retryableError = new Error('timeout error');
+      const mockGenerateWithTools = jest.fn().mockRejectedValue(retryableError);
+
+      const svcCasted = service as unknown as {
+        generateWithToolsWithRetry: (
+          topicId: string,
+          aiMember: object,
+          contextMessages: unknown[],
+          toolTypes: unknown[],
+          systemPrompt: string,
+          maxRetries?: number,
+        ) => Promise<unknown>;
+        generateWithTools: (...args: unknown[]) => Promise<unknown>;
+        delay: (ms: number) => Promise<void>;
+      };
+
+      const original = svcCasted.generateWithTools;
+      svcCasted.generateWithTools = mockGenerateWithTools;
+      svcCasted.delay = jest.fn().mockResolvedValue(undefined);
+
+      await expect(
+        svcCasted.generateWithToolsWithRetry(
+          'topic-1',
+          { id: 'ai-1', aiModel: 'gpt-4o', displayName: 'Bot' },
+          [],
+          [],
+          'system prompt',
+          2,
+        ),
+      ).rejects.toThrow('timeout error');
+
+      expect(mockGenerateWithTools).toHaveBeenCalledTimes(2);
+
+      svcCasted.generateWithTools = original;
+    });
+  });
+
+  // ============================================================
+  // buildSmartContext — summary content extraction patterns
+  // ============================================================
+
+  describe('buildSmartContext — summary content extraction', () => {
+    it('includes chapter title in summary when messages contain chapter markers', async () => {
+      const messages = Array.from({ length: 20 }, (_, i) =>
+        makeMessage({
+          id: `msg-${i}`,
+          content: i === 0
+            ? '第一章：人工智能的起源与发展历程详述'
+            : `Regular message ${i}`,
+          senderId: i % 2 === 0 ? 'user-1' : null,
+          createdAt: new Date(2025, 0, i + 1),
+        }),
+      );
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce(messages);
+
+      const result = await service.buildSmartContext('topic-1', 'ai-1', 10);
+
+      // 10+ dropped messages -> summary generated
+      expect(result.summary).not.toBeNull();
+    });
+
+    it('includes decision markers in summary when messages contain decision patterns', async () => {
+      const messages = Array.from({ length: 20 }, (_, i) =>
+        makeMessage({
+          id: `msg-${i}`,
+          content: i === 0
+            ? '我们决定采用微服务架构来解决这个性能问题，预计可以提升50%效率'
+            : `Regular message ${i}`,
+          senderId: i % 2 === 0 ? 'user-1' : null,
+          createdAt: new Date(2025, 0, i + 1),
+        }),
+      );
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce(messages);
+
+      const result = await service.buildSmartContext('topic-1', 'ai-1', 10);
+
+      expect(result.summary).not.toBeNull();
+    });
+
+    it('includes task markers in summary when messages contain task patterns', async () => {
+      const messages = Array.from({ length: 20 }, (_, i) =>
+        makeMessage({
+          id: `msg-${i}`,
+          content: i === 0
+            ? '主要任务是完成整个系统的重构工作，包括前端和后端的全面升级'
+            : `Regular message ${i}`,
+          senderId: i % 2 === 0 ? 'user-1' : null,
+          createdAt: new Date(2025, 0, i + 1),
+        }),
+      );
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce(messages);
+
+      const result = await service.buildSmartContext('topic-1', 'ai-1', 10);
+
+      expect(result.summary).not.toBeNull();
+    });
+
+    it('returns early with empty parsedUrlsContext when parsedUrls has empty array', async () => {
+      const msg = makeMessage({
+        content: 'Message with empty parsedUrls',
+        parsedUrls: [],
+      });
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce([msg]);
+
+      const result = await service.buildSmartContext('topic-1', 'ai-1');
+
+      expect(result.parsedUrlsContext).toBe('');
+    });
+
+    it('handles parsedUrls with URL but no preview content', async () => {
+      const msgWithMinimalUrl = makeMessage({
+        content: 'Check this',
+        parsedUrls: [
+          {
+            url: 'https://minimal.com',
+            preview: null,
+            extractedContent: null,
+          },
+        ],
+      });
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce([msgWithMinimalUrl]);
+
+      const result = await service.buildSmartContext('topic-1', 'ai-1');
+
+      expect(result.parsedUrlsContext).toContain('https://minimal.com');
+    });
+  });
+
+  // ============================================================
+  // generateAIResponse — context management branches
+  // ============================================================
+
+  describe('generateAIResponse — context management', () => {
+    it('handles context with no user messages (uses empty userMessageContent)', async () => {
+      // All messages are from AI, no user messages
+      const aiOnlyMessages = Array.from({ length: 5 }, (_, i) =>
+        makeMessage({
+          id: `ai-msg-${i}`,
+          content: `AI message ${i}`,
+          aiMemberId: 'ai-2',
+          senderId: null,
+          createdAt: new Date(2025, 0, i + 1),
+        }),
+      );
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce(aiOnlyMessages);
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(makeAIMember());
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Response to AI-only context', tokensUsed: 100 });
+
+      await expect(
+        service.generateAIResponse('topic-1', 'user-1', 'ai-1', []),
+      ).resolves.not.toThrow();
+
+      expect(mockAiFacade.chat).toHaveBeenCalled();
+    });
+
+    it('handles context messages exceeding MAX_TOTAL_CONTEXT_CHARS (100k)', async () => {
+      // Create messages with very long content to exceed 100k chars
+      const longMessages = Array.from({ length: 12 }, (_, i) =>
+        makeMessage({
+          id: `long-msg-${i}`,
+          content: 'X'.repeat(10000), // 10k chars each, 12 messages = 120k total
+          senderId: i === 0 ? 'user-1' : null,
+          aiMemberId: i === 0 ? null : 'ai-2',
+          createdAt: new Date(2025, 0, i + 1),
+        }),
+      );
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce(longMessages);
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(makeAIMember());
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Response', tokensUsed: 100 });
+
+      await expect(
+        service.generateAIResponse('topic-1', 'user-1', 'ai-1', []),
+      ).resolves.not.toThrow();
+
+      // Context should have been trimmed
+      expect(mockAiFacade.chat).toHaveBeenCalled();
+    });
+
+    it('handles STANDARD strategy when latestUserMsg is not in recent slice', async () => {
+      // Many messages but the user message is old (not in the recent slice)
+      // Force context router to return STANDARD strategy
+      const messages = Array.from({ length: 8 }, (_, i) =>
+        makeMessage({
+          id: `msg-${i}`,
+          content: `Message ${i}`,
+          senderId: i === 0 ? 'user-1' : null, // user message first (oldest)
+          aiMemberId: i === 0 ? null : 'ai-2',
+          createdAt: new Date(2025, 0, i + 1),
+        }),
+      );
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce(messages);
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(makeAIMember());
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Response', tokensUsed: 100 });
+
+      await expect(
+        service.generateAIResponse('topic-1', 'user-1', 'ai-1', []),
+      ).resolves.not.toThrow();
+    });
+
+    it('handles semantic retrieval failure gracefully', async () => {
+      const contextRetrievalMock = {
+        buildEnhancedContext: jest.fn().mockRejectedValue(new Error('Retrieval failed')),
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          AiResponseService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ToolRegistry, useValue: mockToolRegistry },
+          { provide: ContextRouterService, useValue: mockContextRouter },
+          { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
+          { provide: TopicEventEmitterService, useValue: mockTopicEventEmitter },
+          { provide: TopicContextRetrievalService, useValue: contextRetrievalMock },
+          { provide: CreditsService, useValue: null },
+          { provide: MetricsService, useValue: null },
+          { provide: AuditService, useValue: null },
+        ],
+      }).compile();
+
+      const svc = module.get<AiResponseService>(AiResponseService);
+      const longUserMessage = makeMessage({
+        content: 'This is a long user query about something very specific in AI research and applications',
+        senderId: 'user-1',
+        aiMemberId: null,
+      });
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce([longUserMessage]);
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(makeAIMember({ systemPrompt: null }));
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Response', tokensUsed: 100 });
+
+      // Should not throw even when contextRetrievalService fails
+      await expect(svc.generateAIResponse('topic-1', 'user-1', 'ai-1', [])).resolves.not.toThrow();
+    });
+
+    it('handles debate context filtering correctly for blue team', async () => {
+      const contextMessages = [
+        makeMessage({ id: 'msg-1', content: 'User question', senderId: 'user-1', aiMemberId: null }),
+        makeMessage({ id: 'msg-2', content: 'Red team argument', aiMemberId: 'red-ai', senderId: null }),
+        makeMessage({ id: 'msg-3', content: 'Third AI comment', aiMemberId: 'ai-3', senderId: null }),
+      ];
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce(contextMessages);
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(makeAIMember({ id: 'ai-1', displayName: 'Blue Bot' }));
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Blue team response', tokensUsed: 100 });
+
+      const debateRole = {
+        role: 'blue' as const,
+        opponent: { id: 'red-ai', displayName: 'Red Bot' },
+        topic: 'AI regulation debate',
+      };
+
+      await service.generateAIResponse('topic-1', 'user-1', 'ai-1', [], debateRole);
+
+      // Debate prompt should include blue team instructions
+      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const systemMsg = chatCall.messages.find((m: { role: string }) => m.role === 'system');
+      expect(systemMsg.content).toContain('反方');
+    });
+
+    it('generates AI collaboration prompt when canMentionOtherAI is true but no other AIs exist', async () => {
+      const aiMemberWithCollab = makeAIMember({ canMentionOtherAI: true, systemPrompt: null });
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(aiMemberWithCollab);
+      mockPrisma.topicAIMember.findMany.mockResolvedValueOnce([]); // No other AIs
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Solo response', tokensUsed: 100 });
+
+      await expect(
+        service.generateAIResponse('topic-1', 'user-1', 'ai-1', []),
+      ).resolves.not.toThrow();
+    });
+
+    it('web fetch tool returns no content field — skips adding URL context', async () => {
+      const userMessageWithUrl = makeMessage({
+        content: 'Check https://example.com',
+        senderId: 'user-1',
+        aiMemberId: null,
+      });
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce([userMessageWithUrl]);
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(makeAIMember());
+
+      const mockWebFetchTool = {
+        execute: jest.fn().mockResolvedValue({
+          success: true,
+          data: { title: 'Example', content: null }, // no content
+        }),
+      };
+      mockToolRegistry.tryGet.mockReturnValueOnce(mockWebFetchTool);
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Response', tokensUsed: 100 });
+
+      await service.generateAIResponse('topic-1', 'user-1', 'ai-1', []);
+
+      expect(mockAiFacade.chat).toHaveBeenCalled();
+    });
+
+    it('web search tool returns empty results — skips adding search context', async () => {
+      const userMessage = makeMessage({
+        content: '最新 AI 研究',
+        senderId: 'user-1',
+        aiMemberId: null,
+      });
+      mockPrisma.topicMessage.findMany.mockResolvedValueOnce([userMessage]);
+      mockPrisma.topicAIMember.findFirst.mockResolvedValueOnce(makeAIMember());
+
+      const mockWebSearchTool = {
+        execute: jest.fn().mockResolvedValue({
+          success: true,
+          data: { success: true, results: [] }, // empty results
+        }),
+      };
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'web-search') return mockWebSearchTool;
+        return null;
+      });
+      mockAiFacade.chat.mockResolvedValueOnce({ content: 'Response', tokensUsed: 100 });
+
+      await service.generateAIResponse('topic-1', 'user-1', 'ai-1', []);
+
+      expect(mockAiFacade.chat).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // delay (private method)
+  // ============================================================
+
+  describe('delay (private)', () => {
+    it('resolves after given milliseconds', async () => {
+      const invoke = (ms: number) =>
+        (service as unknown as { delay: (ms: number) => Promise<void> }).delay(ms);
+
+      await expect(invoke(0)).resolves.toBeUndefined();
+    });
+  });
+
+  // ============================================================
   // Mission message detection (private, tested via buildSmartContext)
   // ============================================================
 

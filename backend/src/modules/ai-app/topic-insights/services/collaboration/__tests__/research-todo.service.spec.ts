@@ -80,15 +80,37 @@ const mockPrisma = {
   aIModel: {
     findMany: jest.fn().mockResolvedValue([]),
   },
+  researchTopic: {
+    findUnique: jest.fn(),
+  },
+  topicDimension: {
+    create: jest.fn(),
+  },
+  researchTask: {
+    findMany: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
+    create: jest.fn(),
+    findFirst: jest.fn().mockResolvedValue(null),
+    update: jest.fn(),
+  },
+  researchMission: {
+    update: jest.fn(),
+  },
 };
 
 const mockEventEmitter = {
   emitTodoEvent: jest.fn().mockResolvedValue(undefined),
   emitToTopic: jest.fn().mockResolvedValue(undefined),
+  emitResumeMissionExecution: jest.fn(),
 };
 
 const mockLeaderService = {
   reviewTodo: jest.fn(),
+  reviewTaskResult: jest.fn().mockResolvedValue({
+    taskId: 'todo-1',
+    status: 'approved',
+    feedback: 'Good work',
+  }),
 };
 
 // ============================================================
@@ -106,6 +128,23 @@ describe('ResearchTodoService', () => {
     mockPrisma.researchTodo.findUnique.mockResolvedValue(makeTodo());
     mockPrisma.researchTodo.update.mockResolvedValue(makeTodo());
     mockPrisma.researchTodo.delete.mockResolvedValue(undefined);
+
+    mockPrisma.researchTopic.findUnique.mockResolvedValue({
+      id: 'topic-1',
+      name: 'AI Technology',
+      userId: 'user-1',
+    });
+    mockPrisma.topicDimension.create.mockResolvedValue({
+      id: 'dim-new-1',
+      topicId: 'topic-1',
+      name: 'New Dimension',
+    });
+    mockPrisma.researchTask.findMany.mockResolvedValue([]);
+    mockPrisma.researchTask.count.mockResolvedValue(0);
+    mockPrisma.researchTask.create.mockResolvedValue({ id: 'task-new-1', missionId: 'mission-1' });
+    mockPrisma.researchTask.findFirst.mockResolvedValue(null);
+    mockPrisma.researchTask.update.mockResolvedValue({});
+    mockPrisma.researchMission.update.mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1502,6 +1541,399 @@ describe('ResearchTodoService', () => {
       const updateCall = mockPrisma.researchTodo.update.mock.calls[0][0];
       expect(typeof updateCall.data.actualMs).toBe('number');
       expect(updateCall.data.actualMs).toBeGreaterThan(0);
+    });
+  });
+
+  // ============================================================
+  // executeTodo — full flow coverage
+  // ============================================================
+
+  describe('executeTodo', () => {
+    it('should throw NotFoundException when todo does not exist', async () => {
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.executeTodo('topic-1', 'nonexistent-todo')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException when todo type is not USER_REQUEST', async () => {
+      const todo = makeTodo({ type: ResearchTodoType.DIMENSION_RESEARCH });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+
+      await expect(service.executeTodo('topic-1', 'todo-1')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when todo is not in PENDING or QUEUED status', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.IN_PROGRESS,
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+
+      await expect(service.executeTodo('topic-1', 'todo-1')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should execute a USER_REQUEST todo with "新增维度" in title (isAddDimension branch)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '新增维度：经济分析',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      // update for IN_PROGRESS transition
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo) // set IN_PROGRESS
+        .mockResolvedValueOnce(makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 })); // set COMPLETED
+
+      // findMany for existing tasks
+      mockPrisma.researchTask.findMany.mockResolvedValueOnce([{ priority: 5 }]);
+      mockPrisma.researchTask.count.mockResolvedValueOnce(2);
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      expect(result.todo).toBeDefined();
+      expect(mockPrisma.topicDimension.create).toHaveBeenCalled();
+      expect(mockPrisma.researchTask.create).toHaveBeenCalled();
+    });
+
+    it('should execute a USER_REQUEST todo with "深入研究" in title (isDeepResearch branch)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.QUEUED,
+        title: '深入研究：量子计算',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 }));
+
+      mockPrisma.researchTask.findMany.mockResolvedValueOnce([]);
+      mockPrisma.researchTask.count.mockResolvedValueOnce(0);
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.topicDimension.create).toHaveBeenCalled();
+    });
+
+    it('should execute a generic USER_REQUEST todo (no special keyword, goes to review)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '请帮我查一下市场规模',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      const completedTodo = makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 });
+      // 3 update calls: IN_PROGRESS, progress-95 (from reviewTodoResult), final COMPLETED
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(inProgressTodo) // progress 95 update
+        .mockResolvedValueOnce(completedTodo);
+
+      // Leader review returns 'approved'
+      mockLeaderService.reviewTaskResult.mockResolvedValueOnce({
+        taskId: 'todo-1',
+        status: 'approved',
+        feedback: '任务完成',
+      });
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      // emitTodoEvent calls eventEmitter.emitToTopic internally
+      expect(mockEventEmitter.emitToTopic).toHaveBeenCalledWith(
+        'topic-1',
+        TodoEventType.TODO_COMPLETED,
+        expect.anything(),
+      );
+    });
+
+    it('should handle Leader review returning needs_revision', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '查询竞争对手数据',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      const failedTodo = makeTodo({ ...todo, status: ResearchTodoStatus.FAILED, progress: 90 });
+      // 3 update calls: IN_PROGRESS, progress-95 (reviewTodoResult), final FAILED
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(inProgressTodo) // progress 95 update
+        .mockResolvedValueOnce(failedTodo);
+
+      mockLeaderService.reviewTaskResult.mockResolvedValueOnce({
+        taskId: 'todo-1',
+        status: 'needs_revision',
+        feedback: 'Please add more detail',
+        revisionInstructions: 'Include market share data',
+      });
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      // The returned todo comes from the second update call (failedTodo)
+      expect(result.todo.status).toBe(ResearchTodoStatus.FAILED);
+      // emitTodoEvent calls eventEmitter.emitToTopic internally
+      expect(mockEventEmitter.emitToTopic).toHaveBeenCalledWith(
+        'topic-1',
+        TodoEventType.TODO_FAILED,
+        expect.anything(),
+      );
+    });
+
+    it('should handle Leader review returning rejected', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '无关内容',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      const failedTodo = makeTodo({ ...todo, status: ResearchTodoStatus.FAILED, progress: 90 });
+      // 3 update calls: IN_PROGRESS, progress-95 (reviewTodoResult), final FAILED
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(inProgressTodo) // progress 95 update
+        .mockResolvedValueOnce(failedTodo);
+
+      mockLeaderService.reviewTaskResult.mockResolvedValueOnce({
+        taskId: 'todo-1',
+        status: 'rejected',
+        feedback: 'Off topic',
+      });
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result.todo.status).toBe(ResearchTodoStatus.FAILED);
+    });
+
+    it('should auto-approve todo when missionId is null (reviewTodoResult auto-approve)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '查询数据',
+        missionId: null,
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      const completedTodo = makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 });
+      // 3 calls: IN_PROGRESS, progress-95 (reviewTodoResult), final COMPLETED
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(inProgressTodo) // progress 95 update
+        .mockResolvedValueOnce(completedTodo);
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      expect(result.todo).toBeDefined();
+    });
+
+    it('should handle execution error and update todo to FAILED status', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '新增维度：错误测试',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update.mockResolvedValueOnce(inProgressTodo);
+
+      // Make the topic lookup fail to trigger the error path
+      mockPrisma.researchTopic.findUnique.mockResolvedValueOnce(null);
+
+      // For the error recovery update
+      mockPrisma.researchTodo.update.mockResolvedValueOnce(
+        makeTodo({ ...todo, status: ResearchTodoStatus.FAILED }),
+      );
+
+      await expect(service.executeTodo('topic-1', 'todo-1')).rejects.toThrow();
+    });
+
+    it('should execute addDimension with quality review task update (has qualityReviewTask)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '新增维度：区块链应用',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 }));
+
+      mockPrisma.researchTask.findMany.mockResolvedValueOnce([{ priority: 3 }]);
+      mockPrisma.researchTask.count.mockResolvedValueOnce(1);
+
+      // Quality review task exists
+      const qualityReviewTask = { id: 'quality-task-1', dependencies: ['task-old-1'] };
+      mockPrisma.researchTask.findFirst.mockResolvedValueOnce(qualityReviewTask);
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      // Quality review task should be updated with new dependency
+      expect(mockPrisma.researchTask.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'quality-task-1' },
+        }),
+      );
+    });
+
+    it('should not re-add duplicate dependency to quality review task', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '新增维度：重复依赖测试',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 }));
+
+      mockPrisma.researchTask.findMany.mockResolvedValueOnce([]);
+      mockPrisma.researchTask.count.mockResolvedValueOnce(0);
+      const newTask = { id: 'task-new-1' };
+      mockPrisma.researchTask.create.mockResolvedValueOnce(newTask);
+
+      // Quality review task already has this task in deps
+      const qualityReviewTask = { id: 'quality-task-1', dependencies: ['task-new-1'] };
+      mockPrisma.researchTask.findFirst.mockResolvedValueOnce(qualityReviewTask);
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      // Should NOT call researchTask.update because dep already exists
+      expect(mockPrisma.researchTask.update).not.toHaveBeenCalled();
+    });
+
+    it('should execute USER_REQUEST with "构建" keyword (treated as addDimension)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '构建完整的分析框架',
+        missionId: 'mission-1',
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 }));
+
+      mockPrisma.researchTask.findMany.mockResolvedValueOnce([]);
+      mockPrisma.researchTask.count.mockResolvedValueOnce(0);
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.topicDimension.create).toHaveBeenCalled();
+    });
+
+    it('should execute USER_REQUEST without missionId in addDimension (no task creation)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '新增维度：无Mission测试',
+        missionId: null,
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 }));
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      // No missionId means no researchTask.create
+      expect(mockPrisma.researchTask.create).not.toHaveBeenCalled();
+    });
+
+    it('should execute deep research without missionId (no task creation)', async () => {
+      const todo = makeTodo({
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.PENDING,
+        title: '详细分析：市场竞争格局',
+        missionId: null,
+      });
+      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
+      const inProgressTodo = makeTodo({
+        ...todo,
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      });
+      mockPrisma.researchTodo.update
+        .mockResolvedValueOnce(inProgressTodo)
+        .mockResolvedValueOnce(makeTodo({ ...todo, status: ResearchTodoStatus.COMPLETED, progress: 100 }));
+
+      const result = await service.executeTodo('topic-1', 'todo-1');
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.topicDimension.create).toHaveBeenCalled();
+      expect(mockPrisma.researchTask.create).not.toHaveBeenCalled();
     });
   });
 });

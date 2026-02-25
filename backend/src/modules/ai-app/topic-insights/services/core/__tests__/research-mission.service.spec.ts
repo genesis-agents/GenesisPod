@@ -1315,5 +1315,489 @@ describe("ResearchMissionService", () => {
 
       expect(result).toHaveLength(0);
     });
+
+    it("should return tasks sorted by priority", async () => {
+      mockPrisma.researchTask.findMany.mockResolvedValue([
+        {
+          id: "task-003",
+          status: ResearchTaskStatus.PENDING,
+          dependencies: [],
+          priority: 3,
+        },
+        {
+          id: "task-001",
+          status: ResearchTaskStatus.PENDING,
+          dependencies: [],
+          priority: 1,
+        },
+        {
+          id: "task-002",
+          status: ResearchTaskStatus.PENDING,
+          dependencies: [],
+          priority: 2,
+        },
+      ]);
+
+      const result = await service.getExecutableTasks("mission-001");
+
+      expect(result).toHaveLength(3);
+      expect(result[0].id).toBe("task-001");
+      expect(result[1].id).toBe("task-002");
+      expect(result[2].id).toBe("task-003");
+    });
+
+    it("should handle tasks with null priority", async () => {
+      mockPrisma.researchTask.findMany.mockResolvedValue([
+        {
+          id: "task-001",
+          status: ResearchTaskStatus.PENDING,
+          dependencies: [],
+          priority: null,
+        },
+      ]);
+
+      const result = await service.getExecutableTasks("mission-001");
+
+      expect(result).toHaveLength(1);
+    });
+
+    it("should not return NEEDS_REVISION tasks as executable", async () => {
+      mockPrisma.researchTask.findMany.mockResolvedValue([
+        {
+          id: "task-001",
+          status: ResearchTaskStatus.NEEDS_REVISION,
+          dependencies: [],
+          priority: 1,
+        },
+      ]);
+
+      const result = await service.getExecutableTasks("mission-001");
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  // ============================================================
+  // getTeamInfo
+  // ============================================================
+
+  describe("getTeamInfo", () => {
+    function buildServiceWithMocks(customMockPrisma: ReturnType<typeof buildMocks>["mockPrisma"], customMocks: ReturnType<typeof buildMocks>) {
+      return Test.createTestingModule({
+        providers: [
+          ResearchMissionService,
+          { provide: PrismaService, useValue: customMockPrisma },
+          { provide: EventEmitter2, useValue: customMocks.mockEventEmitter },
+          { provide: ResearchLeaderService, useValue: customMocks.mockLeaderService },
+          { provide: DimensionMissionService, useValue: customMocks.mockDimensionMissionService },
+          { provide: ReportSynthesisService, useValue: customMocks.mockReportSynthesisService },
+          { provide: ResearchEventEmitterService, useValue: customMocks.mockResearchEventEmitter },
+          { provide: TopicCollaboratorService, useValue: customMocks.mockCollaboratorService },
+          { provide: AgentActivityService, useValue: customMocks.mockAgentActivity },
+          { provide: AIEngineFacade, useValue: customMocks.mockFacade },
+          { provide: ResearchReviewerService, useValue: customMocks.mockReviewerService },
+        ],
+      }).compile();
+    }
+
+    it("should throw NotFoundException when mission not found", async () => {
+      mockPrisma.researchMission.findUnique.mockResolvedValue(null);
+      const mocks2 = buildMocks();
+      const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
+      const svc = module2.get<ResearchMissionService>(ResearchMissionService);
+
+      await expect(svc.getTeamInfo("nonexistent-mission")).rejects.toThrow(NotFoundException);
+    });
+
+    it("should return team info with agents extracted from tasks", async () => {
+      const mocks2 = buildMocks();
+      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue({
+        displayName: "GPT-4o",
+        modelId: "gpt-4o",
+      });
+
+      const missionWithTasks = {
+        id: "mission-001",
+        topicId: "topic-001",
+        status: ResearchMissionStatus.EXECUTING,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: null,
+        tasks: [
+          {
+            id: "task-001",
+            title: "研究技术现状",
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.EXECUTING,
+            dimensionName: "技术现状",
+            modelId: "gpt-4o",
+          },
+          {
+            id: "task-002",
+            title: "研究市场格局",
+            assignedAgent: "researcher-02",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.COMPLETED,
+            dimensionName: "市场格局",
+            modelId: null,
+          },
+        ],
+      };
+
+      mockPrisma.researchMission.findUnique.mockResolvedValue(missionWithTasks);
+
+      const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
+      const svc = module2.get<ResearchMissionService>(ResearchMissionService);
+
+      const result = await svc.getTeamInfo("mission-001");
+
+      expect(result.leaderId).toBe("leader");
+      expect(result.leaderModel).toBe("o3-mini");
+      expect(result.agents).toHaveLength(2);
+
+      const workingAgent = result.agents.find((a) => a.id === "researcher-01");
+      expect(workingAgent?.status).toBe("working");
+      expect(workingAgent?.currentTask).toBe("研究技术现状");
+
+      const completedAgent = result.agents.find((a) => a.id === "researcher-02");
+      expect(completedAgent?.status).toBe("completed");
+    });
+
+    it("should mark agent as failed when any task is FAILED", async () => {
+      const mocks2 = buildMocks();
+      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+
+      const missionWithFailedTask = {
+        id: "mission-001",
+        topicId: "topic-001",
+        status: ResearchMissionStatus.FAILED,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: null,
+        tasks: [
+          {
+            id: "task-001",
+            title: "失败的任务",
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.FAILED,
+            dimensionName: null,
+            modelId: null,
+          },
+        ],
+      };
+
+      mockPrisma.researchMission.findUnique.mockResolvedValue(missionWithFailedTask);
+
+      const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
+      const svc = module2.get<ResearchMissionService>(ResearchMissionService);
+
+      const result = await svc.getTeamInfo("mission-001");
+
+      const agent = result.agents.find((a) => a.id === "researcher-01");
+      expect(agent?.status).toBe("failed");
+    });
+
+    it("should parse leaderPlan to extract agent skills and tools", async () => {
+      const mocks2 = buildMocks();
+      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+
+      const missionWithPlan = {
+        id: "mission-001",
+        topicId: "topic-001",
+        status: ResearchMissionStatus.EXECUTING,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: {
+          agentAssignments: [
+            {
+              agentId: "researcher-01",
+              agentType: "dimension_researcher",
+              skills: ["deep_dive", "synthesis"],
+              tools: ["web-search"],
+              modelId: "gpt-4o",
+            },
+          ],
+        },
+        tasks: [
+          {
+            id: "task-001",
+            title: "技术研究",
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.PENDING,
+            dimensionName: "技术",
+            modelId: null,
+          },
+        ],
+      };
+
+      mockPrisma.researchMission.findUnique.mockResolvedValue(missionWithPlan);
+
+      const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
+      const svc = module2.get<ResearchMissionService>(ResearchMissionService);
+
+      const result = await svc.getTeamInfo("mission-001");
+
+      const agent = result.agents.find((a) => a.id === "researcher-01");
+      expect(agent?.skills).toEqual(["deep_dive", "synthesis"]);
+      expect(agent?.tools).toEqual(["web-search"]);
+    });
+
+    it("should use fallback from leaderService when mission has no stored model", async () => {
+      const mocks2 = buildMocks();
+      mocks2.mockLeaderService.getReasoningModel = jest.fn().mockResolvedValue({
+        modelId: "o3-mini-dynamic",
+        modelName: "o3-mini-dynamic",
+        provider: "openai",
+        isReasoning: true,
+      });
+      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+
+      const missionNoModel = {
+        id: "mission-001",
+        topicId: "topic-001",
+        status: ResearchMissionStatus.EXECUTING,
+        leaderModelId: null,
+        leaderModelName: null,
+        leaderPlan: null,
+        tasks: [],
+      };
+
+      mockPrisma.researchMission.findUnique.mockResolvedValue(missionNoModel);
+
+      const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
+      const svc = module2.get<ResearchMissionService>(ResearchMissionService);
+
+      const result = await svc.getTeamInfo("mission-001");
+
+      expect(result.leaderModel).toBe("o3-mini-dynamic");
+    });
+
+    it("should include dimension names in agent assignedDimensions", async () => {
+      const mocks2 = buildMocks();
+      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+
+      const missionWithDimTasks = {
+        id: "mission-001",
+        topicId: "topic-001",
+        status: ResearchMissionStatus.EXECUTING,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: null,
+        tasks: [
+          {
+            id: "task-001",
+            title: "维度A",
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.PENDING,
+            dimensionName: "维度A",
+            modelId: null,
+          },
+          {
+            id: "task-002",
+            title: "维度B",
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.PENDING,
+            dimensionName: "维度B",
+            modelId: null,
+          },
+        ],
+      };
+
+      mockPrisma.researchMission.findUnique.mockResolvedValue(missionWithDimTasks);
+
+      const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
+      const svc = module2.get<ResearchMissionService>(ResearchMissionService);
+
+      const result = await svc.getTeamInfo("mission-001");
+
+      const agent = result.agents.find((a) => a.id === "researcher-01");
+      expect(agent?.assignedDimensions).toContain("维度A");
+      expect(agent?.assignedDimensions).toContain("维度B");
+    });
+  });
+
+  // ============================================================
+  // adjustMission - additional branch coverage
+  // ============================================================
+
+  describe("adjustMission - additional branches", () => {
+    const executingMission = {
+      id: "mission-001",
+      topicId: "topic-001",
+      status: ResearchMissionStatus.EXECUTING,
+      progressPercent: 30,
+      completedTasks: 1,
+      totalTasks: 3,
+      tasks: [],
+      topic: { userId: "user-owner", id: "topic-001" },
+    };
+
+    it("should remove dimension task when removeDimensions provided", async () => {
+      mockPrisma.researchMission.findUnique.mockResolvedValue(executingMission);
+      mockPrisma.researchTask.findFirst.mockResolvedValue({
+        id: "task-to-delete",
+        missionId: "mission-001",
+        dimensionName: "旧维度",
+        status: ResearchTaskStatus.PENDING,
+      });
+      mockPrisma.researchTask.delete = jest.fn().mockResolvedValue({});
+      mockPrisma.researchMission.update.mockResolvedValue({});
+      mockPrisma.leaderDecision.create.mockResolvedValue({});
+      mockPrisma.researchMission.findUniqueOrThrow = jest.fn().mockResolvedValue(executingMission);
+
+      await service.adjustMission("user-owner", "mission-001", {
+        removeDimensions: ["旧维度"],
+      });
+
+      expect(mockPrisma.researchTask.delete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "task-to-delete" },
+        }),
+      );
+    });
+
+    it("should not delete task when pending task not found", async () => {
+      mockPrisma.researchMission.findUnique.mockResolvedValue(executingMission);
+      mockPrisma.researchTask.findFirst.mockResolvedValue(null);
+      mockPrisma.researchTask.delete = jest.fn();
+      mockPrisma.researchMission.update.mockResolvedValue({});
+      mockPrisma.leaderDecision.create.mockResolvedValue({});
+      mockPrisma.researchMission.findUniqueOrThrow = jest.fn().mockResolvedValue(executingMission);
+
+      await service.adjustMission("user-owner", "mission-001", {
+        removeDimensions: ["不存在的维度"],
+      });
+
+      expect(mockPrisma.researchTask.delete).not.toHaveBeenCalled();
+    });
+
+    it("should call handleUserMessage for focusAreas adjustment", async () => {
+      mockLeaderService.handleUserMessage = jest.fn().mockResolvedValue({ response: "OK" });
+      mockPrisma.researchMission.findUnique.mockResolvedValue(executingMission);
+      mockPrisma.researchMission.update.mockResolvedValue({});
+      mockPrisma.leaderDecision.create.mockResolvedValue({});
+      mockPrisma.researchMission.findUniqueOrThrow = jest.fn().mockResolvedValue(executingMission);
+
+      await service.adjustMission("user-owner", "mission-001", {
+        focusAreas: ["技术创新", "市场机会"],
+      });
+
+      expect(mockLeaderService.handleUserMessage).toHaveBeenCalledWith(
+        "topic-001",
+        "mission-001",
+        expect.stringContaining("技术创新"),
+      );
+    });
+  });
+
+  // ============================================================
+  // createMission - incremental with active mission deduplication
+  // ============================================================
+
+  describe("createMission - incremental deduplication", () => {
+    it("should deduplicate completed tasks by dimensionName when merging from active and previous missions", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+
+      const prevMission = {
+        id: "prev-mission-001",
+        tasks: [
+          {
+            id: "task-prev-001",
+            dimensionName: "技术现状",
+            dimensionId: "dim-001",
+            title: "技术现状研究",
+            description: "desc",
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            priority: 1,
+            result: null,
+            resultSummary: "完成",
+            startedAt: new Date(),
+            completedAt: new Date(),
+            status: ResearchTaskStatus.COMPLETED,
+          },
+        ],
+      };
+
+      const activeMission = {
+        id: "active-mission-001",
+        topicId: "topic-001",
+        status: ResearchMissionStatus.EXECUTING,
+        tasks: [
+          {
+            // same dimensionName as prev - should be deduplicated
+            id: "task-active-001",
+            dimensionName: "技术现状",
+            dimensionId: "dim-001",
+            title: "技术现状 (active)",
+            description: "desc",
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            priority: 1,
+            result: null,
+            resultSummary: null,
+            startedAt: null,
+            completedAt: null,
+            status: ResearchTaskStatus.COMPLETED,
+          },
+          {
+            id: "task-active-002",
+            dimensionName: "市场格局",
+            dimensionId: "dim-002",
+            title: "市场格局",
+            description: "desc",
+            assignedAgent: "researcher-02",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            priority: 2,
+            result: null,
+            resultSummary: "完成",
+            startedAt: new Date(),
+            completedAt: new Date(),
+            status: ResearchTaskStatus.COMPLETED,
+          },
+        ],
+      };
+
+      mockPrisma.researchMission.findFirst
+        .mockResolvedValueOnce(prevMission)
+        .mockResolvedValueOnce(activeMission);
+
+      mockPrisma.researchMission.update.mockResolvedValue({});
+      mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
+      mockLeaderService.getReasoningModel.mockResolvedValue({
+        modelId: "o3-mini",
+        modelName: "o3-mini",
+        provider: "openai",
+        isReasoning: true,
+      });
+      mockPrisma.researchMission.create.mockResolvedValue({
+        id: "new-inc-mission",
+        topicId: "topic-001",
+        status: ResearchMissionStatus.PLANNING,
+      });
+
+      const result = await service.createMission({
+        topicId: "topic-001",
+        mode: "incremental",
+      });
+
+      expect(result.id).toBe("new-inc-mission");
+      // Active mission should be cancelled
+      expect(mockPrisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "active-mission-001" },
+          data: { status: ResearchMissionStatus.CANCELLED },
+        }),
+      );
+    });
   });
 });

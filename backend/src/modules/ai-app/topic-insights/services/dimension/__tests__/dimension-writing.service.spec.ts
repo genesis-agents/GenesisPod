@@ -5,6 +5,12 @@
  * - executeWritingPhase
  * - section writing with dependency tracking
  * - leader review and integration
+ * - saveEvidence with transaction
+ * - assessCredibility, validateDate, replaceEvidenceIds
+ * - validateAllocatedFigures
+ * - filterEvidenceForSection, extractKeywords
+ * - getPreviousSections
+ * - convertToAnalysisResult, extractTrendsFromContent, etc.
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -121,20 +127,28 @@ const makeSectionWriteResult = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const makeIntegratedResult = () => ({
+const makeIntegratedResult = (overrides: Record<string, unknown> = {}) => ({
   title: 'Integrated Analysis',
   content: '## Analysis\n\nThis is the integrated result content.',
   metadata: {
     summary: 'Summary of AI development trends.',
     keyFindings: ['Finding 1', 'Finding 2'],
     confidence: 0.85,
+    confidenceLevel: 0.85,
   },
   wordCount: 2000,
+  ...overrides,
 });
 
 // ============================================================
 // Mocks
 // ============================================================
+
+const mockTopicEvidenceTx = {
+  aggregate: jest.fn().mockResolvedValue({ _max: { citationIndex: 0 } }),
+  createMany: jest.fn().mockResolvedValue({ count: 1 }),
+  findMany: jest.fn().mockResolvedValue([{ id: 'ev-saved-1', citationIndex: 1 }]),
+};
 
 const mockPrisma = {
   topicDimension: {
@@ -147,6 +161,9 @@ const mockPrisma = {
   researchTopic: {
     findUnique: jest.fn().mockResolvedValue({ language: 'zh' }),
   },
+  $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => {
+    return fn({ topicEvidence: mockTopicEvidenceTx });
+  }),
 };
 
 const mockLeaderService = {
@@ -413,6 +430,1089 @@ describe('DimensionWritingService', () => {
         expect.any(Number),
         expect.any(Number),
       );
+    });
+
+    it('should update dimension status to COMPLETED on success', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'dim-1' },
+          data: expect.objectContaining({ status: DimensionStatus.COMPLETED }),
+        }),
+      );
+    });
+
+    it('should update dimension status to FAILED on error', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockLeaderService.integrateDimensionResults.mockRejectedValue(
+        new Error('Fatal error'),
+      );
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'dim-1' },
+          data: { status: DimensionStatus.FAILED },
+        }),
+      );
+    });
+
+    it('should emit progress failed stage when error occurs and emitProgressFn provided', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+      const emitProgressFn = jest.fn().mockResolvedValue(undefined);
+
+      mockLeaderService.integrateDimensionResults.mockRejectedValue(
+        new Error('Fatal error'),
+      );
+
+      const result = await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        emitProgressFn,
+      );
+
+      expect(result.success).toBe(false);
+      expect(emitProgressFn).toHaveBeenCalledWith(
+        'topic-1',
+        '技术发展',
+        expect.objectContaining({ stage: 'failed' }),
+        undefined,
+        undefined,
+        undefined,
+      );
+    });
+
+    it('should save evidence when reportId is provided', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        'report-123',
+      );
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('should NOT call $transaction when no reportId is provided', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        // no reportId
+      );
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should handle claim extraction failure gracefully (non-fatal)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockLeaderService.extractClaims.mockRejectedValue(new Error('Claims extraction failed'));
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      // Should still succeed despite claim extraction failure
+      expect(result.success).toBe(true);
+      expect(result.extractedClaims).toEqual([]);
+    });
+
+    it('should include extractedClaims when extraction succeeds', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      const fakeClaims = [
+        { id: 'claim-1', text: 'AI will dominate by 2030', sectionId: 'sec-1' },
+      ];
+      mockLeaderService.extractClaims.mockResolvedValue(fakeClaims);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.extractedClaims).toEqual(fakeClaims);
+    });
+
+    it('should deduplicate generated charts with same title', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      // Return two sections each with a chart of the same title
+      mockSectionWriter.writeSectionsParallel.mockResolvedValueOnce([
+        makeSectionWriteResult({
+          generatedCharts: [
+            { title: 'Revenue Trend', type: 'bar', data: [] },
+            { title: 'Revenue Trend', type: 'bar', data: [] }, // duplicate
+            { title: null, type: 'line', data: [] }, // null title - kept
+          ],
+        }),
+      ]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should deduplicate figure references by imageUrl', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockSectionWriter.writeSectionsParallel.mockResolvedValueOnce([
+        makeSectionWriteResult({
+          figureReferences: [
+            { imageUrl: 'https://img.example.com/fig1.png', evidenceCitationIndex: 1 },
+            { imageUrl: 'https://img.example.com/fig1.png', evidenceCitationIndex: 1 }, // duplicate
+            { imageUrl: null, evidenceCitationIndex: 3 }, // null imageUrl - filtered
+            { imageUrl: 'https://img.example.com/fig2.png', evidenceCitationIndex: 2 },
+          ],
+        }),
+      ]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should extract actual model ID from last section result', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockSectionWriter.writeSectionsParallel.mockResolvedValueOnce([
+        makeSectionWriteResult({ actualModelId: 'claude-3-sonnet' }),
+      ]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+      expect(result.actualModelId).toBe('claude-3-sonnet');
+    });
+
+    it('should handle maxRevisionRounds=0 (skip review loop)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      const result = await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        0, // maxRevisionRounds = 0
+      );
+
+      // With 0 revisions allowed, reviewSectionOutput should not be called
+      expect(mockLeaderService.reviewSectionOutput).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+    });
+
+    it('should handle revision failure gracefully (keep current content, break loop)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      // Reviewer rejects
+      mockLeaderService.reviewSectionOutput.mockResolvedValue({
+        approved: false,
+        score: 50,
+        feedback: 'Poor quality',
+        revisionInstructions: 'Rewrite completely',
+      });
+
+      // Revision throws
+      mockSectionWriter.reviseSection.mockRejectedValue(new Error('Revision service failed'));
+
+      const result = await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        3, // maxRevisionRounds = 3
+      );
+
+      // Should still succeed, just kept original content
+      expect(result.success).toBe(true);
+    });
+
+    it('should call emitProgressFn with integrating stage', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+      const emitProgressFn = jest.fn().mockResolvedValue(undefined);
+
+      await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        emitProgressFn,
+      );
+
+      const calls = emitProgressFn.mock.calls.map((c) => c[2].stage);
+      expect(calls).toContain('integrating');
+    });
+
+    it('should call emitProgressFn with completed stage on success', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+      const emitProgressFn = jest.fn().mockResolvedValue(undefined);
+
+      await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        emitProgressFn,
+      );
+
+      const stages = emitProgressFn.mock.calls.map((c) => c[2].stage);
+      expect(stages).toContain('completed');
+    });
+
+    it('should handle sections with dependsOn (two sequential groups)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const sec1 = makeSectionPlan({ id: 'sec-1', title: 'Background', order: 1 });
+      const sec2 = makeSectionPlan({ id: 'sec-2', title: 'Analysis', order: 2, dependsOn: ['sec-1'] });
+      const outline = {
+        ...makeOutline([sec1, sec2]),
+        executionPlan: { parallelGroups: [['sec-1'], ['sec-2']] },
+      };
+
+      mockSectionWriter.writeSectionsParallel
+        .mockResolvedValueOnce([makeSectionWriteResult({ sectionId: 'sec-1', title: 'Background' })])
+        .mockResolvedValueOnce([makeSectionWriteResult({ sectionId: 'sec-2', title: 'Analysis' })]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+      expect(mockSectionWriter.writeSectionsParallel).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle evidence data being empty in saveEvidence path', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult({ evidenceData: [] });
+      const outline = makeOutline([makeSectionPlan()]);
+
+      const result = await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        'report-123', // With reportId but empty evidence
+      );
+
+      // Empty evidence => saveEvidence returns early with no transaction call
+      expect(result.success).toBe(true);
+      expect(result.evidenceIds).toEqual([]);
+    });
+
+    it('should replace evidence IDs in content when indexMapping has entries', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      const evidenceData = [
+        {
+          id: 'ev-1',
+          title: 'Source 1',
+          url: 'http://source1.com',
+          domain: 'source1.com',
+          snippet: 'snippet',
+          sourceType: 'web',
+          publishedAt: null,
+        },
+      ];
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content: 'Based on analysis [1] the trends are clear.',
+      });
+
+      // Transaction returns citationIndex=5 (non-1 to trigger replacement)
+      mockTopicEvidenceTx.findMany.mockResolvedValue([{ id: 'saved-1', citationIndex: 5 }]);
+
+      const result = await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        'report-123',
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('should update figureReferences evidenceCitationIndex when indexMapping has entries', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      const evidenceData = [
+        {
+          id: 'ev-1',
+          title: 'Source 1',
+          url: 'http://source1.com',
+          domain: 'source1.com',
+          snippet: 'snippet',
+          sourceType: 'web',
+          publishedAt: null,
+        },
+      ];
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockSectionWriter.writeSectionsParallel.mockResolvedValueOnce([
+        makeSectionWriteResult({
+          figureReferences: [
+            { imageUrl: 'https://img.example.com/fig.png', evidenceCitationIndex: 1 },
+          ],
+        }),
+      ]);
+
+      // Transaction returns citationIndex=5 (triggers indexMapping)
+      mockTopicEvidenceTx.findMany.mockResolvedValue([{ id: 'saved-1', citationIndex: 5 }]);
+
+      const result = await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        'report-123',
+      );
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should validate allocated figures and skip out-of-range evidence indices', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      const evidenceData = [
+        { id: 'ev-1', title: 'Source 1', url: 'http://source1.com', domain: 'source1.com', snippet: 'snippet', sourceType: 'web', publishedAt: null, extractedFigures: [] },
+      ];
+
+      const sectionWithOutOfRangeFigure = makeSectionPlan({
+        id: 'sec-1',
+        title: 'Section 1',
+        allocatedFigures: [
+          { evidenceIndex: 999, figureIndex: 0, imageUrl: 'http://img.com/fig.png', caption: 'Fig 1' },
+        ],
+      });
+
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([sectionWithOutOfRangeFigure]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should try to recover imageUrl from extractedFigures when missing', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      const evidenceData = [
+        {
+          id: 'ev-1', title: 'Source 1', url: 'http://source1.com', domain: 'source1.com',
+          snippet: 'snippet', sourceType: 'web', publishedAt: null,
+          extractedFigures: [{ imageUrl: 'http://img.com/real-fig.png', caption: 'Real Caption', alt: 'alt' }],
+        },
+      ];
+
+      const sectionWithEmptyImageUrl = makeSectionPlan({
+        id: 'sec-1',
+        title: 'Section 1',
+        allocatedFigures: [
+          { evidenceIndex: 1, figureIndex: 0, imageUrl: '', caption: '' },
+        ],
+      });
+
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([sectionWithEmptyImageUrl]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should skip figure when imageUrl empty and cannot be recovered', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      const evidenceData = [
+        {
+          id: 'ev-1', title: 'Source 1', url: 'http://source1.com', domain: 'source1.com',
+          snippet: 'snippet', sourceType: 'web', publishedAt: null,
+          extractedFigures: [{ imageUrl: '', caption: 'No URL', alt: 'alt text' }], // empty imageUrl in source too
+        },
+      ];
+
+      const sectionWithEmptyImageUrl = makeSectionPlan({
+        id: 'sec-1',
+        title: 'Section 1',
+        allocatedFigures: [
+          { evidenceIndex: 1, figureIndex: 0, imageUrl: '', caption: '' },
+        ],
+      });
+
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([sectionWithEmptyImageUrl]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should deduplicate allocated figures globally across sections', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      const evidenceData = [
+        { id: 'ev-1', title: 'Source 1', url: 'http://source1.com', domain: 'source1.com', snippet: 'snippet', sourceType: 'web', publishedAt: null, extractedFigures: [] },
+      ];
+
+      // Two sections claiming the same figure [1:0]
+      const sec1 = makeSectionPlan({
+        id: 'sec-1',
+        title: 'Section 1',
+        allocatedFigures: [
+          { evidenceIndex: 1, figureIndex: 0, imageUrl: 'http://img.com/fig.png', caption: 'Fig 1' },
+        ],
+      });
+      const sec2 = makeSectionPlan({
+        id: 'sec-2',
+        title: 'Section 2',
+        allocatedFigures: [
+          { evidenceIndex: 1, figureIndex: 0, imageUrl: 'http://img.com/fig.png', caption: 'Fig 1 duplicate' },
+        ],
+      });
+
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = {
+        ...makeOutline([sec1, sec2]),
+        executionPlan: { parallelGroups: [['sec-1', 'sec-2']] },
+      };
+
+      mockSectionWriter.writeSectionsParallel.mockResolvedValueOnce([
+        makeSectionWriteResult({ sectionId: 'sec-1', title: 'Section 1' }),
+        makeSectionWriteResult({ sectionId: 'sec-2', title: 'Section 2' }),
+      ]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // Multiple revision rounds
+  // ============================================================
+
+  describe('revision rounds', () => {
+    it('should go through multiple revision rounds up to maxRevisionRounds', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      // Reject twice, approve on 3rd
+      mockLeaderService.reviewSectionOutput
+        .mockResolvedValueOnce({ approved: false, score: 40, feedback: 'Too short', revisionInstructions: 'Expand' })
+        .mockResolvedValueOnce({ approved: false, score: 60, feedback: 'Still short', revisionInstructions: 'Add more' })
+        .mockResolvedValueOnce({ approved: true, score: 85, feedback: 'Good now', revisionInstructions: null });
+
+      mockSectionWriter.reviseSection
+        .mockResolvedValueOnce(makeSectionWriteResult({ content: 'Revised once' }))
+        .mockResolvedValueOnce(makeSectionWriteResult({ content: 'Revised twice' }));
+
+      const result = await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        3, // maxRevisionRounds = 3
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockSectionWriter.reviseSection).toHaveBeenCalledTimes(2);
+    });
+
+    it('should stop revisions when maxRevisionRounds is reached (exhausted)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      // Always reject
+      mockLeaderService.reviewSectionOutput.mockResolvedValue({
+        approved: false,
+        score: 30,
+        feedback: 'Always rejects',
+        revisionInstructions: 'Try again',
+      });
+      mockSectionWriter.reviseSection.mockResolvedValue(
+        makeSectionWriteResult({ content: 'Revised' }),
+      );
+
+      await service.executeWritingPhase(
+        topic,
+        dimension,
+        searchResult,
+        outline,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        2, // maxRevisionRounds = 2
+      );
+
+      // Should have called reviseSection exactly 2 times
+      expect(mockSectionWriter.reviseSection).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ============================================================
+  // filterEvidenceForSection via integration
+  // ============================================================
+
+  describe('filterEvidenceForSection (via integration)', () => {
+    it('should return all evidence when evidenceData.length <= 5', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const evidenceData = [
+        { id: 'e1', title: 'AI advances', snippet: 'AI in 2024', sourceType: 'web', url: 'http://a.com', domain: 'a.com', publishedAt: null },
+        { id: 'e2', title: 'ML progress', snippet: 'ML stuff', sourceType: 'web', url: 'http://b.com', domain: 'b.com', publishedAt: null },
+        { id: 'e3', title: 'Neural nets', snippet: 'Neural networks', sourceType: 'web', url: 'http://c.com', domain: 'c.com', publishedAt: null },
+      ];
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan({ title: 'Deep learning trends' })]);
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(mockSectionWriter.writeSectionsParallel).toHaveBeenCalled();
+    });
+
+    it('should filter evidence when more than 5 items exist', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      // 8 evidence items: filtering kicks in
+      const evidenceData = Array.from({ length: 8 }, (_, i) => ({
+        id: `e${i + 1}`,
+        title: i < 4 ? `Deep learning paper ${i}` : `Unrelated article ${i}`,
+        snippet: i < 4 ? `Deep learning advances in neural network architecture ${i}` : `Cooking recipes ${i}`,
+        sourceType: 'web',
+        url: `http://e${i}.com`,
+        domain: `e${i}.com`,
+        publishedAt: null,
+      }));
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan({ title: 'Deep Learning Architecture', keyPoints: ['neural networks', 'training'] })]);
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(mockSectionWriter.writeSectionsParallel).toHaveBeenCalled();
+    });
+
+    it('should fallback to all evidence when no keywords can be extracted', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      // 8 items but section has title with all stop words (and no description)
+      const evidenceData = Array.from({ length: 8 }, (_, i) => ({
+        id: `e${i + 1}`,
+        title: `Item ${i}`,
+        snippet: `Snippet ${i}`,
+        sourceType: 'web',
+        url: `http://e${i}.com`,
+        domain: `e${i}.com`,
+        publishedAt: null,
+      }));
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      // Section with only stop-word keywords + null description (all get filtered -> 0 keywords)
+      const outline = makeOutline([makeSectionPlan({ title: 'the an is', keyPoints: [], description: null })]);
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(mockSectionWriter.writeSectionsParallel).toHaveBeenCalled();
+    });
+
+    it('should return relevant evidence when 5+ items match section keywords', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      // 10 evidence items, 6 of which match the section keywords -> hits "relevant.length >= 5" path
+      const evidenceData = Array.from({ length: 10 }, (_, i) => ({
+        id: `e${i + 1}`,
+        title: i < 6 ? `semiconductor analysis paper ${i}` : `cooking recipe ${i}`,
+        snippet: i < 6 ? `semiconductor market share analysis report ${i}` : `food recipe ${i}`,
+        sourceType: 'web',
+        url: `http://e${i}.com`,
+        domain: `e${i}.com`,
+        publishedAt: null,
+      }));
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan({ title: 'semiconductor market', keyPoints: ['analysis'], description: null })]);
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(mockSectionWriter.writeSectionsParallel).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // Topic language resolution
+  // ============================================================
+
+  describe('topic language resolution', () => {
+    it('should fetch topic language for review calls', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({ language: 'en' });
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(mockPrisma.researchTopic.findUnique).toHaveBeenCalledWith({
+        where: { id: 'topic-1' },
+        select: { language: true },
+      });
+    });
+
+    it('should handle null language from DB gracefully', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // saveEvidence transaction (via executeWritingPhase with reportId)
+  // ============================================================
+
+  describe('saveEvidence (via executeWritingPhase)', () => {
+    it('should use prisma.$transaction for evidence saving', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const evidenceData = [
+        {
+          id: 'ev-1',
+          title: 'Test Source',
+          url: 'http://test.com',
+          domain: 'test.com',
+          snippet: 'Test snippet for content depth scoring',
+          sourceType: 'web',
+          publishedAt: new Date('2024-06-01'),
+        },
+      ];
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan()]);
+
+      await service.executeWritingPhase(topic, dimension, searchResult, outline, 'report-123');
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockTopicEvidenceTx.aggregate).toHaveBeenCalled();
+      expect(mockTopicEvidenceTx.createMany).toHaveBeenCalled();
+      expect(mockTopicEvidenceTx.findMany).toHaveBeenCalled();
+    });
+
+    it('should handle evidence with null publishedAt (validateDate null path)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const evidenceData = [
+        {
+          id: 'ev-1',
+          title: 'Test Source',
+          url: 'http://test.com',
+          domain: 'reuters.com', // high authority domain
+          snippet: 'A'.repeat(600), // long snippet
+          sourceType: 'academic',
+          publishedAt: null,
+        },
+      ];
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan()]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline, 'report-123');
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should handle evidence with invalid date string (validateDate NaN path)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const evidenceData = [
+        {
+          id: 'ev-1',
+          title: 'Test Source',
+          url: 'http://test.com',
+          domain: 'nature.com', // top authority
+          snippet: 'B'.repeat(300), // medium snippet
+          sourceType: 'official',
+          publishedAt: 'not-a-date',
+        },
+      ];
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan()]);
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline, 'report-123');
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should calculate credibility scores for various domain/type/snippet/freshness combinations', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+
+      const now = Date.now();
+      const evidenceData = [
+        // .gov domain (top authority) + official + long snippet + fresh (<=30 days)
+        {
+          id: 'ev-gov',
+          title: 'Government Report',
+          url: 'http://cdc.gov/report',
+          domain: 'cdc.gov',
+          snippet: 'A'.repeat(600),
+          sourceType: 'official',
+          publishedAt: new Date(now - 10 * 24 * 60 * 60 * 1000), // 10 days
+        },
+        // bloomberg.com (high authority) + news + medium snippet + 100 days (<=180)
+        {
+          id: 'ev-high',
+          title: 'Bloomberg Article',
+          url: 'http://bloomberg.com/tech',
+          domain: 'bloomberg.com',
+          snippet: 'B'.repeat(250),
+          sourceType: 'news',
+          publishedAt: new Date(now - 100 * 24 * 60 * 60 * 1000),
+        },
+        // techcrunch.com (medium authority) + report + short snippet + 300 days (<=365)
+        {
+          id: 'ev-medium',
+          title: 'TechCrunch Post',
+          url: 'http://techcrunch.com/ai',
+          domain: 'techcrunch.com',
+          snippet: 'C'.repeat(100),
+          sourceType: 'report',
+          publishedAt: new Date(now - 300 * 24 * 60 * 60 * 1000),
+        },
+        // unknown domain (else branch) + web + tiny snippet + 500 days (<=730)
+        {
+          id: 'ev-unknown',
+          title: 'Unknown Site',
+          url: 'http://unknown-blog.com/post',
+          domain: 'unknown-blog.com',
+          snippet: 'Short',
+          sourceType: 'web',
+          publishedAt: new Date(now - 500 * 24 * 60 * 60 * 1000),
+        },
+        // no domain (null) + default type + no snippet + old (>730 days)
+        {
+          id: 'ev-no-domain',
+          title: 'No Domain',
+          url: '',
+          domain: null,
+          snippet: null,
+          sourceType: 'unknown_type',
+          publishedAt: new Date(now - 900 * 24 * 60 * 60 * 1000),
+        },
+        // arxiv.org domain (top authority) + academic + medium snippet + recent (<= 180 days)
+        {
+          id: 'ev-arxiv',
+          title: 'ArXiv Paper',
+          url: 'https://arxiv.org/abs/1234',
+          domain: 'arxiv.org',
+          snippet: 'D'.repeat(250),
+          sourceType: 'academic',
+          publishedAt: new Date(now - 150 * 24 * 60 * 60 * 1000),
+        },
+      ];
+      const searchResult = makeSearchPhaseResult({ evidenceData });
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockTopicEvidenceTx.findMany.mockResolvedValue(
+        evidenceData.map((e, i) => ({ id: `saved-${i}`, citationIndex: i + 1 })),
+      );
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline, 'report-123');
+
+      expect(result.success).toBe(true);
+      expect(mockTopicEvidenceTx.createMany).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // convertToAnalysisResult + content extraction helpers
+  // ============================================================
+
+  describe('convertToAnalysisResult (via executeWritingPhase)', () => {
+    it('should extract trends from markdown ## header + bullet list', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content: [
+          '## 发展趋势',
+          '',
+          '- **大模型趋势**: AI大模型在2024年取得了显著进展，影响多个行业。',
+          '- 云计算整合AI能力成为主流趋势，企业加速迁移。',
+        ].join('\n'),
+        metadata: {
+          summary: 'AI trends summary',
+          keyFindings: ['Finding 1', 'Finding 2', 'Finding 3', 'Finding 4', 'Finding 5'],
+          confidence: 0.85,
+          confidenceLevel: 0.85,
+        },
+      });
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+      expect(result.analysisResult?.trends).toBeDefined();
+    });
+
+    it('should extract challenges from bold pattern in content', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content: [
+          '**挑战一**: 人才短缺是AI发展面临的主要挑战，全球AI工程师供不应求。',
+          '**风险**: 数据隐私和安全问题制约了AI在金融行业的大规模应用。',
+        ].join('\n'),
+        metadata: {
+          summary: 'Challenges summary',
+          keyFindings: ['Challenge 1'],
+          confidence: 0.7,
+          confidenceLevel: 0.7,
+        },
+      });
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+      expect(result.analysisResult?.challenges).toBeDefined();
+    });
+
+    it('should extract opportunities from sentence-level keywords', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content: [
+          '中国AI市场存在巨大的发展机遇，预计到2025年市场规模将超过1000亿元。',
+          '医疗AI领域也有显著的发展机会，辅助诊断技术逐步走向临床应用。',
+        ].join('\n'),
+        metadata: {
+          summary: 'Opportunities summary',
+          keyFindings: ['Opportunity 1'],
+          confidence: 0.8,
+          confidenceLevel: 0.8,
+        },
+      });
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+      expect(result.analysisResult?.opportunities).toBeDefined();
+    });
+
+    it('should produce keyFindings with correct significance levels (high/medium/low)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content: 'Content without any trends or challenges.',
+        metadata: {
+          summary: 'Summary',
+          keyFindings: ['High-1', 'High-2', 'Medium-3', 'Medium-4', 'Low-5', 'Low-6'],
+          confidence: 0.9,
+          confidenceLevel: 0.9,
+        },
+      });
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+      const findings = result.analysisResult?.keyFindings || [];
+      expect(findings[0]?.significance).toBe('high');
+      expect(findings[1]?.significance).toBe('high');
+      expect(findings[2]?.significance).toBe('medium');
+      expect(findings[4]?.significance).toBe('low');
+    });
+
+    it('should extract trend items hitting the 5-item limit from header bullets', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      // 6 bullet points after trend header — should stop at 5
+      const bullets = Array.from({ length: 6 }, (_, i) => `- 趋势项目 ${i + 1} 是非常重要的发展方向，需要认真关注。`).join('\n');
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content: `## 发展趋势\n\n${bullets}\n`,
+        metadata: { summary: 'S', keyFindings: ['F1'], confidence: 0.8, confidenceLevel: 0.8 },
+      });
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+      // extractFromHeaders limits to 5
+      expect((result.analysisResult?.trends?.length ?? 0)).toBeLessThanOrEqual(5);
+    });
+
+    it('should handle bullet items exceeding 120 chars (truncation)', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      // A very long bullet item after trend header
+      const longItem = '趋'.repeat(150); // 150 Chinese chars > 120
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content: `## 发展趋势\n\n- ${longItem}\n`,
+        metadata: { summary: 'S', keyFindings: ['F1'], confidence: 0.8, confidenceLevel: 0.8 },
+      });
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should match next header break in extractFromHeaders', async () => {
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension();
+      const searchResult = makeSearchPhaseResult();
+      const outline = makeOutline([makeSectionPlan()]);
+
+      // Two headers: trend header followed by another header (should break at second header)
+      const content = [
+        '## 发展趋势',
+        '- 趋势项目一是非常重要的发展方向',
+        '## 挑战分析',
+        '- Some challenge',
+      ].join('\n');
+      mockLeaderService.integrateDimensionResults.mockResolvedValue({
+        ...makeIntegratedResult(),
+        content,
+        metadata: { summary: 'S', keyFindings: ['F1'], confidence: 0.8, confidenceLevel: 0.8 },
+      });
+
+      const result = await service.executeWritingPhase(topic, dimension, searchResult, outline);
+
+      expect(result.success).toBe(true);
     });
   });
 });

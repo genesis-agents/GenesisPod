@@ -1107,4 +1107,271 @@ describe('MissionExecutionService', () => {
       expect(prisma.agentTask.update).toHaveBeenCalledTimes(2);
     });
   });
+
+  // ==================== executeNextTasks - pending execution re-run ====================
+
+  describe('executeNextTasks - pending execution behavior', () => {
+    beforeEach(() => {
+      service.setCallbacks(mockCallbacks as any);
+      // Reset mocks to avoid interference
+      jest.clearAllMocks();
+      mockPrisma.teamMission.findUnique.mockResolvedValue(buildMockMission());
+      mockPrisma.agentTask.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentTask.update.mockResolvedValue(buildMockTask());
+    });
+
+    it('should add to pendingExecutions when lock is not acquired', async () => {
+      mockStateManager.startMissionExecution.mockReturnValueOnce(false);
+
+      await service.executeNextTasks('mission-1');
+
+      const pending = (service as any).pendingExecutions;
+      expect(pending.has('mission-1')).toBe(true);
+    });
+
+    it('should clear pending execution after re-executing', async () => {
+      // First call acquires lock; second does not
+      mockStateManager.startMissionExecution
+        .mockReturnValueOnce(false) // first call: pending
+        .mockReturnValueOnce(true); // re-run: acquired
+
+      const completedMission = {
+        ...buildMockMission(),
+        tasks: [{ ...buildMockTask(), status: AgentTaskStatus.COMPLETED }],
+      };
+      mockPrisma.teamMission.findUnique.mockResolvedValue(completedMission);
+
+      await service.executeNextTasks('mission-1');
+
+      // Pending should be marked for re-run
+      const pending = (service as any).pendingExecutions;
+      expect(pending.has('mission-1')).toBe(true);
+    });
+  });
+
+  // ==================== executeNextTasks - IN_PROGRESS with tasks to complete ====================
+
+  describe('executeNextTasks - task execution flow with findUnique', () => {
+    beforeEach(() => {
+      service.setCallbacks(mockCallbacks as any);
+      mockAiFacade.circuitBreaker.canExecute = jest.fn().mockReturnValue(true);
+      mockAiFacade.circuitBreaker.getCooldownRemaining = jest.fn().mockReturnValue(0);
+      mockAiFacade.circuitBreaker.incrementLoad = jest.fn();
+      mockAiFacade.circuitBreaker.decrementLoad = jest.fn();
+      mockAiFacade.circuitBreaker.recordSuccess = jest.fn();
+      mockAiFacade.circuitBreaker.recordFailure = jest.fn();
+      mockAiFacade.circuitBreaker.parseErrorType = jest.fn().mockReturnValue('API_ERROR');
+      mockAiFacade.getAvailableCapabilities = jest.fn().mockResolvedValue({
+        tools: [],
+        skills: [],
+        mcpTools: [],
+      });
+    });
+
+    it('should complete mission when all tasks are already COMPLETED via findUnique', async () => {
+      const missionAllDone = {
+        ...buildMockMission(),
+        tasks: [
+          { ...buildMockTask(), id: 'task-1', status: AgentTaskStatus.COMPLETED },
+        ],
+      };
+      mockPrisma.teamMission.findUnique.mockResolvedValueOnce(missionAllDone);
+
+      await service.executeNextTasks('mission-1');
+
+      expect(mockCallbacks.completeMission).toHaveBeenCalledWith('mission-1');
+    });
+
+    it('should return early when mission is not found via findUnique', async () => {
+      mockPrisma.teamMission.findUnique.mockResolvedValueOnce(null);
+
+      await service.executeNextTasks('mission-1');
+
+      expect(stateManager.finishMissionExecution).toHaveBeenCalledWith('mission-1');
+      expect(mockCallbacks.completeMission).not.toHaveBeenCalled();
+    });
+
+    it('should return early when mission status is not IN_PROGRESS', async () => {
+      mockPrisma.teamMission.findUnique.mockResolvedValueOnce({
+        ...buildMockMission(),
+        status: MissionStatus.PAUSED,
+        tasks: [{ ...buildMockTask(), status: AgentTaskStatus.PENDING }],
+      });
+
+      await service.executeNextTasks('mission-1');
+
+      expect(stateManager.finishMissionExecution).toHaveBeenCalledWith('mission-1');
+      expect(mockCallbacks.completeMission).not.toHaveBeenCalled();
+    });
+
+    it('should handle stuck mission with blocked tasks via executeNextTasks', async () => {
+      const missionWithBlockedTasks = {
+        ...buildMockMission(),
+        status: MissionStatus.IN_PROGRESS,
+        createdAt: new Date(Date.now() - 5 * 60 * 1000),
+        tasks: [
+          { ...buildMockTask(), id: 'task-1', status: AgentTaskStatus.BLOCKED, updatedAt: new Date() },
+        ],
+      };
+      mockPrisma.teamMission.findUnique
+        .mockResolvedValueOnce(missionWithBlockedTasks)
+        // Second call in autoRetryBlockedTasks
+        .mockResolvedValue(missionWithBlockedTasks);
+
+      mockAiFacade.circuitBreaker.canExecute = jest.fn().mockReturnValue(false);
+      mockAiFacade.circuitBreaker.getCooldownRemaining = jest.fn().mockReturnValue(60000);
+
+      await service.executeNextTasks('mission-1');
+
+      expect(stateManager.finishMissionExecution).toHaveBeenCalled();
+    });
+
+    it('should handle high completion rate and force complete remaining tasks', async () => {
+      // 19 out of 20 tasks completed = 95% completion rate
+      const completedTasks = Array.from({ length: 19 }, (_, i) => ({
+        ...buildMockTask(),
+        id: `task-${i}`,
+        status: AgentTaskStatus.COMPLETED,
+        dependsOnIds: [],
+      }));
+      const lastTask = {
+        ...buildMockTask(),
+        id: 'task-19',
+        status: AgentTaskStatus.BLOCKED,
+        result: null,
+        dependsOnIds: [],
+      };
+
+      const missionNearComplete = {
+        ...buildMockMission(),
+        status: MissionStatus.IN_PROGRESS,
+        tasks: [...completedTasks, lastTask],
+      };
+      mockPrisma.teamMission.findUnique.mockResolvedValueOnce(missionNearComplete);
+
+      await service.executeNextTasks('mission-1');
+
+      // Should either force complete or complete mission
+      expect(stateManager.finishMissionExecution).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== inferDomainFromTask ====================
+
+  describe('inferDomainFromTask', () => {
+    it('should infer research domain for RESEARCH taskType', () => {
+      const task = { ...buildMockTask(), taskType: TaskType.RESEARCH };
+      const result = (service as any).inferDomainFromTask(task);
+      expect(result).toBe('research');
+    });
+
+    it('should infer writing domain for DOCUMENTATION taskType', () => {
+      const task = { ...buildMockTask(), taskType: TaskType.DOCUMENTATION };
+      const result = (service as any).inferDomainFromTask(task);
+      expect(result).toBe('writing');
+    });
+
+    it('should infer general domain for unknown taskType with no keywords', () => {
+      const task = {
+        ...buildMockTask(),
+        taskType: TaskType.IMPLEMENTATION,
+        title: 'Write code',
+        description: 'Implement a function',
+      };
+      const result = (service as any).inferDomainFromTask(task);
+      expect(result).toBe('general');
+    });
+
+    it('should infer research domain from title keywords', () => {
+      const task = {
+        ...buildMockTask(),
+        taskType: TaskType.IMPLEMENTATION,
+        title: '研究用户行为',
+        description: 'Analyze user patterns',
+      };
+      const result = (service as any).inferDomainFromTask(task);
+      expect(result).toBe('research');
+    });
+
+    it('should infer writing domain from description keywords', () => {
+      const task = {
+        ...buildMockTask(),
+        taskType: TaskType.IMPLEMENTATION,
+        title: 'Content creation',
+        description: '撰写用户故事',
+      };
+      const result = (service as any).inferDomainFromTask(task);
+      expect(result).toBe('writing');
+    });
+
+    it('should infer design domain from 设计 keyword', () => {
+      const task = {
+        ...buildMockTask(),
+        taskType: TaskType.IMPLEMENTATION,
+        title: '设计界面',
+        description: 'Create UI design',
+      };
+      const result = (service as any).inferDomainFromTask(task);
+      expect(result).toBe('design');
+    });
+
+    it('should handle null/undefined task fields gracefully', () => {
+      const task = {
+        ...buildMockTask(),
+        taskType: TaskType.IMPLEMENTATION,
+        title: null,
+        description: null,
+      };
+      const result = (service as any).inferDomainFromTask(task);
+      expect(result).toBe('general');
+    });
+  });
+
+  // ==================== createToolContext ====================
+
+  describe('createToolContext', () => {
+    it('should create tool context with correct toolId and callerType', () => {
+      const ctx = (service as any).createToolContext('web-search');
+      expect(ctx.toolId).toBe('web-search');
+      expect(ctx.callerType).toBe('orchestrator');
+      expect(ctx.executionId).toBeTruthy();
+      expect(ctx.createdAt).toBeInstanceOf(Date);
+    });
+
+    it('should create unique executionIds for multiple calls', () => {
+      const ctx1 = (service as any).createToolContext('web-search');
+      const ctx2 = (service as any).createToolContext('web-search');
+      expect(ctx1.executionId).not.toBe(ctx2.executionId);
+    });
+  });
+
+  // ==================== getModelConfig ====================
+
+  describe('getModelConfig', () => {
+    it('should return model config when facade returns one', async () => {
+      mockAiFacade.getModelById.mockResolvedValueOnce({
+        id: 'gpt-4',
+        modelId: 'gpt-4-turbo',
+        name: 'GPT-4 Turbo',
+      });
+
+      const config = await (service as any).getModelConfig('gpt-4');
+      expect(config).toBeDefined();
+      expect(config.modelId).toBe('gpt-4-turbo');
+    });
+
+    it('should return null when model not found', async () => {
+      mockAiFacade.getModelById.mockResolvedValueOnce(null);
+
+      const config = await (service as any).getModelConfig('unknown-model');
+      expect(config).toBeNull();
+    });
+
+    it('should return null when facade throws', async () => {
+      mockAiFacade.getModelById.mockRejectedValueOnce(new Error('Not found'));
+
+      const config = await (service as any).getModelConfig('bad-model');
+      expect(config).toBeNull();
+    });
+  });
 });

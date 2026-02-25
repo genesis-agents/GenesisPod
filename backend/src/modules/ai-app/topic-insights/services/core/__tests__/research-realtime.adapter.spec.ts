@@ -10,6 +10,24 @@
  * - Convenience methods (emitMissionStarted, emitMissionCompleted, etc.)
  */
 
+// Break the circular dependency:
+// research-realtime.adapter → research-event-emitter.service → research-realtime.adapter
+// We mock the event emitter module so Jest does not need to evaluate it during module loading.
+jest.mock("../research-event-emitter.service", () => ({
+  ResearchEventType: {
+    MISSION_STARTED: "MISSION_STARTED",
+    MISSION_COMPLETED: "MISSION_COMPLETED",
+    MISSION_FAILED: "MISSION_FAILED",
+    MISSION_PROGRESS: "MISSION_PROGRESS",
+    DIMENSION_PROGRESS: "DIMENSION_PROGRESS",
+    AGENT_WORKING: "AGENT_WORKING",
+    TASK_COMPLETED: "TASK_COMPLETED",
+    TASK_FAILED: "TASK_FAILED",
+  },
+  ResearchEventEmitterService: jest.fn().mockImplementation(() => ({})),
+  RESEARCH_INTERNAL_EVENTS: {},
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchRealtimeAdapter } from "../research-realtime.adapter";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";

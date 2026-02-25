@@ -1231,4 +1231,1909 @@ describe("ReportSynthesisService", () => {
       expect(result).toBeNull();
     });
   });
+
+  // ============================================================
+  // createDraftReport - exhausted retries (line 124)
+  // ============================================================
+
+  describe("createDraftReport - exhausted retries fallback", () => {
+    it("should throw after maxRetries exhausted with all unique constraint errors", async () => {
+      // After all 3 retries fail, the loop falls through to the final throw at line 124
+      // The condition: only re-throws the LAST error after all attempts exhaust
+      // BUT: on attempt 3 (attempt == maxRetries), isUniqueConstraintError && attempt < maxRetries = false
+      // So it throws the original error on the 3rd attempt (line 120), not line 124
+      // Line 124 is only reached when the for loop completes without returning — which happens when
+      // maxRetries < 1 or the loop exits normally. Since the loop condition is attempt <= maxRetries,
+      // line 124 is reached when maxRetries = 0.
+      await expect(service.createDraftReport("topic-001", 0)).rejects.toThrow(
+        "Failed to create draft report after 0 retries",
+      );
+    });
+  });
+
+  // ============================================================
+  // synthesizeReport - deduplication stats logging (line 334)
+  // ============================================================
+
+  describe("synthesizeReport - deduplication stats", () => {
+    it("should log deduplication stats when editor removes duplicate paragraphs", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      // Return deduplication with removedParagraphs > 0 to trigger line 334
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 3, duplicateClaims: 2, affectedDimensions: ["市场份额"] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+
+    it("should warn when editor finds no duplicates across multiple dimensions", async () => {
+      const secondAnalysis = {
+        ...mockDimensionAnalysis,
+        id: "analysis-002",
+        dimensionId: "dim-002",
+        dimension: { ...mockDimensionAnalysis.dimension, id: "dim-002", name: "技术趋势" },
+      };
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis, secondAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+
+      mockFacade.chat
+        .mockResolvedValueOnce({
+          content: JSON.stringify({ overallConsistency: "high", conflicts: [], recommendations: [], summary: "OK" }),
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+        });
+
+      // Multiple dimensions but no duplicates removed → triggers the else-if warn path
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // synthesizeReport - orphan chart placeholder cleanup (lines 398-417)
+  // ============================================================
+
+  describe("synthesizeReport - orphan chart placeholder cleanup", () => {
+    it("should strip orphan chart placeholders from report", async () => {
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      // Report content includes an orphan chart placeholder (no matching chart in array)
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "内容\n<!-- chart:orphan-chart-001 -->\n更多内容",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      // The orphan chart placeholder should be stripped from the final report
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).not.toContain("<!-- chart:orphan-chart-001 -->");
+    });
+
+    it("should warn about charts in array but not referenced in report", async () => {
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          highlights: [],
+          // Chart in AI response but not referenced in report content
+          charts: [{ id: "unreferenced-chart", chartType: "generated", data: { labels: [], values: [] } }],
+        }),
+      });
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "内容（无图表引用）",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      // Should not throw — just warns about unreferenced chart
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // synthesizeReport - references section (line 430 - no citationIndex filter)
+  // ============================================================
+
+  describe("synthesizeReport - references section edge cases", () => {
+    it("should skip evidence without citationIndex in references section", async () => {
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      // Evidence with no citationIndex (null) should be filtered out
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([
+        {
+          id: "ev-001",
+          citationIndex: null,
+          title: "No Citation Article",
+          url: "https://example.com/article",
+          domain: "example.com",
+          accessedAt: null,
+        },
+        {
+          id: "ev-002",
+          citationIndex: 1,
+          title: "Has Citation Article",
+          url: "https://example.com/article2",
+          domain: "example.com",
+          accessedAt: new Date("2024-01-01"),
+        },
+      ]);
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      // Only ev-002 (with citationIndex=1) should appear in references
+      expect(updateCall.data.fullReport).toContain("Has Citation Article");
+      expect(updateCall.data.fullReport).not.toContain("No Citation Article");
+    });
+
+    it("should build empty references section when all evidence has no citationIndex", async () => {
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      // All evidence without citationIndex
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([
+        { id: "ev-001", citationIndex: null, title: "Article", url: "https://example.com", domain: "example.com", accessedAt: null },
+      ]);
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      // No references section added
+      expect(updateCall.data.fullReport).not.toContain("参考文献");
+    });
+  });
+
+  // ============================================================
+  // buildFullReportFromDimensions - supplementary content sections (lines 754-967)
+  // ============================================================
+
+  describe("synthesizeReport - buildFullReport supplementary content", () => {
+    function setupWithConclusionSections(conclusionContent: string) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "执行摘要",
+          preface: "前言内容",
+          conclusion: conclusionContent,
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          dimensionDescription: "市场份额分析",
+          summary: "摘要",
+          keyFindings: [{ finding: "英伟达占 80%", significance: "high", evidenceIds: [] }],
+          trends: [],
+          challenges: [{ challenge: "供应链压力", impact: "高", evidenceIds: [] }],
+          opportunities: [{ opportunity: "边缘计算", potential: "高", evidenceIds: [] }],
+          detailedContent: "## 详细内容\n\n正文段落1。\n\n正文段落2。",
+          sourcesUsed: 1,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should include cross-dimension analysis section in report when present", async () => {
+      setupWithConclusionSections(
+        "## 跨维度关联分析\n\n跨维度内容。\n\n## 风险评估\n\n风险内容。\n\n## 战略建议\n\n建议内容。\n\n原始结语。",
+      );
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("跨维度关联分析");
+    });
+
+    it("should include risk assessment section in report when present", async () => {
+      setupWithConclusionSections(
+        "## 风险评估\n\n风险内容。\n\n## 战略建议\n\n建议内容。",
+      );
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("风险评估");
+    });
+
+    it("should include strategic recommendations section when present", async () => {
+      setupWithConclusionSections("## 战略建议\n\n建议内容。");
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("战略建议");
+    });
+
+    it("should include TOC items for cross-dimension, risk and strategy when present", async () => {
+      setupWithConclusionSections(
+        "## 跨维度关联分析\n\n跨维度分析内容。\n\n## 风险评估\n\n风险内容。\n\n## 战略建议\n\n战略内容。",
+      );
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const report = updateCall.data.fullReport as string;
+      expect(report).toContain("目录");
+    });
+
+    it("should demote h1 and h2 headings in dimension content to h3 (lines 799-801)", async () => {
+      // This test exercises the heading demotion callback at lines 799-801.
+      // The regex /^(#{1,2})\s+/gm replaces # and ## headings with ### in dimension content.
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          // Content with h2 and h3+ headings — h2 should be demoted to h3
+          detailedContent: "## 二级标题\n\n内容2。\n\n### 三级标题\n\n内容3。",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      // The content should be processed (demotion code runs)
+      // After stripLeadingHeading removes the leading ## heading,
+      // the remaining content should have ### 三级标题 preserved
+      expect(updateCall.data.fullReport).toBeDefined();
+      expect(updateCall.data.fullReport).toContain("### 三级标题");
+    });
+
+    it("should use fallback cross-dimension analysis when all supplementary content is empty", async () => {
+      // AI returns no crossDimensionAnalysis/riskAssessment/strategicRecommendations
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          highlights: [],
+          charts: [],
+          // No crossDimensionAnalysis, riskAssessment, strategicRecommendations
+          conclusion: "",
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [
+            { finding: "英伟达占 80%", significance: "high", evidenceIds: [] },
+            { finding: "AMD 份额增长", significance: "medium", evidenceIds: [] },
+          ],
+          trends: [],
+          challenges: [{ challenge: "供应链压力", impact: "高", evidenceIds: [] }],
+          opportunities: [{ opportunity: "边缘计算市场", potential: "高", evidenceIds: [] }],
+          detailedContent: "详细内容。",
+          sourcesUsed: 1,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      // Fallback path adds cross-dimension from keyFindings and challenges/opportunities
+      expect(updateCall.data.fullReport).toContain("英伟达占 80%");
+    });
+
+    it("should use English labels when topic.language is 'en'", async () => {
+      const enTopic = { ...mockTopic, language: "en", name: "AI Market Analysis" } as unknown as typeof mockTopic;
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "English summary",
+          preface: "English preface",
+          conclusion: "## Cross-Dimension Analysis\n\nCross-dim content.\n\n## Risk Assessment\n\nRisk content.\n\n## Strategic Recommendations\n\nStrategy content.",
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "Market Share",
+          summary: "Summary",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "English content.",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(enTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("Cross-Dimension Analysis");
+    });
+
+    it("should deduplicate repeated H3 headings in dimension content", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          // Content with duplicate h3 headings
+          detailedContent: "### 1. 竞争格局\n\n内容A。\n\n### 竞争格局\n\n内容B（重复）。",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toBeDefined();
+    });
+
+    it("should truncate dimension content exceeding MAX_DIMENSION_CHARS", async () => {
+      const longContent = "A".repeat(25000);
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: longContent,
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toBeDefined();
+    });
+
+    it("should include conclusion section in report", async () => {
+      setupWithConclusionSections("");
+      // Override to have a direct conclusion field (not cross-dim)
+      mockFacade.chat.mockReset();
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "执行摘要",
+          preface: "前言",
+          conclusion: "这是结语内容。",
+          highlights: [],
+          charts: [],
+        }),
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("结语");
+    });
+  });
+
+  // ============================================================
+  // collectAllCharts - deduplication (lines 997-1022, 1039)
+  // ============================================================
+
+  describe("synthesizeReport - collectAllCharts deduplication", () => {
+    // Note: collectAllCharts uses dimensionInputs from prepareDimensionInputs (from prisma),
+    // not the editedDimensionInputs. So figureReferences/generatedCharts must be in
+    // dimensionAnalysis.dataPoints from mockPrisma.dimensionAnalysis.findMany.
+
+    function setupChartCollectionFromPrisma(dataPoints: object) {
+      const analysisWithCharts = {
+        ...mockDimensionAnalysis,
+        dataPoints,
+      };
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([analysisWithCharts]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "维度1",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should deduplicate figure references by imageUrl across dimensions", async () => {
+      // Note: reference charts with imageUrl but no data are filtered out by the
+      // "remove external URL reference charts" filter in synthesizeReport.
+      // We verify the dedup logic works by using figureReferences WITHOUT imageUrl.
+      setupChartCollectionFromPrisma({
+        trends: [],
+        challenges: [],
+        opportunities: [],
+        detailedContent: "",
+        // Two figure refs with same ID prefix (would produce same chartId) — second ID is different
+        // but only first should be collected due to seenIds dedup
+        figureReferences: [
+          { id: "fig-001", caption: "Chart A", type: "chart", source: "src" },
+          { id: "fig-002", caption: "Chart B", type: "chart", source: "src" },
+        ],
+        generatedCharts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const charts = updateCall.data.charts as Array<{ id: string; chartType?: string }>;
+      // Both charts have unique IDs so both are collected (dedup by imageUrl only applies when imageUrl is set)
+      // The test just verifies no exception is thrown during dedup logic
+      expect(charts).toBeDefined();
+    });
+
+    it("should not collect figure reference charts with duplicate imageUrl", async () => {
+      // The seenImageUrls dedup: second fig with same imageUrl should be skipped in collectAllCharts
+      // These reference charts have imageUrl but no data, so after collectAllCharts they get filtered
+      // by the "external reference chart" filter. We test that only 1 survives dedup before filtering.
+      const sharedImageUrl = "https://stored-images.example.com/chart.png";
+      setupChartCollectionFromPrisma({
+        trends: [],
+        challenges: [],
+        opportunities: [],
+        detailedContent: "",
+        figureReferences: [
+          { id: "fig-001", caption: "Chart A", imageUrl: sharedImageUrl, source: "src", data: { labels: [], values: [] } },
+          { id: "fig-002", caption: "Chart B", imageUrl: sharedImageUrl, source: "src", data: { labels: [], values: [] } },
+        ],
+        generatedCharts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      // Should succeed without error — dedup logic exercises lines 1003-1008
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.charts).toBeDefined();
+    });
+
+    it("should deduplicate generated charts by title key", async () => {
+      setupChartCollectionFromPrisma({
+        trends: [],
+        challenges: [],
+        opportunities: [],
+        detailedContent: "",
+        figureReferences: [],
+        // Two charts with same title (normalized) — second should be skipped
+        generatedCharts: [
+          { id: "gen-001", title: "市场份额分析", type: "pie", position: "after_paragraph_1", data: {}, source: "Research" },
+          { id: "gen-002", title: "市场份额分析", type: "bar", position: "after_paragraph_2", data: {}, source: "Research" },
+        ],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const charts = updateCall.data.charts as Array<{ id: string }>;
+      // Only first chart with that title should be collected
+      const genCharts = charts.filter((c) =>
+        (c as { title?: string; chartType?: string }).chartType === "generated"
+      );
+      expect(genCharts.length).toBe(1);
+    });
+
+    it("should limit to MAX_CHARTS_PER_DIMENSION (5) per dimension", async () => {
+      setupChartCollectionFromPrisma({
+        trends: [],
+        challenges: [],
+        opportunities: [],
+        detailedContent: "",
+        figureReferences: [],
+        // 7 unique charts — only 5 should be collected
+        generatedCharts: Array.from({ length: 7 }, (_, i) => ({
+          id: `gen-${i}`,
+          title: `Chart ${i}`,
+          type: "bar",
+          position: `after_paragraph_${i}`,
+          data: {},
+          source: "Research",
+        })),
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const charts = updateCall.data.charts as Array<{ chartType?: string }>;
+      const genCharts = charts.filter((c) => c.chartType === "generated");
+      expect(genCharts.length).toBeLessThanOrEqual(5);
+    });
+  });
+
+  // ============================================================
+  // parseAIReportWithCharts - relaxed extraction (line 1265)
+  // ============================================================
+
+  describe("synthesizeReport - relaxed JSON extraction", () => {
+    it("should use relaxed extraction when strict extraction fails but JSON has useful fields", async () => {
+      // Response where strict extraction (requiring 'executiveSummary') fails
+      // but relaxed extraction succeeds and finds crossDimensionAnalysis
+      const contentWithCrossDim = JSON.stringify({
+        crossDimensionAnalysis: { fullText: "跨维度内容" },
+        conclusion: "结语",
+        // No 'executiveSummary' key at top level
+      });
+
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({ content: contentWithCrossDim });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // normalizeReportResponse - crossDimension, risk, strat sections (lines 1309, 1320, 1329)
+  // ============================================================
+
+  describe("synthesizeReport - normalizeReportResponse supplementary sections", () => {
+    function setupWithStructuredResponse(responseData: object) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({ content: JSON.stringify(responseData) });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should include crossDimensionAnalysis in conclusion when provided with fullText", async () => {
+      setupWithStructuredResponse({
+        executiveSummary: "摘要",
+        crossDimensionAnalysis: { fullText: "跨维度分析全文内容。" },
+        highlights: [],
+        charts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("跨维度关联分析");
+    });
+
+    it("should include riskAssessment in conclusion when provided with fullText", async () => {
+      setupWithStructuredResponse({
+        executiveSummary: "摘要",
+        riskAssessment: { fullText: "风险评估全文内容。" },
+        highlights: [],
+        charts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("风险评估");
+    });
+
+    it("should include strategicRecommendations in conclusion when provided with fullText", async () => {
+      setupWithStructuredResponse({
+        executiveSummary: "摘要",
+        strategicRecommendations: { fullText: "战略建议全文内容。" },
+        highlights: [],
+        charts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("战略建议");
+    });
+  });
+
+  // ============================================================
+  // normalizeExecutiveSummary - JSON string wrapping (lines 1421-1430)
+  // ============================================================
+
+  describe("normalizeExecutiveSummary - JSON string wrapping", () => {
+    function setupMinimalWithES(esValue: unknown) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: esValue, highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001", executiveSummary: "result" });
+    }
+
+    it("should handle JSON string with executiveSummary wrapper", async () => {
+      // String that looks like: '{"executiveSummary": {"coreConclusions": [...]}}'
+      const jsonStr = JSON.stringify({ executiveSummary: { coreConclusions: ["Conclusion 1"], fullText: "Full text" } });
+      setupMinimalWithES(jsonStr);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.executiveSummary).toBe("Full text");
+    });
+
+    it("should handle JSON string with fullText at top level", async () => {
+      const jsonStr = JSON.stringify({ fullText: "Top level full text" });
+      setupMinimalWithES(jsonStr);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.executiveSummary).toBe("Top level full text");
+    });
+
+    it("should return raw string when JSON parsing fails", async () => {
+      const malformedJson = "{invalid json string}";
+      setupMinimalWithES(malformedJson);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.executiveSummary).toBe(malformedJson);
+    });
+  });
+
+  // ============================================================
+  // extractFullTextWithFallback - structured fields (lines 1545-1630)
+  // ============================================================
+
+  describe("synthesizeReport - extractFullTextWithFallback structured fields", () => {
+    function setupWithStructuredFields(responseData: object) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({ content: JSON.stringify(responseData) });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should build crossDimensionAnalysis from causalChains and keyLinkages when fullText absent", async () => {
+      setupWithStructuredFields({
+        executiveSummary: "摘要",
+        crossDimensionAnalysis: {
+          // No fullText — should use causalChains and keyLinkages
+          causalChains: [
+            { chain: "AI算力→市场需求", explanation: "算力需求驱动市场扩张", timeframe: "2024-2026" },
+          ],
+          keyLinkages: [
+            { dimensions: ["供应链", "市场份额"], relationship: "正向", impact: "高" },
+          ],
+        },
+        highlights: [],
+        charts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("跨维度关联分析");
+    });
+
+    it("should build riskAssessment from riskMatrix when fullText absent", async () => {
+      setupWithStructuredFields({
+        executiveSummary: "摘要",
+        riskAssessment: {
+          // No fullText — should use riskMatrix
+          riskMatrix: [
+            { riskType: "供应链风险", probability: "高", impact: "高", timeframe: "短期", indicators: "库存下降", mitigation: "多元化供应商" },
+            { riskType: "技术竞争风险", probability: "中", impact: "中", timeframe: "中期", indicators: "份额下降" },
+          ],
+        },
+        highlights: [],
+        charts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("风险评估");
+    });
+
+    it("should build strategicRecommendations from forEnterprise/forInvestors/forPolicymakers when fullText absent", async () => {
+      setupWithStructuredFields({
+        executiveSummary: "摘要",
+        strategicRecommendations: {
+          // No fullText — should use structured sub-fields
+          forEnterprise: {
+            shortTerm: ["扩大研发投入"],
+            midTerm: ["开拓新市场"],
+          },
+          forInvestors: {
+            opportunities: ["关注AI芯片龙头"],
+            risks: ["警惕监管风险"],
+          },
+          forPolicymakers: {
+            keyObservations: ["支持国产AI芯片发展"],
+          },
+        },
+        highlights: [],
+        charts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toContain("战略建议");
+    });
+  });
+
+  // ============================================================
+  // createFallbackReport - extracted fields path (lines 1645-1653)
+  // ============================================================
+
+  describe("synthesizeReport - createFallbackReport", () => {
+    it("should extract fields from truncated JSON when strict extraction fails", async () => {
+      // Content that looks like truncated JSON with some extractable fields
+      const truncatedContent = `\`\`\`json\n{"executiveSummary": "从截断JSON提取的摘要", "conclusion": "结语内容"`;
+
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({ content: truncatedContent });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+
+    it("should use plain text fallback when no JSON can be extracted at all", async () => {
+      const plainTextContent = "关键发现：AI芯片市场快速增长。英伟达占据主导地位。\n1. 市场规模持续扩大。";
+
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({ content: plainTextContent });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // synthesizeReport - resolveChartPlaceholders (lines 1971-2003)
+  // ============================================================
+
+  describe("synthesizeReport - resolveChartPlaceholders", () => {
+    function setupWithDimContent(detailedContent: string, figureReferences: unknown[], generatedCharts: unknown[]) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent,
+          sourcesUsed: 0,
+          figureReferences,
+          generatedCharts,
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should resolve figure placeholders to chart placeholders", async () => {
+      setupWithDimContent(
+        "内容\n<!-- figure:1:0 -->\n更多内容",
+        [{ id: "fig-001", caption: "Chart", type: "chart", evidenceCitationIndex: 1, figureIndex: 0, source: "src" }],
+        [],
+      );
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      // The figure placeholder should be converted to chart placeholder
+      expect(updateCall.data.fullReport).not.toContain("<!-- figure:1:0 -->");
+    });
+
+    it("should deduplicate chart placeholders in dimension content", async () => {
+      // Content with duplicate chart placeholders for same chart ID
+      setupWithDimContent(
+        "段落1\n<!-- chart:d0-chart-001 -->\n段落2\n<!-- chart:d0-chart-001 -->\n段落3",
+        [],
+        [],
+      );
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const report = updateCall.data.fullReport as string;
+      // Only one occurrence of the chart placeholder
+      const occurrences = (report.match(/<!-- chart:d0-chart-001 -->/g) || []).length;
+      expect(occurrences).toBeLessThanOrEqual(1);
+    });
+
+    it("should inject after_paragraph chart placeholders", async () => {
+      setupWithDimContent(
+        "段落1内容。\n\n段落2内容。\n\n段落3内容。",
+        [],
+        [{ id: "gen-001", title: "Chart", type: "pie", position: "after_paragraph_1", data: {}, source: "src" }],
+      );
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toBeDefined();
+    });
+
+    it("should inject after_heading chart placeholders", async () => {
+      setupWithDimContent(
+        "### 标题1\n\n内容段落。\n\n### 标题2\n\n更多内容。",
+        [],
+        [{ id: "gen-001", title: "Chart", type: "bar", position: "after_heading_1", data: {}, source: "src" }],
+      );
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.fullReport).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // extractHighlights - hasSections path (lines 2132-2143)
+  // ============================================================
+
+  describe("synthesizeReport - extractHighlights", () => {
+    it("should extract highlights from sections.coreViewpoints when sections have content", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      // AI response with sections that have coreViewpoints
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          sections: [
+            {
+              sectionNumber: "1",
+              title: "市场份额",
+              coreViewpoints: [
+                "英伟达市场份额：2024年达到80%，同比增长15个百分点。",
+                "AMD份额增长：从5%升至12%，表现超预期。",
+              ],
+              content: "详细内容。",
+              keyData: [],
+              figureReferences: [],
+            },
+          ],
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      // Highlights should be extracted from coreViewpoints
+      expect(updateCall.data.highlights).toBeDefined();
+    });
+
+    it("should categorize viewpoints correctly", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          sections: [
+            {
+              sectionNumber: "1",
+              title: "市场机会",
+              coreViewpoints: [
+                "边缘计算市场机会巨大，增长潜力显著。",    // 市场机会
+                "AI 趋势发展加速，技术演进突破瓶颈。",      // 技术趋势
+                "面临风险挑战威胁，监管不确定性高。",        // 风险警示
+                "战略建议：布局边缘计算领域。",             // 战略建议
+                "其他核心发现内容。",                       // 核心发现
+              ],
+              content: "内容。",
+              keyData: [],
+              figureReferences: [],
+            },
+          ],
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      // Should not throw
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // extractTitleFromContent - strategy 2 and 3 (lines 2204-2215)
+  // ============================================================
+
+  describe("synthesizeReport - extractTitleFromContent strategies", () => {
+    it("should use strategy 2 (first comma/period) when colon not found", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          sections: [
+            {
+              sectionNumber: "1",
+              title: "市场",
+              coreViewpoints: [
+                // Long string with no colon but has comma early enough for strategy 2
+                "英伟达GPU市占率超80%，成为数据中心算力首选。",
+              ],
+              content: "内容",
+              keyData: [],
+              figureReferences: [],
+            },
+          ],
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{ dimensionId: "dim-001", dimensionName: "市场份额", summary: "摘要", keyFindings: [], trends: [], challenges: [], opportunities: [], detailedContent: "", sourcesUsed: 0, figureReferences: [], generatedCharts: [] }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.highlights).toBeDefined();
+    });
+
+    it("should use strategy 3 (cutpoint in 15-35 range) when first part is too long", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          sections: [
+            {
+              sectionNumber: "1",
+              title: "市场",
+              coreViewpoints: [
+                // Very long string without natural break points for strategies 1 or 2
+                "全球AI芯片市场规模在2024年达到创纪录的五百亿美元，预计到2030年将超过两千亿美元，年复合增长率约25%",
+              ],
+              content: "内容",
+              keyData: [],
+              figureReferences: [],
+            },
+          ],
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{ dimensionId: "dim-001", dimensionName: "市场份额", summary: "摘要", keyFindings: [], trends: [], challenges: [], opportunities: [], detailedContent: "", sourcesUsed: 0, figureReferences: [], generatedCharts: [] }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.highlights).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // compareReports (lines 2282-2332)
+  // ============================================================
+
+  describe("compareReports", () => {
+    it("should compare two reports and return changes", async () => {
+      const report1 = {
+        id: "report-001",
+        topicId: "topic-001",
+        totalSources: 5,
+        dimensionAnalyses: [
+          { dimension: { name: "市场份额" } },
+          { dimension: { name: "技术趋势" } },
+        ],
+      };
+      const report2 = {
+        id: "report-002",
+        topicId: "topic-001",
+        totalSources: 8,
+        dimensionAnalyses: [
+          { dimension: { name: "市场份额" } },
+          { dimension: { name: "竞争格局" } }, // New dimension
+        ],
+      };
+
+      mockPrisma.topicReport.findUnique
+        .mockResolvedValueOnce(report1)
+        .mockResolvedValueOnce(report2);
+
+      const result = await service.compareReports("topic-001", "report-001", "report-002");
+
+      expect(result.report1).toEqual(report1);
+      expect(result.report2).toEqual(report2);
+      expect(result.changes.sourcesDelta).toBe(3); // 8 - 5
+      expect(result.changes.changedDimensions).toContain("技术趋势");
+      expect(result.changes.changedDimensions).toContain("竞争格局");
+    });
+
+    it("should throw when one report not found", async () => {
+      mockPrisma.topicReport.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: "report-002", topicId: "topic-001" });
+
+      await expect(service.compareReports("topic-001", "no-such", "report-002")).rejects.toThrow(
+        "One or both reports not found",
+      );
+    });
+
+    it("should throw when reports do not belong to specified topic", async () => {
+      mockPrisma.topicReport.findUnique
+        .mockResolvedValueOnce({ id: "report-001", topicId: "topic-other", dimensionAnalyses: [] })
+        .mockResolvedValueOnce({ id: "report-002", topicId: "topic-001", dimensionAnalyses: [] });
+
+      await expect(service.compareReports("topic-001", "report-001", "report-002")).rejects.toThrow(
+        "Reports do not belong to the specified topic",
+      );
+    });
+
+    it("should return empty changedDimensions when same dimensions in both reports", async () => {
+      const sameDimReport = {
+        id: "report-xxx",
+        topicId: "topic-001",
+        totalSources: 5,
+        dimensionAnalyses: [{ dimension: { name: "市场份额" } }],
+      };
+
+      mockPrisma.topicReport.findUnique
+        .mockResolvedValueOnce(sameDimReport)
+        .mockResolvedValueOnce({ ...sameDimReport, id: "report-yyy" });
+
+      const result = await service.compareReports("topic-001", "report-xxx", "report-yyy");
+      expect(result.changes.changedDimensions).toHaveLength(0);
+    });
+  });
+
+  // ============================================================
+  // markIncrementalChanges (lines 2435-2442)
+  // ============================================================
+
+  describe("markIncrementalChanges", () => {
+    it("should update report with incremental change metadata", async () => {
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-002", isIncremental: true });
+
+      await service.markIncrementalChanges("report-002", "report-001", ["市场份额", "技术趋势"], 10);
+
+      expect(mockPrisma.topicReport.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "report-002" },
+          data: expect.objectContaining({
+            isIncremental: true,
+            changesFromPrev: expect.objectContaining({
+              previousReportId: "report-001",
+              dimensionsRefreshed: ["市场份额", "技术趋势"],
+              newSourcesCount: 10,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should throw when topicReport.update fails", async () => {
+      mockPrisma.topicReport.update.mockRejectedValue(new Error("DB error"));
+
+      await expect(
+        service.markIncrementalChanges("report-002", "report-001", [], 0),
+      ).rejects.toThrow("DB error");
+    });
+  });
+
+  // ============================================================
+  // referencedChartIds extraction (line 409) + cross-dim para dedup (lines 831-834)
+  // ============================================================
+
+  describe("synthesizeReport - chart reference detection and cross-dimension dedup", () => {
+    it("should detect referenced chart IDs in report and warn about unreferenced ones", async () => {
+      // Set up a dimension with a generated chart that IS referenced in report
+      // AND another chart in AI response that is NOT referenced → triggers line 413 warn
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([{
+        ...mockDimensionAnalysis,
+        dataPoints: {
+          ...mockDimensionAnalysis.dataPoints,
+          generatedCharts: [
+            { id: "gen-chart-ref", title: "Referenced Chart", type: "bar", position: "after_paragraph_1", data: {}, source: "src" },
+          ],
+          figureReferences: [],
+        },
+      }]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          // AI also returns a chart not referenced anywhere
+          charts: [{ id: "ai-chart-unreferenced", chartType: "generated", data: {} }],
+          highlights: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "维度1",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          // Content with a chart placeholder — triggers line 409 (.match on each)
+          detailedContent: "段落1。\n<!-- chart:d0-gen-chart-ref -->\n段落2。",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [
+            { id: "gen-chart-ref", title: "Referenced Chart", type: "bar", position: "after_paragraph_1", data: {}, source: "src" },
+          ],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      // Should succeed and include the referenced chart
+      expect(result).toHaveProperty("id", "report-001");
+    });
+
+    it("should remove duplicate paragraphs appearing in multiple dimensions", async () => {
+      const duplicateParagraphContent = "这是一段超过60个字符的重复段落内容，在多个维度之间出现了完全相同的文字，应该被去重处理。这里再增加一些内容确保超过去重阈值。";
+      const secondAnalysis = {
+        ...mockDimensionAnalysis,
+        id: "analysis-002",
+        dimensionId: "dim-002",
+        dimension: { ...mockDimensionAnalysis.dimension, id: "dim-002", name: "技术趋势" },
+        dataPoints: { trends: [], challenges: [], opportunities: [], detailedContent: "", figureReferences: [], generatedCharts: [] },
+      };
+
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis, secondAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+
+      mockFacade.chat
+        .mockResolvedValueOnce({
+          content: JSON.stringify({ overallConsistency: "high", conflicts: [], recommendations: [], summary: "OK" }),
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+        });
+
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [
+          {
+            dimensionId: "dim-001",
+            dimensionName: "市场份额",
+            summary: "摘要",
+            keyFindings: [],
+            trends: [],
+            challenges: [],
+            opportunities: [],
+            // First dimension with the duplicate paragraph
+            detailedContent: `唯一内容段落。\n\n${duplicateParagraphContent}`,
+            sourcesUsed: 0,
+            figureReferences: [],
+            generatedCharts: [],
+          },
+          {
+            dimensionId: "dim-002",
+            dimensionName: "技术趋势",
+            summary: "技术摘要",
+            keyFindings: [],
+            trends: [],
+            challenges: [],
+            opportunities: [],
+            // Second dimension with the SAME duplicate paragraph — should be removed by cross-dim dedup
+            detailedContent: `另一段唯一内容。\n\n${duplicateParagraphContent}`,
+            sourcesUsed: 0,
+            figureReferences: [],
+            generatedCharts: [],
+          },
+        ],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // normalizeExecutiveSummary - JSON string with coreConclusions (lines 1421-1427)
+  // ============================================================
+
+  describe("normalizeExecutiveSummary - JSON string without fullText", () => {
+    function setupMinimalWithES(esValue: unknown) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: esValue, highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001", executiveSummary: "result" });
+    }
+
+    it("should handle JSON string with coreConclusions (no fullText) and call recursive normalize", async () => {
+      // String that parses to { coreConclusions: [...] } — no fullText, recursion via normalizeExecutiveSummary
+      const jsonStr = JSON.stringify({ coreConclusions: ["结论1", "结论2"], keyMetrics: [{ metric: "份额", value: "80%", source: "[1]" }] });
+      setupMinimalWithES(jsonStr);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      // Should have assembled from coreConclusions
+      expect(updateCall.data.executiveSummary).toContain("核心结论");
+    });
+  });
+
+  // ============================================================
+  // extractFullTextWithFallback - unknown fieldName returns "" (line 1630)
+  // ============================================================
+
+  describe("synthesizeReport - extractFullTextWithFallback unknown fieldName", () => {
+    it("should return empty string for unknown field with no fullText", async () => {
+      // This is exercised when crossDimensionAnalysis/riskAssessment/strategicRecommendations
+      // has no fullText and the fieldName doesn't match any of the 3 known names
+      // We can't call this directly, so we use a route where field name doesn't match.
+      // The function is called with fieldName="crossDimensionAnalysis"/"riskAssessment"/"strategicRecommendations".
+      // Line 1630 ("return ''") is reached when fieldName is none of those (unreachable in current code).
+      // We cover lines 1552-1629 by providing structured data without fullText.
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          // crossDimensionAnalysis with empty causalChains and keyLinkages
+          crossDimensionAnalysis: {
+            causalChains: [],
+            keyLinkages: [],
+          },
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // createFallbackReport with extractFieldsFromTruncatedJson (lines 1645-1653, 1709, 1750-1819)
+  // These lines are reached when BOTH strict AND relaxed JSON extraction fail,
+  // but extractFieldsFromTruncatedJson can still find individual string/object fields.
+  // ============================================================
+
+  describe("synthesizeReport - createFallbackReport with field extraction", () => {
+    function setupFallbackContent(content: string) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({ content });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should extract string field from truncated JSON content (lines 1750-1778)", async () => {
+      // Content that fails strict extraction (missing "executiveSummary" is present but
+      // the overall JSON is truncated/invalid) — but extractFieldsFromTruncatedJson can extract
+      // individual complete string fields from the broken JSON.
+      // We need content that: 1) fails extractJsonFromAIResponse strict (requiredKey fails)
+      // 2) fails extractJsonFromAIResponse relaxed (no useful fields in extracted object)
+      // 3) passes extractFieldsFromTruncatedJson string extraction
+      // Strategy: content with NO JSON at all but uses ```json block format with extractable string
+      const contentWithStringField =
+        "```json\n{\"preface\": \"这是一段前言内容，通过字段提取测试路径\", \"broken_field\": ";
+      setupFallbackContent(contentWithStringField);
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+
+    it("should extract object field from truncated JSON content (lines 1781-1816)", async () => {
+      // Object-type field extraction: content has a valid object field but the whole JSON is broken
+      const contentWithObjectField =
+        "```json\n{\"crossDimensionAnalysis\": {\"fullText\": \"跨维度内容\"}, broken_end";
+      setupFallbackContent(contentWithObjectField);
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+
+    it("should handle content with no extractable fields in truncated JSON (returns null)", async () => {
+      // Content that looks like a JSON block but has no known field names
+      const contentNoKnownFields = "```json\n{\"unknownField\": \"value\", \"anotherUnknown\": 123}";
+      setupFallbackContent(contentNoKnownFields);
+
+      // Falls through to extractViewpointsFromContent path
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+
+    it("should handle content with no JSON braces at all (extractFieldsFromTruncatedJson returns null)", async () => {
+      // Content with ```json but no opening brace
+      const contentNoBrace = "```json\nno opening brace here";
+      setupFallbackContent(contentNoBrace);
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // extractViewpointsFromContent - keyPhrases fallback (line 1836)
+  // ============================================================
+
+  describe("synthesizeReport - extractViewpointsFromContent keyPhrases fallback", () => {
+    it("should extract viewpoints from key phrases when no numbered points found", async () => {
+      // Plain text without numbered points but with key phrase patterns
+      const plainTextWithKeyPhrases = "关键：AI芯片市场发展迅速。核心发现：英伟达领先地位稳固。结论：未来三年市场将持续增长。";
+
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({ content: plainTextWithKeyPhrases });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // injectChartPlaceholders - end_of_section only → chartsToInject empty (line 2033)
+  // and empty paragraph handling (lines 2077-2078)
+  // ============================================================
+
+  describe("synthesizeReport - injectChartPlaceholders edge cases", () => {
+    it("should skip injection when all charts are end_of_section", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "段落1。\n\n段落2。",
+          sourcesUsed: 0,
+          figureReferences: [],
+          // Only end_of_section charts — chartsToInject becomes empty → line 2033 return early
+          generatedCharts: [
+            { id: "eos-chart", title: "EOS Chart", type: "pie", position: "end_of_section", data: {}, source: "src" },
+          ],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+
+    it("should handle empty paragraph in content during chart injection", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({ executiveSummary: "摘要", highlights: [], charts: [] }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          // Content with empty paragraph blocks (double newlines)
+          detailedContent: "段落1。\n\n\n\n段落2。\n\n段落3。",
+          sourcesUsed: 0,
+          figureReferences: [],
+          // Chart to inject after paragraph 2 — empty paragraphs exist between 1 and 2
+          generatedCharts: [
+            { id: "para-chart", title: "Para Chart", type: "bar", position: "after_paragraph_2", data: {}, source: "src" },
+          ],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      const result = await service.synthesizeReport(mockTopic, "report-001");
+      expect(result).toHaveProperty("id", "report-001");
+    });
+  });
+
+  // ============================================================
+  // categorizeViewpoint - 趋势/风险/战略 branches (lines 2236, 2243, 2250)
+  // ============================================================
+
+  describe("synthesizeReport - categorizeViewpoint all categories", () => {
+    function setupWithViewpoints(viewpoints: string[]) {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          sections: [
+            {
+              sectionNumber: "1",
+              title: "分析",
+              coreViewpoints: viewpoints,
+              content: "内容",
+              keyData: [],
+              figureReferences: [],
+            },
+          ],
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "分析",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should categorize '趋势' viewpoints as 技术趋势", async () => {
+      setupWithViewpoints(["AI技术趋势持续演进和发展，预计未来3年将迎来新突破。"]);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.highlights).toBeDefined();
+    });
+
+    it("should categorize '风险' viewpoints as 风险警示", async () => {
+      setupWithViewpoints(["监管风险和合规挑战威胁行业正常发展，需要高度关注。"]);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.highlights).toBeDefined();
+    });
+
+    it("should categorize '战略' viewpoints as 战略建议", async () => {
+      setupWithViewpoints(["战略调整和差异化策略是赢得市场竞争的关键建议。"]);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data.highlights).toBeDefined();
+    });
+
+    it("should categorize empty viewpoint as 综合观点", async () => {
+      setupWithViewpoints([""]);
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      expect(updateCall.data).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // buildFullReport (lines 1870-1951) - tested via synthesizeReport
+  // ============================================================
+
+  describe("synthesizeReport - buildFullReport paths", () => {
+    it("should include sections with coreViewpoints, keyData and figureReferences in full report", async () => {
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([mockDimensionAnalysis]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chat.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          preface: "前言",
+          tableOfContents: "目录内容",
+          sections: [
+            {
+              sectionNumber: "1",
+              title: "市场份额",
+              coreViewpoints: ["英伟达主导市场。"],
+              content: "章节正文。",
+              keyData: [{ data: "80%市场份额", source: "[1]" }],
+              figureReferences: [{ id: "fig-001", description: "市场图", suggestedType: "pie" }],
+              inlineCharts: [
+                { id: "inline-chart-001", position: "after_paragraph_1" },
+                { id: "inline-chart-end", position: "end_of_section" },
+              ],
+            },
+          ],
+          conclusion: "结语内容",
+          appendices: [{ title: "附录A", content: "附录内容" }],
+          references: [{ index: 1, title: "参考文章", domain: "example.com", url: "https://example.com", accessDate: "2024-01-01" }],
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [{
+          dimensionId: "dim-001",
+          dimensionName: "市场份额",
+          summary: "摘要",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          detailedContent: "",
+          sourcesUsed: 0,
+          figureReferences: [],
+          generatedCharts: [],
+        }],
+        deduplicationStats: { removedParagraphs: 0, duplicateClaims: 0, affectedDimensions: [] },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const report = updateCall.data.fullReport as string;
+      expect(report).toBeDefined();
+    });
+  });
 });

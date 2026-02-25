@@ -16,6 +16,7 @@ jest.mock('../../teams/ai-teams.service', () => ({
 jest.mock('../../teams/services/ai/ai-response.service', () => ({
   AiResponseService: jest.fn().mockImplementation(() => ({
     generateStreamResponse: jest.fn(),
+    createAIMessage: jest.fn().mockResolvedValue({}),
   })),
 }));
 
@@ -106,7 +107,10 @@ describe('PlanningOrchestratorService', () => {
 
     const mockModel = { id: 'model-1', name: 'Test Model', modelId: 'test-model', apiKey: 'test-key', provider: 'openai' };
     const mockAiFacade = {
-      chat: jest.fn().mockResolvedValue({ content: 'AI response', tokensUsed: 100 }),
+      chat: jest.fn().mockResolvedValue({ content: 'AI response', tokensUsed: 100, isError: false, model: 'test-model' }),
+      reflect: jest.fn().mockResolvedValue(null),
+      search: jest.fn().mockResolvedValue({ success: false, results: [] }),
+      aiCompressContext: jest.fn().mockResolvedValue(null),
       getAvailableModels: jest.fn().mockResolvedValue([mockModel]),
       getAvailableModelsExtended: jest.fn().mockResolvedValue([mockModel]),
       getReasoningModel: jest.fn().mockResolvedValue(mockModel),
@@ -123,7 +127,7 @@ describe('PlanningOrchestratorService', () => {
         PlanningOrchestratorService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AiTeamsService, useValue: { createTopic: jest.fn(), getTopicMessages: jest.fn() } },
-        { provide: AiResponseService, useValue: { generateStreamResponse: jest.fn() } },
+        { provide: AiResponseService, useValue: { generateStreamResponse: jest.fn(), createAIMessage: jest.fn().mockResolvedValue({}) } },
         { provide: PlanningTemplateService, useValue: mockTemplateService },
         { provide: AIEngineFacade, useValue: mockAiFacade },
       ],
@@ -865,6 +869,420 @@ describe('PlanningOrchestratorService', () => {
       const result = await service.getPlans('user-1');
 
       expect(result[0].memberCount).toBe(5);
+    });
+  });
+
+  // ==================== executePhaseAsync (via retryPhase trigger) ====================
+  // executePhaseAsync is fire-and-forget from the public API surface.
+  // We test it indirectly by:
+  //   1. Calling retryPhase (which calls executePhaseAsync)
+  //   2. Making all prisma/AI mocks return known values
+  //   3. Awaiting with a small delay (using jest fake timers would require heavier setup)
+  // The BillingContext mock already unwraps the inner function synchronously.
+
+  describe('executePhaseAsyncInner (via retryPhase)', () => {
+    const activeTopic = {
+      ...mockTopic,
+      metadata: {
+        planningMode: true,
+        templateId: 'general',
+        currentPhase: 1,
+        phaseStatus: { 1: { status: 'active' } },
+        planConfig: { goal: 'Test goal', depth: PlanningDepth.STANDARD, autoAdvance: false },
+      },
+      aiMembers: [
+        { id: 'agent-0', displayName: '策划总监', aiModel: 'default', systemPrompt: 'You are director', roleDescription: 'director' },
+        { id: 'agent-1', displayName: '研究员', aiModel: 'model-X', systemPrompt: 'You are researcher', roleDescription: 'researcher' },
+        { id: 'agent-2', displayName: '分析师', aiModel: 'default', systemPrompt: 'You are analyst', roleDescription: 'analyst' },
+        { id: 'agent-3', displayName: '文案专家', aiModel: 'default', systemPrompt: 'You are writer', roleDescription: 'writer' },
+      ],
+    };
+
+    beforeEach(() => {
+      // retryPhase → findFirst (guard) → update → executePhaseAsync
+      //   executePhaseAsyncInner → findFirst (load topic with aiMembers)
+      //                          → update (phase status at end)
+      (prisma.topic.findFirst as jest.Mock)
+        .mockResolvedValueOnce(activeTopic) // guard in retryPhase
+        .mockResolvedValue(activeTopic);    // all subsequent calls in executePhaseAsyncInner
+
+      (prisma.topic.update as jest.Mock).mockResolvedValue(activeTopic);
+      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+    });
+
+    it('should call aiFacade.chat for each agent in the phase', async () => {
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: 'Agent response',
+        isError: false,
+        model: 'test-model',
+        tokensUsed: 100,
+      });
+      (aiFacade.reflect as jest.Mock).mockResolvedValue(null); // skip quality gate
+
+      await service.retryPhase('topic-123', 1, 'user-1');
+      // Allow the async phase execution to complete
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Phase 1 uses agents at indices [0, 2] = 策划总监 + 分析师
+      expect(aiFacade.chat).toHaveBeenCalled();
+    });
+
+    it('should mark phase as completed when agents produce output', async () => {
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: 'Agent response content',
+        isError: false,
+        model: 'test-model',
+        tokensUsed: 200,
+      });
+      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+
+      await service.retryPhase('topic-123', 1, 'user-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // updatePhaseStatus called with 'completed'
+      const updateCalls = (prisma.topic.update as jest.Mock).mock.calls;
+      const completedCall = updateCalls.find(
+        (call: any[]) =>
+          call[0]?.data?.metadata?.phaseStatus?.[1]?.status === 'completed',
+      );
+      expect(completedCall).toBeDefined();
+    });
+
+    it('should mark phase as failed when all agents return errors', async () => {
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: 'Error response',
+        isError: true,
+        model: 'test-model',
+        tokensUsed: 0,
+      });
+
+      await service.retryPhase('topic-123', 1, 'user-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const updateCalls = (prisma.topic.update as jest.Mock).mock.calls;
+      const failedCall = updateCalls.find(
+        (call: any[]) =>
+          call[0]?.data?.metadata?.phaseStatus?.[1]?.status === 'failed',
+      );
+      expect(failedCall).toBeDefined();
+    });
+
+    it('should skip agent execution when phase is no longer active', async () => {
+      // After retryPhase update, the re-loaded topic has status 'pending' (not active)
+      const cancelledTopic = {
+        ...activeTopic,
+        metadata: {
+          ...activeTopic.metadata,
+          phaseStatus: { 1: { status: 'pending' } },
+        },
+      };
+      // retryPhase calls findFirst once (guard), then update
+      // executePhaseAsyncInner calls findFirst again (load with aiMembers)
+      // We want the SECOND findFirst (in executePhaseAsyncInner) to return cancelledTopic
+      let callCount = 0;
+      (prisma.topic.findFirst as jest.Mock).mockImplementation(() => {
+        callCount++;
+        // First call: retryPhase guard
+        // Second call: executePhaseAsyncInner load
+        return Promise.resolve(callCount === 1 ? activeTopic : cancelledTopic);
+      });
+
+      await service.retryPhase('topic-123', 1, 'user-1');
+      // Allow async execution to run
+      await new Promise((r) => setTimeout(r, 100));
+
+      // AI should not be called since phase was cancelled (pending !== active)
+      expect(aiFacade.chat).not.toHaveBeenCalled();
+    });
+
+    it('should handle phase 4 fallback when no debaters configured (non-comprehensive)', async () => {
+      // Phase 4 agents = indices [4, 5] but topic only has 4 members (0..3)
+      // → fallback to [0, 2]
+      const topicPhase4 = {
+        ...activeTopic,
+        metadata: {
+          ...activeTopic.metadata,
+          currentPhase: 4,
+          phaseStatus: { 4: { status: 'active' } },
+        },
+      };
+      (prisma.topic.findFirst as jest.Mock)
+        .mockResolvedValueOnce(topicPhase4) // guard
+        .mockResolvedValue(topicPhase4);   // inner load
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: 'Debate response',
+        isError: false,
+        model: 'test-model',
+        tokensUsed: 100,
+      });
+      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+
+      await service.retryPhase('topic-123', 4, 'user-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(aiFacade.chat).toHaveBeenCalled();
+    });
+
+    it('should run quality gate and retry when score < 50', async () => {
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: 'Agent response',
+        isError: false,
+        model: 'test-model',
+        tokensUsed: 100,
+      });
+      // Quality gate returns low score
+      (aiFacade.reflect as jest.Mock).mockResolvedValue({
+        qualityScore: 30,
+        gaps: ['Missing data points', 'Incomplete analysis'],
+        decision: 'continue',
+      });
+
+      await service.retryPhase('topic-123', 1, 'user-1');
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should call chat at least 3 times: 2 agents in phase 1 + 1 retry
+      expect(aiFacade.chat).toHaveBeenCalledTimes(3);
+    });
+
+    it('should skip quality gate for QUICK depth', async () => {
+      const quickTopic = {
+        ...activeTopic,
+        metadata: {
+          ...activeTopic.metadata,
+          planConfig: { goal: 'Test goal', depth: PlanningDepth.QUICK, autoAdvance: false },
+          phaseStatus: { 1: { status: 'active' } },
+        },
+      };
+      (prisma.topic.findFirst as jest.Mock)
+        .mockResolvedValueOnce(quickTopic)
+        .mockResolvedValue(quickTopic);
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: 'Agent response',
+        isError: false,
+        model: 'test-model',
+        tokensUsed: 100,
+      });
+
+      await service.retryPhase('topic-123', 1, 'user-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // reflect should NOT be called for QUICK depth
+      expect(aiFacade.reflect).not.toHaveBeenCalled();
+    });
+
+    it('should handle phase 6 delivery refinement for subsequent agents', async () => {
+      const topicPhase6 = {
+        ...activeTopic,
+        metadata: {
+          ...activeTopic.metadata,
+          currentPhase: 6,
+          phaseStatus: {
+            6: { status: 'active' },
+            2: { status: 'completed', summary: 'Research done' },
+            4: { status: 'completed', summary: 'Debate done' },
+            5: { status: 'completed', summary: 'Synthesis done' },
+          },
+          planConfig: { goal: 'Test goal', depth: PlanningDepth.STANDARD, autoAdvance: false },
+        },
+      };
+      (prisma.topic.findFirst as jest.Mock)
+        .mockResolvedValueOnce(topicPhase6)
+        .mockResolvedValue(topicPhase6);
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: 'Delivery document',
+        isError: false,
+        model: 'test-model',
+        tokensUsed: 500,
+      });
+      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+      // Phase 6 uses agents at indices [0, 3] = 策划总监 + 文案专家
+      // Second agent (文案专家) gets a refinement prompt
+
+      await service.retryPhase('topic-123', 6, 'user-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Both agents should be called
+      expect(aiFacade.chat).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle phase 2 web search before AI execution', async () => {
+      const topicPhase2 = {
+        ...activeTopic,
+        metadata: {
+          ...activeTopic.metadata,
+          currentPhase: 2,
+          phaseStatus: { 2: { status: 'active' } },
+        },
+      };
+      (prisma.topic.findFirst as jest.Mock)
+        .mockResolvedValueOnce(topicPhase2)
+        .mockResolvedValue(topicPhase2);
+      (aiFacade.search as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        results: [
+          { url: 'http://example.com', title: 'Test', content: 'Content', domain: 'example.com' },
+        ],
+      });
+      (aiFacade.chat as jest.Mock).mockResolvedValue({
+        content: '["query1", "query2", "query3", "query4", "query5", "query6"]',
+        isError: false,
+        model: 'test-model',
+        tokensUsed: 50,
+      });
+      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+
+      await service.retryPhase('topic-123', 2, 'user-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // searchForResearchPhase is called for phase 2
+      expect(aiFacade.chat).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== getTaskProfileForPhase ====================
+
+  describe('getTaskProfileForPhase (via createPlan depth)', () => {
+    it('should create COMPREHENSIVE plan which uses extended output length', async () => {
+      (aiFacade.getReasoningModel as jest.Mock).mockResolvedValue(null);
+      (aiFacade.getAvailableModelsExtended as jest.Mock).mockResolvedValue([
+        { id: 'chat-1', isAvailable: true },
+      ]);
+      (aiTeamsService.createTopic as jest.Mock).mockResolvedValue(mockTopic);
+      (prisma.topic.update as jest.Mock).mockResolvedValue(mockTopic);
+
+      await service.createPlan('user-1', {
+        name: 'Comprehensive',
+        goal: 'Big goal',
+        depth: PlanningDepth.COMPREHENSIVE,
+      });
+
+      expect(prisma.topic.update).toHaveBeenCalled();
+    });
+
+    it('should create QUICK plan which uses medium output length', async () => {
+      (aiFacade.getReasoningModel as jest.Mock).mockResolvedValue(null);
+      (aiFacade.getAvailableModelsExtended as jest.Mock).mockResolvedValue([]);
+      (aiTeamsService.createTopic as jest.Mock).mockResolvedValue(mockTopic);
+      (prisma.topic.update as jest.Mock).mockResolvedValue(mockTopic);
+
+      await service.createPlan('user-1', {
+        name: 'Quick plan',
+        goal: 'Quick goal',
+        depth: PlanningDepth.QUICK,
+      });
+
+      expect(prisma.topic.update).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== exportPlan - edge cases ====================
+
+  describe('exportPlan - additional branches', () => {
+    it('should export full mode with agent names from members list', async () => {
+      const topicWithAgents = {
+        ...mockTopic,
+        description: 'goal',
+        metadata: {
+          planningMode: true,
+          templateId: 'general',
+          currentPhase: 6,
+          phaseStatus: {
+            1: { status: 'completed', summary: 'Phase 1 result', completedAt: '2024-01-02T10:00:00Z' },
+            2: { status: 'pending' },
+            3: { status: 'pending' },
+            4: { status: 'pending' },
+            5: { status: 'pending' },
+            6: { status: 'pending' },
+          },
+          planConfig: { goal: 'Big goal', depth: PlanningDepth.STANDARD, autoAdvance: true },
+          references: [],
+        },
+        aiMembers: [
+          { id: 'a0', displayName: '策划总监', aiModel: 'default' },
+          { id: 'a1', displayName: '研究员', aiModel: 'default' },
+          { id: 'a2', displayName: '分析师', aiModel: 'default' },
+        ],
+        _count: { aiMembers: 3 },
+      };
+      (prisma.topic.findFirst as jest.Mock).mockResolvedValue(topicWithAgents);
+
+      const result = await service.exportPlan('topic-123', 'user-1', 'full');
+
+      // Phase 1 is completed, so it should appear in full export
+      expect(result).toContain('Phase 1 result');
+      expect(result).toContain('策划总监'); // agent name for phase 1 (indices [0,2])
+    });
+
+    it('should export full mode with references including sourceType', async () => {
+      const topicWithRefs = {
+        ...mockTopic,
+        description: 'goal',
+        metadata: {
+          planningMode: true,
+          templateId: 'general',
+          currentPhase: 6,
+          phaseStatus: {
+            1: { status: 'completed', summary: 'Content', completedAt: '2024-01-02T10:00:00Z' },
+            2: { status: 'pending' }, 3: { status: 'pending' },
+            4: { status: 'pending' }, 5: { status: 'pending' }, 6: { status: 'pending' },
+          },
+          planConfig: { goal: 'Test', depth: PlanningDepth.STANDARD, autoAdvance: true },
+          references: [
+            {
+              id: 'r1', title: 'Ref Title', url: 'http://test.com',
+              domain: 'test.com', snippet: 'snippet', sourcePhase: 2,
+              sourceType: 'academic', credibilityScore: 90,
+            },
+          ],
+        },
+        aiMembers: [],
+        _count: { aiMembers: 0 },
+      };
+      (prisma.topic.findFirst as jest.Mock).mockResolvedValue(topicWithRefs);
+
+      const result = await service.exportPlan('topic-123', 'user-1', 'full');
+
+      expect(result).toContain('参考文献');
+      expect(result).toContain('Ref Title');
+      expect(result).toContain('academic');
+      expect(result).toContain('http://test.com');
+    });
+  });
+
+  // ==================== advancePhase - skipped status ====================
+
+  describe('advancePhase - skipped status', () => {
+    it('should return current phase when status is skipped (no specific handler)', async () => {
+      const skippedTopic = {
+        ...mockTopic,
+        metadata: {
+          ...mockTopic.metadata,
+          currentPhase: 2,
+          phaseStatus: {
+            2: { status: 'skipped' },
+          },
+        },
+      };
+      (prisma.topic.findFirst as jest.Mock).mockResolvedValue(skippedTopic);
+
+      const result = await service.advancePhase('topic-123', 'user-1');
+
+      // 'skipped' status doesn't match any specific case → falls through to return { currentPhase }
+      expect(result).toEqual({ currentPhase: 2 });
+    });
+  });
+
+  // ==================== deletePlan (hard delete path) ====================
+
+  describe('deletePlan (createdById path)', () => {
+    it('should use createdById when finding plan to archive', async () => {
+      (prisma.topic.findFirst as jest.Mock).mockResolvedValue(mockTopic);
+      (prisma.topic.update as jest.Mock).mockResolvedValue({ ...mockTopic, archivedAt: new Date() });
+
+      await service.deletePlan('topic-123', 'user-1');
+
+      const findCall = (prisma.topic.findFirst as jest.Mock).mock.calls[0][0];
+      expect(findCall.where.createdById).toBe('user-1');
     });
   });
 });

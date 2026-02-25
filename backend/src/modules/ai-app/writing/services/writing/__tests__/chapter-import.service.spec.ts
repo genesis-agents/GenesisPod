@@ -32,12 +32,13 @@ function buildMockPrisma() {
   return {
     writingProject: {
       findUnique: jest.fn(),
+      update: jest.fn().mockResolvedValue({}),
     },
     chapterImport: {
       create: jest.fn(),
       findUnique: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
+      update: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue({}),
       findMany: jest.fn(),
       count: jest.fn(),
     },
@@ -47,10 +48,9 @@ function buildMockPrisma() {
     writingChapter: {
       findFirst: jest.fn(),
       create: jest.fn(),
-      update: jest.fn(),
-      aggregate: jest.fn(),
+      update: jest.fn().mockResolvedValue({}),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { wordCount: 0 } }),
     },
-    writingProject_update: jest.fn(),
   };
 }
 
@@ -64,15 +64,15 @@ function buildMockRevisionService() {
 
 const CHINESE_CONTENT = `第一章：暗流涌动
 
-这是第一章的内容，描述了一个神秘的开始。主角发现了一个奇怪的现象，预示着后续的故事发展。
+主角发现了一个奇怪的现象，预示着后续的故事发展。神秘的气息笼罩着整个城镇。
 
 第二章：风起云涌
 
-第二章的内容继续发展故事情节，主角开始深入调查之前发现的谜团。各种人物相继出现，局势愈发复杂。
+情节继续发展，各种人物相继出现，局势愈发复杂，主角深入调查谜团。
 
 第三章：命运交汇
 
-最后一章揭示了故事的核心冲突，所有的线索汇聚一处，真相逐渐浮出水面。`;
+真相逐渐浮出水面，核心冲突在此章揭示，所有的线索汇聚一处。`;
 
 const ENGLISH_CONTENT = `Chapter 1: The Beginning
 

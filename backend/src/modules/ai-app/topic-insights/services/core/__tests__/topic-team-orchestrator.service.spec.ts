@@ -296,5 +296,254 @@ describe("TopicTeamOrchestratorService", () => {
 
       expect(result).toBe(false);
     });
+
+    it("should call abort() on the AbortController", async () => {
+      const abortController = new AbortController();
+      const abortSpy = jest.spyOn(abortController, "abort");
+      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+        abortController,
+        startedAt: new Date(),
+      });
+
+      mockPrisma.topicRefreshLog.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.cancelRefresh("topic-1");
+
+      expect(abortSpy).toHaveBeenCalled();
+    });
+
+    it("should update refresh log to CANCELLED status", async () => {
+      const abortController = new AbortController();
+      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+        abortController,
+        startedAt: new Date(),
+      });
+
+      mockPrisma.topicRefreshLog.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.cancelRefresh("topic-1");
+
+      expect(mockPrisma.topicRefreshLog.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            topicId: "topic-1",
+            status: RefreshLogStatus.RUNNING,
+          }),
+          data: expect.objectContaining({
+            status: RefreshLogStatus.CANCELLED,
+          }),
+        }),
+      );
+    });
+
+    it("should remove topic from activeRefreshes after cancel", async () => {
+      const abortController = new AbortController();
+      const activeRefreshes = (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes;
+      activeRefreshes.set("topic-1", { abortController, startedAt: new Date() });
+
+      mockPrisma.topicRefreshLog.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.cancelRefresh("topic-1");
+
+      expect(activeRefreshes.has("topic-1")).toBe(false);
+    });
+  });
+
+  describe("getRefreshStatus", () => {
+    it("should return isRunning=false when no active refresh", () => {
+      const status = service.getRefreshStatus("topic-no-refresh");
+
+      expect(status.isRunning).toBe(false);
+      expect(status.startedAt).toBeUndefined();
+    });
+
+    it("should return isRunning=true with startedAt when active refresh exists", () => {
+      const startedAt = new Date("2026-01-01T10:00:00.000Z");
+      const abortController = new AbortController();
+      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+        abortController,
+        startedAt,
+      });
+
+      const status = service.getRefreshStatus("topic-1");
+
+      expect(status.isRunning).toBe(true);
+      expect(status.startedAt).toEqual(startedAt);
+
+      // Cleanup
+      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.delete("topic-1");
+    });
+  });
+
+  describe("executeRefresh - error handling", () => {
+    beforeEach(() => {
+      mockPrisma.topicRefreshLog.create.mockResolvedValue({ id: "log-1", topicId: "topic-1" });
+      mockPrisma.topicRefreshLog.update.mockResolvedValue({});
+      mockPrisma.topicRefreshLog.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.researchTopic.update.mockResolvedValue({});
+      mockPrisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
+      mockPrisma.topicDimension.updateMany.mockResolvedValue({});
+      mockPrisma.researchMission.create.mockResolvedValue({ id: "mission-1" });
+      mockPrisma.researchMission.update.mockResolvedValue({});
+      mockPrisma.researchTask.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.researchTodo.updateMany.mockResolvedValue({ count: 1 });
+      mockReportSynthesisService.createDraftReport.mockResolvedValue(mockDraft);
+      mockReportSynthesisService.synthesizeReport.mockResolvedValue({
+        ...mockDraft,
+        status: "PUBLISHED",
+        totalSources: 5,
+      });
+      mockResearchLeaderService.planResearch.mockResolvedValue({
+        assignments: [],
+        parallelism: 2,
+        strategy: "standard",
+        estimatedMinutes: 5,
+      });
+      mockResearchLeaderService.evaluateAndAssign.mockResolvedValue([]);
+      mockDimensionMissionService.researchDimension.mockResolvedValue({
+        analysis: {
+          summary: "Market summary",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          confidenceLevel: "high",
+          evidenceUsed: 3,
+          detailedContent: "Detailed content",
+        },
+        evidenceCount: 3,
+      });
+      mockDimensionMissionService.executeSearchPhase.mockResolvedValue({
+        dimension: mockDimension,
+        evidence: [],
+        evidenceCount: 0,
+        searchQueries: [],
+      });
+      mockDimensionMissionService.executeAnalysisPhase.mockResolvedValue({
+        analysis: {
+          summary: "Market summary",
+          keyFindings: [],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          confidenceLevel: "high",
+          evidenceUsed: 3,
+          detailedContent: "Detailed content",
+        },
+        evidenceCount: 3,
+      });
+      mockResearchReviewerService.reviewDimension.mockResolvedValue({
+        dimensionId: "dim-1",
+        dimensionName: "Market Size",
+        qualityLevel: "good",
+        overallScore: 80,
+        scores: { breadth: 80, depth: 75, evidence: 85, coherence: 80, currency: 75 },
+        issues: [],
+        suggestions: [],
+        needsReresearch: false,
+      });
+      mockResearchReviewerService.reviewOverall.mockResolvedValue({
+        topicId: "topic-1",
+        topicName: "AI Market Research",
+        qualityLevel: "good",
+        overallScore: 80,
+        dimensionReviews: [],
+        crossDimensionIssues: [],
+        coverageAnalysis: { coveredAspects: [], missingAspects: [], coverageScore: 80 },
+        recommendations: [],
+        needsReresearch: false,
+        dimensionsToReresearch: [],
+      });
+      mockResearchCheckpointService.saveCheckpoint.mockResolvedValue({});
+      mockResearchCheckpointService.getCheckpoint.mockReturnValue(null);
+      mockResearchTodoService.createTodo.mockResolvedValue({ id: "todo-1" });
+      mockResearchTodoService.updateTodoStatus.mockResolvedValue({});
+      mockResearchTodoService.getTodoSummary.mockResolvedValue({ total: 1, completed: 1 });
+    });
+
+    it("should update refresh log to FAILED when synthesizeReport throws", async () => {
+      mockReportSynthesisService.synthesizeReport.mockRejectedValue(
+        new Error("Synthesis failed"),
+      );
+
+      await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow("Synthesis failed");
+
+      expect(mockPrisma.topicRefreshLog.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: RefreshLogStatus.FAILED,
+            error: "Synthesis failed",
+          }),
+        }),
+      );
+    });
+
+    it("should remove topic from activeRefreshes after failure", async () => {
+      mockReportSynthesisService.synthesizeReport.mockRejectedValue(
+        new Error("Synthesis failed"),
+      );
+
+      const activeRefreshes = (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes;
+
+      await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow();
+
+      expect(activeRefreshes.has("topic-1")).toBe(false);
+    });
+
+    it("should call planResearch and create dimensions when no dimensions found", async () => {
+      mockPrisma.topicDimension.findMany.mockResolvedValue([]);
+      mockResearchLeaderService.planResearch.mockResolvedValue({
+        dimensions: [
+          {
+            name: "Market Overview",
+            description: "Overview of the market",
+            priority: 1,
+            searchQueries: ["market overview 2024"],
+            dataSources: ["web"],
+          },
+        ],
+        agentAssignments: [],
+        executionStrategy: { parallelism: 2 },
+      });
+      mockPrisma.topicDimension.create = jest.fn().mockResolvedValue({
+        id: "new-dim-1",
+        name: "Market Overview",
+        description: "Overview of the market",
+        sortOrder: 1,
+        status: DimensionStatus.PENDING,
+        searchQueries: [],
+        searchSources: [],
+        topicId: "topic-1",
+      });
+
+      await service.executeRefresh(mockTopic as never);
+
+      expect(mockResearchLeaderService.planResearch).toHaveBeenCalledWith("topic-1");
+      expect(mockPrisma.topicDimension.create).toHaveBeenCalled();
+    });
+
+    it("should throw error when no dimensions found and leader plan returns empty dimensions", async () => {
+      mockPrisma.topicDimension.findMany.mockResolvedValue([]);
+      mockResearchLeaderService.planResearch.mockResolvedValue({
+        dimensions: [],
+        agentAssignments: [],
+      });
+
+      await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow(
+        "Leader AI failed to plan dimensions",
+      );
+    });
+
+    it("should throw error when no dimensions found and leader plan has no dimensions key", async () => {
+      mockPrisma.topicDimension.findMany.mockResolvedValue([]);
+      mockResearchLeaderService.planResearch.mockResolvedValue({
+        agentAssignments: [],
+      });
+
+      await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow(
+        "Leader AI failed to plan dimensions",
+      );
+    });
   });
 });

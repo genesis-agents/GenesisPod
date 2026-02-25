@@ -1099,4 +1099,584 @@ describe("ReportGeneratorService", () => {
       expect(result.overallConsistency).toBe("high");
     });
   });
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // extractHighlights — public method
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  describe("extractHighlights", () => {
+    it("should extract highlights from sections.coreViewpoints when sections have data", () => {
+      const report = {
+        executiveSummary: "Summary",
+        sections: [
+          {
+            sectionNumber: 1,
+            title: "技术现状",
+            coreViewpoints: [
+              "市场规模：2025年AI市场将达到5000亿",
+              "量子计算突破商用门槛",
+            ],
+            content: "详细内容",
+          },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      expect(Array.isArray(highlights)).toBe(true);
+      expect(highlights.length).toBeGreaterThan(0);
+      expect(highlights[0].dimensionName).toBe("技术现状");
+    });
+
+    it("should extract highlights from dimensionInputs.keyFindings when sections have no coreViewpoints", () => {
+      const report = {
+        executiveSummary: "Summary",
+        sections: [
+          {
+            sectionNumber: 1,
+            title: "技术现状",
+            coreViewpoints: [], // empty
+            content: "内容",
+          },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [
+        buildDimensionInput({
+          keyFindings: [
+            { finding: "超导量子位错误率降至1%", significance: "high", evidenceIds: [] },
+            { finding: "机会：量子计算市场潜力巨大", significance: "medium", evidenceIds: [] },
+          ],
+        }),
+      ];
+
+      const highlights = service.extractHighlights(report, dims);
+
+      expect(Array.isArray(highlights)).toBe(true);
+      expect(highlights.length).toBeGreaterThan(0);
+    });
+
+    it("should categorize viewpoints: 机会 → 市场机会", () => {
+      const report = {
+        executiveSummary: "Summary",
+        sections: [
+          { sectionNumber: 1, title: "机会分析", coreViewpoints: ["机会：市场增长潜力"], content: "" },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      const marketOpp = highlights.find((h) => h.category === "市场机会");
+      expect(marketOpp).toBeDefined();
+    });
+
+    it("should categorize viewpoints: 趋势 → 技术趋势", () => {
+      const report = {
+        executiveSummary: "Summary",
+        sections: [
+          { sectionNumber: 1, title: "趋势", coreViewpoints: ["趋势：AI技术快速演进"], content: "" },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      const trend = highlights.find((h) => h.category === "技术趋势");
+      expect(trend).toBeDefined();
+    });
+
+    it("should categorize viewpoints: 风险 → 风险警示", () => {
+      const report = {
+        executiveSummary: "Summary",
+        sections: [
+          { sectionNumber: 1, title: "风险", coreViewpoints: ["风险：数据隐私挑战严峻"], content: "" },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      const risk = highlights.find((h) => h.category === "风险警示");
+      expect(risk).toBeDefined();
+    });
+
+    it("should categorize viewpoints: 战略 → 战略建议", () => {
+      const report = {
+        executiveSummary: "Summary",
+        sections: [
+          { sectionNumber: 1, title: "战略", coreViewpoints: ["战略：重点布局AI基础设施建设"], content: "" },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      const strategy = highlights.find((h) => h.category === "战略建议");
+      expect(strategy).toBeDefined();
+    });
+
+    it("should categorize unknown viewpoints as 核心发现", () => {
+      const report = {
+        executiveSummary: "Summary",
+        sections: [
+          { sectionNumber: 1, title: "结论", coreViewpoints: ["综合来看表现良好"], content: "" },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      const core = highlights.find((h) => h.category === "核心发现");
+      expect(core).toBeDefined();
+    });
+
+    it("should limit highlights to 10 items", () => {
+      const coreViewpoints = Array.from({ length: 20 }, (_, i) => `观点${i + 1}：内容`);
+      const sections = coreViewpoints.map((_, i) => ({
+        sectionNumber: i + 1,
+        title: `章节${i + 1}`,
+        coreViewpoints: [coreViewpoints[i]],
+        content: "",
+      }));
+      const dims = sections.map((s, i) =>
+        buildDimensionInput({ dimensionId: `dim-${i}`, dimensionName: s.title }),
+      );
+
+      const report = { sections, highlights: [], charts: [] } as never;
+      const highlights = service.extractHighlights(report, dims);
+
+      expect(highlights.length).toBeLessThanOrEqual(10);
+    });
+
+    it("should return empty array when report has no sections and dims have no keyFindings", () => {
+      const report = { sections: [], highlights: [], charts: [] } as never;
+      const dims = [buildDimensionInput({ keyFindings: [] })];
+
+      const highlights = service.extractHighlights(report, dims);
+
+      expect(highlights).toEqual([]);
+    });
+
+    it("should use colon strategy in extractTitleFromContent (first key phrase before colon)", () => {
+      const report = {
+        sections: [
+          { sectionNumber: 1, title: "测试", coreViewpoints: ["市场规模：2025年预计达到5000亿美元"], content: "" },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      expect(highlights[0].title).toBe("市场规模");
+    });
+
+    it("should use first-sentence strategy in extractTitleFromContent", () => {
+      // Content without colon, but with comma separator
+      const report = {
+        sections: [
+          {
+            sectionNumber: 1,
+            title: "分析",
+            coreViewpoints: ["超导量子位错误率，已经降低到了史无前例的水平"],
+            content: "",
+          },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      expect(highlights[0].title).toBeDefined();
+      expect(highlights[0].title.length).toBeGreaterThan(0);
+    });
+
+    it("should truncate very long content in extractTitleFromContent", () => {
+      // Content longer than 20 chars with no early comma/colon
+      const longContent = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const report = {
+        sections: [
+          { sectionNumber: 1, title: "Long", coreViewpoints: [longContent], content: "" },
+        ],
+        highlights: [],
+        charts: [],
+      } as never;
+
+      const dims = [buildDimensionInput()];
+      const highlights = service.extractHighlights(report, dims);
+
+      expect(highlights[0].title).toBeDefined();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // extractSectionFromConclusion — public method
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  describe("extractSectionFromConclusion", () => {
+    it("should extract section using ## heading pattern", () => {
+      const conclusion = `## 跨维度关联分析\n\n这是跨维度分析内容。\n\n## 风险评估\n\n风险内容。`;
+
+      const result = service.extractSectionFromConclusion(conclusion, "跨维度关联分析");
+
+      expect(result).toContain("跨维度分析内容");
+    });
+
+    it("should return empty string when conclusion is empty", () => {
+      const result = service.extractSectionFromConclusion("", "跨维度关联分析");
+
+      expect(result).toBe("");
+    });
+
+    it("should return empty string when section not found", () => {
+      const conclusion = "这是结论，没有对应章节。";
+
+      const result = service.extractSectionFromConclusion(conclusion, "不存在的章节");
+
+      expect(result).toBe("");
+    });
+
+    it("should fall back to # heading pattern (single hash)", () => {
+      const conclusion = `# 战略建议\n\n建议一：加大研发投入。\n\n# 结语\n\n最后总结。`;
+
+      const result = service.extractSectionFromConclusion(conclusion, "战略建议");
+
+      expect(result).toContain("加大研发投入");
+    });
+
+    it("should use plain title pattern as third fallback", () => {
+      const conclusion = `\n风险评估\n\n风险点一。风险点二。`;
+
+      const result = service.extractSectionFromConclusion(conclusion, "风险评估");
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // extractFinalConclusion — public method
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  describe("extractFinalConclusion", () => {
+    it("should return empty string when conclusion is empty", () => {
+      const result = service.extractFinalConclusion("", "zh");
+
+      expect(result).toBe("");
+    });
+
+    it("should remove 跨维度关联分析 and 风险评估 sections from Chinese conclusion", () => {
+      const conclusion = `## 跨维度关联分析\n\n分析内容。\n\n## 风险评估\n\n风险内容。\n\n## 结语\n\n最终结语。`;
+
+      const result = service.extractFinalConclusion(conclusion, "zh");
+
+      expect(result).not.toContain("跨维度关联分析");
+      expect(result).not.toContain("风险评估");
+    });
+
+    it("should remove English section titles when language is en", () => {
+      const conclusion = `## Cross-Dimension Analysis\n\nAnalysis content.\n\n## Risk Assessment\n\nRisk content.\n\n## Final\n\nFinal conclusion.`;
+
+      const result = service.extractFinalConclusion(conclusion, "en");
+
+      expect(result).not.toContain("Cross-Dimension Analysis");
+      expect(result).not.toContain("Risk Assessment");
+    });
+
+    it("should default to zh language when not specified", () => {
+      const conclusion = `## 战略建议\n\n建议内容。\n\n## 结语\n\n结语内容。`;
+
+      const result = service.extractFinalConclusion(conclusion);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // generateComprehensiveReport — rich normalizeReportResponse branches
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  describe("generateComprehensiveReport — additional report structure branches", () => {
+    it("should handle report with tableOfContents in normalizeReportResponse", async () => {
+      const reportWithToc = JSON.stringify({
+        executiveSummary: "Summary",
+        tableOfContents: "1. 技术现状\n2. 市场分析",
+        conclusion: "综合结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportWithToc });
+
+      const dim = buildDimensionInput();
+      const result = await service.generateComprehensiveReport(
+        mockTopic,
+        [dim],
+        [buildEvidenceInput()],
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should handle report with sections containing keyData", async () => {
+      const reportWithSections = JSON.stringify({
+        executiveSummary: "Summary",
+        sections: [
+          {
+            sectionNumber: 1,
+            title: "技术现状",
+            content: "内容",
+            coreViewpoints: ["观点一"],
+            keyData: [
+              { data: "AI市场规模5000亿", source: "IDC 2025" },
+            ],
+          },
+        ],
+        conclusion: "结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportWithSections });
+
+      const dim = buildDimensionInput();
+      const result = await service.generateComprehensiveReport(
+        mockTopic,
+        [dim],
+        [buildEvidenceInput()],
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should handle report with sections containing figureReferences", async () => {
+      const reportWithFigures = JSON.stringify({
+        executiveSummary: "Summary",
+        sections: [
+          {
+            sectionNumber: 1,
+            title: "技术现状",
+            content: "内容",
+            coreViewpoints: [],
+            figureReferences: [
+              { id: "fig-1", description: "AI市场增长图", suggestedType: "bar" },
+            ],
+          },
+        ],
+        conclusion: "结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportWithFigures });
+
+      const dim = buildDimensionInput();
+      const result = await service.generateComprehensiveReport(
+        mockTopic,
+        [dim],
+        [buildEvidenceInput()],
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should handle report with sections containing inlineCharts (end_of_section position)", async () => {
+      const reportWithInlineCharts = JSON.stringify({
+        executiveSummary: "Summary",
+        sections: [
+          {
+            sectionNumber: 1,
+            title: "技术现状",
+            content: "内容",
+            coreViewpoints: [],
+            inlineCharts: [
+              { id: "chart-1", type: "bar", position: "end_of_section", data: {} },
+            ],
+          },
+        ],
+        conclusion: "结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportWithInlineCharts });
+
+      const dim = buildDimensionInput();
+      const result = await service.generateComprehensiveReport(
+        mockTopic,
+        [dim],
+        [buildEvidenceInput()],
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should handle report with appendices", async () => {
+      const reportWithAppendices = JSON.stringify({
+        executiveSummary: "Summary",
+        conclusion: "结论",
+        appendices: [
+          { title: "数据来源", content: "各数据来源说明" },
+          { title: "术语表", content: "AI: 人工智能" },
+        ],
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportWithAppendices });
+
+      const dim = buildDimensionInput();
+      const result = await service.generateComprehensiveReport(
+        mockTopic,
+        [dim],
+        [buildEvidenceInput()],
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should handle report with references", async () => {
+      const reportWithReferences = JSON.stringify({
+        executiveSummary: "Summary",
+        conclusion: "结论",
+        references: [
+          { index: 1, title: "Quantum Computing 2024", domain: "arxiv.org", url: "https://arxiv.org/abs/2024", accessDate: "2024-01-01" },
+        ],
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportWithReferences });
+
+      const dim = buildDimensionInput();
+      const result = await service.generateComprehensiveReport(
+        mockTopic,
+        [dim],
+        [buildEvidenceInput()],
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should handle normalizeExecutiveSummary with JSON containing fullText string", async () => {
+      // executiveSummary as stringified JSON with fullText field
+      const reportWithJsonEs = JSON.stringify({
+        executiveSummary: JSON.stringify({ fullText: "This is the full executive summary text." }),
+        conclusion: "结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportWithJsonEs });
+
+      const dim = buildDimensionInput();
+      const result = await service.generateComprehensiveReport(
+        mockTopic,
+        [dim],
+        [buildEvidenceInput()],
+      );
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // buildFullReportFromDimensions — heading demotion branches
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  describe("buildFullReportFromDimensions — additional branch coverage", () => {
+    it("should demote ## headings inside dimension content to ###", async () => {
+      const dimWithDoubleHash = buildDimensionInput({
+        detailedContent: "## 子章节标题\n\n内容段落。",
+      });
+
+      const reportJson = JSON.stringify({
+        executiveSummary: "Summary",
+        conclusion: "结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportJson });
+
+      const result = await service.buildFullReportFromDimensions(
+        mockTopic,
+        [dimWithDoubleHash],
+        { conclusion: "结论" },
+      );
+
+      // The ## heading should be demoted to ###
+      expect(result).not.toContain("\n## 子章节标题");
+    });
+
+    it("should handle dimensions with inlineCharts with after_paragraph position", async () => {
+      const dimWithCharts = buildDimensionInput({
+        detailedContent: "段落一内容。\n\n段落二内容。",
+        generatedCharts: [
+          { id: "chart-g1", type: "line", position: "after_paragraph_1", data: {}, config: {} } as never,
+        ],
+      });
+
+      const reportJson = JSON.stringify({
+        executiveSummary: "Summary",
+        conclusion: "结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportJson });
+
+      const result = await service.buildFullReportFromDimensions(
+        mockTopic,
+        [dimWithCharts],
+        { conclusion: "结论" },
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should handle dimensions with figureReferences in resolveChartPlaceholders", async () => {
+      const dimWithFigures = buildDimensionInput({
+        detailedContent: "内容 <!-- figure:1:0 --> 更多内容。",
+        figureReferences: [
+          { id: "fig-a", evidenceCitationIndex: 1, figureIndex: 0, description: "图表A", suggestedType: "bar" },
+        ],
+      });
+
+      const reportJson = JSON.stringify({
+        executiveSummary: "Summary",
+        conclusion: "结论",
+        highlights: [],
+        charts: [],
+      });
+
+      mockFacade.chat.mockResolvedValue({ content: reportJson });
+
+      const result = await service.buildFullReportFromDimensions(
+        mockTopic,
+        [dimWithFigures],
+        { conclusion: "结论" },
+      );
+
+      expect(result).toBeDefined();
+    });
+  });
 });

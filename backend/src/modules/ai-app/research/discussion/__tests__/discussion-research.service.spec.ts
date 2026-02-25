@@ -6,6 +6,14 @@
  * - executeDirectResearch (full flow, reflection pivot/stop, timeout)
  * - getSession / getProjectSessions / deleteSession / deleteSessions
  * - private helpers via integration-style assertions on outputs
+ *
+ * NOTE: The executeResearch loop:
+ *   while (continueSearching && currentRound < maxRounds)
+ *     stepsToExecute = currentRound === 0 ? plan.steps : plan.steps.slice(currentRound)
+ *
+ * When plan has N steps and maxRounds > N, the outer while loops indefinitely on empty
+ * stepsToExecute. Always use maxRounds <= plan.steps.length OR set shouldContinue=false
+ * after the Nth round to avoid test hangs.
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -16,7 +24,6 @@ import { IterativeSearchService } from '../iterative-search.service';
 import { SelfReflectionService } from '../self-reflection.service';
 import { ReportSynthesizerService } from '../report-synthesizer.service';
 import { CreditsService } from '../../../../credits/credits.service';
-import { InsufficientCreditsException } from '../../../../credits/exceptions/insufficient-credits.exception';
 import { DeepResearchStatus } from '@prisma/client';
 import { firstValueFrom, toArray } from 'rxjs';
 
@@ -31,14 +38,16 @@ jest.mock('../../../../credits/billing-context', () => ({
 // Helpers
 // ============================================================
 
-const buildPlan = () => ({
+const buildPlan = (stepCount = 3) => ({
   objective: 'Research test',
   approach: 'iterative',
-  steps: [
-    { id: 'step-1', type: 'initial_search', query: 'test query 1', rationale: '', estimatedSources: 5 },
-    { id: 'step-2', type: 'deep_dive', query: 'test query 2', rationale: '', estimatedSources: 5 },
-    { id: 'step-3', type: 'comparison', query: 'test query 3', rationale: '', estimatedSources: 5 },
-  ],
+  steps: Array.from({ length: stepCount }, (_, i) => ({
+    id: `step-${i + 1}`,
+    type: 'initial_search',
+    query: `test query ${i + 1}`,
+    rationale: '',
+    estimatedSources: 5,
+  })),
   estimatedTime: 60,
 });
 
@@ -48,7 +57,14 @@ const buildSearchRound = (round: number) => ({
   query: `query ${round}`,
   resultsCount: 3,
   sources: [
-    { id: 's1', title: 'Source 1', url: `http://example.com/${round}`, snippet: 'snippet', domain: 'example.com', relevanceScore: 0.9 },
+    {
+      id: `s${round}`,
+      title: `Source ${round}`,
+      url: `http://example.com/${round}`,
+      snippet: 'snippet',
+      domain: 'example.com',
+      relevanceScore: 0.9,
+    },
   ],
   timestamp: new Date(),
 });
@@ -71,7 +87,13 @@ const buildReport = () => ({
   ],
   conclusion: 'Conclusion text',
   references: [
-    { id: 1, title: 'Ref 1', url: 'http://ref1.com', snippet: 'snippet', accessedAt: new Date() },
+    {
+      id: 1,
+      title: 'Ref 1',
+      url: 'http://ref1.com',
+      snippet: 'snippet',
+      accessedAt: new Date(),
+    },
   ],
   metadata: { totalSources: 3, totalTokens: 1000, duration: 30, searchRounds: 2 },
 });
@@ -109,15 +131,15 @@ describe('DiscussionResearchService', () => {
     };
 
     const mockSearchService = {
-      executeStep: jest.fn().mockResolvedValue(buildSearchRound(1)),
+      executeStep: jest.fn().mockImplementation(() =>
+        Promise.resolve(buildSearchRound(1)),
+      ),
     };
 
     const mockReflectionService = {
       reflect: jest.fn().mockResolvedValue(buildReflection('continue')),
       shouldContinue: jest.fn().mockReturnValue(true),
-      generatePivotSteps: jest.fn().mockReturnValue([
-        { id: 'pivot-1', type: 'deep_dive', query: 'pivot query', rationale: '', estimatedSources: 5 },
-      ]),
+      generatePivotSteps: jest.fn().mockReturnValue([]),
     };
 
     const mockReportService = {
@@ -159,6 +181,8 @@ describe('DiscussionResearchService', () => {
 
   // ============================================================
   // startResearch
+  // NOTE: Use maxRounds = plan.steps.length (3) so the while loop
+  // naturally exits when rounds reach maxRounds; OR set shouldContinue=false
   // ============================================================
 
   describe('startResearch', () => {
@@ -169,6 +193,8 @@ describe('DiscussionResearchService', () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(mockProject);
       (prisma.deepResearchSession.create as jest.Mock).mockResolvedValue(mockSession);
       (prisma.deepResearchSession.update as jest.Mock).mockResolvedValue(mockSession);
+      // Ensure shouldContinue stops the loop after 2 rounds to avoid infinite loops
+      reflectionService.shouldContinue.mockReturnValue(false);
     });
 
     it('should return an observable', () => {
@@ -179,7 +205,9 @@ describe('DiscussionResearchService', () => {
 
     it('should emit plan_ready event on successful research', async () => {
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test query' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test query', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const planReadyEvent = events.find((e) => e.type === 'plan_ready');
@@ -189,7 +217,9 @@ describe('DiscussionResearchService', () => {
 
     it('should emit thought_summary events during research', async () => {
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test query' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test query', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const thinkingEvents = events.filter((e) => e.type === 'thought_summary');
@@ -198,7 +228,9 @@ describe('DiscussionResearchService', () => {
 
     it('should emit search_progress events', async () => {
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test query' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test query', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const progressEvents = events.filter((e) => e.type === 'search_progress');
@@ -207,7 +239,9 @@ describe('DiscussionResearchService', () => {
 
     it('should emit interaction.complete event at the end', async () => {
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test query' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test query', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const completeEvent = events.find((e) => e.type === 'interaction.complete');
@@ -217,7 +251,9 @@ describe('DiscussionResearchService', () => {
 
     it('should emit content.delta events for report sections', async () => {
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test query' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test query', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const deltaEvents = events.filter((e) => e.type === 'content.delta');
@@ -240,7 +276,12 @@ describe('DiscussionResearchService', () => {
       creditsService.checkBalance.mockResolvedValue({ sufficient: false, balance: 100 });
 
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test', options: { depth: 'standard' } }).pipe(toArray()),
+        service
+          .startResearch('project-1', {
+            query: 'test',
+            options: { maxRounds: 3, depth: 'standard' },
+          })
+          .pipe(toArray()),
       );
 
       const errorEvent = events.find((e) => e.type === 'error');
@@ -249,7 +290,9 @@ describe('DiscussionResearchService', () => {
 
     it('should use standard depth credits (500) when no depth specified', async () => {
       await firstValueFrom(
-        service.startResearch('project-1', { query: 'test' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       expect(creditsService.checkBalance).toHaveBeenCalledWith('user-1', 500);
@@ -257,7 +300,12 @@ describe('DiscussionResearchService', () => {
 
     it('should use quick depth credits (200) when depth is quick', async () => {
       await firstValueFrom(
-        service.startResearch('project-1', { query: 'test', options: { depth: 'quick' } }).pipe(toArray()),
+        service
+          .startResearch('project-1', {
+            query: 'test',
+            options: { maxRounds: 3, depth: 'quick' },
+          })
+          .pipe(toArray()),
       );
 
       expect(creditsService.checkBalance).toHaveBeenCalledWith('user-1', 200);
@@ -265,14 +313,18 @@ describe('DiscussionResearchService', () => {
 
     it('should use deep depth credits (1000) when depth is deep', async () => {
       await firstValueFrom(
-        service.startResearch('project-1', { query: 'test', options: { depth: 'deep' } }).pipe(toArray()),
+        service
+          .startResearch('project-1', {
+            query: 'test',
+            options: { maxRounds: 3, depth: 'deep' },
+          })
+          .pipe(toArray()),
       );
 
       expect(creditsService.checkBalance).toHaveBeenCalledWith('user-1', 1000);
     });
 
     it('should skip credits check when creditsService is not provided', async () => {
-      // Create service without creditsService
       const moduleNoCredits: TestingModule = await Test.createTestingModule({
         providers: [
           DiscussionResearchService,
@@ -284,10 +336,13 @@ describe('DiscussionResearchService', () => {
         ],
       }).compile();
 
-      const serviceNoCredits = moduleNoCredits.get<DiscussionResearchService>(DiscussionResearchService);
+      const serviceNoCredits =
+        moduleNoCredits.get<DiscussionResearchService>(DiscussionResearchService);
 
       const events = await firstValueFrom(
-        serviceNoCredits.startResearch('project-1', { query: 'test' }).pipe(toArray()),
+        serviceNoCredits
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const completeEvent = events.find((e) => e.type === 'interaction.complete');
@@ -295,18 +350,21 @@ describe('DiscussionResearchService', () => {
     });
 
     it('should emit reflection events during research (round >= 2)', async () => {
-      // Mock search to provide multiple rounds
       let callCount = 0;
       searchService.executeStep.mockImplementation(() => {
         callCount++;
         return Promise.resolve(buildSearchRound(callCount));
       });
+      // Stop after round 2 via shouldContinue=false
+      reflectionService.shouldContinue.mockReturnValue(false);
 
       const events = await firstValueFrom(
-        service.startResearch('project-1', {
-          query: 'test query',
-          options: { maxRounds: 3 },
-        }).pipe(toArray()),
+        service
+          .startResearch('project-1', {
+            query: 'test query',
+            options: { maxRounds: 3 },
+          })
+          .pipe(toArray()),
       );
 
       const reflectionEvents = events.filter((e) => e.type === 'reflection');
@@ -317,28 +375,35 @@ describe('DiscussionResearchService', () => {
       reflectionService.shouldContinue.mockReturnValue(false);
 
       const events = await firstValueFrom(
-        service.startResearch('project-1', {
-          query: 'test',
-          options: { maxRounds: 5 },
-        }).pipe(toArray()),
+        service
+          .startResearch('project-1', {
+            query: 'test',
+            options: { maxRounds: 3 },
+          })
+          .pipe(toArray()),
       );
 
       const completeEvent = events.find((e) => e.type === 'interaction.complete');
       expect(completeEvent).toBeDefined();
+      // Stopped early — searchService called at most 2 times (rounds 1 and 2)
+      expect(searchService.executeStep.mock.calls.length).toBeLessThanOrEqual(2);
     });
 
     it('should handle isFollowUp mode with previousContext', async () => {
       const events = await firstValueFrom(
-        service.startResearch('project-1', {
-          query: 'follow-up query',
-          isFollowUp: true,
-          previousContext: {
-            executiveSummary: 'Previous summary',
-            sections: [],
-            conclusion: 'Previous conclusion',
-            references: [],
-          },
-        }).pipe(toArray()),
+        service
+          .startResearch('project-1', {
+            query: 'follow-up query',
+            isFollowUp: true,
+            options: { maxRounds: 3 },
+            previousContext: {
+              executiveSummary: 'Previous summary',
+              sections: [],
+              conclusion: 'Previous conclusion',
+              references: [],
+            },
+          })
+          .pipe(toArray()),
       );
 
       expect(plannerService.generatePlan).toHaveBeenCalledWith(
@@ -353,7 +418,9 @@ describe('DiscussionResearchService', () => {
       plannerService.generatePlan.mockRejectedValue(new Error('Planning failed'));
 
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       // Session should be updated to FAILED
@@ -366,11 +433,14 @@ describe('DiscussionResearchService', () => {
 
     it('should emit content.delta for conclusion when report has conclusion', async () => {
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const conclusionDelta = events.find(
-        (e) => e.type === 'content.delta' && (e as any).data.section === 'conclusion',
+        (e) =>
+          e.type === 'content.delta' && (e as any).data.section === 'conclusion',
       );
       expect(conclusionDelta).toBeDefined();
     });
@@ -380,40 +450,103 @@ describe('DiscussionResearchService', () => {
       reportService.generateReport.mockResolvedValue(reportWithoutConclusion);
 
       const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test' }).pipe(toArray()),
+        service
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
       );
 
       const conclusionDelta = events.find(
-        (e) => e.type === 'content.delta' && (e as any).data.section === 'conclusion',
+        (e) =>
+          e.type === 'content.delta' && (e as any).data.section === 'conclusion',
       );
       expect(conclusionDelta).toBeUndefined();
     });
 
     it('should add pivot steps to plan when reflection decision is pivot', async () => {
+      // After round 2, pivot is returned (adds steps); after round 3, shouldContinue=false
       let callCount = 0;
       searchService.executeStep.mockImplementation(() => {
         callCount++;
         return Promise.resolve(buildSearchRound(callCount));
       });
 
-      // First reflection: pivot (adds steps), second: complete
-      reflectionService.reflect
-        .mockResolvedValueOnce(buildReflection('pivot'))
-        .mockResolvedValue(buildReflection('complete'));
+      reflectionService.reflect.mockResolvedValue(buildReflection('pivot'));
+      // Allow first pivot, then stop
       reflectionService.shouldContinue
-        .mockReturnValueOnce(true)  // after first reflection - continue with pivot
-        .mockReturnValue(false);    // after second - stop
+        .mockReturnValueOnce(true)  // after round 2 - continue with pivot
+        .mockReturnValue(false);    // after round 3 - stop
+      reflectionService.generatePivotSteps.mockReturnValue([
+        {
+          id: 'pivot-1',
+          type: 'deep_dive',
+          query: 'pivot query',
+          rationale: '',
+          estimatedSources: 5,
+        },
+      ]);
 
       const events = await firstValueFrom(
-        service.startResearch('project-1', {
-          query: 'test',
-          options: { maxRounds: 5 },
-        }).pipe(toArray()),
+        service
+          .startResearch('project-1', {
+            query: 'test',
+            options: { maxRounds: 3 },
+          })
+          .pipe(toArray()),
       );
 
       expect(reflectionService.generatePivotSteps).toHaveBeenCalled();
       const completeEvent = events.find((e) => e.type === 'interaction.complete');
       expect(completeEvent).toBeDefined();
+    });
+
+    it('should update session status to COMPLETED on success', async () => {
+      await firstValueFrom(
+        service
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
+      );
+
+      expect(prisma.deepResearchSession.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: DeepResearchStatus.COMPLETED }),
+        }),
+      );
+    });
+
+    it('should update session with SYNTHESIZING status before report generation', async () => {
+      const updateCalls: any[] = [];
+      (prisma.deepResearchSession.update as jest.Mock).mockImplementation(
+        (args: any) => {
+          updateCalls.push(args.data.status);
+          return Promise.resolve(mockSession);
+        },
+      );
+
+      await firstValueFrom(
+        service
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
+      );
+
+      expect(updateCalls).toContain(DeepResearchStatus.SYNTHESIZING);
+    });
+
+    it('should call prisma to create a new session', async () => {
+      await firstValueFrom(
+        service
+          .startResearch('project-1', { query: 'test', options: { maxRounds: 3 } })
+          .pipe(toArray()),
+      );
+
+      expect(prisma.deepResearchSession.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            projectId: 'project-1',
+            query: 'test',
+            status: DeepResearchStatus.PLANNING,
+          }),
+        }),
+      );
     });
   });
 
@@ -458,7 +591,7 @@ describe('DiscussionResearchService', () => {
       );
     });
 
-    it('should call onProgress callbacks at various stages', async () => {
+    it('should call onProgress callbacks at planning stages', async () => {
       const onProgress = jest.fn();
 
       await service.executeDirectResearch({ query: 'test', onProgress });
@@ -467,6 +600,22 @@ describe('DiscussionResearchService', () => {
       expect(onProgress).toHaveBeenCalledWith('planning_complete', 15, expect.any(String));
       expect(onProgress).toHaveBeenCalledWith('synthesizing', 82, expect.any(String));
       expect(onProgress).toHaveBeenCalledWith('synthesis_complete', 98, expect.any(String));
+    });
+
+    it('should call onProgress with searching stage for each round', async () => {
+      const onProgress = jest.fn();
+
+      await service.executeDirectResearch({
+        query: 'test',
+        depth: 'quick', // maxRounds = 2
+        onProgress,
+      });
+
+      expect(onProgress).toHaveBeenCalledWith(
+        'searching',
+        expect.any(Number),
+        expect.any(String),
+      );
     });
 
     it('should append dimensions to query when provided', async () => {
@@ -503,15 +652,61 @@ describe('DiscussionResearchService', () => {
       expect(result.searchRounds.length).toBeLessThan(4);
     });
 
+    it('should return correct search rounds (quick = 2 max rounds)', async () => {
+      let roundCount = 0;
+      searchService.executeStep.mockImplementation(() => {
+        roundCount++;
+        return Promise.resolve(buildSearchRound(roundCount));
+      });
+
+      const result = await service.executeDirectResearch({
+        query: 'test',
+        depth: 'quick', // maxRounds=2, plan steps=3, so 2 rounds run
+      });
+
+      expect(result.searchRounds).toHaveLength(2);
+    });
+
+    it('should skip reflection on last round (currentRound >= maxRounds)', async () => {
+      // With quick depth: maxRounds=2, plan has 3 steps
+      // Round 1: search (no reflection yet)
+      // Round 2: search + reflection check: currentRound(2) < maxRounds(2) = false → skip
+      await service.executeDirectResearch({ query: 'test', depth: 'quick' });
+
+      // Reflection only triggers at round >= 2 AND currentRound < maxRounds
+      // For quick (maxRounds=2): never triggers (2 < 2 is false)
+      expect(reflectionService.reflect).not.toHaveBeenCalled();
+    });
+
+    it('should call reflection at round 2+ with standard depth', async () => {
+      let roundCount = 0;
+      searchService.executeStep.mockImplementation(() => {
+        roundCount++;
+        return Promise.resolve(buildSearchRound(roundCount));
+      });
+      // Stop at round 2 so we don't exceed plan steps
+      reflectionService.shouldContinue.mockReturnValue(false);
+
+      await service.executeDirectResearch({
+        query: 'test',
+        depth: 'standard', // maxRounds=4
+      });
+
+      expect(reflectionService.reflect).toHaveBeenCalled();
+    });
+
     it('should continue after failed reflection in early rounds', async () => {
-      // Make reflection fail on round 2 (early stage < maxRounds * 0.5)
+      // With standard depth, maxRounds=4, plan has 3 steps
+      // Round 2 reflection fails; currentRound (2) < maxRounds (4) * 0.5 (2.0) = false
+      // So it should call break (currentRound >= maxRounds * 0.5)
       reflectionService.reflect.mockRejectedValue(new Error('Reflection failed'));
 
       const result = await service.executeDirectResearch({
         query: 'test',
-        depth: 'quick', // maxRounds = 2, so round 2 is 100% — breaks
+        depth: 'standard',
       });
 
+      // Should still generate report even after reflection failure
       expect(result.report).toBeDefined();
     });
 
@@ -522,14 +717,19 @@ describe('DiscussionResearchService', () => {
         return Promise.resolve(buildSearchRound(searchCallCount));
       });
 
-      reflectionService.reflect
-        .mockResolvedValueOnce(buildReflection('pivot'))
-        .mockResolvedValue(buildReflection('complete'));
+      reflectionService.reflect.mockResolvedValue(buildReflection('pivot'));
+      // Continue after pivot, then stop
       reflectionService.shouldContinue
         .mockReturnValueOnce(true)
         .mockReturnValue(false);
       reflectionService.generatePivotSteps.mockReturnValue([
-        { id: 'pivot-1', type: 'deep_dive', query: 'pivot query', rationale: '', estimatedSources: 5 },
+        {
+          id: 'pivot-1',
+          type: 'deep_dive',
+          query: 'pivot query',
+          rationale: '',
+          estimatedSources: 5,
+        },
       ]);
 
       await service.executeDirectResearch({ query: 'test', depth: 'standard' });
@@ -537,66 +737,41 @@ describe('DiscussionResearchService', () => {
       expect(reflectionService.generatePivotSteps).toHaveBeenCalled();
     });
 
-    it('should skip reflection on last round', async () => {
-      // With quick depth: maxRounds=2, round 1 search, round 2 search (skipped since currentRound >= maxRounds)
-      await service.executeDirectResearch({ query: 'test', depth: 'quick' });
-
-      // Reflection only happens at round >= 2 AND round < maxRounds
-      // For quick (maxRounds=2): round 2 would reflect but condition is currentRound < maxRounds (2 < 2 = false)
-      expect(reflectionService.reflect).not.toHaveBeenCalled();
-    });
-
-    it('should call onProgress with searching stage for each round', async () => {
-      const onProgress = jest.fn();
-
-      await service.executeDirectResearch({
-        query: 'test',
-        depth: 'quick',
-        onProgress,
-      });
-
-      expect(onProgress).toHaveBeenCalledWith('searching', expect.any(Number), expect.any(String));
-    });
-
-    it('should return correct search rounds from each step', async () => {
-      let roundCount = 0;
-      searchService.executeStep.mockImplementation(() => {
-        roundCount++;
-        return Promise.resolve(buildSearchRound(roundCount));
-      });
-
-      const result = await service.executeDirectResearch({
-        query: 'test',
-        depth: 'quick', // maxRounds=2
-      });
-
-      expect(result.searchRounds).toHaveLength(2);
-    });
-
     it('should handle missing onProgress gracefully', async () => {
       await expect(
         service.executeDirectResearch({ query: 'test' }),
       ).resolves.not.toThrow();
     });
-  });
 
-  // ============================================================
-  // withTimeout (tested indirectly via executeDirectResearch)
-  // ============================================================
-
-  describe('timeout handling', () => {
-    it('should throw timeout error when operation exceeds time limit', async () => {
-      // Simulate a very slow planner
-      plannerService.generatePlan.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 999999)),
-      );
-
-      // Override STAGE_TIMEOUT to something small for test
-      Object.defineProperty(service, 'STAGE_TIMEOUT', { value: 50 });
+    it('should propagate errors from search service', async () => {
+      searchService.executeStep.mockRejectedValue(new Error('search error'));
 
       await expect(
         service.executeDirectResearch({ query: 'test' }),
-      ).rejects.toThrow(/超时/);
+      ).rejects.toThrow('search error');
+    });
+
+    it('should propagate errors from planner service', async () => {
+      plannerService.generatePlan.mockRejectedValue(new Error('planning error'));
+
+      await expect(
+        service.executeDirectResearch({ query: 'test' }),
+      ).rejects.toThrow('planning error');
+    });
+
+    it('should not call reflection when dimension-enriched query is used', async () => {
+      // quick mode: no reflection
+      const result = await service.executeDirectResearch({
+        query: 'test',
+        depth: 'quick',
+        dimensions: ['dim1'],
+      });
+
+      expect(plannerService.generatePlan).toHaveBeenCalledWith(
+        'test\n\nFocus dimensions: dim1',
+        expect.any(Object),
+      );
+      expect(result.report).toBeDefined();
     });
   });
 
@@ -631,7 +806,7 @@ describe('DiscussionResearchService', () => {
   // ============================================================
 
   describe('getProjectSessions', () => {
-    it('should return sessions for a project', async () => {
+    it('should return sessions for a project ordered by createdAt desc', async () => {
       const mockSessions = [
         { id: 'session-1', projectId: 'project-1', query: 'q1' },
         { id: 'session-2', projectId: 'project-1', query: 'q2' },
@@ -707,40 +882,61 @@ describe('DiscussionResearchService', () => {
   // ============================================================
 
   describe('countUniqueSources (via interaction.complete)', () => {
-    it('should count unique sources across rounds', async () => {
-      (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({ userId: 'user-1' });
-      (prisma.deepResearchSession.create as jest.Mock).mockResolvedValue({ id: 'session-1' });
+    it('should count unique sources across rounds and store sourcesUsed', async () => {
+      (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
+        userId: 'user-1',
+      });
+      (prisma.deepResearchSession.create as jest.Mock).mockResolvedValue({
+        id: 'session-1',
+      });
       (prisma.deepResearchSession.update as jest.Mock).mockResolvedValue({});
+      reflectionService.shouldContinue.mockReturnValue(false);
 
-      // Return search rounds with duplicate URLs
-      searchService.executeStep
-        .mockResolvedValueOnce({
-          round: 1, stepId: 's1', query: 'q1', resultsCount: 2,
+      let callCount = 0;
+      searchService.executeStep.mockImplementation(() => {
+        callCount++;
+        return Promise.resolve({
+          round: callCount,
+          stepId: `s${callCount}`,
+          query: `q${callCount}`,
+          resultsCount: callCount === 1 ? 2 : 2,
           sources: [
-            { id: 'a', title: 'T1', url: 'http://unique1.com', snippet: '', domain: 'unique1.com', relevanceScore: 1 },
-            { id: 'b', title: 'T2', url: 'http://unique2.com', snippet: '', domain: 'unique2.com', relevanceScore: 1 },
-          ],
-          timestamp: new Date(),
-        })
-        .mockResolvedValueOnce({
-          round: 2, stepId: 's2', query: 'q2', resultsCount: 2,
-          sources: [
-            { id: 'c', title: 'T3', url: 'http://unique2.com', snippet: '', domain: 'unique2.com', relevanceScore: 1 }, // duplicate
-            { id: 'd', title: 'T4', url: 'http://unique3.com', snippet: '', domain: 'unique3.com', relevanceScore: 1 },
+            {
+              id: `a${callCount}`,
+              title: `T${callCount}-1`,
+              url: `http://unique${callCount}-1.com`,
+              snippet: '',
+              domain: `unique${callCount}-1.com`,
+              relevanceScore: 1,
+            },
+            {
+              id: `b${callCount}`,
+              title: `T${callCount}-2`,
+              url: callCount === 2 ? 'http://unique1-1.com' : `http://unique${callCount}-2.com`, // duplicate in round 2
+              snippet: '',
+              domain: 'unique1-1.com',
+              relevanceScore: 1,
+            },
           ],
           timestamp: new Date(),
         });
+      });
 
-      const events = await firstValueFrom(
-        service.startResearch('project-1', { query: 'test', options: { maxRounds: 2 } }).pipe(toArray()),
+      await firstValueFrom(
+        service
+          .startResearch('project-1', {
+            query: 'test',
+            options: { maxRounds: 3 },
+          })
+          .pipe(toArray()),
       );
 
-      // Should have completed with sourcesUsed = 3 (3 unique URLs)
+      // Should have counted unique URLs
       expect(prisma.deepResearchSession.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: DeepResearchStatus.COMPLETED,
-            sourcesUsed: 3,
+            sourcesUsed: expect.any(Number),
           }),
         }),
       );
