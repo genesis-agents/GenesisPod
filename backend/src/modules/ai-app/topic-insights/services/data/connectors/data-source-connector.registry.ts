@@ -28,8 +28,8 @@ export class DataSourceConnectorRegistry implements OnModuleInit {
     this.logger.log(
       `DataSourceConnectorRegistry initialized with ${this.connectors.size} connectors`,
     );
-    // 启动定期健康检查（每 5 分钟）
-    setInterval(() => this.runHealthChecks(), 5 * 60 * 1000);
+    // 启动定期健康检查（每 5 分钟，unref 防止测试/进程退出时被阻塞）
+    setInterval(() => this.runHealthChecks(), 5 * 60 * 1000).unref();
   }
 
   /**

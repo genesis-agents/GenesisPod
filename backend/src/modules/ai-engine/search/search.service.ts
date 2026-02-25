@@ -141,7 +141,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     this.cleanupTimer = setInterval(() => {
       this.cleanupExpiredHealthRecords();
-    }, CLEANUP_INTERVAL_MS);
+    }, CLEANUP_INTERVAL_MS).unref();
     this.logger.log("[Search] Health record cleanup timer started");
   }
 

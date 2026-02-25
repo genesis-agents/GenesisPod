@@ -181,7 +181,7 @@ export class SlidesMetricsService implements OnModuleInit {
     this.logger.log("Metrics service initialized");
 
     // Clean up old data periodically
-    setInterval(() => this.cleanupOldData(), 60 * 1000); // Every minute
+    setInterval(() => this.cleanupOldData(), 60 * 1000).unref(); // Every minute
   }
 
   /**

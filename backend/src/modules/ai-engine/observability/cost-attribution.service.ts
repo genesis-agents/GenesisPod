@@ -1,6 +1,12 @@
-import { Injectable, Logger, Optional, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaService } from '../../../common/prisma/prisma.service';
-import { Decimal } from '@prisma/client/runtime/library';
+import {
+  Injectable,
+  Logger,
+  Optional,
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { Decimal } from "@prisma/client/runtime/library";
 
 /**
  * 成本事件
@@ -81,7 +87,7 @@ export interface BudgetAlert {
   userId: string;
   threshold: number; // USD
   currentSpend: number;
-  period: 'daily' | 'monthly';
+  period: "daily" | "monthly";
   triggered: boolean;
   triggeredAt?: Date;
 }
@@ -95,7 +101,10 @@ interface HourlyBucketData {
   calls: number;
   byUser: Map<string, { cost: number; tokens: number; calls: number }>;
   byModule: Map<string, { cost: number; tokens: number; calls: number }>;
-  byModel: Map<string, { cost: number; tokens: number; calls: number; provider: string }>;
+  byModel: Map<
+    string,
+    { cost: number; tokens: number; calls: number; provider: string }
+  >;
 }
 
 /**
@@ -115,7 +124,7 @@ interface UserAggregation {
  */
 interface BudgetConfig {
   threshold: number;
-  period: 'daily' | 'monthly';
+  period: "daily" | "monthly";
   lastTriggered?: Date;
 }
 
@@ -147,16 +156,14 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
   private readonly FLUSH_INTERVAL_MS = 5 * 60 * 1000;
   private readonly FLUSH_BATCH_SIZE = 500;
 
-  constructor(
-    @Optional() private readonly prisma?: PrismaService,
-  ) {}
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
 
   onModuleInit() {
     if (this.prisma) {
       this.flushInterval = setInterval(
         () => this.flushCostsToDB(),
         this.FLUSH_INTERVAL_MS,
-      );
+      ).unref();
       this.logger.log(
         `Cost DB persistence enabled, flush interval: ${this.FLUSH_INTERVAL_MS / 1000}s`,
       );
@@ -236,15 +243,33 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
   /**
    * 获取成本报告
    */
-  getCostReport(options?: { periodHours?: number; userId?: string }): CostReport {
+  getCostReport(options?: {
+    periodHours?: number;
+    userId?: string;
+  }): CostReport {
     const periodHours = options?.periodHours || 24;
     const now = new Date();
     const startTime = new Date(now.getTime() - periodHours * 60 * 60 * 1000);
 
     const hourlyTrend: HourlyBucket[] = [];
-    const userCosts = new Map<string, { cost: number; tokens: number; calls: number; modules: Map<string, number>; models: Map<string, number> }>();
-    const moduleCosts = new Map<string, { cost: number; tokens: number; calls: number }>();
-    const modelCosts = new Map<string, { cost: number; tokens: number; calls: number; provider: string }>();
+    const userCosts = new Map<
+      string,
+      {
+        cost: number;
+        tokens: number;
+        calls: number;
+        modules: Map<string, number>;
+        models: Map<string, number>;
+      }
+    >();
+    const moduleCosts = new Map<
+      string,
+      { cost: number; tokens: number; calls: number }
+    >();
+    const modelCosts = new Map<
+      string,
+      { cost: number; tokens: number; calls: number; provider: string }
+    >();
 
     let totalCost = 0;
     let totalTokens = 0;
@@ -316,8 +341,8 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     const byUser: CostByUser[] = [];
     for (const [userId, costs] of userCosts.entries()) {
       const userAgg = this.userAggregations.get(userId);
-      let topModule = '';
-      let topModel = '';
+      let topModule = "";
+      let topModel = "";
 
       if (userAgg) {
         topModule = this.getTopEntry(userAgg.byModule);
@@ -348,7 +373,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     // 构建模型报告
     const byModel: CostByModel[] = Array.from(modelCosts.entries()).map(
       ([modelKey, data]) => {
-        const [provider, model] = modelKey.split(':');
+        const [provider, model] = modelKey.split(":");
         return {
           model,
           provider,
@@ -391,8 +416,8 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
       totalCost: 0,
       totalTokens: 0,
       callCount: 0,
-      topModule: '',
-      topModel: '',
+      topModule: "",
+      topModel: "",
     };
   }
 
@@ -402,7 +427,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
   setBudgetAlert(
     userId: string,
     threshold: number,
-    period: 'daily' | 'monthly',
+    period: "daily" | "monthly",
   ): void {
     this.budgetConfigs.set(userId, {
       threshold,
@@ -421,7 +446,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     const now = new Date();
 
     for (const [userId, config] of this.budgetConfigs.entries()) {
-      const periodHours = config.period === 'daily' ? 24 : 24 * 30;
+      const periodHours = config.period === "daily" ? 24 : 24 * 30;
       const userCost = this.getUserCost(userId, periodHours);
       const currentSpend = userCost.totalCost;
 
@@ -485,7 +510,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.prisma.aIEngineMetric.createMany({
         data: batch.map((event) => ({
-          metricType: 'cost_event',
+          metricType: "cost_event",
           operationId: event.moduleType,
           modelId: event.model,
           providerId: event.provider,
@@ -504,7 +529,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Flushed ${flushed} cost events to DB`);
 
       if (this.pendingCostEvents.length > 0) {
-        return flushed + await this.flushCostsToDB();
+        return flushed + (await this.flushCostsToDB());
       }
 
       return flushed;
@@ -532,7 +557,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     this.userAggregations.clear();
     this.budgetConfigs.clear();
     this.pendingCostEvents.length = 0;
-    this.logger.log('成本归因数据已重置');
+    this.logger.log("成本归因数据已重置");
   }
 
   /**
@@ -540,9 +565,9 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
    */
   private getHourKey(date: Date): string {
     const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const hour = String(date.getUTCHours()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const hour = String(date.getUTCHours()).padStart(2, "0");
     return `${year}-${month}-${day}T${hour}`;
   }
 
@@ -571,7 +596,10 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
    * 更新桶维度数据
    */
   private updateBucketDimension(
-    dimensionMap: Map<string, { cost: number; tokens: number; calls: number; provider?: string }>,
+    dimensionMap: Map<
+      string,
+      { cost: number; tokens: number; calls: number; provider?: string }
+    >,
     key: string,
     cost: number,
     tokens: number,
@@ -675,7 +703,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
   private getTopEntry(
     map: Map<string, { cost: number; tokens: number; calls: number }>,
   ): string {
-    let topKey = '';
+    let topKey = "";
     let maxCost = 0;
 
     for (const [key, data] of map.entries()) {

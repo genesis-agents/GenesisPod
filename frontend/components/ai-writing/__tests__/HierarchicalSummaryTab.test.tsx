@@ -5,7 +5,13 @@
 /// <reference types="@testing-library/jest-dom" />
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from '@testing-library/react';
 import { HierarchicalSummaryTab } from '../HierarchicalSummaryTab';
 import * as api from '@/lib/api/ai-writing';
 
@@ -117,7 +123,9 @@ describe('HierarchicalSummaryTab', () => {
     await waitFor(() => {
       expect(screen.getByText('No Summaries Yet')).toBeInTheDocument();
       expect(
-        screen.getByText('Generate summaries for your chapters to see them here')
+        screen.getByText(
+          'Generate summaries for your chapters to see them here'
+        )
       ).toBeInTheDocument();
     });
   });
@@ -148,7 +156,9 @@ describe('HierarchicalSummaryTab', () => {
     });
 
     // Click Structured button to go back
-    const structuredButton = screen.getByRole('button', { name: /structured/i });
+    const structuredButton = screen.getByRole('button', {
+      name: /structured/i,
+    });
     fireEvent.click(structuredButton);
 
     await waitFor(() => {
@@ -230,7 +240,9 @@ describe('HierarchicalSummaryTab', () => {
     });
 
     // Verify it refetches summaries after generation
-    expect(api.getHierarchicalSummaries).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(api.getHierarchicalSummaries).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('refresh button triggers data reload', async () => {
@@ -247,9 +259,13 @@ describe('HierarchicalSummaryTab', () => {
     const refreshButton = screen.getByRole('button', {
       name: /refresh summaries/i,
     });
-    fireEvent.click(refreshButton);
+    await act(async () => {
+      fireEvent.click(refreshButton);
+    });
 
-    expect(api.getHierarchicalSummaries).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(api.getHierarchicalSummaries).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('renders error state when API fails', async () => {

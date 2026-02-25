@@ -111,7 +111,7 @@ export class MissionHealthCheckService
       this.performHealthCheck().catch((err) => {
         this.logger.error(`[MissionHealthCheck] Health check failed: ${err}`);
       });
-    }, HEALTH_CHECK_CONFIG.checkIntervalMs);
+    }, HEALTH_CHECK_CONFIG.checkIntervalMs).unref();
 
     this.logger.log(
       `[MissionHealthCheck] Scheduler started (every ${HEALTH_CHECK_CONFIG.checkIntervalMs / 1000}s)`,
@@ -124,7 +124,7 @@ export class MissionHealthCheckService
           `[MissionHealthCheck] Initial health check failed: ${err}`,
         );
       });
-    }, 10000); // 10 秒后执行首次检查，给服务初始化时间
+    }, 10000).unref(); // 10 秒后执行首次检查，给服务初始化时间
   }
 
   private stopHealthCheckScheduler(): void {

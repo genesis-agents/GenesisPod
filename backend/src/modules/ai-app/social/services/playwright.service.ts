@@ -72,7 +72,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         });
       },
       2 * 60 * 1000,
-    );
+    ).unref();
     this.logger.log("Playwright service initialized with session cleanup");
   }
 

@@ -129,7 +129,7 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
           `[Skills] Periodic update check failed: ${err.message}`,
         );
       });
-    }, this.UPDATE_CHECK_INTERVAL_MS);
+    }, this.UPDATE_CHECK_INTERVAL_MS).unref();
 
     this.logger.log(
       `[Skills] 🔄 Started SkillsMP auto-update checker (interval: ${this.UPDATE_CHECK_INTERVAL_MS / 1000 / 60 / 60}h)`,

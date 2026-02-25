@@ -172,7 +172,7 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       this.flushInterval = setInterval(
         () => this.flushToDB(),
         this.FLUSH_INTERVAL_MS,
-      );
+      ).unref();
       this.logger.log(
         `DB persistence enabled, flush interval: ${this.FLUSH_INTERVAL_MS / 1000}s`,
       );

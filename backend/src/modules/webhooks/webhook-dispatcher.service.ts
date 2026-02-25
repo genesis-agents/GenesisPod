@@ -377,7 +377,7 @@ export class WebhookDispatcherService implements OnModuleInit {
    */
   private startRetryProcessor(): void {
     // 每分钟检查需要重试的投递
-    setInterval(() => this.processRetryQueue(), 60000);
+    setInterval(() => this.processRetryQueue(), 60000).unref();
   }
 
   /**
@@ -446,7 +446,10 @@ export class WebhookDispatcherService implements OnModuleInit {
   }
 
   @OnEvent("topic.updated")
-  async handleTopicUpdated(payload: { topicId: string; changes: Record<string, unknown> }) {
+  async handleTopicUpdated(payload: {
+    topicId: string;
+    changes: Record<string, unknown>;
+  }) {
     await this.dispatch({
       type: WebhookEventType.TOPIC_UPDATED,
       topicId: payload.topicId,

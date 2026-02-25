@@ -260,16 +260,16 @@ export class PublishQueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.processingInterval = setInterval(() => {
-      this.processQueue();
-    }, 5000); // 每5秒检查一次
+      void this.processQueue();
+    }, 5000).unref(); // 每5秒检查一次
 
-    // 每小时清理一次旧任务
+    // 每小时清理一次旧任务（unref 防止测试/进程退出时被阻塞）
     setInterval(
       () => {
         this.cleanupCompletedJobs();
       },
       60 * 60 * 1000,
-    );
+    ).unref();
 
     this.logger.log("Queue processing started");
   }

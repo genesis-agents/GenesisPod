@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import {
   useApiGet,
   useApiPost,
@@ -48,7 +48,9 @@ describe('useApiGet', () => {
   });
 
   it('should initialize with loading state when immediate is true', () => {
-    vi.mocked(apiClient.get).mockResolvedValue({ data: 'test' });
+    // Use a never-resolving promise so the fetch doesn't complete during this sync test,
+    // which would trigger a state update outside act().
+    vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {}));
 
     const { result } = renderHook(() => useApiGet('/api/test'));
 

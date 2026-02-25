@@ -65,13 +65,13 @@ export class SessionHealthCheckScheduler
     const initialDelay = 5 * 60 * 1000;
 
     setTimeout(() => {
-      this.checkAllSessions();
-    }, initialDelay);
+      void this.checkAllSessions();
+    }, initialDelay).unref();
 
     // 设置定期检查
     this.intervalId = setInterval(() => {
-      this.checkAllSessions();
-    }, this.CHECK_INTERVAL_MS);
+      void this.checkAllSessions();
+    }, this.CHECK_INTERVAL_MS).unref();
 
     this.logger.log(
       `Scheduler started: first check in 5 minutes, then every 4 hours`,

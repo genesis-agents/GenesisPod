@@ -66,7 +66,7 @@ export class CheckinService {
     private creditsService: CreditsService,
   ) {
     // 定期清理过期缓存
-    setInterval(() => this.cleanupCache(), 60 * 1000);
+    setInterval(() => this.cleanupCache(), 60 * 1000).unref();
   }
 
   /**

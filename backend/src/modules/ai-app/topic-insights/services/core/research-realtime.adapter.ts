@@ -90,7 +90,7 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
         this.cleanupStaleSubscriptions();
       },
       10 * 60 * 1000,
-    ); // 每 10 分钟
+    ).unref(); // 每 10 分钟
   }
 
   /**

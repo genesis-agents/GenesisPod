@@ -56,7 +56,7 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
       this.checkAndRefreshTopics().catch((err) => {
         this.logger.error("Scheduled refresh check failed", err);
       });
-    }, this.CHECK_INTERVAL_MS);
+    }, this.CHECK_INTERVAL_MS).unref();
 
     this.logger.log(
       `Scheduled refresh check every ${this.CHECK_INTERVAL_MS / 1000 / 60} minutes`,

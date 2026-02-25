@@ -203,7 +203,7 @@ export class SlidesMissionHealthService
       this.runHealthCheck().catch((err) => {
         this.logger.error(`Scheduled health check failed: ${err.message}`);
       });
-    }, HEALTH_CHECK_CONFIG.checkIntervalMs);
+    }, HEALTH_CHECK_CONFIG.checkIntervalMs).unref();
   }
 
   /**

@@ -76,7 +76,7 @@ export class WritingMissionHealthCheckService
       this.performHealthCheck().catch((err) => {
         this.logger.error(`[WritingHealthCheck] Health check failed: ${err}`);
       });
-    }, HEALTH_CHECK_CONFIG.checkIntervalMs);
+    }, HEALTH_CHECK_CONFIG.checkIntervalMs).unref();
 
     this.logger.log(
       `[WritingHealthCheck] Scheduler started (every ${HEALTH_CHECK_CONFIG.checkIntervalMs / 1000}s)`,

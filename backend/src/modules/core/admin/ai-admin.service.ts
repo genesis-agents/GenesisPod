@@ -387,7 +387,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
   private startMCPHealthCheck(): void {
     this.mcpHealthCheckInterval = setInterval(async () => {
       await this.checkAndReconnectMCPServers();
-    }, this.MCP_HEALTH_CHECK_INTERVAL_MS);
+    }, this.MCP_HEALTH_CHECK_INTERVAL_MS).unref();
 
     this.logger.log(
       `MCP health check started (interval: ${this.MCP_HEALTH_CHECK_INTERVAL_MS / 1000}s)`,

@@ -72,7 +72,7 @@ export class AiOrchestrationService implements OnModuleDestroy {
         this.cleanupOldTraces();
       },
       5 * 60 * 1000,
-    );
+    ).unref();
   }
 
   onModuleDestroy(): void {

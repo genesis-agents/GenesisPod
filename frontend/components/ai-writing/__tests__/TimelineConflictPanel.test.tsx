@@ -5,7 +5,13 @@
 /// <reference types="@testing-library/jest-dom" />
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from '@testing-library/react';
 import { TimelineConflictPanel } from '../TimelineConflictPanel';
 import * as api from '@/lib/api/ai-writing';
 
@@ -63,9 +69,7 @@ describe('TimelineConflictPanel', () => {
       () => new Promise(() => {}) // Never resolves
     );
 
-    render(
-      <TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />
-    );
+    render(<TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />);
 
     expect(screen.getByText('Analyzing...')).toBeInTheDocument();
   });
@@ -78,9 +82,7 @@ describe('TimelineConflictPanel', () => {
       analyzedAt: new Date().toISOString(),
     });
 
-    render(
-      <TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />
-    );
+    render(<TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />);
 
     await waitFor(() => {
       expect(screen.getByText('Timeline Conflicts')).toBeInTheDocument();
@@ -105,9 +107,7 @@ describe('TimelineConflictPanel', () => {
       analyzedAt: new Date().toISOString(),
     });
 
-    render(
-      <TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />
-    );
+    render(<TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />);
 
     await waitFor(() => {
       expect(screen.getByText('No Conflicts')).toBeInTheDocument();
@@ -125,9 +125,7 @@ describe('TimelineConflictPanel', () => {
       analyzedAt: new Date().toISOString(),
     });
 
-    render(
-      <TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />
-    );
+    render(<TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />);
 
     await waitFor(() => {
       expect(screen.getByText('John')).toBeInTheDocument();
@@ -226,9 +224,7 @@ describe('TimelineConflictPanel', () => {
       analyzedAt: new Date().toISOString(),
     });
 
-    render(
-      <TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />
-    );
+    render(<TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />);
 
     await waitFor(() => {
       expect(screen.getByText('Timeline Conflicts')).toBeInTheDocument();
@@ -237,9 +233,13 @@ describe('TimelineConflictPanel', () => {
     const refreshButton = screen.getByRole('button', {
       name: /refresh timeline conflicts/i,
     });
-    fireEvent.click(refreshButton);
+    await act(async () => {
+      fireEvent.click(refreshButton);
+    });
 
-    expect(api.getChapterTimelineConflicts).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(api.getChapterTimelineConflicts).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('displays chapter number in summary', async () => {
@@ -250,9 +250,7 @@ describe('TimelineConflictPanel', () => {
       analyzedAt: new Date().toISOString(),
     });
 
-    render(
-      <TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />
-    );
+    render(<TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />);
 
     await waitFor(() => {
       expect(screen.getByText('Chapter 5')).toBeInTheDocument();
@@ -264,9 +262,7 @@ describe('TimelineConflictPanel', () => {
       new Error('Network error')
     );
 
-    render(
-      <TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />
-    );
+    render(<TimelineConflictPanel chapterId="chapter-1" chapterNumber={5} />);
 
     await waitFor(() => {
       expect(screen.getByText('Network error')).toBeInTheDocument();

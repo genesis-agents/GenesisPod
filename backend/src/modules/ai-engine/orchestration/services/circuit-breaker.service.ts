@@ -603,7 +603,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
 
     this.cleanupInterval = setInterval(() => {
       this.cleanupInactiveBreakers();
-    }, this.config.cleanupIntervalMs);
+    }, this.config.cleanupIntervalMs).unref();
 
     this.logger.log(
       `[CircuitBreaker] Cleanup scheduler started (interval: ${this.config.cleanupIntervalMs}ms)`,

@@ -73,8 +73,8 @@ export class EvidenceSyncCompensationService implements OnModuleDestroy {
    */
   private startRetryTask(): void {
     this.retryIntervalId = setInterval(() => {
-      this.processRetryQueue();
-    }, this.RETRY_INTERVAL_MS);
+      void this.processRetryQueue();
+    }, this.RETRY_INTERVAL_MS).unref();
   }
 
   /**

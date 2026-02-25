@@ -96,7 +96,7 @@ export class RateLimiter {
 
   constructor(@Optional() private readonly cacheService?: CacheService) {
     // 定期清理过期条目
-    setInterval(() => this.cleanup(), 60000);
+    setInterval(() => this.cleanup(), 60000).unref();
   }
 
   /**
@@ -110,7 +110,7 @@ export class RateLimiter {
     if (!this.cacheService) return;
     const rKey = `ai:ratelimit:${config.keyPrefix}:${key}`;
     const ttl = Math.ceil((config.windowMs * 2) / 1000);
-    this.cacheService.set(
+    void this.cacheService.set(
       rKey,
       { count: entry.count, resetAt: entry.resetAt, requests: entry.requests },
       ttl,
@@ -221,7 +221,7 @@ export class RateLimiter {
 
     // Delete from Redis
     if (this.cacheService) {
-      this.cacheService.del(`ai:ratelimit:${config.keyPrefix}:${key}`);
+      void this.cacheService.del(`ai:ratelimit:${config.keyPrefix}:${key}`);
     }
   }
 

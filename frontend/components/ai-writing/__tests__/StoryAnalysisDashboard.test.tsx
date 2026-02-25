@@ -5,7 +5,13 @@
 /// <reference types="@testing-library/jest-dom" />
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from '@testing-library/react';
 import { StoryAnalysisDashboard } from '../StoryAnalysisDashboard';
 import * as api from '@/lib/api/ai-writing';
 
@@ -146,9 +152,13 @@ describe('StoryAnalysisDashboard', () => {
     });
 
     const refreshButton = screen.getByRole('button', { name: /refresh/i });
-    fireEvent.click(refreshButton);
+    await act(async () => {
+      fireEvent.click(refreshButton);
+    });
 
-    expect(api.getAnalysisDashboard).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(api.getAnalysisDashboard).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('toggles sections when clicked', async () => {

@@ -13,12 +13,15 @@ export class TopicCrudService {
   private readonly logger = new Logger(TopicCrudService.name);
 
   // ★ 用户 Topics 列表缓存：避免频繁查询
-  private topicsCache = new Map<string, { topics: unknown[]; cachedAt: number }>();
+  private topicsCache = new Map<
+    string,
+    { topics: unknown[]; cachedAt: number }
+  >();
   private readonly TOPICS_CACHE_TTL_MS = 10 * 1000; // 10秒缓存
 
   constructor(private prisma: PrismaService) {
-    // 定期清理过期缓存
-    setInterval(() => this.cleanupTopicsCache(), 60 * 1000);
+    // 定期清理过期缓存（unref 防止测试/进程退出时被阻塞）
+    setInterval(() => this.cleanupTopicsCache(), 60 * 1000).unref();
   }
 
   /**

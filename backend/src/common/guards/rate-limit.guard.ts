@@ -116,8 +116,8 @@ export class RateLimitGuard implements CanActivate {
   private _lastGlobalCleanup = Date.now();
 
   constructor(private readonly reflector: Reflector) {
-    // 定期清理过期记录
-    setInterval(() => this.globalCleanup(), this.cleanupInterval);
+    // 定期清理过期记录（unref 防止测试/进程退出时被阻塞）
+    setInterval(() => this.globalCleanup(), this.cleanupInterval).unref();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

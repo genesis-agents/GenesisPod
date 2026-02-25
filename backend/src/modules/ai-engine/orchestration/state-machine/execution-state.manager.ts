@@ -187,7 +187,7 @@ export class ExecutionStateManager implements OnModuleInit, OnModuleDestroy {
     // Dual-write to Redis (CacheService handles errors internally)
     if (this.cacheService) {
       const entry = categoryStore.get(id)!;
-      this.cacheService.set(
+      void this.cacheService.set(
         this.redisStateKey(category, id),
         entry,
         Math.ceil(this.ttlMs / 1000),
@@ -209,7 +209,7 @@ export class ExecutionStateManager implements OnModuleInit, OnModuleDestroy {
 
       // Delete from Redis
       if (this.cacheService) {
-        this.cacheService.del(this.redisStateKey(category, id));
+        void this.cacheService.del(this.redisStateKey(category, id));
       }
     }
   }
@@ -366,7 +366,7 @@ export class ExecutionStateManager implements OnModuleInit, OnModuleDestroy {
 
     this.cleanupInterval = setInterval(() => {
       this.cleanupExpiredStates();
-    }, this.cleanupIntervalMs);
+    }, this.cleanupIntervalMs).unref();
 
     this.logger.log(
       `[ExecutionStateManager] Cleanup scheduler started (interval: ${this.cleanupIntervalMs}ms)`,

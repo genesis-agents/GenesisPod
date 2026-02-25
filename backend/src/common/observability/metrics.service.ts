@@ -116,7 +116,7 @@ export class MetricsService implements OnModuleDestroy {
     this.cleanupInterval = setInterval(
       () => this.cleanupStaleLabels(),
       5 * 60 * 1000,
-    );
+    ).unref();
   }
 
   onModuleDestroy() {

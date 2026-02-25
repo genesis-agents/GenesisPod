@@ -53,8 +53,8 @@ export class DistributedRateLimitGuard implements CanActivate {
     private readonly reflector: Reflector,
     @Optional() @Inject(CACHE_MANAGER) private readonly cacheManager?: Cache,
   ) {
-    // 定期清理内存记录
-    setInterval(() => this.cleanupFallbackRecords(), 5 * 60 * 1000);
+    // 定期清理内存记录（unref 防止测试/进程退出时被阻塞）
+    setInterval(() => this.cleanupFallbackRecords(), 5 * 60 * 1000).unref();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
