@@ -4,6 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
+import * as path from "path";
 import { SkillLoaderService } from "../skill-loader.service";
 import { SkillCacheService } from "../skill-cache.service";
 import { SkillsMPClientService } from "../../ecosystem/skillsmp-client.service";
@@ -651,6 +652,392 @@ describe("SkillLoaderService", () => {
           domain: "writing",
         }),
       ).rejects.toThrow("must be a directory");
+    });
+
+    it("stat 访问失败（非 isDirectory 错误）时抛出 Cannot access", async () => {
+      mockFs.realpath.mockResolvedValue("/valid/dir");
+      mockFs.stat.mockRejectedValue(new Error("Permission denied"));
+
+      await expect(
+        service.addSkillDirectory({
+          path: "/valid/dir",
+          domain: "writing",
+        }),
+      ).rejects.toThrow("Cannot access skill directory");
+    });
+
+    it("白名单外的路径应被拒绝", async () => {
+      mockFs.realpath
+        .mockResolvedValueOnce("/evil/path")  // resolvedPath realpath
+        .mockResolvedValueOnce("/app/ai-app") // baseSkillsDir
+        .mockResolvedValueOnce("/app");       // projectRoot
+
+      mockFs.stat.mockResolvedValue({
+        isDirectory: () => true,
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+
+      await expect(
+        service.addSkillDirectory({
+          path: "/evil/path",
+          domain: "writing",
+        }),
+      ).rejects.toThrow("must be within allowed paths");
+    });
+
+    it("路径在 baseSkillsDir 下时成功添加", async () => {
+      // Use path.join so the separator matches the OS (/ on Unix, \ on Windows)
+      const basePath = path.join("app", "src", "modules", "ai-app");
+      const childPath = path.join(basePath, "custom-skills");
+
+      mockFs.realpath
+        .mockResolvedValueOnce(childPath) // resolved path
+        .mockResolvedValueOnce(basePath)  // baseSkillsDir
+        .mockResolvedValueOnce(path.join("app", "src")); // projectRoot
+
+      mockFs.stat.mockResolvedValue({
+        isDirectory: () => true,
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+
+      await expect(
+        service.addSkillDirectory({
+          path: childPath,
+          domain: "writing",
+        }),
+      ).resolves.not.toThrow();
+    });
+
+    it("路径恰好等于 baseSkillsDir 时成功添加", async () => {
+      const basePath = path.join("app", "src", "modules", "ai-app");
+
+      mockFs.realpath
+        .mockResolvedValueOnce(basePath)          // resolved path
+        .mockResolvedValueOnce(basePath)          // baseSkillsDir
+        .mockResolvedValueOnce(path.join("app")); // projectRoot
+
+      mockFs.stat.mockResolvedValue({
+        isDirectory: () => true,
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+
+      await expect(
+        service.addSkillDirectory({
+          path: basePath,
+          domain: "writing",
+        }),
+      ).resolves.not.toThrow();
+    });
+
+    it("路径在 projectRoot 下（但不在 baseSkillsDir 下）时成功添加", async () => {
+      const projectRoot = path.join("app", "src");
+      const childOfRoot = path.join(projectRoot, "other-module", "skills");
+
+      mockFs.realpath
+        .mockResolvedValueOnce(childOfRoot)             // resolved path
+        .mockResolvedValueOnce(path.join("app", "ai-app")) // baseSkillsDir (different)
+        .mockResolvedValueOnce(projectRoot);            // projectRoot
+
+      mockFs.stat.mockResolvedValue({
+        isDirectory: () => true,
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+
+      await expect(
+        service.addSkillDirectory({
+          path: childOfRoot,
+          domain: "writing",
+        }),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // checkAndUpdateSkills (via timer advancement)
+  // -------------------------------------------------------------------------
+
+  describe("checkAndUpdateSkills", () => {
+    it("SkillsMP 未启用时跳过更新", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(false);
+
+      const mpSkill = makeSkillDefinition("mp-skill", "writing", 5, true, "skillsmp");
+      service.registerSkill(mpSkill);
+      cacheService.getStats.mockReturnValue({
+        size: 1,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+
+      expect(skillsMPClient.checkUpdates).not.toHaveBeenCalled();
+    });
+
+    it("没有已安装 Marketplace Skills 时跳过", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(true);
+      cacheService.getStats.mockReturnValue({
+        size: 0,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+
+      expect(skillsMPClient.checkUpdates).not.toHaveBeenCalled();
+    });
+
+    it("发现可更新 Skills 时执行安装", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(true);
+
+      const mpSkill = makeSkillDefinition("mp-v1", "writing", 5, true, "skillsmp");
+      service.registerSkill(mpSkill);
+      cacheService.getStats.mockReturnValue({
+        size: 1,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      skillsMPClient.checkUpdates.mockResolvedValue([
+        { skillId: "mp-v1", currentVersion: "1.0.0", latestVersion: "1.1.0" },
+      ]);
+      skillsMPClient.installSkill.mockResolvedValue(true);
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(skillsMPClient.checkUpdates).toHaveBeenCalled();
+    });
+
+    it("installSkill 返回 false 时记录失败", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(true);
+
+      const mpSkill = makeSkillDefinition("fail-skill", "writing", 5, true, "skillsmp");
+      service.registerSkill(mpSkill);
+      cacheService.getStats.mockReturnValue({
+        size: 1,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      skillsMPClient.checkUpdates.mockResolvedValue([
+        { skillId: "fail-skill", currentVersion: "1.0.0", latestVersion: "2.0.0" },
+      ]);
+      skillsMPClient.installSkill.mockResolvedValue(false);
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(skillsMPClient.installSkill).toHaveBeenCalledWith("fail-skill");
+    });
+
+    it("installSkill 抛出异常时不影响其他更新", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(true);
+
+      const skill1 = makeSkillDefinition("err-skill", "writing", 5, true, "skillsmp");
+      const skill2 = makeSkillDefinition("ok-skill", "writing", 5, true, "skillsmp");
+      service.registerSkill(skill1);
+      service.registerSkill(skill2);
+      cacheService.getStats.mockReturnValue({
+        size: 2,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      skillsMPClient.checkUpdates.mockResolvedValue([
+        { skillId: "err-skill", currentVersion: "1.0.0", latestVersion: "2.0.0" },
+        { skillId: "ok-skill", currentVersion: "1.0.0", latestVersion: "1.1.0" },
+      ]);
+      skillsMPClient.installSkill
+        .mockRejectedValueOnce(new Error("Network failure"))
+        .mockResolvedValueOnce(true);
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(skillsMPClient.installSkill).toHaveBeenCalledTimes(2);
+    });
+
+    it("checkUpdates 抛出异常时不影响服务", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(true);
+
+      const mpSkill = makeSkillDefinition("any-skill", "writing", 5, true, "skillsmp");
+      service.registerSkill(mpSkill);
+      cacheService.getStats.mockReturnValue({
+        size: 1,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      skillsMPClient.checkUpdates.mockRejectedValue(new Error("API down"));
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Service still works
+      expect(service.getAllLoadedSkills().length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("没有可用更新时输出 up-to-date 日志", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(true);
+
+      const mpSkill = makeSkillDefinition("current-skill", "writing", 5, true, "skillsmp");
+      service.registerSkill(mpSkill);
+      cacheService.getStats.mockReturnValue({
+        size: 1,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      skillsMPClient.checkUpdates.mockResolvedValue([]); // empty = up to date
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(skillsMPClient.checkUpdates).toHaveBeenCalled();
+      expect(skillsMPClient.installSkill).not.toHaveBeenCalled();
+    });
+
+    it("source=local 的 skill 不计入已安装的 Marketplace Skills", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(true);
+
+      const localSkill = makeSkillDefinition("local-only", "writing", 5, true, "local");
+      service.registerSkill(localSkill);
+      cacheService.getStats.mockReturnValue({
+        size: 1,
+        maxSize: 100,
+        hitRate: 0,
+        totalHits: 0,
+      });
+
+      skillsMPClient.checkUpdates.mockResolvedValue([]);
+
+      await service.onModuleInit();
+
+      jest.advanceTimersByTime(30001);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // checkUpdates should not be called (no marketplace skills)
+      expect(skillsMPClient.checkUpdates).not.toHaveBeenCalled();
+    });
+
+    it("定期检查定时器在 onModuleDestroy 后不再触发", async () => {
+      skillsMPClient.isEnabled.mockReturnValue(false);
+
+      await service.onModuleInit();
+      await service.onModuleDestroy();
+
+      // After destroy, advancing timer should not trigger any calls
+      jest.advanceTimersByTime(6 * 60 * 60 * 1000 + 1);
+      await Promise.resolve();
+
+      expect(skillsMPClient.checkUpdates).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getSkillsForTask — additionalSkillIds token budget
+  // -------------------------------------------------------------------------
+
+  describe("getSkillsForTask — additionalSkillIds token budget", () => {
+    it("additionalSkillId 超出 token 预算时被跳过", async () => {
+      mockEstimateTokens.mockReturnValue(400);
+
+      const domainSkill = {
+        ...makeSkillDefinition("domain-skill", "writing"),
+        metadata: {
+          ...makeSkillDefinition("domain-skill", "writing").metadata,
+          taskTypes: ["*"],
+          tokenBudget: undefined,
+        },
+      };
+      const additionalSkill = makeSkillDefinition("extra-skill", "research");
+
+      service.registerSkill(domainSkill);
+      service.registerSkill(additionalSkill);
+
+      // Budget 500: domain takes 400, extra would need 400 more → skipped
+      const result = await service.getSkillsForTask({
+        taskType: "any",
+        domain: "writing",
+        additionalSkillIds: ["extra-skill"],
+        maxTokenBudget: 500,
+      });
+
+      expect(result.some((s) => s.metadata.id === "extra-skill")).toBe(false);
+    });
+
+    it("additionalSkillId 在预算内时被包含", async () => {
+      mockEstimateTokens.mockReturnValue(100);
+
+      const domainSkill = {
+        ...makeSkillDefinition("small-domain", "writing"),
+        metadata: {
+          ...makeSkillDefinition("small-domain", "writing").metadata,
+          taskTypes: ["*"],
+          tokenBudget: undefined,
+        },
+      };
+      const additionalSkill = makeSkillDefinition("small-extra", "research");
+
+      service.registerSkill(domainSkill);
+      service.registerSkill(additionalSkill);
+
+      const result = await service.getSkillsForTask({
+        taskType: "any",
+        domain: "writing",
+        additionalSkillIds: ["small-extra"],
+        maxTokenBudget: 500,
+      });
+
+      expect(result.some((s) => s.metadata.id === "small-extra")).toBe(true);
+    });
+
+    it("无 maxTokenBudget 时 additionalSkillId 总是被包含", async () => {
+      const domainSkill = {
+        ...makeSkillDefinition("domain", "writing"),
+        metadata: {
+          ...makeSkillDefinition("domain", "writing").metadata,
+          taskTypes: ["*"],
+        },
+      };
+      const additionalSkill = makeSkillDefinition("extra-no-budget", "research");
+
+      service.registerSkill(domainSkill);
+      service.registerSkill(additionalSkill);
+
+      const result = await service.getSkillsForTask({
+        taskType: "any",
+        domain: "writing",
+        additionalSkillIds: ["extra-no-budget"],
+      });
+
+      expect(result.some((s) => s.metadata.id === "extra-no-budget")).toBe(true);
     });
   });
 });

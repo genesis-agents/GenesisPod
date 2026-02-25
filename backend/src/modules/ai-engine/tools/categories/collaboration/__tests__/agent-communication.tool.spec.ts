@@ -514,4 +514,612 @@ describe("AgentCommunicationTool", () => {
       expect(result.data?.error).toBeDefined();
     });
   });
+
+  // --------------------------------------------------------------------------
+  // CacheService integration — with mock cacheService
+  // --------------------------------------------------------------------------
+
+  describe("with CacheService (Redis integration)", () => {
+    let toolWithCache: AgentCommunicationTool;
+    let mockCacheService: {
+      get: jest.Mock;
+      set: jest.Mock;
+    };
+
+    beforeEach(() => {
+      mockCacheService = {
+        get: jest.fn().mockResolvedValue(null),
+        set: jest.fn().mockResolvedValue(undefined),
+      };
+      // Inject mock cache service via @Optional() constructor param
+      toolWithCache = new AgentCommunicationTool(
+        mockCacheService as unknown as Parameters<typeof AgentCommunicationTool>[0],
+      );
+    });
+
+    it("should initialize inboxes on construction", () => {
+      // After construction, all builtin agents have an inbox
+      expect(toolWithCache).toBeDefined();
+    });
+
+    it("should call cacheService.set when saving message", async () => {
+      const context = createMockContext();
+
+      await toolWithCache.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.DESIGNER,
+          message: { subject: "Test", content: "Content" },
+        },
+        context,
+      );
+
+      expect(mockCacheService.set).toHaveBeenCalled();
+    });
+
+    it("should call cacheService.set for inbox after send", async () => {
+      const context = createMockContext();
+
+      await toolWithCache.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.RESEARCHER,
+          message: { subject: "Task", content: "Details" },
+        },
+        context,
+      );
+
+      // Should have called set at least twice: message + inbox
+      expect(mockCacheService.set.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("should load messages from Redis on onModuleInit", async () => {
+      const now = new Date();
+      const testMessage = {
+        id: "msg-redis-1",
+        from: BUILTIN_AGENTS.DOCS,
+        to: BUILTIN_AGENTS.DESIGNER,
+        type: MessageType.REQUEST,
+        priority: MessagePriority.NORMAL,
+        subject: "Redis msg",
+        content: "From Redis",
+        status: MessageStatus.DELIVERED,
+        createdAt: now.toISOString(),
+        sentAt: now.toISOString(),
+        deliveredAt: now.toISOString(),
+        readAt: now.toISOString(),
+        repliedAt: now.toISOString(),
+      };
+
+      mockCacheService.get.mockImplementation(async (key: string) => {
+        if (key.includes("inbox:designer")) return ["msg-redis-1"];
+        if (key.includes("msg:msg-redis-1")) return testMessage;
+        return null;
+      });
+
+      await toolWithCache.onModuleInit();
+
+      // After init, the message should be accessible via get_status
+      const statusResult = await toolWithCache.execute(
+        {
+          operation: CommunicationOperation.GET_STATUS,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          messageId: "msg-redis-1",
+        },
+        createMockContext(),
+      );
+
+      expect(statusResult.data?.success).toBe(true);
+      expect(statusResult.data?.message?.subject).toBe("Redis msg");
+    });
+
+    it("should restore Date objects from Redis string dates", async () => {
+      const isoDate = "2026-01-01T00:00:00.000Z";
+      const testMessage = {
+        id: "msg-date-1",
+        from: BUILTIN_AGENTS.DOCS,
+        to: BUILTIN_AGENTS.DESIGNER,
+        type: MessageType.REQUEST,
+        priority: MessagePriority.NORMAL,
+        subject: "Date test",
+        content: "Content",
+        status: MessageStatus.REPLIED,
+        createdAt: isoDate,
+        sentAt: isoDate,
+        deliveredAt: isoDate,
+        readAt: isoDate,
+        repliedAt: isoDate,
+      };
+
+      mockCacheService.get.mockImplementation(async (key: string) => {
+        if (key.includes("inbox:designer")) return ["msg-date-1"];
+        if (key.includes("msg:msg-date-1")) return testMessage;
+        return null;
+      });
+
+      await toolWithCache.onModuleInit();
+
+      const statusResult = await toolWithCache.execute(
+        {
+          operation: CommunicationOperation.GET_STATUS,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          messageId: "msg-date-1",
+        },
+        createMockContext(),
+      );
+
+      expect(statusResult.data?.success).toBe(true);
+      // Date objects should be restored
+      expect(statusResult.data?.message?.createdAt).toBeInstanceOf(Date);
+      expect(statusResult.data?.message?.sentAt).toBeInstanceOf(Date);
+      expect(statusResult.data?.message?.repliedAt).toBeInstanceOf(Date);
+    });
+
+    it("should handle Redis load failure gracefully", async () => {
+      mockCacheService.get.mockRejectedValue(new Error("Redis connection failed"));
+
+      await expect(toolWithCache.onModuleInit()).resolves.not.toThrow();
+    });
+
+    it("should merge existing inbox ids with Redis inbox ids on init", async () => {
+      // Simulate: local inbox has msg-local-1, Redis has msg-redis-1
+      const now = new Date().toISOString();
+      const redisMessage = {
+        id: "msg-redis-1",
+        from: BUILTIN_AGENTS.DOCS,
+        to: BUILTIN_AGENTS.RESEARCHER,
+        type: MessageType.REQUEST,
+        priority: MessagePriority.NORMAL,
+        subject: "Redis",
+        content: "Content",
+        status: MessageStatus.DELIVERED,
+        createdAt: now,
+      };
+
+      // First send a message to populate local inbox
+      await toolWithCache.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.RESEARCHER,
+          message: { subject: "Local", content: "Local msg" },
+        },
+        createMockContext(),
+      );
+
+      const sendResult = await toolWithCache.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.RESEARCHER,
+        },
+        createMockContext(),
+      );
+      const localMsgId = sendResult.data?.messages?.[0]?.id;
+
+      // Now simulate Redis returning a different inbox list
+      mockCacheService.get.mockImplementation(async (key: string) => {
+        if (key.includes("inbox:researcher")) return ["msg-redis-1"];
+        if (key.includes("msg:msg-redis-1")) return redisMessage;
+        if (key.includes(`msg:${localMsgId}`)) return null;
+        return null;
+      });
+
+      await toolWithCache.onModuleInit();
+
+      // Both messages should now be in inbox
+      const receiveResult = await toolWithCache.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.RESEARCHER,
+        },
+        createMockContext(),
+      );
+
+      expect(receiveResult.data?.messages?.some((m) => m.id === "msg-redis-1")).toBe(true);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // validateInput edge cases
+  // --------------------------------------------------------------------------
+
+  describe("validateInput edge cases", () => {
+    it("should return false for SEND when toAgent is not a BUILTIN_AGENTS value", () => {
+      expect(
+        tool.validateInput({
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: "unknown-agent",
+          message: { subject: "Hi", content: "Hello" },
+        }),
+      ).toBe(false);
+    });
+
+    it("should return false for MARK_READ without messageId", () => {
+      expect(
+        tool.validateInput({
+          operation: CommunicationOperation.MARK_READ,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+        }),
+      ).toBe(false);
+    });
+
+    it("should return false for REPLY without toAgent", () => {
+      expect(
+        tool.validateInput({
+          operation: CommunicationOperation.REPLY,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          messageId: "msg-123",
+          message: { subject: "Re", content: "Done" },
+        }),
+      ).toBe(false);
+    });
+
+    it("should return false for REPLY without messageId", () => {
+      expect(
+        tool.validateInput({
+          operation: CommunicationOperation.REPLY,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.DESIGNER,
+          message: { subject: "Re", content: "Done" },
+        }),
+      ).toBe(false);
+    });
+
+    it("should return false for BROADCAST without message subject", () => {
+      expect(
+        tool.validateInput({
+          operation: CommunicationOperation.BROADCAST,
+          fromAgent: BUILTIN_AGENTS.RESEARCHER,
+          message: { subject: "", content: "Some content" },
+        }),
+      ).toBe(false);
+    });
+
+    it("should return false for unknown operation type", () => {
+      expect(
+        tool.validateInput({
+          operation: "INVALID_OP" as CommunicationOperation,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+        }),
+      ).toBe(false);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // receiveMessages filtering (additional coverage)
+  // --------------------------------------------------------------------------
+
+  describe("receive filtering", () => {
+    it("should filter by message type", async () => {
+      const context = createMockContext();
+
+      // Send a REQUEST and NOTIFICATION
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.RESEARCHER,
+          message: {
+            subject: "Request",
+            content: "Please research",
+            type: MessageType.REQUEST,
+          },
+        },
+        context,
+      );
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.RESEARCHER,
+          message: {
+            subject: "Notification",
+            content: "FYI",
+            type: MessageType.NOTIFICATION,
+          },
+        },
+        context,
+      );
+
+      const result = await tool.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.RESEARCHER,
+          filter: { type: MessageType.NOTIFICATION },
+        },
+        context,
+      );
+
+      expect(result.data?.messages?.every((m) => m.type === MessageType.NOTIFICATION)).toBe(true);
+    });
+
+    it("should filter by message priority", async () => {
+      const context = createMockContext();
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.SLIDES,
+          message: { subject: "Low", content: "Low priority", priority: MessagePriority.LOW },
+        },
+        context,
+      );
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.SLIDES,
+          message: { subject: "Urgent", content: "High priority", priority: MessagePriority.URGENT },
+        },
+        context,
+      );
+
+      const result = await tool.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.SLIDES,
+          filter: { priority: MessagePriority.URGENT },
+        },
+        context,
+      );
+
+      expect(result.data?.messages?.every((m) => m.priority === MessagePriority.URGENT)).toBe(true);
+    });
+
+    it("should filter by message status", async () => {
+      const context = createMockContext();
+
+      // Send a message then mark as read
+      const sendResult = await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.DESIGNER,
+          message: { subject: "Read me", content: "Content" },
+        },
+        context,
+      );
+
+      const msgId = sendResult.data?.message?.id!;
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.MARK_READ,
+          fromAgent: BUILTIN_AGENTS.DESIGNER,
+          messageId: msgId,
+        },
+        context,
+      );
+
+      const result = await tool.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.DESIGNER,
+          filter: { status: MessageStatus.READ },
+        },
+        context,
+      );
+
+      expect(result.data?.messages?.every((m) => m.status === MessageStatus.READ)).toBe(true);
+    });
+
+    it("should filter by unreadOnly", async () => {
+      const context = createMockContext();
+
+      // Send 2 messages, mark one as read
+      const sendResult1 = await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.SIMULATOR,
+          message: { subject: "Unread msg", content: "Content 1" },
+        },
+        context,
+      );
+
+      const sendResult2 = await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.SIMULATOR,
+          message: { subject: "Read msg", content: "Content 2" },
+        },
+        context,
+      );
+
+      // Mark second as read
+      await tool.execute(
+        {
+          operation: CommunicationOperation.MARK_READ,
+          fromAgent: BUILTIN_AGENTS.SIMULATOR,
+          messageId: sendResult2.data?.message?.id!,
+        },
+        context,
+      );
+
+      const result = await tool.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.SIMULATOR,
+          filter: { unreadOnly: true },
+        },
+        context,
+      );
+
+      const messages = result.data?.messages || [];
+      // Only unread messages should be returned
+      expect(
+        messages.every(
+          (m) => m.status !== MessageStatus.READ && m.status !== MessageStatus.REPLIED,
+        ),
+      ).toBe(true);
+    });
+
+    it("should report correct unreadCount in metadata", async () => {
+      const context = createMockContext();
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.IMAGE_DESIGNER,
+          message: { subject: "Msg1", content: "Content 1" },
+        },
+        context,
+      );
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.IMAGE_DESIGNER,
+          message: { subject: "Msg2", content: "Content 2" },
+        },
+        context,
+      );
+
+      const result = await tool.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.IMAGE_DESIGNER,
+        },
+        context,
+      );
+
+      expect(result.data?.metadata?.unreadCount).toBe(2);
+      expect(result.data?.metadata?.totalCount).toBe(2);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // markAsRead when already READ (no-op)
+  // --------------------------------------------------------------------------
+
+  describe("markAsRead idempotency", () => {
+    it("should not change status when message is not DELIVERED", async () => {
+      const context = createMockContext();
+
+      const sendResult = await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.DESIGNER,
+          message: { subject: "Mark twice", content: "Content" },
+        },
+        context,
+      );
+
+      const msgId = sendResult.data?.message?.id!;
+
+      // First mark as read (DELIVERED → READ)
+      const firstMark = await tool.execute(
+        {
+          operation: CommunicationOperation.MARK_READ,
+          fromAgent: BUILTIN_AGENTS.DESIGNER,
+          messageId: msgId,
+        },
+        context,
+      );
+      expect(firstMark.data?.message?.status).toBe(MessageStatus.READ);
+
+      // Second mark (READ → no change, still READ)
+      const secondMark = await tool.execute(
+        {
+          operation: CommunicationOperation.MARK_READ,
+          fromAgent: BUILTIN_AGENTS.DESIGNER,
+          messageId: msgId,
+        },
+        context,
+      );
+
+      expect(secondMark.data?.success).toBe(true);
+      expect(secondMark.data?.message?.status).toBe(MessageStatus.READ);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // LIST_INBOX delegates to receiveMessages
+  // --------------------------------------------------------------------------
+
+  describe("list_inbox operation", () => {
+    it("should return same result as receive for a given agent", async () => {
+      const context = createMockContext();
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.TEAM_COLLABORATION,
+          message: { subject: "Hello", content: "Content" },
+        },
+        context,
+      );
+
+      const listResult = await tool.execute(
+        {
+          operation: CommunicationOperation.LIST_INBOX,
+          fromAgent: BUILTIN_AGENTS.TEAM_COLLABORATION,
+        },
+        context,
+      );
+
+      expect(listResult.data?.success).toBe(true);
+      expect(listResult.data?.messages?.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // getPriorityValue (implicit via inbox sorting)
+  // --------------------------------------------------------------------------
+
+  describe("inbox priority sorting", () => {
+    it("should place URGENT message before LOW priority in inbox", async () => {
+      const context = createMockContext();
+
+      // Send LOW first, then URGENT
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.RESEARCHER,
+          message: { subject: "Low msg", content: "Low", priority: MessagePriority.LOW },
+        },
+        context,
+      );
+
+      await tool.execute(
+        {
+          operation: CommunicationOperation.SEND,
+          fromAgent: BUILTIN_AGENTS.DOCS,
+          toAgent: BUILTIN_AGENTS.RESEARCHER,
+          message: {
+            subject: "Urgent msg",
+            content: "Urgent",
+            priority: MessagePriority.URGENT,
+          },
+        },
+        context,
+      );
+
+      const result = await tool.execute(
+        {
+          operation: CommunicationOperation.RECEIVE,
+          fromAgent: BUILTIN_AGENTS.RESEARCHER,
+        },
+        context,
+      );
+
+      const messages = result.data?.messages || [];
+      expect(messages.length).toBe(2);
+      // URGENT should appear first due to sorting
+      expect(messages[0].priority).toBe(MessagePriority.URGENT);
+      expect(messages[1].priority).toBe(MessagePriority.LOW);
+    });
+  });
 });

@@ -991,6 +991,48 @@ describe("TopicInsightsService", () => {
       expect(result.fullReport as string).not.toContain("<p>");
     });
 
+    it("should delegate updateTopic to crudService", async () => {
+      const updated = { id: "topic-001", name: "更新后的专题" };
+      mockCrudService.updateTopic.mockResolvedValue(updated);
+
+      const dto = { name: "更新后的专题" };
+      const result = await service.updateTopic("user-001", "topic-001", dto as never);
+
+      expect(mockCrudService.updateTopic).toHaveBeenCalledWith("user-001", "topic-001", dto);
+      expect(result).toEqual(updated);
+    });
+
+    it("should delegate getResearchHistory to crudService", async () => {
+      const history = [{ id: "h1" }];
+      mockCrudService.getResearchHistory.mockResolvedValue(history);
+
+      const result = await service.getResearchHistory("user-001", "topic-001", 10);
+
+      expect(mockCrudService.getResearchHistory).toHaveBeenCalledWith("user-001", "topic-001", 10);
+      expect(result).toEqual(history);
+    });
+
+    it("should delegate getLogs to crudService", async () => {
+      const logs = { items: [], total: 0 };
+      mockCrudService.getLogs.mockResolvedValue(logs);
+
+      const query = { page: 1 };
+      const result = await service.getLogs("user-001", "topic-001", query as never);
+
+      expect(mockCrudService.getLogs).toHaveBeenCalledWith("user-001", "topic-001", query);
+      expect(result).toEqual(logs);
+    });
+
+    it("should delegate recalculateTopicStats to crudService", async () => {
+      const stats = { dimensions: 5 };
+      mockCrudService.recalculateTopicStats.mockResolvedValue(stats);
+
+      const result = await service.recalculateTopicStats("user-001", "topic-001");
+
+      expect(mockCrudService.recalculateTopicStats).toHaveBeenCalledWith("user-001", "topic-001");
+      expect(result).toEqual(stats);
+    });
+
     it("should transform dimensionAnalyses and extract dataPoints to top-level", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({ id: "topic-001", userId: "user-001" });
       const reportSvcMock = (service as unknown as { reportService: { getLatestReport: jest.Mock } }).reportService;
