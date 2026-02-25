@@ -287,9 +287,13 @@ module.exports = {
                 message:
                   "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
               },
-              // Memory stores — must go through AIEngineFacade
+              // Memory — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/memory/stores/**"],
+                group: [
+                  "**/ai-engine/memory/stores/**",
+                  "**/ai-engine/memory/abstractions/**",
+                  "**/ai-engine/memory/memory-coordinator.service*",
+                ],
                 message:
                   "Use AIEngineFacade.storeMemory()/retrieveMemory() instead.",
               },
