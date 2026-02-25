@@ -12,7 +12,7 @@ import { ResearchLeaderService } from "../research-leader.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
-import { LeaderToolService, LeaderActionType } from "../../data/leader-tool.service";
+import { LeaderToolService } from "../../data/leader-tool.service";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -82,8 +82,18 @@ const mockTopicWithDimensions = {
 
 const mockLeaderPlanJson = {
   dimensions: [
-    { id: "dim-001", name: "技术架构", priority: "high", rationale: "核心维度" },
-    { id: "dim-002", name: "市场应用", priority: "medium", rationale: "应用层面" },
+    {
+      id: "dim-001",
+      name: "技术架构",
+      priority: "high",
+      rationale: "核心维度",
+    },
+    {
+      id: "dim-002",
+      name: "市场应用",
+      priority: "medium",
+      rationale: "应用层面",
+    },
   ],
   agentAssignments: [
     {
@@ -113,7 +123,9 @@ describe("ResearchLeaderService", () => {
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockFacade: ReturnType<typeof buildMocks>["mockFacade"];
   let mockEventEmitter: ReturnType<typeof buildMocks>["mockEventEmitter"];
-  let mockLeaderToolService: ReturnType<typeof buildMocks>["mockLeaderToolService"];
+  let mockLeaderToolService: ReturnType<
+    typeof buildMocks
+  >["mockLeaderToolService"];
 
   beforeEach(async () => {
     const mocks = buildMocks();
@@ -144,8 +156,20 @@ describe("ResearchLeaderService", () => {
   describe("getReasoningModel", () => {
     it("should return model info when facade provides a reasoning model", async () => {
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
-        { id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true, isAvailable: true },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
+        {
+          id: "o3-mini",
+          name: "o3-mini",
+          provider: "openai",
+          isReasoning: true,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -175,7 +199,13 @@ describe("ResearchLeaderService", () => {
 
     it("should return model with isReasoning false when no reasoning model available", async () => {
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "gpt-4o",
@@ -211,10 +241,24 @@ describe("ResearchLeaderService", () => {
 
   describe("planResearch", () => {
     function setupPlanResearchHappy() {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
-        { id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true, isAvailable: true },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
+        {
+          id: "o3-mini",
+          name: "o3-mini",
+          provider: "openai",
+          isReasoning: true,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -225,7 +269,9 @@ describe("ResearchLeaderService", () => {
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify(mockLeaderPlanJson),
       });
-      mockPrisma.leaderDecision.create.mockResolvedValue({ id: "decision-001" });
+      mockPrisma.leaderDecision.create.mockResolvedValue({
+        id: "decision-001",
+      });
     }
 
     it("should throw when topic is not found", async () => {
@@ -244,7 +290,9 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should throw when no reasoning model is available", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
       mockFacade.getReasoningModel.mockResolvedValue(null);
 
@@ -267,7 +315,9 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should throw when AI returns empty response", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -283,7 +333,9 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should throw when AI response cannot be parsed", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -291,7 +343,9 @@ describe("ResearchLeaderService", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mockFacade.chat.mockResolvedValue({ content: "This is not JSON and has no dimensions" });
+      mockFacade.chat.mockResolvedValue({
+        content: "This is not JSON and has no dimensions",
+      });
 
       await expect(service.planResearch("topic-001")).rejects.toThrow(
         "无法解析 AI 规划响应，请稍后重试",
@@ -299,9 +353,17 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should auto-assign skills to dimension_researcher agents missing skills", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -325,7 +387,9 @@ describe("ResearchLeaderService", () => {
         ],
       };
 
-      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithoutSkills) });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify(planWithoutSkills),
+      });
       mockPrisma.leaderDecision.create.mockResolvedValue({});
 
       const result = await service.planResearch("topic-001");
@@ -333,15 +397,33 @@ describe("ResearchLeaderService", () => {
       const researcherAgent = result.agentAssignments?.find(
         (a) => a.agentType === "dimension_researcher",
       );
-      expect(researcherAgent?.skills).toEqual(["deep_dive", "synthesis", "data_interpretation"]);
+      expect(researcherAgent?.skills).toEqual([
+        "deep_dive",
+        "synthesis",
+        "data_interpretation",
+      ]);
       expect(researcherAgent?.tools).toEqual(["web-search"]);
     });
 
     it("should auto-assign model to agents with no modelId using round-robin", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       const availableModels = [
-        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
-        { id: "claude-3", name: "Claude 3", provider: "anthropic", isReasoning: false, isAvailable: true },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
+        {
+          id: "claude-3",
+          name: "Claude 3",
+          provider: "anthropic",
+          isReasoning: false,
+          isAvailable: true,
+        },
       ];
       mockFacade.getAvailableModelsExtended.mockResolvedValue(availableModels);
       mockFacade.getReasoningModel.mockResolvedValue({
@@ -373,7 +455,9 @@ describe("ResearchLeaderService", () => {
         ],
       };
 
-      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithoutModels) });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify(planWithoutModels),
+      });
       mockPrisma.leaderDecision.create.mockResolvedValue({});
 
       const result = await service.planResearch("topic-001");
@@ -384,10 +468,24 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should filter out unavailable models", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
-        { id: "broken-model", name: "Broken", provider: "custom", isReasoning: false, isAvailable: false },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
+        {
+          id: "broken-model",
+          name: "Broken",
+          provider: "custom",
+          isReasoning: false,
+          isAvailable: false,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -395,7 +493,9 @@ describe("ResearchLeaderService", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(mockLeaderPlanJson) });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify(mockLeaderPlanJson),
+      });
       mockPrisma.leaderDecision.create.mockResolvedValue({});
 
       await service.planResearch("topic-001");
@@ -407,7 +507,9 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should wrap AI call error in a descriptive message", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -417,7 +519,9 @@ describe("ResearchLeaderService", () => {
       });
       mockFacade.chat.mockRejectedValue(new Error("Rate limit exceeded"));
 
-      await expect(service.planResearch("topic-001")).rejects.toThrow("AI 调用失败");
+      await expect(service.planResearch("topic-001")).rejects.toThrow(
+        "AI 调用失败",
+      );
     });
 
     it("should include userPrompt in plan research call", async () => {
@@ -438,7 +542,13 @@ describe("ResearchLeaderService", () => {
   describe("reviewTaskResult", () => {
     beforeEach(() => {
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true, isAvailable: true },
+        {
+          id: "o3-mini",
+          name: "o3-mini",
+          provider: "openai",
+          isReasoning: true,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3-mini",
@@ -446,7 +556,9 @@ describe("ResearchLeaderService", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mockPrisma.leaderDecision.create.mockResolvedValue({ id: "decision-001" });
+      mockPrisma.leaderDecision.create.mockResolvedValue({
+        id: "decision-001",
+      });
     });
 
     it("should return approved when AI returns approved status", async () => {
@@ -520,7 +632,12 @@ describe("ResearchLeaderService", () => {
         content: JSON.stringify({ status: "approved", feedback: "通过" }),
       });
 
-      await service.reviewTaskResult("mission-001", "task-001", "result", "维度名称");
+      await service.reviewTaskResult(
+        "mission-001",
+        "task-001",
+        "result",
+        "维度名称",
+      );
 
       expect(mockPrisma.leaderDecision.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -536,7 +653,11 @@ describe("ResearchLeaderService", () => {
         content: JSON.stringify({ status: "approved", feedback: "OK" }),
       });
 
-      await service.reviewTaskResult("mission-001", "task-001", "Simple string result");
+      await service.reviewTaskResult(
+        "mission-001",
+        "task-001",
+        "Simple string result",
+      );
 
       const chatCall = mockFacade.chat.mock.calls[0][0];
       expect(chatCall.messages[1].content).toContain("Simple string result");
@@ -547,7 +668,9 @@ describe("ResearchLeaderService", () => {
         content: JSON.stringify({ status: "approved", feedback: "OK" }),
       });
 
-      const result = await service.reviewTaskResult("mission-001", "task-001", { data: "test" });
+      const result = await service.reviewTaskResult("mission-001", "task-001", {
+        data: "test",
+      });
 
       expect(result.taskId).toBe("task-001");
       expect(result.status).toBe("approved");
@@ -585,10 +708,19 @@ describe("ResearchLeaderService", () => {
         findMany: jest.fn().mockResolvedValue([]),
       };
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true, isAvailable: true },
+        {
+          id: "o3-mini",
+          name: "o3-mini",
+          provider: "openai",
+          isReasoning: true,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
-        id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true,
+        id: "o3-mini",
+        name: "o3-mini",
+        provider: "openai",
+        isReasoning: true,
       });
       mockFacade.intentDetector.detectIntent.mockReturnValue({
         intent: "unknown",
@@ -602,7 +734,9 @@ describe("ResearchLeaderService", () => {
       mockFacade.chat.mockResolvedValue({ content: "not json" });
 
       const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "做点什么",
+        "topic-001",
+        "mission-001",
+        "做点什么",
       );
 
       expect(result.response).toBe("收到您的指令，我会继续推进研究工作。");
@@ -624,7 +758,9 @@ describe("ResearchLeaderService", () => {
       });
 
       const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "删除技术发展维度",
+        "topic-001",
+        "mission-001",
+        "删除技术发展维度",
       );
 
       expect(mockLeaderToolService.deleteDimension).toHaveBeenCalled();
@@ -646,8 +782,10 @@ describe("ResearchLeaderService", () => {
         message: "任务已取消",
       });
 
-      const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "停止市场应用任务",  // avoid 取消/删除 keywords to prevent fallback delete
+      await service.handleUserMessage(
+        "topic-001",
+        "mission-001",
+        "停止市场应用任务", // avoid 取消/删除 keywords to prevent fallback delete
       );
 
       expect(mockLeaderToolService.cancelTask).toHaveBeenCalled();
@@ -659,7 +797,11 @@ describe("ResearchLeaderService", () => {
           actions: [
             {
               type: "UPDATE_DIMENSION",
-              params: { dimensionName: "技术发展", newName: "技术架构", newDescription: "更新描述" },
+              params: {
+                dimensionName: "技术发展",
+                newName: "技术架构",
+                newDescription: "更新描述",
+              },
             },
           ],
           response: "已更新维度",
@@ -671,10 +813,17 @@ describe("ResearchLeaderService", () => {
         message: "维度更新成功",
       });
 
-      await service.handleUserMessage("topic-001", "mission-001", "修改技术发展名称");
+      await service.handleUserMessage(
+        "topic-001",
+        "mission-001",
+        "修改技术发展名称",
+      );
 
       expect(mockLeaderToolService.updateDimension).toHaveBeenCalledWith(
-        expect.objectContaining({ dimensionName: "技术发展", newName: "技术架构" }),
+        expect.objectContaining({
+          dimensionName: "技术发展",
+          newName: "技术架构",
+        }),
       );
     });
 
@@ -699,7 +848,11 @@ describe("ResearchLeaderService", () => {
         message: "合并成功",
       });
 
-      await service.handleUserMessage("topic-001", "mission-001", "合并技术维度");
+      await service.handleUserMessage(
+        "topic-001",
+        "mission-001",
+        "合并技术维度",
+      );
 
       expect(mockLeaderToolService.mergeDimensions).toHaveBeenCalled();
     });
@@ -713,7 +866,9 @@ describe("ResearchLeaderService", () => {
       });
 
       const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "了解一下进度",
+        "topic-001",
+        "mission-001",
+        "了解一下进度",
       );
 
       expect(result.response).toBe("无需操作");
@@ -728,7 +883,9 @@ describe("ResearchLeaderService", () => {
       });
 
       const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "做些未知事情",
+        "topic-001",
+        "mission-001",
+        "做些未知事情",
       );
 
       expect(result.actionResults).toHaveLength(1);
@@ -746,7 +903,9 @@ describe("ResearchLeaderService", () => {
     it("should append error notice to response when actions fail", async () => {
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify({
-          actions: [{ type: "DELETE_DIMENSION", params: { dimensionName: "不存在" } }],
+          actions: [
+            { type: "DELETE_DIMENSION", params: { dimensionName: "不存在" } },
+          ],
           response: "尝试删除",
         }),
       });
@@ -757,7 +916,9 @@ describe("ResearchLeaderService", () => {
       });
 
       const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "删除不存在的维度",
+        "topic-001",
+        "mission-001",
+        "删除不存在的维度",
       );
 
       expect(result.response).toContain("尝试删除");
@@ -772,7 +933,9 @@ describe("ResearchLeaderService", () => {
       });
 
       const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "继续",
+        "topic-001",
+        "mission-001",
+        "继续",
       );
 
       expect(mockFacade.chat).not.toHaveBeenCalled();
@@ -790,14 +953,18 @@ describe("ResearchLeaderService", () => {
           { id: "task-003", status: "PENDING", dimensionName: "政策法规" },
         ],
       };
-      mockPrisma.researchMission.findUnique.mockResolvedValue(missionLowProgress);
+      mockPrisma.researchMission.findUnique.mockResolvedValue(
+        missionLowProgress,
+      );
       mockFacade.intentDetector.detectIntent.mockReturnValue({
         intent: UserIntent.SUMMARIZE,
         confidence: 0.85,
       });
 
       const result = await service.handleUserMessage(
-        "topic-001", "mission-001", "总结一下",
+        "topic-001",
+        "mission-001",
+        "总结一下",
       );
 
       expect(mockFacade.chat).not.toHaveBeenCalled();
@@ -844,17 +1011,41 @@ describe("ResearchLeaderService", () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue({
         id: "mission-001",
         tasks: [
-          { assignedAgent: "researcher-01", assignedAgentType: "dimension_researcher", modelId: "gpt-4o", status: "EXECUTING" },
-          { assignedAgent: "researcher-01", assignedAgentType: "dimension_researcher", modelId: "gpt-4o", status: "COMPLETED" },
-          { assignedAgent: "researcher-02", assignedAgentType: "dimension_researcher", modelId: "claude-3", status: "PENDING" },
+          {
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            status: "EXECUTING",
+          },
+          {
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            status: "COMPLETED",
+          },
+          {
+            assignedAgent: "researcher-02",
+            assignedAgentType: "dimension_researcher",
+            modelId: "claude-3",
+            status: "PENDING",
+          },
         ],
       });
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
         { id: "gpt-4o", name: "GPT-4o", isReasoning: false, isAvailable: true },
-        { id: "claude-3", name: "Claude 3", isReasoning: false, isAvailable: true },
+        {
+          id: "claude-3",
+          name: "Claude 3",
+          isReasoning: false,
+          isAvailable: true,
+        },
       ]);
 
-      const result = await service.selectAgentForTask("topic-001", "mission-001", "市场研究");
+      const result = await service.selectAgentForTask(
+        "topic-001",
+        "mission-001",
+        "市场研究",
+      );
 
       // researcher-02 has 1 task (lower load), should be selected
       expect(result.agentId).toBe("researcher-02");
@@ -870,7 +1061,11 @@ describe("ResearchLeaderService", () => {
         { id: "gpt-4o", name: "GPT-4o", isReasoning: false, isAvailable: true },
       ]);
 
-      const result = await service.selectAgentForTask("topic-001", "mission-001", "分析任务");
+      const result = await service.selectAgentForTask(
+        "topic-001",
+        "mission-001",
+        "分析任务",
+      );
 
       expect(result.agentId).toMatch(/researcher_user_/);
       expect(result.agentType).toBe("dimension_researcher");
@@ -883,9 +1078,13 @@ describe("ResearchLeaderService", () => {
       });
       mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
 
-      const result = await service.selectAgentForTask("topic-001", "mission-001", "分析任务");
+      const result = await service.selectAgentForTask(
+        "topic-001",
+        "mission-001",
+        "分析任务",
+      );
 
-      expect(result.modelId).toBe("gpt-4o"); // hardcoded fallback
+      expect(result.modelId).toBe(""); // no models available → empty string
     });
 
     it("should select skills and tools based on policy-related task title", async () => {
@@ -909,26 +1108,38 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should select market skills for market-related tasks", async () => {
-      mockPrisma.researchMission.findUnique.mockResolvedValue({ id: "mission-001", tasks: [] });
+      mockPrisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-001",
+        tasks: [],
+      });
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
         { id: "gpt-4o", isReasoning: false, isAvailable: true },
       ]);
 
       const result = await service.selectAgentForTask(
-        "topic-001", "mission-001", "市场竞争格局", "分析市场份额",
+        "topic-001",
+        "mission-001",
+        "市场竞争格局",
+        "分析市场份额",
       );
 
       expect(result.skills).toContain("competitive_analysis");
     });
 
     it("should use default skills when no keywords match", async () => {
-      mockPrisma.researchMission.findUnique.mockResolvedValue({ id: "mission-001", tasks: [] });
+      mockPrisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-001",
+        tasks: [],
+      });
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
         { id: "gpt-4o", isReasoning: false, isAvailable: true },
       ]);
 
       const result = await service.selectAgentForTask(
-        "topic-001", "mission-001", "Random task", "No keywords here",
+        "topic-001",
+        "mission-001",
+        "Random task",
+        "No keywords here",
       );
 
       expect(result.skills).toContain("deep_dive");
@@ -943,8 +1154,18 @@ describe("ResearchLeaderService", () => {
   describe("getDecisionHistory", () => {
     it("should return decision history ordered by createdAt desc", async () => {
       const decisions = [
-        { id: "d-001", missionId: "mission-001", type: "PLAN", createdAt: new Date() },
-        { id: "d-002", missionId: "mission-001", type: "REVIEW", createdAt: new Date() },
+        {
+          id: "d-001",
+          missionId: "mission-001",
+          type: "PLAN",
+          createdAt: new Date(),
+        },
+        {
+          id: "d-002",
+          missionId: "mission-001",
+          type: "REVIEW",
+          createdAt: new Date(),
+        },
       ];
       mockPrisma.leaderDecision = {
         create: jest.fn(),
@@ -979,14 +1200,27 @@ describe("ResearchLeaderService", () => {
   describe("extractClaims", () => {
     it("should return claims when AI returns valid claims JSON", async () => {
       const mockClaims = [
-        { id: "c1", claim: "5G 技术覆盖率达到 60%", confidence: 0.9, sectionId: "section-1" },
-        { id: "c2", claim: "AI 市场规模超过 1000 亿", confidence: 0.85, sectionId: "section-1" },
+        {
+          id: "c1",
+          claim: "5G 技术覆盖率达到 60%",
+          confidence: 0.9,
+          sectionId: "section-1",
+        },
+        {
+          id: "c2",
+          claim: "AI 市场规模超过 1000 亿",
+          confidence: 0.85,
+          sectionId: "section-1",
+        },
       ];
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify({ claims: mockClaims }),
       });
 
-      const result = await service.extractClaims("section-1", "5G 技术发展和 AI 市场分析内容...");
+      const result = await service.extractClaims(
+        "section-1",
+        "5G 技术发展和 AI 市场分析内容...",
+      );
 
       expect(result).toHaveLength(2);
       expect(result[0].claim).toBe("5G 技术覆盖率达到 60%");
@@ -1009,7 +1243,9 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should truncate very long section content to 4000 chars", async () => {
-      mockFacade.chat.mockResolvedValue({ content: JSON.stringify({ claims: [] }) });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify({ claims: [] }),
+      });
 
       const longContent = "x".repeat(10000);
       await service.extractClaims("section-1", longContent);
@@ -1048,13 +1284,20 @@ describe("ResearchLeaderService", () => {
         { id: "h1", statement: "AI 会取代部分工作", confidence: 0.7 },
       ];
       const mockResults = [
-        { hypothesisId: "h1", verdict: "supported", evidence: ["data point 1"] },
+        {
+          hypothesisId: "h1",
+          verdict: "supported",
+          evidence: ["data point 1"],
+        },
       ];
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify({ results: mockResults }),
       });
 
-      const result = await service.verifyHypotheses(hypotheses as never, "detailed evidence summary");
+      const result = await service.verifyHypotheses(
+        hypotheses as never,
+        "detailed evidence summary",
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0].verdict).toBe("supported");
@@ -1127,10 +1370,19 @@ describe("ResearchLeaderService", () => {
         findMany: jest.fn().mockResolvedValue([]),
       };
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true, isAvailable: true },
+        {
+          id: "o3-mini",
+          name: "o3-mini",
+          provider: "openai",
+          isReasoning: true,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
-        id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true,
+        id: "o3-mini",
+        name: "o3-mini",
+        provider: "openai",
+        isReasoning: true,
       });
       mockFacade.intentDetector.detectIntent.mockReturnValue({
         intent: "unknown",
@@ -1152,7 +1404,7 @@ describe("ResearchLeaderService", () => {
         message: "技术发展维度已删除",
       });
 
-      const result = await service.handleUserMessage(
+      await service.handleUserMessage(
         "topic-001",
         "mission-001",
         "删除技术发展维度",
@@ -1169,7 +1421,9 @@ describe("ResearchLeaderService", () => {
     it("should not trigger fallback delete when AI already produced DELETE_DIMENSION action", async () => {
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify({
-          actions: [{ type: "DELETE_DIMENSION", params: { dimensionName: "技术发展" } }],
+          actions: [
+            { type: "DELETE_DIMENSION", params: { dimensionName: "技术发展" } },
+          ],
           response: "已删除",
         }),
       });
@@ -1179,12 +1433,19 @@ describe("ResearchLeaderService", () => {
         message: "deleted",
       });
 
-      const callsBefore = mockLeaderToolService.deleteDimension.mock.calls.length;
+      const callsBefore =
+        mockLeaderToolService.deleteDimension.mock.calls.length;
 
-      await service.handleUserMessage("topic-001", "mission-001", "删除技术发展维度");
+      await service.handleUserMessage(
+        "topic-001",
+        "mission-001",
+        "删除技术发展维度",
+      );
 
       // deleteDimension should be called exactly once (by the action, not fallback)
-      expect(mockLeaderToolService.deleteDimension).toHaveBeenCalledTimes(callsBefore + 1);
+      expect(mockLeaderToolService.deleteDimension).toHaveBeenCalledTimes(
+        callsBefore + 1,
+      );
     });
 
     it("should handle action execution error gracefully and add to actionResults", async () => {
@@ -1194,9 +1455,9 @@ describe("ResearchLeaderService", () => {
           response: "创建维度",
         }),
       });
-      mockLeaderToolService.createDimension = jest.fn().mockRejectedValue(
-        new Error("DB constraint"),
-      );
+      mockLeaderToolService.createDimension = jest
+        .fn()
+        .mockRejectedValue(new Error("DB constraint"));
       mockPrisma.researchTask = {
         create: jest.fn(),
         findFirst: jest.fn().mockResolvedValue(null),
@@ -1221,12 +1482,23 @@ describe("ResearchLeaderService", () => {
 
   describe("planResearch - quality_reviewer and report_writer assignment", () => {
     function setupPlanResearchHappy() {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithDimensions);
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithDimensions,
+      );
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
-        id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true,
+        id: "o3-mini",
+        name: "o3-mini",
+        provider: "openai",
+        isReasoning: true,
       });
       mockPrisma.leaderDecision.create.mockResolvedValue({});
     }
@@ -1250,7 +1522,9 @@ describe("ResearchLeaderService", () => {
         strategy: "parallel",
       };
 
-      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithReviewer) });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify(planWithReviewer),
+      });
 
       const result = await service.planResearch("topic-001");
 
@@ -1279,7 +1553,9 @@ describe("ResearchLeaderService", () => {
         strategy: "parallel",
       };
 
-      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithWriter) });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify(planWithWriter),
+      });
 
       const result = await service.planResearch("topic-001");
 
@@ -1309,7 +1585,9 @@ describe("ResearchLeaderService", () => {
         strategy: "parallel",
       };
 
-      mockFacade.chat.mockResolvedValue({ content: JSON.stringify(planWithoutReason) });
+      mockFacade.chat.mockResolvedValue({
+        content: JSON.stringify(planWithoutReason),
+      });
 
       const result = await service.planResearch("topic-001");
 
@@ -1323,7 +1601,10 @@ describe("ResearchLeaderService", () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(topicNodims);
       mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
       mockFacade.getReasoningModel.mockResolvedValue({
-        id: "o3-mini", name: "o3-mini", provider: "openai", isReasoning: true,
+        id: "o3-mini",
+        name: "o3-mini",
+        provider: "openai",
+        isReasoning: true,
       });
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify(mockLeaderPlanJson),
