@@ -83,13 +83,13 @@ export class AuthController {
   @ApiResponse({ status: 400, description: "无效的输入数据" })
   @ApiResponse({ status: 409, description: "邮箱或用户名已存在" })
   @ApiResponse({ status: 429, description: "请求过于频繁，请稍后再试" })
-  async register(
-    @Body("email") email: string,
-    @Body("username") username: string,
-    @Body("password") password: string,
-  ) {
-    this.logger.log(`Registration attempt: ${email}`);
-    return this.authService.register(email, username, password);
+  async register(@Body() registerDto: RegisterDto) {
+    this.logger.log(`Registration attempt: ${registerDto.email}`);
+    return this.authService.register(
+      registerDto.email,
+      registerDto.username,
+      registerDto.password,
+    );
   }
 
   /**
@@ -110,23 +110,24 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: "邮箱或密码错误" })
   @ApiResponse({ status: 429, description: "请求过于频繁，请稍后再试" })
-  async login(
-    @Request() req: ExpressRequest,
-    @Body("email") email: string,
-    @Body("password") password: string,
-  ) {
-    this.logger.log(`Login attempt: ${email}`);
+  async login(@Request() req: ExpressRequest, @Body() loginDto: LoginDto) {
+    this.logger.log(`Login attempt: ${loginDto.email}`);
 
     // 获取请求信息用于记录登录历史
     const requestInfo = {
       ipAddress:
         req.headers["x-forwarded-for"]?.toString().split(",")[0] ||
         req.ip ||
-        (req as any).connection?.remoteAddress,
+        (req as ExpressRequest & { connection?: { remoteAddress?: string } })
+          .connection?.remoteAddress,
       userAgent: req.headers["user-agent"],
     };
 
-    return this.authService.login(email, password, requestInfo);
+    return this.authService.login(
+      loginDto.email,
+      loginDto.password,
+      requestInfo,
+    );
   }
 
   /**
@@ -212,7 +213,14 @@ export class AuthController {
   @ApiResponse({ status: 302, description: "重定向到前端，携带授权码" })
   @ApiResponse({ status: 401, description: "OAuth 认证失败" })
   async googleAuthCallback(
-    @Request() req: ExpressRequest & { user: any },
+    @Request()
+    req: ExpressRequest & {
+      user: {
+        user: { email: string; id: string };
+        accessToken: string;
+        refreshToken: string;
+      };
+    },
     @Response() res: ExpressResponse,
   ) {
     // 成功认证后，返回用户信息和tokens
