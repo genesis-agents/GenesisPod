@@ -755,4 +755,503 @@ describe('InfographicTemplateService', () => {
       expect(html).toContain('Do it now');
     });
   });
+
+  // ============================================================
+  // numColumns branch coverage (lines 393, 396) and sectionType filter (line 409)
+  // ============================================================
+
+  describe('generateConsultingInfographicHTML - column count branches', () => {
+    it('should use 4 columns for 7-8 sections (line 393)', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        sections: Array.from({ length: 7 }, (_, i) => ({
+          title: `Section ${i + 1}`,
+          bullets: ['bullet'],
+          metrics: [],
+          sectionType: 'main' as const,
+        })),
+      };
+      const html = templateService.generateConsultingInfographicHTML(content);
+      expect(html).toContain('Section 1');
+      expect(html).toContain('Section 7');
+    });
+
+    it('should use 5 columns for 9-10 sections (line 396)', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        sections: Array.from({ length: 9 }, (_, i) => ({
+          title: `Section ${i + 1}`,
+          bullets: ['bullet'],
+          metrics: [],
+          sectionType: 'main' as const,
+        })),
+      };
+      const html = templateService.generateConsultingInfographicHTML(content);
+      expect(html).toContain('Section 9');
+    });
+
+    it('should use 5 columns and filter non-summary sections when no aiMainSections (line 409)', () => {
+      // Sections without sectionType trigger the .filter(s => s.sectionType !== 'summary') path
+      const content: InfographicContent = {
+        ...minimalContent,
+        sections: [
+          { title: 'No Type 1', bullets: ['b'], metrics: [] },
+          { title: 'No Type 2', bullets: ['b'], metrics: [] },
+        ],
+      };
+      const html = templateService.generateConsultingInfographicHTML(content);
+      expect(html).toContain('No Type 1');
+      expect(html).toContain('No Type 2');
+    });
+  });
+
+  // ============================================================
+  // generateTimelineHTML (lines 1545-1859)
+  // ============================================================
+
+  describe('generateTimelineHTML', () => {
+    it('should generate valid HTML with sections', () => {
+      const content: InfographicContent = {
+        title: 'Timeline Title',
+        subtitle: 'Timeline Subtitle',
+        sections: [
+          { title: 'Step 1', summary: 'First step', bullets: ['Action A', 'Action B'], metrics: [{ label: 'Time', value: 'Q1' }] },
+          { title: 'Step 2', summary: 'Second step', bullets: ['Action C'], metrics: [] },
+          { title: 'Step 3', summary: 'Third step', bullets: [], metrics: [{ label: 'Result', value: '+50%' }] },
+        ],
+        callToAction: 'Start Now',
+      };
+      const html = templateService.generateTimelineHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Timeline Title');
+      expect(html).toContain('Step 1');
+      expect(html).toContain('Step 2');
+      expect(html).toContain('Start Now');
+    });
+
+    it('should handle dark style for timeline', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'dark' },
+      };
+      const html = templateService.generateTimelineHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle genspark style for timeline', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'genspark' },
+      };
+      const html = templateService.generateTimelineHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle custom dimensions', () => {
+      const html = templateService.generateTimelineHTML(minimalContent, undefined, 800, 600);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle background image', () => {
+      const html = templateService.generateTimelineHTML(minimalContent, 'data:image/png;base64,abc123');
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle vertical layout (height > width)', () => {
+      const html = templateService.generateTimelineHTML(minimalContent, undefined, 800, 1200);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+  });
+
+  // ============================================================
+  // generateComparisonHTML (lines 1860-2206)
+  // ============================================================
+
+  describe('generateComparisonHTML', () => {
+    it('should generate valid HTML with 2 sections for comparison', () => {
+      const content: InfographicContent = {
+        title: 'Comparison Title',
+        subtitle: 'Left vs Right',
+        sections: [
+          { title: 'Option A', summary: 'Left side', bullets: ['Pro 1', 'Pro 2'], metrics: [{ label: 'Score', value: '8/10' }] },
+          { title: 'Option B', summary: 'Right side', bullets: ['Con 1'], metrics: [{ label: 'Score', value: '6/10' }] },
+        ],
+        callToAction: 'Choose Now',
+      };
+      const html = templateService.generateComparisonHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Option A');
+      expect(html).toContain('Option B');
+    });
+
+    it('should handle tech style for comparison', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'tech' },
+      };
+      const html = templateService.generateComparisonHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle genspark glassmorphism for comparison', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'genspark' },
+      };
+      const html = templateService.generateComparisonHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle single section comparison', () => {
+      const html = templateService.generateComparisonHTML(minimalContent);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+  });
+
+  // ============================================================
+  // generateStatisticsHTML (lines 2207-2444)
+  // ============================================================
+
+  describe('generateStatisticsHTML', () => {
+    it('should generate valid HTML with statistics sections', () => {
+      const content: InfographicContent = {
+        title: 'Stats Report',
+        sections: [
+          { title: 'Revenue', bullets: [], metrics: [{ label: 'Total', value: '$10M', comparison: '+25%' }, { label: 'Growth', value: '25%' }] },
+          { title: 'Users', bullets: [], metrics: [{ label: 'Monthly', value: '1M', comparison: '+10%' }] },
+        ],
+        callToAction: 'View Details',
+      };
+      const html = templateService.generateStatisticsHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Stats Report');
+      expect(html).toContain('Total'); // metric label
+      expect(html).toContain('$10M'); // metric value
+    });
+
+    it('should handle dark mode for statistics', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'dark' },
+      };
+      const html = templateService.generateStatisticsHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle tech_gradient for statistics', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'tech_gradient' },
+      };
+      const html = templateService.generateStatisticsHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should render sections with bullets as well as metrics', () => {
+      const content: InfographicContent = {
+        title: 'Stats',
+        sections: [
+          { title: 'Section A', bullets: ['Insight 1', 'Insight 2'], metrics: [{ label: 'Rate', value: '95%', comparison: 'vs 80% avg' }] },
+        ],
+      };
+      const html = templateService.generateStatisticsHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Rate');
+      expect(html).toContain('95%');
+    });
+  });
+
+  // ============================================================
+  // generateChecklistHTML (lines 2445-2615)
+  // ============================================================
+
+  describe('generateChecklistHTML', () => {
+    it('should generate valid HTML checklist', () => {
+      const content: InfographicContent = {
+        title: 'Checklist Title',
+        subtitle: 'Complete these tasks',
+        sections: [
+          { title: 'Phase 1', bullets: ['Task A', 'Task B', 'Task C'], metrics: [{ label: 'Priority', value: 'High' }] },
+          { title: 'Phase 2', bullets: ['Task D', 'Task E'], metrics: [] },
+        ],
+        callToAction: 'Start Checklist',
+      };
+      const html = templateService.generateChecklistHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Checklist Title');
+      expect(html).toContain('Task A');
+    });
+
+    it('should handle minimal style for checklist', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'minimal' },
+      };
+      const html = templateService.generateChecklistHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle genspark glassmorphism for checklist', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'genspark' },
+      };
+      const html = templateService.generateChecklistHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+  });
+
+  // ============================================================
+  // generateFunnelHTML (lines 2616-2759)
+  // ============================================================
+
+  describe('generateFunnelHTML', () => {
+    it('should generate valid HTML funnel with multiple stages', () => {
+      const content: InfographicContent = {
+        title: 'Sales Funnel',
+        sections: [
+          { title: 'Awareness', summary: '10000 leads', bullets: [], metrics: [{ label: 'Count', value: '10000' }] },
+          { title: 'Interest', summary: '5000 interested', bullets: [], metrics: [{ label: 'Count', value: '5000' }] },
+          { title: 'Decision', summary: '1000 decided', bullets: [], metrics: [{ label: 'Count', value: '1000' }] },
+          { title: 'Action', summary: '500 converted', bullets: [], metrics: [{ label: 'Count', value: '500' }] },
+        ],
+        callToAction: 'Optimize Funnel',
+      };
+      const html = templateService.generateFunnelHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Sales Funnel');
+      expect(html).toContain('Awareness');
+    });
+
+    it('should handle creative style for funnel', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'creative' },
+      };
+      const html = templateService.generateFunnelHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle tech_gradient glassmorphism for funnel', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'tech_gradient' },
+      };
+      const html = templateService.generateFunnelHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+  });
+
+  // ============================================================
+  // generateMatrixHTML (lines 2760-2946)
+  // ============================================================
+
+  describe('generateMatrixHTML', () => {
+    it('should generate valid HTML matrix (2x2)', () => {
+      const content: InfographicContent = {
+        title: 'Strategy Matrix',
+        sections: [
+          { title: 'High Impact, Easy', bullets: ['Quick Win 1'], metrics: [] },
+          { title: 'High Impact, Hard', bullets: ['Major Project'], metrics: [] },
+          { title: 'Low Impact, Easy', bullets: ['Fill-in'], metrics: [] },
+          { title: 'Low Impact, Hard', bullets: ['Avoid'], metrics: [] },
+        ],
+      };
+      const html = templateService.generateMatrixHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Strategy Matrix');
+    });
+
+    it('should handle academic style for matrix', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'academic' },
+      };
+      const html = templateService.generateMatrixHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle genspark for matrix', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'genspark' },
+      };
+      const html = templateService.generateMatrixHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle fewer than 4 sections', () => {
+      const html = templateService.generateMatrixHTML(minimalContent);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+  });
+
+  // ============================================================
+  // generateRankingHTML (lines 2947-3210)
+  // ============================================================
+
+  describe('generateRankingHTML', () => {
+    it('should generate valid HTML ranking table', () => {
+      const content: InfographicContent = {
+        title: 'Top Rankings',
+        sections: [
+          { title: '1st Place', summary: 'Gold medal', bullets: ['Achievement A'], metrics: [{ label: 'Score', value: '100', comparison: '#1' }] },
+          { title: '2nd Place', summary: 'Silver medal', bullets: ['Achievement B'], metrics: [{ label: 'Score', value: '95', comparison: '#2' }] },
+          { title: '3rd Place', summary: 'Bronze medal', bullets: [], metrics: [{ label: 'Score', value: '88' }] },
+        ],
+        callToAction: 'See Full List',
+      };
+      const html = templateService.generateRankingHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Top Rankings');
+      expect(html).toContain('1st Place');
+    });
+
+    it('should handle business style for ranking', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'business' },
+      };
+      const html = templateService.generateRankingHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle genspark glassmorphism for ranking', () => {
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { style: 'genspark' },
+      };
+      const html = templateService.generateRankingHTML(content);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
+
+    it('should handle sections with comparison metrics', () => {
+      const content: InfographicContent = {
+        title: 'Compare',
+        sections: [
+          { title: 'Winner', bullets: ['Point 1', 'Point 2', 'Point 3'], metrics: [{ label: 'M1', value: 'V1', comparison: '+5%' }, { label: 'M2', value: 'V2' }] },
+        ],
+        callToAction: 'View More',
+      };
+      const html = templateService.generateRankingHTML(content);
+      expect(html).toContain('Winner');
+    });
+  });
+
+  // ============================================================
+  // generateInfographic - route through all template types (with renderToImage mocked)
+  // ============================================================
+
+  describe('generateInfographic - template routing', () => {
+    it('should call generateTimelineHTML for timeline layout', async () => {
+      // Mock renderToImage to avoid Puppeteer
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const generateTimelineSpy = jest.spyOn(templateService, 'generateTimelineHTML');
+
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { templateLayout: 'timeline' },
+      };
+      await templateService.generateInfographic(content);
+
+      expect(generateTimelineSpy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should call generateComparisonHTML for comparison layout', async () => {
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const generateComparisonSpy = jest.spyOn(templateService, 'generateComparisonHTML');
+
+      const content: InfographicContent = {
+        ...minimalContent,
+        styleOptions: { templateLayout: 'comparison' },
+      };
+      await templateService.generateInfographic(content);
+
+      expect(generateComparisonSpy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should call generateStatisticsHTML for statistics layout', async () => {
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const spy2 = jest.spyOn(templateService, 'generateStatisticsHTML');
+
+      const content: InfographicContent = { ...minimalContent, styleOptions: { templateLayout: 'statistics' } };
+      await templateService.generateInfographic(content);
+      expect(spy2).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should call generateChecklistHTML for checklist layout', async () => {
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const spy2 = jest.spyOn(templateService, 'generateChecklistHTML');
+
+      const content: InfographicContent = { ...minimalContent, styleOptions: { templateLayout: 'checklist' } };
+      await templateService.generateInfographic(content);
+      expect(spy2).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should call generateFunnelHTML for funnel layout', async () => {
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const spy2 = jest.spyOn(templateService, 'generateFunnelHTML');
+
+      const content: InfographicContent = { ...minimalContent, styleOptions: { templateLayout: 'funnel' } };
+      await templateService.generateInfographic(content);
+      expect(spy2).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should call generateMatrixHTML for matrix layout', async () => {
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const spy2 = jest.spyOn(templateService, 'generateMatrixHTML');
+
+      const content: InfographicContent = { ...minimalContent, styleOptions: { templateLayout: 'matrix' } };
+      await templateService.generateInfographic(content);
+      expect(spy2).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should call generateRankingHTML for ranking layout', async () => {
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const spy2 = jest.spyOn(templateService, 'generateRankingHTML');
+
+      const content: InfographicContent = { ...minimalContent, styleOptions: { templateLayout: 'ranking' } };
+      await templateService.generateInfographic(content);
+      expect(spy2).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should call generateCenterVisualHTML for center_visual layout', async () => {
+      const spy = jest.spyOn(templateService as unknown as { renderToImage: (...args: unknown[]) => Promise<string> }, 'renderToImage').mockResolvedValue('data:image/png;base64,abc');
+      const spy2 = jest.spyOn(templateService, 'generateCenterVisualHTML');
+
+      const content: InfographicContent = { ...minimalContent, styleOptions: { templateLayout: 'center_visual' } };
+      await templateService.generateInfographic(content);
+      expect(spy2).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+
+  // ============================================================
+  // cleanup and getBrowser (lines 232-262, 1048-1086)
+  // ============================================================
+
+  describe('cleanup and getBrowser', () => {
+    it('should cleanup browser when browser exists', async () => {
+      // Mock a browser instance on the service
+      const mockBrowser = { close: jest.fn().mockResolvedValue(undefined) };
+      (templateService as unknown as { browser: typeof mockBrowser }).browser = mockBrowser;
+
+      await templateService.cleanup();
+
+      expect(mockBrowser.close).toHaveBeenCalled();
+      expect((templateService as unknown as { browser: null }).browser).toBeNull();
+    });
+
+    it('should do nothing when cleanup called with no browser', async () => {
+      (templateService as unknown as { browser: null }).browser = null;
+      await expect(templateService.cleanup()).resolves.not.toThrow();
+    });
+  });
 });

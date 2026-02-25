@@ -116,11 +116,15 @@ const mockAiFacade = {
   capabilityResolveTools: jest.fn().mockResolvedValue([
     'web-search',
     'academic-search',
+    'arxiv-search',
     'github-search',
     'hackernews-search',
     'federal-register',
     'congress-gov',
     'whitehouse-news',
+    'social-x',
+    'semantic-scholar',
+    'pubmed',
   ]),
 };
 
@@ -1294,6 +1298,226 @@ describe('DataSourceRouterService', () => {
       expect(result).toBeDefined();
       // At least one result should be returned
       expect(result.items.length).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ============================================================
+  // ACADEMIC data source — searchAcademic pipeline
+  // ============================================================
+
+  describe('ACADEMIC source via fetchDataForDimension', () => {
+    it('should return academic results when arxiv-search tool is available and returns papers', async () => {
+      const mockArxivExecute = jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          success: true,
+          papers: [
+            {
+              id: '2401.0001',
+              title: 'Deep Learning Advances',
+              summary: 'We present deep learning advances.',
+              authors: ['Author A', 'Author B'],
+              published: '2024-01-15',
+              updated: '2024-01-20',
+              categories: ['cs.LG'],
+              pdfUrl: 'https://arxiv.org/pdf/2401.0001',
+              absUrl: 'https://arxiv.org/abs/2401.0001',
+            },
+          ],
+          totalResults: 1,
+          query: 'deep learning',
+        },
+      });
+
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'web-search' || toolId === 'arxiv-search') {
+          return { execute: mockArxivExecute };
+        }
+        return null;
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['ACADEMIC'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should return empty when arxiv-search tool is not registered', async () => {
+      mockToolRegistry.tryGet.mockReturnValue(null); // No tool found
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['ACADEMIC'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should return empty when arxiv tool returns success=false', async () => {
+      const mockArxivFail = jest.fn().mockResolvedValue({
+        success: false,
+        error: { message: 'Arxiv API unavailable' },
+      });
+
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'arxiv-search') return { execute: mockArxivFail };
+        return null;
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['ACADEMIC'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should return empty when arxiv response has no papers', async () => {
+      const mockArxivEmpty = jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          success: true,
+          papers: [],
+          totalResults: 0,
+          query: 'test',
+        },
+      });
+
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'arxiv-search') return { execute: mockArxivEmpty };
+        return null;
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['ACADEMIC'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // GITHUB data source — searchGithub pipeline
+  // ============================================================
+
+  describe('GITHUB source via fetchDataForDimension', () => {
+    it('should return github results when github-search tool is available', async () => {
+      const mockGithubExecute = jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          success: true,
+          repositories: [
+            {
+              id: 1234,
+              fullName: 'owner/ai-project',
+              description: 'An AI project',
+              url: 'https://github.com/owner/ai-project',
+              homepage: 'https://ai-project.com',
+              stars: 1500,
+              forks: 200,
+              language: 'Python',
+              topics: ['ai', 'machine-learning'],
+              updatedAt: '2024-06-01',
+            },
+          ],
+          totalCount: 1,
+          query: 'AI',
+        },
+      });
+
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'web-search' || toolId === 'github-search') {
+          return { execute: mockGithubExecute };
+        }
+        return null;
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['GITHUB'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should return empty when github tool is not found', async () => {
+      mockToolRegistry.tryGet.mockReturnValue(null);
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['GITHUB'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // HACKERNEWS data source — searchHackerNews pipeline
+  // ============================================================
+
+  describe('HACKERNEWS source via fetchDataForDimension', () => {
+    it('should return hackernews results when hackernews-search tool is available', async () => {
+      const mockHNExecute = jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          success: true,
+          hits: [
+            {
+              objectID: '12345',
+              title: 'AI breakthrough in 2024',
+              url: 'https://ycombinator.com/ai-breakthrough',
+              story_text: 'HN discussion about AI',
+              points: 300,
+              num_comments: 45,
+              created_at: '2024-06-01T10:00:00Z',
+              author: 'hn_user',
+            },
+          ],
+          nbHits: 1,
+          query: 'AI',
+        },
+      });
+
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'web-search' || toolId === 'hackernews-search') {
+          return { execute: mockHNExecute };
+        }
+        return null;
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['HACKERNEWS'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+
+    it('should return empty when hackernews tool fails', async () => {
+      const mockHNFail = jest.fn().mockResolvedValue({
+        success: false,
+        error: { message: 'HN API error' },
+      });
+
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === 'hackernews-search') return { execute: mockHNFail };
+        return null;
+      });
+
+      const topic = makeResearchTopic();
+      const dimension = makeTopicDimension({ searchSources: ['HACKERNEWS'] });
+
+      const result = await service.fetchDataForDimension(dimension, topic);
+
+      expect(result).toBeDefined();
     });
   });
 

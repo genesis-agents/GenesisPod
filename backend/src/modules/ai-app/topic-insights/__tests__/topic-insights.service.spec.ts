@@ -38,6 +38,8 @@ function buildMocks() {
   const mockPrisma = {
     topicReport: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
     },
     topicRefreshLog: {
       findFirst: jest.fn(),
@@ -45,6 +47,14 @@ function buildMocks() {
     researchTopic: {
       findUnique: jest.fn(),
     },
+    topicReportRevision: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+    },
+    reportAnnotation: {
+      findUnique: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
 
   const mockEventEmitter = {
@@ -54,15 +64,20 @@ function buildMocks() {
   const mockOrchestrator = {
     executeRefresh: jest.fn(),
     getRefreshStatus: jest.fn(),
+    cancelRefresh: jest.fn(),
   };
 
   const mockReportService = {
     synthesizeReport: jest.fn(),
+    getReport: jest.fn(),
+    listReports: jest.fn(),
+    compareReports: jest.fn(),
   };
 
   const mockEvidenceService = {
     recalculateCredibilityScores: jest.fn(),
     listEvidence: jest.fn(),
+    getEvidence: jest.fn(),
   };
 
   const mockFacade = {
@@ -72,11 +87,18 @@ function buildMocks() {
   const mockReportChangeService = {
     getChanges: jest.fn(),
     addChange: jest.fn(),
+    checkinChange: jest.fn(),
+    checkinAllChanges: jest.fn(),
   };
 
   const mockReportAnnotationService = {
     getAnnotations: jest.fn(),
     addAnnotation: jest.fn(),
+    createAnnotation: jest.fn(),
+    updateAnnotation: jest.fn(),
+    deleteAnnotation: jest.fn(),
+    resolveAnnotation: jest.fn(),
+    resolveAllAnnotations: jest.fn(),
   };
 
   const mockResearchStrategyService = {
@@ -278,6 +300,119 @@ describe("TopicInsightsService", () => {
       await service.listDimensions("user-001", "topic-001");
 
       expect(mockDimensionService.listDimensions).toHaveBeenCalledWith("user-001", "topic-001");
+    });
+  });
+
+  describe("Dimension delegation — additional methods", () => {
+    it("should delegate updateDimension to dimensionService", async () => {
+      const updated = { id: "dim-001", name: "Updated" };
+      mockDimensionService.updateDimension.mockResolvedValue(updated);
+
+      const dto = { name: "Updated" };
+      const result = await service.updateDimension("user-001", "topic-001", "dim-001", dto as never);
+
+      expect(mockDimensionService.updateDimension).toHaveBeenCalledWith(
+        "user-001", "topic-001", "dim-001", dto,
+      );
+      expect(result).toEqual(updated);
+    });
+
+    it("should delegate deleteDimension to dimensionService", async () => {
+      mockDimensionService.deleteDimension.mockResolvedValue({ success: true });
+
+      await service.deleteDimension("user-001", "topic-001", "dim-001");
+
+      expect(mockDimensionService.deleteDimension).toHaveBeenCalledWith(
+        "user-001", "topic-001", "dim-001",
+      );
+    });
+
+    it("should delegate refreshDimension to dimensionService", async () => {
+      const refreshResult = { jobId: "job-1" };
+      mockDimensionService.refreshDimension.mockResolvedValue(refreshResult);
+
+      const dto = { force: true };
+      const result = await service.refreshDimension("user-001", "topic-001", "dim-001", dto as never);
+
+      expect(mockDimensionService.refreshDimension).toHaveBeenCalledWith(
+        "user-001", "topic-001", "dim-001", dto,
+      );
+      expect(result).toEqual(refreshResult);
+    });
+
+    it("should delegate reorderDimensions to dimensionService", async () => {
+      mockDimensionService.reorderDimensions.mockResolvedValue({ success: true });
+
+      const dto = { dimensionIds: ["dim-001", "dim-002"] };
+      await service.reorderDimensions("user-001", "topic-001", dto as never);
+
+      expect(mockDimensionService.reorderDimensions).toHaveBeenCalledWith(
+        "user-001", "topic-001", dto,
+      );
+    });
+
+    it("should delegate getTemplates to dimensionService", async () => {
+      const templates = [{ id: "t1", name: "Template 1" }];
+      mockDimensionService.getTemplates.mockResolvedValue(templates);
+
+      const query = { category: "technology" };
+      const result = await service.getTemplates(query as never);
+
+      expect(mockDimensionService.getTemplates).toHaveBeenCalledWith(query);
+      expect(result).toEqual(templates);
+    });
+
+    it("should delegate createFromTemplate to dimensionService", async () => {
+      const topic = { id: "topic-new" };
+      mockDimensionService.createFromTemplate.mockResolvedValue(topic);
+
+      const dto = { templateId: "t1" };
+      const result = await service.createFromTemplate("user-001", dto as never);
+
+      expect(mockDimensionService.createFromTemplate).toHaveBeenCalledWith("user-001", dto);
+      expect(result).toEqual(topic);
+    });
+  });
+
+  describe("Export delegation — additional methods", () => {
+    it("should delegate updateVisibility to exportService", async () => {
+      mockExportService.updateVisibility.mockResolvedValue({ visibility: "PUBLIC" });
+
+      const dto = { visibility: "PUBLIC" };
+      const result = await service.updateVisibility("user-001", "topic-001", dto as never);
+
+      expect(mockExportService.updateVisibility).toHaveBeenCalledWith("user-001", "topic-001", dto);
+      expect(result).toEqual({ visibility: "PUBLIC" });
+    });
+
+    it("should delegate getSharingSettings to exportService", async () => {
+      const settings = { shareToken: "token-abc", isPublic: true };
+      mockExportService.getSharingSettings.mockResolvedValue(settings);
+
+      const result = await service.getSharingSettings("user-001", "topic-001");
+
+      expect(mockExportService.getSharingSettings).toHaveBeenCalledWith("user-001", "topic-001");
+      expect(result).toEqual(settings);
+    });
+
+    it("should delegate getSharedTopic to exportService", async () => {
+      const topic = { id: "topic-001", name: "Shared Topic" };
+      mockExportService.getSharedTopic.mockResolvedValue(topic);
+
+      const result = await service.getSharedTopic("share-token-123");
+
+      expect(mockExportService.getSharedTopic).toHaveBeenCalledWith("share-token-123");
+      expect(result).toEqual(topic);
+    });
+
+    it("should delegate getSharedTopicLatestReport to exportService", async () => {
+      const report = { id: "report-001" };
+      mockExportService.getSharedTopicLatestReport.mockResolvedValue(report);
+
+      const result = await service.getSharedTopicLatestReport("share-token-123");
+
+      expect(mockExportService.getSharedTopicLatestReport).toHaveBeenCalledWith("share-token-123");
+      expect(result).toEqual(report);
     });
   });
 
@@ -1067,6 +1202,235 @@ describe("TopicInsightsService", () => {
       expect(analyses[0].opportunities).toBeDefined();
       expect(analyses[0].confidenceLevel).toBe("high");
       expect(analyses[0].detailedContent).toBe("Detailed content here");
+    });
+  });
+
+  // ============================================================
+  // getAgentActivityStats
+  // ============================================================
+
+  describe("getAgentActivityStats", () => {
+    it("should verify ownership and delegate to agentActivityService", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const mocks = buildMocks();
+      const agentActivityMock = (
+        service as unknown as { agentActivityService: { getActivityStats: jest.Mock } }
+      ).agentActivityService;
+      agentActivityMock.getActivityStats = jest.fn().mockResolvedValue({ total: 5 });
+
+      const result = await service.getAgentActivityStats("user-001", "topic-001", "mission-1");
+
+      expect(result).toBeDefined();
+      void mocks; // suppress unused var warning
+    });
+  });
+
+  // ============================================================
+  // listReports
+  // ============================================================
+
+  describe("listReports", () => {
+    it("should verify read access and delegate to reportService", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { listReports: jest.Mock } }).reportService;
+      reportSvcMock.listReports = jest.fn().mockResolvedValue([{ id: "r1" }]);
+
+      const query = { limit: 10 };
+      const result = await service.listReports("user-001", "topic-001", query as never);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // cancelRefresh
+  // ============================================================
+
+  describe("cancelRefresh", () => {
+    it("should verify ownership and cancel via orchestrator", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      mockOrchestrator.cancelRefresh.mockResolvedValue(true);
+
+      const result = await service.cancelRefresh("user-001", "topic-001", {} as never);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe("刷新已取消");
+    });
+
+    it("should return not-cancelled message when no refresh in progress", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      mockOrchestrator.cancelRefresh.mockResolvedValue(false);
+
+      const result = await service.cancelRefresh("user-001", "topic-001", {} as never);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("没有正在进行的刷新");
+    });
+  });
+
+  // ============================================================
+  // getReportChanges
+  // ============================================================
+
+  describe("getReportChanges", () => {
+    it("should verify read access, check report ownership, and delegate to reportChangeService", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { getReport: jest.Mock } }).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({ id: "report-001", topicId: "topic-001" });
+
+      const reportChangeMock = (
+        service as unknown as { reportChangeService: { getChanges: jest.Mock } }
+      ).reportChangeService;
+      reportChangeMock.getChanges = jest.fn().mockResolvedValue([{ id: "change-1" }]);
+
+      const result = await service.getReportChanges("user-001", "topic-001", "report-001");
+
+      expect(result).toBeDefined();
+    });
+
+    it("should throw NotFoundException when report topicId does not match", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { getReport: jest.Mock } }).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({ id: "report-001", topicId: "other-topic" });
+
+      await expect(service.getReportChanges("user-001", "topic-001", "report-001")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ============================================================
+  // checkinChange / checkinAllChanges
+  // ============================================================
+
+  describe("checkinChange", () => {
+    it("should verify ownership and delegate to reportChangeService", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { getReport: jest.Mock } }).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({ id: "report-001", topicId: "topic-001" });
+
+      const reportChangeMock = (
+        service as unknown as { reportChangeService: { checkinChange: jest.Mock } }
+      ).reportChangeService;
+      reportChangeMock.checkinChange = jest.fn().mockResolvedValue(undefined);
+
+      const result = await service.checkinChange("user-001", "topic-001", "report-001", "change-1");
+
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("checkinAllChanges", () => {
+    it("should verify ownership and delegate to reportChangeService returning count", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { getReport: jest.Mock } }).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({ id: "report-001", topicId: "topic-001" });
+
+      const reportChangeMock = (
+        service as unknown as { reportChangeService: { checkinAllChanges: jest.Mock } }
+      ).reportChangeService;
+      reportChangeMock.checkinAllChanges = jest.fn().mockResolvedValue(5);
+
+      const result = await service.checkinAllChanges("user-001", "topic-001", "report-001");
+
+      expect(result.count).toBe(5);
+    });
+  });
+
+  // ============================================================
+  // listEvidence / getEvidence
+  // ============================================================
+
+  describe("listEvidence", () => {
+    it("should verify read access, validate report, and return paginated evidence", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { getReport: jest.Mock } }).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({ id: "report-001", topicId: "topic-001" });
+
+      const evidenceSvcMock = (
+        service as unknown as { evidenceService: { listEvidence: jest.Mock } }
+      ).evidenceService;
+      evidenceSvcMock.listEvidence = jest.fn().mockResolvedValue({
+        evidences: [{ id: "ev-1" }],
+        total: 1,
+      });
+
+      const query = { page: 1, pageSize: 20 };
+      const result = await service.listEvidence("user-001", "topic-001", "report-001", query as never);
+
+      expect(result.evidence).toBeDefined();
+      expect(result.total).toBe(1);
+      expect(typeof result.hasMore).toBe("boolean");
+    });
+  });
+
+  describe("getEvidence", () => {
+    it("should verify read access, validate report, and return evidence", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { getReport: jest.Mock } }).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({ id: "report-001", topicId: "topic-001" });
+
+      const evidenceSvcMock = (
+        service as unknown as { evidenceService: { getEvidence: jest.Mock } }
+      ).evidenceService;
+      evidenceSvcMock.getEvidence = jest.fn().mockResolvedValue({
+        id: "ev-1",
+        reportId: "report-001",
+        title: "Evidence Title",
+      });
+
+      const result = await service.getEvidence("user-001", "topic-001", "report-001", "ev-1");
+
+      expect(result).toBeDefined();
+      expect((result as Record<string, unknown>).id).toBe("ev-1");
+    });
+
+    it("should throw NotFoundException when evidence not found or wrong report", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (service as unknown as { reportService: { getReport: jest.Mock } }).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({ id: "report-001", topicId: "topic-001" });
+
+      const evidenceSvcMock = (
+        service as unknown as { evidenceService: { getEvidence: jest.Mock } }
+      ).evidenceService;
+      evidenceSvcMock.getEvidence = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        service.getEvidence("user-001", "topic-001", "report-001", "ev-nonexistent"),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

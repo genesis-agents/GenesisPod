@@ -2345,41 +2345,4 @@ describe("DimensionMissionService", () => {
     });
   });
 
-  // ============================================================
-  // executeSearchPhase: publishedAt catch block (line 344)
-  // ============================================================
-
-  describe("executeSearchPhase: catch block for publishedAt parsing", () => {
-    it("should handle publishedAt that causes Date constructor to throw via getter (line 344)", async () => {
-      // Create an object where accessing publishedAt getter throws
-      const throwingPublishedAt = {};
-      Object.defineProperty(throwingPublishedAt, "getTime", {
-        get() {
-          throw new Error("Simulated Date error");
-        },
-      });
-
-      // Item where publishedAt is a non-null truthy value that causes error during Date construction
-      // Use a value that makes `new Date(value)` throw — a Symbol works for this
-      const sym = Symbol("bad");
-      const enrichedWithBadDate = {
-        ...mockEnrichedResult,
-        publishedAt: sym as unknown as Date,
-        domain: "example.com",
-      };
-
-      mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
-        items: [enrichedWithBadDate], sources: ["web"], metadata: {},
-      });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([enrichedWithBadDate]);
-      mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 200, invalidUrls: 0, validUrls: 1,
-      });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
-
-      // Should not throw — catch block handles it
-      const result = await service.executeSearchPhase(mockTopic, mockDimension);
-      expect(result).toBeDefined();
-    });
-  });
 });

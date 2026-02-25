@@ -736,4 +736,356 @@ describe('SlidesExportService', () => {
       expect(result.slideCount).toBe(1);
     });
   });
+
+  // ============================================================
+  // exportToPPTX — native render (editable) with various layout types
+  // These tests exercise the private renderSlide → renderByLayout path
+  // ============================================================
+
+  describe('exportToPPTX native rendering — layout coverage', () => {
+    const makeSlideWithLayout = (layoutType: string, purpose = 'content'): GeneratedSlide =>
+      ({
+        id: 'slide-layout',
+        index: 1,
+        spec: {
+          purpose,
+          title: 'Layout Test',
+          layoutType,
+          backgroundDecision: {
+            type: 'solid',
+            colors: { primary: '#0F172A' },
+          },
+        },
+        content: {
+          title: 'Layout Slide',
+          subtitle: 'Subtitle text',
+          bulletPoints: ['Point 1', 'Point 2'],
+          bodyText: 'Body text content',
+          leftColumn: { title: 'Left', bullets: ['L1'] },
+          rightColumn: { title: 'Right', bullets: ['R1'] },
+          quote: 'This is a quote',
+          attribution: 'Author',
+          timelineItems: [{ label: 'Q1', description: 'Phase 1', date: '2024-01' }],
+          statistics: [
+            { label: 'Metric', value: '100', unit: '%', change: '+10%' },
+          ],
+          leftList: [{ text: 'Advantage 1' }],
+          rightList: [{ text: 'Disadvantage 1' }],
+        },
+        images: [],
+        html: undefined,
+        isEdited: false,
+        editHistory: [],
+        generationMetadata: {
+          textModelUsed: 'gpt-4',
+          contentGeneratedAt: new Date().toISOString(),
+        },
+      } as unknown as GeneratedSlide);
+
+    const layoutTypes = [
+      'title_center',
+      'title_subtitle',
+      'text_image_left',
+      'text_image_right',
+      'image_full',
+      'two_columns',
+      'bullet_points',
+      'statistics_cards',
+      'quote_highlight',
+      'timeline_horizontal',
+      'comparison_split',
+      'unknown_layout', // default case
+    ];
+
+    for (const layoutType of layoutTypes) {
+      it(`should render layout type: ${layoutType}`, async () => {
+        const document = buildPPTDocument(0, false);
+        document.slides = [makeSlideWithLayout(layoutType)];
+
+        const result = await service.exportToPPTX(document, { editable: true });
+
+        expect(result).toBeDefined();
+        expect(result.slideCount).toBe(1);
+      });
+    }
+
+    it('should render title_center layout for title/closing slides', async () => {
+      const document = buildPPTDocument(0, false);
+      document.slides = [makeSlideWithLayout('title_center', 'title')];
+
+      const result = await service.exportToPPTX(document, { editable: true });
+
+      expect(result).toBeDefined();
+      expect(result.slideCount).toBe(1);
+    });
+
+    it('should render closing slide without page number', async () => {
+      const document = buildPPTDocument(0, false);
+      document.slides = [makeSlideWithLayout('bullet_points', 'closing')];
+
+      const result = await service.exportToPPTX(document, { editable: true });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should render slide with gradient background decision', async () => {
+      const document = buildPPTDocument(0, false);
+      const slide = makeSlideWithLayout('bullet_points');
+      (slide.spec as any).backgroundDecision = {
+        type: 'gradient',
+        colors: { primary: '#6366F1', secondary: '#8B5CF6' },
+      };
+      document.slides = [slide];
+
+      const result = await service.exportToPPTX(document, { editable: true });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should render slide with default background (no valid bgDecision type)', async () => {
+      const document = buildPPTDocument(0, false);
+      const slide = makeSlideWithLayout('bullet_points');
+      (slide.spec as any).backgroundDecision = { type: 'none', colors: null };
+      document.slides = [slide];
+
+      const result = await service.exportToPPTX(document, { editable: true });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should handle slide with background image (fails gracefully)', async () => {
+      const document = buildPPTDocument(0, false);
+      const slide = makeSlideWithLayout('bullet_points');
+      slide.images = [
+        {
+          id: 'bg-img',
+          position: 'background',
+          url: 'http://example.com/bg.png',
+          width: 1280,
+          height: 720,
+        } as any,
+      ];
+      document.slides = [slide];
+
+      // HttpService.get will throw — service should fall back gracefully
+      const mockHttpService = (service as any).httpService;
+      if (mockHttpService?.get) {
+        // Use mockRejectedValue on pipe so firstValueFrom receives a rejection
+        // without creating an unhandled Promise rejection at mock-construction time
+        mockHttpService.get.mockReturnValue({
+          pipe: jest.fn().mockRejectedValue(new Error('download failed')),
+        });
+      }
+
+      // Should not throw even if image download fails
+      const result = await service.exportToPPTX(document, { editable: true });
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // PDF export — combineV3SlidesForPdf (slides with and without HTML)
+  // ============================================================
+
+  describe('exportToPDF — HTML combination coverage', () => {
+    it('should combine slides using HTML when available (with body tag)', async () => {
+      const document = buildPPTDocument(2, false);
+      document.slides[0].html = '<!DOCTYPE html><html><head></head><body><div>Slide 1 content</div></body></html>';
+      document.slides[1].html = undefined;
+
+      const result = await service.exportToPDF(document);
+
+      expect(result).toBeDefined();
+      expect(result.slideCount).toBe(2);
+    });
+
+    it('should combine slides using HTML without body tag', async () => {
+      const document = buildPPTDocument(1, false);
+      document.slides[0].html = '<div class="slide">Content without body tag</div>';
+
+      const result = await service.exportToPDF(document);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should use legacy HTML generation when all slides lack HTML', async () => {
+      const document = buildPPTDocument(2, false);
+      // No HTML on any slide
+
+      const result = await service.exportToPDF(document);
+
+      expect(result.mimeType).toBe('application/pdf');
+    });
+
+    it('should render title slide (purpose=title) in PDF correctly', async () => {
+      const document = buildPPTDocument(0, false);
+      document.slides = [buildGeneratedSlide(0, false)]; // index 0 has purpose 'title'
+
+      const result = await service.exportToPDF(document);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // PNG export — generateSingleSlideHtml coverage
+  // ============================================================
+
+  describe('exportToPNG — single slide HTML generation', () => {
+    it('should generate HTML for slides without HTML (title slide)', async () => {
+      const document = buildPPTDocument(0, false);
+      document.slides = [buildGeneratedSlide(0, false)]; // title slide
+
+      const result = await service.exportToPNG(document);
+
+      expect(result).toBeDefined();
+      expect(result.slideCount).toBe(1);
+    });
+
+    it('should generate HTML for content slides without HTML', async () => {
+      const document = buildPPTDocument(0, false);
+      document.slides = [buildGeneratedSlide(1, false)]; // content slide
+
+      const result = await service.exportToPNG(document);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should use wrapV3HtmlForScreenshot for slides with partial HTML', async () => {
+      const document = buildPPTDocument(0, false);
+      document.slides = [buildGeneratedSlide(0, true)]; // has HTML but not full document
+      const puppeteer = require('puppeteer');
+      const launchResult = await puppeteer.launch();
+      const page = await launchResult.newPage();
+      page.setContent.mockClear();
+
+      await service.exportToPNG(document);
+
+      expect(page.setContent).toHaveBeenCalledWith(
+        expect.stringContaining('<!DOCTYPE html>'),
+        expect.any(Object),
+      );
+    });
+
+    it('should use full HTML directly for slides with complete HTML documents', async () => {
+      const document = buildPPTDocument(0, false);
+      document.slides = [buildGeneratedSlide(0, false)];
+      document.slides[0].html = '<!DOCTYPE html><html><body>Complete</body></html>';
+      const puppeteer = require('puppeteer');
+      const launchResult = await puppeteer.launch();
+      const page = await launchResult.newPage();
+      page.setContent.mockClear();
+
+      await service.exportToPNG(document);
+
+      expect(page.setContent).toHaveBeenCalledWith(
+        '<!DOCTYPE html><html><body>Complete</body></html>',
+        expect.any(Object),
+      );
+    });
+  });
+
+  // ============================================================
+  // exportToPPTX — light theme (non-dark) native rendering
+  // ============================================================
+
+  describe('exportToPPTX — light theme native rendering', () => {
+    const buildLightTheme = () => ({
+      id: 'light-corporate',
+      name: 'Light Corporate',
+      fonts: {
+        heading: 'Helvetica Neue',
+        body: 'Arial',
+      },
+      colors: {
+        primary: '#0070F3',
+        secondary: '#005BB5',
+        background: '#FFFFFF', // light — isDarkColor returns false
+        backgroundSecondary: '#F0F0F0',
+        text: '#111111',
+        textLight: '#555555',
+        textMuted: '#888888',
+        accent: '#0070F3',
+        border: '#DDDDDD',
+      },
+      slideBackground: '#FFFFFF',
+    } as unknown as PPTTheme);
+
+    it('should render with light theme (non-gradient background)', async () => {
+      const document = buildPPTDocument(1, false);
+      document.theme = buildLightTheme();
+
+      const result = await service.exportToPPTX(document, { editable: true });
+
+      expect(result).toBeDefined();
+      expect(result.slideCount).toBe(1);
+    });
+
+    it('should render title_center layout with light theme', async () => {
+      const document = buildPPTDocument(0, false);
+      document.theme = buildLightTheme();
+      const slide = {
+        id: 'light-slide',
+        index: 0,
+        spec: {
+          purpose: 'title',
+          title: 'Light Title',
+          layoutType: 'title_center',
+          backgroundDecision: { type: 'solid', colors: { primary: '#FFFFFF' } },
+        },
+        content: {
+          title: 'Light Title',
+          subtitle: 'Light Subtitle',
+          bulletPoints: [],
+          bodyText: '',
+        },
+        images: [],
+        html: undefined,
+        isEdited: false,
+        editHistory: [],
+        generationMetadata: {
+          textModelUsed: 'gpt-4',
+          contentGeneratedAt: new Date().toISOString(),
+        },
+      } as unknown as GeneratedSlide;
+      document.slides = [slide];
+
+      const result = await service.exportToPPTX(document, { editable: true });
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ============================================================
+  // exportFromHtmlSlides — additional branches
+  // ============================================================
+
+  describe('exportFromHtmlSlides — additional coverage', () => {
+    it('should handle slide HTML that is already a full document with <html> tag', async () => {
+      const htmlSlides = ['<html><body>Full document</body></html>'];
+      const puppeteer = require('puppeteer');
+      const launchResult = await puppeteer.launch();
+      const page = await launchResult.newPage();
+      page.setContent.mockClear();
+
+      await service.exportFromHtmlSlides(htmlSlides, { title: 'Full HTML' });
+
+      // HTML with <html> tag should be passed through unchanged
+      expect(page.setContent).toHaveBeenCalledWith(
+        htmlSlides[0],
+        expect.any(Object),
+      );
+    });
+
+    it('should include subtitle in PPTX document properties', async () => {
+      const htmlSlides = ['<div>Content</div>'];
+
+      const result = await service.exportFromHtmlSlides(htmlSlides, {
+        title: 'Export Title',
+        subtitle: 'Export Subtitle',
+      });
+
+      expect(result.filename).toContain('Export Title');
+    });
+  });
 });
