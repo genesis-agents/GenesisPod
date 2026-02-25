@@ -166,7 +166,7 @@ export class SlidesMissionHealthService
       this.recoverInterruptedMissions().catch((err) => {
         this.logger.error(`Auto-recovery failed: ${err.message}`);
       });
-    }, RECOVERY_CONFIG.recoveryDelayMs);
+    }, RECOVERY_CONFIG.recoveryDelayMs).unref();
 
     this.logger.log(
       `Auto-recovery scheduled in ${RECOVERY_CONFIG.recoveryDelayMs / 1000}s`,

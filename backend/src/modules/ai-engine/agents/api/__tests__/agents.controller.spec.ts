@@ -20,7 +20,6 @@ import { AgentsController } from "../agents.controller";
 import { AgentOrchestrator } from "../../registry/agent-orchestrator";
 import { AgentRegistry } from "../../registry/agent-registry";
 import { AgentsService } from "../agents.service";
-import { BUILTIN_AGENTS } from "../../../core/types/agent.types";
 
 describe("AgentsController", () => {
   let controller: AgentsController;
@@ -86,7 +85,10 @@ describe("AgentsController", () => {
       getAllConfigs: jest.fn().mockReturnValue([mockAgentConfig]),
       getStats: jest
         .fn()
-        .mockReturnValue({ total: 1, byId: { slides: { executions: 10, errors: 1 } } }),
+        .mockReturnValue({
+          total: 1,
+          byId: { slides: { executions: 10, errors: 1 } },
+        }),
       has: jest.fn().mockReturnValue(true),
       get: jest.fn().mockReturnValue(mockAgent),
     };
@@ -101,11 +103,14 @@ describe("AgentsController", () => {
       updateTaskResult: jest.fn().mockResolvedValue(undefined),
       publishEvent: jest.fn(),
       cancelTask: jest.fn().mockResolvedValue(true),
-      getArtifacts: jest.fn().mockResolvedValue([{ id: "art-1", type: "pptx" }]),
+      getArtifacts: jest
+        .fn()
+        .mockResolvedValue([{ id: "art-1", type: "pptx" }]),
       getArtifactDownload: jest.fn().mockResolvedValue({
         url: "https://storage.example.com/file.pptx",
         name: "presentation.pptx",
-        mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       }),
     };
 

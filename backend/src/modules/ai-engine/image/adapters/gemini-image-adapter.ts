@@ -223,8 +223,9 @@ export class GeminiImageAdapter extends BaseImageAdapter {
       return this.parseImagenResponse(response.data, model);
     } catch (error: unknown) {
       // Fallback to predict endpoint or Gemini Flash
-      const e = error as { response?: { status?: number } };
-      if (e.response?.status === 404) {
+      if (
+        (error as { response?: { status?: number } }).response?.status === 404
+      ) {
         this.logger.warn(`Imagen generateImages not found, trying predict...`);
         return this.generateWithImagenPredict(
           apiKey,
@@ -300,9 +301,19 @@ export class GeminiImageAdapter extends BaseImageAdapter {
   /**
    * 解析 Gemini 响应
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
-  private parseGeminiResponse(data: any, model: string): ImageGenerationResult {
-    const candidates = data.candidates;
+  private parseGeminiResponse(
+    data: Record<string, unknown>,
+    model: string,
+  ): ImageGenerationResult {
+    type GeminiData = {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }>;
+        };
+      }>;
+    };
+    const d = data as GeminiData;
+    const candidates = d.candidates;
     if (!candidates || candidates.length === 0) {
       throw new Error("No candidates in Gemini response");
     }
@@ -311,7 +322,7 @@ export class GeminiImageAdapter extends BaseImageAdapter {
     if (parts) {
       for (const part of parts) {
         if (part.inlineData?.data) {
-          const mimeType = part.inlineData.mimeType || "image/png";
+          const mimeType = part.inlineData.mimeType ?? "image/png";
           return {
             images: [
               {
@@ -333,9 +344,17 @@ export class GeminiImageAdapter extends BaseImageAdapter {
   /**
    * 解析 Imagen 响应
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
-  private parseImagenResponse(data: any, model: string): ImageGenerationResult {
-    const images = data?.generatedImages;
+  private parseImagenResponse(
+    data: Record<string, unknown>,
+    model: string,
+  ): ImageGenerationResult {
+    type ImagenData = {
+      generatedImages?: Array<{
+        image?: { imageType?: string; bytesBase64Encoded?: string };
+      }>;
+    };
+    const d = data as ImagenData;
+    const images = d.generatedImages;
     if (!images || images.length === 0) {
       throw new Error("No images in Imagen response");
     }
@@ -345,7 +364,7 @@ export class GeminiImageAdapter extends BaseImageAdapter {
       throw new Error("No image data in Imagen response");
     }
 
-    const mimeType = imageData.imageType || "image/png";
+    const mimeType = imageData.imageType ?? "image/png";
     return {
       images: [
         {

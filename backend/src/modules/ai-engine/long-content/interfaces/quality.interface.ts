@@ -3,8 +3,6 @@
  * Quality Monitor Interfaces
  */
 
-import { AIModelType } from "@prisma/client";
-
 /**
  * 基础质量指标
  */
@@ -307,7 +305,7 @@ export const DEFAULT_QUALITY_MONITOR_CONFIG: QualityMonitorConfig = {
   aiEvaluation: {
     enabled: true,
     evaluationInterval: 5,
-    evaluationModel: AIModelType.CHAT_FAST,
+    evaluationModel: "gpt-4o-mini",
   },
 };
 

@@ -22,7 +22,6 @@ import {
   DEFAULT_SLIDING_WINDOW_CONFIG,
 } from "../interfaces";
 import { AiChatService } from "../../llm/services/ai-chat.service";
-import { AIModelType } from "@prisma/client";
 
 @Injectable()
 export class SlidingWindowContextService {
@@ -308,15 +307,12 @@ ${recentSummariesText}
 
     try {
       const response = await this.aiChatService.chat({
-        modelType: AIModelType.CHAT_FAST,
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: "你是一个专业的内容摘要助手。" },
           { role: "user", content: prompt },
         ],
-        taskProfile: {
-          creativity: "low",
-          outputLength: "minimal",
-        },
+        maxTokens: 500,
       });
 
       const newSummary = response.content || projectStore.globalSummary;
@@ -423,7 +419,7 @@ ${projectInfo.description}
 
     try {
       const response = await this.aiChatService.chat({
-        modelType: AIModelType.CHAT_FAST,
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -434,10 +430,7 @@ ${projectInfo.description}
             content: `请为以下内容（标题：${title}）生成不超过${maxLength}字的摘要：\n\n${content.slice(0, 2000)}`,
           },
         ],
-        taskProfile: {
-          creativity: "low",
-          outputLength: "short",
-        },
+        maxTokens: 300,
       });
 
       return response.content || content.slice(0, maxLength) + "...";

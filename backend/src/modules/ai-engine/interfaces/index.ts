@@ -1,12 +1,10 @@
 /**
- * AI Engine Interfaces
- * 导出所有抽象接口和注入 Token
- *
- * 这些接口定义了 AI Engine 对上层 AI Apps 的依赖抽象
- * 实现了依赖反转原则 (Dependency Inversion Principle)
+ * AI Engine Interfaces - Re-export shim
+ * 此目录内容已迁移到 core/interfaces/
+ * 保留此文件以保持向后兼容性
  */
 
-export * from "./research.interface";
-export * from "./simulation.interface";
-export * from "./image.interface";
-export * from "./rag.interface";
+export * from "../core/interfaces/research.interface";
+export * from "../core/interfaces/simulation.interface";
+export * from "../core/interfaces/image.interface";
+export * from "../core/interfaces/rag.interface";

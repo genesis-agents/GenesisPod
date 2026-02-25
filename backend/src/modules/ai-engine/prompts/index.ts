@@ -1,12 +1,13 @@
 /**
- * Prompts Module Exports
- * 导出 Prompt 模板管理相关的模块和服务
+ * Prompts Module - Re-export shim
+ * 此目录内容已迁移到 llm/prompts/
+ * 保留此文件以保持向后兼容性
  */
 
-export { PromptsModule } from './prompts.module';
+export { PromptsModule } from "../llm/prompts/prompts.module";
 export {
   PromptTemplateService,
   PromptTemplateData,
   CreatePromptTemplateDto,
-} from './prompt-template.service';
-export { PromptRegistryService } from './prompt-registry.service';
+} from "../llm/prompts/prompt-template.service";
+export { PromptRegistryService } from "../llm/prompts/prompt-registry.service";

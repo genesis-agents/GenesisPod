@@ -126,16 +126,18 @@ export class StabilityImageAdapter extends BaseImageAdapter {
   /**
    * 解析响应
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
-  private parseResponse(data: any, model: string): ImageGenerationResult {
-    const artifacts = data.artifacts;
+  private parseResponse(
+    data: Record<string, unknown>,
+    model: string,
+  ): ImageGenerationResult {
+    type StabilityData = { artifacts?: Array<{ base64?: string }> };
+    const artifacts = (data as StabilityData).artifacts;
     if (!artifacts || artifacts.length === 0) {
       throw new Error("No artifacts in Stability response");
     }
 
     return {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
-      images: artifacts.map((artifact: any) => ({
+      images: artifacts.map((artifact) => ({
         url: `data:image/png;base64,${artifact.base64}`,
         isBase64: true,
         mimeType: "image/png",

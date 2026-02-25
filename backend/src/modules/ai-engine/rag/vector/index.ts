@@ -1,5 +1,2 @@
-/**
- * AI Engine - Vector Module Exports
- */
-
-export * from "./vector.service";
+/** Re-export shim - 已迁移到 knowledge/rag/vector/ */
+export * from "../../knowledge/rag/vector";
