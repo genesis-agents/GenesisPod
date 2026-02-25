@@ -307,6 +307,28 @@ const aiEngineLayer: ArchitectureLayer = {
       clickable: true,
       stats: [{ label: '工具', key: 'tools' }],
     },
+    {
+      id: 'rag',
+      i18nKey: 'admin.nav.rag',
+      descriptionKey: 'admin.architecture.cards.ragDesc',
+      href: '/library/rag',
+      icon: Brain,
+      clickable: true,
+    },
+    {
+      id: 'mcpClients',
+      i18nKey: 'admin.nav.mcpClients',
+      descriptionKey: 'admin.architecture.cards.mcpClientsDesc',
+      icon: Share2,
+      clickable: false,
+    },
+    {
+      id: 'guardrails',
+      i18nKey: 'admin.nav.guardrails',
+      descriptionKey: 'admin.architecture.cards.guardrailsDesc',
+      icon: Shield,
+      clickable: false,
+    },
   ],
 };
 
