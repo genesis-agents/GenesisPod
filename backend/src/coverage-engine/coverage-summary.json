@@ -1,0 +1,1370 @@
+{
+  "total": {
+    "lines": { "total": 20488, "covered": 18688, "skipped": 0, "pct": 91.21 },
+    "statements": {
+      "total": 21603,
+      "covered": 19610,
+      "skipped": 0,
+      "pct": 90.77
+    },
+    "functions": { "total": 3497, "covered": 3190, "skipped": 0, "pct": 91.22 },
+    "branches": { "total": 10682, "covered": 8435, "skipped": 0, "pct": 78.96 },
+    "branchesTrue": { "total": 0, "covered": 0, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\a2a\\a2a.controller.ts": {
+    "lines": { "total": 123, "covered": 110, "skipped": 0, "pct": 89.43 },
+    "functions": { "total": 11, "covered": 10, "skipped": 0, "pct": 90.9 },
+    "statements": { "total": 131, "covered": 115, "skipped": 0, "pct": 87.78 },
+    "branches": { "total": 97, "covered": 72, "skipped": 0, "pct": 74.22 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\a2a\\adapter\\a2a-client.service.ts": {
+    "lines": { "total": 37, "covered": 37, "skipped": 0, "pct": 100 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 38, "covered": 38, "skipped": 0, "pct": 100 },
+    "branches": { "total": 6, "covered": 4, "skipped": 0, "pct": 66.66 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\a2a\\adapter\\a2a-team-member-adapter.ts": {
+    "lines": { "total": 77, "covered": 75, "skipped": 0, "pct": 97.4 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 80, "covered": 78, "skipped": 0, "pct": 97.5 },
+    "branches": { "total": 11, "covered": 10, "skipped": 0, "pct": 90.9 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\a2a\\agent-card\\agent-card.registry.ts": {
+    "lines": { "total": 19, "covered": 19, "skipped": 0, "pct": 100 },
+    "functions": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "statements": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "branches": { "total": 2, "covered": 2, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\a2a\\guards\\a2a-api-key.guard.ts": {
+    "lines": { "total": 38, "covered": 38, "skipped": 0, "pct": 100 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 40, "covered": 40, "skipped": 0, "pct": 100 },
+    "branches": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\api\\agents.controller.ts": {
+    "lines": { "total": 60, "covered": 59, "skipped": 0, "pct": 98.33 },
+    "functions": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "statements": { "total": 61, "covered": 60, "skipped": 0, "pct": 98.36 },
+    "branches": { "total": 9, "covered": 7, "skipped": 0, "pct": 77.77 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\api\\agents.service.ts": {
+    "lines": { "total": 72, "covered": 69, "skipped": 0, "pct": 95.83 },
+    "functions": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "statements": { "total": 75, "covered": 72, "skipped": 0, "pct": 96 },
+    "branches": { "total": 41, "covered": 38, "skipped": 0, "pct": 92.68 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\base\\base-agent.ts": {
+    "lines": { "total": 107, "covered": 95, "skipped": 0, "pct": 88.78 },
+    "functions": { "total": 20, "covered": 18, "skipped": 0, "pct": 90 },
+    "statements": { "total": 109, "covered": 97, "skipped": 0, "pct": 88.99 },
+    "branches": { "total": 23, "covered": 20, "skipped": 0, "pct": 86.95 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\base\\plan-agent.ts": {
+    "lines": { "total": 118, "covered": 95, "skipped": 0, "pct": 80.5 },
+    "functions": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "statements": { "total": 122, "covered": 98, "skipped": 0, "pct": 80.32 },
+    "branches": { "total": 50, "covered": 25, "skipped": 0, "pct": 50 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\base\\plan-based-agent.ts": {
+    "lines": { "total": 30, "covered": 21, "skipped": 0, "pct": 70 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 30, "covered": 21, "skipped": 0, "pct": 70 },
+    "branches": { "total": 1, "covered": 1, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\base\\reactive-agent.ts": {
+    "lines": { "total": 71, "covered": 68, "skipped": 0, "pct": 95.77 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 72, "covered": 69, "skipped": 0, "pct": 95.83 },
+    "branches": { "total": 32, "covered": 22, "skipped": 0, "pct": 68.75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\config\\agent-config.service.ts": {
+    "lines": { "total": 42, "covered": 42, "skipped": 0, "pct": 100 },
+    "functions": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "statements": { "total": 49, "covered": 49, "skipped": 0, "pct": 100 },
+    "branches": { "total": 19, "covered": 19, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\registry\\agent-orchestrator.ts": {
+    "lines": { "total": 103, "covered": 98, "skipped": 0, "pct": 95.14 },
+    "functions": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 },
+    "statements": { "total": 108, "covered": 103, "skipped": 0, "pct": 95.37 },
+    "branches": { "total": 54, "covered": 51, "skipped": 0, "pct": 94.44 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\agents\\registry\\agent-registry.ts": {
+    "lines": { "total": 35, "covered": 35, "skipped": 0, "pct": 100 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 36, "covered": 36, "skipped": 0, "pct": 100 },
+    "branches": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\api\\ai-core.controller.ts": {
+    "lines": { "total": 350, "covered": 296, "skipped": 0, "pct": 84.57 },
+    "functions": { "total": 40, "covered": 29, "skipped": 0, "pct": 72.5 },
+    "statements": { "total": 356, "covered": 302, "skipped": 0, "pct": 84.83 },
+    "branches": { "total": 247, "covered": 194, "skipped": 0, "pct": 78.54 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\api\\ai-core.service.ts": {
+    "lines": { "total": 36, "covered": 36, "skipped": 0, "pct": 100 },
+    "functions": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "statements": { "total": 37, "covered": 37, "skipped": 0, "pct": 100 },
+    "branches": { "total": 7, "covered": 5, "skipped": 0, "pct": 71.42 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\capabilities\\ai-capability-resolver.service.ts": {
+    "lines": { "total": 195, "covered": 188, "skipped": 0, "pct": 96.41 },
+    "functions": { "total": 39, "covered": 39, "skipped": 0, "pct": 100 },
+    "statements": { "total": 205, "covered": 198, "skipped": 0, "pct": 96.58 },
+    "branches": { "total": 76, "covered": 66, "skipped": 0, "pct": 86.84 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\collaboration\\patterns\\handoff-pattern.ts": {
+    "lines": { "total": 69, "covered": 69, "skipped": 0, "pct": 100 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 69, "covered": 69, "skipped": 0, "pct": 100 },
+    "branches": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\collaboration\\patterns\\voting-pattern.ts": {
+    "lines": { "total": 97, "covered": 97, "skipped": 0, "pct": 100 },
+    "functions": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 },
+    "statements": { "total": 100, "covered": 100, "skipped": 0, "pct": 100 },
+    "branches": { "total": 48, "covered": 48, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\collaboration\\review\\review-workflow.service.ts": {
+    "lines": { "total": 170, "covered": 170, "skipped": 0, "pct": 100 },
+    "functions": { "total": 20, "covered": 20, "skipped": 0, "pct": 100 },
+    "statements": { "total": 173, "covered": 173, "skipped": 0, "pct": 100 },
+    "branches": { "total": 77, "covered": 68, "skipped": 0, "pct": 88.31 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\collaboration\\todo\\todo.service.ts": {
+    "lines": { "total": 142, "covered": 142, "skipped": 0, "pct": 100 },
+    "functions": { "total": 22, "covered": 22, "skipped": 0, "pct": 100 },
+    "statements": { "total": 160, "covered": 160, "skipped": 0, "pct": 100 },
+    "branches": { "total": 74, "covered": 74, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\common\\multi-key-manager.ts": {
+    "lines": { "total": 52, "covered": 52, "skipped": 0, "pct": 100 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 57, "covered": 57, "skipped": 0, "pct": 100 },
+    "branches": { "total": 18, "covered": 18, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\constraint\\guardrails\\content-filter.ts": {
+    "lines": { "total": 46, "covered": 46, "skipped": 0, "pct": 100 },
+    "functions": { "total": 11, "covered": 11, "skipped": 0, "pct": 100 },
+    "statements": { "total": 47, "covered": 47, "skipped": 0, "pct": 100 },
+    "branches": { "total": 20, "covered": 20, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\constraint\\guardrails\\cost-controller.ts": {
+    "lines": { "total": 131, "covered": 124, "skipped": 0, "pct": 94.65 },
+    "functions": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 },
+    "statements": { "total": 136, "covered": 128, "skipped": 0, "pct": 94.11 },
+    "branches": { "total": 41, "covered": 38, "skipped": 0, "pct": 92.68 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\constraint\\guardrails\\rate-limiter.ts": {
+    "lines": { "total": 88, "covered": 88, "skipped": 0, "pct": 100 },
+    "functions": { "total": 16, "covered": 16, "skipped": 0, "pct": 100 },
+    "statements": { "total": 95, "covered": 95, "skipped": 0, "pct": 100 },
+    "branches": { "total": 37, "covered": 30, "skipped": 0, "pct": 81.08 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\constraint\\validators\\schema-validator.ts": {
+    "lines": { "total": 98, "covered": 98, "skipped": 0, "pct": 100 },
+    "functions": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 },
+    "statements": { "total": 98, "covered": 98, "skipped": 0, "pct": 100 },
+    "branches": { "total": 94, "covered": 94, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\content-analysis\\content-analysis.service.ts": {
+    "lines": { "total": 158, "covered": 153, "skipped": 0, "pct": 96.83 },
+    "functions": { "total": 28, "covered": 27, "skipped": 0, "pct": 96.42 },
+    "statements": { "total": 188, "covered": 182, "skipped": 0, "pct": 96.8 },
+    "branches": { "total": 137, "covered": 92, "skipped": 0, "pct": 67.15 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\content-fetch\\content-fetch.service.ts": {
+    "lines": { "total": 81, "covered": 78, "skipped": 0, "pct": 96.29 },
+    "functions": { "total": 9, "covered": 8, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 84, "covered": 81, "skipped": 0, "pct": 96.42 },
+    "branches": { "total": 48, "covered": 37, "skipped": 0, "pct": 77.08 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\core\\errors\\agent-error.ts": {
+    "lines": { "total": 34, "covered": 21, "skipped": 0, "pct": 61.76 },
+    "functions": { "total": 21, "covered": 9, "skipped": 0, "pct": 42.85 },
+    "statements": { "total": 36, "covered": 22, "skipped": 0, "pct": 61.11 },
+    "branches": { "total": 17, "covered": 5, "skipped": 0, "pct": 29.41 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\core\\errors\\base-error.ts": {
+    "lines": { "total": 63, "covered": 19, "skipped": 0, "pct": 30.15 },
+    "functions": { "total": 15, "covered": 3, "skipped": 0, "pct": 20 },
+    "statements": { "total": 63, "covered": 19, "skipped": 0, "pct": 30.15 },
+    "branches": { "total": 41, "covered": 11, "skipped": 0, "pct": 26.82 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\core\\errors\\error-codes.ts": {
+    "lines": { "total": 16, "covered": 10, "skipped": 0, "pct": 62.5 },
+    "functions": { "total": 3, "covered": 1, "skipped": 0, "pct": 33.33 },
+    "statements": { "total": 24, "covered": 14, "skipped": 0, "pct": 58.33 },
+    "branches": { "total": 4, "covered": 0, "skipped": 0, "pct": 0 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\core\\errors\\skill-error.ts": {
+    "lines": { "total": 30, "covered": 18, "skipped": 0, "pct": 60 },
+    "functions": { "total": 15, "covered": 4, "skipped": 0, "pct": 26.66 },
+    "statements": { "total": 33, "covered": 19, "skipped": 0, "pct": 57.57 },
+    "branches": { "total": 14, "covered": 5, "skipped": 0, "pct": 35.71 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\core\\errors\\tool-error.ts": {
+    "lines": { "total": 28, "covered": 17, "skipped": 0, "pct": 60.71 },
+    "functions": { "total": 15, "covered": 5, "skipped": 0, "pct": 33.33 },
+    "statements": { "total": 30, "covered": 18, "skipped": 0, "pct": 60 },
+    "branches": { "total": 17, "covered": 5, "skipped": 0, "pct": 29.41 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\core\\exceptions\\ai-service.exception.ts": {
+    "lines": { "total": 12, "covered": 3, "skipped": 0, "pct": 25 },
+    "functions": { "total": 4, "covered": 1, "skipped": 0, "pct": 25 },
+    "statements": { "total": 12, "covered": 3, "skipped": 0, "pct": 25 },
+    "branches": { "total": 4, "covered": 1, "skipped": 0, "pct": 25 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\evidence\\services\\citation-formatter.service.ts": {
+    "lines": { "total": 107, "covered": 104, "skipped": 0, "pct": 97.19 },
+    "functions": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 },
+    "statements": { "total": 110, "covered": 107, "skipped": 0, "pct": 97.27 },
+    "branches": { "total": 37, "covered": 36, "skipped": 0, "pct": 97.29 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\evidence\\services\\evidence-manager.service.ts": {
+    "lines": { "total": 84, "covered": 80, "skipped": 0, "pct": 95.23 },
+    "functions": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 },
+    "statements": { "total": 89, "covered": 85, "skipped": 0, "pct": 95.5 },
+    "branches": { "total": 64, "covered": 59, "skipped": 0, "pct": 92.18 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\ai-engine.facade.ts": {
+    "lines": { "total": 552, "covered": 449, "skipped": 0, "pct": 81.34 },
+    "functions": { "total": 121, "covered": 47, "skipped": 0, "pct": 38.84 },
+    "statements": { "total": 558, "covered": 454, "skipped": 0, "pct": 81.36 },
+    "branches": { "total": 240, "covered": 177, "skipped": 0, "pct": 73.75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\facade.providers.ts": {
+    "lines": { "total": 38, "covered": 26, "skipped": 0, "pct": 68.42 },
+    "functions": { "total": 6, "covered": 0, "skipped": 0, "pct": 0 },
+    "statements": { "total": 57, "covered": 33, "skipped": 0, "pct": 57.89 },
+    "branches": { "total": 16, "covered": 0, "skipped": 0, "pct": 0 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\model-resolver.service.ts": {
+    "lines": { "total": 70, "covered": 70, "skipped": 0, "pct": 100 },
+    "functions": { "total": 18, "covered": 18, "skipped": 0, "pct": 100 },
+    "statements": { "total": 78, "covered": 78, "skipped": 0, "pct": 100 },
+    "branches": { "total": 88, "covered": 78, "skipped": 0, "pct": 88.63 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\sub-facades\\agent.sub-facade.ts": {
+    "lines": { "total": 27, "covered": 6, "skipped": 0, "pct": 22.22 },
+    "functions": { "total": 3, "covered": 1, "skipped": 0, "pct": 33.33 },
+    "statements": { "total": 28, "covered": 7, "skipped": 0, "pct": 25 },
+    "branches": { "total": 27, "covered": 0, "skipped": 0, "pct": 0 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\sub-facades\\memory.sub-facade.ts": {
+    "lines": { "total": 30, "covered": 20, "skipped": 0, "pct": 66.66 },
+    "functions": { "total": 7, "covered": 3, "skipped": 0, "pct": 42.85 },
+    "statements": { "total": 34, "covered": 21, "skipped": 0, "pct": 61.76 },
+    "branches": { "total": 21, "covered": 14, "skipped": 0, "pct": 66.66 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\sub-facades\\model.sub-facade.ts": {
+    "lines": { "total": 101, "covered": 101, "skipped": 0, "pct": 100 },
+    "functions": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "statements": { "total": 111, "covered": 111, "skipped": 0, "pct": 100 },
+    "branches": { "total": 108, "covered": 98, "skipped": 0, "pct": 90.74 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\sub-facades\\team.sub-facade.ts": {
+    "lines": { "total": 45, "covered": 45, "skipped": 0, "pct": 100 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 47, "covered": 47, "skipped": 0, "pct": 100 },
+    "branches": { "total": 19, "covered": 18, "skipped": 0, "pct": 94.73 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\facade\\sub-facades\\tool-exec.sub-facade.ts": {
+    "lines": { "total": 62, "covered": 62, "skipped": 0, "pct": 100 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 66, "covered": 66, "skipped": 0, "pct": 100 },
+    "branches": { "total": 34, "covered": 34, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\guardrails\\guardrails-pipeline.service.ts": {
+    "lines": { "total": 51, "covered": 47, "skipped": 0, "pct": 92.15 },
+    "functions": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "statements": { "total": 51, "covered": 47, "skipped": 0, "pct": 92.15 },
+    "branches": { "total": 28, "covered": 21, "skipped": 0, "pct": 75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\guardrails\\input\\content-safety-filter.ts": {
+    "lines": { "total": 23, "covered": 23, "skipped": 0, "pct": 100 },
+    "functions": { "total": 5, "covered": 5, "skipped": 0, "pct": 100 },
+    "statements": { "total": 24, "covered": 24, "skipped": 0, "pct": 100 },
+    "branches": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\guardrails\\input\\input-complexity-check.ts": {
+    "lines": { "total": 19, "covered": 19, "skipped": 0, "pct": 100 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 20, "covered": 20, "skipped": 0, "pct": 100 },
+    "branches": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\guardrails\\input\\prompt-injection-detector.ts": {
+    "lines": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "functions": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 },
+    "statements": { "total": 22, "covered": 22, "skipped": 0, "pct": 100 },
+    "branches": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\guardrails\\output\\content-compliance-check.ts": {
+    "lines": { "total": 22, "covered": 22, "skipped": 0, "pct": 100 },
+    "functions": { "total": 1, "covered": 1, "skipped": 0, "pct": 100 },
+    "statements": { "total": 22, "covered": 22, "skipped": 0, "pct": 100 },
+    "branches": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\image\\adapters\\base-image-adapter.ts": {
+    "lines": { "total": 24, "covered": 24, "skipped": 0, "pct": 100 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 29, "covered": 29, "skipped": 0, "pct": 100 },
+    "branches": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\image\\adapters\\gemini-image-adapter.ts": {
+    "lines": { "total": 75, "covered": 71, "skipped": 0, "pct": 94.66 },
+    "functions": { "total": 11, "covered": 11, "skipped": 0, "pct": 100 },
+    "statements": { "total": 75, "covered": 71, "skipped": 0, "pct": 94.66 },
+    "branches": { "total": 29, "covered": 22, "skipped": 0, "pct": 75.86 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\image\\adapters\\openai-image-adapter.ts": {
+    "lines": { "total": 35, "covered": 35, "skipped": 0, "pct": 100 },
+    "functions": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "statements": { "total": 35, "covered": 35, "skipped": 0, "pct": 100 },
+    "branches": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\image\\adapters\\stability-image-adapter.ts": {
+    "lines": { "total": 32, "covered": 32, "skipped": 0, "pct": 100 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 32, "covered": 32, "skipped": 0, "pct": 100 },
+    "branches": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\image\\adapters\\together-image-adapter.ts": {
+    "lines": { "total": 27, "covered": 27, "skipped": 0, "pct": 100 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 27, "covered": 27, "skipped": 0, "pct": 100 },
+    "branches": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\image\\factory\\image-factory.ts": {
+    "lines": { "total": 59, "covered": 59, "skipped": 0, "pct": 100 },
+    "functions": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "statements": { "total": 60, "covered": 60, "skipped": 0, "pct": 100 },
+    "branches": { "total": 25, "covered": 24, "skipped": 0, "pct": 96 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\image\\matching\\image-matching.service.ts": {
+    "lines": { "total": 128, "covered": 120, "skipped": 0, "pct": 93.75 },
+    "functions": { "total": 26, "covered": 26, "skipped": 0, "pct": 100 },
+    "statements": { "total": 131, "covered": 123, "skipped": 0, "pct": 93.89 },
+    "branches": { "total": 49, "covered": 40, "skipped": 0, "pct": 81.63 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\adapters\\ai-chat-llm-adapter.ts": {
+    "lines": { "total": 68, "covered": 55, "skipped": 0, "pct": 80.88 },
+    "functions": { "total": 11, "covered": 11, "skipped": 0, "pct": 100 },
+    "statements": { "total": 77, "covered": 64, "skipped": 0, "pct": 83.11 },
+    "branches": { "total": 16, "covered": 10, "skipped": 0, "pct": 62.5 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\adapters\\base-llm-adapter.ts": {
+    "lines": { "total": 23, "covered": 23, "skipped": 0, "pct": 100 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 23, "covered": 23, "skipped": 0, "pct": 100 },
+    "branches": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\adapters\\function-calling-llm-adapter.ts": {
+    "lines": { "total": 153, "covered": 114, "skipped": 0, "pct": 74.5 },
+    "functions": { "total": 22, "covered": 21, "skipped": 0, "pct": 95.45 },
+    "statements": { "total": 161, "covered": 121, "skipped": 0, "pct": 75.15 },
+    "branches": { "total": 181, "covered": 98, "skipped": 0, "pct": 54.14 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\adapters\\universal-llm-adapter.ts": {
+    "lines": { "total": 72, "covered": 64, "skipped": 0, "pct": 88.88 },
+    "functions": { "total": 18, "covered": 16, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 84, "covered": 76, "skipped": 0, "pct": 90.47 },
+    "branches": { "total": 31, "covered": 25, "skipped": 0, "pct": 80.64 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\factory\\llm-factory.ts": {
+    "lines": { "total": 53, "covered": 53, "skipped": 0, "pct": 100 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 54, "covered": 54, "skipped": 0, "pct": 100 },
+    "branches": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\model-fallback\\model-fallback.service.ts": {
+    "lines": { "total": 145, "covered": 137, "skipped": 0, "pct": 94.48 },
+    "functions": { "total": 24, "covered": 23, "skipped": 0, "pct": 95.83 },
+    "statements": { "total": 157, "covered": 149, "skipped": 0, "pct": 94.9 },
+    "branches": { "total": 40, "covered": 37, "skipped": 0, "pct": 92.5 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-api-caller.service.ts": {
+    "lines": { "total": 121, "covered": 121, "skipped": 0, "pct": 100 },
+    "functions": { "total": 19, "covered": 19, "skipped": 0, "pct": 100 },
+    "statements": { "total": 128, "covered": 128, "skipped": 0, "pct": 100 },
+    "branches": { "total": 123, "covered": 99, "skipped": 0, "pct": 80.48 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-chat-model-config.service.ts": {
+    "lines": { "total": 104, "covered": 97, "skipped": 0, "pct": 93.26 },
+    "functions": { "total": 16, "covered": 15, "skipped": 0, "pct": 93.75 },
+    "statements": { "total": 115, "covered": 106, "skipped": 0, "pct": 92.17 },
+    "branches": { "total": 90, "covered": 68, "skipped": 0, "pct": 75.55 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-chat-prompt.service.ts": {
+    "lines": { "total": 89, "covered": 83, "skipped": 0, "pct": 93.25 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 91, "covered": 85, "skipped": 0, "pct": 93.4 },
+    "branches": { "total": 29, "covered": 24, "skipped": 0, "pct": 82.75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-chat-retry.service.ts": {
+    "lines": { "total": 68, "covered": 50, "skipped": 0, "pct": 73.52 },
+    "functions": { "total": 8, "covered": 7, "skipped": 0, "pct": 87.5 },
+    "statements": { "total": 71, "covered": 52, "skipped": 0, "pct": 73.23 },
+    "branches": { "total": 36, "covered": 25, "skipped": 0, "pct": 69.44 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-chat-token.service.ts": {
+    "lines": { "total": 26, "covered": 26, "skipped": 0, "pct": 100 },
+    "functions": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 },
+    "statements": { "total": 26, "covered": 26, "skipped": 0, "pct": 100 },
+    "branches": { "total": 20, "covered": 20, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-chat.service.ts": {
+    "lines": { "total": 407, "covered": 384, "skipped": 0, "pct": 94.34 },
+    "functions": { "total": 34, "covered": 33, "skipped": 0, "pct": 97.05 },
+    "statements": { "total": 414, "covered": 390, "skipped": 0, "pct": 94.2 },
+    "branches": { "total": 265, "covered": 209, "skipped": 0, "pct": 78.86 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-connection-test.service.ts": {
+    "lines": { "total": 182, "covered": 144, "skipped": 0, "pct": 79.12 },
+    "functions": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 },
+    "statements": { "total": 183, "covered": 145, "skipped": 0, "pct": 79.23 },
+    "branches": { "total": 149, "covered": 100, "skipped": 0, "pct": 67.11 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-direct-key.service.ts": {
+    "lines": { "total": 319, "covered": 285, "skipped": 0, "pct": 89.34 },
+    "functions": { "total": 33, "covered": 32, "skipped": 0, "pct": 96.96 },
+    "statements": { "total": 330, "covered": 294, "skipped": 0, "pct": 89.09 },
+    "branches": { "total": 282, "covered": 207, "skipped": 0, "pct": 73.4 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-image-generation.service.ts": {
+    "lines": { "total": 83, "covered": 81, "skipped": 0, "pct": 97.59 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 89, "covered": 87, "skipped": 0, "pct": 97.75 },
+    "branches": { "total": 36, "covered": 33, "skipped": 0, "pct": 91.66 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-model-config.service.ts": {
+    "lines": { "total": 269, "covered": 239, "skipped": 0, "pct": 88.84 },
+    "functions": { "total": 40, "covered": 39, "skipped": 0, "pct": 97.5 },
+    "statements": { "total": 292, "covered": 258, "skipped": 0, "pct": 88.35 },
+    "branches": { "total": 157, "covered": 128, "skipped": 0, "pct": 81.52 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-model-discovery.service.ts": {
+    "lines": { "total": 128, "covered": 122, "skipped": 0, "pct": 95.31 },
+    "functions": { "total": 29, "covered": 26, "skipped": 0, "pct": 89.65 },
+    "statements": { "total": 144, "covered": 138, "skipped": 0, "pct": 95.83 },
+    "branches": { "total": 153, "covered": 137, "skipped": 0, "pct": 89.54 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\ai-stream-handler.service.ts": {
+    "lines": { "total": 67, "covered": 67, "skipped": 0, "pct": 100 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 71, "covered": 71, "skipped": 0, "pct": 100 },
+    "branches": { "total": 31, "covered": 25, "skipped": 0, "pct": 80.64 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\services\\task-profile-mapper.service.ts": {
+    "lines": { "total": 54, "covered": 45, "skipped": 0, "pct": 83.33 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 54, "covered": 45, "skipped": 0, "pct": 83.33 },
+    "branches": { "total": 37, "covered": 30, "skipped": 0, "pct": 81.08 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\types\\model-utils.ts": {
+    "lines": { "total": 11, "covered": 10, "skipped": 0, "pct": 90.9 },
+    "functions": { "total": 2, "covered": 2, "skipped": 0, "pct": 100 },
+    "statements": { "total": 14, "covered": 12, "skipped": 0, "pct": 85.71 },
+    "branches": { "total": 16, "covered": 15, "skipped": 0, "pct": 93.75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\llm\\types\\task-profile.ts": {
+    "lines": { "total": 5, "covered": 5, "skipped": 0, "pct": 100 },
+    "functions": { "total": 0, "covered": 0, "skipped": 0, "pct": 100 },
+    "statements": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "branches": { "total": 0, "covered": 0, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\long-content\\constants\\continuation-markers.ts": {
+    "lines": { "total": 33, "covered": 33, "skipped": 0, "pct": 100 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 37, "covered": 33, "skipped": 0, "pct": 89.18 },
+    "branches": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\long-content\\services\\continuation-protocol.service.ts": {
+    "lines": { "total": 87, "covered": 77, "skipped": 0, "pct": 88.5 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 90, "covered": 79, "skipped": 0, "pct": 87.77 },
+    "branches": { "total": 43, "covered": 33, "skipped": 0, "pct": 76.74 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\long-content\\services\\long-content-engine.service.ts": {
+    "lines": { "total": 89, "covered": 89, "skipped": 0, "pct": 100 },
+    "functions": { "total": 16, "covered": 16, "skipped": 0, "pct": 100 },
+    "statements": { "total": 91, "covered": 91, "skipped": 0, "pct": 100 },
+    "branches": { "total": 22, "covered": 20, "skipped": 0, "pct": 90.9 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\long-content\\services\\quality-monitor.service.ts": {
+    "lines": { "total": 167, "covered": 160, "skipped": 0, "pct": 95.8 },
+    "functions": { "total": 18, "covered": 18, "skipped": 0, "pct": 100 },
+    "statements": { "total": 176, "covered": 169, "skipped": 0, "pct": 96.02 },
+    "branches": { "total": 69, "covered": 58, "skipped": 0, "pct": 84.05 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\long-content\\services\\sliding-window-context.service.ts": {
+    "lines": { "total": 135, "covered": 130, "skipped": 0, "pct": 96.29 },
+    "functions": { "total": 28, "covered": 27, "skipped": 0, "pct": 96.42 },
+    "statements": { "total": 143, "covered": 137, "skipped": 0, "pct": 95.8 },
+    "branches": { "total": 41, "covered": 35, "skipped": 0, "pct": 85.36 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\long-content\\services\\task-granularity.service.ts": {
+    "lines": { "total": 292, "covered": 248, "skipped": 0, "pct": 84.93 },
+    "functions": { "total": 28, "covered": 28, "skipped": 0, "pct": 100 },
+    "statements": { "total": 304, "covered": 253, "skipped": 0, "pct": 83.22 },
+    "branches": { "total": 131, "covered": 89, "skipped": 0, "pct": 67.93 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\admin\\mcp-external-admin.controller.ts": {
+    "lines": { "total": 34, "covered": 34, "skipped": 0, "pct": 100 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 35, "covered": 35, "skipped": 0, "pct": 100 },
+    "branches": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\client\\mcp-client-factory.ts": {
+    "lines": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "functions": { "total": 1, "covered": 1, "skipped": 0, "pct": 100 },
+    "statements": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "branches": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\client\\mcp-client.ts": {
+    "lines": { "total": 132, "covered": 119, "skipped": 0, "pct": 90.15 },
+    "functions": { "total": 30, "covered": 26, "skipped": 0, "pct": 86.66 },
+    "statements": { "total": 139, "covered": 121, "skipped": 0, "pct": 87.05 },
+    "branches": { "total": 35, "covered": 22, "skipped": 0, "pct": 62.85 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\client\\sse-mcp-client.ts": {
+    "lines": { "total": 86, "covered": 79, "skipped": 0, "pct": 91.86 },
+    "functions": { "total": 14, "covered": 13, "skipped": 0, "pct": 92.85 },
+    "statements": { "total": 88, "covered": 80, "skipped": 0, "pct": 90.9 },
+    "branches": { "total": 45, "covered": 35, "skipped": 0, "pct": 77.77 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\client\\streamable-http-mcp-client.ts": {
+    "lines": { "total": 139, "covered": 100, "skipped": 0, "pct": 71.94 },
+    "functions": { "total": 18, "covered": 10, "skipped": 0, "pct": 55.55 },
+    "statements": { "total": 141, "covered": 101, "skipped": 0, "pct": 71.63 },
+    "branches": { "total": 68, "covered": 46, "skipped": 0, "pct": 67.64 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\manager\\mcp-manager.ts": {
+    "lines": { "total": 92, "covered": 91, "skipped": 0, "pct": 98.91 },
+    "functions": { "total": 21, "covered": 20, "skipped": 0, "pct": 95.23 },
+    "statements": { "total": 94, "covered": 93, "skipped": 0, "pct": 98.93 },
+    "branches": { "total": 18, "covered": 18, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\registry\\mcp-client-registry.service.ts": {
+    "lines": { "total": 83, "covered": 82, "skipped": 0, "pct": 98.79 },
+    "functions": { "total": 15, "covered": 15, "skipped": 0, "pct": 100 },
+    "statements": { "total": 89, "covered": 87, "skipped": 0, "pct": 97.75 },
+    "branches": { "total": 30, "covered": 23, "skipped": 0, "pct": 76.66 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\mcp\\tools\\mcp-tool-adapter.ts": {
+    "lines": { "total": 57, "covered": 57, "skipped": 0, "pct": 100 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 60, "covered": 60, "skipped": 0, "pct": 100 },
+    "branches": { "total": 11, "covered": 11, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\memory\\memory-coordinator.service.ts": {
+    "lines": { "total": 50, "covered": 44, "skipped": 0, "pct": 88 },
+    "functions": { "total": 13, "covered": 9, "skipped": 0, "pct": 69.23 },
+    "statements": { "total": 57, "covered": 48, "skipped": 0, "pct": 84.21 },
+    "branches": { "total": 42, "covered": 33, "skipped": 0, "pct": 78.57 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\memory\\stores\\in-memory-store.ts": {
+    "lines": { "total": 108, "covered": 108, "skipped": 0, "pct": 100 },
+    "functions": { "total": 42, "covered": 42, "skipped": 0, "pct": 100 },
+    "statements": { "total": 119, "covered": 118, "skipped": 0, "pct": 99.15 },
+    "branches": { "total": 42, "covered": 41, "skipped": 0, "pct": 97.61 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\memory\\stores\\long-term-memory.service.ts": {
+    "lines": { "total": 77, "covered": 77, "skipped": 0, "pct": 100 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 81, "covered": 81, "skipped": 0, "pct": 100 },
+    "branches": { "total": 46, "covered": 46, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\memory\\stores\\short-term-memory.service.ts": {
+    "lines": { "total": 55, "covered": 55, "skipped": 0, "pct": 100 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 58, "covered": 58, "skipped": 0, "pct": 100 },
+    "branches": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\observability\\ai-engine-tracing.service.ts": {
+    "lines": { "total": 40, "covered": 40, "skipped": 0, "pct": 100 },
+    "functions": { "total": 5, "covered": 5, "skipped": 0, "pct": 100 },
+    "statements": { "total": 40, "covered": 40, "skipped": 0, "pct": 100 },
+    "branches": { "total": 10, "covered": 6, "skipped": 0, "pct": 60 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\observability\\ai-observability.service.ts": {
+    "lines": { "total": 189, "covered": 142, "skipped": 0, "pct": 75.13 },
+    "functions": { "total": 52, "covered": 45, "skipped": 0, "pct": 86.53 },
+    "statements": { "total": 222, "covered": 174, "skipped": 0, "pct": 78.37 },
+    "branches": { "total": 61, "covered": 31, "skipped": 0, "pct": 50.81 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\observability\\cost-attribution.service.ts": {
+    "lines": { "total": 198, "covered": 161, "skipped": 0, "pct": 81.31 },
+    "functions": { "total": 31, "covered": 22, "skipped": 0, "pct": 70.96 },
+    "statements": { "total": 212, "covered": 173, "skipped": 0, "pct": 81.6 },
+    "branches": { "total": 52, "covered": 31, "skipped": 0, "pct": 59.61 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\observability\\eval-pipeline.service.ts": {
+    "lines": { "total": 91, "covered": 88, "skipped": 0, "pct": 96.7 },
+    "functions": { "total": 18, "covered": 17, "skipped": 0, "pct": 94.44 },
+    "statements": { "total": 99, "covered": 94, "skipped": 0, "pct": 94.94 },
+    "branches": { "total": 44, "covered": 33, "skipped": 0, "pct": 75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\observability\\observability.controller.ts": {
+    "lines": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "branches": { "total": 5, "covered": 5, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\observability\\trace-collector.service.ts": {
+    "lines": { "total": 116, "covered": 95, "skipped": 0, "pct": 81.89 },
+    "functions": { "total": 20, "covered": 15, "skipped": 0, "pct": 75 },
+    "statements": { "total": 128, "covered": 106, "skipped": 0, "pct": 82.81 },
+    "branches": { "total": 60, "covered": 28, "skipped": 0, "pct": 46.66 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\checkpoints\\checkpoint-manager.ts": {
+    "lines": { "total": 55, "covered": 55, "skipped": 0, "pct": 100 },
+    "functions": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "statements": { "total": 55, "covered": 55, "skipped": 0, "pct": 100 },
+    "branches": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\executors\\base-executor.ts": {
+    "lines": { "total": 119, "covered": 116, "skipped": 0, "pct": 97.47 },
+    "functions": { "total": 19, "covered": 19, "skipped": 0, "pct": 100 },
+    "statements": { "total": 121, "covered": 118, "skipped": 0, "pct": 97.52 },
+    "branches": { "total": 47, "covered": 43, "skipped": 0, "pct": 91.48 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\executors\\dag-executor.ts": {
+    "lines": { "total": 128, "covered": 113, "skipped": 0, "pct": 88.28 },
+    "functions": { "total": 15, "covered": 15, "skipped": 0, "pct": 100 },
+    "statements": { "total": 130, "covered": 114, "skipped": 0, "pct": 87.69 },
+    "branches": { "total": 41, "covered": 33, "skipped": 0, "pct": 80.48 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\executors\\function-calling-executor.ts": {
+    "lines": { "total": 179, "covered": 147, "skipped": 0, "pct": 82.12 },
+    "functions": { "total": 14, "covered": 11, "skipped": 0, "pct": 78.57 },
+    "statements": { "total": 189, "covered": 149, "skipped": 0, "pct": 78.83 },
+    "branches": { "total": 85, "covered": 49, "skipped": 0, "pct": 57.64 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\executors\\parallel-executor.ts": {
+    "lines": { "total": 66, "covered": 64, "skipped": 0, "pct": 96.96 },
+    "functions": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "statements": { "total": 66, "covered": 64, "skipped": 0, "pct": 96.96 },
+    "branches": { "total": 24, "covered": 24, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\executors\\retry-strategy.ts": {
+    "lines": { "total": 98, "covered": 82, "skipped": 0, "pct": 83.67 },
+    "functions": { "total": 11, "covered": 11, "skipped": 0, "pct": 100 },
+    "statements": { "total": 99, "covered": 83, "skipped": 0, "pct": 83.83 },
+    "branches": { "total": 68, "covered": 58, "skipped": 0, "pct": 85.29 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\executors\\sequential-executor.ts": {
+    "lines": { "total": 31, "covered": 29, "skipped": 0, "pct": 93.54 },
+    "functions": { "total": 2, "covered": 2, "skipped": 0, "pct": 100 },
+    "statements": { "total": 33, "covered": 31, "skipped": 0, "pct": 93.93 },
+    "branches": { "total": 14, "covered": 12, "skipped": 0, "pct": 85.71 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\agent-executor.service.ts": {
+    "lines": { "total": 112, "covered": 109, "skipped": 0, "pct": 97.32 },
+    "functions": { "total": 18, "covered": 16, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 119, "covered": 114, "skipped": 0, "pct": 95.79 },
+    "branches": { "total": 82, "covered": 64, "skipped": 0, "pct": 78.04 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\circuit-breaker.service.ts": {
+    "lines": { "total": 219, "covered": 178, "skipped": 0, "pct": 81.27 },
+    "functions": { "total": 37, "covered": 33, "skipped": 0, "pct": 89.18 },
+    "statements": { "total": 234, "covered": 189, "skipped": 0, "pct": 80.76 },
+    "branches": { "total": 86, "covered": 65, "skipped": 0, "pct": 75.58 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\complexity-analyzer.service.ts": {
+    "lines": { "total": 38, "covered": 37, "skipped": 0, "pct": 97.36 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 53, "covered": 51, "skipped": 0, "pct": 96.22 },
+    "branches": { "total": 23, "covered": 22, "skipped": 0, "pct": 95.65 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\constraint-enforcement.service.ts": {
+    "lines": { "total": 132, "covered": 117, "skipped": 0, "pct": 88.63 },
+    "functions": { "total": 18, "covered": 15, "skipped": 0, "pct": 83.33 },
+    "statements": { "total": 133, "covered": 118, "skipped": 0, "pct": 88.72 },
+    "branches": { "total": 40, "covered": 28, "skipped": 0, "pct": 70 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\context-compression.service.ts": {
+    "lines": { "total": 153, "covered": 146, "skipped": 0, "pct": 95.42 },
+    "functions": { "total": 39, "covered": 36, "skipped": 0, "pct": 92.3 },
+    "statements": { "total": 169, "covered": 161, "skipped": 0, "pct": 95.26 },
+    "branches": { "total": 37, "covered": 34, "skipped": 0, "pct": 91.89 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\context-evolution.service.ts": {
+    "lines": { "total": 78, "covered": 74, "skipped": 0, "pct": 94.87 },
+    "functions": { "total": 20, "covered": 19, "skipped": 0, "pct": 95 },
+    "statements": { "total": 84, "covered": 79, "skipped": 0, "pct": 94.04 },
+    "branches": { "total": 38, "covered": 26, "skipped": 0, "pct": 68.42 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\context-initialization.service.ts": {
+    "lines": { "total": 119, "covered": 117, "skipped": 0, "pct": 98.31 },
+    "functions": { "total": 24, "covered": 24, "skipped": 0, "pct": 100 },
+    "statements": { "total": 125, "covered": 120, "skipped": 0, "pct": 96 },
+    "branches": { "total": 52, "covered": 35, "skipped": 0, "pct": 67.3 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\intelligent-model-router.service.ts": {
+    "lines": { "total": 69, "covered": 68, "skipped": 0, "pct": 98.55 },
+    "functions": { "total": 14, "covered": 13, "skipped": 0, "pct": 92.85 },
+    "statements": { "total": 77, "covered": 76, "skipped": 0, "pct": 98.7 },
+    "branches": { "total": 32, "covered": 28, "skipped": 0, "pct": 87.5 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\intent-detection.service.ts": {
+    "lines": { "total": 49, "covered": 47, "skipped": 0, "pct": 95.91 },
+    "functions": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 },
+    "statements": { "total": 49, "covered": 47, "skipped": 0, "pct": 95.91 },
+    "branches": { "total": 35, "covered": 27, "skipped": 0, "pct": 77.14 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\intent-router.service.ts": {
+    "lines": { "total": 49, "covered": 46, "skipped": 0, "pct": 93.87 },
+    "functions": { "total": 14, "covered": 12, "skipped": 0, "pct": 85.71 },
+    "statements": { "total": 50, "covered": 47, "skipped": 0, "pct": 94 },
+    "branches": { "total": 26, "covered": 17, "skipped": 0, "pct": 65.38 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\interfaces.ts": {
+    "lines": { "total": 16, "covered": 16, "skipped": 0, "pct": 100 },
+    "functions": { "total": 0, "covered": 0, "skipped": 0, "pct": 100 },
+    "statements": { "total": 19, "covered": 19, "skipped": 0, "pct": 100 },
+    "branches": { "total": 0, "covered": 0, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\iteration-manager.service.ts": {
+    "lines": { "total": 213, "covered": 206, "skipped": 0, "pct": 96.71 },
+    "functions": { "total": 40, "covered": 40, "skipped": 0, "pct": 100 },
+    "statements": { "total": 228, "covered": 220, "skipped": 0, "pct": 96.49 },
+    "branches": { "total": 91, "covered": 79, "skipped": 0, "pct": 86.81 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\output-reviewer.service.ts": {
+    "lines": { "total": 107, "covered": 95, "skipped": 0, "pct": 88.78 },
+    "functions": { "total": 17, "covered": 15, "skipped": 0, "pct": 88.23 },
+    "statements": { "total": 118, "covered": 98, "skipped": 0, "pct": 83.05 },
+    "branches": { "total": 112, "covered": 63, "skipped": 0, "pct": 56.25 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\reflection.service.ts": {
+    "lines": { "total": 69, "covered": 69, "skipped": 0, "pct": 100 },
+    "functions": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "statements": { "total": 71, "covered": 71, "skipped": 0, "pct": 100 },
+    "branches": { "total": 29, "covered": 26, "skipped": 0, "pct": 89.65 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\task-decomposer.service.ts": {
+    "lines": { "total": 175, "covered": 171, "skipped": 0, "pct": 97.71 },
+    "functions": { "total": 25, "covered": 25, "skipped": 0, "pct": 100 },
+    "statements": { "total": 191, "covered": 185, "skipped": 0, "pct": 96.85 },
+    "branches": { "total": 148, "covered": 110, "skipped": 0, "pct": 74.32 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\task-planner.service.ts": {
+    "lines": { "total": 29, "covered": 29, "skipped": 0, "pct": 100 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 33, "covered": 33, "skipped": 0, "pct": 100 },
+    "branches": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\services\\token-budget.service.ts": {
+    "lines": { "total": 104, "covered": 103, "skipped": 0, "pct": 99.03 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 105, "covered": 104, "skipped": 0, "pct": 99.04 },
+    "branches": { "total": 56, "covered": 53, "skipped": 0, "pct": 94.64 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\state-machine\\execution-state.manager.ts": {
+    "lines": { "total": 114, "covered": 113, "skipped": 0, "pct": 99.12 },
+    "functions": { "total": 32, "covered": 32, "skipped": 0, "pct": 100 },
+    "statements": { "total": 120, "covered": 119, "skipped": 0, "pct": 99.16 },
+    "branches": { "total": 23, "covered": 22, "skipped": 0, "pct": 95.65 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\orchestration\\utils\\error-detection.utils.ts": {
+    "lines": { "total": 62, "covered": 32, "skipped": 0, "pct": 51.61 },
+    "functions": { "total": 12, "covered": 8, "skipped": 0, "pct": 66.66 },
+    "statements": { "total": 69, "covered": 35, "skipped": 0, "pct": 50.72 },
+    "branches": { "total": 33, "covered": 8, "skipped": 0, "pct": 24.24 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\prompts\\prompt-registry.service.ts": {
+    "lines": { "total": 103, "covered": 94, "skipped": 0, "pct": 91.26 },
+    "functions": { "total": 22, "covered": 22, "skipped": 0, "pct": 100 },
+    "statements": { "total": 106, "covered": 97, "skipped": 0, "pct": 91.5 },
+    "branches": { "total": 43, "covered": 35, "skipped": 0, "pct": 81.39 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\prompts\\prompt-template.service.ts": {
+    "lines": { "total": 100, "covered": 97, "skipped": 0, "pct": 97 },
+    "functions": { "total": 15, "covered": 14, "skipped": 0, "pct": 93.33 },
+    "statements": { "total": 106, "covered": 103, "skipped": 0, "pct": 97.16 },
+    "branches": { "total": 26, "covered": 26, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\quality\\checkers\\coherence.checker.ts": {
+    "lines": { "total": 81, "covered": 78, "skipped": 0, "pct": 96.29 },
+    "functions": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "statements": { "total": 86, "covered": 83, "skipped": 0, "pct": 96.51 },
+    "branches": { "total": 32, "covered": 28, "skipped": 0, "pct": 87.5 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\quality\\checkers\\consistency.checker.ts": {
+    "lines": { "total": 79, "covered": 76, "skipped": 0, "pct": 96.2 },
+    "functions": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "statements": { "total": 80, "covered": 77, "skipped": 0, "pct": 96.25 },
+    "branches": { "total": 45, "covered": 42, "skipped": 0, "pct": 93.33 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\quality\\checkers\\diversity.checker.ts": {
+    "lines": { "total": 66, "covered": 66, "skipped": 0, "pct": 100 },
+    "functions": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 },
+    "statements": { "total": 71, "covered": 71, "skipped": 0, "pct": 100 },
+    "branches": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\quality\\checkers\\factual.checker.ts": {
+    "lines": { "total": 68, "covered": 68, "skipped": 0, "pct": 100 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 69, "covered": 69, "skipped": 0, "pct": 100 },
+    "branches": { "total": 35, "covered": 35, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\quality\\services\\quality-gate.service.ts": {
+    "lines": { "total": 80, "covered": 80, "skipped": 0, "pct": 100 },
+    "functions": { "total": 16, "covered": 16, "skipped": 0, "pct": 100 },
+    "statements": { "total": 83, "covered": 83, "skipped": 0, "pct": 100 },
+    "branches": { "total": 31, "covered": 28, "skipped": 0, "pct": 90.32 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\quality\\services\\quality-registry.service.ts": {
+    "lines": { "total": 31, "covered": 31, "skipped": 0, "pct": 100 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 33, "covered": 33, "skipped": 0, "pct": 100 },
+    "branches": { "total": 12, "covered": 10, "skipped": 0, "pct": 83.33 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\rag\\chunking\\document-chunker.ts": {
+    "lines": { "total": 100, "covered": 99, "skipped": 0, "pct": 99 },
+    "functions": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 },
+    "statements": { "total": 103, "covered": 101, "skipped": 0, "pct": 98.05 },
+    "branches": { "total": 31, "covered": 28, "skipped": 0, "pct": 90.32 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\rag\\embedding\\embedding.service.ts": {
+    "lines": { "total": 87, "covered": 86, "skipped": 0, "pct": 98.85 },
+    "functions": { "total": 11, "covered": 11, "skipped": 0, "pct": 100 },
+    "statements": { "total": 96, "covered": 95, "skipped": 0, "pct": 98.95 },
+    "branches": { "total": 39, "covered": 39, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\rag\\pipeline\\rag-pipeline.service.ts": {
+    "lines": { "total": 143, "covered": 135, "skipped": 0, "pct": 94.4 },
+    "functions": { "total": 30, "covered": 30, "skipped": 0, "pct": 100 },
+    "statements": { "total": 151, "covered": 143, "skipped": 0, "pct": 94.7 },
+    "branches": { "total": 76, "covered": 66, "skipped": 0, "pct": 86.84 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\rag\\vector\\vector.service.ts": {
+    "lines": { "total": 46, "covered": 46, "skipped": 0, "pct": 100 },
+    "functions": { "total": 12, "covered": 11, "skipped": 0, "pct": 91.66 },
+    "statements": { "total": 51, "covered": 50, "skipped": 0, "pct": 98.03 },
+    "branches": { "total": 18, "covered": 17, "skipped": 0, "pct": 94.44 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\realtime\\services\\engine-event-emitter.service.ts": {
+    "lines": { "total": 79, "covered": 67, "skipped": 0, "pct": 84.81 },
+    "functions": { "total": 18, "covered": 16, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 85, "covered": 73, "skipped": 0, "pct": 85.88 },
+    "branches": { "total": 16, "covered": 13, "skipped": 0, "pct": 81.25 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\realtime\\services\\progress-tracker.service.ts": {
+    "lines": { "total": 156, "covered": 154, "skipped": 0, "pct": 98.71 },
+    "functions": { "total": 35, "covered": 35, "skipped": 0, "pct": 100 },
+    "statements": { "total": 182, "covered": 168, "skipped": 0, "pct": 92.3 },
+    "branches": { "total": 56, "covered": 43, "skipped": 0, "pct": 76.78 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\search\\search.service.ts": {
+    "lines": { "total": 403, "covered": 355, "skipped": 0, "pct": 88.08 },
+    "functions": { "total": 54, "covered": 53, "skipped": 0, "pct": 98.14 },
+    "statements": { "total": 433, "covered": 376, "skipped": 0, "pct": 86.83 },
+    "branches": { "total": 219, "covered": 151, "skipped": 0, "pct": 68.94 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\api\\skills-api.service.ts": {
+    "lines": { "total": 238, "covered": 224, "skipped": 0, "pct": 94.11 },
+    "functions": { "total": 34, "covered": 34, "skipped": 0, "pct": 100 },
+    "statements": { "total": 254, "covered": 235, "skipped": 0, "pct": 92.51 },
+    "branches": { "total": 183, "covered": 149, "skipped": 0, "pct": 81.42 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\api\\skills.controller.ts": {
+    "lines": { "total": 27, "covered": 27, "skipped": 0, "pct": 100 },
+    "functions": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "statements": { "total": 28, "covered": 28, "skipped": 0, "pct": 100 },
+    "branches": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\base\\base-skill.ts": {
+    "lines": { "total": 112, "covered": 96, "skipped": 0, "pct": 85.71 },
+    "functions": { "total": 13, "covered": 12, "skipped": 0, "pct": 92.3 },
+    "statements": { "total": 112, "covered": 96, "skipped": 0, "pct": 85.71 },
+    "branches": { "total": 54, "covered": 40, "skipped": 0, "pct": 74.07 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\builder\\skill-prompt-builder.service.ts": {
+    "lines": { "total": 118, "covered": 113, "skipped": 0, "pct": 95.76 },
+    "functions": { "total": 15, "covered": 15, "skipped": 0, "pct": 100 },
+    "statements": { "total": 118, "covered": 113, "skipped": 0, "pct": 95.76 },
+    "branches": { "total": 48, "covered": 39, "skipped": 0, "pct": 81.25 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\ecosystem\\skillsmp-client.service.ts": {
+    "lines": { "total": 147, "covered": 134, "skipped": 0, "pct": 91.15 },
+    "functions": { "total": 18, "covered": 16, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 167, "covered": 146, "skipped": 0, "pct": 87.42 },
+    "branches": { "total": 49, "covered": 38, "skipped": 0, "pct": 77.55 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\loader\\skill-cache.service.ts": {
+    "lines": { "total": 101, "covered": 97, "skipped": 0, "pct": 96.03 },
+    "functions": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "statements": { "total": 101, "covered": 97, "skipped": 0, "pct": 96.03 },
+    "branches": { "total": 26, "covered": 23, "skipped": 0, "pct": 88.46 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\loader\\skill-loader.service.ts": {
+    "lines": { "total": 216, "covered": 210, "skipped": 0, "pct": 97.22 },
+    "functions": { "total": 27, "covered": 24, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 225, "covered": 219, "skipped": 0, "pct": 97.33 },
+    "branches": { "total": 60, "covered": 56, "skipped": 0, "pct": 93.33 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\loader\\skill-parser.ts": {
+    "lines": { "total": 59, "covered": 59, "skipped": 0, "pct": 100 },
+    "functions": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "statements": { "total": 59, "covered": 59, "skipped": 0, "pct": 100 },
+    "branches": { "total": 73, "covered": 68, "skipped": 0, "pct": 93.15 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\output-manager\\skill-output-manager.ts": {
+    "lines": { "total": 88, "covered": 85, "skipped": 0, "pct": 96.59 },
+    "functions": { "total": 16, "covered": 16, "skipped": 0, "pct": 100 },
+    "statements": { "total": 88, "covered": 85, "skipped": 0, "pct": 96.59 },
+    "branches": { "total": 21, "covered": 17, "skipped": 0, "pct": 80.95 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\registry\\skill-registry.ts": {
+    "lines": { "total": 105, "covered": 103, "skipped": 0, "pct": 98.09 },
+    "functions": { "total": 28, "covered": 28, "skipped": 0, "pct": 100 },
+    "statements": { "total": 120, "covered": 118, "skipped": 0, "pct": 98.33 },
+    "branches": { "total": 44, "covered": 43, "skipped": 0, "pct": 97.72 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\runtime\\input-binding-resolver.ts": {
+    "lines": { "total": 27, "covered": 27, "skipped": 0, "pct": 100 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 29, "covered": 29, "skipped": 0, "pct": 100 },
+    "branches": { "total": 15, "covered": 15, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\runtime\\prompt-skill-adapter.ts": {
+    "lines": { "total": 71, "covered": 70, "skipped": 0, "pct": 98.59 },
+    "functions": { "total": 5, "covered": 5, "skipped": 0, "pct": 100 },
+    "statements": { "total": 74, "covered": 73, "skipped": 0, "pct": 98.64 },
+    "branches": { "total": 22, "covered": 19, "skipped": 0, "pct": 86.36 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\skills\\runtime\\prompt-skill-bridge.service.ts": {
+    "lines": { "total": 37, "covered": 36, "skipped": 0, "pct": 97.29 },
+    "functions": { "total": 5, "covered": 4, "skipped": 0, "pct": 80 },
+    "statements": { "total": 38, "covered": 37, "skipped": 0, "pct": 97.36 },
+    "branches": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\synthesis\\report-synthesis.service.ts": {
+    "lines": { "total": 50, "covered": 47, "skipped": 0, "pct": 94 },
+    "functions": { "total": 15, "covered": 14, "skipped": 0, "pct": 93.33 },
+    "statements": { "total": 55, "covered": 51, "skipped": 0, "pct": 92.72 },
+    "branches": { "total": 52, "covered": 36, "skipped": 0, "pct": 69.23 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\base\\leader-llm-adapter.ts": {
+    "lines": { "total": 73, "covered": 73, "skipped": 0, "pct": 100 },
+    "functions": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 },
+    "statements": { "total": 77, "covered": 77, "skipped": 0, "pct": 100 },
+    "branches": { "total": 29, "covered": 23, "skipped": 0, "pct": 79.31 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\base\\member.ts": {
+    "lines": { "total": 64, "covered": 62, "skipped": 0, "pct": 96.87 },
+    "functions": { "total": 22, "covered": 22, "skipped": 0, "pct": 100 },
+    "statements": { "total": 65, "covered": 63, "skipped": 0, "pct": 96.92 },
+    "branches": { "total": 30, "covered": 25, "skipped": 0, "pct": 83.33 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\base\\role.ts": {
+    "lines": { "total": 47, "covered": 40, "skipped": 0, "pct": 85.1 },
+    "functions": { "total": 12, "covered": 6, "skipped": 0, "pct": 50 },
+    "statements": { "total": 48, "covered": 41, "skipped": 0, "pct": 85.41 },
+    "branches": { "total": 15, "covered": 10, "skipped": 0, "pct": 66.66 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\base\\team.ts": {
+    "lines": { "total": 93, "covered": 91, "skipped": 0, "pct": 97.84 },
+    "functions": { "total": 30, "covered": 29, "skipped": 0, "pct": 96.66 },
+    "statements": { "total": 97, "covered": 95, "skipped": 0, "pct": 97.93 },
+    "branches": { "total": 16, "covered": 15, "skipped": 0, "pct": 93.75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\base\\workflow.ts": {
+    "lines": { "total": 181, "covered": 173, "skipped": 0, "pct": 95.58 },
+    "functions": { "total": 37, "covered": 37, "skipped": 0, "pct": 100 },
+    "statements": { "total": 187, "covered": 178, "skipped": 0, "pct": 95.18 },
+    "branches": { "total": 47, "covered": 37, "skipped": 0, "pct": 78.72 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\constraints\\constraint-engine.ts": {
+    "lines": { "total": 163, "covered": 153, "skipped": 0, "pct": 93.86 },
+    "functions": { "total": 23, "covered": 19, "skipped": 0, "pct": 82.6 },
+    "statements": { "total": 168, "covered": 156, "skipped": 0, "pct": 92.85 },
+    "branches": { "total": 102, "covered": 93, "skipped": 0, "pct": 91.17 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\constraints\\constraint-profile.ts": {
+    "lines": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "branches": { "total": 0, "covered": 0, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\controllers\\teams.controller.ts": {
+    "lines": { "total": 69, "covered": 61, "skipped": 0, "pct": 88.4 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 70, "covered": 62, "skipped": 0, "pct": 88.57 },
+    "branches": { "total": 13, "covered": 9, "skipped": 0, "pct": 69.23 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\factory\\team-factory.ts": {
+    "lines": { "total": 75, "covered": 72, "skipped": 0, "pct": 96 },
+    "functions": { "total": 14, "covered": 14, "skipped": 0, "pct": 100 },
+    "statements": { "total": 78, "covered": 75, "skipped": 0, "pct": 96.15 },
+    "branches": { "total": 16, "covered": 14, "skipped": 0, "pct": 87.5 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\orchestrator\\mission-orchestrator.ts": {
+    "lines": { "total": 628, "covered": 521, "skipped": 0, "pct": 82.96 },
+    "functions": { "total": 61, "covered": 54, "skipped": 0, "pct": 88.52 },
+    "statements": { "total": 668, "covered": 558, "skipped": 0, "pct": 83.53 },
+    "branches": { "total": 316, "covered": 222, "skipped": 0, "pct": 70.25 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\registry\\role-registry.ts": {
+    "lines": { "total": 44, "covered": 44, "skipped": 0, "pct": 100 },
+    "functions": { "total": 15, "covered": 15, "skipped": 0, "pct": 100 },
+    "statements": { "total": 46, "covered": 46, "skipped": 0, "pct": 100 },
+    "branches": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\registry\\team-registry.ts": {
+    "lines": { "total": 53, "covered": 53, "skipped": 0, "pct": 100 },
+    "functions": { "total": 22, "covered": 22, "skipped": 0, "pct": 100 },
+    "statements": { "total": 54, "covered": 54, "skipped": 0, "pct": 100 },
+    "branches": { "total": 15, "covered": 15, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\services\\a2a-message-bus.service.ts": {
+    "lines": { "total": 56, "covered": 52, "skipped": 0, "pct": 92.85 },
+    "functions": { "total": 7, "covered": 6, "skipped": 0, "pct": 85.71 },
+    "statements": { "total": 57, "covered": 53, "skipped": 0, "pct": 92.98 },
+    "branches": { "total": 24, "covered": 20, "skipped": 0, "pct": 83.33 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\teams\\services\\teams.service.ts": {
+    "lines": { "total": 110, "covered": 75, "skipped": 0, "pct": 68.18 },
+    "functions": { "total": 16, "covered": 15, "skipped": 0, "pct": 93.75 },
+    "statements": { "total": 114, "covered": 79, "skipped": 0, "pct": 69.29 },
+    "branches": { "total": 36, "covered": 12, "skipped": 0, "pct": 33.33 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\tools.provider.ts": {
+    "lines": { "total": 15, "covered": 14, "skipped": 0, "pct": 93.33 },
+    "functions": { "total": 1, "covered": 0, "skipped": 0, "pct": 0 },
+    "statements": { "total": 21, "covered": 17, "skipped": 0, "pct": 80.95 },
+    "branches": { "total": 0, "covered": 0, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\base\\base-tool.ts": {
+    "lines": { "total": 42, "covered": 42, "skipped": 0, "pct": 100 },
+    "functions": { "total": 15, "covered": 15, "skipped": 0, "pct": 100 },
+    "statements": { "total": 42, "covered": 42, "skipped": 0, "pct": 100 },
+    "branches": { "total": 16, "covered": 15, "skipped": 0, "pct": 93.75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\collaboration\\agent-communication.tool.ts": {
+    "lines": { "total": 144, "covered": 139, "skipped": 0, "pct": 96.52 },
+    "functions": { "total": 27, "covered": 25, "skipped": 0, "pct": 92.59 },
+    "statements": { "total": 155, "covered": 149, "skipped": 0, "pct": 96.12 },
+    "branches": { "total": 80, "covered": 66, "skipped": 0, "pct": 82.5 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\collaboration\\agent-handoff.tool.ts": {
+    "lines": { "total": 60, "covered": 58, "skipped": 0, "pct": 96.66 },
+    "functions": { "total": 5, "covered": 4, "skipped": 0, "pct": 80 },
+    "statements": { "total": 60, "covered": 58, "skipped": 0, "pct": 96.66 },
+    "branches": { "total": 30, "covered": 25, "skipped": 0, "pct": 83.33 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\collaboration\\consensus-mechanism.tool.ts": {
+    "lines": { "total": 104, "covered": 95, "skipped": 0, "pct": 91.34 },
+    "functions": { "total": 16, "covered": 16, "skipped": 0, "pct": 100 },
+    "statements": { "total": 112, "covered": 102, "skipped": 0, "pct": 91.07 },
+    "branches": { "total": 58, "covered": 42, "skipped": 0, "pct": 72.41 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\collaboration\\human-approval.tool.ts": {
+    "lines": { "total": 63, "covered": 62, "skipped": 0, "pct": 98.41 },
+    "functions": { "total": 8, "covered": 6, "skipped": 0, "pct": 75 },
+    "statements": { "total": 64, "covered": 63, "skipped": 0, "pct": 98.43 },
+    "branches": { "total": 26, "covered": 24, "skipped": 0, "pct": 92.3 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\collaboration\\task-delegation.tool.ts": {
+    "lines": { "total": 69, "covered": 60, "skipped": 0, "pct": 86.95 },
+    "functions": { "total": 13, "covered": 12, "skipped": 0, "pct": 92.3 },
+    "statements": { "total": 73, "covered": 64, "skipped": 0, "pct": 87.67 },
+    "branches": { "total": 44, "covered": 37, "skipped": 0, "pct": 84.09 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\collaboration\\workflow-orchestration.tool.ts": {
+    "lines": { "total": 125, "covered": 105, "skipped": 0, "pct": 84 },
+    "functions": { "total": 16, "covered": 13, "skipped": 0, "pct": 81.25 },
+    "statements": { "total": 130, "covered": 107, "skipped": 0, "pct": 82.3 },
+    "branches": { "total": 59, "covered": 44, "skipped": 0, "pct": 74.57 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\execution\\container-executor.tool.ts": {
+    "lines": { "total": 38, "covered": 36, "skipped": 0, "pct": 94.73 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 39, "covered": 37, "skipped": 0, "pct": 94.87 },
+    "branches": { "total": 29, "covered": 27, "skipped": 0, "pct": 93.1 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\execution\\ocr-recognition.tool.ts": {
+    "lines": { "total": 41, "covered": 39, "skipped": 0, "pct": 95.12 },
+    "functions": { "total": 8, "covered": 7, "skipped": 0, "pct": 87.5 },
+    "statements": { "total": 41, "covered": 39, "skipped": 0, "pct": 95.12 },
+    "branches": { "total": 25, "covered": 18, "skipped": 0, "pct": 72 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\execution\\sql-executor.tool.ts": {
+    "lines": { "total": 99, "covered": 80, "skipped": 0, "pct": 80.8 },
+    "functions": { "total": 12, "covered": 11, "skipped": 0, "pct": 91.66 },
+    "statements": { "total": 108, "covered": 82, "skipped": 0, "pct": 75.92 },
+    "branches": { "total": 48, "covered": 36, "skipped": 0, "pct": 75 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\export\\export-docx.tool.ts": {
+    "lines": { "total": 20, "covered": 20, "skipped": 0, "pct": 100 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "branches": { "total": 23, "covered": 20, "skipped": 0, "pct": 86.95 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\export\\export-image.tool.ts": {
+    "lines": { "total": 56, "covered": 53, "skipped": 0, "pct": 94.64 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 57, "covered": 54, "skipped": 0, "pct": 94.73 },
+    "branches": { "total": 48, "covered": 42, "skipped": 0, "pct": 87.5 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\export\\export-pdf.tool.ts": {
+    "lines": { "total": 28, "covered": 26, "skipped": 0, "pct": 92.85 },
+    "functions": { "total": 4, "covered": 3, "skipped": 0, "pct": 75 },
+    "statements": { "total": 29, "covered": 26, "skipped": 0, "pct": 89.65 },
+    "branches": { "total": 41, "covered": 35, "skipped": 0, "pct": 85.36 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\export\\export-pptx.tool.ts": {
+    "lines": { "total": 20, "covered": 18, "skipped": 0, "pct": 90 },
+    "functions": { "total": 4, "covered": 3, "skipped": 0, "pct": 75 },
+    "statements": { "total": 21, "covered": 18, "skipped": 0, "pct": 85.71 },
+    "branches": { "total": 23, "covered": 18, "skipped": 0, "pct": 78.26 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\generation\\audio-generation.tool.ts": {
+    "lines": { "total": 28, "covered": 28, "skipped": 0, "pct": 100 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 29, "covered": 29, "skipped": 0, "pct": 100 },
+    "branches": { "total": 23, "covered": 21, "skipped": 0, "pct": 91.3 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\generation\\code-generation.tool.ts": {
+    "lines": { "total": 28, "covered": 28, "skipped": 0, "pct": 100 },
+    "functions": { "total": 5, "covered": 5, "skipped": 0, "pct": 100 },
+    "statements": { "total": 28, "covered": 28, "skipped": 0, "pct": 100 },
+    "branches": { "total": 21, "covered": 19, "skipped": 0, "pct": 90.47 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\generation\\image-generation.tool.ts": {
+    "lines": { "total": 33, "covered": 29, "skipped": 0, "pct": 87.87 },
+    "functions": { "total": 9, "covered": 7, "skipped": 0, "pct": 77.77 },
+    "statements": { "total": 33, "covered": 29, "skipped": 0, "pct": 87.87 },
+    "branches": { "total": 21, "covered": 18, "skipped": 0, "pct": 85.71 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\generation\\structured-output.tool.ts": {
+    "lines": { "total": 96, "covered": 95, "skipped": 0, "pct": 98.95 },
+    "functions": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "statements": { "total": 100, "covered": 97, "skipped": 0, "pct": 97 },
+    "branches": { "total": 69, "covered": 65, "skipped": 0, "pct": 94.2 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\generation\\text-generation.tool.ts": {
+    "lines": { "total": 24, "covered": 24, "skipped": 0, "pct": 100 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 24, "covered": 24, "skipped": 0, "pct": 100 },
+    "branches": { "total": 17, "covered": 17, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\generation\\video-generation.tool.ts": {
+    "lines": { "total": 18, "covered": 18, "skipped": 0, "pct": 100 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 18, "covered": 18, "skipped": 0, "pct": 100 },
+    "branches": { "total": 18, "covered": 18, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\arxiv-search.tool.ts": {
+    "lines": { "total": 48, "covered": 45, "skipped": 0, "pct": 93.75 },
+    "functions": { "total": 10, "covered": 9, "skipped": 0, "pct": 90 },
+    "statements": { "total": 52, "covered": 48, "skipped": 0, "pct": 92.3 },
+    "branches": { "total": 20, "covered": 14, "skipped": 0, "pct": 70 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\data-fetch.tool.ts": {
+    "lines": { "total": 40, "covered": 37, "skipped": 0, "pct": 92.5 },
+    "functions": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 },
+    "statements": { "total": 40, "covered": 37, "skipped": 0, "pct": 92.5 },
+    "branches": { "total": 32, "covered": 27, "skipped": 0, "pct": 84.37 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\database-query.tool.ts": {
+    "lines": { "total": 82, "covered": 79, "skipped": 0, "pct": 96.34 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 83, "covered": 80, "skipped": 0, "pct": 96.38 },
+    "branches": { "total": 38, "covered": 35, "skipped": 0, "pct": 92.1 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\github-search.tool.ts": {
+    "lines": { "total": 33, "covered": 33, "skipped": 0, "pct": 100 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 33, "covered": 33, "skipped": 0, "pct": 100 },
+    "branches": { "total": 21, "covered": 17, "skipped": 0, "pct": 80.95 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\hackernews-search.tool.ts": {
+    "lines": { "total": 26, "covered": 26, "skipped": 0, "pct": 100 },
+    "functions": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 },
+    "statements": { "total": 26, "covered": 26, "skipped": 0, "pct": 100 },
+    "branches": { "total": 23, "covered": 16, "skipped": 0, "pct": 69.56 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\knowledge-graph.tool.ts": {
+    "lines": { "total": 109, "covered": 87, "skipped": 0, "pct": 79.81 },
+    "functions": { "total": 24, "covered": 17, "skipped": 0, "pct": 70.83 },
+    "statements": { "total": 116, "covered": 94, "skipped": 0, "pct": 81.03 },
+    "branches": { "total": 79, "covered": 57, "skipped": 0, "pct": 72.15 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\rag-search.tool.ts": {
+    "lines": { "total": 92, "covered": 71, "skipped": 0, "pct": 77.17 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 93, "covered": 72, "skipped": 0, "pct": 77.41 },
+    "branches": { "total": 47, "covered": 32, "skipped": 0, "pct": 68.08 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\web-scraper.tool.ts": {
+    "lines": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "branches": { "total": 12, "covered": 12, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\web-search.tool.ts": {
+    "lines": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "branches": { "total": 4, "covered": 4, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\policy\\congress-gov.tool.ts": {
+    "lines": { "total": 51, "covered": 48, "skipped": 0, "pct": 94.11 },
+    "functions": { "total": 9, "covered": 8, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 52, "covered": 49, "skipped": 0, "pct": 94.23 },
+    "branches": { "total": 42, "covered": 33, "skipped": 0, "pct": 78.57 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\policy\\federal-register.tool.ts": {
+    "lines": { "total": 32, "covered": 32, "skipped": 0, "pct": 100 },
+    "functions": { "total": 6, "covered": 6, "skipped": 0, "pct": 100 },
+    "statements": { "total": 32, "covered": 32, "skipped": 0, "pct": 100 },
+    "branches": { "total": 23, "covered": 19, "skipped": 0, "pct": 82.6 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\policy\\policy-data.service.ts": {
+    "lines": { "total": 46, "covered": 7, "skipped": 0, "pct": 15.21 },
+    "functions": { "total": 6, "covered": 0, "skipped": 0, "pct": 0 },
+    "statements": { "total": 47, "covered": 7, "skipped": 0, "pct": 14.89 },
+    "branches": { "total": 15, "covered": 0, "skipped": 0, "pct": 0 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\information\\policy\\whitehouse-news.tool.ts": {
+    "lines": { "total": 63, "covered": 55, "skipped": 0, "pct": 87.3 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 64, "covered": 55, "skipped": 0, "pct": 85.93 },
+    "branches": { "total": 51, "covered": 33, "skipped": 0, "pct": 64.7 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\integration\\calendar-integration.tool.ts": {
+    "lines": { "total": 46, "covered": 46, "skipped": 0, "pct": 100 },
+    "functions": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "statements": { "total": 50, "covered": 50, "skipped": 0, "pct": 100 },
+    "branches": { "total": 41, "covered": 37, "skipped": 0, "pct": 90.24 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\integration\\cloud-storage.tool.ts": {
+    "lines": { "total": 146, "covered": 123, "skipped": 0, "pct": 84.24 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 150, "covered": 126, "skipped": 0, "pct": 84 },
+    "branches": { "total": 113, "covered": 70, "skipped": 0, "pct": 61.94 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\integration\\email-sender.tool.ts": {
+    "lines": { "total": 49, "covered": 49, "skipped": 0, "pct": 100 },
+    "functions": { "total": 7, "covered": 7, "skipped": 0, "pct": 100 },
+    "statements": { "total": 50, "covered": 49, "skipped": 0, "pct": 98 },
+    "branches": { "total": 47, "covered": 43, "skipped": 0, "pct": 91.48 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\integration\\github-integration.tool.ts": {
+    "lines": { "total": 40, "covered": 37, "skipped": 0, "pct": 92.5 },
+    "functions": { "total": 5, "covered": 5, "skipped": 0, "pct": 100 },
+    "statements": { "total": 46, "covered": 43, "skipped": 0, "pct": 93.47 },
+    "branches": { "total": 37, "covered": 33, "skipped": 0, "pct": 89.18 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\integration\\message-push.tool.ts": {
+    "lines": { "total": 136, "covered": 117, "skipped": 0, "pct": 86.02 },
+    "functions": { "total": 15, "covered": 14, "skipped": 0, "pct": 93.33 },
+    "statements": { "total": 137, "covered": 118, "skipped": 0, "pct": 86.13 },
+    "branches": { "total": 119, "covered": 84, "skipped": 0, "pct": 70.58 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\integration\\webhook-trigger.tool.ts": {
+    "lines": { "total": 65, "covered": 61, "skipped": 0, "pct": 93.84 },
+    "functions": { "total": 8, "covered": 6, "skipped": 0, "pct": 75 },
+    "statements": { "total": 71, "covered": 66, "skipped": 0, "pct": 92.95 },
+    "branches": { "total": 46, "covered": 39, "skipped": 0, "pct": 84.78 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\memory\\entity-memory.tool.ts": {
+    "lines": { "total": 114, "covered": 112, "skipped": 0, "pct": 98.24 },
+    "functions": { "total": 21, "covered": 21, "skipped": 0, "pct": 100 },
+    "statements": { "total": 117, "covered": 115, "skipped": 0, "pct": 98.29 },
+    "branches": { "total": 65, "covered": 59, "skipped": 0, "pct": 90.76 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\memory\\knowledge-base.tool.ts": {
+    "lines": { "total": 127, "covered": 108, "skipped": 0, "pct": 85.03 },
+    "functions": { "total": 27, "covered": 24, "skipped": 0, "pct": 88.88 },
+    "statements": { "total": 140, "covered": 117, "skipped": 0, "pct": 83.57 },
+    "branches": { "total": 81, "covered": 66, "skipped": 0, "pct": 81.48 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\memory\\long-term-memory.tool.ts": {
+    "lines": { "total": 33, "covered": 31, "skipped": 0, "pct": 93.93 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 33, "covered": 31, "skipped": 0, "pct": 93.93 },
+    "branches": { "total": 24, "covered": 17, "skipped": 0, "pct": 70.83 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\memory\\short-term-memory.tool.ts": {
+    "lines": { "total": 31, "covered": 30, "skipped": 0, "pct": 96.77 },
+    "functions": { "total": 3, "covered": 3, "skipped": 0, "pct": 100 },
+    "statements": { "total": 31, "covered": 30, "skipped": 0, "pct": 96.77 },
+    "branches": { "total": 22, "covered": 20, "skipped": 0, "pct": 90.9 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\memory\\user-preferences.tool.ts": {
+    "lines": { "total": 81, "covered": 71, "skipped": 0, "pct": 87.65 },
+    "functions": { "total": 13, "covered": 13, "skipped": 0, "pct": 100 },
+    "statements": { "total": 86, "covered": 76, "skipped": 0, "pct": 88.37 },
+    "branches": { "total": 55, "covered": 45, "skipped": 0, "pct": 81.81 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\processing\\data-analysis.tool.ts": {
+    "lines": { "total": 52, "covered": 51, "skipped": 0, "pct": 98.07 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 52, "covered": 51, "skipped": 0, "pct": 98.07 },
+    "branches": { "total": 45, "covered": 38, "skipped": 0, "pct": 84.44 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\processing\\data-cleaning.tool.ts": {
+    "lines": { "total": 194, "covered": 152, "skipped": 0, "pct": 78.35 },
+    "functions": { "total": 29, "covered": 28, "skipped": 0, "pct": 96.55 },
+    "statements": { "total": 204, "covered": 155, "skipped": 0, "pct": 75.98 },
+    "branches": { "total": 140, "covered": 95, "skipped": 0, "pct": 67.85 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\processing\\data-validation.tool.ts": {
+    "lines": { "total": 103, "covered": 83, "skipped": 0, "pct": 80.58 },
+    "functions": { "total": 11, "covered": 10, "skipped": 0, "pct": 90.9 },
+    "statements": { "total": 106, "covered": 85, "skipped": 0, "pct": 80.18 },
+    "branches": { "total": 71, "covered": 53, "skipped": 0, "pct": 74.64 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\processing\\document-diff.tool.ts": {
+    "lines": { "total": 137, "covered": 127, "skipped": 0, "pct": 92.7 },
+    "functions": { "total": 23, "covered": 22, "skipped": 0, "pct": 95.65 },
+    "statements": { "total": 141, "covered": 130, "skipped": 0, "pct": 92.19 },
+    "branches": { "total": 55, "covered": 44, "skipped": 0, "pct": 80 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\processing\\file-conversion.tool.ts": {
+    "lines": { "total": 200, "covered": 185, "skipped": 0, "pct": 92.5 },
+    "functions": { "total": 34, "covered": 30, "skipped": 0, "pct": 88.23 },
+    "statements": { "total": 209, "covered": 193, "skipped": 0, "pct": 92.34 },
+    "branches": { "total": 132, "covered": 113, "skipped": 0, "pct": 85.6 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\processing\\file-parser.tool.ts": {
+    "lines": { "total": 188, "covered": 188, "skipped": 0, "pct": 100 },
+    "functions": { "total": 41, "covered": 41, "skipped": 0, "pct": 100 },
+    "statements": { "total": 202, "covered": 201, "skipped": 0, "pct": 99.5 },
+    "branches": { "total": 105, "covered": 94, "skipped": 0, "pct": 89.52 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\categories\\processing\\template-render.tool.ts": {
+    "lines": { "total": 153, "covered": 150, "skipped": 0, "pct": 98.03 },
+    "functions": { "total": 36, "covered": 36, "skipped": 0, "pct": 100 },
+    "statements": { "total": 162, "covered": 159, "skipped": 0, "pct": 98.14 },
+    "branches": { "total": 62, "covered": 55, "skipped": 0, "pct": 88.7 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\middleware\\timeout.middleware.ts": {
+    "lines": { "total": 42, "covered": 42, "skipped": 0, "pct": 100 },
+    "functions": { "total": 10, "covered": 10, "skipped": 0, "pct": 100 },
+    "statements": { "total": 45, "covered": 45, "skipped": 0, "pct": 100 },
+    "branches": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\middleware\\tool-pipeline.ts": {
+    "lines": { "total": 43, "covered": 43, "skipped": 0, "pct": 100 },
+    "functions": { "total": 9, "covered": 9, "skipped": 0, "pct": 100 },
+    "statements": { "total": 46, "covered": 46, "skipped": 0, "pct": 100 },
+    "branches": { "total": 11, "covered": 10, "skipped": 0, "pct": 90.9 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\middleware\\validation.middleware.ts": {
+    "lines": { "total": 68, "covered": 68, "skipped": 0, "pct": 100 },
+    "functions": { "total": 8, "covered": 8, "skipped": 0, "pct": 100 },
+    "statements": { "total": 73, "covered": 73, "skipped": 0, "pct": 100 },
+    "branches": { "total": 78, "covered": 72, "skipped": 0, "pct": 92.3 }
+  },
+  "D:\\projects\\codes\\deepdive-engine\\backend\\src\\modules\\ai-engine\\tools\\registry\\tool-registry.ts": {
+    "lines": { "total": 90, "covered": 90, "skipped": 0, "pct": 100 },
+    "functions": { "total": 44, "covered": 44, "skipped": 0, "pct": 100 },
+    "statements": { "total": 102, "covered": 101, "skipped": 0, "pct": 99.01 },
+    "branches": { "total": 49, "covered": 47, "skipped": 0, "pct": 95.91 }
+  }
+}
