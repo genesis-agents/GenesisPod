@@ -11,7 +11,7 @@ export default function ArchitectureDiagram() {
 
   // Fetch module-level stats for all cards
   const { data: overviewStats } = useApiGet<Record<string, number>>(
-    '/api/v1/admin/overview-stats'
+    '/admin/overview-stats'
   );
 
   // Count total cards

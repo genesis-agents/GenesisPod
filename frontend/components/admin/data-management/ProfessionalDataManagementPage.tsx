@@ -37,10 +37,10 @@ interface RecentTask {
 }
 
 const fetchDashboardSummary = (): Promise<DashboardSummary> =>
-  apiClient.get<DashboardSummary>('/api/v1/data-management/dashboard/summary');
+  apiClient.get<DashboardSummary>('/data-management/dashboard/summary');
 
 const fetchRecentTasks = (): Promise<RecentTask[]> =>
-  apiClient.get<RecentTask[]>('/api/v1/data-management/dashboard/recent-tasks');
+  apiClient.get<RecentTask[]>('/data-management/dashboard/recent-tasks');
 
 const RESOURCE_TYPES: Array<{
   id: ResourceType;

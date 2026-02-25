@@ -128,7 +128,7 @@ export function ImportUrlDialog({
       const data = await apiClient.post<{
         metadata: ParsedMetadata;
         classification?: Classification;
-      }>('/api/v1/data-management/parse-url-auto', { url });
+      }>('/data-management/parse-url-auto', { url });
 
       if (!data || !data.metadata) {
         throw new Error('Invalid response data format');
@@ -159,7 +159,7 @@ export function ImportUrlDialog({
     setError('');
 
     try {
-      await apiClient.post('/api/v1/data-management/import-auto', {
+      await apiClient.post('/data-management/import-auto', {
         url,
         resourceType: selectedResourceType,
       });

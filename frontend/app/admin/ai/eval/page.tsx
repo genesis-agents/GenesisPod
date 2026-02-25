@@ -355,7 +355,7 @@ export default function EvalDashboardPage() {
     setError(null);
     try {
       const data = await apiClient.get<TraceSummary[]>(
-        '/api/v1/admin/monitoring/traces?limit=50'
+        '/admin/monitoring/traces?limit=50'
       );
       setTraces(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -372,14 +372,9 @@ export default function EvalDashboardPage() {
   const handleEvaluate = useCallback(async (traceId: string) => {
     setEvaluating((prev) => ({ ...prev, [traceId]: true }));
     try {
-      const res = await fetch(
-        `/api/v1/admin/monitoring/traces/${traceId}/evaluate`,
-        {
-          method: 'POST',
-        }
+      const result = await apiClient.post<EvalResult>(
+        `/admin/monitoring/traces/${traceId}/evaluate`
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const result: EvalResult = await res.json();
       setEvalResults((prev) => ({ ...prev, [traceId]: result }));
     } catch {
       // Silently ignore eval errors — row stays evaluatable, button re-enabled
