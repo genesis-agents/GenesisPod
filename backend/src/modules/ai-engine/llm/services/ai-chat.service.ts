@@ -1221,7 +1221,7 @@ export class AiChatService {
     }
     if (!model) {
       const defaultConfig = await this.getDefaultModelConfig();
-      model = defaultConfig?.modelId || "gpt-4o";
+      model = defaultConfig?.modelId || "";
     }
 
     // 获取模型配置

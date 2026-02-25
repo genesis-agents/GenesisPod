@@ -368,7 +368,7 @@ export class ReportsService {
     }
 
     const aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:5000";
-    const model = dto.model ?? "gpt-4";
+    const model = dto.model ?? "";
 
     let aiReport: AIReportResponse;
     try {

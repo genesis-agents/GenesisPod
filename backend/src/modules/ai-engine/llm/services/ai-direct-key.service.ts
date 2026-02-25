@@ -209,7 +209,7 @@ export class AiDirectKeyService {
             );
           }
 
-          const effectiveModelId = modelId || "gpt-4-turbo-preview";
+          const effectiveModelId = modelId || "";
           const isReasoning = this.inferIsReasoning(effectiveModelId);
           const tokenParamName = isReasoning
             ? "max_completion_tokens"
@@ -244,7 +244,7 @@ export class AiDirectKeyService {
                 : {}),
             },
             { Authorization: `Bearer ${apiKey}` },
-            "gpt-4",
+            effectiveModelId,
           );
         }
 
@@ -261,7 +261,7 @@ export class AiDirectKeyService {
           return await this.callClaudeApiWithKey(
             apiEndpoint || "https://api.anthropic.com/v1/messages",
             apiKey,
-            modelId || "claude-3-opus-20240229",
+            modelId || "",
             systemMessage?.content,
             otherMessages,
             maxTokens,
@@ -274,7 +274,7 @@ export class AiDirectKeyService {
         case "gemini":
           return await this.callGeminiApiWithKey(
             apiKey,
-            modelId || "gemini-2.0-flash-exp",
+            modelId || "",
             apiEndpoint,
             fullMessages,
             maxTokens,

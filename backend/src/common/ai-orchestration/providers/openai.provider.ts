@@ -60,7 +60,7 @@ export class OpenAITextProvider extends BaseTextProvider {
   ): Promise<TextGenerationResult> {
     const url =
       model.apiEndpoint || "https://api.openai.com/v1/chat/completions";
-    const modelId = model.modelId || "gpt-4-turbo-preview";
+    const modelId = model.modelId || "";
 
     // 新模型使用 max_completion_tokens
     const isNewModel =

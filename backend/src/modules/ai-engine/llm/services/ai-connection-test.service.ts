@@ -141,7 +141,7 @@ export class AiConnectionTestService {
 
         case "openai":
         case "gpt": {
-          const effectiveOpenAIModel = modelId || "gpt-4";
+          const effectiveOpenAIModel = modelId || "";
           const isReasoningModel = this.inferIsReasoning(effectiveOpenAIModel);
           const openAITokenParamName = isReasoningModel
             ? "max_completion_tokens"
@@ -175,7 +175,7 @@ export class AiConnectionTestService {
             this.httpService.post(
               apiEndpoint || "https://api.anthropic.com/v1/messages",
               {
-                model: modelId || "claude-3-sonnet-20240229",
+                model: modelId || "",
                 max_tokens: 50,
                 messages: testMessages,
               },
@@ -255,8 +255,12 @@ export class AiConnectionTestService {
             } catch (testError: unknown) {
               const latency = Date.now() - startTime;
               const err = testError as Record<string, unknown>;
-              const response = err.response as Record<string, unknown> | undefined;
-              const data = response?.data as Record<string, unknown> | undefined;
+              const response = err.response as
+                | Record<string, unknown>
+                | undefined;
+              const data = response?.data as
+                | Record<string, unknown>
+                | undefined;
               const error = data?.error as Record<string, unknown> | undefined;
               const errorMsg =
                 (error?.message as string) ||
@@ -285,7 +289,7 @@ export class AiConnectionTestService {
                   temperature: 0,
                 };
 
-            const effectiveGeminiModel = modelId || "gemini-pro";
+            const effectiveGeminiModel = modelId || "";
             let geminiEndpoint: string;
             if (apiEndpoint && apiEndpoint.includes(":generateContent")) {
               geminiEndpoint = apiEndpoint;

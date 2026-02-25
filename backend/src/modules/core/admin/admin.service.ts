@@ -2855,7 +2855,7 @@ export class AdminService {
     ]);
 
     return {
-      defaultModel: defaultModel || "gpt-4o-mini",
+      defaultModel: defaultModel || "",
       maxTokens: maxTokens || 4096,
       temperature: temperature || 0.7,
       rateLimitPerMinute: rateLimitPerMinute || 20,

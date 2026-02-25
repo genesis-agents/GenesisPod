@@ -494,8 +494,7 @@ export class SettingsService implements OnModuleInit {
 
   async getAiSettings(): Promise<AiSettings> {
     return {
-      defaultModel:
-        (await this.get("default_ai_model", "gpt-4o-mini")) || "gpt-4o-mini",
+      defaultModel: (await this.get("default_ai_model", "")) || "",
       maxTokens: parseInt((await this.get("ai_max_tokens", "4096")) || "4096"),
       temperature: parseFloat(
         (await this.get("ai_temperature", "0.7")) || "0.7",

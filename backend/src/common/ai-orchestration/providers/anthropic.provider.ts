@@ -51,7 +51,7 @@ export class AnthropicProvider extends BaseTextProvider {
     const response = await this.post<ClaudeResponse>(
       url,
       {
-        model: model.modelId || "claude-3-sonnet-20240229",
+        model: model.modelId || "",
         max_tokens: options.maxTokens || 2048,
         temperature: options.temperature ?? 0.7,
         system: systemMessage?.content,

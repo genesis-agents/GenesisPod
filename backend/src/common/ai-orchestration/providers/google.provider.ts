@@ -49,7 +49,7 @@ export class GeminiProvider extends BaseTextProvider {
     messages: ChatMessage[],
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
-    const modelId = model.modelId || "gemini-2.0-flash-exp";
+    const modelId = model.modelId || "";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${model.apiKey}`;
 
     // Gemini 需要特殊处理 system message
