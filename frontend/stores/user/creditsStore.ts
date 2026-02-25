@@ -141,7 +141,7 @@ export const useCreditsStore = create<CreditsState>()(
       // 获取余额（轻量级）— 带飞行中去重，防止多组件并发重复请求
       fetchBalance: async () => {
         if (inFlight['balance'] !== undefined) return inFlight['balance'];
-        inFlight['balance'] = (async () => {
+        const p = (async () => {
           try {
             const response = await fetch(API_BASE + '/balance', {
               headers: getAuthHeaders(),
@@ -183,7 +183,8 @@ export const useCreditsStore = create<CreditsState>()(
             delete inFlight['balance'];
           }
         })();
-        return inFlight['balance'];
+        inFlight['balance'] = p;
+        return p;
       },
 
       // 获取完整账户信息
@@ -214,7 +215,7 @@ export const useCreditsStore = create<CreditsState>()(
       // 获取签到状态 — 带飞行中去重
       fetchCheckinStatus: async () => {
         if (inFlight['checkin'] !== undefined) return inFlight['checkin'];
-        inFlight['checkin'] = (async () => {
+        const p = (async () => {
           try {
             const response = await fetch(API_BASE + '/checkin/status', {
               headers: getAuthHeaders(),
@@ -233,7 +234,8 @@ export const useCreditsStore = create<CreditsState>()(
             delete inFlight['checkin'];
           }
         })();
-        return inFlight['checkin'];
+        inFlight['checkin'] = p;
+        return p;
       },
 
       // 执行签到

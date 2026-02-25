@@ -533,14 +533,11 @@ export class CollectionsService {
       SELECT tag AS name, COUNT(*) AS count
       FROM collection_items ci
       JOIN collections c ON c.id = ci.collection_id
-      CROSS JOIN LATERAL jsonb_array_elements_text(
-        CASE
-          WHEN jsonb_typeof(ci.tags) = 'array' THEN ci.tags
-          ELSE '[]'::jsonb
-        END
-      ) AS tag
+      CROSS JOIN LATERAL jsonb_array_elements_text(ci.tags) AS tag
       WHERE c.user_id = ${userId}
         AND ci.tags IS NOT NULL
+        AND jsonb_typeof(ci.tags) = 'array'
+        AND jsonb_array_length(ci.tags) > 0
       GROUP BY tag
       ORDER BY count DESC
     `;

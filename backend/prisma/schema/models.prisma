@@ -6606,7 +6606,6 @@ model TopicCollaborator {
   // 索引
   @@unique([topicId, userId])
   @@index([userId])
-  @@index([userId, isActive])
   @@index([topicId, isActive])
   @@index([topicId, status])
   @@map("research_topic_collaborators")
