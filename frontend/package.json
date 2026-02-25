@@ -97,6 +97,9 @@
     "typescript": "^5.3.0",
     "vitest": "^4.0.8"
   },
+  "optionalDependencies": {
+    "sharp": "^0.33.5"
+  },
   "overrides": {
     "pdfjs-dist": "^5.4.394"
   }
