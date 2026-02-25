@@ -92,7 +92,7 @@ import {
 import { StyleTemplateService } from "./services/style/style-template.service";
 import { WritingDataExportService } from "./services/writing-data-export.service";
 import { WritingDataExportAdapter } from "./services/writing-data-export.adapter";
-import { WRITING_DATA_EXPORT } from "../office/interfaces/data-export.interface";
+import { WRITING_DATA_EXPORT } from "../shared/interfaces/data-export.interface";
 
 // Writing Agents (extending AI Engine BaseAgent)
 import {
@@ -104,12 +104,7 @@ import {
 } from "./agents";
 
 @Module({
-  imports: [
-    PrismaModule,
-    AiEngineModule,
-    ConfigModule,
-    CreditsModule,
-  ],
+  imports: [PrismaModule, AiEngineModule, ConfigModule, CreditsModule],
   controllers: [AiWritingController],
   providers: [
     // Repository

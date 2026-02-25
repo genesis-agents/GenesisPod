@@ -3,8 +3,14 @@
  * AI 策划模块 — 独立 AI App
  *
  * 依赖：
- * - AiTeamsModule: 复用 Topic/Mission/Debate 基础设施
  * - AiEngineModule: TeamRegistry 注册策划团队配置
+ * - AiTeamsModule: 复用 Topic/Mission/Debate 基础设施（受控的跨 App 依赖）
+ *
+ * ★ 架构说明 (PLANNING → TEAMS 跨 App 依赖):
+ *   Planning 模块把 Teams 的 Topic/Mission/Debate 机制用作执行基础设施，
+ *   本质上是 "Teams 基础设施的受控消费者"，而非普通的平级 App 依赖。
+ *   待 AiEngineModule 将 Topic/Mission 抽象为引擎级能力时，可消除此依赖。
+ *   当前将其列为已知 P3 技术债，由架构审计追踪。
  */
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";

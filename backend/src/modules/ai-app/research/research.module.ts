@@ -24,7 +24,7 @@ import { ResearchProjectExportAdapter } from "./services/research-project-export
 import {
   RESEARCH_DATA_EXPORT,
   RESEARCH_PROJECT_DATA_EXPORT,
-} from "../office/interfaces/data-export.interface";
+} from "../shared/interfaces/data-export.interface";
 
 @Module({
   imports: [DiscussionModule, ResearchProjectModule],

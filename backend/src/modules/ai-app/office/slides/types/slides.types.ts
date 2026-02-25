@@ -11,18 +11,44 @@
  * - InfographicTemplateService: HTML 渲染
  */
 
-// Import types from ai-image for use in this file
-import type {
-  BackgroundType as AIImageBackgroundType,
-  BackgroundDecision as AIImageBackgroundDecision,
-  DesignStyle as AIImageDesignStyle,
-} from "../../../image/core/engine.types";
+// ★ Inlined from ai-app/image/core/engine.types to avoid cross-App module dependency
+// (OFFICE must not import from IMAGE app layer; these are pure type aliases)
 
-// Re-export types for use by PPT services
-export type BackgroundType = AIImageBackgroundType;
-export type BackgroundDecision = AIImageBackgroundDecision;
-// Use DesignStyle locally without re-export (designer module is the canonical source)
-type DesignStyle = AIImageDesignStyle;
+/** 背景类型 - 纯色 / 渐变 / AI生成 */
+export type BackgroundType = "solid" | "gradient" | "ai_generated";
+
+/** 背景决策配置 */
+export interface BackgroundDecision {
+  type: BackgroundType;
+  reasoning: string;
+  colors?: {
+    primary: string;
+    secondary?: string;
+    direction?: "horizontal" | "vertical" | "diagonal" | "radial";
+  };
+  aiConfig?: {
+    prompt: string;
+    style: string;
+    colorTone: string;
+    complexity: "minimal" | "moderate" | "detailed";
+  };
+}
+
+/** 设计风格 */
+type DesignStyle =
+  | "consulting"
+  | "tech"
+  | "minimal"
+  | "creative"
+  | "dark"
+  | "academic"
+  | "business"
+  | "genspark"
+  | "tech_gradient"
+  | "genspark_pro"
+  | "executive"
+  | "tech_purple"
+  | "sunset";
 
 // ============================================
 // 幻灯片目的类型

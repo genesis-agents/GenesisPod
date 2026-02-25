@@ -13,7 +13,7 @@ import {
   type ExecutionConfig,
 } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
+import { RAGPipelineService } from "../../ai-engine/facade";
 import { CreditsService } from "../../credits/credits.service";
 import { InsufficientCreditsException } from "../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../credits/billing-context";

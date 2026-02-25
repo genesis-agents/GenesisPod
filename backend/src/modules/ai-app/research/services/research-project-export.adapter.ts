@@ -12,7 +12,7 @@ import {
   IResearchProjectDataExport,
   IExportableResearchProjectData,
   IResearchProjectListItem,
-} from "../../office/interfaces/data-export.interface";
+} from "../../shared/interfaces/data-export.interface";
 import { ResearchProjectExportService } from "./research-project-export.service";
 
 @Injectable()
