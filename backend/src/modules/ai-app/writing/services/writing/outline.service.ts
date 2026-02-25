@@ -41,7 +41,7 @@ export class OutlineService {
     projectId: string,
     volumeNumber: number,
     chapterCount: number,
-    _modelId: string = "gpt-4o", // 保留参数用于未来扩展
+    _modelId: string = "", // 保留参数用于未来扩展
   ): Promise<VolumeOutline> {
     this._logger.log(
       `Generating outline for project ${projectId}, volume ${volumeNumber}, ${chapterCount} chapters`,
@@ -274,8 +274,12 @@ export class OutlineService {
     // Simple heuristic: depend on previous chapter
     const c = chapter as Record<string, unknown>;
     const previousChapter = allChapters.find(
-      (ch) => (ch as Record<string, unknown>)["chapterNumber"] === (c["chapterNumber"] as number) - 1,
+      (ch) =>
+        (ch as Record<string, unknown>)["chapterNumber"] ===
+        (c["chapterNumber"] as number) - 1,
     );
-    return previousChapter ? [(previousChapter as Record<string, unknown>)["id"] as string] : [];
+    return previousChapter
+      ? [(previousChapter as Record<string, unknown>)["id"] as string]
+      : [];
   }
 }

@@ -48,6 +48,9 @@ export type { WorkflowConfig } from "../teams/abstractions/workflow.interface";
 export type { ConstraintProfile } from "../teams/constraints/constraint-profile";
 export { BUILTIN_ROLES } from "../teams/abstractions/role.interface";
 export { BUILTIN_TOOLS } from "../core/types/agent.types";
+export type { BuiltinToolId } from "../core/types/agent.types";
+export type { ExecutionMode } from "../core/types/context.types";
+export type { TaskPlan } from "../orchestration/services/task-planner.service";
 export { createConstraintProfile } from "../teams/constraints/constraint-profile";
 export type {
   MissionEvent,

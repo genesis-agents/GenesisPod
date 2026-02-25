@@ -114,13 +114,20 @@ export class ResearchProjectChatService {
       where: { id: chat.id },
       data: {
         messages: messages as unknown as InputJsonValue,
-        modelUsed: dto.model || "gpt-4",
+        modelUsed: dto.model || "",
       },
     });
 
     // Get selected sources for context
     // IMPORTANT: Maintain the order of selectedSourceIds for consistent citation mapping
-    let sourceContext: Array<{ id: string; title: string; abstract: string | null; content: string | null; sourceType: string; aiSummary: string | null }> = [];
+    let sourceContext: Array<{
+      id: string;
+      title: string;
+      abstract: string | null;
+      content: string | null;
+      sourceType: string;
+      aiSummary: string | null;
+    }> = [];
     if (dto.selectedSourceIds && dto.selectedSourceIds.length > 0) {
       const sources = await this.prisma.researchProjectSource.findMany({
         where: {
@@ -254,7 +261,16 @@ export class ResearchProjectChatService {
   /**
    * Build context text from sources
    */
-  private buildSourceContext(sources: Array<{ id: string; title: string; abstract: string | null; content: string | null; sourceType: string; aiSummary: string | null }>): string {
+  private buildSourceContext(
+    sources: Array<{
+      id: string;
+      title: string;
+      abstract: string | null;
+      content: string | null;
+      sourceType: string;
+      aiSummary: string | null;
+    }>,
+  ): string {
     if (sources.length === 0) {
       return "";
     }

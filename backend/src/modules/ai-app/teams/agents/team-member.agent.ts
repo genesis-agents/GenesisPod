@@ -7,12 +7,13 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AICapability, AgentWorkStyle } from "@prisma/client";
-import { BUILTIN_TOOLS, BuiltinToolId } from "../../../ai-engine/core";
-import { ToolRegistry } from "../../../ai-engine/tools/registry";
 import {
+  BUILTIN_TOOLS,
+  BuiltinToolId,
+  ToolRegistry,
   ITool,
   ToolContext,
-} from "../../../ai-engine/tools/abstractions/tool.interface";
+} from "../../../ai-engine/facade";
 
 /**
  * 团队成员角色类型

@@ -506,7 +506,7 @@ ${pair.toChapter.openingContent}
   async quickCoherenceCheck(
     chapterId: string,
   ): Promise<{ score: number; criticalIssues: CoherenceIssue[] }> {
-    const result = await this.checkChapterTransition(chapterId, "gpt-4o-mini");
+    const result = await this.checkChapterTransition(chapterId);
 
     return {
       score: result.score,

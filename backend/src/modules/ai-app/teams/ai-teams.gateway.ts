@@ -128,7 +128,7 @@ export class AiTeamsGateway
 
       // 离开之前的Topic房间
       if (client.currentTopicId) {
-        client.leave(`topic:${client.currentTopicId}`);
+        await client.leave(`topic:${client.currentTopicId}`);
         // 通知之前房间的成员该用户离开
         this.server
           .to(`topic:${client.currentTopicId}`)
@@ -137,7 +137,7 @@ export class AiTeamsGateway
 
       // 加入新的Topic房间
       const roomName = `topic:${topicId}`;
-      client.join(roomName);
+      await client.join(roomName);
       client.currentTopicId = topicId;
 
       // 获取当前房间内的在线用户列表
@@ -168,7 +168,7 @@ export class AiTeamsGateway
     const userId = client.userId;
 
     if (client.currentTopicId === topicId) {
-      client.leave(`topic:${topicId}`);
+      await client.leave(`topic:${topicId}`);
       client.currentTopicId = undefined;
 
       // 通知其他成员有人离开
@@ -214,7 +214,7 @@ export class AiTeamsGateway
             });
 
             // 生成AI响应（异步）
-            this.generateAndBroadcastAIResponse(
+            void this.generateAndBroadcastAIResponse(
               topicId,
               userId,
               mention.aiMemberId,
@@ -237,7 +237,11 @@ export class AiTeamsGateway
               });
 
               // 生成AI响应（异步）
-              this.generateAndBroadcastAIResponse(topicId, userId, aiMember.id);
+              void this.generateAndBroadcastAIResponse(
+                topicId,
+                userId,
+                aiMember.id,
+              );
             }
           } else if (
             mention.mentionType === "USER" &&

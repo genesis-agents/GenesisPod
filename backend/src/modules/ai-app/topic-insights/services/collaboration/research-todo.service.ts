@@ -1330,7 +1330,7 @@ export class ResearchTodoService {
           // ★ v7.4: 为新维度创建专属 Agent，确保 Agent 与维度内容匹配
           assignedAgent: newAgentId,
           assignedAgentType: "dimension_researcher",
-          modelId: todo.modelId || "gpt-4o", // ★ 使用 Leader 分配的模型或默认模型
+          modelId: todo.modelId || "", // ★ 使用 Leader 分配的模型，由 TaskProfile 决定
           // ★ v7.3: 使用计算的优先级，确保排在已有任务后面
           priority: newPriority,
           // ★ v7.3: 状态为 PENDING，由 Mission 调度执行
@@ -1528,9 +1528,6 @@ export class ResearchTodoService {
       overallProgress: 0,
     };
 
-    let totalProgress = 0;
-    let countableItems = 0;
-
     for (const todo of todos) {
       switch (todo.status) {
         case ResearchTodoStatus.PENDING:
@@ -1541,18 +1538,12 @@ export class ResearchTodoService {
           break;
         case ResearchTodoStatus.IN_PROGRESS:
           summary.inProgress++;
-          totalProgress += todo.progress;
-          countableItems++;
           break;
         case ResearchTodoStatus.PAUSED:
           summary.paused++;
-          totalProgress += todo.progress;
-          countableItems++;
           break;
         case ResearchTodoStatus.COMPLETED:
           summary.completed++;
-          totalProgress += 100;
-          countableItems++;
           break;
         case ResearchTodoStatus.FAILED:
           summary.failed++;

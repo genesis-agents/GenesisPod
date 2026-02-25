@@ -542,7 +542,7 @@ export class ResearchProjectOutputService {
     // Get output config
     const config = OUTPUT_CONFIGS[dto.type];
     const title = dto.customTitle || config.title;
-    const model = dto.model || "gemini"; // Default to Gemini
+    const model = dto.model || "";
 
     this.logger.log(
       `Generating ${dto.type} output for project ${projectId} with ${sources.length} source(s) using model ${model}`,

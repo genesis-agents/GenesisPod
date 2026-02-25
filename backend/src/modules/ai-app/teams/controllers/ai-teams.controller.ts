@@ -81,7 +81,10 @@ export class AiTeamsController {
   })
   @ApiResponse({ status: 201, description: "话题创建成功" })
   @ApiResponse({ status: 400, description: "请求参数错误" })
-  async createTopic(@Request() req: RequestWithUser, @Body() dto: CreateTopicDto) {
+  async createTopic(
+    @Request() req: RequestWithUser,
+    @Body() dto: CreateTopicDto,
+  ) {
     return this.aiGroupService.createTopic(req.user.id, dto);
   }
 
@@ -165,7 +168,10 @@ export class AiTeamsController {
   // ==================== Dynamic Routes ====================
 
   @Get(":topicId")
-  async getTopicById(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async getTopicById(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     return this.aiGroupService.getTopicById(topicId, req.user.id);
   }
 
@@ -179,19 +185,28 @@ export class AiTeamsController {
   }
 
   @Post(":topicId/archive")
-  async archiveTopic(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async archiveTopic(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     return this.aiGroupService.archiveTopic(topicId, req.user.id);
   }
 
   @Delete(":topicId")
-  async deleteTopic(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async deleteTopic(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     return this.aiGroupService.deleteTopic(topicId, req.user.id);
   }
 
   // ==================== Member Management ====================
 
   @Get(":topicId/members")
-  async getMembers(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async getMembers(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     const topic = await this.aiGroupService.getTopicById(topicId, req.user.id);
     return topic.members;
   }
@@ -253,7 +268,10 @@ export class AiTeamsController {
   }
 
   @Post(":topicId/leave")
-  async leaveTopic(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async leaveTopic(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     return this.aiGroupService.leaveTopic(topicId, req.user.id);
   }
 
@@ -289,7 +307,10 @@ export class AiTeamsController {
   // ==================== AI Member Management ====================
 
   @Get(":topicId/ai-members")
-  async getAIMembers(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async getAIMembers(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     const topic = await this.aiGroupService.getTopicById(topicId, req.user.id);
     return topic.aiMembers;
   }
@@ -393,7 +414,7 @@ export class AiTeamsController {
 
     // 通过 WebSocket 广播新消息给所有房间成员
     this.logger.log(`Broadcasting message ${message.id} to topic ${topicId}`);
-    this.aiGroupGateway.emitToTopic(topicId, "message:new", message);
+    void this.aiGroupGateway.emitToTopic(topicId, "message:new", message);
 
     // 处理 mentions - 向被@的用户发送通知
     if (dto.mentions && dto.mentions.length > 0) {
@@ -502,7 +523,7 @@ export class AiTeamsController {
         );
 
         // 异步启动辩论（不阻塞消息返回）
-        this.runDebateInBackground(
+        void this.runDebateInBackground(
           topicId,
           req.user.id,
           debateInfo.topic,
@@ -514,11 +535,11 @@ export class AiTeamsController {
         for (const ai of aiMembersToRespond) {
           if (ai.id !== debateInfo.redAI.id && ai.id !== debateInfo.blueAI.id) {
             setTimeout(() => {
-              this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
+              void this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
                 topicId,
                 aiMemberId: ai.id,
               });
-              this.generateAIResponseInBackground(
+              void this.generateAIResponseInBackground(
                 topicId,
                 req.user.id,
                 ai.id,
@@ -532,11 +553,11 @@ export class AiTeamsController {
         // 普通模式：并行触发所有 AI
         for (const ai of aiMembersToRespond) {
           this.logger.log(`Triggering AI response for ${ai.displayName}`);
-          this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
+          void this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
             topicId,
             aiMemberId: ai.id,
           });
-          this.generateAIResponseInBackground(
+          void this.generateAIResponseInBackground(
             topicId,
             req.user.id,
             ai.id,
@@ -658,11 +679,11 @@ export class AiTeamsController {
       );
 
       // 广播AI响应
-      this.aiGroupGateway.emitToTopic(topicId, "ai:response", {
+      void this.aiGroupGateway.emitToTopic(topicId, "ai:response", {
         aiMemberId,
         messageId: aiMessage.id,
       });
-      this.aiGroupGateway.emitToTopic(topicId, "message:new", aiMessage);
+      void this.aiGroupGateway.emitToTopic(topicId, "message:new", aiMessage);
 
       // AI-AI协作：检测AI回复中是否@了其他AI
       // 【关键修复】仅在辩论模式下才触发 AI-AI 协作链
@@ -731,11 +752,11 @@ export class AiTeamsController {
                 this.logger.log(
                   `[AI-AI Collaboration] Triggering ${mentionedAI.displayName} with debateRole=${nextDebateRole?.role || "none"}`,
                 );
-                this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
+                void this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
                   topicId,
                   aiMemberId: mentionedAI.id,
                 });
-                this.generateAIResponseInBackground(
+                void this.generateAIResponseInBackground(
                   topicId,
                   userId,
                   mentionedAI.id,
@@ -754,7 +775,7 @@ export class AiTeamsController {
       this.logger.error(
         `[AI Response] Error for topic=${topicId}, aiMemberId=${aiMemberId}: ${errorMessage}`,
       );
-      this.aiGroupGateway.emitToTopic(topicId, "ai:error", {
+      void this.aiGroupGateway.emitToTopic(topicId, "ai:error", {
         aiMemberId,
         error: errorMessage,
       });
@@ -799,7 +820,7 @@ export class AiTeamsController {
       }
 
       // 通知前端辩论开始
-      this.aiGroupGateway.emitToTopic(topicId, "debate:started", {
+      void this.aiGroupGateway.emitToTopic(topicId, "debate:started", {
         sessionId: session.id,
         topic: debateTopic,
         redAgent,
@@ -815,7 +836,7 @@ export class AiTeamsController {
         this.logger.log(`[Debate] === Round ${round} ===`);
 
         // 红方发言
-        this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
+        void this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
           aiMemberId: redAgent.aiMemberId,
           isTyping: true,
         });
@@ -836,18 +857,18 @@ export class AiTeamsController {
           redResponse.tokensUsed,
         );
 
-        this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
+        void this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
           aiMemberId: redAgent.aiMemberId,
           isTyping: false,
         });
-        this.aiGroupGateway.emitToTopic(
+        void this.aiGroupGateway.emitToTopic(
           topicId,
           "message:new",
           redTopicMessage,
         );
 
         // 蓝方回应
-        this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
+        void this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
           aiMemberId: blueAgent.aiMemberId,
           isTyping: true,
         });
@@ -868,11 +889,11 @@ export class AiTeamsController {
           blueResponse.tokensUsed,
         );
 
-        this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
+        void this.aiGroupGateway.emitToTopic(topicId, "ai:typing", {
           aiMemberId: blueAgent.aiMemberId,
           isTyping: false,
         });
-        this.aiGroupGateway.emitToTopic(
+        void this.aiGroupGateway.emitToTopic(
           topicId,
           "message:new",
           blueTopicMessage,
@@ -883,7 +904,7 @@ export class AiTeamsController {
       await this.debateService.completeDebate(session.id);
 
       // 通知前端辩论结束
-      this.aiGroupGateway.emitToTopic(topicId, "debate:completed", {
+      void this.aiGroupGateway.emitToTopic(topicId, "debate:completed", {
         sessionId: session.id,
       });
 
@@ -892,7 +913,7 @@ export class AiTeamsController {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[Debate] Error: ${errorMessage}`);
-      this.aiGroupGateway.emitToTopic(topicId, "debate:error", {
+      void this.aiGroupGateway.emitToTopic(topicId, "debate:error", {
         error: errorMessage,
       });
     }
@@ -1092,7 +1113,10 @@ export class AiTeamsController {
   // ==================== Resources ====================
 
   @Get(":topicId/resources")
-  async getResources(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async getResources(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     return this.aiGroupService.getResources(topicId, req.user.id);
   }
 
@@ -1117,7 +1141,10 @@ export class AiTeamsController {
   // ==================== Summaries ====================
 
   @Get(":topicId/summaries")
-  async getSummaries(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
+  async getSummaries(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
     return this.aiGroupService.getSummaries(topicId, req.user.id);
   }
 
@@ -1155,11 +1182,15 @@ export class AiTeamsController {
 
     // 如果转发到其他Topic，通知目标Topic的成员
     if (dto.targetType === "TOPIC" && dto.targetTopicId) {
-      this.aiGroupGateway.emitToTopic(dto.targetTopicId, "messages:forwarded", {
-        fromTopicId: topicId,
-        messageCount: result.messageCount,
-        forwardedById: req.user.id,
-      });
+      void this.aiGroupGateway.emitToTopic(
+        dto.targetTopicId,
+        "messages:forwarded",
+        {
+          fromTopicId: topicId,
+          messageCount: result.messageCount,
+          forwardedById: req.user.id,
+        },
+      );
     }
 
     return result;

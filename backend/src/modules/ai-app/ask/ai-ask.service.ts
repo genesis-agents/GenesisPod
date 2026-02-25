@@ -1142,7 +1142,7 @@ export class AiAskService {
    */
   private buildSuggestedActions(
     userInput: string,
-    plan: import("../../ai-engine/orchestration/services/task-planner.service").TaskPlan,
+    plan: import("../../ai-engine/facade").TaskPlan,
   ): SuggestedAction[] {
     const seen = new Set<string>();
     const actions: SuggestedAction[] = [];

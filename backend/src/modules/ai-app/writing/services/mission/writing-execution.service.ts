@@ -91,7 +91,7 @@ export class WritingExecutionService {
       )?.modelId;
 
       // 使用默认模型如果没有分配
-      const modelToUse = writerModel || leaderModel || "gpt-4o-mini";
+      const modelToUse = writerModel || leaderModel || "";
 
       this.logger.log(`Using model: ${modelToUse} for content generation`);
 
