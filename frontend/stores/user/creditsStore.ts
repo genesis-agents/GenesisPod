@@ -140,7 +140,7 @@ export const useCreditsStore = create<CreditsState>()(
 
       // 获取余额（轻量级）— 带飞行中去重，防止多组件并发重复请求
       fetchBalance: async () => {
-        if (inFlight['balance']) return inFlight['balance'];
+        if (inFlight['balance'] !== undefined) return inFlight['balance'];
         inFlight['balance'] = (async () => {
           try {
             const response = await fetch(API_BASE + '/balance', {
@@ -213,7 +213,7 @@ export const useCreditsStore = create<CreditsState>()(
 
       // 获取签到状态 — 带飞行中去重
       fetchCheckinStatus: async () => {
-        if (inFlight['checkin']) return inFlight['checkin'];
+        if (inFlight['checkin'] !== undefined) return inFlight['checkin'];
         inFlight['checkin'] = (async () => {
           try {
             const response = await fetch(API_BASE + '/checkin/status', {
