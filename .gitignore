@@ -18,6 +18,7 @@ venv.bak/
 
 # 测试
 coverage/
+coverage-*/
 *.lcov
 .nyc_output
 .pytest_cache/
