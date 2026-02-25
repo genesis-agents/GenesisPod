@@ -297,22 +297,23 @@ export class GoogleDriveAuthService {
     }
 
     // 如果连接状态是 ACTIVE，检查 token 是否过期
-    // 火并忘（fire-and-forget）异步刷新，不阻塞当前请求
-    if (connection.status === GoogleDriveConnectionStatus.ACTIVE) {
-      const now = new Date();
-      const isExpired = connection.tokenExpiry && connection.tokenExpiry <= now;
+    // 即发即忘（fire-and-forget）后台刷新，不阻塞当前请求
+    const now = new Date();
+    const tokenExpired = !!(
+      connection.status === GoogleDriveConnectionStatus.ACTIVE &&
+      connection.tokenExpiry &&
+      connection.tokenExpiry <= now
+    );
 
-      if (isExpired && connection.refreshToken) {
-        this.logger.log(
-          `Token expired for user ${userId}, scheduling background refresh...`,
+    if (tokenExpired && connection.refreshToken) {
+      this.logger.log(
+        `Token expired for user ${userId}, scheduling background refresh...`,
+      );
+      void this.refreshAccessToken(connection.id).catch((error) => {
+        this.logger.warn(
+          `Background token refresh failed for user ${userId}: ${error}`,
         );
-        // 后台刷新，不阻塞返回
-        void this.refreshAccessToken(connection.id).catch((error) => {
-          this.logger.warn(
-            `Background token refresh failed for user ${userId}: ${error}`,
-          );
-        });
-      }
+      });
     }
 
     return {
@@ -320,6 +321,8 @@ export class GoogleDriveAuthService {
       name: connection.displayName,
       picture: connection.photoUrl,
       syncHistoryCount: connection._count.syncHistory,
+      // tokenExpired=true 时表示后台刷新进行中，前端应提示功能暂不可用
+      tokenExpired,
       tokenExpiry: undefined,
       refreshToken: undefined,
       _count: undefined,
@@ -331,7 +334,8 @@ export class GoogleDriveAuthService {
    */
   async updateConnection(
     userId: string,
-    _data: { syncConfig?: Record<string, unknown> },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _data: { syncConfig?: Record<string, any> },
   ) {
     const connection = await this.prisma.googleDriveConnection.findFirst({
       where: { userId },
