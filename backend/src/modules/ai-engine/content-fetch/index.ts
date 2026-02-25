@@ -1,2 +1,6 @@
-/** Re-export shim - 已迁移到 content/fetch/ */
-export * from "../content/fetch";
+export { ContentFetchModule } from "./content-fetch.module";
+export {
+  ContentFetchService,
+  YOUTUBE_SERVICE_TOKEN,
+} from "./content-fetch.service";
+export * from "./content-fetch.types";

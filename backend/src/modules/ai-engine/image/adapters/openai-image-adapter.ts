@@ -139,21 +139,17 @@ export class OpenAIImageAdapter extends BaseImageAdapter {
   /**
    * 解析响应
    */
-  private parseResponse(
-    data: Record<string, unknown>,
-    model: string,
-  ): ImageGenerationResult {
-    type OpenAIImageData = {
-      data?: Array<{ url?: string; revised_prompt?: string }>;
-    };
-    const images = (data as OpenAIImageData).data;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
+  private parseResponse(data: any, model: string): ImageGenerationResult {
+    const images = data.data;
     if (!images || images.length === 0) {
       throw new Error("No images in OpenAI response");
     }
 
     return {
-      images: images.map((img) => ({
-        url: img.url ?? "",
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
+      images: images.map((img: any) => ({
+        url: img.url,
         isBase64: false,
         revisedPrompt: img.revised_prompt,
       })),

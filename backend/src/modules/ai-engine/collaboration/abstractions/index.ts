@@ -1,1 +1,4 @@
-export * from "../../agents/collaboration/abstractions";
+/**
+ * AI Engine - Collaboration Abstractions
+ */
+export * from "./collaborator.interface";

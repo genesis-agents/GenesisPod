@@ -10,8 +10,8 @@ import type { ToolFeature } from "../facade.providers";
 import type {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../orchestration/capabilities/ai-capability-resolver.service";
-import type { CapabilitySummary } from "../../orchestration/capabilities/types";
+} from "../../capabilities/ai-capability-resolver.service";
+import type { CapabilitySummary } from "../../capabilities/types";
 import type {
   ChatRequest,
   ChatResponse,

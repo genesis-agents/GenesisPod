@@ -13,25 +13,25 @@
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 
 // Validators
-import { SchemaValidator } from "./safety/constraint/validators/schema-validator";
+import { SchemaValidator } from "./constraint/validators/schema-validator";
 
 // Guardrails (Legacy)
-import { ContentFilter } from "./safety/constraint/guardrails/content-filter";
-import { CostController } from "./safety/constraint/guardrails/cost-controller";
-import { RateLimiter } from "./safety/constraint/guardrails/rate-limiter";
+import { ContentFilter } from "./constraint/guardrails/content-filter";
+import { CostController } from "./constraint/guardrails/cost-controller";
+import { RateLimiter } from "./constraint/guardrails/rate-limiter";
 
 // Guardrails Pipeline (New Framework)
-import { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
+import { GuardrailsPipelineService } from "./guardrails/guardrails-pipeline.service";
 
 // Input Guardrails
 import {
   PromptInjectionDetector,
   ContentSafetyFilter,
   InputComplexityCheck,
-} from "./safety/guardrails/input";
+} from "./guardrails/input";
 
 // Output Guardrails
-import { ContentComplianceCheck } from "./safety/guardrails/output";
+import { ContentComplianceCheck } from "./guardrails/output";
 
 /**
  * Content Filter Factory

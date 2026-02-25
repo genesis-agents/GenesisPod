@@ -9,12 +9,7 @@
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 
 /** Research source reference */
-type ResearchSource = {
-  title?: string;
-  url?: string;
-  snippet?: string;
-  [key: string]: unknown;
-};
+type ResearchSource = { title?: string; url?: string; snippet?: string; [key: string]: unknown };
 import {
   PlanBasedAgent,
   BUILTIN_AGENTS,
@@ -31,7 +26,7 @@ import {
 import {
   IResearchService,
   RESEARCH_SERVICE_TOKEN,
-} from "../../../ai-engine/facade";
+} from "../../../ai-engine/interfaces/research.interface";
 
 /**
  * 研究任务类型

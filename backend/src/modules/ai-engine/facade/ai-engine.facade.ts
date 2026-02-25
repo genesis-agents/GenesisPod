@@ -45,7 +45,7 @@ import { ModelFallbackService } from "../llm/model-fallback/model-fallback.servi
 import {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../orchestration/capabilities/ai-capability-resolver.service";
+} from "../capabilities/ai-capability-resolver.service";
 import { CreditsService } from "../../credits/credits.service";
 import { BillingContext } from "../../credits/billing-context";
 import { RequestContext } from "../../../common/context/request-context";
@@ -77,7 +77,7 @@ import type {
   RoomConfig,
   ProgressEvent,
 } from "../realtime/abstractions/event-emitter.interface";
-import { CapabilitySummary } from "../orchestration/capabilities/types";
+import { CapabilitySummary } from "../capabilities/types";
 import type {
   ChatWithSkillsRequest,
   ChatWithSkillsResponse,
@@ -143,7 +143,7 @@ import type {
   CompressionOptions,
   CompressionResult,
 } from "../orchestration/services/interfaces";
-import { ReportSynthesisEngine } from "../content/synthesis/report-synthesis.service";
+import { ReportSynthesisEngine } from "../synthesis/report-synthesis.service";
 import { EvidenceManagerService } from "../evidence/services/evidence-manager.service";
 import type { SaveEvidenceRequest } from "../evidence/abstractions/evidence.interface";
 import { VotingManager } from "../collaboration/patterns/voting-pattern";
@@ -163,7 +163,7 @@ import { MCPManager } from "../mcp/manager/mcp-manager";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../orchestration/capabilities/types";
+} from "../capabilities/types";
 import type { SkillMdDefinition } from "../skills/types/skill-md.types";
 import { CircuitBreakerService } from "../orchestration/services/circuit-breaker.service";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
@@ -174,12 +174,12 @@ import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 import { TeamFactory } from "../teams/factory/team-factory";
-import { LongContentEngineService } from "../content/long-form/services/long-content-engine.service";
-import { ContinuationProtocolService } from "../content/long-form/services/continuation-protocol.service";
+import { LongContentEngineService } from "../long-content/services/long-content-engine.service";
+import { ContinuationProtocolService } from "../long-content/services/continuation-protocol.service";
 import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
-import { ContentFetchService } from "../content/fetch/content-fetch.service";
+import { ContentFetchService } from "../content-fetch/content-fetch.service";
 import { AgentRegistry } from "../agents/registry";
 import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";

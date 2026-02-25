@@ -2,10 +2,7 @@
  * Unit Tests - MultiKeyManager & MultiKeyRegistry
  */
 
-import {
-  MultiKeyManager,
-  MultiKeyRegistry,
-} from "../../core/utils/multi-key-manager";
+import { MultiKeyManager, MultiKeyRegistry } from "../multi-key-manager";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -187,9 +184,7 @@ describe("MultiKeyManager", () => {
     it("marks failed key as unhealthy with lastError", () => {
       manager.markKeyFailed("key-alpha", 429);
       const statuses = manager.getKeyHealthStatus(KEYS);
-      const alphaStatus = statuses.find(
-        (s) => s.maskedKey === manager.getMaskedKey("key-alpha"),
-      );
+      const alphaStatus = statuses.find((s) => s.maskedKey === manager.getMaskedKey("key-alpha"));
       expect(alphaStatus?.isHealthy).toBe(false);
       expect(alphaStatus?.lastError).toBe("HTTP 429");
     });
@@ -199,7 +194,7 @@ describe("MultiKeyManager", () => {
       const statuses = manager.getKeyHealthStatus(KEYS);
       const alphaStatus = statuses[0]; // key-alpha is first
       expect(typeof alphaStatus?.cooldownUntil).toBe("string");
-      expect(() => new Date(alphaStatus?.cooldownUntil ?? "")).not.toThrow();
+      expect(() => new Date(alphaStatus!.cooldownUntil!)).not.toThrow();
     });
 
     it("does not include cooldownUntil for healthy keys", () => {
@@ -299,10 +294,7 @@ describe("MultiKeyRegistry", () => {
 
   describe("getHealthStatus", () => {
     it("returns all-healthy statuses when no manager exists for service", () => {
-      const statuses = MultiKeyRegistry.getHealthStatus("nonexistent-svc", [
-        "k1",
-        "k2",
-      ]);
+      const statuses = MultiKeyRegistry.getHealthStatus("nonexistent-svc", ["k1", "k2"]);
       expect(statuses).toHaveLength(2);
       expect(statuses.every((s) => s.isHealthy)).toBe(true);
     });
@@ -311,9 +303,7 @@ describe("MultiKeyRegistry", () => {
       const m = MultiKeyRegistry.getManager("svc-health");
       m.markKeyFailed("my-key", 429);
 
-      const statuses = MultiKeyRegistry.getHealthStatus("svc-health", [
-        "my-key",
-      ]);
+      const statuses = MultiKeyRegistry.getHealthStatus("svc-health", ["my-key"]);
       expect(statuses[0].isHealthy).toBe(false);
     });
 

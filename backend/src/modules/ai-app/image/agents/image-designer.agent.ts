@@ -23,7 +23,7 @@ import {
 import {
   IImageGenerationService,
   IMAGE_GENERATION_SERVICE_TOKEN,
-} from "../../../ai-engine/facade";
+} from "../../../ai-engine/interfaces/image.interface";
 
 /**
  * 信息图表风格 (从原 InfographicService 复制)

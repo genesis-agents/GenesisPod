@@ -110,18 +110,16 @@ export class TogetherImageAdapter extends BaseImageAdapter {
   /**
    * 解析响应
    */
-  private parseResponse(
-    data: Record<string, unknown>,
-    model: string,
-  ): ImageGenerationResult {
-    type TogetherData = { data?: Array<{ b64_json?: string; url?: string }> };
-    const images = (data as TogetherData).data;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
+  private parseResponse(data: any, model: string): ImageGenerationResult {
+    const images = data.data;
     if (!images || images.length === 0) {
       throw new Error("No images in Together response");
     }
 
     return {
-      images: images.map((img) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
+      images: images.map((img: any) => {
         if (img.b64_json) {
           return {
             url: `data:image/png;base64,${img.b64_json}`,
@@ -130,7 +128,7 @@ export class TogetherImageAdapter extends BaseImageAdapter {
           };
         }
         return {
-          url: img.url ?? "",
+          url: img.url,
           isBase64: false,
         };
       }),

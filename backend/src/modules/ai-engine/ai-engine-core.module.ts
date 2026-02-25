@@ -38,10 +38,10 @@ import { AiObservabilityService } from "./observability/ai-observability.service
 import { CostAttributionService } from "./observability/cost-attribution.service";
 
 // Prompt Registry
-import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
+import { PromptRegistryService } from "./prompts/prompt-registry.service";
 
 // Capabilities
-import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "./capabilities/ai-capability-resolver.service";
 
 @Module({
   imports: [

@@ -1,2 +1,5 @@
-/** Re-export shim - 已迁移到 knowledge/rag/embedding/ */
-export * from "../../knowledge/rag/embedding";
+/**
+ * AI Engine - Embedding Module Exports
+ */
+
+export * from "./embedding.service";

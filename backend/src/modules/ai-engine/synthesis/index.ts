@@ -1,2 +1,3 @@
-/** Re-export shim - 已迁移到 content/synthesis/ */
-export * from "../content/synthesis";
+export * from "./synthesis.module";
+export * from "./synthesis.types";
+export * from "./report-synthesis.service";

@@ -1,2 +1,6 @@
-/** Re-export shim - 已迁移到 knowledge/search/ */
-export * from "../knowledge/search";
+export {
+  SearchService,
+  SearchResult,
+  SearchResponse,
+  KeyHealthStatus,
+} from "./search.service";

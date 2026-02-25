@@ -10,7 +10,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { KnowledgeBaseStatus, Prisma } from "@prisma/client";
+import { KnowledgeBaseStatus } from "@prisma/client";
 import {
   ProcessedDocument,
   ParentChunkData,
@@ -155,7 +155,7 @@ export class DocumentProcessorService {
           pageStart: parent.pageStart,
           pageEnd: parent.pageEnd,
           sectionTitle: parent.sectionTitle,
-          metadata: (parent.metadata || {}) as Prisma.InputJsonValue,
+          metadata: parent.metadata || {},
           childChunks: {
             create: parent.childChunks.map((child) => ({
               id: child.id,
