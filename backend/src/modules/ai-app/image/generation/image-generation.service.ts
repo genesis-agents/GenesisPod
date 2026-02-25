@@ -337,7 +337,7 @@ export class ImageGenerationService {
     referenceImageBase64: string,
     modificationPrompt: string,
   ): Promise<string> {
-    const model = modelId.includes("gemini") ? modelId : "gemini-2.0-flash-exp";
+    const model = modelId.includes("gemini") ? modelId : GEMINI_IMAGE_MODELS[0];
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const base64Data = referenceImageBase64.replace(
@@ -419,7 +419,7 @@ export class ImageGenerationService {
       modelLower.includes(m.toLowerCase()),
     );
 
-    const model = isGeminiImageCapable ? modelId : "gemini-2.0-flash-exp";
+    const model = isGeminiImageCapable ? modelId : GEMINI_IMAGE_MODELS[0];
 
     this.logger.log(
       `Using Gemini model for image generation: ${model} (original: ${modelId})`,
@@ -687,7 +687,7 @@ export class ImageGenerationService {
     apiKey: string,
     prompt: string,
   ): Promise<string> {
-    const model = "gemini-2.0-flash-exp";
+    const model = GEMINI_IMAGE_MODELS[0];
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     this.logger.log(`Falling back to Gemini 2.0 Flash for image generation`);

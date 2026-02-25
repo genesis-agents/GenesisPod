@@ -1171,7 +1171,8 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           // Determine output length based on model capabilities
           // ★ 使用 AIEngineFacade 返回的 isReasoning 字段，不再硬编码模型名称
           const modelId =
-            aiModelConfig?.modelId || this.getDefaultModelId(aiMember.aiModel);
+            aiModelConfig?.modelId ||
+            (await this.getDefaultModelId(aiMember.aiModel));
           const isReasoningModel = aiModelConfig?.isReasoning ?? false;
           const isLargeModel =
             modelId.includes("gpt-4") ||
@@ -1851,11 +1852,14 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
   }
 
   /**
-   * Get default model ID for a given AI model identifier
+   * Get default model ID for a given AI model identifier.
+   * Resolves shorthand provider names (e.g. "claude") to the first matching
+   * available model, avoiding hardcoded version strings.
    */
-  private getDefaultModelId(modelIdentifier: string): string {
+  private async getDefaultModelId(modelIdentifier: string): Promise<string> {
     const lower = modelIdentifier.toLowerCase();
 
+    // Already a full model ID (contains dash and a known provider name)
     if (
       lower.includes("-") &&
       (lower.includes("grok") ||
@@ -1868,12 +1872,19 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       return modelIdentifier;
     }
 
-    const defaults: Record<string, string> = {
-      grok: "grok-3-latest",
-      "gpt-4": "gpt-4-turbo",
-      claude: "claude-sonnet-4-20250514",
-      gemini: "gemini-2.0-flash",
-    };
-    return defaults[lower] || modelIdentifier;
+    // Resolve shorthand by finding the first available model matching the prefix
+    try {
+      const availableModels = await this.aiFacade.getAvailableModelsExtended();
+      const match = availableModels.find((m) =>
+        m.id.toLowerCase().startsWith(lower),
+      );
+      if (match) {
+        return match.id;
+      }
+    } catch {
+      // Fall through to return the identifier as-is
+    }
+
+    return modelIdentifier;
   }
 }

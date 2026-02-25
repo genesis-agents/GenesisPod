@@ -90,7 +90,7 @@ export class ChapterCoherenceService {
    */
   async checkChapterTransition(
     chapterId: string,
-    modelId: string = "gpt-4o",
+    modelId = "",
   ): Promise<CoherenceCheckResult> {
     const chapter = await this.prisma.writingChapter.findUnique({
       where: { id: chapterId },
@@ -155,7 +155,7 @@ export class ChapterCoherenceService {
    */
   async checkVolumeCoherence(
     volumeId: string,
-    modelId: string = "gpt-4o",
+    modelId = "",
   ): Promise<{
     volumeScore: number;
     chapterResults: Array<{

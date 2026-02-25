@@ -831,7 +831,7 @@ export class LeaderChatService {
 
     // 确保有可用模型（如果没有 chat 模型，使用所有可用模型）
     const modelsToUse = chatModels.length > 0 ? chatModels : availableModels;
-    const defaultModel = modelsToUse[0]?.id || "gpt-4o";
+    const defaultModel = modelsToUse[0]?.id || "";
 
     if (agentWorkload.size > 0) {
       // 找出工作负载最少的 Agent
@@ -867,7 +867,7 @@ export class LeaderChatService {
         const modelIndex = Math.floor(Math.random() * modelsToUse.length);
         selectedModelId = modelsToUse[modelIndex].id;
       } else {
-        selectedModelId = "gpt-4o";
+        selectedModelId = "";
       }
       agentName = "新研究员";
 

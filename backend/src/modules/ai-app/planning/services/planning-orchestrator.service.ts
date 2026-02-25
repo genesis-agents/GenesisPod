@@ -126,8 +126,6 @@ const AUTO_ADVANCE_DELAY_MS = 3000;
 /** Maximum length for phase summary to prevent token overflow */
 const MAX_PHASE_SUMMARY_LENGTH = 24000;
 
-const DEFAULT_FALLBACK_MODEL = "claude-sonnet-4-20250514";
-
 @Injectable()
 export class PlanningOrchestratorService {
   private readonly logger = new Logger(PlanningOrchestratorService.name);
@@ -2112,8 +2110,8 @@ ${researchOutput.substring(0, 12000)}
     const leaderModelId =
       reasoningModel?.id ||
       availableChatModels[0]?.id ||
-      DEFAULT_FALLBACK_MODEL;
-    const chatModelId = availableChatModels[0]?.id || DEFAULT_FALLBACK_MODEL;
+      "";
+    const chatModelId = availableChatModels[0]?.id || "";
 
     this.logger.log(
       `Model allocation: reasoning=${leaderModelId}, chat=${chatModelId}`,
