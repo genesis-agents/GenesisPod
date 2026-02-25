@@ -15,6 +15,7 @@ import AppShell from '@/components/layout/AppShell';
 import { CollectionConfigurationPanel } from './CollectionConfigurationPanel';
 import { useQuery } from '@tanstack/react-query';
 import { RecentTasksTimeline } from './RecentTasksTimeline';
+import { apiClient } from '@/lib/api/client';
 
 type ResourceType = 'PAPER' | 'BLOG' | 'REPORT' | 'YOUTUBE_VIDEO' | 'NEWS';
 type ManagementTab = 'dashboard' | 'configuration' | 'monitoring' | 'quality';
@@ -35,23 +36,11 @@ interface RecentTask {
   error: string | null;
 }
 
-const fetchDashboardSummary = async (): Promise<DashboardSummary> => {
-  const response = await fetch('/api/v1/data-management/dashboard/summary');
-  if (!response.ok) {
-    throw new Error('Failed to fetch dashboard summary');
-  }
-  return response.json() as Promise<DashboardSummary>;
-};
+const fetchDashboardSummary = (): Promise<DashboardSummary> =>
+  apiClient.get<DashboardSummary>('/api/v1/data-management/dashboard/summary');
 
-const fetchRecentTasks = async (): Promise<RecentTask[]> => {
-  const response = await fetch(
-    '/api/v1/data-management/dashboard/recent-tasks'
-  );
-  if (!response.ok) {
-    throw new Error('Failed to fetch recent tasks');
-  }
-  return response.json() as Promise<RecentTask[]>;
-};
+const fetchRecentTasks = (): Promise<RecentTask[]> =>
+  apiClient.get<RecentTask[]>('/api/v1/data-management/dashboard/recent-tasks');
 
 const RESOURCE_TYPES: Array<{
   id: ResourceType;

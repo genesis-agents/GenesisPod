@@ -21,7 +21,6 @@ import {
   MessageSquare,
   Compass,
   BookOpen,
-  Image,
   PenTool,
   FileSearch,
   FileText,
@@ -43,6 +42,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+// Stat item shown on a card
+export interface CardStat {
+  label: string; // e.g. '资源', '研究任务'
+  key: string; // key in the flat overview-stats response
+}
+
 // Architecture card type
 export interface ArchitectureCard {
   id: string;
@@ -51,6 +56,7 @@ export interface ArchitectureCard {
   href?: string; // Route for clickable cards
   icon: LucideIcon;
   clickable: boolean;
+  stats?: CardStat[]; // Optional stats to display on the card
 }
 
 // Card group for AI Apps layer
@@ -145,12 +151,14 @@ const aiAppsLayer: ArchitectureLayer = {
           href: '/admin/data/collection',
           icon: Compass,
           clickable: true,
+          stats: [{ label: '资源', key: 'resources' }],
         },
         {
           id: 'myLibrary',
           i18nKey: 'nav.myLibrary',
           icon: BookOpen,
           clickable: false,
+          stats: [{ label: '资源', key: 'resources' }],
         },
       ],
     },
@@ -163,24 +171,21 @@ const aiAppsLayer: ArchitectureLayer = {
           i18nKey: 'nav.aiInsights',
           icon: Lightbulb,
           clickable: false,
+          stats: [{ label: '主题', key: 'topics' }],
         },
         {
           id: 'aiResearch',
           i18nKey: 'nav.aiResearch',
           icon: FileSearch,
           clickable: false,
+          stats: [{ label: '研究', key: 'researchMissions' }],
         },
         {
           id: 'aiReports',
           i18nKey: 'nav.aiReports',
           icon: FileText,
           clickable: false,
-        },
-        {
-          id: 'myTeams',
-          i18nKey: 'nav.myTeams',
-          icon: UsersRound,
-          clickable: false,
+          stats: [{ label: '文档', key: 'officeDocuments' }],
         },
       ],
     },
@@ -189,9 +194,19 @@ const aiAppsLayer: ArchitectureLayer = {
       titleKey: 'nav.sections.planningDecision',
       cards: [
         {
+          id: 'myTeams',
+          i18nKey: 'nav.myTeams',
+          icon: UsersRound,
+          clickable: false,
+          stats: [
+            { label: '话题', key: 'topics' },
+            { label: '辩论', key: 'debateSessions' },
+          ],
+        },
+        {
           id: 'aiPlanning',
           i18nKey: 'nav.aiPlanning',
-          icon: Lightbulb,
+          icon: Hammer,
           clickable: false,
         },
         {
@@ -199,6 +214,10 @@ const aiAppsLayer: ArchitectureLayer = {
           i18nKey: 'nav.aiSimulation',
           icon: Brain,
           clickable: false,
+          stats: [
+            { label: '场景', key: 'simScenarios' },
+            { label: '推演', key: 'simRuns' },
+          ],
         },
       ],
     },
@@ -211,18 +230,14 @@ const aiAppsLayer: ArchitectureLayer = {
           i18nKey: 'nav.aiWriting',
           icon: PenTool,
           clickable: false,
-        },
-        {
-          id: 'aiImage',
-          i18nKey: 'nav.aiImage',
-          icon: Image,
-          clickable: false,
+          stats: [{ label: '项目', key: 'writingProjects' }],
         },
         {
           id: 'aiSocial',
           i18nKey: 'nav.aiSocial',
           icon: Share2,
           clickable: false,
+          stats: [{ label: '内容', key: 'socialContent' }],
         },
       ],
     },
@@ -231,16 +246,14 @@ const aiAppsLayer: ArchitectureLayer = {
       titleKey: 'nav.sections.toolStore',
       cards: [
         {
-          id: 'aiTools',
-          i18nKey: 'nav.aiTools',
-          icon: Hammer,
-          clickable: false,
-        },
-        {
-          id: 'aiSkills',
-          i18nKey: 'nav.aiSkills',
+          id: 'aiStore',
+          i18nKey: 'nav.aiStore',
           icon: Lightbulb,
           clickable: false,
+          stats: [
+            { label: '工具', key: 'tools' },
+            { label: '技能', key: 'skills' },
+          ],
         },
       ],
     },
@@ -260,6 +273,7 @@ const aiEngineLayer: ArchitectureLayer = {
       href: '/admin/ai/models',
       icon: Bot,
       clickable: true,
+      stats: [{ label: '已配置', key: 'aiModels' }],
     },
     {
       id: 'teams',
@@ -267,6 +281,7 @@ const aiEngineLayer: ArchitectureLayer = {
       href: '/admin/ai/teams',
       icon: UsersRound,
       clickable: true,
+      stats: [{ label: '辩论话题', key: 'topics' }],
     },
     {
       id: 'skills',
@@ -274,6 +289,7 @@ const aiEngineLayer: ArchitectureLayer = {
       href: '/admin/ai/skills',
       icon: Sparkles,
       clickable: true,
+      stats: [{ label: '技能', key: 'skills' }],
     },
     {
       id: 'tools',
@@ -281,6 +297,7 @@ const aiEngineLayer: ArchitectureLayer = {
       href: '/admin/ai/tools',
       icon: Wrench,
       clickable: true,
+      stats: [{ label: '工具', key: 'tools' }],
     },
   ],
 };
@@ -303,6 +320,10 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/access/users',
           icon: Users,
           clickable: true,
+          stats: [
+            { label: '总用户', key: 'totalUsers' },
+            { label: '活跃', key: 'activeUsers' },
+          ],
         },
         {
           id: 'permissions',
@@ -317,6 +338,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/access/secrets',
           icon: Key,
           clickable: true,
+          stats: [{ label: '密钥', key: 'secrets' }],
         },
       ],
     },

@@ -23,6 +23,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { apiClient } from '@/lib/api/client';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -353,9 +354,9 @@ export default function EvalDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/v1/admin/monitoring/traces?limit=50');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await apiClient.get<TraceSummary[]>(
+        '/api/v1/admin/monitoring/traces?limit=50'
+      );
       setTraces(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load traces');

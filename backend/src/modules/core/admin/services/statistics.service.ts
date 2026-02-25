@@ -10,6 +10,63 @@ export class StatisticsService {
   constructor(private prisma: PrismaService) {}
 
   /**
+   * 获取 Overview 页面各模块统计数据（供架构图展示）
+   */
+  async getOverviewStats(): Promise<Record<string, number>> {
+    const [
+      resources,
+      researchMissions,
+      officeDocuments,
+      topics,
+      debateSessions,
+      simScenarios,
+      simRuns,
+      writingProjects,
+      socialContent,
+      tools,
+      skills,
+      aiModels,
+      totalUsers,
+      activeUsers,
+      secrets,
+    ] = await Promise.all([
+      this.prisma.resource.count(),
+      this.prisma.researchMission.count(),
+      this.prisma.officeDocument.count(),
+      this.prisma.topic.count(),
+      this.prisma.debateSession.count(),
+      this.prisma.simulationScenario.count(),
+      this.prisma.simulationRun.count(),
+      this.prisma.writingProject.count(),
+      this.prisma.socialContent.count(),
+      this.prisma.toolConfig.count(),
+      this.prisma.skillConfig.count(),
+      this.prisma.aIModel.count(),
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { isActive: true } }),
+      this.prisma.secret.count(),
+    ]);
+
+    return {
+      resources,
+      researchMissions,
+      officeDocuments,
+      topics,
+      debateSessions,
+      simScenarios,
+      simRuns,
+      writingProjects,
+      socialContent,
+      tools,
+      skills,
+      aiModels,
+      totalUsers,
+      activeUsers,
+      secrets,
+    };
+  }
+
+  /**
    * 获取系统统计信息
    */
   async getSystemStats() {

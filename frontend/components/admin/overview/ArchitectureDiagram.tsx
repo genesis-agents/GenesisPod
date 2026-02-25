@@ -3,10 +3,16 @@
 import { MousePointerClick, Eye, Layers } from 'lucide-react';
 import { ARCHITECTURE_LAYERS } from '@/lib/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
+import { useApiGet } from '@/hooks/core';
 import ArchitectureLayer from './ArchitectureLayer';
 
 export default function ArchitectureDiagram() {
   const { t } = useTranslation();
+
+  // Fetch module-level stats for all cards
+  const { data: overviewStats } = useApiGet<Record<string, number>>(
+    '/api/v1/admin/overview-stats'
+  );
 
   // Count total cards
   const totalCards = ARCHITECTURE_LAYERS.reduce((acc, layer) => {
@@ -89,6 +95,7 @@ export default function ArchitectureDiagram() {
                 key={layer.id}
                 layer={layer}
                 showArrow={index < ARCHITECTURE_LAYERS.length - 1}
+                overviewStats={overviewStats ?? undefined}
               />
             ))}
           </div>

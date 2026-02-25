@@ -12,11 +12,13 @@ import ArchitectureCard from './ArchitectureCard';
 interface ArchitectureLayerProps {
   layer: LayerType;
   showArrow?: boolean;
+  overviewStats?: Record<string, number>;
 }
 
 export default function ArchitectureLayer({
   layer,
   showArrow = true,
+  overviewStats,
 }: ArchitectureLayerProps) {
   const { t } = useTranslation();
   const styles = LAYER_STYLES[layer.level];
@@ -117,6 +119,7 @@ export default function ArchitectureLayer({
                   card={card}
                   layerLevel={layer.level}
                   fixedWidth={layer.level !== 3}
+                  overviewStats={overviewStats}
                 />
               ))}
             </div>
@@ -142,6 +145,7 @@ export default function ArchitectureLayer({
                         card={card}
                         layerLevel={layer.level}
                         fixedWidth
+                        overviewStats={overviewStats}
                       />
                     ))}
                   </div>

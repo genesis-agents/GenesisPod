@@ -101,6 +101,16 @@ export class AdminController {
   }
 
   /**
+   * 获取架构图各模块统计数据
+   * GET /api/v1/admin/overview-stats
+   */
+  @Get("overview-stats")
+  async getOverviewStats() {
+    this.logger.log("Admin: Fetching overview stats");
+    return this.adminService.getOverviewStats();
+  }
+
+  /**
    * 删除资源
    * DELETE /api/v1/admin/resources/:id
    */
@@ -243,12 +253,10 @@ export class AdminController {
       models,
       summary: {
         total: models.length,
-        enabled: models.filter(
-          (m: { isEnabled: boolean }) => m.isEnabled,
-        ).length,
-        withApiKey: models.filter(
-          (m: { hasApiKey: boolean }) => m.hasApiKey,
-        ).length,
+        enabled: models.filter((m: { isEnabled: boolean }) => m.isEnabled)
+          .length,
+        withApiKey: models.filter((m: { hasApiKey: boolean }) => m.hasApiKey)
+          .length,
         ready: models.filter(
           (m: { isEnabled: boolean; hasApiKey: boolean }) =>
             m.isEnabled && m.hasApiKey,
@@ -849,8 +857,7 @@ export class AdminController {
         message: `Unknown provider: ${body.provider}`,
       };
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Search API test failed: ${message}`);
       return {
         success: false,
@@ -1007,8 +1014,7 @@ export class AdminController {
         message: `Unknown provider: ${body.provider}`,
       };
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Extraction API test failed: ${message}`);
       return {
         success: false,
@@ -1118,8 +1124,7 @@ export class AdminController {
         message: `未知的 provider: ${body.provider}`,
       };
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`YouTube API test failed: ${message}`);
       return {
         success: false,
@@ -1243,8 +1248,7 @@ export class AdminController {
         message: `未知的 provider: ${body.provider}`,
       };
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`TTS API test failed: ${message}`);
       return {
         success: false,
@@ -1362,8 +1366,7 @@ export class AdminController {
         };
       }
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`SkillsMP API test failed: ${message}`);
       return {
         success: false,
@@ -1480,8 +1483,7 @@ export class AdminController {
         lastSync: new Date().toISOString(),
       };
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`SkillsMP sync failed: ${message}`);
       return {
         success: false,
@@ -1564,8 +1566,7 @@ export class AdminController {
         },
       };
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to install skill ${skillId}: ${message}`);
       return {
         success: false,

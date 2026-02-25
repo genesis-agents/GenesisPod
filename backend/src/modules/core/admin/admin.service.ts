@@ -318,6 +318,14 @@ export class AdminService {
   }
 
   /**
+   * 获取 Overview 页面各模块统计数据
+   * @delegate StatisticsService
+   */
+  async getOverviewStats() {
+    return this.statisticsService.getOverviewStats();
+  }
+
+  /**
    * 获取系统统计信息
    * @delegate StatisticsService
    */

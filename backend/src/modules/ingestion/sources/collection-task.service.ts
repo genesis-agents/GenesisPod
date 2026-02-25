@@ -4,6 +4,7 @@ import {
   CollectionTask,
   CollectionTaskStatus,
   CollectionTaskType,
+  Prisma,
 } from "@prisma/client";
 import { ArxivService } from "../crawlers/arxiv.service";
 import { GithubService } from "../crawlers/github.service";
@@ -67,13 +68,14 @@ export class CollectionTaskService {
         description: dto.description,
         type: dto.type,
         sourceId: dto.sourceId,
-        sourceConfig: (dto.sourceConfig || {}) as any,
+        sourceConfig: (dto.sourceConfig || {}) as Prisma.InputJsonValue,
         schedule: dto.schedule,
         priority: dto.priority || 5,
         maxConcurrency: dto.maxConcurrency || 5,
         timeout: dto.timeout || 300,
         retryCount: dto.retryCount || 3,
-        deduplicationRules: (dto.deduplicationRules || {}) as any,
+        deduplicationRules: (dto.deduplicationRules ||
+          {}) as Prisma.InputJsonValue,
         status: "PENDING",
         progress: 0,
         createdBy: dto.createdBy,
@@ -166,7 +168,7 @@ export class CollectionTaskService {
         maxConcurrency: dto.maxConcurrency,
         timeout: dto.timeout,
         retryCount: dto.retryCount,
-        deduplicationRules: dto.deduplicationRules as any,
+        deduplicationRules: dto.deduplicationRules as Prisma.InputJsonValue,
       },
       include: {
         source: true,
@@ -228,7 +230,10 @@ export class CollectionTaskService {
 
       const sourceType = dataSource.type;
       const sourceConfig = task.sourceConfig as Record<string, unknown>;
-      const maxResults = (typeof sourceConfig?.maxResults === "number" ? sourceConfig.maxResults : undefined) || 10;
+      const maxResults =
+        (typeof sourceConfig?.maxResults === "number"
+          ? sourceConfig.maxResults
+          : undefined) || 10;
       // Category from source config or data source (used for filtering)
       void (sourceConfig?.category || dataSource.category);
 
@@ -259,10 +264,13 @@ export class CollectionTaskService {
 
         case "GITHUB":
           collectedCount = await this.githubService.fetchTrendingRepos(
-            typeof sourceConfig?.language === "string" ? sourceConfig.language : undefined,
-            (typeof sourceConfig?.since === "string" && ["daily", "weekly", "monthly"].includes(sourceConfig.since)
-              ? sourceConfig.since as "daily" | "weekly" | "monthly"
-              : "daily"),
+            typeof sourceConfig?.language === "string"
+              ? sourceConfig.language
+              : undefined,
+            typeof sourceConfig?.since === "string" &&
+              ["daily", "weekly", "monthly"].includes(sourceConfig.since)
+              ? (sourceConfig.since as "daily" | "weekly" | "monthly")
+              : "daily",
           );
           break;
 
@@ -281,8 +289,14 @@ export class CollectionTaskService {
         case "THE_VERGE":
           // RSS/Atom订阅源采集 (包括YouTube频道、Substack、各类博客)
           // YouTube RSS格式: https://www.youtube.com/feeds/videos.xml?channel_id=XXX
-          const crawlerConfigRss = dataSource.crawlerConfig as Record<string, unknown>;
-          const rssUrl = (typeof crawlerConfigRss?.rssUrl === "string" ? crawlerConfigRss.rssUrl : undefined) || dataSource.baseUrl;
+          const crawlerConfigRss = dataSource.crawlerConfig as Record<
+            string,
+            unknown
+          >;
+          const rssUrl =
+            (typeof crawlerConfigRss?.rssUrl === "string"
+              ? crawlerConfigRss.rssUrl
+              : undefined) || dataSource.baseUrl;
           this.logger.log(`Fetching RSS feed from: ${rssUrl}`);
 
           // 构建过滤选项（YouTube视频时长过滤等）
@@ -290,17 +304,27 @@ export class CollectionTaskService {
             minDurationSeconds?: number;
             skipUnknownDuration?: boolean;
           } = {};
-          if (
-            sourceType === "YOUTUBE" &&
+
+          // 判断是否为 YouTube RSS 源（基于 URL 检测，与 rss.service.ts 保持一致）
+          // 注意：不能单靠 sourceType === "YOUTUBE"，因为 YouTube 频道也可能被添加为 RSS 类型
+          const isYouTubeRssUrl = rssUrl.includes(
+            "youtube.com/feeds/videos.xml",
+          );
+          const configuredMinDuration =
             typeof crawlerConfigRss?.minDurationSeconds === "number"
-          ) {
+              ? crawlerConfigRss.minDurationSeconds
+              : null;
+
+          if (isYouTubeRssUrl) {
+            // 如果数据源配置了 minDurationSeconds 就用配置值；
+            // 否则对所有 YouTube RSS 应用 5 分钟兜底最小时长，避免采集 Shorts 和极短视频
+            const DEFAULT_YOUTUBE_MIN_DURATION = 5 * 60; // 300s
             filterOptions.minDurationSeconds =
-              crawlerConfigRss.minDurationSeconds;
-            // 当设置了最小时长时，默认跳过无法获取时长的视频
-            // 这样可以避免采集到不符合时长要求的视频
+              configuredMinDuration ?? DEFAULT_YOUTUBE_MIN_DURATION;
+            // 无法获取时长时默认跳过（避免无法验证的视频漏网）
             filterOptions.skipUnknownDuration = true;
             this.logger.log(
-              `YouTube filter: min duration ${crawlerConfigRss.minDurationSeconds}s (${Math.floor(crawlerConfigRss.minDurationSeconds / 60)}m), skip unknown duration: true`,
+              `YouTube filter: min duration ${filterOptions.minDurationSeconds}s (${Math.floor(filterOptions.minDurationSeconds / 60)}m)${configuredMinDuration === null ? " [default]" : ""}, skip unknown duration: true`,
             );
           }
 
@@ -333,8 +357,14 @@ export class CollectionTaskService {
         case "CUSTOM":
           // 通用网页爬虫采集
           const pageUrl = dataSource.baseUrl + dataSource.apiEndpoint;
-          const crawlerConfigCustom = dataSource.crawlerConfig as Record<string, unknown>;
-          const selector = (typeof crawlerConfigCustom?.selector === "string" ? crawlerConfigCustom.selector : undefined) || ".news-item";
+          const crawlerConfigCustom = dataSource.crawlerConfig as Record<
+            string,
+            unknown
+          >;
+          const selector =
+            (typeof crawlerConfigCustom?.selector === "string"
+              ? crawlerConfigCustom.selector
+              : undefined) || ".news-item";
           collectedCount = await this.webScraperService.scrapeWebPage(
             pageUrl,
             maxResults,

@@ -9,6 +9,7 @@ import {
   Sparkles,
   ChevronDown,
 } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 type ResourceType =
   | 'PAPER'
@@ -124,22 +125,10 @@ export function ImportUrlDialog({
 
     try {
       // Use AI-powered auto classification
-      const response = await fetch(
-        `${apiBaseUrl}/api/v1/data-management/parse-url-auto`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
-        }
-      );
-
-      const result = await response.json();
-      // Handle wrapped API response { success: true, data: T }
-      const data = result?.data ?? result;
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Unable to parse URL');
-      }
+      const data = await apiClient.post<{
+        metadata: ParsedMetadata;
+        classification?: Classification;
+      }>('/api/v1/data-management/parse-url-auto', { url });
 
       if (!data || !data.metadata) {
         throw new Error('Invalid response data format');
@@ -170,25 +159,10 @@ export function ImportUrlDialog({
     setError('');
 
     try {
-      const response = await fetch(
-        `${apiBaseUrl}/api/v1/data-management/import-auto`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url,
-            resourceType: selectedResourceType,
-          }),
-        }
-      );
-
-      const result = await response.json();
-      // Handle wrapped API response { success: true, data: T }
-      const data = result?.data ?? result;
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Import failed');
-      }
+      await apiClient.post('/api/v1/data-management/import-auto', {
+        url,
+        resourceType: selectedResourceType,
+      });
 
       handleClose();
       onImportSuccess();
