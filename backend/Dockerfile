@@ -1,9 +1,21 @@
-# Multi-stage build for production
-# FORCE_REBUILD=2026-01-07-v3-revert-teams-direct-import
+# Multi-stage build for production (monorepo-aware)
+# Build context: repo root (not backend/)
+# FORCE_REBUILD=2026-02-26-v1-monorepo-core-package
+FROM node:20-slim AS core-builder
+
+WORKDIR /app/packages/core
+
+# Install @genesis-ai/core dependencies and build
+COPY packages/core/package.json ./
+RUN npm install --no-package-lock --legacy-peer-deps
+
+COPY packages/core/ ./
+RUN npm run build
+
+
 FROM node:20-slim AS builder
 
 # Install dependencies for native modules (canvas requires cairo, pango, etc.)
-# Also install Chromium dependencies for Puppeteer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
@@ -23,22 +35,35 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
+# Copy built @genesis-ai/core package (needed for file: resolution)
+COPY --from=core-builder /app/packages/core /app/packages/core
+
+# Copy backend package files
+COPY backend/package.json ./backend/
 
 # Copy Prisma schema
-COPY prisma ./prisma/
+COPY backend/prisma ./backend/prisma/
 
 # Install ALL dependencies (including devDependencies for build)
+# file:../packages/core resolves to /app/packages/core
+WORKDIR /app/backend
 RUN npm install --no-package-lock --legacy-peer-deps
 
-# Copy source code
-COPY . .
+# Resolve the @genesis-ai/core symlink to real files (clean for multi-stage copy)
+RUN if [ -L node_modules/@genesis-ai/core ]; then \
+      target=$(readlink -f node_modules/@genesis-ai/core) && \
+      rm node_modules/@genesis-ai/core && \
+      cp -r "$target" node_modules/@genesis-ai/core; \
+    fi
+
+# Copy backend source code
+COPY backend/ ./
 
 # Generate Prisma Client
 RUN npx prisma generate --schema=prisma/schema
 
 # Build the application
+# tsconfig.json paths reference ../packages/core/dist/ which exists at /app/packages/core/dist/
 RUN npm run build
 
 # Remove devDependencies for smaller production image
@@ -61,6 +86,7 @@ RUN find node_modules -name "*.d.ts" -delete 2>/dev/null; \
       -o -name "examples" -o -name ".github" -o -name "coverage" \
       -o -name "benchmark" -o -name "benchmarks" \) -exec rm -rf {} + 2>/dev/null; \
     true
+
 
 # Production stage
 FROM node:20-slim AS runner
@@ -97,14 +123,14 @@ RUN groupadd --gid 1001 genesis && \
     useradd --uid 1001 --gid genesis --shell /bin/bash --create-home genesis
 
 # Copy built application (--chown avoids extra layer from RUN chown -R)
-COPY --chown=genesis:genesis --from=builder /app/dist ./dist
-COPY --chown=genesis:genesis --from=builder /app/node_modules ./node_modules
-COPY --chown=genesis:genesis --from=builder /app/package*.json ./
-COPY --chown=genesis:genesis --from=builder /app/prisma ./prisma
-COPY --chown=genesis:genesis --from=builder /app/scripts ./scripts
+COPY --chown=genesis:genesis --from=builder /app/backend/dist ./dist
+COPY --chown=genesis:genesis --from=builder /app/backend/node_modules ./node_modules
+COPY --chown=genesis:genesis --from=builder /app/backend/package*.json ./
+COPY --chown=genesis:genesis --from=builder /app/backend/prisma ./prisma
+COPY --chown=genesis:genesis --from=builder /app/backend/scripts ./scripts
 
 # Create writable directories for runtime data (exports, thumbnails)
-# /app is owned by root, so raven user can't mkdir directly
+# /app is owned by root, so genesis user can't mkdir directly
 RUN mkdir -p /app/public/thumbnails /app/exports && \
     chown -R genesis:genesis /app/public /app/exports
 

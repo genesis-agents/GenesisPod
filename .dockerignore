@@ -1,0 +1,35 @@
+# Root .dockerignore — keeps build context lean when building from repo root
+# Only backend/ and packages/core/ are needed for the backend Docker build
+
+# Exclude all top-level dirs except backend and packages
+frontend/
+ai-service/
+docs/
+debug/
+infra/
+litellm-proxy/
+scripts/
+e2e/
+sdk/
+
+# VCS and IDE
+.git/
+.github/
+.claude/
+.vscode/
+.idea/
+
+# Dependencies (will be installed fresh in Docker)
+**/node_modules/
+
+# Build artifacts
+**/dist/
+**/*.tsbuildinfo
+
+# Misc
+**/.env*
+**/.DS_Store
+*.md
+!backend/prisma/**
+CHANGELOG.md
+LICENSE
