@@ -32,6 +32,28 @@ module.exports = {
   coverageReporters: ["text", "text-summary", "json-summary"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    // @genesis-ai/core sub-path mappings
+    "^@genesis-ai/core$": "<rootDir>/../../packages/core/src/index.ts",
+    "^@genesis-ai/core/types$":
+      "<rootDir>/../../packages/core/src/types/index.ts",
+    "^@genesis-ai/core/errors$":
+      "<rootDir>/../../packages/core/src/errors/index.ts",
+    "^@genesis-ai/core/exceptions$":
+      "<rootDir>/../../packages/core/src/exceptions/index.ts",
+    "^@genesis-ai/core/interfaces$":
+      "<rootDir>/../../packages/core/src/interfaces/index.ts",
+    "^@genesis-ai/core/llm$": "<rootDir>/../../packages/core/src/llm/index.ts",
+    "^@genesis-ai/core/tools$":
+      "<rootDir>/../../packages/core/src/tools/index.ts",
+    "^@genesis-ai/core/agents$":
+      "<rootDir>/../../packages/core/src/agents/index.ts",
+    "^@genesis-ai/core/skills$":
+      "<rootDir>/../../packages/core/src/skills/index.ts",
+    "^@genesis-ai/core/teams$":
+      "<rootDir>/../../packages/core/src/teams/index.ts",
+    "^@genesis-ai/core/utils$":
+      "<rootDir>/../../packages/core/src/utils/index.ts",
+    // Mock ESM modules to avoid compatibility issues in tests
     "^p-limit$": "<rootDir>/__mocks__/p-limit.js",
     "^marked$": "<rootDir>/__mocks__/marked.js",
     "pdfjs-dist/legacy/build/pdf.mjs":

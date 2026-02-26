@@ -1,4 +1,1 @@
-/**
- * AI Engine - Skills Abstractions
- */
-export * from "./skill.interface";
+export * from "@genesis-ai/core/skills";

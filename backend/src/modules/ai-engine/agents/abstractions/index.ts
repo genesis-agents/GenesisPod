@@ -1,4 +1,1 @@
-/**
- * AI Engine - Agents Abstractions
- */
-export * from "./agent.interface";
+export * from "@genesis-ai/core/agents";

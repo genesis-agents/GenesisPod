@@ -18,6 +18,10 @@
       "types": "./dist/errors/index.d.ts",
       "default": "./dist/errors/index.js"
     },
+    "./exceptions": {
+      "types": "./dist/exceptions/index.d.ts",
+      "default": "./dist/exceptions/index.js"
+    },
     "./interfaces": {
       "types": "./dist/interfaces/index.d.ts",
       "default": "./dist/interfaces/index.js"
@@ -58,7 +62,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint \"src/**/*.ts\"",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist *.tsbuildinfo"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

@@ -1,4 +1,1 @@
-/**
- * AI Engine - Tools Abstractions
- */
-export * from "./tool.interface";
+export * from "@genesis-ai/core/tools";
