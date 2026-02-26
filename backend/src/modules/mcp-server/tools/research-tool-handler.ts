@@ -29,7 +29,7 @@ import {
   MCPToolResponse,
   MCPStreamEvent,
 } from "../abstractions/mcp-server.interface";
-import { DiscussionResearchService } from "../../ai-app/research/discussion/discussion-research.service";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { MCPStreamingBridge } from "../streaming/mcp-streaming-bridge";
 
 /** 已完成结果在内存中保留时长（30 分钟），供 SSE 断连重连后查询 */
@@ -86,7 +86,7 @@ export class ResearchToolHandler implements IMCPToolHandler {
   };
 
   constructor(
-    private readonly researchAgent: DiscussionResearchService,
+    private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly streamingBridge?: MCPStreamingBridge,
   ) {}
 
@@ -116,11 +116,11 @@ export class ResearchToolHandler implements IMCPToolHandler {
       );
     }
 
-    const topic = (args.topic as string).trim();
+    const topic = args.topic.trim();
     const depth = (args.depth as "quick" | "standard" | "deep") || "standard";
     const language =
       (typeof args.language === "string" && args.language) || "en";
-    const dimensions = args.dimensions as string[] | undefined;
+    const dimensions = args.dimensions;
 
     // ── Generate task ID ────────────────────────────────────────────────────
     const taskId = `research_${crypto.randomBytes(6).toString("hex")}`;
@@ -207,7 +207,7 @@ export class ResearchToolHandler implements IMCPToolHandler {
     );
 
     try {
-      const result = await this.researchAgent.executeDirectResearch({
+      const result = await this.aiFacade.executeDirectResearch({
         query: topic,
         depth,
         language,

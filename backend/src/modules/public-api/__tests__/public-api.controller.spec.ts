@@ -2,7 +2,7 @@
  * Public API Controller E2E Tests
  *
  * Tests all endpoints exposed by the PublicApiController.
- * Mocks AI dependencies (AIEngineFacade, DiscussionResearchService).
+ * Mocks AI dependencies (AIEngineFacade).
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -10,27 +10,21 @@ import { NotImplementedException, ExecutionContext } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PublicApiController } from "../public-api.controller";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
-import { DiscussionResearchService } from "../../ai-app/research/discussion/discussion-research.service";
 import { MCPApiKeyGuard } from "../../mcp-server/guards/mcp-api-key.guard";
 
 describe("PublicApiController", () => {
   let controller: PublicApiController;
   let aiFacade: jest.Mocked<AIEngineFacade>;
-  let researchAgent: jest.Mocked<DiscussionResearchService>;
 
   beforeEach(async () => {
     // Mock AIEngineFacade
     const mockAiFacade = {
       chat: jest.fn(),
+      executeDirectResearch: jest.fn(),
       getAvailableTools: jest.fn(),
       getToolFunctionDefinitions: jest.fn(),
       getAvailableModels: jest.fn(),
       getAvailableCapabilities: jest.fn(),
-    };
-
-    // Mock DiscussionResearchService
-    const mockResearchAgent = {
-      executeDirectResearch: jest.fn(),
     };
 
     // Mock MCPApiKeyGuard to always allow requests
@@ -40,10 +34,7 @@ describe("PublicApiController", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PublicApiController],
-      providers: [
-        { provide: AIEngineFacade, useValue: mockAiFacade },
-        { provide: DiscussionResearchService, useValue: mockResearchAgent },
-      ],
+      providers: [{ provide: AIEngineFacade, useValue: mockAiFacade }],
     })
       .overrideGuard(MCPApiKeyGuard)
       .useValue(mockGuard)
@@ -51,7 +42,6 @@ describe("PublicApiController", () => {
 
     controller = module.get<PublicApiController>(PublicApiController);
     aiFacade = module.get(AIEngineFacade);
-    researchAgent = module.get(DiscussionResearchService);
 
     jest.clearAllMocks();
   });
@@ -703,7 +693,7 @@ describe("PublicApiController", () => {
         duration: 15000,
       };
 
-      researchAgent.executeDirectResearch.mockResolvedValue(
+      aiFacade.executeDirectResearch.mockResolvedValue(
         mockResearchResult as any,
       );
 
@@ -717,7 +707,7 @@ describe("PublicApiController", () => {
       expect(result.searchRounds).toBe(2);
       expect(result.totalSources).toBe(3);
       expect(result.duration).toBe(15000);
-      expect(researchAgent.executeDirectResearch).toHaveBeenCalledWith({
+      expect(aiFacade.executeDirectResearch).toHaveBeenCalledWith({
         query: "What is quantum computing?",
         depth: "standard",
         language: "en",
@@ -726,7 +716,7 @@ describe("PublicApiController", () => {
     });
 
     it("should respect custom depth and language", async () => {
-      researchAgent.executeDirectResearch.mockResolvedValue({
+      aiFacade.executeDirectResearch.mockResolvedValue({
         report: {
           executiveSummary: "Summary",
           sections: [],
@@ -744,7 +734,7 @@ describe("PublicApiController", () => {
         language: "es",
       });
 
-      expect(researchAgent.executeDirectResearch).toHaveBeenCalledWith({
+      expect(aiFacade.executeDirectResearch).toHaveBeenCalledWith({
         query: "Test query",
         depth: "deep",
         language: "es",
@@ -874,7 +864,7 @@ describe("PublicApiController", () => {
     });
 
     it("should propagate errors from research agent", async () => {
-      researchAgent.executeDirectResearch.mockRejectedValue(
+      aiFacade.executeDirectResearch.mockRejectedValue(
         new Error("Research failed"),
       );
 

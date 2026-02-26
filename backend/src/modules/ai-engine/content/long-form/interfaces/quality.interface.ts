@@ -305,7 +305,7 @@ export const DEFAULT_QUALITY_MONITOR_CONFIG: QualityMonitorConfig = {
   aiEvaluation: {
     enabled: true,
     evaluationInterval: 5,
-    evaluationModel: "gpt-4o-mini",
+    evaluationModel: "",
   },
 };
 

@@ -768,6 +768,77 @@ export interface StructuredChatResponse<T> {
   retriedParse: boolean;
 }
 
+// ==================== 研究能力类型（Late Registration） ====================
+
+/**
+ * 直接研究请求参数
+ * ★ 由 ai-app/research 的 DiscussionResearchService 实现
+ *   通过 AIEngineFacade.registerResearchExecutor() 注册
+ */
+export interface DirectResearchParams {
+  query: string;
+  depth?: "quick" | "standard" | "deep";
+  language?: string;
+  dimensions?: string[];
+  onProgress?: (stage: string, percent: number, message: string) => void;
+}
+
+/**
+ * 直接研究结果
+ * 结构与 ai-app/research/discussion/types.ts 对齐，但独立定义避免反向依赖
+ */
+export interface DirectResearchResult {
+  report: {
+    executiveSummary: string;
+    sections: Array<{
+      title: string;
+      content: string;
+      citations: number[];
+    }>;
+    conclusion: string;
+    references: Array<{
+      id: number;
+      title: string;
+      url: string;
+      snippet: string;
+      accessedAt: Date;
+    }>;
+    metadata: {
+      totalSources: number;
+      totalTokens: number;
+      duration: number;
+      searchRounds: number;
+    };
+  };
+  searchRounds: Array<{
+    round: number;
+    stepId: string;
+    query: string;
+    resultsCount: number;
+    sources: Array<{
+      id: string;
+      title: string;
+      url: string;
+      snippet: string;
+      domain: string;
+      publishedDate?: string;
+      relevanceScore: number;
+    }>;
+    timestamp: Date;
+  }>;
+  duration: number;
+}
+
+/**
+ * 研究能力执行器接口
+ * ★ AI App 层实现此接口，通过 onModuleInit 注册到 Facade
+ */
+export interface IDirectResearchExecutor {
+  executeDirectResearch(
+    params: DirectResearchParams,
+  ): Promise<DirectResearchResult>;
+}
+
 // ==================== 工具类别类型 ====================
 
 /**

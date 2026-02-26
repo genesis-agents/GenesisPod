@@ -107,6 +107,9 @@ import type {
   ToolExecutionResult,
   ToolInfo,
   ToolCategory,
+  DirectResearchParams,
+  DirectResearchResult,
+  IDirectResearchExecutor,
 } from "./types";
 // ★ Skill execution helpers
 import type {
@@ -242,6 +245,9 @@ export class AIEngineFacade {
   private readonly memorySub!: MemorySubFacade;
   private readonly agentSub!: AgentSubFacade;
   private readonly toolExecSub!: ToolExecSubFacade;
+
+  // ★ Late-registered executors — set by AI App modules via onModuleInit
+  private _researchExecutor?: IDirectResearchExecutor;
 
   constructor(
     // ==================== 核心服务（必需）====================
@@ -2919,5 +2925,32 @@ export class AIEngineFacade {
   /** 获取 SkillRegistry（技能注册表） */
   get skillRegistry(): SkillRegistry | undefined {
     return this.skillRegistrySvc;
+  }
+
+  // ==================== Late Registration — 研究能力 ====================
+
+  /**
+   * 注册研究能力执行器
+   * ★ 由 AI App 层的 DiscussionModule 在 onModuleInit 中调用
+   *   消除 mcp-server / public-api 对 ai-app 的直接导入依赖
+   */
+  registerResearchExecutor(executor: IDirectResearchExecutor): void {
+    this._researchExecutor = executor;
+    this.logger.log("Research executor registered");
+  }
+
+  /**
+   * 执行直接研究
+   * ★ 供 mcp-server、public-api 等外围模块调用
+   */
+  async executeDirectResearch(
+    params: DirectResearchParams,
+  ): Promise<DirectResearchResult> {
+    if (!this._researchExecutor) {
+      throw new Error(
+        "Research executor not registered. Ensure DiscussionModule is loaded.",
+      );
+    }
+    return this._researchExecutor.executeDirectResearch(params);
   }
 }

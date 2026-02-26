@@ -227,6 +227,7 @@ module.exports = {
                   "**/ai-engine/orchestration/state-machine/**",
                   "**/ai-engine/orchestration/utils/**",
                   "**/ai-engine/orchestration/interfaces/**",
+                  "**/ai-engine/orchestration/capabilities/**",
                 ],
                 message:
                   "Access orchestration internals only through AIEngineFacade. " +
@@ -304,25 +305,12 @@ module.exports = {
                 message:
                   "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
               },
-              // Engine interfaces (image tokens, simulation interfaces)
-              {
-                group: ["**/ai-engine/interfaces/**"],
-                message:
-                  "Add required interface or token to facade/index.ts, then import from 'ai-engine/facade'.",
-              },
               // MCP abstractions
               {
                 group: ["**/ai-engine/mcp/**"],
                 message:
                   "Add MCP abstractions to facade/index.ts, then import from 'ai-engine/facade'.",
               },
-              // AI capabilities — must go through AIEngineFacade
-              {
-                group: ["**/ai-engine/capabilities/**"],
-                message:
-                  "Use AIEngineFacade.capabilityGetSkillPrompts() or facade.capabilityResolverService instead.",
-              },
-
               // ════════════════════════════════════════════════════════════
               // ★ SECTION 9: Preventive — not yet accessed but must stay clean
               //   Uses top-level bounded context paths to cover all sub-paths.

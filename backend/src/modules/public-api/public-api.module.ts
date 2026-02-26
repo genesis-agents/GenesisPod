@@ -11,12 +11,10 @@
 import { Module } from "@nestjs/common";
 import { PublicApiController } from "./public-api.controller";
 import { SecretsModule } from "../core/secrets/secrets.module";
-import { DiscussionModule } from "../ai-app/research/discussion/discussion.module";
-
 @Module({
   imports: [
     SecretsModule, // Required for MCPApiKeyGuard
-    DiscussionModule, // Required for DiscussionResearchService
+    // ★ DiscussionModule removed — research accessed via AIEngineFacade.executeDirectResearch()
     // AIEngineFacade is @Global, no explicit import needed
   ],
   controllers: [PublicApiController],

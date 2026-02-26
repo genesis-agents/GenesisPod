@@ -25,7 +25,6 @@ import { AIModelType } from "@prisma/client";
 import { Public } from "../../common/decorators/public.decorator";
 import { MCPApiKeyGuard } from "../mcp-server/guards/mcp-api-key.guard";
 import { AIEngineFacade } from "../ai-engine/facade/ai-engine.facade";
-import { DiscussionResearchService } from "../ai-app/research/discussion/discussion-research.service";
 import { StartResearchDto } from "./dto/research.dto";
 import { AskDto } from "./dto/ask.dto";
 import { ChatDto } from "./dto/chat.dto";
@@ -100,10 +99,7 @@ const CAPABILITIES: CapabilityDescriptor[] = [
 export class PublicApiController {
   private readonly logger = new Logger(PublicApiController.name);
 
-  constructor(
-    private readonly aiFacade: AIEngineFacade,
-    private readonly researchAgent: DiscussionResearchService,
-  ) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   // ==================== Self-Description ====================
 
@@ -134,7 +130,7 @@ export class PublicApiController {
       `Public API research: "${dto.query.slice(0, 80)}" (depth: ${dto.depth || "standard"})`,
     );
 
-    const result = await this.researchAgent.executeDirectResearch({
+    const result = await this.aiFacade.executeDirectResearch({
       query: dto.query,
       depth: dto.depth || "standard",
       language: dto.language || "en",
