@@ -114,16 +114,9 @@ module.exports = {
         "**/*.spec.ts",
         "**/*.test.ts",
         "**/__tests__/**/*.ts",
-        // Agent files now import base classes from facade/base-classes.ts (no exclusion needed)
-        // Team config files must reference abstract interfaces
-        "**/*.config.ts",
-        // Skill implementations extend engine skill base classes
-        "**/skills/*.skill.ts",
-        // Re-export / bridge adapter files (direct engine imports justified)
-        "**/office/common/content-analysis.service.ts",
-        "**/office/common/content-analysis.types.ts",
-        "**/office/common/image-matching.service.ts",
-        // Note: writing-agent-registry.ts now imports AgentIfaceOutput/AgentIfaceEvent via facade alias
+        // ★ Zero exclusions for production code — all ai-engine imports must go through facade
+        // Agent base classes: facade/base-classes.ts
+        // Config/Skill/Bridge files: facade/index.ts
       ],
       rules: {
         "no-restricted-imports": [
