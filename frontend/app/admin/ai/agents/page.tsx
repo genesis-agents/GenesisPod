@@ -1,10 +1,21 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Bot, Plus, Pencil, Trash2, Power } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  Bot,
+  Plus,
+  Pencil,
+  Trash2,
+  Power,
+  X,
+  Sparkles,
+  Loader2,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { useAdminAgents, AgentConfig } from '@/hooks/domain/useAdminAgents';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 export default function AgentManagementPage() {
   const { t } = useTranslation();
@@ -20,6 +31,8 @@ export default function AgentManagementPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AgentConfig | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const aiAbortRef = useRef<AbortController | null>(null);
   const [formData, setFormData] = useState({
     agentId: '',
     name: '',
@@ -47,6 +60,29 @@ export default function AgentManagementPage() {
       enabled: true,
     });
   }, []);
+
+  const isModalOpen = showCreateModal || editingAgent !== null;
+
+  const closeModal = useCallback(() => {
+    aiAbortRef.current?.abort();
+    aiAbortRef.current = null;
+    setAiGenerating(false);
+    setShowCreateModal(false);
+    setEditingAgent(null);
+    resetForm();
+  }, [resetForm]);
+
+  // Escape key to close modal
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen, closeModal]);
 
   const handleCreate = useCallback(async () => {
     await createAgent({
@@ -124,6 +160,86 @@ export default function AgentManagementPage() {
     [updateAgent]
   );
 
+  const handleAiGenerate = useCallback(async () => {
+    if (!formData.name.trim()) return;
+
+    // Abort any in-flight request before starting a new one
+    aiAbortRef.current?.abort();
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+
+    setAiGenerating(true);
+    try {
+      const response = await fetch(`${config.apiUrl}/ai/simple-chat`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({
+          message: [
+            'You are an AI agent configuration expert.',
+            `Generate a complete agent configuration for an agent named "${formData.name}"${formData.domain !== 'general' ? ` in the "${formData.domain}" domain` : ''}.`,
+            'Return ONLY valid JSON (no markdown, no code fences) with these fields:',
+            '- agentId: kebab-case identifier derived from the name',
+            "- description: one-sentence description of the agent's purpose",
+            "- systemPrompt: a detailed system prompt (2-4 paragraphs) defining the agent's role, capabilities, and behavior guidelines",
+            '- tools: array of relevant tool names (e.g. ["web-search", "code-exec", "file-read"])',
+            '- skills: array of relevant skill names (e.g. ["report-writing", "data-analysis"])',
+            '- agentType: one of "reactive", "plan-based", or "hybrid"',
+          ].join('\n'),
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) return;
+
+      const result = (await response.json()) as {
+        data?: { content?: string; message?: string };
+        content?: string;
+        message?: string;
+      };
+      const data = result.data ?? result;
+      const content: string = data.content || data.message || '';
+
+      // Extract JSON from the response (handle potential markdown fences)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return;
+
+      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+
+      setFormData((prev) => ({
+        ...prev,
+        agentId:
+          typeof parsed.agentId === 'string' ? parsed.agentId : prev.agentId,
+        description:
+          typeof parsed.description === 'string'
+            ? parsed.description
+            : prev.description,
+        systemPrompt:
+          typeof parsed.systemPrompt === 'string'
+            ? parsed.systemPrompt
+            : prev.systemPrompt,
+        tools: Array.isArray(parsed.tools)
+          ? parsed.tools.join(', ')
+          : prev.tools,
+        skills: Array.isArray(parsed.skills)
+          ? parsed.skills.join(', ')
+          : prev.skills,
+        agentType:
+          typeof parsed.agentType === 'string' &&
+          ['reactive', 'plan-based', 'hybrid'].includes(parsed.agentType)
+            ? parsed.agentType
+            : prev.agentType,
+      }));
+    } catch {
+      // Silently fail — user can manually fill the form
+    } finally {
+      setAiGenerating(false);
+    }
+  }, [formData.name, formData.domain]);
+
   // Group agents by domain
   const groupedAgents = agents.reduce<Record<string, AgentConfig[]>>(
     (acc, agent) => {
@@ -135,7 +251,9 @@ export default function AgentManagementPage() {
     {}
   );
 
-  const isModalOpen = showCreateModal || editingAgent !== null;
+  const inputClassName =
+    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20';
+  const labelClassName = 'mb-1.5 block text-sm font-medium text-gray-700';
 
   return (
     <AdminPageLayout
@@ -147,7 +265,7 @@ export default function AgentManagementPage() {
       <div className="space-y-6">
         {/* Header with Add button */}
         <div className="flex items-center justify-between">
-          <div className="text-sm text-zinc-400">
+          <div className="text-sm text-gray-500">
             {agents.length} agent configuration{agents.length !== 1 ? 's' : ''}
           </div>
           <button
@@ -164,10 +282,12 @@ export default function AgentManagementPage() {
 
         {/* Error state */}
         {error && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
             {error.message || 'Failed to load agent configurations'}
             <button
-              onClick={() => { void refreshAgents(); }}
+              onClick={() => {
+                void refreshAgents();
+              }}
               className="ml-2 underline hover:no-underline"
             >
               Retry
@@ -177,7 +297,7 @@ export default function AgentManagementPage() {
 
         {/* Loading state */}
         {loading && !agents.length && (
-          <div className="flex items-center justify-center py-12 text-zinc-400">
+          <div className="flex items-center justify-center py-12 text-gray-500">
             Loading agent configurations...
           </div>
         )}
@@ -185,13 +305,13 @@ export default function AgentManagementPage() {
         {/* Agent list grouped by domain */}
         {Object.entries(groupedAgents).map(([domain, domainAgents]) => (
           <div key={domain} className="space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
               {domain}
             </h3>
-            <div className="overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-800/50">
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-700/50 text-left text-zinc-400">
+                  <tr className="border-b border-gray-200 text-left text-gray-500">
                     <th className="px-4 py-3 font-medium">Name</th>
                     <th className="px-4 py-3 font-medium">Agent ID</th>
                     <th className="px-4 py-3 font-medium">Type</th>
@@ -205,33 +325,35 @@ export default function AgentManagementPage() {
                   {domainAgents.map((agent) => (
                     <tr
                       key={agent.id}
-                      className="border-b border-zinc-700/30 last:border-0 hover:bg-zinc-700/20"
+                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-zinc-200">
+                        <div className="font-medium text-gray-900">
                           {agent.name}
                         </div>
                         {agent.description && (
-                          <div className="mt-0.5 max-w-xs truncate text-xs text-zinc-500">
+                          <div className="mt-0.5 max-w-xs truncate text-xs text-gray-500">
                             {agent.description}
                           </div>
                         )}
                       </td>
-                      <td className="font-mono px-4 py-3 text-xs text-zinc-400">
+                      <td className="font-mono px-4 py-3 text-xs text-gray-500">
                         {agent.agentId}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs text-zinc-300">
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                           {agent.agentType}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => { void handleToggleEnabled(agent); }}
+                          onClick={() => {
+                            void handleToggleEnabled(agent);
+                          }}
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                             agent.enabled
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : 'bg-zinc-700/50 text-zinc-500'
+                              ? 'bg-emerald-50 text-emerald-600'
+                              : 'bg-gray-100 text-gray-500'
                           }`}
                         >
                           <Power className="h-3 w-3" />
@@ -242,15 +364,17 @@ export default function AgentManagementPage() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleEdit(agent)}
-                            className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+                            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                             title="Edit"
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
                           {!agent.isBuiltIn && (
                             <button
-                              onClick={() => { void handleDelete(agent.id); }}
-                              className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                              onClick={() => {
+                                void handleDelete(agent.id);
+                              }}
+                              className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                               title="Delete"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -268,10 +392,12 @@ export default function AgentManagementPage() {
 
         {/* Empty state */}
         {!loading && agents.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
             <Bot className="mb-4 h-12 w-12 opacity-30" />
-            <p className="text-lg font-medium">No agent configurations</p>
-            <p className="mt-1 text-sm">
+            <p className="text-lg font-medium text-gray-600">
+              No agent configurations
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
               Create your first agent configuration to get started.
             </p>
           </div>
@@ -279,225 +405,272 @@ export default function AgentManagementPage() {
 
         {/* Create/Edit Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-xl">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-100">
-                {editingAgent
-                  ? 'Edit Agent Configuration'
-                  : 'Create Agent Configuration'}
-              </h2>
-
-              <div className="space-y-4">
-                {/* Agent ID (only for create) */}
-                {!editingAgent && (
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Agent ID
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.agentId}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          agentId: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                      placeholder="e.g., research-lead"
-                    />
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="agent-modal-title"
+          >
+            <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+              {/* Modal header */}
+              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-violet-50 p-2">
+                    <Bot className="h-5 w-5 text-violet-600" />
                   </div>
-                )}
-
-                {/* Name */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder="e.g., Research Lead"
-                  />
+                  <h2
+                    id="agent-modal-title"
+                    className="text-lg font-semibold text-gray-900"
+                  >
+                    {editingAgent
+                      ? 'Edit Agent Configuration'
+                      : 'Create Agent Configuration'}
+                  </h2>
                 </div>
+                <button
+                  onClick={closeModal}
+                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-                {/* Description */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    Description
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder="Optional description"
-                  />
-                </div>
-
-                {/* Agent Type & Domain */}
-                <div className="grid grid-cols-2 gap-4">
+              {/* Modal body */}
+              <div className="max-h-[70vh] overflow-y-auto p-6">
+                <div className="space-y-4">
+                  {/* Name + AI Generate row */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Agent Type
-                    </label>
-                    <select
-                      value={formData.agentType}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          agentType: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    >
-                      <option value="reactive">Reactive</option>
-                      <option value="plan-based">Plan-Based</option>
-                      <option value="hybrid">Hybrid</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Domain
-                    </label>
-                    <select
-                      value={formData.domain}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          domain: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    >
-                      <option value="general">General</option>
-                      <option value="research">Research</option>
-                      <option value="writing">Writing</option>
-                      <option value="coding">Coding</option>
-                      <option value="slides">Slides</option>
-                      <option value="social">Social</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* System Prompt */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    System Prompt
-                  </label>
-                  <textarea
-                    value={formData.systemPrompt}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        systemPrompt: e.target.value,
-                      }))
-                    }
-                    rows={4}
-                    className="w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder="System prompt for this agent..."
-                  />
-                </div>
-
-                {/* Tools & Skills */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Tools (comma-separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.tools}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          tools: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                      placeholder="web-search, code-exec"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Skills (comma-separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.skills}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          skills: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                      placeholder="slides-outline, report-writing"
-                    />
-                  </div>
-                </div>
-
-                {/* Model Type & Enabled */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Model Type
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.modelType}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          modelType: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                      placeholder="CHAT, REASONING, etc."
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+                    <label className={labelClassName}>Name</label>
+                    <div className="flex gap-2">
                       <input
-                        type="checkbox"
-                        checked={formData.enabled}
+                        type="text"
+                        value={formData.name}
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
-                            enabled: e.target.checked,
+                            name: e.target.value,
                           }))
                         }
-                        className="rounded border-zinc-600 bg-zinc-800 text-violet-600 focus:ring-violet-500"
+                        className={inputClassName}
+                        placeholder="e.g., Research Lead"
                       />
-                      Enabled
-                    </label>
+                      {!editingAgent && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleAiGenerate();
+                          }}
+                          disabled={aiGenerating || !formData.name.trim()}
+                          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="AI auto-fill agent configuration"
+                        >
+                          {aiGenerating ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                          AI 生成
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Agent ID (only for create) */}
+                  {!editingAgent && (
+                    <div>
+                      <label className={labelClassName}>Agent ID</label>
+                      <input
+                        type="text"
+                        value={formData.agentId}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            agentId: e.target.value,
+                          }))
+                        }
+                        className={inputClassName}
+                        placeholder="e.g., research-lead"
+                      />
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  <div>
+                    <label className={labelClassName}>Description</label>
+                    <input
+                      type="text"
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      className={inputClassName}
+                      placeholder="Optional description"
+                    />
+                  </div>
+
+                  {/* Agent Type & Domain */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClassName}>Agent Type</label>
+                      <select
+                        value={formData.agentType}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            agentType: e.target.value,
+                          }))
+                        }
+                        className={inputClassName}
+                      >
+                        <option value="reactive">Reactive</option>
+                        <option value="plan-based">Plan-Based</option>
+                        <option value="hybrid">Hybrid</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClassName}>Domain</label>
+                      <select
+                        value={formData.domain}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            domain: e.target.value,
+                          }))
+                        }
+                        className={inputClassName}
+                      >
+                        <option value="general">General</option>
+                        <option value="research">Research</option>
+                        <option value="writing">Writing</option>
+                        <option value="coding">Coding</option>
+                        <option value="slides">Slides</option>
+                        <option value="social">Social</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* System Prompt */}
+                  <div>
+                    <label className={labelClassName}>System Prompt</label>
+                    <textarea
+                      value={formData.systemPrompt}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          systemPrompt: e.target.value,
+                        }))
+                      }
+                      rows={4}
+                      className={`${inputClassName} resize-y`}
+                      placeholder="System prompt for this agent..."
+                    />
+                  </div>
+
+                  {/* Tools & Skills */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClassName}>
+                        Tools{' '}
+                        <span className="font-normal text-gray-400">
+                          (comma-separated)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.tools}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            tools: e.target.value,
+                          }))
+                        }
+                        className={inputClassName}
+                        placeholder="web-search, code-exec"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClassName}>
+                        Skills{' '}
+                        <span className="font-normal text-gray-400">
+                          (comma-separated)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.skills}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            skills: e.target.value,
+                          }))
+                        }
+                        className={inputClassName}
+                        placeholder="slides-outline, report-writing"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Model Type & Enabled */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClassName}>Model Type</label>
+                      <input
+                        type="text"
+                        value={formData.modelType}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            modelType: e.target.value,
+                          }))
+                        }
+                        className={inputClassName}
+                        placeholder="CHAT, REASONING, etc."
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <div className="flex w-full items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Enabled
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              enabled: !prev.enabled,
+                            }))
+                          }
+                          className={`relative h-6 w-11 rounded-full transition-colors ${
+                            formData.enabled ? 'bg-green-500' : 'bg-gray-300'
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                              formData.enabled ? 'left-[22px]' : 'left-0.5'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Modal actions */}
-              <div className="mt-6 flex items-center justify-end gap-3 border-t border-zinc-700/50 pt-4">
+              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
                 <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setEditingAgent(null);
-                    resetForm();
-                  }}
-                  className="rounded-lg px-4 py-2 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
+                  onClick={closeModal}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => { void (editingAgent ? handleUpdate() : handleCreate()); }}
+                  onClick={() => {
+                    void (editingAgent ? handleUpdate() : handleCreate());
+                  }}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
                 >
                   {editingAgent ? 'Save Changes' : 'Create Agent'}
