@@ -54,7 +54,10 @@ export class RequestLoggerInterceptor implements NestInterceptor {
           const statusCode = response.statusCode;
 
           // Server-Timing header — visible in browser DevTools Network tab
-          response.setHeader("Server-Timing", `total;dur=${duration}`);
+          // Guard: redirects (e.g. OAuth callback) may have already flushed headers
+          if (!response.headersSent) {
+            response.setHeader("Server-Timing", `total;dur=${duration}`);
+          }
 
           // 始终记录 HTTP 指标
           this.recordHttpMetrics(method, path, statusCode, duration);
@@ -80,7 +83,9 @@ export class RequestLoggerInterceptor implements NestInterceptor {
           const statusCode = error.status || 500;
 
           // Server-Timing header
-          response.setHeader("Server-Timing", `total;dur=${duration}`);
+          if (!response.headersSent) {
+            response.setHeader("Server-Timing", `total;dur=${duration}`);
+          }
 
           // 始终记录 HTTP 指标
           this.recordHttpMetrics(method, path, statusCode, duration);
