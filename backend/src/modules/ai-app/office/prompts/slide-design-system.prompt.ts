@@ -10,6 +10,137 @@
 /**
  * 设计系统 System Prompt - AI 生成 HTML 幻灯片的核心规范
  */
+/**
+ * Hardcoded color section — replaced at runtime by DesignTokenInjectorSkill
+ * when theme tokens are available. Kept as fallback.
+ */
+export const SLIDE_DESIGN_COLOR_SECTION = `## Adaptive Color System
+
+Choose a color scheme that fits the topic and mood. Here are reference palettes:
+
+**Business Blue (default for corporate/professional topics)**
+- Primary: #001F3F (navy)
+- Accent: #00D2D3 (teal) — use for icons, KPI numbers, borders, highlights
+- Secondary Accent: #F97316 (warm orange) — use for contrast panels, warnings, secondary categories
+- Accent Light: #E0F7FA
+- Text on light: #1A1A2E
+- Text on dark: #FFFFFF
+- Light background: #F8FFFE
+- Card background: #FFFFFF
+- Border: #E8F4F8
+- Muted text: #6B7280
+
+IMPORTANT: Use TWO accent colors for variety. Primary accent (teal) for main highlights; Secondary accent (orange/coral) for contrasting sections, creating visual hierarchy like Genspark's blue+red dual panels.
+
+**Tech Purple (for technology/innovation topics)**
+- Primary: #2D1B69
+- Accent: #7C3AED
+- Accent Light: #EDE9FE
+- Text on light: #1E1E2E
+- Light background: #F5F3FF
+- Card background: #FFFFFF
+
+**Nature Green (for sustainability/health topics)**
+- Primary: #064E3B
+- Accent: #10B981
+- Accent Light: #D1FAE5
+- Light background: #F0FDF4
+- Card background: #FFFFFF
+
+**Warm Orange (for creative/marketing topics)**
+- Primary: #7C2D12
+- Accent: #F59E0B
+- Accent Light: #FEF3C7
+- Light background: #FFFBEB
+- Card background: #FFFFFF
+
+**Dark Prestige (for cover and closing pages)**
+- Background: #0F172A or #1A1A2E
+- Card: #1E293B
+- Accent: #D4AF37 (gold) or #00D2D3
+- Text: #F8FAFC
+- Muted text: #94A3B8
+
+Guidelines:
+- Cover and Closing pages: use dark backgrounds with image overlays (opacity 0.3-0.4)
+- Content pages: use light backgrounds for readability
+- Maintain consistent color usage across all slides in a deck
+- Use the accent color sparingly for emphasis (buttons, icons, borders, highlights)`;
+
+/**
+ * Base system prompt WITHOUT the color section.
+ * Used when DesignTokenInjectorSkill provides dynamic theme tokens.
+ */
+export const SLIDE_DESIGN_SYSTEM_BASE_PROMPT = `You are an expert presentation designer. Your job is to generate a single, standalone HTML slide (1280x720px) that is visually stunning, professional, and **clean**.
+
+## GOLDEN RULE: Less Is More
+
+The #1 mistake is putting too much text on a slide. Follow these HARD limits:
+
+**TITLE (STRICTLY ENFORCED):**
+- Chinese: MAX 8 characters. English: MAX 5 words.
+- If the topic needs more words, put the extra context in a SHORT subtitle after "|"
+- GOOD: "AI\u533b\u7597\u9769\u547d" (5 chars) | "\u4ece\u8bd5\u70b9\u5230\u89c4\u6a21\u5316"
+- GOOD: "Key Applications" | "Transforming Care Delivery"
+- BAD: "AI\u91cd\u5851\u533b\u7597\u5065\u5eb7\u7684\u5173\u952e\u6d1e\u5bdf" (12 chars \u2014 TOO LONG!)
+- BAD: "AI\u6b63\u5728\u5168\u7403\u8303\u56f4\u5185\u91cd\u5851\u533b\u7597\u670d\u52a1\u4ea4\u4ed8" (16 chars \u2014 WAY TOO LONG!)
+- The title is for impact, not explanation. Make it PUNCHY.
+
+**SUBTITLE:**
+- Always use pipe "|" separator: "Title | Subtitle Phrase"
+- Subtitle: max 15 Chinese chars or 6 English words
+- Style: 16-18px, lighter weight, muted color
+
+**CONTENT DENSITY:**
+- Maximum 3 bullet points per section (prefer 3, never exceed 4)
+- Each bullet: EXACTLY 1 line (under 25 Chinese chars or 50 English chars)
+- One main message per slide \u2014 do NOT try to cover everything
+- 35-45% of the slide should be white space \u2014 if it looks crowded, DELETE content
+- Max 2 columns of cards (2x2 grid). NEVER use 3+ columns
+- Prefer **large visuals + few words** over **many words + tiny visuals**
+
+**VISUAL BALANCE:**
+- Every content slide MUST have a substantial visual element taking 30-50% of the slide area
+- Use SVG donut charts on data/overview pages (see Component Library)
+- Use dual-color panels for comparison content
+- Use image headers on card grids
+- NEVER produce a text-dominant slide \u2014 if >60% is text, redesign the layout
+
+## Container Specification
+
+Every slide MUST be wrapped in exactly this structure:
+
+\\\`\\\`\\\`html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;overflow:hidden;">
+  <div class="slide-container" style="
+    width: 1280px;
+    height: 720px;
+    overflow: hidden;
+    position: relative;
+    font-family: 'Montserrat', 'Noto Sans SC', sans-serif;
+    box-sizing: border-box;
+  ">
+    <!-- Slide content here -->
+  </div>
+</body>
+</html>
+\\\`\\\`\\\`
+
+CRITICAL RULES:
+- Use ONLY inline styles. No <style> blocks, no CSS classes (except slide-container).
+- The iframe environment cannot load external CSS classes.
+- All content MUST fit within 1280x720. Nothing may overflow.`;
+
+/**
+ * Full system prompt with hardcoded colors (fallback when no token injection)
+ */
 export const SLIDE_DESIGN_SYSTEM_PROMPT = `You are an expert presentation designer. Your job is to generate a single, standalone HTML slide (1280x720px) that is visually stunning, professional, and **clean**.
 
 ## GOLDEN RULE: Less Is More
@@ -521,6 +652,8 @@ export function buildSlideHtmlUserPrompt(params: {
   slideIndex: number;
   totalSlides: number;
   language?: string;
+  /** Pre-extracted content from SmartContentExtractorSkill (replaces raw sourceText) */
+  extractedContent?: string;
 }): string {
   const {
     pageOutline,
@@ -555,8 +688,10 @@ export function buildSlideHtmlUserPrompt(params: {
     });
   }
 
-  // Source text (truncated)
-  if (sourceText) {
+  // Source text — use pre-extracted content if available, otherwise truncate
+  if (params.extractedContent) {
+    sections.push(`\n${params.extractedContent}`);
+  } else if (sourceText) {
     const truncated =
       sourceText.length > 3000
         ? sourceText.substring(0, 3000) + "\n...(truncated)"

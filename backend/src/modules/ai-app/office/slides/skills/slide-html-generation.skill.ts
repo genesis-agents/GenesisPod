@@ -22,6 +22,7 @@ import { AIModelType } from "@prisma/client";
 import { PageOutline, CDN_RESOURCES } from "../checkpoint/checkpoint.types";
 import {
   SLIDE_DESIGN_SYSTEM_PROMPT,
+  SLIDE_DESIGN_SYSTEM_BASE_PROMPT,
   buildSlideHtmlUserPrompt,
 } from "../../prompts/slide-design-system.prompt";
 import { postProcessSlideHtml } from "./html-post-processor";
@@ -47,6 +48,10 @@ export interface SlideHtmlGenerationInput {
   totalSlides: number;
   /** 语言 */
   language?: string;
+  /** Theme prompt fragment from DesignTokenInjectorSkill */
+  themePromptFragment?: string;
+  /** Pre-extracted content from SmartContentExtractorSkill */
+  extractedContent?: string;
 }
 
 export interface SlideHtmlGenerationOutput {
@@ -120,11 +125,17 @@ export class SlideHtmlGenerationSkill implements ISkill<
         slideIndex: input.slideIndex,
         totalSlides: input.totalSlides,
         language: input.language,
+        extractedContent: input.extractedContent,
       });
+
+      // Use base prompt + injected theme tokens if available, else full prompt
+      const systemPrompt = input.themePromptFragment
+        ? SLIDE_DESIGN_SYSTEM_BASE_PROMPT + "\n\n" + input.themePromptFragment
+        : SLIDE_DESIGN_SYSTEM_PROMPT;
 
       // Call AI via AIEngineFacade
       const messages: ChatMessage[] = [
-        { role: "system", content: SLIDE_DESIGN_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ];
 

@@ -54,6 +54,15 @@ export * from "./fact-checker.skill";
 // Layer 6 - Quality Assurance
 export * from "./quality-audit.skill";
 
+// Enhancement Skills (v6.1: quality improvement pipeline)
+export * from "./design-token-injector.skill";
+export * from "./smart-content-extractor.skill";
+export * from "./slide-visual-validator.skill";
+export * from "./slide-iterative-refiner.skill";
+export * from "./deck-consistency-auditor.skill";
+export * from "./slide-self-healer.skill";
+export * from "./types/enhancement-types";
+
 // Layer 7 - Monitoring & Transparency (v5.0)
 export * from "./slide-thinking.skill";
 

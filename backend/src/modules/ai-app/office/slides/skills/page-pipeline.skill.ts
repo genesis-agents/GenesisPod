@@ -29,6 +29,11 @@ import { TemplateRenderingSkill } from "./template-rendering.skill";
 import { ContentCompressionSkill } from "./content-compression.skill";
 import { ImageFetcherSkill } from "./image-fetcher.skill";
 import { SlideHtmlGenerationSkill } from "./slide-html-generation.skill";
+import { DesignTokenInjectorSkill } from "./design-token-injector.skill";
+import { SmartContentExtractorSkill } from "./smart-content-extractor.skill";
+import { SlideVisualValidatorSkill } from "./slide-visual-validator.skill";
+import { SlideIterativeRefinerSkill } from "./slide-iterative-refiner.skill";
+import { SlideSelfHealerSkill } from "./slide-self-healer.skill";
 
 /**
  * 单页生成结果
@@ -136,6 +141,12 @@ export class PagePipelineSkill implements ISkill<
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly imageFetcher?: ImageFetcherSkill,
     @Optional() private readonly slideHtmlGeneration?: SlideHtmlGenerationSkill,
+    @Optional() private readonly designTokenInjector?: DesignTokenInjectorSkill,
+    @Optional()
+    private readonly smartContentExtractor?: SmartContentExtractorSkill,
+    @Optional() private readonly visualValidator?: SlideVisualValidatorSkill,
+    @Optional() private readonly iterativeRefiner?: SlideIterativeRefinerSkill,
+    @Optional() private readonly selfHealer?: SlideSelfHealerSkill,
   ) {}
 
   /**
@@ -237,6 +248,58 @@ export class PagePipelineSkill implements ISkill<
           templateId = result.templateId;
         }
 
+        // P1 Enhancement: Visual Validation + Iterative Refinement
+        if (html && this.visualValidator) {
+          try {
+            const validationResult = await this.visualValidator.execute(
+              { html, themeId },
+              {
+                ...context,
+                executionId: `${context.executionId}-validate-${pageNumber}`,
+              },
+            );
+
+            if (
+              validationResult.success &&
+              validationResult.data &&
+              !validationResult.data.passed
+            ) {
+              this.logger.log(
+                `[execute] Page ${pageNumber} validation failed (score=${validationResult.data.score}), attempting refinement`,
+              );
+
+              if (this.iterativeRefiner) {
+                const refineResult = await this.iterativeRefiner.execute(
+                  {
+                    html,
+                    validationReport: validationResult.data,
+                    pageOutline,
+                    themeId,
+                    slideIndex: pageOutline.pageNumber - 1,
+                    totalSlides: totalPages,
+                    maxIterations: 2,
+                  },
+                  {
+                    ...context,
+                    executionId: `${context.executionId}-refine-${pageNumber}`,
+                  },
+                );
+
+                if (refineResult.success && refineResult.data?.improved) {
+                  html = refineResult.data.html;
+                  this.logger.log(
+                    `[execute] Page ${pageNumber} refined: score ${validationResult.data.score} -> ${refineResult.data.finalScore}`,
+                  );
+                }
+              }
+            }
+          } catch (validationError) {
+            this.logger.warn(
+              `[execute] Page ${pageNumber} validation/refinement failed: ${validationError}`,
+            );
+          }
+        }
+
         const htmlLength = html?.length || 0;
         this.logger.log(
           `[execute] Page ${pageNumber} rendered successfully, HTML length: ${htmlLength}`,
@@ -288,6 +351,58 @@ export class PagePipelineSkill implements ISkill<
         this.logger.error(
           `[execute] Page ${pageNumber} failed: ${errorMessage}`,
         );
+
+        // P2 Enhancement: Try self-healing before marking as failed
+        if (this.selfHealer) {
+          try {
+            const healResult = await this.selfHealer.execute(
+              {
+                failedHtml: "",
+                error: errorMessage,
+                pageOutline,
+                themeId,
+                slideIndex: pageOutline.pageNumber - 1,
+                totalSlides: totalPages,
+              },
+              {
+                ...context,
+                executionId: `${context.executionId}-heal-${pageNumber}`,
+              },
+            );
+
+            if (healResult.success && healResult.data?.healed) {
+              this.logger.log(
+                `[execute] Page ${pageNumber} healed with strategy: ${healResult.data.strategy} (confidence: ${healResult.data.confidence})`,
+              );
+              pages.push({
+                pageNumber,
+                title: pageOutline.title,
+                html: healResult.data.html,
+                templateId: `healed-${healResult.data.strategy}`,
+                status: "completed",
+                duration: Date.now() - pageStartTime,
+              });
+              completedPages++;
+
+              this.emitPageGenerated({
+                type: "page:generated",
+                pageNumber,
+                totalPages,
+                title: pageOutline.title,
+                html: healResult.data.html,
+                templateId: `healed-${healResult.data.strategy}`,
+                sessionId,
+                design: undefined,
+                keyPoints: pageOutline.keyElements || [],
+              });
+              continue;
+            }
+          } catch (healError) {
+            this.logger.warn(
+              `[execute] Self-healing also failed: ${healError}`,
+            );
+          }
+        }
 
         pages.push({
           pageNumber,
@@ -353,6 +468,48 @@ export class PagePipelineSkill implements ISkill<
     // Detect language from source text
     const language = this.detectLanguage(sourceText);
 
+    // P0 Enhancement: Design Token Injection
+    let themePromptFragment: string | undefined;
+    if (this.designTokenInjector) {
+      try {
+        const tokenResult = await this.designTokenInjector.execute(
+          { themeId: themeHint || "genspark-dark" },
+          {
+            ...context,
+            executionId: `${context.executionId}-tokens-${pageOutline.pageNumber}`,
+          },
+        );
+        if (tokenResult.success && tokenResult.data) {
+          themePromptFragment = tokenResult.data.promptFragment;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[generateWithAi] Design token injection failed: ${error}`,
+        );
+      }
+    }
+
+    // P0 Enhancement: Smart Content Extraction
+    let extractedContent: string | undefined;
+    if (this.smartContentExtractor && sourceText) {
+      try {
+        const extractResult = await this.smartContentExtractor.execute(
+          { pageOutline, sourceText },
+          {
+            ...context,
+            executionId: `${context.executionId}-extract-${pageOutline.pageNumber}`,
+          },
+        );
+        if (extractResult.success && extractResult.data?.promptFragment) {
+          extractedContent = extractResult.data.promptFragment;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[generateWithAi] Smart content extraction failed: ${error}`,
+        );
+      }
+    }
+
     // Step 1: 搜索图片
     let imageUrls: string[] = [];
     if (this.imageFetcher) {
@@ -395,6 +552,8 @@ export class PagePipelineSkill implements ISkill<
           slideIndex,
           totalSlides,
           language,
+          themePromptFragment,
+          extractedContent,
         },
         {
           ...context,

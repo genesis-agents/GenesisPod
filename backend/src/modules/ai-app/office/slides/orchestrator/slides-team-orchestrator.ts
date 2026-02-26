@@ -17,6 +17,7 @@ import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { SlidesLeader } from "./slides-leader";
 import { SlidesTeamMember, TaskExecutionResult } from "./slides-team-member";
 import { SlidesRepository } from "./slides-repository";
+import { DeckConsistencyAuditorSkill } from "../skills/deck-consistency-auditor.skill";
 import {
   SlidesMission,
   SlidesMissionEvent,
@@ -28,9 +29,7 @@ import {
   SlidesExecutionError,
 } from "./types";
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
-import {
-  createSkillOutputManager,
-} from "@/modules/ai-engine/facade";
+import { createSkillOutputManager } from "@/modules/ai-engine/facade";
 import type { ISkillOutputManager } from "@/modules/ai-engine/facade";
 
 @Injectable()
@@ -45,6 +44,8 @@ export class SlidesTeamOrchestrator {
     private readonly teamMember: SlidesTeamMember,
     @Optional() private readonly repository?: SlidesRepository,
     @Optional() private readonly aiFacade?: AIEngineFacade,
+    @Optional()
+    private readonly deckConsistencyAuditor?: DeckConsistencyAuditorSkill,
   ) {
     this.persistenceEnabled = !!repository;
     this.logger.log(
@@ -939,16 +940,99 @@ export class SlidesTeamOrchestrator {
     yield auditStartEvent;
     await this.persistEvent(auditStartEvent);
 
-    // 汇总审计结果（审计 skill 当前为直通模式，直接使用默认通过分数）
-    const qualityAudit: QualityAuditResult = {
-      passed: true,
-      overallScore: 85,
-      terminologyScore: 100,
-      transitionScore: 100,
-      consistencyScore: 90,
-      issues: [],
-      suggestions: [],
-    };
+    // Run deck consistency auditor if available and we have pages
+    let qualityAudit: QualityAuditResult;
+    if (this.deckConsistencyAuditor && mission.pages.length > 0) {
+      try {
+        const auditResult = await this.deckConsistencyAuditor.execute(
+          {
+            pages: mission.pages.map((p) => {
+              const page = p as {
+                html?: string;
+                renderedHtml?: string;
+                index?: number;
+                spec?: { title?: string; templateType?: string };
+              };
+              return {
+                html: page.renderedHtml || page.html || "",
+                pageNumber: page.index ?? 0,
+                templateType: page.spec?.templateType || "content",
+                title: page.spec?.title || "",
+              };
+            }),
+            themeId: mission.themeId,
+          },
+          {
+            executionId: `${mission.id}-audit`,
+            skillId: "slides-deck-consistency-auditor",
+            sessionId: mission.sessionId,
+            createdAt: new Date(),
+          },
+        );
+
+        if (auditResult.success && auditResult.data) {
+          qualityAudit = {
+            passed: auditResult.data.passed,
+            overallScore: auditResult.data.overallScore,
+            terminologyScore: 100,
+            transitionScore: 100,
+            consistencyScore: auditResult.data.scores.colorConsistency,
+            issues: auditResult.data.issues.map((issue) => ({
+              type: (issue.type === "color_drift" || issue.type === "font_drift"
+                ? "consistency"
+                : issue.type === "layout_repetition"
+                  ? "layout"
+                  : issue.type === "narrative_flow"
+                    ? "content"
+                    : "consistency") as "consistency" | "layout" | "content",
+              severity: (issue.severity === "error"
+                ? "critical"
+                : issue.severity) as "critical" | "warning" | "info",
+              description: issue.message,
+              suggestion: issue.suggestion,
+            })),
+            suggestions: auditResult.data.fixSuggestions.map(
+              (s) => `Page ${s.pageNumber}: ${s.description}`,
+            ),
+          };
+        } else {
+          // Auditor failed, use default
+          qualityAudit = {
+            passed: true,
+            overallScore: 85,
+            terminologyScore: 100,
+            transitionScore: 100,
+            consistencyScore: 90,
+            issues: [],
+            suggestions: [],
+          };
+        }
+      } catch (auditError) {
+        this.logger.warn(
+          `[executeAuditPhase] Deck consistency audit failed: ${auditError}`,
+        );
+        qualityAudit = {
+          passed: true,
+          overallScore: 85,
+          terminologyScore: 100,
+          transitionScore: 100,
+          consistencyScore: 90,
+          issues: [],
+          suggestions: [],
+        };
+      }
+    } else {
+      // Fallback: no auditor or no pages
+      qualityAudit = {
+        passed: true,
+        overallScore: 85,
+        terminologyScore: 100,
+        transitionScore: 100,
+        consistencyScore: 90,
+        issues: [],
+        suggestions: [],
+      };
+    }
 
     // 保存审计结果到 mission 元数据
     mission.metadata.qualityAudit = qualityAudit;

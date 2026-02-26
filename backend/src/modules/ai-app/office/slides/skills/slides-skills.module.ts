@@ -49,6 +49,14 @@ import { LayoutFixerSkill } from "./layout-fixer.skill";
 import { ContentPolisherSkill } from "./content-polisher.skill";
 import { FactCheckerSkill } from "./fact-checker.skill";
 
+// Enhancement skills (v6.1: quality improvement pipeline)
+import { DesignTokenInjectorSkill } from "./design-token-injector.skill";
+import { SmartContentExtractorSkill } from "./smart-content-extractor.skill";
+import { SlideVisualValidatorSkill } from "./slide-visual-validator.skill";
+import { SlideIterativeRefinerSkill } from "./slide-iterative-refiner.skill";
+import { DeckConsistencyAuditorSkill } from "./deck-consistency-auditor.skill";
+import { SlideSelfHealerSkill } from "./slide-self-healer.skill";
+
 /**
  * Code-based Slides 技能列表
  * (5 pure prompt 技能通过 PromptSkillBridge 从 SKILL.md 自动注册)
@@ -79,6 +87,17 @@ const SLIDES_CODE_SKILL_PROVIDERS = [
   SlideThinkingSkill,
   // Layer 8 - Voice & Narration (DI-dependent: used by slides.controller)
   VoiceNarrationSkill,
+  // Enhancement skills (v6.1: quality improvement pipeline)
+  // Layer 2 - Understanding
+  SmartContentExtractorSkill,
+  // Layer 3 - Design
+  DesignTokenInjectorSkill,
+  // Layer 5 - Optimization
+  SlideIterativeRefinerSkill,
+  SlideSelfHealerSkill,
+  // Layer 6 - Quality
+  SlideVisualValidatorSkill,
+  DeckConsistencyAuditorSkill,
 ];
 
 @Module({
@@ -112,6 +131,13 @@ export class SlidesSkillsModule implements OnModuleInit {
     private readonly layoutFixer: LayoutFixerSkill,
     private readonly contentPolisher: ContentPolisherSkill,
     private readonly factChecker: FactCheckerSkill,
+    // Enhancement skills
+    private readonly designTokenInjector: DesignTokenInjectorSkill,
+    private readonly smartContentExtractor: SmartContentExtractorSkill,
+    private readonly slideVisualValidator: SlideVisualValidatorSkill,
+    private readonly slideIterativeRefiner: SlideIterativeRefinerSkill,
+    private readonly deckConsistencyAuditor: DeckConsistencyAuditorSkill,
+    private readonly slideSelfHealer: SlideSelfHealerSkill,
   ) {}
 
   /**
@@ -143,6 +169,13 @@ export class SlidesSkillsModule implements OnModuleInit {
       this.layoutFixer,
       this.contentPolisher,
       this.factChecker,
+      // Enhancement skills
+      this.designTokenInjector,
+      this.smartContentExtractor,
+      this.slideVisualValidator,
+      this.slideIterativeRefiner,
+      this.deckConsistencyAuditor,
+      this.slideSelfHealer,
     ];
 
     let registered = 0;
