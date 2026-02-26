@@ -6,6 +6,7 @@ import { ImageFactory } from "../image-factory";
 import {
   IImageAdapter,
   IMAGE_PROVIDERS,
+  IMAGE_MODELS,
   ImageGenerationResult,
   ImageProvider,
 } from "../../abstractions/image-adapter.interface";
