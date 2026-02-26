@@ -49,13 +49,6 @@ COPY backend/prisma ./backend/prisma/
 WORKDIR /app/backend
 RUN npm install --no-package-lock --legacy-peer-deps
 
-# Resolve the @genesis-ai/core symlink to real files (clean for multi-stage copy)
-RUN if [ -L node_modules/@genesis-ai/core ]; then \
-      target=$(readlink -f node_modules/@genesis-ai/core) && \
-      rm node_modules/@genesis-ai/core && \
-      cp -r "$target" node_modules/@genesis-ai/core; \
-    fi
-
 # Copy backend source code
 COPY backend/ ./
 
@@ -86,6 +79,14 @@ RUN find node_modules -name "*.d.ts" -delete 2>/dev/null; \
       -o -name "examples" -o -name ".github" -o -name "coverage" \
       -o -name "benchmark" -o -name "benchmarks" \) -exec rm -rf {} + 2>/dev/null; \
     true
+
+# Guarantee @genesis-ai/core is real files (not a symlink from file: dep)
+# Must run AFTER prune/cleanup — npm prune can re-create the symlink,
+# and the symlink target (/app/packages/core) won't exist in the runner stage
+RUN rm -rf node_modules/@genesis-ai/core 2>/dev/null; \
+    mkdir -p node_modules/@genesis-ai/core && \
+    cp /app/packages/core/package.json node_modules/@genesis-ai/core/ && \
+    cp -r /app/packages/core/dist node_modules/@genesis-ai/core/dist
 
 
 # Production stage
