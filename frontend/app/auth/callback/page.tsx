@@ -6,6 +6,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 
 import { logger } from '@/lib/utils/logger';
+
+// Auth callback uses direct backend URL to bypass CDN/proxy.
+// The Next.js rewrite proxy goes through Railway's Fastly CDN edge,
+// which can return 503 under load ("Pop visit count exceeded").
+// Critical auth flows must not depend on CDN availability.
+const getAuthApiUrl = () => config.streamApiUrl;
+
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,7 +30,7 @@ function AuthCallbackContent() {
       // Handle legacy direct token flow
       if (directToken && directRefreshToken) {
         try {
-          const response = await fetch(`${config.apiUrl}/auth/me`, {
+          const response = await fetch(`${getAuthApiUrl()}/auth/me`, {
             headers: {
               Authorization: `Bearer ${directToken}`,
             },
@@ -59,14 +66,17 @@ function AuthCallbackContent() {
       exchangedRef.current = true;
 
       try {
-        // Exchange authorization code for tokens
-        const exchangeResponse = await fetch(`${config.apiUrl}/auth/exchange`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ code }),
-        });
+        // Exchange authorization code for tokens (direct to backend, bypass CDN)
+        const exchangeResponse = await fetch(
+          `${getAuthApiUrl()}/auth/exchange`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code }),
+          }
+        );
 
         if (!exchangeResponse.ok) {
           throw new Error('Failed to exchange authorization code');
@@ -84,7 +94,7 @@ function AuthCallbackContent() {
         // If user not in response, fetch user info
         let userData = user;
         if (!userData) {
-          const userResponse = await fetch(`${config.apiUrl}/auth/me`, {
+          const userResponse = await fetch(`${getAuthApiUrl()}/auth/me`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },
