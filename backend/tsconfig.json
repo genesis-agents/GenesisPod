@@ -33,22 +33,7 @@
     "moduleResolution": "node",
     "typeRoots": ["../node_modules/@types", "./node_modules/@types"],
     "paths": {
-      "@/*": ["src/*"],
-      "@genesis-ai/core": ["../packages/core/dist/index.d.ts"],
-      "@genesis-ai/core/types": ["../packages/core/dist/types/index.d.ts"],
-      "@genesis-ai/core/errors": ["../packages/core/dist/errors/index.d.ts"],
-      "@genesis-ai/core/exceptions": [
-        "../packages/core/dist/exceptions/index.d.ts"
-      ],
-      "@genesis-ai/core/interfaces": [
-        "../packages/core/dist/interfaces/index.d.ts"
-      ],
-      "@genesis-ai/core/llm": ["../packages/core/dist/llm/index.d.ts"],
-      "@genesis-ai/core/tools": ["../packages/core/dist/tools/index.d.ts"],
-      "@genesis-ai/core/agents": ["../packages/core/dist/agents/index.d.ts"],
-      "@genesis-ai/core/skills": ["../packages/core/dist/skills/index.d.ts"],
-      "@genesis-ai/core/teams": ["../packages/core/dist/teams/index.d.ts"],
-      "@genesis-ai/core/utils": ["../packages/core/dist/utils/index.d.ts"]
+      "@/*": ["src/*"]
     }
   },
   "include": ["src/**/*"],

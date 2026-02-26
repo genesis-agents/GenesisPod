@@ -1,1 +1,438 @@
-export * from "@genesis-ai/core/types";
+/**
+ * AI Engine - Agent 类型定义
+ * 统一的 Agent 系统类型（纯字符串 ID 设计）
+ */
+
+// ==================== ID 类型 ====================
+
+/**
+ * Agent ID 类型
+ */
+export type AgentId = string;
+
+/**
+ * 工具 ID 类型
+ */
+export type ToolId = string;
+
+/**
+ * 技能 ID 类型
+ */
+export type SkillId = string;
+
+// ==================== 内置常量 ====================
+
+/**
+ * 内置 Agent ID 常量
+ */
+export const BUILTIN_AGENTS = {
+  SLIDES: "slides",
+  DOCS: "docs",
+  DESIGNER: "designer",
+  RESEARCHER: "researcher",
+  SIMULATOR: "simulator",
+  IMAGE_DESIGNER: "image-designer",
+  TEAM_COLLABORATION: "team-collaboration",
+} as const;
+
+export type BuiltinAgentId =
+  (typeof BUILTIN_AGENTS)[keyof typeof BUILTIN_AGENTS];
+
+/**
+ * 内置工具 ID 常量
+ */
+export const BUILTIN_TOOLS = {
+  // 信息获取
+  WEB_SEARCH: "web-search",
+  WEB_SCRAPER: "web-scraper",
+  DATA_FETCH: "data-fetch",
+  RAG_SEARCH: "rag-search",
+  DATABASE_QUERY: "database-query",
+  KNOWLEDGE_GRAPH: "knowledge-graph",
+
+  // 内容生成
+  TEXT_GENERATION: "text-generation",
+  IMAGE_GENERATION: "image-generation",
+  CODE_GENERATION: "code-generation",
+  AUDIO_GENERATION: "audio-generation",
+  VIDEO_GENERATION: "video-generation",
+  STRUCTURED_OUTPUT: "structured-output",
+
+  // 数据处理
+  DATA_ANALYSIS: "data-analysis",
+  FILE_CONVERSION: "file-conversion",
+  FILE_PARSER: "file-parser",
+  DATA_VALIDATION: "data-validation",
+  DATA_CLEANING: "data-cleaning",
+  DOCUMENT_DIFF: "document-diff",
+  TEMPLATE_RENDER: "template-render",
+
+  // 代码执行
+  PYTHON_EXECUTOR: "python-executor",
+  JAVASCRIPT_EXECUTOR: "javascript-executor",
+  SQL_EXECUTOR: "sql-executor",
+  SHELL_EXECUTOR: "shell-executor",
+  CONTAINER_EXECUTOR: "container-executor",
+  OCR_RECOGNITION: "ocr-recognition",
+
+  // 外部集成
+  MESSAGE_PUSH: "message-push",
+  CLOUD_STORAGE: "cloud-storage",
+  GITHUB_INTEGRATION: "github-integration",
+  EMAIL_SENDER: "email-sender",
+  CALENDAR_INTEGRATION: "calendar-integration",
+  WEBHOOK_TRIGGER: "webhook-trigger",
+
+  // 记忆管理
+  SHORT_TERM_MEMORY: "short-term-memory",
+  LONG_TERM_MEMORY: "long-term-memory",
+  ENTITY_MEMORY: "entity-memory",
+  KNOWLEDGE_BASE: "knowledge-base",
+  USER_PREFERENCES: "user-preferences",
+
+  // 导出
+  EXPORT_PPTX: "export-pptx",
+  EXPORT_DOCX: "export-docx",
+  EXPORT_PDF: "export-pdf",
+  EXPORT_IMAGE: "export-image",
+
+  // Agent 协作
+  AGENT_HANDOFF: "agent-handoff",
+  HUMAN_APPROVAL: "human-approval",
+  AGENT_COMMUNICATION: "agent-communication",
+  TASK_DELEGATION: "task-delegation",
+  CONSENSUS_MECHANISM: "consensus-mechanism",
+  WORKFLOW_ORCHESTRATION: "workflow-orchestration",
+} as const;
+
+export type BuiltinToolId = (typeof BUILTIN_TOOLS)[keyof typeof BUILTIN_TOOLS];
+
+// ==================== 任务状态 ====================
+
+/**
+ * Agent 任务状态
+ */
+export type AgentTaskStatus =
+  | "pending"
+  | "planning"
+  | "executing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+// ==================== 产出物类型 ====================
+
+/**
+ * 产出物类型
+ */
+export type ArtifactType =
+  | "pptx"
+  | "docx"
+  | "pdf"
+  | "image"
+  | "code"
+  | "data"
+  | "text"
+  | "audio"
+  | "video";
+
+// ==================== AI 模型类型 ====================
+
+/**
+ * AI 模型类型
+ */
+export type AIModelType =
+  | "chat"
+  | "chat-fast"
+  | "multimodal"
+  | "embedding"
+  | "image";
+
+// ==================== Agent 输入/输出 ====================
+
+/**
+ * 上传的文件/附件
+ */
+export interface UploadedFile {
+  /** 文件 ID */
+  id: string;
+  /** 文件名 */
+  name: string;
+  /** MIME 类型 */
+  mimeType: string;
+  /** 文件大小（字节） */
+  size: number;
+  /** 文件 URL */
+  url?: string;
+  /** 文件内容（二进制或字符串） */
+  content?: Buffer | string;
+  /** 附件类型 */
+  type?: "file" | "image" | "url" | "code";
+}
+
+/**
+ * Agent 输入（统一接口）
+ * 适用于所有类型的 Agent（Plan-Based 和 ReAct）
+ */
+export interface AgentInput {
+  /** 用户提示词/消息 */
+  prompt: string;
+
+  /** 上传的文件/附件 */
+  files?: UploadedFile[];
+
+  /** 参考网址 */
+  urls?: string[];
+
+  /** 引用的资源 ID */
+  resourceIds?: string[];
+
+  /** 使用的模板 ID */
+  templateId?: string;
+
+  /** 上下文信息（用于 ReAct Agent） */
+  context?: Record<string, unknown>;
+
+  /** 额外选项 */
+  options?: Record<string, unknown>;
+
+  /** 元数据 */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 执行计划步骤
+ */
+export interface PlanStep {
+  id: string;
+  name: string;
+  description: string;
+  /** 使用的工具 ID */
+  toolId?: ToolId;
+  /** 使用的模型类型 */
+  modelType?: AIModelType;
+  /** 依赖的步骤 ID */
+  dependencies: string[];
+  /** 预估耗时（毫秒） */
+  estimatedDuration: number;
+}
+
+/**
+ * Agent 执行计划
+ */
+export interface AgentPlan {
+  taskId: string;
+  agentId: AgentId;
+  steps: PlanStep[];
+  estimatedTime: number;
+  toolsRequired: ToolId[];
+  modelsRequired: AIModelType[];
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Agent 模板
+ */
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  category: string;
+  defaultPrompt?: string;
+  defaultOptions?: Record<string, unknown>;
+}
+
+/**
+ * Agent 产出物
+ */
+export interface Artifact {
+  id: string;
+  type: ArtifactType;
+  name: string;
+  mimeType: string;
+  size: number;
+  url?: string;
+  content?: unknown;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Agent 结果
+ */
+export interface AgentResult {
+  success: boolean;
+  artifacts: Artifact[];
+  summary?: string;
+  tokensUsed: number;
+  duration: number;
+  error?: string;
+}
+
+// ==================== Agent 事件 ====================
+
+export interface PlanReadyEvent {
+  type: "plan_ready";
+  plan: AgentPlan;
+}
+
+export interface StepStartEvent {
+  type: "step_start";
+  stepId: string;
+  message: string;
+}
+
+export interface StepProgressEvent {
+  type: "step_progress";
+  stepId: string;
+  progress: number;
+  message: string;
+}
+
+export interface StepCompleteEvent {
+  type: "step_complete";
+  stepId: string;
+  result: unknown;
+}
+
+export interface ToolCallEvent {
+  type: "tool_call";
+  toolId: ToolId;
+  input: unknown;
+}
+
+export interface ToolResultEvent {
+  type: "tool_result";
+  toolId: ToolId;
+  output: unknown;
+  duration: number;
+}
+
+export interface ArtifactEvent {
+  type: "artifact";
+  artifact: Artifact;
+}
+
+export interface CompleteEvent {
+  type: "complete";
+  result: AgentResult;
+}
+
+export interface ErrorEvent {
+  type: "error";
+  error: string;
+  stepId?: string;
+}
+
+/**
+ * Agent 事件联合类型
+ */
+export type AgentEvent =
+  | PlanReadyEvent
+  | StepStartEvent
+  | StepProgressEvent
+  | StepCompleteEvent
+  | ToolCallEvent
+  | ToolResultEvent
+  | ArtifactEvent
+  | CompleteEvent
+  | ErrorEvent;
+
+// ==================== Agent 配置 ====================
+
+/**
+ * Agent 配置
+ */
+export interface AgentConfig {
+  id: AgentId;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  capabilities: string[];
+  templates: AgentTemplate[];
+  /** Agent 选择关键词，用于 Orchestrator 自动路由 */
+  selectionKeywords?: string[];
+}
+
+/**
+ * 预定义的 Agent 配置
+ *
+ * @deprecated 业务 Agent 配置应从各 AI App 模块获取，或通过 AgentRegistry.getAllConfigs() 查询。
+ * 此静态映射仅保留作为向后兼容，未来将移除。
+ */
+export const AGENT_CONFIGS: Record<BuiltinAgentId, AgentConfig> = {
+  [BUILTIN_AGENTS.SLIDES]: {
+    id: BUILTIN_AGENTS.SLIDES,
+    name: "AI Slides",
+    description: "智能 PPT 生成器，快速创建专业演示文稿",
+    icon: "📊",
+    color: "#3B82F6",
+    capabilities: ["自动生成大纲", "智能配图", "多种主题风格", "导出 PPTX"],
+    templates: [],
+  },
+  [BUILTIN_AGENTS.DOCS]: {
+    id: BUILTIN_AGENTS.DOCS,
+    name: "AI Docs",
+    description: "智能文档助手，撰写专业文档报告",
+    icon: "📄",
+    color: "#10B981",
+    capabilities: ["自动调研资料", "生成大纲", "撰写内容", "导出 Word/PDF"],
+    templates: [],
+  },
+  [BUILTIN_AGENTS.DESIGNER]: {
+    id: BUILTIN_AGENTS.DESIGNER,
+    name: "AI Designer",
+    description: "智能设计工具，生成创意设计图",
+    icon: "🎨",
+    color: "#F59E0B",
+    capabilities: ["海报设计", "Logo 设计", "Banner 生成", "多风格变体"],
+    templates: [],
+  },
+  [BUILTIN_AGENTS.RESEARCHER]: {
+    id: BUILTIN_AGENTS.RESEARCHER,
+    name: "AI Researcher",
+    description: "智能研究助手，进行资料调研和知识整理",
+    icon: "🔬",
+    color: "#EC4899",
+    capabilities: [
+      "自动调研资料",
+      "知识图谱构建",
+      "内容摘要生成",
+      "研究报告撰写",
+    ],
+    templates: [],
+  },
+  [BUILTIN_AGENTS.SIMULATOR]: {
+    id: BUILTIN_AGENTS.SIMULATOR,
+    name: "AI Simulator",
+    description: "智能推演专家，进行多方博弈和场景模拟",
+    icon: "🎯",
+    color: "#EF4444",
+    capabilities: ["多方博弈模拟", "场景推演分析", "决策建议生成", "风险评估"],
+    templates: [],
+  },
+  [BUILTIN_AGENTS.IMAGE_DESIGNER]: {
+    id: BUILTIN_AGENTS.IMAGE_DESIGNER,
+    name: "AI Image Designer",
+    description: "智能图像设计师，生成高质量图像和信息图表",
+    icon: "🖼️",
+    color: "#06B6D4",
+    capabilities: ["信息图表生成", "Prompt 优化", "多风格生成", "图像编辑"],
+    templates: [],
+  },
+  [BUILTIN_AGENTS.TEAM_COLLABORATION]: {
+    id: BUILTIN_AGENTS.TEAM_COLLABORATION,
+    name: "AI Team Collaboration",
+    description: "智能团队协作专家，管理多 AI 成员协作",
+    icon: "👥",
+    color: "#8B5CF6",
+    capabilities: [
+      "团队任务协调",
+      "智能任务分配",
+      "共识投票决策",
+      "任务编排执行",
+    ],
+    templates: [],
+  },
+};
