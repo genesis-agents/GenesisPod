@@ -1,6 +1,2 @@
-/**
- * AI Engine - Memory Stores
- */
-export * from "./in-memory-store";
-export * from "./short-term-memory.service";
-export * from "./long-term-memory.service";
+/** Re-export shim - 已迁移到 knowledge/memory/stores/ */
+export * from "../../knowledge/memory/stores";

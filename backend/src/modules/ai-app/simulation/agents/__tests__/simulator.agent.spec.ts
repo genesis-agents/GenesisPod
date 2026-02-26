@@ -12,7 +12,7 @@ import {
   SimulationTaskType,
   SimulationTeam,
 } from "../simulator.agent";
-import { SIMULATION_SERVICE_TOKEN } from "../../../../ai-engine/interfaces/simulation.interface";
+import { SIMULATION_SERVICE_TOKEN } from "../../../../ai-engine/facade";
 
 describe("SimulatorAgent", () => {
   let agent: SimulatorAgent;

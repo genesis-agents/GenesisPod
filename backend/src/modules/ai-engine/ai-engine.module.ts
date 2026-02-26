@@ -35,10 +35,10 @@ import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
 import { AiEngineMemoryModule } from "./ai-engine-memory.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 // ★ P2 能力下沉：新增子模块导入
-import { EvidenceModule } from "./evidence/evidence.module";
+import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
-import { CollaborationModule } from "./collaboration/collaboration.module";
-import { RealtimeModule } from "./realtime/realtime.module";
+import { CollaborationModule } from "./agents/collaboration/collaboration.module";
+import { RealtimeModule } from "./infra/realtime/realtime.module";
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -53,19 +53,19 @@ import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 import { AiCoreController, AiCoreService } from "./api";
 
 // Content Analysis (migrated from ai-app/office/common)
-import { ContentAnalysisModule } from "./content-analysis/content-analysis.module";
+import { ContentAnalysisModule } from "./content/analysis/content-analysis.module";
 
 // Content Fetch (generic URL fetch capability)
-import { ContentFetchModule } from "./content-fetch/content-fetch.module";
+import { ContentFetchModule } from "./content/fetch/content-fetch.module";
 
 // Synthesis (报告合成通用能力)
-import { SynthesisModule } from "./synthesis/synthesis.module";
+import { SynthesisModule } from "./content/synthesis/synthesis.module";
 
 // Other Modules
-import { ImageModule } from "./image/image.module";
+import { ImageModule } from "./content/image/image.module";
 import { TeamsModule } from "./teams/teams.module";
-import { LongContentModule } from "./long-content/long-content.module";
-import { PromptsModule } from "./prompts/prompts.module";
+import { LongContentModule } from "./content/long-form/long-content.module";
+import { PromptsModule } from "./llm/prompts/prompts.module";
 import { CreditsModule } from "../credits/credits.module";
 
 // MCP
@@ -73,13 +73,13 @@ import { MCPManager } from "./mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "./mcp/registry/mcp-client-registry.service";
 
 // Capabilities
-import { AICapabilityResolver } from "./capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
 
 // RAG
-import { EmbeddingService } from "./rag/embedding";
-import { VectorService } from "./rag/vector";
-import { DocumentChunker } from "./rag/chunking";
-import { RAGPipelineService } from "./rag/pipeline";
+import { EmbeddingService } from "./knowledge/rag/embedding";
+import { VectorService } from "./knowledge/rag/vector";
+import { DocumentChunker } from "./knowledge/rag/chunking";
+import { RAGPipelineService } from "./knowledge/rag/pipeline";
 
 // Observability
 import { AiEngineTracingService, TraceCollectorService } from "./observability";
@@ -90,7 +90,7 @@ import { ObservabilityController } from "./observability/observability.controlle
 import { EvalPipelineService } from "./observability/eval-pipeline.service";
 
 // Prompt Registry
-import { PromptRegistryService } from "./prompts/prompt-registry.service";
+import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
 // Facade (统一入口)
 import { AIEngineFacade } from "./facade";

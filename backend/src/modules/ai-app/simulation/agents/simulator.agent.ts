@@ -23,7 +23,7 @@ import {
 import {
   ISimulationService,
   SIMULATION_SERVICE_TOKEN,
-} from "../../../ai-engine/interfaces/simulation.interface";
+} from "../../../ai-engine/facade";
 
 /**
  * 推演任务类型
@@ -540,7 +540,7 @@ export class SimulatorAgent extends PlanBasedAgent {
   private calculateWorldState(
     previousRounds: SimulationRound[],
     _currentActions: TeamAction[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- world state is an open domain-specific dynamic record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- world state is an open domain-specific dynamic record
   ): Record<string, any> {
     // 简化实现：返回基本状态
     return {

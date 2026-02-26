@@ -14,11 +14,11 @@ export type {
   EngineEvent,
 } from "../realtime/abstractions/event-emitter.interface";
 export type { SaveEvidenceRequest } from "../evidence/abstractions/evidence.interface";
-export type { AICapabilityContext } from "../capabilities/ai-capability-resolver.service";
+export type { AICapabilityContext } from "../orchestration/capabilities/ai-capability-resolver.service";
 export type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../capabilities/types";
+} from "../orchestration/capabilities/types";
 export type { SkillMdDefinition } from "../skills/types/skill-md.types";
 export type { EmbeddingResult } from "../rag/embedding";
 export type {
@@ -108,11 +108,11 @@ export type {
 
 // Content-fetch tokens & utilities（for ai-social.module.ts + content-fetcher.service.ts）
 // Direct imports to avoid loading ContentFetchModule barrel (prevents circular dep chain)
-export { YOUTUBE_SERVICE_TOKEN } from "../content-fetch/content-fetch.service";
+export { YOUTUBE_SERVICE_TOKEN } from "../content/fetch/content-fetch.service";
 export {
   sanitizeForDb,
   sanitizeJson,
-} from "../content-fetch/content-fetch.types";
+} from "../content/fetch/content-fetch.types";
 
 // LLM Adapter（for ask/adapters/index.ts）
 export { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
@@ -123,7 +123,13 @@ export {
   TTS_SERVICE,
 } from "../tools/abstractions/generation-services.interface";
 export type { IImageGenerationService } from "../tools/abstractions/generation-services.interface";
-export { IMAGE_GENERATION_SERVICE_TOKEN } from "../interfaces/image.interface";
+export { IMAGE_GENERATION_SERVICE_TOKEN } from "../core/interfaces/image.interface";
+export type { IResearchService } from "../core/interfaces/research.interface";
+export { RESEARCH_SERVICE_TOKEN } from "../core/interfaces/research.interface";
+export type { ISimulationService } from "../core/interfaces/simulation.interface";
+export { SIMULATION_SERVICE_TOKEN } from "../core/interfaces/simulation.interface";
+export type { IRAGPipelineService } from "../core/interfaces/rag.interface";
+export { RAG_PIPELINE_SERVICE_TOKEN } from "../core/interfaces/rag.interface";
 
 // LLM model fallback types（for teams/leader-model.service.ts）
 export type { ModelFallbackOptions } from "../llm/model-fallback/model-fallback.service";
@@ -204,12 +210,12 @@ export type {
 export type {
   ImageMatchingRule,
   ImageRequirement,
-} from "../image/matching/image-matching.types";
+} from "../content/image/matching/image-matching.types";
 export {
   ImageType,
   ImagePlacement,
   IMAGE_MATCHING_RULES,
-} from "../image/matching/image-matching.types";
+} from "../content/image/matching/image-matching.types";
 
 // RAG types & services（for ai-app/rag module re-exports）
 export { EmbeddingService } from "../rag/embedding";
@@ -259,4 +265,4 @@ export type {
   ContinuationState,
   ExpectedOutput,
   QualityDashboard,
-} from "../long-content";
+} from "../content/long-form";

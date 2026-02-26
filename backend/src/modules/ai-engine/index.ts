@@ -198,7 +198,7 @@ export { AiObservabilityService } from "./observability/ai-observability.service
 export { CostAttributionService } from "./observability/cost-attribution.service";
 
 // Prompt Registry 导出
-export { PromptRegistryService } from "./prompts/prompt-registry.service";
+export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
 // Image 模块核心服务
 export { ImageFactory } from "./image/factory";

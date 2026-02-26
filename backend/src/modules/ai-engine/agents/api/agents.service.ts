@@ -220,7 +220,7 @@ export class AgentsService {
         mimeType: artifact.mimeType,
         size: artifact.size,
         url: artifact.url,
-        content: artifact.content as unknown as Prisma.InputJsonValue,
+        content: artifact.content as Prisma.InputJsonValue,
       },
     });
   }

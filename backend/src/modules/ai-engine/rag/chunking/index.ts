@@ -1,5 +1,2 @@
-/**
- * AI Engine - Chunking Module Exports
- */
-
-export * from "./document-chunker";
+/** Re-export shim - 已迁移到 knowledge/rag/chunking/ */
+export * from "../../knowledge/rag/chunking";
