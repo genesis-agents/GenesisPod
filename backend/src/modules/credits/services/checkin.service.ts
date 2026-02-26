@@ -3,6 +3,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreditTransactionType } from "@prisma/client";
 import { AlreadyCheckedInException } from "../exceptions/insufficient-credits.exception";
 import { CreditsService } from "../credits.service";
+import { LruMap } from "../../../common/utils/lru-map";
 
 /**
  * 签到奖励配置
@@ -53,11 +54,11 @@ export interface CheckinStatus {
 export class CheckinService {
   private readonly logger = new Logger(CheckinService.name);
 
-  // ★ 签到状态缓存：避免每次请求都查数据库
-  private statusCache = new Map<
+  // ★ 签到状态缓存：避免每次请求都查数据库（LruMap 防止无限增长）
+  private statusCache = new LruMap<
     string,
     { status: CheckinStatus; cachedAt: number }
-  >();
+  >(5000);
   private readonly STATUS_CACHE_TTL_MS = 30 * 1000; // 30秒缓存
 
   constructor(
@@ -111,7 +112,7 @@ export class CheckinService {
       return cached.status;
     }
 
-    let account = await this.prisma.creditAccount.findUnique({
+    const account = await this.prisma.creditAccount.findUnique({
       where: { userId },
       include: {
         checkins: {
@@ -128,27 +129,19 @@ export class CheckinService {
       );
       await this.creditsService.getOrCreateAccount(userId);
 
-      // 重新获取账户（包含checkins关系）
-      account = await this.prisma.creditAccount.findUnique({
-        where: { userId },
-        include: {
-          checkins: {
-            orderBy: { checkinDate: "desc" },
-            take: 1,
-          },
-        },
-      });
-
-      if (!account) {
-        return {
-          canCheckin: false,
-          hasCheckedInToday: false,
-          streakDays: 0,
-          lastCheckinDate: null,
-          nextReward: CHECKIN_REWARDS.base,
-          message: "Failed to create account",
-        };
-      }
+      // New account: zero checkins exist, always within 24h wait period
+      // Skip redundant re-fetch — directly return wait status
+      const hoursLeft = Math.ceil(ANTI_ABUSE_CONFIG.newAccountWaitHours);
+      const status: CheckinStatus = {
+        canCheckin: false,
+        hasCheckedInToday: false,
+        streakDays: 0,
+        lastCheckinDate: null,
+        nextReward: CHECKIN_REWARDS.base,
+        message: `新账户需要等待 ${hoursLeft} 小时后才能签到`,
+      };
+      this.statusCache.set(userId, { status, cachedAt: Date.now() });
+      return status;
     }
 
     // 检查新账户 24 小时限制

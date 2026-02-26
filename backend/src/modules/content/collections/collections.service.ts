@@ -80,36 +80,60 @@ export class CollectionsService {
 
   /**
    * 获取用户的所有收藏集
-   * 使用 _count 获取真实条目数，items 仅加载前 10 条预览，避免全量 eager load
+   * 使用 _count 获取真实条目数，批量加载所有收藏集的预览条目（避免 N+1）
    */
   async getUserCollections(userId: string) {
+    // Step 1: Get collections with item counts (constant query count)
     const collections = await this.prisma.collection.findMany({
       where: { userId },
-      include: {
-        _count: { select: { items: true } },
-        items: {
-          select: {
-            id: true,
-            resource: {
-              select: {
-                id: true,
-                type: true,
-                title: true,
-                thumbnailUrl: true,
-                publishedAt: true,
-              },
-            },
-          },
-          orderBy: { position: "asc" },
-          take: 10,
-        },
-      },
+      include: { _count: { select: { items: true } } },
       orderBy: { sortOrder: "asc" },
     });
+
+    if (collections.length === 0) return [];
+
+    // Step 2: Batch-fetch preview items for ALL collections in one query
+    // Replaces N per-collection queries with a single IN query
+    const collectionIds = collections.map((c) => c.id);
+    const allItems = await this.prisma.collectionItem.findMany({
+      where: { collectionId: { in: collectionIds } },
+      select: {
+        id: true,
+        collectionId: true,
+        position: true,
+        resource: {
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            thumbnailUrl: true,
+            publishedAt: true,
+          },
+        },
+      },
+      orderBy: { position: "asc" },
+    });
+
+    // Group by collectionId, take first 10 per collection
+    const itemsByCollection = new Map<
+      string,
+      { id: string; resource: (typeof allItems)[0]["resource"] }[]
+    >();
+    for (const item of allItems) {
+      const list = itemsByCollection.get(item.collectionId);
+      if (!list) {
+        itemsByCollection.set(item.collectionId, [
+          { id: item.id, resource: item.resource },
+        ]);
+      } else if (list.length < 10) {
+        list.push({ id: item.id, resource: item.resource });
+      }
+    }
 
     return collections.map(({ _count, ...collection }) => ({
       ...collection,
       itemCount: _count.items,
+      items: itemsByCollection.get(collection.id) || [],
     }));
   }
 
@@ -1116,13 +1140,30 @@ export class CollectionsService {
     const page = options.page || 1;
     const limit = Math.min(options.limit || 20, 100);
     const skip = (page - 1) * limit;
-
-    const where: Record<string, unknown> = {
-      collection: { userId },
+    const emptyResult = {
+      items: [] as unknown[],
+      pagination: { page, limit, total: 0, totalPages: 0, hasMore: false },
     };
 
+    // Pre-fetch user's collectionIds to replace relation filter JOIN
+    // Uses @@index([userId]) on collections — fast lookup
+    const where: Record<string, unknown> = {};
+
     if (collectionId) {
+      // Verify collection belongs to this user (authorization)
+      const owned = await this.prisma.collection.findFirst({
+        where: { id: collectionId, userId },
+        select: { id: true },
+      });
+      if (!owned) return emptyResult;
       where.collectionId = collectionId;
+    } else {
+      const userCollections = await this.prisma.collection.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      if (userCollections.length === 0) return emptyResult;
+      where.collectionId = { in: userCollections.map((c) => c.id) };
     }
 
     if (options.status) {

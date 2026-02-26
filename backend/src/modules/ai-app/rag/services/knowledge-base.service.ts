@@ -220,7 +220,10 @@ export class KnowledgeBaseService {
               if (Array.isArray(transcript)) {
                 // Convert transcript segments to text
                 resource.content = transcript
-                  .map((seg: Record<string, unknown>) => (seg["text"] as string) || "")
+                  .map(
+                    (seg: Record<string, unknown>) =>
+                      (seg["text"] as string) || "",
+                  )
                   .join(" ");
               }
             }
@@ -245,49 +248,47 @@ export class KnowledgeBaseService {
 
   /**
    * List knowledge bases for user (includes both owned and member-of)
-   * Uses Prisma ORM to automatically handle type conversions
+   * Split OR into two parallel queries for better index utilization
    */
   async findByUser(userId: string) {
     this.logger.debug(
       `[findByUser] Fetching knowledge bases for user: ${userId}`,
     );
 
-    // Use Prisma ORM instead of raw SQL to handle types automatically
-    // This avoids the "operator does not exist: text = uuid" error
-    const knowledgeBases = await this.prisma.knowledgeBase.findMany({
-      where: {
-        OR: [
-          { userId },
-          {
-            type: "TEAM",
-            members: {
-              some: { userId },
-            },
-          },
-        ],
-      },
-      include: {
-        _count: {
-          select: {
-            documents: true,
-          },
+    const includeClause = {
+      _count: { select: { documents: true } },
+      members: { select: { id: true } },
+    };
+
+    // Parallel queries: each uses its own index efficiently
+    // Query 1: @@index([userId]) on knowledge_bases
+    // Query 2: @@index([userId]) on knowledge_base_members + @@index([type]) on knowledge_bases
+    const [owned, teamMember] = await Promise.all([
+      this.prisma.knowledgeBase.findMany({
+        where: { userId },
+        include: includeClause,
+        orderBy: { createdAt: "desc" },
+      }),
+      this.prisma.knowledgeBase.findMany({
+        where: {
+          type: "TEAM",
+          members: { some: { userId } },
         },
-        members: {
-          select: {
-            id: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        include: includeClause,
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    // Merge and deduplicate (user may own a TEAM kb and also be a member)
+    const seen = new Set(owned.map((kb) => kb.id));
+    const merged = [...owned, ...teamMember.filter((kb) => !seen.has(kb.id))];
+    merged.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     this.logger.debug(
-      `[findByUser] Found ${knowledgeBases.length} knowledge bases: ${knowledgeBases.map((kb) => `${kb.name}(${kb.status})`).join(", ")}`,
+      `[findByUser] Found ${merged.length} knowledge bases: ${merged.map((kb) => `${kb.name}(${kb.status})`).join(", ")}`,
     );
 
-    return knowledgeBases;
+    return merged;
   }
 
   /**

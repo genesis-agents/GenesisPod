@@ -5,6 +5,7 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ResponseTransformInterceptor } from "./common/interceptors/response-transform.interceptor";
+import { RequestLoggerInterceptor } from "./common/interceptors/request-logger.interceptor";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { join } from "path";
 import { AppController } from "./app.controller";
@@ -211,6 +212,11 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // 全局请求日志 & 性能追踪拦截器（Server-Timing header + 指标收集）
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestLoggerInterceptor,
     },
     // 全局响应格式转换拦截器
     // Ensures consistent API response format: { success, data, metadata }

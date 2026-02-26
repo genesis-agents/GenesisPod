@@ -407,6 +407,15 @@ export class MetricsService implements OnModuleDestroy {
    * 初始化默认指标
    */
   private initializeDefaultMetrics(): void {
+    // HTTP 请求指标
+    this.registerHistogram(
+      "http_request_duration_ms",
+      "HTTP request duration in milliseconds",
+      DEFAULT_LATENCY_BUCKETS,
+    );
+    this.registerCounter("http_requests_total", "Total HTTP requests");
+    this.registerCounter("http_errors_total", "Total HTTP errors (4xx + 5xx)");
+
     // AI 响应指标
     this.registerHistogram(
       "ai_response_latency_ms",

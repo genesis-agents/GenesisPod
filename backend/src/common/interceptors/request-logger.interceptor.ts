@@ -12,32 +12,24 @@ import { Request, Response } from "express";
 import { StructuredLogger, logRequest } from "../utils/structured-logger";
 import { MetricsService } from "../observability/metrics.service";
 
+/** Slow request threshold in ms — requests exceeding this are always logged with WARN */
+const SLOW_REQUEST_THRESHOLD_MS = 500;
+
 /**
- * 请求日志拦截器
+ * 请求日志 & 性能追踪拦截器
  *
- * 自动记录所有 HTTP 请求的结构化日志，包括:
- * - 请求方法和路径
- * - 响应状态码
- * - 请求耗时
- * - 用户 ID (如果已认证)
- * - 请求 ID (如果存在)
+ * 功能:
+ * - 每个请求注入 Server-Timing 响应头（浏览器 DevTools Network 面板直接可见）
+ * - 始终记录 HTTP 指标到 MetricsService（histogram + counter）
+ * - 生产环境：仅记录慢请求(>500ms) 和错误的日志，避免日志洪水
+ * - 开发环境：记录所有请求日志
  *
- * 使用方式:
- * ```typescript
- * // 全局启用
- * app.useGlobalInterceptors(new RequestLoggerInterceptor());
- *
- * // 或在模块中注册
- * @Module({
- *   providers: [
- *     { provide: APP_INTERCEPTOR, useClass: RequestLoggerInterceptor }
- *   ]
- * })
- * ```
+ * 通过 APP_INTERCEPTOR 全局注册，DI 注入 MetricsService。
  */
 @Injectable()
 export class RequestLoggerInterceptor implements NestInterceptor {
   private readonly logger = new StructuredLogger("HTTP");
+  private readonly isProduction = process.env.NODE_ENV === "production";
 
   constructor(
     @Optional()
@@ -53,7 +45,7 @@ export class RequestLoggerInterceptor implements NestInterceptor {
     const startTime = Date.now();
     const { method, path, url } = request;
     const requestId = request.headers["x-request-id"] as string | undefined;
-    const userId = (request as any).user?.id;
+    const userId = (request as Request & { user?: { id?: string } }).user?.id;
 
     return next.handle().pipe(
       tap({
@@ -61,7 +53,10 @@ export class RequestLoggerInterceptor implements NestInterceptor {
           const duration = Date.now() - startTime;
           const statusCode = response.statusCode;
 
-          // 记录 HTTP 指标（始终记录）
+          // Server-Timing header — visible in browser DevTools Network tab
+          response.setHeader("Server-Timing", `total;dur=${duration}`);
+
+          // 始终记录 HTTP 指标
           this.recordHttpMetrics(method, path, statusCode, duration);
 
           // 跳过健康检查等高频低价值日志
@@ -69,16 +64,25 @@ export class RequestLoggerInterceptor implements NestInterceptor {
             return;
           }
 
+          // 生产环境：仅记录慢请求；开发环境：全部记录
+          if (this.isProduction && duration < SLOW_REQUEST_THRESHOLD_MS) {
+            return;
+          }
+
           logRequest(this.logger, method, path || url, statusCode, duration, {
             requestId,
             userId,
+            slow: duration >= SLOW_REQUEST_THRESHOLD_MS || undefined,
           });
         },
         error: (error) => {
           const duration = Date.now() - startTime;
           const statusCode = error.status || 500;
 
-          // 记录 HTTP 指标
+          // Server-Timing header
+          response.setHeader("Server-Timing", `total;dur=${duration}`);
+
+          // 始终记录 HTTP 指标
           this.recordHttpMetrics(method, path, statusCode, duration);
 
           this.logger.error(`${method} ${path || url} ${statusCode}`, error, {
