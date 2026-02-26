@@ -10,6 +10,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
 import {
   WorkingMemoryContext,
   TaskSummary,
@@ -307,12 +308,12 @@ ${recentSummariesText}
 
     try {
       const response = await this.aiChatService.chat({
-        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: "你是一个专业的内容摘要助手。" },
           { role: "user", content: prompt },
         ],
-        maxTokens: 500,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "low", outputLength: "minimal" },
       });
 
       const newSummary = response.content || projectStore.globalSummary;
@@ -419,7 +420,6 @@ ${projectInfo.description}
 
     try {
       const response = await this.aiChatService.chat({
-        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -430,7 +430,8 @@ ${projectInfo.description}
             content: `请为以下内容（标题：${title}）生成不超过${maxLength}字的摘要：\n\n${content.slice(0, 2000)}`,
           },
         ],
-        maxTokens: 300,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "low", outputLength: "minimal" },
       });
 
       return response.content || content.slice(0, maxLength) + "...";

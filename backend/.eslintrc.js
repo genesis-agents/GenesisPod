@@ -234,65 +234,75 @@ module.exports = {
               },
 
               // ════════════════════════════════════════════════════════════
-              // ★ SECTION 6: RAG internals
-              //   EmbeddingResult, SimilaritySearchOptions, etc. re-exported from facade.
+              // ★ SECTION 6: Knowledge bounded context internals
+              //   Covers: knowledge/rag, knowledge/search, knowledge/evidence,
+              //   knowledge/memory — all types re-exported from facade/index.ts.
               // ════════════════════════════════════════════════════════════
               {
-                group: ["**/ai-engine/rag/**"],
+                group: ["**/ai-engine/knowledge/rag/**"],
                 message:
                   "Import EmbeddingResult, SimilaritySearchOptions, SimilarityResult from 'ai-engine/facade'. " +
                   "For RAGPipelineService, add it to facade/index.ts exports first.",
               },
+              // Memory — must go through AIEngineFacade
+              {
+                group: [
+                  "**/ai-engine/knowledge/memory/stores/**",
+                  "**/ai-engine/knowledge/memory/abstractions/**",
+                  "**/ai-engine/knowledge/memory/memory-coordinator.service*",
+                ],
+                message:
+                  "Use AIEngineFacade.storeMemory()/retrieveMemory() instead.",
+              },
 
               // ════════════════════════════════════════════════════════════
-              // ★ SECTION 7: Long-content internals
+              // ★ SECTION 7: Content bounded context internals
+              //   Covers: content/long-form, content/fetch, content/image,
+              //   content/analysis, content/synthesis.
               // ════════════════════════════════════════════════════════════
               {
                 group: [
-                  "**/ai-engine/long-content/services/long-content-engine*",
+                  "**/ai-engine/content/long-form/services/long-content-engine*",
                 ],
                 message: "Use facade.longContentEngine instead.",
               },
               {
                 group: [
-                  "**/ai-engine/long-content/interfaces/**",
-                  "**/ai-engine/long-content/types/**",
-                  "**/ai-engine/long-content/long-content.module*",
+                  "**/ai-engine/content/long-form/interfaces/**",
+                  "**/ai-engine/content/long-form/types/**",
+                  "**/ai-engine/content/long-form/long-content.module*",
                 ],
                 message:
                   "Do not import LongContentModule or its interfaces directly. " +
                   "AiEngineModule already includes it. Add missing types to facade/index.ts.",
               },
-
-              // ════════════════════════════════════════════════════════════
-              // ★ SECTION 8: Other engine capabilities
-              // ════════════════════════════════════════════════════════════
-              // AI capabilities — must go through AIEngineFacade
-              {
-                group: ["**/ai-engine/capabilities/**"],
-                message:
-                  "Use AIEngineFacade.capabilityGetSkillPrompts() or facade.capabilityResolverService instead.",
-              },
-              // Realtime — must go through AIEngineFacade
-              {
-                group: ["**/ai-engine/realtime/**"],
-                message:
-                  "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
-              },
-              // Memory — must go through AIEngineFacade
-              {
-                group: [
-                  "**/ai-engine/memory/stores/**",
-                  "**/ai-engine/memory/abstractions/**",
-                  "**/ai-engine/memory/memory-coordinator.service*",
-                ],
-                message:
-                  "Use AIEngineFacade.storeMemory()/retrieveMemory() instead.",
-              },
               // Content fetch — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/content-fetch/**"],
+                group: ["**/ai-engine/content/fetch/**"],
                 message: "Use facade.contentFetch instead.",
+              },
+              // Image engine internals
+              {
+                group: ["**/ai-engine/content/image/**"],
+                message:
+                  "Add image matching types to facade/index.ts, then import from 'ai-engine/facade'.",
+              },
+              // Content analysis internals
+              {
+                group: ["**/ai-engine/content/analysis/**"],
+                message:
+                  "Add content analysis types to facade/index.ts, then import from 'ai-engine/facade'.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 8: Infra bounded context internals
+              //   Covers: infra/realtime, infra/observability, infra/a2a.
+              // ════════════════════════════════════════════════════════════
+              // Realtime — must go through AIEngineFacade
+              {
+                group: ["**/ai-engine/infra/realtime/**"],
+                message:
+                  "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
               },
               // Engine interfaces (image tokens, simulation interfaces)
               {
@@ -306,35 +316,32 @@ module.exports = {
                 message:
                   "Add MCP abstractions to facade/index.ts, then import from 'ai-engine/facade'.",
               },
-              // Image engine internals
+              // AI capabilities — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/image/**"],
+                group: ["**/ai-engine/capabilities/**"],
                 message:
-                  "Add image matching types to facade/index.ts, then import from 'ai-engine/facade'.",
-              },
-              // Content analysis internals
-              {
-                group: ["**/ai-engine/content-analysis/**"],
-                message:
-                  "Add content analysis types to facade/index.ts, then import from 'ai-engine/facade'.",
+                  "Use AIEngineFacade.capabilityGetSkillPrompts() or facade.capabilityResolverService instead.",
               },
 
               // ════════════════════════════════════════════════════════════
               // ★ SECTION 9: Preventive — not yet accessed but must stay clean
+              //   Uses top-level bounded context paths to cover all sub-paths.
               // ════════════════════════════════════════════════════════════
               {
                 group: [
-                  "**/ai-engine/synthesis/**",
-                  "**/ai-engine/search/**",
-                  "**/ai-engine/quality/**",
-                  "**/ai-engine/collaboration/**",
-                  "**/ai-engine/guardrails/**",
-                  "**/ai-engine/evidence/**",
-                  "**/ai-engine/a2a/**",
-                  "**/ai-engine/prompts/**",
-                  "**/ai-engine/observability/**",
-                  "**/ai-engine/constraint/**",
-                  "**/ai-engine/common/**",
+                  // Safety bounded context: guardrails, quality, constraint
+                  "**/ai-engine/safety/**",
+                  // Knowledge bounded context (catchall beyond rag/memory above)
+                  "**/ai-engine/knowledge/search/**",
+                  "**/ai-engine/knowledge/evidence/**",
+                  // Content bounded context (catchall beyond long-form/fetch/image/analysis above)
+                  "**/ai-engine/content/synthesis/**",
+                  // Agents collaboration sub-context
+                  "**/ai-engine/agents/collaboration/**",
+                  // Infra bounded context (catchall beyond realtime above)
+                  "**/ai-engine/infra/observability/**",
+                  "**/ai-engine/infra/a2a/**",
+                  // API core internals
                   "**/ai-engine/api/**",
                 ],
                 message:
