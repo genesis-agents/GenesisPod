@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContextCompressionService } from "../context-compression.service";
 import { AiChatService } from "../../../llm/services/ai-chat.service";
-import { EmbeddingService } from "../../../rag/embedding/embedding.service";
+import { EmbeddingService } from "../../../knowledge/rag/embedding/embedding.service";
 
 describe("ContextCompressionService", () => {
   let service: ContextCompressionService;
@@ -16,11 +16,13 @@ describe("ContextCompressionService", () => {
 
   beforeEach(async () => {
     mockAiChatService = {
-      chat: jest.fn().mockResolvedValue(
-        mockChatResponse(
-          "摘要：这是生成的摘要内容。\n关键点：\n- 要点1\n- 要点2",
+      chat: jest
+        .fn()
+        .mockResolvedValue(
+          mockChatResponse(
+            "摘要：这是生成的摘要内容。\n关键点：\n- 要点1\n- 要点2",
+          ),
         ),
-      ),
     };
 
     mockEmbeddingService = {
@@ -91,7 +93,10 @@ describe("ContextCompressionService", () => {
     });
 
     it("should use default options when none provided", async () => {
-      const largeContent = "Paragraph one.\n\n" + "Paragraph two.\n\n" + "Paragraph three.".repeat(500);
+      const largeContent =
+        "Paragraph one.\n\n" +
+        "Paragraph two.\n\n" +
+        "Paragraph three.".repeat(500);
 
       const result = await service.compress(largeContent);
 
@@ -158,7 +163,8 @@ describe("ContextCompressionService", () => {
 
   describe("compress - integrity check", () => {
     it("should verify integrity after compression", async () => {
-      const largeContent = "Section A.\n\n".repeat(50) + "Section B.\n\n".repeat(50);
+      const largeContent =
+        "Section A.\n\n".repeat(50) + "Section B.\n\n".repeat(50);
 
       const result = await service.compress(largeContent, { targetSize: 100 });
 
@@ -256,7 +262,11 @@ describe("ContextCompressionService", () => {
         embedding: [1, 0, 0],
       });
 
-      const result = await service.retrieveRelevantContext("query", summaries, 2);
+      const result = await service.retrieveRelevantContext(
+        "query",
+        summaries,
+        2,
+      );
       expect(result).toHaveLength(2);
     });
 

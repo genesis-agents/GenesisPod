@@ -32,10 +32,10 @@ import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
 // Observability
-import { AiEngineTracingService } from "./observability/ai-engine-tracing.service";
-import { TraceCollectorService } from "./observability/trace-collector.service";
-import { AiObservabilityService } from "./observability/ai-observability.service";
-import { CostAttributionService } from "./observability/cost-attribution.service";
+import { AiEngineTracingService } from "./infra/observability/ai-engine-tracing.service";
+import { TraceCollectorService } from "./infra/observability/trace-collector.service";
+import { AiObservabilityService } from "./infra/observability/ai-observability.service";
+import { CostAttributionService } from "./infra/observability/cost-attribution.service";
 
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

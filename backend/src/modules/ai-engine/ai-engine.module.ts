@@ -82,12 +82,15 @@ import { DocumentChunker } from "./knowledge/rag/chunking";
 import { RAGPipelineService } from "./knowledge/rag/pipeline";
 
 // Observability
-import { AiEngineTracingService, TraceCollectorService } from "./observability";
-import { AiObservabilityService } from "./observability/ai-observability.service";
-import { CostAttributionService } from "./observability/cost-attribution.service";
-import { ObservabilityController } from "./observability/observability.controller";
+import {
+  AiEngineTracingService,
+  TraceCollectorService,
+} from "./infra/observability";
+import { AiObservabilityService } from "./infra/observability/ai-observability.service";
+import { CostAttributionService } from "./infra/observability/cost-attribution.service";
+import { ObservabilityController } from "./infra/observability/observability.controller";
 // 支柱五：EvalPipeline
-import { EvalPipelineService } from "./observability/eval-pipeline.service";
+import { EvalPipelineService } from "./infra/observability/eval-pipeline.service";
 
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

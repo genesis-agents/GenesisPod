@@ -15,7 +15,7 @@ import { RetryStrategy } from "./retry-strategy";
 import {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../capabilities/ai-capability-resolver.service";
+} from "../capabilities/ai-capability-resolver.service";
 import { MCPManager } from "../../mcp/manager/mcp-manager";
 
 // ============================================================================

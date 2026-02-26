@@ -11,7 +11,7 @@ import {
   WhiteHouseNewsTool,
   WhiteHouseNewsOutput,
 } from "../whitehouse-news.tool";
-import { SearchService } from "../../../../../search/search.service";
+import { SearchService } from "../../../../../knowledge/search/search.service";
 import { PolicyDataService } from "../policy-data.service";
 import {
   ToolContext,
@@ -266,8 +266,7 @@ describe("WhiteHouseNewsTool", () => {
 
       await tool.execute({ query: "immigration" }, makeContext());
 
-      const calledUrl = mockSearchService.fetchUrlContent.mock
-        .calls[0][0] as string;
+      const calledUrl = mockSearchService.fetchUrlContent.mock.calls[0][0];
       expect(calledUrl).toContain("immigration");
       expect(calledUrl).toContain("whitehouse.gov");
     });

@@ -6,8 +6,8 @@
  */
 
 import { Provider } from "@nestjs/common";
-import { ShortTermMemoryService } from "../memory/stores/short-term-memory.service";
-import { LongTermMemoryService } from "../memory/stores/long-term-memory.service";
+import { ShortTermMemoryService } from "../knowledge/memory/stores/short-term-memory.service";
+import { LongTermMemoryService } from "../knowledge/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
@@ -16,8 +16,8 @@ import { AgentExecutorService } from "../orchestration/services/agent-executor.s
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖
-import { EngineEventEmitterService } from "../realtime/services/engine-event-emitter.service";
-import { ProgressTrackerService } from "../realtime/services/progress-tracker.service";
+import { EngineEventEmitterService } from "../infra/realtime/services/engine-event-emitter.service";
+import { ProgressTrackerService } from "../infra/realtime/services/progress-tracker.service";
 // ★ Constraint Feature 依赖
 import { RateLimiter } from "../safety/constraint/guardrails/rate-limiter";
 import { CostController } from "../safety/constraint/guardrails/cost-controller";

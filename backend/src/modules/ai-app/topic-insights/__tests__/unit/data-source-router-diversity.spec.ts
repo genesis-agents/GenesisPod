@@ -14,10 +14,10 @@ import {
   CongressGovTool,
   WhiteHouseNewsTool,
 } from "@/modules/ai-engine/tools/categories/information/policy";
-import { AICapabilityResolver } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "@/modules/ai-engine/orchestration/capabilities/ai-capability-resolver.service";
 import { DataSourcePlannerService } from "../../services/data/data-source-planner.service";
-import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
-import { VectorService } from "@/modules/ai-engine/rag/vector";
+import { EmbeddingService } from "@/modules/ai-engine/knowledge/rag/embedding";
+import { VectorService } from "@/modules/ai-engine/knowledge/rag/vector";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { createMockAiEngineFacade } from "../mocks";
 

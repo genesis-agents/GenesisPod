@@ -25,7 +25,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import { LongTermMemoryService } from "../../../memory/stores";
+import { LongTermMemoryService } from "../../../knowledge/memory/stores";
 
 // ============================================================================
 // Types

@@ -32,7 +32,7 @@ import { AiApiCallerService } from "./llm/services/ai-api-caller.service";
 import { AiStreamHandlerService } from "./llm/services/ai-stream-handler.service";
 import { AiChatPromptService } from "./llm/services/ai-chat-prompt.service";
 import { AiChatRetryService } from "./llm/services/ai-chat-retry.service";
-import { SearchService } from "./search/search.service";
+import { SearchService } from "./knowledge/search/search.service";
 
 // Extracted Services (from ai-chat.service.ts God Object split)
 import { AiConnectionTestService } from "./llm/services/ai-connection-test.service";

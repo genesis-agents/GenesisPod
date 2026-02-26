@@ -12,7 +12,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EvidenceSyncCompensationService } from "../evidence-sync-compensation.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { SaveEvidenceRequest } from "@/modules/ai-engine/evidence/abstractions/evidence.interface";
+import { SaveEvidenceRequest } from "@/modules/ai-engine/knowledge/evidence/abstractions/evidence.interface";
 
 describe("EvidenceSyncCompensationService", () => {
   let service: EvidenceSyncCompensationService;
@@ -161,9 +161,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      mockFacade.evidenceSave.mockResolvedValue(undefined);
 
       // Act
       await service.processRetryQueue();
@@ -183,9 +181,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Retry failed"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Retry failed"));
 
       // Act
       await service.processRetryQueue();
@@ -205,9 +201,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Persistent error"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Persistent error"));
 
       // Act - retry 3 times (MAX_RETRIES)
       await service.processRetryQueue();
@@ -232,9 +226,7 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("evidence-2", mockSaveRequest, "Error 2");
       service.queueForRetry("evidence-3", mockSaveRequest, "Error 3");
 
-      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      mockFacade.evidenceSave.mockResolvedValue(undefined);
 
       // Act
       await service.processRetryQueue();
@@ -252,7 +244,7 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("evidence-success", mockSaveRequest, "Error");
       service.queueForRetry("evidence-fail", mockSaveRequest, "Error");
 
-      (mockFacade.evidenceSave as jest.Mock)
+      mockFacade.evidenceSave
         .mockResolvedValueOnce(undefined) // First succeeds
         .mockRejectedValueOnce(new Error("Failed")); // Second fails
 
@@ -276,9 +268,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        "String error",
-      );
+      mockFacade.evidenceSave.mockRejectedValue("String error");
 
       // Act
       await service.processRetryQueue();
@@ -295,9 +285,7 @@ describe("EvidenceSyncCompensationService", () => {
         mockSaveRequest,
         "Initial error",
       );
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Retry failed"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Retry failed"));
 
       const beforeTime = new Date();
 
@@ -348,9 +336,7 @@ describe("EvidenceSyncCompensationService", () => {
     it("should track success count correctly", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      mockFacade.evidenceSave.mockResolvedValue(undefined);
 
       // Act
       await service.processRetryQueue();
@@ -363,9 +349,7 @@ describe("EvidenceSyncCompensationService", () => {
     it("should track failed count correctly", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Failed"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Failed"));
 
       // Act - retry 3 times to trigger permanent failure
       await service.processRetryQueue();
@@ -382,9 +366,7 @@ describe("EvidenceSyncCompensationService", () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
       service.queueForRetry("evidence-2", mockSaveRequest, "Error");
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Failed"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Failed"));
 
       // Act - retry 3 times for both
       for (let i = 0; i < 3; i++) {
@@ -404,7 +386,7 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("pending-1", mockSaveRequest, "Error");
       service.queueForRetry("fail-1", mockSaveRequest, "Error");
 
-      (mockFacade.evidenceSave as jest.Mock)
+      mockFacade.evidenceSave
         .mockResolvedValueOnce(undefined) // success-1
         .mockResolvedValueOnce(undefined) // success-2
         .mockRejectedValueOnce(new Error("Retry")) // pending-1
@@ -414,9 +396,7 @@ describe("EvidenceSyncCompensationService", () => {
       await service.processRetryQueue();
 
       // More retries for permanent failure
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Fail"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Fail"));
       await service.processRetryQueue();
       await service.processRetryQueue();
 
@@ -471,9 +451,7 @@ describe("EvidenceSyncCompensationService", () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error 1");
       service.queueForRetry("evidence-2", mockSaveRequest, "Error 2");
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Failed"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Failed"));
 
       // Act - retry 3 times to trigger permanent failure
       await service.processRetryQueue();
@@ -495,9 +473,7 @@ describe("EvidenceSyncCompensationService", () => {
     it("should manually trigger retry process", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (mockFacade.evidenceSave as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      mockFacade.evidenceSave.mockResolvedValue(undefined);
 
       // Act
       await service.triggerRetry();
@@ -515,9 +491,7 @@ describe("EvidenceSyncCompensationService", () => {
     it("should clear all permanently failed entries", async () => {
       // Arrange
       service.queueForRetry("evidence-1", mockSaveRequest, "Error");
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Failed"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Failed"));
 
       // Create permanent failure
       await service.processRetryQueue();
@@ -541,9 +515,7 @@ describe("EvidenceSyncCompensationService", () => {
       service.queueForRetry("fail-1", mockSaveRequest, "Error");
 
       // Set up mock: fail all attempts for both, but we'll only run 3 batches which processes both 3 times each
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Always fail"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Always fail"));
 
       // Run 3 batches - both entries will fail 3 times and become permanently failed
       await service.processRetryQueue();
@@ -604,7 +576,7 @@ describe("EvidenceSyncCompensationService", () => {
       );
 
       // First two attempts fail
-      (mockFacade.evidenceSave as jest.Mock)
+      mockFacade.evidenceSave
         .mockRejectedValueOnce(new Error("Network timeout"))
         .mockRejectedValueOnce(new Error("Connection refused"))
         .mockResolvedValueOnce(undefined); // Third attempt succeeds
@@ -635,9 +607,7 @@ describe("EvidenceSyncCompensationService", () => {
         "Database locked",
       );
 
-      (mockFacade.evidenceSave as jest.Mock).mockRejectedValue(
-        new Error("Database locked"),
-      );
+      mockFacade.evidenceSave.mockRejectedValue(new Error("Database locked"));
 
       // Act
       await service.processRetryQueue(); // Attempt 1

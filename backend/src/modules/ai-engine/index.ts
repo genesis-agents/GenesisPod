@@ -104,20 +104,20 @@ export * as Tools from "./tools";
 export * as Skills from "./skills";
 export * as Agents from "./agents";
 export * as Orchestration from "./orchestration";
-export * as Collaboration from "./collaboration";
+export * as Collaboration from "./agents/collaboration";
 export * as Constraint from "./safety/constraint";
 export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
-export * as Memory from "./memory";
+export * as Memory from "./knowledge/memory";
 export * as MCP from "./mcp";
 export * as Teams from "./teams";
-export * as Image from "./image";
+export * as Image from "./content/image";
 
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
 export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
-export { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
-export { LongTermMemoryService } from "./memory/stores/long-term-memory.service";
+export { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
+export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
 // Teams 模块核心服务
@@ -194,15 +194,15 @@ export type {
 } from "./facade/types";
 
 // Observability 导出
-export { AiObservabilityService } from "./observability/ai-observability.service";
-export { CostAttributionService } from "./observability/cost-attribution.service";
+export { AiObservabilityService } from "./infra/observability/ai-observability.service";
+export { CostAttributionService } from "./infra/observability/cost-attribution.service";
 
 // Prompt Registry 导出
 export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
 // Image 模块核心服务
-export { ImageFactory } from "./image/factory";
-export { ImageModule } from "./image/image.module";
+export { ImageFactory } from "./content/image/factory";
+export { ImageModule } from "./content/image/image.module";
 export {
   IImageAdapter,
   ImageGenerationOptions,
@@ -211,4 +211,4 @@ export {
   ImageProvider,
   IMAGE_PROVIDERS,
   IMAGE_MODELS,
-} from "./image/abstractions";
+} from "./content/image/abstractions";

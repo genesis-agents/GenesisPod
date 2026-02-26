@@ -3,18 +3,14 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  BadRequestException,
-  Logger,
-  NotFoundException,
-} from "@nestjs/common";
+import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AiCoreController } from "../ai-core.controller";
 import { AiCoreService } from "../ai-core.service";
 import { AIEngineFacade } from "../../facade/ai-engine.facade";
-import { RAGPipelineService } from "../../rag/pipeline";
+import { RAGPipelineService } from "../../knowledge/rag/pipeline";
 import { SecretsService } from "../../../core/secrets/secrets.service";
-import { SearchService } from "../../search/search.service";
+import { SearchService } from "../../knowledge/search/search.service";
 
 const mockAiCoreService = {
   getEnabledModels: jest.fn(),
@@ -115,7 +111,9 @@ describe("AiCoreController", () => {
       const req = makeRequest();
       await controller.getEnabledModels(req as never);
 
-      expect(mockAiCoreService.getEnabledModels).toHaveBeenCalledWith(undefined);
+      expect(mockAiCoreService.getEnabledModels).toHaveBeenCalledWith(
+        undefined,
+      );
     });
   });
 
@@ -274,7 +272,9 @@ describe("AiCoreController", () => {
 
       const result = await controller.listGoogleModels();
 
-      expect(mockSecretsService.getValueInternal).toHaveBeenCalledWith("my-secret");
+      expect(mockSecretsService.getValueInternal).toHaveBeenCalledWith(
+        "my-secret",
+      );
       expect(mockFetch).toHaveBeenCalled();
       expect(result).toMatchObject({ totalModels: 0 });
     });
@@ -337,7 +337,11 @@ describe("AiCoreController", () => {
         id: "topic-1",
         name: "Test Topic",
         aiMembers: [
-          { id: "ai-1", displayName: "Unknown Agent", aiModel: "unknown-model" },
+          {
+            id: "ai-1",
+            displayName: "Unknown Agent",
+            aiModel: "unknown-model",
+          },
         ],
       };
       mockAiCoreService.getTopicWithAIMembers.mockResolvedValue(topic);
@@ -354,9 +358,7 @@ describe("AiCoreController", () => {
       const topic = {
         id: "topic-1",
         name: "Test Topic",
-        aiMembers: [
-          { id: "ai-1", displayName: "Agent", aiModel: "gpt-4o" },
-        ],
+        aiMembers: [{ id: "ai-1", displayName: "Agent", aiModel: "gpt-4o" }],
       };
       mockAiCoreService.getTopicWithAIMembers.mockResolvedValue(topic);
       mockAiCoreService.findModelByModelId.mockResolvedValue({
@@ -547,9 +549,7 @@ describe("AiCoreController", () => {
         req as never,
       );
 
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(
-        (c) => c[0] as string,
-      );
+      const writeCalls = res.write.mock.calls.map((c) => c[0] as string);
       const errorEvent = writeCalls.find((w) => w.includes('"error"'));
       expect(errorEvent).toContain("Request timed out");
       expect(res.end).toHaveBeenCalled();
@@ -575,9 +575,7 @@ describe("AiCoreController", () => {
         req as never,
       );
 
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(
-        (c) => c[0] as string,
-      );
+      const writeCalls = res.write.mock.calls.map((c) => c[0] as string);
       const errorEvent = writeCalls.find((w) => w.includes('"error"'));
       expect(errorEvent).toContain("Failed to generate response");
     });
@@ -599,9 +597,7 @@ describe("AiCoreController", () => {
       mockRagPipelineService.query.mockResolvedValue({
         context: {
           text: "Knowledge base context",
-          sources: [
-            { documentTitle: "Doc A", excerpt: "excerpt", score: 0.9 },
-          ],
+          sources: [{ documentTitle: "Doc A", excerpt: "excerpt", score: 0.9 }],
         },
       });
 
@@ -642,9 +638,7 @@ describe("AiCoreController", () => {
       mockRagPipelineService.query.mockResolvedValue({
         context: {
           text: "Knowledge base context",
-          sources: [
-            { documentTitle: "Doc B", excerpt: "text", score: 0.8 },
-          ],
+          sources: [{ documentTitle: "Doc B", excerpt: "text", score: 0.8 }],
         },
       });
 
@@ -658,9 +652,7 @@ describe("AiCoreController", () => {
         req as never,
       );
 
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(
-        (c) => c[0] as string,
-      );
+      const writeCalls = res.write.mock.calls.map((c) => c[0] as string);
       const ragEvent = writeCalls.find((w) => w.includes("ragSources"));
       expect(ragEvent).toBeDefined();
     });
@@ -682,11 +674,17 @@ describe("AiCoreController", () => {
       mockSearchService.search.mockResolvedValue({
         success: true,
         results: [
-          { title: "News Article", url: "https://news.com", content: "content" },
+          {
+            title: "News Article",
+            url: "https://news.com",
+            content: "content",
+          },
         ],
         provider: "brave",
       });
-      mockSearchService.formatResultsForContext.mockReturnValue("## Search\nNews Article");
+      mockSearchService.formatResultsForContext.mockReturnValue(
+        "## Search\nNews Article",
+      );
 
       await controller.simpleChat(
         { message: "Latest news?", stream: false, webSearch: true } as never,
@@ -731,10 +729,10 @@ describe("AiCoreController", () => {
         req as never,
       );
 
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(
-        (c) => c[0] as string,
+      const writeCalls = res.write.mock.calls.map((c) => c[0] as string);
+      const searchEvent = writeCalls.find((w) =>
+        w.includes("webSearchSources"),
       );
-      const searchEvent = writeCalls.find((w) => w.includes("webSearchSources"));
       expect(searchEvent).toBeDefined();
     });
 
@@ -1136,7 +1134,7 @@ describe("AiCoreController", () => {
         makeRequest() as never,
       );
 
-      const chatCall = (mockAiFacade.chat as jest.Mock).mock.calls[0][0];
+      const chatCall = mockAiFacade.chat.mock.calls[0][0];
       expect(chatCall.messages[0].content).toContain("请为以下内容");
     });
 
@@ -1157,7 +1155,7 @@ describe("AiCoreController", () => {
         makeRequest() as never,
       );
 
-      const chatCall = (mockAiFacade.chat as jest.Mock).mock.calls[0][0];
+      const chatCall = mockAiFacade.chat.mock.calls[0][0];
       expect(chatCall.messages[0].content).toContain("concise summary");
     });
   });
@@ -1241,7 +1239,7 @@ describe("AiCoreController", () => {
         makeRequest() as never,
       );
 
-      const chatCall = (mockAiFacade.chat as jest.Mock).mock.calls[0][0];
+      const chatCall = mockAiFacade.chat.mock.calls[0][0];
       expect(chatCall.messages[0].content).toContain("Output in English");
     });
   });
@@ -1278,7 +1276,11 @@ describe("AiCoreController", () => {
       });
 
       const result = await controller.translate(
-        { text: "Hello world", targetLanguage: "fr", sourceLanguage: "en" } as never,
+        {
+          text: "Hello world",
+          targetLanguage: "fr",
+          sourceLanguage: "en",
+        } as never,
         makeRequest() as never,
       );
 
@@ -1305,7 +1307,7 @@ describe("AiCoreController", () => {
         makeRequest() as never,
       );
 
-      const chatCall = (mockAiFacade.chat as jest.Mock).mock.calls[0][0];
+      const chatCall = mockAiFacade.chat.mock.calls[0][0];
       expect(chatCall.messages[0].content).toContain("Japanese");
     });
 
@@ -1383,7 +1385,10 @@ describe("AiCoreController", () => {
       mockAiCoreService.translateText = jest
         .fn()
         .mockRejectedValue(
-          new HttpException("Service Unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+          new HttpException(
+            "Service Unavailable",
+            HttpStatus.SERVICE_UNAVAILABLE,
+          ),
         );
 
       await expect(
@@ -1408,7 +1413,9 @@ describe("AiCoreController", () => {
     });
 
     it("runs inside BillingContext when user is authenticated", async () => {
-      mockAiCoreService.translateText = jest.fn().mockResolvedValue("Billed translation");
+      mockAiCoreService.translateText = jest
+        .fn()
+        .mockResolvedValue("Billed translation");
 
       const result = await controller.translateSingle(
         { text: "Hello", targetLang: "fr" } as never,

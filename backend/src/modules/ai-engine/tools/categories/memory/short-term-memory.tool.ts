@@ -23,7 +23,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import { ShortTermMemoryService } from "../../../memory/stores";
+import { ShortTermMemoryService } from "../../../knowledge/memory/stores";
 
 // ============================================================================
 // Types

@@ -25,8 +25,8 @@ import { MCPToolBridgeService } from "./bridge/mcp-tool-bridge.service";
 import { MCPResourceProvider } from "./bridge/mcp-resource-provider";
 import { MCPPromptProvider } from "./bridge/mcp-prompt-provider";
 import { MCPSessionManager } from "./gateway/mcp-session-manager";
-import { AiObservabilityService } from "../ai-engine/observability/ai-observability.service";
-import { CostAttributionService } from "../ai-engine/observability/cost-attribution.service";
+import { AiObservabilityService } from "../ai-engine/infra/observability/ai-observability.service";
+import { CostAttributionService } from "../ai-engine/infra/observability/cost-attribution.service";
 
 interface ToolCallMetric {
   toolName: string;

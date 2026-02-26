@@ -1,2 +1,17 @@
-/** Re-export shim - canonical location for infra/realtime */
-export { RealtimeModule } from "../../realtime/realtime.module";
+/**
+ * AI Engine - Realtime Module
+ * 实时推送模块
+ */
+
+import { Module } from "@nestjs/common";
+import { EngineEventEmitterService } from "./services/engine-event-emitter.service";
+import { ProgressTrackerService } from "./services/progress-tracker.service";
+
+@Module({
+  imports: [
+    // Note: EventEmitterModule 应在 AppModule 中 forRoot()，此处不再重复导入
+  ],
+  providers: [EngineEventEmitterService, ProgressTrackerService],
+  exports: [EngineEventEmitterService, ProgressTrackerService],
+})
+export class RealtimeModule {}

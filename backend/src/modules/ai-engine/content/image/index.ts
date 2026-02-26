@@ -1,2 +1,7 @@
-/** Re-export shim - canonical location for content/image */
-export * from "../../image/index";
+/**
+ * AI Engine - Image Module
+ */
+export * from "./abstractions";
+export * from "./adapters";
+export * from "./factory";
+export { ImageModule } from "./image.module";

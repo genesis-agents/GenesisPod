@@ -57,12 +57,12 @@ import {
 import { LLMFactory } from "../../llm/factory/llm-factory";
 import { LLMToolDefinition } from "../../llm/abstractions/llm-adapter.interface";
 import { MCPManager } from "../../mcp/manager/mcp-manager";
-import { ShortTermMemoryService } from "../../memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "../../knowledge/memory/stores/short-term-memory.service";
 import {
   HandoffCoordinator,
   HandoffContextBuilder,
-} from "../../collaboration/patterns/handoff-pattern";
-import { CollaborationMessage } from "../../collaboration/abstractions/collaborator.interface";
+} from "../../agents/collaboration/patterns/handoff-pattern";
+import { CollaborationMessage } from "../../agents/collaboration/abstractions/collaborator.interface";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import {
   AiChatLLMAdapter,
@@ -70,7 +70,7 @@ import {
 } from "../../llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { TraceCollectorService } from "../../observability/trace-collector.service";
+import { TraceCollectorService } from "../../infra/observability/trace-collector.service";
 import { CheckpointManager } from "../../orchestration/checkpoints/checkpoint-manager";
 import { A2AMessageBusService } from "../services/a2a-message-bus.service";
 import {

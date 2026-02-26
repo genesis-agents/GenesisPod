@@ -27,11 +27,11 @@ import { ToolRegistry } from "../tools/registry/tool-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 import { LLMFactory } from "../llm/factory/llm-factory";
 import { CostController } from "../safety/constraint/guardrails/cost-controller";
-import { ShortTermMemoryService } from "../memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "../knowledge/memory/stores/short-term-memory.service";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { TraceCollectorService } from "../observability/trace-collector.service";
+import { TraceCollectorService } from "../infra/observability/trace-collector.service";
 import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manager";
 
 /**

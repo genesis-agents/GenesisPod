@@ -12,7 +12,7 @@ import {
 } from "../../abstractions/tool.interface";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EmbeddingService } from "@/modules/ai-engine/rag/embedding/embedding.service";
+import { EmbeddingService } from "@/modules/ai-engine/knowledge/rag/embedding/embedding.service";
 
 // ============================================================================
 // Types

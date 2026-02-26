@@ -11,11 +11,11 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamsLongContentService } from "../teams-long-content.service";
-import { LongContentEngineService } from "../../../../../ai-engine/long-content/services/long-content-engine.service";
-import { ContinuationProtocolService } from "../../../../../ai-engine/long-content/services/continuation-protocol.service";
-import { TaskGranularityService } from "../../../../../ai-engine/long-content/services/task-granularity.service";
-import { SlidingWindowContextService } from "../../../../../ai-engine/long-content/services/sliding-window-context.service";
-import { QualityMonitorService } from "../../../../../ai-engine/long-content/services/quality-monitor.service";
+import { LongContentEngineService } from "../../../../../ai-engine/content/long-form/services/long-content-engine.service";
+import { ContinuationProtocolService } from "../../../../../ai-engine/content/long-form/services/continuation-protocol.service";
+import { TaskGranularityService } from "../../../../../ai-engine/content/long-form/services/task-granularity.service";
+import { SlidingWindowContextService } from "../../../../../ai-engine/content/long-form/services/sliding-window-context.service";
+import { QualityMonitorService } from "../../../../../ai-engine/content/long-form/services/quality-monitor.service";
 import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
 import { AIEngineFacade } from "../../../../../ai-engine/facade";
 

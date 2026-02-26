@@ -76,7 +76,7 @@ import {
 import type {
   RoomConfig,
   ProgressEvent,
-} from "../realtime/abstractions/event-emitter.interface";
+} from "../infra/realtime/abstractions/event-emitter.interface";
 import { CapabilitySummary } from "../orchestration/capabilities/types";
 import type {
   ChatWithSkillsRequest,
@@ -119,19 +119,19 @@ import type { BindingContext } from "../skills/runtime/input-binding-resolver";
 // Use import type to avoid circular: PromptSkillAdapter → AIEngineFacade → PromptSkillAdapter
 import type { PromptSkillAdapter } from "../skills/runtime/prompt-skill-adapter";
 import { AiChatLLMAdapter } from "../llm/adapters/ai-chat-llm-adapter";
-import { TraceCollectorService } from "../observability/trace-collector.service";
+import { TraceCollectorService } from "../infra/observability/trace-collector.service";
 import type {
   CreateTraceInput,
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../observability/trace.interface";
-import { MemoryCoordinatorService } from "../memory/memory-coordinator.service";
+} from "../infra/observability/trace.interface";
+import { MemoryCoordinatorService } from "../knowledge/memory/memory-coordinator.service";
 import type {
   MemoryEvent,
   MemoryQuery,
   MemoryContext,
-} from "../memory/memory-coordinator.service";
+} from "../knowledge/memory/memory-coordinator.service";
 import { ReflectionService } from "../orchestration/services/reflection.service";
 import type {
   ReflectionInput,
@@ -144,21 +144,21 @@ import type {
   CompressionResult,
 } from "../orchestration/services/interfaces";
 import { ReportSynthesisEngine } from "../content/synthesis/report-synthesis.service";
-import { EvidenceManagerService } from "../evidence/services/evidence-manager.service";
-import type { SaveEvidenceRequest } from "../evidence/abstractions/evidence.interface";
-import { VotingManager } from "../collaboration/patterns/voting-pattern";
-import type { VotingSession } from "../collaboration/patterns/voting-pattern";
+import { EvidenceManagerService } from "../knowledge/evidence/services/evidence-manager.service";
+import type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
+import { VotingManager } from "../agents/collaboration/patterns/voting-pattern";
+import type { VotingSession } from "../agents/collaboration/patterns/voting-pattern";
 import type {
   VoteRequest,
   VoteResult,
-} from "../collaboration/abstractions/collaborator.interface";
-import { EmbeddingService } from "../rag/embedding";
-import type { EmbeddingResult } from "../rag/embedding";
-import { VectorService } from "../rag/vector";
+} from "../agents/collaboration/abstractions/collaborator.interface";
+import { EmbeddingService } from "../knowledge/rag/embedding";
+import type { EmbeddingResult } from "../knowledge/rag/embedding";
+import { VectorService } from "../knowledge/rag/vector";
 import type {
   SimilaritySearchOptions,
   SimilarityResult,
-} from "../rag/vector/vector.service";
+} from "../knowledge/rag/vector/vector.service";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import type {
   SkillPromptBundle,

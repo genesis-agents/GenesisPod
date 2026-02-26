@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { FunctionCallingExecutor } from "../function-calling-executor";
 import { ToolRegistry } from "../../../tools/registry";
-import { AICapabilityResolver } from "../../../capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "../../capabilities/ai-capability-resolver.service";
 import { MCPManager } from "../../../mcp/manager/mcp-manager";
 import {
   ILLMAdapter,

@@ -43,7 +43,7 @@
     "db:migrate": "cd backend && npx prisma migrate dev",
     "db:seed": "cd backend && npx prisma db seed",
     "db:studio": "cd backend && npx prisma studio",
-    "pre-commit": "lint-staged",
+    "pre-commit": "lint-staged --concurrent 1",
     "validate": "npm run format:check && npm run lint && npm run type-check && npm run test",
     "verify:quick": "npm run type-check && npm run test:quick",
     "verify:full": "npm run lint && npm run type-check && npm run test && npm run build",

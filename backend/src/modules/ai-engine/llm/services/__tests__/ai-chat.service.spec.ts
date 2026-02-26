@@ -16,7 +16,7 @@ import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";
 import { AiImageGenerationService } from "../ai-image-generation.service";
 import { AiChatRetryService } from "../ai-chat-retry.service";
-import { TraceCollectorService } from "../../../observability/trace-collector.service";
+import { TraceCollectorService } from "../../../infra/observability/trace-collector.service";
 import { AIModelType } from "@prisma/client";
 import { AiServiceUnavailableError } from "../../../core/exceptions";
 

@@ -16,7 +16,7 @@ import {
   SearchService,
   SearchResponse,
   SearchResult,
-} from "../../../../search/search.service";
+} from "../../../../knowledge/search/search.service";
 import { ToolContext, ToolResult } from "../../../abstractions/tool.interface";
 
 // ---------------------------------------------------------------------------

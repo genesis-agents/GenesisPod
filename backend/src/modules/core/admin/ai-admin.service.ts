@@ -205,8 +205,8 @@ import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
 import { SecretsService } from "../secrets/secrets.service";
-import { SearchService } from "../../ai-engine/search/search.service";
-import { MultiKeyRegistry, KeyHealthStatus } from "../../ai-engine/common";
+import { SearchService } from "../../ai-engine/knowledge/search/search.service";
+import { MultiKeyRegistry, KeyHealthStatus } from "../../ai-engine/core/utils";
 
 /**
  * AI 能力管理服务

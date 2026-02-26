@@ -17,7 +17,7 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CacheService } from "../../../common/cache/cache.service";
-import { AiObservabilityService } from "../../ai-engine/observability/ai-observability.service";
+import { AiObservabilityService } from "../../ai-engine/infra/observability/ai-observability.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**

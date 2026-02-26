@@ -790,7 +790,7 @@ export {
   BUILTIN_TOOLS,
   type BuiltinToolId,
 } from "../../core/types/agent.types";
-export type { AICapabilityContext } from "../../capabilities/ai-capability-resolver.service";
+export type { AICapabilityContext } from "../../orchestration/capabilities/ai-capability-resolver.service";
 export type {
   ExecutionConfig,
   AgentEvent,

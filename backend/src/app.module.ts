@@ -79,7 +79,7 @@ import { MCPServerModule } from "./modules/mcp-server";
 // Public API module
 import { PublicApiModule } from "./modules/public-api/public-api.module";
 // A2A Server module
-import { A2AModule } from "./modules/ai-engine/a2a";
+import { A2AModule } from "./modules/ai-engine/infra/a2a";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 

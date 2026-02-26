@@ -9,7 +9,7 @@ import {
   RAGSearchOutput,
 } from "../rag-search.tool";
 import { ToolContext, ToolResult } from "../../../abstractions/tool.interface";
-import { EmbeddingResult } from "@/modules/ai-engine/rag/embedding/embedding.service";
+import { EmbeddingResult } from "@/modules/ai-engine/knowledge/rag/embedding/embedding.service";
 
 // ============================================================================
 // Mock Types

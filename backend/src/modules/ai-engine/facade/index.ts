@@ -12,19 +12,19 @@ export { PromptSkillBridge } from "../skills/runtime";
 export type {
   RoomConfig,
   EngineEvent,
-} from "../realtime/abstractions/event-emitter.interface";
-export type { SaveEvidenceRequest } from "../evidence/abstractions/evidence.interface";
+} from "../infra/realtime/abstractions/event-emitter.interface";
+export type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
 export type { AICapabilityContext } from "../orchestration/capabilities/ai-capability-resolver.service";
 export type {
   SkillPromptBundle,
   SkillPromptOptions,
 } from "../orchestration/capabilities/types";
 export type { SkillMdDefinition } from "../skills/types/skill-md.types";
-export type { EmbeddingResult } from "../rag/embedding";
+export type { EmbeddingResult } from "../knowledge/rag/embedding";
 export type {
   SimilaritySearchOptions,
   SimilarityResult,
-} from "../rag/vector/vector.service";
+} from "../knowledge/rag/vector/vector.service";
 export { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
 export { UserIntent } from "../orchestration/services/interfaces";
 export type { TeamInfo } from "../teams/services/teams.service";
@@ -218,19 +218,22 @@ export {
 } from "../content/image/matching/image-matching.types";
 
 // RAG types & services（for ai-app/rag module re-exports）
-export { EmbeddingService } from "../rag/embedding";
-export type { EmbeddingModelConfig, EmbeddingBatch } from "../rag/embedding";
-export { VectorService } from "../rag/vector";
-export type { VectorSearchResult } from "../rag/vector";
-export { DocumentChunker } from "../rag/chunking";
+export { EmbeddingService } from "../knowledge/rag/embedding";
+export type {
+  EmbeddingModelConfig,
+  EmbeddingBatch,
+} from "../knowledge/rag/embedding";
+export { VectorService } from "../knowledge/rag/vector";
+export type { VectorSearchResult } from "../knowledge/rag/vector";
+export { DocumentChunker } from "../knowledge/rag/chunking";
 export type {
   ChunkingConfig,
   ChildChunkData,
   ParentChunkData,
   ChunkedDocument,
-} from "../rag/chunking";
-export { DEFAULT_CHUNKING_CONFIG } from "../rag/chunking";
-export { RAGPipelineService } from "../rag/pipeline";
+} from "../knowledge/rag/chunking";
+export { DEFAULT_CHUNKING_CONFIG } from "../knowledge/rag/chunking";
+export { RAGPipelineService } from "../knowledge/rag/pipeline";
 export type {
   RAGQuery,
   RAGOptions,
@@ -243,7 +246,7 @@ export type {
   KnowledgeBaseStats,
   SyncResult,
   GoogleDriveFile,
-} from "../rag/pipeline/rag-pipeline.interfaces";
+} from "../knowledge/rag/pipeline/rag-pipeline.interfaces";
 
 // Policy research tools（for topic-insights module DI）
 export {

@@ -13,7 +13,7 @@ import {
   CircuitBreakerService,
   TaskCompletionType,
 } from "../../orchestration/services/circuit-breaker.service";
-import { TraceCollectorService } from "../../observability/trace-collector.service";
+import { TraceCollectorService } from "../../infra/observability/trace-collector.service";
 // ★ 拆分后的子服务
 import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
