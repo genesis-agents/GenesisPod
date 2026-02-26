@@ -486,7 +486,7 @@ export class AiCoreController {
       message,
       messages: contextMessages,
       context,
-      model = "gemini",
+      model = "",
       stream = true,
       knowledgeBaseIds,
       webSearch = false,
@@ -822,7 +822,7 @@ ${webSearchContext}
   @Post("quick-action")
   @UseGuards(OptionalJwtAuthGuard)
   async quickAction(@Body() body: QuickActionRequest, @Req() req: Request) {
-    const { content, action, model = "gemini" } = body;
+    const { content, action, model = "" } = body;
 
     this.logger.log(`Quick action: ${action}, model=${model}`);
 
