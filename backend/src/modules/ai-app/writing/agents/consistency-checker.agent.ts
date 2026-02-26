@@ -12,7 +12,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
+import { BaseAgent } from "../../../ai-engine/facade/base-classes";
 import {
   type AgentContext,
   type AgentCapability,

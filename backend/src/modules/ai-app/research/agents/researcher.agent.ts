@@ -15,7 +15,7 @@ type ResearchSource = {
   snippet?: string;
   [key: string]: unknown;
 };
-import { PlanBasedAgent } from "../../../ai-engine/agents/base/plan-based-agent";
+import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
 import {
   BUILTIN_AGENTS,
   type AgentInput,

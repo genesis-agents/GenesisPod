@@ -114,8 +114,7 @@ module.exports = {
         "**/*.spec.ts",
         "**/*.test.ts",
         "**/__tests__/**/*.ts",
-        // Agent files may extend BaseAgent/PlanBasedAgent (inheritance pattern)
-        "**/agents/*.agent.ts",
+        // Agent files now import base classes from facade/base-classes.ts (no exclusion needed)
         // Team config files must reference abstract interfaces
         "**/*.config.ts",
         // Skill implementations extend engine skill base classes

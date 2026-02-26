@@ -290,16 +290,12 @@ export { TaskGranularityService } from "../content/long-form/services/task-granu
 export { SlidingWindowContextService } from "../content/long-form/services/sliding-window-context.service";
 export { QualityMonitorService } from "../content/long-form/services/quality-monitor.service";
 
-// ★ Agent base classes — NOTE: BaseAgent and PlanBasedAgent are NOT exported here
-// because barrel re-export causes circular dependency (class extends undefined).
-// Agent implementations must import base classes directly:
-//   import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
-//   import { PlanBasedAgent } from "../../../ai-engine/agents/base/plan-based-agent";
-// All OTHER agent types (AgentContext, AgentCapability, etc.) are safe via facade.
+// ★ Agent/Tool base classes live in facade/base-classes.ts (轻量子模块，零循环依赖)
+// 用法: import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
+// 原因: 本文件(index.ts) 加载 70+ 模块会形成循环链，base-classes.ts 不拉入服务层
 export type { IPlanBasedAgent } from "../agents/base/plan-based-agent";
 
-// ★ Batch 2 — Tool base class（for AI App tool subclasses & test mocking）
-export { BaseTool } from "../tools/base/base-tool";
+// ★ BaseTool moved to facade/base-classes.ts（与 BaseAgent/PlanBasedAgent 同理）
 
 // ★ Batch 2 — Core services（for admin, mcp-server, and cross-cutting concerns）
 export { AiChatService } from "../llm/services/ai-chat.service";
