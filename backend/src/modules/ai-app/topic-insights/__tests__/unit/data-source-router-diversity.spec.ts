@@ -8,17 +8,17 @@
 import { describe, it, expect, beforeEach } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourceRouterService } from "../../services/data/data-source-router.service";
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 import {
+  ToolRegistry,
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
-} from "@/modules/ai-engine/tools/categories/information/policy";
-import { AICapabilityResolver } from "@/modules/ai-engine/orchestration/capabilities/ai-capability-resolver.service";
+  AICapabilityResolver,
+  EmbeddingService,
+  VectorService,
+  AIEngineFacade,
+} from "@/modules/ai-engine/facade";
 import { DataSourcePlannerService } from "../../services/data/data-source-planner.service";
-import { EmbeddingService } from "@/modules/ai-engine/knowledge/rag/embedding";
-import { VectorService } from "@/modules/ai-engine/knowledge/rag/vector";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { createMockAiEngineFacade } from "../mocks";
 
 /** Local mock result type that includes extra test fields */

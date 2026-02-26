@@ -26,7 +26,7 @@ import { ForeshadowingService } from "../../services/quality/foreshadowing.servi
 import { PacingControlService } from "../../services/quality/pacing-control.service";
 import { DialogueConstraintsService } from "../../services/quality/dialogue-constraints.service";
 import { CharacterConsistencyService } from "../../services/quality/character-consistency.service";
-import type { AgentContext } from "../../../../ai-engine/agents/abstractions/agent.interface";
+import type { AgentContext } from "../../../../ai-engine/facade";
 import type {
   WritingContextPackage,
   ChapterWritingContext,
@@ -46,12 +46,12 @@ function makeAgentContext(): AgentContext {
 /**
  * Minimal WritingContextPackage for tests
  */
-function makeContextPackage(overrides: Partial<WritingContextPackage["extensions"]["storyBible"]> = {}): WritingContextPackage {
+function makeContextPackage(
+  overrides: Partial<WritingContextPackage["extensions"]["storyBible"]> = {},
+): WritingContextPackage {
   return {
     projectId: "project-1",
-    hardConstraints: [
-      { severity: "error", rule: "No modern slang" },
-    ],
+    hardConstraints: [{ severity: "error", rule: "No modern slang" }],
     glossary: { 长安: "Ancient Tang capital" },
     establishedFacts: [
       { statement: "Protagonist is female", importance: "high" },
@@ -84,7 +84,9 @@ function makeContextPackage(overrides: Partial<WritingContextPackage["extensions
   } as unknown as WritingContextPackage;
 }
 
-function makeChapterContext(overrides: Partial<ChapterWritingContext> = {}): ChapterWritingContext {
+function makeChapterContext(
+  overrides: Partial<ChapterWritingContext> = {},
+): ChapterWritingContext {
   return {
     chapter: {
       id: "chapter-1",
@@ -171,40 +173,54 @@ function buildMockCharacterPersonality() {
         dialogueExamples: [],
       },
     ]),
-    generateConstraintPrompt: jest.fn().mockReturnValue("personality-constraints"),
+    generateConstraintPrompt: jest
+      .fn()
+      .mockReturnValue("personality-constraints"),
   };
 }
 
 function buildMockHistoricalKnowledge() {
   return {
     detectDynastyFromWorldType: jest.fn().mockReturnValue("唐"),
-    generateHistoricalConstraintPrompt: jest.fn().mockResolvedValue("historical-constraints"),
+    generateHistoricalConstraintPrompt: jest
+      .fn()
+      .mockResolvedValue("historical-constraints"),
     getSupportedDynasties: jest.fn().mockReturnValue(["唐", "宋", "明"]),
   };
 }
 
 function buildMockProfessionalVoice() {
   return {
-    generateChapterVoiceConstraints: jest.fn().mockReturnValue("voice-constraints"),
+    generateChapterVoiceConstraints: jest
+      .fn()
+      .mockReturnValue("voice-constraints"),
   };
 }
 
 function buildMockSensoryImmersion() {
   return {
-    generateImmersionConstraints: jest.fn().mockReturnValue("immersion-constraints"),
+    generateImmersionConstraints: jest
+      .fn()
+      .mockReturnValue("immersion-constraints"),
   };
 }
 
 function buildMockOpeningHook() {
   return {
-    generateOpeningConstraints: jest.fn().mockReturnValue("opening-constraints"),
+    generateOpeningConstraints: jest
+      .fn()
+      .mockReturnValue("opening-constraints"),
   };
 }
 
 function buildMockNarrativeCraft() {
   return {
-    generateNarrativeCraftConstraints: jest.fn().mockReturnValue("narrative-constraints"),
-    analyzeContent: jest.fn().mockReturnValue({ passed: true, score: 0.9, issues: [] }),
+    generateNarrativeCraftConstraints: jest
+      .fn()
+      .mockReturnValue("narrative-constraints"),
+    analyzeContent: jest
+      .fn()
+      .mockReturnValue({ passed: true, score: 0.9, issues: [] }),
     rewriteEnding: jest.fn().mockResolvedValue("rewritten-content"),
   };
 }
@@ -225,8 +241,12 @@ function buildMockPacingControl() {
 
 function buildMockDialogueConstraints() {
   return {
-    generateDialectConstraintPrompt: jest.fn().mockResolvedValue("dialect-constraints"),
-    generateCharacterDialoguePrompt: jest.fn().mockResolvedValue("char-dialogue-constraints"),
+    generateDialectConstraintPrompt: jest
+      .fn()
+      .mockResolvedValue("dialect-constraints"),
+    generateCharacterDialoguePrompt: jest
+      .fn()
+      .mockResolvedValue("char-dialogue-constraints"),
   };
 }
 
@@ -235,7 +255,9 @@ function buildMockCharacterConsistency() {
     generateCharacterBehaviorConstraints: jest.fn().mockResolvedValue({
       constraints: ["must not be cowardly"],
     }),
-    formatBehaviorConstraintsAsPrompt: jest.fn().mockReturnValue("behavior-constraints"),
+    formatBehaviorConstraintsAsPrompt: jest
+      .fn()
+      .mockReturnValue("behavior-constraints"),
   };
 }
 
@@ -245,7 +267,9 @@ describe("WriterAgent", () => {
   let agent: WriterAgent;
   let mockFacade: ReturnType<typeof buildMockFacade>;
   let mockExpressionMemory: ReturnType<typeof buildMockExpressionMemory>;
-  let mockCharacterPersonality: ReturnType<typeof buildMockCharacterPersonality>;
+  let mockCharacterPersonality: ReturnType<
+    typeof buildMockCharacterPersonality
+  >;
   let mockHistoricalKnowledge: ReturnType<typeof buildMockHistoricalKnowledge>;
   let mockNarrativeCraft: ReturnType<typeof buildMockNarrativeCraft>;
 
@@ -261,16 +285,34 @@ describe("WriterAgent", () => {
         WriterAgent,
         { provide: AIEngineFacade, useValue: mockFacade },
         { provide: ExpressionMemoryService, useValue: mockExpressionMemory },
-        { provide: CharacterPersonalityService, useValue: mockCharacterPersonality },
-        { provide: HistoricalKnowledgeService, useValue: mockHistoricalKnowledge },
-        { provide: ProfessionalVoiceService, useValue: buildMockProfessionalVoice() },
-        { provide: SensoryImmersionService, useValue: buildMockSensoryImmersion() },
+        {
+          provide: CharacterPersonalityService,
+          useValue: mockCharacterPersonality,
+        },
+        {
+          provide: HistoricalKnowledgeService,
+          useValue: mockHistoricalKnowledge,
+        },
+        {
+          provide: ProfessionalVoiceService,
+          useValue: buildMockProfessionalVoice(),
+        },
+        {
+          provide: SensoryImmersionService,
+          useValue: buildMockSensoryImmersion(),
+        },
         { provide: OpeningHookService, useValue: buildMockOpeningHook() },
         { provide: NarrativeCraftService, useValue: mockNarrativeCraft },
         { provide: ForeshadowingService, useValue: buildMockForeshadowing() },
         { provide: PacingControlService, useValue: buildMockPacingControl() },
-        { provide: DialogueConstraintsService, useValue: buildMockDialogueConstraints() },
-        { provide: CharacterConsistencyService, useValue: buildMockCharacterConsistency() },
+        {
+          provide: DialogueConstraintsService,
+          useValue: buildMockDialogueConstraints(),
+        },
+        {
+          provide: CharacterConsistencyService,
+          useValue: buildMockCharacterConsistency(),
+        },
       ],
     }).compile();
 
@@ -418,10 +460,9 @@ describe("WriterAgent", () => {
 
       await agent.execute(input, makeAgentContext());
 
-      expect(mockCharacterPersonality.getPersonalityConstraints).toHaveBeenCalledWith(
-        "project-1",
-        ["苏清婉"],
-      );
+      expect(
+        mockCharacterPersonality.getPersonalityConstraints,
+      ).toHaveBeenCalledWith("project-1", ["苏清婉"]);
     });
 
     it("should detect dynasty and generate historical constraints", async () => {
@@ -433,8 +474,12 @@ describe("WriterAgent", () => {
 
       await agent.execute(input, makeAgentContext());
 
-      expect(mockHistoricalKnowledge.detectDynastyFromWorldType).toHaveBeenCalledWith("唐朝");
-      expect(mockHistoricalKnowledge.generateHistoricalConstraintPrompt).toHaveBeenCalledWith("唐");
+      expect(
+        mockHistoricalKnowledge.detectDynastyFromWorldType,
+      ).toHaveBeenCalledWith("唐朝");
+      expect(
+        mockHistoricalKnowledge.generateHistoricalConstraintPrompt,
+      ).toHaveBeenCalledWith("唐");
     });
 
     it("should skip historical constraints when dynasty not detected", async () => {
@@ -448,7 +493,9 @@ describe("WriterAgent", () => {
 
       await agent.execute(input, makeAgentContext());
 
-      expect(mockHistoricalKnowledge.generateHistoricalConstraintPrompt).not.toHaveBeenCalled();
+      expect(
+        mockHistoricalKnowledge.generateHistoricalConstraintPrompt,
+      ).not.toHaveBeenCalled();
     });
 
     it("should call generateNarrativeCraftConstraints (highest priority)", async () => {
@@ -460,13 +507,17 @@ describe("WriterAgent", () => {
 
       await agent.execute(input, makeAgentContext());
 
-      expect(mockNarrativeCraft.generateNarrativeCraftConstraints).toHaveBeenCalled();
+      expect(
+        mockNarrativeCraft.generateNarrativeCraftConstraints,
+      ).toHaveBeenCalled();
     });
 
     it("should still execute when narrative craft throws (non-critical)", async () => {
-      mockNarrativeCraft.generateNarrativeCraftConstraints.mockImplementation(() => {
-        throw new Error("narrative service unavailable");
-      });
+      mockNarrativeCraft.generateNarrativeCraftConstraints.mockImplementation(
+        () => {
+          throw new Error("narrative service unavailable");
+        },
+      );
 
       const input: WriterInput = {
         chapterId: "chapter-1",
@@ -534,11 +585,16 @@ describe("WriterAgent", () => {
   describe("buildWriterSystemPrompt", () => {
     it("should include SUPER_CONSTRAINTS_HEADER in system prompt", async () => {
       const capturedMessages: unknown[] = [];
-      mockFacade.chatWithSkills.mockImplementation((params: { messages: unknown[] }) => {
-        // The system prompt is in skillContext.systemPrompt
-        capturedMessages.push(params);
-        return Promise.resolve({ content: "内容".repeat(1000), tokensUsed: 100 });
-      });
+      mockFacade.chatWithSkills.mockImplementation(
+        (params: { messages: unknown[] }) => {
+          // The system prompt is in skillContext.systemPrompt
+          capturedMessages.push(params);
+          return Promise.resolve({
+            content: "内容".repeat(1000),
+            tokensUsed: 100,
+          });
+        },
+      );
 
       const input: WriterInput = {
         chapterId: "chapter-1",
@@ -560,7 +616,10 @@ describe("WriterAgent", () => {
       mockFacade.chatWithSkills.mockImplementation(
         (params: { skillContext: { systemPrompt: string } }) => {
           capturedSystemPrompt = params.skillContext?.systemPrompt ?? "";
-          return Promise.resolve({ content: "内容".repeat(1000), tokensUsed: 100 });
+          return Promise.resolve({
+            content: "内容".repeat(1000),
+            tokensUsed: 100,
+          });
         },
       );
 
@@ -584,7 +643,10 @@ describe("WriterAgent", () => {
       mockFacade.chatWithSkills.mockImplementation(
         (params: { messages: Array<{ role: string; content: string }> }) => {
           capturedUserPrompts.push(params.messages[0].content);
-          return Promise.resolve({ content: "内容".repeat(1000), tokensUsed: 100 });
+          return Promise.resolve({
+            content: "内容".repeat(1000),
+            tokensUsed: 100,
+          });
         },
       );
 
@@ -605,7 +667,10 @@ describe("WriterAgent", () => {
       mockFacade.chatWithSkills.mockImplementation(
         (params: { messages: Array<{ role: string; content: string }> }) => {
           capturedUserPrompts.push(params.messages[0].content);
-          return Promise.resolve({ content: "内容".repeat(1000), tokensUsed: 100 });
+          return Promise.resolve({
+            content: "内容".repeat(1000),
+            tokensUsed: 100,
+          });
         },
       );
 
@@ -632,7 +697,7 @@ describe("WriterAgent", () => {
       { title: "正文内容（无标题）", expected: "正文内容（无标题）" },
     ];
 
-    for (const { title, expected } of testCases) {
+    for (const { title } of testCases) {
       it(`should strip title format: "${title.slice(0, 30)}..."`, async () => {
         mockFacade.chatWithSkills.mockResolvedValue({
           content: title,
@@ -667,8 +732,14 @@ describe("WriterAgent", () => {
       // First call returns ~40 chars (far below 3000 * 0.85 = 2550)
       // Second call returns enough content (4000+ chars) to satisfy the threshold
       mockFacade.chatWithSkills
-        .mockResolvedValueOnce({ content: "内容不足".repeat(10), tokensUsed: 10 })
-        .mockResolvedValueOnce({ content: "续写内容".repeat(1000), tokensUsed: 500 });
+        .mockResolvedValueOnce({
+          content: "内容不足".repeat(10),
+          tokensUsed: 10,
+        })
+        .mockResolvedValueOnce({
+          content: "续写内容".repeat(1000),
+          tokensUsed: 500,
+        });
 
       const input: WriterInput = {
         chapterId: "chapter-1",
@@ -717,8 +788,14 @@ describe("WriterAgent", () => {
       });
 
       mockFacade.chatWithSkills
-        .mockResolvedValueOnce({ content: "内容不足".repeat(10), tokensUsed: 10 })
-        .mockResolvedValueOnce({ content: "续写内容而这一切，只是开始".repeat(20), tokensUsed: 200 });
+        .mockResolvedValueOnce({
+          content: "内容不足".repeat(10),
+          tokensUsed: 10,
+        })
+        .mockResolvedValueOnce({
+          content: "续写内容而这一切，只是开始".repeat(20),
+          tokensUsed: 200,
+        });
 
       const input: WriterInput = {
         chapterId: "chapter-1",
@@ -887,7 +964,10 @@ describe("WriterAgent", () => {
       } as Partial<WritingContextPackage["extensions"]["storyBible"]>);
 
       // Content mentions all characters and terminologies
-      const content = Array.from({ length: 25 }, (_, i) => `角色${i}和术语${i}`).join("，");
+      const content = Array.from(
+        { length: 25 },
+        (_, i) => `角色${i}和术语${i}`,
+      ).join("，");
       mockFacade.chatWithSkills.mockResolvedValue({
         content: content.repeat(10),
         tokensUsed: 200,
@@ -928,11 +1008,12 @@ describe("WriterAgent", () => {
         ] as ChapterWritingContext["involvedCharacters"],
       });
 
-      let capturedSystemPrompt = "";
       mockFacade.chatWithSkills.mockImplementation(
-        (params: { skillContext: { systemPrompt: string } }) => {
-          capturedSystemPrompt = params.skillContext?.systemPrompt ?? "";
-          return Promise.resolve({ content: "内容".repeat(1000), tokensUsed: 100 });
+        (_params: { skillContext: { systemPrompt: string } }) => {
+          return Promise.resolve({
+            content: "内容".repeat(1000),
+            tokensUsed: 100,
+          });
         },
       );
 
@@ -981,7 +1062,10 @@ describe("WriterAgent", () => {
       mockFacade.chatWithSkills.mockImplementation(
         (params: { messages: Array<{ content: string }> }) => {
           capturedUserPrompts.push(params.messages[0].content);
-          return Promise.resolve({ content: "内容".repeat(1000), tokensUsed: 100 });
+          return Promise.resolve({
+            content: "内容".repeat(1000),
+            tokensUsed: 100,
+          });
         },
       );
 
@@ -1065,7 +1149,9 @@ describe("WriterAgent", () => {
       const result = await agent.execute(input, makeAgentContext());
 
       expect(result.success).toBe(true);
-      expect(mockCharacterPersonality.getPersonalityConstraints).not.toHaveBeenCalled();
+      expect(
+        mockCharacterPersonality.getPersonalityConstraints,
+      ).not.toHaveBeenCalled();
     });
 
     it("should handle chapter with no timeline context", async () => {
@@ -1082,7 +1168,10 @@ describe("WriterAgent", () => {
     });
 
     it("should handle LLM returning empty content", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({ content: "", tokensUsed: 0 });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: "",
+        tokensUsed: 0,
+      });
 
       const input: WriterInput = {
         chapterId: "chapter-1",

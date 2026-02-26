@@ -19,11 +19,13 @@ import {
   MCPResource,
   MCPResourceContent,
 } from "../abstractions/mcp-server.interface";
-import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
-import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
-import { AgentRegistry } from "../../ai-engine/agents/registry/agent-registry";
-import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
-import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import {
+  ToolRegistry,
+  SkillRegistry,
+  AgentRegistry,
+  TeamRegistry,
+  AIEngineFacade,
+} from "../../ai-engine/facade";
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { ResearchToolHandler } from "../tools/research-tool-handler";
 

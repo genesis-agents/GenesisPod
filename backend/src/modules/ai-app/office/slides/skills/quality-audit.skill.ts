@@ -18,7 +18,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-} from "@/modules/ai-engine/skills";
+} from "@/modules/ai-engine/facade";
 
 /**
  * 语义审核问题类型（与 checkpoint.types 中的 QualityIssue 区分）

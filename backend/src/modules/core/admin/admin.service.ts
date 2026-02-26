@@ -12,10 +12,7 @@ import {
   StatisticsService,
 } from "./services";
 import { APP_CONFIG } from "../../../common/config/app.config";
-import {
-  inferIsReasoning,
-  getKnownModelLimit,
-} from "../../ai-engine/llm/types";
+import { inferIsReasoning, getKnownModelLimit } from "../../ai-engine/facade";
 
 /** Minimal model for Perplexity balance check */
 const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";

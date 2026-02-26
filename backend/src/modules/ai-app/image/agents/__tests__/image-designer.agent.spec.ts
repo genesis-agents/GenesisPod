@@ -16,8 +16,10 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ImageDesignerAgent, ImageTaskType } from "../image-designer.agent";
-import { IMAGE_GENERATION_SERVICE_TOKEN } from "../../../../ai-engine/facade";
-import { BUILTIN_TOOLS } from "../../../../ai-engine/core/types/agent.types";
+import {
+  IMAGE_GENERATION_SERVICE_TOKEN,
+  BUILTIN_TOOLS,
+} from "../../../../ai-engine/facade";
 
 describe("ImageDesignerAgent", () => {
   let agent: ImageDesignerAgent;

@@ -19,7 +19,7 @@ import {
   SkillContext,
   SkillResult,
   SkillLayer,
-} from "@/modules/ai-engine/skills/abstractions/skill.interface";
+} from "@/modules/ai-engine/facade";
 import {
   OutlinePlan,
   PageOutline,

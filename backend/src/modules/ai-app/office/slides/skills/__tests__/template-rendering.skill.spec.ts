@@ -5,7 +5,14 @@
  * from PageContent.sections to slide HTML output.
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+} from "@jest/globals";
 import { TemplateRenderingSkill } from "../template-rendering.skill";
 import { ChartRendererSkill } from "../chart-renderer.skill";
 import {
@@ -13,7 +20,7 @@ import {
   PageContent,
   PageTemplateType,
 } from "../../checkpoint/checkpoint.types";
-import type { SkillContext } from "@/modules/ai-engine/skills";
+import type { SkillContext } from "@/modules/ai-engine/facade";
 import { templateRegistry } from "../../templates/base/template-registry";
 import {
   BIG_NUMBER_TEMPLATE,
@@ -564,11 +571,9 @@ describe("TemplateRenderingSkill", () => {
       } as ReturnType<typeof mockChartRenderer.extractChartData>);
 
       // The skill handles chart errors gracefully, so we test via a spy
-      const renderSpy = jest
-        .spyOn(skill, "render")
-        .mockImplementation(() => {
-          throw new Error("Unexpected render failure");
-        });
+      const renderSpy = jest.spyOn(skill, "render").mockImplementation(() => {
+        throw new Error("Unexpected render failure");
+      });
 
       const input = {
         pageOutline: makeOutline("cover"),
@@ -585,13 +590,11 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("should include error stack in details when Error is thrown", async () => {
-      const renderSpy = jest
-        .spyOn(skill, "render")
-        .mockImplementation(() => {
-          const err = new Error("Stack trace error");
-          err.stack = "Error: Stack trace error\n  at test.ts:1:1";
-          throw err;
-        });
+      const renderSpy = jest.spyOn(skill, "render").mockImplementation(() => {
+        const err = new Error("Stack trace error");
+        err.stack = "Error: Stack trace error\n  at test.ts:1:1";
+        throw err;
+      });
 
       const input = {
         pageOutline: makeOutline("cover"),
@@ -732,22 +735,42 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "92%", label: "Satisfaction", trend: "up", change: "+5%" },
+              content: {
+                value: "92%",
+                label: "Satisfaction",
+                trend: "up",
+                change: "+5%",
+              },
             },
             {
               type: "stat",
               position: "center",
-              content: { value: "1.2M", label: "Users", trend: "up", change: "+12%" },
+              content: {
+                value: "1.2M",
+                label: "Users",
+                trend: "up",
+                change: "+12%",
+              },
             },
             {
               type: "stat",
               position: "right",
-              content: { value: "45ms", label: "Response", trend: "down", change: "-8%" },
+              content: {
+                value: "45ms",
+                label: "Response",
+                trend: "down",
+                change: "-8%",
+              },
             },
             {
               type: "stat",
               position: "full",
-              content: { value: "99.9%", label: "Uptime", trend: "up", change: "+0.1%" },
+              content: {
+                value: "99.9%",
+                label: "Uptime",
+                trend: "up",
+                change: "+0.1%",
+              },
             },
           ],
         }),
@@ -848,9 +871,21 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Table of Contents",
           sections: [
-            { type: "text", position: "left", content: "Chapter One: Overview" },
-            { type: "text", position: "center", content: "Chapter Two: Analysis" },
-            { type: "text", position: "right", content: "Chapter Three: Conclusion" },
+            {
+              type: "text",
+              position: "left",
+              content: "Chapter One: Overview",
+            },
+            {
+              type: "text",
+              position: "center",
+              content: "Chapter Two: Analysis",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "Chapter Three: Conclusion",
+            },
           ],
         }),
       });
@@ -879,8 +914,16 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Contents",
           sections: [
-            { type: "list", position: "full", content: ["Overview", "Details"] },
-            { type: "list", position: "full", content: ["Summary", "Conclusion"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Overview", "Details"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Summary", "Conclusion"],
+            },
           ],
         }),
       });
@@ -896,17 +939,32 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "87%", label: "Customer Satisfaction", trend: "up", change: "+3%" },
+              content: {
+                value: "87%",
+                label: "Customer Satisfaction",
+                trend: "up",
+                change: "+3%",
+              },
             },
             {
               type: "stat",
               position: "center",
-              content: { value: "2.1M", label: "Active Users", trend: "up", change: "+15%" },
+              content: {
+                value: "2.1M",
+                label: "Active Users",
+                trend: "up",
+                change: "+15%",
+              },
             },
             {
               type: "stat",
               position: "right",
-              content: { value: "34ms", label: "Response Time", trend: "down", change: "-10%" },
+              content: {
+                value: "34ms",
+                label: "Response Time",
+                trend: "down",
+                change: "-10%",
+              },
             },
           ],
         }),
@@ -950,12 +1008,22 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "2019", label: "Founded", trend: "up", change: "First product launched" },
+              content: {
+                value: "2019",
+                label: "Founded",
+                trend: "up",
+                change: "First product launched",
+              },
             },
             {
               type: "stat",
               position: "center",
-              content: { value: "2021", label: "Series A", trend: "up", change: "$10M raised" },
+              content: {
+                value: "2021",
+                label: "Series A",
+                trend: "up",
+                change: "$10M raised",
+              },
             },
           ],
         }),
@@ -969,8 +1037,16 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Product Roadmap",
           sections: [
-            { type: "list", position: "left", content: ["2020", "Launch v1", "Beta release"] },
-            { type: "list", position: "center", content: ["2022", "Launch v2", "GA release"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["2020", "Launch v1", "Beta release"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["2022", "Launch v2", "GA release"],
+            },
           ],
         }),
       });
@@ -983,8 +1059,16 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "History",
           sections: [
-            { type: "text", position: "left", content: "2019: Founded - Started operations" },
-            { type: "text", position: "right", content: "2023: IPO - Listed on NYSE" },
+            {
+              type: "text",
+              position: "left",
+              content: "2019: Founded - Started operations",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "2023: IPO - Listed on NYSE",
+            },
           ],
         }),
       });
@@ -997,10 +1081,26 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "4-Step Process",
           sections: [
-            { type: "text", position: "left", content: "Step 1: Analyze - Gather and process data" },
-            { type: "text", position: "center", content: "Step 2: Design - Create solutions" },
-            { type: "text", position: "right", content: "Step 3: Build - Implement solutions" },
-            { type: "text", position: "full", content: "Step 4: Validate - Test and iterate" },
+            {
+              type: "text",
+              position: "left",
+              content: "Step 1: Analyze - Gather and process data",
+            },
+            {
+              type: "text",
+              position: "center",
+              content: "Step 2: Design - Create solutions",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "Step 3: Build - Implement solutions",
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Step 4: Validate - Test and iterate",
+            },
           ],
         }),
       });
@@ -1013,8 +1113,16 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Framework",
           sections: [
-            { type: "list", position: "left", content: ["Discover", "Research and gather insights"] },
-            { type: "list", position: "center", content: ["Define", "Clarify the problem"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Discover", "Research and gather insights"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Define", "Clarify the problem"],
+            },
           ],
         }),
       });
@@ -1030,7 +1138,12 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "Level 1", label: "Initial", trend: "up", change: "Ad hoc" },
+              content: {
+                value: "Level 1",
+                label: "Initial",
+                trend: "up",
+                change: "Ad hoc",
+              },
             },
           ],
         }),
@@ -1051,9 +1164,21 @@ describe("TemplateRenderingSkill", () => {
           title: "Strategic Recommendations",
           subtitle: "Q1 2024",
           sections: [
-            { type: "list", position: "left", content: ["Urgent: Cut costs", "Reduce overhead by 20%"] },
-            { type: "list", position: "center", content: ["Urgent: Hire engineers", "3 senior engineers needed"] },
-            { type: "list", position: "right", content: ["Short: Launch feature", "Target Q2 launch"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Urgent: Cut costs", "Reduce overhead by 20%"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Urgent: Hire engineers", "3 senior engineers needed"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Short: Launch feature", "Target Q2 launch"],
+            },
           ],
         }),
       });
@@ -1066,8 +1191,16 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Risk vs Opportunity",
           sections: [
-            { type: "text", position: "left", content: "Risk: Market competition increasing" },
-            { type: "text", position: "right", content: "Opportunity: New market segment emerging" },
+            {
+              type: "text",
+              position: "left",
+              content: "Risk: Market competition increasing",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "Opportunity: New market segment emerging",
+            },
           ],
         }),
       });
@@ -1137,7 +1270,11 @@ describe("TemplateRenderingSkill", () => {
           title: "Key Questions",
           sections: [
             { type: "text", position: "left", content: "What is the ROI?" },
-            { type: "text", position: "center", content: "Who are the key stakeholders?" },
+            {
+              type: "text",
+              position: "center",
+              content: "Who are the key stakeholders?",
+            },
           ],
         }),
       });
@@ -1153,7 +1290,12 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "Level 3", label: "Defined", trend: "up", change: "Standardized" },
+              content: {
+                value: "Level 3",
+                label: "Defined",
+                trend: "up",
+                change: "Standardized",
+              },
             },
           ],
         }),
@@ -1168,7 +1310,11 @@ describe("TemplateRenderingSkill", () => {
           title: "Split Layout",
           sections: [
             { type: "text", position: "left", content: "Left column content" },
-            { type: "text", position: "right", content: "Right column content" },
+            {
+              type: "text",
+              position: "right",
+              content: "Right column content",
+            },
           ],
         }),
       });
@@ -1181,9 +1327,21 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Case Study: Acme Corp",
           sections: [
-            { type: "text", position: "left", content: "Challenge: Low customer retention" },
-            { type: "text", position: "center", content: "Solution: Loyalty program" },
-            { type: "text", position: "right", content: "Result: 40% improvement" },
+            {
+              type: "text",
+              position: "left",
+              content: "Challenge: Low customer retention",
+            },
+            {
+              type: "text",
+              position: "center",
+              content: "Solution: Loyalty program",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "Result: 40% improvement",
+            },
           ],
         }),
       });
@@ -1196,8 +1354,16 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Technology Evolution",
           sections: [
-            { type: "text", position: "left", content: "2020: Basic - Initial implementation" },
-            { type: "text", position: "right", content: "2025: Advanced - Full automation" },
+            {
+              type: "text",
+              position: "left",
+              content: "2020: Basic - Initial implementation",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "2025: Advanced - Full automation",
+            },
           ],
         }),
       });
@@ -1219,7 +1385,12 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "center",
-              content: { value: "95%", label: "Score", trend: "up", change: "+2%" },
+              content: {
+                value: "95%",
+                label: "Score",
+                trend: "up",
+                change: "+2%",
+              },
             },
           ],
         }),
@@ -1337,7 +1508,8 @@ describe("TemplateRenderingSkill", () => {
   describe("renderFallback - various section types in fallback", () => {
     it("should render fallback HTML with stat sections", () => {
       const outline = makeOutline("cover");
-      (outline as { templateType: string }).templateType = "nonexistent-type-xyz";
+      (outline as { templateType: string }).templateType =
+        "nonexistent-type-xyz";
 
       const result = skill.render({
         pageOutline: outline,
@@ -1347,7 +1519,12 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "center",
-              content: { value: "99%", label: "Uptime", trend: "up", change: "+1%" },
+              content: {
+                value: "99%",
+                label: "Uptime",
+                trend: "up",
+                change: "+1%",
+              },
             },
           ],
         }),
@@ -1359,7 +1536,8 @@ describe("TemplateRenderingSkill", () => {
 
     it("should render fallback HTML with list sections", () => {
       const outline = makeOutline("cover");
-      (outline as { templateType: string }).templateType = "nonexistent-type-xyz";
+      (outline as { templateType: string }).templateType =
+        "nonexistent-type-xyz";
 
       const result = skill.render({
         pageOutline: outline,
@@ -1419,7 +1597,8 @@ describe("TemplateRenderingSkill", () => {
 
     it("should include footer in fallback when pageContent.footer provided", () => {
       const outline = makeOutline("cover");
-      (outline as { templateType: string }).templateType = "unknown-with-footer";
+      (outline as { templateType: string }).templateType =
+        "unknown-with-footer";
 
       const result = skill.render({
         pageOutline: outline,
@@ -1467,12 +1646,22 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "100", label: "Metric A", trend: "up", change: "+5" },
+              content: {
+                value: "100",
+                label: "Metric A",
+                trend: "up",
+                change: "+5",
+              },
             },
             {
               type: "stat",
               position: "right",
-              content: { value: "200", label: "Metric B", trend: "up", change: "+10" },
+              content: {
+                value: "200",
+                label: "Metric B",
+                trend: "up",
+                change: "+10",
+              },
             },
           ],
           footer: "Q4 2024",
@@ -1567,14 +1756,46 @@ describe("TemplateRenderingSkill", () => {
           title: "Recommendations",
           subtitle: "Implementation Team",
           sections: [
-            { type: "list", position: "left", content: ["Urgent: Reduce costs", "Cut SaaS spending by 20%"] },
-            { type: "list", position: "center", content: ["Urgent: Scale team", "Hire 5 engineers"] },
-            { type: "list", position: "right", content: ["Short: Launch v2", "Target Q2 2025"] },
-            { type: "list", position: "full", content: ["Short: Improve docs", "Rewrite API docs"] },
-            { type: "list", position: "left", content: ["Short: Test coverage", "Increase to 80%"] },
-            { type: "list", position: "center", content: ["Long: Market expansion", "APAC region"] },
-            { type: "list", position: "right", content: ["Long: Platform rebuild", "Microservices arch"] },
-            { type: "list", position: "full", content: ["Long: AI integration", "ML pipeline"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Urgent: Reduce costs", "Cut SaaS spending by 20%"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Urgent: Scale team", "Hire 5 engineers"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Short: Launch v2", "Target Q2 2025"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Short: Improve docs", "Rewrite API docs"],
+            },
+            {
+              type: "list",
+              position: "left",
+              content: ["Short: Test coverage", "Increase to 80%"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Long: Market expansion", "APAC region"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Long: Platform rebuild", "Microservices arch"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Long: AI integration", "ML pipeline"],
+            },
           ],
         }),
       });
@@ -1594,12 +1815,36 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Risk vs Opportunity Analysis",
           sections: [
-            { type: "list", position: "left", content: ["Supply chain disruption", "Could delay Q3 launch"] },
-            { type: "list", position: "center", content: ["Regulatory risk", "New compliance rules"] },
-            { type: "list", position: "right", content: ["Talent shortage", "Hard to hire engineers"] },
-            { type: "list", position: "full", content: ["Market growth opportunity", "20% YoY expansion"] },
-            { type: "list", position: "left", content: ["Partnership opportunity", "Strategic alliances"] },
-            { type: "list", position: "center", content: ["Tech innovation", "AI can reduce costs by 30%"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Supply chain disruption", "Could delay Q3 launch"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Regulatory risk", "New compliance rules"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Talent shortage", "Hard to hire engineers"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Market growth opportunity", "20% YoY expansion"],
+            },
+            {
+              type: "list",
+              position: "left",
+              content: ["Partnership opportunity", "Strategic alliances"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Tech innovation", "AI can reduce costs by 30%"],
+            },
           ],
         }),
       });
@@ -1619,11 +1864,46 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Next Steps Action Plan",
           sections: [
-            { type: "list", position: "left", content: ["Finalize hiring plan", "Review compensation bands", "Head of Engineering", "2024-Q2"] },
-            { type: "list", position: "center", content: ["Launch v2 product", "Complete QA testing", "Product Team", "2024-Q3"] },
-            { type: "list", position: "right", content: ["Expand APAC", "Market research complete", "Sales Team", "2024-Q4"] },
-            { type: "list", position: "full", content: ["2024-Q2", "Hiring complete"] },
-            { type: "list", position: "full", content: ["2024-Q3", "Product launch"] },
+            {
+              type: "list",
+              position: "left",
+              content: [
+                "Finalize hiring plan",
+                "Review compensation bands",
+                "Head of Engineering",
+                "2024-Q2",
+              ],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: [
+                "Launch v2 product",
+                "Complete QA testing",
+                "Product Team",
+                "2024-Q3",
+              ],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: [
+                "Expand APAC",
+                "Market research complete",
+                "Sales Team",
+                "2024-Q4",
+              ],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["2024-Q2", "Hiring complete"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["2024-Q3", "Product launch"],
+            },
             { type: "list", position: "full", content: [] },
           ],
         }),
@@ -1667,9 +1947,36 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "AI Maturity Model",
           sections: [
-            { type: "stat", position: "left", content: { value: "Level 1", label: "Initial", trend: "up", change: "Ad hoc processes" } },
-            { type: "stat", position: "center", content: { value: "Level 2", label: "Managed", trend: "up", change: "Repeatable" } },
-            { type: "stat", position: "right", content: { value: "Level 3", label: "Defined", trend: "up", change: "Standardized" } },
+            {
+              type: "stat",
+              position: "left",
+              content: {
+                value: "Level 1",
+                label: "Initial",
+                trend: "up",
+                change: "Ad hoc processes",
+              },
+            },
+            {
+              type: "stat",
+              position: "center",
+              content: {
+                value: "Level 2",
+                label: "Managed",
+                trend: "up",
+                change: "Repeatable",
+              },
+            },
+            {
+              type: "stat",
+              position: "right",
+              content: {
+                value: "Level 3",
+                label: "Defined",
+                trend: "up",
+                change: "Standardized",
+              },
+            },
           ],
         }),
       });
@@ -1683,11 +1990,31 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Process Maturity",
           sections: [
-            { type: "list", position: "left", content: ["Ad Hoc", "No formal process"] },
-            { type: "list", position: "center", content: ["Repeatable", "Basic project management"] },
-            { type: "list", position: "right", content: ["Defined", "Organizational standards"] },
-            { type: "list", position: "full", content: ["Managed", "Quantitative control"] },
-            { type: "list", position: "full", content: ["Optimizing", "Continuous improvement"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Ad Hoc", "No formal process"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Repeatable", "Basic project management"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Defined", "Organizational standards"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Managed", "Quantitative control"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Optimizing", "Continuous improvement"],
+            },
           ],
         }),
       });
@@ -1708,13 +2035,57 @@ describe("TemplateRenderingSkill", () => {
           title: "Netflix: Streaming Dominance",
           subtitle: "Entertainment",
           sections: [
-            { type: "text", position: "left", content: "Challenge: High customer churn and stagnant growth" },
-            { type: "text", position: "center", content: "Solution: AI-powered recommendation engine and original content" },
-            { type: "text", position: "right", content: "Result: 40% reduction in churn, 220M subscribers" },
-            { type: "stat", position: "full", content: { value: "220M", label: "Subscribers", trend: "up", change: "+30M" } },
-            { type: "stat", position: "full", content: { value: "40%", label: "Churn Reduction", trend: "down", change: "-40%" } },
-            { type: "stat", position: "full", content: { value: "92%", label: "Satisfaction", trend: "up", change: "+5%" } },
-            { type: "list", position: "full", content: ["Incredible service - highly recommend", "User A"] },
+            {
+              type: "text",
+              position: "left",
+              content: "Challenge: High customer churn and stagnant growth",
+            },
+            {
+              type: "text",
+              position: "center",
+              content:
+                "Solution: AI-powered recommendation engine and original content",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "Result: 40% reduction in churn, 220M subscribers",
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "220M",
+                label: "Subscribers",
+                trend: "up",
+                change: "+30M",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "40%",
+                label: "Churn Reduction",
+                trend: "down",
+                change: "-40%",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "92%",
+                label: "Satisfaction",
+                trend: "up",
+                change: "+5%",
+              },
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Incredible service - highly recommend", "User A"],
+            },
           ],
         }),
       });
@@ -1742,7 +2113,11 @@ describe("TemplateRenderingSkill", () => {
           title: "Case Study: Lists Only",
           subtitle: "Retail",
           sections: [
-            { type: "list", position: "full", content: ["Testimonial from customer", "5 stars review"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Testimonial from customer", "5 stars review"],
+            },
           ],
         }),
       });
@@ -1765,17 +2140,32 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "78%", label: "Market Share", trend: "up", change: "+3%" },
+              content: {
+                value: "78%",
+                label: "Market Share",
+                trend: "up",
+                change: "+3%",
+              },
             },
             {
               type: "stat",
               position: "center",
-              content: { value: "$2.1B", label: "Revenue", trend: "up", change: "+18%" },
+              content: {
+                value: "$2.1B",
+                label: "Revenue",
+                trend: "up",
+                change: "+18%",
+              },
             },
             {
               type: "stat",
               position: "right",
-              content: { value: "1.4M", label: "Customers", trend: "up", change: "+12%" },
+              content: {
+                value: "1.4M",
+                label: "Customers",
+                trend: "up",
+                change: "+12%",
+              },
             },
           ],
         }),
@@ -1796,12 +2186,36 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Feature Comparison Table",
           sections: [
-            { type: "list", position: "full", content: ["Feature", "Product A", "Product B", "Product C"] },
-            { type: "list", position: "full", content: ["Price", "$99/mo", "$149/mo", "$199/mo"] },
-            { type: "list", position: "full", content: ["Users", "100", "Unlimited", "500"] },
-            { type: "list", position: "full", content: ["Support", "Email", "Chat", "Phone"] },
-            { type: "list", position: "full", content: ["API Access", "No", "Yes", "Yes"] },
-            { type: "list", position: "full", content: ["Analytics", "Basic", "Advanced", "Enterprise"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Feature", "Product A", "Product B", "Product C"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Price", "$99/mo", "$149/mo", "$199/mo"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Users", "100", "Unlimited", "500"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Support", "Email", "Chat", "Phone"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["API Access", "No", "Yes", "Yes"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Analytics", "Basic", "Advanced", "Enterprise"],
+            },
           ],
         }),
       });
@@ -1835,12 +2249,36 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Top 5 Markets by Revenue",
           sections: [
-            { type: "list", position: "full", content: ["North America", "APAC expansion", "$2.4B"] },
-            { type: "list", position: "full", content: ["Europe", "Mature market", "$1.8B"] },
-            { type: "list", position: "full", content: ["Asia Pacific", "Fast growth", "$1.2B"] },
-            { type: "list", position: "full", content: ["Latin America", "Emerging", "$0.8B"] },
-            { type: "list", position: "full", content: ["Middle East", "New market", "$0.5B"] },
-            { type: "text", position: "full", content: "North America continues to lead with 35% market share" },
+            {
+              type: "list",
+              position: "full",
+              content: ["North America", "APAC expansion", "$2.4B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Europe", "Mature market", "$1.8B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Asia Pacific", "Fast growth", "$1.2B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Latin America", "Emerging", "$0.8B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Middle East", "New market", "$0.5B"],
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "North America continues to lead with 35% market share",
+            },
           ],
         }),
       });
@@ -1854,9 +2292,36 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Top Performers",
           sections: [
-            { type: "stat", position: "left", content: { value: "#1", label: "Product A", trend: "up", change: "+40%" } },
-            { type: "stat", position: "center", content: { value: "#2", label: "Product B", trend: "up", change: "+28%" } },
-            { type: "stat", position: "right", content: { value: "#3", label: "Product C", trend: "up", change: "+15%" } },
+            {
+              type: "stat",
+              position: "left",
+              content: {
+                value: "#1",
+                label: "Product A",
+                trend: "up",
+                change: "+40%",
+              },
+            },
+            {
+              type: "stat",
+              position: "center",
+              content: {
+                value: "#2",
+                label: "Product B",
+                trend: "up",
+                change: "+28%",
+              },
+            },
+            {
+              type: "stat",
+              position: "right",
+              content: {
+                value: "#3",
+                label: "Product C",
+                trend: "up",
+                change: "+15%",
+              },
+            },
           ],
         }),
       });
@@ -1870,7 +2335,11 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Ranking Without Insight",
           sections: [
-            { type: "list", position: "full", content: ["Item A", "Description", "100"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Item A", "Description", "100"],
+            },
           ],
         }),
       });
@@ -1890,10 +2359,27 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Key Conclusions",
           sections: [
-            { type: "text", position: "left", content: "Revenue Growth: We exceeded our targets by 23% this year" },
-            { type: "text", position: "center", content: "Market Position: We are now #2 in our segment" },
-            { type: "text", position: "right", content: "Innovation: 5 new products launched successfully" },
-            { type: "text", position: "full", content: "Culture: Employee NPS improved to 72" },
+            {
+              type: "text",
+              position: "left",
+              content:
+                "Revenue Growth: We exceeded our targets by 23% this year",
+            },
+            {
+              type: "text",
+              position: "center",
+              content: "Market Position: We are now #2 in our segment",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "Innovation: 5 new products launched successfully",
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Culture: Employee NPS improved to 72",
+            },
           ],
         }),
       });
@@ -1907,10 +2393,26 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Summary Conclusions",
           sections: [
-            { type: "list", position: "left", content: ["Revenue exceeded target", "By $200M total"] },
-            { type: "list", position: "center", content: ["Market share grew", "From 12% to 18%"] },
-            { type: "list", position: "right", content: ["Team expanded", "200 new hires"] },
-            { type: "list", position: "full", content: ["Product launched", "10M users in 6 months"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Revenue exceeded target", "By $200M total"],
+            },
+            {
+              type: "list",
+              position: "center",
+              content: ["Market share grew", "From 12% to 18%"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Team expanded", "200 new hires"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Product launched", "10M users in 6 months"],
+            },
           ],
         }),
       });
@@ -1933,7 +2435,8 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "text",
               position: "left",
-              content: "Short titleLonger description content that follows the title in text",
+              content:
+                "Short titleLonger description content that follows the title in text",
             },
             {
               type: "text",
@@ -1962,7 +2465,12 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "92%", label: "Customer Retention", trend: "up", change: "+2%" },
+              content: {
+                value: "92%",
+                label: "Customer Retention",
+                trend: "up",
+                change: "+2%",
+              },
             },
             {
               type: "list",
@@ -2106,10 +2614,46 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "4-Phase Methodology",
           sections: [
-            { type: "stat", position: "left", content: { value: "Phase 1", label: "Discovery", trend: "up", change: "2 weeks" } },
-            { type: "stat", position: "center", content: { value: "Phase 2", label: "Design", trend: "up", change: "3 weeks" } },
-            { type: "stat", position: "right", content: { value: "Phase 3", label: "Build", trend: "up", change: "8 weeks" } },
-            { type: "stat", position: "full", content: { value: "Phase 4", label: "Launch", trend: "up", change: "1 week" } },
+            {
+              type: "stat",
+              position: "left",
+              content: {
+                value: "Phase 1",
+                label: "Discovery",
+                trend: "up",
+                change: "2 weeks",
+              },
+            },
+            {
+              type: "stat",
+              position: "center",
+              content: {
+                value: "Phase 2",
+                label: "Design",
+                trend: "up",
+                change: "3 weeks",
+              },
+            },
+            {
+              type: "stat",
+              position: "right",
+              content: {
+                value: "Phase 3",
+                label: "Build",
+                trend: "up",
+                change: "8 weeks",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "Phase 4",
+                label: "Launch",
+                trend: "up",
+                change: "1 week",
+              },
+            },
           ],
         }),
       });
@@ -2157,7 +2701,9 @@ describe("TemplateRenderingSkill", () => {
 
     // D-001: extractBigNumberVariables via templateId switch
     it("D-001: should extract big number variables with stat section", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([BIG_NUMBER_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([BIG_NUMBER_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
@@ -2167,7 +2713,12 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "center",
-              content: { value: "99.9%", label: "Uptime SLA", trend: "up", change: "+0.1%" },
+              content: {
+                value: "99.9%",
+                label: "Uptime SLA",
+                trend: "up",
+                change: "+0.1%",
+              },
             },
           ],
         }),
@@ -2178,7 +2729,9 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("D-001: should use MISSING_NUMBER_PLACEHOLDER when no stat section", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([BIG_NUMBER_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([BIG_NUMBER_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
@@ -2196,18 +2749,60 @@ describe("TemplateRenderingSkill", () => {
 
     // D-002: extractDashboardVariables via templateId switch
     it("D-002: should extract 4KPI dashboard variables", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([DASHBOARD_4KPI_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([DASHBOARD_4KPI_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
         pageContent: makeContent({
           title: "Dashboard KPIs",
           sections: [
-            { type: "stat", position: "left", content: { value: "1000", label: "Users", trend: "up", change: "+10%" } },
-            { type: "stat", position: "center", content: { value: "500", label: "Revenue", trend: "up", change: "+5%" } },
-            { type: "stat", position: "right", content: { value: "98%", label: "Retention", trend: "up", change: "+2%" } },
-            { type: "stat", position: "full", content: { value: "4.5", label: "Rating", trend: "up", change: "+0.2" } },
-            { type: "text", position: "full", content: "Overall performance is strong" },
+            {
+              type: "stat",
+              position: "left",
+              content: {
+                value: "1000",
+                label: "Users",
+                trend: "up",
+                change: "+10%",
+              },
+            },
+            {
+              type: "stat",
+              position: "center",
+              content: {
+                value: "500",
+                label: "Revenue",
+                trend: "up",
+                change: "+5%",
+              },
+            },
+            {
+              type: "stat",
+              position: "right",
+              content: {
+                value: "98%",
+                label: "Retention",
+                trend: "up",
+                change: "+2%",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "4.5",
+                label: "Rating",
+                trend: "up",
+                change: "+0.2",
+              },
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Overall performance is strong",
+            },
           ],
           footer: "Q4 2024",
         }),
@@ -2218,7 +2813,9 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("D-002: should handle dashboard with no stats (all MISSING_NUMBER_PLACEHOLDER)", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([DASHBOARD_4KPI_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([DASHBOARD_4KPI_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
@@ -2234,19 +2831,45 @@ describe("TemplateRenderingSkill", () => {
 
     // D-005: extractComparisonTableVariables via templateId switch
     it("D-005: should extract comparison table variables with list sections", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([COMPARISON_TABLE_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([COMPARISON_TABLE_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
         pageContent: makeContent({
           title: "Comparison Table",
           sections: [
-            { type: "list", position: "full", content: ["Criteria", "Product A", "Product B", "Product C"] },
-            { type: "list", position: "full", content: ["Price", "$10/mo", "$15/mo", "$20/mo"] },
-            { type: "list", position: "full", content: ["Users", "100", "500", "Unlimited"] },
-            { type: "list", position: "full", content: ["Support", "Email", "Chat", "Phone"] },
-            { type: "list", position: "full", content: ["API", "Yes", "Yes", "No"] },
-            { type: "list", position: "full", content: ["SLA", "99%", "99.5%", "99.9%"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Criteria", "Product A", "Product B", "Product C"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Price", "$10/mo", "$15/mo", "$20/mo"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Users", "100", "500", "Unlimited"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Support", "Email", "Chat", "Phone"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["API", "Yes", "Yes", "No"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["SLA", "99%", "99.5%", "99.9%"],
+            },
           ],
         }),
       });
@@ -2256,7 +2879,9 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("D-005: should handle comparison table with no list sections (placeholders)", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([COMPARISON_TABLE_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([COMPARISON_TABLE_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
@@ -2272,19 +2897,45 @@ describe("TemplateRenderingSkill", () => {
 
     // D-006: extractRankingListVariables via templateId switch
     it("D-006: should extract ranking list variables with list sections", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([RANKING_LIST_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([RANKING_LIST_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
         pageContent: makeContent({
           title: "Top Rankings",
           sections: [
-            { type: "list", position: "full", content: ["Company Alpha", "Leading fintech", "$5B"] },
-            { type: "list", position: "full", content: ["Company Beta", "Cloud services", "$3B"] },
-            { type: "list", position: "full", content: ["Company Gamma", "E-commerce", "$2B"] },
-            { type: "list", position: "full", content: ["Company Delta", "Healthcare", "$1.5B"] },
-            { type: "list", position: "full", content: ["Company Epsilon", "Education", "$1B"] },
-            { type: "text", position: "full", content: "Market consolidation accelerating" },
+            {
+              type: "list",
+              position: "full",
+              content: ["Company Alpha", "Leading fintech", "$5B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Company Beta", "Cloud services", "$3B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Company Gamma", "E-commerce", "$2B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Company Delta", "Healthcare", "$1.5B"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Company Epsilon", "Education", "$1B"],
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Market consolidation accelerating",
+            },
           ],
         }),
       });
@@ -2294,16 +2945,45 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("D-006: should handle ranking with stat sections as fallback", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([RANKING_LIST_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([RANKING_LIST_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
         pageContent: makeContent({
           title: "Stat Rankings",
           sections: [
-            { type: "stat", position: "full", content: { value: "#1", label: "Market Leader", trend: "up", change: "" } },
-            { type: "stat", position: "full", content: { value: "#2", label: "Runner Up", trend: "up", change: "" } },
-            { type: "stat", position: "full", content: { value: "#3", label: "Third Place", trend: "up", change: "" } },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "#1",
+                label: "Market Leader",
+                trend: "up",
+                change: "",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "#2",
+                label: "Runner Up",
+                trend: "up",
+                change: "",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "#3",
+                label: "Third Place",
+                trend: "up",
+                change: "",
+              },
+            },
           ],
         }),
       });
@@ -2313,7 +2993,9 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("D-006: should handle ranking with no insight text", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([RANKING_LIST_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([RANKING_LIST_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
@@ -2329,7 +3011,9 @@ describe("TemplateRenderingSkill", () => {
 
     // A-001: extractRecommendations3ColVariables via templateId switch
     it("A-001: should extract 3-column recommendations with list sections", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([RECOMMENDATIONS_3COL_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([RECOMMENDATIONS_3COL_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("recommendations"),
@@ -2337,14 +3021,46 @@ describe("TemplateRenderingSkill", () => {
           title: "Strategic Recommendations",
           subtitle: "Strategy Team",
           sections: [
-            { type: "list", position: "full", content: ["Urgent Action 1", "Do this immediately"] },
-            { type: "list", position: "full", content: ["Urgent Action 2", "Critical priority"] },
-            { type: "list", position: "full", content: ["Short Term 1", "Within 3 months"] },
-            { type: "list", position: "full", content: ["Short Term 2", "Q1 initiative"] },
-            { type: "list", position: "full", content: ["Short Term 3", "Q2 initiative"] },
-            { type: "list", position: "full", content: ["Long Term 1", "Annual goal"] },
-            { type: "list", position: "full", content: ["Long Term 2", "Multi-year plan"] },
-            { type: "list", position: "full", content: ["Long Term 3", "5-year vision"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Urgent Action 1", "Do this immediately"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Urgent Action 2", "Critical priority"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Short Term 1", "Within 3 months"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Short Term 2", "Q1 initiative"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Short Term 3", "Q2 initiative"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Long Term 1", "Annual goal"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Long Term 2", "Multi-year plan"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Long Term 3", "5-year vision"],
+            },
           ],
         }),
       });
@@ -2354,7 +3070,9 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("A-001: should handle missing recommendation sections with MISSING_PLACEHOLDER", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([RECOMMENDATIONS_3COL_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([RECOMMENDATIONS_3COL_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("recommendations"),
@@ -2373,19 +3091,45 @@ describe("TemplateRenderingSkill", () => {
 
     // A-004: extractNextStepsVariables via templateId switch
     it("A-004: should extract next steps with full list sections (steps + milestones)", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([NEXT_STEPS_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([NEXT_STEPS_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("recommendations"),
         pageContent: makeContent({
           title: "Next Steps Plan",
           sections: [
-            { type: "list", position: "full", content: ["Hire 10 engineers", "Technical build", "CTO", "Q1"] },
-            { type: "list", position: "full", content: ["Launch MVP", "Go to market", "CPO", "Q2"] },
-            { type: "list", position: "full", content: ["Scale marketing", "Growth phase", "CMO", "Q3"] },
-            { type: "list", position: "full", content: ["Jan 2025", "Team formation"] },
-            { type: "list", position: "full", content: ["Apr 2025", "Product launch"] },
-            { type: "list", position: "full", content: ["Jul 2025", "Series B close"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Hire 10 engineers", "Technical build", "CTO", "Q1"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Launch MVP", "Go to market", "CPO", "Q2"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Scale marketing", "Growth phase", "CMO", "Q3"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Jan 2025", "Team formation"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Apr 2025", "Product launch"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Jul 2025", "Series B close"],
+            },
           ],
         }),
       });
@@ -2395,7 +3139,9 @@ describe("TemplateRenderingSkill", () => {
     });
 
     it("A-004: should handle next steps with no sections (all placeholders)", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([NEXT_STEPS_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([NEXT_STEPS_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("recommendations"),
@@ -2411,7 +3157,9 @@ describe("TemplateRenderingSkill", () => {
 
     // A-005: extractCoverVariables + PRESENTER/EMAIL/COMPANY via templateId switch
     it("A-005: should extract thank-you variables with MISSING_PLACEHOLDER fields", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([THANK_YOU_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([THANK_YOU_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("closing"),
@@ -2428,15 +3176,25 @@ describe("TemplateRenderingSkill", () => {
 
     // C-004: extractMultiColumnVariables via templateId switch (card grid 2)
     it("C-004: should extract multi-column variables from card grid 2 template", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([CARD_GRID_2_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([CARD_GRID_2_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("multiColumn"),
         pageContent: makeContent({
           title: "Two Column Cards",
           sections: [
-            { type: "list", position: "left", content: ["Card 1 Title", "Description for card 1"] },
-            { type: "list", position: "right", content: ["Card 2 Title", "Description for card 2"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Card 1 Title", "Description for card 1"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Card 2 Title", "Description for card 2"],
+            },
           ],
         }),
       });
@@ -2447,16 +3205,30 @@ describe("TemplateRenderingSkill", () => {
 
     // C-005: card grid 3
     it("C-005: should extract multi-column variables from card grid 3 template", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([CARD_GRID_3_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([CARD_GRID_3_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("multiColumn"),
         pageContent: makeContent({
           title: "Three Column Cards",
           sections: [
-            { type: "text", position: "left", content: "First: Description of first item" },
-            { type: "text", position: "center", content: "Second: Details about second" },
-            { type: "text", position: "right", content: "Third: Third column content" },
+            {
+              type: "text",
+              position: "left",
+              content: "First: Description of first item",
+            },
+            {
+              type: "text",
+              position: "center",
+              content: "Second: Details about second",
+            },
+            {
+              type: "text",
+              position: "right",
+              content: "Third: Third column content",
+            },
           ],
         }),
       });
@@ -2467,17 +3239,55 @@ describe("TemplateRenderingSkill", () => {
 
     // C-006: card grid 4
     it("C-006: should extract multi-column variables from card grid 4 template with stat sections", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([CARD_GRID_4_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([CARD_GRID_4_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("multiColumn"),
         pageContent: makeContent({
           title: "Four Column Stats",
           sections: [
-            { type: "stat", position: "full", content: { value: "85%", label: "Satisfaction", trend: "up", change: "+5%" } },
-            { type: "stat", position: "full", content: { value: "1200", label: "Customers", trend: "up", change: "+100" } },
-            { type: "stat", position: "full", content: { value: "45", label: "Products", trend: "up", change: "+5" } },
-            { type: "stat", position: "full", content: { value: "12", label: "Markets", trend: "up", change: "+2" } },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "85%",
+                label: "Satisfaction",
+                trend: "up",
+                change: "+5%",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "1200",
+                label: "Customers",
+                trend: "up",
+                change: "+100",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "45",
+                label: "Products",
+                trend: "up",
+                change: "+5",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "12",
+                label: "Markets",
+                trend: "up",
+                change: "+2",
+              },
+            },
           ],
         }),
       });
@@ -2497,11 +3307,14 @@ describe("TemplateRenderingSkill", () => {
           // Use a cast to simulate an unrecognized templateType going into extractVariables default
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([unknownTypeTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([unknownTypeTemplate]);
 
       const outline = makeOutline("dashboard");
       // Override the templateType to something not in the extractVariables switch
-      (outline as { templateType: string }).templateType = "unknownFallbackType";
+      (outline as { templateType: string }).templateType =
+        "unknownFallbackType";
 
       const result = skill.render({
         pageOutline: outline,
@@ -2529,14 +3342,27 @@ describe("TemplateRenderingSkill", () => {
           type: "questions" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([questionsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([questionsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("questions" as PageTemplateType),
         pageContent: makeContent({
           title: "FAQ Slide",
           sections: [
-            { type: "list", position: "full", content: ["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?", "Question 6?"] },
+            {
+              type: "list",
+              position: "full",
+              content: [
+                "Question 1?",
+                "Question 2?",
+                "Question 3?",
+                "Question 4?",
+                "Question 5?",
+                "Question 6?",
+              ],
+            },
           ],
         }),
       });
@@ -2553,7 +3379,9 @@ describe("TemplateRenderingSkill", () => {
           type: "questions" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([questionsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([questionsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("questions" as PageTemplateType),
@@ -2576,18 +3404,46 @@ describe("TemplateRenderingSkill", () => {
           type: "maturityModel" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([maturityTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([maturityTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("maturityModel" as PageTemplateType),
         pageContent: makeContent({
           title: "AI Maturity Model",
           sections: [
-            { type: "text", position: "full", content: "Level 1: Initial - Ad hoc processes, no standardization" },
-            { type: "text", position: "full", content: "Level 2: Managed - Defined processes, basic tooling" },
-            { type: "text", position: "full", content: "Level 3: Defined - Standardized, documented" },
-            { type: "stat", position: "full", content: { value: "Level 4", label: "Quantitatively managed", trend: "up", change: "" } },
-            { type: "list", position: "full", content: ["Level 5", "Continuous improvement", "Full automation"] },
+            {
+              type: "text",
+              position: "full",
+              content:
+                "Level 1: Initial - Ad hoc processes, no standardization",
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Level 2: Managed - Defined processes, basic tooling",
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Level 3: Defined - Standardized, documented",
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "Level 4",
+                label: "Quantitatively managed",
+                trend: "up",
+                change: "",
+              },
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Level 5", "Continuous improvement", "Full automation"],
+            },
           ],
         }),
       });
@@ -2606,15 +3462,25 @@ describe("TemplateRenderingSkill", () => {
           id: "CUSTOM-RECS",
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customRecsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customRecsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("recommendations"),
         pageContent: makeContent({
           title: "Compat Recommendations",
           sections: [
-            { type: "list", position: "full", content: ["Rec 1", "Action 1", "Owner 1"] },
-            { type: "list", position: "full", content: ["Rec 2", "Action 2", "Owner 2"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Rec 1", "Action 1", "Owner 1"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Rec 2", "Action 2", "Owner 2"],
+            },
           ],
         }),
       });
@@ -2630,7 +3496,9 @@ describe("TemplateRenderingSkill", () => {
           id: "CUSTOM-RECS",
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customRecsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customRecsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("recommendations"),
@@ -2645,7 +3513,9 @@ describe("TemplateRenderingSkill", () => {
 
     // S-001: extractTocVariables via extractVariablesByTemplateId "S-001" branch
     it("S-001: should extract TOC variables via S-001 template ID branch", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([TOC_DUAL_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([TOC_DUAL_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: {
@@ -2655,7 +3525,11 @@ describe("TemplateRenderingSkill", () => {
         pageContent: makeContent({
           title: "Table of Contents",
           sections: [
-            { type: "list", position: "full", content: ["Section A", "Section B"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Section A", "Section B"],
+            },
           ],
         }),
       });
@@ -2666,16 +3540,30 @@ describe("TemplateRenderingSkill", () => {
 
     // S-009: extractFrameworkVariables via extractVariablesByTemplateId "S-009" branch
     it("S-009: should extract framework variables via S-009 pyramid template", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([PYRAMID_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([PYRAMID_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("framework"),
         pageContent: makeContent({
           title: "Pyramid Framework",
           sections: [
-            { type: "text", position: "full", content: "Foundation: Core principles of our approach" },
-            { type: "text", position: "full", content: "Middle: Implementation layers" },
-            { type: "text", position: "full", content: "Top: Strategic outcomes" },
+            {
+              type: "text",
+              position: "full",
+              content: "Foundation: Core principles of our approach",
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Middle: Implementation layers",
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Top: Strategic outcomes",
+            },
           ],
         }),
       });
@@ -2708,7 +3596,9 @@ describe("TemplateRenderingSkill", () => {
         },
         html: "<div>{{TITLE}} {{SUBTITLE}}</div>",
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([n002Template]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([n002Template]);
 
       const result = skill.render({
         pageOutline: makeOutline("splitLayout" as PageTemplateType),
@@ -2730,7 +3620,9 @@ describe("TemplateRenderingSkill", () => {
         ...THREE_PILLAR_TEMPLATE,
         metadata: { ...THREE_PILLAR_TEMPLATE.metadata, id: "CUSTOM-PILLARS" },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customPillarsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customPillarsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("pillars"),
@@ -2739,7 +3631,11 @@ describe("TemplateRenderingSkill", () => {
           sections: [
             { type: "text", position: "left", content: "Pillar One details" },
             { type: "text", position: "center", content: "Pillar Two details" },
-            { type: "text", position: "right", content: "Pillar Three details" },
+            {
+              type: "text",
+              position: "right",
+              content: "Pillar Three details",
+            },
           ],
         }),
       });
@@ -2753,14 +3649,25 @@ describe("TemplateRenderingSkill", () => {
         ...DASHBOARD_4KPI_TEMPLATE,
         metadata: { ...DASHBOARD_4KPI_TEMPLATE.metadata, id: "CUSTOM-DASH" },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customDashTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customDashTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("dashboard"),
         pageContent: makeContent({
           title: "Dashboard Fallback",
           sections: [
-            { type: "stat", position: "full", content: { value: "42", label: "Answer", trend: "up", change: "+1" } },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "42",
+                label: "Answer",
+                trend: "up",
+                change: "+1",
+              },
+            },
           ],
         }),
       });
@@ -2774,7 +3681,9 @@ describe("TemplateRenderingSkill", () => {
         ...TIMELINE_HORIZONTAL_TEMPLATE,
         metadata: { ...TIMELINE_HORIZONTAL_TEMPLATE.metadata, id: "CUSTOM-TL" },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customTimelineTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customTimelineTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("timeline"),
@@ -2800,7 +3709,9 @@ describe("TemplateRenderingSkill", () => {
           type: "evolutionRoadmap" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customRoadmapTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customRoadmapTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("evolutionRoadmap" as PageTemplateType),
@@ -2825,14 +3736,20 @@ describe("TemplateRenderingSkill", () => {
           type: "comparison" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customCompTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customCompTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("comparison"),
         pageContent: makeContent({
           title: "Comparison Fallback",
           sections: [
-            { type: "list", position: "left", content: ["Option A", "Pro 1", "Pro 2"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Option A", "Pro 1", "Pro 2"],
+            },
             { type: "list", position: "right", content: ["Option B", "Pro 1"] },
           ],
         }),
@@ -2851,15 +3768,25 @@ describe("TemplateRenderingSkill", () => {
           type: "riskOpportunity" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customRiskTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customRiskTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("riskOpportunity" as PageTemplateType),
         pageContent: makeContent({
           title: "Risk Opportunity Fallback",
           sections: [
-            { type: "list", position: "left", content: ["Risk 1", "High impact"] },
-            { type: "list", position: "right", content: ["Opportunity 1", "High reward"] },
+            {
+              type: "list",
+              position: "left",
+              content: ["Risk 1", "High impact"],
+            },
+            {
+              type: "list",
+              position: "right",
+              content: ["Opportunity 1", "High reward"],
+            },
           ],
         }),
       });
@@ -2877,7 +3804,9 @@ describe("TemplateRenderingSkill", () => {
           type: "chapterTitle" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customChapterTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customChapterTemplate]);
 
       const result = skill.render({
         pageOutline: {
@@ -2904,15 +3833,25 @@ describe("TemplateRenderingSkill", () => {
           type: "framework" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customFrameworkTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customFrameworkTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("framework"),
         pageContent: makeContent({
           title: "Framework Fallback",
           sections: [
-            { type: "text", position: "full", content: "Step 1: Define - Establish scope and objectives" },
-            { type: "text", position: "full", content: "Step 2: Plan - Create detailed roadmap" },
+            {
+              type: "text",
+              position: "full",
+              content: "Step 1: Define - Establish scope and objectives",
+            },
+            {
+              type: "text",
+              position: "full",
+              content: "Step 2: Plan - Create detailed roadmap",
+            },
           ],
         }),
       });
@@ -2930,7 +3869,9 @@ describe("TemplateRenderingSkill", () => {
           type: "cover" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customCoverTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customCoverTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("cover"),
@@ -2953,7 +3894,9 @@ describe("TemplateRenderingSkill", () => {
           type: "closing" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customClosingTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customClosingTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("closing"),
@@ -2976,7 +3919,9 @@ describe("TemplateRenderingSkill", () => {
           type: "toc" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customTocTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customTocTemplate]);
 
       const result = skill.render({
         pageOutline: {
@@ -3002,16 +3947,30 @@ describe("TemplateRenderingSkill", () => {
           type: "multiColumn" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customMultiTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customMultiTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("multiColumn" as PageTemplateType),
         pageContent: makeContent({
           title: "Multi Column Fallback",
           sections: [
-            { type: "list", position: "full", content: ["Col 1 Title", "Details for column 1"] },
-            { type: "list", position: "full", content: ["Col 2 Title", "Details for column 2"] },
-            { type: "list", position: "full", content: ["Col 3 Title", "Details for column 3"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Col 1 Title", "Details for column 1"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Col 2 Title", "Details for column 2"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Col 3 Title", "Details for column 3"],
+            },
           ],
         }),
       });
@@ -3029,7 +3988,9 @@ describe("TemplateRenderingSkill", () => {
           type: "splitLayout" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customSplitTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customSplitTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("splitLayout" as PageTemplateType),
@@ -3055,7 +4016,9 @@ describe("TemplateRenderingSkill", () => {
           type: "caseStudy" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customCaseTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customCaseTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("caseStudy" as PageTemplateType),
@@ -3063,8 +4026,22 @@ describe("TemplateRenderingSkill", () => {
           title: "Case Study Fallback",
           subtitle: "Healthcare Industry",
           sections: [
-            { type: "text", position: "full", content: "Background: Leading hospital network faced efficiency challenges" },
-            { type: "stat", position: "full", content: { value: "30%", label: "Cost reduction", trend: "up", change: "" } },
+            {
+              type: "text",
+              position: "full",
+              content:
+                "Background: Leading hospital network faced efficiency challenges",
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "30%",
+                label: "Cost reduction",
+                trend: "up",
+                change: "",
+              },
+            },
           ],
         }),
       });
@@ -3076,9 +4053,14 @@ describe("TemplateRenderingSkill", () => {
     it("getDescriptionFromSections - stat type branch via pillars with stat section", () => {
       const customPillarsTemplate = {
         ...THREE_PILLAR_TEMPLATE,
-        metadata: { ...THREE_PILLAR_TEMPLATE.metadata, id: "CUSTOM-PILLARS-STAT" },
+        metadata: {
+          ...THREE_PILLAR_TEMPLATE.metadata,
+          id: "CUSTOM-PILLARS-STAT",
+        },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customPillarsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customPillarsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("pillars"),
@@ -3089,17 +4071,32 @@ describe("TemplateRenderingSkill", () => {
             {
               type: "stat",
               position: "left",
-              content: { value: "95%", label: "Accuracy stat", trend: "up", change: "+3%" },
+              content: {
+                value: "95%",
+                label: "Accuracy stat",
+                trend: "up",
+                change: "+3%",
+              },
             },
             {
               type: "stat",
               position: "center",
-              content: { value: "80%", label: "Efficiency stat", trend: "up", change: "+5%" },
+              content: {
+                value: "80%",
+                label: "Efficiency stat",
+                trend: "up",
+                change: "+5%",
+              },
             },
             {
               type: "stat",
               position: "right",
-              content: { value: "70%", label: "Coverage stat", trend: "up", change: "+7%" },
+              content: {
+                value: "70%",
+                label: "Coverage stat",
+                trend: "up",
+                change: "+7%",
+              },
             },
           ],
         }),
@@ -3112,9 +4109,14 @@ describe("TemplateRenderingSkill", () => {
     it("getDescriptionFromSections - empty text content uses MISSING_PLACEHOLDER", () => {
       const customPillarsTemplate = {
         ...THREE_PILLAR_TEMPLATE,
-        metadata: { ...THREE_PILLAR_TEMPLATE.metadata, id: "CUSTOM-PILLARS-EMPTY" },
+        metadata: {
+          ...THREE_PILLAR_TEMPLATE.metadata,
+          id: "CUSTOM-PILLARS-EMPTY",
+        },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customPillarsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customPillarsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("pillars"),
@@ -3136,9 +4138,14 @@ describe("TemplateRenderingSkill", () => {
     it("getDescriptionFromSections - empty list slice uses MISSING_PLACEHOLDER", () => {
       const customPillarsTemplate = {
         ...THREE_PILLAR_TEMPLATE,
-        metadata: { ...THREE_PILLAR_TEMPLATE.metadata, id: "CUSTOM-PILLARS-EMPTYLIST" },
+        metadata: {
+          ...THREE_PILLAR_TEMPLATE.metadata,
+          id: "CUSTOM-PILLARS-EMPTYLIST",
+        },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([customPillarsTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([customPillarsTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("pillars"),
@@ -3159,7 +4166,9 @@ describe("TemplateRenderingSkill", () => {
 
     // extractTimelineVariables - missing title warning (line 1047)
     it("extractTimelineVariables - missing title triggers warning (via S-006 spy)", () => {
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([TIMELINE_HORIZONTAL_TEMPLATE]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([TIMELINE_HORIZONTAL_TEMPLATE]);
 
       const result = skill.render({
         pageOutline: makeOutline("timeline"),
@@ -3184,7 +4193,9 @@ describe("TemplateRenderingSkill", () => {
           type: "maturityModel" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([maturityTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([maturityTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("maturityModel" as PageTemplateType),
@@ -3193,13 +4204,47 @@ describe("TemplateRenderingSkill", () => {
           sections: [
             // 5 level definitions first
             { type: "list", position: "full", content: ["Initial", "Ad hoc"] },
-            { type: "list", position: "full", content: ["Managed", "Repeatable"] },
-            { type: "list", position: "full", content: ["Defined", "Standardized"] },
-            { type: "list", position: "full", content: ["Quantified", "Measured"] },
-            { type: "list", position: "full", content: ["Optimizing", "Continuous"] },
+            {
+              type: "list",
+              position: "full",
+              content: ["Managed", "Repeatable"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Defined", "Standardized"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Quantified", "Measured"],
+            },
+            {
+              type: "list",
+              position: "full",
+              content: ["Optimizing", "Continuous"],
+            },
             // stat sections for current/target levels
-            { type: "stat", position: "full", content: { value: "Level 3", label: "Current", trend: "up", change: "" } },
-            { type: "stat", position: "full", content: { value: "Level 5", label: "Target", trend: "up", change: "" } },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "Level 3",
+                label: "Current",
+                trend: "up",
+                change: "",
+              },
+            },
+            {
+              type: "stat",
+              position: "full",
+              content: {
+                value: "Level 5",
+                label: "Target",
+                trend: "up",
+                change: "",
+              },
+            },
           ],
         }),
       });
@@ -3217,7 +4262,9 @@ describe("TemplateRenderingSkill", () => {
           type: "maturityModel" as PageTemplateType,
         },
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([maturityTemplate]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([maturityTemplate]);
 
       const result = skill.render({
         pageOutline: makeOutline("maturityModel" as PageTemplateType),
@@ -3251,14 +4298,20 @@ describe("TemplateRenderingSkill", () => {
         },
         html: "<div>{{TITLE}} {{CHAPTER_NUM}} {{CHAPTER_EN}}</div>",
       };
-      getByTypeSpy = jest.spyOn(templateRegistry, "getByType").mockReturnValue([n003Template]);
+      getByTypeSpy = jest
+        .spyOn(templateRegistry, "getByType")
+        .mockReturnValue([n003Template]);
 
       const result = skill.render({
         pageOutline: makeOutline("framework"),
         pageContent: makeContent({
           title: "Chapter Divider Slide",
           sections: [
-            { type: "text", position: "full", content: "Section intro content" },
+            {
+              type: "text",
+              position: "full",
+              content: "Section intro content",
+            },
           ],
         }),
       });

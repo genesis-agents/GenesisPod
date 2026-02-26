@@ -8,4 +8,4 @@ export {
   ImageMatchingService,
   type ImagePrompt,
   type ImageMatchingResult,
-} from "../../../ai-engine/content/image/matching";
+} from "../../../ai-engine/facade";

@@ -19,7 +19,7 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { AgentConfigService } from "../../ai-engine/agents/config/agent-config.service";
+import { AgentConfigService } from "../../ai-engine/facade";
 import {
   CreateAgentConfigDto,
   UpdateAgentConfigDto,

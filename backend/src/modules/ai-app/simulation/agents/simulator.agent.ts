@@ -7,21 +7,17 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+import { PlanBasedAgent } from "../../../ai-engine/agents/base/plan-based-agent";
 import {
-  PlanBasedAgent,
   BUILTIN_AGENTS,
-  AgentInput,
-  AgentPlan,
-  AgentEvent,
-  AgentTemplate,
-  ToolId,
-} from "../../../ai-engine/agents/base/plan-based-agent";
-import {
+  type AgentInput,
+  type AgentPlan,
+  type PlanAgentEvent as AgentEvent,
+  type AgentTemplate,
+  type ToolId,
   BUILTIN_TOOLS,
-  PlanStep,
-} from "../../../ai-engine/core/types/agent.types";
-import {
-  ISimulationService,
+  type PlanStep,
+  type ISimulationService,
   SIMULATION_SERVICE_TOKEN,
 } from "../../../ai-engine/facade";
 

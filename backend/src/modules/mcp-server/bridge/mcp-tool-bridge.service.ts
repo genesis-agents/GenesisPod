@@ -18,10 +18,12 @@ import {
   MCPToolResponse,
   MCPToolSource,
 } from "../abstractions/mcp-server.interface";
-import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
-import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
-import { AgentRegistry } from "../../ai-engine/agents/registry/agent-registry";
-import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import {
+  ToolRegistry,
+  SkillRegistry,
+  AgentRegistry,
+  AIEngineFacade,
+} from "../../ai-engine/facade";
 
 interface BridgedToolMeta {
   source: MCPToolSource;
@@ -87,7 +89,7 @@ export class MCPToolBridgeService {
         tools.push({
           name: mcpName,
           description: `[Skill:${skill.domain}] ${skill.description}`,
-          inputSchema: inputSchema as Record<string, unknown>,
+          inputSchema: inputSchema,
           source: "registry-skill",
           category: skill.domain,
           tags: skill.tags,
@@ -133,9 +135,9 @@ export class MCPToolBridgeService {
 
     this.logger.log(
       `Bridge discovered ${tools.length} tools ` +
-      `(${this.countBySource(tools, "registry-tool")} tools, ` +
-      `${this.countBySource(tools, "registry-skill")} skills, ` +
-      `${this.countBySource(tools, "registry-agent")} agents)`,
+        `(${this.countBySource(tools, "registry-tool")} tools, ` +
+        `${this.countBySource(tools, "registry-skill")} skills, ` +
+        `${this.countBySource(tools, "registry-agent")} agents)`,
     );
 
     return tools;
@@ -186,7 +188,9 @@ export class MCPToolBridgeService {
           return this.executeRegistryAgent(meta.registryId, args, context);
         default:
           return {
-            content: [{ type: "text", text: `Unsupported source: ${meta.source}` }],
+            content: [
+              { type: "text", text: `Unsupported source: ${meta.source}` },
+            ],
             isError: true,
           };
       }
@@ -285,7 +289,10 @@ export class MCPToolBridgeService {
     const task = (args.task as string) || (args.input as string) || "";
     const additionalContext = (args.context as string) || "";
 
-    const messages: Array<{ role: "user" | "system" | "assistant"; content: string }> = [];
+    const messages: Array<{
+      role: "user" | "system" | "assistant";
+      content: string;
+    }> = [];
     if (additionalContext) {
       messages.push({ role: "system", content: additionalContext });
     }
@@ -413,7 +420,10 @@ export class MCPToolBridgeService {
     };
   }
 
-  private countBySource(tools: ExposedToolWithMeta[], source: MCPToolSource): number {
+  private countBySource(
+    tools: ExposedToolWithMeta[],
+    source: MCPToolSource,
+  ): number {
     return tools.filter((t) => t.source === source).length;
   }
 }

@@ -15,10 +15,11 @@
 import { Injectable } from "@nestjs/common";
 import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
 import {
-  AgentContext,
-  AgentCapability,
-} from "../../../ai-engine/agents/abstractions/agent.interface";
-import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
+  type AgentContext,
+  type AgentCapability,
+  type ExecutionMode,
+  BUILTIN_TOOLS,
+} from "../../../ai-engine/facade";
 import {
   WritingContextPackage,
   ChapterWritingContext,

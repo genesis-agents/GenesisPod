@@ -11,8 +11,10 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { Response } from "express";
 import { MCPStreamEvent } from "../abstractions/mcp-server.interface";
-import { EngineEventEmitterService } from "../../ai-engine/infra/realtime/services/engine-event-emitter.service";
-import { ProgressTrackerService } from "../../ai-engine/infra/realtime/services/progress-tracker.service";
+import {
+  EngineEventEmitterService,
+  ProgressTrackerService,
+} from "../../ai-engine/facade";
 
 interface SSEConnection {
   sessionId: string;

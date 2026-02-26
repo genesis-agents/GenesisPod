@@ -17,10 +17,12 @@ import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ErrorTrackingService, AIMetricsService } from "../monitoring";
 import { AIAdminService } from "./ai-admin.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { TraceCollectorService } from "../../ai-engine/infra/observability";
-import { TraceType } from "../../ai-engine/infra/observability/trace.interface";
+import {
+  TraceCollectorService,
+  TraceType,
+  EvalPipelineService,
+} from "../../ai-engine/facade";
 import { NotFoundException } from "@nestjs/common";
-import { EvalPipelineService } from "../../ai-engine/infra/observability/eval-pipeline.service";
 import {
   RateLimitGuard,
   DistributedRateLimitGuard,

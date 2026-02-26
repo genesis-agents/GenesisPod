@@ -20,13 +20,15 @@ import {
   MCPToolResponse,
   JSON_RPC_ERRORS,
 } from "./abstractions/mcp-server.interface";
-import { GuardrailsPipelineService } from "../ai-engine/safety/guardrails/guardrails-pipeline.service";
+import {
+  GuardrailsPipelineService,
+  AiObservabilityService,
+  CostAttributionService,
+} from "../ai-engine/facade";
 import { MCPToolBridgeService } from "./bridge/mcp-tool-bridge.service";
 import { MCPResourceProvider } from "./bridge/mcp-resource-provider";
 import { MCPPromptProvider } from "./bridge/mcp-prompt-provider";
 import { MCPSessionManager } from "./gateway/mcp-session-manager";
-import { AiObservabilityService } from "../ai-engine/infra/observability/ai-observability.service";
-import { CostAttributionService } from "../ai-engine/infra/observability/cost-attribution.service";
 
 interface ToolCallMetric {
   toolName: string;

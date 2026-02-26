@@ -48,7 +48,17 @@ export type { WorkflowConfig } from "../teams/abstractions/workflow.interface";
 export type { ConstraintProfile } from "../teams/constraints/constraint-profile";
 export { BUILTIN_ROLES } from "../teams/abstractions/role.interface";
 export { BUILTIN_TOOLS } from "../core/types/agent.types";
-export type { BuiltinToolId } from "../core/types/agent.types";
+export type {
+  BuiltinToolId,
+  PlanStep,
+  AgentInput,
+  AgentPlan,
+  AgentEvent as PlanAgentEvent,
+  AgentTemplate,
+  ToolId,
+  AgentConfig,
+} from "../core/types/agent.types";
+export { BUILTIN_AGENTS } from "../core/types/agent.types";
 export type { ExecutionMode } from "../core/types/context.types";
 export type { TaskPlan } from "../orchestration/services/task-planner.service";
 export { createConstraintProfile } from "../teams/constraints/constraint-profile";
@@ -57,7 +67,11 @@ export type {
   MissionInput,
   MissionResult,
 } from "../teams/abstractions/mission.interface";
-export type { ToolContext, ITool } from "../tools/abstractions/tool.interface";
+export type {
+  ToolContext,
+  ITool,
+  JSONSchema,
+} from "../tools/abstractions/tool.interface";
 
 // ★ Batch 1 补充导出 — 所有 AI App 模块所需的额外符号
 
@@ -205,6 +219,7 @@ export type {
   SkillDefinition,
   SkillConfig,
 } from "../skills/abstractions/skill.interface";
+export { SKILL_LAYERS } from "../skills/abstractions/skill.interface";
 
 // Image matching types（for office/template-selection.types.ts）
 export type {
@@ -256,7 +271,7 @@ export {
   PolicyDataService,
 } from "../tools/categories/information/policy";
 
-// Long-content types（for writing and teams modules）
+// Long-content types & services（for writing and teams modules）
 export type {
   LongContentProjectConfig,
   TaskExecutionContext,
@@ -269,3 +284,54 @@ export type {
   ExpectedOutput,
   QualityDashboard,
 } from "../content/long-form";
+export { LongContentEngineService } from "../content/long-form/services/long-content-engine.service";
+export { ContinuationProtocolService } from "../content/long-form/services/continuation-protocol.service";
+export { TaskGranularityService } from "../content/long-form/services/task-granularity.service";
+export { SlidingWindowContextService } from "../content/long-form/services/sliding-window-context.service";
+export { QualityMonitorService } from "../content/long-form/services/quality-monitor.service";
+
+// ★ Agent base classes — NOTE: BaseAgent and PlanBasedAgent are NOT exported here
+// because barrel re-export causes circular dependency (class extends undefined).
+// Agent implementations must import base classes directly:
+//   import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
+//   import { PlanBasedAgent } from "../../../ai-engine/agents/base/plan-based-agent";
+// All OTHER agent types (AgentContext, AgentCapability, etc.) are safe via facade.
+export type { IPlanBasedAgent } from "../agents/base/plan-based-agent";
+
+// ★ Batch 2 — Tool base class（for AI App tool subclasses & test mocking）
+export { BaseTool } from "../tools/base/base-tool";
+
+// ★ Batch 2 — Core services（for admin, mcp-server, and cross-cutting concerns）
+export { AiChatService } from "../llm/services/ai-chat.service";
+export { inferIsReasoning, getKnownModelLimit } from "../llm/types/model-utils";
+export { SearchService } from "../knowledge/search/search.service";
+export { MCPManager } from "../mcp/manager/mcp-manager";
+export { SkillLoaderService } from "../skills/loader/skill-loader.service";
+export { AgentConfigService } from "../agents/config/agent-config.service";
+export { MCPExternalAdminController } from "../mcp/admin/mcp-external-admin.controller";
+export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
+export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
+export { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";
+
+// ★ Batch 2 — Safety（for mcp-server guardrails integration）
+export { GuardrailsPipelineService } from "../safety/guardrails/guardrails-pipeline.service";
+
+// ★ Batch 2 — Observability（for admin monitoring and health checks）
+export { TraceCollectorService } from "../infra/observability/trace-collector.service";
+export { AiObservabilityService } from "../infra/observability/ai-observability.service";
+export { CostAttributionService } from "../infra/observability/cost-attribution.service";
+export { EvalPipelineService } from "../infra/observability/eval-pipeline.service";
+export type { TraceType } from "../infra/observability/trace.interface";
+
+// ★ Batch 2 — Realtime（for mcp-server streaming bridge）
+export { EngineEventEmitterService } from "../infra/realtime/services/engine-event-emitter.service";
+export { ProgressTrackerService } from "../infra/realtime/services/progress-tracker.service";
+
+// ★ Batch 2 — Content services（for office re-exports）
+export { ImageMatchingService } from "../content/image/matching/image-matching.service";
+export type {
+  ImagePrompt,
+  ImageMatchingResult,
+} from "../content/image/matching";
+export { ContentAnalysisService } from "../content/analysis/content-analysis.service";
+export * from "../content/analysis/content-analysis.types";

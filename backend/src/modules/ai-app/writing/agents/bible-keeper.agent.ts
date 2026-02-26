@@ -11,17 +11,18 @@
 import { Injectable } from "@nestjs/common";
 import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
 import {
-  AgentContext,
-  AgentCapability,
-} from "../../../ai-engine/agents/abstractions/agent.interface";
-import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
+  type AgentContext,
+  type AgentCapability,
+  type ExecutionMode,
+  BUILTIN_TOOLS,
+  type TaskProfile,
+} from "../../../ai-engine/facade";
 import {
   WritingContextPackage,
   WritingCharacterEntity,
   CharacterStateSnapshot,
   TimelineEventEntity,
 } from "../interfaces/writing-context.interface";
-import { TaskProfile } from "../../../ai-engine/llm/types";
 
 // ==================== 输入输出类型 ====================
 

@@ -6,17 +6,14 @@
  */
 
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import {
-  LayoutOptimizerSkill,
-  LayoutDecision,
-} from "../layout-optimizer.skill";
+import { LayoutOptimizerSkill } from "../layout-optimizer.skill";
 import {
   ContentAnalyzerSkill,
   ContentAnalysisResult,
   RecommendedLayout,
 } from "../content-analyzer.skill";
 import { PageContent, ContentSection } from "../../checkpoint/checkpoint.types";
-import type { SkillContext } from "@/modules/ai-engine/skills";
+import type { SkillContext } from "@/modules/ai-engine/facade";
 
 // ============================================================================
 // Helpers
@@ -220,7 +217,7 @@ describe("LayoutOptimizerSkill", () => {
       expect(result.metadata?.startTime).toBeInstanceOf(Date);
       expect(result.metadata?.endTime).toBeInstanceOf(Date);
       expect(typeof result.metadata?.duration).toBe("number");
-      expect(result.metadata!.duration).toBeGreaterThanOrEqual(0);
+      expect(result.metadata.duration).toBeGreaterThanOrEqual(0);
     });
 
     it("should call contentAnalyzer.analyze with content", async () => {
@@ -275,7 +272,12 @@ describe("LayoutOptimizerSkill", () => {
         layout: "pillar-showcase",
         analysisOverrides: {
           recommendedLayout: "pillar-showcase",
-          pillars: { detected: true, count: 3, titles: [], hasHierarchy: false },
+          pillars: {
+            detected: true,
+            count: 3,
+            titles: [],
+            hasHierarchy: false,
+          },
         },
       },
       {
@@ -384,7 +386,12 @@ describe("LayoutOptimizerSkill", () => {
       mockContentAnalyzer.analyze.mockReturnValue(
         makeAnalysisResult({
           recommendedLayout: "comparison-grid",
-          comparison: { detected: true, count: 2, type: "binary", dimensions: [] },
+          comparison: {
+            detected: true,
+            count: 2,
+            type: "binary",
+            dimensions: [],
+          },
         }),
       );
 
@@ -398,7 +405,12 @@ describe("LayoutOptimizerSkill", () => {
       mockContentAnalyzer.analyze.mockReturnValue(
         makeAnalysisResult({
           recommendedLayout: "comparison-grid",
-          comparison: { detected: true, count: 6, type: "multi", dimensions: [] },
+          comparison: {
+            detected: true,
+            count: 6,
+            type: "multi",
+            dimensions: [],
+          },
         }),
       );
 
@@ -411,7 +423,12 @@ describe("LayoutOptimizerSkill", () => {
       mockContentAnalyzer.analyze.mockReturnValue(
         makeAnalysisResult({
           recommendedLayout: "pillar-showcase",
-          pillars: { detected: true, count: 3, titles: [], hasHierarchy: false },
+          pillars: {
+            detected: true,
+            count: 3,
+            titles: [],
+            hasHierarchy: false,
+          },
         }),
       );
 
@@ -425,7 +442,12 @@ describe("LayoutOptimizerSkill", () => {
       mockContentAnalyzer.analyze.mockReturnValue(
         makeAnalysisResult({
           recommendedLayout: "pillar-showcase",
-          pillars: { detected: true, count: 6, titles: [], hasHierarchy: false },
+          pillars: {
+            detected: true,
+            count: 6,
+            titles: [],
+            hasHierarchy: false,
+          },
         }),
       );
 
@@ -438,7 +460,12 @@ describe("LayoutOptimizerSkill", () => {
       mockContentAnalyzer.analyze.mockReturnValue(
         makeAnalysisResult({
           recommendedLayout: "pillar-showcase",
-          pillars: { detected: true, count: 9, titles: [], hasHierarchy: false },
+          pillars: {
+            detected: true,
+            count: 9,
+            titles: [],
+            hasHierarchy: false,
+          },
         }),
       );
 
@@ -533,7 +560,12 @@ describe("LayoutOptimizerSkill", () => {
       mockContentAnalyzer.analyze.mockReturnValue(
         makeAnalysisResult({
           totalSections: 3,
-          pillars: { detected: true, count: 3, titles: [], hasHierarchy: false },
+          pillars: {
+            detected: true,
+            count: 3,
+            titles: [],
+            hasHierarchy: false,
+          },
           recommendedLayout: "pillar-showcase",
         }),
       );
@@ -637,13 +669,23 @@ describe("LayoutOptimizerSkill", () => {
       {
         layout: "comparison-grid",
         overrides: {
-          comparison: { detected: true, count: 3, type: "multi", dimensions: [] },
+          comparison: {
+            detected: true,
+            count: 3,
+            type: "multi",
+            dimensions: [],
+          },
         },
       },
       {
         layout: "pillar-showcase",
         overrides: {
-          pillars: { detected: true, count: 4, titles: [], hasHierarchy: false },
+          pillars: {
+            detected: true,
+            count: 4,
+            titles: [],
+            hasHierarchy: false,
+          },
         },
       },
       { layout: "data-dashboard", overrides: { totalSections: 3 } },

@@ -97,7 +97,7 @@ export class ReadingExperienceService {
 
     let totalParagraphs = 0;
     let longParagraphs = 0;
-    let consecutiveTextBlocks = 0;
+    let _consecutiveTextBlocks = 0;
     let maxConsecutiveText = 0;
 
     sections.forEach((section, sectionIndex) => {
@@ -138,7 +138,7 @@ export class ReadingExperienceService {
 
         // 连续纯文字超过阈值
         if (consecutiveCount >= config.rhythm.visualBreakFrequency) {
-          consecutiveTextBlocks++;
+          _consecutiveTextBlocks++;
         }
       });
 

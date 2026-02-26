@@ -17,7 +17,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { EditorAgent, EditorInput } from "../editor.agent";
 import { QualityGateService } from "../../services/quality/quality-gate.service";
 import { ChapterQualityEvaluatorService } from "../../services/quality/chapter-quality-evaluator.service";
-import type { AgentContext } from "../../../../ai-engine/agents/abstractions/agent.interface";
+import type { AgentContext } from "../../../../ai-engine/facade";
 import type { WritingContextPackage } from "../../interfaces/writing-context.interface";
 
 // ==================== Helpers ====================

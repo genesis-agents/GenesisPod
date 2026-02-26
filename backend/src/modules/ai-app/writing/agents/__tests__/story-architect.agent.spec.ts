@@ -19,7 +19,7 @@ import {
   StoryArchitectInput,
 } from "../story-architect.agent";
 import { QualityGateService } from "../../services/quality/quality-gate.service";
-import type { AgentContext } from "../../../../ai-engine/agents/abstractions/agent.interface";
+import type { AgentContext } from "../../../../ai-engine/facade";
 import type { WritingContextPackage } from "../../interfaces/writing-context.interface";
 
 // ==================== Helpers ====================

@@ -18,6 +18,7 @@ import {
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
+  type ToolContext,
 } from "@/modules/ai-engine/facade";
 
 import {
@@ -1169,9 +1170,7 @@ export class DataSourceRouterService {
   /**
    * 创建工具执行上下文
    */
-  private createToolContext(
-    toolId: string,
-  ): import("@/modules/ai-engine/tools/abstractions/tool.interface").ToolContext {
+  private createToolContext(toolId: string): ToolContext {
     return {
       executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       toolId,

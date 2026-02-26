@@ -7,7 +7,8 @@ import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
-import { AIMetricsService } from "../../../core/monitoring";
+// ★ Direct import to avoid circular dep via monitoring barrel → health-check → facade → this
+import { AIMetricsService } from "../../../core/monitoring/ai-metrics.service";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import {
   CircuitBreakerService,

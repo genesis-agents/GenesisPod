@@ -12,7 +12,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-} from "@/modules/ai-engine/skills";
+} from "@/modules/ai-engine/facade";
 import {
   PageContent,
   ContentSection,

@@ -18,8 +18,9 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-} from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { AIEngineFacade, ChatMessage } from "@/modules/ai-engine/facade";
+  AIEngineFacade,
+  ChatMessage,
+} from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   PageOutline,

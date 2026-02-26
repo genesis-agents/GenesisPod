@@ -200,13 +200,16 @@ function getErrorMessage(error: unknown): string {
   }
   return String(error);
 }
-import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
-import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
-import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
-import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
+import {
+  ToolRegistry,
+  SkillRegistry,
+  SkillLoaderService,
+  MCPManager,
+  SearchService,
+  MultiKeyRegistry,
+  KeyHealthStatus,
+} from "../../ai-engine/facade";
 import { SecretsService } from "../secrets/secrets.service";
-import { SearchService } from "../../ai-engine/knowledge/search/search.service";
-import { MultiKeyRegistry, KeyHealthStatus } from "../../ai-engine/core/utils";
 
 /**
  * AI 能力管理服务

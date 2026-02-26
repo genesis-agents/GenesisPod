@@ -20,7 +20,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConsistencyCheckerAgent } from "../consistency-checker.agent";
 import { SemanticConsistencyService } from "../../services/quality/semantic-consistency.service";
-import type { AgentContext } from "../../../../ai-engine/agents/abstractions/agent.interface";
+import type { AgentContext } from "../../../../ai-engine/facade";
 import type { WritingContextPackage } from "../../interfaces/writing-context.interface";
 import type { ConsistencyCheckerInput } from "../consistency-checker.agent";
 
@@ -61,10 +61,18 @@ function makeContextPackage(
           dialogueStyle: "natural",
           descriptionStyle: "vivid",
         },
-        characters: (overrides.characters as WritingContextPackage["extensions"]["storyBible"]["characters"]) || [],
-        terminologies: (overrides.terminologies as WritingContextPackage["extensions"]["storyBible"]["terminologies"]) || [],
-        worldSettings: (overrides.worldSettings as WritingContextPackage["extensions"]["storyBible"]["worldSettings"]) || [],
-        timelineEvents: (overrides.timelineEvents as WritingContextPackage["extensions"]["storyBible"]["timelineEvents"]) || [],
+        characters:
+          (overrides.characters as WritingContextPackage["extensions"]["storyBible"]["characters"]) ||
+          [],
+        terminologies:
+          (overrides.terminologies as WritingContextPackage["extensions"]["storyBible"]["terminologies"]) ||
+          [],
+        worldSettings:
+          (overrides.worldSettings as WritingContextPackage["extensions"]["storyBible"]["worldSettings"]) ||
+          [],
+        timelineEvents:
+          (overrides.timelineEvents as WritingContextPackage["extensions"]["storyBible"]["timelineEvents"]) ||
+          [],
         factions: [],
         plotPoints: [],
       },
@@ -106,7 +114,13 @@ describe("ConsistencyCheckerAgent", () => {
     agent = module.get<ConsistencyCheckerAgent>(ConsistencyCheckerAgent);
 
     // Mock the inherited callLLM method from BaseAgent
-    jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+    jest
+      .spyOn(
+        agent as unknown as {
+          callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+        },
+        "callLLM",
+      )
       .mockResolvedValue({ content: "[]" });
   });
 
@@ -197,7 +211,13 @@ describe("ConsistencyCheckerAgent", () => {
         },
       ];
 
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: JSON.stringify(mockIssues) });
 
       const input: ConsistencyCheckerInput = {
@@ -260,14 +280,32 @@ describe("ConsistencyCheckerAgent", () => {
         },
       ];
 
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: JSON.stringify(mockIssues) });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
         content: "Content.",
         contextPackage: makeContextPackage({
-          characters: [{ id: "c1", name: "Alice", role: "hero", definition: "", appearance: {}, abilities: [], aliases: [], personality: {}, currentState: { state: {} } }],
+          characters: [
+            {
+              id: "c1",
+              name: "Alice",
+              role: "hero",
+              definition: "",
+              appearance: {},
+              abilities: [],
+              aliases: [],
+              personality: {},
+              currentState: { state: {} },
+            },
+          ],
         }),
       };
 
@@ -289,7 +327,9 @@ describe("ConsistencyCheckerAgent", () => {
       // First calls return [] for character/timeline/world/plot checks
       // Last callLLM call is for extractFacts
       const callLLM = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
+        agent as unknown as {
+          callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+        },
         "callLLM",
       );
       callLLM
@@ -304,10 +344,25 @@ describe("ConsistencyCheckerAgent", () => {
         content: "Chapter content.",
         contextPackage: makeContextPackage({
           characters: [
-            { id: "c1", name: "Alice", role: "hero", definition: "", appearance: {}, abilities: [], aliases: [], personality: {}, currentState: { state: {} } },
+            {
+              id: "c1",
+              name: "Alice",
+              role: "hero",
+              definition: "",
+              appearance: {},
+              abilities: [],
+              aliases: [],
+              personality: {},
+              currentState: { state: {} },
+            },
           ],
           establishedFacts: [
-            { statement: "Alice is human", category: "entity_state", importance: "high", relatedEntities: ["Alice"] },
+            {
+              statement: "Alice is human",
+              category: "entity_state",
+              importance: "high",
+              relatedEntities: ["Alice"],
+            },
           ],
         }),
       };
@@ -322,17 +377,31 @@ describe("ConsistencyCheckerAgent", () => {
 
   describe("execute with checkTypes filter", () => {
     it("should only run specified check types", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
         content: "Some content.",
         contextPackage: makeContextPackage({
           characters: [
-            { id: "c1", name: "Hero", role: "protagonist", definition: "", appearance: { hair: "black" }, abilities: [], aliases: [], personality: {}, currentState: { state: {} } },
+            {
+              id: "c1",
+              name: "Hero",
+              role: "protagonist",
+              definition: "",
+              appearance: { hair: "black" },
+              abilities: [],
+              aliases: [],
+              personality: {},
+              currentState: { state: {} },
+            },
           ],
         }),
         checkTypes: ["CHARACTER"],
@@ -345,10 +414,14 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should check TERMINOLOGY without LLM when terminology data exists", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       // Use TWO variants but NOT the standard term to trigger WARNING (multiple variants used)
       const input: ConsistencyCheckerInput = {
@@ -372,7 +445,9 @@ describe("ConsistencyCheckerAgent", () => {
       // but extractFacts still uses LLM once
       expect(callLLMSpy).toHaveBeenCalledTimes(1); // only extractFacts
       // Should detect multiple variants used (WARNING level)
-      expect(result.data.issues.some((i) => i.type === "TERMINOLOGY")).toBe(true);
+      expect(result.data.issues.some((i) => i.type === "TERMINOLOGY")).toBe(
+        true,
+      );
     });
   });
 
@@ -380,7 +455,13 @@ describe("ConsistencyCheckerAgent", () => {
 
   describe("terminology consistency (local check)", () => {
     beforeEach(() => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
     });
 
@@ -402,7 +483,9 @@ describe("ConsistencyCheckerAgent", () => {
 
       const result = await agent.execute(input, makeAgentContext());
 
-      const termIssues = result.data.issues.filter((i) => i.type === "TERMINOLOGY");
+      const termIssues = result.data.issues.filter(
+        (i) => i.type === "TERMINOLOGY",
+      );
       expect(termIssues.length).toBeGreaterThan(0);
       expect(termIssues[0].severity).toBe("WARNING");
     });
@@ -449,7 +532,9 @@ describe("ConsistencyCheckerAgent", () => {
 
       const result = await agent.execute(input, makeAgentContext());
 
-      const termIssues = result.data.issues.filter((i) => i.type === "TERMINOLOGY");
+      const termIssues = result.data.issues.filter(
+        (i) => i.type === "TERMINOLOGY",
+      );
       expect(termIssues).toHaveLength(0);
     });
 
@@ -471,7 +556,9 @@ describe("ConsistencyCheckerAgent", () => {
 
       const result = await agent.execute(input, makeAgentContext());
 
-      const termIssues = result.data.issues.filter((i) => i.type === "TERMINOLOGY");
+      const termIssues = result.data.issues.filter(
+        (i) => i.type === "TERMINOLOGY",
+      );
       expect(termIssues).toHaveLength(0);
     });
   });
@@ -480,20 +567,33 @@ describe("ConsistencyCheckerAgent", () => {
 
   describe("checkTimelineConsistency", () => {
     beforeEach(() => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
     });
 
     it("should skip timeline check when no timeline events and no facts", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
         content: "Content.",
-        contextPackage: makeContextPackage({ timelineEvents: [], establishedFacts: [] }),
+        contextPackage: makeContextPackage({
+          timelineEvents: [],
+          establishedFacts: [],
+        }),
         checkTypes: ["TIMELINE"],
       };
 
@@ -504,10 +604,14 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should run timeline check when timeline events exist", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
@@ -536,15 +640,25 @@ describe("ConsistencyCheckerAgent", () => {
 
   describe("checkWorldConsistency", () => {
     beforeEach(() => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
     });
 
     it("should skip world check when no worldSettings", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
@@ -560,10 +674,14 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should run world check when worldSettings exist with rules", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
@@ -590,7 +708,13 @@ describe("ConsistencyCheckerAgent", () => {
 
     it("should skip world rules for settings without rules array", async () => {
       // worldSettings exist but none have rules - still calls LLM but content is empty
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
@@ -598,7 +722,12 @@ describe("ConsistencyCheckerAgent", () => {
         content: "Content.",
         contextPackage: makeContextPackage({
           worldSettings: [
-            { id: "ws-1", name: "Kingdom", category: "location", description: "A kingdom" },
+            {
+              id: "ws-1",
+              name: "Kingdom",
+              category: "location",
+              description: "A kingdom",
+            },
           ],
         }),
         checkTypes: ["WORLD"],
@@ -613,10 +742,14 @@ describe("ConsistencyCheckerAgent", () => {
 
   describe("checkPlotConsistency", () => {
     it("should skip plot check when no established facts", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
@@ -632,10 +765,14 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should run plot check when established facts exist", async () => {
-      const callLLMSpy = jest.spyOn(
-        agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> },
-        "callLLM",
-      ).mockResolvedValue({ content: "[]" });
+      const callLLMSpy = jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
+        .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
         chapterId: "ch-1",
@@ -664,7 +801,13 @@ describe("ConsistencyCheckerAgent", () => {
 
   describe("checkSemanticConsistency", () => {
     it("should map semantic conflicts to ConsistencyIssue format", async () => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       mockSemanticConsistency.checkSemanticConsistency.mockResolvedValue({
@@ -719,7 +862,13 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should map inconsistency conflict type to PLOT", async () => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       mockSemanticConsistency.checkSemanticConsistency.mockResolvedValue({
@@ -758,7 +907,13 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should map timeline_violation conflict type to TIMELINE", async () => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       mockSemanticConsistency.checkSemanticConsistency.mockResolvedValue({
@@ -797,7 +952,13 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should not block other checks when semantic consistency throws", async () => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       mockSemanticConsistency.checkSemanticConsistency.mockRejectedValue(
@@ -822,7 +983,13 @@ describe("ConsistencyCheckerAgent", () => {
     });
 
     it("should build character facts from appearance (hair and eyes)", async () => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
@@ -848,17 +1015,27 @@ describe("ConsistencyCheckerAgent", () => {
       await agent.execute(input, makeAgentContext());
 
       // SemanticConsistencyService should have been called with character facts
-      expect(mockSemanticConsistency.checkSemanticConsistency).toHaveBeenCalledWith(
+      expect(
+        mockSemanticConsistency.checkSemanticConsistency,
+      ).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Array),
         expect.arrayContaining([
-          expect.objectContaining({ statement: expect.stringContaining("Alice") }),
+          expect.objectContaining({
+            statement: expect.stringContaining("Alice"),
+          }),
         ]),
       );
     });
 
     it("should handle characters without appearance gracefully", async () => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
@@ -893,12 +1070,36 @@ describe("ConsistencyCheckerAgent", () => {
     it("should correctly tally issues by type and severity", async () => {
       // Use only CHARACTER type issues so byType.CHARACTER == total
       const mockIssues = [
-        { type: "CHARACTER", severity: "CRITICAL", location: "p1", description: "Critical char issue", relatedEntities: [] },
-        { type: "CHARACTER", severity: "WARNING", location: "p2", description: "Warning char issue", relatedEntities: [] },
-        { type: "CHARACTER", severity: "INFO", location: "p3", description: "Info char issue", relatedEntities: [] },
+        {
+          type: "CHARACTER",
+          severity: "CRITICAL",
+          location: "p1",
+          description: "Critical char issue",
+          relatedEntities: [],
+        },
+        {
+          type: "CHARACTER",
+          severity: "WARNING",
+          location: "p2",
+          description: "Warning char issue",
+          relatedEntities: [],
+        },
+        {
+          type: "CHARACTER",
+          severity: "INFO",
+          location: "p3",
+          description: "Info char issue",
+          relatedEntities: [],
+        },
       ];
 
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValueOnce({ content: JSON.stringify(mockIssues) }) // CHARACTER
         .mockResolvedValue({ content: "[]" }); // extractFacts
 
@@ -907,7 +1108,17 @@ describe("ConsistencyCheckerAgent", () => {
         content: "Content.",
         contextPackage: makeContextPackage({
           characters: [
-            { id: "c1", name: "Alice", role: "hero", definition: "", appearance: {}, abilities: [], aliases: [], personality: {}, currentState: { state: {} } },
+            {
+              id: "c1",
+              name: "Alice",
+              role: "hero",
+              definition: "",
+              appearance: {},
+              abilities: [],
+              aliases: [],
+              personality: {},
+              currentState: { state: {} },
+            },
           ],
         }),
         checkTypes: ["CHARACTER"],
@@ -927,7 +1138,13 @@ describe("ConsistencyCheckerAgent", () => {
 
   describe("mapFactCategory (private, tested via semantic consistency)", () => {
     it("should use established facts with correct category mapping", async () => {
-      jest.spyOn(agent as unknown as { callLLM: (...args: unknown[]) => Promise<{ content: string }> }, "callLLM")
+      jest
+        .spyOn(
+          agent as unknown as {
+            callLLM: (...args: unknown[]) => Promise<{ content: string }>;
+          },
+          "callLLM",
+        )
         .mockResolvedValue({ content: "[]" });
 
       const input: ConsistencyCheckerInput = {
@@ -935,11 +1152,36 @@ describe("ConsistencyCheckerAgent", () => {
         content: "Content.",
         contextPackage: makeContextPackage({
           establishedFacts: [
-            { statement: "Fact about character", category: "entity_state", importance: "high", relatedEntities: [] },
-            { statement: "Sequence event", category: "sequence_point", importance: "medium", relatedEntities: [] },
-            { statement: "A decision made", category: "decision", importance: "low", relatedEntities: [] },
-            { statement: "A relationship", category: "relationship", importance: "high", relatedEntities: [] },
-            { statement: "World fact", category: "unknown_type", importance: "medium", relatedEntities: [] },
+            {
+              statement: "Fact about character",
+              category: "entity_state",
+              importance: "high",
+              relatedEntities: [],
+            },
+            {
+              statement: "Sequence event",
+              category: "sequence_point",
+              importance: "medium",
+              relatedEntities: [],
+            },
+            {
+              statement: "A decision made",
+              category: "decision",
+              importance: "low",
+              relatedEntities: [],
+            },
+            {
+              statement: "A relationship",
+              category: "relationship",
+              importance: "high",
+              relatedEntities: [],
+            },
+            {
+              statement: "World fact",
+              category: "unknown_type",
+              importance: "medium",
+              relatedEntities: [],
+            },
           ],
         }),
       };
@@ -948,7 +1190,9 @@ describe("ConsistencyCheckerAgent", () => {
 
       // Should pass with semantic consistency mocked to pass
       expect(result.success).toBe(true);
-      expect(mockSemanticConsistency.checkSemanticConsistency).toHaveBeenCalledWith(
+      expect(
+        mockSemanticConsistency.checkSemanticConsistency,
+      ).toHaveBeenCalledWith(
         expect.any(String),
         expect.arrayContaining([
           expect.objectContaining({ category: "character" }), // entity_state -> character

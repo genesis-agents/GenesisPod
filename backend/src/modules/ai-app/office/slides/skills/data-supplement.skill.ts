@@ -12,11 +12,10 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-} from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-// ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
-import type { ToolContext } from "../../../../ai-engine/tools/abstractions/tool.interface";
+  AIEngineFacade,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
+import type { ToolContext } from "@/modules/ai-engine/facade";
 
 /**
  * 搜索结果类型（从工具返回数据中提取）

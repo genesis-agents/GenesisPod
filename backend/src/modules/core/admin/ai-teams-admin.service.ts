@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
-import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
+import { TaskProfile } from "../../ai-engine/facade";
 import {
   CreateTeamDto,
   UpdateTeamDto,
@@ -67,7 +67,7 @@ export class AITeamsAdminService {
   async getAllTeams(query: QueryTeamsDto = {}) {
     const { status, category, includeMembers = true } = query;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (status) where.status = status;
     if (category) where.category = category;
 
@@ -193,7 +193,7 @@ export class AITeamsAdminService {
       data: {
         teamId,
         ...dto,
-        mcpTools: dto.mcpTools as any,
+        mcpTools: dto.mcpTools as unknown as Prisma.InputJsonValue,
         sortOrder: dto.sortOrder ?? maxSortOrder + 1,
       },
     });
@@ -216,7 +216,7 @@ export class AITeamsAdminService {
       where: { id: memberId },
       data: {
         ...dto,
-        mcpTools: dto.mcpTools as any,
+        mcpTools: dto.mcpTools as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -270,7 +270,7 @@ export class AITeamsAdminService {
   // ==================== Public API (for other apps) ====================
 
   async getActiveTeamTemplates(category?: string) {
-    const where: any = {
+    const where: Record<string, unknown> = {
       status: AITeamTemplateStatus.ACTIVE,
     };
     if (category) where.category = category;

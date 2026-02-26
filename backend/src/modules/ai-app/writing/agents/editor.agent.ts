@@ -11,13 +11,14 @@
 import { Injectable } from "@nestjs/common";
 import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
 import {
-  AgentContext,
-  AgentCapability,
-} from "../../../ai-engine/agents/abstractions/agent.interface";
-import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
+  type AgentContext,
+  type AgentCapability,
+  type ExecutionMode,
+  BUILTIN_TOOLS,
+  type TaskProfile,
+} from "../../../ai-engine/facade";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 import { ConsistencyIssue } from "./consistency-checker.agent";
-import { TaskProfile } from "../../../ai-engine/llm/types";
 // 增强：注入质量服务
 import {
   QualityGateService,

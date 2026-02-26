@@ -27,19 +27,21 @@ jest.mock(
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamMissionService } from "../mission/team-mission.service";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
-import { LongContentEngineService } from "../../../../../ai-engine/content/long-form/services/long-content-engine.service";
-import { ContinuationProtocolService } from "../../../../../ai-engine/content/long-form/services/continuation-protocol.service";
-import { TaskGranularityService } from "../../../../../ai-engine/content/long-form/services/task-granularity.service";
-import { SlidingWindowContextService } from "../../../../../ai-engine/content/long-form/services/sliding-window-context.service";
-import { QualityMonitorService } from "../../../../../ai-engine/content/long-form/services/quality-monitor.service";
-import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
-import { SearchService } from "../../../../../ai-engine/knowledge/search/search.service";
-import { TopicEventEmitterService } from "../../events";
 import {
+  LongContentEngineService,
+  ContinuationProtocolService,
+  TaskGranularityService,
+  SlidingWindowContextService,
+  QualityMonitorService,
+  AiChatService,
+  SearchService,
   CircuitBreakerService,
   ContextInitializationService,
-} from "../../../../../ai-engine/orchestration/services";
+  ToolRegistry,
+  AIEngineFacade,
+} from "../../../../../ai-engine/facade";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { TopicEventEmitterService } from "../../events";
 import { LeaderModelService } from "../../ai/leader-model.service";
 import { MissionContextService } from "../mission/mission-context.service";
 import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
@@ -49,8 +51,6 @@ import { MissionLifecycleService } from "../mission/mission-lifecycle.service";
 import { MissionRetryService } from "../mission/mission-retry.service";
 import { MissionHealthCheckService } from "../mission/mission-health-check.service";
 import { ConfigService } from "@nestjs/config";
-import { AIEngineFacade } from "../../../../../ai-engine/facade";
-import { ToolRegistry } from "../../../../../ai-engine/tools/registry/tool-registry";
 import { MissionAICallerService } from "../mission/mission-ai-caller.service";
 import { TeamMessageService } from "../mission/team-message.service";
 import { TeamMemberService } from "../mission/team-member.service";

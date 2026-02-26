@@ -5,14 +5,14 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamMemberAgent, TeamMemberAgentConfig } from "../team-member.agent";
-import { ToolRegistry } from "../../../../ai-engine/tools/registry";
-import { BUILTIN_TOOLS } from "../../../../ai-engine/core";
-import { AICapability, AgentWorkStyle } from "@prisma/client";
-import { BaseTool } from "../../../../ai-engine/tools/base";
 import {
-  JSONSchema,
+  ToolRegistry,
+  BUILTIN_TOOLS,
+  BaseTool,
   ToolContext,
-} from "../../../../ai-engine/tools/abstractions/tool.interface";
+  JSONSchema,
+} from "../../../../ai-engine/facade";
+import { AICapability, AgentWorkStyle } from "@prisma/client";
 
 // ============================================================================
 // Mock Tools
