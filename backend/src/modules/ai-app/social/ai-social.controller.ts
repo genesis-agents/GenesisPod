@@ -13,6 +13,7 @@ import {
   HttpStatus,
   Logger,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
 import { ReviewService } from "./services/review.service";
@@ -166,6 +167,7 @@ export class AiSocialController {
   }
 
   @Post("contents/:id/versions/generate")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async generateVersion(
     @Request() req: AuthenticatedRequest,
     @Param("id") id: string,
@@ -198,6 +200,7 @@ export class AiSocialController {
   }
 
   @Post("contents/:id/versions/generate-all")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async generateAllVersions(
     @Request() req: AuthenticatedRequest,
     @Param("id") id: string,

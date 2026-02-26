@@ -33,6 +33,7 @@ import {
   InternalServerErrorException,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { Observable } from "rxjs";
 import { SlidesEngineService } from "../services/slides-engine.service";
@@ -293,7 +294,7 @@ export class SlidesController {
     };
 
     return new Observable<MessageEvent>((subscriber) => {
-      BillingContext.run(billingData, async () => {
+      void BillingContext.run(billingData, async () => {
         try {
           const generator = slidesEngine.generateSlides({
             userId,
@@ -639,6 +640,7 @@ export class SlidesController {
    * 重新渲染指定页面
    */
   @Post("sessions/:sessionId/rerender/:pageNumber")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async rerenderPage(
     @Param("sessionId") sessionId: string,
     @Param("pageNumber") pageNumber: string,

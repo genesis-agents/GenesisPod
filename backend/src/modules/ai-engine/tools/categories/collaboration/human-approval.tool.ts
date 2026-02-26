@@ -551,7 +551,9 @@ export class HumanApprovalTool extends BaseTool<
           this.prisma.longTermMemory.deleteMany({
             where: { userId: USER_ID, key: RESPONSE_KEY },
           }),
-        ]).catch(() => {}); // cleanup failure is non-critical
+        ]).catch((err: Error) =>
+          this.logger.debug(`Cleanup failed: ${err?.message}`),
+        );
 
         return {
           approved: responseData.approved,
@@ -568,7 +570,9 @@ export class HumanApprovalTool extends BaseTool<
     // 3. Timeout: clean up request and throw timeout error
     await this.prisma.longTermMemory
       .deleteMany({ where: { userId: USER_ID, key: REQUEST_KEY } })
-      .catch(() => {});
+      .catch((err: Error) =>
+        this.logger.debug(`Cleanup failed: ${err?.message}`),
+      );
 
     throw new Error(`Human approval timeout after ${timeout}ms [${requestId}]`);
   }

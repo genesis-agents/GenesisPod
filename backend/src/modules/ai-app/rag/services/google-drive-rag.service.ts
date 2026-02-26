@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "./knowledge-base.service";
 import { KnowledgeBaseStatus } from "@prisma/client";
@@ -59,11 +60,28 @@ const GOOGLE_EXPORT_MIME_TYPES: Record<string, string> = {
 @Injectable()
 export class GoogleDriveRAGService {
   private readonly logger = new Logger(GoogleDriveRAGService.name);
+  private readonly googleClientId: string;
+  private readonly googleClientSecret: string;
+  private readonly googleDriveRedirectUri: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.googleClientId = this.configService.get<string>(
+      "GOOGLE_CLIENT_ID",
+      "",
+    );
+    this.googleClientSecret = this.configService.get<string>(
+      "GOOGLE_CLIENT_SECRET",
+      "",
+    );
+    this.googleDriveRedirectUri = this.configService.get<string>(
+      "GOOGLE_DRIVE_REDIRECT_URI",
+      "",
+    );
+  }
 
   /**
    * Sync a knowledge base with Google Drive
@@ -569,11 +587,16 @@ export class GoogleDriveRAGService {
   /**
    * Get OAuth2 client for Google Drive API
    */
-  private async getOAuthClient(connection: { id: string; accessToken: string; refreshToken: string; tokenExpiry: string | Date }): Promise<OAuth2Client> {
+  private async getOAuthClient(connection: {
+    id: string;
+    accessToken: string;
+    refreshToken: string;
+    tokenExpiry: string | Date;
+  }): Promise<OAuth2Client> {
     const oauth2Client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_DRIVE_REDIRECT_URI,
+      this.googleClientId,
+      this.googleClientSecret,
+      this.googleDriveRedirectUri,
     );
 
     oauth2Client.setCredentials({

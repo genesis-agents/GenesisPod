@@ -11,6 +11,7 @@ import {
   Sse,
   MessageEvent,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { Observable, interval, map, switchMap, from, takeWhile } from "rxjs";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiSimulationService, ViewPerspective } from "./ai-simulation.service";
@@ -28,6 +29,7 @@ export class AiSimulationController {
   ) {}
 
   @Post("scenarios")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async createScenario(
     @Body()
     body: {
@@ -108,6 +110,7 @@ export class AiSimulationController {
   }
 
   @Post("runs")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async startRun(
     @Body()
     body: {
@@ -335,10 +338,10 @@ export class AiSimulationController {
           eventData.latestTurn = {
             roundNumber: latestTurn.roundNumber,
             adjudication: latestTurn.adjudication,
-            hasBlackSwan: !!(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; adjudication shape varies by round
-              latestTurn.adjudication as Record<string, any> | null
-            )?.blackSwanEvent,
+            hasBlackSwan:
+              !!// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; adjudication shape varies by round
+              (latestTurn.adjudication as Record<string, any> | null)
+                ?.blackSwanEvent,
           };
 
           // 检查是否有新回合完成

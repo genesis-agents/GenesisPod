@@ -334,30 +334,37 @@ export class TopicInsightsGateway
     }
 
     // ★ Security: 验证 topic 访问权限
-    const topic = await this.prisma.researchTopic.findUnique({
-      where: { id: data.topicId },
-      select: { id: true, userId: true },
-    });
+    try {
+      const topic = await this.prisma.researchTopic.findUnique({
+        where: { id: data.topicId },
+        select: { id: true, userId: true },
+      });
 
-    if (!topic) {
-      this.logger.warn(`Topic ${data.topicId} not found`);
-      return { success: false, error: "Topic not found" };
-    }
+      if (!topic) {
+        this.logger.warn(`Topic ${data.topicId} not found`);
+        return { success: false, error: "Topic not found" };
+      }
 
-    // ★ Security: 检查用户是否是 topic 所有者
-    if (topic.userId !== user.id) {
-      this.logger.warn(
-        `User ${user.id} tried to access topic ${data.topicId} owned by ${topic.userId}`,
+      // ★ Security: 检查用户是否是 topic 所有者
+      if (topic.userId !== user.id) {
+        this.logger.warn(
+          `User ${user.id} tried to access topic ${data.topicId} owned by ${topic.userId}`,
+        );
+        return { success: false, error: "Access denied" };
+      }
+
+      const roomName = `research:${data.topicId}`;
+      await client.join(roomName);
+      this.logger.log(
+        `Client ${client.id} (${user.username}) joined room ${roomName}`,
       );
-      return { success: false, error: "Access denied" };
+      return { success: true, room: roomName };
+    } catch (error) {
+      this.logger.error(
+        `Failed to join topic ${data.topicId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { success: false, error: "Internal error" };
     }
-
-    const roomName = `research:${data.topicId}`;
-    client.join(roomName);
-    this.logger.log(
-      `Client ${client.id} (${user.username}) joined room ${roomName}`,
-    );
-    return { success: true, room: roomName };
   }
 
   /**
@@ -369,7 +376,7 @@ export class TopicInsightsGateway
     @MessageBody() data: { topicId: string },
   ) {
     const roomName = `research:${data.topicId}`;
-    client.leave(roomName);
+    void client.leave(roomName);
     const username = client.data.user?.username || "unknown";
     this.logger.log(`Client ${client.id} (${username}) left room ${roomName}`);
     return { success: true };

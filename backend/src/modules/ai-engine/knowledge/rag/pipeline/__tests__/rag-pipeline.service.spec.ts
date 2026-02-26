@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { RAGPipelineService } from "../rag-pipeline.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "../../embedding";
@@ -85,6 +86,14 @@ describe("RAGPipelineService", () => {
         { provide: EmbeddingService, useValue: mockEmbeddingService },
         { provide: VectorService, useValue: mockVectorService },
         { provide: AiChatService, useValue: mockAiChatService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(
+              (key: string, defaultValue?: string) => defaultValue ?? "",
+            ),
+          },
+        },
       ],
     }).compile();
 

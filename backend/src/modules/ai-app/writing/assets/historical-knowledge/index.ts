@@ -11,6 +11,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { Logger } from "@nestjs/common";
 import {
   DynastyKnowledge,
   EraName,
@@ -19,6 +20,8 @@ import {
   Anachronism,
   KnowledgeIndex,
 } from "./types";
+
+const logger = new Logger("HistoricalKnowledge");
 
 // 知识库根目录
 const KNOWLEDGE_BASE_PATH = __dirname;
@@ -34,9 +37,9 @@ function loadJsonFile<T>(filename: string): T | null {
       return JSON.parse(content) as T;
     }
   } catch (error) {
-    // Using console.error here is acceptable for a utility function loading static data
-    // eslint-disable-next-line no-console
-    console.error(`[HistoricalKnowledge] Failed to load ${filename}:`, error);
+    logger.error(
+      `Failed to load ${filename}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   return null;
 }

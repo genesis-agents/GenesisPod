@@ -34,7 +34,8 @@ export class WechatAdapter {
     );
 
     const contextId = `wechat-${connection.id}`;
-    let page: Awaited<ReturnType<typeof this.playwright.createPage>> | null = null;
+    let page: Awaited<ReturnType<typeof this.playwright.createPage>> | null =
+      null;
 
     try {
       // Step 1: 检查 session 数据是否存在
@@ -73,16 +74,18 @@ export class WechatAdapter {
 
       // 详细检查 cookies 状态
       const now = Date.now() / 1000; // 当前时间戳（秒）
-      const validCookies = sessionData.cookies.filter((cookie: { name: string; expires?: number }) => {
-        // 检查 cookie 是否过期
-        if (cookie.expires && cookie.expires > 0 && cookie.expires < now) {
-          this.logger.warn(
-            `Cookie expired: ${cookie.name}, expired at: ${new Date(cookie.expires * 1000).toISOString()}`,
-          );
-          return false;
-        }
-        return true;
-      });
+      const validCookies = sessionData.cookies.filter(
+        (cookie: { name: string; expires?: number }) => {
+          // 检查 cookie 是否过期
+          if (cookie.expires && cookie.expires > 0 && cookie.expires < now) {
+            this.logger.warn(
+              `Cookie expired: ${cookie.name}, expired at: ${new Date(cookie.expires * 1000).toISOString()}`,
+            );
+            return false;
+          }
+          return true;
+        },
+      );
 
       this.logger.log(
         `Cookie analysis: total=${sessionData.cookies.length}, valid=${validCookies.length}, expired=${sessionData.cookies.length - validCookies.length}`,
@@ -498,7 +501,10 @@ export class WechatAdapter {
   /**
    * 捕获调试信息用于问题排查
    */
-  private async captureDebugInfo(page: Awaited<ReturnType<typeof this.playwright.createPage>>, context: string): Promise<void> {
+  private async captureDebugInfo(
+    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
+    context: string,
+  ): Promise<void> {
     try {
       this.logger.error(`[${context}] Capturing debug info...`);
       this.logger.error(`[${context}] Current URL: ${page.url()}`);
@@ -599,12 +605,16 @@ export class WechatAdapter {
     return false;
   }
 
-  private async checkLoginStatus(page: Awaited<ReturnType<typeof this.playwright.createPage>>): Promise<boolean> {
+  private async checkLoginStatus(
+    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
+  ): Promise<boolean> {
     try {
       // 等待页面稳定
       await page
         .waitForLoadState("networkidle", { timeout: 10000 })
-        .catch(() => {});
+        .catch((err: Error) =>
+          this.logger.debug(`Page load timeout: ${err?.message}`),
+        );
 
       // 方法1: 检查 URL - 如果重定向到登录页面则未登录
       const url = page.url();
@@ -673,7 +683,10 @@ export class WechatAdapter {
     }
   }
 
-  private async fillContent(page: Awaited<ReturnType<typeof this.playwright.createPage>>, content: SocialContent): Promise<void> {
+  private async fillContent(
+    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
+    content: SocialContent,
+  ): Promise<void> {
     this.logger.log("Starting to fill content...");
 
     // 等待页面完全加载（包括动态内容）
@@ -914,8 +927,20 @@ export class WechatAdapter {
 
         // 方法1: 使用 execCommand 插入 HTML（最兼容 ProseMirror）
         // ProseMirror 会监听 beforeinput 和 input 事件来处理内容
-        const fillResult: { success: boolean; selector: string | null; method: string | null } = await page.evaluate(
-          ({ html }: { html: string }): { success: boolean; selector: string | null; method: string | null } => {
+        const fillResult: {
+          success: boolean;
+          selector: string | null;
+          method: string | null;
+        } = await page.evaluate(
+          ({
+            html,
+          }: {
+            html: string;
+          }): {
+            success: boolean;
+            selector: string | null;
+            method: string | null;
+          } => {
             const selectors = [
               ".ProseMirror",
               "#js_editor",
@@ -1111,7 +1136,9 @@ export class WechatAdapter {
     }
   }
 
-  private async saveDraft(page: Awaited<ReturnType<typeof this.playwright.createPage>>): Promise<string> {
+  private async saveDraft(
+    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
+  ): Promise<string> {
     this.logger.log("Looking for save button...");
 
     let saveClicked = false;
@@ -1181,7 +1208,8 @@ export class WechatAdapter {
     // 等待保存完成 - 使用多种检测方式，并验证结果
     this.logger.log("Waiting for save response...");
     let saveSucceeded = false;
-    let saveResponse: Awaited<ReturnType<typeof page.waitForResponse>> | null = null;
+    let saveResponse: Awaited<ReturnType<typeof page.waitForResponse>> | null =
+      null;
 
     try {
       // 监听 API 响应

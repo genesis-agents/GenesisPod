@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   CreateStudioProjectDto,
@@ -16,7 +17,10 @@ import {
 export class ResearchProjectService {
   private readonly logger = new Logger(ResearchProjectService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   /**
    * Create a new research project
@@ -302,7 +306,10 @@ export class ResearchProjectService {
     const contentText =
       typeof output.content === "string" ? output.content.slice(0, 500) : "";
 
-    const apiBase = process.env.APP_URL || "http://localhost:3001";
+    const apiBase = this.configService.get<string>(
+      "APP_URL",
+      "http://localhost:3001",
+    );
     const headers: Record<string, string> = {
       Authorization: `Bearer ${userToken}`,
       "Content-Type": "application/json",

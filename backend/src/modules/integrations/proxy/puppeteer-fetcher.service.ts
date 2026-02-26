@@ -127,12 +127,14 @@ export class PuppeteerFetcherService {
         });
 
         // 模拟 chrome 对象
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).chrome = {
           runtime: {},
         };
 
         // 模拟权限
         const originalQuery = window.navigator.permissions.query;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         window.navigator.permissions.query = (parameters: any) =>
           parameters.name === "notifications"
             ? Promise.resolve({
@@ -226,7 +228,11 @@ export class PuppeteerFetcherService {
     } finally {
       // 关闭页面但保留浏览器实例
       if (page) {
-        await page.close().catch(() => {});
+        await page
+          .close()
+          .catch((err: Error) =>
+            this.logger.debug(`Page close failed: ${err?.message}`),
+          );
       }
       // 重置空闲关闭定时器
       this.resetIdleTimer();

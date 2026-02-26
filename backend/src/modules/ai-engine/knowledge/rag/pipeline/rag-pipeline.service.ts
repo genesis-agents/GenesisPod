@@ -16,6 +16,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "../embedding";
 import { VectorService } from "../vector";
@@ -44,6 +45,7 @@ export class RAGPipelineService {
     private readonly embeddingService: EmbeddingService,
     private readonly vectorService: VectorService,
     private readonly aiChatService: AiChatService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -449,7 +451,7 @@ Focus on being specific and informative.`;
       return setting.value;
     }
     // Fallback to environment variable
-    return process.env.COHERE_API_KEY || null;
+    return this.configService.get<string>("COHERE_API_KEY") || null;
   }
 
   /**

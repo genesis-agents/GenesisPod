@@ -436,7 +436,9 @@ export class WebhookTriggerTool extends BaseTool<
             data: payload,
             timeout: 5000,
           };
-          axios(config).catch(() => {}); // intentionally ignore errors
+          void axios(config).catch((err: Error) =>
+            this.logger.debug(`Fire-and-forget webhook error: ${err?.message}`),
+          );
           return {
             statusCode: 202,
             statusText: "Accepted",

@@ -10,6 +10,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
 import { StartDeepResearchDto } from "./types";
@@ -33,6 +34,7 @@ export class DiscussionController {
    * 使用 POST 方法支持请求体
    */
   @Post("stream")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async startResearchStream(
     @Param("projectId") projectId: string,
     @Body() dto: StartDeepResearchDto,

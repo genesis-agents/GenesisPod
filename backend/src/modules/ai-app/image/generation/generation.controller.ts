@@ -18,6 +18,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { Observable } from "rxjs";
 import { Response } from "express";
@@ -66,7 +67,11 @@ export class AiImageController {
 
   @Post("generate")
   @UseGuards(JwtAuthGuard)
-  async generateImage(@Body() dto: GenerateImageDto, @Request() req: AuthenticatedRequest) {
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async generateImage(
+    @Body() dto: GenerateImageDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
     this.logger.log(`Generating image for user ${req.user?.id}`);
 
     // 如果提供了 referenceImageUrl，后端代理获取并转换为 base64
@@ -110,6 +115,7 @@ export class AiImageController {
    */
   @Sse("generate/stream")
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   generateImageStream(
     @Query("prompt") prompt: string,
     @Query("urls") urls: string,
@@ -401,21 +407,30 @@ export class AiImageController {
 
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  async deleteImage(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
+  async deleteImage(
+    @Param("id") id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     this.logger.log(`Deleting image ${id} for user ${req.user?.id}`);
     return this.aiImageService.deleteImage(id, req.user?.id);
   }
 
   @Post(":id/bookmark")
   @UseGuards(JwtAuthGuard)
-  async addBookmark(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
+  async addBookmark(
+    @Param("id") id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     this.logger.log(`Adding bookmark for image ${id} by user ${req.user?.id}`);
     return this.aiImageService.addBookmark(id, req.user?.id);
   }
 
   @Delete(":id/bookmark")
   @UseGuards(JwtAuthGuard)
-  async removeBookmark(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
+  async removeBookmark(
+    @Param("id") id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     this.logger.log(
       `Removing bookmark for image ${id} by user ${req.user?.id}`,
     );

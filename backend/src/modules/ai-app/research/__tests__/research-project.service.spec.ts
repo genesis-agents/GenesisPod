@@ -2,37 +2,38 @@
  * Tests for ResearchProjectService
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common';
-import { ResearchProjectService } from '../project/research-project.service';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
+} from "@nestjs/common";
+import { ResearchProjectService } from "../project/research-project.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
-jest.mock('../../../../common/prisma/prisma.service');
+jest.mock("../../../../common/prisma/prisma.service");
 
 // Mock global fetch for sedimentToInsights tests
 global.fetch = jest.fn();
 
-describe('ResearchProjectService', () => {
+describe("ResearchProjectService", () => {
   let service: ResearchProjectService;
   let prisma: jest.Mocked<PrismaService>;
 
-  const userId = 'user-123';
-  const projectId = 'project-456';
+  const userId = "user-123";
+  const projectId = "project-456";
 
   const mockProject = {
     id: projectId,
     userId,
-    name: 'Test Project',
-    description: 'Test Description',
-    icon: '📚',
-    color: '#6366f1',
-    status: 'ACTIVE',
-    visibility: 'PRIVATE',
-    researchType: 'DEEP',
+    name: "Test Project",
+    description: "Test Description",
+    icon: "📚",
+    color: "#6366f1",
+    status: "ACTIVE",
+    visibility: "PRIVATE",
+    researchType: "DEEP",
     lastAccessAt: new Date(),
     _count: { sources: 0, notes: 0, chats: 0, outputs: 0 },
   };
@@ -58,6 +59,14 @@ describe('ResearchProjectService', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(
+              (key: string, defaultValue?: string) => defaultValue ?? "",
+            ),
+          },
+        },
       ],
     }).compile();
 
@@ -69,51 +78,53 @@ describe('ResearchProjectService', () => {
     jest.clearAllMocks();
   });
 
-  describe('createProject', () => {
-    it('should create a project with default values', async () => {
+  describe("createProject", () => {
+    it("should create a project with default values", async () => {
       (prisma.researchProject.create as jest.Mock).mockResolvedValue(
         mockProject,
       );
 
-      const result = await service.createProject(userId, { name: 'New Project' });
+      const result = await service.createProject(userId, {
+        name: "New Project",
+      });
 
       expect(result).toBe(mockProject);
       expect(prisma.researchProject.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             userId,
-            name: 'New Project',
-            icon: '📚',
-            color: '#6366f1',
+            name: "New Project",
+            icon: "📚",
+            color: "#6366f1",
           }),
         }),
       );
     });
 
-    it('should use provided icon and color', async () => {
+    it("should use provided icon and color", async () => {
       (prisma.researchProject.create as jest.Mock).mockResolvedValue(
         mockProject,
       );
 
       await service.createProject(userId, {
-        name: 'Project',
-        icon: '🔬',
-        color: '#FF0000',
+        name: "Project",
+        icon: "🔬",
+        color: "#FF0000",
       });
 
       expect(prisma.researchProject.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            icon: '🔬',
-            color: '#FF0000',
+            icon: "🔬",
+            color: "#FF0000",
           }),
         }),
       );
     });
   });
 
-  describe('getProjects', () => {
-    it('should return projects with pagination', async () => {
+  describe("getProjects", () => {
+    it("should return projects with pagination", async () => {
       (prisma.researchProject.findMany as jest.Mock).mockResolvedValue([
         mockProject,
       ]);
@@ -125,11 +136,11 @@ describe('ResearchProjectService', () => {
       expect(result.pagination.total).toBe(1);
     });
 
-    it('should apply search filter when provided', async () => {
+    it("should apply search filter when provided", async () => {
       (prisma.researchProject.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.researchProject.count as jest.Mock).mockResolvedValue(0);
 
-      await service.getProjects(userId, { search: 'AI research' });
+      await service.getProjects(userId, { search: "AI research" });
 
       expect(prisma.researchProject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -140,11 +151,11 @@ describe('ResearchProjectService', () => {
       );
     });
 
-    it('should filter by research type', async () => {
+    it("should filter by research type", async () => {
       (prisma.researchProject.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.researchProject.count as jest.Mock).mockResolvedValue(0);
 
-      await service.getProjects(userId, { researchType: 'FAST' });
+      await service.getProjects(userId, { researchType: "FAST" });
 
       expect(prisma.researchProject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -155,7 +166,7 @@ describe('ResearchProjectService', () => {
       );
     });
 
-    it('should use default take and skip values', async () => {
+    it("should use default take and skip values", async () => {
       (prisma.researchProject.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.researchProject.count as jest.Mock).mockResolvedValue(0);
 
@@ -166,8 +177,8 @@ describe('ResearchProjectService', () => {
     });
   });
 
-  describe('getProject', () => {
-    it('should return project for owner', async () => {
+  describe("getProject", () => {
+    it("should return project for owner", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -182,24 +193,24 @@ describe('ResearchProjectService', () => {
       expect(prisma.researchProject.update).toHaveBeenCalled();
     });
 
-    it('should allow access to public project from non-owner', async () => {
+    it("should allow access to public project from non-owner", async () => {
       const publicProject = {
         ...mockProject,
-        userId: 'other-user',
-        visibility: 'PUBLIC',
+        userId: "other-user",
+        visibility: "PUBLIC",
       };
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         publicProject,
       );
 
-      const result = await service.getProject('non-owner', projectId);
+      const result = await service.getProject("non-owner", projectId);
 
       expect(result).toBe(publicProject);
       // Should not update lastAccessAt for non-owner
       expect(prisma.researchProject.update).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when project not found', async () => {
+    it("should throw NotFoundException when project not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(service.getProject(userId, projectId)).rejects.toThrow(
@@ -207,31 +218,31 @@ describe('ResearchProjectService', () => {
       );
     });
 
-    it('should throw ForbiddenException for private project from non-owner', async () => {
+    it("should throw ForbiddenException for private project from non-owner", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
         ...mockProject,
-        userId: 'other-user',
-        visibility: 'PRIVATE',
+        userId: "other-user",
+        visibility: "PRIVATE",
       });
 
-      await expect(service.getProject('non-owner', projectId)).rejects.toThrow(
+      await expect(service.getProject("non-owner", projectId)).rejects.toThrow(
         ForbiddenException,
       );
     });
   });
 
-  describe('updateProject', () => {
-    it('should update project fields', async () => {
+  describe("updateProject", () => {
+    it("should update project fields", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchProject.update as jest.Mock).mockResolvedValue({
         ...mockProject,
-        name: 'Updated Name',
+        name: "Updated Name",
       });
 
-      const result = await service.updateProject(userId, projectId, {
-        name: 'Updated Name',
+      await service.updateProject(userId, projectId, {
+        name: "Updated Name",
       });
 
       expect(prisma.researchProject.update).toHaveBeenCalledWith(
@@ -241,45 +252,45 @@ describe('ResearchProjectService', () => {
       );
     });
 
-    it('should throw NotFoundException when project not found', async () => {
+    it("should throw NotFoundException when project not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        service.updateProject(userId, projectId, { name: 'New Name' }),
+        service.updateProject(userId, projectId, { name: "New Name" }),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException when non-owner tries to update', async () => {
+    it("should throw ForbiddenException when non-owner tries to update", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
         ...mockProject,
-        userId: 'other-user',
+        userId: "other-user",
       });
 
       await expect(
-        service.updateProject('non-owner', projectId, { name: 'New Name' }),
+        service.updateProject("non-owner", projectId, { name: "New Name" }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
-  describe('deleteProject', () => {
-    it('should soft delete project by setting status to DELETED', async () => {
+  describe("deleteProject", () => {
+    it("should soft delete project by setting status to DELETED", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchProject.update as jest.Mock).mockResolvedValue({
         ...mockProject,
-        status: 'DELETED',
+        status: "DELETED",
       });
 
       await service.deleteProject(userId, projectId);
 
       expect(prisma.researchProject.update).toHaveBeenCalledWith({
         where: { id: projectId },
-        data: { status: 'DELETED' },
+        data: { status: "DELETED" },
       });
     });
 
-    it('should throw NotFoundException when project not found', async () => {
+    it("should throw NotFoundException when project not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(service.deleteProject(userId, projectId)).rejects.toThrow(
@@ -287,72 +298,72 @@ describe('ResearchProjectService', () => {
       );
     });
 
-    it('should throw ForbiddenException when non-owner tries to delete', async () => {
+    it("should throw ForbiddenException when non-owner tries to delete", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
         ...mockProject,
-        userId: 'other-user',
+        userId: "other-user",
       });
 
       await expect(
-        service.deleteProject('non-owner', projectId),
+        service.deleteProject("non-owner", projectId),
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
-  describe('archiveProject', () => {
-    it('should archive project', async () => {
+  describe("archiveProject", () => {
+    it("should archive project", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchProject.update as jest.Mock).mockResolvedValue({
         ...mockProject,
-        status: 'ARCHIVED',
+        status: "ARCHIVED",
       });
 
       await service.archiveProject(userId, projectId);
 
       expect(prisma.researchProject.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: 'ARCHIVED' }),
+          data: expect.objectContaining({ status: "ARCHIVED" }),
         }),
       );
     });
   });
 
-  describe('restoreProject', () => {
-    it('should restore project to ACTIVE', async () => {
+  describe("restoreProject", () => {
+    it("should restore project to ACTIVE", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
         ...mockProject,
-        status: 'ARCHIVED',
+        status: "ARCHIVED",
       });
       (prisma.researchProject.update as jest.Mock).mockResolvedValue({
         ...mockProject,
-        status: 'ACTIVE',
+        status: "ACTIVE",
       });
 
       await service.restoreProject(userId, projectId);
 
       expect(prisma.researchProject.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: 'ACTIVE' }),
+          data: expect.objectContaining({ status: "ACTIVE" }),
         }),
       );
     });
   });
 
-  describe('sedimentToInsights', () => {
-    const outputId = 'output-123';
+  describe("sedimentToInsights", () => {
+    const outputId = "output-123";
 
     const mockOutput = {
       id: outputId,
       projectId,
-      title: 'Research Report',
-      status: 'COMPLETED',
-      content: 'Report content...',
+      title: "Research Report",
+      status: "COMPLETED",
+      content: "Report content...",
       project: { userId },
     };
 
-    it('should throw NotFoundException when output not found', async () => {
+    it("should throw NotFoundException when output not found", async () => {
       (prisma.researchProjectOutput.findFirst as jest.Mock).mockResolvedValue(
         null,
       );
@@ -361,29 +372,29 @@ describe('ResearchProjectService', () => {
         service.sedimentToInsights(
           userId,
           projectId,
-          { outputId, mode: 'new_topic' },
-          'token-abc',
+          { outputId, mode: "new_topic" },
+          "token-abc",
         ),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException when output is not completed', async () => {
+    it("should throw BadRequestException when output is not completed", async () => {
       (prisma.researchProjectOutput.findFirst as jest.Mock).mockResolvedValue({
         ...mockOutput,
-        status: 'PENDING',
+        status: "PENDING",
       });
 
       await expect(
         service.sedimentToInsights(
           userId,
           projectId,
-          { outputId, mode: 'new_topic' },
-          'token-abc',
+          { outputId, mode: "new_topic" },
+          "token-abc",
         ),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException for add_dimension mode without targetTopicId', async () => {
+    it("should throw BadRequestException for add_dimension mode without targetTopicId", async () => {
       (prisma.researchProjectOutput.findFirst as jest.Mock).mockResolvedValue(
         mockOutput,
       );
@@ -392,79 +403,79 @@ describe('ResearchProjectService', () => {
         service.sedimentToInsights(
           userId,
           projectId,
-          { outputId, mode: 'add_dimension' },
-          'token-abc',
+          { outputId, mode: "add_dimension" },
+          "token-abc",
         ),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should add dimension when mode is add_dimension', async () => {
+    it("should add dimension when mode is add_dimension", async () => {
       (prisma.researchProjectOutput.findFirst as jest.Mock).mockResolvedValue(
         mockOutput,
       );
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
-        json: async () => ({ data: { id: 'dim-1', topicId: 'topic-1' } }),
+        json: async () => ({ data: { id: "dim-1", topicId: "topic-1" } }),
       });
 
       const result = await service.sedimentToInsights(
         userId,
         projectId,
-        { outputId, mode: 'add_dimension', targetTopicId: 'topic-1' },
-        'token-abc',
+        { outputId, mode: "add_dimension", targetTopicId: "topic-1" },
+        "token-abc",
       );
 
       expect(result.success).toBe(true);
-      expect(result.result.mode).toBe('add_dimension');
-      expect(result.result.topicId).toBe('topic-1');
+      expect(result.result.mode).toBe("add_dimension");
+      expect(result.result.topicId).toBe("topic-1");
     });
 
-    it('should create new topic when mode is new_topic', async () => {
+    it("should create new topic when mode is new_topic", async () => {
       (prisma.researchProjectOutput.findFirst as jest.Mock).mockResolvedValue(
         mockOutput,
       );
       (global.fetch as jest.Mock)
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ data: { id: 'new-topic-1' } }),
+          json: async () => ({ data: { id: "new-topic-1" } }),
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ data: { id: 'dim-2' } }),
+          json: async () => ({ data: { id: "dim-2" } }),
         });
 
       const result = await service.sedimentToInsights(
         userId,
         projectId,
-        { outputId, mode: 'new_topic', topicName: 'AI Market' },
-        'token-abc',
+        { outputId, mode: "new_topic", topicName: "AI Market" },
+        "token-abc",
       );
 
       expect(result.success).toBe(true);
-      expect(result.result.mode).toBe('new_topic');
-      expect(result.result.topicId).toBe('new-topic-1');
+      expect(result.result.mode).toBe("new_topic");
+      expect(result.result.topicId).toBe("new-topic-1");
     });
 
-    it('should throw BadRequestException when topic creation fails', async () => {
+    it("should throw BadRequestException when topic creation fails", async () => {
       (prisma.researchProjectOutput.findFirst as jest.Mock).mockResolvedValue(
         mockOutput,
       );
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
-        statusText: 'Internal Server Error',
+        statusText: "Internal Server Error",
       });
 
       await expect(
         service.sedimentToInsights(
           userId,
           projectId,
-          { outputId, mode: 'new_topic' },
-          'token-abc',
+          { outputId, mode: "new_topic" },
+          "token-abc",
         ),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException when topic creation returns no ID', async () => {
+    it("should throw BadRequestException when topic creation returns no ID", async () => {
       (prisma.researchProjectOutput.findFirst as jest.Mock).mockResolvedValue(
         mockOutput,
       );
@@ -477,8 +488,8 @@ describe('ResearchProjectService', () => {
         service.sedimentToInsights(
           userId,
           projectId,
-          { outputId, mode: 'new_topic' },
-          'token-abc',
+          { outputId, mode: "new_topic" },
+          "token-abc",
         ),
       ).rejects.toThrow(BadRequestException);
     });

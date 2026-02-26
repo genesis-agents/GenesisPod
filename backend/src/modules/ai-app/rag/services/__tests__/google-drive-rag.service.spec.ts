@@ -14,6 +14,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { GoogleDriveRAGService } from "../google-drive-rag.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../knowledge-base.service";
@@ -29,7 +30,9 @@ jest.mock("google-auth-library", () => {
   const setCredentials = jest.fn();
   const refreshAccessToken = jest.fn();
   return {
-    OAuth2Client: jest.fn().mockImplementation(() => ({ setCredentials, refreshAccessToken })),
+    OAuth2Client: jest
+      .fn()
+      .mockImplementation(() => ({ setCredentials, refreshAccessToken })),
   };
 });
 
@@ -38,7 +41,11 @@ jest.mock("@googleapis/drive", () => {
   const filesExport = jest.fn();
   const filesList = jest.fn();
   return {
-    drive: jest.fn().mockReturnValue({ files: { get: filesGet, export: filesExport, list: filesList } }),
+    drive: jest
+      .fn()
+      .mockReturnValue({
+        files: { get: filesGet, export: filesExport, list: filesList },
+      }),
     drive_v3: {},
     // Expose so tests can read them back
     _filesGet: filesGet,
@@ -56,7 +63,7 @@ jest.mock("mammoth", () => ({
 // -----------------------------------------------------------------------
 function getDriveMocks() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mod = jest.requireMock("@googleapis/drive") as any;
+  const mod: any = jest.requireMock("@googleapis/drive");
   return {
     filesGet: mod._filesGet as jest.Mock,
     filesExport: mod._filesExport as jest.Mock,
@@ -64,10 +71,18 @@ function getDriveMocks() {
   };
 }
 
-function getOAuth2Client(): { setCredentials: jest.Mock; refreshAccessToken: jest.Mock } {
+function _getOAuth2Client(): {
+  setCredentials: jest.Mock;
+  refreshAccessToken: jest.Mock;
+} {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { OAuth2Client } = jest.requireMock("google-auth-library") as any;
-  return (OAuth2Client as jest.Mock).mock.results[0]?.value ?? { setCredentials: jest.fn(), refreshAccessToken: jest.fn() };
+  const { OAuth2Client }: any = jest.requireMock("google-auth-library");
+  return (
+    (OAuth2Client as jest.Mock).mock.results[0]?.value ?? {
+      setCredentials: jest.fn(),
+      refreshAccessToken: jest.fn(),
+    }
+  );
 }
 
 // Aliases used pervasively in the tests — resolved lazily per-test
@@ -75,7 +90,7 @@ let mockDriveFilesGet: jest.Mock;
 let mockDriveFilesExport: jest.Mock;
 let mockDriveFilesList: jest.Mock;
 let mockRefreshAccessToken: jest.Mock;
-let mockSetCredentials: jest.Mock;
+let _mockSetCredentials: jest.Mock;
 
 // -----------------------------------------------------------------------
 // Helper: create a fake stream for file download tests
@@ -129,11 +144,14 @@ describe("GoogleDriveRAGService", () => {
     // Re-setup OAuth2Client mock — clearAllMocks clears the implementation
     // so we need to re-apply it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { OAuth2Client } = jest.requireMock("google-auth-library") as any;
-    const oauthInstance = { setCredentials: jest.fn(), refreshAccessToken: jest.fn() };
+    const { OAuth2Client }: any = jest.requireMock("google-auth-library");
+    const oauthInstance = {
+      setCredentials: jest.fn(),
+      refreshAccessToken: jest.fn(),
+    };
     (OAuth2Client as jest.Mock).mockImplementation(() => oauthInstance);
     mockRefreshAccessToken = oauthInstance.refreshAccessToken;
-    mockSetCredentials = oauthInstance.setCredentials;
+    _mockSetCredentials = oauthInstance.setCredentials;
 
     mockPrisma = {
       knowledgeBase: {
@@ -164,6 +182,14 @@ describe("GoogleDriveRAGService", () => {
         GoogleDriveRAGService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: KnowledgeBaseService, useValue: mockKbService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(
+              (key: string, defaultValue?: string) => defaultValue ?? "",
+            ),
+          },
+        },
       ],
     }).compile();
 
@@ -228,7 +254,9 @@ describe("GoogleDriveRAGService", () => {
       // First update (UPDATING status) succeeds, second update (final status) also succeeds
       // But processAllDocuments throws unexpectedly after files are added
       mockDriveFilesList.mockResolvedValue({
-        data: { files: [{ id: "f-1", name: "file.txt", mimeType: "text/plain" }] },
+        data: {
+          files: [{ id: "f-1", name: "file.txt", mimeType: "text/plain" }],
+        },
       });
       mockDriveFilesGet.mockResolvedValue({
         data: makeReadableStream(Buffer.from("content")),
@@ -268,7 +296,14 @@ describe("GoogleDriveRAGService", () => {
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue(buildKb());
       mockDriveFilesList.mockResolvedValue({
         data: {
-          files: [{ id: "f-1", name: "doc.txt", mimeType: "text/plain", modifiedTime: PAST.toISOString() }],
+          files: [
+            {
+              id: "f-1",
+              name: "doc.txt",
+              mimeType: "text/plain",
+              modifiedTime: PAST.toISOString(),
+            },
+          ],
           nextPageToken: null,
         },
       });
@@ -295,7 +330,14 @@ describe("GoogleDriveRAGService", () => {
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue(buildKb());
       mockDriveFilesList.mockResolvedValue({
         data: {
-          files: [{ id: "f-1", name: "doc.txt", mimeType: "text/plain", modifiedTime: PAST.toISOString() }],
+          files: [
+            {
+              id: "f-1",
+              name: "doc.txt",
+              mimeType: "text/plain",
+              modifiedTime: PAST.toISOString(),
+            },
+          ],
         },
       });
       mockDriveFilesGet.mockResolvedValue({
@@ -310,7 +352,9 @@ describe("GoogleDriveRAGService", () => {
     it("should set KB status to READY after successful sync", async () => {
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue(buildKb());
       mockDriveFilesList.mockResolvedValue({
-        data: { files: [{ id: "f-1", name: "file.txt", mimeType: "text/plain" }] },
+        data: {
+          files: [{ id: "f-1", name: "file.txt", mimeType: "text/plain" }],
+        },
       });
       mockDriveFilesGet.mockResolvedValue({
         data: makeReadableStream(Buffer.from("content")),
@@ -356,15 +400,19 @@ describe("GoogleDriveRAGService", () => {
         googleDriveFileIds: [],
         documents: [{ id: "doc-1", sourceId: "f-1" }],
       });
-      mockPrisma.knowledgeBaseDocument.findUnique.mockResolvedValue(existingDoc);
+      mockPrisma.knowledgeBaseDocument.findUnique.mockResolvedValue(
+        existingDoc,
+      );
       mockDriveFilesList.mockResolvedValue({
         data: {
-          files: [{
-            id: "f-1",
-            name: "file.txt",
-            mimeType: "text/plain",
-            modifiedTime: FUTURE.toISOString(), // newer than processedAt
-          }],
+          files: [
+            {
+              id: "f-1",
+              name: "file.txt",
+              mimeType: "text/plain",
+              modifiedTime: FUTURE.toISOString(), // newer than processedAt
+            },
+          ],
         },
       });
       mockDriveFilesGet.mockResolvedValue({
@@ -393,15 +441,19 @@ describe("GoogleDriveRAGService", () => {
         googleDriveFileIds: [],
         documents: [{ id: "doc-1", sourceId: "f-1" }],
       });
-      mockPrisma.knowledgeBaseDocument.findUnique.mockResolvedValue(existingDoc);
+      mockPrisma.knowledgeBaseDocument.findUnique.mockResolvedValue(
+        existingDoc,
+      );
       mockDriveFilesList.mockResolvedValue({
         data: {
-          files: [{
-            id: "f-1",
-            name: "file.txt",
-            mimeType: "text/plain",
-            modifiedTime: PAST.toISOString(), // older than processedAt
-          }],
+          files: [
+            {
+              id: "f-1",
+              name: "file.txt",
+              mimeType: "text/plain",
+              modifiedTime: PAST.toISOString(), // older than processedAt
+            },
+          ],
         },
       });
 
@@ -471,7 +523,10 @@ describe("GoogleDriveRAGService", () => {
 
   describe("syncKnowledgeBase — individual fileIds", () => {
     it("should fetch individual files by ID and add to KB", async () => {
-      const googleFile = makeGoogleDriveFile({ id: "file-direct", mimeType: "text/plain" });
+      const googleFile = makeGoogleDriveFile({
+        id: "file-direct",
+        mimeType: "text/plain",
+      });
 
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue({
         id: "kb-1",
@@ -483,7 +538,9 @@ describe("GoogleDriveRAGService", () => {
       // getFileById call
       mockDriveFilesGet
         .mockResolvedValueOnce({ data: googleFile }) // metadata fetch
-        .mockResolvedValueOnce({ data: makeReadableStream(Buffer.from("file content")) }); // download
+        .mockResolvedValueOnce({
+          data: makeReadableStream(Buffer.from("file content")),
+        }); // download
 
       const result = await service.syncKnowledgeBase("kb-1");
 
@@ -499,7 +556,9 @@ describe("GoogleDriveRAGService", () => {
         documents: [],
       });
       // getFileById returns incomplete data
-      mockDriveFilesGet.mockResolvedValueOnce({ data: { id: null, name: null, mimeType: null } });
+      mockDriveFilesGet.mockResolvedValueOnce({
+        data: { id: null, name: null, mimeType: null },
+      });
 
       const result = await service.syncKnowledgeBase("kb-1");
 
@@ -538,7 +597,9 @@ describe("GoogleDriveRAGService", () => {
     });
 
     it("should list root folders and files when no parentFolderId given", async () => {
-      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(mockConnection);
+      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(
+        mockConnection,
+      );
       // 1st call: list folders
       mockDriveFilesList
         .mockResolvedValueOnce({
@@ -553,14 +614,25 @@ describe("GoogleDriveRAGService", () => {
         // 3rd call: list files in root
         .mockResolvedValueOnce({
           data: {
-            files: [{ id: "file-1", name: "readme.md", mimeType: "text/markdown", size: "512" }],
+            files: [
+              {
+                id: "file-1",
+                name: "readme.md",
+                mimeType: "text/markdown",
+                size: "512",
+              },
+            ],
           },
         });
 
       const result = await service.listFolders("user-1");
 
       expect(result.folders).toHaveLength(1);
-      expect(result.folders[0]).toEqual({ id: "folder-A", name: "Folder A", fileCount: 2 });
+      expect(result.folders[0]).toEqual({
+        id: "folder-A",
+        name: "Folder A",
+        fileCount: 2,
+      });
       expect(result.files).toHaveLength(1);
       expect(result.files[0]).toMatchObject({
         id: "file-1",
@@ -571,7 +643,9 @@ describe("GoogleDriveRAGService", () => {
     });
 
     it("should use parentFolderId in query when provided", async () => {
-      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(mockConnection);
+      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(
+        mockConnection,
+      );
       mockDriveFilesList
         .mockResolvedValueOnce({ data: { files: [] } }) // folders
         .mockResolvedValueOnce({ data: { files: [] } }); // files
@@ -583,7 +657,9 @@ describe("GoogleDriveRAGService", () => {
     });
 
     it("should use root in query when no parentFolderId", async () => {
-      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(mockConnection);
+      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(
+        mockConnection,
+      );
       mockDriveFilesList
         .mockResolvedValueOnce({ data: { files: [] } })
         .mockResolvedValueOnce({ data: { files: [] } });
@@ -595,7 +671,9 @@ describe("GoogleDriveRAGService", () => {
     });
 
     it("should handle empty folder and file listings", async () => {
-      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(mockConnection);
+      mockPrisma.googleDriveConnection.findUnique.mockResolvedValue(
+        mockConnection,
+      );
       mockDriveFilesList
         .mockResolvedValueOnce({ data: { files: [] } }) // empty folders
         .mockResolvedValueOnce({ data: { files: [] } }); // empty files
@@ -614,7 +692,10 @@ describe("GoogleDriveRAGService", () => {
       // Use a valid KB with folder so sync doesn't fail early
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue({
         id: "kb-1",
-        googleDriveConnection: { ...mockConnection, tokenExpiry: FUTURE.toISOString() },
+        googleDriveConnection: {
+          ...mockConnection,
+          tokenExpiry: FUTURE.toISOString(),
+        },
         googleDriveFolderIds: ["folder-1"],
         googleDriveFileIds: [],
         documents: [],
@@ -627,7 +708,10 @@ describe("GoogleDriveRAGService", () => {
     });
 
     it("should refresh token when expired and update DB with new credentials", async () => {
-      const expiredConnection = { ...mockConnection, tokenExpiry: PAST.toISOString() };
+      const expiredConnection = {
+        ...mockConnection,
+        tokenExpiry: PAST.toISOString(),
+      };
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue({
         id: "kb-1",
         googleDriveConnection: expiredConnection,
@@ -657,7 +741,10 @@ describe("GoogleDriveRAGService", () => {
     });
 
     it("should throw when token refresh fails", async () => {
-      const expiredConnection = { ...mockConnection, tokenExpiry: PAST.toISOString() };
+      const expiredConnection = {
+        ...mockConnection,
+        tokenExpiry: PAST.toISOString(),
+      };
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue({
         id: "kb-1",
         googleDriveConnection: expiredConnection,
@@ -690,7 +777,11 @@ describe("GoogleDriveRAGService", () => {
         .mockResolvedValueOnce({
           data: {
             files: [
-              { id: "sub-folder", name: "Sub", mimeType: "application/vnd.google-apps.folder" },
+              {
+                id: "sub-folder",
+                name: "Sub",
+                mimeType: "application/vnd.google-apps.folder",
+              },
               { id: "f-root", name: "root.txt", mimeType: "text/plain" },
             ],
           },
@@ -704,8 +795,12 @@ describe("GoogleDriveRAGService", () => {
 
       // Download both text files
       mockDriveFilesGet
-        .mockResolvedValueOnce({ data: makeReadableStream(Buffer.from("root content")) })
-        .mockResolvedValueOnce({ data: makeReadableStream(Buffer.from("sub content")) });
+        .mockResolvedValueOnce({
+          data: makeReadableStream(Buffer.from("root content")),
+        })
+        .mockResolvedValueOnce({
+          data: makeReadableStream(Buffer.from("sub content")),
+        });
 
       const result = await service.syncKnowledgeBase("kb-1");
 
@@ -725,7 +820,11 @@ describe("GoogleDriveRAGService", () => {
       const folderResponse = (depth: number) => ({
         data: {
           files: [
-            { id: `folder-d${depth}`, name: `Depth${depth}`, mimeType: "application/vnd.google-apps.folder" },
+            {
+              id: `folder-d${depth}`,
+              name: `Depth${depth}`,
+              mimeType: "application/vnd.google-apps.folder",
+            },
           ],
         },
       });
@@ -755,7 +854,7 @@ describe("GoogleDriveRAGService", () => {
         data: {
           files: [
             { id: "vid", name: "video.mp4", mimeType: "video/mp4" }, // unsupported
-            { id: "txt", name: "doc.txt", mimeType: "text/plain" },  // supported
+            { id: "txt", name: "doc.txt", mimeType: "text/plain" }, // supported
           ],
         },
       });
@@ -792,8 +891,12 @@ describe("GoogleDriveRAGService", () => {
         });
 
       mockDriveFilesGet
-        .mockResolvedValueOnce({ data: makeReadableStream(Buffer.from("content1")) })
-        .mockResolvedValueOnce({ data: makeReadableStream(Buffer.from("content2")) });
+        .mockResolvedValueOnce({
+          data: makeReadableStream(Buffer.from("content1")),
+        })
+        .mockResolvedValueOnce({
+          data: makeReadableStream(Buffer.from("content2")),
+        });
 
       const result = await service.syncKnowledgeBase("kb-1");
 
@@ -822,7 +925,9 @@ describe("GoogleDriveRAGService", () => {
 
     it("should export Google Doc as plain text", async () => {
       buildGoogleDocKb("application/vnd.google-apps.document");
-      mockDriveFilesExport.mockResolvedValue({ data: "Exported plain text content" });
+      mockDriveFilesExport.mockResolvedValue({
+        data: "Exported plain text content",
+      });
 
       const result = await service.syncKnowledgeBase("kb-1");
 
@@ -854,7 +959,13 @@ describe("GoogleDriveRAGService", () => {
       buildGoogleDocKb("application/vnd.google-apps.drawing");
       mockDriveFilesList.mockResolvedValue({
         data: {
-          files: [{ id: "g-drawing", name: "drawing.png", mimeType: "application/vnd.google-apps.drawing" }],
+          files: [
+            {
+              id: "g-drawing",
+              name: "drawing.png",
+              mimeType: "application/vnd.google-apps.drawing",
+            },
+          ],
         },
       });
       // Export succeeds but returns empty string (PNG binary not usable as text)
@@ -871,7 +982,10 @@ describe("GoogleDriveRAGService", () => {
   // ==================== downloadFileContent — binary file types ====================
 
   describe("downloadFileContent — various file types", () => {
-    const buildFileKb = (mimeType: string, fileData: Buffer = Buffer.from("sample")) => {
+    const buildFileKb = (
+      mimeType: string,
+      fileData: Buffer = Buffer.from("sample"),
+    ) => {
       mockPrisma.knowledgeBase.findUnique.mockResolvedValue({
         id: "kb-1",
         googleDriveConnection: mockConnection,
@@ -893,7 +1007,8 @@ describe("GoogleDriveRAGService", () => {
       const result = await service.syncKnowledgeBase("kb-1");
 
       expect(result.added).toBe(1);
-      const addDocCall = (mockKbService.addDocument as jest.Mock).mock.calls[0][1];
+      const addDocCall = (mockKbService.addDocument as jest.Mock).mock
+        .calls[0][1];
       expect(addDocCall.content).toBe("Hello world");
     });
 
@@ -902,7 +1017,8 @@ describe("GoogleDriveRAGService", () => {
 
       await service.syncKnowledgeBase("kb-1");
 
-      const addDocCall = (mockKbService.addDocument as jest.Mock).mock.calls[0][1];
+      const addDocCall = (mockKbService.addDocument as jest.Mock).mock
+        .calls[0][1];
       expect(addDocCall.content).toBe("# Title\n\nContent");
     });
 
@@ -911,19 +1027,26 @@ describe("GoogleDriveRAGService", () => {
 
       await service.syncKnowledgeBase("kb-1");
 
-      const addDocCall = (mockKbService.addDocument as jest.Mock).mock.calls[0][1];
+      const addDocCall = (mockKbService.addDocument as jest.Mock).mock
+        .calls[0][1];
       expect(addDocCall.content).toBe("<h1>Hello</h1>");
     });
 
     it("should extract PDF content using pdf-parse", async () => {
       // Mock require('pdf-parse') inside the method
-      jest.mock("pdf-parse", () => jest.fn().mockResolvedValue({ text: "PDF text content" }), {
-        virtual: true,
-      });
+      jest.mock(
+        "pdf-parse",
+        () => jest.fn().mockResolvedValue({ text: "PDF text content" }),
+        {
+          virtual: true,
+        },
+      );
 
       buildFileKb("application/pdf", Buffer.from("%PDF-1.4 mock"));
       // Override to simulate pdf-parse success
-      const pdfParseMock = jest.fn().mockResolvedValue({ text: "PDF text content" });
+      const pdfParseMock = jest
+        .fn()
+        .mockResolvedValue({ text: "PDF text content" });
       jest.doMock("pdf-parse", () => pdfParseMock, { virtual: true });
 
       // PDF parse is done inline via require(), so we just verify the flow doesn't throw
@@ -934,7 +1057,9 @@ describe("GoogleDriveRAGService", () => {
 
     it("should extract DOCX content using mammoth", async () => {
       const mammoth = require("mammoth");
-      mammoth.extractRawText.mockResolvedValue({ value: "DOCX extracted text" });
+      mammoth.extractRawText.mockResolvedValue({
+        value: "DOCX extracted text",
+      });
 
       buildFileKb(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -944,7 +1069,8 @@ describe("GoogleDriveRAGService", () => {
       const result = await service.syncKnowledgeBase("kb-1");
 
       expect(result.added).toBe(1);
-      const addDocCall = (mockKbService.addDocument as jest.Mock).mock.calls[0][1];
+      const addDocCall = (mockKbService.addDocument as jest.Mock).mock
+        .calls[0][1];
       expect(addDocCall.content).toBe("DOCX extracted text");
     });
 
@@ -969,7 +1095,8 @@ describe("GoogleDriveRAGService", () => {
 
       await service.syncKnowledgeBase("kb-1");
 
-      const addDocCall = (mockKbService.addDocument as jest.Mock).mock.calls[0][1];
+      const addDocCall = (mockKbService.addDocument as jest.Mock).mock
+        .calls[0][1];
       expect(addDocCall.content).toBe('{"key":"value"}');
     });
 
@@ -982,7 +1109,9 @@ describe("GoogleDriveRAGService", () => {
         documents: [],
       });
       mockDriveFilesList.mockResolvedValue({
-        data: { files: [{ id: "f-1", name: "empty.txt", mimeType: "text/plain" }] },
+        data: {
+          files: [{ id: "f-1", name: "empty.txt", mimeType: "text/plain" }],
+        },
       });
       // Empty stream
       mockDriveFilesGet.mockResolvedValue({
@@ -1037,7 +1166,9 @@ describe("GoogleDriveRAGService", () => {
         },
       });
       mockDriveFilesGet
-        .mockResolvedValueOnce({ data: makeReadableStream(Buffer.from("good content")) })
+        .mockResolvedValueOnce({
+          data: makeReadableStream(Buffer.from("good content")),
+        })
         .mockRejectedValueOnce(new Error("Download failed for bad file"));
 
       const result = await service.syncKnowledgeBase("kb-1");

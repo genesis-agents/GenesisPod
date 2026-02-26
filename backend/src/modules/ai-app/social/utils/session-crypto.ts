@@ -31,11 +31,13 @@ interface EncryptedData {
 }
 
 /**
- * Get encryption key from environment variable
+ * Get encryption key from environment variable or passed parameter
  * Key should be 32 bytes (64 hex characters) for AES-256
+ *
+ * @param keyHex - Optional key hex string (from ConfigService). Falls back to process.env.SESSION_ENCRYPTION_KEY
  */
-function getEncryptionKey(): Buffer {
-  const keyHex = process.env.SESSION_ENCRYPTION_KEY;
+function getEncryptionKey(keyHex?: string): Buffer {
+  keyHex = keyHex || process.env.SESSION_ENCRYPTION_KEY;
 
   if (!keyHex) {
     // In development, use a default key (NOT for production!)
@@ -73,11 +75,12 @@ function getEncryptionKey(): Buffer {
  * Encrypt session data using AES-256-GCM
  *
  * @param data - Plain text data to encrypt (usually JSON string)
+ * @param keyHex - Optional encryption key hex string (from ConfigService). Falls back to env var.
  * @returns Encrypted data as JSON string
  */
-export function encryptSessionData(data: string): string {
+export function encryptSessionData(data: string, keyHex?: string): string {
   try {
-    const key = getEncryptionKey();
+    const key = getEncryptionKey(keyHex);
     const iv = crypto.randomBytes(IV_LENGTH);
 
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
@@ -107,9 +110,13 @@ export function encryptSessionData(data: string): string {
  * Decrypt session data using AES-256-GCM
  *
  * @param encryptedJson - Encrypted data as JSON string
+ * @param keyHex - Optional encryption key hex string (from ConfigService). Falls back to env var.
  * @returns Decrypted plain text data
  */
-export function decryptSessionData(encryptedJson: string): string {
+export function decryptSessionData(
+  encryptedJson: string,
+  keyHex?: string,
+): string {
   try {
     const encryptedData: EncryptedData = JSON.parse(encryptedJson);
 
@@ -120,7 +127,7 @@ export function decryptSessionData(encryptedJson: string): string {
       );
     }
 
-    const key = getEncryptionKey();
+    const key = getEncryptionKey(keyHex);
     const iv = Buffer.from(encryptedData.iv, "hex");
     const authTag = Buffer.from(encryptedData.tag, "hex");
 
@@ -167,19 +174,19 @@ export function isEncrypted(data: string): boolean {
 /**
  * Encrypt session data with automatic JSON serialization
  */
-export function encryptSession<T>(sessionData: T): string {
+export function encryptSession<T>(sessionData: T, keyHex?: string): string {
   const jsonData = JSON.stringify(sessionData);
-  return encryptSessionData(jsonData);
+  return encryptSessionData(jsonData, keyHex);
 }
 
 /**
  * Decrypt session data with automatic JSON parsing
  * Handles legacy unencrypted data gracefully
  */
-export function decryptSession<T>(encryptedData: string): T {
+export function decryptSession<T>(encryptedData: string, keyHex?: string): T {
   // Check if data is encrypted
   if (isEncrypted(encryptedData)) {
-    const decrypted = decryptSessionData(encryptedData);
+    const decrypted = decryptSessionData(encryptedData, keyHex);
     return JSON.parse(decrypted) as T;
   }
 
