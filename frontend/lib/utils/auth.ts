@@ -135,7 +135,7 @@ export function getAuthHeader(): Record<string, string> {
  * Initiate Google OAuth login
  */
 export function loginWithGoogle(): void {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   window.location.href = `${apiUrl}/api/v1/auth/google`;
 }
 
@@ -175,7 +175,7 @@ export async function refreshAccessToken(): Promise<AuthTokens | null> {
 
   refreshPromise = (async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const response = await fetch(`${apiUrl}/api/v1/auth/refresh`, {
         method: 'POST',
         headers: {

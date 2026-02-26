@@ -46,8 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        // 验证 token 是否仍然有效
-        const response = await fetch(`${config.apiUrl}/auth/me`, {
+        // Direct backend URL to bypass CDN proxy (CDN 503 must not log users out)
+        const response = await fetch(`${config.streamApiUrl}/auth/me`, {
           headers: {
             Authorization: `Bearer ${tokens.accessToken}`,
           },
@@ -64,10 +64,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
           });
-        } else {
-          // Token 无效，清除登录状态
-          logger.warn('Token validation failed, clearing auth state');
+        } else if (response.status === 401) {
+          // Only clear on explicit 401 (token rejected by backend)
+          logger.warn('Token validation failed (401), clearing auth state');
           clearAuthTokens();
+        } else {
+          // 5xx or other errors: keep cached state, don't log user out
+          logger.warn(
+            `Token validation returned ${response.status}, using cached user`
+          );
+          setAuthState({
+            user: cachedUser,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+          });
         }
       } catch (error) {
         // 网络错误时使用缓存的用户数据
