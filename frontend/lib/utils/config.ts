@@ -27,13 +27,19 @@ const isRailwayProduction = () => {
 };
 
 // 获取正确的 API 基础 URL
-// 浏览器端使用相对 URL（利用 Next.js rewrites 代理，避免 CORS 问题）
-// 服务端需要完整 URL
+// Railway 生产环境直连后端（绕过 Fastly CDN 代理）
+// 本地开发使用相对 URL（利用 Next.js rewrites 代理）
 const getApiBaseUrl = () => {
-  // 浏览器端：使用相对 URL，让 Next.js rewrites 代理请求到后端
-  // 这样可以避免 CORS 问题，因为请求是发送到同源的 Next.js 服务器
   if (isBrowser()) {
-    return ''; // 空字符串 + /api/v1 = 相对 URL /api/v1
+    // Railway 生产环境：直连后端，绕过 CDN 代理
+    // Railway 的 Fastly CDN 在高负载时会触发限流（"Pop visit count exceeded"），
+    // 导致所有经过 CDN 的请求返回 503。直连后端更稳定可靠。
+    // 后端 CORS 已正确配置，允许前端域名跨域访问。
+    if (isRailwayProduction()) {
+      return RAILWAY_BACKEND_URL;
+    }
+    // 本地开发：使用相对 URL，让 Next.js rewrites 代理请求到后端
+    return '';
   }
 
   // 服务端渲染时需要完整 URL
@@ -99,8 +105,8 @@ export const config = {
 
   /**
    * API基础URL (getter，每次访问重新计算)
-   * 浏览器端返回空字符串以使用相对URL，避免CORS问题
-   * 服务端返回完整URL用于SSR
+   * Railway 生产环境返回直连后端 URL（绕过 CDN）
+   * 本地开发返回空字符串（使用相对 URL + Next.js proxy）
    */
   get apiBaseUrl() {
     return getApiBaseUrl();

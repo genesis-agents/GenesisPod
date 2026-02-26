@@ -74,10 +74,9 @@ export type SSEHandler<T = unknown> = {
 // ==================== API 客户端类 ====================
 
 class ApiClient {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = config.apiUrl;
+  /** Dynamic getter — config.apiUrl resolves differently per environment */
+  private get baseUrl(): string {
+    return config.apiUrl;
   }
 
   /**
