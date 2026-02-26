@@ -328,6 +328,27 @@ export class AiConnectionTestService {
           break;
         }
 
+        // Perplexity (OpenAI-compatible format)
+        case "perplexity":
+          response = await firstValueFrom(
+            this.httpService.post(
+              apiEndpoint || "https://api.perplexity.ai/chat/completions",
+              {
+                model: modelId || "",
+                messages: testMessages,
+                max_tokens: 50,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 15000,
+              },
+            ),
+          );
+          break;
+
         // Chinese providers (OpenAI-compatible format)
         case "deepseek":
         case "qwen":
