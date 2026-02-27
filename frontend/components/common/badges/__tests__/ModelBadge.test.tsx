@@ -55,8 +55,8 @@ describe('ModelBadge', () => {
   it('renders provider logo image when brand has a logo', () => {
     render(<ModelBadge modelId="gpt-4o" />);
     const img = screen.getByRole('img', { hidden: true });
-    expect(img.src).toContain('/icons/ai/openai.svg');
-    expect(img.alt).toBe('OpenAI');
+    expect(img.getAttribute('src')).toContain('/icons/ai/openai.svg');
+    expect(img.getAttribute('alt')).toBe('OpenAI');
   });
 
   it('does not render img when brand has no logo (unknown provider)', () => {
@@ -114,8 +114,8 @@ describe('ModelBadge', () => {
   it('renders Claude badge with correct logo for claude model', () => {
     render(<ModelBadge modelId="claude-3-opus" />);
     const img = screen.getByRole('img', { hidden: true });
-    expect(img.src).toContain('/icons/ai/claude.svg');
-    expect(img.alt).toBe('Claude');
+    expect(img.getAttribute('src')).toContain('/icons/ai/claude.svg');
+    expect(img.getAttribute('alt')).toBe('Claude');
   });
 
   it('renders as a span element', () => {
