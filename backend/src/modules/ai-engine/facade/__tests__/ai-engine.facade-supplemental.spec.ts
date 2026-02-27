@@ -20,7 +20,12 @@ import { AIEngineFacade } from "../ai-engine.facade";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
 import { AIModelType } from "@prisma/client";
-import { ORCHESTRATION_FEATURE, MEMORY_FEATURE, TOOL_FEATURE } from "../facade.providers";
+import {
+  ORCHESTRATION_FEATURE,
+  MEMORY_FEATURE,
+  TOOL_FEATURE,
+  SKILL_FEATURE,
+} from "../facade.providers";
 
 // ─────────────────────────────────────────────────────────────
 // Shared helpers
@@ -147,7 +152,9 @@ describe("AIEngineFacade — chat() model resolution", () => {
   });
 
   it("resolves modelId from modelType when request.model is absent", async () => {
-    const mockGetDefault = jest.fn().mockResolvedValue({ modelId: "gemini-flash" });
+    const mockGetDefault = jest
+      .fn()
+      .mockResolvedValue({ modelId: "gemini-flash" });
     const { facade, mockChat } = await buildFacade([], {
       getDefaultModelByType: mockGetDefault,
     });
@@ -258,7 +265,10 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -293,7 +303,10 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -468,7 +481,18 @@ describe("AIEngineFacade — executeSkill()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
+        {
+          provide: SKILL_FEATURE,
+          useValue: {
+            loader: null,
+            promptBuilder: null,
+            llmAdapter: mockLLMAdapter,
+          },
+        },
       ],
     }).compile();
 
@@ -477,8 +501,6 @@ describe("AIEngineFacade — executeSkill()", () => {
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
     const facade = module.get<AIEngineFacade>(AIEngineFacade);
-    (facade as unknown as Record<string, unknown>)["llmAdapterForSkills"] =
-      mockLLMAdapter;
 
     const setLLMAdapter = jest.fn();
     const mockSkill = {
@@ -542,7 +564,9 @@ describe("AIEngineFacade — resolveSkillInputBindings()", () => {
 
     const result = facade.resolveSkillInputBindings(
       plainSkill as unknown as import("../../skills/abstractions/skill.interface").ISkill,
-      { variables: {} } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+      {
+        variables: {},
+      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
     );
 
     expect(result).toBeNull();
@@ -559,7 +583,9 @@ describe("AIEngineFacade — resolveSkillInputBindings()", () => {
 
     const result = facade.resolveSkillInputBindings(
       adapter as unknown as import("../../skills/abstractions/skill.interface").ISkill,
-      { variables: {} } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+      {
+        variables: {},
+      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
     );
 
     expect(result).toBeNull();
@@ -574,7 +600,18 @@ describe("AIEngineFacade — resolveSkillInputBindings()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
+        {
+          provide: SKILL_FEATURE,
+          useValue: {
+            loader: null,
+            promptBuilder: null,
+            inputBindingResolver: mockResolver,
+          },
+        },
       ],
     }).compile();
 
@@ -583,18 +620,20 @@ describe("AIEngineFacade — resolveSkillInputBindings()", () => {
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
     const facade = module.get<AIEngineFacade>(AIEngineFacade);
-    (facade as unknown as Record<string, unknown>)["skillInputBindingResolver"] =
-      mockResolver;
 
     const adapter = {
       execute: jest.fn(),
       isPromptSkillAdapter: true,
-      getInputBindings: jest.fn().mockReturnValue([{ field: "field1", source: "context.x" }]),
+      getInputBindings: jest
+        .fn()
+        .mockReturnValue([{ field: "field1", source: "context.x" }]),
     };
 
     const result = facade.resolveSkillInputBindings(
       adapter as unknown as import("../../skills/abstractions/skill.interface").ISkill,
-      { variables: { x: "value" } } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+      {
+        variables: { x: "value" },
+      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
     );
 
     expect(mockResolver.resolve).toHaveBeenCalled();
@@ -712,7 +751,10 @@ describe("AIEngineFacade — buildContext()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -747,7 +789,10 @@ describe("AIEngineFacade — buildContext()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -777,7 +822,10 @@ describe("AIEngineFacade — buildContext()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: MEMORY_FEATURE,
           useValue: { shortTerm: mockShortTermMemory, longTerm: null },
@@ -837,7 +885,9 @@ describe("AIEngineFacade — buildContext()", () => {
     const { facade } = await buildFacade();
 
     const ctx = await facade.buildContext({
-      sources: [{ type: "unknown-type" as "custom", content: "fallback content" }],
+      sources: [
+        { type: "unknown-type" as "custom", content: "fallback content" },
+      ],
     });
 
     expect(ctx).toContain("fallback content");
@@ -948,7 +998,10 @@ describe("AIEngineFacade — search() without ToolRegistry", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -976,7 +1029,10 @@ describe("AIEngineFacade — search() without ToolRegistry", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: TOOL_FEATURE,
           useValue: { registry: mockToolRegistry, executor: null },
@@ -1039,7 +1095,10 @@ describe("AIEngineFacade — chat() isError response handling", () => {
             }),
           }),
         },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 

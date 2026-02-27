@@ -25,7 +25,6 @@ import {
   RouteResult,
 } from "../orchestration/services/intent-router.service";
 import type { AppModule } from "../orchestration/services/task-planner.service";
-import { A2AMessageBusService } from "../teams/services/a2a-message-bus.service";
 import type {
   A2AMessageType,
   A2APriority,
@@ -71,6 +70,21 @@ import {
   // Constraint Feature
   ConstraintFeature,
   CONSTRAINT_FEATURE,
+  // ★ Phase 2：新增 Feature Token 类型和注入 Token
+  TeamsFeature,
+  TEAMS_FEATURE,
+  ContentFeature,
+  CONTENT_FEATURE,
+  KnowledgeFeature,
+  KNOWLEDGE_FEATURE,
+  IntelligenceFeature,
+  INTELLIGENCE_FEATURE,
+  CollaborationFeature,
+  COLLABORATION_FEATURE,
+  ObservabilityFeature,
+  OBSERVABILITY_FEATURE,
+  RegistryFeature,
+  REGISTRY_FEATURE,
 } from "./facade.providers";
 // ★ P2 能力下沉：Realtime 类型导入
 import type {
@@ -117,39 +131,31 @@ import type {
   SkillContext,
   SkillResult,
 } from "../skills/abstractions/skill.interface";
-import { InputBindingResolver } from "../skills/runtime/input-binding-resolver";
 import type { BindingContext } from "../skills/runtime/input-binding-resolver";
 // Use import type to avoid circular: PromptSkillAdapter → AIEngineFacade → PromptSkillAdapter
 import type { PromptSkillAdapter } from "../skills/runtime/prompt-skill-adapter";
 import { AiChatLLMAdapter } from "../llm/adapters/ai-chat-llm-adapter";
-import { TraceCollectorService } from "../infra/observability/trace-collector.service";
 import type {
   CreateTraceInput,
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
 } from "../infra/observability/trace.interface";
-import { MemoryCoordinatorService } from "../knowledge/memory/memory-coordinator.service";
 import type {
   MemoryEvent,
   MemoryQuery,
   MemoryContext,
 } from "../knowledge/memory/memory-coordinator.service";
-import { ReflectionService } from "../orchestration/services/reflection.service";
 import type {
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
 } from "../orchestration/services/reflection.service";
-import { ContextCompressionService } from "../orchestration/services/context-compression.service";
 import type {
   CompressionOptions,
   CompressionResult,
 } from "../orchestration/services/interfaces";
-import { ReportSynthesisEngine } from "../content/synthesis/report-synthesis.service";
-import { EvidenceManagerService } from "../knowledge/evidence/services/evidence-manager.service";
 import type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
-import { VotingManager } from "../agents/collaboration/patterns/voting-pattern";
 import type { VotingSession } from "../agents/collaboration/patterns/voting-pattern";
 import type {
   VoteRequest,
@@ -281,55 +287,44 @@ export class AIEngineFacade {
     @Inject(CONSTRAINT_FEATURE)
     private readonly constraint?: ConstraintFeature,
 
-    // ==================== 独立服务（可选）====================
+    // ==================== Phase 2：新增 Feature Token 注入 ====================
+    @Optional()
+    @Inject(TEAMS_FEATURE)
+    private readonly teamsFeature?: TeamsFeature,
+
+    @Optional()
+    @Inject(CONTENT_FEATURE)
+    private readonly content?: ContentFeature,
+
+    @Optional()
+    @Inject(KNOWLEDGE_FEATURE)
+    private readonly knowledge?: KnowledgeFeature,
+
+    @Optional()
+    @Inject(INTELLIGENCE_FEATURE)
+    private readonly intelligence?: IntelligenceFeature,
+
+    @Optional()
+    @Inject(COLLABORATION_FEATURE)
+    private readonly collaboration?: CollaborationFeature,
+
+    @Optional()
+    @Inject(OBSERVABILITY_FEATURE)
+    private readonly observability?: ObservabilityFeature,
+
+    @Optional()
+    @Inject(REGISTRY_FEATURE)
+    private readonly registry?: RegistryFeature,
+
+    // ==================== 直接注入服务（不适合走 Token） ====================
     @Optional() private readonly prisma?: PrismaService,
-    @Optional() private readonly teamsService?: TeamsService,
-    @Optional() private readonly capabilityResolver?: AICapabilityResolver,
     @Optional()
     @Inject(forwardRef(() => CreditsService))
     private readonly creditsService?: CreditsService,
     @Optional() private readonly modelFallbackService?: ModelFallbackService,
     @Optional()
     modelResolver?: ModelResolverService,
-    @Optional() private readonly llmAdapterForSkills?: AiChatLLMAdapter,
-    @Optional()
-    private readonly skillInputBindingResolver?: InputBindingResolver,
-    @Optional() private readonly traceCollector?: TraceCollectorService,
-    @Optional() private readonly memoryCoordinator?: MemoryCoordinatorService,
-    @Optional() private readonly intentRouterService?: IntentRouterService,
-    @Optional() private readonly a2aBusService?: A2AMessageBusService,
-    @Optional() private readonly reflectionService?: ReflectionService,
-    @Optional()
-    private readonly contextCompressionService?: ContextCompressionService,
-    @Optional() private readonly synthesisEngine?: ReportSynthesisEngine,
-    @Optional() private readonly evidenceManager?: EvidenceManagerService,
-    @Optional() private readonly votingManager?: VotingManager,
-    @Optional() private readonly embeddingService?: EmbeddingService,
-    @Optional() private readonly vectorService?: VectorService,
     @Optional() private readonly mcpManagerSvc?: MCPManager,
-    @Optional() private readonly circuitBreakerSvc?: CircuitBreakerService,
-    @Optional() private readonly agentExecutorSvc?: AgentExecutorService,
-    @Optional() private readonly taskDecomposerSvc?: TaskDecomposerService,
-    @Optional() private readonly intentDetectorSvc?: IntentDetectionService,
-    @Optional() private readonly execStateMgrSvc?: ExecutionStateManager,
-    @Optional()
-    private readonly fnCallingAdapterSvc?: FunctionCallingLLMAdapter,
-    @Optional() private readonly fnCallingExecutorSvc?: FunctionCallingExecutor,
-    @Optional() private readonly contextInitSvc?: ContextInitializationService,
-    @Optional() private readonly teamFactorySvc?: TeamFactory,
-    @Optional()
-    private readonly longContentEngineSvc?: LongContentEngineService,
-    @Optional()
-    private readonly continuationProtocolSvc?: ContinuationProtocolService,
-    @Optional() private readonly missionOrchestratorSvc?: MissionOrchestrator,
-    @Optional() private readonly outputReviewerSvc?: OutputReviewerService,
-    @Optional() private readonly contextEvolutionSvc?: ContextEvolutionService,
-    @Optional() private readonly contentFetchSvc?: ContentFetchService,
-    // ★ Registry getters — 供 AI App 模块注册/查询时使用
-    @Optional() private readonly agentRegistrySvc?: AgentRegistry,
-    @Optional() private readonly teamRegistrySvc?: TeamRegistry,
-    @Optional() private readonly roleRegistrySvc?: RoleRegistry,
-    @Optional() private readonly skillRegistrySvc?: SkillRegistry,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -342,11 +337,13 @@ export class AIEngineFacade {
       orchestration,
       modelResolver,
     );
-    this.teamSub = new TeamSubFacade(teamsService);
+    this.teamSub = new TeamSubFacade(this.teamsFeature?.teamsService);
     this.memorySub = new MemorySubFacade(memory);
     this.agentSub = new AgentSubFacade(orchestration);
-    this.toolExecSub = new ToolExecSubFacade(tools, capabilityResolver, (req) =>
-      this.chat(req),
+    this.toolExecSub = new ToolExecSubFacade(
+      tools,
+      tools?.capabilityResolver,
+      (req) => this.chat(req),
     );
   }
 
@@ -361,41 +358,16 @@ export class AIEngineFacade {
       skills: !!this.skills,
       realtime: !!this.realtime,
       constraint: !!this.constraint,
+      teams: !!this.teamsFeature,
+      content: !!this.content,
+      knowledge: !!this.knowledge,
+      intelligence: !!this.intelligence,
+      collaboration: !!this.collaboration,
+      observability: !!this.observability,
+      registry: !!this.registry,
       database: !!this.prisma,
-      teams: !!this.teamsService,
-      capabilities: !!this.capabilityResolver,
       credits: !!this.creditsService,
-      traceCollector: !!this.traceCollector,
-      memoryCoordinator: !!this.memoryCoordinator,
-      intentRouter: !!this.intentRouterService,
-      a2aBus: !!this.a2aBusService,
-      reflection: !!this.reflectionService,
-      contextCompression: !!this.contextCompressionService,
-      synthesisEngine: !!this.synthesisEngine,
-      evidenceManager: !!this.evidenceManager,
-      votingManager: !!this.votingManager,
-      embedding: !!this.embeddingService,
-      vector: !!this.vectorService,
       mcp: !!this.mcpManagerSvc,
-      circuitBreaker: !!this.circuitBreakerSvc,
-      agentExecutor: !!this.agentExecutorSvc,
-      taskDecomposer: !!this.taskDecomposerSvc,
-      intentDetector: !!this.intentDetectorSvc,
-      execStateManager: !!this.execStateMgrSvc,
-      fnCallingAdapter: !!this.fnCallingAdapterSvc,
-      fnCallingExecutor: !!this.fnCallingExecutorSvc,
-      contextInit: !!this.contextInitSvc,
-      teamFactory: !!this.teamFactorySvc,
-      longContentEngine: !!this.longContentEngineSvc,
-      continuationProtocol: !!this.continuationProtocolSvc,
-      missionOrchestrator: !!this.missionOrchestratorSvc,
-      outputReviewer: !!this.outputReviewerSvc,
-      contextEvolution: !!this.contextEvolutionSvc,
-      contentFetch: !!this.contentFetchSvc,
-      agentRegistry: !!this.agentRegistrySvc,
-      teamRegistry: !!this.teamRegistrySvc,
-      roleRegistry: !!this.roleRegistrySvc,
-      skillRegistry: !!this.skillRegistrySvc,
     };
 
     this.logger.log(
@@ -1622,10 +1594,10 @@ export class AIEngineFacade {
       typeof (skill as { setLLMAdapter: unknown }).setLLMAdapter === "function";
 
     if (hasSetLLMAdapter) {
-      if (this.llmAdapterForSkills) {
+      if (this.skills?.llmAdapter) {
         (
           skill as { setLLMAdapter: (a: AiChatLLMAdapter) => void }
-        ).setLLMAdapter(this.llmAdapterForSkills);
+        ).setLLMAdapter(this.skills?.llmAdapter);
       } else {
         this.logger.warn(
           `[executeSkill] Skill "${context.skillId}" expects LLM adapter (setLLMAdapter) but llmAdapterForSkills is not available — execution may fail`,
@@ -1656,10 +1628,10 @@ export class AIEngineFacade {
       return null;
     }
     const bindings = adapter.getInputBindings();
-    if (!bindings || !this.skillInputBindingResolver) {
+    if (!bindings || !this.skills?.inputBindingResolver) {
       return null;
     }
-    return this.skillInputBindingResolver.resolve(bindings, bindingContext);
+    return this.skills?.inputBindingResolver.resolve(bindings, bindingContext);
   }
 
   /**
@@ -2600,22 +2572,22 @@ export class AIEngineFacade {
 
   /** 开始一个新的 Trace，返回 traceId（或 undefined 如果 TraceCollector 不可用） */
   startTrace(input: CreateTraceInput): string | undefined {
-    return this.traceCollector?.startTrace(input);
+    return this.observability?.traceCollector?.startTrace(input);
   }
 
   /** 在指定 Trace 下添加一个 Span，返回 spanId（或 undefined） */
   addSpan(traceId: string, input: CreateSpanInput): string | undefined {
-    return this.traceCollector?.addSpan(traceId, input);
+    return this.observability?.traceCollector?.addSpan(traceId, input);
   }
 
   /** 结束一个 Span */
   endSpan(spanId: string, input: EndSpanInput): void {
-    this.traceCollector?.endSpan(spanId, input);
+    this.observability?.traceCollector?.endSpan(spanId, input);
   }
 
   /** 结束一个 Trace */
   endTrace(traceId: string, input: EndTraceInput): void {
-    this.traceCollector?.endTrace(traceId, input);
+    this.observability?.traceCollector?.endTrace(traceId, input);
   }
 
   // ==================== 记忆协调器（MemoryCoordinator）====================
@@ -2626,7 +2598,11 @@ export class AIEngineFacade {
     userId: string,
     sessionId?: string,
   ): Promise<void> | undefined {
-    return this.memoryCoordinator?.store(event, userId, sessionId);
+    return this.observability?.memoryCoordinator?.store(
+      event,
+      userId,
+      sessionId,
+    );
   }
 
   /** 并行召回跨层记忆 */
@@ -2635,7 +2611,11 @@ export class AIEngineFacade {
     userId: string,
     sessionId?: string,
   ): Promise<MemoryContext> | undefined {
-    return this.memoryCoordinator?.recall(query, userId, sessionId);
+    return this.observability?.memoryCoordinator?.recall(
+      query,
+      userId,
+      sessionId,
+    );
   }
 
   // ==================== 意图路由（IntentRouter）====================
@@ -2649,7 +2629,7 @@ export class AIEngineFacade {
     userIntent: string,
     context: AgentContext,
   ): Promise<RouteResult> | undefined {
-    return this.intentRouterService?.route(userIntent, context);
+    return this.intelligence?.intentRouter?.route(userIntent, context);
   }
 
   // ==================== A2A 消息总线（A2ABus）====================
@@ -2666,12 +2646,12 @@ export class AIEngineFacade {
     correlationId?: string;
     ttlMs?: number;
   }): Promise<A2AMessage<TPayload>> | undefined {
-    return this.a2aBusService?.publish(params);
+    return this.collaboration?.a2aBus?.publish(params);
   }
 
   /** 清理 A2A 会话（释放订阅和历史消息） */
   a2aClearSession(sessionId: string): void {
-    this.a2aBusService?.clearSession(sessionId);
+    this.collaboration?.a2aBus?.clearSession(sessionId);
   }
 
   // ==================== 反思（Reflection）====================
@@ -2681,7 +2661,7 @@ export class AIEngineFacade {
     input: ReflectionInput,
     config?: ReflectionConfig,
   ): Promise<ReflectionResult> | undefined {
-    return this.reflectionService?.reflect(input, config);
+    return this.intelligence?.reflection?.reflect(input, config);
   }
 
   // ==================== 上下文压缩（ContextCompression）====================
@@ -2691,33 +2671,35 @@ export class AIEngineFacade {
     content: string,
     options?: CompressionOptions,
   ): Promise<CompressionResult> | undefined {
-    return this.contextCompressionService?.compress(content, options);
+    return this.intelligence?.contextCompression?.compress(content, options);
   }
 
   // ==================== 报告合成（ReportSynthesisEngine）====================
 
   /** 清洗报告 Markdown（移除多余空行、格式规范化）；服务不可用时原样返回 */
   sanitizeReport(text: string): string {
-    return this.synthesisEngine?.sanitizeReport(text) ?? text;
+    return this.intelligence?.synthesisEngine?.sanitizeReport(text) ?? text;
   }
 
   // ==================== 证据管理（EvidenceManager）====================
 
   /** 保存证据到 Engine Evidence 存储 */
   evidenceSave(request: SaveEvidenceRequest): Promise<void> | undefined {
-    return this.evidenceManager?.save(request).then(() => undefined);
+    return this.collaboration?.evidenceManager
+      ?.save(request)
+      .then(() => undefined);
   }
 
   // ==================== 投票管理（VotingManager）====================
 
   /** 创建投票会话；VotingManager 不可用时返回 undefined */
   votingCreate(request: VoteRequest): VotingSession | undefined {
-    return this.votingManager?.createVote(request);
+    return this.collaboration?.votingManager?.createVote(request);
   }
 
   /** 投票（某个投票人为某个选项投票） */
   votingCastVote(sessionId: string, voterId: string, optionId: string): void {
-    this.votingManager?.castVote(sessionId, voterId, optionId);
+    this.collaboration?.votingManager?.castVote(sessionId, voterId, optionId);
   }
 
   /** 关闭投票并计票；VotingManager 不可用时返回 undefined */
@@ -2725,7 +2707,7 @@ export class AIEngineFacade {
     sessionId: string,
     totalVoters: number,
   ): VoteResult | null | undefined {
-    return this.votingManager?.closeVote(sessionId, totalVoters);
+    return this.collaboration?.votingManager?.closeVote(sessionId, totalVoters);
   }
 
   // ==================== 实时推送（Realtime）直接访问 ====================
@@ -2746,7 +2728,10 @@ export class AIEngineFacade {
   async capabilityResolveTools(
     context: AICapabilityContext,
   ): Promise<string[]> {
-    return (await this.capabilityResolver?.resolveToolsForAgent(context)) ?? [];
+    return (
+      (await this.tools?.capabilityResolver?.resolveToolsForAgent(context)) ??
+      []
+    );
   }
 
   /** 获取技能 Prompt 包；服务不可用时返回 null */
@@ -2755,7 +2740,10 @@ export class AIEngineFacade {
     options?: SkillPromptOptions,
   ): Promise<SkillPromptBundle | null> {
     return (
-      (await this.capabilityResolver?.getSkillPrompts(context, options)) ?? null
+      (await this.tools?.capabilityResolver?.getSkillPrompts(
+        context,
+        options,
+      )) ?? null
     );
   }
 
@@ -2770,12 +2758,12 @@ export class AIEngineFacade {
 
   /** 生成单条文本的向量嵌入；服务不可用时返回 null */
   async embeddingGenerate(text: string): Promise<EmbeddingResult | null> {
-    return (await this.embeddingService?.generateEmbedding(text)) ?? null;
+    return (await this.knowledge?.embedding?.generateEmbedding(text)) ?? null;
   }
 
   /** 获取当前嵌入模型标识；服务不可用时返回 null */
   async embeddingGetModel(): Promise<string | null> {
-    return (await this.embeddingService?.getModel()) ?? null;
+    return (await this.knowledge?.embedding?.getModel()) ?? null;
   }
 
   // ==================== 向量检索（VectorService）====================
@@ -2786,8 +2774,10 @@ export class AIEngineFacade {
     options?: SimilaritySearchOptions,
   ): Promise<SimilarityResult[]> {
     return (
-      (await this.vectorService?.similaritySearch(queryEmbedding, options)) ??
-      []
+      (await this.knowledge?.vector?.similaritySearch(
+        queryEmbedding,
+        options,
+      )) ?? []
     );
   }
 
@@ -2802,37 +2792,37 @@ export class AIEngineFacade {
 
   /** 获取 CircuitBreakerService（用于 Teams 执行层负载控制） */
   get circuitBreaker(): CircuitBreakerService | undefined {
-    return this.circuitBreakerSvc;
+    return this.orchestration?.circuitBreaker;
   }
 
   /** 获取 AgentExecutorService（用于 Teams 任务执行） */
   get agentExecutor(): AgentExecutorService | undefined {
-    return this.agentExecutorSvc;
+    return this.orchestration?.agentExecutor;
   }
 
   /** 获取 TaskDecomposerService（用于 Teams 任务分解） */
   get taskDecomposer(): TaskDecomposerService | undefined {
-    return this.taskDecomposerSvc;
+    return this.orchestration?.taskDecomposer;
   }
 
   /** 获取 IntentDetectionService（用于上下文意图识别） */
   get intentDetector(): IntentDetectionService | undefined {
-    return this.intentDetectorSvc;
+    return this.orchestration?.intentDetector;
   }
 
   /** 获取 ExecutionStateManager（用于任务状态跟踪） */
   get execStateManager(): ExecutionStateManager | undefined {
-    return this.execStateMgrSvc;
+    return this.orchestration?.execStateManager;
   }
 
   /** 获取 FunctionCallingLLMAdapter（用于函数调用 LLM） */
   get functionCallingAdapter(): FunctionCallingLLMAdapter | undefined {
-    return this.fnCallingAdapterSvc;
+    return this.tools?.llmAdapter;
   }
 
   /** 获取 FunctionCallingExecutor（用于函数调用执行） */
   get functionCallingExecutor(): FunctionCallingExecutor | undefined {
-    return this.fnCallingExecutorSvc;
+    return this.tools?.executor;
   }
 
   /** 获取 ModelFallbackService（用于模型容错切换） */
@@ -2842,62 +2832,62 @@ export class AIEngineFacade {
 
   /** 获取 TeamsService 实例（用于 ai-teams-integration 适配层） */
   get teams(): TeamsService | undefined {
-    return this.teamsService;
+    return this.teamsFeature?.teamsService;
   }
 
   /** 获取 ContextInitializationService（用于 mission 上下文初始化） */
   get contextInit(): ContextInitializationService | undefined {
-    return this.contextInitSvc;
+    return this.teamsFeature?.contextInit;
   }
 
   /** 获取 TeamFactory（用于写作/团队协调器） */
   get teamFactory(): TeamFactory | undefined {
-    return this.teamFactorySvc;
+    return this.teamsFeature?.teamFactory;
   }
 
   /** 获取 LongContentEngineService（用于长内容处理） */
   get longContentEngine(): LongContentEngineService | undefined {
-    return this.longContentEngineSvc;
+    return this.content?.longContentEngine;
   }
 
   /** 获取 ContinuationProtocolService（用于续写协议） */
   get continuationProtocol(): ContinuationProtocolService | undefined {
-    return this.continuationProtocolSvc;
+    return this.content?.continuationProtocol;
   }
 
   /** 获取 EmbeddingService（供 RAG 模块直接使用） */
   get embedding(): EmbeddingService | undefined {
-    return this.embeddingService;
+    return this.knowledge?.embedding;
   }
 
   /** 获取 VectorService（供 RAG 模块直接使用） */
   get vector(): VectorService | undefined {
-    return this.vectorService;
+    return this.knowledge?.vector;
   }
 
   /** 获取 MissionOrchestrator（供写作/团队任务编排使用） */
   get missionOrchestrator(): MissionOrchestrator | undefined {
-    return this.missionOrchestratorSvc;
+    return this.teamsFeature?.missionOrchestrator;
   }
 
   /** 获取 AICapabilityResolver（供需要直接调用 logCapabilityUsage 等方法的使用） */
   get capabilityResolverService(): AICapabilityResolver | undefined {
-    return this.capabilityResolver;
+    return this.tools?.capabilityResolver;
   }
 
   /** 获取 OutputReviewerService（供任务审核使用） */
   get outputReviewer(): OutputReviewerService | undefined {
-    return this.outputReviewerSvc;
+    return this.orchestration?.outputReviewer;
   }
 
   /** 获取 ContextEvolutionService（供上下文演进使用） */
   get contextEvolution(): ContextEvolutionService | undefined {
-    return this.contextEvolutionSvc;
+    return this.orchestration?.contextEvolution;
   }
 
   /** 获取 ContentFetchService（供内容抓取使用） */
   get contentFetch(): ContentFetchService | undefined {
-    return this.contentFetchSvc;
+    return this.content?.contentFetch;
   }
 
   // ==================== Registry Getters ====================
@@ -2912,22 +2902,22 @@ export class AIEngineFacade {
 
   /** 获取 AgentRegistry（Agent 注册表） */
   get agentRegistry(): AgentRegistry | undefined {
-    return this.agentRegistrySvc;
+    return this.registry?.agent;
   }
 
   /** 获取 TeamRegistry（团队注册表） */
   get teamRegistry(): TeamRegistry | undefined {
-    return this.teamRegistrySvc;
+    return this.registry?.team;
   }
 
   /** 获取 RoleRegistry（角色注册表） */
   get roleRegistry(): RoleRegistry | undefined {
-    return this.roleRegistrySvc;
+    return this.registry?.role;
   }
 
   /** 获取 SkillRegistry（技能注册表） */
   get skillRegistry(): SkillRegistry | undefined {
-    return this.skillRegistrySvc;
+    return this.registry?.skill;
   }
 
   // ==================== Late Registration — 研究能力 ====================

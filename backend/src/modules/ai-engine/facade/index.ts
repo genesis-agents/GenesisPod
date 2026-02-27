@@ -331,3 +331,36 @@ export type {
 } from "../content/image/matching";
 export { ContentAnalysisService } from "../content/analysis/content-analysis.service";
 export * from "../content/analysis/content-analysis.types";
+
+// ★ Feature Token constants & interfaces（for DI consumers and module wiring）
+export {
+  MEMORY_FEATURE,
+  TOOL_FEATURE,
+  ORCHESTRATION_FEATURE,
+  SKILL_FEATURE,
+  REALTIME_FEATURE,
+  CONSTRAINT_FEATURE,
+  TEAMS_FEATURE,
+  CONTENT_FEATURE,
+  KNOWLEDGE_FEATURE,
+  INTELLIGENCE_FEATURE,
+  COLLABORATION_FEATURE,
+  OBSERVABILITY_FEATURE,
+  REGISTRY_FEATURE,
+  FACADE_FEATURE_PROVIDERS,
+} from "./facade.providers";
+export type {
+  MemoryFeature,
+  ToolFeature,
+  OrchestrationFeature,
+  SkillFeature,
+  RealtimeFeature,
+  ConstraintFeature,
+  TeamsFeature,
+  ContentFeature,
+  KnowledgeFeature,
+  IntelligenceFeature,
+  CollaborationFeature,
+  ObservabilityFeature,
+  RegistryFeature,
+} from "./facade.providers";
