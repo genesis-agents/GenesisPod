@@ -1,6 +1,6 @@
 # Genesis.ai 项目结构
 
-> 最后更新: 2026-01-23 | 维护者: Claude Code | 版本: 3.0
+> 最后更新: 2026-02-21 | 维护者: Claude Code | 版本: 3.1
 
 ## 项目概览
 
@@ -834,12 +834,13 @@ Core (core/)
 
 **统一 PostgreSQL 架构** - 成本优化 70-75%
 
-- **PostgreSQL 16**: 唯一数据库
-  - 结构化数据（用户、资源、笔记等）
-  - 原始数据存储（JSONB 字段）
-  - 知识图谱（Recursive CTEs）
-- **Redis 7**: 缓存、会话管理
-- **FlareSolverr**: Cloudflare 绕过代理服务
+| 数据库            | 用途       | 说明                                                    |
+| ----------------- | ---------- | ------------------------------------------------------- |
+| **PostgreSQL 16** | 唯一数据库 | 结构化数据 + JSONB 原始数据 + 知识图谱 (Recursive CTEs) |
+| **Redis 7**       | 缓存/会话  | 会话管理、API 缓存                                      |
+| **FlareSolverr**  | 反爬虫绕过 | Cloudflare 绕过代理服务                                 |
+
+> **注意**: 已移除 MongoDB、Neo4j、Qdrant。知识图谱使用 PostgreSQL 递归 CTE，原始数据使用 JSONB 向量存储。
 
 **架构优势**:
 

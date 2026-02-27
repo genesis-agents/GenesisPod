@@ -1,53 +1,44 @@
 # 06 - 数据库设计规范 | Database Design Standards
 
 > **优先级**: 🔴 MUST
-> **更新日期**: 2025-11-09
-> **适用范围**: PostgreSQL + Prisma, MongoDB
+> **更新日期**: 2026-02-21
+> **适用范围**: PostgreSQL 16 + Prisma (统一数据库架构)
 
 ---
 
 ## 目录
 
-1. [数据库选择原则](#数据库选择原则)
+1. [数据库架构](#数据库架构)
 2. [PostgreSQL规范](#postgresql规范)
-3. [MongoDB规范](#mongodb规范)
-4. [Prisma最佳实践](#prisma最佳实践)
-5. [数据迁移](#数据迁移)
-6. [性能优化](#性能优化)
+3. [Prisma最佳实践](#prisma最佳实践)
+4. [JSONB 原始数据存储](#jsonb-原始数据存储)
+5. [知识图谱实现](#知识图谱实现)
+6. [数据迁移](#数据迁移)
+7. [性能优化](#性能优化)
 
 ---
 
-## 数据库选择原则
+## 数据库架构
 
-### Genesis.ai 数据架构
+### 统一 PostgreSQL 策略
 
-**PostgreSQL (主数据库)**:
+Genesis.ai 采用**统一的 PostgreSQL 架构**，已移除 MongoDB、Neo4j、Qdrant：
 
-- ✅ 结构化数据（用户、资源、集合、学习路径）
-- ✅ 需要事务保证的数据
-- ✅ 需要复杂查询和关联的数据
-- ✅ 需要强一致性的数据
+| 数据类型   | 存储方式            | 说明               |
+| ---------- | ------------------- | ------------------ |
+| 结构化数据 | PostgreSQL 表       | 用户、资源、笔记等 |
+| 原始数据   | PostgreSQL JSONB    | API 响应、网页内容 |
+| 知识图谱   | PostgreSQL 递归 CTE | 图关系查询         |
+| 向量数据   | PostgreSQL pgvector | 嵌入向量存储       |
+| 缓存数据   | Redis 7             | 会话、API 缓存     |
 
-**MongoDB (辅助数据库)**:
+### 优势
 
-- ✅ 原始数据存储（raw_data from APIs）
-- ✅ 文档结构不固定的数据
-- ✅ 大量非结构化内容
-- ✅ 日志和追踪数据
-
-### 选择决策树
-
-```
-是否需要事务？
-├─ 是 → PostgreSQL
-└─ 否
-   ├─ 数据结构固定？
-   │  ├─ 是 → PostgreSQL
-   │  └─ 否 → MongoDB
-   └─ 需要复杂关联查询？
-      ├─ 是 → PostgreSQL
-      └─ 否 → MongoDB
-```
+- ✅ 运维成本降低 70-75%
+- ✅ 单点数据管理，备份简化
+- ✅ JSONB GIN 索引，查询性能优异
+- ✅ 递归 CTE 实现图关系，无需 Neo4j
+- ✅ 数据一致性保证
 
 ---
 
@@ -360,80 +351,71 @@ model Resource {
 
 ---
 
-## MongoDB规范
+## JSONB 原始数据存储
 
-### 1. 集合命名 🔴 MUST
+### 1. 模型设计 🔴 MUST
 
-```
-✅ 正确
-arxiv_raw_data          # snake_case, 复数或带_raw_data后缀
-github_raw_data
-resource_access_logs
+```prisma
+// ✅ 正确 - 使用 JSONB 存储原始数据
+model RawData {
+  id          String   @id @default(cuid())
+  resourceId  String   @map("resource_id")
 
-❌ 错误
-ArxivRawData            # 不要用PascalCase
-arxiv-raw-data          # 不要用kebab-case
-arxivRawData            # 不要用camelCase
-```
+  // 数据来源
+  source      String   // arxiv, github, youtube 等
+  sourceId    String   @map("source_id")  // 原始 ID
 
-### 2. 文档结构 🔴 MUST
-
-```typescript
-// ✅ 正确 - 完整的原始数据存储
-{
-  _id: ObjectId("..."),
-
-  // 关联到PostgreSQL的resource
-  resourceId: "cuid123",  // 🔴 MUST: 必须有！
-
-  // 完整的API原始响应
-  source: "arxiv",
-  sourceId: "2301.12345",
-
-  // 完整数据
-  title: "Full Title",
-  authors: [
-    { name: "Author Name", affiliation: "University" }
-  ],
-  abstract: "Complete abstract text...",
-  categories: ["cs.AI", "cs.LG"],
+  // JSONB 存储原始数据
+  data        Json     // 完整的 API 响应
 
   // 元数据
-  fetchedAt: ISODate("2024-01-01T00:00:00Z"),
-  apiVersion: "v1",
+  fetchedAt   DateTime @default(now()) @map("fetched_at")
+  apiVersion  String?  @map("api_version")
 
-  // 完整的原始响应（重要！）
-  rawResponse: {
-    // API返回的所有字段，一个不漏
-  }
-}
+  // 关系
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
-// ❌ 错误 - 数据不完整
-{
-  _id: ObjectId("..."),
-  // ❌ 缺少resourceId - 无法关联！
-  title: "Title",
-  // ❌ 只存储了少量字段，原始数据丢失
+  // 索引
+  @@index([resourceId])
+  @@index([source, sourceId])  // 去重索引
+  @@index([fetchedAt])
+  @@map("raw_data")
 }
 ```
 
-**规则**:
+### 2. JSONB 查询 🔴 MUST
 
-- 🔴 MUST: 必须包含`resourceId`字段关联PostgreSQL
-- 🔴 MUST: 必须存储完整的API原始响应
-- 🔴 MUST: 包含`fetchedAt`时间戳
-- 🟡 SHOULD: 包含`source`和`sourceId`用于去重
+```typescript
+// ✅ 正确 - 使用 Prisma JSONB 查询
+const papers = await prisma.rawData.findMany({
+  where: {
+    source: "arxiv",
+    data: {
+      path: ["categories"],
+      array_contains: "cs.AI", // JSONB 数组包含查询
+    },
+  },
+});
 
-### 3. 索引 🔴 MUST
+// ✅ JSONB 路径查询
+const result = await prisma.$queryRaw`
+  SELECT * FROM raw_data 
+  WHERE data->'authors' @> '[{"name": "John"}]'
+  AND source = 'github'
+`;
+```
 
-```javascript
-// MongoDB索引创建
-db.arxiv_raw_data.createIndex({ resourceId: 1 }); // 🔴 MUST
-db.arxiv_raw_data.createIndex({ sourceId: 1 }); // 🔴 MUST（去重）
-db.arxiv_raw_data.createIndex({ fetchedAt: -1 }); // 🟡 SHOULD
+### 3. 性能优化 🟡 SHOULD
 
-// 唯一索引防止重复
-db.arxiv_raw_data.createIndex({ source: 1, sourceId: 1 }, { unique: true });
+```prisma
+// GIN 索引加速 JSONB 查询
+model RawData {
+  // ...
+  // 在 migration 中添加 GIN 索引
+}
+
+// migration.sql
+CREATE INDEX idx_raw_data_data_gin ON raw_data USING gin(data jsonb_path_ops);
 ```
 
 ---

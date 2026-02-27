@@ -25,7 +25,7 @@ model: sonnet
 
 ```
 ✅ 应用层监控（API、服务）
-✅ 数据层监控（PostgreSQL、MongoDB、Redis）
+✅ 数据层监控（PostgreSQL、Redis）
 ✅ 基础设施监控（CPU、内存、磁盘、网络）
 ✅ 业务指标监控（用户活动、数据采集、AI处理）
 ```
@@ -78,7 +78,7 @@ model: sonnet
 │         Exporters (指标导出器)                   │
 │  • postgres_exporter (PostgreSQL指标)            │
 │  • redis_exporter (Redis指标)                    │
-│  • mongodb_exporter (MongoDB指标)                │
+│  • pg_stat_statements (PostgreSQL查询分析)       │
 │  • node_exporter (系统指标)                      │
 │  • cadvisor (容器指标)                           │
 └─────────────────────────────────────────────────┘

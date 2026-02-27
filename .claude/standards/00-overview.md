@@ -34,12 +34,12 @@ Genesis.ai 采用系统化、自动化的开发规范体系，确保代码质量
 
 ### 💻 代码质量
 
-| 编号 | 文档                                | 描述                              | 级别      |
-| ---- | ----------------------------------- | --------------------------------- | --------- |
-| 04   | [代码风格](04-code-style.md)        | TypeScript/Python 代码规范        | 🔴 MUST   |
-| 05   | [API 设计](05-api-design.md)        | RESTful/GraphQL API 设计规范      | 🔴 MUST   |
-| 06   | [数据库设计](06-database-design.md) | PostgreSQL/MongoDB/Neo4j 设计规范 | 🟡 SHOULD |
-| 07   | [测试规范](07-testing-standards.md) | 单元/集成/E2E 测试规范            | 🔴 MUST   |
+| 编号 | 文档                                | 描述                             | 级别      |
+| ---- | ----------------------------------- | -------------------------------- | --------- |
+| 04   | [代码风格](04-code-style.md)        | TypeScript/Python 代码规范       | 🔴 MUST   |
+| 05   | [API 设计](05-api-design.md)        | RESTful/GraphQL API 设计规范     | 🔴 MUST   |
+| 06   | [数据库设计](06-database-design.md) | PostgreSQL 设计规范 (统一数据库) | 🟡 SHOULD |
+| 07   | [测试规范](07-testing-standards.md) | 单元/集成/E2E 测试规范           | 🔴 MUST   |
 
 ### 🔄 流程规范
 
@@ -78,14 +78,20 @@ Genesis.ai 是一个 **Monorepo** 项目，包含三个主要服务：
 - **API：** REST + GraphQL
 - **ORM：** Prisma
 - **认证：** JWT
-- **数据库：** PostgreSQL 16, MongoDB 7, Neo4j 5
+- **数据库：** PostgreSQL 16 (统一数据库)
 
 ### AI 服务 (AI Service)
 
 - **框架：** FastAPI, Python 3.11
 - **AI 提供商：** Grok API (首选), OpenAI GPT-4 (备用)
 - **数据处理：** Pandas, NumPy
-- **向量数据库：** Qdrant
+- **向量存储：** PostgreSQL JSONB
+
+### 数据采集 (Crawler)
+
+- **语言：** TypeScript/Node.js
+- **爬虫：** Puppeteer, Cheerio
+- **数据源：** arXiv,News GitHub, Hacker
 
 ### 数据采集 (Crawler)
 

@@ -47,9 +47,8 @@ backend/src/
 │
 ├── common/                            <- 共享代码
 │   ├── prisma/                        <- Prisma ORM 服务
-│   ├── mongodb/                       <- MongoDB 服务
-│   ├── neo4j/                         <- Neo4j 图数据库服务
-│   ├── graph/                         <- 知识图谱服务
+│   ├── graph/                         <- 知识图谱服务 (PostgreSQL CTE)
+│   ├── rawdata/                       <- 原始数据服务 (PostgreSQL JSONB)
 │   ├── ai-orchestration/              <- AI 调度服务
 │   ├── streaming/                     <- SSE 流式响应
 │   ├── content-processing/            <- 内容处理服务

@@ -251,27 +251,36 @@ await prisma.$queryRaw`
 `;  // 安全：参数化查询
 ```
 
-#### 2. MongoDB 注入防护
+#### 2. PostgreSQL JSONB 注入防护
 
 ```typescript
-// ✅ 使用 Mongoose 或验证
-import mongoose from 'mongoose';
+// ✅ 使用 Prisma 参数化查询（推荐）
+const result = await prisma.rawData.findFirst({
+  where: {
+    source: userInputSource,  // Prisma 自动处理转义
+    data: {
+      path: ['title'],
+      string_contains: userInput,
+    },
+  },
+});
 
-// 验证输入是有效的 ObjectId
-if (!mongoose.Types.ObjectId.isValid(id)) {
-  throw new Error('Invalid ID');
-}
+// ✅ 使用 Prisma 原生查询（参数化）
+await prisma.$queryRaw`
+  SELECT * FROM raw_data
+  WHERE data->>'title' = ${userInput}
+`;  // 安全：参数化查询
 
-// 使用 Mongoose（自动防护）
-await ResourceModel.findById(id);
+❌ 避免使用字符串拼接构建 JSONB 查询
+const query = `SELECT * FROM raw_data WHERE data->>'title' = '${userInput}'`;
+await prisma.$queryRawUnsafe(query);  // 危险：SQL 注入
 
-❌ 不要直接使用用户输入构建查询
-const query = { email: req.body.email };  // 可能被注入
-await db.collection('users').findOne(query);  // 危险
-
-✅ 验证和清理输入
-const email = z.string().email().parse(req.body.email);
-await db.collection('users').findOne({ email });  // 安全
+✅ 验证输入
+const schema = z.object({
+  source: z.enum(['arxiv', 'github', 'youtube']),
+  sourceId: z.string().max(100),
+});
+const validated = schema.parse(userInput);
 ```
 
 ---

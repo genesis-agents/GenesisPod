@@ -92,8 +92,8 @@ docs/
 ### 前置要求
 
 - Node.js >= 18.0.0
-- PostgreSQL >= 15.0
-- MongoDB >= 7.0
+- PostgreSQL >= 16.0
+- Redis >= 7.0 (可选)
 
 ### 安装
 
@@ -441,7 +441,7 @@ def calculate_similarity(text1: str, text2: str, method: str = "cosine") -> floa
  * 负责处理资源相关的业务逻辑，包括CRUD操作、搜索、过滤等。
  *
  * @remarks
- * 该服务使用PostgreSQL存储结构化数据，MongoDB存储原始数据。
+ * 该服务使用PostgreSQL存储结构化数据和JSONB原始数据。
  * 所有操作都会记录审计日志。
  *
  * @example

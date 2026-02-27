@@ -8,7 +8,7 @@
 
 - **Backend**: Railway (NestJS)
 - **Frontend**: Vercel (Next.js)
-- **Database**: Railway PostgreSQL + MongoDB Atlas
+- **Database**: Railway PostgreSQL 16 (统一数据库)
 
 ## Railway 常用命令
 

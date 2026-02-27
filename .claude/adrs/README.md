@@ -27,11 +27,11 @@ Architecture Decision Records - 记录Genesis.ai项目的重要技术决策
 
 ### 已接受 (Accepted)
 
-| ADR                                        | 标题                               | 日期       | 状态      |
-| ------------------------------------------ | ---------------------------------- | ---------- | --------- |
-| [ADR-0001](0001-monorepo-architecture.md)  | 采用Monorepo架构                   | 2025-01-01 | ✅ 已接受 |
-| [ADR-0002](0002-typescript-strict-mode.md) | 启用TypeScript严格模式             | 2025-11-09 | ✅ 已接受 |
-| [ADR-0003](0003-dual-database-strategy.md) | 使用PostgreSQL+MongoDB双数据库策略 | 2025-01-01 | ✅ 已接受 |
+| ADR                                                 | 标题                                          | 日期       | 状态      |
+| --------------------------------------------------- | --------------------------------------------- | ---------- | --------- |
+| [ADR-0001](0001-monorepo-architecture.md)           | 采用Monorepo架构                              | 2025-01-01 | ✅ 已接受 |
+| [ADR-0002](0002-typescript-strict-mode.md)          | 启用TypeScript严格模式                        | 2025-11-09 | ✅ 已接受 |
+| [ADR-0004](0004-unified-postgresql-architecture.md) | 统一PostgreSQL架构 (移除MongoDB/Neo4j/Qdrant) | 2026-02-21 | ✅ 已接受 |
 
 ### 提议中 (Proposed)
 
@@ -41,9 +41,9 @@ Architecture Decision Records - 记录Genesis.ai项目的重要技术决策
 
 ### 已弃用 (Deprecated)
 
-| ADR | 标题 | 日期 | 被替代者 |
-| --- | ---- | ---- | -------- |
-| -   | -    | -    | -        |
+| ADR                                        | 标题                               | 日期       | 被替代者 |
+| ------------------------------------------ | ---------------------------------- | ---------- | -------- |
+| [ADR-0003](0003-dual-database-strategy.md) | 使用PostgreSQL+MongoDB双数据库策略 | 2025-01-01 | ADR-0004 |
 
 ---
 

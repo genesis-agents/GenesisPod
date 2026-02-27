@@ -23,10 +23,16 @@
 
 ```
 Frontend: Next.js 14 + TypeScript + Zustand + TailwindCSS
-Backend:  NestJS 10 + Prisma ORM + PostgreSQL (统一数据库架构)
+Backend:  NestJS 10 + Prisma ORM + PostgreSQL 16 (统一数据库)
 AI:       LiteLLM + OpenAI/Claude/Grok API
-Infra:    Docker + Railway + PM2
+Infra:    Docker + Railway + PM2 + Redis 7
 ```
+
+### 数据库架构
+
+- **PostgreSQL 16**: 唯一数据库（结构化 + JSONB + 图关系）
+- **Redis 7**: 缓存和会话管理
+- 已移除 MongoDB、Neo4j、Qdrant（成本优化 70-75%）
 
 ### AI 架构分层
 
