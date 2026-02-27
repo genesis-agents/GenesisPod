@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { getAuthTokens, getAuthHeader } from '@/lib/utils/auth';
+import { config } from '@/lib/utils/config';
 
 /**
  * 积分账户信息
@@ -107,7 +108,11 @@ interface CreditsState {
   reset: () => void;
 }
 
-const API_BASE = '/api/v1/credits';
+// ★ 使用 config.apiUrl 直连后端（Railway 生产环境绕过 Next.js rewrite 代理）
+// 旧: '/api/v1/credits' 走 rewrite 多一跳，增加 ~450ms 延迟
+function getApiBase() {
+  return `${config.apiUrl}/credits`;
+}
 
 /**
  * 获取认证请求头
@@ -143,7 +148,7 @@ export const useCreditsStore = create<CreditsState>()(
         if (inFlight['balance'] !== undefined) return inFlight['balance'];
         const p = (async () => {
           try {
-            const response = await fetch(API_BASE + '/balance', {
+            const response = await fetch(getApiBase() + '/balance', {
               headers: getAuthHeaders(),
             });
             // Silently ignore 401 - user not authenticated
@@ -191,7 +196,7 @@ export const useCreditsStore = create<CreditsState>()(
       fetchAccount: async () => {
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch(API_BASE, {
+          const response = await fetch(getApiBase(), {
             headers: getAuthHeaders(),
           });
           // Silently ignore 401 - user not authenticated
@@ -217,7 +222,7 @@ export const useCreditsStore = create<CreditsState>()(
         if (inFlight['checkin'] !== undefined) return inFlight['checkin'];
         const p = (async () => {
           try {
-            const response = await fetch(API_BASE + '/checkin/status', {
+            const response = await fetch(getApiBase() + '/checkin/status', {
               headers: getAuthHeaders(),
             });
             // Silently ignore 401 - user not authenticated
@@ -242,7 +247,7 @@ export const useCreditsStore = create<CreditsState>()(
       performCheckin: async () => {
         set({ isCheckingIn: true });
         try {
-          const response = await fetch(API_BASE + '/checkin', {
+          const response = await fetch(getApiBase() + '/checkin', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useApiGet, useApiPost } from '../core';
 import { useCreditsStore, CreditTransaction } from '@/stores';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { config } from '@/lib/utils/config';
 
 /**
  * 积分统计信息
@@ -226,9 +227,12 @@ export function useEstimateCredits() {
         ...(modelName && { modelName }),
       });
 
-      const response = await fetch(`/api/v1/credits/estimate?${params}`, {
-        headers: { ...getAuthHeader() },
-      });
+      const response = await fetch(
+        `${config.apiUrl}/credits/estimate?${params}`,
+        {
+          headers: { ...getAuthHeader() },
+        }
+      );
       const result = await response.json();
       return result.success ? result.data.estimatedCredits : 0;
     },

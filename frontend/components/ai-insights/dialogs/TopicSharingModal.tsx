@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
 import { formatDateSafe } from '@/lib/utils/date';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 // Helper function to get headers with auth token
@@ -248,15 +249,21 @@ export function TopicSharingModal({
     try {
       const [sharingRes, collaboratorsRes, applicationsRes] = await Promise.all(
         [
-          fetch(`/api/v1/topic-insights/topics/${topicId}/sharing`, {
+          fetch(`${config.apiUrl}/topic-insights/topics/${topicId}/sharing`, {
             headers: getAuthHeaders(),
           }),
-          fetch(`/api/v1/topic-insights/topics/${topicId}/collaborators`, {
-            headers: getAuthHeaders(),
-          }),
-          fetch(`/api/v1/topic-insights/topics/${topicId}/applications`, {
-            headers: getAuthHeaders(),
-          }),
+          fetch(
+            `${config.apiUrl}/topic-insights/topics/${topicId}/collaborators`,
+            {
+              headers: getAuthHeaders(),
+            }
+          ),
+          fetch(
+            `${config.apiUrl}/topic-insights/topics/${topicId}/applications`,
+            {
+              headers: getAuthHeaders(),
+            }
+          ),
         ]
       );
 
