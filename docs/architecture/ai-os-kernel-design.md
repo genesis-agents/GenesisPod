@@ -1273,6 +1273,30 @@ AI App 模块不再需要 import 37 个依赖的 Facade，而是只需要：
 
 进程内部的编排逻辑（工具调用、技能注入、团队协作）由 Kernel 内部处理，对 App 层透明。
 
+**关键：MissionExecutorService 与 Engine 编排服务的关系**
+
+`MissionExecutorService`（原 MissionOrchestrator）在 Kernel 中负责进程生命周期，但**AI 决策能力**仍由 Engine 的编排服务提供。调用关系：
+
+```
+kernel/mission/MissionExecutorService
+  │
+  │ 生命周期管理（Kernel 职责）：
+  ├── processManager.transition(RUNNING)
+  ├── journal.recordStep(...)
+  ├── resourceManager.consume(...)
+  │
+  │ AI 决策（注入 Engine 服务）：
+  ├── intentDetectionService.detect()        ← Engine: 意图识别
+  ├── taskDecomposerService.decompose()      ← Engine: 任务拆解
+  ├── taskPlannerService.plan()              ← Engine: 任务规划
+  ├── agentExecutorService.execute()         ← Engine: Agent 执行
+  ├── reflectionService.reflect()            ← Engine: 执行后反思
+  ├── outputReviewerService.review()         ← Engine: 输出审核
+  └── contextCompressionService.compress()   ← Engine: 上下文压缩
+```
+
+Engine 的 13+ 编排服务（详见 Section 3.2 "留在 Engine"）作为依赖注入到 MissionExecutorService。Kernel 包裹了生命周期，Engine 提供了 AI 大脑。
+
 ---
 
 ## 4. 实施路线图
