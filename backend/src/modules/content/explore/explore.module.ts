@@ -5,7 +5,7 @@ import { PdfGeneratorService } from "./pdf-generator.service";
 import { YoutubeVideosController } from "./youtube-videos.controller";
 import { YoutubeVideosService } from "./youtube-videos.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AdminModule } from "../../core/admin/admin.module";
+import { AdminModule } from "../../ai-infra/admin/admin.module";
 
 /**
  * Explore Module

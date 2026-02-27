@@ -22,21 +22,22 @@ import { ObservabilityModule } from "./common/observability";
 import { AuditModule } from "./common/audit";
 import { EventsModule } from "./common/events";
 import { CacheModule } from "./common/cache";
-// Core modules
-import { AuthModule } from "./modules/core/auth/auth.module";
-import { AdminModule } from "./modules/core/admin/admin.module";
-import { MonitoringModule } from "./modules/core/monitoring";
-import { EmailModule } from "./modules/core/email/email.module";
-import { FeedbackModule } from "./modules/core/feedback/feedback.module";
-import { NotificationModule } from "./modules/core/notifications/notification.module";
-import { ReleaseModule } from "./modules/core/release/release.module";
-import { SettingsModule } from "./modules/core/settings/settings.module";
-import { StorageModule } from "./modules/core/storage/storage.module";
-import { TableManagementModule } from "./modules/core/table-management/table-management.module";
-import { CreditsModule } from "./modules/credits/credits.module";
-import { UserApiKeysModule } from "./modules/core/user-api-keys/user-api-keys.module";
+// AI Infrastructure modules
+import { AuthModule } from "./modules/ai-infra/auth/auth.module";
+import { AdminModule } from "./modules/ai-infra/admin/admin.module";
+import { MonitoringModule } from "./modules/ai-infra/monitoring";
+import { EmailModule } from "./modules/ai-infra/email/email.module";
+import { FeedbackModule } from "./modules/ai-infra/feedback/feedback.module";
+import { NotificationModule } from "./modules/ai-infra/notifications/notification.module";
+import { ReleaseModule } from "./modules/ai-infra/release/release.module";
+import { SettingsModule } from "./modules/ai-infra/settings/settings.module";
+import { StorageModule } from "./modules/ai-infra/storage/storage.module";
+import { TableManagementModule } from "./modules/ai-infra/table-management/table-management.module";
+import { CreditsModule } from "./modules/ai-infra/credits/credits.module";
+import { UserApiKeysModule } from "./modules/ai-infra/user-api-keys/user-api-keys.module";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
+import { AiKernelModule } from "./modules/ai-kernel/ai-kernel.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
@@ -66,19 +67,17 @@ import { SourcesModule } from "./modules/ingestion/sources/sources.module";
 import { IngestionConfigModule } from "./modules/ingestion/config/config.module";
 import { SchedulerModule } from "./modules/ingestion/scheduler/scheduler.module";
 // Integration modules
-import { ProxyModule } from "./modules/integrations/proxy/proxy.module";
-import { FeishuModule } from "./modules/integrations/feishu/feishu.module";
-import { NotionModule } from "./modules/integrations/notion/notion.module";
-import { GoogleDriveModule } from "./modules/integrations/google-drive/google-drive.module";
-import { AiFileOrganizerModule } from "./modules/integrations/ai-file-organizer/ai-file-organizer.module";
+import { ProxyModule } from "./modules/ai-infra/integrations/proxy/proxy.module";
+import { FeishuModule } from "./modules/ai-infra/integrations/feishu/feishu.module";
+import { NotionModule } from "./modules/ai-infra/integrations/notion/notion.module";
+import { GoogleDriveModule } from "./modules/ai-infra/integrations/google-drive/google-drive.module";
+import { AiFileOrganizerModule } from "./modules/ai-infra/integrations/ai-file-organizer/ai-file-organizer.module";
 // Export module
 import { ExportModule } from "./common/export";
-// Webhooks module
-import { WebhooksModule } from "./modules/webhooks";
-// MCP Server module
-import { MCPServerModule } from "./modules/mcp-server";
-// Public API module
-import { PublicApiModule } from "./modules/public-api/public-api.module";
+// Open API modules (webhooks, public-api, mcp-server)
+import { WebhooksModule } from "./modules/open-api/webhooks";
+import { MCPServerModule } from "./modules/open-api/mcp-server";
+import { PublicApiModule } from "./modules/open-api/public-api/public-api.module";
 // A2A Server module
 import { A2AModule } from "./modules/ai-engine/infra/a2a";
 // Request context middleware
@@ -133,7 +132,7 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
     AuditModule,
     EventsModule,
 
-    // Core modules
+    // AI Infrastructure modules
     MonitoringModule, // Global module for AI metrics and error tracking
     AuthModule,
     AdminModule,
@@ -149,6 +148,7 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
 
     // AI modules (ai-* prefix)
     AiEngineModule,
+    AiKernelModule,
     AiAskModule,
     AiImageModule,
     AiOfficeModule,

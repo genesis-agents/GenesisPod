@@ -17,7 +17,7 @@ import { ContextRouterService } from "../context-router.service";
 import { TopicContextRetrievalService } from "../topic-context-retrieval.service";
 import { TeamMemberAgent } from "../../../agents";
 import { TopicEventEmitterService } from "../../events";
-import { CreditsService } from "../../../../../credits/credits.service";
+import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import { MetricsService } from "../../../../../../common/observability";
 import { AuditService } from "../../../../../../common/audit";
 import { MessageContentType } from "@prisma/client";
@@ -85,13 +85,11 @@ const mockAiFacade = {
     .fn()
     .mockResolvedValue({ content: "AI response here", tokensUsed: 200 }),
   embed: jest.fn().mockResolvedValue([0.1, 0.2]),
-  getModelById: jest
-    .fn()
-    .mockResolvedValue({
-      modelId: "gpt-4o",
-      name: "GPT-4o",
-      provider: "openai",
-    }),
+  getModelById: jest.fn().mockResolvedValue({
+    modelId: "gpt-4o",
+    name: "GPT-4o",
+    provider: "openai",
+  }),
   getAvailableModelsExtended: jest.fn().mockResolvedValue([]),
 };
 

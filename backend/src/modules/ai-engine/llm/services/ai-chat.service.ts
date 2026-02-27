@@ -8,7 +8,7 @@ import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
 // ★ Direct import to avoid circular dep via monitoring barrel → health-check → facade → this
-import { AIMetricsService } from "../../../core/monitoring/ai-metrics.service";
+import { AIMetricsService } from "../../../ai-infra/monitoring/ai-metrics.service";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import {
   CircuitBreakerService,

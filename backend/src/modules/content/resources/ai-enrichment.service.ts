@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { getErrorMessage } from "../../../common/utils/error.utils";
 import axios, { AxiosInstance } from "axios";
 import { ResourceType } from "@prisma/client";
-import { BillingContext } from "../../credits/billing-context";
+import { BillingContext } from "../../ai-infra/credits/billing-context";
 import {
   ResourceAISummary,
   convertToStructuredSummary,
@@ -71,7 +71,7 @@ export class AIEnrichmentService {
   async extractInsights(
     content: string,
     language: "zh" | "en" = "zh",
-  ): Promise<any[] | null> {
+  ): Promise<unknown[] | null> {
     try {
       this.logger.log(
         `Extracting insights for content (length: ${content.length})`,
@@ -184,7 +184,7 @@ export class AIEnrichmentService {
     userId?: string,
   ): Promise<{
     aiSummary: string | null;
-    keyInsights: any[];
+    keyInsights: unknown[];
     primaryCategory: string | null;
     autoTags: string[];
     difficultyLevel: number | null;
@@ -406,7 +406,7 @@ export class AIEnrichmentService {
     userId?: string,
   ): Promise<{
     aiSummary: string | null;
-    keyInsights: any[];
+    keyInsights: unknown[];
     primaryCategory: string | null;
     autoTags: string[];
     difficultyLevel: number | null;

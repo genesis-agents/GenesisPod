@@ -20,7 +20,7 @@ jest.mock("../../teams/services/ai/ai-response.service", () => ({
   })),
 }));
 
-jest.mock("../../../credits/billing-context", () => ({
+jest.mock("../../../ai-infra/credits/billing-context", () => ({
   BillingContext: {
     run: jest
       .fn()
@@ -119,14 +119,12 @@ describe("PlanningOrchestratorService", () => {
       provider: "openai",
     };
     const mockAiFacade = {
-      chat: jest
-        .fn()
-        .mockResolvedValue({
-          content: "AI response",
-          tokensUsed: 100,
-          isError: false,
-          model: "test-model",
-        }),
+      chat: jest.fn().mockResolvedValue({
+        content: "AI response",
+        tokensUsed: 100,
+        isError: false,
+        model: "test-model",
+      }),
       reflect: jest.fn().mockResolvedValue(null),
       search: jest.fn().mockResolvedValue({ success: false, results: [] }),
       aiCompressContext: jest.fn().mockResolvedValue(null),

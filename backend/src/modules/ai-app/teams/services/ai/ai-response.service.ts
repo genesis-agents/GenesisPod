@@ -20,9 +20,9 @@ import { TeamMemberAgent } from "../../agents";
 import type { AgentEvent, BuiltinToolId } from "../../../../ai-engine/facade";
 import type { AICapabilityContext } from "../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../events";
-import { CreditsService } from "../../../../credits/credits.service";
-import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
-import { BillingContext } from "../../../../credits/billing-context";
+import { CreditsService } from "../../../../ai-infra/credits/credits.service";
+import { InsufficientCreditsException } from "../../../../ai-infra/credits/exceptions/insufficient-credits.exception";
+import { BillingContext } from "../../../../ai-infra/credits/billing-context";
 import { MetricsService, Trace } from "../../../../../common/observability";
 import { AuditService } from "../../../../../common/audit";
 
@@ -346,7 +346,9 @@ export class AiResponseService {
     const allParsedUrls: ParsedUrl[] = [];
     for (const msg of topMessages) {
       // parsedUrls 存储在数据库中作为 JSON
-      const msgParsedUrls = (msg as { parsedUrls?: unknown }).parsedUrls as ParsedUrl[] | null;
+      const msgParsedUrls = (msg as { parsedUrls?: unknown }).parsedUrls as
+        | ParsedUrl[]
+        | null;
       if (msgParsedUrls && Array.isArray(msgParsedUrls)) {
         allParsedUrls.push(...msgParsedUrls);
       }
@@ -391,7 +393,9 @@ export class AiResponseService {
         aiMember: m.aiMember,
         createdAt: m.createdAt,
         score: m.score,
-        parsedUrls: (m as { parsedUrls?: unknown }).parsedUrls as ParsedUrl[] | null,
+        parsedUrls: (m as { parsedUrls?: unknown }).parsedUrls as
+          | ParsedUrl[]
+          | null,
         replyTo: m.replyTo,
       })),
       summary,

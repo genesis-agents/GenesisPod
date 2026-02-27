@@ -2,27 +2,35 @@
  * TopicInvitationService Tests
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { TopicInvitationService } from '../topic-invitation.service';
-import { PrismaService } from '../../../../../../common/prisma/prisma.service';
-import { NotificationService } from '../../../../../core/notifications/notification.service';
-import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { TopicRole } from '@prisma/client';
+import { Test, TestingModule } from "@nestjs/testing";
+import { TopicInvitationService } from "../topic-invitation.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { NotificationService } from "../../../../../ai-infra/notifications/notification.service";
+import {
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
+import { TopicRole } from "@prisma/client";
 
-const mockTopic = { id: 'topic-1', name: 'Test Team' };
-const mockInviter = { id: 'user-1', username: 'inviter', fullName: 'Inviter User' };
-const mockInvitee = { id: 'user-2', email: 'invitee@example.com' };
+const mockTopic = { id: "topic-1", name: "Test Team" };
+const mockInviter = {
+  id: "user-1",
+  username: "inviter",
+  fullName: "Inviter User",
+};
+const _mockInvitee = { id: "user-2", email: "invitee@example.com" };
 
 const mockInvitationRecord = {
-  id: 'inv-1',
-  topic_id: 'topic-1',
-  inviter_id: 'user-1',
-  invitee_id: 'user-2',
-  invitee_email: 'invitee@example.com',
-  invite_code: 'abc123code456',
-  role: 'MEMBER',
-  message: 'Please join',
-  status: 'PENDING',
+  id: "inv-1",
+  topic_id: "topic-1",
+  inviter_id: "user-1",
+  invitee_id: "user-2",
+  invitee_email: "invitee@example.com",
+  invite_code: "abc123code456",
+  role: "MEMBER",
+  message: "Please join",
+  status: "PENDING",
   expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   responded_at: null,
   created_at: new Date(),
@@ -30,13 +38,13 @@ const mockInvitationRecord = {
 };
 
 const mockAdminMembership = {
-  id: 'membership-1',
-  topicId: 'topic-1',
-  userId: 'user-1',
+  id: "membership-1",
+  topicId: "topic-1",
+  userId: "user-1",
   role: TopicRole.ADMIN,
 };
 
-describe('TopicInvitationService', () => {
+describe("TopicInvitationService", () => {
   let service: TopicInvitationService;
   let prisma: jest.Mocked<PrismaService>;
   let notificationService: jest.Mocked<NotificationService>;
@@ -50,14 +58,14 @@ describe('TopicInvitationService', () => {
     },
     topicMember: {
       findUnique: jest.fn().mockResolvedValue(mockAdminMembership),
-      create: jest.fn().mockResolvedValue({ id: 'member-1' }),
+      create: jest.fn().mockResolvedValue({ id: "member-1" }),
     },
-    $queryRaw: jest.fn().mockResolvedValue([{ id: 'inv-1' }]),
+    $queryRaw: jest.fn().mockResolvedValue([{ id: "inv-1" }]),
     $transaction: jest.fn().mockImplementation(async (fn) => {
       return fn({
         $queryRaw: jest.fn().mockResolvedValue([]),
         topicMember: {
-          create: jest.fn().mockResolvedValue({ id: 'member-1' }),
+          create: jest.fn().mockResolvedValue({ id: "member-1" }),
         },
       });
     }),
@@ -74,13 +82,13 @@ describe('TopicInvitationService', () => {
     mockPrisma.topic.findUnique.mockResolvedValue(mockTopic);
     mockPrisma.user.findUnique.mockResolvedValue(mockInviter);
     mockPrisma.topicMember.findUnique.mockResolvedValue(mockAdminMembership);
-    mockPrisma.topicMember.create.mockResolvedValue({ id: 'member-1' });
-    mockPrisma.$queryRaw.mockResolvedValue([{ id: 'inv-1' }]);
+    mockPrisma.topicMember.create.mockResolvedValue({ id: "member-1" });
+    mockPrisma.$queryRaw.mockResolvedValue([{ id: "inv-1" }]);
     mockPrisma.$transaction.mockImplementation(async (fn) => {
       return fn({
         $queryRaw: jest.fn().mockResolvedValue([]),
         topicMember: {
-          create: jest.fn().mockResolvedValue({ id: 'member-1' }),
+          create: jest.fn().mockResolvedValue({ id: "member-1" }),
         },
       });
     });
@@ -98,140 +106,148 @@ describe('TopicInvitationService', () => {
     notificationService = module.get(NotificationService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
   // ==================== createInvitation ====================
 
-  describe('createInvitation', () => {
-    it('should create invitation with invitee ID', async () => {
+  describe("createInvitation", () => {
+    it("should create invitation with invitee ID", async () => {
       mockPrisma.topicMember.findUnique
         .mockResolvedValueOnce(mockAdminMembership) // admin check
         .mockResolvedValueOnce(null); // existing membership check
 
-      const result = await service.createInvitation('topic-1', 'user-1', {
-        inviteeId: 'user-2',
+      const result = await service.createInvitation("topic-1", "user-1", {
+        inviteeId: "user-2",
         role: TopicRole.MEMBER,
       });
 
-      expect(result.invitationId).toBe('inv-1');
+      expect(result.invitationId).toBe("inv-1");
       expect(result.inviteCode).toBeDefined();
-      expect(result.inviteLink).toContain('/invitations/');
+      expect(result.inviteLink).toContain("/invitations/");
     });
 
-    it('should throw NotFoundException when topic not found', async () => {
-      mockPrisma.topicMember.findUnique.mockResolvedValueOnce(mockAdminMembership);
+    it("should throw NotFoundException when topic not found", async () => {
+      mockPrisma.topicMember.findUnique.mockResolvedValueOnce(
+        mockAdminMembership,
+      );
       mockPrisma.topic.findUnique.mockResolvedValueOnce(null);
 
       await expect(
-        service.createInvitation('nonexistent', 'user-1', { inviteeId: 'user-2' }),
+        service.createInvitation("nonexistent", "user-1", {
+          inviteeId: "user-2",
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException when user is not admin', async () => {
+    it("should throw ForbiddenException when user is not admin", async () => {
       mockPrisma.topicMember.findUnique.mockResolvedValueOnce({
         ...mockAdminMembership,
         role: TopicRole.MEMBER,
       });
 
       await expect(
-        service.createInvitation('topic-1', 'user-1', { inviteeId: 'user-2' }),
+        service.createInvitation("topic-1", "user-1", { inviteeId: "user-2" }),
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw ForbiddenException when user is not a member', async () => {
+    it("should throw ForbiddenException when user is not a member", async () => {
       mockPrisma.topicMember.findUnique.mockResolvedValueOnce(null);
 
       await expect(
-        service.createInvitation('topic-1', 'user-1', { inviteeId: 'user-2' }),
+        service.createInvitation("topic-1", "user-1", { inviteeId: "user-2" }),
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw BadRequestException when invitee is already a member', async () => {
+    it("should throw BadRequestException when invitee is already a member", async () => {
       mockPrisma.topicMember.findUnique
         .mockResolvedValueOnce(mockAdminMembership) // admin check
-        .mockResolvedValueOnce({ id: 'existing-member' }); // existing membership
+        .mockResolvedValueOnce({ id: "existing-member" }); // existing membership
 
       await expect(
-        service.createInvitation('topic-1', 'user-1', { inviteeId: 'user-2' }),
+        service.createInvitation("topic-1", "user-1", { inviteeId: "user-2" }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should look up user by email when inviteeEmail provided', async () => {
+    it("should look up user by email when inviteeEmail provided", async () => {
       mockPrisma.topicMember.findUnique
         .mockResolvedValueOnce(mockAdminMembership)
         .mockResolvedValueOnce(null); // no existing membership
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(mockInviter) // inviter
-        .mockResolvedValueOnce({ id: 'user-from-email' }); // found by email
+        .mockResolvedValueOnce({ id: "user-from-email" }); // found by email
 
-      const result = await service.createInvitation('topic-1', 'user-1', {
-        inviteeEmail: 'invitee@example.com',
+      const result = await service.createInvitation("topic-1", "user-1", {
+        inviteeEmail: "invitee@example.com",
       });
 
       expect(result.inviteCode).toBeDefined();
     });
 
-    it('should notify invitee when they are a registered user', async () => {
+    it("should notify invitee when they are a registered user", async () => {
       mockPrisma.topicMember.findUnique
         .mockResolvedValueOnce(mockAdminMembership)
         .mockResolvedValueOnce(null);
 
-      await service.createInvitation('topic-1', 'user-1', {
-        inviteeId: 'user-2',
+      await service.createInvitation("topic-1", "user-1", {
+        inviteeId: "user-2",
       });
 
       expect(notificationService.notifyInvitation).toHaveBeenCalledWith(
         expect.objectContaining({
-          userId: 'user-2',
-          topicId: 'topic-1',
+          userId: "user-2",
+          topicId: "topic-1",
         }),
       );
     });
 
-    it('should handle P2002 duplicate invitation error', async () => {
+    it("should handle P2002 duplicate invitation error", async () => {
       mockPrisma.topicMember.findUnique
         .mockResolvedValueOnce(mockAdminMembership)
         .mockResolvedValueOnce(null);
-      mockPrisma.$queryRaw.mockRejectedValueOnce({ code: 'P2002' });
+      mockPrisma.$queryRaw.mockRejectedValueOnce({ code: "P2002" });
 
       await expect(
-        service.createInvitation('topic-1', 'user-1', { inviteeId: 'user-2' }),
+        service.createInvitation("topic-1", "user-1", { inviteeId: "user-2" }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should re-throw non-P2002 errors', async () => {
+    it("should re-throw non-P2002 errors", async () => {
       mockPrisma.topicMember.findUnique
         .mockResolvedValueOnce(mockAdminMembership)
         .mockResolvedValueOnce(null);
-      mockPrisma.$queryRaw.mockRejectedValueOnce(new Error('DB connection failed'));
+      mockPrisma.$queryRaw.mockRejectedValueOnce(
+        new Error("DB connection failed"),
+      );
 
       await expect(
-        service.createInvitation('topic-1', 'user-1', { inviteeId: 'user-2' }),
-      ).rejects.toThrow('DB connection failed');
+        service.createInvitation("topic-1", "user-1", { inviteeId: "user-2" }),
+      ).rejects.toThrow("DB connection failed");
     });
   });
 
   // ==================== getInvitationByCode ====================
 
-  describe('getInvitationByCode', () => {
-    it('should return invitation details for valid code', async () => {
+  describe("getInvitationByCode", () => {
+    it("should return invitation details for valid code", async () => {
       mockPrisma.$queryRaw.mockResolvedValueOnce([mockInvitationRecord]);
 
-      const result = await service.getInvitationByCode('abc123code456');
+      const result = await service.getInvitationByCode("abc123code456");
 
-      expect(result.id).toBe('inv-1');
-      expect(result.topicId).toBe('topic-1');
+      expect(result.id).toBe("inv-1");
+      expect(result.topicId).toBe("topic-1");
     });
 
-    it('should throw NotFoundException for unknown invite code', async () => {
+    it("should throw NotFoundException for unknown invite code", async () => {
       mockPrisma.$queryRaw.mockResolvedValueOnce([]);
 
-      await expect(service.getInvitationByCode('invalid-code')).rejects.toThrow(NotFoundException);
+      await expect(service.getInvitationByCode("invalid-code")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
-    it('should throw BadRequestException for expired invitation', async () => {
+    it("should throw BadRequestException for expired invitation", async () => {
       const expiredRecord = {
         ...mockInvitationRecord,
         expires_at: new Date(Date.now() - 1000),
@@ -240,119 +256,138 @@ describe('TopicInvitationService', () => {
         .mockResolvedValueOnce([expiredRecord])
         .mockResolvedValueOnce([]); // update to EXPIRED
 
-      await expect(service.getInvitationByCode('abc123code456')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.getInvitationByCode("abc123code456"),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException for already-processed invitation', async () => {
-      const acceptedRecord = { ...mockInvitationRecord, status: 'ACCEPTED' };
+    it("should throw BadRequestException for already-processed invitation", async () => {
+      const acceptedRecord = { ...mockInvitationRecord, status: "ACCEPTED" };
       mockPrisma.$queryRaw.mockResolvedValueOnce([acceptedRecord]);
 
-      await expect(service.getInvitationByCode('abc123code456')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.getInvitationByCode("abc123code456"),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   // ==================== acceptInvitation ====================
 
-  describe('acceptInvitation', () => {
+  describe("acceptInvitation", () => {
     beforeEach(() => {
       // Setup default getInvitationByCode mock
       mockPrisma.$queryRaw.mockResolvedValueOnce([mockInvitationRecord]);
       mockPrisma.topic.findUnique.mockResolvedValue(mockTopic);
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        email: "user@example.com",
+      });
     });
 
-    it('should accept invitation and add member', async () => {
+    it("should accept invitation and add member", async () => {
       mockPrisma.topicMember.findUnique.mockResolvedValueOnce(null); // not existing member
 
-      const result = await service.acceptInvitation('abc123code456', 'user-2');
+      const _result = await service.acceptInvitation("abc123code456", "user-2");
 
       expect(prisma.$transaction).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException when already a member', async () => {
-      mockPrisma.topicMember.findUnique.mockResolvedValueOnce({ id: 'existing-member' });
+    it("should throw BadRequestException when already a member", async () => {
+      mockPrisma.topicMember.findUnique.mockResolvedValueOnce({
+        id: "existing-member",
+      });
 
       await expect(
-        service.acceptInvitation('abc123code456', 'user-2'),
+        service.acceptInvitation("abc123code456", "user-2"),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw ForbiddenException when invitation is for different user', async () => {
+    it("should throw ForbiddenException when invitation is for different user", async () => {
       const specificUserInvitation = {
         ...mockInvitationRecord,
-        invitee_id: 'user-99',
+        invitee_id: "user-99",
         invitee_email: null,
       };
       // Override the $queryRaw for this test
       mockPrisma.$queryRaw.mockReset();
       mockPrisma.$queryRaw.mockResolvedValueOnce([specificUserInvitation]);
-      mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 'user-3', email: 'other@example.com' });
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: "user-3",
+        email: "other@example.com",
+      });
 
       await expect(
-        service.acceptInvitation('abc123code456', 'user-3'),
+        service.acceptInvitation("abc123code456", "user-3"),
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
   // ==================== declineInvitation ====================
 
-  describe('declineInvitation', () => {
-    it('should decline invitation successfully', async () => {
+  describe("declineInvitation", () => {
+    it("should decline invitation successfully", async () => {
       // getInvitationByCode calls: 1) query invitation, 2) query topic, 3) query inviter
       // then decline update
       mockPrisma.$queryRaw
         .mockResolvedValueOnce([mockInvitationRecord]) // invitation lookup
         .mockResolvedValueOnce([]); // decline update
 
-      const result = await service.declineInvitation('abc123code456', 'user-2');
+      const result = await service.declineInvitation("abc123code456", "user-2");
 
       expect(result.success).toBe(true);
     });
 
-    it('should throw ForbiddenException when invitation is for different user', async () => {
+    it("should throw ForbiddenException when invitation is for different user", async () => {
       const specificUserInvitation = {
         ...mockInvitationRecord,
-        invitee_id: 'user-99',
+        invitee_id: "user-99",
         invitee_email: null,
       };
-      mockPrisma.$queryRaw
-        .mockResolvedValueOnce([specificUserInvitation]); // invitation lookup
+      mockPrisma.$queryRaw.mockResolvedValueOnce([specificUserInvitation]); // invitation lookup
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(mockInviter) // inviter lookup in getInvitationByCode
-        .mockResolvedValueOnce({ id: 'user-3', email: 'other@example.com' }); // user email check
+        .mockResolvedValueOnce({ id: "user-3", email: "other@example.com" }); // user email check
 
       await expect(
-        service.declineInvitation('abc123code456', 'user-3'),
+        service.declineInvitation("abc123code456", "user-3"),
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
   // ==================== cancelInvitation ====================
 
-  describe('cancelInvitation', () => {
-    it('should cancel invitation successfully', async () => {
-      mockPrisma.topicMember.findUnique.mockResolvedValueOnce(mockAdminMembership);
-      mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: 'inv-1' }]);
+  describe("cancelInvitation", () => {
+    it("should cancel invitation successfully", async () => {
+      mockPrisma.topicMember.findUnique.mockResolvedValueOnce(
+        mockAdminMembership,
+      );
+      mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "inv-1" }]);
 
-      const result = await service.cancelInvitation('topic-1', 'inv-1', 'user-1');
+      const result = await service.cancelInvitation(
+        "topic-1",
+        "inv-1",
+        "user-1",
+      );
 
       expect(result.success).toBe(true);
     });
 
-    it('should throw NotFoundException when invitation not found or already processed', async () => {
-      mockPrisma.topicMember.findUnique.mockResolvedValueOnce(mockAdminMembership);
+    it("should throw NotFoundException when invitation not found or already processed", async () => {
+      mockPrisma.topicMember.findUnique.mockResolvedValueOnce(
+        mockAdminMembership,
+      );
       mockPrisma.$queryRaw.mockResolvedValueOnce([]); // empty result
 
       await expect(
-        service.cancelInvitation('topic-1', 'inv-1', 'user-1'),
+        service.cancelInvitation("topic-1", "inv-1", "user-1"),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
   // ==================== cleanupExpiredInvitations ====================
 
-  describe('cleanupExpiredInvitations', () => {
-    it('should return count of expired invitations', async () => {
+  describe("cleanupExpiredInvitations", () => {
+    it("should return count of expired invitations", async () => {
       mockPrisma.$queryRaw.mockResolvedValueOnce([{ count: BigInt(5) }]);
 
       const result = await service.cleanupExpiredInvitations();
@@ -360,7 +395,7 @@ describe('TopicInvitationService', () => {
       expect(result).toBe(5);
     });
 
-    it('should return 0 when no expired invitations', async () => {
+    it("should return 0 when no expired invitations", async () => {
       mockPrisma.$queryRaw.mockResolvedValueOnce([{ count: BigInt(0) }]);
 
       const result = await service.cleanupExpiredInvitations();
@@ -368,7 +403,7 @@ describe('TopicInvitationService', () => {
       expect(result).toBe(0);
     });
 
-    it('should handle empty result', async () => {
+    it("should handle empty result", async () => {
       mockPrisma.$queryRaw.mockResolvedValueOnce([]);
 
       const result = await service.cleanupExpiredInvitations();

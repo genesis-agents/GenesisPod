@@ -106,13 +106,7 @@ export default function ArchitectureLayer({
         <div className="px-4 pb-4">
           {/* Regular cards - Use grid for L1/L2 for consistent sizing */}
           {layer.cards && (
-            <div
-              className={cn(
-                layer.level !== 3
-                  ? 'grid grid-cols-4 gap-3' // 4 columns for L1/L2 - bigger cards
-                  : 'flex flex-wrap gap-2'
-              )}
-            >
+            <div className="grid grid-cols-4 gap-3">
               {layer.cards.map((card) => (
                 <ArchitectureCard
                   key={card.id}

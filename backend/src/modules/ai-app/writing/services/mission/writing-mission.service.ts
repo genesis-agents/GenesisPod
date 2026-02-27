@@ -57,7 +57,7 @@ import {
 // Services
 import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
-import { BillingContext } from "../../../../credits/billing-context";
+import { BillingContext } from "../../../../ai-infra/credits/billing-context";
 import { ExpressionMemoryService } from "../quality/expression-memory.service";
 import { QualityGateService } from "../quality/quality-gate.service";
 import { ProfessionalVoiceService } from "../quality/professional-voice.service";

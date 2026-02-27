@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../core/secrets/secrets.service";
-import { UserApiKeysService } from "../../../core/user-api-keys/user-api-keys.service";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { UserApiKeysService } from "../../../ai-infra/user-api-keys/user-api-keys.service";
 import { RequestContext } from "../../../../common/context/request-context";
 import { AIModelType } from "@prisma/client";
 import { inferIsReasoning } from "../types";
@@ -936,7 +936,9 @@ export class AiModelConfigService {
 
       if (userId) {
         const userKeyModels = result.filter((m) => m.isUserKey);
-        const byokModels = result.filter((m) => (m as Record<string, unknown>).isByokGenerated);
+        const byokModels = result.filter(
+          (m) => (m as Record<string, unknown>).isByokGenerated,
+        );
         this.logger.debug(
           `[getEnabledModelsForFrontend] Returning ${result.length} models, ${userKeyModels.length} with isUserKey (${byokModels.length} BYOK generated): [${userKeyModels.map((m) => m.name).join(", ")}]`,
         );

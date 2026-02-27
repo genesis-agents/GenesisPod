@@ -71,7 +71,7 @@ import {
 } from "../../../../../common/guards/rate-limit.guard";
 import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
-import { BillingContext } from "../../../../credits/billing-context";
+import { BillingContext } from "../../../../ai-infra/credits/billing-context";
 import { Prisma } from "@prisma/client"; // needed for Prisma.JsonNull
 
 // ============================================

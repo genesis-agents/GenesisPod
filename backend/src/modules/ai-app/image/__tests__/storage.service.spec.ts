@@ -13,7 +13,7 @@ const mockR2Storage = {
   refreshImageUrl: jest.fn(),
 };
 
-jest.mock("../../../core/storage/r2-storage.service", () => ({
+jest.mock("../../../ai-infra/storage/r2-storage.service", () => ({
   R2StorageService: jest.fn().mockImplementation(() => mockR2Storage),
 }));
 
@@ -54,9 +54,8 @@ describe("ImageStorageService", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    const { R2StorageService } = await import(
-      "../../../core/storage/r2-storage.service"
-    );
+    const { R2StorageService } =
+      await import("../../../ai-infra/storage/r2-storage.service");
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -294,7 +293,9 @@ describe("ImageStorageService", () => {
     });
 
     it("should handle errors gracefully", async () => {
-      mockPrisma.generatedImage.findUnique.mockRejectedValue(new Error("DB Error"));
+      mockPrisma.generatedImage.findUnique.mockRejectedValue(
+        new Error("DB Error"),
+      );
 
       const result = await service.deleteImage("img-001", "user-001");
 
@@ -325,12 +326,10 @@ describe("ImageStorageService", () => {
     });
 
     it("should return only legacy bookmarks when no userId", async () => {
-      const legacy = [
-        { ...mockImageRecord, userId: null, isBookmarked: true },
-      ];
+      const legacy = [{ ...mockImageRecord, userId: null, isBookmarked: true }];
       mockPrisma.generatedImage.findMany.mockResolvedValue(legacy);
 
-      const result = await service.getBookmarkedImages();
+      const _result = await service.getBookmarkedImages();
 
       expect(mockPrisma.generatedImage.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -340,7 +339,9 @@ describe("ImageStorageService", () => {
     });
 
     it("should return empty array on error", async () => {
-      mockPrisma.generatedImage.findMany.mockRejectedValue(new Error("DB Error"));
+      mockPrisma.generatedImage.findMany.mockRejectedValue(
+        new Error("DB Error"),
+      );
 
       const result = await service.getBookmarkedImages("user-001");
 

@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
-import { R2StorageService } from "../../../../core/storage/r2-storage.service";
+import { R2StorageService } from "../../../../ai-infra/storage/r2-storage.service";
 
 interface ParsedFile {
   title: string;
@@ -158,9 +158,7 @@ export class FileParserService {
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to parse Word document: ${errMsg}`);
-      throw new BadRequestException(
-        `Failed to parse Word document: ${errMsg}`,
-      );
+      throw new BadRequestException(`Failed to parse Word document: ${errMsg}`);
     }
   }
 

@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { FunctionCallingLLMAdapter } from "../function-calling-llm-adapter";
 import { AiChatService } from "../../services/ai-chat.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 
 describe("FunctionCallingLLMAdapter", () => {
   let adapter: FunctionCallingLLMAdapter;

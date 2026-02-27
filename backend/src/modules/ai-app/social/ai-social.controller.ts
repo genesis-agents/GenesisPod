@@ -18,7 +18,7 @@ import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
 import { ReviewService } from "./services/review.service";
 import { ContentVersionService } from "./services/content-version.service";
-import { BillingContext } from "../../credits/billing-context";
+import { BillingContext } from "../../ai-infra/credits/billing-context";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { CreateContentDto } from "./dto/create-content.dto";

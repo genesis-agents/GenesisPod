@@ -11,7 +11,7 @@ import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
-import { SecretsService } from "../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 
 @Injectable()
 export class ImageGenerationService {
@@ -477,7 +477,16 @@ export class ImageGenerationService {
       throw new Error("No image data in Gemini response");
     } catch (error: unknown) {
       // Extract error message from API response
-      const e = error as { response?: { status?: number; data?: { error?: { message?: string }; promptFeedback?: { blockReason?: string } } }; message?: string };
+      const e = error as {
+        response?: {
+          status?: number;
+          data?: {
+            error?: { message?: string };
+            promptFeedback?: { blockReason?: string };
+          };
+        };
+        message?: string;
+      };
       if (e.response?.data) {
         const errorData = e.response.data;
         let errorMessage = "Gemini image generation failed";
@@ -564,7 +573,13 @@ export class ImageGenerationService {
       const mimeType = imageData.imageType || "image/png";
       return `data:${mimeType};base64,${imageData.bytesBase64Encoded}`;
     } catch (error: unknown) {
-      const e = error as { response?: { status?: number; data?: { error?: { message?: string }; message?: string } }; message?: string };
+      const e = error as {
+        response?: {
+          status?: number;
+          data?: { error?: { message?: string }; message?: string };
+        };
+        message?: string;
+      };
       const errorStatus = e.response?.status;
       const errorData = e.response?.data;
 

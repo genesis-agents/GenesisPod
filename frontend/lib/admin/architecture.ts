@@ -1,10 +1,11 @@
 /**
  * Admin Architecture Diagram Configuration
  *
- * Five-layer architecture visualization:
- * Layer 5: Agent OS Layer (Intelligent Orchestration & User Entry)
- * Layer 4: Open API Layer (External Interfaces)
- * Layer 3: AI Apps Layer (Business Applications - Read-only)
+ * Six-layer architecture visualization:
+ * Layer 6: Agent OS Layer (Intelligent Orchestration & User Entry)
+ * Layer 5: Open API Layer (External Interfaces)
+ * Layer 4: AI Apps Layer (Business Applications - Read-only)
+ * Layer 3: AI Kernel Layer (OS Kernel - Process, Memory, IPC, Resources)
  * Layer 2: AI Engine Layer (Core Capabilities)
  * Layer 1: Infrastructure Layer (Foundation)
  */
@@ -39,6 +40,10 @@ import {
   Share2,
   TrendingUp,
   Cpu,
+  Clock,
+  Database,
+  GitBranch,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -71,17 +76,17 @@ export interface ArchitectureLayer {
   id: string;
   titleKey: string; // i18n key for layer title
   subtitleKey?: string; // i18n key for subtitle
-  level: 1 | 2 | 3 | 4 | 5; // Layer level for styling
+  level: 1 | 2 | 3 | 4 | 5 | 6; // Layer level for styling
   cards?: ArchitectureCard[];
   groups?: CardGroup[]; // For grouped cards (AI Apps layer)
 }
 
-// Layer 5: Agent OS Layer (Intelligent Orchestration & User Entry)
+// Layer 6: Agent OS Layer (Intelligent Orchestration & User Entry)
 const agentOsLayer: ArchitectureLayer = {
   id: 'agentOs',
   titleKey: 'admin.architecture.layers.agentOs',
   subtitleKey: 'admin.architecture.layers.agentOsDesc',
-  level: 5,
+  level: 6,
   cards: [
     {
       id: 'aiAskEntry',
@@ -108,12 +113,12 @@ const agentOsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 4: Open API Layer (External Interfaces)
+// Layer 5: Open API Layer (External Interfaces)
 const openApiLayer: ArchitectureLayer = {
   id: 'openApi',
   titleKey: 'admin.architecture.layers.openApi',
   subtitleKey: 'admin.architecture.layers.openApiDesc',
-  level: 4,
+  level: 5,
   cards: [
     {
       id: 'mcpServer',
@@ -133,12 +138,12 @@ const openApiLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 3: AI Apps Layer (Business Applications - Read-only from main sidebar)
+// Layer 4: AI Apps Layer (Business Applications - Read-only from main sidebar)
 const aiAppsLayer: ArchitectureLayer = {
   id: 'aiApps',
   titleKey: 'admin.architecture.layers.aiApps',
   subtitleKey: 'admin.architecture.layers.aiAppsDesc',
-  level: 3,
+  level: 4,
   groups: [
     {
       id: 'knowledge',
@@ -256,6 +261,74 @@ const aiAppsLayer: ArchitectureLayer = {
           ],
         },
       ],
+    },
+  ],
+};
+
+// Layer 3: AI Kernel Layer (OS Kernel - Durable Execution, Memory, IPC, Resources)
+const aiKernelLayer: ArchitectureLayer = {
+  id: 'aiKernel',
+  titleKey: 'admin.architecture.layers.aiKernel',
+  subtitleKey: 'admin.architecture.layers.aiKernelDesc',
+  level: 3,
+  cards: [
+    {
+      id: 'kernelProcesses',
+      i18nKey: 'admin.architecture.cards.kernelProcesses',
+      descriptionKey: 'admin.architecture.cards.kernelProcessesDesc',
+      href: '/admin/kernel/processes',
+      icon: Cpu,
+      clickable: true,
+      stats: [{ label: '进程', key: 'kernelProcesses' }],
+    },
+    {
+      id: 'kernelJournal',
+      i18nKey: 'admin.architecture.cards.kernelJournal',
+      descriptionKey: 'admin.architecture.cards.kernelJournalDesc',
+      icon: ScrollText,
+      clickable: false,
+    },
+    {
+      id: 'kernelMemory',
+      i18nKey: 'admin.architecture.cards.kernelMemory',
+      descriptionKey: 'admin.architecture.cards.kernelMemoryDesc',
+      icon: Database,
+      clickable: false,
+    },
+    {
+      id: 'kernelIPC',
+      i18nKey: 'admin.architecture.cards.kernelIPC',
+      descriptionKey: 'admin.architecture.cards.kernelIPCDesc',
+      icon: GitBranch,
+      clickable: false,
+    },
+    {
+      id: 'kernelResources',
+      i18nKey: 'admin.architecture.cards.kernelResources',
+      descriptionKey: 'admin.architecture.cards.kernelResourcesDesc',
+      icon: Gauge,
+      clickable: false,
+    },
+    {
+      id: 'kernelObservability',
+      i18nKey: 'admin.architecture.cards.kernelObservability',
+      descriptionKey: 'admin.architecture.cards.kernelObservabilityDesc',
+      icon: Activity,
+      clickable: false,
+    },
+    {
+      id: 'kernelSecurity',
+      i18nKey: 'admin.architecture.cards.kernelSecurity',
+      descriptionKey: 'admin.architecture.cards.kernelSecurityDesc',
+      icon: Shield,
+      clickable: false,
+    },
+    {
+      id: 'kernelScheduler',
+      i18nKey: 'admin.architecture.cards.kernelScheduler',
+      descriptionKey: 'admin.architecture.cards.kernelSchedulerDesc',
+      icon: Clock,
+      clickable: false,
     },
   ],
 };
@@ -461,13 +534,14 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
   agentOsLayer,
   openApiLayer,
   aiAppsLayer,
+  aiKernelLayer,
   aiEngineLayer,
   infrastructureLayer,
 ];
 
 // Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
-  5: {
+  6: {
     // Agent OS - Indigo/Cyan theme (top layer)
     badge: 'bg-cyan-100 text-cyan-700',
     border: 'border-cyan-200',
@@ -477,7 +551,7 @@ export const LAYER_STYLES = {
     iconBg: 'bg-cyan-100 text-cyan-600',
     hoverBorder: 'hover:border-cyan-300',
   },
-  4: {
+  5: {
     // Open API - Orange theme
     badge: 'bg-orange-100 text-orange-700',
     border: 'border-orange-200',
@@ -487,8 +561,8 @@ export const LAYER_STYLES = {
     iconBg: 'bg-orange-100 text-orange-600',
     hoverBorder: 'hover:border-orange-300',
   },
-  3: {
-    // AI Apps - Purple theme (top layer)
+  4: {
+    // AI Apps - Purple theme
     badge: 'bg-violet-100 text-violet-700',
     border: 'border-violet-200',
     accent: 'text-violet-600',
@@ -497,8 +571,18 @@ export const LAYER_STYLES = {
     iconBg: 'bg-violet-100 text-violet-600',
     hoverBorder: 'hover:border-violet-300',
   },
+  3: {
+    // AI Kernel - Teal/Slate theme (OS Kernel layer)
+    badge: 'bg-teal-100 text-teal-700',
+    border: 'border-teal-200',
+    accent: 'text-teal-600',
+    bg: 'bg-gradient-to-br from-teal-50/80 to-slate-50/50',
+    accentBar: 'bg-gradient-to-b from-teal-500 to-slate-600',
+    iconBg: 'bg-teal-100 text-teal-600',
+    hoverBorder: 'hover:border-teal-300',
+  },
   2: {
-    // AI Engine - Blue theme (middle layer)
+    // AI Engine - Blue theme
     badge: 'bg-blue-100 text-blue-700',
     border: 'border-blue-200',
     accent: 'text-blue-600',

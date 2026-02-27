@@ -37,7 +37,7 @@ import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
-import { R2StorageService } from "../../core/storage/r2-storage.service";
+import { R2StorageService } from "../../ai-infra/storage/r2-storage.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
 import { Prisma } from "@prisma/client";
@@ -631,7 +631,7 @@ export class ResourcesController {
     // 更新资源
     const updated = await this.resourcesService.update(id, {
       aiSummary: enrichment.aiSummary,
-      keyInsights: enrichment.keyInsights as any,
+      keyInsights: enrichment.keyInsights as Prisma.InputJsonValue,
       primaryCategory: enrichment.primaryCategory,
       autoTags: enrichment.autoTags,
       difficultyLevel: enrichment.difficultyLevel,
@@ -673,11 +673,12 @@ export class ResourcesController {
     // 更新资源（包含结构化摘要）
     const updated = await this.resourcesService.update(id, {
       aiSummary: enrichment.aiSummary,
-      keyInsights: enrichment.keyInsights as any,
+      keyInsights: enrichment.keyInsights as Prisma.InputJsonValue,
       primaryCategory: enrichment.primaryCategory,
       autoTags: enrichment.autoTags,
       difficultyLevel: enrichment.difficultyLevel,
-      structuredAISummary: enrichment.structuredAISummary as any,
+      structuredAISummary:
+        enrichment.structuredAISummary as unknown as Prisma.InputJsonValue,
     });
 
     this.logger.log(

@@ -212,7 +212,7 @@ function buildMockEventEmitter() {
 
 // ==================== BillingContext mock ====================
 
-jest.mock("../../../../../../modules/credits/billing-context", () => ({
+jest.mock("../../../../../../modules/ai-infra/credits/billing-context", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => Promise<unknown>) => fn()),
   },

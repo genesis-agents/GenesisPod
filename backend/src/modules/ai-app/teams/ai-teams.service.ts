@@ -38,7 +38,7 @@ import {
   TopicForwardBookmarkService,
   TopicEventEmitterService,
 } from "./services";
-import { BillingContext } from "../../credits/billing-context";
+import { BillingContext } from "../../ai-infra/credits/billing-context";
 
 @Injectable()
 export class AiTeamsService {
@@ -675,7 +675,10 @@ export class AiTeamsService {
           content: dto.content,
           contentType: dto.contentType || MessageContentType.TEXT,
           replyToId: dto.replyToId,
-          parsedUrls: parsedUrls.length > 0 ? (parsedUrls as unknown as Prisma.InputJsonValue) : undefined,
+          parsedUrls:
+            parsedUrls.length > 0
+              ? (parsedUrls as unknown as Prisma.InputJsonValue)
+              : undefined,
         },
         include: {
           sender: {
@@ -994,7 +997,12 @@ export class AiTeamsService {
             select: { createdAt: true },
           });
           if (fromMsg) {
-            const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+            const existing =
+              typeof where.createdAt === "object" &&
+              where.createdAt !== null &&
+              !(where.createdAt instanceof Date)
+                ? (where.createdAt as Prisma.DateTimeFilter)
+                : {};
             where.createdAt = { ...existing, gte: fromMsg.createdAt };
           }
         }
@@ -1005,7 +1013,12 @@ export class AiTeamsService {
             select: { createdAt: true },
           });
           if (toMsg) {
-            const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+            const existing =
+              typeof where.createdAt === "object" &&
+              where.createdAt !== null &&
+              !(where.createdAt instanceof Date)
+                ? (where.createdAt as Prisma.DateTimeFilter)
+                : {};
             where.createdAt = { ...existing, lte: toMsg.createdAt };
           }
         }

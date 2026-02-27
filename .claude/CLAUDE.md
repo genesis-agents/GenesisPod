@@ -34,14 +34,15 @@ Infra:    Docker + Railway + PM2 + Redis 7
 - **Redis 7**: 缓存和会话管理
 - 已移除 MongoDB、Neo4j、Qdrant（成本优化 70-75%）
 
-### AI 架构分层
+### AI 架构分层（6 层）
 
 ```
-AI Engine（核心能力层）→ 领域无关的通用机制
-     ↓
-AI Teams（协作机制层）→ 多 Agent 协作框架
-     ↓
-AI Apps（应用层）→ AI Studio / AI Office / AI Simulation
+L6 Agent OS（智能编排层）→ 用户入口、意图路由、追踪       → modules/agent-os/
+L5 Open API（开放接口层）→ MCP Server、Public API、Webhooks → modules/open-api/
+L4 AI Apps（业务应用层）→ Research、Teams、Writing、Office   → modules/ai-app/
+L3 AI Kernel（内核层）→ 进程管理、IPC、记忆、资源调度       → modules/ai-kernel/
+L2 AI Engine（核心能力层）→ LLM、Agents、Tools、RAG         → modules/ai-engine/
+L1 Infrastructure（基础设施层）→ Auth、Credits、Storage      → modules/ai-infra/
 ```
 
 > 详细文档: [skills/ai-architecture-layering/SKILL.md](skills/ai/ai-architecture-layering/SKILL.md)
@@ -467,6 +468,6 @@ git commit -m "feat(module): description"
 
 ---
 
-**最后更新**: 2026-02-25
+**最后更新**: 2026-02-27
 **维护者**: Claude Code
-**版本**: 2.2
+**版本**: 2.3

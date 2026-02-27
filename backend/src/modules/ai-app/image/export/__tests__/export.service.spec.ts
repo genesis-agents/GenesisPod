@@ -7,7 +7,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ExportService } from "../export.service";
-import { R2StorageService } from "../../../../core/storage/r2-storage.service";
+import { R2StorageService } from "../../../../ai-infra/storage/r2-storage.service";
 
 // Mock puppeteer at the module level
 jest.mock("puppeteer", () => ({
@@ -41,18 +41,14 @@ describe("ExportService", () => {
 
     const mockR2StorageService = {
       isEnabled: jest.fn().mockReturnValue(false),
-      uploadBase64Image: jest
-        .fn()
-        .mockResolvedValue({
-          success: true,
-          url: "https://r2.example.com/test.png",
-        }),
-      uploadBuffer: jest
-        .fn()
-        .mockResolvedValue({
-          success: true,
-          url: "https://r2.example.com/test.pdf",
-        }),
+      uploadBase64Image: jest.fn().mockResolvedValue({
+        success: true,
+        url: "https://r2.example.com/test.png",
+      }),
+      uploadBuffer: jest.fn().mockResolvedValue({
+        success: true,
+        url: "https://r2.example.com/test.pdf",
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

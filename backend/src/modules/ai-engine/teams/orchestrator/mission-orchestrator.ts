@@ -77,6 +77,8 @@ import {
   ExecutionContext,
   StepResult,
 } from "../../orchestration/abstractions/orchestrator.interface";
+import { MissionExecutorService } from "../../../ai-kernel/mission/mission-executor.service";
+import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
 
 /**
  * 步骤执行结果（内部使用）
@@ -131,6 +133,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   // ★ Checkpoint 管理器（可选，用于自动保存检查点）
   private readonly checkpointManager?: CheckpointManager;
 
+  // ★ AI Kernel 进程生命周期（可选，用于 Durable Execution）
+  private readonly missionExecutor?: MissionExecutorService;
+  private readonly kernelJournal?: EventJournalService;
+  // missionId → kernel processId 映射
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
+
   constructor(
     private readonly constraintEngine: ConstraintEngine,
     private readonly configService: ConfigService,
@@ -145,6 +153,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     checkpointManager?: CheckpointManager,
     a2aBus?: A2AMessageBusService,
     config?: Partial<OrchestratorConfig>,
+    missionExecutor?: MissionExecutorService,
+    kernelJournal?: EventJournalService,
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
     this.handoffCoordinator = new HandoffCoordinator({
@@ -188,6 +198,15 @@ export class MissionOrchestrator implements IMissionOrchestrator {
         "A2AMessageBus initialized for inter-agent communication",
       );
     }
+
+    // ★ AI Kernel 进程追踪（可选依赖）
+    this.missionExecutor = missionExecutor;
+    this.kernelJournal = kernelJournal;
+    if (this.missionExecutor) {
+      this.logger.log(
+        "AI Kernel MissionExecutor initialized for durable execution",
+      );
+    }
   }
 
   /**
@@ -213,6 +232,23 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
     // ★ 直接存储原始输入（不依赖 Memory 服务）
     this.originalInputs.set(missionId, input);
+
+    // ★ AI Kernel: 创建进程记录（Durable Execution）
+    if (this.missionExecutor) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId: "system",
+          agentId: team.leader.role.id,
+          teamSessionId: missionId,
+          input: { prompt: input.prompt, requirements: input.requirements },
+        });
+        this.kernelProcessIds.set(missionId, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process for mission ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
 
     // 存储上下文到 Memory（可选，用于持久化）
     await this.storeContext(missionId, "input", input);
@@ -276,6 +312,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
         primaryGoal: intent.primaryGoal,
       });
 
+      // ★ AI Kernel: 记录解析完成事件
+      void this.recordKernelEvent(missionId, "phase:parse_complete", {
+        taskType: intent.taskType,
+        complexity: intent.complexity.overall,
+      });
+
       yield this.createEvent("parsing_completed", missionId, { intent });
 
       // Phase 2: Plan - 生成执行计划
@@ -311,6 +353,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
         stepCount: plan.steps.length,
         estimatedDuration: plan.estimatedDuration,
         estimatedCost: plan.estimatedCost,
+      });
+
+      // ★ AI Kernel: 记录计划完成事件
+      void this.recordKernelEvent(missionId, "phase:plan_complete", {
+        stepCount: plan.steps.length,
+        estimatedDuration: plan.estimatedDuration,
       });
 
       yield this.createEvent("planning_completed", missionId, { plan });
@@ -485,6 +533,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             reworkCount: state.resourceUsage.reworkCount,
           },
         );
+
+        // ★ AI Kernel: 记录审核完成事件
+        void this.recordKernelEvent(missionId, "phase:review_complete", {
+          reviewCount: state.reviewResults.length,
+          reworkCount: state.resourceUsage.reworkCount,
+        });
       }
 
       // Phase 5: Deliver - 生成交付物（使用导出工具）
@@ -527,6 +581,13 @@ export class MissionOrchestrator implements IMissionOrchestrator {
         });
       }
 
+      // ★ AI Kernel: 标记进程完成
+      void this.completeKernelProcess(missionId, {
+        completedSteps: state.completedSteps.length,
+        failedSteps: state.failedSteps.length,
+        durationMs: Date.now() - startTime,
+      });
+
       yield this.createEvent("mission_completed", missionId, { result });
 
       // ★ 清理原始输入，防止内存泄漏
@@ -543,6 +604,9 @@ export class MissionOrchestrator implements IMissionOrchestrator {
           status: "error",
         });
       }
+
+      // ★ AI Kernel: 标记进程失败
+      void this.failKernelProcess(missionId, errorMessage);
 
       yield this.createEvent("mission_failed", missionId, {
         error: errorMessage,
@@ -2253,5 +2317,64 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         `[${executionId}] Failed to save checkpoint at ${phase}: ${(error as Error).message}`,
       );
     }
+  }
+
+  // ─── AI Kernel Helpers ───
+
+  /**
+   * ★ 记录 Kernel 事件（fire-and-forget，不阻塞主流程）
+   */
+  private recordKernelEvent(
+    missionId: string,
+    type: string,
+    payload?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.kernelJournal) return;
+
+    this.kernelJournal
+      .record(processId, type, payload)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to record event ${type}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
+  /**
+   * ★ 标记 Kernel 进程完成（fire-and-forget）
+   */
+  private completeKernelProcess(
+    missionId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.missionExecutor) return;
+
+    this.missionExecutor
+      .complete(processId, output)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      )
+      .finally(() => this.kernelProcessIds.delete(missionId));
+  }
+
+  /**
+   * ★ 标记 Kernel 进程失败（fire-and-forget）
+   */
+  private failKernelProcess(missionId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.missionExecutor) return;
+
+    this.missionExecutor
+      .fail(processId, error)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to mark process as failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      )
+      .finally(() => this.kernelProcessIds.delete(missionId));
   }
 }

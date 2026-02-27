@@ -33,6 +33,8 @@ import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { TraceCollectorService } from "../infra/observability/trace-collector.service";
 import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manager";
+import { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
+import { EventJournalService } from "../../ai-kernel/journal/event-journal.service";
 
 /**
  * Teams 模块
@@ -92,6 +94,8 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
         traceCollector: TraceCollectorService,
         checkpointManager: CheckpointManager,
         a2aBus: A2AMessageBusService,
+        missionExecutor?: MissionExecutorService,
+        kernelJournal?: EventJournalService,
       ) => {
         return new MissionOrchestrator(
           constraintEngine,
@@ -106,6 +110,9 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
           traceCollector, // ★ 用于执行链路可视化
           checkpointManager, // ★ 用于自动保存检查点
           a2aBus, // ★ 用于 Agent 间消息通信
+          undefined, // config override (use defaults)
+          missionExecutor, // ★ AI Kernel 进程追踪
+          kernelJournal, // ★ AI Kernel 事件日志
         );
       },
       inject: [
@@ -121,6 +128,8 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
         TraceCollectorService,
         CheckpointManager,
         A2AMessageBusService,
+        { token: MissionExecutorService, optional: true },
+        { token: EventJournalService, optional: true },
       ],
     },
     // TeamsService 依赖所有上层服务

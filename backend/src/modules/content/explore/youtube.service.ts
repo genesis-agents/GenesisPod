@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AdminService } from "../../core/admin/admin.service";
+import { AdminService } from "../../ai-infra/admin/admin.service";
 import { Prisma } from "@prisma/client";
 
 type YoutubeModule = typeof import("youtubei.js");
@@ -624,15 +624,14 @@ export class YoutubeService {
 
   private async ensureClient() {
     if (!this.youtube) {
-      // Use Function constructor to force true dynamic import at runtime
-      // This prevents TypeScript from converting import() to require() in CommonJS
+      // Force true ESM dynamic import at runtime so TypeScript does not
+      // compile import() to require() in CommonJS output.
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
       const importDynamic = new Function(
         "modulePath",
         "return import(modulePath)",
-      );
-      const youtubeModule = (await importDynamic(
-        "youtubei.js",
-      )) as YoutubeModule;
+      ) as (path: string) => Promise<YoutubeModule>;
+      const youtubeModule = await importDynamic("youtubei.js");
       const { Innertube } = youtubeModule;
       this.youtube = await Innertube.create();
     }

@@ -6,7 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../../../core/storage/r2-storage.service";
+import { R2StorageService } from "../../../ai-infra/storage/r2-storage.service";
 import {
   GeneratedImageResult,
   ProcessingStep,
@@ -182,8 +182,13 @@ export class ImageStorageService {
         createdAt: img.createdAt.toISOString(),
         textModelUsed: img.textModelUsed || undefined,
         imageModelUsed: img.imageModelUsed || undefined,
-        processingSteps: (img.processingSteps as unknown as ProcessingStep[] | undefined) || undefined,
-        promptInsights: (img.promptInsights as unknown as PromptEngineeringInsights | undefined) || undefined,
+        processingSteps:
+          (img.processingSteps as unknown as ProcessingStep[] | undefined) ||
+          undefined,
+        promptInsights:
+          (img.promptInsights as unknown as
+            | PromptEngineeringInsights
+            | undefined) || undefined,
       });
     }
 

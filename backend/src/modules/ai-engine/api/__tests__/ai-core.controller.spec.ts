@@ -9,7 +9,7 @@ import { AiCoreController } from "../ai-core.controller";
 import { AiCoreService } from "../ai-core.service";
 import { AIEngineFacade } from "../../facade/ai-engine.facade";
 import { RAGPipelineService } from "../../knowledge/rag/pipeline";
-import { SecretsService } from "../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { SearchService } from "../../knowledge/search/search.service";
 
 const mockAiCoreService = {

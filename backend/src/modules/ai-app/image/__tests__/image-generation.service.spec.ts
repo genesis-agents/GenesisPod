@@ -15,7 +15,7 @@ const mockSecretsService = {
   getValueInternal: jest.fn(),
 };
 
-jest.mock("../../../core/secrets/secrets.service", () => ({
+jest.mock("../../../ai-infra/secrets/secrets.service", () => ({
   SecretsService: jest.fn().mockImplementation(() => mockSecretsService),
 }));
 
@@ -65,9 +65,8 @@ describe("ImageGenerationService", () => {
     jest.clearAllMocks();
     mockSecretsService.getValueInternal.mockResolvedValue(null);
 
-    const { SecretsService } = await import(
-      "../../../core/secrets/secrets.service"
-    );
+    const { SecretsService } =
+      await import("../../../ai-infra/secrets/secrets.service");
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -431,7 +430,9 @@ describe("ImageGenerationService", () => {
             candidates: [
               {
                 content: {
-                  parts: [{ inlineData: { mimeType: "image/jpeg", data: "imgdata" } }],
+                  parts: [
+                    { inlineData: { mimeType: "image/jpeg", data: "imgdata" } },
+                  ],
                 },
               },
             ],

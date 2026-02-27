@@ -26,7 +26,7 @@ import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { ImageGenerationService } from "../image-generation.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
-import { SecretsService } from "../../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { HttpService } from "@nestjs/axios";
 import { GEMINI_IMAGE_MODELS } from "../../core/image.constants";
 

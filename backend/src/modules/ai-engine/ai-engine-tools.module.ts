@@ -12,7 +12,7 @@ import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { ExportModule } from "../../common/export/export.module";
-import { SecretsModule } from "../core/secrets/secrets.module";
+import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 
 // Registry
 import { ToolRegistry } from "./tools/registry/tool-registry";

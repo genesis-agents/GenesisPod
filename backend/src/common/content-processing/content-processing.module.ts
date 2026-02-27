@@ -23,7 +23,7 @@ import { MinerUService } from "./mineru.service";
 import { WebContentExtractionService } from "./web-content-extraction.service";
 import { UrlParserService } from "./url-parser.service";
 import { ExploreModule } from "../../modules/content/explore/explore.module";
-import { AdminModule } from "../../modules/core/admin/admin.module";
+import { AdminModule } from "../../modules/ai-infra/admin/admin.module";
 
 @Global()
 @Module({

@@ -8,7 +8,7 @@ import { Module } from "@nestjs/common";
 import { A2AController } from "./a2a.controller";
 import { AgentCardRegistry } from "./agent-card/agent-card.registry";
 import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
-import { SecretsModule } from "../../../core/secrets/secrets.module";
+import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { TeamsModule } from "../../teams/teams.module";
 import { TraceCollectorService } from "../observability/trace-collector.service";
 

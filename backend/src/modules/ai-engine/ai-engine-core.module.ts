@@ -21,7 +21,7 @@
 
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/prisma/prisma.module";
-import { SecretsModule } from "../core/secrets/secrets.module";
+import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 
 // 子模块（仅核心）
 import { AiEngineLLMModule } from "./ai-engine-llm.module";

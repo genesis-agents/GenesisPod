@@ -14,9 +14,9 @@ import {
 } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { RAGPipelineService } from "../../ai-engine/facade";
-import { CreditsService } from "../../credits/credits.service";
-import { InsufficientCreditsException } from "../../credits/exceptions/insufficient-credits.exception";
-import { BillingContext } from "../../credits/billing-context";
+import { CreditsService } from "../../ai-infra/credits/credits.service";
+import { InsufficientCreditsException } from "../../ai-infra/credits/exceptions/insufficient-credits.exception";
+import { BillingContext } from "../../ai-infra/credits/billing-context";
 import {
   GENESIS_AI_CONTEXT,
   isProjectRelatedQuery,

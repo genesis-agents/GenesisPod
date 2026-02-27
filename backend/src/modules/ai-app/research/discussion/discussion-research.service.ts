@@ -14,9 +14,9 @@ import {
   Reflection,
   ThinkingStep,
 } from "./types";
-import { CreditsService } from "../../../credits/credits.service";
-import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
-import { BillingContext } from "../../../credits/billing-context";
+import { CreditsService } from "../../../ai-infra/credits/credits.service";
+import { InsufficientCreditsException } from "../../../ai-infra/credits/exceptions/insufficient-credits.exception";
+import { BillingContext } from "../../../ai-infra/credits/billing-context";
 
 /**
  * 讨论式研究服务

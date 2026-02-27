@@ -8,7 +8,7 @@ import {
 } from "../ai-model-config.service";
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
-import { AIMetricsService } from "../../../../core/monitoring";
+import { AIMetricsService } from "../../../../ai-infra/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 import { CircuitBreakerService } from "../../../orchestration/services/circuit-breaker.service";
 import { AiConnectionTestService } from "../ai-connection-test.service";

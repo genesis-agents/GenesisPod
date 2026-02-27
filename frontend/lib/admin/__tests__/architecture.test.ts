@@ -16,13 +16,13 @@ import {
 // ============================================================================
 
 describe('ARCHITECTURE_LAYERS', () => {
-  it('contains exactly 5 layers', () => {
-    expect(ARCHITECTURE_LAYERS).toHaveLength(5);
+  it('contains exactly 6 layers', () => {
+    expect(ARCHITECTURE_LAYERS).toHaveLength(6);
   });
 
-  it('layers have levels 5, 4, 3, 2, 1 in order', () => {
+  it('layers have levels 6, 5, 4, 3, 2, 1 in order', () => {
     const levels = ARCHITECTURE_LAYERS.map((l) => l.level);
-    expect(levels).toEqual([5, 4, 3, 2, 1]);
+    expect(levels).toEqual([6, 5, 4, 3, 2, 1]);
   });
 
   it('every layer has a non-empty titleKey and id', () => {
@@ -40,14 +40,14 @@ describe('ARCHITECTURE_LAYERS', () => {
 });
 
 // ============================================================================
-// Agent OS layer (level 5)
+// Agent OS layer (level 6)
 // ============================================================================
 
-describe('agentOs layer (level 5)', () => {
+describe('agentOs layer (level 6)', () => {
   let agentOsLayer: ArchitectureLayer;
 
   beforeEach(() => {
-    agentOsLayer = ARCHITECTURE_LAYERS.find((l) => l.level === 5)!;
+    agentOsLayer = ARCHITECTURE_LAYERS.find((l) => l.level === 6)!;
   });
 
   it('has id "agentOs"', () => {
@@ -77,14 +77,14 @@ describe('agentOs layer (level 5)', () => {
 });
 
 // ============================================================================
-// Open API layer (level 4)
+// Open API layer (level 5)
 // ============================================================================
 
-describe('openApi layer (level 4)', () => {
+describe('openApi layer (level 5)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 4)!;
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 5)!;
   });
 
   it('has id "openApi"', () => {
@@ -103,14 +103,14 @@ describe('openApi layer (level 4)', () => {
 });
 
 // ============================================================================
-// AI Apps layer (level 3)
+// AI Apps layer (level 4)
 // ============================================================================
 
-describe('aiApps layer (level 3)', () => {
+describe('aiApps layer (level 4)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 3)!;
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 4)!;
   });
 
   it('has groups (not flat cards)', () => {
@@ -148,6 +148,42 @@ describe('aiApps layer (level 3)', () => {
     const group = layer.groups?.find((g) => g.id === 'researchAnalysisGroup');
     const card = group?.cards.find((c) => c.id === 'aiResearch');
     expect(card).toBeDefined();
+    expect(card?.clickable).toBe(false);
+  });
+});
+
+// ============================================================================
+// AI Kernel layer (level 3)
+// ============================================================================
+
+describe('aiKernel layer (level 3)', () => {
+  let layer: ArchitectureLayer;
+
+  beforeEach(() => {
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 3)!;
+  });
+
+  it('has id "aiKernel"', () => {
+    expect(layer.id).toBe('aiKernel');
+  });
+
+  it('has flat cards (not groups)', () => {
+    expect(Array.isArray(layer.cards)).toBe(true);
+    expect(layer.groups).toBeUndefined();
+  });
+
+  it('contains 8 cards', () => {
+    expect(layer.cards).toHaveLength(8);
+  });
+
+  it('kernelProcesses card is clickable with correct href', () => {
+    const card = layer.cards?.find((c) => c.id === 'kernelProcesses');
+    expect(card?.clickable).toBe(true);
+    expect(card?.href).toBe('/admin/kernel/processes');
+  });
+
+  it('kernelMemory card is not clickable', () => {
+    const card = layer.cards?.find((c) => c.id === 'kernelMemory');
     expect(card?.clickable).toBe(false);
   });
 });
@@ -251,12 +287,13 @@ describe('infrastructure layer (level 1)', () => {
 // ============================================================================
 
 describe('LAYER_STYLES', () => {
-  it('has style entries for levels 1-5', () => {
+  it('has style entries for levels 1-6', () => {
     expect(LAYER_STYLES[1]).toBeDefined();
     expect(LAYER_STYLES[2]).toBeDefined();
     expect(LAYER_STYLES[3]).toBeDefined();
     expect(LAYER_STYLES[4]).toBeDefined();
     expect(LAYER_STYLES[5]).toBeDefined();
+    expect(LAYER_STYLES[6]).toBeDefined();
   });
 
   it('each style has badge, border, accent, bg, accentBar, iconBg, hoverBorder', () => {
@@ -269,7 +306,7 @@ describe('LAYER_STYLES', () => {
       'iconBg',
       'hoverBorder',
     ] as const;
-    for (const level of [1, 2, 3, 4, 5] as const) {
+    for (const level of [1, 2, 3, 4, 5, 6] as const) {
       const style = LAYER_STYLES[level];
       for (const key of keys) {
         expect(style[key]).toBeTruthy();
@@ -277,16 +314,28 @@ describe('LAYER_STYLES', () => {
     }
   });
 
-  it('level 5 uses cyan theme in badge', () => {
-    expect(LAYER_STYLES[5].badge).toContain('cyan');
+  it('level 6 uses cyan theme in badge', () => {
+    expect(LAYER_STYLES[6].badge).toContain('cyan');
+  });
+
+  it('level 5 uses orange theme in badge', () => {
+    expect(LAYER_STYLES[5].badge).toContain('orange');
+  });
+
+  it('level 4 uses violet theme in badge', () => {
+    expect(LAYER_STYLES[4].badge).toContain('violet');
+  });
+
+  it('level 3 uses teal theme in badge', () => {
+    expect(LAYER_STYLES[3].badge).toContain('teal');
+  });
+
+  it('level 2 uses blue theme in badge', () => {
+    expect(LAYER_STYLES[2].badge).toContain('blue');
   });
 
   it('level 1 uses emerald theme in badge', () => {
     expect(LAYER_STYLES[1].badge).toContain('emerald');
-  });
-
-  it('level 3 uses violet theme in badge', () => {
-    expect(LAYER_STYLES[3].badge).toContain('violet');
   });
 });
 

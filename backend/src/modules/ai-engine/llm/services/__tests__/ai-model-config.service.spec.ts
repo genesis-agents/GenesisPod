@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../core/secrets/secrets.service";
-import { UserApiKeysService } from "../../../../core/user-api-keys/user-api-keys.service";
+import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
+import { UserApiKeysService } from "../../../../ai-infra/user-api-keys/user-api-keys.service";
 import { AIModelType } from "@prisma/client";
 
 describe("AiModelConfigService", () => {
@@ -778,7 +778,7 @@ describe("AiModelConfigService", () => {
         .mockResolvedValueOnce([mockChatModel]) // enabled models (openai)
         .mockResolvedValueOnce([]); // disabled anthropic models - none in DB
 
-      const mockUserApiKeysService = (service as any).userApiKeysService as {
+      const _mockUserApiKeysService = (service as any).userApiKeysService as {
         getPersonalKey: jest.Mock;
         getDonatedKey: jest.Mock;
       };
@@ -878,9 +878,8 @@ describe("AiModelConfigService", () => {
 
   describe("findDisabledModelForUser - via getModelConfig", () => {
     it("should return disabled model config when user has provider key", async () => {
-      const { RequestContext } = await import(
-        "../../../../../common/context/request-context"
-      );
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
       const spy = jest
         .spyOn(RequestContext, "getUserId")
         .mockReturnValue("user-byok-123");
@@ -908,9 +907,8 @@ describe("AiModelConfigService", () => {
     });
 
     it("should return null when user has no key for provider", async () => {
-      const { RequestContext } = await import(
-        "../../../../../common/context/request-context"
-      );
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
       const spy = jest
         .spyOn(RequestContext, "getUserId")
         .mockReturnValue("user-no-key-123");
@@ -932,9 +930,8 @@ describe("AiModelConfigService", () => {
     });
 
     it("should return null when no user context", async () => {
-      const { RequestContext } = await import(
-        "../../../../../common/context/request-context"
-      );
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
       const spy = jest
         .spyOn(RequestContext, "getUserId")
         .mockReturnValue(undefined);
@@ -986,25 +983,97 @@ describe("AiModelConfigService", () => {
     // to ensure the expected icon branch fires correctly.
     const iconTestCases = [
       // Name-based detection (provider is neutral "custom" to avoid early matches)
-      { name: "grok-model", provider: "custom", expectedIcon: "/icons/ai/grok.svg" },
-      { name: "chatgpt-4", provider: "custom", expectedIcon: "/icons/ai/openai.svg" },
-      { name: "claude-3", provider: "custom", expectedIcon: "/icons/ai/claude.svg" },
-      { name: "gemini-flash", provider: "custom", expectedIcon: "/icons/ai/gemini.svg" },
-      { name: "deepseek-chat", provider: "custom", expectedIcon: "/icons/ai/deepseek.svg" },
-      { name: "qwen-max", provider: "custom", expectedIcon: "/icons/ai/qwen.svg" },
-      { name: "kimi-v1", provider: "custom", expectedIcon: "/icons/ai/kimi.svg" },
-      { name: "glm-4", provider: "custom", expectedIcon: "/icons/ai/zhipu.svg" },
-      { name: "doubao-turbo", provider: "custom", expectedIcon: "/icons/ai/doubao.svg" },
+      {
+        name: "grok-model",
+        provider: "custom",
+        expectedIcon: "/icons/ai/grok.svg",
+      },
+      {
+        name: "chatgpt-4",
+        provider: "custom",
+        expectedIcon: "/icons/ai/openai.svg",
+      },
+      {
+        name: "claude-3",
+        provider: "custom",
+        expectedIcon: "/icons/ai/claude.svg",
+      },
+      {
+        name: "gemini-flash",
+        provider: "custom",
+        expectedIcon: "/icons/ai/gemini.svg",
+      },
+      {
+        name: "deepseek-chat",
+        provider: "custom",
+        expectedIcon: "/icons/ai/deepseek.svg",
+      },
+      {
+        name: "qwen-max",
+        provider: "custom",
+        expectedIcon: "/icons/ai/qwen.svg",
+      },
+      {
+        name: "kimi-v1",
+        provider: "custom",
+        expectedIcon: "/icons/ai/kimi.svg",
+      },
+      {
+        name: "glm-4",
+        provider: "custom",
+        expectedIcon: "/icons/ai/zhipu.svg",
+      },
+      {
+        name: "doubao-turbo",
+        provider: "custom",
+        expectedIcon: "/icons/ai/doubao.svg",
+      },
       // Provider-based detection (name is neutral "unknown-model")
-      { name: "unknown-model", provider: "xai", expectedIcon: "/icons/ai/grok.svg" },
-      { name: "unknown-model", provider: "anthropic", expectedIcon: "/icons/ai/claude.svg" },
-      { name: "unknown-model", provider: "google", expectedIcon: "/icons/ai/gemini.svg" },
-      { name: "unknown-model", provider: "deepseek", expectedIcon: "/icons/ai/deepseek.svg" },
-      { name: "unknown-model", provider: "alibaba", expectedIcon: "/icons/ai/qwen.svg" },
-      { name: "unknown-model", provider: "moonshot", expectedIcon: "/icons/ai/kimi.svg" },
-      { name: "unknown-model", provider: "zhipu", expectedIcon: "/icons/ai/zhipu.svg" },
-      { name: "unknown-model", provider: "bytedance", expectedIcon: "/icons/ai/doubao.svg" },
-      { name: "unknown-model", provider: "openai", expectedIcon: "/icons/ai/openai.svg" },
+      {
+        name: "unknown-model",
+        provider: "xai",
+        expectedIcon: "/icons/ai/grok.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "anthropic",
+        expectedIcon: "/icons/ai/claude.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "google",
+        expectedIcon: "/icons/ai/gemini.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "deepseek",
+        expectedIcon: "/icons/ai/deepseek.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "alibaba",
+        expectedIcon: "/icons/ai/qwen.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "moonshot",
+        expectedIcon: "/icons/ai/kimi.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "zhipu",
+        expectedIcon: "/icons/ai/zhipu.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "bytedance",
+        expectedIcon: "/icons/ai/doubao.svg",
+      },
+      {
+        name: "unknown-model",
+        provider: "openai",
+        expectedIcon: "/icons/ai/openai.svg",
+      },
     ];
 
     it.each(iconTestCases)(

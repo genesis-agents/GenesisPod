@@ -8,8 +8,8 @@ import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../../common/mongodb/mongodb.module";
 import { IngestionConfigModule } from "../../ingestion/config/config.module";
-import { StorageModule } from "../../core/storage/storage.module";
-import { ProxyModule } from "../../integrations/proxy/proxy.module";
+import { StorageModule } from "../../ai-infra/storage/storage.module";
+import { ProxyModule } from "../../ai-infra/integrations/proxy/proxy.module";
 
 /**
  * 资源管理模块

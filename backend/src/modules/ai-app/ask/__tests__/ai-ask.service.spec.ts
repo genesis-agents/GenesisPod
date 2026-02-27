@@ -631,7 +631,11 @@ describe("AiAskService", () => {
       mockPrisma.askSession.findFirst.mockResolvedValue(mockSession);
       mockPrisma.askMessage.create
         .mockResolvedValueOnce({ ...mockMessage, role: "user" }) // user msg
-        .mockResolvedValueOnce({ ...mockMessage, role: "assistant", content: "Hello! How can I help?" }); // AI msg
+        .mockResolvedValueOnce({
+          ...mockMessage,
+          role: "assistant",
+          content: "Hello! How can I help?",
+        }); // AI msg
       mockPrisma.askMessage.count.mockResolvedValue(5); // not first message
       mockFacade.getModelById.mockResolvedValue(null); // fallback to default
       mockFacade.getDefaultTextModel = jest.fn().mockResolvedValue({
@@ -681,11 +685,12 @@ describe("AiAskService", () => {
     });
 
     it("should throw InsufficientCreditsException when balance is insufficient", async () => {
-      const { InsufficientCreditsException } = await import(
-        "../../../credits/exceptions/insufficient-credits.exception"
-      );
+      const { InsufficientCreditsException } =
+        await import("../../../ai-infra/credits/exceptions/insufficient-credits.exception");
       const creditsService = {
-        checkBalance: jest.fn().mockResolvedValue({ sufficient: false, balance: 5 }),
+        checkBalance: jest
+          .fn()
+          .mockResolvedValue({ sufficient: false, balance: 5 }),
       };
 
       // Directly instantiate service with credits service injected
@@ -707,14 +712,18 @@ describe("AiAskService", () => {
         title: "New Chat",
         modelId: null,
       };
-      mockPrisma.askSession.findFirst.mockResolvedValue(sessionWithDefaultTitle);
+      mockPrisma.askSession.findFirst.mockResolvedValue(
+        sessionWithDefaultTitle,
+      );
       mockPrisma.askMessage.count.mockResolvedValue(2); // exactly 2
       mockPrisma.askSession.update.mockResolvedValue({
         ...sessionWithDefaultTitle,
         title: "Hello AI",
       });
 
-      await service.sendMessage(sessionId, userId, { content: "Hello AI" } as any);
+      await service.sendMessage(sessionId, userId, {
+        content: "Hello AI",
+      } as any);
 
       // Title generation is async — wait a tick
       await new Promise((r) => setTimeout(r, 10));
@@ -856,7 +865,11 @@ describe("AiAskService", () => {
     });
 
     it("should regenerate an assistant message", async () => {
-      const result = await service.regenerateMessage(sessionId, messageId, userId);
+      const _result = await service.regenerateMessage(
+        sessionId,
+        messageId,
+        userId,
+      );
 
       expect(mockFacade.chat).toHaveBeenCalled();
       expect(mockPrisma.askMessage.update).toHaveBeenCalledWith({
@@ -913,10 +926,16 @@ describe("AiAskService", () => {
     });
 
     it("should handle memory rebuild failure gracefully", async () => {
-      mockFacade.sessionMemoryClear.mockRejectedValue(new Error("Memory error"));
+      mockFacade.sessionMemoryClear.mockRejectedValue(
+        new Error("Memory error"),
+      );
 
       // Should not throw — memory failures are swallowed
-      const result = await service.regenerateMessage(sessionId, messageId, userId);
+      const result = await service.regenerateMessage(
+        sessionId,
+        messageId,
+        userId,
+      );
       expect(result).toBeDefined();
     });
   });
@@ -965,8 +984,16 @@ describe("AiAskService", () => {
     });
 
     it("should return messages in ascending order (reversed from DB query)", async () => {
-      const olderMsg = { ...mockMessage, id: "older", createdAt: new Date("2024-01-01") };
-      const newerMsg = { ...mockMessage, id: "newer", createdAt: new Date("2024-06-01") };
+      const olderMsg = {
+        ...mockMessage,
+        id: "older",
+        createdAt: new Date("2024-01-01"),
+      };
+      const newerMsg = {
+        ...mockMessage,
+        id: "newer",
+        createdAt: new Date("2024-06-01"),
+      };
       // DB returns desc order (newest first), service reverses
       mockPrisma.askMessage.findMany.mockResolvedValue([newerMsg, olderMsg]);
 
@@ -988,7 +1015,8 @@ describe("AiAskService", () => {
     });
 
     it("should replace inline base64 image with placeholder", () => {
-      const content = "Here is an image: data:image/png;base64,iVBORw0KGgoAAAA==";
+      const content =
+        "Here is an image: data:image/png;base64,iVBORw0KGgoAAAA==";
       const result = (service as any).sanitizeMessageContent(content);
       expect(result).toContain("[图片已省略]");
       expect(result).not.toContain("base64");
@@ -1024,7 +1052,8 @@ describe("AiAskService", () => {
     });
 
     it("should truncate long messages to 40 chars", () => {
-      const long = "This is a very long message that exceeds forty characters for sure";
+      const long =
+        "This is a very long message that exceeds forty characters for sure";
       const result = (service as any).extractTitleFromMessage(long);
       expect(result.length).toBeLessThanOrEqual(40);
     });
@@ -1057,13 +1086,15 @@ describe("AiAskService", () => {
 
     it("should truncate at Chinese punctuation boundary", () => {
       // Craft a string just over 40 chars with Chinese punctuation in good position
-      const withPunct = "关于人工智能的最新进展，我们应该如何看待这些技术突破呢？这是很有意思的";
+      const withPunct =
+        "关于人工智能的最新进展，我们应该如何看待这些技术突破呢？这是很有意思的";
       const result = (service as any).extractTitleFromMessage(withPunct);
       expect(result.length).toBeLessThanOrEqual(40);
     });
 
     it("should truncate at English word boundary", () => {
-      const withWords = "This is a very long English message that should be truncated at a word";
+      const withWords =
+        "This is a very long English message that should be truncated at a word";
       const result = (service as any).extractTitleFromMessage(withWords);
       expect(result.length).toBeLessThanOrEqual(40);
       // Should not end mid-word if possible
@@ -1109,7 +1140,9 @@ describe("AiAskService", () => {
     });
 
     it("should fall back to DB when cache throws", async () => {
-      mockFacade.sessionMemoryGet.mockRejectedValue(new Error("Redis unavailable"));
+      mockFacade.sessionMemoryGet.mockRejectedValue(
+        new Error("Redis unavailable"),
+      );
       mockPrisma.askMessage.findMany.mockResolvedValue([mockMessage]);
 
       const result = await (service as any).buildContext(sessionId);
@@ -1130,7 +1163,10 @@ describe("AiAskService", () => {
       const result = await (service as any).buildContext(sessionId);
 
       if (result.length > 0) {
-        const totalChars = result.reduce((acc: number, m: any) => acc + m.content.length, 0);
+        const totalChars = result.reduce(
+          (acc: number, m: any) => acc + m.content.length,
+          0,
+        );
         // Either empty or truncated
         expect(totalChars).toBeLessThanOrEqual(150000);
       }
@@ -1193,7 +1229,10 @@ describe("AiAskService", () => {
 
   describe("buildSystemPromptForChat (private)", () => {
     it("should build a basic prompt without RAG context", () => {
-      const result = (service as any).buildSystemPromptForChat("Hello", undefined);
+      const result = (service as any).buildSystemPromptForChat(
+        "Hello",
+        undefined,
+      );
       expect(typeof result).toBe("string");
       expect(result.length).toBeGreaterThan(0);
     });
@@ -1287,8 +1326,8 @@ describe("AiAskService", () => {
     it("should filter out unavailable tools", () => {
       mockFacade.isToolExecutionAvailable.mockReturnValue(true);
       // Only text_generation is available, others are not
-      mockFacade.isToolAvailable.mockImplementation((tool: string) =>
-        tool === "text_generation",
+      mockFacade.isToolAvailable.mockImplementation(
+        (tool: string) => tool === "text_generation",
       );
 
       const result = service.getAvailableTools();
@@ -1309,7 +1348,9 @@ describe("AiAskService", () => {
     });
 
     it("should not throw when memory clear fails", async () => {
-      mockFacade.sessionMemoryClear.mockRejectedValue(new Error("Memory error"));
+      mockFacade.sessionMemoryClear.mockRejectedValue(
+        new Error("Memory error"),
+      );
 
       await expect(service.deleteSession(sessionId, userId)).resolves.toEqual({
         success: true,

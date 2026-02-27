@@ -45,7 +45,7 @@ import { TopicEventEmitterService } from "../../events";
 import { LeaderModelService } from "../../ai/leader-model.service";
 import { MissionContextService } from "../mission/mission-context.service";
 import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
-import { EmailService } from "../../../../../core/email/email.service";
+import { EmailService } from "../../../../../ai-infra/email/email.service";
 import { MissionStateManager } from "../mission/mission-state.manager";
 import { MissionLifecycleService } from "../mission/mission-lifecycle.service";
 import { MissionRetryService } from "../mission/mission-retry.service";

@@ -11,7 +11,7 @@ import {
   AIEngineFacade,
   ChatMessage as FacadeChatMessage,
 } from "../../../ai-engine/facade";
-import { BillingContext } from "../../../credits/billing-context";
+import { BillingContext } from "../../../ai-infra/credits/billing-context";
 
 export interface ChatMessage {
   id: string;

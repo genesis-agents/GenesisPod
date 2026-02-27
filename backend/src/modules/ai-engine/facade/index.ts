@@ -364,3 +364,37 @@ export type {
   ObservabilityFeature,
   RegistryFeature,
 } from "./facade.providers";
+
+// ★ AI Kernel re-exports — Kernel services accessible via Facade for gradual migration
+export { ProcessManagerService } from "../../ai-kernel/process/process-manager.service";
+export { EventJournalService } from "../../ai-kernel/journal/event-journal.service";
+export { CheckpointManager } from "../../ai-kernel/journal/checkpoint-manager";
+export { KernelMemoryManagerService } from "../../ai-kernel/memory/kernel-memory-manager.service";
+export { WorkingMemoryStore } from "../../ai-kernel/memory/stores/working-memory.store";
+export { PersistentMemoryStore } from "../../ai-kernel/memory/stores/persistent-memory.store";
+export { EventBusService } from "../../ai-kernel/ipc/event-bus.service";
+export { MessageBusService } from "../../ai-kernel/ipc/message-bus.service";
+export { ResourceManagerService } from "../../ai-kernel/resource/resource-manager.service";
+export { ProcessEventLogService } from "../../ai-kernel/observability/process-event-log.service";
+export { KernelMetricsService } from "../../ai-kernel/observability/kernel-metrics.service";
+export { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
+export type {
+  IMissionExecutor,
+  MissionExecuteOptions,
+  MissionExecuteResult,
+} from "../../ai-kernel/mission/mission-executor.interface";
+export { CapabilityGuardService } from "../../ai-kernel/security/capability-guard.service";
+export { KernelSchedulerService } from "../../ai-kernel/scheduler/kernel-scheduler.service";
+export { ProcessSupervisorService } from "../../ai-kernel/supervisor/process-supervisor.service";
+export { KernelApiService } from "../../ai-kernel/api/kernel-api.service";
+export type {
+  ProcessId,
+  SpawnOptions,
+  ProcessSnapshot,
+  ProcessTree,
+  ProcessCapabilities,
+} from "../../ai-kernel/process/process.types";
+export {
+  VALID_TRANSITIONS,
+  TERMINAL_STATES,
+} from "../../ai-kernel/process/process.types";

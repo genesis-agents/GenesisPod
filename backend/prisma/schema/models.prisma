@@ -8418,3 +8418,115 @@ model ResearchTemplate {
   @@index([category, enabled])
   @@map("research_templates")
 }
+
+// ============ AI Kernel: Process Management ============
+
+enum ProcessState {
+  CREATED
+  READY
+  RUNNING
+  PAUSED
+  WAITING
+  COMPLETED
+  FAILED
+  CANCELLED
+  ZOMBIE
+}
+
+enum MemoryLayer {
+  WORKING
+  SESSION
+  SHARED
+  PERSISTENT
+}
+
+model AgentProcess {
+  id            String       @id @default(uuid())
+  userId        String       @map("user_id")
+  parentId      String?      @map("parent_id")
+  agentId       String       @map("agent_id")
+  teamSessionId String?      @map("team_session_id")
+  state         ProcessState @default(CREATED)
+  priority      Int          @default(5)
+  tokenBudget   Int          @default(50000) @map("token_budget")
+  tokensUsed    Int          @default(0) @map("tokens_used")
+  costBudget    Float        @default(1.0) @map("cost_budget")
+  costUsed      Float        @default(0) @map("cost_used")
+  checkpoint    Json?
+  input         Json?
+  output        Json?
+  error         String?      @db.Text
+  grantedTools  String[]     @map("granted_tools")
+  grantedSkills String[]     @map("granted_skills")
+  dataScope     Json?        @map("data_scope")
+  metadata      Json?
+  version       Int          @default(1)
+  startedAt     DateTime?    @map("started_at")
+  completedAt   DateTime?    @map("completed_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  parent   AgentProcess?  @relation("ProcessTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children AgentProcess[] @relation("ProcessTree")
+  events   ProcessEvent[]
+  memories ProcessMemory[]
+  sentMessages     ProcessMessage[] @relation("SentMessages")
+  receivedMessages ProcessMessage[] @relation("ReceivedMessages")
+
+  @@index([userId, state])
+  @@index([parentId])
+  @@index([teamSessionId])
+  @@index([state, priority])
+  @@map("agent_processes")
+}
+
+model ProcessEvent {
+  id        String   @id @default(uuid())
+  processId String   @map("process_id")
+  sequence  Int
+  type      String   @db.VarChar(100)
+  payload   Json?
+  result    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  process AgentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([processId, sequence])
+  @@index([processId, createdAt])
+  @@map("process_events")
+}
+
+model ProcessMemory {
+  id        String      @id @default(uuid())
+  processId String      @map("process_id")
+  layer     MemoryLayer
+  key       String      @db.VarChar(255)
+  value     Json
+  expiresAt DateTime?   @map("expires_at")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  process AgentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([processId, layer, key])
+  @@index([processId, layer])
+  @@index([expiresAt])
+  @@map("process_memories")
+}
+
+model ProcessMessage {
+  id            String   @id @default(uuid())
+  fromProcessId String   @map("from_process_id")
+  toProcessId   String   @map("to_process_id")
+  channel       String   @db.VarChar(100)
+  payload       Json
+  acknowledged  Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  fromProcess AgentProcess @relation("SentMessages", fields: [fromProcessId], references: [id], onDelete: Cascade)
+  toProcess   AgentProcess @relation("ReceivedMessages", fields: [toProcessId], references: [id], onDelete: Cascade)
+
+  @@index([toProcessId, acknowledged])
+  @@index([channel])
+  @@map("process_messages")
+}

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiChatModelConfigService } from "../ai-chat-model-config.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { AIModelType } from "@prisma/client";
 
 function createMockDbModel(overrides: Record<string, unknown> = {}) {
@@ -281,9 +281,9 @@ describe("AiChatModelConfigService", () => {
     });
 
     it("should return true for claude models", () => {
-      expect(
-        service.isTemperatureSupported("claude-3-5-sonnet-20241022"),
-      ).toBe(true);
+      expect(service.isTemperatureSupported("claude-3-5-sonnet-20241022")).toBe(
+        true,
+      );
     });
 
     it("should return true for gemini models", () => {
@@ -480,9 +480,7 @@ describe("AiChatModelConfigService", () => {
       });
       mockPrisma.aIModel.findFirst.mockResolvedValue(mockModel);
 
-      const config = await service.getDefaultModelByType(
-        AIModelType.EMBEDDING,
-      );
+      const config = await service.getDefaultModelByType(AIModelType.EMBEDDING);
       expect(config).toBeDefined();
     });
 
@@ -491,9 +489,7 @@ describe("AiChatModelConfigService", () => {
         .mockResolvedValueOnce(null) // no default embedding
         .mockResolvedValueOnce(createMockDbModel()); // first embedding
 
-      const config = await service.getDefaultModelByType(
-        AIModelType.EMBEDDING,
-      );
+      const config = await service.getDefaultModelByType(AIModelType.EMBEDDING);
       expect(config).toBeDefined();
     });
 
@@ -511,7 +507,10 @@ describe("AiChatModelConfigService", () => {
 
   describe("getAllEnabledModelsByType", () => {
     it("should return all enabled models of type", async () => {
-      const models = [createMockDbModel(), createMockDbModel({ modelId: "gpt-4o-mini" })];
+      const models = [
+        createMockDbModel(),
+        createMockDbModel({ modelId: "gpt-4o-mini" }),
+      ];
       mockPrisma.aIModel.findMany.mockResolvedValue(models);
 
       const configs = await service.getAllEnabledModelsByType(AIModelType.CHAT);
@@ -521,9 +520,10 @@ describe("AiChatModelConfigService", () => {
     it("should exclude specified model IDs", async () => {
       mockPrisma.aIModel.findMany.mockResolvedValue([]);
 
-      const configs = await service.getAllEnabledModelsByType(AIModelType.CHAT, [
-        "gpt-4o",
-      ]);
+      const configs = await service.getAllEnabledModelsByType(
+        AIModelType.CHAT,
+        ["gpt-4o"],
+      );
       expect(configs).toHaveLength(0);
       // findMany is called twice: once in constructor's refreshModelConfigCache (empty), once here
       const allCalls = mockPrisma.aIModel.findMany.mock.calls;

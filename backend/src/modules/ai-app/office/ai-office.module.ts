@@ -4,8 +4,8 @@ import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { StorageModule } from "../../core/storage/storage.module";
-import { CreditsModule } from "../../credits/credits.module";
+import { StorageModule } from "../../ai-infra/storage/storage.module";
+import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
 
 // Core (AIModelService 作为 Skills 后备，待迁移到 AI Engine)

@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { FileParserService } from "../file-parser.service";
-import type { R2StorageService } from "../../../../../core/storage/r2-storage.service";
+import type { R2StorageService } from "../../../../../ai-infra/storage/r2-storage.service";
 
 // Mock pdf-parse
 jest.mock("pdf-parse", () =>
@@ -92,7 +92,9 @@ describe("FileParserService", () => {
 
       const file = createMockFile("application/pdf", "corrupt.pdf");
 
-      await expect(service.parseFile(file)).rejects.toThrow(BadRequestException);
+      await expect(service.parseFile(file)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -130,7 +132,9 @@ describe("FileParserService", () => {
         "corrupt.docx",
       );
 
-      await expect(service.parseFile(file)).rejects.toThrow(BadRequestException);
+      await expect(service.parseFile(file)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -189,13 +193,17 @@ describe("FileParserService", () => {
     it("should throw BadRequestException for unsupported MIME type", async () => {
       const file = createMockFile("image/png", "photo.png");
 
-      await expect(service.parseFile(file)).rejects.toThrow(BadRequestException);
+      await expect(service.parseFile(file)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw BadRequestException for application/zip", async () => {
       const file = createMockFile("application/zip", "archive.zip");
 
-      await expect(service.parseFile(file)).rejects.toThrow(BadRequestException);
+      await expect(service.parseFile(file)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 

@@ -13,7 +13,7 @@ import { UpdatePlanDto } from "../dto/update-plan.dto";
 import { Prisma, TopicType, AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
-import { BillingContext } from "../../../credits/billing-context";
+import { BillingContext } from "../../../ai-infra/credits/billing-context";
 
 export interface PlanPhaseStatus {
   status: "pending" | "active" | "completed" | "skipped" | "failed";

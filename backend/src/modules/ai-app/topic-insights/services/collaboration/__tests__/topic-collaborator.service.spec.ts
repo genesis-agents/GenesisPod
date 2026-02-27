@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { TopicCollaboratorService } from "../topic-collaborator.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { NotificationService } from "@/modules/core/notifications/notification.service";
+import { NotificationService } from "@/modules/ai-infra/notifications/notification.service";
 import { CollaboratorRole } from "../../../dto/collaborator.dto";
 
 const mockPrisma = {
@@ -97,9 +97,9 @@ describe("TopicCollaboratorService", () => {
     it("should throw NotFoundException when topic not found or no access", async () => {
       mockPrisma.researchTopic.findFirst.mockResolvedValue(null);
 
-      await expect(service.getCollaborators("bad-topic", "user-1")).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getCollaborators("bad-topic", "user-1"),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should map collaborator DTO correctly", async () => {
@@ -134,7 +134,12 @@ describe("TopicCollaboratorService", () => {
       mockPrisma.topicCollaborator.create.mockResolvedValue({
         ...baseCollaborator,
         userId: "user-3",
-        user: { id: "user-3", email: "user3@example.com", username: "user3", avatarUrl: null },
+        user: {
+          id: "user-3",
+          email: "user3@example.com",
+          username: "user3",
+          avatarUrl: null,
+        },
       });
 
       const result = await service.addCollaborator(
@@ -157,7 +162,10 @@ describe("TopicCollaboratorService", () => {
     });
 
     it("should throw NotFoundException when invited user does not exist", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -166,7 +174,10 @@ describe("TopicCollaboratorService", () => {
     });
 
     it("should throw BadRequestException when adding the owner as collaborator", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
       mockPrisma.user.findUnique.mockResolvedValue({
         id: "user-1",
         email: "owner@example.com",
@@ -180,7 +191,10 @@ describe("TopicCollaboratorService", () => {
     });
 
     it("should throw BadRequestException when user is already an active collaborator", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
       mockPrisma.user.findUnique.mockResolvedValue({
         id: "user-2",
         email: "user2@example.com",
@@ -201,7 +215,10 @@ describe("TopicCollaboratorService", () => {
 
   describe("updateCollaboratorRole", () => {
     it("should update role successfully", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
       mockPrisma.topicCollaborator.findFirst.mockResolvedValue({
         ...baseCollaborator,
         user: baseCollaborator.user,
@@ -226,25 +243,46 @@ describe("TopicCollaboratorService", () => {
       mockPrisma.researchTopic.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateCollaboratorRole("topic-1", "collab-1", "user-x", CollaboratorRole.ADMIN),
+        service.updateCollaboratorRole(
+          "topic-1",
+          "collab-1",
+          "user-x",
+          CollaboratorRole.ADMIN,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it("should throw NotFoundException when collaborator not found", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
       mockPrisma.topicCollaborator.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateCollaboratorRole("topic-1", "bad-id", "user-1", CollaboratorRole.VIEWER),
+        service.updateCollaboratorRole(
+          "topic-1",
+          "bad-id",
+          "user-1",
+          CollaboratorRole.VIEWER,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe("removeCollaborator", () => {
     it("should soft-delete collaborator", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
-      mockPrisma.topicCollaborator.findFirst.mockResolvedValue(baseCollaborator);
-      mockPrisma.topicCollaborator.update.mockResolvedValue({ ...baseCollaborator, isActive: false });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
+      mockPrisma.topicCollaborator.findFirst.mockResolvedValue(
+        baseCollaborator,
+      );
+      mockPrisma.topicCollaborator.update.mockResolvedValue({
+        ...baseCollaborator,
+        isActive: false,
+      });
 
       await service.removeCollaborator("topic-1", "collab-1", "user-1");
 
@@ -266,8 +304,13 @@ describe("TopicCollaboratorService", () => {
 
   describe("leaveProject", () => {
     it("should deactivate user's collaborator record", async () => {
-      mockPrisma.topicCollaborator.findUnique.mockResolvedValue(baseCollaborator);
-      mockPrisma.topicCollaborator.update.mockResolvedValue({ ...baseCollaborator, isActive: false });
+      mockPrisma.topicCollaborator.findUnique.mockResolvedValue(
+        baseCollaborator,
+      );
+      mockPrisma.topicCollaborator.update.mockResolvedValue({
+        ...baseCollaborator,
+        isActive: false,
+      });
 
       await service.leaveProject("topic-1", "user-2");
 
@@ -279,7 +322,9 @@ describe("TopicCollaboratorService", () => {
     it("should throw NotFoundException if user is not a collaborator", async () => {
       mockPrisma.topicCollaborator.findUnique.mockResolvedValue(null);
 
-      await expect(service.leaveProject("topic-1", "user-x")).rejects.toThrow(NotFoundException);
+      await expect(service.leaveProject("topic-1", "user-x")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -360,7 +405,9 @@ describe("TopicCollaboratorService", () => {
         name: "Private Topic",
       });
 
-      await expect(service.requestToJoin("topic-1", "user-2")).rejects.toThrow(ForbiddenException);
+      await expect(service.requestToJoin("topic-1", "user-2")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it("should throw BadRequestException when joining own topic", async () => {
@@ -371,7 +418,9 @@ describe("TopicCollaboratorService", () => {
         name: "My Topic",
       });
 
-      await expect(service.requestToJoin("topic-1", "user-1")).rejects.toThrow(BadRequestException);
+      await expect(service.requestToJoin("topic-1", "user-1")).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it("should not block when notification fails", async () => {
@@ -387,7 +436,9 @@ describe("TopicCollaboratorService", () => {
         status: "PENDING",
         user: baseCollaborator.user,
       });
-      mockNotificationService.createNotification.mockRejectedValue(new Error("Notification failed"));
+      mockNotificationService.createNotification.mockRejectedValue(
+        new Error("Notification failed"),
+      );
 
       const result = await service.requestToJoin("topic-1", "user-2");
 
@@ -397,15 +448,19 @@ describe("TopicCollaboratorService", () => {
 
   describe("reviewApplication", () => {
     it("should accept pending application and send notification", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
-      mockPrisma.topicCollaborator.findUnique
-        .mockResolvedValueOnce({
-          id: "app-1",
-          topicId: "topic-1",
-          userId: "user-2",
-          status: "PENDING",
-        });
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ name: "AI Research" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
+      mockPrisma.topicCollaborator.findUnique.mockResolvedValueOnce({
+        id: "app-1",
+        topicId: "topic-1",
+        userId: "user-2",
+        status: "PENDING",
+      });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        name: "AI Research",
+      });
       mockPrisma.topicCollaborator.update.mockResolvedValue({
         ...baseCollaborator,
         status: "ACCEPTED",
@@ -413,22 +468,33 @@ describe("TopicCollaboratorService", () => {
       });
       mockNotificationService.createNotification.mockResolvedValue({});
 
-      const result = await service.reviewApplication("topic-1", "app-1", "user-1", "ACCEPTED");
+      const result = await service.reviewApplication(
+        "topic-1",
+        "app-1",
+        "user-1",
+        "ACCEPTED",
+      );
 
       expect(result.status).toBe("ACCEPTED");
-      expect(mockNotificationService.createNotification).toHaveBeenCalledTimes(1);
+      expect(mockNotificationService.createNotification).toHaveBeenCalledTimes(
+        1,
+      );
     });
 
     it("should reject application with reason", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ id: "topic-1", userId: "user-1" });
-      mockPrisma.topicCollaborator.findUnique
-        .mockResolvedValueOnce({
-          id: "app-1",
-          topicId: "topic-1",
-          userId: "user-2",
-          status: "PENDING",
-        });
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ name: "AI Research" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        id: "topic-1",
+        userId: "user-1",
+      });
+      mockPrisma.topicCollaborator.findUnique.mockResolvedValueOnce({
+        id: "app-1",
+        topicId: "topic-1",
+        userId: "user-2",
+        status: "PENDING",
+      });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        name: "AI Research",
+      });
       mockPrisma.topicCollaborator.update.mockResolvedValue({
         ...baseCollaborator,
         status: "REJECTED",
@@ -438,7 +504,11 @@ describe("TopicCollaboratorService", () => {
       mockNotificationService.createNotification.mockResolvedValue({});
 
       const result = await service.reviewApplication(
-        "topic-1", "app-1", "user-1", "REJECTED", "Not relevant",
+        "topic-1",
+        "app-1",
+        "user-1",
+        "REJECTED",
+        "Not relevant",
       );
 
       expect(result.status).toBe("REJECTED");

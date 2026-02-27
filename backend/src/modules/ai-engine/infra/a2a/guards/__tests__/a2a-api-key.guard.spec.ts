@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { A2AApiKeyGuard } from "../a2a-api-key.guard";
-import { SecretsService } from "../../../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../../../ai-infra/secrets/secrets.service";
 import * as cryptoUtils from "../../../../../../common/utils/crypto.utils";
 
 jest.mock("../../../../../../common/utils/crypto.utils", () => ({

@@ -19,8 +19,8 @@ import { CacheModule } from "../../../common/cache/cache.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { ExploreModule } from "../../content/explore/explore.module";
-import { NotificationModule } from "../../core/notifications/notification.module";
-import { CreditsModule } from "../../credits/credits.module";
+import { NotificationModule } from "../../ai-infra/notifications/notification.module";
+import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { YoutubeService } from "../../content/explore/youtube.service";
 import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/facade";
 

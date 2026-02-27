@@ -25,7 +25,7 @@
 import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { SecretsModule } from "../core/secrets/secrets.module";
+import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 
 // ★ 子模块导入
 import { AiEngineLLMModule } from "./ai-engine-llm.module";
@@ -66,7 +66,7 @@ import { ImageModule } from "./content/image/image.module";
 import { TeamsModule } from "./teams/teams.module";
 import { LongContentModule } from "./content/long-form/long-content.module";
 import { PromptsModule } from "./llm/prompts/prompts.module";
-import { CreditsModule } from "../credits/credits.module";
+import { CreditsModule } from "../ai-infra/credits/credits.module";
 
 // MCP
 import { MCPManager } from "./mcp/manager/mcp-manager";
@@ -88,7 +88,7 @@ import {
 } from "./infra/observability";
 import { AiObservabilityService } from "./infra/observability/ai-observability.service";
 import { CostAttributionService } from "./infra/observability/cost-attribution.service";
-import { ObservabilityController } from "./infra/observability/observability.controller";
+// ObservabilityController migrated to AiKernelModule
 // 支柱五：EvalPipeline
 import { EvalPipelineService } from "./infra/observability/eval-pipeline.service";
 
@@ -149,7 +149,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
-  controllers: [AiCoreController, ObservabilityController],
+  controllers: [AiCoreController], // ObservabilityController migrated to AiKernelModule
   providers: [
     // === Facade Feature Providers (分组注入) ===
     ...FACADE_FEATURE_PROVIDERS,

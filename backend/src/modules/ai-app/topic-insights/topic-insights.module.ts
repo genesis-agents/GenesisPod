@@ -2,13 +2,13 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { NotificationModule } from "../../core/notifications/notification.module";
+import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PromptSkillBridge } from "../../ai-engine/facade";
-import { CreditsModule } from "../../credits/credits.module";
+import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
-import { SecretsModule } from "../../core/secrets/secrets.module";
+import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule

@@ -10,7 +10,7 @@ import { AgentCardRegistry } from "../agent-card/agent-card.registry";
 import { TeamsService } from "../../../teams/services/teams.service";
 import { TraceCollectorService } from "../../observability/trace-collector.service";
 import { A2AApiKeyGuard } from "../guards/a2a-api-key.guard";
-import { SecretsService } from "../../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { A2ATaskStatus } from "../abstractions/a2a.interface";
 
 const mockAgentCardRegistry = {

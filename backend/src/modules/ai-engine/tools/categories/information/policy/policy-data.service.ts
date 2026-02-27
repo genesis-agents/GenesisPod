@@ -6,7 +6,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/core/secrets/secrets.service";
+import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { firstValueFrom } from "rxjs";
 import { APP_CONFIG } from "@/common/config/app.config";
 

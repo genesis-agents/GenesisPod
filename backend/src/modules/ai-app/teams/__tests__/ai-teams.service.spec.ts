@@ -8,11 +8,14 @@ jest.mock("../../../../common/content-processing", () => ({
   ContentProcessingModule: {},
 }));
 
-jest.mock("../../../../common/content-processing/content-processing.module", () => ({
-  ContentProcessingModule: class MockContentProcessingModule {},
-}));
+jest.mock(
+  "../../../../common/content-processing/content-processing.module",
+  () => ({
+    ContentProcessingModule: class MockContentProcessingModule {},
+  }),
+);
 
-jest.mock("../../../credits/billing-context", () => ({
+jest.mock("../../../ai-infra/credits/billing-context", () => ({
   BillingContext: {
     run: jest.fn((_, fn) => fn()),
   },
@@ -201,25 +204,39 @@ describe("AiTeamsService", () => {
         currentUserRole: TopicRole.OWNER,
         memberCount: 1,
         aiMemberCount: 0,
-        createdBy: { id: userId, username: "testuser", fullName: "Test User", avatarUrl: null },
+        createdBy: {
+          id: userId,
+          username: "testuser",
+          fullName: "Test User",
+          avatarUrl: null,
+        },
       };
 
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<string>) => {
-        const tx = {
-          topic: { create: jest.fn().mockResolvedValue(createdTopic) },
-          topicMember: { createMany: jest.fn() },
-          topicAIMember: { createMany: jest.fn() },
-        };
-        return fn(tx as never);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<string>) => {
+          const tx = {
+            topic: { create: jest.fn().mockResolvedValue(createdTopic) },
+            topicMember: { createMany: jest.fn() },
+            topicAIMember: { createMany: jest.fn() },
+          };
+          return fn(tx as never);
+        },
+      );
 
       mockPrisma.topic.findUnique.mockResolvedValue(fullTopic);
 
       const result = await service.createTopic(userId, dto);
 
       expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockAuditService.logTopicCreate).toHaveBeenCalledWith(userId, topicId, dto.name);
-      expect(mockTopicEventEmitter.emitTopicEvent).toHaveBeenCalledWith("topic.created", expect.any(Object));
+      expect(mockAuditService.logTopicCreate).toHaveBeenCalledWith(
+        userId,
+        topicId,
+        dto.name,
+      );
+      expect(mockTopicEventEmitter.emitTopicEvent).toHaveBeenCalledWith(
+        "topic.created",
+        expect.any(Object),
+      );
       expect(result).toEqual(expect.objectContaining({ id: topicId }));
     });
 
@@ -237,17 +254,24 @@ describe("AiTeamsService", () => {
         currentUserRole: TopicRole.OWNER,
         memberCount: 1,
         aiMemberCount: 0,
-        createdBy: { id: userId, username: "u", fullName: "U", avatarUrl: null },
+        createdBy: {
+          id: userId,
+          username: "u",
+          fullName: "U",
+          avatarUrl: null,
+        },
       };
 
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<string>) => {
-        const tx = {
-          topic: { create: jest.fn().mockResolvedValue(createdTopic) },
-          topicMember: { createMany: jest.fn() },
-          topicAIMember: { createMany: jest.fn() },
-        };
-        return fn(tx as never);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<string>) => {
+          const tx = {
+            topic: { create: jest.fn().mockResolvedValue(createdTopic) },
+            topicMember: { createMany: jest.fn() },
+            topicAIMember: { createMany: jest.fn() },
+          };
+          return fn(tx as never);
+        },
+      );
       mockPrisma.topic.findUnique.mockResolvedValue(fullTopic);
 
       await service.createTopic(userId, simpleDto as never);
@@ -258,7 +282,9 @@ describe("AiTeamsService", () => {
     it("propagates transaction errors", async () => {
       mockPrisma.$transaction.mockRejectedValue(new Error("DB error"));
 
-      await expect(service.createTopic(userId, dto)).rejects.toThrow("DB error");
+      await expect(service.createTopic(userId, dto)).rejects.toThrow(
+        "DB error",
+      );
     });
   });
 
@@ -412,13 +438,20 @@ describe("AiTeamsService", () => {
 
   describe("updateTopic", () => {
     it("updates topic when user has permission", async () => {
-      const membership = { id: "m-1", role: TopicRole.OWNER, topicId: "topic-1", userId: "user-1" };
+      const membership = {
+        id: "m-1",
+        role: TopicRole.OWNER,
+        topicId: "topic-1",
+        userId: "user-1",
+      };
       const updatedTopic = { id: "topic-1", name: "Updated" };
 
       mockPrisma.topicMember.findUnique.mockResolvedValue(membership);
       mockPrisma.topic.update.mockResolvedValue(updatedTopic);
 
-      const result = await service.updateTopic("topic-1", "user-1", { name: "Updated" });
+      const result = await service.updateTopic("topic-1", "user-1", {
+        name: "Updated",
+      });
 
       expect(result).toEqual(updatedTopic);
       expect(mockTopicEventEmitter.emitTopicEvent).toHaveBeenCalledWith(
@@ -428,7 +461,12 @@ describe("AiTeamsService", () => {
     });
 
     it("throws ForbiddenException when user lacks permission", async () => {
-      const membership = { id: "m-1", role: TopicRole.MEMBER, topicId: "topic-1", userId: "user-1" };
+      const membership = {
+        id: "m-1",
+        role: TopicRole.MEMBER,
+        topicId: "topic-1",
+        userId: "user-1",
+      };
       mockPrisma.topicMember.findUnique.mockResolvedValue(membership);
 
       await expect(
@@ -474,28 +512,30 @@ describe("AiTeamsService", () => {
       const deletedTopic = { id: "topic-1" };
 
       mockPrisma.topicMember.findUnique.mockResolvedValue(membership);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<typeof deletedTopic>) => {
-        const tx = {
-          missionLog: { deleteMany: jest.fn() },
-          agentTask: { deleteMany: jest.fn() },
-          teamMission: { deleteMany: jest.fn() },
-          topicMessageReaction: { deleteMany: jest.fn() },
-          topicMessageMention: { deleteMany: jest.fn() },
-          topicMessageAttachment: { deleteMany: jest.fn() },
-          topicMessage: {
-            findMany: jest.fn().mockResolvedValue([]),
-            deleteMany: jest.fn(),
-          },
-          topicMessageBookmark: { deleteMany: jest.fn() },
-          topicMessageForward: { deleteMany: jest.fn() },
-          topicSummary: { deleteMany: jest.fn() },
-          topicResource: { deleteMany: jest.fn() },
-          topicAIMember: { deleteMany: jest.fn() },
-          topicMember: { deleteMany: jest.fn() },
-          topic: { delete: jest.fn().mockResolvedValue(deletedTopic) },
-        };
-        return fn(tx as never);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<typeof deletedTopic>) => {
+          const tx = {
+            missionLog: { deleteMany: jest.fn() },
+            agentTask: { deleteMany: jest.fn() },
+            teamMission: { deleteMany: jest.fn() },
+            topicMessageReaction: { deleteMany: jest.fn() },
+            topicMessageMention: { deleteMany: jest.fn() },
+            topicMessageAttachment: { deleteMany: jest.fn() },
+            topicMessage: {
+              findMany: jest.fn().mockResolvedValue([]),
+              deleteMany: jest.fn(),
+            },
+            topicMessageBookmark: { deleteMany: jest.fn() },
+            topicMessageForward: { deleteMany: jest.fn() },
+            topicSummary: { deleteMany: jest.fn() },
+            topicResource: { deleteMany: jest.fn() },
+            topicAIMember: { deleteMany: jest.fn() },
+            topicMember: { deleteMany: jest.fn() },
+            topic: { delete: jest.fn().mockResolvedValue(deletedTopic) },
+          };
+          return fn(tx as never);
+        },
+      );
 
       const result = await service.deleteTopic("topic-1", "user-1");
 
@@ -514,9 +554,15 @@ describe("AiTeamsService", () => {
       const result = { id: "mem-1" };
       mockMembershipService.addMember.mockResolvedValue(result);
 
-      const actual = await service.addMember("topic-1", "user-1", { userId: "user-2" } as never);
+      const actual = await service.addMember("topic-1", "user-1", {
+        userId: "user-2",
+      } as never);
 
-      expect(mockMembershipService.addMember).toHaveBeenCalledWith("topic-1", "user-1", { userId: "user-2" });
+      expect(mockMembershipService.addMember).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        { userId: "user-2" },
+      );
       expect(actual).toBe(result);
     });
   });
@@ -526,15 +572,24 @@ describe("AiTeamsService", () => {
       const aiMember = { id: "ai-1", displayName: "Bot" };
       mockMembershipService.addAIMember.mockResolvedValue(aiMember);
 
-      await service.addAIMember("topic-1", "user-1", { displayName: "Bot" } as never);
+      await service.addAIMember("topic-1", "user-1", {
+        displayName: "Bot",
+      } as never);
 
-      expect(mockAuditService.logMemberAdd).toHaveBeenCalledWith("user-1", "topic-1", "ai-1", "Bot");
+      expect(mockAuditService.logMemberAdd).toHaveBeenCalledWith(
+        "user-1",
+        "topic-1",
+        "ai-1",
+        "Bot",
+      );
     });
 
     it("delegates to membershipService without audit when result is null", async () => {
       mockMembershipService.addAIMember.mockResolvedValue(null);
 
-      await service.addAIMember("topic-1", "user-1", { displayName: "Bot" } as never);
+      await service.addAIMember("topic-1", "user-1", {
+        displayName: "Bot",
+      } as never);
 
       expect(mockAuditService.logMemberAdd).not.toHaveBeenCalled();
     });
@@ -544,7 +599,11 @@ describe("AiTeamsService", () => {
 
   describe("getMessages", () => {
     it("returns paginated messages", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
 
       const msgs = [
@@ -553,25 +612,37 @@ describe("AiTeamsService", () => {
       ];
       mockPrisma.topicMessage.findMany.mockResolvedValue(msgs);
 
-      const result = await service.getMessages("topic-1", "user-1", { limit: 1 });
+      const result = await service.getMessages("topic-1", "user-1", {
+        limit: 1,
+      });
 
       expect(result.hasMore).toBe(true);
       expect(result.messages).toHaveLength(1);
     });
 
     it("returns hasMore=false when fewer messages than limit", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
       mockPrisma.topicMessage.findMany.mockResolvedValue([{ id: "msg-1" }]);
 
-      const result = await service.getMessages("topic-1", "user-1", { limit: 50 });
+      const result = await service.getMessages("topic-1", "user-1", {
+        limit: 50,
+      });
 
       expect(result.hasMore).toBe(false);
       expect(result.nextCursor).toBeNull();
     });
 
     it("applies cursor filter when provided", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
       mockPrisma.topicMessage.findMany.mockResolvedValue([]);
 
@@ -602,9 +673,15 @@ describe("AiTeamsService", () => {
     const dto = { content: "Hello", contentType: MessageContentType.TEXT };
 
     beforeEach(() => {
-      const topic = { id: topicId, type: TopicType.PRIVATE, members: [{ userId }] };
+      const topic = {
+        id: topicId,
+        type: TopicType.PRIVATE,
+        members: [{ userId }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
-      mockUrlParserService.detectAndParseUrls.mockResolvedValue({ parsedUrls: [] });
+      mockUrlParserService.detectAndParseUrls.mockResolvedValue({
+        parsedUrls: [],
+      });
     });
 
     it("sends a message and logs audit", async () => {
@@ -612,44 +689,60 @@ describe("AiTeamsService", () => {
       const createdMsg = { id: msgId };
       const fullMsg = { id: msgId, content: "Hello" };
 
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<typeof createdMsg>) => {
-        const tx = {
-          topicMessage: {
-            create: jest.fn().mockResolvedValue(createdMsg),
-          },
-          topicMessageMention: { createMany: jest.fn() },
-          topicMessageAttachment: { createMany: jest.fn() },
-          topic: { update: jest.fn() },
-        };
-        return fn(tx as never);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<typeof createdMsg>) => {
+          const tx = {
+            topicMessage: {
+              create: jest.fn().mockResolvedValue(createdMsg),
+            },
+            topicMessageMention: { createMany: jest.fn() },
+            topicMessageAttachment: { createMany: jest.fn() },
+            topic: { update: jest.fn() },
+          };
+          return fn(tx as never);
+        },
+      );
       mockPrisma.topicMessage.findUnique.mockResolvedValue(fullMsg);
 
       const result = await service.sendMessage(topicId, userId, dto as never);
 
-      expect(mockAuditService.logMessageSend).toHaveBeenCalledWith(userId, topicId, msgId, false);
-      expect(mockTopicEventEmitter.emitTopicEvent).toHaveBeenCalledWith("message.created", expect.any(Object));
+      expect(mockAuditService.logMessageSend).toHaveBeenCalledWith(
+        userId,
+        topicId,
+        msgId,
+        false,
+      );
+      expect(mockTopicEventEmitter.emitTopicEvent).toHaveBeenCalledWith(
+        "message.created",
+        expect.any(Object),
+      );
       expect(result).toEqual(fullMsg);
     });
 
     it("handles URL parsing failures gracefully", async () => {
-      mockUrlParserService.detectAndParseUrls.mockRejectedValue(new Error("parse fail"));
+      mockUrlParserService.detectAndParseUrls.mockRejectedValue(
+        new Error("parse fail"),
+      );
 
       const createdMsg = { id: "msg-1" };
       const fullMsg = { id: "msg-1" };
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<typeof createdMsg>) => {
-        const tx = {
-          topicMessage: { create: jest.fn().mockResolvedValue(createdMsg) },
-          topicMessageMention: { createMany: jest.fn() },
-          topicMessageAttachment: { createMany: jest.fn() },
-          topic: { update: jest.fn() },
-        };
-        return fn(tx as never);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<typeof createdMsg>) => {
+          const tx = {
+            topicMessage: { create: jest.fn().mockResolvedValue(createdMsg) },
+            topicMessageMention: { createMany: jest.fn() },
+            topicMessageAttachment: { createMany: jest.fn() },
+            topic: { update: jest.fn() },
+          };
+          return fn(tx as never);
+        },
+      );
       mockPrisma.topicMessage.findUnique.mockResolvedValue(fullMsg);
 
       // Should not throw even when URL parsing fails
-      await expect(service.sendMessage(topicId, userId, dto as never)).resolves.toEqual(fullMsg);
+      await expect(
+        service.sendMessage(topicId, userId, dto as never),
+      ).resolves.toEqual(fullMsg);
     });
   });
 
@@ -659,7 +752,10 @@ describe("AiTeamsService", () => {
     it("allows message sender to delete their own message", async () => {
       const msg = { id: "msg-1", topicId: "topic-1", senderId: "user-1" };
       mockPrisma.topicMessage.findFirst.mockResolvedValue(msg);
-      mockPrisma.topicMessage.update.mockResolvedValue({ ...msg, deletedAt: new Date() });
+      mockPrisma.topicMessage.update.mockResolvedValue({
+        ...msg,
+        deletedAt: new Date(),
+      });
 
       await service.deleteMessage("topic-1", "user-1", "msg-1");
 
@@ -693,7 +789,11 @@ describe("AiTeamsService", () => {
 
   describe("addReaction", () => {
     it("adds a reaction to a message", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
 
       const msg = { id: "msg-1", topicId: "topic-1" };
@@ -702,13 +802,22 @@ describe("AiTeamsService", () => {
       const reaction = { messageId: "msg-1", userId: "user-1", emoji: "👍" };
       mockPrisma.topicMessageReaction.upsert.mockResolvedValue(reaction);
 
-      const result = await service.addReaction("topic-1", "user-1", "msg-1", "👍");
+      const result = await service.addReaction(
+        "topic-1",
+        "user-1",
+        "msg-1",
+        "👍",
+      );
 
       expect(result).toEqual(reaction);
     });
 
     it("throws NotFoundException when message not found", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
       mockPrisma.topicMessage.findFirst.mockResolvedValue(null);
 
@@ -722,9 +831,15 @@ describe("AiTeamsService", () => {
 
   describe("removeReaction", () => {
     it("removes a reaction", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
-      mockPrisma.topicMessageReaction.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrisma.topicMessageReaction.deleteMany.mockResolvedValue({
+        count: 1,
+      });
 
       await service.removeReaction("topic-1", "user-1", "msg-1", "👍");
 
@@ -740,7 +855,10 @@ describe("AiTeamsService", () => {
     it("marks topic as read with current timestamp when no messageId", async () => {
       const membership = { id: "m-1" };
       mockPrisma.topicMember.findUnique.mockResolvedValue(membership);
-      mockPrisma.topicMember.update.mockResolvedValue({ ...membership, lastReadAt: new Date() });
+      mockPrisma.topicMember.update.mockResolvedValue({
+        ...membership,
+        lastReadAt: new Date(),
+      });
 
       await service.markAsRead("topic-1", "user-1");
 
@@ -755,7 +873,9 @@ describe("AiTeamsService", () => {
       const membership = { id: "m-1" };
       const msgDate = new Date("2024-01-01");
       mockPrisma.topicMember.findUnique.mockResolvedValue(membership);
-      mockPrisma.topicMessage.findUnique.mockResolvedValue({ createdAt: msgDate });
+      mockPrisma.topicMessage.findUnique.mockResolvedValue({
+        createdAt: msgDate,
+      });
       mockPrisma.topicMember.update.mockResolvedValue(membership);
 
       await service.markAsRead("topic-1", "user-1", "msg-1");
@@ -780,7 +900,11 @@ describe("AiTeamsService", () => {
 
   describe("getResources", () => {
     it("returns resources for the topic", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
 
       const resources = [{ id: "res-1", topicId: "topic-1" }];
@@ -794,13 +918,19 @@ describe("AiTeamsService", () => {
 
   describe("addResource", () => {
     it("adds a resource to the topic", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
 
       const resource = { id: "res-1", topicId: "topic-1" };
       mockPrisma.topicResource.create.mockResolvedValue(resource);
 
-      const result = await service.addResource("topic-1", "user-1", { resourceId: "r-1" } as never);
+      const result = await service.addResource("topic-1", "user-1", {
+        resourceId: "r-1",
+      } as never);
 
       expect(result).toEqual(resource);
     });
@@ -814,25 +944,31 @@ describe("AiTeamsService", () => {
 
       await service.removeResource("topic-1", "user-1", "res-1");
 
-      expect(mockPrisma.topicResource.delete).toHaveBeenCalledWith({ where: { id: "res-1" } });
+      expect(mockPrisma.topicResource.delete).toHaveBeenCalledWith({
+        where: { id: "res-1" },
+      });
     });
 
     it("throws NotFoundException when resource not found", async () => {
       mockPrisma.topicResource.findFirst.mockResolvedValue(null);
 
-      await expect(service.removeResource("topic-1", "user-1", "res-99")).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.removeResource("topic-1", "user-1", "res-99"),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("checks permissions when user is not the resource owner", async () => {
-      const resource = { id: "res-1", topicId: "topic-1", addedById: "other-user" };
+      const resource = {
+        id: "res-1",
+        topicId: "topic-1",
+        addedById: "other-user",
+      };
       mockPrisma.topicResource.findFirst.mockResolvedValue(resource);
       mockPrisma.topicMember.findUnique.mockResolvedValue(null);
 
-      await expect(service.removeResource("topic-1", "user-1", "res-1")).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.removeResource("topic-1", "user-1", "res-1"),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -840,7 +976,11 @@ describe("AiTeamsService", () => {
 
   describe("getSummaries", () => {
     it("returns summaries for the topic", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
 
       const summaries = [{ id: "sum-1" }];
@@ -864,7 +1004,11 @@ describe("AiTeamsService", () => {
         aiMembers: [{ id: "ai-1", displayName: "Bot" }],
       };
       mockPrisma.topic.findUnique
-        .mockResolvedValueOnce({ id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] }) // checkTopicMembership
+        .mockResolvedValueOnce({
+          id: "topic-1",
+          type: TopicType.PRIVATE,
+          members: [{ userId: "user-1" }],
+        }) // checkTopicMembership
         .mockResolvedValueOnce(topic); // generateSummary inner findUnique
 
       const messages = [
@@ -892,10 +1036,16 @@ describe("AiTeamsService", () => {
     });
 
     it("throws BadRequestException when no messages to summarize", async () => {
-      const topicMembership = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topicMembership = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       const topic = {
         id: "topic-1",
-        members: [{ userId: "user-1", user: { fullName: "User", username: "user" } }],
+        members: [
+          { userId: "user-1", user: { fullName: "User", username: "user" } },
+        ],
         aiMembers: [],
       };
       mockPrisma.topic.findUnique
@@ -909,11 +1059,17 @@ describe("AiTeamsService", () => {
     });
 
     it("falls back to basic summary when AI call fails", async () => {
-      const topicMembership = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topicMembership = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       const topic = {
         id: "topic-1",
         name: "Test",
-        members: [{ userId: "user-1", user: { fullName: "User", username: "user" } }],
+        members: [
+          { userId: "user-1", user: { fullName: "User", username: "user" } },
+        ],
         aiMembers: [{ displayName: "Bot" }],
       };
       mockPrisma.topic.findUnique
@@ -931,9 +1087,16 @@ describe("AiTeamsService", () => {
       ];
       mockPrisma.topicMessage.findMany.mockResolvedValue(messages);
       mockAiFacade.chat.mockRejectedValue(new Error("AI unavailable"));
-      mockPrisma.topicSummary.create.mockResolvedValue({ id: "sum-1", content: "fallback" });
+      mockPrisma.topicSummary.create.mockResolvedValue({
+        id: "sum-1",
+        content: "fallback",
+      });
 
-      const result = await service.generateSummary("topic-1", "user-1", {} as never);
+      const result = await service.generateSummary(
+        "topic-1",
+        "user-1",
+        {} as never,
+      );
 
       expect(result).toBeDefined();
       expect(mockPrisma.topicSummary.create).toHaveBeenCalledWith(
@@ -948,21 +1111,27 @@ describe("AiTeamsService", () => {
 
   describe("deleteSummary", () => {
     it("allows summary creator to delete it", async () => {
-      const summary = { id: "sum-1", topicId: "topic-1", createdById: "user-1" };
+      const summary = {
+        id: "sum-1",
+        topicId: "topic-1",
+        createdById: "user-1",
+      };
       mockPrisma.topicSummary.findFirst.mockResolvedValue(summary);
       mockPrisma.topicSummary.delete.mockResolvedValue(summary);
 
       await service.deleteSummary("topic-1", "user-1", "sum-1");
 
-      expect(mockPrisma.topicSummary.delete).toHaveBeenCalledWith({ where: { id: "sum-1" } });
+      expect(mockPrisma.topicSummary.delete).toHaveBeenCalledWith({
+        where: { id: "sum-1" },
+      });
     });
 
     it("throws NotFoundException when summary not found", async () => {
       mockPrisma.topicSummary.findFirst.mockResolvedValue(null);
 
-      await expect(service.deleteSummary("topic-1", "user-1", "sum-99")).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.deleteSummary("topic-1", "user-1", "sum-99"),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -970,9 +1139,15 @@ describe("AiTeamsService", () => {
 
   describe("generateAIResponse", () => {
     it("checks membership and delegates to aiResponseService", async () => {
-      const topic = { id: "topic-1", type: TopicType.PRIVATE, members: [{ userId: "user-1" }] };
+      const topic = {
+        id: "topic-1",
+        type: TopicType.PRIVATE,
+        members: [{ userId: "user-1" }],
+      };
       mockPrisma.topic.findUnique.mockResolvedValue(topic);
-      mockAiResponseService.generateAIResponse.mockResolvedValue({ id: "ai-msg-1" });
+      mockAiResponseService.generateAIResponse.mockResolvedValue({
+        id: "ai-msg-1",
+      });
 
       await service.generateAIResponse("topic-1", "user-1", "ai-1", []);
 
@@ -990,11 +1165,17 @@ describe("AiTeamsService", () => {
 
   describe("forwardMessages", () => {
     it("delegates to forwardBookmarkService", async () => {
-      mockForwardBookmarkService.forwardMessages.mockResolvedValue({ forwarded: 1 });
+      mockForwardBookmarkService.forwardMessages.mockResolvedValue({
+        forwarded: 1,
+      });
 
       await service.forwardMessages("topic-1", "user-1", {} as never);
 
-      expect(mockForwardBookmarkService.forwardMessages).toHaveBeenCalledWith("topic-1", "user-1", {});
+      expect(mockForwardBookmarkService.forwardMessages).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        {},
+      );
     });
   });
 
@@ -1004,7 +1185,10 @@ describe("AiTeamsService", () => {
 
       await service.getBookmarks("user-1", { category: "starred" });
 
-      expect(mockForwardBookmarkService.getBookmarks).toHaveBeenCalledWith("user-1", { category: "starred" });
+      expect(mockForwardBookmarkService.getBookmarks).toHaveBeenCalledWith(
+        "user-1",
+        { category: "starred" },
+      );
     });
   });
 
@@ -1016,7 +1200,10 @@ describe("AiTeamsService", () => {
 
       await service.getPublicTopics({ search: "test", limit: 20 });
 
-      expect(mockPublicService.getPublicTopics).toHaveBeenCalledWith({ search: "test", limit: 20 });
+      expect(mockPublicService.getPublicTopics).toHaveBeenCalledWith({
+        search: "test",
+        limit: 20,
+      });
     });
   });
 
@@ -1024,7 +1211,11 @@ describe("AiTeamsService", () => {
 
   describe("searchUserByEmail", () => {
     it("returns user when found by email", async () => {
-      const user = { id: "user-1", email: "test@example.com", username: "test" };
+      const user = {
+        id: "user-1",
+        email: "test@example.com",
+        username: "test",
+      };
       mockPrisma.user.findFirst.mockResolvedValue(user);
 
       const result = await service.searchUserByEmail("test@example.com");
@@ -1035,15 +1226,17 @@ describe("AiTeamsService", () => {
     it("throws NotFoundException when user not found", async () => {
       mockPrisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.searchUserByEmail("notfound@example.com")).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.searchUserByEmail("notfound@example.com"),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe("searchUsers", () => {
     it("returns matching users", async () => {
-      const users = [{ id: "user-1", email: "test@example.com", username: "test" }];
+      const users = [
+        { id: "user-1", email: "test@example.com", username: "test" },
+      ];
       mockPrisma.user.findMany.mockResolvedValue(users);
 
       const result = await service.searchUsers("test");

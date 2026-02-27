@@ -5,10 +5,10 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { DiscussionAgentService } from "./discussion-agent.service";
 import { IterativeSearchService } from "./iterative-search.service";
 import { ReportSynthesizerService } from "./report-synthesizer.service";
-import { CreditsService } from "../../../credits/credits.service";
+import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
-import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
-import { BillingContext } from "../../../credits/billing-context";
+import { InsufficientCreditsException } from "../../../ai-infra/credits/exceptions/insufficient-credits.exception";
+import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
 import {

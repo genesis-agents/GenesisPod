@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
-import { FlareSolverrService } from "../../integrations/proxy/flaresolverr.service";
+import { FlareSolverrService } from "../../ai-infra/integrations/proxy/flaresolverr.service";
 
 /**
  * 动态缩略图提取服务

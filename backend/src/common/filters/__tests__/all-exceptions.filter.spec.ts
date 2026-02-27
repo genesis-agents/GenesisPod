@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AllExceptionsFilter } from "../all-exceptions.filter";
-import { ErrorTrackingService } from "../../../modules/core/monitoring";
+import { ErrorTrackingService } from "../../../modules/ai-infra/monitoring";
 import {
   HttpException,
   HttpStatus,
@@ -203,7 +203,10 @@ describe("AllExceptionsFilter", () => {
 
     it("should handle HttpException with string response", () => {
       // Arrange
-      const exception = new HttpException("Custom error", HttpStatus.BAD_GATEWAY);
+      const exception = new HttpException(
+        "Custom error",
+        HttpStatus.BAD_GATEWAY,
+      );
 
       // Act
       filter.catch(exception, mockArgumentsHost);
@@ -336,14 +339,11 @@ describe("AllExceptionsFilter", () => {
 
     it("should handle P2023 (inconsistent column data)", () => {
       // Arrange
-      const exception = new PrismaClientKnownRequestError(
-        "Inconsistent data",
-        {
-          code: "P2023",
-          clientVersion: "5.0.0",
-          meta: { column_name: "id" },
-        },
-      );
+      const exception = new PrismaClientKnownRequestError("Inconsistent data", {
+        code: "P2023",
+        clientVersion: "5.0.0",
+        meta: { column_name: "id" },
+      });
 
       // Act
       filter.catch(exception, mockArgumentsHost);
@@ -676,7 +676,10 @@ describe("AllExceptionsFilter", () => {
       // Arrange
       const circularObject: any = { name: "test" };
       circularObject.self = circularObject;
-      const exception = new HttpException(circularObject, HttpStatus.BAD_REQUEST);
+      const exception = new HttpException(
+        circularObject,
+        HttpStatus.BAD_REQUEST,
+      );
 
       // Act & Assert - should not throw
       expect(() => {

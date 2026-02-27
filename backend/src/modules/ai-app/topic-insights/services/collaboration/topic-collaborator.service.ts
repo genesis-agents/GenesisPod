@@ -6,8 +6,8 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { NotificationService } from "@/modules/core/notifications/notification.service";
-import { NotificationTypeDto } from "@/modules/core/notifications/dto/notification.dto";
+import { NotificationService } from "@/modules/ai-infra/notifications/notification.service";
+import { NotificationTypeDto } from "@/modules/ai-infra/notifications/dto/notification.dto";
 import {
   TopicCollaboratorRole,
   CollaboratorStatus as PrismaCollaboratorStatus,

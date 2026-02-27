@@ -1,12 +1,12 @@
 // Mock the entire AdminService module before any imports to avoid
 // transitive dependency on @nestjs/cache-manager (not installed in test env)
-jest.mock("../../../core/admin/admin.service");
+jest.mock("../../../ai-infra/admin/admin.service");
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { YoutubeService, TranscriptSegment } from "../youtube.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AdminService } from "../../../core/admin/admin.service";
+import { AdminService } from "../../../ai-infra/admin/admin.service";
 
 // Mock external fetch globally
 const mockFetch = jest.fn();

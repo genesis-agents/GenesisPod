@@ -11,7 +11,7 @@ import {
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Request, Response } from "express";
 import { RequestContext } from "../context/request-context";
-import { ErrorTrackingService } from "../../modules/core/monitoring";
+import { ErrorTrackingService } from "../../modules/ai-infra/monitoring";
 
 interface ErrorResponse {
   statusCode: number;
@@ -71,7 +71,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
   /**
    * 构建统一的错误响应格式
    */
-  private buildErrorResponse(exception: unknown, request: Request): ErrorResponse {
+  private buildErrorResponse(
+    exception: unknown,
+    request: Request,
+  ): ErrorResponse {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = "Internal server error";
     let code = "INTERNAL_ERROR";
@@ -94,8 +97,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message = errorResponse;
       } else if (typeof errorResponse === "object") {
         const errorObj = errorResponse as Record<string, unknown>;
-        message = (typeof errorObj.message === "string" ? errorObj.message : undefined) || message;
-        code = (typeof errorObj.error === "string" ? errorObj.error : undefined) || code;
+        message =
+          (typeof errorObj.message === "string"
+            ? errorObj.message
+            : undefined) || message;
+        code =
+          (typeof errorObj.error === "string" ? errorObj.error : undefined) ||
+          code;
       }
     }
     // 处理未知错误
@@ -131,7 +139,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
    * 处理Prisma数据库错误
    */
   private handlePrismaError(error: PrismaClientKnownRequestError) {
-    const meta = error.meta as Record<string, unknown> | undefined;
+    const meta = error.meta;
 
     switch (error.code) {
       case "P2002":
@@ -223,7 +231,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
   /**
    * 记录错误日志
    */
-  private logError(request: Request, errorResponse: ErrorResponse, exception: unknown) {
+  private logError(
+    request: Request,
+    errorResponse: ErrorResponse,
+    exception: unknown,
+  ) {
     const logContext = {
       method: request.method,
       url: request.url,

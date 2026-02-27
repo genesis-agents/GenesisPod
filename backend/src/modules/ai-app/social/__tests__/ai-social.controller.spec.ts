@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from "@nestjs/common";
+import { HttpException } from "@nestjs/common";
 import { AiSocialController } from "../ai-social.controller";
 import type { AiSocialService } from "../ai-social.service";
 import type { SocialLeaderService } from "../services/social-leader.service";
@@ -7,7 +7,7 @@ import type { ContentVersionService } from "../services/content-version.service"
 import { SocialPlatformType } from "../types";
 
 // Mock BillingContext to passthrough
-jest.mock("../../../credits/billing-context", () => ({
+jest.mock("../../../ai-infra/credits/billing-context", () => ({
   BillingContext: {
     run: jest.fn().mockImplementation((_context, fn) => fn()),
   },
@@ -23,7 +23,9 @@ function createMockAiSocialService() {
     refreshConnection: jest.fn().mockResolvedValue({ refreshed: true }),
     getContents: jest.fn().mockResolvedValue({ items: [], total: 0 }),
     createContent: jest.fn().mockResolvedValue({ id: "content-1" }),
-    getContent: jest.fn().mockResolvedValue({ id: "content-1", userId: "user-1" }),
+    getContent: jest
+      .fn()
+      .mockResolvedValue({ id: "content-1", userId: "user-1" }),
     updateContent: jest.fn().mockResolvedValue({ id: "content-1" }),
     deleteContent: jest.fn().mockResolvedValue({ deleted: true }),
     batchDeleteContents: jest.fn().mockResolvedValue({ deleted: 2 }),
@@ -50,7 +52,9 @@ function createMockSocialLeaderService() {
   return {
     processUrl: jest.fn().mockResolvedValue({ content: {}, message: "OK" }),
     processSource: jest.fn().mockResolvedValue({ content: {}, message: "OK" }),
-    regenerateContent: jest.fn().mockResolvedValue({ content: {}, message: "OK" }),
+    regenerateContent: jest
+      .fn()
+      .mockResolvedValue({ content: {}, message: "OK" }),
   } as unknown as jest.Mocked<SocialLeaderService>;
 }
 
@@ -67,7 +71,9 @@ function createMockContentVersionService() {
   return {
     getVersions: jest.fn().mockResolvedValue([]),
     generateVersion: jest.fn().mockResolvedValue({ id: "v1" }),
-    generateAllVersions: jest.fn().mockResolvedValue([{ id: "v1" }, { id: "v2" }]),
+    generateAllVersions: jest
+      .fn()
+      .mockResolvedValue([{ id: "v1" }, { id: "v2" }]),
     updateVersion: jest.fn().mockResolvedValue({ id: "v1" }),
     deleteVersion: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<ContentVersionService>;
@@ -108,7 +114,9 @@ describe("AiSocialController", () => {
   describe("getConnections", () => {
     it("should return connections for user", async () => {
       const result = await controller.getConnections(mockReq);
-      expect(mockAiSocialService.getConnections).toHaveBeenCalledWith("user-abc");
+      expect(mockAiSocialService.getConnections).toHaveBeenCalledWith(
+        "user-abc",
+      );
       expect(result).toEqual([]);
     });
   });
@@ -137,7 +145,7 @@ describe("AiSocialController", () => {
 
   describe("deleteConnection", () => {
     it("should delete a connection", async () => {
-      const result = await controller.deleteConnection(mockReq, "WECHAT_MP");
+      const _result = await controller.deleteConnection(mockReq, "WECHAT_MP");
       expect(mockAiSocialService.deleteConnection).toHaveBeenCalledWith(
         "user-abc",
         "WECHAT_MP",
@@ -147,7 +155,7 @@ describe("AiSocialController", () => {
 
   describe("getContents", () => {
     it("should return contents with defaults", async () => {
-      const result = await controller.getContents(mockReq);
+      const _result = await controller.getContents(mockReq);
       expect(mockAiSocialService.getContents).toHaveBeenCalledWith("user-abc", {
         status: undefined,
         contentType: undefined,
@@ -169,7 +177,7 @@ describe("AiSocialController", () => {
 
   describe("getPendingReviewContents", () => {
     it("should return pending review contents", async () => {
-      const result = await controller.getPendingReviewContents(mockReq);
+      const _result = await controller.getPendingReviewContents(mockReq);
       expect(mockReviewService.getPendingReviewContents).toHaveBeenCalledWith(
         "user-abc",
       );
@@ -178,9 +186,14 @@ describe("AiSocialController", () => {
 
   describe("getContentVersions", () => {
     it("should return versions after ownership check", async () => {
-      const result = await controller.getContentVersions(mockReq, "content-1");
-      expect(mockAiSocialService.getContent).toHaveBeenCalledWith("user-abc", "content-1");
-      expect(mockContentVersionService.getVersions).toHaveBeenCalledWith("content-1");
+      const _result = await controller.getContentVersions(mockReq, "content-1");
+      expect(mockAiSocialService.getContent).toHaveBeenCalledWith(
+        "user-abc",
+        "content-1",
+      );
+      expect(mockContentVersionService.getVersions).toHaveBeenCalledWith(
+        "content-1",
+      );
       expect(result).toEqual({ versions: [] });
     });
   });
@@ -188,7 +201,11 @@ describe("AiSocialController", () => {
   describe("generateVersion", () => {
     it("should generate a version successfully", async () => {
       const dto = { platformType: SocialPlatformType.XIAOHONGSHU };
-      const result = await controller.generateVersion(mockReq, "content-1", dto);
+      const _result = await controller.generateVersion(
+        mockReq,
+        "content-1",
+        dto,
+      );
       expect(mockContentVersionService.generateVersion).toHaveBeenCalledWith(
         "content-1",
         SocialPlatformType.XIAOHONGSHU,
@@ -198,7 +215,10 @@ describe("AiSocialController", () => {
     });
 
     it("should throw HttpException when version generation fails", async () => {
-      mockAiSocialService.getContent.mockResolvedValue({ id: "c1", userId: "user-abc" } as never);
+      mockAiSocialService.getContent.mockResolvedValue({
+        id: "c1",
+        userId: "user-abc",
+      } as never);
       mockContentVersionService.generateVersion.mockRejectedValue(
         new Error("Generation failed"),
       );
@@ -212,11 +232,13 @@ describe("AiSocialController", () => {
 
   describe("generateAllVersions", () => {
     it("should generate all versions", async () => {
-      const result = await controller.generateAllVersions(mockReq, "content-1");
-      expect(mockContentVersionService.generateAllVersions).toHaveBeenCalledWith(
+      const _result = await controller.generateAllVersions(
+        mockReq,
         "content-1",
-        "user-abc",
       );
+      expect(
+        mockContentVersionService.generateAllVersions,
+      ).toHaveBeenCalledWith("content-1", "user-abc");
       expect(result).toEqual({ versions: [{ id: "v1" }, { id: "v2" }] });
     });
 
@@ -234,7 +256,7 @@ describe("AiSocialController", () => {
   describe("updateVersion", () => {
     it("should update version for platform", async () => {
       const dto = { content: "Updated content" };
-      const result = await controller.updateVersion(
+      const _result = await controller.updateVersion(
         mockReq,
         "content-1",
         "xiaohongshu",
@@ -251,7 +273,7 @@ describe("AiSocialController", () => {
 
   describe("deleteVersion", () => {
     it("should delete version for platform", async () => {
-      const result = await controller.deleteVersion(
+      const _result = await controller.deleteVersion(
         mockReq,
         "content-1",
         "xiaohongshu",
@@ -266,7 +288,7 @@ describe("AiSocialController", () => {
 
   describe("batchDeleteContents", () => {
     it("should batch delete contents", async () => {
-      const result = await controller.batchDeleteContents(mockReq, {
+      const _result = await controller.batchDeleteContents(mockReq, {
         ids: ["id1", "id2"],
       });
       expect(mockAiSocialService.batchDeleteContents).toHaveBeenCalledWith(
@@ -278,7 +300,7 @@ describe("AiSocialController", () => {
 
   describe("batchPublishContents", () => {
     it("should batch publish contents", async () => {
-      const result = await controller.batchPublishContents(mockReq, {
+      const _result = await controller.batchPublishContents(mockReq, {
         ids: ["id1", "id2"],
         connectionId: "conn-1",
       });
@@ -325,7 +347,7 @@ describe("AiSocialController", () => {
         sourceId: "research-id",
         targetType: "WECHAT_ARTICLE" as never,
       };
-      const result = await controller.processSource(mockReq, dto);
+      const _result = await controller.processSource(mockReq, dto);
       expect(mockSocialLeaderService.processSource).toHaveBeenCalledWith(
         "user-abc",
         dto,
@@ -349,7 +371,7 @@ describe("AiSocialController", () => {
 
   describe("regenerateContent", () => {
     it("should regenerate content", async () => {
-      const result = await controller.regenerateContent(mockReq, "content-1");
+      const _result = await controller.regenerateContent(mockReq, "content-1");
       expect(mockSocialLeaderService.regenerateContent).toHaveBeenCalledWith(
         "user-abc",
         "content-1",
@@ -369,30 +391,30 @@ describe("AiSocialController", () => {
 
   describe("XHS endpoints", () => {
     it("should get login status", async () => {
-      const result = await controller.xhsLoginStatus(mockReq);
+      const _result = await controller.xhsLoginStatus(mockReq);
       expect(mockAiSocialService.xhsGetLoginStatus).toHaveBeenCalled();
     });
 
     it("should list feeds", async () => {
-      const result = await controller.xhsListFeeds(mockReq);
+      const _result = await controller.xhsListFeeds(mockReq);
       expect(mockAiSocialService.xhsListFeeds).toHaveBeenCalled();
     });
 
     it("should search feeds with keyword", async () => {
-      const result = await controller.xhsSearchFeeds(mockReq, "test-keyword");
+      const _result = await controller.xhsSearchFeeds(mockReq, "test-keyword");
       expect(mockAiSocialService.xhsSearchFeeds).toHaveBeenCalledWith(
         "test-keyword",
       );
     });
 
     it("should throw when xhsSearchFeeds has no keyword", async () => {
-      await expect(
-        controller.xhsSearchFeeds(mockReq, ""),
-      ).rejects.toThrow(HttpException);
+      await expect(controller.xhsSearchFeeds(mockReq, "")).rejects.toThrow(
+        HttpException,
+      );
     });
 
     it("should get feed detail with token", async () => {
-      const result = await controller.xhsGetFeedDetail(
+      const _result = await controller.xhsGetFeedDetail(
         mockReq,
         "feed-1",
         "xsec-token",
@@ -440,7 +462,9 @@ describe("AiSocialController", () => {
 
   describe("Review endpoints", () => {
     it("should approve content", async () => {
-      await controller.approveContent(mockReq, "content-1", { note: "Looks good" });
+      await controller.approveContent(mockReq, "content-1", {
+        note: "Looks good",
+      });
       expect(mockReviewService.approveContent).toHaveBeenCalledWith(
         "user-abc",
         "content-1",

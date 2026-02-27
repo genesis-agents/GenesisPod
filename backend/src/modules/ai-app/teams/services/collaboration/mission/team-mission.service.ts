@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Logger,
   OnModuleInit,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
@@ -28,7 +29,7 @@ import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIEngineFacade 访问）
 import { TaskCompletionType } from "../../../../../ai-engine/facade";
-import { EmailService } from "../../../../../core/email/email.service";
+import { EmailService } from "../../../../../ai-infra/email/email.service";
 import { ConfigService } from "@nestjs/config";
 import {
   findMemberByNameEnhanced,
@@ -83,6 +84,9 @@ import {
   TaskAssignee,
 } from "../interfaces";
 import { AIEngineFacade } from "../../../../../ai-engine/facade";
+import { MissionExecutorService } from "../../../../../ai-kernel/mission/mission-executor.service";
+import { EventJournalService } from "../../../../../ai-kernel/journal/event-journal.service";
+import { LruMap } from "@/common/utils/lru-map";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts
 
@@ -101,6 +105,9 @@ export class TeamMissionService implements OnModuleInit {
    * 在锁释放后自动重新执行，避免任务卡住
    */
   private pendingExecutions = new Set<string>();
+
+  // ★ AI Kernel: missionId → kernel processId 映射
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   // ==================== 配置常量 ====================
   // 注：配置已迁移至 ./config/mission.config.ts
@@ -132,6 +139,9 @@ export class TeamMissionService implements OnModuleInit {
     // ★ 团队成员服务：管理团队成员和 Leader
     private memberService: TeamMemberService,
     private aiFacade: AIEngineFacade,
+    // ★ AI Kernel: 进程生命周期追踪（可选依赖）
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly kernelJournal?: EventJournalService,
   ) {}
 
   /**
@@ -472,7 +482,7 @@ export class TeamMissionService implements OnModuleInit {
       heartbeatCount = 0;
       heartbeatTimer = setInterval(() => {
         heartbeatCount++;
-        this.topicEventEmitter.emitToTopic(
+        void this.topicEventEmitter.emitToTopic(
           heartbeatContext.topicId,
           "mission:agent_working",
           {
@@ -616,7 +626,7 @@ export class TeamMissionService implements OnModuleInit {
     );
 
     // 广播任务创建事件
-    this.topicEventEmitter.emitToTopic(topicId, "mission:created", {
+    void this.topicEventEmitter.emitToTopic(topicId, "mission:created", {
       mission,
       messageId: systemMessage?.id,
     });
@@ -671,8 +681,32 @@ export class TeamMissionService implements OnModuleInit {
       content: "Leader 开始规划任务分解...",
     });
 
+    // ★ AI Kernel: 创建进程记录
+    if (this.missionExecutor) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId: _userId,
+          agentId: mission.leader.id,
+          teamSessionId: missionId,
+          input: {
+            title: mission.title,
+            description: mission.description,
+            topicId: mission.topicId,
+          },
+        });
+        this.kernelProcessIds.set(missionId, kernelResult.processId);
+        this.logger.log(
+          `[Kernel] Process ${kernelResult.processId} spawned for mission ${missionId}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
     // 广播状态变更
-    this.topicEventEmitter.emitToTopic(
+    void this.topicEventEmitter.emitToTopic(
       mission.topicId,
       "mission:status_changed",
       {
@@ -683,7 +717,7 @@ export class TeamMissionService implements OnModuleInit {
     );
 
     // 广播 Leader 开始规划 (显示 thinking 状态)
-    this.topicEventEmitter.emitToTopic(
+    void this.topicEventEmitter.emitToTopic(
       mission.topicId,
       "mission:agent_working",
       {
@@ -1143,7 +1177,7 @@ export class TeamMissionService implements OnModuleInit {
       }
 
       // 广播状态变更（包含 tasks 数据用于前端渲染连线）
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:status_changed",
         {
@@ -1156,7 +1190,7 @@ export class TeamMissionService implements OnModuleInit {
       );
 
       // 清除 Leader 规划状态 (规划完成)
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -1172,7 +1206,7 @@ export class TeamMissionService implements OnModuleInit {
       this.logger.error(`Leader planning failed: ${error}`);
 
       // 清除 Leader 规划状态 (规划失败)
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -1186,6 +1220,12 @@ export class TeamMissionService implements OnModuleInit {
         where: { id: mission.id },
         data: { status: MissionStatus.FAILED },
       });
+
+      // ★ AI Kernel: 标记进程失败
+      this.failKernelProcess(
+        mission.id,
+        error instanceof Error ? error.message : "Planning failed",
+      );
 
       await this.sendMessageToTopic(
         mission.topicId,
@@ -1597,9 +1637,16 @@ export class TeamMissionService implements OnModuleInit {
         `[executeTask] Successfully acquired task "${task.title}" (${task.id}) for execution`,
       );
 
+      // ★ AI Kernel: 记录任务开始事件
+      this.recordKernelEvent(mission.id, "task:started", {
+        taskId: task.id,
+        taskTitle: task.title,
+        assignedTo: assignedTo.agentName || assignedTo.displayName,
+      });
+
       // ★ 优化：日志记录和消息发送并行执行，不阻塞 AI 调用
       // 使用 fire-and-forget 模式，失败时只记录警告
-      Promise.all([
+      void Promise.all([
         this.createLog(mission.id, {
           type: MissionLogType.TASK_STARTED,
           agentId: assignedTo.id,
@@ -1621,14 +1668,14 @@ export class TeamMissionService implements OnModuleInit {
       ]);
 
       // ★ 修复：发送任务状态更新事件，确保前端连线颜色正确
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.IN_PROGRESS,
       });
 
       // 广播 Agent 工作状态（WebSocket 本身是非阻塞的）
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_working",
         {
@@ -1769,7 +1816,7 @@ export class TeamMissionService implements OnModuleInit {
           });
 
           // 广播 Agent 切换
-          this.topicEventEmitter.emitToTopic(
+          void this.topicEventEmitter.emitToTopic(
             mission.topicId,
             "mission:agent_switched",
             {
@@ -2104,7 +2151,7 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // ★ 修复：发送任务状态更新事件，确保前端连线颜色正确更新
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.AWAITING_REVIEW,
@@ -2112,14 +2159,18 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // 广播任务完成
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:completed", {
-        missionId: mission.id,
-        taskId: task.id,
-        agentId: currentAgent.id,
-      });
+      void this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "task:completed",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: currentAgent.id,
+        },
+      );
 
       // 清除Agent工作状态 (任务执行完成)
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -2140,14 +2191,14 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // ★ 修复：任务失败时也要发送状态更新事件，确保前端同步
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.BLOCKED,
       });
 
       // ★ 修复：任务失败时清除 Agent 工作状态，避免节点永远闪烁
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -2464,7 +2515,7 @@ export class TeamMissionService implements OnModuleInit {
 
     try {
       // 广播 Leader 开始审核 (显示 thinking 状态)
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_working",
         {
@@ -2535,7 +2586,7 @@ export class TeamMissionService implements OnModuleInit {
         // 启动审核心跳
         reviewHeartbeatTimer = setInterval(() => {
           reviewHeartbeatCount++;
-          this.topicEventEmitter.emitToTopic(
+          void this.topicEventEmitter.emitToTopic(
             mission.topicId,
             "mission:agent_working",
             {
@@ -2622,7 +2673,7 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // 清除 Leader 审核状态 (审核完成)
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -2645,12 +2696,16 @@ export class TeamMissionService implements OnModuleInit {
         });
 
         // ★ 修复：发送任务状态更新事件，确保前端连线颜色正确
-        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
-          missionId: mission.id,
-          taskId: task.id,
-          status: AgentTaskStatus.COMPLETED,
-          leaderFeedback: aiResponse.content,
-        });
+        void this.topicEventEmitter.emitToTopic(
+          mission.topicId,
+          "task:status",
+          {
+            missionId: mission.id,
+            taskId: task.id,
+            status: AgentTaskStatus.COMPLETED,
+            leaderFeedback: aiResponse.content,
+          },
+        );
 
         // 更新任务进度
         await this.updateMissionProgress(mission.id);
@@ -2688,11 +2743,15 @@ export class TeamMissionService implements OnModuleInit {
             });
 
             // ★ 修复：发送任务状态更新事件
-            this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
-              missionId: mission.id,
-              taskId: task.id,
-              status: AgentTaskStatus.COMPLETED,
-            });
+            void this.topicEventEmitter.emitToTopic(
+              mission.topicId,
+              "task:status",
+              {
+                missionId: mission.id,
+                taskId: task.id,
+                status: AgentTaskStatus.COMPLETED,
+              },
+            );
 
             // 发送提示消息
             await this.sendMessageToTopic(
@@ -2718,11 +2777,15 @@ export class TeamMissionService implements OnModuleInit {
             });
 
             // ★ 修复：发送任务状态更新事件
-            this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
-              missionId: mission.id,
-              taskId: task.id,
-              status: AgentTaskStatus.BLOCKED,
-            });
+            void this.topicEventEmitter.emitToTopic(
+              mission.topicId,
+              "task:status",
+              {
+                missionId: mission.id,
+                taskId: task.id,
+                status: AgentTaskStatus.BLOCKED,
+              },
+            );
 
             // 记录到 Circuit Breaker
             this.aiFacade.circuitBreaker?.recordFailure(
@@ -2756,12 +2819,16 @@ export class TeamMissionService implements OnModuleInit {
           });
 
           // ★ 修复：发送任务状态更新事件
-          this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
-            missionId: mission.id,
-            taskId: task.id,
-            status: AgentTaskStatus.REVISION_NEEDED,
-            leaderFeedback: aiResponse.content,
-          });
+          void this.topicEventEmitter.emitToTopic(
+            mission.topicId,
+            "task:status",
+            {
+              missionId: mission.id,
+              taskId: task.id,
+              status: AgentTaskStatus.REVISION_NEEDED,
+              leaderFeedback: aiResponse.content,
+            },
+          );
 
           // 触发修改
           await this.executeTaskRevision(mission, task, aiResponse.content);
@@ -2780,7 +2847,7 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // ★ 修复：发送任务状态更新事件
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.COMPLETED,
@@ -3204,6 +3271,24 @@ export class TeamMissionService implements OnModuleInit {
         },
       });
 
+      // ★ AI Kernel: 标记进程完成
+      const processId = this.kernelProcessIds.get(missionId);
+      if (processId && this.missionExecutor) {
+        void this.missionExecutor
+          .complete(processId, {
+            tasksCompleted: mission.tasks.filter(
+              (t) => t.status === AgentTaskStatus.COMPLETED,
+            ).length,
+            totalTasks: mission.tasks.length,
+          })
+          .catch((err) =>
+            this.logger.warn(
+              `[Kernel] Failed to complete process: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+          );
+        this.kernelProcessIds.delete(missionId);
+      }
+
       await this.createLog(missionId, {
         type: MissionLogType.MISSION_COMPLETED,
         agentId: mission.leader.id,
@@ -3244,11 +3329,15 @@ export class TeamMissionService implements OnModuleInit {
         ...mission.tasks.map((t) => t.assignedToId),
       ].filter((id, index, arr) => arr.indexOf(id) === index); // 去重
 
-      this.topicEventEmitter.emitToTopic(mission.topicId, "mission:completed", {
-        missionId,
-        finalResult: finalReport, // 发送完整报告
-        participantAIIds,
-      });
+      void this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:completed",
+        {
+          missionId,
+          finalResult: finalReport, // 发送完整报告
+          participantAIIds,
+        },
+      );
 
       // ★ 发送邮件通知（如果配置了通知邮箱）
       if (mission.notificationEmail) {
@@ -3258,7 +3347,7 @@ export class TeamMissionService implements OnModuleInit {
         );
         const reportUrl = `${appUrl}/ai-teams/topics/${mission.topicId}?mission=${missionId}`;
 
-        this.emailService
+        void this.emailService
           .sendMissionCompletionNotification({
             to: mission.notificationEmail,
             missionId,
@@ -3291,6 +3380,12 @@ export class TeamMissionService implements OnModuleInit {
         where: { id: missionId },
         data: { status: MissionStatus.FAILED },
       });
+
+      // ★ AI Kernel: 标记进程失败
+      this.failKernelProcess(
+        missionId,
+        error instanceof Error ? error.message : "Completion failed",
+      );
     }
   }
 
@@ -3320,7 +3415,7 @@ export class TeamMissionService implements OnModuleInit {
     });
 
     // 广播进度更新
-    this.topicEventEmitter.emitToTopic(
+    void this.topicEventEmitter.emitToTopic(
       mission.topicId,
       "mission:progress_updated",
       {
@@ -5161,10 +5256,14 @@ ${taskList}
       });
 
       // 广播更新事件
-      this.topicEventEmitter.emitToTopic(mission.topicId, "mission:updated", {
-        missionId,
-        finalResult: finalReport,
-      });
+      void this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:updated",
+        {
+          missionId,
+          finalResult: finalReport,
+        },
+      );
 
       return {
         success: true,
@@ -6018,4 +6117,43 @@ ${taskList}
 
   // ==================== Helper Methods ====================
   // 注：映射方法已迁移至 MissionAICallerService
+
+  // ─── AI Kernel Helpers ───
+
+  /**
+   * ★ 记录 Kernel 事件（fire-and-forget）
+   */
+  private recordKernelEvent(
+    missionId: string,
+    type: string,
+    payload?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.kernelJournal) return;
+
+    void this.kernelJournal
+      .record(processId, type, payload)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to record event ${type}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
+  /**
+   * ★ 标记 Kernel 进程失败（fire-and-forget）
+   */
+  private failKernelProcess(missionId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.missionExecutor) return;
+
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to mark process as failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(missionId);
+  }
 }

@@ -17,7 +17,7 @@ import {
 import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../core/secrets/secrets.service";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 
 /**
  * Function Calling LLM 适配器配置
@@ -604,7 +604,8 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       const totalTokens =
         "tokensUsed" in response
           ? (response.tokensUsed as number)
-          : ((response.usage as Record<string, unknown> | undefined)?.totalTokens as number | undefined) || 0;
+          : ((response.usage as Record<string, unknown> | undefined)
+              ?.totalTokens as number | undefined) || 0;
 
       return {
         content: response.content as string,
@@ -621,24 +622,40 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     }
 
     // 原始 API 响应格式
-    const choices = response.choices as Array<Record<string, unknown>> | undefined;
+    const choices = response.choices as
+      | Array<Record<string, unknown>>
+      | undefined;
     const choice = choices?.[0];
     const message = choice?.message as Record<string, unknown> | undefined;
     const usage = response.usage as Record<string, unknown> | undefined;
 
     return {
       content: (message?.content as string | null) || null,
-      function_call: message?.function_call as { name: string; arguments: string } | undefined,
-      tool_calls: message?.tool_calls as Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> | undefined,
+      function_call: message?.function_call as
+        | { name: string; arguments: string }
+        | undefined,
+      tool_calls: message?.tool_calls as
+        | Array<{
+            id: string;
+            type: "function";
+            function: { name: string; arguments: string };
+          }>
+        | undefined,
       usage: usage
         ? {
             promptTokens: (usage.prompt_tokens as number | undefined) || 0,
-            completionTokens: (usage.completion_tokens as number | undefined) || 0,
+            completionTokens:
+              (usage.completion_tokens as number | undefined) || 0,
             totalTokens: (usage.total_tokens as number | undefined) || 0,
           }
         : undefined,
       model: response.model as string | undefined,
-      finishReason: choice?.finish_reason as "stop" | "length" | "function_call" | "tool_calls" | undefined,
+      finishReason: choice?.finish_reason as
+        | "stop"
+        | "length"
+        | "function_call"
+        | "tool_calls"
+        | undefined,
     };
   }
 
@@ -648,9 +665,15 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
   private parseAnthropicResponse(result: unknown): LLMResponse {
     const response = result as Record<string, unknown>;
     let content: string | null = null;
-    const toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
+    const toolCalls: Array<{
+      id: string;
+      type: "function";
+      function: { name: string; arguments: string };
+    }> = [];
 
-    const contentBlocks = response.content as Array<Record<string, unknown>> | undefined;
+    const contentBlocks = response.content as
+      | Array<Record<string, unknown>>
+      | undefined;
     if (contentBlocks && Array.isArray(contentBlocks)) {
       for (const block of contentBlocks) {
         if (block.type === "text") {
@@ -702,7 +725,8 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       const totalTokens =
         "tokensUsed" in response
           ? (response.tokensUsed as number)
-          : ((response.usage as Record<string, unknown> | undefined)?.totalTokens as number | undefined) || 0;
+          : ((response.usage as Record<string, unknown> | undefined)
+              ?.totalTokens as number | undefined) || 0;
 
       return {
         content: response.content as string,
@@ -719,21 +743,32 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     }
 
     // 原始 Gemini API 响应格式
-    const candidates = response.candidates as Array<Record<string, unknown>> | undefined;
+    const candidates = response.candidates as
+      | Array<Record<string, unknown>>
+      | undefined;
     const candidate = candidates?.[0];
-    const candidateContent = candidate?.content as Record<string, unknown> | undefined;
-    const parts = candidateContent?.parts as Array<Record<string, unknown>> | undefined;
+    const candidateContent = candidate?.content as
+      | Record<string, unknown>
+      | undefined;
+    const parts = candidateContent?.parts as
+      | Array<Record<string, unknown>>
+      | undefined;
     const content = (parts?.[0]?.text as string) || null;
 
-    const usageMetadata = response.usageMetadata as Record<string, unknown> | undefined;
+    const usageMetadata = response.usageMetadata as
+      | Record<string, unknown>
+      | undefined;
 
     return {
       content,
       usage: usageMetadata
         ? {
-            promptTokens: (usageMetadata.promptTokenCount as number | undefined) || 0,
-            completionTokens: (usageMetadata.candidatesTokenCount as number | undefined) || 0,
-            totalTokens: (usageMetadata.totalTokenCount as number | undefined) || 0,
+            promptTokens:
+              (usageMetadata.promptTokenCount as number | undefined) || 0,
+            completionTokens:
+              (usageMetadata.candidatesTokenCount as number | undefined) || 0,
+            totalTokens:
+              (usageMetadata.totalTokenCount as number | undefined) || 0,
           }
         : undefined,
       model: response.model as string | undefined,

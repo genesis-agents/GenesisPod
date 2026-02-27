@@ -2,16 +2,13 @@
  * Tests for ResearchProjectChatService
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
-import {
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
-import { ResearchProjectChatService } from '../project/research-project-chat.service';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
-import { AIEngineFacade } from '@/modules/ai-engine/facade';
+import { Test, TestingModule } from "@nestjs/testing";
+import { NotFoundException, ForbiddenException } from "@nestjs/common";
+import { ResearchProjectChatService } from "../project/research-project-chat.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 
-jest.mock('@/modules/ai-engine/facade', () => ({
+jest.mock("@/modules/ai-engine/facade", () => ({
   AIEngineFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
     getModelById: jest.fn(),
@@ -19,36 +16,36 @@ jest.mock('@/modules/ai-engine/facade', () => ({
   })),
 }));
 
-jest.mock('../../../../common/prisma/prisma.service');
+jest.mock("../../../../common/prisma/prisma.service");
 
 // Mock BillingContext to just call the provided fn
-jest.mock('../../../credits/billing-context', () => ({
+jest.mock("../../../ai-infra/credits/billing-context", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
   },
 }));
 
-describe('ResearchProjectChatService', () => {
+describe("ResearchProjectChatService", () => {
   let service: ResearchProjectChatService;
   let prisma: jest.Mocked<PrismaService>;
   let aiFacade: jest.Mocked<AIEngineFacade>;
 
-  const userId = 'user-123';
-  const projectId = 'project-456';
-  const chatId = 'chat-789';
-  const noteId = 'note-abc';
+  const userId = "user-123";
+  const projectId = "project-456";
+  const chatId = "chat-789";
+  const noteId = "note-abc";
 
   const mockProject = {
     id: projectId,
     userId,
-    name: 'Test Project',
+    name: "Test Project",
   };
 
   const mockChat = {
     id: chatId,
     projectId,
     messages: [],
-    title: 'New Chat',
+    title: "New Chat",
     tokensUsed: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -57,8 +54,8 @@ describe('ResearchProjectChatService', () => {
   const mockNote = {
     id: noteId,
     projectId,
-    title: 'Test Note',
-    content: 'Test content',
+    title: "Test Note",
+    content: "Test content",
     isPinned: false,
     tags: [],
     createdAt: new Date(),
@@ -66,10 +63,10 @@ describe('ResearchProjectChatService', () => {
   };
 
   const mockModelConfig = {
-    id: 'model-1',
-    modelId: 'gemini-pro',
-    displayName: 'Gemini Pro',
-    provider: 'google',
+    id: "model-1",
+    modelId: "gemini-pro",
+    displayName: "Gemini Pro",
+    provider: "google",
   };
 
   beforeEach(async () => {
@@ -99,7 +96,7 @@ describe('ResearchProjectChatService', () => {
 
     const mockFacadeInstance = {
       chat: jest.fn().mockResolvedValue({
-        content: 'AI response content',
+        content: "AI response content",
         tokensUsed: 200,
       }),
       getModelById: jest.fn().mockResolvedValue(mockModelConfig),
@@ -131,8 +128,8 @@ describe('ResearchProjectChatService', () => {
     jest.clearAllMocks();
   });
 
-  describe('getCurrentChat', () => {
-    it('should return existing chat', async () => {
+  describe("getCurrentChat", () => {
+    it("should return existing chat", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -145,7 +142,7 @@ describe('ResearchProjectChatService', () => {
       expect(result).toBe(mockChat);
     });
 
-    it('should create new chat when none exists', async () => {
+    it("should create new chat when none exists", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -165,28 +162,28 @@ describe('ResearchProjectChatService', () => {
       expect(prisma.researchProjectChat.create).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when project not found', async () => {
+    it("should throw NotFoundException when project not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(
-        service.getCurrentChat(userId, projectId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getCurrentChat(userId, projectId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
-    it('should throw ForbiddenException when non-owner requests', async () => {
+    it("should throw ForbiddenException when non-owner requests", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
         ...mockProject,
-        userId: 'other-user',
+        userId: "other-user",
       });
 
       await expect(
-        service.getCurrentChat('non-owner', projectId),
+        service.getCurrentChat("non-owner", projectId),
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
-  describe('sendMessage', () => {
-    it('should send message and get AI response', async () => {
+  describe("sendMessage", () => {
+    it("should send message and get AI response", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -201,16 +198,16 @@ describe('ResearchProjectChatService', () => {
       );
 
       const result = await service.sendMessage(userId, projectId, {
-        message: 'What is AI?',
-        model: 'model-1',
+        message: "What is AI?",
+        model: "model-1",
       });
 
-      expect(result.userMessage.content).toBe('What is AI?');
-      expect(result.aiMessage.role).toBe('assistant');
+      expect(result.userMessage.content).toBe("What is AI?");
+      expect(result.aiMessage.role).toBe("assistant");
       expect(aiFacade.chat).toHaveBeenCalled();
     });
 
-    it('should handle AI failure and return error message', async () => {
+    it("should handle AI failure and return error message", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -227,14 +224,14 @@ describe('ResearchProjectChatService', () => {
       (aiFacade.getDefaultTextModel as jest.Mock).mockResolvedValue(null);
 
       const result = await service.sendMessage(userId, projectId, {
-        message: 'Test message',
+        message: "Test message",
       });
 
       expect(result.error).toBeDefined();
-      expect(result.aiMessage.role).toBe('assistant');
+      expect(result.aiMessage.role).toBe("assistant");
     });
 
-    it('should include source context when selectedSourceIds provided', async () => {
+    it("should include source context when selectedSourceIds provided", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -246,26 +243,26 @@ describe('ResearchProjectChatService', () => {
       );
       (prisma.researchProjectSource.findMany as jest.Mock).mockResolvedValue([
         {
-          id: 'source-1',
-          title: 'Test Source',
-          abstract: 'Abstract',
-          content: 'Content',
-          sourceType: 'WEB',
+          id: "source-1",
+          title: "Test Source",
+          abstract: "Abstract",
+          content: "Content",
+          sourceType: "WEB",
           aiSummary: null,
         },
       ]);
 
       const result = await service.sendMessage(userId, projectId, {
-        message: 'Question about source',
-        selectedSourceIds: ['source-1'],
+        message: "Question about source",
+        selectedSourceIds: ["source-1"],
       });
 
       expect(result.sourceContext).toHaveLength(1);
     });
   });
 
-  describe('getChatHistory', () => {
-    it('should return chat history', async () => {
+  describe("getChatHistory", () => {
+    it("should return chat history", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -278,17 +275,17 @@ describe('ResearchProjectChatService', () => {
       expect(result).toHaveLength(1);
     });
 
-    it('should throw NotFoundException when project not found', async () => {
+    it("should throw NotFoundException when project not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(
-        service.getChatHistory(userId, projectId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getChatHistory(userId, projectId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
-  describe('startNewChat', () => {
-    it('should create a new chat session', async () => {
+  describe("startNewChat", () => {
+    it("should create a new chat session", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -305,20 +302,20 @@ describe('ResearchProjectChatService', () => {
       expect(prisma.researchProjectChat.create).toHaveBeenCalled();
     });
 
-    it('should throw ForbiddenException for non-owner', async () => {
+    it("should throw ForbiddenException for non-owner", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
         ...mockProject,
-        userId: 'other-user',
+        userId: "other-user",
       });
 
       await expect(
-        service.startNewChat('non-owner', projectId),
+        service.startNewChat("non-owner", projectId),
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
-  describe('addAIResponse', () => {
-    it('should add AI response to chat', async () => {
+  describe("addAIResponse", () => {
+    it("should add AI response to chat", async () => {
       (prisma.researchProjectChat.findUnique as jest.Mock).mockResolvedValue(
         mockChat,
       );
@@ -326,7 +323,12 @@ describe('ResearchProjectChatService', () => {
         mockChat,
       );
 
-      await service.addAIResponse(chatId, 'AI generated response', ['Source 1'], 150);
+      await service.addAIResponse(
+        chatId,
+        "AI generated response",
+        ["Source 1"],
+        150,
+      );
 
       expect(prisma.researchProjectChat.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -338,19 +340,19 @@ describe('ResearchProjectChatService', () => {
       );
     });
 
-    it('should throw NotFoundException when chat not found', async () => {
+    it("should throw NotFoundException when chat not found", async () => {
       (prisma.researchProjectChat.findUnique as jest.Mock).mockResolvedValue(
         null,
       );
 
       await expect(
-        service.addAIResponse('nonexistent', 'content'),
+        service.addAIResponse("nonexistent", "content"),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('createNote', () => {
-    it('should create a note', async () => {
+  describe("createNote", () => {
+    it("should create a note", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -362,14 +364,14 @@ describe('ResearchProjectChatService', () => {
       );
 
       const result = await service.createNote(userId, projectId, {
-        title: 'Test Note',
-        content: 'Test content',
+        title: "Test Note",
+        content: "Test content",
       });
 
       expect(result).toBe(mockNote);
     });
 
-    it('should use default sourceType when not provided', async () => {
+    it("should use default sourceType when not provided", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -381,22 +383,22 @@ describe('ResearchProjectChatService', () => {
       );
 
       await service.createNote(userId, projectId, {
-        title: 'Note',
-        content: 'Content',
+        title: "Note",
+        content: "Content",
       });
 
       expect(prisma.researchProjectNote.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            sourceType: 'manual',
+            sourceType: "manual",
           }),
         }),
       );
     });
   });
 
-  describe('getNotes', () => {
-    it('should return notes for a project', async () => {
+  describe("getNotes", () => {
+    it("should return notes for a project", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -410,8 +412,8 @@ describe('ResearchProjectChatService', () => {
     });
   });
 
-  describe('updateNote', () => {
-    it('should update a note', async () => {
+  describe("updateNote", () => {
+    it("should update a note", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -420,23 +422,23 @@ describe('ResearchProjectChatService', () => {
       );
       (prisma.researchProjectNote.update as jest.Mock).mockResolvedValue({
         ...mockNote,
-        title: 'Updated',
+        title: "Updated",
       });
 
-      const result = await service.updateNote(userId, projectId, noteId, {
-        title: 'Updated',
+      const _result = await service.updateNote(userId, projectId, noteId, {
+        title: "Updated",
       });
 
       expect(prisma.researchProjectNote.update).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when note belongs to different project', async () => {
+    it("should throw NotFoundException when note belongs to different project", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchProjectNote.findUnique as jest.Mock).mockResolvedValue({
         ...mockNote,
-        projectId: 'other-project',
+        projectId: "other-project",
       });
 
       await expect(
@@ -445,8 +447,8 @@ describe('ResearchProjectChatService', () => {
     });
   });
 
-  describe('deleteNote', () => {
-    it('should delete a note and decrement count', async () => {
+  describe("deleteNote", () => {
+    it("should delete a note and decrement count", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -470,7 +472,7 @@ describe('ResearchProjectChatService', () => {
       );
     });
 
-    it('should throw NotFoundException when note not found', async () => {
+    it("should throw NotFoundException when note not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -479,13 +481,13 @@ describe('ResearchProjectChatService', () => {
       );
 
       await expect(
-        service.deleteNote(userId, projectId, 'nonexistent'),
+        service.deleteNote(userId, projectId, "nonexistent"),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('saveMessageAsNote', () => {
-    it('should save a chat message as a note', async () => {
+  describe("saveMessageAsNote", () => {
+    it("should save a chat message as a note", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -500,22 +502,22 @@ describe('ResearchProjectChatService', () => {
         userId,
         projectId,
         chatId,
-        'Message content',
-        'Custom Title',
+        "Message content",
+        "Custom Title",
       );
 
       expect(prisma.researchProjectNote.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            sourceType: 'ai-chat',
+            sourceType: "ai-chat",
             chatId,
-            title: 'Custom Title',
+            title: "Custom Title",
           }),
         }),
       );
     });
 
-    it('should use default title when not provided', async () => {
+    it("should use default title when not provided", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -526,12 +528,12 @@ describe('ResearchProjectChatService', () => {
         mockProject,
       );
 
-      await service.saveMessageAsNote(userId, projectId, chatId, 'Content');
+      await service.saveMessageAsNote(userId, projectId, chatId, "Content");
 
       expect(prisma.researchProjectNote.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            title: 'Saved from chat',
+            title: "Saved from chat",
           }),
         }),
       );
