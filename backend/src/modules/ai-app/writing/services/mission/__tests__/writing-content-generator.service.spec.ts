@@ -277,7 +277,10 @@ describe("WritingContentGeneratorService", () => {
     });
 
     it("should build outline prompt for outline mission type", async () => {
-      const outlineInput = { ...baseMissionInput, missionType: "outline" as const };
+      const outlineInput = {
+        ...baseMissionInput,
+        missionType: "outline" as const,
+      };
 
       await service.generateContentDirectly(
         outlineInput,

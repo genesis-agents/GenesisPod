@@ -140,9 +140,7 @@ describe("WritingQualityService", () => {
         "Long chapter content with many expressions",
       );
 
-      expect(
-        expressionMemory.analyzeAndRecordExpressions,
-      ).toHaveBeenCalledWith(
+      expect(expressionMemory.analyzeAndRecordExpressions).toHaveBeenCalledWith(
         "project-1",
         "chapter-1",
         1,

@@ -13,8 +13,8 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { DeepResearchStatus, AIModelType } from "@prisma/client";
-import { firstValueFrom, toArray, Subject } from "rxjs";
+import { DeepResearchStatus } from "@prisma/client";
+import { Subject } from "rxjs";
 import { DiscussionOrchestratorService } from "../discussion-orchestrator.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { DiscussionAgentService } from "../discussion-agent.service";
@@ -31,7 +31,11 @@ function makeAgent(role: string, name: string) {
   };
 }
 
-function makeSearchRound(round: number, query: string, sources: Array<{ url: string; title: string; snippet: string }> = []) {
+function makeSearchRound(
+  round: number,
+  query: string,
+  sources: Array<{ url: string; title: string; snippet: string }> = [],
+) {
   return {
     round,
     stepId: `step_${round}`,
@@ -47,8 +51,21 @@ function makeReport() {
     executiveSummary: "Summary text",
     sections: [{ title: "S1", content: "c1", citations: [] }],
     conclusion: "Conclusion",
-    references: [{ id: 1, title: "Ref1", url: "https://ref.com", snippet: "snip", accessedAt: new Date() }],
-    metadata: { totalSources: 1, totalTokens: 100, duration: 5, searchRounds: 1 },
+    references: [
+      {
+        id: 1,
+        title: "Ref1",
+        url: "https://ref.com",
+        snippet: "snip",
+        accessedAt: new Date(),
+      },
+    ],
+    metadata: {
+      totalSources: 1,
+      totalTokens: 100,
+      duration: 5,
+      searchRounds: 1,
+    },
   };
 }
 
@@ -111,16 +128,18 @@ describe("DiscussionOrchestratorService", () => {
     mockAgentService = {
       initializeTeam: jest.fn().mockReturnValue(mockTeam),
       speak: jest.fn().mockResolvedValue("mock agent response"),
-      createMessage: jest.fn().mockImplementation((agent, content, phase, type) => ({
-        id: `msg-${Math.random()}`,
-        agentId: agent.config.role,
-        agentRole: agent.config.role,
-        agentName: agent.config.name,
-        content,
-        phase,
-        messageType: type,
-        timestamp: new Date(),
-      })),
+      createMessage: jest
+        .fn()
+        .mockImplementation((agent, content, phase, type) => ({
+          id: `msg-${Math.random()}`,
+          agentId: agent.config.role,
+          agentRole: agent.config.role,
+          agentName: agent.config.name,
+          content,
+          phase,
+          messageType: type,
+          timestamp: new Date(),
+        })),
       parseDirections: jest.fn().mockReturnValue([
         {
           title: "Direction 1",
@@ -138,7 +157,11 @@ describe("DiscussionOrchestratorService", () => {
     mockSearchService = {
       executeStep: jest.fn().mockResolvedValue(
         makeSearchRound(1, "query 1a", [
-          { url: "https://example.com/1", title: "Result 1", snippet: "snip1" },
+          {
+            url: "https://example.com/1",
+            title: "Result 1",
+            snippet: "snip1",
+          },
         ]),
       ),
     };
@@ -158,7 +181,9 @@ describe("DiscussionOrchestratorService", () => {
     };
 
     mockCreditsService = {
-      checkBalance: jest.fn().mockResolvedValue({ sufficient: true, balance: 10000 }),
+      checkBalance: jest
+        .fn()
+        .mockResolvedValue({ sufficient: true, balance: 10000 }),
     };
 
     mockIdeaService = {
@@ -203,7 +228,9 @@ describe("DiscussionOrchestratorService", () => {
       })
       .compile();
 
-    service = module.get<DiscussionOrchestratorService>(DiscussionOrchestratorService);
+    service = module.get<DiscussionOrchestratorService>(
+      DiscussionOrchestratorService,
+    );
 
     jest.spyOn(Logger.prototype, "log").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
@@ -278,7 +305,9 @@ describe("DiscussionOrchestratorService", () => {
         updatedAt: new Date(Date.now() - 20 * 60 * 1000), // 20 min ago (stale)
         discussion: null,
       };
-      mockPrisma.deepResearchSession.findMany.mockResolvedValue([completedSession]);
+      mockPrisma.deepResearchSession.findMany.mockResolvedValue([
+        completedSession,
+      ]);
       const result = await service.getProjectSessions(projectId);
       // COMPLETED is not intermediate; should not trigger update
       expect(mockPrisma.deepResearchSession.update).not.toHaveBeenCalled();
@@ -313,7 +342,9 @@ describe("DiscussionOrchestratorService", () => {
       await service.getProjectSessions(projectId);
       expect(mockPrisma.deepResearchSession.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: DeepResearchStatus.COMPLETED }),
+          data: expect.objectContaining({
+            status: DeepResearchStatus.COMPLETED,
+          }),
         }),
       );
     });
@@ -325,7 +356,9 @@ describe("DiscussionOrchestratorService", () => {
         updatedAt: new Date(Date.now() - 5 * 60 * 1000), // 5 min ago
         discussion: null,
       };
-      mockPrisma.deepResearchSession.findMany.mockResolvedValue([recentSession]);
+      mockPrisma.deepResearchSession.findMany.mockResolvedValue([
+        recentSession,
+      ]);
       await service.getProjectSessions(projectId);
       expect(mockPrisma.deepResearchSession.update).not.toHaveBeenCalled();
     });
@@ -338,7 +371,9 @@ describe("DiscussionOrchestratorService", () => {
         discussion: null,
       };
       mockPrisma.deepResearchSession.findMany.mockResolvedValue([staleSession]);
-      mockPrisma.deepResearchSession.update.mockRejectedValue(new Error("DB error"));
+      mockPrisma.deepResearchSession.update.mockRejectedValue(
+        new Error("DB error"),
+      );
 
       // Should not throw
       const result = await service.getProjectSessions(projectId);
@@ -389,18 +424,16 @@ describe("DiscussionOrchestratorService", () => {
       mockPrisma.researchProject.findUnique.mockResolvedValue(null);
 
       const events: any[] = [];
-      service
-        .startResearch(projectId, { query: "test query" })
-        .subscribe({
-          next: (event) => events.push(event),
-          error: (err) => done.fail(err),
-          complete: () => {
-            expect(events.some((e) => e.type === "error")).toBe(true);
-            const errorEvent = events.find((e) => e.type === "error");
-            expect(errorEvent.data.code).toBe("EXECUTION_ERROR");
-            done();
-          },
-        });
+      service.startResearch(projectId, { query: "test query" }).subscribe({
+        next: (event) => events.push(event),
+        error: (err) => done.fail(err),
+        complete: () => {
+          expect(events.some((e) => e.type === "error")).toBe(true);
+          const errorEvent = events.find((e) => e.type === "error");
+          expect(errorEvent.data.code).toBe("EXECUTION_ERROR");
+          done();
+        },
+      });
     });
 
     it("should emit error event when credits are insufficient", (done) => {
@@ -437,7 +470,9 @@ describe("DiscussionOrchestratorService", () => {
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
-            const completeEvent = events.find((e) => e.type === "interaction.complete");
+            const completeEvent = events.find(
+              (e) => e.type === "interaction.complete",
+            );
             expect(completeEvent).toBeDefined();
             expect(completeEvent.data.status).toBe("success");
             done();
@@ -457,7 +492,9 @@ describe("DiscussionOrchestratorService", () => {
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
-            const phaseEvents = events.filter((e) => e.type === "discussion.phase");
+            const phaseEvents = events.filter(
+              (e) => e.type === "discussion.phase",
+            );
             const phases = phaseEvents.map((e: any) => e.data.phase);
             expect(phases).toContain("ideation");
             expect(phases).toContain("execution");
@@ -480,7 +517,9 @@ describe("DiscussionOrchestratorService", () => {
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
-            const progressEvents = events.filter((e) => e.type === "search_progress");
+            const progressEvents = events.filter(
+              (e) => e.type === "search_progress",
+            );
             expect(progressEvents.length).toBeGreaterThan(0);
             done();
           },
@@ -490,19 +529,17 @@ describe("DiscussionOrchestratorService", () => {
     it("should use standard depth when options.depth not specified", (done) => {
       const events: any[] = [];
 
-      service
-        .startResearch(projectId, { query: "test" })
-        .subscribe({
-          next: (event) => events.push(event),
-          error: (err) => done.fail(err),
-          complete: () => {
-            expect(mockCreditsService.checkBalance).toHaveBeenCalledWith(
-              userId,
-              700, // standard = 700 credits
-            );
-            done();
-          },
-        });
+      service.startResearch(projectId, { query: "test" }).subscribe({
+        next: (event) => events.push(event),
+        error: (err) => done.fail(err),
+        complete: () => {
+          expect(mockCreditsService.checkBalance).toHaveBeenCalledWith(
+            userId,
+            700, // standard = 700 credits
+          );
+          done();
+        },
+      });
     }, 10000);
 
     it("should use correct credits for thorough depth", (done) => {
@@ -562,7 +599,9 @@ describe("DiscussionOrchestratorService", () => {
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
-            const completeEvent = events.find((e) => e.type === "interaction.complete");
+            const completeEvent = events.find(
+              (e) => e.type === "interaction.complete",
+            );
             expect(completeEvent).toBeDefined();
             done();
           },
@@ -588,7 +627,9 @@ describe("DiscussionOrchestratorService", () => {
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
-            expect(events.some((e) => e.type === "interaction.complete")).toBe(true);
+            expect(events.some((e) => e.type === "interaction.complete")).toBe(
+              true,
+            );
             done();
           },
         });
@@ -598,21 +639,32 @@ describe("DiscussionOrchestratorService", () => {
       mockReplanner.evaluateAndReplan.mockResolvedValue({
         needsReplan: true,
         additionalSteps: [
-          { id: "extra_1", type: "deep_dive", query: "extra query", rationale: "gap found", estimatedSources: 5 },
+          {
+            id: "extra_1",
+            type: "deep_dive",
+            query: "extra query",
+            rationale: "gap found",
+            estimatedSources: 5,
+          },
         ],
         record: { reason: "Missing coverage" },
       });
 
       const events: any[] = [];
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
             expect(mockReplanner.evaluateAndReplan).toHaveBeenCalled();
             // Extra search round should appear in progress events
-            const progressEvents = events.filter((e) => e.type === "search_progress");
+            const progressEvents = events.filter(
+              (e) => e.type === "search_progress",
+            );
             expect(progressEvents.length).toBeGreaterThan(0);
             done();
           },
@@ -623,31 +675,47 @@ describe("DiscussionOrchestratorService", () => {
       mockReplanner.evaluateAndReplan.mockResolvedValue({
         needsReplan: true,
         additionalSteps: [
-          { id: "extra_1", type: "deep_dive", query: "fail query", rationale: "gap", estimatedSources: 5 },
+          {
+            id: "extra_1",
+            type: "deep_dive",
+            query: "fail query",
+            rationale: "gap",
+            estimatedSources: 5,
+          },
         ],
         record: null,
       });
       // Make only the extra search (the last call) fail by failing after N successful calls
       let callCount = 0;
-      const originalImpl = mockSearchService.executeStep.getMockImplementation();
-      mockSearchService.executeStep.mockImplementation(async (...args: any[]) => {
-        callCount++;
-        // Fail the last call (the replanner's extra step)
-        if (callCount > 2) throw new Error("Replan search failed");
-        return makeSearchRound(callCount, `query ${callCount}`, [
-          { url: `https://unique-${callCount}.com`, title: "Result", snippet: "s" },
-        ]);
-      });
+      mockSearchService.executeStep.mockImplementation(
+        async (..._args: any[]) => {
+          callCount++;
+          // Fail the last call (the replanner's extra step)
+          if (callCount > 2) throw new Error("Replan search failed");
+          return makeSearchRound(callCount, `query ${callCount}`, [
+            {
+              url: `https://unique-${callCount}.com`,
+              title: "Result",
+              snippet: "s",
+            },
+          ]);
+        },
+      );
 
       const events: any[] = [];
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
             // Should still complete without error event from replan failure
-            const completeEvent = events.find((e) => e.type === "interaction.complete");
+            const completeEvent = events.find(
+              (e) => e.type === "interaction.complete",
+            );
             expect(completeEvent).toBeDefined();
             done();
           },
@@ -659,14 +727,18 @@ describe("DiscussionOrchestratorService", () => {
 
       const events: any[] = [];
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
             // Fallback creates 3 directions
             const execPhase = events.find(
-              (e) => e.type === "discussion.phase" && e.data.phase === "execution",
+              (e) =>
+                e.type === "discussion.phase" && e.data.phase === "execution",
             );
             expect(execPhase.data.directions).toHaveLength(3);
             done();
@@ -676,7 +748,7 @@ describe("DiscussionOrchestratorService", () => {
 
     it("should handle researcher ideation failure with fallback message", (done) => {
       let callCount = 0;
-      mockAgentService.speak.mockImplementation(async (agent: any) => {
+      mockAgentService.speak.mockImplementation(async (_agent: any) => {
         callCount++;
         // Fail researcher-b (second parallel call)
         if (callCount === 3) throw new Error("Researcher B unavailable");
@@ -685,13 +757,18 @@ describe("DiscussionOrchestratorService", () => {
 
       const events: any[] = [];
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
             // Should still complete
-            const completeEvent = events.find((e) => e.type === "interaction.complete");
+            const completeEvent = events.find(
+              (e) => e.type === "interaction.complete",
+            );
             expect(completeEvent).toBeDefined();
             done();
           },
@@ -700,7 +777,10 @@ describe("DiscussionOrchestratorService", () => {
 
     it("should call autoExtractIdeas after successful research", (done) => {
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: () => {},
           error: (err) => done.fail(err),
@@ -717,11 +797,16 @@ describe("DiscussionOrchestratorService", () => {
 
     it("should update session to FAILED status on execution error", (done) => {
       // Make report generation fail
-      mockReportService.generateReport.mockRejectedValue(new Error("Report failed"));
+      mockReportService.generateReport.mockRejectedValue(
+        new Error("Report failed"),
+      );
 
       const events: any[] = [];
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
@@ -729,7 +814,9 @@ describe("DiscussionOrchestratorService", () => {
             // The error event is emitted from the outer .catch() handler before subject.complete()
             // Wait a microtask for async DB update to complete
             setImmediate(() => {
-              expect(mockPrisma.deepResearchSession.update).toHaveBeenCalledWith(
+              expect(
+                mockPrisma.deepResearchSession.update,
+              ).toHaveBeenCalledWith(
                 expect.objectContaining({
                   data: expect.objectContaining({
                     status: DeepResearchStatus.FAILED,
@@ -755,7 +842,9 @@ describe("DiscussionOrchestratorService", () => {
           error: (err) => done.fail(err),
           complete: () => {
             // Research should complete normally
-            const completeEvent = events.find((e) => e.type === "interaction.complete");
+            const completeEvent = events.find(
+              (e) => e.type === "interaction.complete",
+            );
             expect(completeEvent).toBeDefined();
             done();
           },
@@ -773,7 +862,9 @@ describe("DiscussionOrchestratorService", () => {
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
-            const completeEvent = events.find((e) => e.type === "interaction.complete");
+            const completeEvent = events.find(
+              (e) => e.type === "interaction.complete",
+            );
             expect(completeEvent).toBeDefined();
             done();
           },
@@ -782,7 +873,10 @@ describe("DiscussionOrchestratorService", () => {
 
     it("should call endTrace on success", (done) => {
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: () => {},
           error: (err) => done.fail(err),
@@ -797,10 +891,15 @@ describe("DiscussionOrchestratorService", () => {
     }, 10000);
 
     it("should call endTrace with error status on failure", (done) => {
-      mockReportService.generateReport.mockRejectedValue(new Error("Synthesis failed"));
+      mockReportService.generateReport.mockRejectedValue(
+        new Error("Synthesis failed"),
+      );
 
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: () => {},
           error: (err) => done.fail(err),
@@ -827,20 +926,31 @@ describe("DiscussionOrchestratorService", () => {
         callCount++;
         return makeSearchRound(callCount, `query ${callCount}`, [
           { url: "https://shared.com", title: "Shared", snippet: "s" },
-          { url: `https://unique-${callCount}.com`, title: "Unique", snippet: "u" },
+          {
+            url: `https://unique-${callCount}.com`,
+            title: "Unique",
+            snippet: "u",
+          },
         ]);
       });
 
       const events: any[] = [];
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: (event) => events.push(event),
           error: (err) => done.fail(err),
           complete: () => {
-            const completeEvent = events.find((e) => e.type === "interaction.complete");
+            const completeEvent = events.find(
+              (e) => e.type === "interaction.complete",
+            );
             // shared + unique-1 + unique-2 = 3 unique sources (for 2 rounds with 2 sources each)
-            expect(completeEvent.data.report.metadata.totalSources).toBeGreaterThan(0);
+            expect(
+              completeEvent.data.report.metadata.totalSources,
+            ).toBeGreaterThan(0);
             done();
           },
         });
@@ -955,7 +1065,9 @@ describe("DiscussionOrchestratorService", () => {
         timestamp: new Date(),
       };
 
-      expect(() => (serviceWithoutFacade as any).publishMessage(sessionId, msg, subject)).not.toThrow();
+      expect(() =>
+        (serviceWithoutFacade as any).publishMessage(sessionId, msg, subject),
+      ).not.toThrow();
     });
   });
 
@@ -1028,7 +1140,10 @@ describe("DiscussionOrchestratorService", () => {
   describe("BillingContext.run", () => {
     it("should find project before billing context to get userId", (done) => {
       service
-        .startResearch(projectId, { query: "test", options: { depth: "quick" } })
+        .startResearch(projectId, {
+          query: "test",
+          options: { depth: "quick" },
+        })
         .subscribe({
           next: () => {},
           error: (err) => done.fail(err),

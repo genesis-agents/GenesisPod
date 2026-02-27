@@ -1,10 +1,7 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DiscussionController } from "../discussion.controller";
 import type { DiscussionOrchestratorService } from "../discussion-orchestrator.service";
-import { of, throwError, Subject } from "rxjs";
+import { Subject } from "rxjs";
 
 function createMockResponse() {
   return {
@@ -69,7 +66,10 @@ describe("DiscussionController", () => {
         "Content-Type",
         "text/event-stream",
       );
-      expect(mockRes.setHeader).toHaveBeenCalledWith("Cache-Control", "no-cache");
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "Cache-Control",
+        "no-cache",
+      );
       expect(mockRes.flushHeaders).toHaveBeenCalled();
       expect(mockRes.write).toHaveBeenCalledWith(
         expect.stringContaining("event: thinking"),
@@ -115,13 +115,11 @@ describe("DiscussionController", () => {
 
       // Capture the close handler
       let closeHandler: (() => void) | undefined;
-      (mockRes.on as jest.Mock).mockImplementation(
-        (event: string, handler: () => void) => {
-          if (event === "close") {
-            closeHandler = handler;
-          }
-        },
-      );
+      mockRes.on.mockImplementation((event: string, handler: () => void) => {
+        if (event === "close") {
+          closeHandler = handler;
+        }
+      });
 
       const streamPromise = controller.startResearchStream(
         "proj-1",
@@ -167,7 +165,7 @@ describe("DiscussionController", () => {
     it("should not write to closed connection", async () => {
       const mockRes = createMockResponse();
       // Mock write to simulate closed connection
-      (mockRes.write as jest.Mock).mockReturnValue(false);
+      mockRes.write.mockReturnValue(false);
       const mockDto = { query: "Query" } as never;
 
       const subject = new Subject<{ type: string; data: unknown }>();
@@ -227,12 +225,20 @@ describe("DiscussionController", () => {
 
   describe("getSession", () => {
     it("should return session when found", async () => {
-      const mockSession = { id: "session-1", projectId: "proj-1", status: "COMPLETED" };
-      mockOrchestratorService.getSession.mockResolvedValue(mockSession as never);
+      const mockSession = {
+        id: "session-1",
+        projectId: "proj-1",
+        status: "COMPLETED",
+      };
+      mockOrchestratorService.getSession.mockResolvedValue(
+        mockSession as never,
+      );
 
       const result = await controller.getSession("proj-1", "session-1");
 
-      expect(mockOrchestratorService.getSession).toHaveBeenCalledWith("session-1");
+      expect(mockOrchestratorService.getSession).toHaveBeenCalledWith(
+        "session-1",
+      );
       expect(result).toEqual(mockSession);
     });
 

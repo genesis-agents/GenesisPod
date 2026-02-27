@@ -103,7 +103,10 @@ describe("WritingExecutionService", () => {
     });
 
     it("should call generateFullStory for full_story mission type", async () => {
-      const fullStoryInput = { ...mockMissionInput, missionType: "full_story" as const };
+      const fullStoryInput = {
+        ...mockMissionInput,
+        missionType: "full_story" as const,
+      };
       const generateFullStory = jest
         .fn()
         .mockResolvedValue("[ALL_CHAPTERS_COMPLETED] All done");

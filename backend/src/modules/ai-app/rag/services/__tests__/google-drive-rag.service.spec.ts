@@ -41,11 +41,9 @@ jest.mock("@googleapis/drive", () => {
   const filesExport = jest.fn();
   const filesList = jest.fn();
   return {
-    drive: jest
-      .fn()
-      .mockReturnValue({
-        files: { get: filesGet, export: filesExport, list: filesList },
-      }),
+    drive: jest.fn().mockReturnValue({
+      files: { get: filesGet, export: filesExport, list: filesList },
+    }),
     drive_v3: {},
     // Expose so tests can read them back
     _filesGet: filesGet,

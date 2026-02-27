@@ -52,7 +52,8 @@ describe("SharedScratchpadService", () => {
       prisma.writingMission.update.mockResolvedValue({});
 
       await service.getOrCreate("mission-1");
-      const findUniqueCalls = prisma.writingMission.findUnique.mock.calls.length;
+      const findUniqueCalls =
+        prisma.writingMission.findUnique.mock.calls.length;
       await service.getOrCreate("mission-1");
 
       // Should not have made additional DB calls

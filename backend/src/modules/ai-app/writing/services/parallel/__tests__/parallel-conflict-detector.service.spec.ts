@@ -145,11 +145,11 @@ describe("ParallelConflictDetectorService", () => {
       const results = [
         {
           chapter: { id: "ch-3" },
-          content: '他们到达了「仙人峰」，这是一处神奇的地方。',
+          content: "他们到达了「仙人峰」，这是一处神奇的地方。",
         },
         {
           chapter: { id: "ch-4" },
-          content: '「仙人峰」的传说已经流传千年。',
+          content: "「仙人峰」的传说已经流传千年。",
         },
       ];
 

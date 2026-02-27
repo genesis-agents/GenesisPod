@@ -63,13 +63,11 @@ function buildMockPrisma() {
     },
     writingMission: {
       findFirst: jest.fn(),
-      findUnique: jest
-        .fn()
-        .mockResolvedValue({
-          id: "mock-mission-id",
-          projectId: "project-1",
-          missionType: "chapter",
-        }),
+      findUnique: jest.fn().mockResolvedValue({
+        id: "mock-mission-id",
+        projectId: "project-1",
+        missionType: "chapter",
+      }),
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
@@ -98,19 +96,15 @@ function buildMockPrisma() {
 
 function buildMockFacade() {
   return {
-    chat: jest
-      .fn()
-      .mockResolvedValue({
-        content: "Generated content here, a sufficiently long piece of text",
-        tokensUsed: 100,
-      }),
-    chatWithSkills: jest
-      .fn()
-      .mockResolvedValue({
-        content:
-          "Generated content here, a sufficiently long piece of text that has more than 200 words to pass validation check hopefully in this test context",
-        tokensUsed: 100,
-      }),
+    chat: jest.fn().mockResolvedValue({
+      content: "Generated content here, a sufficiently long piece of text",
+      tokensUsed: 100,
+    }),
+    chatWithSkills: jest.fn().mockResolvedValue({
+      content:
+        "Generated content here, a sufficiently long piece of text that has more than 200 words to pass validation check hopefully in this test context",
+      tokensUsed: 100,
+    }),
     embed: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
     getAvailableModelsExtended: jest.fn().mockResolvedValue([]),
     getDefaultTextModel: jest

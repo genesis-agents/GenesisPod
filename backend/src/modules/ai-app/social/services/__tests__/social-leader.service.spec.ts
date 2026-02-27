@@ -73,7 +73,8 @@ function createMockFetchedContent(overrides = {}) {
 function createMockTransformedContent(overrides = {}) {
   return {
     title: "Transformed Title",
-    content: "Transformed content that is definitely long enough to pass validation checks.",
+    content:
+      "Transformed content that is definitely long enough to pass validation checks.",
     digest: "Short digest here",
     tags: ["tag1", "tag2"],
     ...overrides,
@@ -149,9 +150,13 @@ describe("SocialLeaderService", () => {
 
     beforeEach(() => {
       mockFetcher.fetchFromUrl.mockResolvedValue(createMockFetchedContent());
-      mockTransformer.transform.mockResolvedValue(createMockTransformedContent());
+      mockTransformer.transform.mockResolvedValue(
+        createMockTransformedContent(),
+      );
       mockChecker.check.mockResolvedValue(createMockCheckResult(true));
-      mockPrisma.socialContent.create.mockResolvedValue(createMockCreatedContent());
+      mockPrisma.socialContent.create.mockResolvedValue(
+        createMockCreatedContent(),
+      );
       mockPrisma.socialContent.update.mockResolvedValue({
         ...createMockCreatedContent(),
         sourceUrl: "https://example.com/article",
@@ -289,7 +294,9 @@ describe("SocialLeaderService", () => {
 
     beforeEach(() => {
       mockFetcher.fetchFromSource.mockResolvedValue(createMockFetchedContent());
-      mockTransformer.transform.mockResolvedValue(createMockTransformedContent());
+      mockTransformer.transform.mockResolvedValue(
+        createMockTransformedContent(),
+      );
       mockChecker.check.mockResolvedValue(createMockCheckResult(true));
       mockVersionService.generateAllVersions.mockResolvedValue([{ id: "v1" }]);
 
@@ -390,10 +397,16 @@ describe("SocialLeaderService", () => {
 
       // Set up mocks for processUrl
       mockFetcher.fetchFromUrl.mockResolvedValue(createMockFetchedContent());
-      mockTransformer.transform.mockResolvedValue(createMockTransformedContent());
+      mockTransformer.transform.mockResolvedValue(
+        createMockTransformedContent(),
+      );
       mockChecker.check.mockResolvedValue(createMockCheckResult());
-      mockPrisma.socialContent.create.mockResolvedValue(createMockCreatedContent());
-      mockPrisma.socialContent.update.mockResolvedValue(createMockCreatedContent());
+      mockPrisma.socialContent.create.mockResolvedValue(
+        createMockCreatedContent(),
+      );
+      mockPrisma.socialContent.update.mockResolvedValue(
+        createMockCreatedContent(),
+      );
       mockVersionService.generateAllVersions.mockResolvedValue([]);
 
       const result = await service.regenerateContent(
@@ -419,7 +432,9 @@ describe("SocialLeaderService", () => {
       });
 
       mockFetcher.fetchFromSource.mockResolvedValue(createMockFetchedContent());
-      mockTransformer.transform.mockResolvedValue(createMockTransformedContent());
+      mockTransformer.transform.mockResolvedValue(
+        createMockTransformedContent(),
+      );
       mockChecker.check.mockResolvedValue(createMockCheckResult());
       mockVersionService.generateAllVersions.mockResolvedValue([]);
       (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([

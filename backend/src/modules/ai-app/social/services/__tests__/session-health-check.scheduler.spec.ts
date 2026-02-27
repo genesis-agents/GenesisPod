@@ -94,18 +94,32 @@ describe("SessionHealthCheckScheduler", () => {
     it("should not start scheduler when disabled", () => {
       jest.useFakeTimers();
       mockConfig.get.mockReturnValue(false);
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
 
       scheduler.onModuleInit();
 
       // No interval should be set
-      expect(mockPrisma.socialPlatformConnection.findMany).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.socialPlatformConnection.findMany,
+      ).not.toHaveBeenCalled();
     });
 
     it("should start scheduler when enabled", () => {
       jest.useFakeTimers();
       mockConfig.get.mockReturnValue(true);
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
 
       scheduler.onModuleInit();
 
@@ -121,7 +135,13 @@ describe("SessionHealthCheckScheduler", () => {
     it("should clear interval on module destroy", () => {
       jest.useFakeTimers();
       mockConfig.get.mockReturnValue(true);
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       scheduler.onModuleInit();
 
       // Should not throw
@@ -130,7 +150,13 @@ describe("SessionHealthCheckScheduler", () => {
 
     it("should be safe to call destroy without start", () => {
       jest.useFakeTimers();
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       expect(() => scheduler.onModuleDestroy()).not.toThrow();
     });
   });
@@ -145,7 +171,9 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     // Helper to run checkAllSessions while advancing fake timers
-    async function runCheckAllSessions(scheduler: SessionHealthCheckScheduler): Promise<void> {
+    async function runCheckAllSessions(
+      scheduler: SessionHealthCheckScheduler,
+    ): Promise<void> {
       const checkPromise = scheduler.checkAllSessions();
       // Advance timers repeatedly to resolve all sleep() calls
       await jest.runAllTimersAsync();
@@ -153,7 +181,13 @@ describe("SessionHealthCheckScheduler", () => {
     }
 
     it("should do nothing if already running (concurrency guard)", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
 
       // No connections so sleep is never called
       mockPrisma.socialPlatformConnection.findMany.mockResolvedValue([]);
@@ -165,27 +199,43 @@ describe("SessionHealthCheckScheduler", () => {
       await Promise.all([firstCall, secondCall]);
 
       // findMany should only be called once (from first invocation)
-      expect(mockPrisma.socialPlatformConnection.findMany).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrisma.socialPlatformConnection.findMany,
+      ).toHaveBeenCalledTimes(1);
     });
 
     it("should check all active connections", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       mockPrisma.socialPlatformConnection.findMany.mockResolvedValue([]);
 
       await runCheckAllSessions(scheduler);
 
-      expect(mockPrisma.socialPlatformConnection.findMany).toHaveBeenCalledWith({
-        where: { isActive: true },
-        select: expect.objectContaining({
-          id: true,
-          userId: true,
-          platformType: true,
-        }),
-      });
+      expect(mockPrisma.socialPlatformConnection.findMany).toHaveBeenCalledWith(
+        {
+          where: { isActive: true },
+          select: expect.objectContaining({
+            id: true,
+            userId: true,
+            platformType: true,
+          }),
+        },
+      );
     });
 
     it("should mark expired wechat sessions as inactive", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-1",
@@ -204,7 +254,9 @@ describe("SessionHealthCheckScheduler", () => {
       const expiredPage = {
         goto: jest.fn().mockResolvedValue(undefined),
         waitForLoadState: jest.fn().mockResolvedValue(undefined),
-        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/bizlogin"),
+        url: jest
+          .fn()
+          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/bizlogin"),
         $: jest.fn().mockResolvedValue(null),
       };
       mockPlaywright.createPage.mockResolvedValue(expiredPage as never);
@@ -218,7 +270,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should send notification when session expires", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-2",
@@ -236,9 +294,11 @@ describe("SessionHealthCheckScheduler", () => {
       const expiredPage = {
         goto: jest.fn().mockResolvedValue(undefined),
         waitForLoadState: jest.fn().mockResolvedValue(undefined),
-        url: jest.fn().mockReturnValue(
-          "https://mp.weixin.qq.com/cgi-bin/bizlogin?action=login",
-        ),
+        url: jest
+          .fn()
+          .mockReturnValue(
+            "https://mp.weixin.qq.com/cgi-bin/bizlogin?action=login",
+          ),
         $: jest.fn().mockResolvedValue(null),
       };
       mockPlaywright.createPage.mockResolvedValue(expiredPage as never);
@@ -254,7 +314,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should update lastCheckAt for valid connections", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-3",
@@ -287,7 +353,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should validate XHS MCP-managed connection via xhsMcpAdapter", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-xhs",
@@ -313,7 +385,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should mark XHS connection as expired when MCP reports not logged in", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-xhs-expired",
@@ -338,7 +416,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should return false for connection with no session data", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-null",
@@ -363,7 +447,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should continue checking other connections when one fails", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-fail",
@@ -391,7 +481,9 @@ describe("SessionHealthCheckScheduler", () => {
         .mockResolvedValueOnce({
           goto: jest.fn().mockResolvedValue(undefined),
           waitForLoadState: jest.fn().mockResolvedValue(undefined),
-          url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+          url: jest
+            .fn()
+            .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
           $: jest.fn().mockResolvedValue(null),
         } as never);
 
@@ -402,7 +494,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should handle database error in findMany gracefully", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       mockPrisma.socialPlatformConnection.findMany.mockRejectedValue(
         new Error("DB error"),
       );
@@ -414,7 +512,13 @@ describe("SessionHealthCheckScheduler", () => {
     });
 
     it("should use platformType in notification when accountName is null", async () => {
-      const scheduler = createScheduler(mockConfig, mockPrisma, mockNotification, mockPlaywright, mockXhsAdapter);
+      const scheduler = createScheduler(
+        mockConfig,
+        mockPrisma,
+        mockNotification,
+        mockPlaywright,
+        mockXhsAdapter,
+      );
       const connections = [
         {
           id: "conn-no-name",
@@ -432,7 +536,9 @@ describe("SessionHealthCheckScheduler", () => {
       const expiredPage = {
         goto: jest.fn().mockResolvedValue(undefined),
         waitForLoadState: jest.fn().mockResolvedValue(undefined),
-        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/bizlogin"),
+        url: jest
+          .fn()
+          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/bizlogin"),
         $: jest.fn().mockResolvedValue(null),
       };
       mockPlaywright.createPage.mockResolvedValue(expiredPage as never);

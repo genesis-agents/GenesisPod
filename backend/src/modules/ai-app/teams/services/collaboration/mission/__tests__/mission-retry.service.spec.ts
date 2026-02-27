@@ -7,31 +7,31 @@
  * - handleInProgressMission: pending tasks, completion, force complete, retry execution
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { MissionRetryService } from '../mission-retry.service';
-import { PrismaService } from '../../../../../../../common/prisma/prisma.service';
-import { TopicEventEmitterService } from '../../../events';
+import { Test, TestingModule } from "@nestjs/testing";
+import { NotFoundException, BadRequestException } from "@nestjs/common";
+import { MissionRetryService } from "../mission-retry.service";
+import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
+import { TopicEventEmitterService } from "../../../events";
 import {
   MissionStatus,
   AgentTaskStatus,
   MissionLogType,
   MessageContentType,
-} from '@prisma/client';
+} from "@prisma/client";
 
 // ============================================================
 // Mock factories
 // ============================================================
 
 const makeLeader = (overrides: Record<string, unknown> = {}) => ({
-  id: 'leader-1',
-  displayName: 'Leader Bot',
-  agentName: 'LeaderBot',
+  id: "leader-1",
+  displayName: "Leader Bot",
+  agentName: "LeaderBot",
   ...overrides,
 });
 
 const makeTask = (overrides: Record<string, unknown> = {}) => ({
-  id: 'task-1',
+  id: "task-1",
   status: AgentTaskStatus.PENDING,
   startedAt: null,
   updatedAt: new Date(),
@@ -39,21 +39,21 @@ const makeTask = (overrides: Record<string, unknown> = {}) => ({
   leaderFeedback: null,
   dependsOnIds: [],
   assignedTo: {
-    id: 'member-1',
-    displayName: 'Agent One',
-    agentName: 'AgentOne',
+    id: "member-1",
+    displayName: "Agent One",
+    agentName: "AgentOne",
   },
   ...overrides,
 });
 
 const makeMission = (overrides: Record<string, unknown> = {}) => ({
-  id: 'mission-1',
-  topicId: 'topic-1',
-  title: 'Test Mission',
+  id: "mission-1",
+  topicId: "topic-1",
+  title: "Test Mission",
   status: MissionStatus.FAILED,
   leader: makeLeader(),
   tasks: [],
-  topic: { id: 'topic-1', name: 'Test Topic' },
+  topic: { id: "topic-1", name: "Test Topic" },
   updatedAt: new Date(),
   ...overrides,
 });
@@ -82,13 +82,13 @@ const mockTopicEventEmitter = {
 // Callback mocks
 // ============================================================
 
-const mockSendMessageToTopic = jest.fn().mockResolvedValue({ id: 'msg-1' });
+const mockSendMessageToTopic = jest.fn().mockResolvedValue({ id: "msg-1" });
 const mockCreateLog = jest.fn().mockResolvedValue(undefined);
 const mockStartMission = jest.fn().mockResolvedValue(undefined);
 const mockHandleLeaderMentionCommand = jest.fn().mockResolvedValue({
   handled: true,
-  action: 'continue',
-  missionId: 'mission-1',
+  action: "continue",
+  missionId: "mission-1",
 });
 const mockExecuteNextTasks = jest.fn().mockResolvedValue(undefined);
 
@@ -96,7 +96,7 @@ const mockExecuteNextTasks = jest.fn().mockResolvedValue(undefined);
 // Test suite
 // ============================================================
 
-describe('MissionRetryService', () => {
+describe("MissionRetryService", () => {
   let service: MissionRetryService;
 
   beforeEach(async () => {
@@ -118,7 +118,7 @@ describe('MissionRetryService', () => {
     service = module.get<MissionRetryService>(MissionRetryService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
@@ -126,33 +126,39 @@ describe('MissionRetryService', () => {
   // isMissionStuck
   // ============================================================
 
-  describe('isMissionStuck', () => {
-    it('should return false for mission with no tasks', () => {
+  describe("isMissionStuck", () => {
+    it("should return false for mission with no tasks", () => {
       const mission = { tasks: [] };
       expect(service.isMissionStuck(mission)).toBe(false);
     });
 
-    it('should return false for mission with undefined tasks', () => {
+    it("should return false for mission with undefined tasks", () => {
       const mission = {};
       expect(service.isMissionStuck(mission)).toBe(false);
     });
 
-    it('should return false when tasks are not IN_PROGRESS', () => {
+    it("should return false when tasks are not IN_PROGRESS", () => {
       const mission = {
         tasks: [
-          { status: AgentTaskStatus.COMPLETED, startedAt: new Date(Date.now() - 60 * 60 * 1000) },
+          {
+            status: AgentTaskStatus.COMPLETED,
+            startedAt: new Date(Date.now() - 60 * 60 * 1000),
+          },
           { status: AgentTaskStatus.PENDING, startedAt: null },
-          { status: AgentTaskStatus.BLOCKED, startedAt: new Date(Date.now() - 60 * 60 * 1000) },
+          {
+            status: AgentTaskStatus.BLOCKED,
+            startedAt: new Date(Date.now() - 60 * 60 * 1000),
+          },
         ],
       };
       expect(service.isMissionStuck(mission)).toBe(false);
     });
 
-    it('should return false when IN_PROGRESS task started recently', () => {
+    it("should return false when IN_PROGRESS task started recently", () => {
       const mission = {
         tasks: [
           {
-            status: 'IN_PROGRESS',
+            status: "IN_PROGRESS",
             startedAt: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
           },
         ],
@@ -161,11 +167,11 @@ describe('MissionRetryService', () => {
       expect(service.isMissionStuck(mission, thresholdMs)).toBe(false);
     });
 
-    it('should return true when IN_PROGRESS task exceeded threshold via startedAt', () => {
+    it("should return true when IN_PROGRESS task exceeded threshold via startedAt", () => {
       const mission = {
         tasks: [
           {
-            status: 'IN_PROGRESS',
+            status: "IN_PROGRESS",
             startedAt: new Date(Date.now() - 40 * 60 * 1000), // 40 minutes ago
           },
         ],
@@ -174,11 +180,11 @@ describe('MissionRetryService', () => {
       expect(service.isMissionStuck(mission, thresholdMs)).toBe(true);
     });
 
-    it('should use updatedAt when startedAt is null', () => {
+    it("should use updatedAt when startedAt is null", () => {
       const mission = {
         tasks: [
           {
-            status: 'IN_PROGRESS',
+            status: "IN_PROGRESS",
             startedAt: null,
             updatedAt: new Date(Date.now() - 40 * 60 * 1000), // 40 minutes ago
           },
@@ -188,11 +194,11 @@ describe('MissionRetryService', () => {
       expect(service.isMissionStuck(mission, thresholdMs)).toBe(true);
     });
 
-    it('should return false when IN_PROGRESS task has no startedAt or updatedAt', () => {
+    it("should return false when IN_PROGRESS task has no startedAt or updatedAt", () => {
       const mission = {
         tasks: [
           {
-            status: 'IN_PROGRESS',
+            status: "IN_PROGRESS",
             startedAt: null,
             updatedAt: undefined,
           },
@@ -201,13 +207,13 @@ describe('MissionRetryService', () => {
       expect(service.isMissionStuck(mission)).toBe(false);
     });
 
-    it('should use default threshold when no threshold provided', () => {
+    it("should use default threshold when no threshold provided", () => {
       // Default TASK_TIMEOUT_CONFIG.missionStuckTimeoutMs is typically long enough
       // that a task started 1 minute ago would not be stuck
       const mission = {
         tasks: [
           {
-            status: 'IN_PROGRESS',
+            status: "IN_PROGRESS",
             startedAt: new Date(Date.now() - 60 * 1000), // 1 minute ago
           },
         ],
@@ -215,15 +221,15 @@ describe('MissionRetryService', () => {
       expect(service.isMissionStuck(mission)).toBe(false);
     });
 
-    it('should return true if any one task is stuck even if others are not', () => {
+    it("should return true if any one task is stuck even if others are not", () => {
       const mission = {
         tasks: [
           {
-            status: 'IN_PROGRESS',
+            status: "IN_PROGRESS",
             startedAt: new Date(Date.now() - 2 * 60 * 1000), // recent
           },
           {
-            status: 'IN_PROGRESS',
+            status: "IN_PROGRESS",
             startedAt: new Date(Date.now() - 40 * 60 * 1000), // 40 min ago
           },
         ],
@@ -236,14 +242,14 @@ describe('MissionRetryService', () => {
   // retryMission - error paths
   // ============================================================
 
-  describe('retryMission - error paths', () => {
-    it('should throw NotFoundException when mission does not exist', async () => {
+  describe("retryMission - error paths", () => {
+    it("should throw NotFoundException when mission does not exist", async () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(null);
 
       await expect(
         service.retryMission(
-          'nonexistent',
-          'user-1',
+          "nonexistent",
+          "user-1",
           {},
           mockSendMessageToTopic,
           mockCreateLog,
@@ -254,17 +260,24 @@ describe('MissionRetryService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException when mission is IN_PROGRESS and not stuck', async () => {
+    it("should throw BadRequestException when mission is IN_PROGRESS and not stuck", async () => {
       const inProgressMission = makeMission({
         status: MissionStatus.IN_PROGRESS,
-        tasks: [makeTask({ status: AgentTaskStatus.IN_PROGRESS, startedAt: new Date() })],
+        tasks: [
+          makeTask({
+            status: AgentTaskStatus.IN_PROGRESS,
+            startedAt: new Date(),
+          }),
+        ],
       });
-      mockPrisma.teamMission.findUnique.mockResolvedValueOnce(inProgressMission);
+      mockPrisma.teamMission.findUnique.mockResolvedValueOnce(
+        inProgressMission,
+      );
 
       await expect(
         service.retryMission(
-          'mission-1',
-          'user-1',
+          "mission-1",
+          "user-1",
           {},
           mockSendMessageToTopic,
           mockCreateLog,
@@ -275,14 +288,14 @@ describe('MissionRetryService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException when mission status is COMPLETED', async () => {
+    it("should throw BadRequestException when mission status is COMPLETED", async () => {
       const completedMission = makeMission({ status: MissionStatus.COMPLETED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(completedMission);
 
       await expect(
         service.retryMission(
-          'mission-1',
-          'user-1',
+          "mission-1",
+          "user-1",
           {},
           mockSendMessageToTopic,
           mockCreateLog,
@@ -293,14 +306,14 @@ describe('MissionRetryService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException when mission is PLANNING', async () => {
+    it("should throw BadRequestException when mission is PLANNING", async () => {
       const planningMission = makeMission({ status: MissionStatus.PLANNING });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(planningMission);
 
       await expect(
         service.retryMission(
-          'mission-1',
-          'user-1',
+          "mission-1",
+          "user-1",
           {},
           mockSendMessageToTopic,
           mockCreateLog,
@@ -316,11 +329,11 @@ describe('MissionRetryService', () => {
   // retryMission - full mode
   // ============================================================
 
-  describe('retryMission - full mode', () => {
-    it('should delete all tasks and reset mission status to PENDING in full mode', async () => {
+  describe("retryMission - full mode", () => {
+    it("should delete all tasks and reset mission status to PENDING in full mode", async () => {
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
-        tasks: [makeTask({ id: 'task-1', status: AgentTaskStatus.BLOCKED })],
+        tasks: [makeTask({ id: "task-1", status: AgentTaskStatus.BLOCKED })],
       });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
       mockPrisma.teamMission.update.mockResolvedValueOnce({
@@ -329,9 +342,9 @@ describe('MissionRetryService', () => {
       });
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full' },
+        "mission-1",
+        "user-1",
+        { mode: "full" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -340,25 +353,25 @@ describe('MissionRetryService', () => {
       );
 
       expect(mockPrisma.agentTask.deleteMany).toHaveBeenCalledWith({
-        where: { missionId: 'mission-1' },
+        where: { missionId: "mission-1" },
       });
       expect(mockPrisma.teamMission.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ status: MissionStatus.PENDING }),
         }),
       );
-      expect(result.mode).toBe('full');
+      expect(result.mode).toBe("full");
       expect(result.success).toBe(true);
     });
 
-    it('should create a log entry in full mode', async () => {
+    it("should create a log entry in full mode", async () => {
       const failedMission = makeMission({ status: MissionStatus.FAILED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full' },
+        "mission-1",
+        "user-1",
+        { mode: "full" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -367,21 +380,21 @@ describe('MissionRetryService', () => {
       );
 
       expect(mockCreateLog).toHaveBeenCalledWith(
-        'mission-1',
+        "mission-1",
         expect.objectContaining({
           type: MissionLogType.MISSION_CREATED,
         }),
       );
     });
 
-    it('should include reason in log when provided in full mode', async () => {
+    it("should include reason in log when provided in full mode", async () => {
       const failedMission = makeMission({ status: MissionStatus.FAILED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full', reason: 'Too many errors' },
+        "mission-1",
+        "user-1",
+        { mode: "full", reason: "Too many errors" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -390,21 +403,21 @@ describe('MissionRetryService', () => {
       );
 
       expect(mockCreateLog).toHaveBeenCalledWith(
-        'mission-1',
+        "mission-1",
         expect.objectContaining({
-          content: expect.stringContaining('Too many errors'),
+          content: expect.stringContaining("Too many errors"),
         }),
       );
     });
 
-    it('should emit mission:retried event in full mode', async () => {
+    it("should emit mission:retried event in full mode", async () => {
       const failedMission = makeMission({ status: MissionStatus.FAILED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full' },
+        "mission-1",
+        "user-1",
+        { mode: "full" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -413,20 +426,20 @@ describe('MissionRetryService', () => {
       );
 
       expect(mockTopicEventEmitter.emitToTopic).toHaveBeenCalledWith(
-        'topic-1',
-        'mission:retried',
-        expect.objectContaining({ missionId: 'mission-1', mode: 'full' }),
+        "topic-1",
+        "mission:retried",
+        expect.objectContaining({ missionId: "mission-1", mode: "full" }),
       );
     });
 
-    it('should call startMission async in full mode', async () => {
+    it("should call startMission async in full mode", async () => {
       const failedMission = makeMission({ status: MissionStatus.FAILED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full' },
+        "mission-1",
+        "user-1",
+        { mode: "full" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -436,20 +449,20 @@ describe('MissionRetryService', () => {
 
       // startMission is called async (fire-and-forget), give it a tick
       await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(mockStartMission).toHaveBeenCalledWith('mission-1', 'user-1');
+      expect(mockStartMission).toHaveBeenCalledWith("mission-1", "user-1");
     });
 
-    it('should handle startMission failure gracefully in full mode', async () => {
+    it("should handle startMission failure gracefully in full mode", async () => {
       const failedMission = makeMission({ status: MissionStatus.FAILED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
-      mockStartMission.mockRejectedValueOnce(new Error('Start failed'));
+      mockStartMission.mockRejectedValueOnce(new Error("Start failed"));
 
       // Should not throw even if startMission fails
       await expect(
         service.retryMission(
-          'mission-1',
-          'user-1',
-          { mode: 'full' },
+          "mission-1",
+          "user-1",
+          { mode: "full" },
           mockSendMessageToTopic,
           mockCreateLog,
           mockStartMission,
@@ -459,14 +472,14 @@ describe('MissionRetryService', () => {
       ).resolves.not.toThrow();
     });
 
-    it('should retry CANCELLED mission in full mode', async () => {
+    it("should retry CANCELLED mission in full mode", async () => {
       const cancelledMission = makeMission({ status: MissionStatus.CANCELLED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(cancelledMission);
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full' },
+        "mission-1",
+        "user-1",
+        { mode: "full" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -478,14 +491,14 @@ describe('MissionRetryService', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should retry PAUSED mission in full mode', async () => {
+    it("should retry PAUSED mission in full mode", async () => {
       const pausedMission = makeMission({ status: MissionStatus.PAUSED });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(pausedMission);
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full' },
+        "mission-1",
+        "user-1",
+        { mode: "full" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -501,8 +514,8 @@ describe('MissionRetryService', () => {
   // retryMission - continue mode
   // ============================================================
 
-  describe('retryMission - continue mode', () => {
-    it('should default to continue mode when mode not specified', async () => {
+  describe("retryMission - continue mode", () => {
+    it("should default to continue mode when mode not specified", async () => {
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
         tasks: [makeTask({ status: AgentTaskStatus.BLOCKED })],
@@ -510,8 +523,8 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
+        "mission-1",
+        "user-1",
         undefined,
         mockSendMessageToTopic,
         mockCreateLog,
@@ -520,11 +533,14 @@ describe('MissionRetryService', () => {
         mockExecuteNextTasks,
       );
 
-      expect(result.mode).toBe('continue');
+      expect(result.mode).toBe("continue");
     });
 
-    it('should reset BLOCKED tasks to PENDING in continue mode', async () => {
-      const blockedTask = makeTask({ id: 'task-1', status: AgentTaskStatus.BLOCKED });
+    it("should reset BLOCKED tasks to PENDING in continue mode", async () => {
+      const blockedTask = makeTask({
+        id: "task-1",
+        status: AgentTaskStatus.BLOCKED,
+      });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
         tasks: [blockedTask],
@@ -532,9 +548,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -544,14 +560,17 @@ describe('MissionRetryService', () => {
 
       expect(mockPrisma.agentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'task-1' },
+          where: { id: "task-1" },
           data: expect.objectContaining({ status: AgentTaskStatus.PENDING }),
         }),
       );
     });
 
-    it('should reset CANCELLED tasks to PENDING in continue mode', async () => {
-      const cancelledTask = makeTask({ id: 'task-1', status: AgentTaskStatus.CANCELLED });
+    it("should reset CANCELLED tasks to PENDING in continue mode", async () => {
+      const cancelledTask = makeTask({
+        id: "task-1",
+        status: AgentTaskStatus.CANCELLED,
+      });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
         tasks: [cancelledTask],
@@ -559,9 +578,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -576,9 +595,9 @@ describe('MissionRetryService', () => {
       );
     });
 
-    it('should reset stuck IN_PROGRESS tasks to PENDING in continue mode', async () => {
+    it("should reset stuck IN_PROGRESS tasks to PENDING in continue mode", async () => {
       const stuckTask = makeTask({
-        id: 'task-1',
+        id: "task-1",
         status: AgentTaskStatus.IN_PROGRESS,
         startedAt: new Date(Date.now() - 40 * 60 * 1000), // 40 minutes ago
       });
@@ -589,9 +608,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -601,13 +620,13 @@ describe('MissionRetryService', () => {
 
       expect(mockPrisma.agentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'task-1' },
+          where: { id: "task-1" },
           data: expect.objectContaining({ status: AgentTaskStatus.PENDING }),
         }),
       );
     });
 
-    it('should throw BadRequestException when no tasks to retry or continue', async () => {
+    it("should throw BadRequestException when no tasks to retry or continue", async () => {
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
         tasks: [makeTask({ status: AgentTaskStatus.COMPLETED })],
@@ -616,9 +635,9 @@ describe('MissionRetryService', () => {
 
       await expect(
         service.retryMission(
-          'mission-1',
-          'user-1',
-          { mode: 'continue' },
+          "mission-1",
+          "user-1",
+          { mode: "continue" },
           mockSendMessageToTopic,
           mockCreateLog,
           mockStartMission,
@@ -628,8 +647,11 @@ describe('MissionRetryService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should not throw when there are only PENDING tasks but no BLOCKED ones', async () => {
-      const pendingTask = makeTask({ id: 'task-1', status: AgentTaskStatus.PENDING });
+    it("should not throw when there are only PENDING tasks but no BLOCKED ones", async () => {
+      const pendingTask = makeTask({
+        id: "task-1",
+        status: AgentTaskStatus.PENDING,
+      });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
         tasks: [pendingTask],
@@ -637,9 +659,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -651,7 +673,7 @@ describe('MissionRetryService', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should update mission status to IN_PROGRESS in continue mode', async () => {
+    it("should update mission status to IN_PROGRESS in continue mode", async () => {
       const blockedTask = makeTask({ status: AgentTaskStatus.BLOCKED });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
@@ -660,9 +682,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -677,7 +699,7 @@ describe('MissionRetryService', () => {
       );
     });
 
-    it('should emit mission:retried event in continue mode', async () => {
+    it("should emit mission:retried event in continue mode", async () => {
       const blockedTask = makeTask({ status: AgentTaskStatus.BLOCKED });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
@@ -686,9 +708,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -697,13 +719,13 @@ describe('MissionRetryService', () => {
       );
 
       expect(mockTopicEventEmitter.emitToTopic).toHaveBeenCalledWith(
-        'topic-1',
-        'mission:retried',
-        expect.objectContaining({ missionId: 'mission-1', mode: 'continue' }),
+        "topic-1",
+        "mission:retried",
+        expect.objectContaining({ missionId: "mission-1", mode: "continue" }),
       );
     });
 
-    it('should call handleLeaderMentionCommand in continue mode', async () => {
+    it("should call handleLeaderMentionCommand in continue mode", async () => {
       const blockedTask = makeTask({ status: AgentTaskStatus.BLOCKED });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
@@ -712,9 +734,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -725,25 +747,27 @@ describe('MissionRetryService', () => {
       // handleLeaderMentionCommand is called async, give it a tick
       await new Promise((resolve) => setTimeout(resolve, 10));
       expect(mockHandleLeaderMentionCommand).toHaveBeenCalledWith(
-        'topic-1',
-        'user-1',
-        expect.stringContaining('LeaderBot'),
+        "topic-1",
+        "user-1",
+        expect.stringContaining("LeaderBot"),
       );
     });
 
-    it('should fallback to executeNextTasks when handleLeaderMentionCommand fails', async () => {
+    it("should fallback to executeNextTasks when handleLeaderMentionCommand fails", async () => {
       const blockedTask = makeTask({ status: AgentTaskStatus.BLOCKED });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
         tasks: [blockedTask],
       });
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
-      mockHandleLeaderMentionCommand.mockRejectedValueOnce(new Error('Leader command failed'));
+      mockHandleLeaderMentionCommand.mockRejectedValueOnce(
+        new Error("Leader command failed"),
+      );
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -753,10 +777,10 @@ describe('MissionRetryService', () => {
 
       // Wait for the async fallback to kick in
       await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(mockExecuteNextTasks).toHaveBeenCalledWith('mission-1');
+      expect(mockExecuteNextTasks).toHaveBeenCalledWith("mission-1");
     });
 
-    it('should include reason in log when provided in continue mode', async () => {
+    it("should include reason in log when provided in continue mode", async () => {
       const blockedTask = makeTask({ status: AgentTaskStatus.BLOCKED });
       const failedMission = makeMission({
         status: MissionStatus.FAILED,
@@ -765,9 +789,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue', reason: 'Manual retry' },
+        "mission-1",
+        "user-1",
+        { mode: "continue", reason: "Manual retry" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -776,14 +800,14 @@ describe('MissionRetryService', () => {
       );
 
       expect(mockCreateLog).toHaveBeenCalledWith(
-        'mission-1',
+        "mission-1",
         expect.objectContaining({
-          content: expect.stringContaining('Manual retry'),
+          content: expect.stringContaining("Manual retry"),
         }),
       );
     });
 
-    it('should return previousStatus correctly in continue mode', async () => {
+    it("should return previousStatus correctly in continue mode", async () => {
       const blockedTask = makeTask({ status: AgentTaskStatus.BLOCKED });
       const pausedMission = makeMission({
         status: MissionStatus.PAUSED,
@@ -792,9 +816,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(pausedMission);
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -810,8 +834,8 @@ describe('MissionRetryService', () => {
   // retryMission - stuck IN_PROGRESS
   // ============================================================
 
-  describe('retryMission - stuck IN_PROGRESS mission', () => {
-    it('should allow retry of stuck IN_PROGRESS mission', async () => {
+  describe("retryMission - stuck IN_PROGRESS mission", () => {
+    it("should allow retry of stuck IN_PROGRESS mission", async () => {
       const stuckTask = makeTask({
         status: AgentTaskStatus.IN_PROGRESS,
         startedAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
@@ -823,9 +847,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(stuckMission);
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -836,7 +860,7 @@ describe('MissionRetryService', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should allow full retry of stuck IN_PROGRESS mission', async () => {
+    it("should allow full retry of stuck IN_PROGRESS mission", async () => {
       const stuckTask = makeTask({
         status: AgentTaskStatus.IN_PROGRESS,
         startedAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -848,9 +872,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(stuckMission);
 
       const result = await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'full' },
+        "mission-1",
+        "user-1",
+        { mode: "full" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -859,7 +883,7 @@ describe('MissionRetryService', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.mode).toBe('full');
+      expect(result.mode).toBe("full");
     });
   });
 
@@ -867,11 +891,13 @@ describe('MissionRetryService', () => {
   // handleInProgressMission
   // ============================================================
 
-  describe('handleInProgressMission', () => {
-    const buildInProgressMission = (taskOverrides: Record<string, unknown>[] = []) => ({
-      id: 'mission-1',
-      topicId: 'topic-1',
-      title: 'Test Mission',
+  describe("handleInProgressMission", () => {
+    const buildInProgressMission = (
+      taskOverrides: Record<string, unknown>[] = [],
+    ) => ({
+      id: "mission-1",
+      topicId: "topic-1",
+      title: "Test Mission",
       status: MissionStatus.IN_PROGRESS,
       tasks: taskOverrides.map((t, i) => ({
         id: `task-${i + 1}`,
@@ -881,14 +907,18 @@ describe('MissionRetryService', () => {
         result: null,
         leaderFeedback: null,
         dependsOnIds: [],
-        assignedTo: { id: 'member-1', displayName: 'Agent One', agentName: 'AgentOne' },
+        assignedTo: {
+          id: "member-1",
+          displayName: "Agent One",
+          agentName: "AgentOne",
+        },
         ...t,
       })),
       leader: makeLeader(),
     });
 
     const buildCallbacks = (overrides: Record<string, unknown> = {}) => ({
-      sendMessageToTopic: jest.fn().mockResolvedValue({ id: 'msg-1' }),
+      sendMessageToTopic: jest.fn().mockResolvedValue({ id: "msg-1" }),
       leaderReviewTask: jest.fn().mockResolvedValue(undefined),
       executeTaskRevision: jest.fn().mockResolvedValue(undefined),
       executeNextTasks: jest.fn().mockResolvedValue(undefined),
@@ -896,7 +926,7 @@ describe('MissionRetryService', () => {
       ...overrides,
     });
 
-    it('should return handled: false when mission not found after reset', async () => {
+    it("should return handled: false when mission not found after reset", async () => {
       const mission = buildInProgressMission([
         {
           status: AgentTaskStatus.IN_PROGRESS,
@@ -908,14 +938,14 @@ describe('MissionRetryService', () => {
       const callbacks = buildCallbacks();
       const result = await service.handleInProgressMission(
         mission as any,
-        'topic-1',
+        "topic-1",
         callbacks,
       );
 
       expect(result.handled).toBe(false);
     });
 
-    it('should execute next tasks when pending tasks can start', async () => {
+    it("should execute next tasks when pending tasks can start", async () => {
       const mission = buildInProgressMission([
         { status: AgentTaskStatus.PENDING, dependsOnIds: [] },
       ]);
@@ -929,16 +959,16 @@ describe('MissionRetryService', () => {
       const callbacks = buildCallbacks();
       const result = await service.handleInProgressMission(
         mission as any,
-        'topic-1',
+        "topic-1",
         callbacks,
       );
 
       expect(result.handled).toBe(true);
-      expect(result.action).toBe('continue_organizing');
-      expect(callbacks.executeNextTasks).toHaveBeenCalledWith('mission-1');
+      expect(result.action).toBe("continue_organizing");
+      expect(callbacks.executeNextTasks).toHaveBeenCalledWith("mission-1");
     });
 
-    it('should complete mission when all tasks are completed', async () => {
+    it("should complete mission when all tasks are completed", async () => {
       const mission = buildInProgressMission([
         { status: AgentTaskStatus.COMPLETED },
         { status: AgentTaskStatus.COMPLETED },
@@ -953,31 +983,31 @@ describe('MissionRetryService', () => {
       const callbacks = buildCallbacks();
       const result = await service.handleInProgressMission(
         mission as any,
-        'topic-1',
+        "topic-1",
         callbacks,
       );
 
       expect(result.handled).toBe(true);
-      expect(result.action).toBe('completing_mission');
-      expect(callbacks.completeMission).toHaveBeenCalledWith('mission-1');
+      expect(result.action).toBe("completing_mission");
+      expect(callbacks.completeMission).toHaveBeenCalledWith("mission-1");
     });
 
-    it('should force complete when completion rate >= threshold', async () => {
+    it("should force complete when completion rate >= threshold", async () => {
       // Create many tasks, almost all completed
       const completedTasks = Array.from({ length: 9 }, (_, i) => ({
         id: `task-${i + 1}`,
         status: AgentTaskStatus.COMPLETED,
       }));
       const blockedTask = {
-        id: 'task-10',
+        id: "task-10",
         status: AgentTaskStatus.BLOCKED,
         result: null,
       };
 
       const mission = {
-        id: 'mission-1',
-        topicId: 'topic-1',
-        title: 'Test Mission',
+        id: "mission-1",
+        topicId: "topic-1",
+        title: "Test Mission",
         status: MissionStatus.IN_PROGRESS,
         tasks: [...completedTasks, blockedTask],
         leader: makeLeader(),
@@ -989,12 +1019,12 @@ describe('MissionRetryService', () => {
       const callbacks = buildCallbacks();
       const result = await service.handleInProgressMission(
         mission as any,
-        'topic-1',
+        "topic-1",
         callbacks,
       );
 
       expect(result.handled).toBe(true);
-      expect(result.action).toBe('force_completing_mission');
+      expect(result.action).toBe("force_completing_mission");
       // Should update blocked task to COMPLETED
       expect(mockPrisma.agentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1003,16 +1033,16 @@ describe('MissionRetryService', () => {
       );
     });
 
-    it('should reset stuck IN_PROGRESS tasks to PENDING', async () => {
+    it("should reset stuck IN_PROGRESS tasks to PENDING", async () => {
       const stuckTask = {
-        id: 'task-stuck',
+        id: "task-stuck",
         status: AgentTaskStatus.IN_PROGRESS,
         startedAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
       };
       const mission = {
-        id: 'mission-1',
-        topicId: 'topic-1',
-        title: 'Test Mission',
+        id: "mission-1",
+        topicId: "topic-1",
+        title: "Test Mission",
         status: MissionStatus.IN_PROGRESS,
         tasks: [stuckTask],
         leader: makeLeader(),
@@ -1026,27 +1056,31 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(updatedMission);
 
       const callbacks = buildCallbacks();
-      await service.handleInProgressMission(mission as any, 'topic-1', callbacks);
+      await service.handleInProgressMission(
+        mission as any,
+        "topic-1",
+        callbacks,
+      );
 
       expect(mockPrisma.agentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'task-stuck' },
+          where: { id: "task-stuck" },
           data: expect.objectContaining({ status: AgentTaskStatus.PENDING }),
         }),
       );
     });
 
-    it('should trigger retry_execution when no tasks can start and not near completion', async () => {
+    it("should trigger retry_execution when no tasks can start and not near completion", async () => {
       // Blocked tasks: one BLOCKED, one PENDING with unmet dependency
       const blockedTask = {
-        id: 'task-1',
+        id: "task-1",
         status: AgentTaskStatus.BLOCKED,
         dependsOnIds: [],
       };
       const mission = {
-        id: 'mission-1',
-        topicId: 'topic-1',
-        title: 'Test Mission',
+        id: "mission-1",
+        topicId: "topic-1",
+        title: "Test Mission",
         status: MissionStatus.IN_PROGRESS,
         tasks: [blockedTask],
         leader: makeLeader(),
@@ -1058,29 +1092,29 @@ describe('MissionRetryService', () => {
       const callbacks = buildCallbacks();
       const result = await service.handleInProgressMission(
         mission as any,
-        'topic-1',
+        "topic-1",
         callbacks,
       );
 
       expect(result.handled).toBe(true);
-      expect(result.action).toBe('retry_execution');
+      expect(result.action).toBe("retry_execution");
     });
 
-    it('should send message when forcing completion due to high completion rate', async () => {
+    it("should send message when forcing completion due to high completion rate", async () => {
       const completedTasks = Array.from({ length: 9 }, (_, i) => ({
         id: `task-${i + 1}`,
         status: AgentTaskStatus.COMPLETED,
       }));
       const remainingTask = {
-        id: 'task-10',
+        id: "task-10",
         status: AgentTaskStatus.REVISION_NEEDED,
-        result: 'some result',
+        result: "some result",
       };
 
       const mission = {
-        id: 'mission-1',
-        topicId: 'topic-1',
-        title: 'Test Mission',
+        id: "mission-1",
+        topicId: "topic-1",
+        title: "Test Mission",
         status: MissionStatus.IN_PROGRESS,
         tasks: [...completedTasks, remainingTask],
         leader: makeLeader(),
@@ -1090,12 +1124,16 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(updatedMission);
 
       const callbacks = buildCallbacks();
-      await service.handleInProgressMission(mission as any, 'topic-1', callbacks);
+      await service.handleInProgressMission(
+        mission as any,
+        "topic-1",
+        callbacks,
+      );
 
       expect(callbacks.sendMessageToTopic).toHaveBeenCalledWith(
-        'topic-1',
+        "topic-1",
         expect.anything(),
-        expect.stringContaining('完成率'),
+        expect.stringContaining("完成率"),
         MessageContentType.TEXT,
       );
     });
@@ -1105,10 +1143,10 @@ describe('MissionRetryService', () => {
   // retryMission - log message generation
   // ============================================================
 
-  describe('retryMission - log message generation with mixed task types', () => {
-    it('should generate correct log message with only stuck IN_PROGRESS tasks', async () => {
+  describe("retryMission - log message generation with mixed task types", () => {
+    it("should generate correct log message with only stuck IN_PROGRESS tasks", async () => {
       const stuckTask = makeTask({
-        id: 'task-1',
+        id: "task-1",
         status: AgentTaskStatus.IN_PROGRESS,
         startedAt: new Date(Date.now() - 40 * 60 * 1000),
       });
@@ -1119,9 +1157,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,
@@ -1130,21 +1168,21 @@ describe('MissionRetryService', () => {
       );
 
       expect(mockCreateLog).toHaveBeenCalledWith(
-        'mission-1',
+        "mission-1",
         expect.objectContaining({
-          content: expect.stringContaining('卡住'),
+          content: expect.stringContaining("卡住"),
         }),
       );
     });
 
-    it('should generate mixed log message when both stuck and failed tasks present', async () => {
+    it("should generate mixed log message when both stuck and failed tasks present", async () => {
       const stuckTask = makeTask({
-        id: 'task-1',
+        id: "task-1",
         status: AgentTaskStatus.IN_PROGRESS,
         startedAt: new Date(Date.now() - 40 * 60 * 1000),
       });
       const blockedTask = makeTask({
-        id: 'task-2',
+        id: "task-2",
         status: AgentTaskStatus.BLOCKED,
       });
       const failedMission = makeMission({
@@ -1154,9 +1192,9 @@ describe('MissionRetryService', () => {
       mockPrisma.teamMission.findUnique.mockResolvedValueOnce(failedMission);
 
       await service.retryMission(
-        'mission-1',
-        'user-1',
-        { mode: 'continue' },
+        "mission-1",
+        "user-1",
+        { mode: "continue" },
         mockSendMessageToTopic,
         mockCreateLog,
         mockStartMission,

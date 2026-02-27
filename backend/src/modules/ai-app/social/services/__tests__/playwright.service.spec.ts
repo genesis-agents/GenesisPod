@@ -84,7 +84,11 @@ describe("PlaywrightService", () => {
   let mockContext: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    const { service: bs, mockPage: mp, mockContext: mc } = makeMockBrowserService();
+    const {
+      service: bs,
+      mockPage: mp,
+      mockContext: mc,
+    } = makeMockBrowserService();
     browserServiceMock = bs;
     mockPage = mp;
     mockContext = mc;
@@ -190,11 +194,9 @@ describe("PlaywrightService", () => {
     describe("WECHAT_MP platform", () => {
       it("returns sessionKey and screenshot on success", async () => {
         // QR code element not found — falls back to full-page screenshot
-        (mockPage.$ as jest.Mock).mockResolvedValue(null);
-        (mockPage.waitForSelector as jest.Mock).mockResolvedValue(null);
-        (mockPage.screenshot as jest.Mock).mockResolvedValue(
-          Buffer.from("page-screenshot"),
-        );
+        mockPage.$.mockResolvedValue(null);
+        mockPage.waitForSelector.mockResolvedValue(null);
+        mockPage.screenshot.mockResolvedValue(Buffer.from("page-screenshot"));
 
         const result = await service.startLoginSession("user-1", "WECHAT_MP");
 
@@ -213,8 +215,8 @@ describe("PlaywrightService", () => {
           click: jest.fn().mockResolvedValue(undefined),
         };
         // waitForSelector succeeds; $ returns the element
-        (mockPage.waitForSelector as jest.Mock).mockResolvedValue(mockQrElement);
-        (mockPage.$ as jest.Mock).mockResolvedValue(mockQrElement);
+        mockPage.waitForSelector.mockResolvedValue(mockQrElement);
+        mockPage.$.mockResolvedValue(mockQrElement);
 
         const result = await service.startLoginSession("user-1", "WECHAT_MP");
 
@@ -227,18 +229,16 @@ describe("PlaywrightService", () => {
           screenshot: jest.fn().mockRejectedValue(new Error("screenshot fail")),
           click: jest.fn().mockResolvedValue(undefined),
         };
-        (mockPage.waitForSelector as jest.Mock).mockResolvedValue(mockQrElement);
-        (mockPage.$ as jest.Mock).mockResolvedValue(mockQrElement);
-        (mockPage.screenshot as jest.Mock).mockResolvedValue(
-          Buffer.from("fallback"),
-        );
+        mockPage.waitForSelector.mockResolvedValue(mockQrElement);
+        mockPage.$.mockResolvedValue(mockQrElement);
+        mockPage.screenshot.mockResolvedValue(Buffer.from("fallback"));
 
         const result = await service.startLoginSession("user-1", "WECHAT_MP");
         expect(result.screenshot).toMatch(/^data:image\/png;base64,/);
       });
 
       it("closes context and rethrows when page.goto throws", async () => {
-        (mockPage.goto as jest.Mock).mockRejectedValue(new Error("nav fail"));
+        mockPage.goto.mockRejectedValue(new Error("nav fail"));
 
         await expect(
           service.startLoginSession("user-1", "WECHAT_MP"),
@@ -258,15 +258,12 @@ describe("PlaywrightService", () => {
         };
 
         // First $ call returns mask, second returns login button
-        (mockPage.$ as jest.Mock)
-          .mockResolvedValueOnce(mockMask) // mask check
+        mockPage.$.mockResolvedValueOnce(mockMask) // mask check
           .mockResolvedValueOnce(mockLoginBtn) // login button check
           .mockResolvedValue(null); // QR code check
 
-        (mockPage.waitForSelector as jest.Mock).mockResolvedValue(null);
-        (mockPage.screenshot as jest.Mock).mockResolvedValue(
-          Buffer.from("xhs-screenshot"),
-        );
+        mockPage.waitForSelector.mockResolvedValue(null);
+        mockPage.screenshot.mockResolvedValue(Buffer.from("xhs-screenshot"));
 
         const result = await service.startLoginSession("user-1", "XIAOHONGSHU");
         expect(result.sessionKey).toMatch(/^login-user-1-XIAOHONGSHU-/);
@@ -275,12 +272,15 @@ describe("PlaywrightService", () => {
 
       it("logs warning when login button click fails", async () => {
         // Mask click fails
-        (mockPage.$ as jest.Mock).mockImplementation(async (selector: string) => {
-          if (selector.includes("mask")) return { click: jest.fn().mockRejectedValue(new Error("mask error")) };
+        mockPage.$.mockImplementation(async (selector: string) => {
+          if (selector.includes("mask"))
+            return {
+              click: jest.fn().mockRejectedValue(new Error("mask error")),
+            };
           return null;
         });
-        (mockPage.waitForSelector as jest.Mock).mockResolvedValue(null);
-        (mockPage.screenshot as jest.Mock).mockResolvedValue(Buffer.from("x"));
+        mockPage.waitForSelector.mockResolvedValue(null);
+        mockPage.screenshot.mockResolvedValue(Buffer.from("x"));
 
         // Should not throw even if login button click fails
         const result = await service.startLoginSession("user-1", "XIAOHONGSHU");
@@ -331,9 +331,9 @@ describe("PlaywrightService", () => {
       it("returns loggedIn=true when indicator element found", async () => {
         const mockEl = { textContent: "test" };
         // First $() call for indicator returns an element
-        (mockPage.$ as jest.Mock).mockResolvedValue(mockEl);
-        (mockPage.$eval as jest.Mock).mockResolvedValue("MyAccount");
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.$.mockResolvedValue(mockEl);
+        mockPage.$eval.mockResolvedValue("MyAccount");
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -342,11 +342,11 @@ describe("PlaywrightService", () => {
       });
 
       it("returns loggedIn=true via URL redirect detection", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue(null);
-        (mockPage.url as jest.Mock).mockReturnValue(
+        mockPage.$.mockResolvedValue(null);
+        mockPage.url.mockReturnValue(
           "https://mp.weixin.qq.com/cgi-bin/home?token=12345",
         );
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -354,10 +354,8 @@ describe("PlaywrightService", () => {
       });
 
       it("returns loggedIn=true via login cookies", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue(null);
-        (mockPage.url as jest.Mock).mockReturnValue(
-          "https://mp.weixin.qq.com/",
-        );
+        mockPage.$.mockResolvedValue(null);
+        mockPage.url.mockReturnValue("https://mp.weixin.qq.com/");
         mockContext.cookies.mockResolvedValue([
           { name: "slave_user", value: "x" },
           { name: "bizuin", value: "y" },
@@ -365,7 +363,7 @@ describe("PlaywrightService", () => {
         (browserServiceMock.getContext as jest.Mock).mockResolvedValue(
           mockContext,
         );
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -373,14 +371,12 @@ describe("PlaywrightService", () => {
       });
 
       it("returns loggedIn=true via page content evaluation", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue(null);
-        (mockPage.url as jest.Mock).mockReturnValue(
-          "https://mp.weixin.qq.com/",
-        );
+        mockPage.$.mockResolvedValue(null);
+        mockPage.url.mockReturnValue("https://mp.weixin.qq.com/");
         (browserServiceMock.getContext as jest.Mock).mockResolvedValue(null);
         // page.evaluate returns true for loggedInContent check
-        (mockPage.evaluate as jest.Mock).mockResolvedValue(true);
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.evaluate.mockResolvedValue(true);
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -388,12 +384,12 @@ describe("PlaywrightService", () => {
       });
 
       it("extracts wechatToken from URL on login success", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue({ textContent: "" });
-        (mockPage.$eval as jest.Mock).mockResolvedValue("MyPage");
-        (mockPage.url as jest.Mock).mockReturnValue(
+        mockPage.$.mockResolvedValue({ textContent: "" });
+        mockPage.$eval.mockResolvedValue("MyPage");
+        mockPage.url.mockReturnValue(
           "https://mp.weixin.qq.com/cgi-bin/home?token=99999",
         );
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
         (browserServiceMock.saveSession as jest.Mock).mockResolvedValue({
           cookies: [{ name: "slave_user", value: "x" }],
         });
@@ -405,13 +401,11 @@ describe("PlaywrightService", () => {
       });
 
       it("extracts wechatToken from page JS when not in URL", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue({ textContent: "" });
-        (mockPage.$eval as jest.Mock).mockResolvedValue("MyPage");
-        (mockPage.url as jest.Mock).mockReturnValue(
-          "https://mp.weixin.qq.com/cgi-bin/home",
-        );
-        (mockPage.evaluate as jest.Mock).mockResolvedValue("JS_TOKEN_42");
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.$.mockResolvedValue({ textContent: "" });
+        mockPage.$eval.mockResolvedValue("MyPage");
+        mockPage.url.mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home");
+        mockPage.evaluate.mockResolvedValue("JS_TOKEN_42");
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
         (browserServiceMock.saveSession as jest.Mock).mockResolvedValue({
           cookies: [{ name: "slave_user", value: "x" }],
         });
@@ -423,12 +417,12 @@ describe("PlaywrightService", () => {
       });
 
       it("retries saveSession when no cookies on first save", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue({ textContent: "" });
-        (mockPage.$eval as jest.Mock).mockResolvedValue("");
-        (mockPage.url as jest.Mock).mockReturnValue(
+        mockPage.$.mockResolvedValue({ textContent: "" });
+        mockPage.$eval.mockResolvedValue("");
+        mockPage.url.mockReturnValue(
           "https://mp.weixin.qq.com/cgi-bin/home?token=111",
         );
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
         (browserServiceMock.saveSession as jest.Mock)
           .mockResolvedValueOnce({ cookies: [] }) // first call: no cookies
           .mockResolvedValueOnce({
@@ -442,13 +436,11 @@ describe("PlaywrightService", () => {
       });
 
       it("returns loggedIn=false with screenshot when not logged in", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue(null);
-        (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+        mockPage.$.mockResolvedValue(null);
+        mockPage.url.mockReturnValue("https://mp.weixin.qq.com/");
         (browserServiceMock.getContext as jest.Mock).mockResolvedValue(null);
-        (mockPage.evaluate as jest.Mock).mockResolvedValue(false);
-        (mockPage.screenshot as jest.Mock).mockResolvedValue(
-          Buffer.from("not-logged"),
-        );
+        mockPage.evaluate.mockResolvedValue(false);
+        mockPage.screenshot.mockResolvedValue(Buffer.from("not-logged"));
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -457,13 +449,11 @@ describe("PlaywrightService", () => {
       });
 
       it("returns loggedIn=false without screenshot when screenshot fails", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue(null);
-        (mockPage.url as jest.Mock).mockReturnValue("https://mp.weixin.qq.com/");
+        mockPage.$.mockResolvedValue(null);
+        mockPage.url.mockReturnValue("https://mp.weixin.qq.com/");
         (browserServiceMock.getContext as jest.Mock).mockResolvedValue(null);
-        (mockPage.evaluate as jest.Mock).mockResolvedValue(false);
-        (mockPage.screenshot as jest.Mock).mockRejectedValue(
-          new Error("shot fail"),
-        );
+        mockPage.evaluate.mockResolvedValue(false);
+        mockPage.screenshot.mockRejectedValue(new Error("shot fail"));
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -472,7 +462,7 @@ describe("PlaywrightService", () => {
       });
 
       it("returns loggedIn=false on unexpected error", async () => {
-        (mockPage.$ as jest.Mock).mockRejectedValue(new Error("page error"));
+        mockPage.$.mockRejectedValue(new Error("page error"));
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -495,21 +485,19 @@ describe("PlaywrightService", () => {
 
       it("returns loggedIn=true via cookies when login modal hidden", async () => {
         // indicator element not found
-        (mockPage.$ as jest.Mock).mockImplementation(async (selector: string) => {
+        mockPage.$.mockImplementation(async (selector: string) => {
           if (selector.includes("login-container")) return null;
           return null;
         });
-        (mockPage.url as jest.Mock).mockReturnValue(
-          "https://www.xiaohongshu.com/explore",
-        );
+        mockPage.url.mockReturnValue("https://www.xiaohongshu.com/explore");
         mockContext.cookies.mockResolvedValue([
           { name: "web_session_xxxxx", value: "abc" },
         ]);
         (browserServiceMock.getContext as jest.Mock).mockResolvedValue(
           mockContext,
         );
-        (mockPage.evaluate as jest.Mock).mockResolvedValue(true);
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.evaluate.mockResolvedValue(true);
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -517,11 +505,11 @@ describe("PlaywrightService", () => {
       });
 
       it("returns loggedIn=true via page content when cookies missing", async () => {
-        (mockPage.$ as jest.Mock).mockResolvedValue(null);
+        mockPage.$.mockResolvedValue(null);
         (browserServiceMock.getContext as jest.Mock).mockResolvedValue(null);
         // evaluate returns true (logged-in content found)
-        (mockPage.evaluate as jest.Mock).mockResolvedValue(true);
-        (mockPage.waitForTimeout as jest.Mock).mockResolvedValue(undefined);
+        mockPage.evaluate.mockResolvedValue(true);
+        mockPage.waitForTimeout.mockResolvedValue(undefined);
 
         const result = await service.checkLoginStatus(SESSION_KEY);
 
@@ -548,16 +536,16 @@ describe("PlaywrightService", () => {
     });
 
     it("throws when session not found", async () => {
-      await expect(
-        service.getLoginScreenshot("no-such-key"),
-      ).rejects.toThrow("Login session not found: no-such-key");
+      await expect(service.getLoginScreenshot("no-such-key")).rejects.toThrow(
+        "Login session not found: no-such-key",
+      );
     });
 
     it("returns base64 screenshot using QR element", async () => {
       const mockQrEl = {
         screenshot: jest.fn().mockResolvedValue(Buffer.from("qr")),
       };
-      (mockPage.$ as jest.Mock).mockResolvedValue(mockQrEl);
+      mockPage.$.mockResolvedValue(mockQrEl);
 
       const result = await service.getLoginScreenshot(SESSION_KEY);
 
@@ -566,8 +554,8 @@ describe("PlaywrightService", () => {
     });
 
     it("falls back to full-page screenshot when QR element absent", async () => {
-      (mockPage.$ as jest.Mock).mockResolvedValue(null);
-      (mockPage.screenshot as jest.Mock).mockResolvedValue(Buffer.from("full"));
+      mockPage.$.mockResolvedValue(null);
+      mockPage.screenshot.mockResolvedValue(Buffer.from("full"));
 
       const result = await service.getLoginScreenshot(SESSION_KEY);
 
@@ -579,8 +567,8 @@ describe("PlaywrightService", () => {
       const mockQrEl = {
         screenshot: jest.fn().mockRejectedValue(new Error("qr shot fail")),
       };
-      (mockPage.$ as jest.Mock).mockResolvedValue(mockQrEl);
-      (mockPage.screenshot as jest.Mock).mockResolvedValue(Buffer.from("full"));
+      mockPage.$.mockResolvedValue(mockQrEl);
+      mockPage.screenshot.mockResolvedValue(Buffer.from("full"));
 
       const result = await service.getLoginScreenshot(SESSION_KEY);
 
@@ -592,8 +580,8 @@ describe("PlaywrightService", () => {
       // We modify PLATFORM_CONFIGS indirectly by using a session with no config qrCode
       // Inject a session for a platform type whose config has no qrCodeSelector
       // Use WECHAT_MP but simulate no qr element
-      (mockPage.$ as jest.Mock).mockResolvedValue(null);
-      (mockPage.screenshot as jest.Mock).mockResolvedValue(Buffer.from("full"));
+      mockPage.$.mockResolvedValue(null);
+      mockPage.screenshot.mockResolvedValue(Buffer.from("full"));
 
       const result = await service.getLoginScreenshot(SESSION_KEY);
       expect(result).toMatch(/^data:image\/png;base64,/);

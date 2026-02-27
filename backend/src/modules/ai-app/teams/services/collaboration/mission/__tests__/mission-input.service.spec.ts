@@ -2,33 +2,39 @@
  * MissionInputService Tests
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { MissionInputService } from '../mission-input.service';
-import { TokenBudgetService } from '../../context/token-budget.service';
-import { ConstraintEnforcementService } from '../../context/constraint-enforcement.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { MissionInputService } from "../mission-input.service";
+import { TokenBudgetService } from "../../context/token-budget.service";
+import { ConstraintEnforcementService } from "../../context/constraint-enforcement.service";
 
 // Re-export shim – use facade exports
-jest.mock('../../context/token-budget.service', () => ({
+jest.mock("../../context/token-budget.service", () => ({
   TokenBudgetService: jest.fn().mockImplementation(() => ({
-    smartTruncate: jest.fn().mockImplementation((text: string, _maxTokens: number) => text.substring(0, 7000)),
+    smartTruncate: jest
+      .fn()
+      .mockImplementation((text: string, _maxTokens: number) =>
+        text.substring(0, 7000),
+      ),
   })),
 }));
 
-jest.mock('../../context/constraint-enforcement.service', () => ({
+jest.mock("../../context/constraint-enforcement.service", () => ({
   ConstraintEnforcementService: jest.fn().mockImplementation(() => ({
     extractConstraints: jest.fn().mockReturnValue([]),
   })),
 }));
 
 const mockTokenBudgetService = {
-  smartTruncate: jest.fn().mockImplementation((text: string) => text.substring(0, 7000)),
+  smartTruncate: jest
+    .fn()
+    .mockImplementation((text: string) => text.substring(0, 7000)),
 };
 
 const mockConstraintService = {
   extractConstraints: jest.fn().mockReturnValue([]),
 };
 
-describe('MissionInputService', () => {
+describe("MissionInputService", () => {
   let service: MissionInputService;
 
   beforeEach(async () => {
@@ -53,15 +59,15 @@ describe('MissionInputService', () => {
     jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
   // ==================== parseStructuredInput ====================
 
-  describe('parseStructuredInput', () => {
-    it('should parse short description without compression', async () => {
-      const description = '写一个简单的故事';
+  describe("parseStructuredInput", () => {
+    it("should parse short description without compression", async () => {
+      const description = "写一个简单的故事";
 
       const result = await service.parseStructuredInput(description);
 
@@ -71,16 +77,16 @@ describe('MissionInputService', () => {
       expect(result.compressionApplied).toBe(false);
     });
 
-    it('should mark long content as isLongContent', async () => {
-      const description = 'x'.repeat(11000);
+    it("should mark long content as isLongContent", async () => {
+      const description = "x".repeat(11000);
 
       const result = await service.parseStructuredInput(description);
 
       expect(result.isLongContent).toBe(true);
     });
 
-    it('should apply compression for very long background', async () => {
-      const description = 'y'.repeat(9000);
+    it("should apply compression for very long background", async () => {
+      const description = "y".repeat(9000);
 
       const result = await service.parseStructuredInput(description);
 
@@ -88,48 +94,58 @@ describe('MissionInputService', () => {
       expect(result).toBeDefined();
     });
 
-    it('should extract constraints from description', async () => {
+    it("should extract constraints from description", async () => {
       mockConstraintService.extractConstraints.mockReturnValueOnce([
-        { id: 'c1', type: 'MUST', rule: 'No violence', severity: 'high', category: 'content' },
+        {
+          id: "c1",
+          type: "MUST",
+          rule: "No violence",
+          severity: "high",
+          category: "content",
+        },
       ]);
 
-      const result = await service.parseStructuredInput('Write a story. No violence.');
+      const result = await service.parseStructuredInput(
+        "Write a story. No violence.",
+      );
 
       expect(result.constraints.length).toBe(1);
-      expect(result.constraints[0].rule).toBe('No violence');
+      expect(result.constraints[0].rule).toBe("No violence");
     });
 
-    it('should extract entities from description with character patterns', async () => {
-      const description = '人物：张三，性别：男，年龄：30';
+    it("should extract entities from description with character patterns", async () => {
+      const description = "人物：张三，性别：男，年龄：30";
 
       const result = await service.parseStructuredInput(description);
 
       expect(result.entities).toBeDefined();
     });
 
-    it('should extract location entities', async () => {
-      const description = '在青云山附近的村子里';
+    it("should extract location entities", async () => {
+      const description = "在青云山附近的村子里";
 
       const result = await service.parseStructuredInput(description);
 
       expect(result.entities).toBeDefined();
     });
 
-    it('should compute extraction confidence >= 0.1', async () => {
-      const result = await service.parseStructuredInput('Simple description');
+    it("should compute extraction confidence >= 0.1", async () => {
+      const result = await service.parseStructuredInput("Simple description");
 
       expect(result.extractionConfidence).toBeGreaterThanOrEqual(0.1);
       expect(result.extractionConfidence).toBeLessThanOrEqual(1.0);
     });
 
-    it('should reduce confidence for long content', async () => {
-      const shortResult = await service.parseStructuredInput('Short text');
-      const longResult = await service.parseStructuredInput('x'.repeat(11000));
+    it("should reduce confidence for long content", async () => {
+      const shortResult = await service.parseStructuredInput("Short text");
+      const longResult = await service.parseStructuredInput("x".repeat(11000));
 
-      expect(longResult.extractionConfidence).toBeLessThan(shortResult.extractionConfidence);
+      expect(longResult.extractionConfidence).toBeLessThan(
+        shortResult.extractionConfidence,
+      );
     });
 
-    it('should extract examples from description', async () => {
+    it("should extract examples from description", async () => {
       const description = `示例：
 这是一段示例内容，展示了如何写作。故事很精彩。`;
 
@@ -141,21 +157,33 @@ describe('MissionInputService', () => {
 
   // ==================== buildInputSummary ====================
 
-  describe('buildInputSummary', () => {
-    it('should build summary from structured input', async () => {
+  describe("buildInputSummary", () => {
+    it("should build summary from structured input", async () => {
       const input = {
-        originalDescription: 'Test description',
+        originalDescription: "Test description",
         originalLength: 16,
-        background: 'Background content',
+        background: "Background content",
         constraints: [
-          { id: 'c1', type: 'MUST' as const, rule: 'Rule 1', severity: 'high' as const, category: 'content' },
-          { id: 'c2', type: 'SHOULD' as const, rule: 'Rule 2', severity: 'medium' as const, category: 'style' },
+          {
+            id: "c1",
+            type: "MUST" as const,
+            rule: "Rule 1",
+            severity: "high" as const,
+            category: "content",
+          },
+          {
+            id: "c2",
+            type: "SHOULD" as const,
+            rule: "Rule 2",
+            severity: "medium" as const,
+            category: "style",
+          },
         ],
         entities: [
           {
-            name: '张三',
-            type: 'character' as const,
-            definition: '主角',
+            name: "张三",
+            type: "character" as const,
+            definition: "主角",
             attributes: {},
             relations: [],
           },
@@ -175,14 +203,26 @@ describe('MissionInputService', () => {
       expect(summary.keyPoints.length).toBeGreaterThan(0);
     });
 
-    it('should include MUST constraints in key points', async () => {
+    it("should include MUST constraints in key points", async () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'Background',
+        background: "Background",
         constraints: [
-          { id: 'c1', type: 'MUST' as const, rule: 'Constraint A', severity: 'high' as const, category: 'content' },
-          { id: 'c2', type: 'MUST' as const, rule: 'Constraint B', severity: 'high' as const, category: 'content' },
+          {
+            id: "c1",
+            type: "MUST" as const,
+            rule: "Constraint A",
+            severity: "high" as const,
+            category: "content",
+          },
+          {
+            id: "c2",
+            type: "MUST" as const,
+            rule: "Constraint B",
+            severity: "high" as const,
+            category: "content",
+          },
         ],
         entities: [],
         examples: [],
@@ -193,18 +233,26 @@ describe('MissionInputService', () => {
 
       const summary = await service.buildInputSummary(input);
 
-      const mustKeyPoint = summary.keyPoints.find((kp) => kp.includes('硬性约束'));
+      const mustKeyPoint = summary.keyPoints.find((kp) =>
+        kp.includes("硬性约束"),
+      );
       expect(mustKeyPoint).toBeDefined();
     });
 
-    it('should include character entities in key points', async () => {
+    it("should include character entities in key points", async () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'Background',
+        background: "Background",
         constraints: [],
         entities: [
-          { name: '李四', type: 'character' as const, definition: '配角', attributes: {}, relations: [] },
+          {
+            name: "李四",
+            type: "character" as const,
+            definition: "配角",
+            attributes: {},
+            relations: [],
+          },
         ],
         examples: [],
         isLongContent: false,
@@ -214,15 +262,15 @@ describe('MissionInputService', () => {
 
       const summary = await service.buildInputSummary(input);
 
-      const charKeyPoint = summary.keyPoints.find((kp) => kp.includes('李四'));
+      const charKeyPoint = summary.keyPoints.find((kp) => kp.includes("李四"));
       expect(charKeyPoint).toBeDefined();
     });
 
-    it('should truncate long background in summary', async () => {
+    it("should truncate long background in summary", async () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'B'.repeat(1000),
+        background: "B".repeat(1000),
         constraints: [],
         entities: [],
         examples: [],
@@ -233,20 +281,26 @@ describe('MissionInputService', () => {
 
       const summary = await service.buildInputSummary(input);
 
-      expect(summary.summary.endsWith('...')).toBe(true);
+      expect(summary.summary.endsWith("...")).toBe(true);
     });
   });
 
   // ==================== validateConstraints ====================
 
-  describe('validateConstraints', () => {
-    it('should be valid for well-defined constraints', () => {
+  describe("validateConstraints", () => {
+    it("should be valid for well-defined constraints", () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'Background',
+        background: "Background",
         constraints: [
-          { id: 'c1', type: 'MUST' as const, rule: 'Rule 1', severity: 'high' as const, category: 'content' },
+          {
+            id: "c1",
+            type: "MUST" as const,
+            rule: "Rule 1",
+            severity: "high" as const,
+            category: "content",
+          },
         ],
         entities: [],
         examples: [],
@@ -261,11 +315,11 @@ describe('MissionInputService', () => {
       expect(result.warnings.length).toBe(0);
     });
 
-    it('should warn about missing MUST constraints for long content', () => {
+    it("should warn about missing MUST constraints for long content", () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'Background',
+        background: "Background",
         constraints: [],
         entities: [],
         examples: [],
@@ -278,14 +332,14 @@ describe('MissionInputService', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.warnings.length).toBeGreaterThan(0);
-      expect(result.warnings[0]).toContain('硬性约束');
+      expect(result.warnings[0]).toContain("硬性约束");
     });
 
-    it('should warn about low extraction confidence', () => {
+    it("should warn about low extraction confidence", () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'Background',
+        background: "Background",
         constraints: [],
         entities: [],
         examples: [],
@@ -297,17 +351,23 @@ describe('MissionInputService', () => {
       const result = service.validateConstraints(input);
 
       expect(result.isValid).toBe(false);
-      expect(result.warnings.some((w) => w.includes('置信度'))).toBe(true);
+      expect(result.warnings.some((w) => w.includes("置信度"))).toBe(true);
     });
 
-    it('should warn about entities with short definitions', () => {
+    it("should warn about entities with short definitions", () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'Background',
+        background: "Background",
         constraints: [],
         entities: [
-          { name: '张三', type: 'character' as const, definition: 'hi', attributes: {}, relations: [] },
+          {
+            name: "张三",
+            type: "character" as const,
+            definition: "hi",
+            attributes: {},
+            relations: [],
+          },
         ],
         examples: [],
         isLongContent: false,
@@ -317,23 +377,37 @@ describe('MissionInputService', () => {
 
       const result = service.validateConstraints(input);
 
-      expect(result.warnings.some((w) => w.includes('实体定义不完整'))).toBe(true);
+      expect(result.warnings.some((w) => w.includes("实体定义不完整"))).toBe(
+        true,
+      );
     });
   });
 
   // ==================== formatInputReport ====================
 
-  describe('formatInputReport', () => {
-    it('should format input report as string', () => {
+  describe("formatInputReport", () => {
+    it("should format input report as string", () => {
       const input = {
-        originalDescription: 'Test',
+        originalDescription: "Test",
         originalLength: 4,
-        background: 'Background',
+        background: "Background",
         constraints: [
-          { id: 'c1', type: 'MUST' as const, rule: 'Rule 1', severity: 'high' as const, category: 'content' },
+          {
+            id: "c1",
+            type: "MUST" as const,
+            rule: "Rule 1",
+            severity: "high" as const,
+            category: "content",
+          },
         ],
         entities: [
-          { name: '张三', type: 'character' as const, definition: '主角定义很长', attributes: {}, relations: [] },
+          {
+            name: "张三",
+            type: "character" as const,
+            definition: "主角定义很长",
+            attributes: {},
+            relations: [],
+          },
         ],
         examples: [],
         isLongContent: false,
@@ -343,11 +417,11 @@ describe('MissionInputService', () => {
 
       const report = service.formatInputReport(input);
 
-      expect(report).toContain('Mission Input Report');
-      expect(report).toContain('c1');
-      expect(report).toContain('张三');
-      expect(report).toContain('Constraints (1)');
-      expect(report).toContain('Entities (1)');
+      expect(report).toContain("Mission Input Report");
+      expect(report).toContain("c1");
+      expect(report).toContain("张三");
+      expect(report).toContain("Constraints (1)");
+      expect(report).toContain("Entities (1)");
     });
   });
 });
