@@ -22,11 +22,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { content, language = 'zh' } = body;
 
+    // BYOK: Forward Authorization header so backend can use user's personal API key
+    const authHeader = request.headers.get('authorization');
+
     // Forward request to NestJS backend
     const response = await fetch(`${API_URL}/api/v1/ai/insights`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify({
         content,
