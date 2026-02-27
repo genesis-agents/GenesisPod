@@ -116,9 +116,11 @@ describe("ResearchProjectSourceService", () => {
           },
         ]),
       },
-      $transaction: jest.fn().mockImplementation((promises: Promise<any>[]) =>
-        Promise.all(promises),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation((promises: Promise<any>[]) =>
+          Promise.all(promises),
+        ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -130,7 +132,9 @@ describe("ResearchProjectSourceService", () => {
       ],
     }).compile();
 
-    service = module.get<ResearchProjectSourceService>(ResearchProjectSourceService);
+    service = module.get<ResearchProjectSourceService>(
+      ResearchProjectSourceService,
+    );
 
     jest.spyOn(Logger.prototype, "log").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
@@ -193,7 +197,9 @@ describe("ResearchProjectSourceService", () => {
 
     it("should return existing source when duplicate found (by title)", async () => {
       const existingSource = makeSource();
-      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(existingSource);
+      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(
+        existingSource,
+      );
 
       const result = await service.addSource(userId, projectId, dto);
 
@@ -203,7 +209,9 @@ describe("ResearchProjectSourceService", () => {
 
     it("should return existing source when duplicate found (by URL)", async () => {
       const existingSource = makeSource();
-      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(existingSource);
+      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(
+        existingSource,
+      );
 
       const result = await service.addSource(userId, projectId, {
         ...dto,
@@ -215,7 +223,9 @@ describe("ResearchProjectSourceService", () => {
 
     it("should return existing source when duplicate found (by resourceId)", async () => {
       const existingSource = makeSource();
-      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(existingSource);
+      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(
+        existingSource,
+      );
 
       const result = await service.addSource(userId, projectId, {
         ...dto,
@@ -226,7 +236,10 @@ describe("ResearchProjectSourceService", () => {
     });
 
     it("should handle null publishedAt", async () => {
-      await service.addSource(userId, projectId, { ...dto, publishedAt: undefined });
+      await service.addSource(userId, projectId, {
+        ...dto,
+        publishedAt: undefined,
+      });
 
       expect(mockPrisma.researchProjectSource.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -251,7 +264,10 @@ describe("ResearchProjectSourceService", () => {
     });
 
     it("should use empty object when metadata not provided", async () => {
-      await service.addSource(userId, projectId, { ...dto, metadata: undefined });
+      await service.addSource(userId, projectId, {
+        ...dto,
+        metadata: undefined,
+      });
 
       expect(mockPrisma.researchProjectSource.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -274,7 +290,7 @@ describe("ResearchProjectSourceService", () => {
     it("should add multiple unique sources", async () => {
       mockPrisma.researchProjectSource.create.mockResolvedValue(makeSource());
 
-      const result = await service.addSources(userId, projectId, sources);
+      await service.addSources(userId, projectId, sources);
 
       expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockPrisma.researchProject.update).toHaveBeenCalledWith({
@@ -302,7 +318,9 @@ describe("ResearchProjectSourceService", () => {
     });
 
     it("should return empty array when all sources are duplicates from DB", async () => {
-      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(makeSource());
+      mockPrisma.researchProjectSource.findFirst.mockResolvedValue(
+        makeSource(),
+      );
 
       const result = await service.addSources(userId, projectId, sources);
 
@@ -313,7 +331,11 @@ describe("ResearchProjectSourceService", () => {
     it("should skip duplicates within the batch (same title)", async () => {
       const batchWithDuplicateTitle: AddSourceDto[] = [
         { title: "Same Title", sourceType: "web", sourceUrl: "https://a.com" },
-        { title: "Same Title", sourceType: "paper", sourceUrl: "https://b.com" },
+        {
+          title: "Same Title",
+          sourceType: "paper",
+          sourceUrl: "https://b.com",
+        },
       ];
       mockPrisma.researchProjectSource.findFirst.mockResolvedValue(null);
 
@@ -408,9 +430,9 @@ describe("ResearchProjectSourceService", () => {
     it("should throw NotFoundException when project not found", async () => {
       mockPrisma.researchProject.findUnique.mockResolvedValue(null);
 
-      await expect(service.getSource(userId, projectId, sourceId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getSource(userId, projectId, sourceId),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw ForbiddenException when user does not own project", async () => {
@@ -418,17 +440,17 @@ describe("ResearchProjectSourceService", () => {
         makeProject("other-user"),
       );
 
-      await expect(service.getSource(userId, projectId, sourceId)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.getSource(userId, projectId, sourceId),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it("should throw NotFoundException when source not found", async () => {
       mockPrisma.researchProjectSource.findUnique.mockResolvedValue(null);
 
-      await expect(service.getSource(userId, projectId, sourceId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getSource(userId, projectId, sourceId),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw NotFoundException when source belongs to different project", async () => {
@@ -436,9 +458,9 @@ describe("ResearchProjectSourceService", () => {
         makeSource("src-001", "other-project"),
       );
 
-      await expect(service.getSource(userId, projectId, sourceId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getSource(userId, projectId, sourceId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -463,9 +485,9 @@ describe("ResearchProjectSourceService", () => {
     it("should throw NotFoundException when project not found", async () => {
       mockPrisma.researchProject.findUnique.mockResolvedValue(null);
 
-      await expect(service.removeSource(userId, projectId, sourceId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.removeSource(userId, projectId, sourceId),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw ForbiddenException when user does not own project", async () => {
@@ -473,17 +495,17 @@ describe("ResearchProjectSourceService", () => {
         makeProject("other-user"),
       );
 
-      await expect(service.removeSource(userId, projectId, sourceId)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.removeSource(userId, projectId, sourceId),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it("should throw NotFoundException when source not found", async () => {
       mockPrisma.researchProjectSource.findUnique.mockResolvedValue(null);
 
-      await expect(service.removeSource(userId, projectId, sourceId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.removeSource(userId, projectId, sourceId),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw NotFoundException when source belongs to a different project", async () => {
@@ -491,9 +513,9 @@ describe("ResearchProjectSourceService", () => {
         makeSource("src-001", "other-project"),
       );
 
-      await expect(service.removeSource(userId, projectId, sourceId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.removeSource(userId, projectId, sourceId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -508,19 +530,28 @@ describe("ResearchProjectSourceService", () => {
     };
 
     it("should default to quick search when mode is not specified", async () => {
-      const result = await service.searchSources(userId, { ...baseDto, mode: undefined });
+      const result = await service.searchSources(userId, {
+        ...baseDto,
+        mode: undefined,
+      });
       expect(result.mode).toBe("quick");
     });
 
     it("should use quick mode explicitly", async () => {
-      const result = await service.searchSources(userId, { ...baseDto, mode: "quick" });
+      const result = await service.searchSources(userId, {
+        ...baseDto,
+        mode: "quick",
+      });
       expect(result.mode).toBe("quick");
     });
 
     it("should use deep mode explicitly", async () => {
-      const result = await service.searchSources(userId, { ...baseDto, mode: "deep" });
+      const result = await service.searchSources(userId, {
+        ...baseDto,
+        mode: "deep",
+      });
       expect(result.mode).toBe("deep");
-    });
+    }, 15_000);
 
     it("should default to all sources when sources not specified", async () => {
       const result = await service.searchSources(userId, { query: "test" });
@@ -545,7 +576,9 @@ describe("ResearchProjectSourceService", () => {
         expect.objectContaining({
           where: expect.objectContaining({
             OR: expect.arrayContaining([
-              expect.objectContaining({ title: { contains: "AI", mode: "insensitive" } }),
+              expect.objectContaining({
+                title: { contains: "AI", mode: "insensitive" },
+              }),
             ]),
           }),
         }),
@@ -576,7 +609,10 @@ describe("ResearchProjectSourceService", () => {
     });
 
     it("should return empty web results when tool returns failure", async () => {
-      mockWebSearchTool.execute.mockResolvedValue({ success: false, data: null });
+      mockWebSearchTool.execute.mockResolvedValue({
+        success: false,
+        data: null,
+      });
 
       const result = await service.searchSources(userId, {
         query: "AI",
@@ -859,16 +895,25 @@ describe("ResearchProjectSourceService", () => {
         { title: "Machine learning optimization techniques" },
         { title: "Deep learning frameworks comparison" },
       ];
-      const queries = (service as any).generateRelatedQueries("machine learning", results);
+      const queries = (service as any).generateRelatedQueries(
+        "machine learning",
+        results,
+      );
       expect(queries.length).toBeGreaterThan(0);
-      expect(queries.some((q: string) => q.startsWith("machine learning"))).toBe(true);
+      expect(
+        queries.some((q: string) => q.startsWith("machine learning")),
+      ).toBe(true);
     });
 
     it("should include standard variation queries", () => {
       const queries = (service as any).generateRelatedQueries("AI", []);
-      expect(queries.some((q: string) => q.includes("latest research"))).toBe(true);
+      expect(queries.some((q: string) => q.includes("latest research"))).toBe(
+        true,
+      );
       expect(queries.some((q: string) => q.includes("comparison"))).toBe(true);
-      expect(queries.some((q: string) => q.includes("implementation"))).toBe(true);
+      expect(queries.some((q: string) => q.includes("implementation"))).toBe(
+        true,
+      );
     });
   });
 
@@ -878,7 +923,9 @@ describe("ResearchProjectSourceService", () => {
 
   describe("generateAcademicQueries (private)", () => {
     it("should return 4 academic query variations", () => {
-      const queries = (service as any).generateAcademicQueries("reinforcement learning");
+      const queries = (service as any).generateAcademicQueries(
+        "reinforcement learning",
+      );
       expect(queries).toHaveLength(4);
       expect(queries[0]).toContain("reinforcement learning");
       expect(queries.some((q: string) => q.includes("survey"))).toBe(true);
@@ -897,12 +944,18 @@ describe("ResearchProjectSourceService", () => {
     ];
 
     it("should return true when sourceUrl matches existing", () => {
-      const result = { sourceUrl: "https://example.com", title: "Different Title" };
+      const result = {
+        sourceUrl: "https://example.com",
+        title: "Different Title",
+      };
       expect((service as any).isDuplicate(result, existingResults)).toBe(true);
     });
 
     it("should return true when title matches existing", () => {
-      const result = { sourceUrl: "https://different.com", title: "No URL Title" };
+      const result = {
+        sourceUrl: "https://different.com",
+        title: "No URL Title",
+      };
       expect((service as any).isDuplicate(result, existingResults)).toBe(true);
     });
 
@@ -954,7 +1007,9 @@ describe("ResearchProjectSourceService", () => {
       ];
       const deduped = (service as any).deduplicateResults(results);
       // Item with no key is filtered out
-      expect(deduped.some((r: any) => r.sourceUrl === "https://a.com")).toBe(true);
+      expect(deduped.some((r: any) => r.sourceUrl === "https://a.com")).toBe(
+        true,
+      );
     });
   });
 
@@ -974,17 +1029,26 @@ describe("ResearchProjectSourceService", () => {
 
     it("should rank results with title matching query higher", () => {
       const results = [
-        { title: "Irrelevant Topic", abstract: "nothing", sourceUrl: "https://a.com" },
-        { title: "Machine Learning Overview", abstract: "machine learning content", sourceUrl: "https://b.com" },
+        {
+          title: "Irrelevant Topic",
+          abstract: "nothing",
+          sourceUrl: "https://a.com",
+        },
+        {
+          title: "Machine Learning Overview",
+          abstract: "machine learning content",
+          sourceUrl: "https://b.com",
+        },
       ];
-      const ranked = (service as any).rankByRelevance(results, "machine learning");
+      const ranked = (service as any).rankByRelevance(
+        results,
+        "machine learning",
+      );
       expect(ranked[0].title).toContain("Machine Learning");
     });
 
     it("should add relevanceScore to each result", () => {
-      const results = [
-        { title: "AI Test", sourceUrl: "https://a.com" },
-      ];
+      const results = [{ title: "AI Test", sourceUrl: "https://a.com" }];
       const ranked = (service as any).rankByRelevance(results, "AI");
       expect(typeof ranked[0].relevanceScore).toBe("number");
     });
@@ -1033,7 +1097,11 @@ describe("ResearchProjectSourceService", () => {
     });
 
     it("should score local curated sources higher than web sources", () => {
-      const localResult = { source: "local", qualityScore: 0.8, sourceUrl: null };
+      const localResult = {
+        source: "local",
+        qualityScore: 0.8,
+        sourceUrl: null,
+      };
       const webResult = { source: "web", sourceUrl: null };
       const localScore = (service as any).calculateQuality(localResult);
       const webScore = (service as any).calculateQuality(webResult);

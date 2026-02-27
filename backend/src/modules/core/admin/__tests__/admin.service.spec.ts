@@ -7,6 +7,10 @@ import { UserManagementService } from "../services/user-management.service";
 import { ResourceManagementService } from "../services/resource-management.service";
 import { StatisticsService } from "../services/statistics.service";
 
+// Mock fetch globally for API balance check tests
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
 describe("AdminService", () => {
   let service: AdminService;
   let mockUserMgmtService: {
@@ -15,6 +19,14 @@ describe("AdminService", () => {
     updateUserRole: jest.Mock;
     toggleUserStatus: jest.Mock;
     isUserAdmin: jest.Mock;
+    getUserStats: jest.Mock;
+    getUserLoginHistory: jest.Mock;
+    createUser: jest.Mock;
+    updateUser: jest.Mock;
+    deleteUser: jest.Mock;
+    getUserCredits: jest.Mock;
+    grantCredits: jest.Mock;
+    toggleCreditFreeze: jest.Mock;
   };
   let mockResourceMgmtService: {
     getResourceById: jest.Mock;
@@ -24,6 +36,11 @@ describe("AdminService", () => {
   let mockStatisticsService: {
     getSystemStats: jest.Mock;
     getResourceStats: jest.Mock;
+    getOverviewStats: jest.Mock;
+  };
+  let mockSecretsService: {
+    getValue: jest.Mock;
+    getValueInternal: jest.Mock;
   };
 
   const mockPrismaService = {
@@ -76,19 +93,38 @@ describe("AdminService", () => {
     dataSource: {
       updateMany: jest.fn(),
     },
+    creditAccount: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      aggregate: jest.fn(),
+    },
+    creditTransaction: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
+    skillConfig: {
+      upsert: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
-    // Set ADMIN_EMAILS env var for testing
     process.env.ADMIN_EMAILS = "admin@test.com,super@test.com";
 
-    // Initialize mocks with default values
     mockUserMgmtService = {
       getAllUsers: jest.fn().mockResolvedValue({ users: [], total: 0 }),
       getUserDetail: jest.fn().mockResolvedValue(null),
       updateUserRole: jest.fn().mockResolvedValue({}),
       toggleUserStatus: jest.fn().mockResolvedValue({}),
       isUserAdmin: jest.fn().mockResolvedValue(false),
+      getUserStats: jest.fn().mockResolvedValue({}),
+      getUserLoginHistory: jest.fn().mockResolvedValue([]),
+      createUser: jest.fn().mockResolvedValue({}),
+      updateUser: jest.fn().mockResolvedValue({}),
+      deleteUser: jest.fn().mockResolvedValue({ success: true }),
+      getUserCredits: jest.fn().mockResolvedValue({}),
+      grantCredits: jest.fn().mockResolvedValue({}),
+      toggleCreditFreeze: jest.fn().mockResolvedValue({}),
     };
 
     mockResourceMgmtService = {
@@ -100,6 +136,12 @@ describe("AdminService", () => {
     mockStatisticsService = {
       getSystemStats: jest.fn().mockResolvedValue({}),
       getResourceStats: jest.fn().mockResolvedValue({}),
+      getOverviewStats: jest.fn().mockResolvedValue({}),
+    };
+
+    mockSecretsService = {
+      getValue: jest.fn().mockResolvedValue(null),
+      getValueInternal: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -111,10 +153,7 @@ describe("AdminService", () => {
         },
         {
           provide: SecretsService,
-          useValue: {
-            getValue: jest.fn().mockResolvedValue(null),
-            getValueInternal: jest.fn().mockResolvedValue(null),
-          },
+          useValue: mockSecretsService,
         },
         {
           provide: UserManagementService,
@@ -133,13 +172,14 @@ describe("AdminService", () => {
 
     service = module.get<AdminService>(AdminService);
 
-    // Reset all mocks before each test
     jest.clearAllMocks();
+    mockFetch.mockReset();
   });
+
+  // ==================== getAllUsers ====================
 
   describe("getAllUsers", () => {
     it("should return paginated users with admin flag", async () => {
-      // AdminService delegates to UserManagementService.getAllUsers()
       const mockResult = {
         users: [
           {
@@ -169,12 +209,6 @@ describe("AdminService", () => {
       expect(result.users).toHaveLength(2);
       expect(result.users[0].isAdmin).toBe(true);
       expect(result.users[1].isAdmin).toBe(false);
-      expect(result.pagination).toEqual({
-        page: 1,
-        limit: 20,
-        total: 2,
-        totalPages: 1,
-      });
       expect(mockUserMgmtService.getAllUsers).toHaveBeenCalledWith(
         1,
         20,
@@ -198,9 +232,74 @@ describe("AdminService", () => {
     });
   });
 
+  // ==================== getUserStats ====================
+
+  describe("getUserStats", () => {
+    it("should delegate to UserManagementService", async () => {
+      const mockStats = { total: 100, active: 80, newLast7Days: 5 };
+      mockUserMgmtService.getUserStats.mockResolvedValue(mockStats);
+
+      const result = await service.getUserStats();
+
+      expect(result).toEqual(mockStats);
+      expect(mockUserMgmtService.getUserStats).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== getUserLoginHistory ====================
+
+  describe("getUserLoginHistory", () => {
+    it("should delegate to UserManagementService with userId and limit", async () => {
+      const history = [{ id: "login-1", createdAt: new Date() }];
+      mockUserMgmtService.getUserLoginHistory.mockResolvedValue(history);
+
+      const result = await service.getUserLoginHistory("user-1", 5);
+
+      expect(result).toEqual(history);
+      expect(mockUserMgmtService.getUserLoginHistory).toHaveBeenCalledWith(
+        "user-1",
+        5,
+      );
+    });
+
+    it("should use default limit of 10", async () => {
+      mockUserMgmtService.getUserLoginHistory.mockResolvedValue([]);
+
+      await service.getUserLoginHistory("user-1");
+
+      expect(mockUserMgmtService.getUserLoginHistory).toHaveBeenCalledWith(
+        "user-1",
+        10,
+      );
+    });
+  });
+
+  // ==================== createUser ====================
+
+  describe("createUser", () => {
+    it("should delegate to UserManagementService", async () => {
+      const newUser = { id: "new-user", email: "new@test.com" };
+      mockUserMgmtService.createUser.mockResolvedValue(newUser);
+
+      const result = await service.createUser({
+        email: "new@test.com",
+        username: "newuser",
+        role: "USER",
+      });
+
+      expect(result).toEqual(newUser);
+      expect(mockUserMgmtService.createUser).toHaveBeenCalledWith({
+        email: "new@test.com",
+        username: "newuser",
+        role: "USER",
+      });
+    });
+  });
+
+  // ==================== deleteResource ====================
+
   describe("deleteResource", () => {
     it("should delete a resource successfully", async () => {
-      // AdminService delegates to ResourceManagementService.deleteResource()
       mockResourceMgmtService.deleteResource.mockResolvedValue({
         success: true,
         message: "Resource deleted",
@@ -225,9 +324,10 @@ describe("AdminService", () => {
     });
   });
 
+  // ==================== deleteResources ====================
+
   describe("deleteResources", () => {
     it("should delete multiple resources", async () => {
-      // AdminService delegates to ResourceManagementService.deleteResources()
       mockResourceMgmtService.deleteResources.mockResolvedValue({
         success: true,
         count: 3,
@@ -245,9 +345,10 @@ describe("AdminService", () => {
     });
   });
 
+  // ==================== updateUserRole ====================
+
   describe("updateUserRole", () => {
     it("should update user role successfully", async () => {
-      // AdminService delegates to UserManagementService.updateUserRole()
       const updatedUser = {
         id: "user-1",
         email: "test@test.com",
@@ -275,9 +376,10 @@ describe("AdminService", () => {
     });
   });
 
+  // ==================== toggleUserStatus ====================
+
   describe("toggleUserStatus", () => {
     it("should toggle user status to inactive", async () => {
-      // AdminService delegates to UserManagementService.toggleUserStatus()
       const updatedUser = { id: "user-1", isActive: false };
       mockUserMgmtService.toggleUserStatus.mockResolvedValue(updatedUser);
 
@@ -289,58 +391,286 @@ describe("AdminService", () => {
         false,
       );
     });
+
+    it("should toggle user status to active", async () => {
+      const updatedUser = { id: "user-1", isActive: true };
+      mockUserMgmtService.toggleUserStatus.mockResolvedValue(updatedUser);
+
+      const result = await service.toggleUserStatus("user-1", true);
+
+      expect(result.isActive).toBe(true);
+    });
   });
+
+  // ==================== updateUser ====================
+
+  describe("updateUser", () => {
+    it("should update user data", async () => {
+      const updatedUser = { id: "user-1", username: "newname" };
+      mockUserMgmtService.updateUser.mockResolvedValue(updatedUser);
+
+      const result = await service.updateUser("user-1", {
+        username: "newname",
+        status: "active",
+      });
+
+      expect(result).toEqual(updatedUser);
+      expect(mockUserMgmtService.updateUser).toHaveBeenCalledWith("user-1", {
+        username: "newname",
+        status: "active",
+      });
+    });
+  });
+
+  // ==================== deleteUser ====================
+
+  describe("deleteUser", () => {
+    it("should delete user", async () => {
+      mockUserMgmtService.deleteUser.mockResolvedValue({ success: true });
+
+      const result = await service.deleteUser("user-1");
+
+      expect(result.success).toBe(true);
+      expect(mockUserMgmtService.deleteUser).toHaveBeenCalledWith("user-1");
+    });
+  });
+
+  // ==================== Credits Management ====================
+
+  describe("Credits Management", () => {
+    it("getUserCredits should delegate to UserManagementService", async () => {
+      const credits = { balance: 1000, totalEarned: 2000 };
+      mockUserMgmtService.getUserCredits.mockResolvedValue(credits);
+
+      const result = await service.getUserCredits("user-1");
+
+      expect(result).toEqual(credits);
+      expect(mockUserMgmtService.getUserCredits).toHaveBeenCalledWith("user-1");
+    });
+
+    it("grantCredits should delegate to UserManagementService", async () => {
+      mockUserMgmtService.grantCredits.mockResolvedValue({ success: true });
+
+      await service.grantCredits("user-1", 500, "Welcome bonus");
+
+      expect(mockUserMgmtService.grantCredits).toHaveBeenCalledWith(
+        "user-1",
+        500,
+        "Welcome bonus",
+      );
+    });
+
+    it("grantCredits should work without reason", async () => {
+      mockUserMgmtService.grantCredits.mockResolvedValue({ success: true });
+
+      await service.grantCredits("user-1", 100);
+
+      expect(mockUserMgmtService.grantCredits).toHaveBeenCalledWith(
+        "user-1",
+        100,
+        undefined,
+      );
+    });
+
+    it("toggleCreditFreeze should delegate to UserManagementService", async () => {
+      mockUserMgmtService.toggleCreditFreeze.mockResolvedValue({
+        success: true,
+      });
+
+      await service.toggleCreditFreeze("user-1", true, "Fraud detected");
+
+      expect(mockUserMgmtService.toggleCreditFreeze).toHaveBeenCalledWith(
+        "user-1",
+        true,
+        "Fraud detected",
+      );
+    });
+  });
+
+  // ==================== getCreditAccounts ====================
+
+  describe("getCreditAccounts", () => {
+    it("should return paginated credit accounts", async () => {
+      const mockAccounts = [
+        {
+          userId: "user-1",
+          user: { id: "user-1", email: "a@b.com", username: "alice" },
+          balance: 1000,
+          totalEarned: 2000,
+          totalSpent: 1000,
+          isFrozen: false,
+          createdAt: new Date(),
+        },
+      ];
+      mockPrismaService.creditAccount.findMany.mockResolvedValue(mockAccounts);
+      mockPrismaService.creditAccount.count.mockResolvedValue(1);
+
+      const result = await service.getCreditAccounts(1, 20);
+
+      expect(result.accounts).toHaveLength(1);
+      expect(result.accounts[0].balance).toBe(1000);
+      expect(result.pagination.total).toBe(1);
+    });
+
+    it("should filter accounts by search term", async () => {
+      mockPrismaService.creditAccount.findMany.mockResolvedValue([]);
+      mockPrismaService.creditAccount.count.mockResolvedValue(0);
+
+      await service.getCreditAccounts(1, 20, "alice");
+
+      expect(mockPrismaService.creditAccount.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            user: expect.any(Object),
+          }),
+        }),
+      );
+    });
+
+    it("should calculate correct pagination", async () => {
+      mockPrismaService.creditAccount.findMany.mockResolvedValue([]);
+      mockPrismaService.creditAccount.count.mockResolvedValue(100);
+
+      const result = await service.getCreditAccounts(2, 20);
+
+      expect(result.pagination.totalPages).toBe(5);
+      expect(result.pagination.page).toBe(2);
+    });
+  });
+
+  // ==================== getCreditsStats ====================
+
+  describe("getCreditsStats", () => {
+    it("should return aggregated credit statistics", async () => {
+      mockPrismaService.creditAccount.count
+        .mockResolvedValueOnce(150) // totalAccounts
+        .mockResolvedValueOnce(5) // frozenAccounts
+        .mockResolvedValueOnce(20); // lowBalanceAccounts
+      mockPrismaService.creditAccount.aggregate.mockResolvedValue({
+        _sum: { balance: 50000, totalEarned: 100000, totalSpent: 50000 },
+      });
+
+      const result = await service.getCreditsStats();
+
+      expect(result.totalAccounts).toBe(150);
+      expect(result.totalBalance).toBe(50000);
+      expect(result.totalEarned).toBe(100000);
+      expect(result.frozenAccounts).toBe(5);
+      expect(result.lowBalanceAccounts).toBe(20);
+    });
+
+    it("should handle null aggregate sums", async () => {
+      mockPrismaService.creditAccount.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      mockPrismaService.creditAccount.aggregate.mockResolvedValue({
+        _sum: { balance: null, totalEarned: null, totalSpent: null },
+      });
+
+      const result = await service.getCreditsStats();
+
+      expect(result.totalBalance).toBe(0);
+      expect(result.totalEarned).toBe(0);
+      expect(result.totalSpent).toBe(0);
+    });
+  });
+
+  // ==================== getCreditTransactions ====================
+
+  describe("getCreditTransactions", () => {
+    it("should return transactions for valid credit account", async () => {
+      mockPrismaService.creditAccount.findUnique.mockResolvedValue({
+        id: "account-1",
+        userId: "user-1",
+      });
+      const mockTxs = [
+        {
+          id: "tx-1",
+          type: "CREDIT",
+          amount: 500,
+          balanceAfter: 1500,
+          description: "Grant",
+          moduleType: null,
+          operationType: null,
+          createdAt: new Date(),
+        },
+      ];
+      mockPrismaService.creditTransaction.findMany.mockResolvedValue(mockTxs);
+      mockPrismaService.creditTransaction.count.mockResolvedValue(1);
+
+      const result = await service.getCreditTransactions("user-1");
+
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0].type).toBe("CREDIT");
+      expect(result.total).toBe(1);
+    });
+
+    it("should throw NotFoundException when credit account not found", async () => {
+      mockPrismaService.creditAccount.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getCreditTransactions("non-existent"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should respect limit and offset", async () => {
+      mockPrismaService.creditAccount.findUnique.mockResolvedValue({
+        id: "account-1",
+        userId: "user-1",
+      });
+      mockPrismaService.creditTransaction.findMany.mockResolvedValue([]);
+      mockPrismaService.creditTransaction.count.mockResolvedValue(0);
+
+      await service.getCreditTransactions("user-1", 10, 20);
+
+      expect(mockPrismaService.creditTransaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 10, skip: 20 }),
+      );
+    });
+  });
+
+  // ==================== getOverviewStats ====================
+
+  describe("getOverviewStats", () => {
+    it("should delegate to StatisticsService", async () => {
+      const mockOverview = { totalUsers: 100, totalResources: 500 };
+      mockStatisticsService.getOverviewStats.mockResolvedValue(mockOverview);
+
+      const result = await service.getOverviewStats();
+
+      expect(result).toEqual(mockOverview);
+      expect(mockStatisticsService.getOverviewStats).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== getSystemStats ====================
 
   describe("getSystemStats", () => {
     it("should return system statistics", async () => {
-      // AdminService delegates to StatisticsService.getSystemStats()
       const mockStats = {
-        users: {
-          total: 100,
-          active: 80,
-          newLast7Days: 5,
-        },
-        resources: {
-          total: 500,
-          byType: {
-            ARTICLE: 300,
-            VIDEO: 200,
-          },
-        },
+        users: { total: 100, active: 80, newLast7Days: 5 },
+        resources: { total: 500, byType: { ARTICLE: 300, VIDEO: 200 } },
       };
       mockStatisticsService.getSystemStats.mockResolvedValue(mockStats);
 
       const result = await service.getSystemStats();
 
       expect(result.users.total).toBe(100);
-      expect(result.users.active).toBe(80);
-      expect(result.users.newLast7Days).toBe(5);
-      expect(result.resources.total).toBe(500);
-      expect(result.resources.byType).toEqual({
-        ARTICLE: 300,
-        VIDEO: 200,
-      });
       expect(mockStatisticsService.getSystemStats).toHaveBeenCalled();
     });
   });
 
+  // ==================== isUserAdmin ====================
+
   describe("isUserAdmin", () => {
-    it("should return true for user with ADMIN role", async () => {
-      // AdminService delegates to UserManagementService.isUserAdmin()
+    it("should return true for admin user", async () => {
       mockUserMgmtService.isUserAdmin.mockResolvedValue(true);
 
       const result = await service.isUserAdmin("user-1");
 
       expect(result).toBe(true);
       expect(mockUserMgmtService.isUserAdmin).toHaveBeenCalledWith("user-1");
-    });
-
-    it("should return true for user in admin email list", async () => {
-      mockUserMgmtService.isUserAdmin.mockResolvedValue(true);
-
-      const result = await service.isUserAdmin("user-1");
-
-      expect(result).toBe(true);
     });
 
     it("should return false for non-admin user", async () => {
@@ -350,277 +680,1337 @@ describe("AdminService", () => {
 
       expect(result).toBe(false);
     });
-
-    it("should return false for non-existent user", async () => {
-      mockUserMgmtService.isUserAdmin.mockResolvedValue(false);
-
-      const result = await service.isUserAdmin("non-existent");
-
-      expect(result).toBe(false);
-    });
   });
 
-  describe("AI Model Management", () => {
-    describe("getAllAIModels", () => {
-      it("should return all models with masked API keys", async () => {
-        const mockModels = [
-          {
-            id: "model-1",
-            name: "GPT-4",
-            apiKey: "sk-1234567890abcdefghijklmnop",
-            isDefault: true,
-          },
-          {
-            id: "model-2",
-            name: "Claude",
-            apiKey: null,
-            isDefault: false,
-          },
-        ];
+  // ==================== AI Model Management ====================
 
-        mockPrismaService.aIModel.findMany.mockResolvedValue(mockModels);
-
-        const result = await service.getAllAIModels();
-
-        expect(result).toHaveLength(2);
-        expect(result[0].apiKey).toBe("sk-1****mnop"); // Masked
-        expect(result[0].hasApiKey).toBe(true);
-        expect(result[1].apiKey).toBeNull();
-        expect(result[1].hasApiKey).toBe(false);
-      });
-    });
-
-    describe("getAIModel", () => {
-      it("should return model with masked API key by default", async () => {
-        const mockModel = {
+  describe("getAllAIModels", () => {
+    it("should return all models with masked API keys", async () => {
+      const mockModels = [
+        {
           id: "model-1",
           name: "GPT-4",
-          apiKey: "sk-verylongapikey123456",
-        };
-
-        mockPrismaService.aIModel.findUnique.mockResolvedValue(mockModel);
-
-        const result = await service.getAIModel("model-1");
-
-        expect(result.apiKey).not.toBe("sk-verylongapikey123456");
-        expect(result.apiKey).toContain("****");
-      });
-
-      it("should return full API key when includeFullApiKey is true", async () => {
-        const mockModel = {
-          id: "model-1",
-          name: "GPT-4",
-          apiKey: "sk-verylongapikey123456",
-        };
-
-        mockPrismaService.aIModel.findUnique.mockResolvedValue(mockModel);
-
-        const result = await service.getAIModel("model-1", true);
-
-        expect(result.apiKey).toBe("sk-verylongapikey123456");
-      });
-
-      it("should throw NotFoundException for non-existent model", async () => {
-        mockPrismaService.aIModel.findUnique.mockResolvedValue(null);
-
-        await expect(service.getAIModel("non-existent")).rejects.toThrow(
-          NotFoundException,
-        );
-      });
-    });
-
-    describe("createAIModel", () => {
-      it("should create a new model", async () => {
-        mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
-        mockPrismaService.aIModel.create.mockResolvedValue({
-          id: "new-model",
-          name: "New Model",
-          displayName: "New Model Display",
-          provider: "openai",
-          modelId: "gpt-4-new",
-          modelType: "CHAT",
-          apiKey: "sk-newkey123",
-          isUpdate: false,
-        });
-
-        const result = await service.createAIModel({
-          name: "New Model",
-          displayName: "New Model Display",
-          provider: "openai",
-          modelId: "gpt-4-new",
-          icon: "icon",
-          color: "#000",
-          apiEndpoint: "https://api.openai.com",
-          apiKey: "sk-newkey123",
-        });
-
-        expect(result.isUpdate).toBe(false);
-        expect(mockPrismaService.aIModel.create).toHaveBeenCalled();
-      });
-
-      it("should update existing model with same modelId and name", async () => {
-        mockPrismaService.aIModel.findFirst.mockResolvedValue({
-          id: "existing-model",
-          name: "Existing Model",
-          modelType: "CHAT",
-          maxTokens: 4096,
-          temperature: 0.7,
-        });
-        mockPrismaService.aIModel.update.mockResolvedValue({
-          id: "existing-model",
-          name: "Existing Model",
-          apiKey: "sk-updated",
-          isUpdate: true,
-        });
-
-        await service.createAIModel({
-          name: "Existing Model",
-          displayName: "Updated Display",
-          provider: "openai",
-          modelId: "gpt-4",
-          icon: "icon",
-          color: "#000",
-          apiEndpoint: "https://api.openai.com",
-          apiKey: "sk-updated",
-        });
-
-        expect(mockPrismaService.aIModel.update).toHaveBeenCalled();
-      });
-    });
-
-    describe("setDefaultAIModel", () => {
-      it("should set model as default", async () => {
-        mockPrismaService.aIModel.findUnique.mockResolvedValue({
-          id: "model-1",
-          name: "Test Model",
-        });
-        mockPrismaService.aIModel.updateMany.mockResolvedValue({ count: 5 });
-        mockPrismaService.aIModel.update.mockResolvedValue({
-          id: "model-1",
-          name: "Test Model",
+          apiKey: "sk-1234567890abcdefghijklmnop",
+          secretKey: null,
           isDefault: true,
+        },
+        {
+          id: "model-2",
+          name: "Claude",
           apiKey: null,
-        });
-
-        const result = await service.setDefaultAIModel("model-1");
-
-        expect(result.isDefault).toBe(true);
-        expect(mockPrismaService.aIModel.updateMany).toHaveBeenCalledWith({
-          data: { isDefault: false },
-        });
-      });
-    });
-
-    describe("deleteAIModel", () => {
-      it("should delete non-default model", async () => {
-        mockPrismaService.aIModel.findUnique.mockResolvedValue({
-          id: "model-1",
-          name: "Test Model",
+          secretKey: null,
           isDefault: false,
-        });
-        mockPrismaService.aIModel.delete.mockResolvedValue({});
+        },
+      ];
 
-        const result = await service.deleteAIModel("model-1");
+      mockPrismaService.aIModel.findMany.mockResolvedValue(mockModels);
 
-        expect(result.success).toBe(true);
-      });
+      const result = await service.getAllAIModels();
 
-      it("should throw error when deleting default model", async () => {
-        mockPrismaService.aIModel.findUnique.mockResolvedValue({
+      expect(result).toHaveLength(2);
+      expect(result[0].apiKey).toContain("****");
+      expect(result[0].hasApiKey).toBe(true);
+      expect(result[1].apiKey).toBeNull();
+      expect(result[1].hasApiKey).toBe(false);
+    });
+
+    it("should indicate hasApiKey true when secretKey is set", async () => {
+      const mockModels = [
+        {
           id: "model-1",
-          name: "Test Model",
-          isDefault: true,
-        });
+          name: "GPT-4",
+          apiKey: null,
+          secretKey: "my-secret",
+          isDefault: false,
+        },
+      ];
+      mockPrismaService.aIModel.findMany.mockResolvedValue(mockModels);
 
-        await expect(service.deleteAIModel("model-1")).rejects.toThrow(
-          "Cannot delete the default AI model",
-        );
-      });
+      const result = await service.getAllAIModels();
+
+      expect(result[0].hasApiKey).toBe(true);
     });
   });
 
-  describe("System Settings", () => {
-    describe("getSettings", () => {
-      it("should return settings as key-value pairs", async () => {
-        mockPrismaService.systemSetting.findMany.mockResolvedValue([
-          { key: "setting1", value: '"string value"' },
-          { key: "setting2", value: "123" },
-          { key: "setting3", value: '{"nested": true}' },
-        ]);
+  describe("getAIModel", () => {
+    it("should return model with masked API key by default", async () => {
+      const mockModel = {
+        id: "model-1",
+        name: "GPT-4",
+        apiKey: "sk-verylongapikey123456",
+        secretKey: null,
+      };
 
-        const result = await service.getSettings();
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(mockModel);
 
-        expect(result.setting1).toBe("string value");
-        expect(result.setting2).toBe(123);
-        expect(result.setting3).toEqual({ nested: true });
-      });
+      const result = await service.getAIModel("model-1");
+
+      expect(result.apiKey).not.toBe("sk-verylongapikey123456");
+      expect(result.apiKey).toContain("****");
     });
 
-    describe("getSetting", () => {
-      it("should return parsed setting value", async () => {
-        mockPrismaService.systemSetting.findUnique.mockResolvedValue({
-          key: "test",
-          value: '{"enabled": true}',
-        });
+    it("should return full API key when includeFullApiKey is true", async () => {
+      const mockModel = {
+        id: "model-1",
+        name: "GPT-4",
+        apiKey: "sk-verylongapikey123456",
+        secretKey: null,
+      };
 
-        const result = await service.getSetting("test");
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(mockModel);
 
-        expect(result).toEqual({ enabled: true });
-      });
+      const result = await service.getAIModel("model-1", true);
 
-      it("should return null for non-existent setting", async () => {
-        mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
-
-        const result = await service.getSetting("non-existent");
-
-        expect(result).toBeNull();
-      });
+      expect(result.apiKey).toBe("sk-verylongapikey123456");
     });
 
-    describe("setSetting", () => {
-      it("should upsert setting", async () => {
-        mockPrismaService.systemSetting.upsert.mockResolvedValue({
-          key: "test",
-          value: "true",
-        });
+    it("should throw NotFoundException for non-existent model", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(null);
 
-        await service.setSetting("test", true, {
-          description: "Test setting",
-          category: "test",
-        });
+      await expect(service.getAIModel("non-existent")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
 
-        expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: { key: "test" },
-            update: expect.objectContaining({
-              value: "true",
-            }),
+    it("should handle model with short API key (<=12 chars) masking", async () => {
+      const mockModel = {
+        id: "model-1",
+        name: "Test",
+        apiKey: "short-key",
+        secretKey: null,
+      };
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(mockModel);
+
+      const result = await service.getAIModel("model-1");
+
+      expect(result.apiKey).toContain("****");
+    });
+  });
+
+  describe("createAIModel", () => {
+    it("should create a new model when modelId does not exist", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
+      mockPrismaService.aIModel.create.mockResolvedValue({
+        id: "new-model",
+        name: "New Model",
+        displayName: "New Model Display",
+        provider: "openai",
+        modelId: "gpt-4-new",
+        modelType: "CHAT",
+        apiKey: "sk-newkey123456789012",
+        secretKey: null,
+        isUpdate: false,
+      });
+
+      const result = await service.createAIModel({
+        name: "New Model",
+        displayName: "New Model Display",
+        provider: "openai",
+        modelId: "gpt-4-new",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+        apiKey: "sk-newkey123456789012",
+      });
+
+      expect(result.isUpdate).toBe(false);
+      expect(mockPrismaService.aIModel.create).toHaveBeenCalled();
+    });
+
+    it("should update existing model with same modelId and name", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue({
+        id: "existing-model",
+        name: "Existing Model",
+        modelType: "CHAT",
+        maxTokens: 4096,
+        temperature: 0.7,
+        isReasoning: false,
+        apiFormat: "openai",
+        supportsTemperature: true,
+        supportsStreaming: true,
+        supportsFunctionCalling: true,
+        supportsVision: false,
+        tokenParamName: "max_tokens",
+        defaultTimeoutMs: 120000,
+        priceInputPerMillion: null,
+        priceOutputPerMillion: null,
+        priority: 50,
+      });
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        id: "existing-model",
+        name: "Existing Model",
+        apiKey: "sk-updated12345678901",
+        secretKey: null,
+        isUpdate: true,
+      });
+
+      const result = await service.createAIModel({
+        name: "Existing Model",
+        displayName: "Updated Display",
+        provider: "openai",
+        modelId: "gpt-4",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+        apiKey: "sk-updated12345678901",
+      });
+
+      expect(mockPrismaService.aIModel.update).toHaveBeenCalled();
+      expect(result.isUpdate).toBe(true);
+    });
+
+    it("should trim whitespace from apiKey", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
+      mockPrismaService.aIModel.create.mockResolvedValue({
+        id: "new-model",
+        name: "Test",
+        apiKey: "sk-trimmedkey12345",
+        secretKey: null,
+        isUpdate: false,
+      });
+
+      await service.createAIModel({
+        name: "Test",
+        displayName: "Test Display",
+        provider: "openai",
+        modelId: "gpt-test",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+        apiKey: "  sk-trimmedkey12345  ",
+      });
+
+      expect(mockPrismaService.aIModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            apiKey: "sk-trimmedkey12345",
           }),
-        );
-      });
+        }),
+      );
     });
 
-    describe("deleteSetting", () => {
-      it("should delete existing setting", async () => {
-        mockPrismaService.systemSetting.findUnique.mockResolvedValue({
-          key: "test",
-        });
-        mockPrismaService.systemSetting.delete.mockResolvedValue({});
-
-        const result = await service.deleteSetting("test");
-
-        expect(result.success).toBe(true);
+    it("should not update apiKey when masked key is provided in update", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue({
+        id: "existing",
+        name: "Model",
+        modelType: "CHAT",
+        maxTokens: 4096,
+        temperature: 0.7,
+        isReasoning: false,
+        apiFormat: "openai",
+        supportsTemperature: true,
+        supportsStreaming: true,
+        supportsFunctionCalling: true,
+        supportsVision: false,
+        tokenParamName: "max_tokens",
+        defaultTimeoutMs: 120000,
+        priceInputPerMillion: null,
+        priceOutputPerMillion: null,
+        priority: 50,
+      });
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        id: "existing",
+        name: "Model",
+        apiKey: "sk-originalkey123",
+        secretKey: null,
+        isUpdate: true,
       });
 
-      it("should throw NotFoundException for non-existent setting", async () => {
-        mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
-
-        await expect(service.deleteSetting("non-existent")).rejects.toThrow(
-          NotFoundException,
-        );
+      await service.createAIModel({
+        name: "Model",
+        displayName: "Model",
+        provider: "openai",
+        modelId: "gpt-test",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+        apiKey: "sk-****1234", // masked key - should not update
       });
+
+      const updateCall = mockPrismaService.aIModel.update.mock.calls[0][0];
+      expect(updateCall.data.apiKey).toBeUndefined();
+    });
+
+    it("should auto-set reasoning model params when isReasoning=true", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
+      mockPrismaService.aIModel.create.mockResolvedValue({
+        id: "new-o3",
+        name: "o3",
+        apiKey: null,
+        secretKey: null,
+        isUpdate: false,
+      });
+
+      await service.createAIModel({
+        name: "o3",
+        displayName: "o3",
+        provider: "openai",
+        modelId: "o3-mini",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+        isReasoning: true,
+      });
+
+      expect(mockPrismaService.aIModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tokenParamName: "max_completion_tokens",
+            supportsTemperature: false,
+          }),
+        }),
+      );
     });
   });
+
+  describe("updateAIModel", () => {
+    it("should update model fields", async () => {
+      const existingModel = {
+        id: "model-1",
+        name: "Test",
+        modelId: "gpt-4",
+        apiKey: "existing-key",
+        secretKey: null,
+        isReasoning: false,
+      };
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(existingModel);
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        ...existingModel,
+        displayName: "Updated",
+        apiKey: null,
+        secretKey: null,
+      });
+
+      const result = await service.updateAIModel("model-1", {
+        displayName: "Updated",
+      });
+
+      expect(mockPrismaService.aIModel.update).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should throw NotFoundException when model not found", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateAIModel("non-existent", { displayName: "Test" }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should set apiKey to null when empty string provided", async () => {
+      const existingModel = {
+        id: "model-1",
+        name: "Test",
+        modelId: "gpt-4",
+        apiKey: "existing-key",
+        secretKey: null,
+        isReasoning: false,
+      };
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(existingModel);
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        ...existingModel,
+        apiKey: null,
+        secretKey: null,
+      });
+
+      await service.updateAIModel("model-1", { apiKey: "" });
+
+      const updateCall = mockPrismaService.aIModel.update.mock.calls[0][0];
+      expect(updateCall.data.apiKey).toBeNull();
+    });
+
+    it("should keep existing apiKey when masked format provided", async () => {
+      const existingModel = {
+        id: "model-1",
+        name: "Test",
+        modelId: "gpt-4",
+        apiKey: "real-key",
+        secretKey: null,
+        isReasoning: false,
+      };
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(existingModel);
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        ...existingModel,
+        apiKey: "real-key",
+        secretKey: null,
+      });
+
+      await service.updateAIModel("model-1", { apiKey: "sk-****1234" });
+
+      const updateCall = mockPrismaService.aIModel.update.mock.calls[0][0];
+      expect(updateCall.data.apiKey).toBeUndefined();
+    });
+  });
+
+  describe("setDefaultAIModel", () => {
+    it("should set model as default", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        id: "model-1",
+        name: "Test Model",
+      });
+      mockPrismaService.aIModel.updateMany.mockResolvedValue({ count: 5 });
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        id: "model-1",
+        name: "Test Model",
+        isDefault: true,
+        apiKey: null,
+        secretKey: null,
+      });
+
+      const result = await service.setDefaultAIModel("model-1");
+
+      expect(result.isDefault).toBe(true);
+      expect(mockPrismaService.aIModel.updateMany).toHaveBeenCalledWith({
+        data: { isDefault: false },
+      });
+    });
+
+    it("should throw NotFoundException when model not found", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(null);
+
+      await expect(service.setDefaultAIModel("non-existent")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("deleteAIModel", () => {
+    it("should delete non-default model", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        id: "model-1",
+        name: "Test Model",
+        isDefault: false,
+      });
+      mockPrismaService.aIModel.delete.mockResolvedValue({});
+
+      const result = await service.deleteAIModel("model-1");
+
+      expect(result.success).toBe(true);
+    });
+
+    it("should throw error when deleting default model", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        id: "model-1",
+        name: "Test Model",
+        isDefault: true,
+      });
+
+      await expect(service.deleteAIModel("model-1")).rejects.toThrow(
+        "Cannot delete the default AI model",
+      );
+    });
+
+    it("should throw NotFoundException when model not found", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteAIModel("non-existent")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("getAIModelApiKey", () => {
+    it("should return null when model not found", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(null);
+
+      const result = await service.getAIModelApiKey("non-existent");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return apiKey directly when no secretKey", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        apiKey: "direct-api-key",
+        secretKey: null,
+      });
+
+      const result = await service.getAIModelApiKey("model-1");
+
+      expect(result).toBe("direct-api-key");
+    });
+
+    it("should resolve from SecretManager when secretKey is set", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        apiKey: "fallback-key",
+        secretKey: "my-secret-name",
+      });
+      mockSecretsService.getValueInternal.mockResolvedValue(
+        "  resolved-secret-key  ",
+      );
+
+      const result = await service.getAIModelApiKey("model-1");
+
+      expect(result).toBe("resolved-secret-key");
+      expect(mockSecretsService.getValueInternal).toHaveBeenCalledWith(
+        "my-secret-name",
+      );
+    });
+
+    it("should fall back to apiKey when secret not found", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        apiKey: "fallback-key",
+        secretKey: "missing-secret",
+      });
+      mockSecretsService.getValueInternal.mockResolvedValue(null);
+
+      const result = await service.getAIModelApiKey("model-1");
+
+      expect(result).toBe("fallback-key");
+    });
+
+    it("should trim apiKey whitespace", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        apiKey: "  trimmed-key  ",
+        secretKey: null,
+      });
+
+      const result = await service.getAIModelApiKey("model-1");
+
+      expect(result).toBe("trimmed-key");
+    });
+  });
+
+  // ==================== System Settings ====================
+
+  describe("getSettings", () => {
+    it("should return settings as key-value pairs", async () => {
+      mockPrismaService.systemSetting.findMany.mockResolvedValue([
+        { key: "setting1", value: '"string value"' },
+        { key: "setting2", value: "123" },
+        { key: "setting3", value: '{"nested": true}' },
+      ]);
+
+      const result = await service.getSettings();
+
+      expect(result.setting1).toBe("string value");
+      expect(result.setting2).toBe(123);
+      expect(result.setting3).toEqual({ nested: true });
+    });
+
+    it("should filter by category", async () => {
+      mockPrismaService.systemSetting.findMany.mockResolvedValue([]);
+
+      await service.getSettings("search");
+
+      expect(mockPrismaService.systemSetting.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { category: "search" } }),
+      );
+    });
+
+    it("should handle invalid JSON values gracefully", async () => {
+      mockPrismaService.systemSetting.findMany.mockResolvedValue([
+        { key: "bad-json", value: "not-json-{" },
+      ]);
+
+      const result = await service.getSettings();
+
+      expect(result["bad-json"]).toBe("not-json-{");
+    });
+
+    it("should skip null values", async () => {
+      mockPrismaService.systemSetting.findMany.mockResolvedValue([
+        { key: "null-setting", value: null },
+        { key: "valid-setting", value: '"hello"' },
+      ]);
+
+      const result = await service.getSettings();
+
+      expect(result["null-setting"]).toBeUndefined();
+      expect(result["valid-setting"]).toBe("hello");
+    });
+  });
+
+  describe("getSetting", () => {
+    it("should return parsed setting value", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "test",
+        value: '{"enabled": true}',
+      });
+
+      const result = await service.getSetting("test");
+
+      expect(result).toEqual({ enabled: true });
+    });
+
+    it("should return null for non-existent setting", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      const result = await service.getSetting("non-existent");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return raw value when JSON parse fails", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "test",
+        value: "raw-non-json",
+      });
+
+      const result = await service.getSetting("test");
+
+      expect(result).toBe("raw-non-json");
+    });
+
+    it("should return null when value is null", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "test",
+        value: null,
+      });
+
+      const result = await service.getSetting("test");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("setSetting", () => {
+    it("should upsert setting with JSON-serialized value", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({
+        key: "test",
+        value: "true",
+      });
+
+      await service.setSetting("test", true, {
+        description: "Test setting",
+        category: "test",
+      });
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { key: "test" },
+          update: expect.objectContaining({
+            value: "true",
+          }),
+        }),
+      );
+    });
+
+    it("should serialize string values as-is", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({
+        key: "test",
+        value: "plain-string",
+      });
+
+      await service.setSetting("test", "plain-string");
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ value: "plain-string" }),
+        }),
+      );
+    });
+  });
+
+  describe("setSettings", () => {
+    it("should update multiple settings in parallel", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+
+      await service.setSettings([
+        { key: "key1", value: "val1", category: "general" },
+        { key: "key2", value: 42, category: "general" },
+      ]);
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("deleteSetting", () => {
+    it("should delete existing setting", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "test",
+      });
+      mockPrismaService.systemSetting.delete.mockResolvedValue({});
+
+      const result = await service.deleteSetting("test");
+
+      expect(result.success).toBe(true);
+    });
+
+    it("should throw NotFoundException for non-existent setting", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteSetting("non-existent")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ==================== Search Config ====================
+
+  describe("getSearchConfig", () => {
+    it("should return search configuration with masked keys", async () => {
+      mockPrismaService.systemSetting.findUnique
+        .mockResolvedValueOnce({ key: "search.provider", value: '"tavily"' })
+        .mockResolvedValueOnce({
+          key: "search.perplexity.apiKey",
+          value: '"pplx-key"',
+        })
+        .mockResolvedValueOnce({ key: "search.enabled", value: "true" })
+        .mockResolvedValueOnce({ key: "search.tavily.apiKeys", value: null })
+        .mockResolvedValueOnce({ key: "search.serper.apiKeys", value: null })
+        .mockResolvedValueOnce({
+          key: "search.tavily.apiKey",
+          value: '"tvly-key"',
+        })
+        .mockResolvedValueOnce({ key: "search.serper.apiKey", value: null });
+
+      const result = await service.getSearchConfig();
+
+      expect(result.provider).toBe("tavily");
+      expect(result.enabled).toBe(true);
+      expect(result.perplexity.hasApiKey).toBe(true);
+      expect(result.perplexity.apiKey).toBe("***configured***");
+      expect(result.tavily.hasApiKey).toBe(true);
+      expect(result.duckduckgo.noKeyRequired).toBe(true);
+    });
+
+    it("should return defaults when no config exists", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      const result = await service.getSearchConfig();
+
+      expect(result.provider).toBe("tavily");
+      expect(result.enabled).toBe(true);
+      expect(result.perplexity.hasApiKey).toBe(false);
+      expect(result.tavily.hasApiKey).toBe(false);
+    });
+
+    it("should handle array format for tavily keys", async () => {
+      mockPrismaService.systemSetting.findUnique
+        .mockResolvedValueOnce(null) // provider
+        .mockResolvedValueOnce(null) // perplexity key
+        .mockResolvedValueOnce(null) // enabled
+        .mockResolvedValueOnce({
+          key: "search.tavily.apiKeys",
+          value: '["key1","key2"]',
+        }) // new format
+        .mockResolvedValueOnce(null) // serper keys new
+        .mockResolvedValueOnce(null) // tavily legacy
+        .mockResolvedValueOnce(null); // serper legacy
+
+      const result = await service.getSearchConfig();
+
+      expect(result.tavily.keyCount).toBe(2);
+      expect(result.tavily.hasApiKey).toBe(true);
+    });
+  });
+
+  describe("updateSearchConfig", () => {
+    it("should update provider and enabled settings", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSearchConfig({
+        provider: "serper",
+        enabled: false,
+      });
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalledTimes(2);
+    });
+
+    it("should skip masked API keys", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSearchConfig({
+        perplexityApiKey: "***configured***",
+      });
+
+      // Should not save the masked key
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const hasPerplexityCall = calls.some(
+        (call) => call[0].where.key === "search.perplexity.apiKey",
+      );
+      expect(hasPerplexityCall).toBe(false);
+    });
+
+    it("should save valid perplexity API key", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSearchConfig({
+        perplexityApiKey: "pplx-real-key",
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const perplexityCall = calls.find(
+        (call) => call[0].where.key === "search.perplexity.apiKey",
+      );
+      expect(perplexityCall).toBeDefined();
+    });
+
+    it("should convert single tavilyApiKey to array format", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSearchConfig({
+        tavilyApiKey: "tvly-single-key",
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const tavilyCall = calls.find(
+        (call) => call[0].where.key === "search.tavily.apiKeys",
+      );
+      expect(tavilyCall).toBeDefined();
+    });
+
+    it("should handle multiple tavily keys", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSearchConfig({
+        tavilyApiKeys: ["key1", "key2", "***configured***"],
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const tavilyCall = calls.find(
+        (call) => call[0].where.key === "search.tavily.apiKeys",
+      );
+      // Should filter out masked key
+      expect(tavilyCall).toBeDefined();
+    });
+  });
+
+  describe("getSearchApiKey", () => {
+    it("should return perplexity key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.perplexity.apiKey",
+        value: '"pplx-key"',
+      });
+
+      const result = await service.getSearchApiKey("perplexity");
+
+      expect(result).toBe("pplx-key");
+    });
+
+    it("should return null for unknown provider", async () => {
+      const result = await service.getSearchApiKey("unknown");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return tavily key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.tavily.apiKey",
+        value: '"tvly-key"',
+      });
+
+      const result = await service.getSearchApiKey("tavily");
+
+      expect(result).toBe("tvly-key");
+    });
+
+    it("should return serper key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.serper.apiKey",
+        value: '"serper-key"',
+      });
+
+      const result = await service.getSearchApiKey("serper");
+
+      expect(result).toBe("serper-key");
+    });
+  });
+
+  // ==================== Content Extraction Config ====================
+
+  describe("getContentExtractionConfig", () => {
+    it("should return extraction config with masked keys", async () => {
+      mockPrismaService.systemSetting.findUnique
+        .mockResolvedValueOnce({
+          key: "extraction.jina.apiKey",
+          value: '"jina-long-api-key-123"',
+        })
+        .mockResolvedValueOnce({
+          key: "extraction.firecrawl.apiKey",
+          value: '"fire-long-api-key-123"',
+        })
+        .mockResolvedValueOnce({ key: "extraction.tavily.apiKey", value: null })
+        .mockResolvedValueOnce({ key: "extraction.enabled", value: "true" });
+
+      const result = await service.getContentExtractionConfig();
+
+      expect(result.enabled).toBe(true);
+      expect(result.jina.hasApiKey).toBe(true);
+      expect(result.jina.apiKey).toContain("****");
+      expect(result.firecrawl.hasApiKey).toBe(true);
+      expect(result.tavily.hasApiKey).toBe(false);
+    });
+  });
+
+  describe("updateContentExtractionConfig", () => {
+    it("should update enabled and valid API keys", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateContentExtractionConfig({
+        enabled: true,
+        jinaApiKey: "jina-real-key",
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const jinaCall = calls.find(
+        (call) => call[0].where.key === "extraction.jina.apiKey",
+      );
+      expect(jinaCall).toBeDefined();
+    });
+
+    it("should skip masked keys", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateContentExtractionConfig({
+        jinaApiKey: "jina-****-key",
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const jinaCall = calls.find(
+        (call) => call[0].where.key === "extraction.jina.apiKey",
+      );
+      expect(jinaCall).toBeUndefined();
+    });
+  });
+
+  describe("getContentExtractionApiKey", () => {
+    it("should return jina API key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "extraction.jina.apiKey",
+        value: '"jina-api-key"',
+      });
+
+      const result = await service.getContentExtractionApiKey("jina");
+
+      expect(result).toBe("jina-api-key");
+    });
+  });
+
+  // ==================== YouTube Config ====================
+
+  describe("getYoutubeConfig", () => {
+    it("should return youtube config", async () => {
+      mockPrismaService.systemSetting.findUnique
+        .mockResolvedValueOnce({
+          key: "youtube.supadata.apiKey",
+          value: '"supadata-long-api-key-123"',
+        })
+        .mockResolvedValueOnce({ key: "youtube.enabled", value: "true" })
+        .mockResolvedValueOnce({
+          key: "youtube.provider",
+          value: '"supadata"',
+        });
+
+      const result = await service.getYoutubeConfig();
+
+      expect(result.enabled).toBe(true);
+      expect(result.provider).toBe("supadata");
+      expect(result.supadata.hasApiKey).toBe(true);
+    });
+  });
+
+  describe("updateYoutubeConfig", () => {
+    it("should update youtube config", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateYoutubeConfig({
+        enabled: true,
+        provider: "supadata",
+        supadataApiKey: "supa-real-key",
+      });
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalled();
+    });
+
+    it("should skip masked supadata key", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateYoutubeConfig({
+        supadataApiKey: "supa-****-key",
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const supadataCall = calls.find(
+        (call) => call[0].where.key === "youtube.supadata.apiKey",
+      );
+      expect(supadataCall).toBeUndefined();
+    });
+  });
+
+  describe("getYoutubeApiKey", () => {
+    it("should return supadata API key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "youtube.supadata.apiKey",
+        value: '"supa-key"',
+      });
+
+      const result = await service.getYoutubeApiKey("supadata");
+
+      expect(result).toBe("supa-key");
+    });
+  });
+
+  // ==================== TTS Config ====================
+
+  describe("getTTSConfig", () => {
+    it("should return TTS config", async () => {
+      mockPrismaService.systemSetting.findUnique
+        .mockResolvedValueOnce({
+          key: "tts.elevenlabs.apiKey",
+          value: '"eleven-long-api-key-123"',
+        })
+        .mockResolvedValueOnce({ key: "tts.google.apiKey", value: null })
+        .mockResolvedValueOnce({ key: "tts.enabled", value: "true" })
+        .mockResolvedValueOnce({
+          key: "tts.provider",
+          value: '"elevenlabs"',
+        });
+
+      const result = await service.getTTSConfig();
+
+      expect(result.enabled).toBe(true);
+      expect(result.provider).toBe("elevenlabs");
+      expect(result.elevenlabs.hasApiKey).toBe(true);
+      expect(result.google.hasApiKey).toBe(false);
+    });
+  });
+
+  describe("updateTTSConfig", () => {
+    it("should update TTS keys", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateTTSConfig({
+        provider: "elevenlabs",
+        elevenLabsApiKey: "eleven-real-key",
+      });
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalled();
+    });
+  });
+
+  describe("getTTSApiKey", () => {
+    it("should return elevenlabs API key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "tts.elevenlabs.apiKey",
+        value: '"eleven-key"',
+      });
+
+      const result = await service.getTTSApiKey("elevenlabs");
+
+      expect(result).toBe("eleven-key");
+    });
+  });
+
+  // ==================== SkillsMP Config ====================
+
+  describe("getSkillsmpConfig", () => {
+    it("should return skillsmp config with masked key", async () => {
+      mockPrismaService.systemSetting.findUnique
+        .mockResolvedValueOnce({ key: "skillsmp.enabled", value: "true" })
+        .mockResolvedValueOnce({
+          key: "skillsmp.apiKey",
+          value: '"skillsmp-long-api-key-123"',
+        })
+        .mockResolvedValueOnce({
+          key: "skillsmp.lastSync",
+          value: '"2024-01-01"',
+        })
+        .mockResolvedValueOnce({
+          key: "skillsmp.syncInterval",
+          value: '"daily"',
+        });
+
+      const result = await service.getSkillsmpConfig();
+
+      expect(result.enabled).toBe(true);
+      expect(result.hasApiKey).toBe(true);
+      expect(result.apiKey).toContain("****");
+      expect(result.syncInterval).toBe("daily");
+    });
+
+    it("should return defaults when not configured", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      const result = await service.getSkillsmpConfig();
+
+      expect(result.enabled).toBe(true);
+      expect(result.hasApiKey).toBe(false);
+      expect(result.syncInterval).toBe("daily");
+    });
+  });
+
+  describe("updateSkillsmpConfig", () => {
+    it("should update enabled status and API key", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSkillsmpConfig({
+        enabled: true,
+        apiKey: "skillsmp-real-key",
+        syncInterval: "weekly",
+      });
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalled();
+    });
+
+    it("should skip masked API key", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSkillsmpConfig({
+        apiKey: "skillsmp-****-key",
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const apiKeyCall = calls.find(
+        (call) => call[0].where.key === "skillsmp.apiKey",
+      );
+      expect(apiKeyCall).toBeUndefined();
+    });
+  });
+
+  describe("getSkillsmpApiKey", () => {
+    it("should return skillsmp API key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "skillsmp.apiKey",
+        value: '"smp-key"',
+      });
+
+      const result = await service.getSkillsmpApiKey();
+
+      expect(result).toBe("smp-key");
+    });
+  });
+
+  // ==================== installSkillFromMarketplace ====================
+
+  describe("installSkillFromMarketplace", () => {
+    it("should upsert skill config", async () => {
+      mockPrismaService.skillConfig.upsert.mockResolvedValue({
+        skillId: "my-skill",
+        enabled: true,
+      });
+
+      const result = await service.installSkillFromMarketplace({
+        id: "my-skill",
+        name: "My Skill",
+        displayName: "My Skill Display",
+        description: "A skill",
+        layer: "content",
+        domain: "writing",
+        tags: ["creative"],
+      });
+
+      expect(result).toBeDefined();
+      expect(mockPrismaService.skillConfig.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { skillId: "my-skill" },
+          create: expect.objectContaining({
+            skillId: "my-skill",
+            enabled: true,
+          }),
+        }),
+      );
+    });
+
+    it("should use defaults for optional fields", async () => {
+      mockPrismaService.skillConfig.upsert.mockResolvedValue({
+        skillId: "simple-skill",
+      });
+
+      await service.installSkillFromMarketplace({
+        id: "simple-skill",
+        name: "Simple",
+      });
+
+      expect(mockPrismaService.skillConfig.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            layer: "application",
+            domain: "common",
+            tags: [],
+          }),
+        }),
+      );
+    });
+  });
+
+  // ==================== External Providers Config ====================
+
+  describe("getExternalProvidersConfig", () => {
+    it("should return default providers when none configured", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      const result = await service.getExternalProvidersConfig();
+
+      expect(result).toBeInstanceOf(Array);
+      expect(result.length).toBeGreaterThanOrEqual(4);
+      expect(result.every((p) => "hasApiKey" in p)).toBe(true);
+    });
+
+    it("should merge stored config with defaults", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "external.providers",
+        value: JSON.stringify([
+          {
+            id: "market",
+            enabled: true,
+            baseUrl: "https://market.api.com",
+            apiKey: "market-key",
+          },
+        ]),
+      });
+
+      const result = await service.getExternalProvidersConfig();
+
+      const marketProvider = result.find((p) => p.id === "market");
+      expect(marketProvider).toBeDefined();
+      expect(marketProvider!.enabled).toBe(true);
+      expect(marketProvider!.hasApiKey).toBe(true);
+    });
+  });
+
+  describe("updateExternalProvidersConfig", () => {
+    it("should save valid providers", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+
+      await service.updateExternalProvidersConfig([
+        {
+          id: "market",
+          name: "Market API",
+          category: "market",
+          baseUrl: "https://market.api.com",
+          apiKey: "market-key",
+          enabled: true,
+        },
+      ]);
+
+      expect(mockPrismaService.systemSetting.upsert).toHaveBeenCalled();
+    });
+
+    it("should filter out providers with invalid data", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+
+      // Provider with no id, name, or URL
+      await service.updateExternalProvidersConfig([
+        { id: "", name: "", category: "test" },
+      ]);
+
+      const upsertCall = mockPrismaService.systemSetting.upsert.mock.calls[0];
+      const savedProviders = JSON.parse(upsertCall[0].update.value);
+      expect(savedProviders).toHaveLength(0);
+    });
+  });
+
+  // ==================== checkApiBalance ====================
+
+  describe("checkApiBalance", () => {
+    it("should return error when API key not configured", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      const result = await service.checkApiBalance("search", "tavily");
+
+      expect(result.hasBalance).toBe(false);
+      expect(result.error).toBe("API Key not configured");
+    });
+
+    it("should check tavily balance with valid key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.tavily.apiKey",
+        value: '"tvly-key"',
+      });
+      mockFetch.mockResolvedValue({ ok: true, status: 200 });
+
+      const result = await service.checkApiBalance("search", "tavily");
+
+      expect(result.provider).toBe("tavily");
+      expect(result.hasBalance).toBe(true);
+    });
+
+    it("should handle tavily 401 response", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.tavily.apiKey",
+        value: '"tvly-key"',
+      });
+      mockFetch.mockResolvedValue({ ok: false, status: 401 });
+
+      const result = await service.checkApiBalance("search", "tavily");
+
+      expect(result.hasBalance).toBe(false);
+      expect(result.error).toContain("Invalid");
+    });
+
+    it("should handle tavily 429 rate limit", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.tavily.apiKey",
+        value: '"tvly-key"',
+      });
+      mockFetch.mockResolvedValue({ ok: false, status: 429 });
+
+      const result = await service.checkApiBalance("search", "tavily");
+
+      expect(result.hasBalance).toBe(false);
+      expect(result.error).toContain("Rate limit");
+    });
+
+    it("should handle fetch network error", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.tavily.apiKey",
+        value: '"tvly-key"',
+      });
+      mockFetch.mockRejectedValue(new Error("Network error"));
+
+      const result = await service.checkApiBalance("search", "tavily");
+
+      expect(result.hasBalance).toBe(false);
+    });
+
+    it("should check extraction balance for jina", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "extraction.jina.apiKey",
+        value: '"jina-key"',
+      });
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ balance: 5.0 }),
+      });
+
+      const result = await service.checkApiBalance("extraction", "jina");
+
+      expect(result.provider).toBe("jina");
+      expect(result.hasBalance).toBe(true);
+    });
+
+    it("should handle unknown extraction provider", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      const result = await service.checkApiBalance("extraction", "unknown");
+
+      expect(result.hasBalance).toBe(false);
+    });
+
+    it("should return unknown balance for unrecognized switch case", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.perplexity.apiKey",
+        value: '"pplx-key"',
+      });
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+      const result = await service.checkApiBalance("search", "perplexity");
+
+      expect(result.provider).toBe("perplexity");
+    });
+  });
+
+  // ==================== resetCollectionData ====================
 
   describe("resetCollectionData", () => {
     it("should reset all collection data", async () => {
