@@ -2,17 +2,99 @@
 
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import {
+  Sparkles,
+  MessageSquare,
+  Palette,
+  Film,
+  Code,
+  PenTool,
+  BarChart3,
+  Zap,
+  Star,
+  Search,
+  Bot,
+  Brain,
+  ImageIcon,
+  Monitor,
+  Keyboard,
+  FileText,
+  Wand2,
+  Video,
+  Mic,
+  Globe,
+  Presentation,
+  Gem,
+  Theater,
+  Wrench,
+  Music,
+  type LucideIcon,
+} from 'lucide-react';
+
+// Category icon mapping
+const categoryIcons: Record<string, LucideIcon> = {
+  all: Sparkles,
+  chat: MessageSquare,
+  image: Palette,
+  video: Film,
+  code: Code,
+  writing: PenTool,
+  data: BarChart3,
+  productivity: Zap,
+};
+
+// Tool icon mapping
+const toolIcons: Record<string, LucideIcon> = {
+  '1': Bot,
+  '2': Brain,
+  '3': Palette,
+  '4': ImageIcon,
+  '5': Monitor,
+  '6': Keyboard,
+  '7': FileText,
+  '8': Wand2,
+  '9': Video,
+  '10': Mic,
+  '11': Search,
+  '12': Presentation,
+  '13': Gem,
+  '14': Theater,
+  '15': Wrench,
+  '16': Music,
+};
+
+function ToolIcon({
+  toolId,
+  className,
+}: {
+  toolId: string;
+  className?: string;
+}) {
+  const Icon = toolIcons[toolId] || Bot;
+  return <Icon className={className} />;
+}
+
+function CategoryIcon({
+  categoryId,
+  className,
+}: {
+  categoryId: string;
+  className?: string;
+}) {
+  const Icon = categoryIcons[categoryId] || Sparkles;
+  return <Icon className={className} />;
+}
 
 // AI工具分类
 const categories = [
-  { id: 'all', icon: '🔮', color: 'bg-gray-100' },
-  { id: 'chat', icon: '💬', color: 'bg-blue-100' },
-  { id: 'image', icon: '🎨', color: 'bg-purple-100' },
-  { id: 'video', icon: '🎬', color: 'bg-pink-100' },
-  { id: 'code', icon: '💻', color: 'bg-green-100' },
-  { id: 'writing', icon: '✍️', color: 'bg-amber-100' },
-  { id: 'data', icon: '📊', color: 'bg-cyan-100' },
-  { id: 'productivity', icon: '⚡', color: 'bg-orange-100' },
+  { id: 'all', color: 'bg-gray-100' },
+  { id: 'chat', color: 'bg-blue-100' },
+  { id: 'image', color: 'bg-purple-100' },
+  { id: 'video', color: 'bg-pink-100' },
+  { id: 'code', color: 'bg-green-100' },
+  { id: 'writing', color: 'bg-amber-100' },
+  { id: 'data', color: 'bg-cyan-100' },
+  { id: 'productivity', color: 'bg-orange-100' },
 ];
 
 // AI工具数据
@@ -22,7 +104,6 @@ const aiTools = [
     name: 'ChatGPT',
     description: 'OpenAI的对话式AI助手，支持多轮对话、代码生成、文本创作',
     category: 'chat',
-    icon: '🤖',
     rating: 4.9,
     users: '100M+',
     tags: ['对话', 'GPT-4', '免费试用'],
@@ -35,7 +116,6 @@ const aiTools = [
     name: 'Claude',
     description: 'Anthropic的AI助手，擅长长文本理解、代码分析、创意写作',
     category: 'chat',
-    icon: '🧠',
     rating: 4.8,
     users: '50M+',
     tags: ['对话', 'Claude 3.5', '长上下文'],
@@ -48,7 +128,6 @@ const aiTools = [
     name: 'Midjourney',
     description: '顶级AI图像生成工具，创造惊艳的艺术作品和设计',
     category: 'image',
-    icon: '🎨',
     rating: 4.9,
     users: '16M+',
     tags: ['图像生成', '艺术', 'Discord'],
@@ -61,7 +140,6 @@ const aiTools = [
     name: 'DALL-E 3',
     description: 'OpenAI的文本到图像生成模型，支持精确的提示词控制',
     category: 'image',
-    icon: '🖼️',
     rating: 4.7,
     users: '10M+',
     tags: ['图像生成', 'OpenAI', 'ChatGPT集成'],
@@ -74,7 +152,6 @@ const aiTools = [
     name: 'GitHub Copilot',
     description: 'AI代码助手，实时代码补全和建议，支持多种编程语言',
     category: 'code',
-    icon: '👨‍💻',
     rating: 4.8,
     users: '1.8M+',
     tags: ['代码补全', 'IDE集成', 'GPT-4'],
@@ -87,7 +164,6 @@ const aiTools = [
     name: 'Cursor',
     description: 'AI原生代码编辑器，将AI深度集成到编码工作流中',
     category: 'code',
-    icon: '⌨️',
     rating: 4.7,
     users: '500K+',
     tags: ['代码编辑器', 'AI原生', 'VSCode兼容'],
@@ -100,7 +176,6 @@ const aiTools = [
     name: 'Notion AI',
     description: '在Notion中使用AI辅助写作、总结、翻译和头脑风暴',
     category: 'writing',
-    icon: '📝',
     rating: 4.6,
     users: '30M+',
     tags: ['写作助手', 'Notion', '团队协作'],
@@ -113,7 +188,6 @@ const aiTools = [
     name: 'Jasper',
     description: '企业级AI内容创作平台，支持营销文案、博客、社媒内容',
     category: 'writing',
-    icon: '✨',
     rating: 4.5,
     users: '100K+',
     tags: ['营销内容', '企业级', '模板'],
@@ -126,7 +200,6 @@ const aiTools = [
     name: 'Runway',
     description: '专业AI视频生成和编辑工具，支持文本到视频、图像到视频',
     category: 'video',
-    icon: '🎥',
     rating: 4.7,
     users: '2M+',
     tags: ['视频生成', 'Gen-2', '专业级'],
@@ -139,7 +212,6 @@ const aiTools = [
     name: 'ElevenLabs',
     description: '最自然的AI语音合成，支持多语言、声音克隆',
     category: 'video',
-    icon: '🎙️',
     rating: 4.8,
     users: '1M+',
     tags: ['语音合成', 'TTS', '声音克隆'],
@@ -152,7 +224,6 @@ const aiTools = [
     name: 'Perplexity',
     description: 'AI搜索引擎，实时联网搜索并给出引用来源的答案',
     category: 'data',
-    icon: '🔍',
     rating: 4.7,
     users: '10M+',
     tags: ['AI搜索', '实时联网', '引用来源'],
@@ -165,7 +236,6 @@ const aiTools = [
     name: 'Gamma',
     description: 'AI生成演示文稿、文档和网页，一键创建专业内容',
     category: 'productivity',
-    icon: '📊',
     rating: 4.6,
     users: '5M+',
     tags: ['PPT生成', '文档', '一键创建'],
@@ -178,7 +248,6 @@ const aiTools = [
     name: 'Gemini',
     description: 'Google的多模态AI助手，支持文本、图像、代码理解',
     category: 'chat',
-    icon: '💎',
     rating: 4.6,
     users: '50M+',
     tags: ['Google', '多模态', '免费'],
@@ -191,7 +260,6 @@ const aiTools = [
     name: 'Stable Diffusion',
     description: '开源图像生成模型，可本地部署，高度可定制',
     category: 'image',
-    icon: '🎭',
     rating: 4.6,
     users: '10M+',
     tags: ['开源', '本地部署', '可定制'],
@@ -204,7 +272,6 @@ const aiTools = [
     name: 'Dify',
     description: '开源LLM应用开发平台，快速构建AI应用和Agent',
     category: 'code',
-    icon: '🔧',
     rating: 4.5,
     users: '100K+',
     tags: ['开源', 'LLM平台', 'Agent'],
@@ -217,7 +284,6 @@ const aiTools = [
     name: 'Suno',
     description: 'AI音乐生成，用文字描述创作完整歌曲',
     category: 'video',
-    icon: '🎵',
     rating: 4.7,
     users: '5M+',
     tags: ['音乐生成', '歌曲创作', '免费'],
@@ -264,19 +330,7 @@ export default function AIToolsTab() {
       {/* Search Bar */}
       <div className="mb-6 flex gap-4">
         <div className="relative flex-1">
-          <svg
-            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder={t('aiStore.search.placeholder')}
@@ -302,7 +356,7 @@ export default function AIToolsTab() {
       {selectedCategory === 'all' && !searchQuery && (
         <section className="mb-10">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <span className="text-xl">⭐</span> {t('aiStore.featured')}
+            <Star className="h-5 w-5 text-amber-400" /> {t('aiStore.featured')}
           </h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {featuredTools.slice(0, 6).map((tool) => (
@@ -319,8 +373,11 @@ export default function AIToolsTab() {
                   </span>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 text-2xl">
-                    {tool.icon}
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gray-50 to-gray-100">
+                    <ToolIcon
+                      toolId={tool.id}
+                      className="h-6 w-6 text-gray-600"
+                    />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 group-hover:text-cyan-600">
@@ -334,13 +391,7 @@ export default function AIToolsTab() {
                 <div className="mt-4 flex items-center justify-between">
                   <div className="flex items-center gap-3 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
-                      <svg
-                        className="h-4 w-4 text-amber-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                       {tool.rating}
                     </span>
                     <span>
@@ -378,7 +429,7 @@ export default function AIToolsTab() {
                   : `${category.color} text-gray-700 hover:shadow-sm`
               }`}
             >
-              <span>{category.icon}</span>
+              <CategoryIcon categoryId={category.id} className="h-4 w-4" />
               <span>{t(`aiStore.categories.${category.id}`)}</span>
             </button>
           ))}
@@ -398,8 +449,8 @@ export default function AIToolsTab() {
 
         {filteredTools.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 text-6xl">🔍</div>
-            <h3 className="text-lg font-medium text-gray-900">
+            <Search className="mx-auto h-16 w-16 text-gray-300" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900">
               {t('aiStore.empty.title')}
             </h3>
             <p className="mt-1 text-sm text-gray-500">
@@ -417,8 +468,11 @@ export default function AIToolsTab() {
                 className="group rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 text-xl">
-                    {tool.icon}
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-gray-50 to-gray-100">
+                    <ToolIcon
+                      toolId={tool.id}
+                      className="h-5 w-5 text-gray-600"
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate font-medium text-gray-900 group-hover:text-cyan-600">
@@ -426,16 +480,10 @@ export default function AIToolsTab() {
                     </h3>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <span className="flex items-center gap-0.5">
-                        <svg
-                          className="h-3.5 w-3.5 text-amber-400"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                         {tool.rating}
                       </span>
-                      <span className="text-gray-300">•</span>
+                      <span className="text-gray-300">&bull;</span>
                       <span>{tool.users}</span>
                     </div>
                   </div>

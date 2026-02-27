@@ -124,6 +124,10 @@
     "notifications": "通知",
     "feedback": "反馈",
     "whatsNew": "最新动态",
+    "openSidebar": "展开侧栏",
+    "closeMenu": "关闭菜单",
+    "openMenu": "打开菜单",
+    "appTitle": "Raven AI Engine",
     "sections": {
       "materialsKnowledge": "知识库",
       "researchAnalysis": "洞察研究",
@@ -1287,9 +1291,9 @@
       "title": "AI 办公技能"
     },
     "tabs": {
-      "slides": "AI Slides",
-      "docs": "AI Docs",
-      "excel": "AI Excel"
+      "slides": "AI 幻灯片",
+      "docs": "AI 文档",
+      "excel": "AI 表格"
     },
     "comingSoon": {
       "badge": "开发中",

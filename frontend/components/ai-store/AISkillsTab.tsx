@@ -10,6 +10,17 @@ import {
   Download,
   Calendar,
   Loader2,
+  Target,
+  Wrench,
+  Code,
+  FlaskConical,
+  BookOpen,
+  Database,
+  Rocket,
+  Lock,
+  Bot,
+  Package,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -31,59 +42,74 @@ import {
 const categories = [
   {
     id: 'all',
-    icon: '🎯',
     color: 'bg-gray-100',
     activeColor: 'from-violet-500 to-purple-600',
   },
   {
     id: 'tools',
-    icon: '🛠️',
     color: 'bg-blue-50',
     activeColor: 'from-blue-500 to-blue-600',
   },
   {
     id: 'development',
-    icon: '💻',
     color: 'bg-green-50',
     activeColor: 'from-green-500 to-green-600',
   },
   {
     id: 'testing',
-    icon: '🧪',
     color: 'bg-purple-50',
     activeColor: 'from-purple-500 to-purple-600',
   },
   {
     id: 'documentation',
-    icon: '📚',
     color: 'bg-amber-50',
     activeColor: 'from-amber-500 to-amber-600',
   },
   {
     id: 'database',
-    icon: '🗄️',
     color: 'bg-cyan-50',
     activeColor: 'from-cyan-500 to-cyan-600',
   },
   {
     id: 'devops',
-    icon: '🚀',
     color: 'bg-orange-50',
     activeColor: 'from-orange-500 to-orange-600',
   },
   {
     id: 'security',
-    icon: '🔒',
     color: 'bg-red-50',
     activeColor: 'from-red-500 to-red-600',
   },
   {
     id: 'ai-agents',
-    icon: '🤖',
     color: 'bg-indigo-50',
     activeColor: 'from-indigo-500 to-indigo-600',
   },
 ];
+
+// Category icon mapping
+const categoryIcons: Record<string, LucideIcon> = {
+  all: Target,
+  tools: Wrench,
+  development: Code,
+  testing: FlaskConical,
+  documentation: BookOpen,
+  database: Database,
+  devops: Rocket,
+  security: Lock,
+  'ai-agents': Bot,
+};
+
+function SkillCategoryIcon({
+  categoryId,
+  className,
+}: {
+  categoryId: string;
+  className?: string;
+}) {
+  const Icon = categoryIcons[categoryId] || Package;
+  return <Icon className={className} />;
+}
 
 // Default timeline data for when API returns empty
 const defaultTimelineData: TimelineDataPoint[] = (() => {
@@ -466,7 +492,7 @@ export default function AISkillsTab() {
                   : `${category.color} text-gray-700 hover:shadow-sm`
               }`}
             >
-              <span>{category.icon}</span>
+              <SkillCategoryIcon categoryId={category.id} className="h-4 w-4" />
               <span>{t(`aiSkills.categories.${category.id}`)}</span>
             </button>
           ))}
@@ -506,9 +532,11 @@ export default function AISkillsTab() {
                     </span>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-50 to-purple-100 text-xl">
-                      {categories.find((c) => c.id === skill.category)?.icon ||
-                        '📦'}
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-50 to-purple-100">
+                      <SkillCategoryIcon
+                        categoryId={skill.category}
+                        className="h-6 w-6 text-violet-600"
+                      />
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900 group-hover:text-violet-600">
@@ -594,9 +622,11 @@ export default function AISkillsTab() {
                   className="group rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-violet-50 to-purple-100 text-xl">
-                      {categories.find((c) => c.id === skill.category)?.icon ||
-                        '📦'}
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-violet-50 to-purple-100">
+                      <SkillCategoryIcon
+                        categoryId={skill.category}
+                        className="h-5 w-5 text-violet-600"
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate font-medium text-gray-900 group-hover:text-violet-600">
