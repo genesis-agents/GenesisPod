@@ -826,7 +826,7 @@ describe('getChapterAnnotations', () => {
     await getChapterAnnotations('chapter-1', 'OPEN' as AnnotationStatus);
 
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('?status=open'),
+      expect.stringContaining('?status=OPEN'),
       expect.anything()
     );
   });

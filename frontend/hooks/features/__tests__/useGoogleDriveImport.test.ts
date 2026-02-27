@@ -301,12 +301,17 @@ describe('useGoogleDriveImport (features)', () => {
 
     const { result } = renderHook(() => useGoogleDriveImport());
 
-    await expect(
-      act(async () => {
+    let caughtError: unknown;
+    await act(async () => {
+      try {
         await result.current.importFromDrive(makeFiles());
-      })
-    ).rejects.toThrow('Connection refused');
+      } catch (e) {
+        caughtError = e;
+      }
+    });
 
+    expect(caughtError).toBeInstanceOf(Error);
+    expect((caughtError as Error).message).toBe('Connection refused');
     expect(result.current.progress.every((p) => p.status === 'failed')).toBe(
       true
     );
@@ -322,12 +327,16 @@ describe('useGoogleDriveImport (features)', () => {
 
     const { result } = renderHook(() => useGoogleDriveImport());
 
-    await expect(
-      act(async () => {
+    let caughtError: unknown;
+    await act(async () => {
+      try {
         await result.current.importFromDrive(makeFiles());
-      })
-    ).rejects.toBe('string error');
+      } catch (e) {
+        caughtError = e;
+      }
+    });
 
+    expect(caughtError).toBe('string error');
     expect(result.current.progress[0].error).toBe('Import failed');
   });
 

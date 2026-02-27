@@ -105,6 +105,11 @@ describe('useGoogleDriveFiles (features)', () => {
   });
 
   it('initializes with empty files and no current folder', () => {
+    // Override mock to return no data so the useEffect doesn't populate files
+    mockUseApiGet.mockReturnValue(
+      makeApiGetMock(null, { data: undefined }) as never
+    );
+
     const { result } = renderHook(() => useGoogleDriveFiles());
 
     expect(result.current.files).toEqual([]);

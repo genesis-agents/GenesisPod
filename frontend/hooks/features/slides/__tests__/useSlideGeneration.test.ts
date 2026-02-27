@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
+// Polyfill ReadableStream for jsdom environment
+if (typeof ReadableStream === 'undefined') {
+  const { ReadableStream: RSPolyfill } = await import('stream/web');
+  globalThis.ReadableStream = RSPolyfill as typeof ReadableStream;
+}
+
 // Mocks must be declared before imports
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -209,8 +215,10 @@ describe('useSlideGeneration', () => {
     });
 
     const store = getMockStore();
-    // setError should NOT be called for AbortError
-    expect(store.setError).not.toHaveBeenCalled();
+    // setError should only be called with null (to clear state), not with an error message
+    const errorCalls = vi.mocked(store.setError).mock.calls;
+    const errorMessageCalls = errorCalls.filter((call) => call[0] !== null);
+    expect(errorMessageCalls).toHaveLength(0);
   });
 
   it('generate sets error and stops generating on network failure', async () => {

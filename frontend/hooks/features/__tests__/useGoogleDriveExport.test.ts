@@ -274,12 +274,17 @@ describe('useGoogleDriveExport (features)', () => {
 
     const { result } = renderHook(() => useGoogleDriveExport());
 
-    await expect(
-      act(async () => {
+    let caughtError: unknown;
+    await act(async () => {
+      try {
         await result.current.exportToDrive(makeResources());
-      })
-    ).rejects.toThrow('Network failure');
+      } catch (e) {
+        caughtError = e;
+      }
+    });
 
+    expect(caughtError).toBeInstanceOf(Error);
+    expect((caughtError as Error).message).toBe('Network failure');
     expect(result.current.progress.every((p) => p.status === 'failed')).toBe(
       true
     );
