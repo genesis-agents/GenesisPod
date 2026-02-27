@@ -18,6 +18,9 @@ module.exports = {
     "!**/*.interface.ts",
     "!**/*.dto.ts",
     "!**/*.entity.ts",
+    "!**/*.spec.ts",
+    "!**/__tests__/**",
+    "!**/__mocks__/**",
   ],
   coverageDirectory: "../coverage",
   testEnvironment: "node",
@@ -47,6 +50,7 @@ module.exports = {
     "^marked$": "<rootDir>/__mocks__/marked.js",
     "^exceljs$": "<rootDir>/__mocks__/exceljs.js",
     "^pptxgenjs$": "<rootDir>/__mocks__/pptxgenjs.js",
+    "^jsdom$": "<rootDir>/__mocks__/jsdom.js",
     "pdfjs-dist/legacy/build/pdf.mjs":
       "<rootDir>/../test/__mocks__/pdfjs-dist.ts",
   },
