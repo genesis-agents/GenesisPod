@@ -9,7 +9,6 @@ import { EventBusService } from "./ipc/event-bus.service";
 import { ProgressTrackerService } from "./ipc/progress-tracker.service";
 import { MessageBusService } from "./ipc/message-bus.service";
 import { A2AClientService } from "./ipc/a2a/a2a-client.service";
-import { A2ATeamMemberAdapter } from "./ipc/a2a/a2a-team-member-adapter";
 import { AgentCardRegistry } from "./ipc/a2a/agent-card-registry";
 import { A2AApiKeyGuard } from "./ipc/a2a/a2a-api-key.guard";
 import { CircuitBreakerService } from "./resource/circuit-breaker.service";
@@ -47,7 +46,7 @@ const KERNEL_PROVIDERS = [
   MessageBusService,
   // A2A
   A2AClientService,
-  A2ATeamMemberAdapter,
+  // A2ATeamMemberAdapter is NOT a DI provider — it requires manual instantiation with agentCard
   AgentCardRegistry,
   A2AApiKeyGuard,
   // Resource
