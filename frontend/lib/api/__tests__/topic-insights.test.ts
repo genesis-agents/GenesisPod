@@ -154,6 +154,7 @@ import {
 } from '../topic-insights';
 import {
   ResearchTopicType,
+  ResearchTopicStatus,
   RefreshLogStatus,
   ResearchTodoStatus,
   ResearchTodoType,
@@ -2231,5 +2232,415 @@ describe('regenerateReportContent', () => {
       (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
     );
     expect(body.feedback).toBe('Please improve section 2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchWithAuth - additional edge cases
+// ---------------------------------------------------------------------------
+
+describe('fetchWithAuth - additional edge cases', () => {
+  it('throws error with text body when content-type is not json', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response('Plain error message', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    );
+
+    await expect(getTopic('topic-1')).rejects.toThrow('Plain error message');
+  });
+
+  it('throws generic HTTP error when error body parsing fails', async () => {
+    // Non-JSON body but content-type says json
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response('{broken', {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(getTopic('topic-1')).rejects.toThrow('HTTP 500');
+  });
+
+  it('returns null for response with content-length 0 (simulated 204)', async () => {
+    // jsdom does not support status 204, use content-length: 0 to simulate empty response
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response('', {
+        status: 200,
+        headers: { 'content-length': '0' },
+      })
+    );
+
+    const result = await getStats('topic-1');
+    expect(result).toBeNull();
+  });
+
+  it('returns text when content-type is not application/json', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response('some text content', {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    );
+
+    const result = await getTopic('topic-1');
+    expect(result).toBe('some text content');
+  });
+
+  it('returns null when JSON parse fails on response body', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response('not valid json ~~~~', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const result = await getStats('topic-1');
+    expect(result).toBeNull();
+  });
+
+  it('throws UnauthorizedError when refresh succeeds but second request still 401', async () => {
+    mockRefreshAccessToken.mockResolvedValue({
+      accessToken: 'refreshed-token',
+    });
+    (global.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(new Response('', { status: 401 }));
+
+    await expect(getTopic('topic-1')).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(mockLogout).toHaveBeenCalledOnce();
+  });
+
+  it('truncates long plain text error to 200 chars', async () => {
+    const longText = 'E'.repeat(300);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(longText, {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    );
+
+    await expect(getTopic('topic-1')).rejects.toThrow('E'.repeat(200));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getTopics - status param
+// ---------------------------------------------------------------------------
+
+describe('getTopics - status param', () => {
+  it('appends status param when provided', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse([])
+    );
+
+    await getTopics({ status: ResearchTopicStatus.ACTIVE });
+
+    const calledUrl = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect(calledUrl).toContain('status=ACTIVE');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getTemplates - type name variations
+// ---------------------------------------------------------------------------
+
+describe('getTemplates - TECHNOLOGY and COMPANY types', () => {
+  it('names template "技术趋势模板" for TECHNOLOGY type', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ type: 'TECHNOLOGY', dimensions: [{ name: 'Patents' }] })
+    );
+
+    const result = await getTemplates(
+      'TECHNOLOGY' as Parameters<typeof getTemplates>[0]
+    );
+
+    expect(result[0].name).toBe('技术趋势模板');
+    expect(result[0].type).toBe('TECHNOLOGY');
+  });
+
+  it('names template "企业追踪模板" for non-MACRO non-TECHNOLOGY type', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ type: 'COMPANY', dimensions: [{ name: 'Financials' }] })
+    );
+
+    const result = await getTemplates(
+      'COMPANY' as Parameters<typeof getTemplates>[0]
+    );
+
+    expect(result[0].name).toBe('企业追踪模板');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getEvidence - remaining params
+// ---------------------------------------------------------------------------
+
+describe('getEvidence - sortBy and pageSize params', () => {
+  it('appends sourceType, sortBy, and pageSize when provided', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({ evidence: [], total: 0, hasMore: false })
+    );
+
+    await getEvidence('topic-1', 'r1', {
+      sourceType: 'news',
+      sortBy: 'credibility',
+      pageSize: 20,
+    });
+
+    const calledUrl = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect(calledUrl).toContain('sourceType=news');
+    expect(calledUrl).toContain('sortBy=credibility');
+    expect(calledUrl).toContain('pageSize=20');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getTeamMessages
+// ---------------------------------------------------------------------------
+
+describe('getTeamMessages', () => {
+  it('GETs team messages without options', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse([{ id: 'msg-1', content: 'Hello' }])
+    );
+
+    await import('../topic-insights').then(({ getTeamMessages }) =>
+      getTeamMessages('topic-1')
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/topics/topic-1/team-messages'),
+      expect.anything()
+    );
+  });
+
+  it('appends limit and missionId when provided', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse([])
+    );
+
+    await import('../topic-insights').then(({ getTeamMessages }) =>
+      getTeamMessages('topic-1', { limit: 50, missionId: 'mission-abc' })
+    );
+
+    const calledUrl = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect(calledUrl).toContain('limit=50');
+    expect(calledUrl).toContain('missionId=mission-abc');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAgentActivities
+// ---------------------------------------------------------------------------
+
+describe('getAgentActivities', () => {
+  it('GETs agent activities without options', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse([{ id: 'act-1', agentName: 'Researcher' }])
+    );
+
+    await import('../topic-insights').then(({ getAgentActivities }) =>
+      getAgentActivities('topic-1')
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/topics/topic-1/agent-activities'),
+      expect.anything()
+    );
+  });
+
+  it('appends limit, missionId, and agentRole when provided', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse([])
+    );
+
+    await import('../topic-insights').then(({ getAgentActivities }) =>
+      getAgentActivities('topic-1', {
+        limit: 30,
+        missionId: 'mission-1',
+        agentRole: 'researcher',
+      })
+    );
+
+    const calledUrl = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect(calledUrl).toContain('limit=30');
+    expect(calledUrl).toContain('missionId=mission-1');
+    expect(calledUrl).toContain('agentRole=researcher');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// leaderChat
+// ---------------------------------------------------------------------------
+
+describe('leaderChat', () => {
+  it('POSTs to /topics/:id/leader/chat with message', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({
+        decisionType: 'DIRECT_ANSWER',
+        understanding: 'OK',
+        response: 'Got it',
+      })
+    );
+
+    await import('../topic-insights').then(({ leaderChat }) =>
+      leaderChat('topic-1', 'What is the status?')
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/topics/topic-1/leader/chat'),
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('includes missionId in body when provided', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({
+        decisionType: 'ACKNOWLEDGE',
+        understanding: '',
+        response: 'Ok',
+      })
+    );
+
+    await import('../topic-insights').then(({ leaderChat }) =>
+      leaderChat('topic-1', 'Pause research', 'mission-42')
+    );
+
+    const body = JSON.parse(
+      (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
+    );
+    expect(body.message).toBe('Pause research');
+    expect(body.missionId).toBe('mission-42');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// waitForExportCompletion
+// ---------------------------------------------------------------------------
+
+describe('waitForExportCompletion', () => {
+  it('returns downloadUrl immediately when initial response is COMPLETED', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({
+        status: 'COMPLETED',
+        downloadUrl: 'https://cdn.example.com/file.pdf',
+        jobId: 'job-1',
+      })
+    );
+
+    await import('../topic-insights').then(({ waitForExportCompletion }) =>
+      waitForExportCompletion('topic-1', 'report-1', {
+        format: 'pdf',
+      } as Parameters<typeof import('../topic-insights').exportReport>[2]).then(
+        (url) => {
+          expect(url).toBe('https://cdn.example.com/file.pdf');
+        }
+      )
+    );
+  });
+
+  it('throws when initial response is FAILED', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({
+        status: 'FAILED',
+        error: 'Export failed due to timeout',
+      })
+    );
+
+    await expect(
+      import('../topic-insights').then(({ waitForExportCompletion }) =>
+        waitForExportCompletion('topic-1', 'report-1', {
+          format: 'pdf',
+        } as Parameters<typeof import('../topic-insights').exportReport>[2])
+      )
+    ).rejects.toThrow('Export failed due to timeout');
+  });
+
+  it('throws when initial response has no jobId', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({ status: 'QUEUED' })
+    );
+
+    await expect(
+      import('../topic-insights').then(({ waitForExportCompletion }) =>
+        waitForExportCompletion('topic-1', 'report-1', {
+          format: 'pdf',
+        } as Parameters<typeof import('../topic-insights').exportReport>[2])
+      )
+    ).rejects.toThrow('导出任务创建失败');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSharedTopicLatestReport - raw json fallback
+// ---------------------------------------------------------------------------
+
+describe('getSharedTopicLatestReport - additional', () => {
+  it('returns raw json when no data field present', async () => {
+    const report = { id: 'report-1', content: 'content' };
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(report)
+    );
+
+    const result = await getSharedTopicLatestReport('topic-1');
+    expect(result).toEqual(report);
+  });
+
+  it('throws fallback message when error json has no message field', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response('not-json', { status: 500 })
+    );
+
+    await expect(getSharedTopicLatestReport('topic-1')).rejects.toThrow(
+      'Failed to fetch shared report'
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// triggerRefresh with dto
+// ---------------------------------------------------------------------------
+
+describe('triggerRefresh with dto', () => {
+  it('sends dto body when provided', async () => {
+    const dto = { priority: 'high', dimensions: ['dim-1'] };
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({ jobId: 'job-2', message: 'Refreshing with options' })
+    );
+
+    await triggerRefresh(
+      'topic-1',
+      dto as Parameters<typeof triggerRefresh>[1]
+    );
+
+    const body = JSON.parse(
+      (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
+    );
+    expect(body.priority).toBe('high');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshDimension without options
+// ---------------------------------------------------------------------------
+
+describe('refreshDimension without options', () => {
+  it('sends empty body when no options provided', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      wrappedResponse({ success: true, message: 'Refreshing' })
+    );
+
+    await refreshDimension('topic-1', 'd1');
+
+    const body = JSON.parse(
+      (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
+    );
+    expect(body).toEqual({});
   });
 });

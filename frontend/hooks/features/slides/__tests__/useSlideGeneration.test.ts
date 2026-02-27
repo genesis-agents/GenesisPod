@@ -760,4 +760,679 @@ describe('useSlideGeneration', () => {
       expect.objectContaining({ status: 'generating' })
     );
   });
+
+  it('processes legacy phase_started event', async () => {
+    const event = {
+      type: 'phase_started',
+      data: { phase: 'outline_planning' },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const onPhaseStarted = vi.fn();
+    const { result } = renderHook(() => useSlideGeneration({ onPhaseStarted }));
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.setProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ phaseProgress: 0 })
+    );
+    expect(onPhaseStarted).toHaveBeenCalled();
+  });
+
+  it('processes legacy phase_completed event with task_decomposition phase', async () => {
+    const taskData = { tasks: [{ id: 'task-1', title: 'Analyze' }] };
+    const event = {
+      type: 'phase_completed',
+      data: { phase: 'task_decomposition', data: taskData },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const onPhaseCompleted = vi.fn();
+    const { result } = renderHook(() =>
+      useSlideGeneration({ onPhaseCompleted })
+    );
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.setTaskDecomposition).toHaveBeenCalledWith(taskData);
+    expect(onPhaseCompleted).toHaveBeenCalled();
+  });
+
+  it('processes legacy phase_completed event with outline_planning phase and initializes pages', async () => {
+    const outlineData = {
+      pages: [
+        {
+          pageNumber: 1,
+          title: 'Intro',
+          templateType: 'multiColumn',
+          purpose: '',
+          keyPoints: [],
+        },
+        {
+          pageNumber: 2,
+          title: 'Body',
+          templateType: 'multiColumn',
+          purpose: '',
+          keyPoints: [],
+        },
+      ],
+    };
+    const event = {
+      type: 'phase_completed',
+      data: { phase: 'outline_planning', data: outlineData },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 2,
+      });
+    });
+
+    expect(store.setOutlinePlan).toHaveBeenCalledWith(outlineData);
+    expect(store.setPages).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ pageNumber: 1, status: 'pending' }),
+        expect.objectContaining({ pageNumber: 2, status: 'pending' }),
+      ])
+    );
+  });
+
+  it('processes legacy phase_completed event with quality_review phase', async () => {
+    const qualityData = { score: 95, issues: [] };
+    const event = {
+      type: 'phase_completed',
+      data: { phase: 'quality_review', data: qualityData },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.setQualityReport).toHaveBeenCalledWith(qualityData);
+  });
+
+  it('processes progress_update legacy event', async () => {
+    const event = {
+      type: 'progress_update',
+      data: {
+        phase: 'content_filling',
+        current: 3,
+        total: 10,
+        percentage: 30,
+      },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 10,
+      });
+    });
+
+    expect(store.setProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phaseProgress: 30,
+        currentPage: 3,
+        totalPages: 10,
+      })
+    );
+  });
+
+  it('processes page_completed legacy event', async () => {
+    const event = {
+      type: 'page_completed',
+      data: {
+        pageNumber: 3,
+        totalPages: 5,
+        html: '<div>Slide 3</div>',
+        content: { title: 'Slide 3' },
+        design: { theme: 'blue' },
+      },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const onPageCompleted = vi.fn();
+    const { result } = renderHook(() =>
+      useSlideGeneration({ onPageCompleted })
+    );
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.updatePage).toHaveBeenCalledWith(
+      3,
+      expect.objectContaining({
+        status: 'completed',
+        html: '<div>Slide 3</div>',
+      })
+    );
+    expect(onPageCompleted).toHaveBeenCalledWith(3);
+  });
+
+  it('processes checkpoint_created legacy event without error', async () => {
+    const event = {
+      type: 'checkpoint_created',
+      data: { name: 'mid-generation', type: 'AUTO' },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    // Should not throw and should not call setError
+    const errorCalls = vi
+      .mocked(store.setError)
+      .mock.calls.filter((c) => c[0] !== null);
+    expect(errorCalls).toHaveLength(0);
+  });
+
+  it('processes agent:working event without error', async () => {
+    const event = {
+      type: 'agent:working',
+      data: {
+        agentName: 'ResearchAgent',
+        task: 'Searching sources',
+        progress: 50,
+      },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    // agent:working is a no-op for UI - no error should be set
+    const errorCalls = vi
+      .mocked(store.setError)
+      .mock.calls.filter((c) => c[0] !== null);
+    expect(errorCalls).toHaveLength(0);
+  });
+
+  it('processes agent:completed event without error', async () => {
+    const event = {
+      type: 'agent:completed',
+      data: { agentName: 'ResearchAgent', result: 'done' },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    const errorCalls = vi
+      .mocked(store.setError)
+      .mock.calls.filter((c) => c[0] !== null);
+    expect(errorCalls).toHaveLength(0);
+  });
+
+  it('handles unknown event type gracefully', async () => {
+    const event = {
+      type: 'unknown:event:xyz',
+      data: { foo: 'bar' },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    // No error should be set for unknown events
+    const errorCalls = vi
+      .mocked(store.setError)
+      .mock.calls.filter((c) => c[0] !== null);
+    expect(errorCalls).toHaveLength(0);
+  });
+
+  it('processes execution:started event using executionId fallback', async () => {
+    const event = {
+      type: 'execution:started',
+      executionId: 'exec-fallback-id',
+      data: {},
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const onSessionCreated = vi.fn();
+    const { result } = renderHook(() =>
+      useSlideGeneration({ onSessionCreated })
+    );
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.setSession).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'exec-fallback-id' })
+    );
+    expect(onSessionCreated).toHaveBeenCalledWith('exec-fallback-id');
+  });
+
+  it('slide:generated initializes pages array when currentPages is too small', async () => {
+    // Set getState to return empty pages array so initialization branch is triggered
+    (
+      vi.mocked(useSlidesStore) as unknown as {
+        getState: ReturnType<typeof vi.fn>;
+      }
+    ).getState = vi.fn(() => ({
+      pages: [],
+      progress: null,
+    })) as never;
+
+    const event = {
+      type: 'slide:generated',
+      data: {
+        pageNumber: 1,
+        totalPages: 3,
+        html: '<div>Slide 1</div>',
+        title: 'Intro',
+      },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 3,
+      });
+    });
+
+    // setPages should be called to initialize the pages array
+    expect(store.setPages).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ pageNumber: 1 }),
+        expect.objectContaining({ pageNumber: 2 }),
+        expect.objectContaining({ pageNumber: 3 }),
+      ])
+    );
+  });
+
+  it('execution:completed uses store pages length when totalPages not in data', async () => {
+    (
+      vi.mocked(useSlidesStore) as unknown as {
+        getState: ReturnType<typeof vi.fn>;
+      }
+    ).getState = vi.fn(() => ({
+      pages: [{ pageNumber: 1 }, { pageNumber: 2 }],
+      progress: null,
+    })) as never;
+
+    const event = {
+      type: 'execution:completed',
+      sessionId: 'sess-done',
+      data: {},
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const onComplete = vi.fn();
+    const { result } = renderHook(() => useSlideGeneration({ onComplete }));
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 2,
+      });
+    });
+
+    expect(store.setProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        totalPages: 2,
+        phase: 'quality_review',
+        overallProgress: 100,
+      })
+    );
+  });
+
+  it('generate handles non-Error thrown object', async () => {
+    mockFetch.mockRejectedValueOnce('string error');
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.setError).toHaveBeenCalledWith('生成失败');
+  });
+
+  it('execution:started uses sessionId from data when event.sessionId absent', async () => {
+    const event = {
+      type: 'execution:started',
+      data: { sessionId: 'data-session-id' },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.setSession).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'data-session-id' })
+    );
+  });
+
+  it('phase:started event with agent field logs agent info', async () => {
+    const event = {
+      type: 'phase:started',
+      data: {
+        phase: 'rendering',
+        agent: 'RenderAgent',
+        description: 'Starting render',
+      },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    // The branch with agent field should execute without error
+    const errorCalls = vi
+      .mocked(store.setError)
+      .mock.calls.filter((c) => c[0] !== null);
+    expect(errorCalls).toHaveLength(0);
+  });
+
+  it('phase:completed triggers handlePhaseCompleted with task_decomposition', async () => {
+    const taskData = { tasks: [{ id: 'td-1' }] };
+    const event = {
+      type: 'phase:completed',
+      data: { phase: 'task_decomposition', result: taskData },
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    expect(store.setTaskDecomposition).toHaveBeenCalledWith(taskData);
+  });
+
+  it('session_created legacy event with no session data does nothing', async () => {
+    const event = {
+      type: 'session_created',
+      data: {},
+    };
+    const stream = makeReadableStream([makeSSEChunk(event)]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    await act(async () => {
+      await result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    // setSession should NOT be called when session data is missing
+    expect(store.setSession).not.toHaveBeenCalled();
+  });
+
+  it('cancel aborts ongoing request via abortController', async () => {
+    // Create a stream that doesn't end immediately
+    let streamController: ReadableStreamDefaultController<Uint8Array> | null =
+      null;
+    const stream = new ReadableStream({
+      start(controller) {
+        streamController = controller;
+      },
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+
+    const { useSlideGeneration } = await import('../useSlideGeneration');
+    const store = getMockStore();
+    const { result } = renderHook(() => useSlideGeneration());
+
+    // Start generation without awaiting
+    act(() => {
+      void result.current.generate({
+        title: 'Test',
+        sourceText: 'Source',
+        targetPages: 5,
+      });
+    });
+
+    // Cancel immediately
+    act(() => {
+      result.current.cancel();
+    });
+
+    expect(store.setGenerating).toHaveBeenCalledWith(false);
+    expect(store.setProgress).toHaveBeenCalledWith(null);
+
+    // Clean up
+    if (streamController) {
+      (streamController as ReadableStreamDefaultController<Uint8Array>).close();
+    }
+  });
 });

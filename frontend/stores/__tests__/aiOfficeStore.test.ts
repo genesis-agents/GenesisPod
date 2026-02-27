@@ -822,3 +822,547 @@ describe('useCurrentTask selector', () => {
     expect(result.current).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// DocumentStore - additional branches
+// ---------------------------------------------------------------------------
+
+describe('useDocumentStore - additional', () => {
+  beforeEach(() => {
+    act(() => {
+      useDocumentStore.setState({
+        documents: [],
+        currentDocumentId: null,
+        isGenerating: false,
+        generationProgress: 0,
+        generationSteps: [],
+        currentStep: '',
+        resourcesFound: 0,
+        estimatedTime: null,
+        error: null,
+      });
+    });
+  });
+
+  it('setGenerating true sets isGenerating without resetting steps', () => {
+    act(() => {
+      useDocumentStore
+        .getState()
+        .setGenerationSteps([
+          { id: 's1', name: 'Step 1', status: 'processing' },
+        ]);
+      useDocumentStore.getState().setGenerating(true);
+    });
+
+    const state = useDocumentStore.getState();
+    expect(state.isGenerating).toBe(true);
+    // Steps are NOT reset when setting generating to true
+    expect(state.generationSteps).toHaveLength(1);
+  });
+
+  it('setCurrentStep updates currentStep', () => {
+    act(() => {
+      useDocumentStore.getState().setCurrentStep('step-3');
+    });
+    expect(useDocumentStore.getState().currentStep).toBe('step-3');
+  });
+
+  it('setResourcesFound updates resourcesFound', () => {
+    act(() => {
+      useDocumentStore.getState().setResourcesFound(42);
+    });
+    expect(useDocumentStore.getState().resourcesFound).toBe(42);
+  });
+
+  it('setEstimatedTime updates estimatedTime', () => {
+    act(() => {
+      useDocumentStore.getState().setEstimatedTime(120);
+    });
+    expect(useDocumentStore.getState().estimatedTime).toBe(120);
+
+    act(() => {
+      useDocumentStore.getState().setEstimatedTime(null);
+    });
+    expect(useDocumentStore.getState().estimatedTime).toBeNull();
+  });
+
+  it('deleteDocument preserves currentDocumentId when different doc is deleted', () => {
+    act(() => {
+      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
+      useDocumentStore.getState().addDocument(makeDocument('doc-2'));
+      useDocumentStore.getState().setCurrentDocument('doc-1');
+    });
+
+    act(() => {
+      useDocumentStore.getState().deleteDocument('doc-2');
+    });
+
+    expect(useDocumentStore.getState().currentDocumentId).toBe('doc-1');
+    expect(useDocumentStore.getState().documents).toHaveLength(1);
+  });
+
+  it('saveVersion for PPT document calculates slideCount from markdown', () => {
+    const pptDoc = makeDocument('doc-ppt', 'ppt');
+    act(() => {
+      useDocumentStore.getState().addDocument(pptDoc);
+    });
+
+    let versionId = '';
+    act(() => {
+      versionId = useDocumentStore
+        .getState()
+        .saveVersion('doc-ppt', 'auto', 'ai_generation');
+    });
+
+    expect(versionId).toMatch(/^v_/);
+    const doc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-ppt');
+    expect(doc?.versions).toHaveLength(1);
+    // The calculateSlideCount mock counts ## headers
+    expect(doc?.versions[0].metadata.slideCount).toBe(2);
+  });
+
+  it('saveVersion records aiModel from document aiConfig', () => {
+    const doc = makeDocument('doc-with-ai');
+    act(() => {
+      useDocumentStore.getState().addDocument(doc);
+    });
+
+    let versionId = '';
+    act(() => {
+      versionId = useDocumentStore
+        .getState()
+        .saveVersion('doc-with-ai', 'manual', 'user_edit', 'With AI config');
+    });
+
+    const savedDoc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-with-ai');
+    expect(savedDoc?.versions[0].aiModel).toBe('grok');
+  });
+
+  it('restoreVersion does nothing when document not found', () => {
+    act(() => {
+      useDocumentStore.getState().restoreVersion('nonexistent-doc', 'v_1');
+    });
+    // No error, state unchanged
+    expect(useDocumentStore.getState().documents).toHaveLength(0);
+  });
+
+  it('restoreVersion does nothing when version not found', () => {
+    act(() => {
+      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
+    });
+
+    act(() => {
+      useDocumentStore
+        .getState()
+        .restoreVersion('doc-1', 'v_nonexistent_version');
+    });
+
+    const doc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-1');
+    // Document unchanged
+    expect(doc?.versions).toHaveLength(0);
+  });
+
+  it('getVersions returns empty array for nonexistent document', () => {
+    const versions = useDocumentStore.getState().getVersions('no-such-doc');
+    expect(versions).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ChatStore - additional branches
+// ---------------------------------------------------------------------------
+
+describe('useChatStore - additional', () => {
+  beforeEach(() => {
+    act(() => {
+      useChatStore.setState({
+        sessions: {},
+        isStreaming: false,
+        streamingMessage: '',
+        shouldStopGeneration: false,
+        error: null,
+        agentMode: 'basic',
+        agentStatus: null,
+      });
+    });
+  });
+
+  it('updateStreamingMessage updates streamingMessage', () => {
+    act(() => {
+      useChatStore.getState().updateStreamingMessage('Partial response...');
+    });
+    expect(useChatStore.getState().streamingMessage).toBe(
+      'Partial response...'
+    );
+  });
+
+  it('setStreaming false keeps shouldStopGeneration as false', () => {
+    act(() => {
+      useChatStore.getState().setStreaming(true);
+      useChatStore.getState().setStreaming(false);
+    });
+    expect(useChatStore.getState().isStreaming).toBe(false);
+    expect(useChatStore.getState().shouldStopGeneration).toBe(false);
+  });
+
+  it('setAgentStatus can be set to null', () => {
+    act(() => {
+      useChatStore.getState().setAgentStatus('Working...');
+      useChatStore.getState().setAgentStatus(null);
+    });
+    expect(useChatStore.getState().agentStatus).toBeNull();
+  });
+
+  it('setError sets error message', () => {
+    act(() => {
+      useChatStore.getState().setError('Chat error');
+    });
+    expect(useChatStore.getState().error).toBe('Chat error');
+
+    act(() => {
+      useChatStore.getState().setError(null);
+    });
+    expect(useChatStore.getState().error).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TaskStore - additional branches
+// ---------------------------------------------------------------------------
+
+describe('useTaskStore - additional', () => {
+  beforeEach(() => {
+    act(() => {
+      useTaskStore.setState({
+        tasks: [],
+        currentTaskId: null,
+        isTaskListOpen: false,
+      });
+      useDocumentStore.setState({
+        documents: [],
+        currentDocumentId: null,
+        isGenerating: false,
+        generationProgress: 0,
+        generationSteps: [],
+        currentStep: '',
+        resourcesFound: 0,
+        estimatedTime: null,
+        error: null,
+      });
+      useResourceStore.setState({ resources: [], selectedResourceIds: [] });
+      useChatStore.setState({
+        sessions: {},
+        isStreaming: false,
+        streamingMessage: '',
+        shouldStopGeneration: false,
+        error: null,
+        agentMode: 'basic',
+        agentStatus: null,
+      });
+    });
+  });
+
+  it('setTaskListOpen sets isTaskListOpen directly', () => {
+    act(() => {
+      useTaskStore.getState().setTaskListOpen(true);
+    });
+    expect(useTaskStore.getState().isTaskListOpen).toBe(true);
+
+    act(() => {
+      useTaskStore.getState().setTaskListOpen(false);
+    });
+    expect(useTaskStore.getState().isTaskListOpen).toBe(false);
+  });
+
+  it('deleteTask preserves currentTaskId when different task is deleted', () => {
+    const task1 = makeTask('task-1');
+    const task2 = makeTask('task-2');
+    act(() => {
+      useTaskStore.getState().addTask(task1);
+      useTaskStore.getState().addTask(task2);
+      useTaskStore.getState().setCurrentTask('task-1');
+    });
+
+    act(() => {
+      useTaskStore.getState().deleteTask('task-2');
+    });
+
+    expect(useTaskStore.getState().currentTaskId).toBe('task-1');
+    expect(useTaskStore.getState().tasks).toHaveLength(1);
+  });
+
+  it('updateTask without context updates fields but keeps existing context', () => {
+    const task = makeTask('task-1');
+    task.context.resourceIds = ['r1', 'r2'];
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().updateTask('task-1', {
+        title: 'Updated Title',
+      });
+    });
+
+    const updated = useTaskStore
+      .getState()
+      .tasks.find((t) => t._id === 'task-1');
+    expect(updated?.title).toBe('Updated Title');
+    expect(updated?.context.resourceIds).toEqual(['r1', 'r2']);
+  });
+
+  it('restoreTaskContext does nothing when task not found', () => {
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('nonexistent-task');
+    });
+    // No error thrown
+    expect(useTaskStore.getState().currentTaskId).toBeNull();
+  });
+
+  it('restoreTaskContext restores resource selection', () => {
+    const resource1 = makeResource('r1');
+    const resource2 = makeResource('r2');
+
+    act(() => {
+      useResourceStore.getState().addResource(resource1);
+      useResourceStore.getState().addResource(resource2);
+      useResourceStore.getState().selectResource('r1');
+    });
+
+    const task = makeTask('task-restore');
+    task.context.resourceIds = ['r2'];
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('task-restore');
+    });
+
+    expect(useResourceStore.getState().selectedResourceIds).toEqual(['r2']);
+    expect(useTaskStore.getState().currentTaskId).toBe('task-restore');
+  });
+
+  it('restoreTaskContext with documentId and existing document updates content', () => {
+    const doc = makeDocument('doc-restore');
+    const newContent = { text: 'Restored content from task context' };
+    const newMetadata = { wordCount: 200, slideCount: 0 };
+
+    act(() => {
+      useDocumentStore.getState().addDocument(doc);
+    });
+
+    const task = makeTask('task-with-doc');
+    task.context.documentId = 'doc-restore';
+    task.context.documentContent = newContent as unknown as Document['content'];
+    task.context.documentMetadata = newMetadata as Document['metadata'];
+    task.context.chatMessages = [];
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('task-with-doc');
+    });
+
+    const restoredDoc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-restore');
+    expect(restoredDoc?.content).toEqual(newContent);
+    expect(useDocumentStore.getState().currentDocumentId).toBe('doc-restore');
+  });
+
+  it('restoreTaskContext recreates document from snapshot when doc not in store', () => {
+    const content = { text: 'Snapshot content' };
+    const metadata = { wordCount: 150, slideCount: 0 };
+
+    const task = makeTask('task-recreate');
+    task.context.documentId = 'doc-snapshot';
+    task.context.documentContent = content as unknown as Document['content'];
+    task.context.documentMetadata = metadata as Document['metadata'];
+    task.context.chatMessages = [];
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('task-recreate');
+    });
+
+    const recreatedDoc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-snapshot');
+    expect(recreatedDoc).toBeDefined();
+    expect(recreatedDoc?._id).toBe('doc-snapshot');
+    expect(useDocumentStore.getState().currentDocumentId).toBe('doc-snapshot');
+  });
+
+  it('restoreTaskContext maps summary/analysis task type to article document type', () => {
+    const content = { text: 'Summary text' };
+    const metadata = { wordCount: 100, slideCount: 0 };
+
+    const task = makeTask('task-summary');
+    task.type = 'summary';
+    task.context.documentId = 'doc-summary';
+    task.context.documentContent = content as unknown as Document['content'];
+    task.context.documentMetadata = metadata as Document['metadata'];
+    task.context.chatMessages = [];
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('task-summary');
+    });
+
+    const recreatedDoc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-summary');
+    expect(recreatedDoc?.type).toBe('article');
+  });
+
+  it('restoreTaskContext restores chat messages for existing documentId', () => {
+    const doc = makeDocument('doc-chat');
+    const msg1 = {
+      id: 'msg-1',
+      role: 'user' as const,
+      content: 'Hello from task',
+      timestamp: new Date(),
+    };
+
+    act(() => {
+      useDocumentStore.getState().addDocument(doc);
+    });
+
+    const task = makeTask('task-chat');
+    task.context.documentId = 'doc-chat';
+    task.context.chatMessages = [msg1];
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('task-chat');
+    });
+
+    const chatSessions = useChatStore.getState().sessions;
+    expect(chatSessions['doc-chat']).toHaveLength(1);
+    expect(chatSessions['doc-chat'][0].content).toBe('Hello from task');
+  });
+
+  it('restoreTaskContext with PPT document calculates slideCount', () => {
+    const pptContent = {
+      markdown:
+        '## Slide 1\nContent\n## Slide 2\nMore content\n## Slide 3\nEnd',
+    };
+    const metadata = { wordCount: 50, slideCount: 1 };
+
+    const task = makeTask('task-ppt');
+    task.type = 'ppt';
+    task.context.documentId = 'doc-ppt-restore';
+    task.context.documentContent = pptContent as unknown as Document['content'];
+    task.context.documentMetadata = metadata as Document['metadata'];
+    task.context.chatMessages = [];
+
+    const pptDoc = makeDocument('doc-ppt-restore', 'ppt');
+    act(() => {
+      useDocumentStore.getState().addDocument(pptDoc);
+    });
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('task-ppt');
+    });
+
+    const updatedDoc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-ppt-restore');
+    // calculateSlideCount mock counts ## headers: 3 slides
+    expect(updatedDoc?.metadata?.slideCount).toBe(3);
+  });
+
+  it('restoreTaskContext with documentVersions restores version history', () => {
+    const content = { text: 'Versioned content' };
+    const metadata = { wordCount: 100, slideCount: 0 };
+    const versions = [
+      {
+        id: 'v_old_1',
+        timestamp: new Date(),
+        type: 'auto' as const,
+        trigger: 'ai_generation' as const,
+        content,
+        metadata: { title: 'Old', wordCount: 80, slideCount: 0 },
+      },
+    ];
+
+    const task = makeTask('task-versions');
+    task.context.documentId = 'doc-versioned';
+    task.context.documentContent = content as unknown as Document['content'];
+    task.context.documentMetadata = metadata as Document['metadata'];
+    task.context.documentVersions = versions as unknown as Document['versions'];
+    task.context.chatMessages = [];
+
+    act(() => {
+      useTaskStore.getState().addTask(task);
+    });
+
+    act(() => {
+      useTaskStore.getState().restoreTaskContext('task-versions');
+    });
+
+    const recreatedDoc = useDocumentStore
+      .getState()
+      .documents.find((d) => d._id === 'doc-versioned');
+    expect(recreatedDoc?.versions).toHaveLength(1);
+    expect(recreatedDoc?.currentVersionId).toBe('v_old_1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UIStore - additional branches
+// ---------------------------------------------------------------------------
+
+describe('useUIStore - additional', () => {
+  beforeEach(() => {
+    act(() => {
+      useUIStore.setState({
+        middlePanelWidth: 650,
+        resourceListCollapsed: false,
+        selectedResourceIds: [],
+        isLoading: false,
+      });
+    });
+  });
+
+  it('setLoading with message sets loadingMessage', () => {
+    act(() => {
+      useUIStore.getState().setLoading(true, 'Uploading files...');
+    });
+    const state = useUIStore.getState();
+    expect(state.isLoading).toBe(true);
+    expect(state.loadingMessage).toBe('Uploading files...');
+  });
+
+  it('setError with null message clears error', () => {
+    act(() => {
+      useUIStore.getState().setError('Some error', 'ERR_400');
+      useUIStore.getState().setError(null);
+    });
+    expect(useUIStore.getState().error).toBeUndefined();
+  });
+});
