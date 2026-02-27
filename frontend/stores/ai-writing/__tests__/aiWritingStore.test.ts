@@ -268,13 +268,11 @@ describe('createProject', () => {
     const newProject = makeProject({ id: 'p-new', name: 'New Project' });
     mockedApi.createProject.mockResolvedValue(newProject);
 
-    const result = await useAIWritingStore
-      .getState()
-      .createProject({
-        name: 'New Project',
-        genre: 'Fantasy',
-        targetWords: 80000,
-      });
+    const result = await useAIWritingStore.getState().createProject({
+      name: 'New Project',
+      genre: 'Fantasy',
+      targetWords: 80000,
+    });
 
     const { projects } = useAIWritingStore.getState();
     expect(projects[0]).toEqual(newProject);
@@ -794,12 +792,10 @@ describe('startMission', () => {
     mockedApi.getVolumes.mockResolvedValue([]);
     mockedApi.getProject.mockResolvedValue(makeProject());
 
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', {
-        prompt: 'Write chapter 1',
-        missionType: 'chapter',
-      });
+    await useAIWritingStore.getState().startMission('p1', {
+      prompt: 'Write chapter 1',
+      missionType: 'chapter',
+    });
 
     // Should have been set during the call
     expect(mockedApi.startMission).toHaveBeenCalledWith(
@@ -1093,6 +1089,574 @@ describe('reset', () => {
 // ---------------------------------------------------------------------------
 // clearCurrentProjectData
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// pollMissionStatus — tested via startMission using real timers + waiting
+// Strategy: don't use fake timers; instead mock setTimeout to resolve immediately
+// ---------------------------------------------------------------------------
+
+describe('pollMissionStatus (via startMission - mission outcomes)', () => {
+  it('sets missionCompleted=true and calls fetchVolumes+fetchProject when COMPLETED', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-poll-1',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+    mockedApi.getMissionStatus.mockResolvedValue({
+      id: 'm-poll-1',
+      status: 'COMPLETED',
+      result: {},
+      orchestratorState: null,
+    } as never);
+    mockedApi.getVolumes.mockResolvedValue([]);
+    mockedApi.getProject.mockResolvedValue(makeProject());
+
+    // Patch setTimeout to resolve immediately during this test
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    // Give the fire-and-forget poll a chance to run
+    await new Promise((r) => origSetTimeout(r, 50));
+
+    vi.unstubAllGlobals();
+
+    const state = useAIWritingStore.getState();
+    expect(state.missionCompleted).toBe(true);
+    expect(state.isMissionRunning).toBe(false);
+    expect(state.missionProgress).toBe(100);
+    expect(mockedApi.getVolumes).toHaveBeenCalled();
+    expect(mockedApi.getProject).toHaveBeenCalled();
+  });
+
+  it('sets error state on FAILED mission with string error', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-fail-1',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+    mockedApi.getMissionStatus.mockResolvedValue({
+      id: 'm-fail-1',
+      status: 'FAILED',
+      result: { error: 'Writer crashed' },
+      orchestratorState: null,
+    } as never);
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    await new Promise((r) => origSetTimeout(r, 50));
+    vi.unstubAllGlobals();
+
+    const state = useAIWritingStore.getState();
+    expect(state.isMissionRunning).toBe(false);
+    expect(state.error).toBe('Writer crashed');
+    expect(state.missionCompleted).toBe(false);
+  });
+
+  it('sets error state on FAILED mission with object error', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-fail-2',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+    mockedApi.getMissionStatus.mockResolvedValue({
+      id: 'm-fail-2',
+      status: 'FAILED',
+      result: { error: { message: 'Object error message' } },
+      orchestratorState: null,
+    } as never);
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    await new Promise((r) => origSetTimeout(r, 50));
+    vi.unstubAllGlobals();
+
+    expect(useAIWritingStore.getState().error).toBe('Object error message');
+  });
+
+  it('clears state (no error) on FAILED mission with cancelled error', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-cancel-1',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+    mockedApi.getMissionStatus.mockResolvedValue({
+      id: 'm-cancel-1',
+      status: 'FAILED',
+      result: { error: 'Mission cancelled by user 取消' },
+      orchestratorState: null,
+    } as never);
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    await new Promise((r) => origSetTimeout(r, 50));
+    vi.unstubAllGlobals();
+
+    const state = useAIWritingStore.getState();
+    expect(state.isMissionRunning).toBe(false);
+    expect(state.error).toBeNull();
+    expect(state.missionMessage).toBe('');
+  });
+
+  it('updates progress from orchestratorState with currentSteps matching stepToPhase', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-orch-1',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+
+    let callCount = 0;
+    mockedApi.getMissionStatus.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          id: 'm-orch-1',
+          status: 'IN_PROGRESS',
+          result: {},
+          orchestratorState: {
+            completedSteps: [],
+            currentSteps: ['write'],
+            progress: 50,
+          },
+        } as never;
+      }
+      return {
+        id: 'm-orch-1',
+        status: 'COMPLETED',
+        result: {},
+        orchestratorState: null,
+      } as never;
+    });
+    mockedApi.getVolumes.mockResolvedValue([]);
+    mockedApi.getProject.mockResolvedValue(makeProject());
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    // Two poll ticks needed
+    await new Promise((r) => origSetTimeout(r, 100));
+    vi.unstubAllGlobals();
+
+    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
+  });
+
+  it('updates progress from orchestratorState when currentSteps empty but completedSteps exist', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-orch-2',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+
+    let callCount = 0;
+    mockedApi.getMissionStatus.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          id: 'm-orch-2',
+          status: 'IN_PROGRESS',
+          result: {},
+          orchestratorState: {
+            completedSteps: ['plan'],
+            currentSteps: [],
+            progress: 30,
+          },
+        } as never;
+      }
+      return {
+        id: 'm-orch-2',
+        status: 'COMPLETED',
+        result: {},
+        orchestratorState: null,
+      } as never;
+    });
+    mockedApi.getVolumes.mockResolvedValue([]);
+    mockedApi.getProject.mockResolvedValue(makeProject());
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    await new Promise((r) => origSetTimeout(r, 100));
+    vi.unstubAllGlobals();
+
+    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
+  });
+
+  it('refreshes StoryBible when world-building step completes', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-wb-1',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'world-building',
+    });
+
+    let callCount = 0;
+    mockedApi.getMissionStatus.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          id: 'm-wb-1',
+          status: 'IN_PROGRESS',
+          result: {},
+          orchestratorState: {
+            completedSteps: ['world-building'],
+            currentSteps: [],
+            progress: 20,
+          },
+        } as never;
+      }
+      return {
+        id: 'm-wb-1',
+        status: 'COMPLETED',
+        result: {},
+        orchestratorState: null,
+      } as never;
+    });
+    mockedApi.getVolumes.mockResolvedValue([]);
+    mockedApi.getProject.mockResolvedValue(makeProject());
+    mockedApi.getStoryBible.mockResolvedValue({
+      id: 'bible-1',
+      projectId: 'p1',
+    } as never);
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    await new Promise((r) => origSetTimeout(r, 100));
+    vi.unstubAllGlobals();
+
+    // StoryBible fetch was triggered
+    expect(mockedApi.getStoryBible).toHaveBeenCalled();
+  });
+
+  it('handles 404 ApiError by stopping poll cleanly', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-404-1',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+
+    const ApiErrorClass = mockedApi.ApiError;
+    mockedApi.getMissionStatus.mockRejectedValue(
+      new ApiErrorClass('Not found', 404)
+    );
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    await new Promise((r) => origSetTimeout(r, 50));
+    vi.unstubAllGlobals();
+
+    const state = useAIWritingStore.getState();
+    expect(state.isMissionRunning).toBe(false);
+    expect(state.missionCompleted).toBe(false);
+    expect(state.missionProgress).toBe(0);
+  });
+
+  it('handles fallback result.progress when no orchestratorState', async () => {
+    mockedApi.startMission.mockResolvedValue({
+      missionId: 'm-prog-1',
+      success: true,
+      projectId: 'p1',
+      message: 'Started',
+      missionType: 'chapter',
+    });
+
+    let callCount = 0;
+    mockedApi.getMissionStatus.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          id: 'm-prog-1',
+          status: 'IN_PROGRESS',
+          result: { progress: 60, currentStep: 'Writing' },
+          orchestratorState: null,
+        } as never;
+      }
+      return {
+        id: 'm-prog-1',
+        status: 'COMPLETED',
+        result: {},
+        orchestratorState: null,
+      } as never;
+    });
+    mockedApi.getVolumes.mockResolvedValue([]);
+    mockedApi.getProject.mockResolvedValue(makeProject());
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore
+      .getState()
+      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+
+    await new Promise((r) => origSetTimeout(r, 100));
+    vi.unstubAllGlobals();
+
+    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkRunningMission — simple mode polling
+// ---------------------------------------------------------------------------
+
+describe('checkRunningMission - with running mission (starts polling)', () => {
+  it('syncs state and polls when a running mission is found', async () => {
+    const recentTime = new Date().toISOString();
+    mockedApi.getProjectMissions.mockResolvedValue({
+      items: [
+        {
+          id: 'm-run-1',
+          status: 'IN_PROGRESS',
+          updatedAt: recentTime,
+          progress: 25,
+        },
+      ],
+      total: 1,
+    } as never);
+
+    // Immediately complete on first poll
+    mockedApi.getMissionStatus.mockResolvedValue({
+      id: 'm-run-1',
+      status: 'COMPLETED',
+      result: {},
+      orchestratorState: null,
+    } as never);
+    mockedApi.getVolumes.mockResolvedValue([]);
+    mockedApi.getProject.mockResolvedValue(makeProject());
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore.getState().checkRunningMission('p1');
+
+    // Give fire-and-forget poll a chance to complete
+    await new Promise((r) => origSetTimeout(r, 50));
+    vi.unstubAllGlobals();
+
+    const state = useAIWritingStore.getState();
+    expect(state.isMissionRunning).toBe(false);
+    expect(state.missionCompleted).toBe(true);
+  });
+
+  it('updates state from simple orchestratorState (no richOrchestratorUpdates)', async () => {
+    const recentTime = new Date().toISOString();
+    mockedApi.getProjectMissions.mockResolvedValue({
+      items: [
+        {
+          id: 'm-simple-1',
+          status: 'IN_PROGRESS',
+          updatedAt: recentTime,
+          progress: 10,
+        },
+      ],
+      total: 1,
+    } as never);
+
+    let callCount = 0;
+    mockedApi.getMissionStatus.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          id: 'm-simple-1',
+          status: 'IN_PROGRESS',
+          result: { currentStep: 'writing' },
+          orchestratorState: {
+            completedSteps: [],
+            currentSteps: ['write'],
+            progress: 45,
+          },
+        } as never;
+      }
+      return {
+        id: 'm-simple-1',
+        status: 'COMPLETED',
+        result: {},
+        orchestratorState: null,
+      } as never;
+    });
+    mockedApi.getVolumes.mockResolvedValue([]);
+    mockedApi.getProject.mockResolvedValue(makeProject());
+
+    const origSetTimeout = global.setTimeout;
+    vi.stubGlobal(
+      'setTimeout',
+      (fn: () => void, _delay: number) =>
+        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
+    );
+
+    await useAIWritingStore.getState().checkRunningMission('p1');
+
+    await new Promise((r) => origSetTimeout(r, 100));
+    vi.unstubAllGlobals();
+
+    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateProject - error throwing
+// ---------------------------------------------------------------------------
+
+describe('updateProject - error handling', () => {
+  it('throws and sets error on failure', async () => {
+    mockedApi.updateProject.mockRejectedValue(new Error('Update error'));
+
+    await expect(
+      useAIWritingStore.getState().updateProject('p1', { name: 'New' })
+    ).rejects.toThrow('Update error');
+    expect(useAIWritingStore.getState().error).toBe('Update error');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createVolume - error case
+// ---------------------------------------------------------------------------
+
+describe('createVolume - error handling', () => {
+  it('throws and sets error on failure', async () => {
+    mockedApi.createVolume.mockRejectedValue(new Error('Volume failed'));
+
+    await expect(
+      useAIWritingStore
+        .getState()
+        .createVolume('p1', { title: 'V1', volumeNumber: 1 })
+    ).rejects.toThrow('Volume failed');
+    expect(useAIWritingStore.getState().error).toBe('Volume failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createChapter - error case
+// ---------------------------------------------------------------------------
+
+describe('createChapter - error handling', () => {
+  it('throws and sets error on failure', async () => {
+    mockedApi.createChapter.mockRejectedValue(new Error('Chapter failed'));
+
+    await expect(
+      useAIWritingStore
+        .getState()
+        .createChapter('v1', { title: 'C1', chapterNumber: 1 })
+    ).rejects.toThrow('Chapter failed');
+    expect(useAIWritingStore.getState().error).toBe('Chapter failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cancelMission - without current missionId
+// ---------------------------------------------------------------------------
+
+describe('cancelMission - without missionId', () => {
+  it('falls back to getProjectMissions when no currentMissionId', async () => {
+    useAIWritingStore.setState({ currentMissionId: null });
+    mockedApi.getProjectMissions.mockResolvedValue({
+      items: [{ id: 'm-found-1', status: 'IN_PROGRESS' }],
+      total: 1,
+    } as never);
+    mockedApi.cancelMission.mockResolvedValue(
+      undefined as unknown as { success: boolean }
+    );
+    mockedApi.forceCleanupStuckMissions.mockResolvedValue({
+      cleaned: 0,
+    } as never);
+
+    await useAIWritingStore.getState().cancelMission('p1');
+
+    expect(mockedApi.getProjectMissions).toHaveBeenCalledWith('p1');
+    const state = useAIWritingStore.getState();
+    expect(state.isMissionRunning).toBe(false);
+  });
+});
 
 describe('clearCurrentProjectData', () => {
   it('clears all project-specific state but keeps projects list', () => {

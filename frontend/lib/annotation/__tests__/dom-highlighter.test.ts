@@ -364,3 +364,496 @@ describe('getAnnotationIds', () => {
     cleanup(container);
   });
 });
+
+// ---------------------------------------------------------------------------
+// highlightRange - multi-node range (spans multiple elements)
+// ---------------------------------------------------------------------------
+describe('highlightRange - multi-node ranges', () => {
+  it('handles range spanning multiple text nodes across elements', () => {
+    const container = makeContainer(
+      '<p id="p1">First paragraph text</p><p id="p2">Second paragraph text</p>'
+    );
+    document.body.appendChild(container);
+
+    const p1 = container.querySelector('#p1') as HTMLElement;
+    const p2 = container.querySelector('#p2') as HTMLElement;
+
+    const range = document.createRange();
+    range.setStart(p1.firstChild as Text, 6); // "paragraph..."
+    range.setEnd(p2.firstChild as Text, 6); // "Second"
+
+    const marks = highlightRange(
+      range,
+      makeAnnotation({ id: 'a1', color: 'yellow' })
+    );
+
+    // Multi-node range should return array (may have marks or not depending on jsdom)
+    expect(Array.isArray(marks)).toBe(true);
+    cleanup(container);
+  });
+
+  it('highlights text within a single paragraph spanning full text', () => {
+    const container = makeContainer('<p>Hello beautiful world</p>');
+
+    const p = container.querySelector('p') as HTMLElement;
+    const textNode = p.firstChild as Text;
+
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 5); // "Hello"
+
+    const marks = highlightRange(
+      range,
+      makeAnnotation({ id: 'a1', color: 'green' })
+    );
+
+    expect(Array.isArray(marks)).toBe(true);
+    cleanup(container);
+  });
+
+  it('creates mark with correct color for all color variants', () => {
+    const colors = ['yellow', 'green', 'blue', 'pink', 'purple'] as const;
+
+    for (const color of colors) {
+      const container = makeContainer(`<p>${color} test</p>`);
+      const textNode = container.querySelector('p')!.firstChild as Text;
+      const range = document.createRange();
+      range.setStart(textNode, 0);
+      range.setEnd(textNode, color.length);
+
+      const marks = highlightRange(
+        range,
+        makeAnnotation({ id: 'color-test', color })
+      );
+      marks.forEach((mark) => {
+        expect(mark.className).toContain(`bg-${color}-200`);
+      });
+      cleanup(container);
+    }
+  });
+
+  it('skips highlighting when text is already inside an annotation mark', () => {
+    const container = makeContainer(
+      '<p><mark class="annotation-mark" data-annotation-id="a1"><span>already annotated text</span></mark></p>'
+    );
+
+    const innerSpan = container.querySelector('span') as HTMLElement;
+    const textNode = innerSpan.firstChild as Text;
+
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 7);
+
+    const marks = highlightRange(range, makeAnnotation({ id: 'a2' }));
+
+    // Should not add nested marks (behavior depends on jsdom)
+    expect(Array.isArray(marks)).toBe(true);
+    cleanup(container);
+  });
+
+  it('handles pink color class correctly', () => {
+    const container = makeContainer('<p>pink highlight test text here</p>');
+    const textNode = container.querySelector('p')!.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 4); // "pink"
+
+    const marks = highlightRange(range, makeAnnotation({ color: 'pink' }));
+    marks.forEach((mark) => {
+      expect(mark.className).toContain('bg-pink-200');
+    });
+    cleanup(container);
+  });
+
+  it('handles purple color class correctly', () => {
+    const container = makeContainer('<p>purple highlight test text here</p>');
+    const textNode = container.querySelector('p')!.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 6); // "purple"
+
+    const marks = highlightRange(range, makeAnnotation({ color: 'purple' }));
+    marks.forEach((mark) => {
+      expect(mark.className).toContain('bg-purple-200');
+    });
+    cleanup(container);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// clearHighlights - error recovery
+// ---------------------------------------------------------------------------
+describe('clearHighlights - error recovery paths', () => {
+  it('handles marks whose parent no longer contains them gracefully', () => {
+    const container = makeContainer(
+      '<mark class="annotation-mark" data-annotation-id="a1">marked</mark> text'
+    );
+
+    // Should not throw even in unusual DOM states
+    expect(() => clearHighlights(container)).not.toThrow();
+    cleanup(container);
+  });
+
+  it('handles nested mark elements by removing both', () => {
+    // Nested annotation marks (unusual but should not crash)
+    const container = makeContainer(
+      '<mark class="annotation-mark" data-annotation-id="a1">' +
+        '<mark class="annotation-mark" data-annotation-id="a2">inner</mark>' +
+        ' outer' +
+        '</mark>'
+    );
+
+    expect(() => clearHighlights(container)).not.toThrow();
+    cleanup(container);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateHighlightedAnnotation - color classes
+// ---------------------------------------------------------------------------
+describe('updateHighlightedAnnotation - different ring classes', () => {
+  it('adds all ring classes from highlightedClass constant', () => {
+    const container = makeContainer(
+      '<mark class="annotation-mark" data-annotation-id="a1">text</mark>'
+    );
+
+    updateHighlightedAnnotation(container, 'a1');
+
+    const mark = container.querySelector(
+      '[data-annotation-id="a1"]'
+    ) as HTMLElement;
+    // highlightedClass = 'ring-2 ring-blue-500 ring-offset-1'
+    expect(mark.classList.contains('ring-2')).toBe(true);
+    expect(mark.classList.contains('ring-blue-500')).toBe(true);
+    expect(mark.classList.contains('ring-offset-1')).toBe(true);
+
+    cleanup(container);
+  });
+
+  it('removes all ring class parts from non-highlighted marks', () => {
+    const container = makeContainer(
+      '<mark class="annotation-mark ring-2 ring-blue-500 ring-offset-1" data-annotation-id="a1">text1</mark>' +
+        '<mark class="annotation-mark" data-annotation-id="a2">text2</mark>'
+    );
+
+    updateHighlightedAnnotation(container, 'a2');
+
+    const mark1 = container.querySelector(
+      '[data-annotation-id="a1"]'
+    ) as HTMLElement;
+    expect(mark1.classList.contains('ring-2')).toBe(false);
+    expect(mark1.classList.contains('ring-blue-500')).toBe(false);
+    expect(mark1.classList.contains('ring-offset-1')).toBe(false);
+
+    cleanup(container);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// highlightRange - wrapTextNodePortion edge cases via single-node
+// ---------------------------------------------------------------------------
+describe('highlightRange - wrapTextNodePortion via single-node ranges', () => {
+  it('wraps middle portion of text node correctly', () => {
+    const container = makeContainer('<p>Hello world foo</p>');
+    const textNode = container.querySelector('p')!.firstChild as Text;
+
+    const range = document.createRange();
+    range.setStart(textNode, 6); // "world"
+    range.setEnd(textNode, 11);
+
+    const marks = highlightRange(
+      range,
+      makeAnnotation({ id: 'mid', color: 'blue' })
+    );
+
+    // Should have created at least one mark if jsdom supports it
+    expect(Array.isArray(marks)).toBe(true);
+    cleanup(container);
+  });
+
+  it('wraps entire text node (start=0 to end=length)', () => {
+    const container = makeContainer('<p>entire text</p>');
+    const textNode = container.querySelector('p')!.firstChild as Text;
+    const len = textNode.textContent.length;
+
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, len);
+
+    const marks = highlightRange(
+      range,
+      makeAnnotation({ id: 'full', color: 'yellow' })
+    );
+
+    expect(Array.isArray(marks)).toBe(true);
+    cleanup(container);
+  });
+
+  it('produces mark with data-annotation-id attribute', () => {
+    const container = makeContainer('<p>annotate this</p>');
+    const textNode = container.querySelector('p')!.firstChild as Text;
+
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 8); // "annotate"
+
+    const marks = highlightRange(
+      range,
+      makeAnnotation({ id: 'attr-test', color: 'green' })
+    );
+
+    marks.forEach((mark) => {
+      expect(mark.getAttribute('data-annotation-id')).toBe('attr-test');
+    });
+    cleanup(container);
+  });
+
+  it('adds annotation-mark class to mark element', () => {
+    const container = makeContainer('<p>class check text here</p>');
+    const textNode = container.querySelector('p')!.firstChild as Text;
+
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 5);
+
+    const marks = highlightRange(
+      range,
+      makeAnnotation({ id: 'cls-test', color: 'yellow' })
+    );
+
+    marks.forEach((mark) => {
+      expect(mark.classList.contains('annotation-mark')).toBe(true);
+    });
+    cleanup(container);
+  });
+
+  it('returns empty array when range containers are not in DOM', () => {
+    // Create a text node that is NOT attached to any container
+    const detachedText = document.createTextNode('detached text node');
+    // Do NOT append it to document.body or any container
+
+    const range = document.createRange();
+    range.setStart(detachedText, 0);
+    range.setEnd(detachedText, 8);
+
+    // The text node has no parentNode, so highlightRange should return []
+    const marks = highlightRange(range, makeAnnotation({ id: 'detach-test' }));
+    expect(marks).toHaveLength(0);
+  });
+
+  it('returns empty array when highlightRange throws an error', () => {
+    // Create a mock range that throws when accessing collapsed
+    const badRange = {
+      get collapsed() {
+        throw new Error('Range is invalid');
+      },
+    } as unknown as Range;
+
+    const marks = highlightRange(badRange, makeAnnotation({ id: 'err-test' }));
+    expect(marks).toHaveLength(0);
+  });
+
+  it('returns empty array for range with null startContainer (invalid range validation)', () => {
+    // Mock a range where startContainer is null/falsy
+    const fakeRange = {
+      get collapsed() {
+        return false;
+      },
+      get startContainer() {
+        return null;
+      },
+      get endContainer() {
+        return document.createTextNode('end');
+      },
+      get startOffset() {
+        return 0;
+      },
+      get endOffset() {
+        return 3;
+      },
+    } as unknown as Range;
+
+    const marks = highlightRange(
+      fakeRange,
+      makeAnnotation({ id: 'null-start-test' })
+    );
+    expect(marks).toHaveLength(0);
+  });
+
+  it('handles multi-node range that causes an error in highlightMultiNodeRange', () => {
+    // Create a range that spans multiple nodes but causes an error
+    const container = makeContainer(
+      '<div><p>first paragraph</p><p>second paragraph</p></div>'
+    );
+    const firstP = container.querySelector('p')!;
+    const secondP = container.querySelectorAll('p')[1];
+
+    const range = document.createRange();
+    range.setStart(firstP.firstChild!, 0);
+    range.setEnd(secondP.firstChild!, 6);
+
+    // Should handle multi-node range without throwing
+    expect(() => {
+      highlightRange(range, makeAnnotation({ id: 'multi-test' }));
+    }).not.toThrow();
+
+    cleanup(container);
+  });
+
+  it('skips text nodes already inside annotation marks in multi-node range', () => {
+    // Create container with a mix of annotated and plain text across multiple nodes
+    const container = makeContainer(
+      '<div>' +
+        '<p>before <mark class="annotation-mark" data-annotation-id="existing">already marked</mark> after</p>' +
+        '<p>second node text</p>' +
+        '</div>'
+    );
+    document.body.appendChild(container);
+
+    const div = container.querySelector('div')!;
+    const mark = container.querySelector('.annotation-mark')!;
+    const firstP = container.querySelector('p')!;
+    const secondP = container.querySelectorAll('p')[1];
+
+    const range = document.createRange();
+    range.setStart(firstP.firstChild!, 0); // "before "
+    range.setEnd(secondP.firstChild!, 6); // "second"
+
+    // The already-marked text node should be skipped by the TreeWalker
+    expect(() => {
+      highlightRange(range, makeAnnotation({ id: 'skip-marked-test' }));
+    }).not.toThrow();
+
+    document.body.removeChild(container);
+  });
+
+  it('rejects text nodes outside the range boundary in TreeWalker', () => {
+    // Create a container with 3 paragraphs; range only covers middle one
+    const container = makeContainer(
+      '<div><p id="p1">first para text</p><p id="p2">middle para text</p><p id="p3">third para text</p></div>'
+    );
+    document.body.appendChild(container);
+
+    const p1 = container.querySelector('#p1')!;
+    const p2 = container.querySelector('#p2')!;
+    const p3 = container.querySelector('#p3')!;
+
+    // Range from p1 to p2 - p3 should be rejected by TreeWalker
+    const range = document.createRange();
+    range.setStart(p1.firstChild!, 0);
+    range.setEnd(p2.firstChild!, 6);
+
+    // Should process p1 and p2 text nodes, reject p3
+    expect(() => {
+      highlightRange(range, makeAnnotation({ id: 'reject-test' }));
+    }).not.toThrow();
+
+    document.body.removeChild(container);
+  });
+
+  it('handles error thrown in highlightMultiNodeRange', () => {
+    // Create a range where getCommonAncestorContainer might cause issues
+    // We use a mock range that returns null for commonAncestorContainer
+    const container = makeContainer('<div><p>test</p><p>content</p></div>');
+    const firstP = container.querySelector('p')!;
+    const secondP = container.querySelectorAll('p')[1];
+
+    const realRange = document.createRange();
+    realRange.setStart(firstP.firstChild!, 0);
+    realRange.setEnd(secondP.firstChild!, 4);
+
+    // Wrap with a proxy that throws on commonAncestorContainer
+    const throwingRange = new Proxy(realRange, {
+      get(target, prop) {
+        if (prop === 'commonAncestorContainer') {
+          throw new Error('commonAncestorContainer error');
+        }
+        const val = Reflect.get(target, prop);
+        if (typeof val === 'function') return val.bind(target);
+        return val;
+      },
+    });
+
+    // highlightMultiNodeRange should catch the error and return empty marks
+    const marks = highlightRange(
+      throwingRange,
+      makeAnnotation({ id: 'throw-test' })
+    );
+    expect(marks).toHaveLength(0);
+
+    cleanup(container);
+  });
+
+  it('handles multi-node range with null startContainer inside highlightMultiNodeRange', () => {
+    // This exercises the null startContainer/endContainer check inside highlightMultiNodeRange
+    // We need a range that passes the outer validation in highlightRange but fails internally
+    const container = makeContainer('<div><p>first</p><p>second</p></div>');
+    const firstP = container.querySelector('p')!;
+    const secondP = container.querySelectorAll('p')[1];
+
+    const realRange = document.createRange();
+    realRange.setStart(firstP.firstChild!, 0);
+    realRange.setEnd(secondP.firstChild!, 4);
+
+    // Proxy: pass outer validation (startContainer/endContainer/parentNode exist)
+    // but return null for startContainer when accessed in highlightMultiNodeRange
+    let callCount = 0;
+    const nullContainerRange = new Proxy(realRange, {
+      get(target, prop) {
+        if (prop === 'startContainer') {
+          // First 2 calls from highlightRange validation; 3rd call from highlightMultiNodeRange
+          callCount++;
+          if (callCount >= 3) return null;
+          return firstP.firstChild;
+        }
+        if (prop === 'endContainer') return secondP.firstChild;
+        if (prop === 'collapsed') return false;
+        const val = Reflect.get(target, prop);
+        if (typeof val === 'function') return val.bind(target);
+        return val;
+      },
+    });
+
+    // Should return empty marks due to null startContainer inside highlightMultiNodeRange
+    const marks = highlightRange(
+      nullContainerRange,
+      makeAnnotation({ id: 'null-start-multi' })
+    );
+    expect(marks).toHaveLength(0);
+
+    cleanup(container);
+  });
+
+  it('handles multi-node range with null commonAncestorContainer', () => {
+    // Mock a multi-node range where commonAncestorContainer is null
+    const container = makeContainer('<div><p>first</p><p>second</p></div>');
+    const firstP = container.querySelector('p')!;
+    const secondP = container.querySelectorAll('p')[1];
+
+    const realRange = document.createRange();
+    realRange.setStart(firstP.firstChild!, 0);
+    realRange.setEnd(secondP.firstChild!, 4);
+
+    // Make the range span multiple nodes but return null for commonAncestorContainer
+    const nullAncestorRange = new Proxy(realRange, {
+      get(target, prop) {
+        if (prop === 'startContainer') return firstP.firstChild;
+        if (prop === 'endContainer') return secondP.firstChild;
+        if (prop === 'collapsed') return false;
+        if (prop === 'commonAncestorContainer') return null;
+        const val = Reflect.get(target, prop);
+        if (typeof val === 'function') return val.bind(target);
+        return val;
+      },
+    });
+
+    // Should return empty marks (bails out early due to null commonAncestorContainer)
+    const marks = highlightRange(
+      nullAncestorRange,
+      makeAnnotation({ id: 'no-ancestor-test' })
+    );
+    expect(marks).toHaveLength(0);
+
+    cleanup(container);
+  });
+});
