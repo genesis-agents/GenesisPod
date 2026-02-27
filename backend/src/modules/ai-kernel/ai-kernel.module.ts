@@ -10,7 +10,6 @@ import { ProgressTrackerService } from "./ipc/progress-tracker.service";
 import { MessageBusService } from "./ipc/message-bus.service";
 import { A2AClientService } from "./ipc/a2a/a2a-client.service";
 import { AgentCardRegistry } from "./ipc/a2a/agent-card-registry";
-import { A2AApiKeyGuard } from "./ipc/a2a/a2a-api-key.guard";
 import { CircuitBreakerService } from "./resource/circuit-breaker.service";
 import { TokenBudgetService } from "./resource/token-budget.service";
 import { ResourceManagerService } from "./resource/resource-manager.service";
@@ -48,7 +47,7 @@ const KERNEL_PROVIDERS = [
   A2AClientService,
   // A2ATeamMemberAdapter is NOT a DI provider — it requires manual instantiation with agentCard
   AgentCardRegistry,
-  A2AApiKeyGuard,
+  // A2AApiKeyGuard stays in A2AModule (needs SecretsModule which is imported there)
   // Resource
   CircuitBreakerService,
   TokenBudgetService,
