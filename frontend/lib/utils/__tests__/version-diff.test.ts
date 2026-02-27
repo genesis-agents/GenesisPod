@@ -11,7 +11,6 @@ import {
   getDiffColor,
   getDiffIcon,
   type DiffType,
-  type VersionComparison,
 } from '../version-diff';
 
 // ---------------------------------------------------------------------------
