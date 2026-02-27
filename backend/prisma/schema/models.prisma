@@ -4200,6 +4200,7 @@ enum CreditTransactionType {
   AI_INSIGHTS // AI 洞察消耗
   NOTEBOOK_RESEARCH // 笔记本研究消耗
   AI_PLANNING // AI 规划消耗
+  EXPLORE // 探索页 AI 功能消耗
   LIBRARY // 资源库消耗
   NOTES // 笔记消耗
   COLLECTIONS // 收藏集消耗

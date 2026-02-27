@@ -610,7 +610,7 @@ export class PlanningOrchestratorService {
       {
         userId,
         moduleType: "ai-planning",
-        operationType: "execute-phase",
+        operationType: "utility",
         referenceId: planId,
       },
       () => this.executePhaseAsyncInner(planId, userId, phase),
@@ -764,7 +764,7 @@ export class PlanningOrchestratorService {
           billing: {
             userId,
             moduleType: "ai-planning",
-            operationType: `phase-${phase}`,
+            operationType: "execute-phase",
             referenceId: planId,
           },
         });
@@ -867,7 +867,7 @@ export class PlanningOrchestratorService {
               billing: {
                 userId,
                 moduleType: "ai-planning",
-                operationType: `phase-${phase}-retry`,
+                operationType: "execute-phase",
                 referenceId: planId,
               },
             });
@@ -2108,9 +2108,7 @@ ${researchOutput.substring(0, 12000)}
     );
 
     const leaderModelId =
-      reasoningModel?.id ||
-      availableChatModels[0]?.id ||
-      "";
+      reasoningModel?.id || availableChatModels[0]?.id || "";
     const chatModelId = availableChatModels[0]?.id || "";
 
     this.logger.log(

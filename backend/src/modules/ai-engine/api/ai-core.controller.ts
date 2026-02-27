@@ -1014,7 +1014,7 @@ JSON output:`;
 
     if (userId) {
       return BillingContext.run(
-        { userId, moduleType: "ai-engine", operationType: "summary" },
+        { userId, moduleType: "explore", operationType: "summary" },
         executeSummary,
       );
     }
@@ -1100,7 +1100,7 @@ JSON output:`;
 
     if (userId) {
       return BillingContext.run(
-        { userId, moduleType: "ai-engine", operationType: "insights" },
+        { userId, moduleType: "explore", operationType: "insights" },
         executeInsights,
       );
     }
@@ -1231,7 +1231,7 @@ Translation:`;
 
     if (userId) {
       return BillingContext.run(
-        { userId, moduleType: "ai-engine", operationType: "translate" },
+        { userId, moduleType: "explore", operationType: "translate" },
         executeTranslate,
       );
     }
@@ -1289,7 +1289,7 @@ Translation:`;
 
     if (userId) {
       return BillingContext.run(
-        { userId, moduleType: "ai-engine", operationType: "translate" },
+        { userId, moduleType: "explore", operationType: "translate" },
         executeTranslateSingle,
       );
     }

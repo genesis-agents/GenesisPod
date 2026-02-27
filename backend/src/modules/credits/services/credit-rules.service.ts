@@ -216,6 +216,12 @@ const DEFAULT_RULES = [
     baseCredits: 300,
     name: "执行规划阶段",
   },
+  {
+    moduleType: "ai-planning",
+    operationType: "utility",
+    baseCredits: 5,
+    name: "规划辅助调用",
+  },
 
   // ============================================
   // AI Simulation (AI 模拟)
@@ -369,6 +375,24 @@ const DEFAULT_RULES = [
     operationType: "ai-recommend",
     baseCredits: 10,
     name: "AI推荐",
+  },
+  {
+    moduleType: "explore",
+    operationType: "summary",
+    baseCredits: 15,
+    name: "AI摘要生成",
+  },
+  {
+    moduleType: "explore",
+    operationType: "insights",
+    baseCredits: 15,
+    name: "AI洞察提取",
+  },
+  {
+    moduleType: "explore",
+    operationType: "translate",
+    baseCredits: 10,
+    name: "AI翻译",
   },
 ];
 

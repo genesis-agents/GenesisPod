@@ -145,6 +145,7 @@ const TYPE_COLORS: Record<string, string> = {
   AI_RESEARCH: 'bg-amber-100 text-amber-800',
   AI_INSIGHTS: 'bg-yellow-100 text-yellow-800',
   AI_PLANNING: 'bg-red-100 text-red-800',
+  EXPLORE: 'bg-teal-100 text-teal-800',
   NOTEBOOK_RESEARCH: 'bg-sky-100 text-sky-800',
   LIBRARY: 'bg-emerald-100 text-emerald-800',
   NOTES: 'bg-stone-100 text-stone-800',
