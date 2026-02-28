@@ -1,9 +1,11 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-import for future kernel memory integration
 import {
   Prisma,
   SimulationRunStatus,
   SimulationTeam,
   AIModelType,
+  MemoryLayer as _MemoryLayer,
 } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
@@ -12,6 +14,11 @@ import {
   ChatMessage,
   MissionExecutorService,
   KernelContext,
+  ProgressTrackerService,
+  EventJournalService,
+  KernelMemoryManagerService,
+  ResourceManagerService,
+  EventBusService,
 } from "../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
@@ -117,7 +124,17 @@ export class AiSimulationEngineService {
     private readonly externalData: ExternalDataService,
     private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
-  ) {}
+    @Optional() private readonly progressTracker?: ProgressTrackerService,
+    @Optional() private readonly kernelJournal?: EventJournalService,
+    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
+    @Optional() private readonly resourceManager?: ResourceManagerService,
+    @Optional() private readonly eventBus?: EventBusService,
+  ) {
+    // Forward-declared kernel service injections (used by future integrations):
+    // progressTracker, kernelMemory, resourceManager are wired for upcoming
+    // per-round progress events, intermediate state storage, and token budget enforcement.
+    void (this.progressTracker, this.kernelMemory, this.resourceManager);
+  }
 
   /**
    * 使用AI模型生成Agent的决策
@@ -437,6 +454,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
           input: { runId, rounds, scenarioId: run.scenarioId },
         });
         this.kernelProcessIds.set(runId, kernelResult.processId);
+        this.recordKernelEvent(runId, "simulation:started", {});
       } catch (err) {
         this.logger.warn(
           `[Kernel] Failed to spawn process: ${(err as Error).message}`,
@@ -514,6 +532,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
         });
 
         // Complete AI Kernel process
+        this.recordKernelEvent(runId, "simulation:debrief.complete", {});
         this.completeKernelProcess(runId, {
           rounds,
           completedAt: new Date().toISOString(),
@@ -523,6 +542,9 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
           `[Simulation] Run ${runId} failed: ${error instanceof Error ? error.message : String(error)}`,
         );
         // Fail AI Kernel process
+        this.recordKernelEvent(runId, "simulation:failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
         this.failKernelProcess(
           runId,
           error instanceof Error ? error.message : String(error),
@@ -539,12 +561,43 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
       : runSimulation());
   }
 
+  private recordKernelEvent(
+    entityId: string,
+    type: string,
+    payload?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(entityId);
+    if (!processId || !this.kernelJournal) return;
+    void this.kernelJournal
+      .record(processId, type, payload)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Event ${type} failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
+  private emitKernelLifecycle(
+    entityId: string,
+    event: string,
+    data?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(entityId);
+    if (!processId || !this.eventBus) return;
+    this.eventBus.emit({
+      type: event,
+      payload: { processId, module: "simulation", ...data },
+      metadata: { timestamp: new Date(), source: "simulation" },
+    });
+  }
+
   private completeKernelProcess(
     runId: string,
     output?: Record<string, unknown>,
   ): void {
     const processId = this.kernelProcessIds.get(runId);
     if (!processId || !this.missionExecutor) return;
+    this.emitKernelLifecycle(runId, "kernel:mission.complete", output);
     void this.missionExecutor
       .complete(processId, output)
       .catch((err) =>
@@ -558,6 +611,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
   private failKernelProcess(runId: string, error: string): void {
     const processId = this.kernelProcessIds.get(runId);
     if (!processId || !this.missionExecutor) return;
+    this.emitKernelLifecycle(runId, "kernel:mission.failed", { error });
     void this.missionExecutor
       .fail(processId, error)
       .catch((err) =>

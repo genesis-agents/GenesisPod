@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
-import { TaskProfile } from "../../../ai-engine/llm/types";
+import { TaskProfile } from "../../../ai-engine/facade";
 
 export interface FileInfo {
   id: string;

@@ -37,9 +37,12 @@ import {
 import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import {
+  AIEngineFacade,
+  MissionExecutorService,
+  EventBusService,
+} from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import { MissionExecutorService } from "../../../../ai-kernel/mission/mission-executor.service";
 import { LruMap } from "@/common/utils/lru-map";
 /**
  * PPT 生成输入参数
@@ -127,6 +130,7 @@ export class SlidesEngineService {
     @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly eventBus?: EventBusService,
   ) {}
 
   /**
@@ -1973,12 +1977,27 @@ ${feedback}
     }
   }
 
+  private emitKernelLifecycle(
+    entityId: string,
+    event: string,
+    data?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(entityId);
+    if (!processId || !this.eventBus) return;
+    this.eventBus.emit({
+      type: event,
+      payload: { processId, module: "slides", ...data },
+      metadata: { timestamp: new Date(), source: "slides" },
+    });
+  }
+
   private completeKernelProcess(
     sessionId: string,
     output?: Record<string, unknown>,
   ): void {
     const processId = this.kernelProcessIds.get(sessionId);
     if (!processId || !this.missionExecutor) return;
+    this.emitKernelLifecycle(sessionId, "kernel:mission.complete", output);
     void this.missionExecutor
       .complete(processId, output)
       .catch((err) =>
@@ -1992,6 +2011,7 @@ ${feedback}
   private failKernelProcess(sessionId: string, error: string): void {
     const processId = this.kernelProcessIds.get(sessionId);
     if (!processId || !this.missionExecutor) return;
+    this.emitKernelLifecycle(sessionId, "kernel:mission.failed", { error });
     void this.missionExecutor
       .fail(processId, error)
       .catch((err) =>

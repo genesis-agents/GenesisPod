@@ -299,6 +299,7 @@ export type { IPlanBasedAgent } from "../agents/base/plan-based-agent";
 
 // ★ Batch 2 — Core services（for admin, mcp-server, and cross-cutting concerns）
 export { AiChatService } from "../llm/services/ai-chat.service";
+export type { ChatMessage } from "../llm/types";
 export { inferIsReasoning, getKnownModelLimit } from "../llm/types/model-utils";
 export { SearchService } from "../knowledge/search/search.service";
 export { MCPManager } from "../mcp/manager/mcp-manager";
@@ -365,42 +366,34 @@ export type {
   RegistryFeature,
 } from "./facade.providers";
 
-// ★ AI Kernel context — AsyncLocalStorage carrier for transparent processId propagation
+// ★ AI Kernel re-exports — forwarded from kernel's own facade (backward compatible)
 export {
   KernelContext,
   type KernelContextData,
-} from "../../ai-kernel/context/kernel-context";
-
-// ★ AI Kernel re-exports — Kernel services accessible via Facade for gradual migration
-export { ProcessManagerService } from "../../ai-kernel/process/process-manager.service";
-export { EventJournalService } from "../../ai-kernel/journal/event-journal.service";
-export { CheckpointManager } from "../../ai-kernel/journal/checkpoint-manager";
-export { KernelMemoryManagerService } from "../../ai-kernel/memory/kernel-memory-manager.service";
-export { WorkingMemoryStore } from "../../ai-kernel/memory/stores/working-memory.store";
-export { PersistentMemoryStore } from "../../ai-kernel/memory/stores/persistent-memory.store";
-export { EventBusService } from "../../ai-kernel/ipc/event-bus.service";
-export { MessageBusService } from "../../ai-kernel/ipc/message-bus.service";
-export { ResourceManagerService } from "../../ai-kernel/resource/resource-manager.service";
-export { ProcessEventLogService } from "../../ai-kernel/observability/process-event-log.service";
-export { KernelMetricsService } from "../../ai-kernel/observability/kernel-metrics.service";
-export { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
-export type {
-  IMissionExecutor,
-  MissionExecuteOptions,
-  MissionExecuteResult,
-} from "../../ai-kernel/mission/mission-executor.interface";
-export { CapabilityGuardService } from "../../ai-kernel/security/capability-guard.service";
-export { KernelSchedulerService } from "../../ai-kernel/scheduler/kernel-scheduler.service";
-export { ProcessSupervisorService } from "../../ai-kernel/supervisor/process-supervisor.service";
-export { KernelApiService } from "../../ai-kernel/api/kernel-api.service";
-export type {
-  ProcessId,
-  SpawnOptions,
-  ProcessSnapshot,
-  ProcessTree,
-  ProcessCapabilities,
-} from "../../ai-kernel/process/process.types";
-export {
+  ProcessManagerService,
+  EventJournalService,
+  CheckpointManager,
+  KernelMemoryManagerService,
+  WorkingMemoryStore,
+  PersistentMemoryStore,
+  EventBusService,
+  MessageBusService,
+  ResourceManagerService,
+  ProcessEventLogService,
+  KernelMetricsService,
+  MissionExecutorService,
+  type IMissionExecutor,
+  type MissionExecuteOptions,
+  type MissionExecuteResult,
+  CapabilityGuardService,
+  KernelSchedulerService,
+  ProcessSupervisorService,
+  KernelApiService,
+  type ProcessId,
+  type SpawnOptions,
+  type ProcessSnapshot,
+  type ProcessTree,
+  type ProcessCapabilities,
   VALID_TRANSITIONS,
   TERMINAL_STATES,
-} from "../../ai-kernel/process/process.types";
+} from "../../ai-kernel/facade";

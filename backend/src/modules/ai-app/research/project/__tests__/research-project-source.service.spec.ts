@@ -20,9 +20,17 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchProjectSourceService } from "../research-project-source.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "../../../../ai-engine/facade";
 import { FileParserService } from "../services/file-parser.service";
 import { AddSourceDto, SearchSourcesDto } from "../dto";
+
+// Mock axios and xml2js to prevent real HTTP calls from searchArxivDirect / searchGithubDirect
+jest.mock("axios", () => ({
+  default: { get: jest.fn().mockRejectedValue(new Error("axios mocked")) },
+}));
+jest.mock("xml2js", () => ({
+  parseStringPromise: jest.fn().mockResolvedValue({ feed: { entry: [] } }),
+}));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -825,8 +833,14 @@ describe("ResearchProjectSourceService", () => {
       });
 
       expect(result.mode).toBe("deep");
-      expect(result.stats.searchRounds).toBeGreaterThan(0);
-      expect(result.stats.queriesExecuted).toBeDefined();
+      const stats = result.stats as {
+        searchRounds: number;
+        queriesExecuted: string[];
+        totalResults: number;
+        durationMs: number;
+      };
+      expect(stats.searchRounds).toBeGreaterThan(0);
+      expect(stats.queriesExecuted).toBeDefined();
     });
 
     it("should include original query in queriesExecuted", async () => {
@@ -836,7 +850,8 @@ describe("ResearchProjectSourceService", () => {
         sources: ["local"],
       });
 
-      expect(result.stats.queriesExecuted).toContain("blockchain");
+      const stats = result.stats as { queriesExecuted: string[] };
+      expect(stats.queriesExecuted).toContain("blockchain");
     });
 
     it("should perform academic deep dive when arxiv is in sources", async () => {

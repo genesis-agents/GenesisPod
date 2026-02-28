@@ -7,9 +7,11 @@ import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatMessage } from "../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import {
+  ChatMessage,
+  TaskProfile,
+  AIEngineFacade,
+} from "../../../ai-engine/facade";
 import { FeishuAuthService } from "./feishu-auth.service";
 import { FeishuDataSourceService } from "./feishu-data-source.service";
 import { UrlFetchService } from "../../../ai-app/rag/services/url-fetch.service";

@@ -11,11 +11,22 @@ import { AiResponseService } from "../../teams/services/ai/ai-response.service";
 import { PlanningTemplateService } from "./planning-template.service";
 import { CreatePlanDto, PlanningDepth } from "../dto/create-plan.dto";
 import { UpdatePlanDto } from "../dto/update-plan.dto";
-import { Prisma, TopicType, AIModelType } from "@prisma/client";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-import for future kernel memory integration
+import {
+  Prisma,
+  TopicType,
+  AIModelType,
+  MemoryLayer as _MemoryLayer,
+} from "@prisma/client";
 import {
   AIEngineFacade,
   MissionExecutorService,
   KernelContext,
+  ProgressTrackerService,
+  EventJournalService,
+  KernelMemoryManagerService,
+  ResourceManagerService,
+  EventBusService,
 } from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
@@ -144,7 +155,17 @@ export class PlanningOrchestratorService {
     private readonly templateService: PlanningTemplateService,
     private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
-  ) {}
+    @Optional() private readonly progressTracker?: ProgressTrackerService,
+    @Optional() private readonly kernelJournal?: EventJournalService,
+    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
+    @Optional() private readonly resourceManager?: ResourceManagerService,
+    @Optional() private readonly eventBus?: EventBusService,
+  ) {
+    // Forward-declared kernel service injections (used by future integrations):
+    // progressTracker, kernelMemory, resourceManager are wired for upcoming
+    // per-phase progress events, intermediate state storage, and token budget enforcement.
+    void (this.progressTracker, this.kernelMemory, this.resourceManager);
+  }
 
   // ==================== Plan CRUD ====================
 
@@ -646,8 +667,10 @@ export class PlanningOrchestratorService {
           agentId: "planning-orchestrator",
           teamSessionId: planId,
           input: { planId, totalPhases: TOTAL_PHASES },
+          tokenBudget: 150000,
         });
         this.kernelProcessIds.set(planId, kernelResult.processId);
+        this.recordKernelEvent(planId, "planning:started", {});
       } catch (err) {
         this.logger.warn(
           `[Kernel] Failed to spawn process: ${(err as Error).message}`,
@@ -943,6 +966,7 @@ export class PlanningOrchestratorService {
 
       // Complete AI Kernel process when the final phase finishes
       if (phase === TOTAL_PHASES) {
+        this.recordKernelEvent(planId, "planning:complete", {});
         this.completeKernelProcess(planId, { completedPhases: TOTAL_PHASES });
       }
 
@@ -983,8 +1007,41 @@ export class PlanningOrchestratorService {
       });
 
       // Fail AI Kernel process on any phase failure
+      this.recordKernelEvent(planId, "planning:failed", {
+        error: errorMessage,
+      });
       this.failKernelProcess(planId, `Phase ${phase} failed: ${errorMessage}`);
     }
+  }
+
+  private recordKernelEvent(
+    entityId: string,
+    type: string,
+    payload?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(entityId);
+    if (!processId || !this.kernelJournal) return;
+    void this.kernelJournal
+      .record(processId, type, payload)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Event ${type} failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
+  private emitKernelLifecycle(
+    entityId: string,
+    event: string,
+    data?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(entityId);
+    if (!processId || !this.eventBus) return;
+    this.eventBus.emit({
+      type: event,
+      payload: { processId, module: "planning", ...data },
+      metadata: { timestamp: new Date(), source: "planning" },
+    });
   }
 
   private completeKernelProcess(
@@ -993,6 +1050,7 @@ export class PlanningOrchestratorService {
   ): void {
     const processId = this.kernelProcessIds.get(planId);
     if (!processId || !this.missionExecutor) return;
+    this.emitKernelLifecycle(planId, "kernel:mission.complete", output);
     void this.missionExecutor
       .complete(processId, output)
       .catch((err) =>
@@ -1006,6 +1064,7 @@ export class PlanningOrchestratorService {
   private failKernelProcess(planId: string, error: string): void {
     const processId = this.kernelProcessIds.get(planId);
     if (!processId || !this.missionExecutor) return;
+    this.emitKernelLifecycle(planId, "kernel:mission.failed", { error });
     void this.missionExecutor
       .fail(processId, error)
       .catch((err) =>
