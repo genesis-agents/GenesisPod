@@ -5,7 +5,6 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
 import { LruMap } from "@/common/utils/lru-map";
 import {
   AIEngineFacade,
@@ -13,8 +12,10 @@ import {
   type BuiltinToolId,
   type AICapabilityContext,
   type ExecutionConfig,
+  MissionExecutorService,
+  KernelMemoryManagerService,
 } from "../../ai-engine/facade";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, MemoryLayer } from "@prisma/client";
 import { RAGPipelineService } from "../../ai-engine/facade";
 import { CreditsService } from "../../ai-infra/credits/credits.service";
 import { InsufficientCreditsException } from "../../ai-infra/credits/exceptions/insufficient-credits.exception";
@@ -79,6 +80,7 @@ export class AiAskService {
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
   ) {}
 
   /**
@@ -502,6 +504,26 @@ export class AiAskService {
             });
             aiResponseContent = aiResponse.content;
             tokensUsed = aiResponse.tokensUsed || 0;
+          }
+
+          // ★ AI Kernel: 记录对话摘要到 PERSISTENT 记忆层
+          if (this.kernelMemory) {
+            const processId = this.sessionProcessIds.get(sessionId);
+            if (processId) {
+              void this.kernelMemory
+                .write({
+                  processId,
+                  layer: MemoryLayer.PERSISTENT,
+                  key: `turn-${Date.now()}`,
+                  value: {
+                    userMessage: dto.content.slice(0, 200),
+                    aiResponse: aiResponseContent.slice(0, 200),
+                    model: modelConfig.modelId,
+                    tokensUsed,
+                  },
+                })
+                .catch(() => {});
+            }
           }
 
           // 保存 AI 响应（如果使用了工具，在内容末尾添加工具使用信息）

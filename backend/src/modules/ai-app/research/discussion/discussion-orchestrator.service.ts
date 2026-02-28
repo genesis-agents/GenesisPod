@@ -12,6 +12,7 @@ import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import {
   AIEngineFacade,
   MissionExecutorService,
+  KernelContext,
 } from "../../../ai-engine/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
 import { LruMap } from "@/common/utils/lru-map";
@@ -190,358 +191,368 @@ export class DiscussionOrchestratorService {
       }
     }
 
-    try {
-      // 初始化 Agent 团队
-      const team = this.agentService.initializeTeam(dto.query, language);
+    const sessionProcessId = this.kernelProcessIds.get(session.id);
+    const runPhases = async () => {
+      try {
+        // 初始化 Agent 团队
+        const team = this.agentService.initializeTeam(dto.query, language);
 
-      // ========== Phase 1: IDEATION ==========
-      subject.next({
-        type: "discussion.phase",
-        data: {
-          phase: "ideation",
-          summary: PHASE_MESSAGES[language].ideation,
-        },
-      });
-
-      const ideationSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
-            name: "ideation",
-            type: "phase",
-          })
-        : undefined;
-
-      const directions = await this.runIdeationPhase(
-        session.id,
-        dto,
-        team,
-        allMessages,
-        subject,
-        language,
-      );
-
-      if (ideationSpanId) {
-        this.aiFacade?.endSpan(ideationSpanId, {
-          status: "success",
-          output: { directionsCount: directions.length },
+        // ========== Phase 1: IDEATION ==========
+        subject.next({
+          type: "discussion.phase",
+          data: {
+            phase: "ideation",
+            summary: PHASE_MESSAGES[language].ideation,
+          },
         });
-      }
 
-      await this.updateSession(session.id, {
-        status: DeepResearchStatus.SEARCHING,
-        directions: { directions } as unknown as Record<string, unknown>,
-        discussion: allMessages as unknown as Record<string, unknown>[],
-      });
-
-      // ========== Phase 2: EXECUTION ==========
-      subject.next({
-        type: "discussion.phase",
-        data: {
-          phase: "execution",
-          summary: PHASE_MESSAGES[language].execution,
-          directions: directions.map((d) => d.title),
-        },
-      });
-
-      const executionSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
-            name: "execution",
-            type: "phase",
-          })
-        : undefined;
-
-      await this.runExecutionPhase(
-        session.id,
-        dto,
-        team,
-        directions,
-        searchRounds,
-        allMessages,
-        subject,
-        language,
-      );
-
-      // ========== Dynamic Replanning ==========
-      if (this.replanner && searchRounds.length > 0) {
-        const replanSpanId = traceId
+        const ideationSpanId = traceId
           ? this.aiFacade?.addSpan(traceId, {
-              name: "replanning",
-              type: "evaluation",
+              name: "ideation",
+              type: "phase",
             })
           : undefined;
 
-        const replanResult = await this.replanner.evaluateAndReplan(
-          dto.query,
-          searchRounds,
-          dto.options?.language,
+        const directions = await this.runIdeationPhase(
+          session.id,
+          dto,
+          team,
+          allMessages,
+          subject,
+          language,
         );
 
-        if (
-          replanResult.needsReplan &&
-          replanResult.additionalSteps.length > 0
-        ) {
-          this.logger.log(
-            `[Replanner] Adding ${replanResult.additionalSteps.length} extra searches: ${replanResult.record?.reason}`,
+        if (ideationSpanId) {
+          this.aiFacade?.endSpan(ideationSpanId, {
+            status: "success",
+            output: { directionsCount: directions.length },
+          });
+        }
+
+        await this.updateSession(session.id, {
+          status: DeepResearchStatus.SEARCHING,
+          directions: { directions } as unknown as Record<string, unknown>,
+          discussion: allMessages as unknown as Record<string, unknown>[],
+        });
+
+        // ========== Phase 2: EXECUTION ==========
+        subject.next({
+          type: "discussion.phase",
+          data: {
+            phase: "execution",
+            summary: PHASE_MESSAGES[language].execution,
+            directions: directions.map((d) => d.title),
+          },
+        });
+
+        const executionSpanId = traceId
+          ? this.aiFacade?.addSpan(traceId, {
+              name: "execution",
+              type: "phase",
+            })
+          : undefined;
+
+        await this.runExecutionPhase(
+          session.id,
+          dto,
+          team,
+          directions,
+          searchRounds,
+          allMessages,
+          subject,
+          language,
+        );
+
+        // ========== Dynamic Replanning ==========
+        if (this.replanner && searchRounds.length > 0) {
+          const replanSpanId = traceId
+            ? this.aiFacade?.addSpan(traceId, {
+                name: "replanning",
+                type: "evaluation",
+              })
+            : undefined;
+
+          const replanResult = await this.replanner.evaluateAndReplan(
+            dto.query,
+            searchRounds,
+            dto.options?.language,
           );
 
-          const replanTotal =
-            searchRounds.length + replanResult.additionalSteps.length;
+          if (
+            replanResult.needsReplan &&
+            replanResult.additionalSteps.length > 0
+          ) {
+            this.logger.log(
+              `[Replanner] Adding ${replanResult.additionalSteps.length} extra searches: ${replanResult.record?.reason}`,
+            );
 
-          for (const step of replanResult.additionalSteps) {
-            const roundNum = searchRounds.length + 1;
-            subject.next({
-              type: "search_progress",
-              data: {
-                round: roundNum,
-                totalRounds: replanTotal,
-                query: step.query,
-                resultsCount: 0,
-                message:
-                  language === "en-US"
-                    ? `[Gap Fill] Searching: ${step.query}`
-                    : `[补充搜索] 查询: ${step.query}`,
-              },
-            });
+            const replanTotal =
+              searchRounds.length + replanResult.additionalSteps.length;
 
-            const round = await this.withTimeout(
-              this.searchService.executeStep(step, roundNum),
-              this.STAGE_TIMEOUT,
-              `Replan search ${roundNum}`,
-            ).catch((err: unknown) => {
-              this.logger.warn(
-                `[Replanner] Extra search failed: ${err instanceof Error ? err.message : String(err)}`,
-              );
-              return null;
-            });
-
-            if (round) {
-              searchRounds.push(round);
+            for (const step of replanResult.additionalSteps) {
+              const roundNum = searchRounds.length + 1;
               subject.next({
                 type: "search_progress",
                 data: {
                   round: roundNum,
                   totalRounds: replanTotal,
                   query: step.query,
-                  resultsCount: round.resultsCount,
+                  resultsCount: 0,
                   message:
                     language === "en-US"
-                      ? `[Gap Fill] Found ${round.resultsCount} additional sources`
-                      : `[补充搜索] 找到 ${round.resultsCount} 个来源`,
+                      ? `[Gap Fill] Searching: ${step.query}`
+                      : `[补充搜索] 查询: ${step.query}`,
                 },
               });
+
+              const round = await this.withTimeout(
+                this.searchService.executeStep(step, roundNum),
+                this.STAGE_TIMEOUT,
+                `Replan search ${roundNum}`,
+              ).catch((err: unknown) => {
+                this.logger.warn(
+                  `[Replanner] Extra search failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+                return null;
+              });
+
+              if (round) {
+                searchRounds.push(round);
+                subject.next({
+                  type: "search_progress",
+                  data: {
+                    round: roundNum,
+                    totalRounds: replanTotal,
+                    query: step.query,
+                    resultsCount: round.resultsCount,
+                    message:
+                      language === "en-US"
+                        ? `[Gap Fill] Found ${round.resultsCount} additional sources`
+                        : `[补充搜索] 找到 ${round.resultsCount} 个来源`,
+                  },
+                });
+              }
             }
+          }
+
+          if (replanSpanId) {
+            this.aiFacade?.endSpan(replanSpanId, {
+              status: "success",
+              output: {
+                replanned: replanResult.needsReplan,
+                addedSteps: replanResult.additionalSteps.length,
+              },
+            });
           }
         }
 
-        if (replanSpanId) {
-          this.aiFacade?.endSpan(replanSpanId, {
+        if (executionSpanId) {
+          this.aiFacade?.endSpan(executionSpanId, {
+            status: "success",
+            output: { searchRounds: searchRounds.length },
+          });
+        }
+
+        await this.updateSession(session.id, {
+          searchRounds: searchRounds as unknown as Record<string, unknown>[],
+          discussion: allMessages as unknown as Record<string, unknown>[],
+        });
+
+        // ========== Phase 3: FINDINGS ==========
+        subject.next({
+          type: "discussion.phase",
+          data: {
+            phase: "findings",
+            summary: PHASE_MESSAGES[language].findings,
+          },
+        });
+
+        await this.updateSession(session.id, {
+          status: DeepResearchStatus.FINDINGS as DeepResearchStatus,
+        });
+
+        const findingsSpanId = traceId
+          ? this.aiFacade?.addSpan(traceId, {
+              name: "findings",
+              type: "phase",
+            })
+          : undefined;
+
+        await this.runFindingsPhase(
+          session.id,
+          dto,
+          team,
+          searchRounds,
+          allMessages,
+          subject,
+          language,
+        );
+
+        if (findingsSpanId) {
+          this.aiFacade?.endSpan(findingsSpanId, { status: "success" });
+        }
+
+        await this.updateSession(session.id, {
+          discussion: allMessages as unknown as Record<string, unknown>[],
+        });
+
+        // ========== Phase 4: SYNTHESIS ==========
+        subject.next({
+          type: "discussion.phase",
+          data: {
+            phase: "synthesis",
+            summary: PHASE_MESSAGES[language].synthesis,
+          },
+        });
+
+        await this.updateSession(session.id, {
+          status: DeepResearchStatus.SYNTHESIZING,
+        });
+
+        const synthesisSpanId = traceId
+          ? this.aiFacade?.addSpan(traceId, {
+              name: "synthesis",
+              type: "phase",
+            })
+          : undefined;
+
+        const report = await this.runSynthesisPhase(
+          session.id,
+          dto,
+          team,
+          searchRounds,
+          allMessages,
+          subject,
+          language,
+        );
+
+        if (synthesisSpanId) {
+          this.aiFacade?.endSpan(synthesisSpanId, {
             status: "success",
             output: {
-              replanned: replanResult.needsReplan,
-              addedSteps: replanResult.additionalSteps.length,
+              sections: report.sections.length,
+              references: report.references.length,
             },
           });
         }
-      }
 
-      if (executionSpanId) {
-        this.aiFacade?.endSpan(executionSpanId, {
-          status: "success",
-          output: { searchRounds: searchRounds.length },
+        // ========== 完成 ==========
+        const totalSources = this.countUniqueSources(searchRounds);
+        const duration = (Date.now() - startTime) / 1000;
+
+        const finalReport: DeepResearchReport = {
+          ...report,
+          metadata: {
+            ...report.metadata,
+            totalSources,
+            duration,
+            searchRounds: searchRounds.length,
+          },
+        };
+
+        await this.updateSession(session.id, {
+          status: DeepResearchStatus.COMPLETED,
+          report: finalReport as unknown as Record<string, unknown>,
+          discussion: allMessages as unknown as Record<string, unknown>[],
+          sourcesUsed: totalSources,
+          completedAt: new Date(),
         });
-      }
 
-      await this.updateSession(session.id, {
-        searchRounds: searchRounds as unknown as Record<string, unknown>[],
-        discussion: allMessages as unknown as Record<string, unknown>[],
-      });
-
-      // ========== Phase 3: FINDINGS ==========
-      subject.next({
-        type: "discussion.phase",
-        data: {
-          phase: "findings",
-          summary: PHASE_MESSAGES[language].findings,
-        },
-      });
-
-      await this.updateSession(session.id, {
-        status: DeepResearchStatus.FINDINGS as DeepResearchStatus,
-      });
-
-      const findingsSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
-            name: "findings",
-            type: "phase",
-          })
-        : undefined;
-
-      await this.runFindingsPhase(
-        session.id,
-        dto,
-        team,
-        searchRounds,
-        allMessages,
-        subject,
-        language,
-      );
-
-      if (findingsSpanId) {
-        this.aiFacade?.endSpan(findingsSpanId, { status: "success" });
-      }
-
-      await this.updateSession(session.id, {
-        discussion: allMessages as unknown as Record<string, unknown>[],
-      });
-
-      // ========== Phase 4: SYNTHESIS ==========
-      subject.next({
-        type: "discussion.phase",
-        data: {
-          phase: "synthesis",
-          summary: PHASE_MESSAGES[language].synthesis,
-        },
-      });
-
-      await this.updateSession(session.id, {
-        status: DeepResearchStatus.SYNTHESIZING,
-      });
-
-      const synthesisSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
-            name: "synthesis",
-            type: "phase",
-          })
-        : undefined;
-
-      const report = await this.runSynthesisPhase(
-        session.id,
-        dto,
-        team,
-        searchRounds,
-        allMessages,
-        subject,
-        language,
-      );
-
-      if (synthesisSpanId) {
-        this.aiFacade?.endSpan(synthesisSpanId, {
-          status: "success",
-          output: {
-            sections: report.sections.length,
-            references: report.references.length,
+        subject.next({
+          type: "interaction.complete",
+          data: {
+            sessionId: session.id,
+            report: finalReport,
+            status: "success",
           },
         });
-      }
 
-      // ========== 完成 ==========
-      const totalSources = this.countUniqueSources(searchRounds);
-      const duration = (Date.now() - startTime) / 1000;
+        this.logger.log(
+          `Discussion research completed: ${session.id}, sources: ${totalSources}, duration: ${duration.toFixed(1)}s`,
+        );
 
-      const finalReport: DeepResearchReport = {
-        ...report,
-        metadata: {
-          ...report.metadata,
+        // Complete AI Kernel process
+        this.completeKernelProcess(session.id, {
           totalSources,
           duration,
           searchRounds: searchRounds.length,
-        },
-      };
-
-      await this.updateSession(session.id, {
-        status: DeepResearchStatus.COMPLETED,
-        report: finalReport as unknown as Record<string, unknown>,
-        discussion: allMessages as unknown as Record<string, unknown>[],
-        sourcesUsed: totalSources,
-        completedAt: new Date(),
-      });
-
-      subject.next({
-        type: "interaction.complete",
-        data: {
-          sessionId: session.id,
-          report: finalReport,
-          status: "success",
-        },
-      });
-
-      this.logger.log(
-        `Discussion research completed: ${session.id}, sources: ${totalSources}, duration: ${duration.toFixed(1)}s`,
-      );
-
-      // Complete AI Kernel process
-      this.completeKernelProcess(session.id, {
-        totalSources,
-        duration,
-        searchRounds: searchRounds.length,
-      });
-
-      // End observability trace
-      if (traceId) {
-        this.aiFacade?.endTrace(traceId, {
-          status: "success",
-          totalDuration: Date.now() - startTime,
         });
-      }
 
-      // 反哺长期记忆（fire-and-forget，不阻塞主流程）
-      this.aiFacade
-        ?.coordinatorStore(
-          {
-            type: "knowledge",
-            key: `research:${session.id}`,
-            value: {
-              title: dto.query.slice(0, 100),
-              summary: (finalReport.executiveSummary || dto.query).slice(
-                0,
-                2000,
-              ),
-              url: `/ai-research/${projectId}`,
-              completedAt: new Date().toISOString(),
-              sources: totalSources,
+        // End observability trace
+        if (traceId) {
+          this.aiFacade?.endTrace(traceId, {
+            status: "success",
+            totalDuration: Date.now() - startTime,
+          });
+        }
+
+        // 反哺长期记忆（fire-and-forget，不阻塞主流程）
+        this.aiFacade
+          ?.coordinatorStore(
+            {
+              type: "knowledge",
+              key: `research:${session.id}`,
+              value: {
+                title: dto.query.slice(0, 100),
+                summary: (finalReport.executiveSummary || dto.query).slice(
+                  0,
+                  2000,
+                ),
+                url: `/ai-research/${projectId}`,
+                completedAt: new Date().toISOString(),
+                sources: totalSources,
+              },
+              importance: 0.8,
+              tags: ["research", "completed"],
             },
-            importance: 0.8,
-            tags: ["research", "completed"],
-          },
-          project.userId,
-        )
-        ?.catch((err: unknown) => {
+            project.userId,
+          )
+          ?.catch((err: unknown) => {
+            this.logger.warn(
+              `[memory] Failed to store research memory for session ${session.id}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+
+        // Auto-extract ideas from discussion messages
+        try {
+          await this.autoExtractIdeas(projectId, session.id, allMessages);
+        } catch (extractError) {
           this.logger.warn(
-            `[memory] Failed to store research memory for session ${session.id}: ${err instanceof Error ? err.message : String(err)}`,
+            `Failed to auto-extract ideas from session ${session.id}: ${extractError instanceof Error ? extractError.message : String(extractError)}`,
           );
-        });
-
-      // Auto-extract ideas from discussion messages
-      try {
-        await this.autoExtractIdeas(projectId, session.id, allMessages);
-      } catch (extractError) {
-        this.logger.warn(
-          `Failed to auto-extract ideas from session ${session.id}: ${extractError instanceof Error ? extractError.message : String(extractError)}`,
+        }
+      } catch (error) {
+        // Fail AI Kernel process
+        this.failKernelProcess(
+          session.id,
+          error instanceof Error ? error.message : String(error),
         );
-      }
-    } catch (error) {
-      // Fail AI Kernel process
-      this.failKernelProcess(
-        session.id,
-        error instanceof Error ? error.message : String(error),
-      );
 
-      // End trace on failure
-      if (traceId) {
-        this.aiFacade?.endTrace(traceId, {
-          status: "error",
-          totalDuration: Date.now() - startTime,
+        // End trace on failure
+        if (traceId) {
+          this.aiFacade?.endTrace(traceId, {
+            status: "error",
+            totalDuration: Date.now() - startTime,
+          });
+        }
+        await this.updateSession(session.id, {
+          status: DeepResearchStatus.FAILED,
+          error: error instanceof Error ? error.message : String(error),
+          discussion: allMessages as unknown as Record<string, unknown>[],
         });
+        throw error;
+      } finally {
+        subject.complete();
+        this.aiFacade?.a2aClearSession(session.id);
       }
-      await this.updateSession(session.id, {
-        status: DeepResearchStatus.FAILED,
-        error: error instanceof Error ? error.message : String(error),
-        discussion: allMessages as unknown as Record<string, unknown>[],
-      });
-      throw error;
-    } finally {
-      subject.complete();
-      this.aiFacade?.a2aClearSession(session.id);
-    }
+    };
+
+    await (sessionProcessId
+      ? KernelContext.run(
+          { processId: sessionProcessId, userId: project.userId },
+          runPhases,
+        )
+      : runPhases());
   }
 
   // ==================== Phase 1: Ideation ====================

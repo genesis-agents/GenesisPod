@@ -11,6 +11,7 @@ import {
   AIEngineFacade,
   ChatMessage,
   MissionExecutorService,
+  KernelContext,
 } from "../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
@@ -443,89 +444,99 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
       }
     }
 
-    try {
-      // Initialization: fetch external data snapshot
-      const evidenceTrail: Array<Record<string, unknown>> = [];
-      const state: Record<string, unknown> = {};
+    const runProcessId = this.kernelProcessIds.get(runId);
+    const runSimulation = async () => {
+      try {
+        // Initialization: fetch external data snapshot
+        const evidenceTrail: Array<Record<string, unknown>> = [];
+        const state: Record<string, unknown> = {};
 
-      const { snapshot, evidence } = await this.externalData.getSnapshot();
-      evidenceTrail.push(...evidence);
-      Object.assign(state, snapshot);
+        const { snapshot, evidence } = await this.externalData.getSnapshot();
+        evidenceTrail.push(...evidence);
+        Object.assign(state, snapshot);
 
-      // Save initial world state
-      await this.prisma.simulationRun.update({
-        where: { id: run.id },
-        data: {
-          worldState: state as Prisma.InputJsonValue,
-          evidenceTrail: evidenceTrail as Prisma.InputJsonValue,
-        },
-      });
+        // Save initial world state
+        await this.prisma.simulationRun.update({
+          where: { id: run.id },
+          data: {
+            worldState: state as Prisma.InputJsonValue,
+            evidenceTrail: evidenceTrail as Prisma.InputJsonValue,
+          },
+        });
 
-      let currentRound = options?.resume ? run.currentRound || 0 : 0;
-      const humanBreakEvery =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
-        (run.params as Record<string, any> | null)?.humanBreakEvery !==
-        undefined
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
-            (run.params as Record<string, any> | null)?.humanBreakEvery
-          : 2;
-
-      while (currentRound < rounds) {
-        currentRound += 1;
-        const turn = await this.processRound(run.id, currentRound);
-        this.logger.log(
+        let currentRound = options?.resume ? run.currentRound || 0 : 0;
+        const humanBreakEvery =
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
-          `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as Record<string, any> | null)?.ruling}`,
-        );
+          (run.params as Record<string, any> | null)?.humanBreakEvery !==
+          undefined
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
+              (run.params as Record<string, any> | null)?.humanBreakEvery
+            : 2;
 
-        if (
-          humanBreakEvery &&
-          currentRound % humanBreakEvery === 0 &&
-          currentRound < rounds
-        ) {
-          await this.prisma.simulationRun.update({
-            where: { id: run.id },
-            data: {
-              status: SimulationRunStatus.PAUSED,
-              currentRound,
-              summary: {
-                ...(run.summary as object),
-                humanBreak: `Paused at round ${currentRound} for human-in-the-loop`,
-              } as Prisma.InputJsonValue,
-            },
-          });
-          return;
+        while (currentRound < rounds) {
+          currentRound += 1;
+          const turn = await this.processRound(run.id, currentRound);
+          this.logger.log(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
+            `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as Record<string, any> | null)?.ruling}`,
+          );
+
+          if (
+            humanBreakEvery &&
+            currentRound % humanBreakEvery === 0 &&
+            currentRound < rounds
+          ) {
+            await this.prisma.simulationRun.update({
+              where: { id: run.id },
+              data: {
+                status: SimulationRunStatus.PAUSED,
+                currentRound,
+                summary: {
+                  ...(run.summary as object),
+                  humanBreak: `Paused at round ${currentRound} for human-in-the-loop`,
+                } as Prisma.InputJsonValue,
+              },
+            });
+            return;
+          }
         }
+
+        const debrief = await this.computeDebrief(run.id);
+
+        await this.prisma.simulationRun.update({
+          where: { id: run.id },
+          data: {
+            status: SimulationRunStatus.COMPLETED,
+            currentRound: rounds,
+            summary: debrief as Prisma.InputJsonValue,
+            completedAt: new Date(),
+          },
+        });
+
+        // Complete AI Kernel process
+        this.completeKernelProcess(runId, {
+          rounds,
+          completedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        this.logger.error(
+          `[Simulation] Run ${runId} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        // Fail AI Kernel process
+        this.failKernelProcess(
+          runId,
+          error instanceof Error ? error.message : String(error),
+        );
+        throw error;
       }
+    }; // end of runSimulation
 
-      const debrief = await this.computeDebrief(run.id);
-
-      await this.prisma.simulationRun.update({
-        where: { id: run.id },
-        data: {
-          status: SimulationRunStatus.COMPLETED,
-          currentRound: rounds,
-          summary: debrief as Prisma.InputJsonValue,
-          completedAt: new Date(),
-        },
-      });
-
-      // Complete AI Kernel process
-      this.completeKernelProcess(runId, {
-        rounds,
-        completedAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      this.logger.error(
-        `[Simulation] Run ${runId} failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      // Fail AI Kernel process
-      this.failKernelProcess(
-        runId,
-        error instanceof Error ? error.message : String(error),
-      );
-      throw error;
-    }
+    await (runProcessId
+      ? KernelContext.run(
+          { processId: runProcessId, userId: run.startedById || "" },
+          runSimulation,
+        )
+      : runSimulation());
   }
 
   private completeKernelProcess(

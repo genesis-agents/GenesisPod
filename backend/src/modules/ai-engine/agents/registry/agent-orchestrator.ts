@@ -11,6 +11,8 @@ import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pi
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
+import { CapabilityGuardService } from "../../../ai-kernel/security/capability-guard.service";
+import { KernelContext } from "../../../ai-kernel/context/kernel-context";
 
 /**
  * 状态报告项
@@ -39,6 +41,7 @@ export class AgentOrchestrator {
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
     private readonly configService?: ConfigService,
     @Optional() private readonly eventJournal?: EventJournalService,
+    @Optional() private readonly capabilityGuard?: CapabilityGuardService,
   ) {
     this.guardrailsEnabled =
       this.configService?.get<string>("GUARDRAILS_ENABLED") !== "false";
@@ -59,6 +62,8 @@ export class AgentOrchestrator {
     _userId?: string,
     processId?: string,
   ): AsyncGenerator<AgentEvent> {
+    // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
+    const resolvedProcessId = processId ?? KernelContext.getProcessId();
     // Input validation with guardrails
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
       try {
@@ -124,13 +129,37 @@ export class AgentOrchestrator {
       // 生成执行计划
       const plan = await agent.plan(input);
 
-      if (processId && this.eventJournal) {
+      if (resolvedProcessId && this.eventJournal) {
         void this.eventJournal
-          .record(processId, "AGENT_PLAN", {
+          .record(resolvedProcessId, "AGENT_PLAN", {
             agentId: selectedAgentId,
             stepCount: plan?.steps?.length ?? 0,
           })
           .catch(() => {});
+      }
+
+      // ★ CapabilityGuard: Check tool access before execution
+      if (
+        resolvedProcessId &&
+        this.capabilityGuard &&
+        plan?.toolsRequired?.length
+      ) {
+        for (const toolId of plan.toolsRequired) {
+          const check = await this.capabilityGuard.checkToolAccess(
+            resolvedProcessId,
+            toolId,
+          );
+          if (!check.allowed) {
+            this.logger.warn(
+              `[execute] Tool ${toolId} denied for process ${resolvedProcessId}: ${check.reason}`,
+            );
+            yield {
+              type: "error",
+              error: `Tool ${toolId} not permitted: ${check.reason}`,
+            };
+            return;
+          }
+        }
       }
 
       // 执行计划
@@ -178,9 +207,9 @@ export class AgentOrchestrator {
         // 记录完成或错误
         if (event.type === "complete") {
           this.registry.recordExecution(selectedAgentId, event.result.success);
-          if (processId && this.eventJournal) {
+          if (resolvedProcessId && this.eventJournal) {
             void this.eventJournal
-              .record(processId, "AGENT_COMPLETE", {
+              .record(resolvedProcessId, "AGENT_COMPLETE", {
                 agentId: selectedAgentId,
                 success: event.result?.success ?? false,
               })
@@ -195,9 +224,9 @@ export class AgentOrchestrator {
         `[execute] Agent execution failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       this.registry.recordExecution(selectedAgentId, false);
-      if (processId && this.eventJournal) {
+      if (resolvedProcessId && this.eventJournal) {
         void this.eventJournal
-          .record(processId, "AGENT_ERROR", {
+          .record(resolvedProcessId, "AGENT_ERROR", {
             agentId: selectedAgentId,
             error: error instanceof Error ? error.message : String(error),
           })

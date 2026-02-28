@@ -15,6 +15,7 @@ import { Prisma, TopicType, AIModelType } from "@prisma/client";
 import {
   AIEngineFacade,
   MissionExecutorService,
+  KernelContext,
 } from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
@@ -620,7 +621,13 @@ export class PlanningOrchestratorService {
         operationType: "utility",
         referenceId: planId,
       },
-      () => this.executePhaseAsyncInner(planId, userId, phase),
+      () => {
+        const processId = this.kernelProcessIds.get(planId);
+        const inner = () => this.executePhaseAsyncInner(planId, userId, phase);
+        return processId
+          ? KernelContext.run({ processId, userId }, inner)
+          : inner();
+      },
     );
   }
 

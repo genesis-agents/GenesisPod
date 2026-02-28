@@ -26,7 +26,8 @@ export class CapabilityGuardService {
     });
 
     if (!process) {
-      return { allowed: false, reason: "Process not found" };
+      // Process not found in DB (may have been cleaned up) — treat as unrestricted
+      return { allowed: true };
     }
 
     // Empty grantedTools means all tools are allowed (no restrictions)

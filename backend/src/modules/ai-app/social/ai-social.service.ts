@@ -31,7 +31,7 @@ import {
 } from "./types";
 import { encryptSession, decryptSession } from "./utils/session-crypto";
 import { SessionData } from "./types/platform.types";
-import { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
+import { MissionExecutorService, KernelContext } from "../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 @Injectable()
@@ -1073,17 +1073,26 @@ export class AiSocialService {
     }
 
     // 执行发布
-    try {
-      const result = await this.publishExecutor.execute(content.id);
-      this.completeKernelProcess(content.id, { contentId: content.id });
-      return result;
-    } catch (err) {
-      this.failKernelProcess(
-        content.id,
-        err instanceof Error ? err.message : String(err),
-      );
-      throw err;
-    }
+    const contentProcessId = this.kernelProcessIds.get(content.id);
+    const executeGeneration = async () => {
+      try {
+        const result = await this.publishExecutor.execute(content.id);
+        this.completeKernelProcess(content.id, { contentId: content.id });
+        return result;
+      } catch (err) {
+        this.failKernelProcess(
+          content.id,
+          err instanceof Error ? err.message : String(err),
+        );
+        throw err;
+      }
+    };
+    return contentProcessId
+      ? KernelContext.run(
+          { processId: contentProcessId, userId: content.userId || "" },
+          executeGeneration,
+        )
+      : executeGeneration();
   }
 
   async scheduleContent(userId: string, id: string, scheduledAt: Date) {

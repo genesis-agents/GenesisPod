@@ -21,8 +21,14 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
-import { AIModelType } from "@prisma/client";
+import {
+  AIEngineFacade,
+  KernelMemoryManagerService,
+  MissionExecutorService,
+  KernelContext,
+  ProgressTrackerService,
+} from "../../../../ai-engine/facade";
+import { AIModelType, MemoryLayer } from "@prisma/client";
 
 // AI Capability Context type - from facade
 import type { AICapabilityContext } from "../../../../ai-engine/facade";
@@ -88,7 +94,6 @@ import { WritingContextService } from "./writing-context.service";
 import { WritingStyleService } from "./writing-style.service";
 import { WritingQualityService } from "./writing-quality.service";
 import { CheckpointService } from "./checkpoint.service";
-import { MissionExecutorService } from "../../../../ai-kernel/mission/mission-executor.service";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**
@@ -246,6 +251,8 @@ export class WritingMissionService {
     private readonly qualityService: WritingQualityService,
     private readonly checkpointService: CheckpointService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly progressTracker?: ProgressTrackerService,
+    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -999,12 +1006,20 @@ export class WritingMissionService {
         }
 
         // 在后台执行任务
-        void this.runMissionInBackground(
-          missionId,
-          input,
-          userId,
-          modelAssignments,
-        );
+        const wrappedRun = () =>
+          this.runMissionInBackground(
+            missionId,
+            input,
+            userId,
+            modelAssignments,
+          );
+        const missionProcessId = this.kernelProcessIds.get(missionId);
+        void (missionProcessId
+          ? KernelContext.run(
+              { processId: missionProcessId, userId },
+              wrappedRun,
+            )
+          : wrappedRun());
 
         return { missionId };
       },
@@ -1031,6 +1046,26 @@ export class WritingMissionService {
         targetWordCount: input.targetWordCount,
       },
     });
+
+    // ★ ProgressTracker: 创建多阶段进度追踪
+    if (this.progressTracker) {
+      this.progressTracker.create({
+        id: missionId,
+        type: "writing",
+        name: `Writing: ${input.missionType}`,
+        roomConfig: {
+          roomId: `mission:${missionId}`,
+          roomType: "mission",
+          entityId: missionId,
+        },
+        phases: [
+          { id: "outline", name: "Outline Generation", weight: 1 },
+          { id: "chapters", name: "Chapter Writing", weight: 5 },
+          { id: "review", name: "Review & Polish", weight: 1 },
+        ],
+      });
+      this.progressTracker.start(missionId);
+    }
 
     // ★ 内容生成 span（在 try 外声明，catch 可访问）
     let generationSpanId: string | undefined;
@@ -1073,6 +1108,11 @@ export class WritingMissionService {
           })
         : undefined;
 
+      // ★ ProgressTracker: 开始 outline 阶段
+      if (this.progressTracker) {
+        this.progressTracker.startPhase(missionId, "outline");
+      }
+
       // 根据任务类型决定生成策略
       if (input.missionType === "full_story") {
         // 完整故事：一次性生成多章节内容（内部有完整的进度追踪）
@@ -1109,6 +1149,12 @@ export class WritingMissionService {
             missionId,
           );
         }
+      }
+
+      // ★ ProgressTracker: outline 完成，开始 chapters 阶段
+      if (this.progressTracker) {
+        this.progressTracker.completePhase(missionId, "outline");
+        this.progressTracker.startPhase(missionId, "chapters");
       }
 
       if (generatedContent) {
@@ -1149,6 +1195,12 @@ export class WritingMissionService {
           throw new Error(
             `内容生成失败：生成的内容无效或字数不足 (${totalWordCount} 字)。可能是 API 限流或配额不足。`,
           );
+        }
+
+        // ★ ProgressTracker: chapters 完成，开始 review 阶段
+        if (this.progressTracker) {
+          this.progressTracker.completePhase(missionId, "chapters");
+          this.progressTracker.startPhase(missionId, "review");
         }
 
         // 保存生成的内容
@@ -1202,6 +1254,12 @@ export class WritingMissionService {
         // ★ AI Kernel: 标记进程完成
         this.completeKernelProcess(missionId, { wordCount: totalWordCount });
 
+        // ★ ProgressTracker: review 完成，任务结束
+        if (this.progressTracker) {
+          this.progressTracker.completePhase(missionId, "review");
+          this.progressTracker.complete(missionId);
+        }
+
         // ★ 结束内容生成 span（成功）
         if (generationSpanId) {
           this.aiFacade.endSpan(generationSpanId, {
@@ -1223,6 +1281,23 @@ export class WritingMissionService {
 
       // ★ AI Kernel: 标记进程失败
       this.failKernelProcess(missionId, (error as Error).message);
+
+      // ★ ProgressTracker: fail any in-progress phase, then mark task failed
+      if (this.progressTracker) {
+        const task = this.progressTracker.getTask(missionId);
+        if (task) {
+          for (const phase of task.phases) {
+            if (phase.status === "in_progress") {
+              this.progressTracker.failPhase(
+                missionId,
+                phase.id,
+                (error as Error).message,
+              );
+            }
+          }
+        }
+        this.progressTracker.fail(missionId, (error as Error).message);
+      }
 
       // ★ 结束内容生成 span（失败）
       if (generationSpanId) {
@@ -3179,6 +3254,25 @@ ${narrativeConstraints}`;
 
       allChapters.push(chapterContent);
 
+      // ★ Kernel Memory: store chapter draft in WORKING memory
+      if (this.kernelMemory) {
+        const processId = this.kernelProcessIds.get(missionId);
+        if (processId) {
+          void this.kernelMemory
+            .write({
+              processId,
+              layer: MemoryLayer.WORKING,
+              key: `chapter-draft-${chapterNumber}`,
+              value: {
+                title: chapterInfo.title,
+                wordCount: this.countWords(chapterContent),
+                preview: chapterContent.slice(0, 200),
+              },
+            })
+            .catch(() => {});
+        }
+      }
+
       // ★ 分析并记录本章使用的表达（更新冷却状态）
       try {
         const chapterId = `${input.projectId}-chapter-${chapterNumber}`;
@@ -3404,6 +3498,21 @@ ${narrativeConstraints}`;
       "mission:completed",
       `🎉 创作完成！共 ${allChapters.length} 章，${totalWords} 字`,
     );
+
+    // ★ Kernel Memory: store final content summary in SESSION memory
+    if (this.kernelMemory) {
+      const processId = this.kernelProcessIds.get(missionId);
+      if (processId) {
+        void this.kernelMemory
+          .write({
+            processId,
+            layer: MemoryLayer.SESSION,
+            key: "final-content",
+            value: { missionType: input.missionType, totalWords },
+          })
+          .catch(() => {});
+      }
+    }
 
     return fullContent;
   }
@@ -7639,6 +7748,25 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
       allContent.push(chapterContent);
       currentWordCount += chapterWordCount;
 
+      // ★ Kernel Memory: store chapter draft in WORKING memory (continuation mode)
+      if (this.kernelMemory) {
+        const processId = this.kernelProcessIds.get(missionId);
+        if (processId) {
+          void this.kernelMemory
+            .write({
+              processId,
+              layer: MemoryLayer.WORKING,
+              key: `chapter-draft-${chapter.chapterNumber}`,
+              value: {
+                title: chapter.title,
+                wordCount: chapterWordCount,
+                preview: chapterContent.slice(0, 200),
+              },
+            })
+            .catch(() => {});
+        }
+      }
+
       // 更新项目字数
       await this.updateProjectWordCount(input.projectId);
 
@@ -7663,6 +7791,24 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
       chaptersToWrite.length,
       1, // 继续创作通常在同一卷内
     );
+
+    // ★ Kernel Memory: store final content summary in SESSION memory (continuation mode)
+    if (this.kernelMemory) {
+      const processId = this.kernelProcessIds.get(missionId);
+      if (processId) {
+        void this.kernelMemory
+          .write({
+            processId,
+            layer: MemoryLayer.SESSION,
+            key: "final-content",
+            value: {
+              missionType: input.missionType,
+              totalWords: currentWordCount,
+            },
+          })
+          .catch(() => {});
+      }
+    }
 
     // 返回带有 [CONTINUATION_COMPLETE] 标记的内容
     // 这会告诉 saveGeneratedContent 跳过保存步骤，因为内容已经在上面逐章保存了

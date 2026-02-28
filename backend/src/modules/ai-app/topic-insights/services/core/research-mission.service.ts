@@ -25,6 +25,7 @@ import {
   Prisma,
   AIModelType,
   AgentActivityType,
+  MemoryLayer,
 } from "@prisma/client";
 import type {
   ResearchMission,
@@ -44,7 +45,14 @@ import {
 import { TopicCollaboratorService } from "../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../monitoring/agent-activity.service";
 import { CollaboratorRole } from "../../dto/collaborator.dto";
-import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import {
+  AIEngineFacade,
+  MissionExecutorService,
+  EventJournalService,
+  KernelContext,
+  ProgressTrackerService,
+  KernelMemoryManagerService,
+} from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import type { ResearchDepth } from "../../types/v5-research.types";
@@ -82,8 +90,6 @@ import { resolveResearchDepthConfig } from "../../types/v5-research.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { LruMap } from "@/common/utils/lru-map";
-import { MissionExecutorService } from "../../../../ai-kernel/mission/mission-executor.service";
-import { EventJournalService } from "../../../../ai-kernel/journal/event-journal.service";
 import {
   TASK_PRIORITY,
   type CreateMissionInput,
@@ -120,6 +126,8 @@ export class ResearchMissionService {
     private readonly reviewerService: ResearchReviewerService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelJournal?: EventJournalService,
+    @Optional() private readonly progressTracker?: ProgressTrackerService,
+    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
   ) {}
 
   /**
@@ -341,6 +349,26 @@ export class ResearchMissionService {
       }
     }
 
+    // ★ AI Kernel: 创建进度追踪
+    if (this.progressTracker) {
+      this.progressTracker.create({
+        id: mission.id,
+        type: "research",
+        name: `Research: ${topic.name}`,
+        roomConfig: {
+          roomId: `mission:${mission.id}`,
+          roomType: "mission",
+          entityId: mission.id,
+        },
+        phases: [
+          { id: "planning", name: "Research Planning", weight: 1 },
+          { id: "execution", name: "Dimension Research", weight: 3 },
+          { id: "synthesis", name: "Report Synthesis", weight: 2 },
+        ],
+      });
+      this.progressTracker.start(mission.id);
+    }
+
     // ★ 启动进度追踪（必须在发送其他事件之前）
     const isQuickMode = researchDepth === "quick";
     await this.researchEventEmitter.emitMissionStarted(
@@ -365,12 +393,23 @@ export class ResearchMissionService {
     // ★ 关键修复：立即返回 mission，异步执行规划
     // 原因：AI 推理可能需要 2-5 分钟，而 Next.js rewrite 代理默认 30 秒超时
     // 前端会通过轮询 getMission 和 WebSocket 获取规划进度
-    this.executePlanningAsync(
-      mission.id,
-      topicId,
-      topic.name,
-      userPrompt,
-      completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
+    const missionProcessId = this.kernelProcessIds.get(mission.id);
+    const userId = topic.userId;
+    const runPlanning = () =>
+      this.executePlanningAsync(
+        mission.id,
+        topicId,
+        topic.name,
+        userPrompt,
+        completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
+      );
+    void (
+      missionProcessId
+        ? KernelContext.run(
+            { processId: missionProcessId, userId },
+            runPlanning,
+          )
+        : runPlanning()
     ).catch((err) => {
       this.logger.error(
         `[createMission] Async planning failed: ${err instanceof Error ? err.message : err}`,
@@ -409,6 +448,10 @@ export class ResearchMissionService {
       content: `正在理解研究主题「${topicName}」的需求...`,
       progress: 10,
     });
+
+    if (this.progressTracker) {
+      this.progressTracker.startPhase(missionId, "planning");
+    }
 
     try {
       // ★ 发送 Leader 思考事件：分析
@@ -559,6 +602,18 @@ export class ResearchMissionService {
 
       // ★ 发送失败事件，让前端知道规划失败
       // 使用 emitMissionFailed 发送正确的 mission:failed 事件
+      if (this.progressTracker) {
+        const task = this.progressTracker.getTask(missionId);
+        if (task) {
+          for (const phase of task.phases) {
+            if (phase.status === "in_progress") {
+              this.progressTracker.failPhase(missionId, phase.id, errorMsg);
+            }
+          }
+        }
+        this.progressTracker.fail(missionId, errorMsg);
+      }
+
       await this.researchEventEmitter.emitMissionFailed(
         topicId,
         missionId,
@@ -626,6 +681,11 @@ export class ResearchMissionService {
       completedTasks: 0,
       totalTasks: tasks.length,
     });
+
+    if (this.progressTracker) {
+      this.progressTracker.completePhase(missionId, "planning");
+      this.progressTracker.startPhase(missionId, "execution");
+    }
 
     this.logger.log(
       `[approvePlanAndExecute] Mission ${missionId} approved, starting execution with ${tasks.length} tasks`,
@@ -2469,6 +2529,11 @@ export class ResearchMissionService {
             missionId,
           );
 
+          if (this.progressTracker) {
+            this.progressTracker.completePhase(missionId, "execution");
+            this.progressTracker.startPhase(missionId, "synthesis");
+          }
+
           // ★ 复用 startExecution 中创建的草稿报告，避免重复创建
           // reportId 已在 startExecution 中创建并传递到此处
           this.logger.log(
@@ -2560,6 +2625,11 @@ export class ResearchMissionService {
             missionId,
           );
 
+          if (this.progressTracker) {
+            this.progressTracker.completePhase(missionId, "synthesis");
+            this.progressTracker.complete(missionId);
+          }
+
           // ★ 将 TopicReport 转换为前端 TodoResult 兼容格式
           const reportResult = result as Record<string, unknown>;
           const fullReportText = (reportResult?.fullReport as string) || "";
@@ -2581,6 +2651,25 @@ export class ResearchMissionService {
               : 0,
             reportId,
           };
+
+          // Store synthesis report in Kernel PERSISTENT memory (long-lived result)
+          if (this.kernelMemory) {
+            const processId = this.kernelProcessIds.get(missionId);
+            if (processId) {
+              void this.kernelMemory
+                .write({
+                  processId,
+                  layer: MemoryLayer.PERSISTENT,
+                  key: "synthesis-report",
+                  value: {
+                    reportId,
+                    summary: (result as Record<string, unknown>)?.summary || "",
+                  },
+                })
+                .catch(() => {});
+            }
+          }
+
           break;
         }
 
@@ -2677,6 +2766,22 @@ export class ResearchMissionService {
         resultSummary: summary,
         actualModelId,
       });
+
+      // Store intermediate dimension research findings in Kernel WORKING memory
+      if (this.kernelMemory && task.taskType === "dimension_research") {
+        const processId = this.kernelProcessIds.get(missionId);
+        if (processId) {
+          void this.kernelMemory
+            .write({
+              processId,
+              layer: MemoryLayer.WORKING,
+              key: `task-result-${task.id}`,
+              value: result,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            })
+            .catch(() => {});
+        }
+      }
 
       // ★ 当实际模型与分配模型不同时，更新该 agent 所有活动记录的 agentName
       // 包括 emitAgentWorking（带旧模型标签）和 emitAgentCompleted（无标签）的记录

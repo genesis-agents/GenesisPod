@@ -24,6 +24,7 @@ import { AiChatRetryService } from "./ai-chat-retry.service";
 import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
 import { CostAttributionService } from "../../../ai-kernel/observability/cost-attribution.service";
 import { KernelMetricsService } from "../../../ai-kernel/observability/kernel-metrics.service";
+import { KernelContext } from "../../../ai-kernel/context/kernel-context";
 
 export interface ChatCompletionOptions {
   model: string;
@@ -817,8 +818,11 @@ export class AiChatService {
       userId,
       traceId,
       responseFormat,
-      processId,
+      processId: explicitProcessId,
     } = options;
+
+    // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
+    const processId = explicitProcessId ?? KernelContext.getProcessId();
 
     // ★ Observability: Start trace span
     let spanId: string | undefined;

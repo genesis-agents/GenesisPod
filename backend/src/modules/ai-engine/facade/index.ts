@@ -365,6 +365,12 @@ export type {
   RegistryFeature,
 } from "./facade.providers";
 
+// ★ AI Kernel context — AsyncLocalStorage carrier for transparent processId propagation
+export {
+  KernelContext,
+  type KernelContextData,
+} from "../../ai-kernel/context/kernel-context";
+
 // ★ AI Kernel re-exports — Kernel services accessible via Facade for gradual migration
 export { ProcessManagerService } from "../../ai-kernel/process/process-manager.service";
 export { EventJournalService } from "../../ai-kernel/journal/event-journal.service";

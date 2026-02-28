@@ -83,9 +83,13 @@ import {
   TaskBreakdownData,
   TaskAssignee,
 } from "../interfaces";
-import { AIEngineFacade } from "../../../../../ai-engine/facade";
-import { MissionExecutorService } from "../../../../../ai-kernel/mission/mission-executor.service";
-import { EventJournalService } from "../../../../../ai-kernel/journal/event-journal.service";
+import {
+  AIEngineFacade,
+  MissionExecutorService,
+  EventJournalService,
+  KernelContext,
+  ProgressTrackerService,
+} from "../../../../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts
@@ -142,6 +146,7 @@ export class TeamMissionService implements OnModuleInit {
     // ★ AI Kernel: 进程生命周期追踪（可选依赖）
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelJournal?: EventJournalService,
+    @Optional() private readonly progressTracker?: ProgressTrackerService,
   ) {}
 
   /**
@@ -705,199 +710,233 @@ export class TeamMissionService implements OnModuleInit {
       }
     }
 
-    // 广播状态变更
-    void this.topicEventEmitter.emitToTopic(
-      mission.topicId,
-      "mission:status_changed",
-      {
-        missionId,
-        status: MissionStatus.PLANNING,
-        previousStatus: MissionStatus.PENDING,
-      },
-    );
-
-    // 广播 Leader 开始规划 (显示 thinking 状态)
-    void this.topicEventEmitter.emitToTopic(
-      mission.topicId,
-      "mission:agent_working",
-      {
-        missionId: mission.id,
-        taskId: null,
-        agentId: mission.leader.id,
-        agentName: mission.leader.agentName || mission.leader.displayName,
-        status: "planning",
-      },
-    );
-
-    // 发送 Leader 正在思考的消息
-    await this.sendMessageToTopic(
-      mission.topicId,
-      mission.leader.id,
-      `[任务分解]\n\n收到任务！正在分析需求并进行任务分解...`,
-      MessageContentType.TEXT,
-    );
-
-    // 初始化长内容处理服务
-    try {
-      await this.longContentService.initMission({
-        missionId: mission.id,
-        missionTitle: mission.title,
-        missionDescription: mission.description || "",
-        objectives: mission.objectives || [],
-        constraints: mission.constraints || [],
-        expectedTaskCount: mission.totalTasks || undefined,
-        granularityLevel: "chapter", // 默认按章节粒度分解
+    // ★ AI Kernel: 初始化进度追踪（三阶段：planning / execution / synthesis）
+    if (this.progressTracker) {
+      this.progressTracker.create({
+        id: missionId,
+        type: "team-mission",
+        name: `Team Mission: ${missionId}`,
+        roomConfig: {
+          roomId: `mission:${missionId}`,
+          roomType: "mission",
+          entityId: missionId,
+        },
+        phases: [
+          { id: "planning", name: "Leader Planning", weight: 1 },
+          { id: "execution", name: "Member Execution", weight: 3 },
+          { id: "synthesis", name: "Leader Synthesis", weight: 2 },
+        ],
       });
-      this.logger.log(
-        `[startMission] Long content service initialized for mission: ${mission.id}`,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `[startMission] Failed to init long content service: ${error}`,
-      );
-      // 不阻塞任务执行，长内容服务初始化失败时继续执行
+      this.progressTracker.start(missionId);
+      this.progressTracker.startPhase(missionId, "planning");
     }
 
-    // ★ 从用户输入中提取约束（包括 MUST 约束如 "钟叔是哑巴"）
-    try {
-      const extractedConstraints =
-        this.constraintEnforcementService.extractConstraints(
-          mission.description || "",
-        );
-
-      if (extractedConstraints.length > 0) {
-        // 转换为 HardConstraint 格式
-        const hardConstraints =
-          this.constraintEnforcementService.toHardConstraints(
-            extractedConstraints,
-          );
-
-        // 存储到数据库
-        await this.prisma.teamMission.update({
-          where: { id: mission.id },
-          data: {
-            mustConstraints:
-              hardConstraints as unknown as Prisma.InputJsonValue,
-          },
-        });
-
-        // ★ 同时更新内存中的 mission 对象，确保后续流程可以访问
-        mission.mustConstraints =
-          hardConstraints as unknown as Prisma.JsonValue;
-
-        this.logger.log(
-          `[startMission] Extracted ${hardConstraints.length} constraints from mission description:`,
-        );
-        for (const c of hardConstraints) {
-          this.logger.log(`  - [${c.id}] ${c.rule} (${c.severity})`);
-        }
-      }
-    } catch (error) {
-      this.logger.warn(
-        `[startMission] Failed to extract constraints: ${error}`,
+    const teamProcessId = this.kernelProcessIds.get(missionId);
+    const runMission = async () => {
+      // 广播状态变更
+      void this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:status_changed",
+        {
+          missionId,
+          status: MissionStatus.PLANNING,
+          previousStatus: MissionStatus.PENDING,
+        },
       );
-      // 不阻塞任务执行
-    }
 
-    // ★ 世界观设定前置：对于大型内容创作任务，先生成核心设定
-    // 解决问题：用户只写"写一部宫廷小说"，多个Agent各自发明设定导致不一致
-    try {
-      const worldBuildingResult =
-        await this.aiFacade.contextInit?.buildWorldContext(
-          mission.title,
-          mission.description || "",
-          async (_model, messages, options) => {
-            // ★ 使用 LeaderModelService 支持重试和模型切换
-            const result = await this.leaderModelService.executeWithFallback(
-              mission.leader.aiModel,
-              async (modelConfig) => {
-                const response = await this.aiCallerService.callAIWithConfig(
-                  modelConfig.modelId,
-                  messages.map((m) => ({ role: m.role, content: m.content })),
-                  messages.find((m) => m.role === "system")?.content || "",
-                  {
-                    maxTokens: options?.maxTokens,
-                    temperature: options?.temperature,
-                    missionId: mission.id,
-                  },
-                );
-                return {
-                  content: response.content || "",
-                  tokensUsed: response.tokensUsed || 0,
-                };
-              },
-              {
-                operation: "world_building",
-                context: { missionId: mission.id },
-              },
-            );
-            if (!result.success || !result.data) {
-              throw new Error(
-                `世界观构建失败: ${result.error?.message || "未知错误"}`,
-              );
-            }
-            return result.data;
-          },
-          mission.leader.aiModel,
-        );
-
-      if (worldBuildingResult?.needed && worldBuildingResult.hardConstraints) {
-        this.logger.log(
-          `[startMission] World building completed: ${worldBuildingResult.hardConstraints.length} constraints, type: ${worldBuildingResult.contentType}`,
-        );
-
-        // 合并世界观约束到现有约束
-        const existingConstraints = Array.isArray(mission.mustConstraints)
-          ? (mission.mustConstraints as unknown as HardConstraint[])
-          : [];
-        const mergedConstraints = [
-          ...existingConstraints,
-          ...worldBuildingResult.hardConstraints,
-        ];
-
-        // 更新到数据库
-        await this.prisma.teamMission.update({
-          where: { id: mission.id },
-          data: {
-            mustConstraints:
-              mergedConstraints as unknown as Prisma.InputJsonValue,
-          },
-        });
-
-        // 更新内存中的 mission 对象
-        mission.mustConstraints =
-          mergedConstraints as unknown as Prisma.JsonValue;
-
-        // 发送世界观设定消息到群聊
-        if (worldBuildingResult?.settings) {
-          const settingsMessage =
-            this.aiFacade.contextInit?.formatWorldSettingsMessage(
-              worldBuildingResult.settings,
-            ) ?? "";
-          await this.sendMessageToTopic(
-            mission.topicId,
-            mission.leader.id,
-            settingsMessage,
-            MessageContentType.TEXT,
-          );
-        }
-
-        await this.createLog(mission.id, {
-          type: MissionLogType.PLANNING_STARTED,
+      // 广播 Leader 开始规划 (显示 thinking 状态)
+      void this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_working",
+        {
+          missionId: mission.id,
+          taskId: null,
           agentId: mission.leader.id,
           agentName: mission.leader.agentName || mission.leader.displayName,
-          content: `世界观设定完成，已确立 ${worldBuildingResult.hardConstraints.length} 条核心约束`,
-        });
-      }
-    } catch (error) {
-      this.logger.warn(
-        `[startMission] Failed to build world context: ${error instanceof Error ? error.message : error}`,
+          status: "planning",
+        },
       );
-      // 不阻塞任务执行，世界观生成失败时继续用传统流程
-    }
 
-    // 执行 Leader 任务规划
-    await this.executeLeaderPlanning(mission);
+      // 发送 Leader 正在思考的消息
+      await this.sendMessageToTopic(
+        mission.topicId,
+        mission.leader.id,
+        `[任务分解]\n\n收到任务！正在分析需求并进行任务分解...`,
+        MessageContentType.TEXT,
+      );
+
+      // 初始化长内容处理服务
+      try {
+        await this.longContentService.initMission({
+          missionId: mission.id,
+          missionTitle: mission.title,
+          missionDescription: mission.description || "",
+          objectives: mission.objectives || [],
+          constraints: mission.constraints || [],
+          expectedTaskCount: mission.totalTasks || undefined,
+          granularityLevel: "chapter", // 默认按章节粒度分解
+        });
+        this.logger.log(
+          `[startMission] Long content service initialized for mission: ${mission.id}`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[startMission] Failed to init long content service: ${error}`,
+        );
+        // 不阻塞任务执行，长内容服务初始化失败时继续执行
+      }
+
+      // ★ 从用户输入中提取约束（包括 MUST 约束如 "钟叔是哑巴"）
+      try {
+        const extractedConstraints =
+          this.constraintEnforcementService.extractConstraints(
+            mission.description || "",
+          );
+
+        if (extractedConstraints.length > 0) {
+          // 转换为 HardConstraint 格式
+          const hardConstraints =
+            this.constraintEnforcementService.toHardConstraints(
+              extractedConstraints,
+            );
+
+          // 存储到数据库
+          await this.prisma.teamMission.update({
+            where: { id: mission.id },
+            data: {
+              mustConstraints:
+                hardConstraints as unknown as Prisma.InputJsonValue,
+            },
+          });
+
+          // ★ 同时更新内存中的 mission 对象，确保后续流程可以访问
+          mission.mustConstraints =
+            hardConstraints as unknown as Prisma.JsonValue;
+
+          this.logger.log(
+            `[startMission] Extracted ${hardConstraints.length} constraints from mission description:`,
+          );
+          for (const c of hardConstraints) {
+            this.logger.log(`  - [${c.id}] ${c.rule} (${c.severity})`);
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[startMission] Failed to extract constraints: ${error}`,
+        );
+        // 不阻塞任务执行
+      }
+
+      // ★ 世界观设定前置：对于大型内容创作任务，先生成核心设定
+      // 解决问题：用户只写"写一部宫廷小说"，多个Agent各自发明设定导致不一致
+      try {
+        const worldBuildingResult =
+          await this.aiFacade.contextInit?.buildWorldContext(
+            mission.title,
+            mission.description || "",
+            async (_model, messages, options) => {
+              // ★ 使用 LeaderModelService 支持重试和模型切换
+              const result = await this.leaderModelService.executeWithFallback(
+                mission.leader.aiModel,
+                async (modelConfig) => {
+                  const response = await this.aiCallerService.callAIWithConfig(
+                    modelConfig.modelId,
+                    messages.map((m) => ({ role: m.role, content: m.content })),
+                    messages.find((m) => m.role === "system")?.content || "",
+                    {
+                      maxTokens: options?.maxTokens,
+                      temperature: options?.temperature,
+                      missionId: mission.id,
+                    },
+                  );
+                  return {
+                    content: response.content || "",
+                    tokensUsed: response.tokensUsed || 0,
+                  };
+                },
+                {
+                  operation: "world_building",
+                  context: { missionId: mission.id },
+                },
+              );
+              if (!result.success || !result.data) {
+                throw new Error(
+                  `世界观构建失败: ${result.error?.message || "未知错误"}`,
+                );
+              }
+              return result.data;
+            },
+            mission.leader.aiModel,
+          );
+
+        if (
+          worldBuildingResult?.needed &&
+          worldBuildingResult.hardConstraints
+        ) {
+          this.logger.log(
+            `[startMission] World building completed: ${worldBuildingResult.hardConstraints.length} constraints, type: ${worldBuildingResult.contentType}`,
+          );
+
+          // 合并世界观约束到现有约束
+          const existingConstraints = Array.isArray(mission.mustConstraints)
+            ? (mission.mustConstraints as unknown as HardConstraint[])
+            : [];
+          const mergedConstraints = [
+            ...existingConstraints,
+            ...worldBuildingResult.hardConstraints,
+          ];
+
+          // 更新到数据库
+          await this.prisma.teamMission.update({
+            where: { id: mission.id },
+            data: {
+              mustConstraints:
+                mergedConstraints as unknown as Prisma.InputJsonValue,
+            },
+          });
+
+          // 更新内存中的 mission 对象
+          mission.mustConstraints =
+            mergedConstraints as unknown as Prisma.JsonValue;
+
+          // 发送世界观设定消息到群聊
+          if (worldBuildingResult?.settings) {
+            const settingsMessage =
+              this.aiFacade.contextInit?.formatWorldSettingsMessage(
+                worldBuildingResult.settings,
+              ) ?? "";
+            await this.sendMessageToTopic(
+              mission.topicId,
+              mission.leader.id,
+              settingsMessage,
+              MessageContentType.TEXT,
+            );
+          }
+
+          await this.createLog(mission.id, {
+            type: MissionLogType.PLANNING_STARTED,
+            agentId: mission.leader.id,
+            agentName: mission.leader.agentName || mission.leader.displayName,
+            content: `世界观设定完成，已确立 ${worldBuildingResult.hardConstraints.length} 条核心约束`,
+          });
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[startMission] Failed to build world context: ${error instanceof Error ? error.message : error}`,
+        );
+        // 不阻塞任务执行，世界观生成失败时继续用传统流程
+      }
+
+      // 执行 Leader 任务规划
+      await this.executeLeaderPlanning(mission);
+    }; // end runMission
+
+    await (teamProcessId
+      ? KernelContext.run(
+          { processId: teamProcessId, userId: _userId },
+          runMission,
+        )
+      : runMission());
   }
 
   // ==================== Leader 规划任务 ====================
@@ -1200,6 +1239,12 @@ export class TeamMissionService implements OnModuleInit {
         },
       );
 
+      // ★ 进度追踪：规划阶段完成，切换到执行阶段
+      if (this.progressTracker) {
+        this.progressTracker.completePhase(mission.id, "planning");
+        this.progressTracker.startPhase(mission.id, "execution");
+      }
+
       // 开始执行任务
       await this.executeNextTasks(mission.id);
     } catch (error) {
@@ -1226,6 +1271,21 @@ export class TeamMissionService implements OnModuleInit {
         mission.id,
         error instanceof Error ? error.message : "Planning failed",
       );
+
+      // ★ 进度追踪：fail active phase, then mark task failed
+      if (this.progressTracker) {
+        const errMsg =
+          error instanceof Error ? error.message : "Planning failed";
+        const task = this.progressTracker.getTask(mission.id);
+        if (task) {
+          for (const phase of task.phases) {
+            if (phase.status === "in_progress") {
+              this.progressTracker.failPhase(mission.id, phase.id, errMsg);
+            }
+          }
+        }
+        this.progressTracker.fail(mission.id, errMsg);
+      }
 
       await this.sendMessageToTopic(
         mission.topicId,
@@ -1311,6 +1371,11 @@ export class TeamMissionService implements OnModuleInit {
         const allCompleted = completedTasks.length === mission.tasks.length;
 
         if (allCompleted) {
+          // ★ 进度追踪：执行阶段完成，切换到合成阶段
+          if (this.progressTracker) {
+            this.progressTracker.completePhase(missionId, "execution");
+            this.progressTracker.startPhase(missionId, "synthesis");
+          }
           await this.completeMission(missionId);
           return;
         }
@@ -1361,6 +1426,11 @@ export class TeamMissionService implements OnModuleInit {
             });
           }
 
+          // ★ 进度追踪：执行阶段完成（强制完成路径），切换到合成阶段
+          if (this.progressTracker) {
+            this.progressTracker.completePhase(missionId, "execution");
+            this.progressTracker.startPhase(missionId, "synthesis");
+          }
           await this.completeMission(missionId);
           return;
         }
@@ -3260,6 +3330,12 @@ export class TeamMissionService implements OnModuleInit {
         MessageContentType.TEXT,
       );
 
+      // ★ 进度追踪：合成阶段完成，整个任务完成
+      if (this.progressTracker) {
+        this.progressTracker.completePhase(missionId, "synthesis");
+        this.progressTracker.complete(missionId);
+      }
+
       // 更新任务为已完成（存储完整报告）
       await this.prisma.teamMission.update({
         where: { id: missionId },
@@ -3386,6 +3462,21 @@ export class TeamMissionService implements OnModuleInit {
         missionId,
         error instanceof Error ? error.message : "Completion failed",
       );
+
+      // ★ 进度追踪：fail active phase, then mark task failed
+      if (this.progressTracker) {
+        const errMsg =
+          error instanceof Error ? error.message : "Completion failed";
+        const task = this.progressTracker.getTask(missionId);
+        if (task) {
+          for (const phase of task.phases) {
+            if (phase.status === "in_progress") {
+              this.progressTracker.failPhase(missionId, phase.id, errMsg);
+            }
+          }
+        }
+        this.progressTracker.fail(missionId, errMsg);
+      }
     }
   }
 
