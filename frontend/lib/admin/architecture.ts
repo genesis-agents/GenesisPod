@@ -2,7 +2,7 @@
  * Admin Architecture Diagram Configuration
  *
  * Six-layer architecture visualization:
- * Layer 6: Agent OS Layer (Intelligent Orchestration & User Entry)
+ * Layer 6: Gateway Layer (Smart Gateway — Entry, Intent Routing, Traces)
  * Layer 5: Open API Layer (External Interfaces)
  * Layer 4: AI Apps Layer (Business Applications - Read-only)
  * Layer 3: AI Kernel Layer (OS Kernel - Process, Memory, IPC, Resources)
@@ -81,7 +81,7 @@ export interface ArchitectureLayer {
   groups?: CardGroup[]; // For grouped cards (AI Apps layer)
 }
 
-// Layer 6: Agent OS Layer (Intelligent Orchestration & User Entry)
+// Layer 6: Gateway Layer (Smart Gateway — Entry, Intent Routing, Traces)
 const agentOsLayer: ArchitectureLayer = {
   id: 'agentOs',
   titleKey: 'admin.architecture.layers.agentOs',
@@ -552,7 +552,7 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
 // Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
   6: {
-    // Agent OS - Indigo/Cyan theme (top layer)
+    // Gateway - Indigo/Cyan theme (top layer)
     badge: 'bg-cyan-100 text-cyan-700',
     border: 'border-cyan-200',
     accent: 'text-cyan-600',

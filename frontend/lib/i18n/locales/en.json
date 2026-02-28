@@ -3898,8 +3898,8 @@
       "subtitle": "Click on configurable cards to manage settings",
       "backToOverview": "Back to Architecture",
       "layers": {
-        "agentOs": "Layer 6: Agent OS",
-        "agentOsDesc": "Intelligent orchestration & user entry — intent routing to AI app modules",
+        "agentOs": "Layer 6: Gateway",
+        "agentOsDesc": "Smart Gateway — unified entry, intent parsing, request dispatch, trace collection",
         "openApi": "Layer 5: Open API",
         "openApiDesc": "External interfaces for AI agents and third-party integrations",
         "aiApps": "Layer 4: AI Agents",
@@ -3918,7 +3918,7 @@
         "systemOps": "System Ops"
       },
       "cards": {
-        "aiAskEntryDesc": "Conversation entry point — routes user intent to the right AI app via Agent OS",
+        "aiAskEntryDesc": "Conversation entry point — routes user intent to the right AI app via Gateway",
         "agentsDesc": "Agent registry — manage registered AI agent configurations",
         "tracesDesc": "View real-time execution traces, call chains, and status for agent tasks",
         "ragDesc": "Vector retrieval and knowledge base management for semantic search across AI apps",

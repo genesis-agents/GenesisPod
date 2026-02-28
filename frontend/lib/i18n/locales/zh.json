@@ -3898,8 +3898,8 @@
       "subtitle": "点击可配置的卡片进入管理设置",
       "backToOverview": "返回架构图",
       "layers": {
-        "agentOs": "第六层：Agent OS",
-        "agentOsDesc": "智能编排与用户入口，意图路由到各 AI 应用模块",
+        "agentOs": "第六层：Gateway",
+        "agentOsDesc": "智能网关 — 统一入口、意图解析、请求分发、调用链追踪",
         "openApi": "第五层：开放 API",
         "openApiDesc": "面向 AI Agent 和第三方的外部接口",
         "aiApps": "第四层：AI Agents",
@@ -3918,7 +3918,7 @@
         "systemOps": "系统运维"
       },
       "cards": {
-        "aiAskEntryDesc": "对话入口，通过 Agent OS 路由到合适的 AI 应用",
+        "aiAskEntryDesc": "对话入口，通过 Gateway 路由到合适的 AI 应用",
         "agentsDesc": "Agent 注册表，管理已注册的 AI Agent 配置",
         "tracesDesc": "查看 Agent 任务的实时执行轨迹、调用链和状态",
         "ragDesc": "向量检索与知识库管理，为 AI 应用提供语义搜索能力",

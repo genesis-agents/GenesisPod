@@ -40,10 +40,10 @@ describe('ARCHITECTURE_LAYERS', () => {
 });
 
 // ============================================================================
-// Agent OS layer (level 6)
+// Gateway layer (level 6)
 // ============================================================================
 
-describe('agentOs layer (level 6)', () => {
+describe('gateway layer (level 6)', () => {
   let agentOsLayer: ArchitectureLayer;
 
   beforeEach(() => {
