@@ -752,7 +752,7 @@ export class AiSocialService {
     );
 
     // Execute queries using shared SQL fragments
-    const contents = await this.prisma.$queryRaw`
+    const contents = await this.prisma.$queryRaw<ContentRow[]>`
       SELECT ${this.CONTENT_SELECT_FIELDS}
       FROM social_contents sc
       LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
@@ -761,7 +761,7 @@ export class AiSocialService {
       LIMIT ${options.limit} OFFSET ${offset}
     `;
 
-    const countResult = await this.prisma.$queryRaw`
+    const countResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) as count FROM social_contents sc
       ${whereClause}
     `;
