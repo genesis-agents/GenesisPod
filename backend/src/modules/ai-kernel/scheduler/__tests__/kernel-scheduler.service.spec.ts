@@ -58,7 +58,12 @@ describe("KernelSchedulerService", () => {
 
     // Safe defaults — no running processes, no ready processes
     mockPrisma.agentProcess.count.mockResolvedValue(0);
-    mockPrisma.$queryRawUnsafe.mockResolvedValue([]);
+    mockPrisma.$queryRawUnsafe.mockImplementation((sql: string) => {
+      if (typeof sql === "string" && sql.includes("information_schema")) {
+        return Promise.resolve([{ exists: true }]);
+      }
+      return Promise.resolve([]);
+    });
     mockPrisma.agentProcess.groupBy.mockResolvedValue([]);
     mockPrisma.agentProcess.update.mockResolvedValue({
       id: "proc-1",
@@ -79,6 +84,11 @@ describe("KernelSchedulerService", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "error").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
+
+    // Initialize service (probes table existence, starts scheduler)
+    await service.onModuleInit();
+    // Clear call counts from init so individual tests start clean
+    mockPrisma.$queryRawUnsafe.mockClear();
   });
 
   afterEach(() => {
@@ -324,10 +334,10 @@ describe("KernelSchedulerService", () => {
   // -------------------------------------------------------------------------
 
   describe("lifecycle", () => {
-    it("should start the scheduler interval on onModuleInit", () => {
+    it("should start the scheduler interval on onModuleInit", async () => {
       const setIntervalSpy = jest.spyOn(global, "setInterval");
 
-      service.onModuleInit();
+      await service.onModuleInit();
 
       expect(setIntervalSpy).toHaveBeenCalledWith(
         expect.any(Function),
@@ -340,7 +350,7 @@ describe("KernelSchedulerService", () => {
         .spyOn(service, "scheduleNext")
         .mockResolvedValue([]);
 
-      service.onModuleInit();
+      await service.onModuleInit();
 
       // Advance past one interval tick
       jest.advanceTimersByTime(1000);
@@ -351,10 +361,10 @@ describe("KernelSchedulerService", () => {
       expect(scheduleNextSpy).toHaveBeenCalled();
     });
 
-    it("should stop the scheduler interval on onModuleDestroy", () => {
+    it("should stop the scheduler interval on onModuleDestroy", async () => {
       const clearIntervalSpy = jest.spyOn(global, "clearInterval");
 
-      service.onModuleInit();
+      await service.onModuleInit();
       service.onModuleDestroy();
 
       expect(clearIntervalSpy).toHaveBeenCalled();
@@ -365,7 +375,7 @@ describe("KernelSchedulerService", () => {
         .spyOn(service, "scheduleNext")
         .mockResolvedValue([]);
 
-      service.onModuleInit();
+      await service.onModuleInit();
       service.onModuleDestroy();
 
       jest.advanceTimersByTime(5000);
@@ -374,11 +384,11 @@ describe("KernelSchedulerService", () => {
       expect(scheduleNextSpy).not.toHaveBeenCalled();
     });
 
-    it("should clear any existing interval before starting a new one (idempotent init)", () => {
+    it("should clear any existing interval before starting a new one (idempotent init)", async () => {
       const clearIntervalSpy = jest.spyOn(global, "clearInterval");
 
-      service.onModuleInit();
-      service.onModuleInit(); // second call
+      await service.onModuleInit();
+      await service.onModuleInit(); // second call
 
       // Should clear the first interval before setting a new one
       expect(clearIntervalSpy).toHaveBeenCalled();

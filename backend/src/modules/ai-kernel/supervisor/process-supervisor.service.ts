@@ -117,6 +117,9 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
   /** Health check timer */
   private healthCheckInterval: NodeJS.Timeout | null = null;
 
+  /** Whether the agent_processes table exists in the database */
+  private dbTableReady = false;
+
   constructor(
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly prisma?: PrismaService,
@@ -128,18 +131,23 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
 
   // ==================== 生命周期 ====================
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     this.logger.log(
       `[ProcessSupervisorService] Initializing with TTL=${this.ttlMs}ms, cleanup interval=${this.cleanupIntervalMs}ms`,
     );
     if (this.enableAutoCleanup) {
       this.startCleanupScheduler();
     }
-    // Start health check scheduler for process management
+    // Check if kernel tables exist before starting DB-dependent schedulers
     if (this.prisma) {
+      this.dbTableReady = await this.checkTableExists();
+      if (!this.dbTableReady) {
+        this.logger.warn(
+          "agent_processes table not found — health check and recovery disabled until next deploy",
+        );
+        return;
+      }
       this.startHealthCheckScheduler();
-    }
-    if (this.prisma) {
       void this.recoverOnStartup();
     }
   }
@@ -148,6 +156,20 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`[ProcessSupervisorService] Shutting down`);
     this.stopCleanupScheduler();
     this.stopHealthCheckScheduler();
+  }
+
+  private async checkTableExists(): Promise<boolean> {
+    if (!this.prisma) return false;
+    try {
+      const result = await this.prisma.$queryRawUnsafe<
+        Array<{ exists: boolean }>
+      >(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_processes') AS "exists"`,
+      );
+      return result[0]?.exists === true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -568,15 +590,9 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
         );
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("does not exist in the current database")) {
-        this.stopHealthCheckScheduler();
-        this.logger.warn(
-          "agent_processes table not found — health check disabled until next deploy",
-        );
-        return;
-      }
-      this.logger.error(`Health check failed: ${message}`);
+      this.logger.error(
+        `Health check failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -628,14 +644,9 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("does not exist in the current database")) {
-        this.logger.warn(
-          "agent_processes table not found — startup recovery skipped",
-        );
-        return;
-      }
-      this.logger.error(`Startup recovery failed: ${message}`);
+      this.logger.error(
+        `Startup recovery failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

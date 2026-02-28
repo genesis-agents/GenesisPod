@@ -17,7 +17,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KernelSchedulerService.name);
   private schedulerInterval: NodeJS.Timeout | null = null;
-  private tableReady = true;
+  private tableExists = false;
 
   /** Max concurrent RUNNING processes globally */
   private readonly maxConcurrent: number;
@@ -44,7 +44,14 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
+    this.tableExists = await this.checkTableExists();
+    if (!this.tableExists) {
+      this.logger.warn(
+        "agent_processes table not found — scheduler disabled until next deploy",
+      );
+      return;
+    }
     this.startScheduler();
     this.logger.log(
       `Kernel Scheduler started: maxConcurrent=${this.maxConcurrent}, maxPerTenant=${this.maxPerTenant}, interval=${this.scheduleIntervalMs}ms`,
@@ -53,6 +60,19 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy(): void {
     this.stopScheduler();
+  }
+
+  private async checkTableExists(): Promise<boolean> {
+    try {
+      const result = await this.prisma.$queryRawUnsafe<
+        Array<{ exists: boolean }>
+      >(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_processes') AS "exists"`,
+      );
+      return result[0]?.exists === true;
+    } catch {
+      return false;
+    }
   }
 
   private startScheduler(): void {
@@ -75,6 +95,8 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
    * Uses raw SQL with FOR UPDATE SKIP LOCKED for distributed safety.
    */
   async scheduleNext(): Promise<string[]> {
+    if (!this.tableExists) return [];
+
     try {
       // Count currently running processes
       const runningCount = await this.prisma.agentProcess.count({
@@ -144,21 +166,9 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
 
       return scheduledIds;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      // Stop polling if the table doesn't exist yet (migration not applied)
-      if (message.includes("does not exist in the current database")) {
-        if (this.tableReady) {
-          this.tableReady = false;
-          this.stopScheduler();
-          this.logger.warn(
-            "agent_processes table not found — scheduler disabled until next deploy",
-          );
-        }
-        return [];
-      }
-
-      this.logger.error(`Scheduler error: ${message}`);
+      this.logger.error(
+        `Scheduler error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return [];
     }
   }
@@ -172,6 +182,15 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
     maxConcurrent: number;
     maxPerTenant: number;
   }> {
+    if (!this.tableExists) {
+      return {
+        running: 0,
+        ready: 0,
+        maxConcurrent: this.maxConcurrent,
+        maxPerTenant: this.maxPerTenant,
+      };
+    }
+
     const [running, ready] = await Promise.all([
       this.prisma.agentProcess.count({ where: { state: "RUNNING" } }),
       this.prisma.agentProcess.count({ where: { state: "READY" } }),
