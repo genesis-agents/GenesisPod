@@ -79,6 +79,11 @@ export interface ChatRequest {
    */
   billing?: CreditBillingInfo;
 
+  // ==================== AI Kernel 进程追踪 ====================
+
+  /** AI Kernel 进程 ID（传递给 AiChatService 用于 Journal/Cost/Metrics 追踪） */
+  processId?: string;
+
   // ==================== K3 Fix: Skill Injection Options ====================
 
   /**

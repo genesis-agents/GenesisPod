@@ -18,6 +18,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { BaseTool } from "../../base/base-tool";
 import {
@@ -398,8 +399,23 @@ export class KnowledgeBaseTool extends BaseTool<
   private static readonly USER_ID = "system";
   private static readonly ENTRY_TYPE = "knowledge_entry";
 
+  private memoryTableReady: boolean | null = null;
+
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  private async ensureMemoryTable(): Promise<boolean> {
+    if (this.memoryTableReady !== null) return this.memoryTableReady;
+    try {
+      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='long_term_memories') AS "exists"`,
+      );
+      this.memoryTableReady = result[0]?.exists ?? false;
+    } catch {
+      this.memoryTableReady = false;
+    }
+    return this.memoryTableReady;
   }
 
   /**
@@ -499,6 +515,14 @@ export class KnowledgeBaseTool extends BaseTool<
     entryData: KnowledgeBaseInput["entry"],
     _context: ToolContext,
   ): Promise<KnowledgeBaseOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: KnowledgeOperation.CREATE,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     const entryId = this.generateEntryId();
     const now = new Date();
 
@@ -539,6 +563,14 @@ export class KnowledgeBaseTool extends BaseTool<
    * 读取知识条目
    */
   private async readEntry(entryId: string): Promise<KnowledgeBaseOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: KnowledgeOperation.READ,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     const record = await this.prisma.longTermMemory.findUnique({
       where: {
         userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
@@ -567,6 +599,14 @@ export class KnowledgeBaseTool extends BaseTool<
     entryId: string,
     updates: KnowledgeBaseInput["entry"],
   ): Promise<KnowledgeBaseOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: KnowledgeOperation.UPDATE,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     const record = await this.prisma.longTermMemory.findUnique({
       where: {
         userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
@@ -618,6 +658,14 @@ export class KnowledgeBaseTool extends BaseTool<
    * 删除知识条目
    */
   private async deleteEntry(entryId: string): Promise<KnowledgeBaseOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: KnowledgeOperation.DELETE,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     const record = await this.prisma.longTermMemory.findUnique({
       where: {
         userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
@@ -653,6 +701,10 @@ export class KnowledgeBaseTool extends BaseTool<
    * 搜索知识条目
    */
   private async loadAllEntries(): Promise<KnowledgeEntry[]> {
+    if (!(await this.ensureMemoryTable())) {
+      return [];
+    }
+
     const records = await this.prisma.longTermMemory.findMany({
       where: {
         userId: KnowledgeBaseTool.USER_ID,
@@ -762,6 +814,15 @@ export class KnowledgeBaseTool extends BaseTool<
    * 列出所有标签
    */
   private async listTags(): Promise<KnowledgeBaseOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: true,
+        operation: KnowledgeOperation.LIST_TAGS,
+        tags: [],
+        metadata: { totalCount: 0 },
+      };
+    }
+
     const records = await this.prisma.longTermMemory.findMany({
       where: {
         userId: KnowledgeBaseTool.USER_ID,

@@ -870,7 +870,7 @@ export class SlidesEngineService {
   private async interpretFeedbackAndModifyOutline(
     originalOutline: PageOutline,
     feedback: string,
-    _sessionId: string, // 保留用于未来日志记录
+    sessionId: string,
   ): Promise<PageOutline> {
     // 如果没有 AI 服务或反馈为空，直接返回原大纲
     if (!this.aiFacade || !feedback.trim()) {
@@ -879,6 +879,8 @@ export class SlidesEngineService {
       );
       return originalOutline;
     }
+
+    const processId = this.kernelProcessIds.get(sessionId);
 
     try {
       const prompt = `你是一个幻灯片内容专家。请根据用户的反馈修改以下幻灯片大纲。
@@ -918,6 +920,7 @@ ${feedback}
           creativity: "low", // 反馈解析需要低创造性
           outputLength: "minimal", // 输出较短
         },
+        processId,
       });
 
       // 解析 AI 响应

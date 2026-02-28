@@ -18,6 +18,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { BaseTool } from "../../base/base-tool";
 import {
@@ -429,8 +430,23 @@ export class EntityMemoryTool extends BaseTool<
   private static readonly ENTITY_TYPE = "entity";
   private static readonly RELATION_TYPE = "entity_relation";
 
+  private memoryTableReady: boolean | null = null;
+
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  private async ensureMemoryTable(): Promise<boolean> {
+    if (this.memoryTableReady !== null) return this.memoryTableReady;
+    try {
+      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='long_term_memories') AS "exists"`,
+      );
+      this.memoryTableReady = result[0]?.exists ?? false;
+    } catch {
+      this.memoryTableReady = false;
+    }
+    return this.memoryTableReady;
   }
 
   /**
@@ -532,6 +548,14 @@ export class EntityMemoryTool extends BaseTool<
     entityData: EntityMemoryInput["entity"],
     _context: ToolContext,
   ): Promise<EntityMemoryOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: EntityOperation.STORE,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     // 使用 name 的 slug 作为稳定 key，实现按名称去重
     const entityKey = this.generateEntityId(entityData!.name);
 
@@ -591,6 +615,14 @@ export class EntityMemoryTool extends BaseTool<
    * 检索实体
    */
   private async retrieveEntity(entityId: string): Promise<EntityMemoryOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: EntityOperation.RETRIEVE,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     const record = await this.prisma.longTermMemory.findUnique({
       where: {
         userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
@@ -619,6 +651,14 @@ export class EntityMemoryTool extends BaseTool<
     entityId: string,
     updates: EntityMemoryInput["entity"],
   ): Promise<EntityMemoryOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: EntityOperation.UPDATE,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     const record = await this.prisma.longTermMemory.findUnique({
       where: {
         userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
@@ -657,6 +697,14 @@ export class EntityMemoryTool extends BaseTool<
    * 删除实体
    */
   private async deleteEntity(entityId: string): Promise<EntityMemoryOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: EntityOperation.DELETE,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     const record = await this.prisma.longTermMemory.findUnique({
       where: {
         userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
@@ -709,6 +757,14 @@ export class EntityMemoryTool extends BaseTool<
     fromEntityId: string,
     relationData: EntityMemoryInput["relation"],
   ): Promise<EntityMemoryOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: false,
+        operation: EntityOperation.ADD_RELATION,
+        error: "Knowledge base unavailable",
+      };
+    }
+
     // 验证实体存在
     const fromExists = await this.prisma.longTermMemory.findUnique({
       where: {
@@ -778,6 +834,15 @@ export class EntityMemoryTool extends BaseTool<
     entityId: string,
     filter?: EntityMemoryInput["filter"],
   ): Promise<EntityMemoryOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: true,
+        operation: EntityOperation.QUERY_RELATIONS,
+        relations: [],
+        metadata: { totalCount: 0 },
+      };
+    }
+
     const entityRecord = await this.prisma.longTermMemory.findUnique({
       where: {
         userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
@@ -828,6 +893,15 @@ export class EntityMemoryTool extends BaseTool<
     query: string,
     filter?: EntityMemoryInput["filter"],
   ): Promise<EntityMemoryOutput> {
+    if (!(await this.ensureMemoryTable())) {
+      return {
+        success: true,
+        operation: EntityOperation.SEARCH,
+        entities: [],
+        metadata: { totalCount: 0 },
+      };
+    }
+
     const records = await this.prisma.longTermMemory.findMany({
       where: {
         userId: EntityMemoryTool.USER_ID,

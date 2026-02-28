@@ -33,9 +33,10 @@ function makeMockCacheService() {
 
 function makeMockPrisma() {
   return {
+    $queryRawUnsafe: jest.fn().mockResolvedValue([{ exists: true }]),
     agentProcess: {
       findMany: jest.fn(),
-      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     processMemory: {
       deleteMany: jest.fn(),
@@ -79,7 +80,7 @@ describe("ProcessSupervisorService", () => {
 
     // Safe defaults
     mockPrisma.agentProcess.findMany.mockResolvedValue([]);
-    mockPrisma.agentProcess.update.mockResolvedValue({});
+    mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.processMemory.deleteMany.mockResolvedValue({ count: 0 });
 
     const module = await buildModule(false);
@@ -340,7 +341,7 @@ describe("ProcessSupervisorService", () => {
       jest.advanceTimersByTime(31 * 60 * 1000);
 
       // Trigger the cleanup scheduler manually (the service's init starts it)
-      service.onModuleInit();
+      void service.onModuleInit();
       jest.advanceTimersByTime(5 * 60 * 1000);
 
       expect(service.isTaskExecuting("old-task")).toBe(false);
@@ -352,7 +353,7 @@ describe("ProcessSupervisorService", () => {
       // Advance only 20 minutes (under the 30-minute TTL)
       jest.advanceTimersByTime(20 * 60 * 1000);
 
-      service.onModuleInit();
+      void service.onModuleInit();
       jest.advanceTimersByTime(5 * 60 * 1000);
 
       expect(service.isTaskExecuting("fresh-task")).toBe(true);
@@ -384,6 +385,9 @@ describe("ProcessSupervisorService", () => {
       prismaService = module.get<ProcessSupervisorService>(
         ProcessSupervisorService,
       );
+      // Trigger onModuleInit so that dbTableReady and dbMemoryTableReady are
+      // populated via $queryRawUnsafe (both return [{ exists: true }] by default)
+      await prismaService.onModuleInit();
     });
 
     afterEach(() => {
@@ -410,7 +414,7 @@ describe("ProcessSupervisorService", () => {
 
       await prismaService.healthCheck();
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith(
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "proc-timeout" },
           data: expect.objectContaining({
@@ -436,7 +440,7 @@ describe("ProcessSupervisorService", () => {
 
       await prismaService.healthCheck();
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith(
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "proc-zombie" },
           data: { state: "ZOMBIE" },
@@ -498,7 +502,7 @@ describe("ProcessSupervisorService", () => {
 
       await prismaService.recoverOnStartup();
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-recoverable" },
         data: { state: "READY" },
       });
@@ -517,7 +521,7 @@ describe("ProcessSupervisorService", () => {
 
       await prismaService.recoverOnStartup();
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-lost" },
         data: expect.objectContaining({
           state: "FAILED",
@@ -547,9 +551,9 @@ describe("ProcessSupervisorService", () => {
 
       await prismaService.recoverOnStartup();
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledTimes(2);
 
-      const calls = mockPrisma.agentProcess.update.mock.calls as Array<
+      const calls = mockPrisma.agentProcess.updateMany.mock.calls as Array<
         [{ where: { id: string }; data: Record<string, unknown> }]
       >;
       const readyCall = calls.find((c) => c[0].where.id === "proc-ok");
@@ -564,7 +568,7 @@ describe("ProcessSupervisorService", () => {
 
       await prismaService.recoverOnStartup();
 
-      expect(mockPrisma.agentProcess.update).not.toHaveBeenCalled();
+      expect(mockPrisma.agentProcess.updateMany).not.toHaveBeenCalled();
     });
 
     it("should not throw when Prisma is not injected", async () => {
@@ -617,7 +621,7 @@ describe("ProcessSupervisorService", () => {
 
     it("should stop the cleanup scheduler when enableAutoCleanup is set to false", () => {
       const clearIntervalSpy = jest.spyOn(global, "clearInterval");
-      service.onModuleInit(); // ensure scheduler is running
+      void service.onModuleInit(); // ensure scheduler is running
       clearIntervalSpy.mockClear();
       service.configure({ enableAutoCleanup: false });
       expect(clearIntervalSpy).toHaveBeenCalled();

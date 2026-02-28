@@ -21,6 +21,9 @@ import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
+import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
+import { CostAttributionService } from "../../../ai-kernel/observability/cost-attribution.service";
+import { KernelMetricsService } from "../../../ai-kernel/observability/kernel-metrics.service";
 
 export interface ChatCompletionOptions {
   model: string;
@@ -38,6 +41,8 @@ export interface ChatCompletionOptions {
   traceId?: string;
   /** 响应格式：json 时启用 JSON mode */
   responseFormat?: string;
+  /** AI Kernel 进程 ID（用于 Journal/Cost/Metrics 追踪） */
+  processId?: string;
 }
 
 export interface ChatCompletionResult {
@@ -97,6 +102,9 @@ export class AiChatService {
     @Optional()
     private readonly imageGenerationService?: AiImageGenerationService,
     @Optional() private readonly traceCollector?: TraceCollectorService,
+    @Optional() private readonly eventJournal?: EventJournalService,
+    @Optional() private readonly costAttribution?: CostAttributionService,
+    @Optional() private readonly kernelMetrics?: KernelMetricsService,
   ) {}
 
   // ==================== 模型配置委托方法 ====================
@@ -783,6 +791,7 @@ export class AiChatService {
     userId?: string;
     traceId?: string;
     responseFormat?: string;
+    processId?: string;
   }): Promise<{
     content: string;
     usage?: { totalTokens: number };
@@ -808,6 +817,7 @@ export class AiChatService {
       userId,
       traceId,
       responseFormat,
+      processId,
     } = options;
 
     // ★ Observability: Start trace span
@@ -1055,6 +1065,54 @@ export class AiChatService {
           this.circuitBreaker.recordSuccess(currentModel, duration);
         }
 
+        // ★ Kernel: Record LLM call event, cost, and metrics
+        if (processId && this.eventJournal) {
+          void this.eventJournal
+            .record(processId, "LLM_CALL", {
+              model: currentModel,
+              tokens: result.tokensUsed,
+              latencyMs: duration,
+            })
+            .catch(() => {});
+        }
+        if (processId && this.costAttribution) {
+          this.costAttribution.recordCost({
+            userId: userId ?? "",
+            moduleType: "ai-engine",
+            model: currentModel,
+            provider: currentModelConfig?.provider ?? "",
+            inputTokens: 0,
+            outputTokens: result.tokensUsed,
+            estimatedCost: KernelMetricsService.estimateCost(
+              currentModel,
+              0,
+              result.tokensUsed,
+            ),
+          });
+        }
+        if (this.kernelMetrics) {
+          this.kernelMetrics.recordLLMCall({
+            model: currentModel,
+            provider: currentModelConfig?.provider ?? "",
+            modelType: modelType ?? "CHAT",
+            module: "ai-engine",
+            operation: "chat",
+            userId,
+            inputTokens: 0,
+            outputTokens: result.tokensUsed,
+            totalTokens: result.tokensUsed,
+            latencyMs: duration,
+            estimatedCost: KernelMetricsService.estimateCost(
+              currentModel,
+              0,
+              result.tokensUsed,
+            ),
+            success: true,
+            fallbackUsed: attempt > 0,
+            retryCount: attempt,
+          });
+        }
+
         // ★ Guardrails: Output validation
         const outputGuardrailResult = await this.runOutputGuardrails(
           result.content,
@@ -1117,6 +1175,35 @@ export class AiChatService {
           errorType,
           result.content,
         );
+      }
+
+      // ★ Kernel: Record LLM error event and metrics
+      if (processId && this.eventJournal) {
+        void this.eventJournal
+          .record(processId, "LLM_ERROR", {
+            model: currentModel,
+            error: result.content.substring(0, 200),
+          })
+          .catch(() => {});
+      }
+      if (this.kernelMetrics) {
+        this.kernelMetrics.recordLLMCall({
+          model: currentModel,
+          provider: currentModelConfig?.provider ?? "",
+          modelType: modelType ?? "CHAT",
+          module: "ai-engine",
+          operation: "chat",
+          userId,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          latencyMs: duration,
+          estimatedCost: 0,
+          success: false,
+          error: result.content.substring(0, 200),
+          fallbackUsed: attempt > 0,
+          retryCount: attempt,
+        });
       }
 
       // 获取其他可用的同类型模型

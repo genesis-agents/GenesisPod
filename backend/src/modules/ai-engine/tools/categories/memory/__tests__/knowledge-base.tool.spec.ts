@@ -11,6 +11,7 @@ import { ToolContext } from "../../../abstractions/tool.interface";
 // ============================================================================
 
 const mockPrisma = {
+  $queryRaw: jest.fn().mockResolvedValue([{ exists: true }]),
   longTermMemory: {
     findUnique: jest.fn(),
     create: jest.fn(),

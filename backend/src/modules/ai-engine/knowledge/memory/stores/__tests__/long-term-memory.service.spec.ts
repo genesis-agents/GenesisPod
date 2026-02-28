@@ -22,6 +22,11 @@ describe("LongTermMemoryService", () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
+    // Default: table exists so the service enables itself
+    mockPrismaService.$queryRaw.mockResolvedValue([{ exists: true }]);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LongTermMemoryService,
@@ -34,6 +39,8 @@ describe("LongTermMemoryService", () => {
 
     service = module.get<LongTermMemoryService>(LongTermMemoryService);
     prisma = module.get(PrismaService);
+
+    await service.onModuleInit();
   });
 
   afterEach(() => {

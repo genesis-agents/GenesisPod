@@ -3,7 +3,7 @@
  * User-level persistent storage backed by PostgreSQL
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
 
@@ -46,8 +46,29 @@ interface SetOptions {
  * 基于 userId 隔离的持久存储（Prisma + PostgreSQL）
  */
 @Injectable()
-export class PersistentMemoryStore {
+export class PersistentMemoryStore implements OnModuleInit {
+  private readonly logger = new Logger(PersistentMemoryStore.name);
+  private tableReady = false;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit(): Promise<void> {
+    this.tableReady = await this.checkTableExists("long_term_memories");
+    if (!this.tableReady) {
+      this.logger.warn("long_term_memories table not found — service disabled");
+    }
+  }
+
+  private async checkTableExists(tableName: string): Promise<boolean> {
+    try {
+      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=${tableName}) AS "exists"`,
+      );
+      return result[0]?.exists ?? false;
+    } catch {
+      return false;
+    }
+  }
 
   /**
    * 根据 TTL 计算过期时间
@@ -66,6 +87,7 @@ export class PersistentMemoryStore {
     value: unknown,
     options?: SetOptions,
   ): Promise<void> {
+    if (!this.tableReady) return;
     const expiresAt = this.getExpiresAt(options?.ttl);
 
     await this.prisma.longTermMemory.upsert({
@@ -93,6 +115,7 @@ export class PersistentMemoryStore {
    * 获取值（带用户隔离）
    */
   async getWithUser(userId: string, key: string): Promise<unknown> {
+    if (!this.tableReady) return undefined;
     const entry = await this.prisma.longTermMemory.findUnique({
       where: { userId_key: { userId, key } },
     });
@@ -128,6 +151,7 @@ export class PersistentMemoryStore {
   ): Promise<
     Array<{ key: string; value: unknown; score: number; metadata: unknown }>
   > {
+    if (!this.tableReady) return [];
     // 转义 ILIKE 特殊字符，防止 SQL 注入
     const likePattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
     const limit = options?.limit ?? 100;
@@ -245,6 +269,7 @@ export class PersistentMemoryStore {
    * 删除值（带用户隔离）
    */
   async deleteWithUser(userId: string, key: string): Promise<boolean> {
+    if (!this.tableReady) return false;
     try {
       await this.prisma.longTermMemory.delete({
         where: { userId_key: { userId, key } },
@@ -267,6 +292,7 @@ export class PersistentMemoryStore {
       tags?: string[];
     }>
   > {
+    if (!this.tableReady) return [];
     const where: Prisma.LongTermMemoryWhereInput = {
       OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     };
@@ -310,6 +336,7 @@ export class PersistentMemoryStore {
     metadata: { importance?: number; tags?: string[] },
     userId?: string,
   ): Promise<boolean> {
+    if (!this.tableReady) return false;
     const data: Prisma.LongTermMemoryUpdateInput = {};
 
     if (metadata.importance !== undefined) {
@@ -347,6 +374,7 @@ export class PersistentMemoryStore {
    * 清理过期数据
    */
   async cleanup(): Promise<number> {
+    if (!this.tableReady) return 0;
     const result = await this.prisma.longTermMemory.deleteMany({
       where: {
         expiresAt: { lt: new Date() },
@@ -360,6 +388,7 @@ export class PersistentMemoryStore {
    * 获取统计信息
    */
   async getStats(): Promise<{ totalEntries: number; userCount: number }> {
+    if (!this.tableReady) return { totalEntries: 0, userCount: 0 };
     const [totalEntries, userCountResult] = await Promise.all([
       this.prisma.longTermMemory.count(),
       this.prisma.longTermMemory.groupBy({

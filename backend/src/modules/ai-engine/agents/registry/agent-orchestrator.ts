@@ -10,6 +10,7 @@ import { AgentRegistry } from "./agent-registry";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
+import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
 
 /**
  * 状态报告项
@@ -37,6 +38,7 @@ export class AgentOrchestrator {
     @Optional() private readonly agentConfigService?: AgentConfigService,
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
     private readonly configService?: ConfigService,
+    @Optional() private readonly eventJournal?: EventJournalService,
   ) {
     this.guardrailsEnabled =
       this.configService?.get<string>("GUARDRAILS_ENABLED") !== "false";
@@ -55,6 +57,7 @@ export class AgentOrchestrator {
     input: AgentInput,
     agentId?: AgentId,
     _userId?: string,
+    processId?: string,
   ): AsyncGenerator<AgentEvent> {
     // Input validation with guardrails
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
@@ -121,6 +124,15 @@ export class AgentOrchestrator {
       // 生成执行计划
       const plan = await agent.plan(input);
 
+      if (processId && this.eventJournal) {
+        void this.eventJournal
+          .record(processId, "AGENT_PLAN", {
+            agentId: selectedAgentId,
+            stepCount: plan?.steps?.length ?? 0,
+          })
+          .catch(() => {});
+      }
+
       // 执行计划
       for await (const event of agent.execute(plan)) {
         // Output validation with guardrails (only for complete events)
@@ -166,6 +178,14 @@ export class AgentOrchestrator {
         // 记录完成或错误
         if (event.type === "complete") {
           this.registry.recordExecution(selectedAgentId, event.result.success);
+          if (processId && this.eventJournal) {
+            void this.eventJournal
+              .record(processId, "AGENT_COMPLETE", {
+                agentId: selectedAgentId,
+                success: event.result?.success ?? false,
+              })
+              .catch(() => {});
+          }
         } else if (event.type === "error") {
           this.registry.recordExecution(selectedAgentId, false);
         }
@@ -175,6 +195,14 @@ export class AgentOrchestrator {
         `[execute] Agent execution failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       this.registry.recordExecution(selectedAgentId, false);
+      if (processId && this.eventJournal) {
+        void this.eventJournal
+          .record(processId, "AGENT_ERROR", {
+            agentId: selectedAgentId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          .catch(() => {});
+      }
 
       yield {
         type: "error",

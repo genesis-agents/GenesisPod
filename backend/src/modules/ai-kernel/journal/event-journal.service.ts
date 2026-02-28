@@ -1,17 +1,36 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ProcessId, JournalEntry, StepResult } from "../process/process.types";
 
 @Injectable()
-export class EventJournalService {
+export class EventJournalService implements OnModuleInit {
   private readonly logger = new Logger(EventJournalService.name);
+  private tableReady = false;
 
   constructor(private readonly prisma: PrismaService) {}
 
+  async onModuleInit(): Promise<void> {
+    this.tableReady = await this.checkTableExists("process_events");
+    if (!this.tableReady) {
+      this.logger.warn("process_events table not found — service disabled");
+    }
+  }
+
+  private async checkTableExists(tableName: string): Promise<boolean> {
+    try {
+      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=${tableName}) AS "exists"`,
+      );
+      return result[0]?.exists ?? false;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Record a new event for the process.
-   * Sequence number is derived from the current count of existing events + 1.
+   * Sequence number is calculated atomically via MAX(sequence)+1 in a single INSERT.
    */
   async record(
     processId: ProcessId,
@@ -19,27 +38,38 @@ export class EventJournalService {
     payload?: Record<string, unknown>,
     result?: Record<string, unknown>,
   ): Promise<JournalEntry> {
-    const existingCount = await this.prisma.processEvent.count({
-      where: { processId },
-    });
-
-    const sequence = existingCount + 1;
-
-    const entry = await this.prisma.processEvent.create({
-      data: {
+    if (!this.tableReady) {
+      return {
+        id: "disabled",
         processId,
-        sequence,
+        sequence: 0,
         type,
-        payload: payload as Prisma.InputJsonValue | undefined,
-        result: result as Prisma.InputJsonValue | undefined,
-      },
-    });
+        payload: payload ?? null,
+        result: result ?? null,
+        createdAt: new Date(),
+      } as JournalEntry;
+    }
 
+    const entries = await this.prisma.$queryRaw<JournalEntry[]>(Prisma.sql`
+      INSERT INTO process_events (id, process_id, sequence, type, payload, result, created_at)
+      VALUES (
+        gen_random_uuid(),
+        ${processId},
+        COALESCE((SELECT MAX(sequence) FROM process_events WHERE process_id = ${processId}), 0) + 1,
+        ${type},
+        ${payload ? JSON.stringify(payload) : null}::jsonb,
+        ${result ? JSON.stringify(result) : null}::jsonb,
+        NOW()
+      )
+      RETURNING id, process_id AS "processId", sequence, type, payload, result, created_at AS "createdAt"
+    `);
+
+    const entry = entries[0];
     this.logger.debug(
-      `[record] Process ${processId} event #${sequence} type="${type}"`,
+      `[record] Process ${processId} event #${entry.sequence} type="${type}"`,
     );
 
-    return this.toJournalEntry(entry);
+    return entry;
   }
 
   /**
@@ -50,6 +80,7 @@ export class EventJournalService {
    * Otherwise, the step is executed, the result is persisted, and then returned.
    */
   async recordStep<T>(processId: ProcessId, step: StepResult<T>): Promise<T> {
+    if (!this.tableReady) return step.execute();
     const existing = await this.prisma.processEvent.findFirst({
       where: {
         processId,
@@ -80,6 +111,7 @@ export class EventJournalService {
    * Return all events for a process in chronological order.
    */
   async replay(processId: ProcessId): Promise<JournalEntry[]> {
+    if (!this.tableReady) return [];
     const events = await this.prisma.processEvent.findMany({
       where: { processId },
       orderBy: { sequence: "asc" },
@@ -95,6 +127,7 @@ export class EventJournalService {
     processId: ProcessId,
     options?: { limit?: number; offset?: number },
   ): Promise<{ entries: JournalEntry[]; total: number }> {
+    if (!this.tableReady) return { entries: [], total: 0 };
     const limit = options?.limit;
     const offset = options?.offset ?? 0;
 

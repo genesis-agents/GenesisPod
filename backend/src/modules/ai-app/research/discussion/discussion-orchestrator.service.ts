@@ -9,8 +9,12 @@ import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
 import { InsufficientCreditsException } from "../../../ai-infra/credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import {
+  AIEngineFacade,
+  MissionExecutorService,
+} from "../../../ai-engine/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
+import { LruMap } from "@/common/utils/lru-map";
 import {
   StartDeepResearchDto,
   DeepResearchSSEEvent,
@@ -43,6 +47,7 @@ export class DiscussionOrchestratorService {
   private readonly STAGE_TIMEOUT = 2 * 60 * 1000;
   /** Synthesis involves multi-step report generation; needs a longer timeout */
   private readonly SYNTHESIS_TIMEOUT = 12 * 60 * 1000;
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -53,6 +58,7 @@ export class DiscussionOrchestratorService {
     @Optional() private readonly ideaService: ResearchIdeaService,
     @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly replanner: ResearchReplannerService,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   /**
@@ -163,6 +169,26 @@ export class DiscussionOrchestratorService {
         status: DeepResearchStatus.IDEATION,
       },
     });
+
+    // Spawn AI Kernel process for tracking
+    if (this.missionExecutor) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId: project.userId,
+          agentId: "research-discussion",
+          teamSessionId: session.id,
+          input: {
+            query: dto.query.slice(0, 200),
+            depth: dto.options?.depth || "standard",
+          },
+        });
+        this.kernelProcessIds.set(session.id, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${(err as Error).message}`,
+        );
+      }
+    }
 
     try {
       // 初始化 Agent 团队
@@ -442,6 +468,13 @@ export class DiscussionOrchestratorService {
         `Discussion research completed: ${session.id}, sources: ${totalSources}, duration: ${duration.toFixed(1)}s`,
       );
 
+      // Complete AI Kernel process
+      this.completeKernelProcess(session.id, {
+        totalSources,
+        duration,
+        searchRounds: searchRounds.length,
+      });
+
       // End observability trace
       if (traceId) {
         this.aiFacade?.endTrace(traceId, {
@@ -486,6 +519,12 @@ export class DiscussionOrchestratorService {
         );
       }
     } catch (error) {
+      // Fail AI Kernel process
+      this.failKernelProcess(
+        session.id,
+        error instanceof Error ? error.message : String(error),
+      );
+
       // End trace on failure
       if (traceId) {
         this.aiFacade?.endTrace(traceId, {
@@ -1069,6 +1108,37 @@ export class DiscussionOrchestratorService {
     return this.prisma.deepResearchSession.deleteMany({
       where: { id: { in: sessionIds } },
     });
+  }
+
+  // ==================== AI Kernel 生命周期 ====================
+
+  private completeKernelProcess(
+    sessionId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(sessionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(sessionId);
+  }
+
+  private failKernelProcess(sessionId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(sessionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to fail process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(sessionId);
   }
 
   // ==================== 工具方法 ====================

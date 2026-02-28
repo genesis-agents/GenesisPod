@@ -69,6 +69,13 @@ export class KernelApiService {
     return this.processManager.listByUser(userId, states);
   }
 
+  async listAllProcesses(
+    states?: ProcessState[],
+    limit?: number,
+  ): Promise<ProcessSnapshot[]> {
+    return this.processManager.listAll(states, limit);
+  }
+
   async pauseProcess(processId: ProcessId): Promise<ProcessSnapshot> {
     return this.processManager.pause(processId);
   }

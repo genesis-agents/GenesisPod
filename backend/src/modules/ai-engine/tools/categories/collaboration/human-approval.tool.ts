@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -340,9 +341,24 @@ export class HumanApprovalTool extends BaseTool<
     },
   };
 
+  private memoryTableReady: boolean | null = null;
+
   constructor(private readonly prisma: PrismaService) {
     super();
     // defaultTimeout set in class property // 稍大于默认审批超时
+  }
+
+  private async ensureMemoryTable(): Promise<boolean> {
+    if (this.memoryTableReady !== null) return this.memoryTableReady;
+    try {
+      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='long_term_memories') AS "exists"`,
+      );
+      this.memoryTableReady = result[0]?.exists ?? false;
+    } catch {
+      this.memoryTableReady = false;
+    }
+    return this.memoryTableReady;
   }
 
   /**
@@ -482,6 +498,12 @@ export class HumanApprovalTool extends BaseTool<
     options: ApprovalOptions,
     timeout: number,
   ): Promise<Omit<HumanApprovalOutput, "respondedAt" | "metadata">> {
+    if (!(await this.ensureMemoryTable())) {
+      throw new Error(
+        "Memory table not available, approval system unavailable",
+      );
+    }
+
     const REQUEST_KEY = `approval:request:${requestId}`;
     const RESPONSE_KEY = `approval:response:${requestId}`;
     const USER_ID = "system";

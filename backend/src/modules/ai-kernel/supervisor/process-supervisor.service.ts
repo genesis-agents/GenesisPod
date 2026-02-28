@@ -120,6 +120,9 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
   /** Whether the agent_processes table exists in the database */
   private dbTableReady = false;
 
+  /** Whether the process_memories table exists in the database */
+  private dbMemoryTableReady = false;
+
   constructor(
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly prisma?: PrismaService,
@@ -140,7 +143,8 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
     }
     // Check if kernel tables exist before starting DB-dependent schedulers
     if (this.prisma) {
-      this.dbTableReady = await this.checkTableExists();
+      this.dbTableReady = await this.checkTableExists("agent_processes");
+      this.dbMemoryTableReady = await this.checkTableExists("process_memories");
       if (!this.dbTableReady) {
         this.logger.warn(
           "agent_processes table not found — health check and recovery disabled until next deploy",
@@ -158,13 +162,13 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
     this.stopHealthCheckScheduler();
   }
 
-  private async checkTableExists(): Promise<boolean> {
+  private async checkTableExists(tableName: string): Promise<boolean> {
     if (!this.prisma) return false;
     try {
       const result = await this.prisma.$queryRawUnsafe<
         Array<{ exists: boolean }>
       >(
-        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_processes') AS "exists"`,
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${tableName}') AS "exists"`,
       );
       return result[0]?.exists === true;
     } catch {
@@ -217,7 +221,7 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
     const categoryStore = this.getOrCreateCategory(category);
 
     if (categoryStore.has(id)) {
-      this.logger.warn(
+      this.logger.debug(
         `[ProcessSupervisorService] ${category}:${id} already active`,
       );
       return false;
@@ -546,7 +550,7 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(
           `Process ${p.id} (agent: ${p.agentId}) timed out, marking as FAILED`,
         );
-        await this.prisma.agentProcess.update({
+        await this.prisma.agentProcess.updateMany({
           where: { id: p.id },
           data: {
             state: "FAILED",
@@ -569,24 +573,24 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(
           `Process ${z.id} (agent: ${z.agentId}) detected as zombie, marking`,
         );
-        await this.prisma.agentProcess.update({
+        await this.prisma.agentProcess.updateMany({
           where: { id: z.id },
           data: { state: "ZOMBIE" },
         });
       }
 
-      // 3. Clean up expired memory
-      const expiredMemory = await this.prisma.processMemory.deleteMany({
-        where: { expiresAt: { lt: now } },
-      });
+      // 3. Clean up expired memory (only if process_memories table exists)
+      let expiredMemoryCount = 0;
+      if (this.dbMemoryTableReady) {
+        const expiredMemory = await this.prisma.processMemory.deleteMany({
+          where: { expiresAt: { lt: now } },
+        });
+        expiredMemoryCount = expiredMemory.count;
+      }
 
-      if (
-        timedOut.length > 0 ||
-        zombies.length > 0 ||
-        expiredMemory.count > 0
-      ) {
+      if (timedOut.length > 0 || zombies.length > 0 || expiredMemoryCount > 0) {
         this.logger.log(
-          `Health check: timedOut=${timedOut.length}, zombies=${zombies.length}, expiredMemory=${expiredMemory.count}`,
+          `Health check: timedOut=${timedOut.length}, zombies=${zombies.length}, expiredMemory=${expiredMemoryCount}`,
         );
       }
     } catch (error) {
@@ -624,7 +628,7 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
           this.logger.log(
             `Process ${p.id} has checkpoint, transitioning to READY for retry`,
           );
-          await this.prisma.agentProcess.update({
+          await this.prisma.agentProcess.updateMany({
             where: { id: p.id },
             data: { state: "READY" },
           });
@@ -633,7 +637,7 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn(
             `Process ${p.id} has no checkpoint, marking as FAILED`,
           );
-          await this.prisma.agentProcess.update({
+          await this.prisma.agentProcess.updateMany({
             where: { id: p.id },
             data: {
               state: "FAILED",

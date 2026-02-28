@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   Prisma,
   SimulationRunStatus,
@@ -7,7 +7,12 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
-import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
+import {
+  AIEngineFacade,
+  ChatMessage,
+  MissionExecutorService,
+} from "../../ai-engine/facade";
+import { LruMap } from "@/common/utils/lru-map";
 
 interface EvidenceRef {
   provider: string;
@@ -104,11 +109,13 @@ const BLACK_SWAN_EVENTS: Omit<BlackSwanEvent, "triggered" | "probability">[] = [
 @Injectable()
 export class AiSimulationEngineService {
   private readonly logger = new Logger(AiSimulationEngineService.name);
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly externalData: ExternalDataService,
     private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   /**
@@ -419,70 +426,135 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
 
     const rounds = run.rounds ?? 2;
 
-    // Initialization: fetch external data snapshot
-    const evidenceTrail: Array<Record<string, unknown>> = [];
-    const state: Record<string, unknown> = {};
-
-    const { snapshot, evidence } = await this.externalData.getSnapshot();
-    evidenceTrail.push(...evidence);
-    Object.assign(state, snapshot);
-
-    // Save initial world state
-    await this.prisma.simulationRun.update({
-      where: { id: run.id },
-      data: {
-        worldState: state as Prisma.InputJsonValue,
-        evidenceTrail: evidenceTrail as Prisma.InputJsonValue,
-      },
-    });
-
-    let currentRound = options?.resume ? run.currentRound || 0 : 0;
-    const humanBreakEvery =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
-      (run.params as Record<string, any> | null)?.humanBreakEvery !== undefined
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
-        ? (run.params as Record<string, any> | null)?.humanBreakEvery
-        : 2;
-
-    while (currentRound < rounds) {
-      currentRound += 1;
-      const turn = await this.processRound(run.id, currentRound);
-      this.logger.log(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
-        `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as Record<string, any> | null)?.ruling}`,
-      );
-
-      if (
-        humanBreakEvery &&
-        currentRound % humanBreakEvery === 0 &&
-        currentRound < rounds
-      ) {
-        await this.prisma.simulationRun.update({
-          where: { id: run.id },
-          data: {
-            status: SimulationRunStatus.PAUSED,
-            currentRound,
-            summary: {
-              ...(run.summary as object),
-              humanBreak: `Paused at round ${currentRound} for human-in-the-loop`,
-            } as Prisma.InputJsonValue,
-          },
+    // Spawn AI Kernel process for tracking
+    if (this.missionExecutor && run.startedById) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId: run.startedById,
+          agentId: "simulation-engine",
+          teamSessionId: runId,
+          input: { runId, rounds, scenarioId: run.scenarioId },
         });
-        return;
+        this.kernelProcessIds.set(runId, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${(err as Error).message}`,
+        );
       }
     }
 
-    const debrief = await this.computeDebrief(run.id);
+    try {
+      // Initialization: fetch external data snapshot
+      const evidenceTrail: Array<Record<string, unknown>> = [];
+      const state: Record<string, unknown> = {};
 
-    await this.prisma.simulationRun.update({
-      where: { id: run.id },
-      data: {
-        status: SimulationRunStatus.COMPLETED,
-        currentRound: rounds,
-        summary: debrief as Prisma.InputJsonValue,
-        completedAt: new Date(),
-      },
-    });
+      const { snapshot, evidence } = await this.externalData.getSnapshot();
+      evidenceTrail.push(...evidence);
+      Object.assign(state, snapshot);
+
+      // Save initial world state
+      await this.prisma.simulationRun.update({
+        where: { id: run.id },
+        data: {
+          worldState: state as Prisma.InputJsonValue,
+          evidenceTrail: evidenceTrail as Prisma.InputJsonValue,
+        },
+      });
+
+      let currentRound = options?.resume ? run.currentRound || 0 : 0;
+      const humanBreakEvery =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
+        (run.params as Record<string, any> | null)?.humanBreakEvery !==
+        undefined
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
+            (run.params as Record<string, any> | null)?.humanBreakEvery
+          : 2;
+
+      while (currentRound < rounds) {
+        currentRound += 1;
+        const turn = await this.processRound(run.id, currentRound);
+        this.logger.log(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
+          `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as Record<string, any> | null)?.ruling}`,
+        );
+
+        if (
+          humanBreakEvery &&
+          currentRound % humanBreakEvery === 0 &&
+          currentRound < rounds
+        ) {
+          await this.prisma.simulationRun.update({
+            where: { id: run.id },
+            data: {
+              status: SimulationRunStatus.PAUSED,
+              currentRound,
+              summary: {
+                ...(run.summary as object),
+                humanBreak: `Paused at round ${currentRound} for human-in-the-loop`,
+              } as Prisma.InputJsonValue,
+            },
+          });
+          return;
+        }
+      }
+
+      const debrief = await this.computeDebrief(run.id);
+
+      await this.prisma.simulationRun.update({
+        where: { id: run.id },
+        data: {
+          status: SimulationRunStatus.COMPLETED,
+          currentRound: rounds,
+          summary: debrief as Prisma.InputJsonValue,
+          completedAt: new Date(),
+        },
+      });
+
+      // Complete AI Kernel process
+      this.completeKernelProcess(runId, {
+        rounds,
+        completedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error(
+        `[Simulation] Run ${runId} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Fail AI Kernel process
+      this.failKernelProcess(
+        runId,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
+  private completeKernelProcess(
+    runId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(runId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(runId);
+  }
+
+  private failKernelProcess(runId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(runId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to fail process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(runId);
   }
 
   private async processRound(runId: string, roundNumber: number) {
@@ -504,8 +576,8 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
     const irrationalProb =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
       (run.params as Record<string, any> | null)?.irrationalProb !== undefined
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
-        ? (run.params as Record<string, any> | null)?.irrationalProb
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
+          (run.params as Record<string, any> | null)?.irrationalProb
         : 0.2;
     const chaosInjectedTeam =
       run.scenario.agents.some((a) => a.team === SimulationTeam.CHAOS) || false;
@@ -578,7 +650,8 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
       },
     });
 
-    const prevTrail = (run.evidenceTrail as Record<string, unknown> | null) || {};
+    const prevTrail =
+      (run.evidenceTrail as Record<string, unknown> | null) || {};
 
     await this.prisma.simulationRun.update({
       where: { id: runId },
@@ -600,7 +673,11 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
    * If any provider missing data, mark ruling as "insufficient_evidence".
    */
   private async simpleAdjudication(
-    run: { worldState: unknown; scenario: { companies: Array<{ id: string; metrics: unknown }> }; params: unknown },
+    run: {
+      worldState: unknown;
+      scenario: { companies: Array<{ id: string; metrics: unknown }> };
+      params: unknown;
+    },
     submissions: Array<Record<string, unknown>>,
   ): Promise<AdjudicationResult> {
     const evidenceRefs: EvidenceRef[] = [];
@@ -623,9 +700,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
       const intent = sub.intent as { cost?: number } | undefined;
       const tools = sub.tools as { plannedCost?: number } | undefined;
       const intentCost =
-        (intent && typeof intent.cost === "number"
-          ? intent.cost
-          : undefined) ||
+        (intent && typeof intent.cost === "number" ? intent.cost : undefined) ||
         (tools && typeof tools.plannedCost === "number"
           ? tools.plannedCost
           : undefined);
@@ -892,7 +967,19 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
         }
       }
 
-      const submissions = (turn.submissions as Array<{ agentId?: string; team?: string; role?: string; publicAction?: string; irrational?: boolean; companyId?: string; innerMonologue?: string; visibility?: string; timestamp?: string; chaosInjected?: boolean }>) || [];
+      const submissions =
+        (turn.submissions as Array<{
+          agentId?: string;
+          team?: string;
+          role?: string;
+          publicAction?: string;
+          irrational?: boolean;
+          companyId?: string;
+          innerMonologue?: string;
+          visibility?: string;
+          timestamp?: string;
+          chaosInjected?: boolean;
+        }>) || [];
       submissions.forEach((s) => {
         const agent = run.scenario.agents.find((a) => a.id === s.agentId);
 
@@ -937,7 +1024,9 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
 
     // Analyze team behavior patterns
     for (const [team, actions] of Object.entries(teamActions)) {
-      const irrationalCount = actions.filter((a) => (a as { irrational?: boolean }).irrational).length;
+      const irrationalCount = actions.filter(
+        (a) => (a as { irrational?: boolean }).irrational,
+      ).length;
       if (irrationalCount > actions.length * 0.3) {
         blindspots.push({
           type: "team_behavior",

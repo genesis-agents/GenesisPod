@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiTeamsService } from "../../teams/ai-teams.service";
@@ -11,9 +12,13 @@ import { PlanningTemplateService } from "./planning-template.service";
 import { CreatePlanDto, PlanningDepth } from "../dto/create-plan.dto";
 import { UpdatePlanDto } from "../dto/update-plan.dto";
 import { Prisma, TopicType, AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import {
+  AIEngineFacade,
+  MissionExecutorService,
+} from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { LruMap } from "@/common/utils/lru-map";
 
 export interface PlanPhaseStatus {
   status: "pending" | "active" | "completed" | "skipped" | "failed";
@@ -129,6 +134,7 @@ const MAX_PHASE_SUMMARY_LENGTH = 24000;
 @Injectable()
 export class PlanningOrchestratorService {
   private readonly logger = new Logger(PlanningOrchestratorService.name);
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -136,6 +142,7 @@ export class PlanningOrchestratorService {
     private readonly aiResponseService: AiResponseService,
     private readonly templateService: PlanningTemplateService,
     private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   // ==================== Plan CRUD ====================
@@ -624,6 +631,23 @@ export class PlanningOrchestratorService {
   ): Promise<void> {
     this.logger.log(`Executing phase ${phase} for plan ${planId}`);
 
+    // Spawn AI Kernel process at the start of phase 1 (plan execution begins)
+    if (phase === 1 && this.missionExecutor) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId,
+          agentId: "planning-orchestrator",
+          teamSessionId: planId,
+          input: { planId, totalPhases: TOTAL_PHASES },
+        });
+        this.kernelProcessIds.set(planId, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${(err as Error).message}`,
+        );
+      }
+    }
+
     try {
       // 1. Load topic + AI members + metadata
       const topic = await this.prisma.topic.findFirst({
@@ -910,6 +934,11 @@ export class PlanningOrchestratorService {
 
       this.logger.log(`Phase ${phase} completed for plan ${planId}`);
 
+      // Complete AI Kernel process when the final phase finishes
+      if (phase === TOTAL_PHASES) {
+        this.completeKernelProcess(planId, { completedPhases: TOTAL_PHASES });
+      }
+
       // 8. Auto-advance if enabled (with delay so frontend can catch up)
       if (meta.planConfig.autoAdvance && phase < TOTAL_PHASES) {
         // Wait before auto-advancing so the UI can show phase completion
@@ -945,7 +974,39 @@ export class PlanningOrchestratorService {
         status: "failed",
         error: errorMessage,
       });
+
+      // Fail AI Kernel process on any phase failure
+      this.failKernelProcess(planId, `Phase ${phase} failed: ${errorMessage}`);
     }
+  }
+
+  private completeKernelProcess(
+    planId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(planId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(planId);
+  }
+
+  private failKernelProcess(planId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(planId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to fail process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(planId);
   }
 
   private async updatePhaseStatus(

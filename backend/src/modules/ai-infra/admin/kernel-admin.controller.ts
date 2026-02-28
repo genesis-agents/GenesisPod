@@ -64,12 +64,18 @@ export class KernelAdminController {
             validStates.includes(s as ProcessState),
           )
       : undefined;
-    const effectiveUserId = userId || "system";
-    const processes = await this.kernelApi.listProcesses(
-      effectiveUserId,
-      stateFilter?.length ? stateFilter : undefined,
-    );
     const maxResults = parseInt(limit ?? "50", 10) || 50;
+
+    const processes = userId
+      ? await this.kernelApi.listProcesses(
+          userId,
+          stateFilter?.length ? stateFilter : undefined,
+        )
+      : await this.kernelApi.listAllProcesses(
+          stateFilter?.length ? stateFilter : undefined,
+          maxResults,
+        );
+
     return {
       processes: processes.slice(0, maxResults),
       total: processes.length,

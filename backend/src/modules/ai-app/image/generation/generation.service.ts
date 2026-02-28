@@ -10,7 +10,9 @@ import {
   Logger,
   BadRequestException,
   MessageEvent,
+  Optional,
 } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { Observable, Subject } from "rxjs";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
@@ -22,6 +24,8 @@ import {
 } from "../../../../common/content-processing/data-fetching.service";
 import { AIModelType, Prisma } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { MissionExecutorService } from "../../../ai-engine/facade";
+import { LruMap } from "@/common/utils/lru-map";
 import {
   ProcessingStep,
   PromptEngineeringInsights,
@@ -59,6 +63,7 @@ import {
 @Injectable()
 export class AiImageService {
   private readonly logger = new Logger(AiImageService.name);
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -70,6 +75,7 @@ export class AiImageService {
     private readonly imageStorageService: ImageStorageService,
     private readonly imagen4PromptService: Imagen4PromptService,
     private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   /**
@@ -169,6 +175,29 @@ export class AiImageService {
       templateLayout: userTemplateLayout,
       userId,
     } = options;
+
+    // Generate a request ID for kernel process tracking
+    const requestId = randomUUID();
+
+    // Spawn AI Kernel process for tracking
+    if (this.missionExecutor && userId) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId,
+          agentId: "image-generation",
+          teamSessionId: requestId,
+          input: {
+            prompt: (prompt || "").slice(0, 200),
+            hasUrls: !!(urls && urls.length > 0),
+          },
+        });
+        this.kernelProcessIds.set(requestId, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${(err as Error).message}`,
+        );
+      }
+    }
 
     let mergedNegativePrompt = negativePrompt?.trim();
     const processingSteps: ProcessingStep[] = [];
@@ -761,11 +790,48 @@ export class AiImageService {
         }),
       });
 
+      // Complete AI Kernel process
+      this.completeKernelProcess(requestId, { imageId: savedImage.id });
+
       subject.complete();
     } catch (error) {
       this.logger.error(`Stream generation failed: ${error}`);
+      // Fail AI Kernel process
+      this.failKernelProcess(
+        requestId,
+        error instanceof Error ? error.message : String(error),
+      );
       throw error;
     }
+  }
+
+  private completeKernelProcess(
+    requestId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(requestId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(requestId);
+  }
+
+  private failKernelProcess(requestId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(requestId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to fail process: ${(err as Error).message}`,
+        ),
+      );
+    this.kernelProcessIds.delete(requestId);
   }
 
   /**

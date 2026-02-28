@@ -1514,6 +1514,7 @@ ${storyCreativitySection}
           outputLength: "medium",
         },
         strictMode: true, // ★ 严格模式：API失败直接抛异常，进入 catch 降级逻辑
+        processId: this.kernelProcessIds.get(missionId),
       });
 
       // ★ 清除心跳
@@ -2017,6 +2018,7 @@ ${Array.from(
             outputLength: "medium",
           },
           strictMode: true, // ★ 严格模式：API失败直接抛异常进入 catch 重试
+          processId: this.kernelProcessIds.get(missionId),
         });
 
         // ★ 清除心跳
@@ -2131,6 +2133,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
             outputLength: "medium",
           },
           strictMode: true,
+          processId: this.kernelProcessIds.get(missionId),
         });
 
         // 解析填充的标题
@@ -2376,6 +2379,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
             outputLength: "standard",
           },
           strictMode: true, // ★ 严格模式：API失败抛异常进入 catch 重试
+          processId: this.kernelProcessIds.get(missionId),
         });
         chapterContent = writerResponse.content || "";
       } catch (error) {
@@ -2423,6 +2427,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}`;
               outputLength: "standard",
             },
             strictMode: true,
+            processId: this.kernelProcessIds.get(missionId),
           });
           chapterContent =
             retryResponse.content ||
@@ -2493,6 +2498,7 @@ ${previousChapterSummary || "这是第一章"}
           creativity: "low",
           outputLength: "short",
         },
+        processId: this.kernelProcessIds.get(missionId),
       });
 
       // 解析检查结果
@@ -2574,6 +2580,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
             creativity: "low",
             outputLength: "standard",
           },
+          processId: this.kernelProcessIds.get(missionId),
         });
 
         if (
@@ -2643,6 +2650,7 @@ ${chapterContent.slice(0, 4000)}
             creativity: "deterministic",
             outputLength: "short",
           },
+          processId: this.kernelProcessIds.get(missionId),
         });
 
         // 解析验证结果
@@ -2766,6 +2774,7 @@ ${editNarrativeConstraints}`;
             creativity: "medium",
             outputLength: "standard",
           },
+          processId: this.kernelProcessIds.get(missionId),
         });
 
         if (
@@ -2862,6 +2871,7 @@ ${firstChapterGuidance}
                 creativity: "high",
                 outputLength: "short",
               },
+              processId: this.kernelProcessIds.get(missionId),
             });
 
             if (
@@ -3138,6 +3148,7 @@ ${narrativeConstraints}`;
                 creativity: "high",
                 outputLength: "standard",
               },
+              processId: this.kernelProcessIds.get(missionId),
             });
 
             if (
@@ -4165,6 +4176,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 3000)}
           creativity: "low",
           outputLength: "short",
         },
+        processId: this.kernelProcessIds.get(missionId),
       });
 
       const content = response.content || "{}";
@@ -4306,6 +4318,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           creativity: "low",
           outputLength: "medium",
         },
+        processId: this.kernelProcessIds.get(missionId),
       });
 
       const content = response.content || "{}";
@@ -4389,6 +4402,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
                 creativity: "deterministic",
                 outputLength: "short",
               },
+              processId: this.kernelProcessIds.get(missionId),
             });
 
             const repairedJson =
@@ -4922,6 +4936,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           creativity: this.mapTemperatureToCreativity(0.8),
           outputLength: this.mapMaxTokensToOutputLength(8000),
         },
+        processId: this.kernelProcessIds.get(missionId),
       });
 
       if (response.content) {
@@ -5527,6 +5542,7 @@ ${userPrompt}
         creativity: this.mapTemperatureToCreativity(0.3), // 低温度确保输出稳定
         outputLength: this.mapMaxTokensToOutputLength(2000),
       },
+      processId: this.kernelProcessIds.get(missionId),
     });
 
     if (!analysisResponse.content) {
@@ -5809,6 +5825,7 @@ ${instruction}
         creativity: this.mapTemperatureToCreativity(0.8),
         outputLength: this.mapMaxTokensToOutputLength(8000),
       },
+      processId: this.kernelProcessIds.get(missionId),
     });
 
     if (response.content && response.content.length > 200) {
@@ -7411,6 +7428,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
           creativity: this.mapTemperatureToCreativity(0.8),
           outputLength: this.mapMaxTokensToOutputLength(6000),
         },
+        processId: this.kernelProcessIds.get(missionId),
       });
 
       let chapterContent = writerResponse.content || "";
@@ -7436,6 +7454,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
             creativity: this.mapTemperatureToCreativity(0.85),
             outputLength: this.mapMaxTokensToOutputLength(6000),
           },
+          processId: this.kernelProcessIds.get(missionId),
         });
         chapterContent =
           retryResponse.content ||
@@ -7492,6 +7511,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
                 creativity: this.mapTemperatureToCreativity(0.85),
                 outputLength: this.mapMaxTokensToOutputLength(2000),
               },
+              processId: this.kernelProcessIds.get(missionId),
             });
 
             if (

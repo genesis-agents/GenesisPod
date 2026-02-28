@@ -18,6 +18,7 @@ import type { MemoryEntry, MemoryQuery } from "../../process/process.types";
 describe("KernelMemoryManagerService", () => {
   let service: KernelMemoryManagerService;
   let mockPrisma: {
+    $queryRaw: jest.Mock;
     processMemory: {
       findUnique: jest.Mock;
       findMany: jest.Mock;
@@ -44,6 +45,7 @@ describe("KernelMemoryManagerService", () => {
 
   beforeEach(async () => {
     mockPrisma = {
+      $queryRaw: jest.fn().mockResolvedValue([{ exists: true }]),
       processMemory: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
@@ -63,6 +65,8 @@ describe("KernelMemoryManagerService", () => {
     service = module.get<KernelMemoryManagerService>(
       KernelMemoryManagerService,
     );
+
+    await service.onModuleInit();
   });
 
   afterEach(() => {

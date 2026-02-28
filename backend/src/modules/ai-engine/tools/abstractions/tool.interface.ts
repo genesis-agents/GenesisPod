@@ -65,6 +65,11 @@ export interface ToolContext {
   retryCount?: number;
 
   /**
+   * AI Kernel 进程 ID
+   */
+  processId?: string;
+
+  /**
    * 元数据
    */
   metadata?: JsonObject;

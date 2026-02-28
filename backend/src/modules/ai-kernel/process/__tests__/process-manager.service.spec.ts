@@ -62,6 +62,7 @@ function makeRecord(overrides: Partial<ProcessSnapshot> = {}): ProcessSnapshot {
 // ---------------------------------------------------------------------------
 
 const mockPrisma = {
+  $queryRaw: jest.fn(),
   agentProcess: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -82,6 +83,9 @@ describe("ProcessManagerService", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    // Default: table exists so the service enables itself
+    mockPrisma.$queryRaw.mockResolvedValue([{ exists: true }]);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProcessManagerService,
@@ -90,6 +94,8 @@ describe("ProcessManagerService", () => {
     }).compile();
 
     service = module.get<ProcessManagerService>(ProcessManagerService);
+
+    await service.onModuleInit();
 
     // Suppress all Logger output during tests
     jest.spyOn(Logger.prototype, "log").mockImplementation();
@@ -552,44 +558,47 @@ describe("ProcessManagerService", () => {
   describe("consumeResources()", () => {
     it("should increment tokensUsed when provided", async () => {
       const updated = makeRecord({ tokensUsed: 150 });
-      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentProcess.findUnique.mockResolvedValue(updated);
 
       const result = await service.consumeResources("proc-1", {
         tokensUsed: 150,
       });
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-1" },
         data: { tokensUsed: { increment: 150 } },
       });
-      expect(result.tokensUsed).toBe(150);
+      expect(result!.tokensUsed).toBe(150);
     });
 
     it("should increment costUsed when provided", async () => {
       const updated = makeRecord({ costUsed: 0.25 });
-      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentProcess.findUnique.mockResolvedValue(updated);
 
       const result = await service.consumeResources("proc-1", {
         costUsed: 0.25,
       });
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-1" },
         data: { costUsed: { increment: 0.25 } },
       });
-      expect(result.costUsed).toBe(0.25);
+      expect(result!.costUsed).toBe(0.25);
     });
 
     it("should increment both tokensUsed and costUsed when both are provided", async () => {
       const updated = makeRecord({ tokensUsed: 200, costUsed: 0.5 });
-      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentProcess.findUnique.mockResolvedValue(updated);
 
       await service.consumeResources("proc-1", {
         tokensUsed: 200,
         costUsed: 0.5,
       });
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-1" },
         data: {
           tokensUsed: { increment: 200 },
@@ -600,14 +609,26 @@ describe("ProcessManagerService", () => {
 
     it("should send an empty update object when neither field is provided", async () => {
       const updated = makeRecord();
-      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentProcess.findUnique.mockResolvedValue(updated);
 
       await service.consumeResources("proc-1", {});
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-1" },
         data: {},
       });
+    });
+
+    it("should return null when the process is not found (count = 0)", async () => {
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.consumeResources("proc-1", {
+        tokensUsed: 100,
+      });
+
+      expect(result).toBeNull();
+      expect(mockPrisma.agentProcess.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -662,29 +683,39 @@ describe("ProcessManagerService", () => {
         state: "CANCELLED" as any,
         completedAt: new Date(),
       });
-      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentProcess.findUnique.mockResolvedValue(updated);
 
       const result = await service.kill("proc-1");
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-1" },
         data: {
           state: "CANCELLED",
           completedAt: expect.any(Date),
         },
       });
-      expect(result.state).toBe("CANCELLED");
-      expect(result.completedAt).not.toBeNull();
+      expect(result!.state).toBe("CANCELLED");
+      expect(result!.completedAt).not.toBeNull();
     });
 
     it("should not call findUniqueOrThrow (bypasses state machine)", async () => {
-      mockPrisma.agentProcess.update.mockResolvedValue(
-        makeRecord({ state: "CANCELLED" as any }),
-      );
+      const updated = makeRecord({ state: "CANCELLED" as any });
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentProcess.findUnique.mockResolvedValue(updated);
 
       await service.kill("proc-1");
 
       expect(mockPrisma.agentProcess.findUniqueOrThrow).not.toHaveBeenCalled();
+    });
+
+    it("should return null when the process is not found (count = 0)", async () => {
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.kill("proc-1");
+
+      expect(result).toBeNull();
+      expect(mockPrisma.agentProcess.findUnique).not.toHaveBeenCalled();
     });
   });
 

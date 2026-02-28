@@ -557,6 +557,7 @@ export class AIEngineFacade {
           temperature: request.temperature,
           strictMode: true, // fallback 模式下使用严格模式，让错误冒泡给 fallback 处理
           userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId 用于 Key 优先级解析
+          processId: request.processId,
         });
 
         if (result.isError) {
@@ -668,6 +669,7 @@ export class AIEngineFacade {
         temperature: request.temperature,
         strictMode: request.strictMode,
         userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
+        processId: request.processId,
       });
 
       const duration = Date.now() - startTime;

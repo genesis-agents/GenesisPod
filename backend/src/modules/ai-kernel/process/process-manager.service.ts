@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -13,15 +13,36 @@ import {
 } from "./process.types";
 
 @Injectable()
-export class ProcessManagerService {
+export class ProcessManagerService implements OnModuleInit {
   private readonly logger = new Logger(ProcessManagerService.name);
+  private tableReady = false;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit(): Promise<void> {
+    this.tableReady = await this.checkTableExists("agent_processes");
+    if (!this.tableReady) {
+      this.logger.warn("agent_processes table not found — service disabled");
+    }
+  }
+
+  private async checkTableExists(tableName: string): Promise<boolean> {
+    try {
+      const result = await this.prisma.$queryRaw<[{ exists: boolean }]>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=${tableName}) AS "exists"`,
+      );
+      return result[0]?.exists ?? false;
+    } catch {
+      return false;
+    }
+  }
 
   /**
    * Create a new AgentProcess record with state CREATED and return its snapshot.
    */
   async spawn(options: SpawnOptions): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     const record = await this.prisma.agentProcess.create({
       data: {
         userId: options.userId,
@@ -54,6 +75,8 @@ export class ProcessManagerService {
     parentId: ProcessId,
     options: Omit<SpawnOptions, "userId">,
   ): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     const parent = await this.prisma.agentProcess.findUniqueOrThrow({
       where: { id: parentId },
     });
@@ -69,6 +92,7 @@ export class ProcessManagerService {
    * Retrieve a single process by id, or null if not found.
    */
   async getState(processId: ProcessId): Promise<ProcessSnapshot | null> {
+    if (!this.tableReady) return null;
     const record = await this.prisma.agentProcess.findUnique({
       where: { id: processId },
     });
@@ -83,6 +107,7 @@ export class ProcessManagerService {
     userId: string,
     states?: ProcessState[],
   ): Promise<ProcessSnapshot[]> {
+    if (!this.tableReady) return [];
     const records = await this.prisma.agentProcess.findMany({
       where: {
         userId,
@@ -95,9 +120,29 @@ export class ProcessManagerService {
   }
 
   /**
+   * List all processes, optionally filtered by states. For admin use.
+   */
+  async listAll(
+    states?: ProcessState[],
+    limit = 100,
+  ): Promise<ProcessSnapshot[]> {
+    if (!this.tableReady) return [];
+
+    const records = await this.prisma.agentProcess.findMany({
+      where: states?.length ? { state: { in: states } } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+
+    return records.map((r) => this.toSnapshot(r));
+  }
+
+  /**
    * Recursively build the full process tree rooted at the given processId.
    */
   async getProcessTree(processId: ProcessId): Promise<ProcessTree> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     const record = await this.prisma.agentProcess.findUniqueOrThrow({
       where: { id: processId },
     });
@@ -124,6 +169,8 @@ export class ProcessManagerService {
     processId: ProcessId,
     newState: ProcessState,
   ): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     const current = await this.prisma.agentProcess.findUniqueOrThrow({
       where: { id: processId },
     });
@@ -166,6 +213,8 @@ export class ProcessManagerService {
     processId: ProcessId,
     data: Record<string, unknown>,
   ): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     const current = await this.prisma.agentProcess.findUniqueOrThrow({
       where: { id: processId },
     });
@@ -199,33 +248,37 @@ export class ProcessManagerService {
 
   /**
    * Increment tokensUsed and/or costUsed for a process.
+   * Uses updateMany to avoid P2025 when the process no longer exists.
    */
   async consumeResources(
     processId: ProcessId,
     consumption: ResourceConsumption,
-  ): Promise<ProcessSnapshot> {
-    const updateData: Record<string, unknown> = {};
+  ): Promise<ProcessSnapshot | null> {
+    if (!this.tableReady) return null;
 
+    const updateData: Record<string, unknown> = {};
     if (consumption.tokensUsed !== undefined) {
       updateData.tokensUsed = { increment: consumption.tokensUsed };
     }
-
     if (consumption.costUsed !== undefined) {
       updateData.costUsed = { increment: consumption.costUsed };
     }
 
-    const updated = await this.prisma.agentProcess.update({
+    const { count } = await this.prisma.agentProcess.updateMany({
       where: { id: processId },
       data: updateData,
     });
+    if (count === 0) return null;
 
-    return this.toSnapshot(updated);
+    return this.getState(processId);
   }
 
   /**
    * Pause a running process (transitions to PAUSED).
    */
   async pause(processId: ProcessId): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     return this.transition(processId, "PAUSED");
   }
 
@@ -233,6 +286,8 @@ export class ProcessManagerService {
    * Resume a paused process (transitions to READY).
    */
   async resume(processId: ProcessId): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     return this.transition(processId, "READY");
   }
 
@@ -240,14 +295,19 @@ export class ProcessManagerService {
    * Cancel a process via the normal state machine.
    */
   async cancel(processId: ProcessId): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     return this.transition(processId, "CANCELLED");
   }
 
   /**
    * Force-cancel a process regardless of current state (bypass state machine validation).
+   * Uses updateMany to avoid P2025 when the process no longer exists.
    */
-  async kill(processId: ProcessId): Promise<ProcessSnapshot> {
-    const updated = await this.prisma.agentProcess.update({
+  async kill(processId: ProcessId): Promise<ProcessSnapshot | null> {
+    if (!this.tableReady) return null;
+
+    const { count } = await this.prisma.agentProcess.updateMany({
       where: { id: processId },
       data: {
         state: "CANCELLED",
@@ -255,9 +315,13 @@ export class ProcessManagerService {
       },
     });
 
-    this.logger.warn(`[kill] Force-cancelled process ${processId}`);
+    if (count === 0) {
+      this.logger.warn(`[kill] Process ${processId} not found`);
+      return null;
+    }
 
-    return this.toSnapshot(updated);
+    this.logger.warn(`[kill] Force-cancelled process ${processId}`);
+    return this.getState(processId);
   }
 
   /**
@@ -269,6 +333,8 @@ export class ProcessManagerService {
     processId: ProcessId,
     timeoutMs: number = 300_000,
   ): Promise<ProcessSnapshot> {
+    if (!this.tableReady)
+      throw new Error("agent_processes table not available");
     const deadline = Date.now() + timeoutMs;
     const pollIntervalMs = 1_000;
 
