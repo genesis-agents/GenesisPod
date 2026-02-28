@@ -105,7 +105,7 @@ describe("CapabilityGuardService", () => {
       expect(result.reason).toContain("code-executor");
     });
 
-    it("should deny access and return 'Process not found' when process does not exist", async () => {
+    it("should allow access when process does not exist (cleaned up)", async () => {
       mockPrisma.agentProcess.findUnique.mockResolvedValue(null);
 
       const result = await service.checkToolAccess(
@@ -113,8 +113,7 @@ describe("CapabilityGuardService", () => {
         "web-search",
       );
 
-      expect(result.allowed).toBe(false);
-      expect(result.reason).toBe("Process not found");
+      expect(result.allowed).toBe(true);
     });
 
     it("should query by the correct processId", async () => {
