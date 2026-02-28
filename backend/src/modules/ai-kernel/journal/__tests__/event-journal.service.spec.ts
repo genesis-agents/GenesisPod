@@ -356,4 +356,191 @@ describe("EventJournalService", () => {
       expect(mockPrisma.processEvent.count).toHaveBeenCalledTimes(1);
     });
   });
+
+  // =========================================================================
+  // tableReady = false — all methods return disabled/early responses
+  // =========================================================================
+
+  describe("when table is not ready (disabled service)", () => {
+    let disabledService: EventJournalService;
+
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      // Simulate missing table
+      mockPrisma.$queryRaw.mockResolvedValue([{ exists: false }]);
+
+      const module = await Test.createTestingModule({
+        providers: [
+          EventJournalService,
+          { provide: PrismaService, useValue: mockPrisma },
+        ],
+      }).compile();
+
+      disabledService = module.get<EventJournalService>(EventJournalService);
+      await disabledService.onModuleInit();
+
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "debug").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+    });
+
+    it("record() should return a disabled stub entry when table is not available", async () => {
+      // Clear calls accumulated during beforeEach onModuleInit()
+      mockPrisma.$queryRaw.mockClear();
+
+      const result = await disabledService.record(
+        "proc-1",
+        "MY_EVENT",
+        { key: "val" },
+        { res: 1 },
+      );
+
+      expect(result.id).toBe("disabled");
+      expect(result.processId).toBe("proc-1");
+      expect(result.sequence).toBe(0);
+      expect(result.type).toBe("MY_EVENT");
+      // $queryRaw INSERT should NOT be called when table is disabled
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("record() should set payload and result to null when not provided (disabled path)", async () => {
+      const result = await disabledService.record("proc-1", "NO_DATA");
+
+      expect(result.payload).toBeNull();
+      expect(result.result).toBeNull();
+    });
+
+    it("record() should preserve provided payload and result in the stub (disabled path)", async () => {
+      const payload = { foo: "bar" };
+      const resultData = { baz: 42 };
+      const result = await disabledService.record(
+        "proc-1",
+        "EVENT",
+        payload,
+        resultData,
+      );
+
+      expect(result.payload).toEqual(payload);
+      expect(result.result).toEqual(resultData);
+    });
+
+    it("recordStep() should call execute directly when table is not available", async () => {
+      const executeMock = jest.fn().mockResolvedValue({ answer: 42 });
+      const step = {
+        type: "COMPUTE",
+        payload: {},
+        execute: executeMock,
+      };
+
+      const result = await disabledService.recordStep("proc-1", step);
+
+      expect(executeMock).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ answer: 42 });
+      // No DB lookups when disabled
+      expect(mockPrisma.processEvent.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("replay() should return empty array when table is not available", async () => {
+      const result = await disabledService.replay("proc-1");
+      expect(result).toEqual([]);
+      expect(mockPrisma.processEvent.findMany).not.toHaveBeenCalled();
+    });
+
+    it("getHistory() should return empty entries and zero total when table is not available", async () => {
+      const result = await disabledService.getHistory("proc-1", {
+        limit: 10,
+        offset: 0,
+      });
+
+      expect(result.entries).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(mockPrisma.processEvent.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.processEvent.count).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // checkTableExists() — catch branch (DB error → returns false → disabled)
+  // =========================================================================
+
+  describe("checkTableExists() error handling", () => {
+    it("should disable the service when $queryRaw throws during table check", async () => {
+      jest.clearAllMocks();
+      mockPrisma.$queryRaw.mockRejectedValue(new Error("Connection refused"));
+
+      const module = await Test.createTestingModule({
+        providers: [
+          EventJournalService,
+          { provide: PrismaService, useValue: mockPrisma },
+        ],
+      }).compile();
+
+      const errorService = module.get<EventJournalService>(EventJournalService);
+
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "debug").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      await errorService.onModuleInit();
+
+      // Service should be disabled — record() returns stub
+      const result = await errorService.record("proc-1", "MY_EVENT");
+      expect(result.id).toBe("disabled");
+    });
+
+    it("should disable the service when checkTableExists returns no rows (exists undefined)", async () => {
+      jest.clearAllMocks();
+      // Empty array → result[0]?.exists ?? false → false
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+
+      const module = await Test.createTestingModule({
+        providers: [
+          EventJournalService,
+          { provide: PrismaService, useValue: mockPrisma },
+        ],
+      }).compile();
+
+      const noRowService = module.get<EventJournalService>(EventJournalService);
+
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "debug").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      await noRowService.onModuleInit();
+
+      const result = await noRowService.replay("proc-1");
+      expect(result).toEqual([]);
+    });
+  });
+
+  // =========================================================================
+  // Additional branch coverage for getHistory() options handling
+  // =========================================================================
+
+  describe("getHistory() — additional branch paths", () => {
+    it("should use offset 0 when options object is provided but offset is undefined", async () => {
+      mockPrisma.processEvent.findMany.mockResolvedValue([]);
+      mockPrisma.processEvent.count.mockResolvedValue(0);
+
+      await service.getHistory("proc-1", { limit: 5 });
+
+      expect(mockPrisma.processEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0 }),
+      );
+    });
+
+    it("should omit take when options is undefined entirely", async () => {
+      mockPrisma.processEvent.findMany.mockResolvedValue([]);
+      mockPrisma.processEvent.count.mockResolvedValue(0);
+
+      await service.getHistory("proc-1", undefined);
+
+      const callArg = mockPrisma.processEvent.findMany.mock.calls[0][0];
+      expect(callArg).not.toHaveProperty("take");
+      expect(callArg.skip).toBe(0);
+    });
+  });
 });

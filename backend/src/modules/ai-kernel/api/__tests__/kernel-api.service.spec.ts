@@ -79,6 +79,7 @@ const mockProcessManager = {
   spawn: jest.fn().mockResolvedValue(mockProcessSnapshot),
   getState: jest.fn().mockResolvedValue(mockProcessSnapshot),
   listByUser: jest.fn().mockResolvedValue([mockProcessSnapshot]),
+  listAll: jest.fn().mockResolvedValue([mockProcessSnapshot]),
   pause: jest.fn().mockResolvedValue(mockProcessSnapshot),
   resume: jest.fn().mockResolvedValue(mockProcessSnapshot),
   cancel: jest.fn().mockResolvedValue(mockProcessSnapshot),
@@ -95,6 +96,7 @@ const mockMemoryManager = {
   read: jest.fn().mockResolvedValue({ data: "cached" }),
   write: jest.fn().mockResolvedValue(undefined),
   query: jest.fn().mockResolvedValue([mockMemoryEntry]),
+  cleanup: jest.fn().mockResolvedValue(0),
 };
 
 const mockResourceManager = {
@@ -142,24 +144,20 @@ const mockCostAttribution = {
 };
 
 const mockCapabilityGuard = {
-  getCapabilities: jest
-    .fn()
-    .mockResolvedValue({
-      grantedTools: [],
-      grantedSkills: [],
-      dataScope: null,
-    }),
+  getCapabilities: jest.fn().mockResolvedValue({
+    grantedTools: [],
+    grantedSkills: [],
+    dataScope: null,
+  }),
 };
 
 const mockKernelScheduler = {
-  getStats: jest
-    .fn()
-    .mockResolvedValue({
-      running: 0,
-      ready: 0,
-      maxConcurrent: 50,
-      maxPerTenant: 10,
-    }),
+  getStats: jest.fn().mockResolvedValue({
+    running: 0,
+    ready: 0,
+    maxConcurrent: 50,
+    maxPerTenant: 10,
+  }),
 };
 
 // ─── Test suite ──────────────────────────────────────────────────────────────
@@ -519,6 +517,312 @@ describe("KernelApiService", () => {
 
       expect(result.entries).toHaveLength(0);
       expect(result.total).toBe(0);
+    });
+  });
+
+  // ─── listAllProcesses() ────────────────────────────────────────────────────
+
+  describe("listAllProcesses()", () => {
+    it("should delegate to processManager.listAll with no arguments", async () => {
+      const result = await service.listAllProcesses();
+
+      expect(mockProcessManager.listAll).toHaveBeenCalledTimes(1);
+      expect(mockProcessManager.listAll).toHaveBeenCalledWith(
+        undefined,
+        undefined,
+      );
+      expect(result).toEqual([mockProcessSnapshot]);
+    });
+
+    it("should forward states and limit to processManager.listAll", async () => {
+      const states = ["RUNNING"] as any;
+
+      await service.listAllProcesses(states, 10);
+
+      expect(mockProcessManager.listAll).toHaveBeenCalledWith(states, 10);
+    });
+  });
+
+  // ─── Circuit Breaker ───────────────────────────────────────────────────────
+
+  describe("getCircuitBreakerMetrics()", () => {
+    it("should delegate to circuitBreaker.getAllHealthMetrics and return result", () => {
+      const metrics = [{ entityId: "svc-a", state: "CLOSED", failures: 0 }];
+      mockCircuitBreaker.getAllHealthMetrics.mockReturnValueOnce(metrics);
+
+      const result = service.getCircuitBreakerMetrics();
+
+      expect(mockCircuitBreaker.getAllHealthMetrics).toHaveBeenCalledTimes(1);
+      expect(result).toBe(metrics);
+    });
+  });
+
+  describe("getCircuitBreakerStats()", () => {
+    it("should delegate to circuitBreaker.getStats and return result", () => {
+      const stats = { totalBreakers: 2, oldestBreakerAge: 5000, config: {} };
+      mockCircuitBreaker.getStats.mockReturnValueOnce(stats);
+
+      const result = service.getCircuitBreakerStats();
+
+      expect(mockCircuitBreaker.getStats).toHaveBeenCalledTimes(1);
+      expect(result).toBe(stats);
+    });
+  });
+
+  describe("resetCircuitBreaker()", () => {
+    it("should delegate to circuitBreaker.reset with entityId", () => {
+      const entityId = "external-llm";
+
+      service.resetCircuitBreaker(entityId);
+
+      expect(mockCircuitBreaker.reset).toHaveBeenCalledTimes(1);
+      expect(mockCircuitBreaker.reset).toHaveBeenCalledWith(entityId);
+    });
+  });
+
+  // ─── IPC ───────────────────────────────────────────────────────────────────
+
+  describe("getEventBusStats()", () => {
+    it("should return active subscription count wrapped in object", () => {
+      mockEventBus.getActiveSubscriptionCount.mockReturnValueOnce(5);
+
+      const result = service.getEventBusStats();
+
+      expect(mockEventBus.getActiveSubscriptionCount).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ activeSubscriptions: 5 });
+    });
+
+    it("should return zero subscriptions when event bus is idle", () => {
+      mockEventBus.getActiveSubscriptionCount.mockReturnValueOnce(0);
+
+      const result = service.getEventBusStats();
+
+      expect(result.activeSubscriptions).toBe(0);
+    });
+  });
+
+  describe("getMessageBusHistory()", () => {
+    it("should delegate to messageBus.getHistory with sessionId", () => {
+      const sessionId = "session-xyz";
+      const history = [{ id: "msg-1", content: "hello" }];
+      mockMessageBus.getHistory.mockReturnValueOnce(history);
+
+      const result = service.getMessageBusHistory(sessionId);
+
+      expect(mockMessageBus.getHistory).toHaveBeenCalledTimes(1);
+      expect(mockMessageBus.getHistory).toHaveBeenCalledWith(sessionId);
+      expect(result).toBe(history);
+    });
+
+    it("should return empty array when no history exists for session", () => {
+      mockMessageBus.getHistory.mockReturnValueOnce([]);
+
+      const result = service.getMessageBusHistory("empty-session");
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("getActiveTasks()", () => {
+    it("should delegate to progressTracker.getActiveTasks and return result", () => {
+      const tasks = [{ taskId: "t1", progress: 50 }];
+      mockProgressTracker.getActiveTasks.mockReturnValueOnce(tasks);
+
+      const result = service.getActiveTasks();
+
+      expect(mockProgressTracker.getActiveTasks).toHaveBeenCalledTimes(1);
+      expect(result).toBe(tasks);
+    });
+
+    it("should return empty array when no active tasks", () => {
+      mockProgressTracker.getActiveTasks.mockReturnValueOnce([]);
+
+      const result = service.getActiveTasks();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("getTaskProgress()", () => {
+    it("should delegate to progressTracker.getProgress with taskId", () => {
+      const taskId = "task-abc";
+      const progress = { taskId, percent: 75, status: "running" };
+      mockProgressTracker.getProgress.mockReturnValueOnce(progress);
+
+      const result = service.getTaskProgress(taskId);
+
+      expect(mockProgressTracker.getProgress).toHaveBeenCalledTimes(1);
+      expect(mockProgressTracker.getProgress).toHaveBeenCalledWith(taskId);
+      expect(result).toBe(progress);
+    });
+
+    it("should return null when task does not exist", () => {
+      mockProgressTracker.getProgress.mockReturnValueOnce(null);
+
+      const result = service.getTaskProgress("non-existent");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  // ─── Observability ─────────────────────────────────────────────────────────
+
+  describe("getDashboard()", () => {
+    it("should delegate to kernelMetrics.getDashboard with no period", () => {
+      const dashboard = { totalCalls: 100, avgLatency: 250 };
+      mockKernelMetrics.getDashboard.mockReturnValueOnce(dashboard);
+
+      const result = service.getDashboard();
+
+      expect(mockKernelMetrics.getDashboard).toHaveBeenCalledTimes(1);
+      expect(mockKernelMetrics.getDashboard).toHaveBeenCalledWith(undefined);
+      expect(result).toBe(dashboard);
+    });
+
+    it("should forward periodMinutes to kernelMetrics.getDashboard", () => {
+      mockKernelMetrics.getDashboard.mockReturnValueOnce({ totalCalls: 50 });
+
+      service.getDashboard(60);
+
+      expect(mockKernelMetrics.getDashboard).toHaveBeenCalledWith(60);
+    });
+  });
+
+  describe("getCostReport()", () => {
+    it("should delegate to costAttribution.getCostReport with no options", () => {
+      const report = { totalCost: 1.5, breakdown: [] };
+      mockCostAttribution.getCostReport.mockReturnValueOnce(report);
+
+      const result = service.getCostReport();
+
+      expect(mockCostAttribution.getCostReport).toHaveBeenCalledTimes(1);
+      expect(mockCostAttribution.getCostReport).toHaveBeenCalledWith(undefined);
+      expect(result).toBe(report);
+    });
+
+    it("should forward options to costAttribution.getCostReport", () => {
+      mockCostAttribution.getCostReport.mockReturnValueOnce({ totalCost: 0.5 });
+      const options = { periodHours: 24, userId: USER_ID };
+
+      service.getCostReport(options);
+
+      expect(mockCostAttribution.getCostReport).toHaveBeenCalledWith(options);
+    });
+  });
+
+  describe("getHourlyTrend()", () => {
+    it("should delegate to costAttribution.getHourlyTrend with no hours", () => {
+      const trend = [{ hour: "10:00", cost: 0.1 }];
+      mockCostAttribution.getHourlyTrend.mockReturnValueOnce(trend);
+
+      const result = service.getHourlyTrend();
+
+      expect(mockCostAttribution.getHourlyTrend).toHaveBeenCalledTimes(1);
+      expect(mockCostAttribution.getHourlyTrend).toHaveBeenCalledWith(
+        undefined,
+      );
+      expect(result).toBe(trend);
+    });
+
+    it("should forward hours to costAttribution.getHourlyTrend", () => {
+      mockCostAttribution.getHourlyTrend.mockReturnValueOnce([]);
+
+      service.getHourlyTrend(12);
+
+      expect(mockCostAttribution.getHourlyTrend).toHaveBeenCalledWith(12);
+    });
+  });
+
+  describe("checkBudgetAlerts()", () => {
+    it("should delegate to costAttribution.checkBudgetAlerts and return result", () => {
+      const alerts = [{ type: "WARNING", message: "80% budget used" }];
+      mockCostAttribution.checkBudgetAlerts.mockReturnValueOnce(alerts);
+
+      const result = service.checkBudgetAlerts();
+
+      expect(mockCostAttribution.checkBudgetAlerts).toHaveBeenCalledTimes(1);
+      expect(result).toBe(alerts);
+    });
+
+    it("should return empty array when no budget alerts", () => {
+      mockCostAttribution.checkBudgetAlerts.mockReturnValueOnce([]);
+
+      const result = service.checkBudgetAlerts();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ─── Security ──────────────────────────────────────────────────────────────
+
+  describe("getCapabilities()", () => {
+    it("should delegate to capabilityGuard.getCapabilities with processId", async () => {
+      const capabilities = {
+        grantedTools: ["web-search"],
+        grantedSkills: [],
+        dataScope: null,
+      };
+      mockCapabilityGuard.getCapabilities.mockResolvedValueOnce(capabilities);
+
+      const result = await service.getCapabilities(PROCESS_ID);
+
+      expect(mockCapabilityGuard.getCapabilities).toHaveBeenCalledTimes(1);
+      expect(mockCapabilityGuard.getCapabilities).toHaveBeenCalledWith(
+        PROCESS_ID,
+      );
+      expect(result).toBe(capabilities);
+    });
+
+    it("should return empty capabilities when process has no grants", async () => {
+      mockCapabilityGuard.getCapabilities.mockResolvedValueOnce({
+        grantedTools: [],
+        grantedSkills: [],
+        dataScope: null,
+      });
+
+      const result = await service.getCapabilities(PROCESS_ID);
+
+      expect(result.grantedTools).toHaveLength(0);
+    });
+  });
+
+  // ─── Scheduler ─────────────────────────────────────────────────────────────
+
+  describe("getSchedulerStats()", () => {
+    it("should delegate to kernelScheduler.getStats and return result", async () => {
+      const stats = {
+        running: 3,
+        ready: 7,
+        maxConcurrent: 50,
+        maxPerTenant: 10,
+      };
+      mockKernelScheduler.getStats.mockResolvedValueOnce(stats);
+
+      const result = await service.getSchedulerStats();
+
+      expect(mockKernelScheduler.getStats).toHaveBeenCalledTimes(1);
+      expect(result).toBe(stats);
+    });
+  });
+
+  // ─── Memory (admin) ────────────────────────────────────────────────────────
+
+  describe("cleanupExpiredMemory()", () => {
+    it("should delegate to memoryManager.cleanup with processId and return count", async () => {
+      mockMemoryManager.cleanup.mockResolvedValueOnce(4);
+
+      const result = await service.cleanupExpiredMemory(PROCESS_ID);
+
+      expect(mockMemoryManager.cleanup).toHaveBeenCalledTimes(1);
+      expect(mockMemoryManager.cleanup).toHaveBeenCalledWith(PROCESS_ID);
+      expect(result).toBe(4);
+    });
+
+    it("should return 0 when no expired entries were cleaned up", async () => {
+      const result = await service.cleanupExpiredMemory(PROCESS_ID);
+
+      expect(mockMemoryManager.cleanup).toHaveBeenCalledWith(PROCESS_ID);
+      expect(result).toBe(0);
     });
   });
 });

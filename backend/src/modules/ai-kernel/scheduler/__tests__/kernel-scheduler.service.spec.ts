@@ -393,5 +393,174 @@ describe("KernelSchedulerService", () => {
       // Should clear the first interval before setting a new one
       expect(clearIntervalSpy).toHaveBeenCalled();
     });
+
+    it("should not start scheduler when table does not exist", async () => {
+      // Build a new service instance where the table doesn't exist
+      const noTablePrisma = makeMockPrisma();
+      noTablePrisma.$queryRawUnsafe.mockResolvedValue([{ exists: false }]);
+      noTablePrisma.agentProcess.count.mockResolvedValue(0);
+
+      const noTableModule = await Test.createTestingModule({
+        providers: [
+          KernelSchedulerService,
+          { provide: PrismaService, useValue: noTablePrisma },
+          { provide: ConfigService, useValue: makeMockConfigService() },
+        ],
+      }).compile();
+
+      const noTableService = noTableModule.get<KernelSchedulerService>(
+        KernelSchedulerService,
+      );
+
+      const setIntervalSpy = jest.spyOn(global, "setInterval");
+      const initialCallCount = setIntervalSpy.mock.calls.length;
+
+      await noTableService.onModuleInit();
+
+      // setInterval should NOT have been called for this new service instance
+      expect(setIntervalSpy.mock.calls.length).toBe(initialCallCount);
+
+      noTableService.onModuleDestroy();
+    });
+
+    it("onModuleDestroy() should be a no-op when scheduler was never started (null interval)", async () => {
+      // Build a service where no scheduler was started (table doesn't exist)
+      const noTablePrisma = makeMockPrisma();
+      noTablePrisma.$queryRawUnsafe.mockResolvedValue([{ exists: false }]);
+      noTablePrisma.agentProcess.count.mockResolvedValue(0);
+
+      const noTableModule = await Test.createTestingModule({
+        providers: [
+          KernelSchedulerService,
+          { provide: PrismaService, useValue: noTablePrisma },
+          { provide: ConfigService, useValue: makeMockConfigService() },
+        ],
+      }).compile();
+
+      const noTableService = noTableModule.get<KernelSchedulerService>(
+        KernelSchedulerService,
+      );
+
+      await noTableService.onModuleInit();
+
+      // Should not throw even though schedulerInterval is null
+      expect(() => noTableService.onModuleDestroy()).not.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getStats() — tableExists = false branch
+  // -------------------------------------------------------------------------
+
+  describe("getStats() — when table does not exist", () => {
+    it("should return zeroed stats with configured limits when table is not available", async () => {
+      // Build a service where table check returns false
+      const noTablePrisma = makeMockPrisma();
+      noTablePrisma.$queryRawUnsafe.mockResolvedValue([{ exists: false }]);
+      noTablePrisma.agentProcess.count.mockResolvedValue(0);
+
+      const customConfig = makeMockConfigService({
+        KERNEL_MAX_CONCURRENT: 30,
+        KERNEL_MAX_PER_TENANT: 5,
+      });
+
+      const noTableModule = await Test.createTestingModule({
+        providers: [
+          KernelSchedulerService,
+          { provide: PrismaService, useValue: noTablePrisma },
+          { provide: ConfigService, useValue: customConfig },
+        ],
+      }).compile();
+
+      const noTableService = noTableModule.get<KernelSchedulerService>(
+        KernelSchedulerService,
+      );
+      await noTableService.onModuleInit();
+
+      const stats = await noTableService.getStats();
+
+      expect(stats.running).toBe(0);
+      expect(stats.ready).toBe(0);
+      expect(stats.maxConcurrent).toBe(30);
+      expect(stats.maxPerTenant).toBe(5);
+
+      // Should NOT have queried the DB when table doesn't exist
+      expect(noTablePrisma.agentProcess.count).not.toHaveBeenCalled();
+
+      noTableService.onModuleDestroy();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // scheduleNext() — tableExists = false branch
+  // -------------------------------------------------------------------------
+
+  describe("scheduleNext() — when table does not exist", () => {
+    it("should return empty array without hitting the DB when table is not available", async () => {
+      const noTablePrisma = makeMockPrisma();
+      noTablePrisma.$queryRawUnsafe.mockResolvedValue([{ exists: false }]);
+      noTablePrisma.agentProcess.count.mockResolvedValue(0);
+
+      const noTableModule = await Test.createTestingModule({
+        providers: [
+          KernelSchedulerService,
+          { provide: PrismaService, useValue: noTablePrisma },
+          { provide: ConfigService, useValue: makeMockConfigService() },
+        ],
+      }).compile();
+
+      const noTableService = noTableModule.get<KernelSchedulerService>(
+        KernelSchedulerService,
+      );
+      await noTableService.onModuleInit();
+
+      // Clear the call from onModuleInit table check
+      noTablePrisma.$queryRawUnsafe.mockClear();
+
+      const result = await noTableService.scheduleNext();
+
+      expect(result).toEqual([]);
+      expect(noTablePrisma.agentProcess.count).not.toHaveBeenCalled();
+      expect(noTablePrisma.$queryRawUnsafe).not.toHaveBeenCalled();
+
+      noTableService.onModuleDestroy();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // checkTableExists() — catch branch (returns false on DB error)
+  // -------------------------------------------------------------------------
+
+  describe("checkTableExists() — error handling", () => {
+    it("should disable the scheduler when $queryRawUnsafe throws during table check", async () => {
+      const errorPrisma = makeMockPrisma();
+      errorPrisma.$queryRawUnsafe.mockRejectedValue(
+        new Error("DB connection refused"),
+      );
+      errorPrisma.agentProcess.count.mockResolvedValue(0);
+
+      const errorModule = await Test.createTestingModule({
+        providers: [
+          KernelSchedulerService,
+          { provide: PrismaService, useValue: errorPrisma },
+          { provide: ConfigService, useValue: makeMockConfigService() },
+        ],
+      }).compile();
+
+      const errorService = errorModule.get<KernelSchedulerService>(
+        KernelSchedulerService,
+      );
+
+      await errorService.onModuleInit();
+
+      // Table check threw → tableExists = false → scheduleNext returns []
+      errorPrisma.$queryRawUnsafe.mockClear();
+      const result = await errorService.scheduleNext();
+
+      expect(result).toEqual([]);
+      expect(errorPrisma.agentProcess.count).not.toHaveBeenCalled();
+
+      errorService.onModuleDestroy();
+    });
   });
 });

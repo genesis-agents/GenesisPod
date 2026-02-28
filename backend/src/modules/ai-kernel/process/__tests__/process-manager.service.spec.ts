@@ -817,4 +817,330 @@ describe("ProcessManagerService", () => {
       }
     });
   });
+
+  // =========================================================================
+  // listAll() — admin method
+  // =========================================================================
+
+  describe("listAll()", () => {
+    it("should list all processes with default limit 100 when no args given", async () => {
+      const records = [
+        makeRecord({ id: "p1", state: "RUNNING" as any }),
+        makeRecord({ id: "p2", state: "CREATED" as any }),
+      ];
+      mockPrisma.agentProcess.findMany.mockResolvedValue(records);
+
+      const result = await service.listAll();
+
+      expect(result).toHaveLength(2);
+      expect(mockPrisma.agentProcess.findMany).toHaveBeenCalledWith({
+        where: undefined,
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
+    });
+
+    it("should filter by states when states array is provided", async () => {
+      const records = [makeRecord({ id: "p1", state: "RUNNING" as any })];
+      mockPrisma.agentProcess.findMany.mockResolvedValue(records);
+
+      const result = await service.listAll(["RUNNING" as any]);
+
+      expect(result).toHaveLength(1);
+      expect(mockPrisma.agentProcess.findMany).toHaveBeenCalledWith({
+        where: { state: { in: ["RUNNING"] } },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
+    });
+
+    it("should apply a custom limit when provided", async () => {
+      mockPrisma.agentProcess.findMany.mockResolvedValue([]);
+
+      await service.listAll(undefined, 25);
+
+      expect(mockPrisma.agentProcess.findMany).toHaveBeenCalledWith({
+        where: undefined,
+        orderBy: { createdAt: "desc" },
+        take: 25,
+      });
+    });
+
+    it("should apply both states filter and custom limit together", async () => {
+      const records = [makeRecord({ id: "p1", state: "FAILED" as any })];
+      mockPrisma.agentProcess.findMany.mockResolvedValue(records);
+
+      await service.listAll(["FAILED" as any], 10);
+
+      expect(mockPrisma.agentProcess.findMany).toHaveBeenCalledWith({
+        where: { state: { in: ["FAILED"] } },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      });
+    });
+
+    it("should return empty array when no processes exist", async () => {
+      mockPrisma.agentProcess.findMany.mockResolvedValue([]);
+
+      const result = await service.listAll();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // =========================================================================
+  // tableReady = false — all methods return early / throw
+  // =========================================================================
+
+  describe("when table is not ready (disabled service)", () => {
+    let disabledService: ProcessManagerService;
+
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      // Return false from checkTableExists to simulate missing table
+      mockPrisma.$queryRaw.mockResolvedValue([{ exists: false }]);
+
+      const module = await Test.createTestingModule({
+        providers: [
+          ProcessManagerService,
+          { provide: PrismaService, useValue: mockPrisma },
+        ],
+      }).compile();
+
+      disabledService = module.get<ProcessManagerService>(
+        ProcessManagerService,
+      );
+      await disabledService.onModuleInit();
+
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "debug").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+    });
+
+    it("spawn() should throw when table is not available", async () => {
+      await expect(
+        disabledService.spawn({ userId: "u1", agentId: "a1" }),
+      ).rejects.toThrow("agent_processes table not available");
+    });
+
+    it("fork() should throw when table is not available", async () => {
+      await expect(
+        disabledService.fork("parent-1", { agentId: "a1" }),
+      ).rejects.toThrow("agent_processes table not available");
+    });
+
+    it("getState() should return null when table is not available", async () => {
+      const result = await disabledService.getState("proc-1");
+      expect(result).toBeNull();
+    });
+
+    it("listByUser() should return empty array when table is not available", async () => {
+      const result = await disabledService.listByUser("user-1");
+      expect(result).toEqual([]);
+    });
+
+    it("listAll() should return empty array when table is not available", async () => {
+      const result = await disabledService.listAll();
+      expect(result).toEqual([]);
+    });
+
+    it("getProcessTree() should throw when table is not available", async () => {
+      await expect(disabledService.getProcessTree("proc-1")).rejects.toThrow(
+        "agent_processes table not available",
+      );
+    });
+
+    it("transition() should throw when table is not available", async () => {
+      await expect(
+        disabledService.transition("proc-1", "READY" as any),
+      ).rejects.toThrow("agent_processes table not available");
+    });
+
+    it("checkpoint() should throw when table is not available", async () => {
+      await expect(
+        disabledService.checkpoint("proc-1", { step: 1 }),
+      ).rejects.toThrow("agent_processes table not available");
+    });
+
+    it("consumeResources() should return null when table is not available", async () => {
+      const result = await disabledService.consumeResources("proc-1", {
+        tokensUsed: 100,
+      });
+      expect(result).toBeNull();
+    });
+
+    it("pause() should throw when table is not available", async () => {
+      await expect(disabledService.pause("proc-1")).rejects.toThrow(
+        "agent_processes table not available",
+      );
+    });
+
+    it("resume() should throw when table is not available", async () => {
+      await expect(disabledService.resume("proc-1")).rejects.toThrow(
+        "agent_processes table not available",
+      );
+    });
+
+    it("cancel() should throw when table is not available", async () => {
+      await expect(disabledService.cancel("proc-1")).rejects.toThrow(
+        "agent_processes table not available",
+      );
+    });
+
+    it("kill() should return null when table is not available", async () => {
+      const result = await disabledService.kill("proc-1");
+      expect(result).toBeNull();
+    });
+
+    it("wait() should throw when table is not available", async () => {
+      await expect(disabledService.wait("proc-1")).rejects.toThrow(
+        "agent_processes table not available",
+      );
+    });
+  });
+
+  // =========================================================================
+  // checkTableExists() — error path (catch returns false)
+  // =========================================================================
+
+  describe("checkTableExists() error handling", () => {
+    it("should disable the service when $queryRaw throws an error", async () => {
+      jest.clearAllMocks();
+      mockPrisma.$queryRaw.mockRejectedValue(new Error("DB error"));
+
+      const module = await Test.createTestingModule({
+        providers: [
+          ProcessManagerService,
+          { provide: PrismaService, useValue: mockPrisma },
+        ],
+      }).compile();
+
+      const errorService = module.get<ProcessManagerService>(
+        ProcessManagerService,
+      );
+
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "debug").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      await errorService.onModuleInit();
+
+      // With tableReady = false, all write operations should throw
+      await expect(
+        errorService.spawn({ userId: "u1", agentId: "a1" }),
+      ).rejects.toThrow("agent_processes table not available");
+    });
+
+    it("should disable the service when checkTableExists returns null exists value", async () => {
+      jest.clearAllMocks();
+      // Return empty array — result[0]?.exists ?? false → false
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+
+      const module = await Test.createTestingModule({
+        providers: [
+          ProcessManagerService,
+          { provide: PrismaService, useValue: mockPrisma },
+        ],
+      }).compile();
+
+      const noResultService = module.get<ProcessManagerService>(
+        ProcessManagerService,
+      );
+
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "debug").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      await noResultService.onModuleInit();
+
+      const result = await noResultService.getState("proc-1");
+      expect(result).toBeNull();
+    });
+  });
+
+  // =========================================================================
+  // Additional branch coverage: transition() with WAITING and CANCELLED states
+  // =========================================================================
+
+  describe("transition() — additional state paths", () => {
+    it("should transition RUNNING -> WAITING without setting timestamps", async () => {
+      const current = makeRecord({ id: "proc-1", state: "RUNNING" as any });
+      const updated = makeRecord({ id: "proc-1", state: "WAITING" as any });
+
+      mockPrisma.agentProcess.findUniqueOrThrow.mockResolvedValue(current);
+      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+
+      const result = await service.transition("proc-1", "WAITING" as any);
+
+      expect(result.state).toBe("WAITING");
+      const updateCall = mockPrisma.agentProcess.update.mock.calls[0][0];
+      expect(updateCall.data).not.toHaveProperty("startedAt");
+      expect(updateCall.data).not.toHaveProperty("completedAt");
+    });
+
+    it("should transition RUNNING -> CANCELLED and set completedAt", async () => {
+      const current = makeRecord({ id: "proc-1", state: "RUNNING" as any });
+      const updated = makeRecord({
+        id: "proc-1",
+        state: "CANCELLED" as any,
+        completedAt: new Date(),
+      });
+
+      mockPrisma.agentProcess.findUniqueOrThrow.mockResolvedValue(current);
+      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+
+      const result = await service.transition("proc-1", "CANCELLED" as any);
+
+      expect(result.state).toBe("CANCELLED");
+      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+        where: { id: "proc-1" },
+        data: expect.objectContaining({
+          state: "CANCELLED",
+          completedAt: expect.any(Date),
+        }),
+      });
+    });
+
+    it("should transition CREATED -> CANCELLED and set completedAt", async () => {
+      const current = makeRecord({ id: "proc-1", state: "CREATED" as any });
+      const updated = makeRecord({
+        id: "proc-1",
+        state: "CANCELLED" as any,
+        completedAt: new Date(),
+      });
+
+      mockPrisma.agentProcess.findUniqueOrThrow.mockResolvedValue(current);
+      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+
+      const result = await service.transition("proc-1", "CANCELLED" as any);
+
+      expect(result.state).toBe("CANCELLED");
+    });
+
+    it("should transition FAILED -> READY without setting timestamps (retry path)", async () => {
+      const current = makeRecord({ id: "proc-1", state: "FAILED" as any });
+      const updated = makeRecord({ id: "proc-1", state: "READY" as any });
+
+      mockPrisma.agentProcess.findUniqueOrThrow.mockResolvedValue(current);
+      mockPrisma.agentProcess.update.mockResolvedValue(updated);
+
+      const result = await service.transition("proc-1", "READY" as any);
+
+      expect(result.state).toBe("READY");
+      const updateCall = mockPrisma.agentProcess.update.mock.calls[0][0];
+      expect(updateCall.data).not.toHaveProperty("completedAt");
+    });
+
+    it("should throw on invalid transition for ZOMBIE state (no valid transitions)", async () => {
+      const current = makeRecord({ id: "proc-1", state: "ZOMBIE" as any });
+      mockPrisma.agentProcess.findUniqueOrThrow.mockResolvedValue(current);
+
+      await expect(
+        service.transition("proc-1", "RUNNING" as any),
+      ).rejects.toThrow(/Invalid state transition/);
+    });
+  });
 });

@@ -321,4 +321,154 @@ describe("KernelMemoryManagerService", () => {
       expect(count).toBe(0);
     });
   });
+
+  // ─── tableReady = false (disabled service) ────────────────────────────────
+
+  describe("when process_memories table does not exist", () => {
+    let disabledService: KernelMemoryManagerService;
+
+    beforeEach(async () => {
+      // Return exists: false so tableReady stays false after onModuleInit
+      const disabledPrisma = {
+        $queryRaw: jest.fn().mockResolvedValue([{ exists: false }]),
+        processMemory: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          upsert: jest.fn(),
+          delete: jest.fn(),
+          deleteMany: jest.fn(),
+        },
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          KernelMemoryManagerService,
+          { provide: PrismaService, useValue: disabledPrisma },
+        ],
+      }).compile();
+
+      disabledService = module.get<KernelMemoryManagerService>(
+        KernelMemoryManagerService,
+      );
+      await disabledService.onModuleInit();
+    });
+
+    it("read() should return null without touching the database", async () => {
+      const result = await disabledService.read(processId, layer, key);
+      expect(result).toBeNull();
+    });
+
+    it("write() should return without touching the database", async () => {
+      const entry: MemoryEntry = { processId, layer, key, value: { x: 1 } };
+      await expect(disabledService.write(entry)).resolves.toBeUndefined();
+    });
+
+    it("query() should return empty array without touching the database", async () => {
+      const results = await disabledService.query({ processId });
+      expect(results).toEqual([]);
+    });
+
+    it("cleanup() should return 0 without touching the database", async () => {
+      const count = await disabledService.cleanup(processId);
+      expect(count).toBe(0);
+    });
+
+    it("deleteAll() should return 0 without touching the database", async () => {
+      const count = await disabledService.deleteAll(processId);
+      expect(count).toBe(0);
+    });
+  });
+
+  // ─── checkTableExists error path ──────────────────────────────────────────
+
+  describe("onModuleInit() — checkTableExists error handling", () => {
+    it("should set tableReady to false when $queryRaw throws", async () => {
+      const errorPrisma = {
+        $queryRaw: jest.fn().mockRejectedValue(new Error("DB connection lost")),
+        processMemory: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          upsert: jest.fn(),
+          delete: jest.fn(),
+          deleteMany: jest.fn(),
+        },
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          KernelMemoryManagerService,
+          { provide: PrismaService, useValue: errorPrisma },
+        ],
+      }).compile();
+
+      const svc = module.get<KernelMemoryManagerService>(
+        KernelMemoryManagerService,
+      );
+      await svc.onModuleInit();
+
+      // Service should be disabled — read returns null
+      const result = await svc.read(processId, layer, key);
+      expect(result).toBeNull();
+      // Prisma findUnique should never be called
+      expect(errorPrisma.processMemory.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("should set tableReady to false when $queryRaw returns empty result", async () => {
+      const emptyResultPrisma = {
+        $queryRaw: jest.fn().mockResolvedValue([]),
+        processMemory: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          upsert: jest.fn(),
+          delete: jest.fn(),
+          deleteMany: jest.fn(),
+        },
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          KernelMemoryManagerService,
+          { provide: PrismaService, useValue: emptyResultPrisma },
+        ],
+      }).compile();
+
+      const svc = module.get<KernelMemoryManagerService>(
+        KernelMemoryManagerService,
+      );
+      await svc.onModuleInit();
+
+      // query() should return [] when disabled
+      const results = await svc.query({ processId });
+      expect(results).toEqual([]);
+      expect(emptyResultPrisma.processMemory.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── query() with combined filters ────────────────────────────────────────
+
+  describe("query() — combined layer and keyPattern filters", () => {
+    it("should apply both layer and keyPattern filters simultaneously", async () => {
+      const sessionLayer = MemoryLayer.SESSION;
+      mockPrisma.processMemory.findMany.mockResolvedValue([
+        { ...baseRecord, layer: sessionLayer, key: "user:name" },
+      ]);
+
+      const results = await service.query({
+        processId,
+        layer: sessionLayer,
+        keyPattern: "user:",
+      });
+
+      expect(results).toHaveLength(1);
+      expect(mockPrisma.processMemory.findMany).toHaveBeenCalledWith({
+        where: {
+          processId,
+          layer: sessionLayer,
+          key: { contains: "user:" },
+        },
+        take: 100,
+        orderBy: { updatedAt: "desc" },
+      });
+    });
+  });
 });
