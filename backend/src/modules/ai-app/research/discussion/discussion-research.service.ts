@@ -17,6 +17,10 @@ import {
 import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { InsufficientCreditsException } from "../../../ai-infra/credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import {
+  KernelContext,
+  MissionExecutorService,
+} from "../../../ai-engine/facade";
 
 /**
  * 讨论式研究服务
@@ -36,6 +40,7 @@ export class DiscussionResearchService {
     private readonly reflectionService: SelfReflectionService,
     private readonly reportService: ReportSynthesizerService,
     @Optional() private readonly creditsService: CreditsService,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   /**
@@ -60,19 +65,61 @@ export class DiscussionResearchService {
       }
 
       const depth = dto.options?.depth || "standard";
+      const userId = project.userId;
+
+      // ★ AI Kernel: 创建进程
+      let kernelProcessId: string | undefined;
+      if (this.missionExecutor) {
+        try {
+          const kr = await this.missionExecutor.execute({
+            userId,
+            agentId: "discussion-research",
+            input: {
+              action: `research-${depth}`,
+              query: dto.query.slice(0, 100),
+            },
+          });
+          kernelProcessId = kr.processId;
+        } catch {
+          /* kernel optional */
+        }
+      }
 
       // 在 BillingContext 中执行研究，会自动处理积分扣减
-      await BillingContext.run(
-        {
-          userId: project.userId,
-          moduleType: "deep-research",
-          operationType: `research-${depth}`,
-          description: `Deep Research (${depth}) - ${dto.query.slice(0, 50)}...`,
-        },
-        async () => {
-          await this.executeResearch(projectId, dto, subject);
-        },
-      );
+      const billingRun = () =>
+        BillingContext.run(
+          {
+            userId,
+            moduleType: "deep-research",
+            operationType: `research-${depth}`,
+            description: `Deep Research (${depth}) - ${dto.query.slice(0, 50)}...`,
+          },
+          async () => {
+            await this.executeResearch(projectId, dto, subject);
+          },
+        );
+
+      try {
+        await (kernelProcessId
+          ? KernelContext.run(
+              { processId: kernelProcessId, userId },
+              billingRun,
+            )
+          : billingRun());
+        if (kernelProcessId && this.missionExecutor) {
+          void this.missionExecutor.complete(kernelProcessId).catch(() => {});
+        }
+      } catch (error) {
+        if (kernelProcessId && this.missionExecutor) {
+          void this.missionExecutor
+            .fail(
+              kernelProcessId,
+              error instanceof Error ? error.message : String(error),
+            )
+            .catch(() => {});
+        }
+        throw error;
+      }
     })().catch((error) => {
       this.logger.error(`Research execution failed: ${error}`);
       subject.next({

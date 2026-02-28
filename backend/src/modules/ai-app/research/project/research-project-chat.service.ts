@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
@@ -10,6 +11,8 @@ import { SendChatMessageDto, CreateNoteDto, UpdateNoteDto } from "./dto";
 import {
   AIEngineFacade,
   ChatMessage as FacadeChatMessage,
+  KernelContext,
+  MissionExecutorService,
 } from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
 
@@ -28,6 +31,7 @@ export class ResearchProjectChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   /**
@@ -80,15 +84,51 @@ export class ResearchProjectChatService {
     projectId: string,
     dto: SendChatMessageDto,
   ) {
-    return BillingContext.run(
-      {
-        userId,
-        moduleType: "notebook-research",
-        operationType: "chat",
-        referenceId: projectId,
-      },
-      () => this._sendMessageInternal(userId, projectId, dto),
-    );
+    // ★ AI Kernel: 创建进程
+    let kernelProcessId: string | undefined;
+    if (this.missionExecutor) {
+      try {
+        const kr = await this.missionExecutor.execute({
+          userId,
+          agentId: "research-project-chat",
+          input: { action: "chat", projectId },
+        });
+        kernelProcessId = kr.processId;
+      } catch {
+        /* kernel optional */
+      }
+    }
+
+    const billingRun = () =>
+      BillingContext.run(
+        {
+          userId,
+          moduleType: "notebook-research",
+          operationType: "chat",
+          referenceId: projectId,
+        },
+        () => this._sendMessageInternal(userId, projectId, dto),
+      );
+
+    try {
+      const result = await (kernelProcessId
+        ? KernelContext.run({ processId: kernelProcessId, userId }, billingRun)
+        : billingRun());
+      if (kernelProcessId && this.missionExecutor) {
+        void this.missionExecutor.complete(kernelProcessId).catch(() => {});
+      }
+      return result;
+    } catch (error) {
+      if (kernelProcessId && this.missionExecutor) {
+        void this.missionExecutor
+          .fail(
+            kernelProcessId,
+            error instanceof Error ? error.message : String(error),
+          )
+          .catch(() => {});
+      }
+      throw error;
+    }
   }
 
   private async _sendMessageInternal(

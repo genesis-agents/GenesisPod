@@ -28,7 +28,13 @@ import {
   ForwardMessagesDto,
   BookmarkMessageDto,
 } from "./dto";
-import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
+import {
+  AIEngineFacade,
+  ChatMessage,
+  KernelContext,
+  MissionExecutorService,
+} from "../../ai-engine/facade";
+import { LruMap } from "@/common/utils/lru-map";
 import {
   UrlParserService,
   ParsedUrl,
@@ -43,6 +49,7 @@ import { BillingContext } from "../../ai-infra/credits/billing-context";
 @Injectable()
 export class AiTeamsService {
   private readonly logger = new Logger(AiTeamsService.name);
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private prisma: PrismaService,
@@ -54,6 +61,7 @@ export class AiTeamsService {
     private forwardBookmarkService: TopicForwardBookmarkService,
     @Optional() private auditService: AuditService,
     @Optional() private topicEventEmitter: TopicEventEmitterService,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   // ==================== Topic CRUD ====================
@@ -958,121 +966,131 @@ export class AiTeamsService {
     userId: string,
     dto: GenerateSummaryDto,
   ) {
-    return BillingContext.run(
-      {
-        userId,
-        moduleType: "ai-teams",
-        operationType: "summary",
-        referenceId: topicId,
-      },
-      async () => {
-        await this.checkTopicMembership(topicId, userId);
+    // ★ AI Kernel: 创建进程
+    let kernelProcessId: string | undefined;
+    if (this.missionExecutor) {
+      try {
+        const kr = await this.missionExecutor.execute({
+          userId,
+          agentId: "ai-teams-summary",
+          teamSessionId: topicId,
+          input: { action: "generate-summary" },
+        });
+        kernelProcessId = kr.processId;
+        this.kernelProcessIds.set(topicId, kernelProcessId);
+      } catch {
+        /* kernel optional */
+      }
+    }
 
-        const topic = await this.prisma.topic.findUnique({
-          where: { id: topicId },
-          include: {
-            members: {
-              include: {
-                user: { select: { id: true, username: true, fullName: true } },
-              },
-            },
-            aiMembers: {
-              select: { id: true, displayName: true },
+    const runSummary = async () => {
+      await this.checkTopicMembership(topicId, userId);
+
+      const topic = await this.prisma.topic.findUnique({
+        where: { id: topicId },
+        include: {
+          members: {
+            include: {
+              user: { select: { id: true, username: true, fullName: true } },
             },
           },
+          aiMembers: {
+            select: { id: true, displayName: true },
+          },
+        },
+      });
+
+      if (!topic) {
+        throw new NotFoundException("Topic not found");
+      }
+
+      const where: Prisma.TopicMessageWhereInput = {
+        topicId,
+        deletedAt: null,
+      };
+
+      if (dto.fromMessageId) {
+        const fromMsg = await this.prisma.topicMessage.findUnique({
+          where: { id: dto.fromMessageId },
+          select: { createdAt: true },
         });
-
-        if (!topic) {
-          throw new NotFoundException("Topic not found");
+        if (fromMsg) {
+          const existing =
+            typeof where.createdAt === "object" &&
+            where.createdAt !== null &&
+            !(where.createdAt instanceof Date)
+              ? (where.createdAt as Prisma.DateTimeFilter)
+              : {};
+          where.createdAt = { ...existing, gte: fromMsg.createdAt };
         }
+      }
 
-        const where: Prisma.TopicMessageWhereInput = {
-          topicId,
-          deletedAt: null,
+      if (dto.toMessageId) {
+        const toMsg = await this.prisma.topicMessage.findUnique({
+          where: { id: dto.toMessageId },
+          select: { createdAt: true },
+        });
+        if (toMsg) {
+          const existing =
+            typeof where.createdAt === "object" &&
+            where.createdAt !== null &&
+            !(where.createdAt instanceof Date)
+              ? (where.createdAt as Prisma.DateTimeFilter)
+              : {};
+          where.createdAt = { ...existing, lte: toMsg.createdAt };
+        }
+      }
+
+      const messages = await this.prisma.topicMessage.findMany({
+        where,
+        include: {
+          sender: { select: { username: true, fullName: true } },
+          aiMember: { select: { displayName: true } },
+        },
+        orderBy: { createdAt: "asc" },
+        take: 500,
+      });
+
+      if (messages.length === 0) {
+        throw new BadRequestException("No messages to summarize");
+      }
+
+      const aiModel = dto.aiModel || "grok";
+      const messagesForSummary = messages.map((m) => {
+        const sender = m.sender
+          ? m.sender.fullName || m.sender.username || "User"
+          : m.aiMember?.displayName || "Unknown";
+        return {
+          sender,
+          content: m.content,
+          timestamp: m.createdAt.toISOString(),
         };
+      });
 
-        if (dto.fromMessageId) {
-          const fromMsg = await this.prisma.topicMessage.findUnique({
-            where: { id: dto.fromMessageId },
-            select: { createdAt: true },
-          });
-          if (fromMsg) {
-            const existing =
-              typeof where.createdAt === "object" &&
-              where.createdAt !== null &&
-              !(where.createdAt instanceof Date)
-                ? (where.createdAt as Prisma.DateTimeFilter)
-                : {};
-            where.createdAt = { ...existing, gte: fromMsg.createdAt };
-          }
-        }
+      this.logger.log(
+        `Generating summary for topic ${topicId} using ${aiModel}`,
+      );
+      let summaryContent: string;
 
-        if (dto.toMessageId) {
-          const toMsg = await this.prisma.topicMessage.findUnique({
-            where: { id: dto.toMessageId },
-            select: { createdAt: true },
-          });
-          if (toMsg) {
-            const existing =
-              typeof where.createdAt === "object" &&
-              where.createdAt !== null &&
-              !(where.createdAt instanceof Date)
-                ? (where.createdAt as Prisma.DateTimeFilter)
-                : {};
-            where.createdAt = { ...existing, lte: toMsg.createdAt };
-          }
-        }
-
-        const messages = await this.prisma.topicMessage.findMany({
-          where,
-          include: {
-            sender: { select: { username: true, fullName: true } },
-            aiMember: { select: { displayName: true } },
-          },
-          orderBy: { createdAt: "asc" },
-          take: 500,
-        });
-
-        if (messages.length === 0) {
-          throw new BadRequestException("No messages to summarize");
-        }
-
-        const aiModel = dto.aiModel || "grok";
-        const messagesForSummary = messages.map((m) => {
-          const sender = m.sender
-            ? m.sender.fullName || m.sender.username || "User"
-            : m.aiMember?.displayName || "Unknown";
-          return {
-            sender,
-            content: m.content,
-            timestamp: m.createdAt.toISOString(),
-          };
-        });
-
-        this.logger.log(
-          `Generating summary for topic ${topicId} using ${aiModel}`,
-        );
-        let summaryContent: string;
-
-        try {
-          // 构建摘要提示词
-          const summaryPrompt = `请为以下对话生成一份专业的讨论纪要，包含：主要议题、关键观点、结论和待办事项。
+      try {
+        // 构建摘要提示词
+        const summaryPrompt = `请为以下对话生成一份专业的讨论纪要，包含：主要议题、关键观点、结论和待办事项。
 
 对话内容：
 ${messagesForSummary.map((m) => `[${m.sender}]: ${m.content}`).join("\n")}`;
 
-          const summaryMessages: ChatMessage[] = [
-            { role: "user", content: summaryPrompt },
-          ];
-          const result = await this.aiFacade.chat({
-            messages: summaryMessages,
-            model: aiModel,
-            taskProfile: { creativity: "low", outputLength: "standard" },
-          });
-          summaryContent = result.content;
-        } catch (error) {
-          this.logger.error(`Failed to generate summary: ${error}`);
-          summaryContent = `## 讨论纪要
+        const summaryMessages: ChatMessage[] = [
+          { role: "user", content: summaryPrompt },
+        ];
+        const result = await this.aiFacade.chat({
+          messages: summaryMessages,
+          model: aiModel,
+          taskProfile: { creativity: "low", outputLength: "standard" },
+        });
+        summaryContent = result.content;
+      } catch (error) {
+        this.logger.error(`Failed to generate summary: ${error}`);
+        summaryContent = `## 讨论纪要
 
 ### 讨论主题
 ${topic.name}
@@ -1094,26 +1112,41 @@ ${messagesForSummary
 *生成时间: ${new Date().toISOString()}*
 *使用模型: ${aiModel}*
 *注意: AI服务暂时不可用，这是基础摘要*`;
-        }
+      }
 
-        return this.prisma.topicSummary.create({
-          data: {
-            topicId,
-            title: dto.title || `${topic.name} - 讨论纪要`,
-            content: summaryContent,
-            fromMessageId: dto.fromMessageId,
-            toMessageId: dto.toMessageId,
-            generatedBy: aiModel,
-            prompt: `Generated summary for ${messages.length} messages`,
-            createdById: userId,
+      return this.prisma.topicSummary.create({
+        data: {
+          topicId,
+          title: dto.title || `${topic.name} - 讨论纪要`,
+          content: summaryContent,
+          fromMessageId: dto.fromMessageId,
+          toMessageId: dto.toMessageId,
+          generatedBy: aiModel,
+          prompt: `Generated summary for ${messages.length} messages`,
+          createdById: userId,
+        },
+        include: {
+          createdBy: {
+            select: { id: true, username: true, fullName: true },
           },
-          include: {
-            createdBy: {
-              select: { id: true, username: true, fullName: true },
-            },
-          },
-        });
+        },
+      });
+    };
+
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-teams",
+        operationType: "summary",
+        referenceId: topicId,
       },
+      () =>
+        kernelProcessId
+          ? KernelContext.run(
+              { processId: kernelProcessId, userId },
+              runSummary,
+            )
+          : runSummary(),
     );
   }
 

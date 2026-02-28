@@ -32,6 +32,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   UseGuards,
+  Optional,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
@@ -72,6 +73,10 @@ import {
 import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 import { BillingContext } from "../../../../ai-infra/credits/billing-context";
+import {
+  KernelContext,
+  MissionExecutorService,
+} from "../../../../ai-engine/facade";
 import { Prisma } from "@prisma/client"; // needed for Prisma.JsonNull
 
 // ============================================
@@ -226,6 +231,7 @@ export class SlidesController {
     private readonly aiEditService: AIEditService,
     private readonly voiceNarrationSkill: VoiceNarrationSkill,
     private readonly prisma: PrismaService,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   // ============================================
@@ -294,35 +300,37 @@ export class SlidesController {
     };
 
     return new Observable<MessageEvent>((subscriber) => {
-      void BillingContext.run(billingData, async () => {
-        try {
-          const generator = slidesEngine.generateSlides({
-            userId,
-            sourceText: sourceText || "",
-            userRequirement,
-            targetPages: targetPages ? parseInt(targetPages, 10) : undefined,
-            stylePreference: stylePreference as "dark" | "light",
-            targetAudience,
-            themeId,
-          });
+      void this.withKernelContext(userId, "slides-generate", async () => {
+        await BillingContext.run(billingData, async () => {
+          try {
+            const generator = slidesEngine.generateSlides({
+              userId,
+              sourceText: sourceText || "",
+              userRequirement,
+              targetPages: targetPages ? parseInt(targetPages, 10) : undefined,
+              stylePreference: stylePreference as "dark" | "light",
+              targetAudience,
+              themeId,
+            });
 
-          for await (const event of generator) {
-            logger.debug(`[generateSlides] Sending SSE event: ${event.type}`);
-            subscriber.next({ data: JSON.stringify(event) });
+            for await (const event of generator) {
+              logger.debug(`[generateSlides] Sending SSE event: ${event.type}`);
+              subscriber.next({ data: JSON.stringify(event) });
+            }
+            subscriber.complete();
+          } catch (error) {
+            logger.error("[generateSlides] Error:", error);
+            subscriber.next({
+              data: JSON.stringify({
+                type: "error",
+                timestamp: new Date().toISOString(),
+                error:
+                  error instanceof Error ? error.message : "Generation failed",
+              }),
+            });
+            subscriber.complete();
           }
-          subscriber.complete();
-        } catch (error) {
-          logger.error("[generateSlides] Error:", error);
-          subscriber.next({
-            data: JSON.stringify({
-              type: "error",
-              timestamp: new Date().toISOString(),
-              error:
-                error instanceof Error ? error.message : "Generation failed",
-            }),
-          });
-          subscriber.complete();
-        }
+        });
       });
     });
   }
@@ -360,39 +368,42 @@ export class SlidesController {
     res.setHeader("X-Accel-Buffering", "no"); // 禁用 Nginx/代理缓冲
     res.flushHeaders(); // 立即发送响应头
 
-    await BillingContext.run(
-      { userId, moduleType: "ai-office", operationType: "generate-ppt" },
-      async () => {
-        const generator = this.slidesEngine.generateSlides({
-          userId,
-          sourceText: dto.sourceText,
-          userRequirement: dto.userRequirement,
-          targetPages: dto.targetPages,
-          stylePreference: dto.stylePreference as "dark" | "light",
-          targetAudience: dto.targetAudience,
-          themeId: dto.themeId,
-        });
+    await this.withKernelContext(userId, "slides-generate-post", () =>
+      BillingContext.run(
+        { userId, moduleType: "ai-office", operationType: "generate-ppt" },
+        async () => {
+          const generator = this.slidesEngine.generateSlides({
+            userId,
+            sourceText: dto.sourceText,
+            userRequirement: dto.userRequirement,
+            targetPages: dto.targetPages,
+            stylePreference: dto.stylePreference as "dark" | "light",
+            targetAudience: dto.targetAudience,
+            themeId: dto.themeId,
+          });
 
-        try {
-          for await (const event of generator) {
-            const sseData = `data: ${JSON.stringify(event)}\n\n`;
-            res.write(sseData);
-            this.logger.debug(
-              `[generateSlidesPost] Sent SSE event: ${event.type}`,
-            );
+          try {
+            for await (const event of generator) {
+              const sseData = `data: ${JSON.stringify(event)}\n\n`;
+              res.write(sseData);
+              this.logger.debug(
+                `[generateSlidesPost] Sent SSE event: ${event.type}`,
+              );
+            }
+          } catch (error) {
+            this.logger.error("[generateSlidesPost] Error:", error);
+            const errorEvent = {
+              type: "error",
+              timestamp: new Date().toISOString(),
+              error:
+                error instanceof Error ? error.message : "Generation failed",
+            };
+            res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+          } finally {
+            res.end();
           }
-        } catch (error) {
-          this.logger.error("[generateSlidesPost] Error:", error);
-          const errorEvent = {
-            type: "error",
-            timestamp: new Date().toISOString(),
-            error: error instanceof Error ? error.message : "Generation failed",
-          };
-          res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
-        } finally {
-          res.end();
-        }
-      },
+        },
+      ),
     );
   }
 
@@ -430,46 +441,50 @@ export class SlidesController {
     res.flushHeaders(); // 立即发送响应头
 
     // 使用相同的引擎，AI Engine 会负责团队协作编排
-    await BillingContext.run(
-      { userId, moduleType: "ai-office", operationType: "generate-ppt" },
-      async () => {
-        const generator = this.slidesEngine.generateSlides({
-          userId,
-          sourceText: dto.sourceText,
-          userRequirement: dto.userRequirement,
-          targetPages: dto.targetPages,
-          stylePreference: dto.stylePreference as "dark" | "light",
-          targetAudience: dto.targetAudience,
-          themeId: dto.themeId,
-          crossModuleSource: dto.crossModuleSource as
-            | {
-                type: "topic-insights" | "research-project";
-                sourceId: string;
-                sourceName?: string;
-              }
-            | undefined,
-        });
+    await this.withKernelContext(userId, "slides-team-generate", () =>
+      BillingContext.run(
+        { userId, moduleType: "ai-office", operationType: "generate-ppt" },
+        async () => {
+          const generator = this.slidesEngine.generateSlides({
+            userId,
+            sourceText: dto.sourceText,
+            userRequirement: dto.userRequirement,
+            targetPages: dto.targetPages,
+            stylePreference: dto.stylePreference as "dark" | "light",
+            targetAudience: dto.targetAudience,
+            themeId: dto.themeId,
+            crossModuleSource: dto.crossModuleSource as
+              | {
+                  type: "topic-insights" | "research-project";
+                  sourceId: string;
+                  sourceName?: string;
+                }
+              | undefined,
+          });
 
-        try {
-          for await (const event of generator) {
-            const sseData = `data: ${JSON.stringify(event)}\n\n`;
-            res.write(sseData);
-            this.logger.log(`[generateTeam] Sent SSE event: ${event.type}`);
+          try {
+            for await (const event of generator) {
+              const sseData = `data: ${JSON.stringify(event)}\n\n`;
+              res.write(sseData);
+              this.logger.log(`[generateTeam] Sent SSE event: ${event.type}`);
+            }
+            this.logger.log("[generateTeam] SSE stream completed");
+          } catch (error) {
+            this.logger.error("[generateTeam] Error:", error);
+            const errorEvent = {
+              type: "error",
+              timestamp: new Date().toISOString(),
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Team generation failed",
+            };
+            res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+          } finally {
+            res.end();
           }
-          this.logger.log("[generateTeam] SSE stream completed");
-        } catch (error) {
-          this.logger.error("[generateTeam] Error:", error);
-          const errorEvent = {
-            type: "error",
-            timestamp: new Date().toISOString(),
-            error:
-              error instanceof Error ? error.message : "Team generation failed",
-          };
-          res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
-        } finally {
-          res.end();
-        }
-      },
+        },
+      ),
     );
   }
 
@@ -1669,6 +1684,54 @@ export class SlidesController {
         error instanceof Error ? error.message : "Failed to get narrations";
       this.logger.error(`[getNarrations] Error: ${errorMessage}`);
       throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  // ============================================
+  // Kernel Context Helper
+  // ============================================
+
+  /**
+   * Wrap an async operation in KernelContext for process tracking.
+   * Creates a kernel process, runs the callback with processId in context,
+   * and completes/fails the process when done.
+   */
+  private async withKernelContext<T>(
+    userId: string,
+    operationType: string,
+    fn: () => T | Promise<T>,
+  ): Promise<T> {
+    if (!this.missionExecutor) {
+      return fn();
+    }
+
+    let processId: string | undefined;
+    try {
+      const kr = await this.missionExecutor.execute({
+        userId,
+        agentId: `slides:${operationType}`,
+        input: { action: operationType },
+      });
+      processId = kr.processId;
+    } catch {
+      /* kernel optional */
+    }
+
+    if (!processId) {
+      return fn();
+    }
+
+    try {
+      const result = await KernelContext.run({ processId, userId }, async () =>
+        fn(),
+      );
+      void this.missionExecutor.complete(processId).catch(() => {});
+      return result;
+    } catch (error) {
+      void this.missionExecutor
+        .fail(processId, error instanceof Error ? error.message : String(error))
+        .catch(() => {});
+      throw error;
     }
   }
 }
