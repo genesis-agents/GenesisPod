@@ -15,6 +15,14 @@ import { EventJournalService } from "../../journal/event-journal.service";
 import { KernelMemoryManagerService } from "../../memory/kernel-memory-manager.service";
 import { ResourceManagerService } from "../../resource/resource-manager.service";
 import { MissionExecutorService } from "../../mission/mission-executor.service";
+import { CircuitBreakerService } from "../../resource/circuit-breaker.service";
+import { EventBusService } from "../../ipc/event-bus.service";
+import { MessageBusService } from "../../ipc/message-bus.service";
+import { ProgressTrackerService } from "../../ipc/progress-tracker.service";
+import { KernelMetricsService } from "../../observability/kernel-metrics.service";
+import { CostAttributionService } from "../../observability/cost-attribution.service";
+import { CapabilityGuardService } from "../../security/capability-guard.service";
+import { KernelSchedulerService } from "../../scheduler/kernel-scheduler.service";
 
 // ─── Shared test fixtures ────────────────────────────────────────────────────
 
@@ -102,6 +110,58 @@ const mockMissionExecutor = {
   fail: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockCircuitBreaker = {
+  getAllHealthMetrics: jest.fn().mockReturnValue([]),
+  getStats: jest
+    .fn()
+    .mockReturnValue({ totalBreakers: 0, oldestBreakerAge: null, config: {} }),
+  reset: jest.fn(),
+};
+
+const mockEventBus = {
+  getActiveSubscriptionCount: jest.fn().mockReturnValue(0),
+};
+
+const mockMessageBus = {
+  getHistory: jest.fn().mockReturnValue([]),
+};
+
+const mockProgressTracker = {
+  getActiveTasks: jest.fn().mockReturnValue([]),
+  getProgress: jest.fn().mockReturnValue(null),
+};
+
+const mockKernelMetrics = {
+  getDashboard: jest.fn().mockReturnValue({ totalCalls: 0 }),
+};
+
+const mockCostAttribution = {
+  getCostReport: jest.fn().mockReturnValue({ totalCost: 0 }),
+  getHourlyTrend: jest.fn().mockReturnValue([]),
+  checkBudgetAlerts: jest.fn().mockReturnValue([]),
+};
+
+const mockCapabilityGuard = {
+  getCapabilities: jest
+    .fn()
+    .mockResolvedValue({
+      grantedTools: [],
+      grantedSkills: [],
+      dataScope: null,
+    }),
+};
+
+const mockKernelScheduler = {
+  getStats: jest
+    .fn()
+    .mockResolvedValue({
+      running: 0,
+      ready: 0,
+      maxConcurrent: 50,
+      maxPerTenant: 10,
+    }),
+};
+
 // ─── Test suite ──────────────────────────────────────────────────────────────
 
 describe("KernelApiService", () => {
@@ -116,6 +176,14 @@ describe("KernelApiService", () => {
         { provide: KernelMemoryManagerService, useValue: mockMemoryManager },
         { provide: ResourceManagerService, useValue: mockResourceManager },
         { provide: MissionExecutorService, useValue: mockMissionExecutor },
+        { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
+        { provide: EventBusService, useValue: mockEventBus },
+        { provide: MessageBusService, useValue: mockMessageBus },
+        { provide: ProgressTrackerService, useValue: mockProgressTracker },
+        { provide: KernelMetricsService, useValue: mockKernelMetrics },
+        { provide: CostAttributionService, useValue: mockCostAttribution },
+        { provide: CapabilityGuardService, useValue: mockCapabilityGuard },
+        { provide: KernelSchedulerService, useValue: mockKernelScheduler },
       ],
     }).compile();
 

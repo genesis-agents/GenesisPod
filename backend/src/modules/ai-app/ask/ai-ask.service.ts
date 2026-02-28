@@ -5,6 +5,8 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
+import { LruMap } from "@/common/utils/lru-map";
 import {
   AIEngineFacade,
   BUILTIN_TOOLS,
@@ -69,12 +71,14 @@ export class AiAskService {
   private readonly MEMORY_KEY = "ask-conversation-history";
   private readonly MEMORY_TTL = 3600; // 1 hour
   private readonly MAX_MEMORY_MESSAGES = 20;
+  private readonly sessionProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   /**
@@ -243,6 +247,19 @@ export class AiAskService {
       this.logger.warn(`[deleteSession] Failed to clear memory: ${error}`);
     }
 
+    // ★ AI Kernel: 完成进程（会话生命周期结束）
+    const kernelProcessId = this.sessionProcessIds.get(sessionId);
+    if (kernelProcessId && this.missionExecutor) {
+      void this.missionExecutor
+        .complete(kernelProcessId, { reason: "session_deleted" })
+        .catch((err: unknown) =>
+          this.logger.warn(
+            `[Kernel] Failed to complete process on session delete: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+      this.sessionProcessIds.delete(sessionId);
+    }
+
     return { success: true };
   }
 
@@ -258,6 +275,23 @@ export class AiAskService {
 
     if (!session) {
       throw new NotFoundException("Session not found");
+    }
+
+    // ★ AI Kernel: 创建进程记录（仅首条消息）
+    if (this.missionExecutor && !this.sessionProcessIds.has(sessionId)) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId,
+          agentId: "ai-ask",
+          teamSessionId: sessionId,
+          input: { title: session.title },
+        });
+        this.sessionProcessIds.set(sessionId, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     // 获取模型配置

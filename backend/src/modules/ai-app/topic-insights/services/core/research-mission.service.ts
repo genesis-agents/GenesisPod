@@ -13,6 +13,7 @@ import {
   BadRequestException,
   forwardRef,
   Inject,
+  Optional,
 } from "@nestjs/common";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -80,6 +81,9 @@ interface TaskResultJson {
 import { resolveResearchDepthConfig } from "../../types/v5-research.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
+import { LruMap } from "@/common/utils/lru-map";
+import { MissionExecutorService } from "../../../../ai-kernel/mission/mission-executor.service";
+import { EventJournalService } from "../../../../ai-kernel/journal/event-journal.service";
 import {
   TASK_PRIORITY,
   type CreateMissionInput,
@@ -100,6 +104,7 @@ type ResearchTopicWithDimensions = ResearchTopic & {
 @Injectable()
 export class ResearchMissionService {
   private readonly logger = new Logger(ResearchMissionService.name);
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -113,6 +118,8 @@ export class ResearchMissionService {
     private readonly agentActivity: AgentActivityService,
     private readonly aiFacade: AIEngineFacade,
     private readonly reviewerService: ResearchReviewerService,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly kernelJournal?: EventJournalService,
   ) {}
 
   /**
@@ -308,6 +315,31 @@ export class ResearchMissionService {
         researchDepth,
       },
     });
+
+    // ★ AI Kernel: 创建进程记录
+    if (this.missionExecutor) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId: topic.userId,
+          agentId: "research-leader",
+          teamSessionId: mission.id,
+          input: { topicId, mode, researchDepth, title: topic.name },
+        });
+        this.kernelProcessIds.set(mission.id, kernelResult.processId);
+        this.logger.log(
+          `[Kernel] Process ${kernelResult.processId} spawned for research mission ${mission.id}`,
+        );
+        this.recordKernelEvent(mission.id, "mission.started", {
+          topicId,
+          mode,
+          researchDepth,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
 
     // ★ 启动进度追踪（必须在发送其他事件之前）
     const isQuickMode = researchDepth === "quick";
@@ -531,6 +563,11 @@ export class ResearchMissionService {
         topicId,
         missionId,
         errorMsg,
+      );
+
+      this.failKernelProcess(
+        missionId,
+        `Planning failed: ${error instanceof Error ? error.message : String(error)}`,
       );
 
       this.logger.error(`[executePlanningAsync] Planning failed: ${errorMsg}`);
@@ -1092,6 +1129,20 @@ export class ResearchMissionService {
         }),
       },
     });
+
+    // ★ AI Kernel: 标记进程完成/失败
+    if (status === ResearchMissionStatus.COMPLETED) {
+      this.completeKernelProcess(missionId, {
+        completedTasks,
+        totalTasks,
+        progressPercent,
+      });
+    } else if (status === ResearchMissionStatus.FAILED) {
+      this.failKernelProcess(
+        missionId,
+        `Research mission failed: ${failedTasks} of ${totalTasks} tasks failed`,
+      );
+    }
   }
 
   /**
@@ -1734,7 +1785,7 @@ export class ResearchMissionService {
     this.eventEmitter.emit(RESEARCH_INTERNAL_EVENTS.MISSION_PROGRESS, event);
 
     // WebSocket 事件（推送给前端）
-    this.researchEventEmitter.emitMissionProgress(event.topicId, {
+    void this.researchEventEmitter.emitMissionProgress(event.topicId, {
       missionId: event.missionId,
       progress: event.progress,
       phase: event.phase,
@@ -3364,5 +3415,50 @@ export class ResearchMissionService {
       );
       // 不抛出异常，避免影响主流程
     }
+  }
+
+  private recordKernelEvent(
+    missionId: string,
+    type: string,
+    payload?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.kernelJournal) return;
+    void this.kernelJournal
+      .record(processId, type, payload)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Failed to record event ${type}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
+  private completeKernelProcess(
+    missionId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(missionId);
+  }
+
+  private failKernelProcess(missionId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Failed to mark process as failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(missionId);
   }
 }

@@ -29,6 +29,10 @@ export class StatisticsService {
       totalUsers,
       activeUsers,
       secrets,
+      kernelProcesses,
+      kernelRunning,
+      kernelEvents,
+      kernelMemories,
     ] = await Promise.all([
       this.prisma.resource.count(),
       this.prisma.researchMission.count(),
@@ -45,6 +49,12 @@ export class StatisticsService {
       this.prisma.user.count(),
       this.prisma.user.count({ where: { isActive: true } }),
       this.prisma.secret.count(),
+      this.safeCount(() => this.prisma.agentProcess.count()),
+      this.safeCount(() =>
+        this.prisma.agentProcess.count({ where: { state: "RUNNING" } }),
+      ),
+      this.safeCount(() => this.prisma.processEvent.count()),
+      this.safeCount(() => this.prisma.processMemory.count()),
     ]);
 
     return {
@@ -63,7 +73,20 @@ export class StatisticsService {
       totalUsers,
       activeUsers,
       secrets,
+      kernelProcesses,
+      kernelRunning,
+      kernelEvents,
+      kernelMemories,
     };
+  }
+
+  /** Table-safe count — returns 0 if the table does not exist */
+  private async safeCount(fn: () => Promise<number>): Promise<number> {
+    try {
+      return await fn();
+    } catch {
+      return 0;
+    }
   }
 
   /**

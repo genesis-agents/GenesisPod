@@ -182,9 +182,33 @@ describe('aiKernel layer (level 3)', () => {
     expect(card?.href).toBe('/admin/kernel/processes');
   });
 
-  it('kernelMemory card is not clickable', () => {
-    const card = layer.cards?.find((c) => c.id === 'kernelMemory');
-    expect(card?.clickable).toBe(false);
+  it('all 8 kernel cards are clickable with hrefs', () => {
+    const expectedCards: Array<{ id: string; href: string }> = [
+      { id: 'kernelProcesses', href: '/admin/kernel/processes' },
+      { id: 'kernelJournal', href: '/admin/kernel/journal' },
+      { id: 'kernelMemory', href: '/admin/kernel/memory' },
+      { id: 'kernelIPC', href: '/admin/kernel/ipc' },
+      { id: 'kernelResources', href: '/admin/kernel/resources' },
+      { id: 'kernelObservability', href: '/admin/kernel/observability' },
+      { id: 'kernelSecurity', href: '/admin/kernel/security' },
+      { id: 'kernelScheduler', href: '/admin/kernel/scheduler' },
+    ];
+    for (const { id, href } of expectedCards) {
+      const card = layer.cards?.find((c) => c.id === id);
+      expect(card?.clickable).toBe(true);
+      expect(card?.href).toBe(href);
+    }
+  });
+
+  it('kernelJournal has events stat, kernelMemory has entries stat, kernelScheduler has running stat', () => {
+    const journalCard = layer.cards?.find((c) => c.id === 'kernelJournal');
+    expect(journalCard?.stats?.[0]?.key).toBe('kernelEvents');
+
+    const memoryCard = layer.cards?.find((c) => c.id === 'kernelMemory');
+    expect(memoryCard?.stats?.[0]?.key).toBe('kernelMemories');
+
+    const schedulerCard = layer.cards?.find((c) => c.id === 'kernelScheduler');
+    expect(schedulerCard?.stats?.[0]?.key).toBe('kernelRunning');
   });
 });
 

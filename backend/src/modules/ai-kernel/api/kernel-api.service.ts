@@ -9,6 +9,14 @@ import { EventJournalService } from "../journal/event-journal.service";
 import { KernelMemoryManagerService } from "../memory/kernel-memory-manager.service";
 import { ResourceManagerService } from "../resource/resource-manager.service";
 import { MissionExecutorService } from "../mission/mission-executor.service";
+import { CircuitBreakerService } from "../resource/circuit-breaker.service";
+import { EventBusService } from "../ipc/event-bus.service";
+import { MessageBusService } from "../ipc/message-bus.service";
+import { ProgressTrackerService } from "../ipc/progress-tracker.service";
+import { KernelMetricsService } from "../observability/kernel-metrics.service";
+import { CostAttributionService } from "../observability/cost-attribution.service";
+import { CapabilityGuardService } from "../security/capability-guard.service";
+import { KernelSchedulerService } from "../scheduler/kernel-scheduler.service";
 import type {
   ProcessId,
   SpawnOptions,
@@ -34,6 +42,14 @@ export class KernelApiService {
     private readonly memoryManager: KernelMemoryManagerService,
     private readonly resourceManager: ResourceManagerService,
     private readonly missionExecutor: MissionExecutorService,
+    private readonly circuitBreaker: CircuitBreakerService,
+    private readonly eventBus: EventBusService,
+    private readonly messageBus: MessageBusService,
+    private readonly progressTracker: ProgressTrackerService,
+    private readonly kernelMetrics: KernelMetricsService,
+    private readonly costAttribution: CostAttributionService,
+    private readonly capabilityGuard: CapabilityGuardService,
+    private readonly kernelScheduler: KernelSchedulerService,
   ) {}
 
   // ─── Process Management ───
@@ -132,5 +148,73 @@ export class KernelApiService {
     options?: { limit?: number; offset?: number },
   ): Promise<{ entries: JournalEntry[]; total: number }> {
     return this.eventJournal.getHistory(processId, options);
+  }
+
+  // ─── Circuit Breaker ───
+
+  getCircuitBreakerMetrics() {
+    return this.circuitBreaker.getAllHealthMetrics();
+  }
+
+  getCircuitBreakerStats() {
+    return this.circuitBreaker.getStats();
+  }
+
+  resetCircuitBreaker(entityId: string) {
+    this.circuitBreaker.reset(entityId);
+  }
+
+  // ─── IPC ───
+
+  getEventBusStats() {
+    return { activeSubscriptions: this.eventBus.getActiveSubscriptionCount() };
+  }
+
+  getMessageBusHistory(sessionId: string) {
+    return this.messageBus.getHistory(sessionId);
+  }
+
+  getActiveTasks() {
+    return this.progressTracker.getActiveTasks();
+  }
+
+  getTaskProgress(taskId: string) {
+    return this.progressTracker.getProgress(taskId);
+  }
+
+  // ─── Observability ───
+
+  getDashboard(periodMinutes?: number) {
+    return this.kernelMetrics.getDashboard(periodMinutes);
+  }
+
+  getCostReport(options?: { periodHours?: number; userId?: string }) {
+    return this.costAttribution.getCostReport(options);
+  }
+
+  getHourlyTrend(hours?: number) {
+    return this.costAttribution.getHourlyTrend(hours);
+  }
+
+  checkBudgetAlerts() {
+    return this.costAttribution.checkBudgetAlerts();
+  }
+
+  // ─── Security ───
+
+  async getCapabilities(processId: ProcessId) {
+    return this.capabilityGuard.getCapabilities(processId);
+  }
+
+  // ─── Scheduler ───
+
+  async getSchedulerStats() {
+    return this.kernelScheduler.getStats();
+  }
+
+  // ─── Memory (admin) ───
+
+  async cleanupExpiredMemory(processId: ProcessId) {
+    return this.memoryManager.cleanup(processId);
   }
 }

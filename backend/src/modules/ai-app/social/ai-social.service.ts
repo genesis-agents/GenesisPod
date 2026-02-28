@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
@@ -30,10 +31,13 @@ import {
 } from "./types";
 import { encryptSession, decryptSession } from "./utils/session-crypto";
 import { SessionData } from "./types/platform.types";
+import { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
+import { LruMap } from "@/common/utils/lru-map";
 
 @Injectable()
 export class AiSocialService {
   private readonly logger = new Logger(AiSocialService.name);
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,6 +46,7 @@ export class AiSocialService {
     private readonly publishExecutor: PublishExecutorService,
     private readonly playwright: PlaywrightService,
     private readonly xhsMcpAdapter: XhsMcpAdapter,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   // ==================== 平台连接 ====================
@@ -747,19 +752,19 @@ export class AiSocialService {
     );
 
     // Execute queries using shared SQL fragments
-    const contents = (await this.prisma.$queryRaw`
+    const contents = await this.prisma.$queryRaw`
       SELECT ${this.CONTENT_SELECT_FIELDS}
       FROM social_contents sc
       LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
       ${whereClause}
       ORDER BY sc.created_at DESC
       LIMIT ${options.limit} OFFSET ${offset}
-    `) as ContentRow[];
+    `;
 
-    const countResult = (await this.prisma.$queryRaw`
+    const countResult = await this.prisma.$queryRaw`
       SELECT COUNT(*) as count FROM social_contents sc
       ${whereClause}
-    `) as Array<{ count: bigint }>;
+    `;
 
     const total = Number(countResult[0]?.count || 0);
 
@@ -1050,8 +1055,35 @@ export class AiSocialService {
       WHERE id = ${content.id}
     `;
 
+    // ★ AI Kernel: 创建进程记录
+    if (this.missionExecutor) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId,
+          agentId: "social-agent",
+          teamSessionId: content.id,
+          input: { contentType: content.contentType, title: content.title },
+        });
+        this.kernelProcessIds.set(content.id, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
     // 执行发布
-    return this.publishExecutor.execute(content.id);
+    try {
+      const result = await this.publishExecutor.execute(content.id);
+      this.completeKernelProcess(content.id, { contentId: content.id });
+      return result;
+    } catch (err) {
+      this.failKernelProcess(
+        content.id,
+        err instanceof Error ? err.message : String(err),
+      );
+      throw err;
+    }
   }
 
   async scheduleContent(userId: string, id: string, scheduledAt: Date) {
@@ -1339,5 +1371,36 @@ export class AiSocialService {
       failed: errors.length,
       errors: errors.length > 0 ? errors : undefined,
     };
+  }
+
+  // ─── AI Kernel Helpers ───
+
+  private completeKernelProcess(
+    contentId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(contentId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(contentId);
+  }
+
+  private failKernelProcess(contentId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(contentId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Failed to mark process as failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(contentId);
   }
 }

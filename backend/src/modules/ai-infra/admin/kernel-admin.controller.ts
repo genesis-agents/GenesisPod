@@ -7,6 +7,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Query,
   UseGuards,
@@ -16,7 +17,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { KernelApiService } from "../../ai-kernel/api/kernel-api.service";
-import { ProcessState } from "@prisma/client";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { MemoryLayer, ProcessState } from "@prisma/client";
 
 @ApiTags("Admin - AI Kernel")
 @Controller("admin/kernel")
@@ -24,7 +26,10 @@ import { ProcessState } from "@prisma/client";
 export class KernelAdminController {
   private readonly logger = new Logger(KernelAdminController.name);
 
-  constructor(private readonly kernelApi: KernelApiService) {}
+  constructor(
+    private readonly kernelApi: KernelApiService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   // ─── Process Management ───
 
@@ -51,15 +56,20 @@ export class KernelAdminController {
     @Query("states") states?: string,
     @Query("limit") limit?: string,
   ) {
+    const validStates = Object.values(ProcessState);
     const stateFilter = states
-      ? (states.split(",") as ProcessState[])
+      ? states
+          .split(",")
+          .filter((s): s is ProcessState =>
+            validStates.includes(s as ProcessState),
+          )
       : undefined;
     const effectiveUserId = userId || "system";
     const processes = await this.kernelApi.listProcesses(
       effectiveUserId,
-      stateFilter,
+      stateFilter?.length ? stateFilter : undefined,
     );
-    const maxResults = limit ? parseInt(limit, 10) : 50;
+    const maxResults = parseInt(limit ?? "50", 10) || 50;
     return {
       processes: processes.slice(0, maxResults),
       total: processes.length,
@@ -97,8 +107,8 @@ export class KernelAdminController {
     @Query("offset") offset?: string,
   ) {
     const result = await this.kernelApi.getEventHistory(processId, {
-      limit: limit ? parseInt(limit, 10) : 100,
-      offset: offset ? parseInt(offset, 10) : 0,
+      limit: parseInt(limit ?? "100", 10) || 100,
+      offset: parseInt(offset ?? "0", 10) || 0,
     });
     return result;
   }
@@ -159,5 +169,190 @@ export class KernelAdminController {
     this.logger.log(`Admin force-failing mission process ${processId}`);
     await this.kernelApi.failMission(processId, "Admin force-failed");
     return { success: true };
+  }
+
+  // ─── Journal (Global) ───
+
+  @Get("journal")
+  @ApiOperation({ summary: "List recent events across all processes" })
+  @ApiQuery({ name: "processId", required: false })
+  @ApiQuery({ name: "type", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  @ApiResponse({ status: 200, description: "Global event list" })
+  async listJournal(
+    @Query("processId") processId?: string,
+    @Query("type") type?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const take = parseInt(limit ?? "100", 10) || 100;
+    const where: Record<string, unknown> = {};
+    if (processId) where.processId = processId;
+    if (type) where.type = type;
+
+    try {
+      const [entries, total] = await Promise.all([
+        this.prisma.processEvent.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          take,
+        }),
+        this.prisma.processEvent.count({ where }),
+      ]);
+      return { entries, total };
+    } catch {
+      return { entries: [], total: 0 };
+    }
+  }
+
+  // ─── Memory (Admin) ───
+
+  @Get("memory")
+  @ApiOperation({ summary: "Query process memory entries" })
+  @ApiQuery({ name: "processId", required: true })
+  @ApiQuery({ name: "layer", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  @ApiResponse({ status: 200, description: "Memory entries" })
+  async queryMemory(
+    @Query("processId") processId: string,
+    @Query("layer") layer?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const query: {
+      processId: string;
+      layer?: MemoryLayer;
+      limit?: number;
+    } = { processId };
+    if (layer && Object.values(MemoryLayer).includes(layer as MemoryLayer)) {
+      query.layer = layer as MemoryLayer;
+    }
+    if (limit) query.limit = parseInt(limit, 10) || 50;
+
+    const entries = await this.kernelApi.queryMemory(query);
+    return { entries, total: entries.length };
+  }
+
+  @Delete("memory/:processId/expired")
+  @ApiOperation({ summary: "Clean up expired memory entries" })
+  @ApiResponse({ status: 200, description: "Cleanup result" })
+  async cleanupExpiredMemory(@Param("processId") processId: string) {
+    this.logger.log(`Admin cleaning expired memory for process ${processId}`);
+    const deleted = await this.kernelApi.cleanupExpiredMemory(processId);
+    return { success: true, deleted };
+  }
+
+  // ─── IPC ───
+
+  @Get("ipc/stats")
+  @ApiOperation({ summary: "Get IPC statistics" })
+  @ApiResponse({ status: 200, description: "IPC stats" })
+  async getIpcStats() {
+    const eventBusStats = this.kernelApi.getEventBusStats();
+    const activeTasks = this.kernelApi.getActiveTasks();
+    return {
+      ...eventBusStats,
+      activeTaskCount: activeTasks.length,
+    };
+  }
+
+  @Get("ipc/progress")
+  @ApiOperation({ summary: "List active tracked tasks" })
+  @ApiResponse({ status: 200, description: "Active tasks" })
+  getActiveProgress() {
+    const tasks = this.kernelApi.getActiveTasks();
+    return { tasks, total: tasks.length };
+  }
+
+  @Get("ipc/messages/:sessionId")
+  @ApiOperation({ summary: "Get message bus history for session" })
+  @ApiResponse({ status: 200, description: "Message history" })
+  getMessageHistory(@Param("sessionId") sessionId: string) {
+    const messages = this.kernelApi.getMessageBusHistory(sessionId);
+    return { messages, total: messages.length };
+  }
+
+  // ─── Resources ───
+
+  @Get("resources/circuit-breakers")
+  @ApiOperation({ summary: "Get all circuit breaker health metrics" })
+  @ApiResponse({ status: 200, description: "Circuit breaker metrics" })
+  getCircuitBreakers() {
+    const metrics = this.kernelApi.getCircuitBreakerMetrics();
+    return { breakers: metrics, total: metrics.length };
+  }
+
+  @Get("resources/circuit-breakers/stats")
+  @ApiOperation({ summary: "Get circuit breaker summary stats" })
+  @ApiResponse({ status: 200, description: "Circuit breaker stats" })
+  getCircuitBreakerStats() {
+    return this.kernelApi.getCircuitBreakerStats();
+  }
+
+  @Post("resources/circuit-breakers/:id/reset")
+  @ApiOperation({ summary: "Reset a circuit breaker" })
+  @ApiResponse({ status: 200, description: "Circuit breaker reset" })
+  resetCircuitBreaker(@Param("id") entityId: string) {
+    this.logger.log(`Admin resetting circuit breaker for ${entityId}`);
+    this.kernelApi.resetCircuitBreaker(entityId);
+    return { success: true, entityId };
+  }
+
+  // ─── Observability ───
+
+  @Get("observability/dashboard")
+  @ApiOperation({ summary: "Get LLM metrics dashboard" })
+  @ApiQuery({
+    name: "period",
+    required: false,
+    description: "Period in minutes (default 60)",
+  })
+  @ApiResponse({ status: 200, description: "Observability dashboard" })
+  getDashboard(@Query("period") period?: string) {
+    const periodMinutes = parseInt(period ?? "60", 10) || 60;
+    return this.kernelApi.getDashboard(periodMinutes);
+  }
+
+  @Get("observability/costs")
+  @ApiOperation({ summary: "Get cost attribution report" })
+  @ApiQuery({
+    name: "hours",
+    required: false,
+    description: "Period in hours (default 24)",
+  })
+  @ApiResponse({ status: 200, description: "Cost report" })
+  getCostReport(@Query("hours") hours?: string) {
+    const periodHours = parseInt(hours ?? "24", 10) || 24;
+    return this.kernelApi.getCostReport({ periodHours });
+  }
+
+  @Get("observability/costs/trend")
+  @ApiOperation({ summary: "Get hourly cost trend" })
+  @ApiQuery({
+    name: "hours",
+    required: false,
+    description: "Hours of history (default 24)",
+  })
+  @ApiResponse({ status: 200, description: "Hourly cost trend" })
+  getCostTrend(@Query("hours") hours?: string) {
+    const h = parseInt(hours ?? "24", 10) || 24;
+    const trend = this.kernelApi.getHourlyTrend(h);
+    return { trend, total: trend.length };
+  }
+
+  // ─── Security ───
+
+  @Get("security/capabilities/:processId")
+  @ApiOperation({ summary: "Get process capabilities" })
+  @ApiResponse({ status: 200, description: "Process capabilities" })
+  async getCapabilities(@Param("processId") processId: string) {
+    return this.kernelApi.getCapabilities(processId);
+  }
+
+  // ─── Scheduler ───
+
+  @Get("scheduler/stats")
+  @ApiOperation({ summary: "Get scheduler statistics" })
+  @ApiResponse({ status: 200, description: "Scheduler stats" })
+  async getSchedulerStats() {
+    return this.kernelApi.getSchedulerStats();
   }
 }

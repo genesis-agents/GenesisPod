@@ -39,6 +39,8 @@ import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
+import { MissionExecutorService } from "../../../../ai-kernel/mission/mission-executor.service";
+import { LruMap } from "@/common/utils/lru-map";
 /**
  * PPT 生成输入参数
  */
@@ -114,6 +116,7 @@ export class SlidesEngineService {
 
   /** 每隔多少页自动保存一次 */
   private readonly AUTO_SAVE_INTERVAL = 3;
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly orchestrator: SlidesTeamOrchestrator,
@@ -123,6 +126,7 @@ export class SlidesEngineService {
     @Optional() private readonly templateRendering: TemplateRenderingSkill,
     @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
   /**
@@ -373,6 +377,26 @@ export class SlidesEngineService {
       this.logger.log(`[generateSlides] Using existing session: ${sessionId}`);
     }
 
+    // ★ AI Kernel: 创建进程记录
+    if (this.missionExecutor && input.userId) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId: input.userId,
+          agentId: "office-agent",
+          teamSessionId: sessionId,
+          input: {
+            targetPages: input.targetPages,
+            stylePreference: input.stylePreference,
+          },
+        });
+        this.kernelProcessIds.set(sessionId, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
     // 2. 发送 execution:started 事件
     this.logger.log(
       `[generateSlides] Sending execution:started event for session ${sessionId}`,
@@ -582,6 +606,7 @@ export class SlidesEngineService {
 
       // 9. 发送 execution:completed 事件
       const pages = (missionCompleteData?.pages as unknown[]) || [];
+      this.completeKernelProcess(sessionId, { totalPages: pages.length });
       yield this.createEvent("execution:completed", sessionId, {
         totalPages: pages.length,
         totalTime: (missionCompleteData?.duration as number) || 0,
@@ -598,6 +623,7 @@ export class SlidesEngineService {
         this.logger.error(`[generateSlides] Stack trace:\n${errorStack}`);
       }
 
+      this.failKernelProcess(sessionId, errorMessage);
       yield this.createEvent("execution:failed", sessionId, {
         error: errorMessage,
         phase: "unknown",
@@ -1942,6 +1968,35 @@ ${feedback}
         `[saveFinalCheckpointFromEvent] Failed to save final checkpoint: ${error}`,
       );
     }
+  }
+
+  private completeKernelProcess(
+    sessionId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(sessionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(sessionId);
+  }
+
+  private failKernelProcess(sessionId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(sessionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err) =>
+        this.logger.warn(
+          `[Kernel] Failed to mark process as failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(sessionId);
   }
 
   /**

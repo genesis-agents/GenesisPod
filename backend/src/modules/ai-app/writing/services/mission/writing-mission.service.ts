@@ -15,6 +15,7 @@
 import {
   Injectable,
   Logger,
+  Optional,
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
@@ -87,6 +88,8 @@ import { WritingContextService } from "./writing-context.service";
 import { WritingStyleService } from "./writing-style.service";
 import { WritingQualityService } from "./writing-quality.service";
 import { CheckpointService } from "./checkpoint.service";
+import { MissionExecutorService } from "../../../../ai-kernel/mission/mission-executor.service";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * 写作任务类型
@@ -193,6 +196,7 @@ interface RoleModelAssignment {
 @Injectable()
 export class WritingMissionService {
   private readonly logger = new Logger(WritingMissionService.name);
+  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   // Writing Team 配置
   private writingTeam: ITeam | null = null;
@@ -241,6 +245,7 @@ export class WritingMissionService {
     private readonly styleService: WritingStyleService,
     private readonly qualityService: WritingQualityService,
     private readonly checkpointService: CheckpointService,
+    @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -969,6 +974,30 @@ export class WritingMissionService {
         // 创建数据库记录（状态为 IN_PROGRESS）
         await this.createMissionRecord(missionId, input, userId);
 
+        // ★ AI Kernel: 创建进程记录
+        if (this.missionExecutor) {
+          try {
+            const kernelResult = await this.missionExecutor.execute({
+              userId,
+              agentId: "story-architect",
+              teamSessionId: missionId,
+              input: {
+                projectId: input.projectId,
+                missionType: input.missionType,
+                targetWordCount: input.targetWordCount,
+              },
+            });
+            this.kernelProcessIds.set(missionId, kernelResult.processId);
+            this.logger.log(
+              `[Kernel] Process ${kernelResult.processId} spawned for writing mission ${missionId}`,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+
         // 在后台执行任务
         void this.runMissionInBackground(
           missionId,
@@ -1170,6 +1199,9 @@ export class WritingMissionService {
 
         this.logger.log(`Mission ${missionId} completed successfully`);
 
+        // ★ AI Kernel: 标记进程完成
+        this.completeKernelProcess(missionId, { wordCount: totalWordCount });
+
         // ★ 结束内容生成 span（成功）
         if (generationSpanId) {
           this.aiFacade.endSpan(generationSpanId, {
@@ -1188,6 +1220,9 @@ export class WritingMissionService {
       this.logger.error(
         `Mission ${missionId} failed: ${(error as Error).message}`,
       );
+
+      // ★ AI Kernel: 标记进程失败
+      this.failKernelProcess(missionId, (error as Error).message);
 
       // ★ 结束内容生成 span（失败）
       if (generationSpanId) {
@@ -8390,5 +8425,36 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
         `Failed to save mission log: ${(error as Error).message}`,
       );
     }
+  }
+
+  // ─── AI Kernel Helpers ───
+
+  private completeKernelProcess(
+    missionId: string,
+    output?: Record<string, unknown>,
+  ): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .complete(processId, output)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Failed to complete process: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(missionId);
+  }
+
+  private failKernelProcess(missionId: string, error: string): void {
+    const processId = this.kernelProcessIds.get(missionId);
+    if (!processId || !this.missionExecutor) return;
+    void this.missionExecutor
+      .fail(processId, error)
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `[Kernel] Failed to mark process as failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    this.kernelProcessIds.delete(missionId);
   }
 }
