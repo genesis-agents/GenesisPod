@@ -225,12 +225,14 @@ export default function KernelResourcesPage() {
       ]);
 
       if (breakersRes.ok) {
-        const data = (await breakersRes.json()) as CircuitBreakersResponse;
+        const json = await breakersRes.json();
+        const data = (json?.data ?? json) as CircuitBreakersResponse;
         setBreakers(data.breakers ?? []);
       }
 
       if (statsRes.ok) {
-        const data = (await statsRes.json()) as CircuitBreakerStatsResponse;
+        const json = await statsRes.json();
+        const data = (json?.data ?? json) as CircuitBreakerStatsResponse;
         setBreakerStats(data);
       }
     } catch (err) {
@@ -268,7 +270,8 @@ export default function KernelResourcesPage() {
           }
         );
         if (!res.ok) throw new Error(`Reset failed: ${res.status}`);
-        const data = (await res.json()) as ResetResponse;
+        const json = await res.json();
+        const data = (json?.data ?? json) as ResetResponse;
         if (data.success) {
           // Refresh data after a successful reset
           void fetchData();

@@ -744,7 +744,8 @@ export default function KernelObservabilityPage() {
         { headers: getAuthHeader() }
       );
       if (!res.ok) throw new Error(`Dashboard fetch failed: ${res.status}`);
-      const data = (await res.json()) as DashboardData;
+      const json = await res.json();
+      const data = (json?.data ?? json) as DashboardData;
       setDashboardData(data);
     } catch (err) {
       logger.error('KernelObservability', 'Failed to fetch dashboard', err);
@@ -761,7 +762,8 @@ export default function KernelObservabilityPage() {
         { headers: getAuthHeader() }
       );
       if (!res.ok) throw new Error(`Costs fetch failed: ${res.status}`);
-      const data = (await res.json()) as CostsData;
+      const json = await res.json();
+      const data = (json?.data ?? json) as CostsData;
       setCostsData(data);
     } catch (err) {
       logger.error('KernelObservability', 'Failed to fetch costs', err);

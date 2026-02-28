@@ -107,7 +107,8 @@ export default function KernelSchedulerPage() {
       });
       if (!res.ok)
         throw new Error(`Fetch scheduler stats failed: ${res.status}`);
-      const data = (await res.json()) as SchedulerStats;
+      const json = await res.json();
+      const data = (json?.data ?? json) as SchedulerStats;
       setStats(data);
     } catch (err) {
       logger.error('KernelScheduler', 'Failed to fetch scheduler stats', err);

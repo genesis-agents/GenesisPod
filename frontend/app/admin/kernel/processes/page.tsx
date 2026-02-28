@@ -223,7 +223,8 @@ function ActionButtons({ process, apiUrl, onUpdate }: ActionButtonsProps) {
           }
         );
         if (!res.ok) throw new Error(`Action ${action} failed: ${res.status}`);
-        const data = (await res.json()) as ActionResponse;
+        const json = await res.json();
+        const data = (json?.data ?? json) as ActionResponse;
         onUpdate(data.process);
       } catch (err) {
         logger.error('KernelProcesses', `Action ${action} failed`, err);
@@ -328,7 +329,8 @@ function ProcessDetailPanel({ process, apiUrl }: ProcessDetailPanelProps) {
           { headers: getAuthHeader() }
         );
         if (!res.ok) throw new Error(`Journal fetch failed: ${res.status}`);
-        const data = (await res.json()) as ProcessJournalResponse;
+        const json = await res.json();
+        const data = (json?.data ?? json) as ProcessJournalResponse;
         setJournal(data.entries);
       } catch (err) {
         logger.error('KernelProcesses', 'Failed to fetch journal', err);
@@ -345,7 +347,8 @@ function ProcessDetailPanel({ process, apiUrl }: ProcessDetailPanelProps) {
           { headers: getAuthHeader() }
         );
         if (!res.ok) throw new Error(`Budget fetch failed: ${res.status}`);
-        const data = (await res.json()) as BudgetStatus;
+        const json = await res.json();
+        const data = (json?.data ?? json) as BudgetStatus;
         setBudget(data);
       } catch (err) {
         logger.error('KernelProcesses', 'Failed to fetch budget', err);
@@ -680,7 +683,8 @@ export default function KernelProcessesPage() {
       );
 
       if (!res.ok) throw new Error(`Fetch processes failed: ${res.status}`);
-      const data = (await res.json()) as ProcessListResponse;
+      const json = await res.json();
+      const data = (json?.data ?? json) as ProcessListResponse;
       setProcesses(data.processes ?? []);
       setTotal(data.total ?? 0);
     } catch (err) {

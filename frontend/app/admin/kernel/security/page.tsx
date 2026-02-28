@@ -208,7 +208,8 @@ export default function KernelSecurityPage() {
         { headers: getAuthHeader() }
       );
       if (!res.ok) throw new Error(`Capabilities query failed: ${res.status}`);
-      const data = (await res.json()) as CapabilityGuard;
+      const json = await res.json();
+      const data = (json?.data ?? json) as CapabilityGuard;
       setCapabilities(data);
       setQueriedId(trimmed);
       setQueried(true);

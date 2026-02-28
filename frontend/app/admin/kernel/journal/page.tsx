@@ -87,7 +87,8 @@ export default function KernelJournalPage() {
         { headers: getAuthHeader() }
       );
       if (!res.ok) throw new Error(`Fetch journal failed: ${res.status}`);
-      const data = (await res.json()) as JournalResponse;
+      const json = await res.json();
+      const data = (json?.data ?? json) as JournalResponse;
       setEntries(data.entries ?? []);
       setTotal(data.total ?? 0);
     } catch (err) {

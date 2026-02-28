@@ -164,12 +164,14 @@ export default function KernelIpcPage() {
       ]);
 
       if (statsRes.ok) {
-        const data = (await statsRes.json()) as IpcStats;
+        const json = await statsRes.json();
+        const data = (json?.data ?? json) as IpcStats;
         setStats(data);
       }
 
       if (progressRes.ok) {
-        const data = (await progressRes.json()) as IpcProgressResponse;
+        const json = await progressRes.json();
+        const data = (json?.data ?? json) as IpcProgressResponse;
         setTasks(data.tasks ?? []);
         setTaskTotal(data.total ?? 0);
       }
@@ -205,7 +207,8 @@ export default function KernelIpcPage() {
         { headers: getAuthHeader() }
       );
       if (!res.ok) throw new Error(`Messages fetch failed: ${res.status}`);
-      const data = (await res.json()) as IpcMessagesResponse;
+      const json = await res.json();
+      const data = (json?.data ?? json) as IpcMessagesResponse;
       setMessages(data.messages ?? []);
       setMessageTotal(data.total ?? 0);
     } catch (err) {

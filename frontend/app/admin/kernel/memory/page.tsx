@@ -218,7 +218,8 @@ export default function KernelMemoryPage() {
         }
       );
       if (!res.ok) throw new Error(`Memory query failed: ${res.status}`);
-      const data = (await res.json()) as MemoryQueryResponse;
+      const json = await res.json();
+      const data = (json?.data ?? json) as MemoryQueryResponse;
       setEntries(data.entries ?? []);
       setTotal(data.total ?? 0);
       setSearched(true);
@@ -255,7 +256,8 @@ export default function KernelMemoryPage() {
           }
         );
         if (!res.ok) throw new Error(`Clean expired failed: ${res.status}`);
-        const data = (await res.json()) as CleanExpiredResponse;
+        const json = await res.json();
+        const data = (json?.data ?? json) as CleanExpiredResponse;
         setCleanResult({ processId: targetProcessId, deleted: data.deleted });
         // Re-fetch to reflect cleaned entries
         void fetchMemory();
