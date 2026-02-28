@@ -568,9 +568,15 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
         );
       }
     } catch (error) {
-      this.logger.error(
-        `Health check failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("does not exist in the current database")) {
+        this.stopHealthCheckScheduler();
+        this.logger.warn(
+          "agent_processes table not found — health check disabled until next deploy",
+        );
+        return;
+      }
+      this.logger.error(`Health check failed: ${message}`);
     }
   }
 
@@ -622,9 +628,14 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
         }
       }
     } catch (error) {
-      this.logger.error(
-        `Startup recovery failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("does not exist in the current database")) {
+        this.logger.warn(
+          "agent_processes table not found — startup recovery skipped",
+        );
+        return;
+      }
+      this.logger.error(`Startup recovery failed: ${message}`);
     }
   }
 

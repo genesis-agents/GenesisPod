@@ -17,6 +17,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KernelSchedulerService.name);
   private schedulerInterval: NodeJS.Timeout | null = null;
+  private tableReady = true;
 
   /** Max concurrent RUNNING processes globally */
   private readonly maxConcurrent: number;
@@ -143,9 +144,21 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
 
       return scheduledIds;
     } catch (error) {
-      this.logger.error(
-        `Scheduler error: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const message = error instanceof Error ? error.message : String(error);
+
+      // Stop polling if the table doesn't exist yet (migration not applied)
+      if (message.includes("does not exist in the current database")) {
+        if (this.tableReady) {
+          this.tableReady = false;
+          this.stopScheduler();
+          this.logger.warn(
+            "agent_processes table not found — scheduler disabled until next deploy",
+          );
+        }
+        return [];
+      }
+
+      this.logger.error(`Scheduler error: ${message}`);
       return [];
     }
   }
