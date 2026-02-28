@@ -314,7 +314,43 @@ export class KernelAdminController {
   @ApiResponse({ status: 200, description: "Observability dashboard" })
   getDashboard(@Query("period") period?: string) {
     const periodMinutes = parseInt(period ?? "60", 10) || 60;
-    return this.kernelApi.getDashboard(periodMinutes);
+    const raw = this.kernelApi.getDashboard(periodMinutes);
+
+    return {
+      period: {
+        startTime: raw.period.start.toISOString(),
+        endTime: raw.period.end.toISOString(),
+        minutes: periodMinutes,
+      },
+      totalCalls: raw.totalCalls,
+      totalTokens: { input: 0, output: 0, total: raw.totalTokens },
+      totalCost: raw.totalCost,
+      successRate: raw.successRate,
+      latency: {
+        p50: raw.avgLatencyMs,
+        p95: raw.p95LatencyMs,
+        p99: raw.p99LatencyMs,
+      },
+      fallbackRate: raw.fallbackRate,
+      byModel: Object.entries(raw.byModel).map(([model, m]) => ({
+        model,
+        ...m,
+      })),
+      byModule: Object.entries(raw.byModule).map(([moduleType, m]) => ({
+        moduleType,
+        ...m,
+      })),
+      byUser: raw.byUser,
+      recentErrors: raw.recentErrors.map((err, idx) => ({
+        id: `err-${idx}`,
+        model: err.model,
+        error: err.error,
+        timestamp:
+          err.timestamp instanceof Date
+            ? err.timestamp.toISOString()
+            : String(err.timestamp),
+      })),
+    };
   }
 
   @Get("observability/costs")
@@ -327,7 +363,21 @@ export class KernelAdminController {
   @ApiResponse({ status: 200, description: "Cost report" })
   getCostReport(@Query("hours") hours?: string) {
     const periodHours = parseInt(hours ?? "24", 10) || 24;
-    return this.kernelApi.getCostReport({ periodHours });
+    const raw = this.kernelApi.getCostReport({ periodHours });
+
+    return {
+      period: {
+        hours: periodHours,
+        startTime: raw.period.start.toISOString(),
+        endTime: raw.period.end.toISOString(),
+      },
+      totalCost: raw.totalCost,
+      totalTokens: { input: 0, output: 0, total: raw.totalTokens },
+      byUser: raw.byUser,
+      byModule: raw.byModule,
+      byModel: raw.byModel,
+      hourlyTrend: raw.hourlyTrend,
+    };
   }
 
   @Get("observability/costs/trend")
