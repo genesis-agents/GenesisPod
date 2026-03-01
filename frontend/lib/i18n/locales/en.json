@@ -3944,7 +3944,9 @@
         "kernelSecurity": "Capability Guard",
         "kernelSecurityDesc": "Per-process tool/skill/data access control",
         "kernelScheduler": "Scheduler",
-        "kernelSchedulerDesc": "Priority-based process scheduling and tenant quotas"
+        "kernelSchedulerDesc": "Priority-based process scheduling and tenant quotas",
+        "ragKnowledge": "Knowledge Base (RAG)",
+        "ragKnowledgeDesc": "Knowledge base management, upload documents and build semantic search indexes"
       },
       "legend": {
         "clickable": "Configurable",

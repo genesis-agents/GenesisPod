@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Database,
   Search,
@@ -39,6 +39,28 @@ interface CleanExpiredResponse {
   deleted: number;
 }
 
+type ProcessState =
+  | 'CREATED'
+  | 'READY'
+  | 'RUNNING'
+  | 'PAUSED'
+  | 'WAITING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+interface ProcessSummary {
+  id: string;
+  state: ProcessState;
+  agentId: string;
+  createdAt: string;
+}
+
+interface ProcessListResponse {
+  processes: ProcessSummary[];
+  total: number;
+}
+
 // ============================
 // Constants
 // ============================
@@ -54,6 +76,17 @@ const LAYER_BADGE_CLASSES: Record<MemoryLayer, string> = {
   WORKING: 'bg-blue-100 text-blue-800',
   SESSION: 'bg-purple-100 text-purple-800',
   PERSISTENT: 'bg-green-100 text-green-800',
+};
+
+const STATE_BADGE_CLASSES: Record<ProcessState, string> = {
+  RUNNING: 'bg-green-100 text-green-700',
+  PAUSED: 'bg-yellow-100 text-yellow-700',
+  WAITING: 'bg-blue-100 text-blue-700',
+  READY: 'bg-cyan-100 text-cyan-700',
+  CREATED: 'bg-gray-100 text-gray-600',
+  COMPLETED: 'bg-gray-100 text-gray-500',
+  FAILED: 'bg-red-100 text-red-700',
+  CANCELLED: 'bg-gray-100 text-gray-400',
 };
 
 // ============================
@@ -188,6 +221,10 @@ export default function KernelMemoryPage() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [processes, setProcesses] = useState<ProcessSummary[]>([]);
+  const [processesLoading, setProcessesLoading] = useState(false);
+  const initialFetchDone = useRef(false);
+
   const [cleaningProcessId, setCleaningProcessId] = useState<string | null>(
     null
   );
@@ -198,40 +235,76 @@ export default function KernelMemoryPage() {
 
   const apiUrl = config.apiUrl;
 
-  const fetchMemory = useCallback(async () => {
-    if (!processId.trim()) return;
+  const fetchMemory = useCallback(
+    async (targetProcessId?: string) => {
+      const pid = targetProcessId ?? processId;
+      if (!pid.trim()) return;
 
-    setLoading(true);
-    setCleanResult(null);
-    try {
-      const params = new URLSearchParams({ processId: processId.trim() });
-      if (layer !== 'ALL') params.append('layer', layer);
-      const parsedLimit = parseInt(limit, 10);
-      if (!isNaN(parsedLimit) && parsedLimit > 0) {
-        params.append('limit', String(parsedLimit));
-      }
-
-      const res = await fetch(
-        `${apiUrl}/admin/kernel/memory?${params.toString()}`,
-        {
-          headers: getAuthHeader(),
+      setLoading(true);
+      setCleanResult(null);
+      try {
+        const params = new URLSearchParams({ processId: pid.trim() });
+        if (layer !== 'ALL') params.append('layer', layer);
+        const parsedLimit = parseInt(limit, 10);
+        if (!isNaN(parsedLimit) && parsedLimit > 0) {
+          params.append('limit', String(parsedLimit));
         }
-      );
-      if (!res.ok) throw new Error(`Memory query failed: ${res.status}`);
-      const json = await res.json();
-      const data = (json?.data ?? json) as MemoryQueryResponse;
-      setEntries(data.entries ?? []);
-      setTotal(data.total ?? 0);
-      setSearched(true);
-    } catch (err) {
-      logger.error('KernelMemory', 'Failed to query memory', err);
-      setEntries([]);
-      setTotal(0);
-      setSearched(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [apiUrl, processId, layer, limit]);
+
+        const res = await fetch(
+          `${apiUrl}/admin/kernel/memory?${params.toString()}`,
+          {
+            headers: getAuthHeader(),
+          }
+        );
+        if (!res.ok) throw new Error(`Memory query failed: ${res.status}`);
+        const json = await res.json();
+        const data = (json?.data ?? json) as MemoryQueryResponse;
+        setEntries(data.entries ?? []);
+        setTotal(data.total ?? 0);
+        setSearched(true);
+      } catch (err) {
+        logger.error('KernelMemory', 'Failed to query memory', err);
+        setEntries([]);
+        setTotal(0);
+        setSearched(true);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [apiUrl, processId, layer, limit]
+  );
+
+  // Fetch process list on mount
+  useEffect(() => {
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+
+    const fetchProcesses = async () => {
+      setProcessesLoading(true);
+      try {
+        const res = await fetch(`${apiUrl}/admin/kernel/processes?limit=50`, {
+          headers: getAuthHeader(),
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const data = (json?.data ?? json) as ProcessListResponse;
+        const list = data.processes ?? [];
+        setProcesses(list);
+
+        // Auto-select first RUNNING process, or first process with memory
+        const running = list.find((p) => p.state === 'RUNNING');
+        const first = running ?? list[0];
+        if (first) {
+          setProcessId(first.id);
+        }
+      } catch (err) {
+        logger.error('KernelMemory', 'Failed to fetch processes', err);
+      } finally {
+        setProcessesLoading(false);
+      }
+    };
+    void fetchProcesses();
+  }, [apiUrl]);
 
   const handleSearch = () => {
     void fetchMemory();
@@ -241,6 +314,12 @@ export default function KernelMemoryPage() {
     if (e.key === 'Enter') {
       void fetchMemory();
     }
+  };
+
+  const handleProcessSelect = (pid: string) => {
+    setProcessId(pid);
+    setSearched(false);
+    void fetchMemory(pid);
   };
 
   const handleCleanExpired = useCallback(
@@ -281,6 +360,44 @@ export default function KernelMemoryPage() {
       domain="ai"
     >
       <div className="space-y-4">
+        {/* Process Selector */}
+        {processes.length > 0 && (
+          <div className="rounded-lg bg-white p-4 shadow">
+            <label className="mb-2 block text-xs font-medium text-gray-700">
+              Recent Processes
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {processes.slice(0, 12).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleProcessSelect(p.id)}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                    processId === p.id
+                      ? 'border-violet-300 bg-violet-50 text-violet-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <span
+                    className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATE_BADGE_CLASSES[p.state]}`}
+                  >
+                    {p.state}
+                  </span>
+                  <span className="font-mono">{p.id.slice(0, 8)}...</span>
+                  <span className="text-gray-400">
+                    {p.agentId ? `(${p.agentId})` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {processesLoading && (
+          <div className="flex items-center gap-2 rounded-lg bg-white p-4 text-xs text-gray-500 shadow">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Loading processes...
+          </div>
+        )}
+
         {/* Search Form */}
         <div className="rounded-lg bg-white p-4 shadow">
           <div className="flex flex-wrap items-end gap-3">
@@ -294,7 +411,7 @@ export default function KernelMemoryPage() {
                 value={processId}
                 onChange={(e) => setProcessId(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter process ID"
+                placeholder="Enter process ID or select from above"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>
@@ -386,7 +503,9 @@ export default function KernelMemoryPage() {
             <div className="flex flex-col items-center justify-center gap-2 p-12 text-gray-400">
               <Database className="h-8 w-8 opacity-40" />
               <p className="text-sm">
-                Enter a Process ID to query memory entries
+                {processes.length > 0
+                  ? 'Select a process above or enter a Process ID to query memory entries'
+                  : 'Enter a Process ID to query memory entries'}
               </p>
             </div>
           ) : loading ? (

@@ -3944,7 +3944,9 @@
         "kernelSecurity": "能力守卫",
         "kernelSecurityDesc": "进程级工具/技能/数据访问控制",
         "kernelScheduler": "调度器",
-        "kernelSchedulerDesc": "基于优先级的进程调度和租户配额"
+        "kernelSchedulerDesc": "基于优先级的进程调度和租户配额",
+        "ragKnowledge": "知识库(RAG)",
+        "ragKnowledgeDesc": "知识库管理，上传文档并构建语义检索索引"
       },
       "legend": {
         "clickable": "可配置",
