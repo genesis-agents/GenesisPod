@@ -1,0 +1,17 @@
+import { Module } from "@nestjs/common";
+import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
+import { KnowledgeGraphController } from "./knowledge-graph.controller";
+import { GraphModule } from "../../../../common/graph/graph.module";
+import { PrismaModule } from "../../../../common/prisma/prisma.module";
+import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
+
+/**
+ * 知识图谱模块（使用 PostgreSQL 实现）
+ */
+@Module({
+  imports: [GraphModule, PrismaModule, AiEngineModule],
+  controllers: [KnowledgeGraphController],
+  providers: [KnowledgeGraphService],
+  exports: [KnowledgeGraphService],
+})
+export class KnowledgeGraphModule {}

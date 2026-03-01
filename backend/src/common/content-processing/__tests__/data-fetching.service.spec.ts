@@ -15,7 +15,7 @@ import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AxiosHeaders, AxiosResponse } from "axios";
 import { DataFetchingService } from "../data-fetching.service";
-import { AdminService } from "../../../modules/ai-infra/admin/admin.service";
+import { AdminService } from "../../../modules/open-api/admin/admin.service";
 
 // ---------------------------------------------------------------------------
 // Helper

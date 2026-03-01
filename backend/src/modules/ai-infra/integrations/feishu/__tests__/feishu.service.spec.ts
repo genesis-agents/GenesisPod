@@ -3,7 +3,7 @@ jest.mock("../../../../ai-engine/facade/ai-engine.facade");
 jest.mock("../../../../../common/prisma/prisma.service");
 jest.mock("../feishu-auth.service");
 jest.mock("../feishu-data-source.service");
-jest.mock("../../../../ai-app/rag/services/url-fetch.service");
+jest.mock("../../../../ai-app/library/rag/services/url-fetch.service");
 jest.mock("../../../../../common/config/app.config", () => ({
   APP_CONFIG: {
     brand: { name: "TestBrand" },
@@ -18,7 +18,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
 import { FeishuAuthService } from "../feishu-auth.service";
 import { FeishuDataSourceService } from "../feishu-data-source.service";
-import { UrlFetchService } from "../../../../ai-app/rag/services/url-fetch.service";
+import { UrlFetchService } from "../../../../ai-app/library/rag/services/url-fetch.service";
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 

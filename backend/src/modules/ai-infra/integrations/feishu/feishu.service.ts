@@ -14,7 +14,7 @@ import {
 } from "../../../ai-engine/facade";
 import { FeishuAuthService } from "./feishu-auth.service";
 import { FeishuDataSourceService } from "./feishu-data-source.service";
-import { UrlFetchService } from "../../../ai-app/rag/services/url-fetch.service";
+import { UrlFetchService } from "../../../ai-app/library/rag/services/url-fetch.service";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 
 const FEISHU_API_BASE = "https://open.feishu.cn/open-apis";

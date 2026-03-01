@@ -1,0 +1,20 @@
+import { Module, forwardRef } from "@nestjs/common";
+import { YoutubeController } from "./youtube.controller";
+import { YoutubeService } from "./youtube.service";
+import { PdfGeneratorService } from "./pdf-generator.service";
+import { YoutubeVideosController } from "./youtube-videos.controller";
+import { YoutubeVideosService } from "./youtube-videos.service";
+import { PrismaModule } from "../../../../common/prisma/prisma.module";
+import { AdminModule } from "../../../open-api/admin/admin.module";
+
+/**
+ * Explore Module
+ * 整合 YouTube 相关功能：字幕获取、PDF导出、视频管理
+ */
+@Module({
+  imports: [PrismaModule, forwardRef(() => AdminModule)],
+  controllers: [YoutubeController, YoutubeVideosController],
+  providers: [YoutubeService, PdfGeneratorService, YoutubeVideosService],
+  exports: [YoutubeService, PdfGeneratorService, YoutubeVideosService],
+})
+export class ExploreModule {}

@@ -24,10 +24,10 @@ import { EventsModule } from "./common/events";
 import { CacheModule } from "./common/cache";
 // AI Infrastructure modules
 import { AuthModule } from "./modules/ai-infra/auth/auth.module";
-import { AdminModule } from "./modules/ai-infra/admin/admin.module";
+import { AdminModule } from "./modules/open-api/admin/admin.module";
 import { MonitoringModule } from "./modules/ai-infra/monitoring";
 import { EmailModule } from "./modules/ai-infra/email/email.module";
-import { FeedbackModule } from "./modules/ai-infra/feedback/feedback.module";
+import { FeedbackModule } from "./modules/ai-app/feedback/feedback.module";
 import { NotificationModule } from "./modules/ai-infra/notifications/notification.module";
 import { ReleaseModule } from "./modules/ai-infra/release/release.module";
 import { SettingsModule } from "./modules/ai-infra/settings/settings.module";
@@ -44,28 +44,28 @@ import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
 import { AiSimulationModule } from "./modules/ai-app/simulation/ai-simulation.module";
 import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
 import { AiPlanningModule } from "./modules/ai-app/planning/ai-planning.module";
-import { RAGModule } from "./modules/ai-app/rag/rag.module";
+import { RAGModule } from "./modules/ai-app/library/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
 import { TopicInsightsModule } from "./modules/ai-app/topic-insights";
 import { AiSocialModule } from "./modules/ai-app/social/ai-social.module";
-// Content modules
-import { CollectionsModule } from "./modules/content/collections/collections.module";
-import { CommentsModule } from "./modules/content/comments/comments.module";
-import { ExploreModule } from "./modules/content/explore/explore.module";
-import { FeedModule } from "./modules/content/feed/feed.module";
-import { NotesModule } from "./modules/content/notes/notes.module";
-import { ReportsModule } from "./modules/content/reports/reports.module";
-import { ResourcesModule } from "./modules/content/resources/resources.module";
-import { WorkspaceModule } from "./modules/content/workspace/workspace.module";
-// Content modules (additional)
-import { KnowledgeGraphModule } from "./modules/content/knowledge-graph/knowledge-graph.module";
-import { RecommendationsModule } from "./modules/content/recommendations/recommendations.module";
-// Ingestion modules
-import { CrawlersModule } from "./modules/ingestion/crawlers/crawlers.module";
-import { SourcesModule } from "./modules/ingestion/sources/sources.module";
-import { IngestionConfigModule } from "./modules/ingestion/config/config.module";
-import { SchedulerModule } from "./modules/ingestion/scheduler/scheduler.module";
+// Library modules (content)
+import { CollectionsModule } from "./modules/ai-app/library/collections/collections.module";
+import { CommentsModule } from "./modules/ai-app/library/comments/comments.module";
+import { ExploreModule } from "./modules/ai-app/library/explore/explore.module";
+import { FeedModule } from "./modules/ai-app/library/feed/feed.module";
+import { NotesModule } from "./modules/ai-app/library/notes/notes.module";
+import { ReportsModule } from "./modules/ai-app/library/reports/reports.module";
+import { ResourcesModule } from "./modules/ai-app/library/resources/resources.module";
+import { WorkspaceModule } from "./modules/ai-app/library/workspace/workspace.module";
+// Library modules (additional content)
+import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/knowledge-graph.module";
+import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
+// Library modules (ingestion)
+import { CrawlersModule } from "./modules/ai-app/library/ingestion/crawlers/crawlers.module";
+import { SourcesModule } from "./modules/ai-app/library/ingestion/sources/sources.module";
+import { IngestionConfigModule } from "./modules/ai-app/library/ingestion/config/config.module";
+import { SchedulerModule } from "./modules/ai-app/library/ingestion/scheduler/scheduler.module";
 // Integration modules
 import { ProxyModule } from "./modules/ai-infra/integrations/proxy/proxy.module";
 import { FeishuModule } from "./modules/ai-infra/integrations/feishu/feishu.module";

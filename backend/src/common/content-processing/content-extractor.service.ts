@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { YoutubeService } from "../../modules/content/explore/youtube.service";
+import { YoutubeService } from "../../modules/ai-app/library/explore/youtube.service";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -609,7 +609,7 @@ export class ContentExtractorService {
         const page = await pdfDocument.getPage(i);
         const textContent = await page.getTextContent();
         const pageText = textContent.items
-          .map((item: any) => item.str)
+          .map((item) => (item as { str?: string }).str)
           .join(" ");
 
         fullText += `--- Page ${i} ---\n${pageText}\n\n`;
@@ -733,7 +733,7 @@ export class ContentExtractorService {
   /**
    * 扁平化 JSON 对象为文本
    */
-  private flattenJson(obj: any, prefix = ""): string {
+  private flattenJson(obj: unknown, prefix = ""): string {
     const result: string[] = [];
 
     if (typeof obj === "string") {
@@ -747,8 +747,9 @@ export class ContentExtractorService {
     }
 
     if (typeof obj === "object" && obj !== null) {
-      for (const key of Object.keys(obj)) {
-        const value = obj[key];
+      const record = obj as Record<string, unknown>;
+      for (const key of Object.keys(record)) {
+        const value = record[key];
         const newPrefix = prefix ? `${prefix}.${key}` : key;
 
         if (typeof value === "object") {

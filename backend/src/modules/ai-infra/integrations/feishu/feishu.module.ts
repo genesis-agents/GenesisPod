@@ -7,7 +7,7 @@ import { FeishuAuthService } from "./feishu-auth.service";
 import { FeishuCryptoService } from "./feishu-crypto.service";
 import { FeishuDataSourceService } from "./feishu-data-source.service";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { RAGModule } from "../../../ai-app/rag/rag.module";
+import { RAGModule } from "../../../ai-app/library/rag/rag.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 
 @Module({
