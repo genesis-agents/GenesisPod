@@ -1,6 +1,6 @@
 {
   "name": "genesis-ai",
-  "version": "3.74.0",
+  "version": "4.1.0",
   "description": "Genesis.ai - AI驱动的智能研究平台",
   "private": true,
   "workspaces": [
