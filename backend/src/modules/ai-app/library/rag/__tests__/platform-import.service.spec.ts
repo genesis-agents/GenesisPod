@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { PlatformImportService } from "../services/platform-import.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../services/knowledge-base.service";
 import { UrlFetchService } from "../services/url-fetch.service";
 

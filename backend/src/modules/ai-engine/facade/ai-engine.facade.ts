@@ -183,8 +183,10 @@ import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 import { TeamFactory } from "../teams/factory/team-factory";
-import { LongContentEngineService } from "../content/long-form/services/long-content-engine.service";
-import { ContinuationProtocolService } from "../content/long-form/services/continuation-protocol.service";
+// ★ Phase 3: long-form moved to ai-app/writing/content-engine/
+// Use `import type` to prevent circular dep (facade → content-engine → facade)
+import type { LongContentEngineService } from "../../ai-app/writing/content-engine/services/long-content-engine.service";
+import type { ContinuationProtocolService } from "../../ai-app/writing/content-engine/services/continuation-protocol.service";
 import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";

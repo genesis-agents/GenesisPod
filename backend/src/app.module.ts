@@ -66,6 +66,10 @@ import { CrawlersModule } from "./modules/ai-app/admin/ingestion/crawlers/crawle
 import { SourcesModule } from "./modules/ai-app/admin/ingestion/sources/sources.module";
 import { IngestionConfigModule } from "./modules/ai-app/admin/ingestion/config/config.module";
 import { SchedulerModule } from "./modules/ai-app/admin/ingestion/scheduler/scheduler.module";
+// Content modules (Phase 3: moved from ai-engine to ai-app)
+import { LongContentModule } from "./modules/ai-app/writing/content-engine/long-content.module";
+import { ContentAnalysisModule } from "./modules/ai-app/office/content-analysis/content-analysis.module";
+import { SynthesisModule } from "./modules/ai-app/office/content-synthesis/synthesis.module";
 // Integration modules
 import { ProxyModule } from "./modules/ai-app/library/proxy/proxy.module";
 import { FeishuModule } from "./modules/ai-app/library/integrations/feishu/feishu.module";
@@ -160,6 +164,10 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
     ResearchModule, // Deep Research 模块 (Deep Research + Notebook Research)
     TopicInsightsModule, // Topic Insights 专题洞察模块 (从 Research 拆分)
     AiSocialModule, // AI 社交媒体发布模块
+    // Content engine modules (Phase 3: moved from ai-engine)
+    LongContentModule,
+    ContentAnalysisModule,
+    SynthesisModule,
     // Content modules
     ResourcesModule,
     FeedModule,

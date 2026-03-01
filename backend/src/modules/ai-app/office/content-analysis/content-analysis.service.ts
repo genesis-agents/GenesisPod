@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../facade";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   CONTENT_ANALYSIS_SYSTEM_PROMPT,

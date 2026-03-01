@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PlatformImportService } from "../platform-import.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../knowledge-base.service";
 import { UrlFetchService } from "../url-fetch.service";
 

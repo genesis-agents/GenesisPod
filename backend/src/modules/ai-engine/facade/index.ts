@@ -271,24 +271,9 @@ export {
   PolicyDataService,
 } from "../tools/categories/information/policy";
 
-// Long-content types & services（for writing and teams modules）
-export type {
-  LongContentProjectConfig,
-  TaskExecutionContext,
-  GranularityLevel,
-  TaskCompletionResult,
-  TaskEstimate,
-  TaskDecomposition,
-  DecompositionValidation,
-  ContinuationState,
-  ExpectedOutput,
-  QualityDashboard,
-} from "../content/long-form";
-export { LongContentEngineService } from "../content/long-form/services/long-content-engine.service";
-export { ContinuationProtocolService } from "../content/long-form/services/continuation-protocol.service";
-export { TaskGranularityService } from "../content/long-form/services/task-granularity.service";
-export { SlidingWindowContextService } from "../content/long-form/services/sliding-window-context.service";
-export { QualityMonitorService } from "../content/long-form/services/quality-monitor.service";
+// ★ Phase 3: long-form moved to ai-app/writing/content-engine/
+// All re-exports removed (barrel triggers circular dep at runtime).
+// Consumers should import directly from ai-app/writing/content-engine/.
 
 // ★ Agent/Tool base classes live in facade/base-classes.ts (轻量子模块，零循环依赖)
 // 用法: import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
@@ -330,8 +315,9 @@ export type {
   ImagePrompt,
   ImageMatchingResult,
 } from "../content/image/matching";
-export { ContentAnalysisService } from "../content/analysis/content-analysis.service";
-export * from "../content/analysis/content-analysis.types";
+// ★ Phase 3: analysis moved to ai-app/office/content-analysis/
+// ContentAnalysisService removed from facade re-exports (circular dep prevention).
+// Consumers should import from ai-app/office/content-analysis/ directly.
 
 // ★ Feature Token constants & interfaces（for DI consumers and module wiring）
 export {

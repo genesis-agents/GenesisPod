@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { KnowledgeBaseService } from "../knowledge-base.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { DocumentProcessorService } from "../document-processor.service";
 import { EmbeddingProcessorService } from "../embedding-processor.service";
 import { KnowledgeBaseStatus, KnowledgeBaseSourceType } from "@prisma/client";

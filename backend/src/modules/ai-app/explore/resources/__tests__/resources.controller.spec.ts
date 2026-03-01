@@ -5,11 +5,11 @@ import { ResourcesService } from "../resources.service";
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
-import { R2StorageService } from "../../../ai-infra/storage/r2-storage.service";
+import { R2StorageService } from "../../../../ai-infra/storage/r2-storage.service";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 // Guard mock – allow all requests through in tests
-jest.mock("../../../../common/guards/jwt-auth.guard", () => ({
+jest.mock("../../../../../common/guards/jwt-auth.guard", () => ({
   JwtAuthGuard: jest.fn().mockImplementation(() => ({
     canActivate: jest.fn().mockReturnValue(true),
   })),

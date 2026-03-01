@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DocumentProcessorService } from "../services/document-processor.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseStatus } from "@prisma/client";
 
 describe("DocumentProcessorService", () => {

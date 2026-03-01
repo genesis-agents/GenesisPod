@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentAnalysisService } from "../content-analysis.service";
-import { AIEngineFacade } from "../../../facade";
+import { AIEngineFacade } from "../../../../ai-engine/facade";
 import {
   ContentCategory,
   ContentComplexity,

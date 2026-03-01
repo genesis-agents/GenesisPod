@@ -5,8 +5,8 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { ReportsService } from "../reports.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ExportOrchestratorService } from "../../../../common/export";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { ExportOrchestratorService } from "../../../../../common/export";
 import { ExportFormat } from "@prisma/client";
 
 // Mock axios module

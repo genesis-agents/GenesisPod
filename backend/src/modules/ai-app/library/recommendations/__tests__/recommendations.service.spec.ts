@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RecommendationsService } from "../recommendations.service.postgres";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { GraphService } from "../../../../common/graph/graph.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { GraphService } from "../../../../../common/graph/graph.service";
 
 const makeResource = (id: string, overrides: Record<string, unknown> = {}) => ({
   id,

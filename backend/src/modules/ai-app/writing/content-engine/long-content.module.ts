@@ -15,6 +15,10 @@ import { ContinuationProtocolService } from "./services/continuation-protocol.se
 import { SlidingWindowContextService } from "./services/sliding-window-context.service";
 import { QualityMonitorService } from "./services/quality-monitor.service";
 import { LongContentEngineService } from "./services/long-content-engine.service";
+import {
+  LONG_CONTENT_ENGINE_TOKEN,
+  CONTINUATION_PROTOCOL_TOKEN,
+} from "../../../ai-engine/facade/facade.providers";
 
 @Module({
   providers: [
@@ -23,6 +27,15 @@ import { LongContentEngineService } from "./services/long-content-engine.service
     SlidingWindowContextService,
     QualityMonitorService,
     LongContentEngineService,
+    // String-token aliases for cross-layer DI via facade ContentFeature
+    {
+      provide: LONG_CONTENT_ENGINE_TOKEN,
+      useExisting: LongContentEngineService,
+    },
+    {
+      provide: CONTINUATION_PROTOCOL_TOKEN,
+      useExisting: ContinuationProtocolService,
+    },
   ],
   exports: [
     TaskGranularityService,
@@ -30,6 +43,8 @@ import { LongContentEngineService } from "./services/long-content-engine.service
     SlidingWindowContextService,
     QualityMonitorService,
     LongContentEngineService,
+    LONG_CONTENT_ENGINE_TOKEN,
+    CONTINUATION_PROTOCOL_TOKEN,
   ],
 })
 export class LongContentModule {}

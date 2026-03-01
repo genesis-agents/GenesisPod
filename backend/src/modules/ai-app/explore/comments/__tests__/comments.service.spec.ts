@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { CommentsService } from "../comments.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { CreateCommentDto } from "../dto/create-comment.dto";
 import { UpdateCommentDto } from "../dto/update-comment.dto";
 

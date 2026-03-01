@@ -1,7 +1,7 @@
 /**
- * ContentAnalysisService - Re-export from AI Engine
+ * ContentAnalysisService - Re-export from content-analysis module
  *
- * Migrated to AI Engine for cross-module reuse.
- * This file re-exports for backward compatibility.
+ * Phase 3: Moved from ai-engine/content/analysis/ to ai-app/office/content-analysis/
+ * This file re-exports for backward compatibility within office/common/.
  */
-export { ContentAnalysisService } from "../../../ai-engine/facade";
+export { ContentAnalysisService } from "../content-analysis/content-analysis.service";

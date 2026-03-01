@@ -1,5 +1,5 @@
 // Mock BillingContext before any imports to avoid real async-local-storage usage
-jest.mock("../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../../ai-infra/credits/billing-context", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
   },
@@ -9,7 +9,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { UnauthorizedException } from "@nestjs/common";
 import { NotesController } from "../notes.controller";
 import { NotesService } from "../notes.service";
-import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

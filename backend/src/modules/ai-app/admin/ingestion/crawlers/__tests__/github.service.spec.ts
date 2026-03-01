@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { GithubService } from "../github.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../common/mongodb/mongodb.service.postgres";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
 import { DeduplicationService } from "../deduplication.service";
 
 // Mock axios at module level

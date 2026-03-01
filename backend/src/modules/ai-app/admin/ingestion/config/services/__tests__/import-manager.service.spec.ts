@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { ImportManagerService } from "../import-manager.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
+import { MongoDBService } from "../../../../../../../common/mongodb/mongodb.service.postgres";
 import { MetadataExtractorService } from "../metadata-extractor.service";
 import { DuplicateDetectorService } from "../duplicate-detector.service";
 import { PaperMetadataExtractorService } from "../paper-metadata-extractor.service";

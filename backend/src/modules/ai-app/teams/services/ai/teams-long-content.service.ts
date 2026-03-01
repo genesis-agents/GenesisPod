@@ -6,6 +6,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { AIEngineFacade } from "../../../../ai-engine/facade";
 import type {
   LongContentProjectConfig,
   TaskExecutionContext,
@@ -17,8 +18,7 @@ import type {
   ContinuationState,
   ExpectedOutput,
   QualityDashboard,
-} from "../../../../ai-engine/facade";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+} from "../../../writing/content-engine";
 
 /**
  * AI Teams 任务配置

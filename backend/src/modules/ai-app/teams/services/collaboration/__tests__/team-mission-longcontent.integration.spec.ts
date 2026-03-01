@@ -28,11 +28,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { TeamMissionService } from "../mission/team-mission.service";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import {
-  LongContentEngineService,
-  ContinuationProtocolService,
-  TaskGranularityService,
-  SlidingWindowContextService,
-  QualityMonitorService,
   AiChatService,
   SearchService,
   CircuitBreakerService,
@@ -40,6 +35,11 @@ import {
   ToolRegistry,
   AIEngineFacade,
 } from "../../../../../ai-engine/facade";
+import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
+import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";
+import { TaskGranularityService } from "../../../../writing/content-engine/services/task-granularity.service";
+import { SlidingWindowContextService } from "../../../../writing/content-engine/services/sliding-window-context.service";
+import { QualityMonitorService } from "../../../../writing/content-engine/services/quality-monitor.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { TopicEventEmitterService } from "../../events";
 import { LeaderModelService } from "../../ai/leader-model.service";

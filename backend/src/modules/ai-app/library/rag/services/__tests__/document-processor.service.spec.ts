@@ -15,10 +15,10 @@ jest.mock("uuid", () => ({ v4: () => "mock-uuid" }));
 import { Test, TestingModule } from "@nestjs/testing";
 import { KnowledgeBaseStatus } from "@prisma/client";
 import { DocumentProcessorService } from "../document-processor.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
 // Mock the ai-engine facade so the import doesn't fail in isolation
-jest.mock("../../../../ai-engine/facade", () => ({
+jest.mock("../../../../../ai-engine/facade", () => ({
   DEFAULT_CHUNKING_CONFIG: {
     parentChunkSize: 2000,
     parentChunkOverlap: 200,

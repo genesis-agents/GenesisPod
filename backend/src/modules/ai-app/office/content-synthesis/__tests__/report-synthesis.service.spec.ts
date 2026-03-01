@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportSynthesisEngine } from "../report-synthesis.service";
-import { AIEngineFacade } from "../../../facade/ai-engine.facade";
+import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
 
 describe("ReportSynthesisEngine", () => {
   let service: ReportSynthesisEngine;

@@ -13,7 +13,7 @@ import {
   SectionFeatures,
   ContentFeatures,
   ParagraphFeatures,
-} from "../../../analysis/content-analysis.types";
+} from "../../../../../ai-app/office/content-analysis/content-analysis.types";
 
 // Helpers for building test fixtures
 

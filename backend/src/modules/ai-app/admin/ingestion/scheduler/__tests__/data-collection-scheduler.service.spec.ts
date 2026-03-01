@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { DataCollectionSchedulerService } from "../data-collection-scheduler.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SettingsService } from "../../../ai-infra/settings/settings.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { SettingsService } from "../../../../../ai-infra/settings/settings.service";
 import { CollectionTaskService } from "../../sources/collection-task.service";
 
 // Mock node-cron dynamic import

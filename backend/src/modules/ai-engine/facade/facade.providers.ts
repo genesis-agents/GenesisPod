@@ -38,8 +38,10 @@ import { TeamFactory } from "../teams/factory/team-factory";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
 // ★ Content Feature 依赖
-import { LongContentEngineService } from "../content/long-form/services/long-content-engine.service";
-import { ContinuationProtocolService } from "../content/long-form/services/continuation-protocol.service";
+// ★ Phase 3: long-form services use forwardRef + lazy require to avoid circular dep
+//   (facade → providers → content-engine services → facade)
+import type { LongContentEngineService } from "../../ai-app/writing/content-engine/services/long-content-engine.service";
+import type { ContinuationProtocolService } from "../../ai-app/writing/content-engine/services/continuation-protocol.service";
 import { ContentFetchService } from "../content/fetch/content-fetch.service";
 // ★ Knowledge Feature 依赖
 import { EmbeddingService } from "../knowledge/rag/embedding";
@@ -48,7 +50,8 @@ import { VectorService } from "../knowledge/rag/vector";
 import { IntentRouterService } from "../orchestration/services/intent-router.service";
 import { ReflectionService } from "../orchestration/services/reflection.service";
 import { ContextCompressionService } from "../orchestration/services/context-compression.service";
-import { ReportSynthesisEngine } from "../content/synthesis/report-synthesis.service";
+// ★ Phase 3: synthesis moved to ai-app/office/content-synthesis/
+import type { ReportSynthesisEngine } from "../../ai-app/office/content-synthesis/report-synthesis.service";
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../knowledge/evidence/services/evidence-manager.service";
 import { VotingManager } from "../agents/collaboration/patterns/voting-pattern";
@@ -394,6 +397,11 @@ export const teamsFeatureProvider: Provider = {
   ],
 };
 
+// ★ String tokens for cross-layer DI (breaks circular dep: facade → content-engine → facade)
+export const LONG_CONTENT_ENGINE_TOKEN = "LongContentEngineService";
+export const CONTINUATION_PROTOCOL_TOKEN = "ContinuationProtocolService";
+export const REPORT_SYNTHESIS_ENGINE_TOKEN = "ReportSynthesisEngine";
+
 export const contentFeatureProvider: Provider = {
   provide: CONTENT_FEATURE,
   useFactory: (
@@ -406,8 +414,8 @@ export const contentFeatureProvider: Provider = {
     return { longContentEngine, continuationProtocol, contentFetch };
   },
   inject: [
-    { token: LongContentEngineService, optional: true },
-    { token: ContinuationProtocolService, optional: true },
+    { token: LONG_CONTENT_ENGINE_TOKEN, optional: true },
+    { token: CONTINUATION_PROTOCOL_TOKEN, optional: true },
     { token: ContentFetchService, optional: true },
   ],
 };
@@ -443,7 +451,7 @@ export const intelligenceFeatureProvider: Provider = {
     { token: IntentRouterService, optional: true },
     { token: ReflectionService, optional: true },
     { token: ContextCompressionService, optional: true },
-    { token: ReportSynthesisEngine, optional: true },
+    { token: REPORT_SYNTHESIS_ENGINE_TOKEN, optional: true },
   ],
 };
 

@@ -1,17 +1,16 @@
 /**
- * Content Analysis Types - Re-export from AI Engine Facade
+ * Content Analysis Types - Re-export from content-analysis module
  *
- * Migrated to AI Engine for cross-module reuse.
- * This file re-exports for backward compatibility.
+ * Phase 3: Moved from ai-engine/content/analysis/ to ai-app/office/content-analysis/
+ * This file re-exports for backward compatibility within office/common/.
  */
-// ★ Named re-exports from facade (NOT export * to avoid leaking 330+ unrelated symbols)
 export {
   ContentComplexity,
   ContentCategory,
   DataDensity,
   TemporalDimension,
   HierarchyType,
-} from "../../../ai-engine/facade";
+} from "../content-analysis/content-analysis.types";
 export type {
   ContentFeatures,
   ExtractedEntity,
@@ -25,4 +24,4 @@ export type {
   MECEValidation,
   SegmentationStrategy,
   ContentSegment,
-} from "../../../ai-engine/facade";
+} from "../content-analysis/content-analysis.types";

@@ -40,10 +40,12 @@ import type {
   MissionEvent,
   MissionResult,
   ConstraintProfile,
+} from "../../../../ai-engine/facade";
+import type {
   LongContentProjectConfig,
   TaskExecutionContext,
   GranularityLevel,
-} from "../../../../ai-engine/facade";
+} from "../../../writing/content-engine";
 import { TeamRegistry, RoleRegistry } from "../../../../ai-engine/facade";
 
 // Writing Agents

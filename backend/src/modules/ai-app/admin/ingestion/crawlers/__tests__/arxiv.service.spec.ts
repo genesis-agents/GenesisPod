@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ArxivService } from "../arxiv.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../common/mongodb/mongodb.service.postgres";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
 import { DeduplicationService } from "../deduplication.service";
 import axios from "axios";
 import * as xml2js from "xml2js";

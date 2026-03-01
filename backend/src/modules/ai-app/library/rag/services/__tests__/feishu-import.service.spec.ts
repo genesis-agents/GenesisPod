@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { FeishuImportService } from "../feishu-import.service";
 import { KnowledgeBaseService } from "../knowledge-base.service";
 import { UrlFetchService } from "../url-fetch.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
 // ==================== Mocks ====================
 

@@ -11,15 +11,12 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamsLongContentService } from "../teams-long-content.service";
-import {
-  LongContentEngineService,
-  ContinuationProtocolService,
-  TaskGranularityService,
-  SlidingWindowContextService,
-  QualityMonitorService,
-  AiChatService,
-  AIEngineFacade,
-} from "../../../../../ai-engine/facade";
+import { AiChatService, AIEngineFacade } from "../../../../../ai-engine/facade";
+import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
+import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";
+import { TaskGranularityService } from "../../../../writing/content-engine/services/task-granularity.service";
+import { SlidingWindowContextService } from "../../../../writing/content-engine/services/sliding-window-context.service";
+import { QualityMonitorService } from "../../../../writing/content-engine/services/quality-monitor.service";
 
 describe("TeamsLongContentService", () => {
   let service: TeamsLongContentService;

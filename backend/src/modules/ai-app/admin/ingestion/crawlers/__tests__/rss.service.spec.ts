@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RssService } from "../rss.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../common/mongodb/mongodb.service.postgres";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
 import { DeduplicationService } from "../deduplication.service";
 
 // Mock fetch globally

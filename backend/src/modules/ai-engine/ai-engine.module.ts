@@ -52,19 +52,17 @@ import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 // Controllers & API Services (only AiCoreController, others in sub-modules)
 import { AiCoreController, AiCoreService } from "./api";
 
-// Content Analysis (migrated from ai-app/office/common)
-import { ContentAnalysisModule } from "./content/analysis/content-analysis.module";
+// ★ Phase 3: ContentAnalysisModule moved to ai-app/office/content-analysis/
 
 // Content Fetch (generic URL fetch capability)
 import { ContentFetchModule } from "./content/fetch/content-fetch.module";
 
-// Synthesis (报告合成通用能力)
-import { SynthesisModule } from "./content/synthesis/synthesis.module";
+// ★ Phase 3: SynthesisModule moved to ai-app/office/content-synthesis/
 
 // Other Modules
 import { ImageModule } from "./content/image/image.module";
 import { TeamsModule } from "./teams/teams.module";
-import { LongContentModule } from "./content/long-form/long-content.module";
+// ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
 import { CreditsModule } from "../ai-infra/credits/credits.module";
 
@@ -133,19 +131,12 @@ import { ITool } from "./tools/abstractions/tool.interface";
     CollaborationModule,
     RealtimeModule,
 
-    // Content Analysis (migrated from ai-app/office/common)
-    ContentAnalysisModule,
-
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
-
-    // Synthesis (报告合成通用能力)
-    SynthesisModule,
 
     // Other Modules
     ImageModule,
     TeamsModule,
-    LongContentModule,
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
@@ -204,19 +195,12 @@ import { ITool } from "./tools/abstractions/tool.interface";
     CollaborationModule,
     RealtimeModule,
 
-    // Content Analysis
-    ContentAnalysisModule,
-
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
-
-    // Synthesis (报告合成通用能力)
-    SynthesisModule,
 
     // Other Modules
     ImageModule,
     TeamsModule,
-    LongContentModule,
     PromptsModule,
 
     // ★ VotingManager 和 HandoffCoordinator 通过 CollaborationModule 导出

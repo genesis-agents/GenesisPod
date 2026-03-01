@@ -13,7 +13,7 @@
  */
 
 import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
-import type { AIEngineFacade } from "../../facade/ai-engine.facade";
+import type { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import { AIModelType } from "@prisma/client";
 import {
   SynthesisSection,
@@ -32,7 +32,10 @@ export class ReportSynthesisEngine {
   constructor(
     // forwardRef breaks the circular import cycle: ReportSynthesisEngine ↔ AIEngineFacade
     @Inject(
-      forwardRef(() => require("../../facade/ai-engine.facade").AIEngineFacade),
+      forwardRef(
+        () =>
+          require("../../../ai-engine/facade/ai-engine.facade").AIEngineFacade,
+      ),
     )
     private readonly aiFacade: AIEngineFacade,
   ) {}

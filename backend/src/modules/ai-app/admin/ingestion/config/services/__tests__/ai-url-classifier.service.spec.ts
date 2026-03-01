@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiUrlClassifierService } from "../ai-url-classifier.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { AIEngineFacade } from "../../../../../../ai-engine/facade";
 
 describe("AiUrlClassifierService", () => {
   let service: AiUrlClassifierService;

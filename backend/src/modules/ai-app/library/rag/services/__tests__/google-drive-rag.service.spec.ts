@@ -16,7 +16,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { GoogleDriveRAGService } from "../google-drive-rag.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../knowledge-base.service";
 import { KnowledgeBaseStatus } from "@prisma/client";
 
