@@ -1,0 +1,900 @@
+/**
+ * ChatFacade — Domain Facade for LLM Chat, Streaming, and Model Operations
+ *
+ * Responsibilities:
+ * - LLM chat (single-model, fallback, streaming, structured output)
+ * - Model selection and configuration queries
+ * - Billing / credits deduction
+ * - Skill-injected chat proxy
+ * - Admin: model listing and connection testing
+ *
+ * @Injectable — registered as a NestJS provider in facade.providers.ts
+ */
+
+import {
+  Injectable,
+  Logger,
+  Optional,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
+import { AiChatService } from "../../llm/services/ai-chat.service";
+import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
+import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.service";
+import { TaskCompletionType } from "../../orchestration/services/circuit-breaker.service";
+import { CreditsService } from "../../../ai-infra/credits/credits.service";
+import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { RequestContext } from "../../../../common/context/request-context";
+import { ModelSubFacade } from "../sub-facades/model.sub-facade";
+import type { ModelResolverService } from "../model-resolver.service";
+import type {
+  OrchestrationFeature,
+  SkillFeature,
+  ConstraintFeature,
+} from "../facade.providers";
+import {
+  ORCHESTRATION_FEATURE,
+  SKILL_FEATURE,
+  CONSTRAINT_FEATURE,
+} from "../facade.providers";
+import type { CreditBillingInfo } from "../types/facade.types";
+import type {
+  ChatRequest,
+  ChatResponse,
+  ModelInfo,
+  ModelSelectionOptions,
+} from "../types";
+import type {
+  ChatWithSkillsRequest,
+  ChatWithSkillsResponse,
+} from "../../skills/types/skill-md.types";
+import type {
+  StructuredChatRequest,
+  StructuredChatResponse,
+} from "../types/facade.types";
+
+/** Skills 系统提示词 Token 预算 */
+const SKILLS_PROMPT_TOKEN_BUDGET = 4000;
+
+@Injectable()
+export class ChatFacade {
+  private readonly logger = new Logger(ChatFacade.name);
+
+  private readonly modelSub: ModelSubFacade;
+
+  constructor(
+    private readonly aiChatService: AiChatService,
+    modelConfigService: AiModelConfigService,
+    @Optional() private readonly modelFallbackService?: ModelFallbackService,
+    @Optional()
+    @Inject(forwardRef(() => CreditsService))
+    private readonly creditsService?: CreditsService,
+    @Optional()
+    @Inject(ORCHESTRATION_FEATURE)
+    private readonly orchestration?: OrchestrationFeature,
+    @Optional()
+    @Inject(SKILL_FEATURE)
+    private readonly skills?: SkillFeature,
+    @Optional()
+    @Inject(CONSTRAINT_FEATURE)
+    private readonly constraint?: ConstraintFeature,
+    @Optional() modelResolver?: ModelResolverService,
+  ) {
+    this.modelSub = new ModelSubFacade(
+      aiChatService,
+      modelConfigService,
+      modelFallbackService,
+      orchestration,
+      modelResolver,
+    );
+  }
+
+  // ==================== Core Chat ====================
+
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    // Step 1: Skill proxy
+    const skillResult = await this.handleSkillProxy(request);
+    if (skillResult !== null) {
+      return skillResult;
+    }
+
+    // Step 2: Resolve model ID
+    const modelId = await this.resolveModelId(request);
+    const entityId = `chat:${modelId}`;
+
+    this.logger.debug(
+      `[chat] modelType=${request.modelType}, model=${modelId}, messages=${request.messages.length}`,
+    );
+
+    // Step 3: Enforce constraints
+    const constraintError = this.enforceRateLimitAndBudget(request, modelId);
+    if (constraintError !== null) {
+      return constraintError;
+    }
+
+    // Step 4: Route to provider
+    if (this.modelFallbackService) {
+      return this.chatWithFallback(request, modelId);
+    }
+
+    return this.chatSingleModel(request, modelId, entityId);
+  }
+
+  private async handleSkillProxy(
+    request: ChatRequest,
+  ): Promise<ChatResponse | null> {
+    if (!(request.domain || request.taskType) || !this.skills) {
+      return null;
+    }
+
+    this.logger.debug(
+      `[chat] Auto-delegating to chatWithSkills (domain=${request.domain}, taskType=${request.taskType})`,
+    );
+
+    const skillResponse = await this.chatWithSkills({
+      messages: request.messages,
+      modelType: request.modelType,
+      model: request.model,
+      taskProfile: request.taskProfile || {
+        creativity: "medium",
+        outputLength: "standard",
+      },
+      maxTokens: request.maxTokens,
+      temperature: request.temperature,
+      strictMode: request.strictMode,
+      domain: request.domain || "common",
+      taskType: request.taskType || "general",
+      additionalSkills: request.additionalSkills,
+      skillContext: request.skillContext,
+    });
+
+    return {
+      content: skillResponse.content,
+      model: skillResponse.model,
+      tokensUsed: skillResponse.tokensUsed,
+      isError: skillResponse.isError,
+    };
+  }
+
+  private async resolveModelId(request: ChatRequest): Promise<string> {
+    if (request.model) {
+      return request.model;
+    }
+
+    if (request.modelType) {
+      const defaultModel = await this.aiChatService.getDefaultModelByType(
+        request.modelType as AIModelType,
+      );
+      if (defaultModel) {
+        return defaultModel.modelId;
+      }
+    }
+
+    return "default";
+  }
+
+  private enforceRateLimitAndBudget(
+    request: ChatRequest,
+    modelId: string,
+  ): ChatResponse | null {
+    if (this.constraint?.rateLimiter) {
+      const rateLimitKey = request.billing?.userId || "global";
+      const rateLimitResult = this.constraint.rateLimiter.check(rateLimitKey);
+      if (!rateLimitResult.allowed) {
+        this.logger.warn(
+          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rateLimitResult.retryAfter}ms`,
+        );
+        return {
+          content: `Rate limit exceeded. Please try again in ${Math.ceil((rateLimitResult.retryAfter || 0) / 1000)} seconds.`,
+          model: modelId,
+          tokensUsed: 0,
+          isError: true,
+        };
+      }
+      this.constraint.rateLimiter.consume(rateLimitKey);
+    }
+
+    if (this.constraint?.costController) {
+      const budgetCheck = this.constraint.costController.checkBudget(0.01);
+      if (!budgetCheck.allowed) {
+        this.logger.warn(`[chat] Budget exceeded: ${budgetCheck.reason}`);
+        return {
+          content: `Budget limit exceeded: ${budgetCheck.reason}`,
+          model: modelId,
+          tokensUsed: 0,
+          isError: true,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  private async chatWithFallback(
+    request: ChatRequest,
+    preferredModelId: string,
+  ): Promise<ChatResponse> {
+    const startTime = Date.now();
+
+    const fallbackResult = await this.modelFallbackService!.executeWithFallback(
+      preferredModelId,
+      async (modelConfig) => {
+        const result = await this.aiChatService.chat({
+          messages: request.messages,
+          systemPrompt: request.systemPrompt,
+          modelType: request.modelType || AIModelType.CHAT,
+          taskProfile: request.taskProfile,
+          model: modelConfig.modelId,
+          maxTokens: request.maxTokens,
+          temperature: request.temperature,
+          strictMode: true,
+          userId: request.billing?.userId ?? RequestContext.getUserId(),
+          processId: request.processId,
+        });
+
+        if (result.isError) {
+          throw new Error(result.content);
+        }
+
+        return result;
+      },
+      {
+        modelType: request.modelType || AIModelType.CHAT,
+        operation: "facade_chat",
+        maxRetries: 1,
+        maxModelSwitches: 3,
+      },
+    );
+
+    const duration = Date.now() - startTime;
+
+    if (fallbackResult.fallbackUsed) {
+      this.logger.warn(
+        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" → ")} (${fallbackResult.attempts} attempts, ${duration}ms)`,
+      );
+    }
+
+    if (fallbackResult.success && fallbackResult.data) {
+      const result = fallbackResult.data;
+      const tokensUsed = result.usage?.totalTokens || 0;
+
+      const entityId = `chat:${result.model}`;
+      this.orchestration?.circuitBreaker?.recordSuccess(entityId, duration);
+
+      await this.handleBilling(
+        request,
+        result.apiKeySource,
+        tokensUsed,
+        result.model,
+      );
+
+      this.logger.log(
+        `[chat] Completed in ${duration}ms, model=${result.model}, tokens=${tokensUsed}${fallbackResult.fallbackUsed ? " (fallback)" : ""}`,
+      );
+
+      return {
+        content: result.content,
+        model: result.model,
+        tokensUsed,
+        isError: false,
+      };
+    }
+
+    const errorMsg = fallbackResult.error?.message || "All models failed";
+    this.logger.error(
+      `[chat] All models failed after ${duration}ms (tried: ${fallbackResult.attemptedModels.join(", ")}): ${errorMsg}`,
+    );
+
+    if (request.strictMode) {
+      throw new Error(errorMsg);
+    }
+
+    return {
+      content: `Error: ${errorMsg}`,
+      model: fallbackResult.modelUsed || preferredModelId,
+      tokensUsed: 0,
+      isError: true,
+    };
+  }
+
+  private async chatSingleModel(
+    request: ChatRequest,
+    modelId: string,
+    entityId: string,
+  ): Promise<ChatResponse> {
+    if (
+      this.orchestration?.circuitBreaker &&
+      !this.orchestration.circuitBreaker.canExecute(entityId)
+    ) {
+      const cooldown =
+        this.orchestration.circuitBreaker.getCooldownRemaining(entityId);
+      this.logger.warn(
+        `[chat] Circuit breaker OPEN for ${entityId}, cooldown=${cooldown}ms`,
+      );
+      return {
+        content: `Service temporarily unavailable. Please try again in ${Math.ceil(cooldown / 1000)} seconds.`,
+        model: modelId,
+        tokensUsed: 0,
+        isError: true,
+      };
+    }
+
+    const startTime = Date.now();
+
+    try {
+      this.orchestration?.circuitBreaker?.incrementLoad(entityId);
+
+      const result = await this.aiChatService.chat({
+        messages: request.messages,
+        systemPrompt: request.systemPrompt,
+        modelType: request.modelType || AIModelType.CHAT,
+        taskProfile: request.taskProfile,
+        model: request.model,
+        maxTokens: request.maxTokens,
+        temperature: request.temperature,
+        strictMode: request.strictMode,
+        userId: request.billing?.userId ?? RequestContext.getUserId(),
+        processId: request.processId,
+      });
+
+      const duration = Date.now() - startTime;
+
+      if (!result.isError) {
+        this.orchestration?.circuitBreaker?.recordSuccess(entityId, duration);
+      } else {
+        this.orchestration?.circuitBreaker?.recordFailure(
+          entityId,
+          TaskCompletionType.API_ERROR,
+          result.content.slice(0, 100),
+        );
+      }
+
+      const tokensUsed = result.usage?.totalTokens || 0;
+
+      if (!result.isError) {
+        await this.handleBilling(
+          request,
+          result.apiKeySource,
+          tokensUsed,
+          result.model,
+        );
+      }
+
+      return {
+        content: result.content,
+        model: result.model,
+        tokensUsed,
+        isError: result.isError,
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      const errorType =
+        this.orchestration?.circuitBreaker?.parseErrorType(errorMsg) ||
+        TaskCompletionType.API_ERROR;
+      this.orchestration?.circuitBreaker?.recordFailure(
+        entityId,
+        errorType,
+        errorMsg,
+      );
+
+      this.logger.error(`[chat] Failed after ${duration}ms: ${errorMsg}`);
+
+      if (request.strictMode) {
+        throw error;
+      }
+
+      return {
+        content: `Error: ${errorMsg}`,
+        model: modelId,
+        tokensUsed: 0,
+        isError: true,
+      };
+    } finally {
+      this.orchestration?.circuitBreaker?.decrementLoad(entityId);
+    }
+  }
+
+  // ==================== chatWithSkills ====================
+
+  async chatWithSkills(
+    request: ChatWithSkillsRequest,
+  ): Promise<ChatWithSkillsResponse> {
+    this.logger.log(
+      `[Skills] chatWithSkills START: taskType="${request.taskType}", domain="${request.domain}"`,
+    );
+
+    if (!this.skills?.loader || !this.skills?.promptBuilder) {
+      this.logger.warn(
+        "[Skills] Skills services not available, falling back to plain chat",
+      );
+      const result = await this.chat({
+        messages: request.messages,
+        modelType: request.modelType as AIModelType,
+        model: request.model,
+        taskProfile: request.taskProfile,
+        maxTokens: request.maxTokens,
+        temperature: request.temperature,
+        strictMode: request.strictMode,
+      });
+
+      return {
+        content: result.content,
+        model: result.model,
+        tokensUsed: result.tokensUsed,
+        isError: result.isError,
+        usedSkills: [],
+        skillsTokensUsed: 0,
+      };
+    }
+
+    const skills = await this.skills.loader.getSkillsForTask({
+      taskType: request.taskType,
+      domain: request.domain,
+      additionalSkillIds: request.additionalSkills,
+      maxTokenBudget: SKILLS_PROMPT_TOKEN_BUDGET,
+    });
+
+    const buildResult = this.skills.promptBuilder.buildSystemPrompt(skills, {
+      context: request.skillContext,
+      maxTokens: SKILLS_PROMPT_TOKEN_BUDGET,
+      includeMetadata: false,
+    });
+
+    const messagesWithSkills = [
+      ...(buildResult.prompt
+        ? [{ role: "system" as const, content: buildResult.prompt }]
+        : []),
+      ...request.messages,
+    ];
+
+    const result = await this.chat({
+      messages: messagesWithSkills,
+      modelType: request.modelType as AIModelType,
+      model: request.model,
+      taskProfile: request.taskProfile,
+      maxTokens: request.maxTokens,
+      temperature: request.temperature,
+      strictMode: request.strictMode,
+    });
+
+    this.logger.log(
+      `[Skills] chatWithSkills COMPLETE: ${buildResult.usedSkills.length} skills, ${buildResult.estimatedTokens} skill tokens`,
+    );
+
+    return {
+      content: result.content,
+      model: result.model,
+      tokensUsed: result.tokensUsed,
+      isError: result.isError,
+      usedSkills: buildResult.usedSkills,
+      skillsTokensUsed: buildResult.estimatedTokens,
+    };
+  }
+
+  // ==================== Streaming ====================
+
+  async *chatStream(
+    request: ChatRequest,
+  ): AsyncGenerator<
+    { content: string; done: boolean; error?: string },
+    void,
+    unknown
+  > {
+    this.logger.debug(
+      `[chatStream] modelType=${request.modelType}, messages=${request.messages.length}`,
+    );
+
+    const modelId = request.model || request.modelType || "default";
+    const entityId = `chat:${modelId}`;
+
+    if (
+      this.orchestration?.circuitBreaker &&
+      !this.orchestration.circuitBreaker.canExecute(entityId)
+    ) {
+      const cooldown =
+        this.orchestration.circuitBreaker.getCooldownRemaining(entityId);
+      this.logger.warn(
+        `[chatStream] Circuit breaker OPEN for ${entityId}, cooldown=${cooldown}ms`,
+      );
+      yield {
+        content: `Service temporarily unavailable. Please try again in ${Math.ceil(cooldown / 1000)} seconds.`,
+        done: true,
+        error: "CIRCUIT_BREAKER_OPEN",
+      };
+      return;
+    }
+
+    try {
+      this.orchestration?.circuitBreaker?.incrementLoad(entityId);
+
+      let streamApiKeySource: string | undefined;
+      let tokensUsed = 0;
+      let accumulatedContentLength = 0;
+
+      for await (const chunk of this.aiChatService.chatStream({
+        messages: request.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        model: request.model,
+        modelType: request.modelType,
+        taskProfile: request.taskProfile,
+        systemPrompt: request.systemPrompt,
+        maxTokens: request.maxTokens,
+        temperature: request.temperature,
+        userId: request.billing?.userId ?? RequestContext.getUserId(),
+      })) {
+        if (chunk.apiKeySource) {
+          streamApiKeySource = chunk.apiKeySource;
+        }
+
+        if (chunk.usage) {
+          tokensUsed = chunk.usage.totalTokens;
+        }
+
+        if (chunk.content) {
+          accumulatedContentLength += chunk.content.length;
+        }
+
+        yield { content: chunk.content, done: chunk.done, error: chunk.error };
+
+        if (chunk.error) {
+          this.orchestration?.circuitBreaker?.recordFailure(
+            entityId,
+            TaskCompletionType.API_ERROR,
+            chunk.error,
+          );
+        }
+      }
+
+      if (tokensUsed === 0 && accumulatedContentLength > 0) {
+        const estimatedCompletionTokens = Math.ceil(
+          accumulatedContentLength / 4,
+        );
+        const estimatedPromptTokens = Math.ceil(
+          request.messages.reduce((sum, m) => sum + m.content.length, 0) / 4,
+        );
+        tokensUsed = estimatedCompletionTokens + estimatedPromptTokens;
+      }
+
+      this.orchestration?.circuitBreaker?.recordSuccess(entityId, 0);
+
+      await this.handleBilling(
+        request,
+        streamApiKeySource,
+        tokensUsed,
+        request.model || "unknown",
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.orchestration?.circuitBreaker?.recordFailure(
+        entityId,
+        TaskCompletionType.API_ERROR,
+        errorMsg,
+      );
+
+      this.logger.error(`[chatStream] Stream failed: ${errorMsg}`);
+      yield { content: "", done: true, error: errorMsg };
+    } finally {
+      this.orchestration?.circuitBreaker?.decrementLoad(entityId);
+    }
+  }
+
+  // ==================== Structured Output ====================
+
+  async chatStructured<T>(
+    request: StructuredChatRequest,
+  ): Promise<StructuredChatResponse<T>> {
+    const maxRetries = request.maxRetries ?? 1;
+    const throwOnParseError = request.throwOnParseError ?? true;
+
+    const schemaInstruction = [
+      "You MUST respond with ONLY valid JSON matching this schema:",
+      "```json",
+      JSON.stringify(request.schema, null, 2),
+      "```",
+      "No markdown fences, no extra text, no explanation. ONLY the JSON object.",
+    ].join("\n");
+
+    const systemPrompt = request.systemPrompt
+      ? `${request.systemPrompt}\n\n${schemaInstruction}`
+      : schemaInstruction;
+
+    let lastError: Error | undefined;
+    let totalTokens = 0;
+    let lastModel = "";
+    let lastRawContent = "";
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const chatRequest: ChatRequest = {
+        ...request,
+        systemPrompt:
+          attempt > 0
+            ? `${systemPrompt}\n\nYour previous response was not valid JSON. Return ONLY the JSON object.`
+            : systemPrompt,
+        taskProfile: request.taskProfile || {
+          creativity: "deterministic",
+          outputLength: "medium",
+        },
+        strictMode: true,
+      };
+
+      const response = await this.chat(chatRequest);
+      totalTokens += response.tokensUsed;
+      lastModel = response.model;
+      lastRawContent = response.content;
+
+      if (response.isError) {
+        lastError = new Error(response.content);
+        continue;
+      }
+
+      try {
+        const cleaned = this.extractJson(response.content);
+        const parsed = JSON.parse(cleaned) as T;
+
+        return {
+          data: parsed,
+          rawContent: response.content,
+          model: response.model,
+          tokensUsed: totalTokens,
+          retriedParse: attempt > 0,
+        };
+      } catch (parseError) {
+        lastError =
+          parseError instanceof Error
+            ? parseError
+            : new Error(String(parseError));
+        this.logger.warn(
+          `[chatStructured] JSON parse failed (attempt ${attempt + 1}/${maxRetries + 1}): ${lastError.message}`,
+        );
+      }
+    }
+
+    if (throwOnParseError) {
+      throw new Error(
+        `Structured output parse failed after ${maxRetries + 1} attempts: ${lastError?.message}`,
+      );
+    }
+
+    return {
+      data: {} as T,
+      rawContent: lastRawContent,
+      model: lastModel,
+      tokensUsed: totalTokens,
+      retriedParse: true,
+    };
+  }
+
+  private extractJson(content: string): string {
+    let cleaned = content.trim();
+
+    const jsonBlockMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+    if (jsonBlockMatch) {
+      cleaned = jsonBlockMatch[1].trim();
+    }
+
+    const firstBrace = cleaned.indexOf("{");
+    const firstBracket = cleaned.indexOf("[");
+    const start = Math.min(
+      firstBrace >= 0 ? firstBrace : Infinity,
+      firstBracket >= 0 ? firstBracket : Infinity,
+    );
+
+    if (start !== Infinity && start > 0) {
+      cleaned = cleaned.substring(start);
+    }
+
+    const lastBrace = cleaned.lastIndexOf("}");
+    const lastBracket = cleaned.lastIndexOf("]");
+    const end = Math.max(lastBrace, lastBracket);
+
+    if (end >= 0 && end < cleaned.length - 1) {
+      cleaned = cleaned.substring(0, end + 1);
+    }
+
+    return cleaned;
+  }
+
+  // ==================== Billing ====================
+
+  private resolveBillingFromContext(): CreditBillingInfo | undefined {
+    const ctx = BillingContext.get();
+    if (ctx) {
+      return {
+        userId: ctx.userId,
+        moduleType: ctx.moduleType,
+        operationType: ctx.operationType,
+        referenceId: ctx.referenceId,
+        description: ctx.description,
+      };
+    }
+
+    const userId = RequestContext.getUserId();
+    if (!userId) return undefined;
+    this.logger.warn(
+      `[Billing] Fallback billing context used — caller did not set BillingContext. userId=${userId}`,
+    );
+    return {
+      userId,
+      moduleType: "ai-ask",
+      operationType: "chat",
+    };
+  }
+
+  private async handleBilling(
+    request: ChatRequest,
+    apiKeySource: string | undefined,
+    tokensUsed: number,
+    modelName: string,
+  ): Promise<void> {
+    if (apiKeySource === "personal") {
+      this.logger.debug(`[Billing] Skipped: user is using personal API key`);
+      return;
+    }
+    const billing = request.billing ?? this.resolveBillingFromContext();
+    if (!billing || !this.creditsService) return;
+    try {
+      await this.creditsService.consumeCredits({
+        userId: billing.userId,
+        moduleType: billing.moduleType,
+        operationType: billing.operationType,
+        tokenCount: tokensUsed,
+        modelName,
+        referenceId: billing.referenceId,
+        description: billing.description,
+      });
+    } catch (creditError) {
+      this.logger.warn(`[Billing] Failed to deduct credits: ${creditError}`);
+    }
+  }
+
+  // ==================== Model Selection & Config ====================
+
+  async selectModel(
+    options: ModelSelectionOptions = {},
+  ): Promise<ModelInfo | null> {
+    return this.modelSub.selectModel(options);
+  }
+
+  async getReasoningModel(): Promise<ModelInfo | null> {
+    return this.modelSub.getReasoningModel();
+  }
+
+  async getAvailableModelsExtended(
+    modelType: AIModelType = AIModelType.CHAT,
+  ): Promise<ModelInfo[]> {
+    return this.modelSub.getAvailableModelsExtended(modelType);
+  }
+
+  async getAvailableModels(modelType: AIModelType = AIModelType.CHAT): Promise<
+    Array<{
+      id: string;
+      dbId?: string;
+      name: string;
+      provider: string;
+      icon?: string | null;
+      isDefault?: boolean;
+    }>
+  > {
+    return this.modelSub.getAvailableModels(modelType);
+  }
+
+  async getDefaultTextModel(): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+  } | null> {
+    return this.modelSub.getDefaultTextModel();
+  }
+
+  async getDefaultImageModel(): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+  } | null> {
+    return this.modelSub.getDefaultImageModel();
+  }
+
+  async getModelById(idOrModelId: string): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+    apiEndpoint?: string;
+    isReasoning?: boolean;
+    apiKey?: string | null;
+    secretKey?: string | null;
+    modelType?: string;
+  } | null> {
+    return this.modelSub.getModelById(idOrModelId);
+  }
+
+  async getFullModelConfig(modelId: string): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    name: string;
+    provider: string;
+    apiKey: string;
+    secretKey?: string | null;
+    apiEndpoint?: string | null;
+    maxTokens?: number | null;
+    temperature?: number | null;
+    isEnabled: boolean;
+    isDefault: boolean;
+    isReasoning?: boolean;
+    apiFormat?: string | null;
+    supportsTemperature?: boolean;
+    supportsStreaming?: boolean;
+    supportsFunctionCalling?: boolean;
+    supportsVision?: boolean;
+    tokenParamName?: string | null;
+    defaultTimeoutMs?: number | null;
+    priceInputPerMillion?: number | null;
+    priceOutputPerMillion?: number | null;
+    priority?: number | null;
+  } | null> {
+    return this.modelSub.getFullModelConfig(modelId);
+  }
+
+  async getDefaultModelByType(modelType: AIModelType): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+  } | null> {
+    return this.modelSub.getDefaultModelByType(modelType);
+  }
+
+  // ==================== Admin: Model Management ====================
+
+  async fetchAvailableModels(
+    provider: string,
+    apiKey: string,
+    apiEndpoint?: string,
+    modelType?: string,
+  ): Promise<{
+    success: boolean;
+    models?: Array<{ id: string; name: string; description?: string }>;
+    error?: string;
+  }> {
+    this.logger.log(
+      `[fetchAvailableModels] provider=${provider}, modelType=${modelType}`,
+    );
+    return this.aiChatService.fetchAvailableModels(
+      provider,
+      apiKey,
+      apiEndpoint,
+      modelType,
+    );
+  }
+
+  async testModelConnectionWithKey(
+    provider: string,
+    modelId: string,
+    apiKey: string,
+    apiEndpoint: string,
+    modelType?: string,
+  ): Promise<{ success: boolean; message: string; latency?: number }> {
+    this.logger.log(
+      `[testModelConnectionWithKey] provider=${provider}, modelId=${modelId}`,
+    );
+    return this.aiChatService.testModelConnectionWithKey(
+      provider,
+      modelId,
+      apiKey,
+      apiEndpoint,
+      modelType,
+    );
+  }
+}

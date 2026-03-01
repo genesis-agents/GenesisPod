@@ -98,6 +98,13 @@ import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 import { ModelResolverService } from "./facade/model-resolver.service";
 
+// ★ Phase 5: Domain Facades
+import { ChatFacade } from "./facade/domain/chat.facade";
+import { RAGFacade } from "./facade/domain/rag.facade";
+import { AgentFacade } from "./facade/domain/agent.facade";
+import { TeamFacade } from "./facade/domain/team.facade";
+import { ToolFacade } from "./facade/domain/tool.facade";
+
 // SKILL.md Runtime (PromptSkillBridge + InputBindingResolver)
 import { PromptSkillBridge } from "./skills/runtime/prompt-skill-bridge.service";
 import { InputBindingResolver } from "./skills/runtime/input-binding-resolver";
@@ -175,6 +182,12 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Facade (统一入口) ===
     ModelResolverService,
+    // ★ Phase 5: Domain Facades — registered before AIEngineFacade so they can be injected
+    ChatFacade,
+    RAGFacade,
+    AgentFacade,
+    TeamFacade,
+    ToolFacade,
     AIEngineFacade,
 
     // === SKILL.md Runtime ===
@@ -230,6 +243,12 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Facade (统一入口) ===
     ModelResolverService,
+    // ★ Phase 5: Domain Facades — exported for direct injection by AI App modules
+    ChatFacade,
+    RAGFacade,
+    AgentFacade,
+    TeamFacade,
+    ToolFacade,
     AIEngineFacade,
 
     // === SKILL.md Runtime ===

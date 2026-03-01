@@ -204,6 +204,13 @@ import { MemorySubFacade } from "./sub-facades/memory.sub-facade";
 import { AgentSubFacade } from "./sub-facades/agent.sub-facade";
 import { ToolExecSubFacade } from "./sub-facades/tool-exec.sub-facade";
 
+// ★ Phase 5: Domain Facades (@Injectable, thin wrappers injected into the God Facade)
+import { ChatFacade } from "./domain/chat.facade";
+import { RAGFacade } from "./domain/rag.facade";
+import { AgentFacade } from "./domain/agent.facade";
+import { TeamFacade } from "./domain/team.facade";
+import { ToolFacade } from "./domain/tool.facade";
+
 /** Skills 系统提示词 Token 预算（对应 TaskProfile outputLength="medium" 的 4000 tokens） */
 const SKILLS_PROMPT_TOKEN_BUDGET = 4000;
 
@@ -248,6 +255,7 @@ export class AIEngineFacade {
   private readonly logger = new Logger(AIEngineFacade.name);
 
   // ★ Sub-facades — instantiated at the end of the constructor
+  // These are kept for backward-compat internal usage while domain facades are primary
   private readonly modelSub!: ModelSubFacade;
   private readonly teamSub!: TeamSubFacade;
   private readonly memorySub!: MemorySubFacade;
@@ -327,11 +335,20 @@ export class AIEngineFacade {
     @Optional()
     modelResolver?: ModelResolverService,
     @Optional() private readonly mcpManagerSvc?: MCPManager,
+
+    // ==================== Phase 5: Domain Facades ====================
+    // These are published as public getters for AI App direct consumption
+    @Optional() readonly chatDomain?: ChatFacade,
+    @Optional() readonly ragDomain?: RAGFacade,
+    @Optional() readonly agentDomain?: AgentFacade,
+    @Optional() readonly teamDomain?: TeamFacade,
+    @Optional() readonly toolDomain?: ToolFacade,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
 
     // ★ Instantiate sub-facades after all dependencies are ready
+    // Sub-facades remain as a fallback when domain facades are not available
     this.modelSub = new ModelSubFacade(
       aiChatService,
       modelConfigService,
@@ -347,6 +364,11 @@ export class AIEngineFacade {
       tools?.capabilityResolver,
       (req) => this.chat(req),
     );
+
+    // ★ Wire the chat function into ToolFacade (breaks circular dep at construction time)
+    if (toolDomain) {
+      toolDomain.setChatFn((req) => this.chat(req));
+    }
   }
 
   /**

@@ -527,3 +527,27 @@ export const FACADE_FEATURE_PROVIDERS: Provider[] = [
   observabilityFeatureProvider,
   registryFeatureProvider,
 ];
+
+// ============================================================================
+// ★ Phase 5: Domain Facade Providers
+// Domain facades are @Injectable() NestJS providers that group related
+// capabilities. The God Facade (AIEngineFacade) delegates to them.
+// ============================================================================
+
+// Tokens for domain facades (used for @Optional() @Inject in AIEngineFacade)
+export const CHAT_FACADE = "CHAT_FACADE";
+export const RAG_FACADE = "RAG_FACADE";
+export const AGENT_FACADE = "AGENT_FACADE";
+export const TEAM_FACADE = "TEAM_FACADE";
+export const TOOL_FACADE = "TOOL_FACADE";
+
+// Domain facade provider list — imported by AIEngineModule
+// Each facade is registered by its class token directly (class-based injection)
+// The actual classes are exported from domain/ files and used in AIEngineModule
+export const DOMAIN_FACADE_CLASSES = [
+  "ChatFacade",
+  "RAGFacade",
+  "AgentFacade",
+  "TeamFacade",
+  "ToolFacade",
+] as const;
