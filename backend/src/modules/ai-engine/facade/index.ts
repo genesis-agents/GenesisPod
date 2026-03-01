@@ -352,6 +352,21 @@ export type {
   RegistryFeature,
 } from "./facade.providers";
 
+// ★ Phase 5: Domain Facades — focused APIs that replace the monolithic AIEngineFacade
+// Consumers should gradually migrate from AIEngineFacade to the domain facade they need.
+export { ChatFacade } from "./domain/chat.facade";
+export { RAGFacade } from "./domain/rag.facade";
+export { AgentFacade } from "./domain/agent.facade";
+export { TeamFacade } from "./domain/team.facade";
+export { ToolFacade } from "./domain/tool.facade";
+export {
+  CHAT_FACADE,
+  RAG_FACADE,
+  AGENT_FACADE,
+  TEAM_FACADE,
+  TOOL_FACADE,
+} from "./facade.providers";
+
 // ★ AI Kernel re-exports — forwarded from kernel's own facade (backward compatible)
 export {
   KernelContext,

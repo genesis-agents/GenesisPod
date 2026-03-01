@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ExternalDataService } from "./external-data.service";
-import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
+import { ChatFacade, type ChatMessage } from "../../ai-engine/facade";
 
 export interface IndustryAnalysis {
   companies: Array<{
@@ -132,7 +132,7 @@ export class AIAssistService {
 
   constructor(
     private readonly externalData: ExternalDataService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -270,7 +270,7 @@ ${existingCompanies.length > 0 ? `用户已选择的公司（请不要重复推�
 所有公司必须是真实存在的知名企业。`;
 
     // 从数据库获取已配置 API Key 的可用模型
-    const availableModels = await this.aiFacade.getAvailableModels();
+    const availableModels = await this.chatFacade.getAvailableModels();
     this.logger.log(
       `Available models for industry analysis: ${availableModels.map((m) => `${m.name}(${m.provider})`).join(", ")}`,
     );
@@ -291,7 +291,7 @@ ${existingCompanies.length > 0 ? `用户已选择的公司（请不要重复推�
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ];
-        result = await this.aiFacade.chat({
+        result = await this.chatFacade.chat({
           messages,
           model: model.id,
           taskProfile: {
@@ -735,7 +735,7 @@ ${externalDataStr.slice(0, 3000)}${externalDataStr.length > 3000 ? "\n...(数据
 请生成该公司的量化指标。`;
 
     // 从数据库获取可用模型
-    const availableModels = await this.aiFacade.getAvailableModels();
+    const availableModels = await this.chatFacade.getAvailableModels();
     if (availableModels.length === 0) {
       this.logger.warn("No AI models available for metrics generation");
       return null;
@@ -752,7 +752,7 @@ ${externalDataStr.slice(0, 3000)}${externalDataStr.length > 3000 ? "\n...(数据
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ];
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: metricsMessages,
         model: model.id,
         taskProfile: {

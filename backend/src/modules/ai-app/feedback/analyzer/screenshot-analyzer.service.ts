@@ -10,21 +10,21 @@
  * 4. 生成问题描述
  *
  * ★ 架构说明（已知限制）：
- * - 模型配置和 API Key 通过 AIEngineFacade 获取 ✓
+ * - 模型配置和 API Key 通过 ChatFacade 获取 ✓
  * - Vision API 需要图片 + 文本的多模态消息格式，当前 ChatMessage 仅支持 content: string
  * - 因此暂时保留直接调用各 provider Vision API 的逻辑
- * - TODO: 当 AIEngineFacade 支持多模态消息后，应改为 facade.chat() 统一调用
+ * - TODO: 当 ChatFacade 支持多模态消息后，应改为 facade.chat() 统一调用
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import type {
   ScreenshotAnalysis,
   FeedbackAttachment,
 } from "../triage/triage-decision.types";
 
-// TaskProfile 映射常量（待 AIEngineFacade 支持多模态后，改用 taskProfile 语义化配置）
+// TaskProfile 映射常量（待 ChatFacade 支持多模态后，改用 taskProfile 语义化配置）
 // creativity: "low" → temperature 0.3（截图分析需要准确提取，不需要创意）
 // outputLength: "short" → maxTokens 1000（结构化 JSON 分析结果，无需长输出）
 const VISION_TEMPERATURE = 0.3;
@@ -56,7 +56,7 @@ export class ScreenshotAnalyzerService {
   private readonly logger = new Logger(ScreenshotAnalyzerService.name);
 
   constructor(
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly secretsService: SecretsService,
   ) {}
 
@@ -119,8 +119,8 @@ export class ScreenshotAnalyzerService {
    * 调用 Vision API（使用配置的默认聊天模型）
    */
   private async callVisionApi(imageUrl: string): Promise<string> {
-    // ★ 通过 AIEngineFacade 获取默认聊天模型
-    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    // ★ 通过 ChatFacade 获取默认聊天模型
+    const defaultModel = await this.chatFacade.getDefaultTextModel();
     if (!defaultModel) {
       throw new Error("No default text model available for vision API");
     }
@@ -153,7 +153,7 @@ export class ScreenshotAnalyzerService {
   /**
    * 调用 Gemini Vision API
    *
-   * ★ 架构说明：通过 AIEngineFacade 获取模型配置（包括 API Key）
+   * ★ 架构说明：通过 ChatFacade 获取模型配置（包括 API Key）
    *
    * 任务配置映射 (TaskProfile equivalent):
    * - creativity: "low" (temperature: 0.3) - 截图分析需要准确提取信息
@@ -163,8 +163,8 @@ export class ScreenshotAnalyzerService {
     modelName: string,
     imageUrl: string,
   ): Promise<string> {
-    // ★ 通过 AIEngineFacade 获取模型配置
-    const modelConfig = await this.aiFacade.getFullModelConfig(modelName);
+    // ★ 通过 ChatFacade 获取模型配置
+    const modelConfig = await this.chatFacade.getFullModelConfig(modelName);
     if (!modelConfig) {
       throw new Error(`Gemini model ${modelName} not found in database`);
     }
@@ -225,7 +225,7 @@ export class ScreenshotAnalyzerService {
   /**
    * 调用 OpenAI Vision API
    *
-   * ★ 架构说明：通过 AIEngineFacade 获取模型配置（包括 API Key）
+   * ★ 架构说明：通过 ChatFacade 获取模型配置（包括 API Key）
    *
    * 任务配置映射 (TaskProfile equivalent):
    * - creativity: "low" (temperature: 0.3) - 截图分析需要准确提取信息
@@ -235,8 +235,8 @@ export class ScreenshotAnalyzerService {
     modelName: string,
     imageUrl: string,
   ): Promise<string> {
-    // ★ 通过 AIEngineFacade 获取模型配置
-    const modelConfig = await this.aiFacade.getFullModelConfig(modelName);
+    // ★ 通过 ChatFacade 获取模型配置
+    const modelConfig = await this.chatFacade.getFullModelConfig(modelName);
     if (!modelConfig) {
       throw new Error(`OpenAI model ${modelName} not found in database`);
     }
@@ -293,14 +293,14 @@ export class ScreenshotAnalyzerService {
   /**
    * 调用 Claude Vision API
    *
-   * ★ 架构说明：通过 AIEngineFacade 获取模型配置（包括 API Key）
+   * ★ 架构说明：通过 ChatFacade 获取模型配置（包括 API Key）
    */
   private async callClaudeVisionApi(
     modelName: string,
     imageUrl: string,
   ): Promise<string> {
-    // ★ 通过 AIEngineFacade 获取模型配置
-    const modelConfig = await this.aiFacade.getFullModelConfig(modelName);
+    // ★ 通过 ChatFacade 获取模型配置
+    const modelConfig = await this.chatFacade.getFullModelConfig(modelName);
     if (!modelConfig) {
       throw new Error(`Claude model ${modelName} not found in database`);
     }

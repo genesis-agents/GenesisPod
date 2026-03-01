@@ -224,30 +224,26 @@ const SENSITIVE_PATTERNS = [
 ];
 
 /**
- * AI Engine 统一入口
+ * AI Engine 统一入口 (Legacy — 逐步迁移到 Domain Facades)
  *
- * 所有 AI Apps 应该通过此 Facade 消费 AI 能力，而不是直接依赖内部服务。
+ * @deprecated 请使用 Domain Facades 替代：
+ * - ChatFacade — LLM 聊天、流式、模型选择
+ * - RAGFacade — 搜索、上下文、记忆、向量
+ * - AgentFacade — Agent 执行、追踪、意图路由
+ * - TeamFacade — 团队任务、A2A、投票、证据
+ * - ToolFacade — 工具执行、能力、MCP
+ *
+ * 通过 facade/index.ts 导入: import { ChatFacade } from "../../ai-engine/facade";
+ *
+ * 此 Facade 保留向后兼容性：所有方法均委托给对应的 Domain Facade。
+ * 新代码应直接注入 Domain Facade，旧代码可逐步迁移。
  *
  * ============================================================================
  * P1 架构优化：依赖分组
  * ============================================================================
- * 将 12 个可选依赖分组为 4 个特性模块 + 3 个独立服务：
- *
  * Feature 模块（通过 Injection Token 注入）：
- * - MEMORY_FEATURE: 短期记忆 + 长期记忆
- * - TOOL_FEATURE: 工具注册表 + 函数调用执行器
- * - ORCHESTRATION_FEATURE: 熔断器 + Agent 执行器
- * - SKILL_FEATURE: 技能加载器 + 提示词构建器
- *
- * 独立服务（直接注入）：
- * - PrismaService: 数据库访问
- * - TeamsService: 团队协作
- * - AICapabilityResolver: 能力解析
- *
- * 这种设计的优点：
- * 1. 构造函数更清晰（从 9 个参数减少到语义化的分组）
- * 2. 特性可选降级（缺少某个特性时自动禁用相关功能）
- * 3. 便于测试（可以 mock 整个特性模块）
+ * - MEMORY_FEATURE, TOOL_FEATURE, ORCHESTRATION_FEATURE, SKILL_FEATURE
+ * - REALTIME_FEATURE, CONSTRAINT_FEATURE, TEAMS_FEATURE, etc.
  * ============================================================================
  */
 @Injectable()

@@ -15,13 +15,13 @@
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Mock AIEngineFacade and SecretsService modules
-jest.mock("../../../../ai-engine/facade/ai-engine.facade");
+// Mock ChatFacade and SecretsService modules
+jest.mock("../../../../ai-engine/facade/domain/chat.facade");
 jest.mock("../../../../ai-infra/secrets/secrets.service");
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ScreenshotAnalyzerService } from "../screenshot-analyzer.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import type { FeedbackAttachment } from "../../triage/triage-decision.types";
 
@@ -93,7 +93,7 @@ const mockClaudeModel = {
 
 describe("ScreenshotAnalyzerService", () => {
   let service: ScreenshotAnalyzerService;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
   let mockSecrets: jest.Mocked<SecretsService>;
 
   beforeEach(async () => {
@@ -103,7 +103,7 @@ describe("ScreenshotAnalyzerService", () => {
       providers: [
         ScreenshotAnalyzerService,
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
           useValue: {
             getDefaultTextModel: jest.fn(),
             getFullModelConfig: jest.fn(),
@@ -119,7 +119,7 @@ describe("ScreenshotAnalyzerService", () => {
     }).compile();
 
     service = module.get<ScreenshotAnalyzerService>(ScreenshotAnalyzerService);
-    mockFacade = module.get(AIEngineFacade);
+    mockFacade = module.get(ChatFacade);
     mockSecrets = module.get(SecretsService);
   });
 
