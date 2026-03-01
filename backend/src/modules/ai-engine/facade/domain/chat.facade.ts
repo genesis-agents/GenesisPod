@@ -171,7 +171,7 @@ export class ChatFacade {
       }
     }
 
-    return "default";
+    return "";
   }
 
   private enforceRateLimitAndBudget(

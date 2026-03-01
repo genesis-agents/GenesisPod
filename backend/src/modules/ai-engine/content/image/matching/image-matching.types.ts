@@ -5,7 +5,7 @@
  * 从 ai-app/office/common/template-selection.types.ts 提取图像相关类型
  */
 
-import { ContentCategory } from "../../../../ai-app/office/content-analysis/content-analysis.types";
+import { ContentCategory } from "../../types/content-features.types";
 
 // ============================================================================
 // 图片类型定义

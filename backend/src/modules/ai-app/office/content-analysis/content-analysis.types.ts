@@ -1,143 +1,35 @@
 /**
  * 内容分析类型定义 - AI Office 共享模块
  * 用于 Slides 和 Docs 的智能内容分析和模板匹配
+ *
+ * 核心特征类型（enums + base interfaces）定义在 AI Engine L2:
+ *   ai-engine/content/types/content-features.types.ts
+ * 此文件 re-export 核心类型并扩展 L4 特有的业务类型。
  */
+
+// Re-export core content feature types from L2 (AI Engine)
+export {
+  ContentComplexity,
+  ContentCategory,
+  DataDensity,
+  TemporalDimension,
+  HierarchyType,
+  ContentFeatures,
+  ExtractedEntity,
+  VisualizationOpportunity,
+  ParagraphFeatures,
+  SectionFeatures,
+} from "../../../ai-engine/content/types/content-features.types";
+
+// Re-import for local use in interfaces below
+import type {
+  ContentFeatures,
+  ParagraphFeatures,
+  SectionFeatures,
+} from "../../../ai-engine/content/types/content-features.types";
 
 // ============================================================================
-// 内容特征枚举
-// ============================================================================
-
-/**
- * 内容复杂度
- */
-export enum ContentComplexity {
-  LOW = "low", // 简单内容，少量要点
-  MEDIUM = "medium", // 中等复杂度
-  HIGH = "high", // 复杂内容，多维度分析
-}
-
-/**
- * 内容类型
- */
-export enum ContentCategory {
-  NARRATIVE = "narrative", // 叙事型：故事、案例、发展历程
-  ANALYTICAL = "analytical", // 分析型：数据分析、趋势分析
-  COMPARATIVE = "comparative", // 对比型：竞品分析、方案对比
-  INSTRUCTIONAL = "instructional", // 指导型：操作指南、最佳实践
-  PERSUASIVE = "persuasive", // 说服型：提案、建议
-  INFORMATIONAL = "informational", // 信息型：概述、介绍
-}
-
-/**
- * 数据密度
- */
-export enum DataDensity {
-  TEXT_HEAVY = "text_heavy", // 文字密集
-  DATA_HEAVY = "data_heavy", // 数据密集
-  BALANCED = "balanced", // 均衡
-  VISUAL_HEAVY = "visual_heavy", // 视觉密集
-}
-
-/**
- * 时间维度
- */
-export enum TemporalDimension {
-  NONE = "none", // 无时间维度
-  HISTORICAL = "historical", // 历史回顾
-  CURRENT = "current", // 当前状态
-  FUTURE = "future", // 未来展望
-  TIMELINE = "timeline", // 时间线（跨多个时期）
-}
-
-/**
- * 层级结构类型
- */
-export enum HierarchyType {
-  FLAT = "flat", // 扁平结构
-  HIERARCHICAL = "hierarchical", // 层级结构
-  MATRIX = "matrix", // 矩阵结构
-  NETWORK = "network", // 网络结构
-}
-
-// ============================================================================
-// 内容特征分析结果
-// ============================================================================
-
-/**
- * 内容特征向量
- */
-export interface ContentFeatures {
-  // 基础特征
-  category: ContentCategory;
-  complexity: ContentComplexity;
-  dataDensity: DataDensity;
-  temporalDimension: TemporalDimension;
-  hierarchyType: HierarchyType;
-
-  // 数值特征
-  wordCount: number;
-  paragraphCount: number;
-  listCount: number;
-  tableCount: number;
-  imageCount: number;
-  codeBlockCount: number;
-
-  // 语义特征
-  keyTopics: string[];
-  entities: ExtractedEntity[];
-  sentiment?: "positive" | "neutral" | "negative";
-
-  // 结构特征
-  hasTimeline: boolean;
-  hasComparison: boolean;
-  hasStatistics: boolean;
-  hasSteps: boolean;
-  hasCaseStudy: boolean;
-  hasRecommendations: boolean;
-  hasRiskAnalysis: boolean;
-
-  // 数据可视化机会
-  visualizationOpportunities: VisualizationOpportunity[];
-}
-
-/**
- * 提取的实体
- */
-export interface ExtractedEntity {
-  type:
-    | "person"
-    | "organization"
-    | "product"
-    | "technology"
-    | "location"
-    | "date"
-    | "metric"
-    | "concept";
-  value: string;
-  count: number;
-  importance: number; // 0-1
-}
-
-/**
- * 可视化机会
- */
-export interface VisualizationOpportunity {
-  type:
-    | "chart"
-    | "timeline"
-    | "comparison"
-    | "matrix"
-    | "flowchart"
-    | "hierarchy"
-    | "map";
-  description: string;
-  dataPoints?: string[];
-  suggestedChartType?: string;
-  priority: "high" | "medium" | "low";
-}
-
-// ============================================================================
-// 内容分析请求/响应
+// 内容分析请求/响应 (L4 业务类型)
 // ============================================================================
 
 /**
@@ -151,7 +43,7 @@ export interface ContentAnalysisInput {
     purpose?: string;
     targetAudience?: string;
     industry?: string;
-    modelId?: string; // 指定使用的 AI 模型
+    modelId?: string;
   };
   options?: {
     extractEntities?: boolean;
@@ -168,15 +60,14 @@ export interface ContentAnalysisResult {
   features: ContentFeatures;
   summary: string;
   suggestedStructure: SuggestedStructure;
-  confidence: number; // 0-1
-  processingTime: number; // ms
+  confidence: number;
+  processingTime: number;
 }
 
 /**
  * 建议的结构
  */
 export interface SuggestedStructure {
-  // 适用于 Slides
   forSlides?: {
     suggestedSlideCount: number;
     suggestedTemplates: string[];
@@ -186,7 +77,6 @@ export interface SuggestedStructure {
       templates: string[];
     }>;
   };
-  // 适用于 Docs
   forDocs?: {
     suggestedWordCount: number;
     suggestedSections: Array<{
@@ -196,39 +86,6 @@ export interface SuggestedStructure {
     }>;
     documentStyle: "formal" | "casual" | "technical" | "executive";
   };
-}
-
-// ============================================================================
-// 章节/段落分析
-// ============================================================================
-
-/**
- * 段落特征
- */
-export interface ParagraphFeatures {
-  id: string;
-  text: string;
-  category: ContentCategory;
-  keyPoints: string[];
-  hasData: boolean;
-  hasList: boolean;
-  hasQuote: boolean;
-  suggestedVisualization?: VisualizationOpportunity;
-}
-
-/**
- * 章节特征
- */
-export interface SectionFeatures {
-  id: string;
-  title: string;
-  level: number;
-  paragraphs: ParagraphFeatures[];
-  overallCategory: ContentCategory;
-  complexity: ContentComplexity;
-  keyMessages: string[];
-  suggestedSlideTemplates?: string[];
-  suggestedDocsSectionType?: string;
 }
 
 /**
@@ -249,9 +106,6 @@ export interface DocumentAnalysisResult {
 // MECE 原则验证
 // ============================================================================
 
-/**
- * MECE 验证结果
- */
 export interface MECEValidation {
   isMutuallyExclusive: boolean;
   isCollectivelyExhaustive: boolean;
@@ -264,7 +118,7 @@ export interface MECEValidation {
     description: string;
     suggestedAddition: string;
   }>;
-  score: number; // 0-100
+  score: number;
   recommendations: string[];
 }
 
@@ -272,9 +126,6 @@ export interface MECEValidation {
 // 内容分段策略
 // ============================================================================
 
-/**
- * 分段策略
- */
 export interface SegmentationStrategy {
   type: "by_topic" | "by_length" | "by_structure" | "hybrid";
   targetSegmentCount?: number;
@@ -283,9 +134,6 @@ export interface SegmentationStrategy {
   groupRelatedContent: boolean;
 }
 
-/**
- * 内容段落
- */
 export interface ContentSegment {
   id: string;
   order: number;
@@ -293,5 +141,5 @@ export interface ContentSegment {
   content: string;
   features: ParagraphFeatures;
   suggestedTemplate: string;
-  transitionHint?: string; // 与下一段的过渡提示
+  transitionHint?: string;
 }

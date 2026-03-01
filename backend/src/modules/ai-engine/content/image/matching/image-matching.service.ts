@@ -8,7 +8,7 @@ import {
   ContentFeatures,
   ContentCategory,
   SectionFeatures,
-} from "../../../../ai-app/office/content-analysis/content-analysis.types";
+} from "../../types/content-features.types";
 import {
   ImageType,
   ImagePlacement,

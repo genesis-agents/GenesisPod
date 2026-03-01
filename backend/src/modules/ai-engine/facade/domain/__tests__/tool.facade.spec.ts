@@ -147,11 +147,8 @@ describe("ToolFacade", () => {
         tokensUsed: 50,
       });
 
-      facade.setChatFn(mockChatFn);
-
-      // The chatFn is used internally by toolExecSub for chatWithTools
-      // We verify it was set without error
-      expect(true).toBe(true);
+      // Should not throw when setting chatFn
+      expect(() => facade.setChatFn(mockChatFn)).not.toThrow();
     });
   });
 
@@ -271,11 +268,8 @@ describe("ToolFacade", () => {
         isError: false,
       });
 
-      facade.setChatFn(chatFn);
-
-      // chatWithTools internally calls delegateChat
-      // But we can verify setChatFn was accepted without error
-      expect(true).toBe(true);
+      // Should not throw when setting chatFn
+      expect(() => facade.setChatFn(chatFn)).not.toThrow();
     });
 
     it("should return error response when chatFn not set", async () => {
@@ -358,10 +352,8 @@ describe("ToolFacade", () => {
       expect(minimalFacade.isToolExecutionAvailable()).toBe(false);
     });
 
-    it("should return error response from delegateChat when chatFn not set", async () => {
-      // Access the private method indirectly by calling chatWithTools
-      // which internally calls delegateChat
-      // Since toolExecSub is minimal, this won't error out but will gracefully handle
+    it("should handle missing executor gracefully in minimal facade", () => {
+      expect(minimalFacade.isToolExecutionAvailable()).toBe(false);
     });
   });
 });

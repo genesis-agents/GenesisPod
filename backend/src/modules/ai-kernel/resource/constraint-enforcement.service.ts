@@ -184,8 +184,9 @@ export class ConstraintEnforcementService implements IConstraintEnforcementServi
     }
 
     // 检测 "表面身份：...的哑仆/哑巴" 模式
+    // 使用 [^\s。的] 排除句号和"的"助词，确保只捕获角色名
     const surfaceIdentityPattern =
-      /(\S{1,10})(?:[（(]\S{1,10}[)）])?[^。]*?表面身份[：:][^。]*?(哑巴|哑仆|聋哑人)/g;
+      /([^\s。的]{1,10})(?:[（(][^\s。的]{1,10}[)）])?[^。]*?表面身份[：:][^。]*?(哑巴|哑仆|聋哑人)/g;
     surfaceIdentityPattern.lastIndex = 0;
     while ((match = surfaceIdentityPattern.exec(description)) !== null) {
       const character = match[1];
@@ -205,7 +206,8 @@ export class ConstraintEnforcementService implements IConstraintEnforcementServi
     }
 
     // 检测 "X自毁声带" 模式
-    const destroyedVoicePattern = /(\S{1,10})自毁声带/g;
+    // 使用 [^\s。] 代替 \S 避免跨句匹配
+    const destroyedVoicePattern = /([^\s。]{1,10})自毁声带/g;
     destroyedVoicePattern.lastIndex = 0;
     while ((match = destroyedVoicePattern.exec(description)) !== null) {
       const character = match[1];

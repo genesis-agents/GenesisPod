@@ -509,7 +509,7 @@ export class AIEngineFacade {
       }
     }
 
-    return "default";
+    return "";
   }
 
   /**
