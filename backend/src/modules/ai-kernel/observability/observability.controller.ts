@@ -9,7 +9,7 @@ import {
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ProcessEventLogService } from "./process-event-log.service";
-import type { TraceType } from "../../ai-engine/infra/observability/trace.interface";
+import type { TraceType } from "../abstractions";
 
 /**
  * Admin Observability Controller

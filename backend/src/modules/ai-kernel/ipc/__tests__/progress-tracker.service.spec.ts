@@ -11,41 +11,35 @@ jest.spyOn(Logger.prototype, "debug").mockImplementation();
 jest.spyOn(Logger.prototype, "warn").mockImplementation();
 jest.spyOn(Logger.prototype, "error").mockImplementation();
 
-// Mock calculateOverallProgress from the interface module
-// Path is from __tests__/ directory: need 4 levels up to reach modules/
-jest.mock(
-  "../../../ai-engine/infra/realtime/abstractions/progress-tracker.interface",
-  () => {
-    const actual = jest.requireActual(
-      "../../../ai-engine/infra/realtime/abstractions/progress-tracker.interface",
-    );
-    return {
-      ...actual,
-      calculateOverallProgress: jest.fn(
-        (phases: { weight: number; status: string }[]) => {
-          // Use real implementation so math-based tests pass
-          const totalWeight = phases.reduce(
-            (sum: number, p: { weight: number }) => sum + p.weight,
-            0,
-          );
-          if (totalWeight === 0) return 0;
-          let completedWeight = 0;
-          for (const phase of phases) {
-            if (phase.status === "completed" || phase.status === "skipped") {
-              completedWeight += phase.weight;
-            }
+// Mock calculateOverallProgress from the kernel abstractions barrel
+// Path is from __tests__/ directory: ../../abstractions
+jest.mock("../../abstractions", () => {
+  const actual = jest.requireActual("../../abstractions");
+  return {
+    ...actual,
+    calculateOverallProgress: jest.fn(
+      (phases: { weight: number; status: string }[]) => {
+        // Use real implementation so math-based tests pass
+        const totalWeight = phases.reduce(
+          (sum: number, p: { weight: number }) => sum + p.weight,
+          0,
+        );
+        if (totalWeight === 0) return 0;
+        let completedWeight = 0;
+        for (const phase of phases) {
+          if (phase.status === "completed" || phase.status === "skipped") {
+            completedWeight += phase.weight;
           }
-          return Math.round((completedWeight / totalWeight) * 100);
-        },
-      ),
-    };
-  },
-);
+        }
+        return Math.round((completedWeight / totalWeight) * 100);
+      },
+    ),
+  };
+});
 
 import { ProgressTrackerService } from "../progress-tracker.service";
 import { EventBusService } from "../event-bus.service";
-import type { CreateTrackedTaskRequest } from "../../../ai-engine/infra/realtime/abstractions/progress-tracker.interface";
-import type { RoomConfig } from "../../../ai-engine/infra/realtime/abstractions/event-emitter.interface";
+import type { CreateTrackedTaskRequest, RoomConfig } from "../../abstractions";
 
 const makeRoomConfig = (): RoomConfig => ({
   roomId: "room-1",

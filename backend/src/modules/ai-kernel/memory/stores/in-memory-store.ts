@@ -4,7 +4,7 @@
  */
 
 import { v4 as uuid } from "uuid";
-import {
+import type {
   IMemoryStore,
   IConversationMemory,
   IWorkingMemory,
@@ -13,7 +13,7 @@ import {
   MemorySearchOptions,
   MemorySearchResult,
   ConversationMessage,
-} from "../../../ai-engine/knowledge/memory/abstractions/memory.interface";
+} from "../../abstractions";
 
 /**
  * 内存记忆存储

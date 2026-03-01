@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
-import {
+import type {
   TraceData,
   SpanData,
   TraceSummary,
@@ -11,7 +11,7 @@ import {
   EndTraceInput,
   ListTracesOptions,
   ExecutionStatus,
-} from "../../ai-engine/infra/observability/trace.interface";
+} from "../abstractions";
 import { LruMap } from "@/common/utils/lru-map";
 import { PrismaService } from "@/common/prisma/prisma.service";
 

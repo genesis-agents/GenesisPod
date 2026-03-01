@@ -33,10 +33,7 @@ import {
   ConversationMemory,
   WorkingMemory,
 } from "../stores/in-memory-store";
-import {
-  MemoryEntry,
-  MemoryType,
-} from "../../../ai-engine/knowledge/memory/abstractions/memory.interface";
+import type { MemoryEntry, MemoryType } from "../../abstractions";
 
 // Silence NestJS logger (classes use Logger indirectly)
 jest.spyOn(Logger.prototype, "log").mockImplementation();

@@ -17,12 +17,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ProcessEventLogService } from "../process-event-log.service";
-import {
+import type {
   CreateTraceInput,
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../../../ai-engine/infra/observability/trace.interface";
+} from "../../abstractions";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output for all tests

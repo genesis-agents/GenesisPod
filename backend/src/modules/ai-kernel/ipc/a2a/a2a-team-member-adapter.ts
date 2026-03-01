@@ -5,16 +5,15 @@
 
 import { Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import {
+import type {
   ITeamMember,
   TeamMemberId,
   MemberStatus,
-} from "../../../ai-engine/teams/abstractions/member.interface";
-import {
   IRole,
   WorkStyle,
-} from "../../../ai-engine/teams/abstractions/role.interface";
-import { SkillId, ToolId } from "../../../ai-engine/core/types/agent.types";
+  SkillId,
+  ToolId,
+} from "../../abstractions";
 import { A2AAgentCard, A2ATaskStatus } from "./a2a.types";
 
 /**

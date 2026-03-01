@@ -17,7 +17,7 @@ import type {
   EngineEvent,
   ProgressEvent,
   RoomConfig,
-} from "../../ai-engine/infra/realtime/abstractions/event-emitter.interface";
+} from "../../abstractions";
 
 // ---------------------------------------------------------------------------
 // Helpers

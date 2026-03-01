@@ -5,23 +5,21 @@ import {
   createConstraintProfile,
   ConstraintProfile,
 } from "../constraint-profile";
-import {
+import type {
   ResourceRequirement,
   ResourceUsage,
   ConstraintViolation,
-} from "../../ai-engine/teams/constraints/constraint-engine.interface";
+} from "../../abstractions";
 
 const mockCostController = {
   calculateCost: jest.fn().mockReturnValue(0.5),
   recordCost: jest.fn(),
-  checkBudget: jest
-    .fn()
-    .mockReturnValue({
-      allowed: true,
-      remaining: 100,
-      usageRate: 0.1,
-      alertTriggered: false,
-    }),
+  checkBudget: jest.fn().mockReturnValue({
+    allowed: true,
+    remaining: 100,
+    usageRate: 0.1,
+    alertTriggered: false,
+  }),
 };
 
 describe("ConstraintEngine", () => {

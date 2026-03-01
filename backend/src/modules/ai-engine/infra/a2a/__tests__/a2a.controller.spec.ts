@@ -7,8 +7,10 @@ import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { A2AController } from "../a2a.controller";
 import { AgentCardRegistry } from "../agent-card/agent-card.registry";
-import { TeamsService } from "../../../teams/services/teams.service";
-import { TraceCollectorService } from "../../observability/trace-collector.service";
+import {
+  TEAMS_SERVICE_TOKEN,
+  TRACE_COLLECTOR_TOKEN,
+} from "../../../../ai-kernel/abstractions";
 import { A2AApiKeyGuard } from "../guards/a2a-api-key.guard";
 import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { A2ATaskStatus } from "../abstractions/a2a.interface";
@@ -70,8 +72,8 @@ describe("A2AController", () => {
       controllers: [A2AController],
       providers: [
         { provide: AgentCardRegistry, useValue: mockAgentCardRegistry },
-        { provide: TeamsService, useValue: mockTeamsService },
-        { provide: TraceCollectorService, useValue: mockTraceCollector },
+        { provide: TEAMS_SERVICE_TOKEN, useValue: mockTeamsService },
+        { provide: TRACE_COLLECTOR_TOKEN, useValue: mockTraceCollector },
         {
           provide: SecretsService,
           useValue: { getSecretNames: jest.fn(), getValueInternal: jest.fn() },

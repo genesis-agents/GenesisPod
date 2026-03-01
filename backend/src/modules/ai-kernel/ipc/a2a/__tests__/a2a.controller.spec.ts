@@ -13,10 +13,12 @@ import { Reflector } from "@nestjs/core";
 import { A2AController } from "../a2a.controller";
 import { AgentCardRegistry } from "../agent-card-registry";
 import { A2AApiKeyGuard } from "../a2a-api-key.guard";
-import { TeamsService } from "../../../../ai-engine/teams/services/teams.service";
-import { TraceCollectorService } from "../../../../ai-engine/infra/observability/trace-collector.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { A2ATaskStatus } from "../a2a.types";
+import {
+  TEAMS_SERVICE_TOKEN,
+  TRACE_COLLECTOR_TOKEN,
+} from "../../../abstractions";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
 jest.spyOn(Logger.prototype, "debug").mockImplementation();
@@ -81,8 +83,15 @@ function buildValidRequest(overrides: Record<string, unknown> = {}) {
 describe("A2AController", () => {
   let controller: A2AController;
   let agentCardRegistry: jest.Mocked<AgentCardRegistry>;
-  let teamsService: jest.Mocked<TeamsService>;
-  let traceCollector: jest.Mocked<TraceCollectorService>;
+  let teamsService: {
+    executeMission: jest.Mock;
+    getMissionStatus: jest.Mock;
+    getMissionResult: jest.Mock;
+  };
+  let traceCollector: {
+    startTrace: jest.Mock;
+    endTrace: jest.Mock;
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -109,7 +118,7 @@ describe("A2AController", () => {
           },
         },
         {
-          provide: TeamsService,
+          provide: TEAMS_SERVICE_TOKEN,
           useValue: {
             executeMission: jest.fn(),
             getMissionStatus: jest.fn(),
@@ -117,7 +126,7 @@ describe("A2AController", () => {
           },
         },
         {
-          provide: TraceCollectorService,
+          provide: TRACE_COLLECTOR_TOKEN,
           useValue: {
             startTrace: jest.fn().mockReturnValue("trace-id-123"),
             endTrace: jest.fn(),
@@ -128,8 +137,8 @@ describe("A2AController", () => {
 
     controller = module.get<A2AController>(A2AController);
     agentCardRegistry = module.get(AgentCardRegistry);
-    teamsService = module.get(TeamsService);
-    traceCollector = module.get(TraceCollectorService);
+    teamsService = module.get(TEAMS_SERVICE_TOKEN);
+    traceCollector = module.get(TRACE_COLLECTOR_TOKEN);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -1142,14 +1151,14 @@ describe("A2AController", () => {
             },
           },
           {
-            provide: TeamsService,
+            provide: TEAMS_SERVICE_TOKEN,
             useValue: {
               executeMission: jest.fn().mockResolvedValue("mission-no-trace"),
               getMissionStatus: jest.fn(),
               getMissionResult: jest.fn(),
             },
           },
-          // TraceCollectorService intentionally omitted
+          // TRACE_COLLECTOR_TOKEN intentionally omitted
         ],
       }).compile();
 

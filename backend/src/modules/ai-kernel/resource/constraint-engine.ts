@@ -15,7 +15,7 @@ import {
   QualityDepth,
   createConstraintProfile,
 } from "./constraint-profile";
-import {
+import type {
   IConstraintEngine,
   ConstraintEvaluation,
   CostEvaluation,
@@ -30,7 +30,7 @@ import {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../../ai-engine/teams/constraints/constraint-engine.interface";
+} from "../abstractions";
 import { CostController } from "./cost-controller";
 
 /**

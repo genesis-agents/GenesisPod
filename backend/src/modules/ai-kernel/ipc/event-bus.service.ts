@@ -6,12 +6,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Server } from "socket.io";
-import {
+import type {
   IEngineEventEmitter,
   EngineEvent,
   ProgressEvent,
   RoomConfig,
-} from "../../ai-engine/infra/realtime/abstractions/event-emitter.interface";
+} from "../abstractions";
 
 /**
  * 事件订阅

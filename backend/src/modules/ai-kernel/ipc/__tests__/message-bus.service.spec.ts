@@ -12,10 +12,7 @@ jest.spyOn(Logger.prototype, "warn").mockImplementation();
 jest.spyOn(Logger.prototype, "error").mockImplementation();
 
 import { MessageBusService } from "../message-bus.service";
-import type {
-  A2AMessage,
-  A2AMessageHandler,
-} from "../../ai-engine/teams/abstractions/a2a-message.interface";
+import type { A2AMessage, A2AMessageHandler } from "../../abstractions";
 
 // ---------------------------------------------------------------------------
 // Test helpers

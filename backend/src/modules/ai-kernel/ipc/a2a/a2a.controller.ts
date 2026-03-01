@@ -17,6 +17,7 @@ import {
   BadRequestException,
   HttpException,
   Optional,
+  Inject,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -36,11 +37,51 @@ import {
   A2ATaskStatusResponse,
   A2ATaskStatus,
 } from "./a2a.types";
-import { TeamsService } from "../../../ai-engine/teams/services/teams.service";
-import type { ConstraintProfile } from "../../../ai-engine/teams/constraints/constraint-profile";
-import { TeamId } from "../../../ai-engine/teams/abstractions/team.interface";
+import type { ConstraintProfile, TeamId } from "../../abstractions";
+import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "../../abstractions";
 import { LruMap } from "@/common/utils/lru-map";
-import { TraceCollectorService } from "../../../ai-engine/infra/observability/trace-collector.service";
+
+/**
+ * Minimal interface for the TeamsService operations used by A2AController.
+ * Typed via DI token to avoid a direct import of the ai-engine class.
+ */
+interface IKernelTeamsService {
+  executeMission(params: {
+    teamId: TeamId;
+    goal: string;
+    context: string;
+    constraints?: Partial<ConstraintProfile>;
+    metadata?: Record<string, unknown>;
+  }): Promise<string>;
+  getMissionStatus(taskId: string): {
+    status: "pending" | "running" | "completed" | "failed" | "cancelled";
+    teamId: TeamId;
+    startTime: Date;
+    endTime?: Date;
+    error?: string;
+  };
+  getMissionResult(taskId: string): Promise<{
+    summary: string;
+    deliverables: unknown[];
+    statistics: unknown;
+    duration: number;
+    tokensUsed: number;
+    metadata?: Record<string, unknown>;
+  }>;
+}
+
+/**
+ * Minimal interface for the TraceCollector operations used by A2AController.
+ * Typed via DI token to avoid a direct import of the ai-engine class.
+ */
+interface IKernelTraceCollector {
+  startTrace(params: {
+    type: string;
+    name: string;
+    metadata?: Record<string, unknown>;
+  }): string;
+  endTrace(traceId: string, result: { status: "success" | "error" }): void;
+}
 
 @ApiTags("A2A Protocol")
 @Controller()
@@ -55,8 +96,11 @@ export class A2AController {
 
   constructor(
     private readonly agentCardRegistry: AgentCardRegistry,
-    private readonly teamsService: TeamsService,
-    @Optional() private readonly traceCollector?: TraceCollectorService,
+    @Inject(TEAMS_SERVICE_TOKEN)
+    private readonly teamsService: IKernelTeamsService,
+    @Optional()
+    @Inject(TRACE_COLLECTOR_TOKEN)
+    private readonly traceCollector?: IKernelTraceCollector,
   ) {}
 
   /**

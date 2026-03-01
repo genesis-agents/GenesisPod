@@ -4,14 +4,14 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import {
+import type {
   IProgressTracker,
   TrackedTask,
   CreateTrackedTaskRequest,
   TaskPhase,
-  calculateOverallProgress,
-} from "../../ai-engine/infra/realtime/abstractions/progress-tracker.interface";
-import type { ProgressEvent } from "../../ai-engine/infra/realtime/abstractions/event-emitter.interface";
+  ProgressEvent,
+} from "../abstractions";
+import { calculateOverallProgress } from "../abstractions";
 import { EventBusService } from "./event-bus.service";
 
 /**

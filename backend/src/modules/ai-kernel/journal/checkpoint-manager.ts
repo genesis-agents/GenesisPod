@@ -7,10 +7,7 @@
 
 import { v4 as uuid } from "uuid";
 import { Logger } from "@nestjs/common";
-import {
-  Checkpoint,
-  ExecutionContext,
-} from "../../ai-engine/orchestration/abstractions/orchestrator.interface";
+import type { Checkpoint, ExecutionContext } from "../abstractions";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**

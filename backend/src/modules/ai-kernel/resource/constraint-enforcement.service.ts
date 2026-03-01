@@ -13,14 +13,14 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import {
+import type {
   ConstraintSeverity,
   ExtractedConstraint,
-  ConstraintViolation,
+  OrchestrationConstraintViolation as ConstraintViolation,
   OutputValidationResult,
   HardConstraint,
   IConstraintEnforcementService,
-} from "../../ai-engine/orchestration/services/interfaces";
+} from "../abstractions";
 
 @Injectable()
 export class ConstraintEnforcementService implements IConstraintEnforcementService {

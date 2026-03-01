@@ -1,16 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import {
+import type {
   A2AMessage,
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../ai-engine/teams/abstractions/a2a-message.interface";
+} from "../abstractions";
 
-export type {
-  A2AMessage,
-  A2AMessageType,
-} from "../../ai-engine/teams/abstractions/a2a-message.interface";
+export type { A2AMessage, A2AMessageType } from "../abstractions";
 
 /**
  * Message Bus Service

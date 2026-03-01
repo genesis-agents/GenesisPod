@@ -1,4 +1,5 @@
 import { Global, Module } from "@nestjs/common";
+import { TRACE_COLLECTOR_TOKEN } from "./abstractions";
 import { ProcessManagerService } from "./process/process-manager.service";
 import { EventJournalService } from "./journal/event-journal.service";
 import { KernelMemoryManagerService } from "./memory/kernel-memory-manager.service";
@@ -29,6 +30,14 @@ import { KernelSchedulerService } from "./scheduler/kernel-scheduler.service";
 import { KernelApiService } from "./api/kernel-api.service";
 
 const KERNEL_PROVIDERS = [
+  // DI token alias: TRACE_COLLECTOR_TOKEN → ProcessEventLogService
+  // This allows A2AController (and others) to inject ProcessEventLogService
+  // without directly naming the class from ai-engine.
+  {
+    provide: TRACE_COLLECTOR_TOKEN,
+    useExisting: ProcessEventLogService,
+  },
+
   // Process
   ProcessManagerService,
   // Journal
