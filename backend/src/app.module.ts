@@ -49,29 +49,29 @@ import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
 import { TopicInsightsModule } from "./modules/ai-app/topic-insights";
 import { AiSocialModule } from "./modules/ai-app/social/ai-social.module";
-// Library modules (content)
+// Explore modules (content discovery)
+import { ExploreModule } from "./modules/ai-app/explore/explore.module";
+import { ResourcesModule } from "./modules/ai-app/explore/resources/resources.module";
+import { FeedModule } from "./modules/ai-app/explore/feed/feed.module";
+import { ReportsModule } from "./modules/ai-app/explore/reports/reports.module";
+import { CommentsModule } from "./modules/ai-app/explore/comments/comments.module";
+// Library modules (shared content)
 import { CollectionsModule } from "./modules/ai-app/library/collections/collections.module";
-import { CommentsModule } from "./modules/ai-app/library/comments/comments.module";
-import { ExploreModule } from "./modules/ai-app/library/explore/explore.module";
-import { FeedModule } from "./modules/ai-app/library/feed/feed.module";
 import { NotesModule } from "./modules/ai-app/library/notes/notes.module";
-import { ReportsModule } from "./modules/ai-app/library/reports/reports.module";
-import { ResourcesModule } from "./modules/ai-app/library/resources/resources.module";
-import { WorkspaceModule } from "./modules/ai-app/library/workspace/workspace.module";
-// Library modules (additional content)
 import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/knowledge-graph.module";
 import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
-// Library modules (ingestion)
-import { CrawlersModule } from "./modules/ai-app/library/ingestion/crawlers/crawlers.module";
-import { SourcesModule } from "./modules/ai-app/library/ingestion/sources/sources.module";
-import { IngestionConfigModule } from "./modules/ai-app/library/ingestion/config/config.module";
-import { SchedulerModule } from "./modules/ai-app/library/ingestion/scheduler/scheduler.module";
+// Admin modules (backend management)
+import { WorkspaceModule } from "./modules/ai-app/admin/workspace/workspace.module";
+import { CrawlersModule } from "./modules/ai-app/admin/ingestion/crawlers/crawlers.module";
+import { SourcesModule } from "./modules/ai-app/admin/ingestion/sources/sources.module";
+import { IngestionConfigModule } from "./modules/ai-app/admin/ingestion/config/config.module";
+import { SchedulerModule } from "./modules/ai-app/admin/ingestion/scheduler/scheduler.module";
 // Integration modules
-import { ProxyModule } from "./modules/ai-infra/integrations/proxy/proxy.module";
-import { FeishuModule } from "./modules/ai-infra/integrations/feishu/feishu.module";
-import { NotionModule } from "./modules/ai-infra/integrations/notion/notion.module";
-import { GoogleDriveModule } from "./modules/ai-infra/integrations/google-drive/google-drive.module";
-import { AiFileOrganizerModule } from "./modules/ai-infra/integrations/ai-file-organizer/ai-file-organizer.module";
+import { ProxyModule } from "./modules/ai-app/library/proxy/proxy.module";
+import { FeishuModule } from "./modules/ai-app/library/integrations/feishu/feishu.module";
+import { NotionModule } from "./modules/ai-app/library/integrations/notion/notion.module";
+import { GoogleDriveModule } from "./modules/ai-app/library/integrations/google-drive/google-drive.module";
+import { AiFileOrganizerModule } from "./modules/ai-app/library/ai-file-organizer/ai-file-organizer.module";
 // Export module
 import { ExportModule } from "./common/export";
 // Open API modules (webhooks, public-api, mcp-server)

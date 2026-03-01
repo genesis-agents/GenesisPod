@@ -15,7 +15,7 @@ import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AxiosHeaders, AxiosResponse } from "axios";
 import { ContentExtractorService } from "../content-extractor.service";
-import { YoutubeService } from "../../../modules/ai-app/library/explore/youtube.service";
+import { YoutubeService } from "../../../modules/ai-app/explore/youtube.service";
 import { MinerUService } from "../mineru.service";
 
 // ---------------------------------------------------------------------------

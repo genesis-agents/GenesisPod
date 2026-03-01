@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { YoutubeService } from "../../modules/ai-app/library/explore/youtube.service";
+import { YoutubeService } from "../../modules/ai-app/explore/youtube.service";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";

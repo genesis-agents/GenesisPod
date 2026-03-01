@@ -18,10 +18,10 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { CacheModule } from "../../../common/cache/cache.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { ExploreModule } from "../library/explore/explore.module";
+import { ExploreModule } from "../explore/explore.module";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
-import { YoutubeService } from "../library/explore/youtube.service";
+import { YoutubeService } from "../explore/youtube.service";
 import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/facade";
 
 @Module({

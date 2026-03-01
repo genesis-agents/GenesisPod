@@ -22,7 +22,7 @@ import { DataFetchingService } from "./data-fetching.service";
 import { MinerUService } from "./mineru.service";
 import { WebContentExtractionService } from "./web-content-extraction.service";
 import { UrlParserService } from "./url-parser.service";
-import { ExploreModule } from "../../modules/ai-app/library/explore/explore.module";
+import { ExploreModule } from "../../modules/ai-app/explore/explore.module";
 import { AdminModule } from "../../modules/open-api/admin/admin.module";
 
 @Global()
