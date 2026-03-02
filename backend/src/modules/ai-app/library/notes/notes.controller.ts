@@ -12,7 +12,7 @@ import {
   UnauthorizedException,
   HttpCode,
 } from "@nestjs/common";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../ai-infra/facade";
 import { NotesService } from "./notes.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";

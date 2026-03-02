@@ -29,7 +29,7 @@ import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIEngineFacade 访问）
 import { TaskCompletionType } from "../../../../../ai-engine/facade";
-import { EmailService } from "../../../../../ai-infra/email/email.service";
+import { EmailService } from "../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
 import {
   findMemberByNameEnhanced,

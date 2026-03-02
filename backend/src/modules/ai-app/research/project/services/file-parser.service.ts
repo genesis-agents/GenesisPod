@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
-import { R2StorageService } from "../../../../ai-infra/storage/r2-storage.service";
+import { R2StorageService } from "../../../../ai-infra/facade";
 
 interface ParsedFile {
   title: string;

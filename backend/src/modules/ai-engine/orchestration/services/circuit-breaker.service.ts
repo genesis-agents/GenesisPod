@@ -4,9 +4,9 @@
 export {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../../ai-kernel/resource/circuit-breaker.service";
+} from "../../../ai-kernel/facade";
 export type {
   CircuitBreakerConfig,
   HealthMetrics,
   CircuitState,
-} from "../../../ai-kernel/resource/circuit-breaker.service";
+} from "../../../ai-kernel/facade";

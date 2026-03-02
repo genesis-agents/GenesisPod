@@ -6,7 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { R2StorageService } from "../../../ai-infra/storage/r2-storage.service";
+import { R2StorageService } from "../../../ai-infra/facade";
 import {
   GeneratedImageResult,
   ProcessingStep,

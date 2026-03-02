@@ -33,8 +33,8 @@ import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { TraceCollectorService } from "../infra/observability/trace-collector.service";
 import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manager";
-import { MissionExecutorService } from "../../ai-kernel/mission/mission-executor.service";
-import { EventJournalService } from "../../ai-kernel/journal/event-journal.service";
+import { MissionExecutorService } from "../../ai-kernel/facade";
+import { EventJournalService } from "../../ai-kernel/facade";
 
 /**
  * Teams 模块

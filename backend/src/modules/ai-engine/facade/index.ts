@@ -120,6 +120,22 @@ export type {
   MCPTool,
 } from "../mcp/abstractions/mcp.interface";
 
+// Content feature types（for ai-app/office/content-analysis/）
+export {
+  ContentComplexity,
+  ContentCategory,
+  DataDensity,
+  TemporalDimension,
+  HierarchyType,
+} from "../content/types/content-features.types";
+export type {
+  ContentFeatures,
+  ExtractedEntity,
+  VisualizationOpportunity,
+  ParagraphFeatures,
+  SectionFeatures,
+} from "../content/types/content-features.types";
+
 // Content-fetch tokens & utilities（for ai-social.module.ts + content-fetcher.service.ts）
 // Direct imports to avoid loading ContentFetchModule barrel (prevents circular dep chain)
 export { YOUTUBE_SERVICE_TOKEN } from "../content/fetch/content-fetch.service";

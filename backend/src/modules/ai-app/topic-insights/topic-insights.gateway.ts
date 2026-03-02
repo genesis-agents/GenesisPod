@@ -371,15 +371,23 @@ export class TopicInsightsGateway
    * 客户端离开专题房间
    */
   @SubscribeMessage("leave:topic")
-  handleLeaveTopic(
+  async handleLeaveTopic(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { topicId: string },
   ) {
-    const roomName = `research:${data.topicId}`;
-    void client.leave(roomName);
-    const username = client.data.user?.username || "unknown";
-    this.logger.log(`Client ${client.id} (${username}) left room ${roomName}`);
-    return { success: true };
+    try {
+      const roomName = `research:${data.topicId}`;
+      await client.leave(roomName);
+      const username = client.data.user?.username || "unknown";
+      this.logger.log(
+        `Client ${client.id} (${username}) left room ${roomName}`,
+      );
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Failed to handle leave:topic: ${error}`);
+      client.emit("error", { message: "Operation failed" });
+      return { success: false };
+    }
   }
 
   /**

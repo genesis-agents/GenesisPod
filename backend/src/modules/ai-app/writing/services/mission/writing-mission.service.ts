@@ -66,7 +66,7 @@ import {
 // Services
 import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
-import { BillingContext } from "../../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../../ai-infra/facade";
 import { ExpressionMemoryService } from "../quality/expression-memory.service";
 import { QualityGateService } from "../quality/quality-gate.service";
 import { ProfessionalVoiceService } from "../quality/professional-voice.service";
@@ -3271,7 +3271,7 @@ ${narrativeConstraints}`;
                 preview: chapterContent.slice(0, 200),
               },
             })
-            .catch(() => {});
+            .catch((err) => this.logger.debug("Memory write failed", err));
         }
       }
 
@@ -3512,7 +3512,7 @@ ${narrativeConstraints}`;
             key: "final-content",
             value: { missionType: input.missionType, totalWords },
           })
-          .catch(() => {});
+          .catch((err) => this.logger.debug("Memory write failed", err));
       }
     }
 
@@ -7765,7 +7765,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
                 preview: chapterContent.slice(0, 200),
               },
             })
-            .catch(() => {});
+            .catch((err) => this.logger.debug("Memory write failed", err));
         }
       }
 
@@ -7808,7 +7808,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
               totalWords: currentWordCount,
             },
           })
-          .catch(() => {});
+          .catch((err) => this.logger.debug("Memory write failed", err));
       }
     }
 

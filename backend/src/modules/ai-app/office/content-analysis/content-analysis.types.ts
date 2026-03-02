@@ -7,26 +7,28 @@
  * 此文件 re-export 核心类型并扩展 L4 特有的业务类型。
  */
 
-// Re-export core content feature types from L2 (AI Engine)
+// Re-export core content feature types from L2 (AI Engine) via Facade
 export {
   ContentComplexity,
   ContentCategory,
   DataDensity,
   TemporalDimension,
   HierarchyType,
+} from "../../../ai-engine/facade";
+export type {
   ContentFeatures,
   ExtractedEntity,
   VisualizationOpportunity,
   ParagraphFeatures,
   SectionFeatures,
-} from "../../../ai-engine/content/types/content-features.types";
+} from "../../../ai-engine/facade";
 
 // Re-import for local use in interfaces below
 import type {
   ContentFeatures,
   ParagraphFeatures,
   SectionFeatures,
-} from "../../../ai-engine/content/types/content-features.types";
+} from "../../../ai-engine/facade";
 
 // ============================================================================
 // 内容分析请求/响应 (L4 业务类型)

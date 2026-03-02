@@ -1,7 +1,7 @@
 /**
  * @deprecated Migrated to ai-kernel. This re-export shim maintains backward compatibility.
  */
-export { CostAttributionService } from "../../../ai-kernel/observability/cost-attribution.service";
+export { CostAttributionService } from "../../../ai-kernel/facade";
 export type {
   CostEvent,
   CostReport,
@@ -10,4 +10,4 @@ export type {
   CostByModel,
   HourlyBucket,
   BudgetAlert,
-} from "../../../ai-kernel/observability/cost-attribution.service";
+} from "../../../ai-kernel/facade";

@@ -29,7 +29,7 @@ import {
   EventBusService,
 } from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../ai-infra/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 export interface PlanPhaseStatus {

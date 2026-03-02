@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   BadRequestException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { OAuth2Client } from "google-auth-library";
 import { oauth2 } from "@googleapis/oauth2";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
@@ -33,12 +34,19 @@ export class GoogleDriveAuthService {
   private readonly redirectUri: string;
   private readonly oauth2Client: OAuth2Client;
 
-  constructor(private readonly prisma: PrismaService) {
-    this.clientId = process.env.GOOGLE_CLIENT_ID || "";
-    this.clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-    this.redirectUri =
-      process.env.GOOGLE_DRIVE_REDIRECT_URI ||
-      "http://localhost:8080/api/v1/google-drive/callback";
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    this.clientId = this.configService.get<string>("GOOGLE_CLIENT_ID", "");
+    this.clientSecret = this.configService.get<string>(
+      "GOOGLE_CLIENT_SECRET",
+      "",
+    );
+    this.redirectUri = this.configService.get<string>(
+      "GOOGLE_DRIVE_REDIRECT_URI",
+      "http://localhost:8080/api/v1/google-drive/callback",
+    );
 
     if (!this.clientId || !this.clientSecret) {
       this.logger.warn(

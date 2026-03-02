@@ -45,8 +45,7 @@ import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../orchestration/capabilities/ai-capability-resolver.service";
-import { CreditsService } from "../../ai-infra/credits/credits.service";
-import { BillingContext } from "../../ai-infra/credits/billing-context";
+import { CreditsService, BillingContext } from "../../ai-infra/facade";
 import { RequestContext } from "../../../common/context/request-context";
 import type { CreditBillingInfo } from "./types/facade.types";
 import type {

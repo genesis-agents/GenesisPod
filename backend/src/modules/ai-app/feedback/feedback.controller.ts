@@ -18,7 +18,7 @@ import { CreateFeedbackDto } from "./dto/create-feedback.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
-import { EmailService } from "../../ai-infra/email/email.service";
+import { EmailService } from "../../ai-infra/facade";
 
 // Type definitions for feedback enums
 type FeedbackStatusEnum =

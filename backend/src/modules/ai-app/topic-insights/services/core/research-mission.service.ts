@@ -2666,7 +2666,7 @@ export class ResearchMissionService {
                     summary: (result as Record<string, unknown>)?.summary || "",
                   },
                 })
-                .catch(() => {});
+                .catch((err) => this.logger.debug("Memory write failed", err));
             }
           }
 
@@ -2779,7 +2779,7 @@ export class ResearchMissionService {
               value: result,
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
             })
-            .catch(() => {});
+            .catch((err) => this.logger.debug("Memory write failed", err));
         }
       }
 

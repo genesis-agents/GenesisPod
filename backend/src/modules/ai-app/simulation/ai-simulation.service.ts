@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { Prisma, SimulationRunStatus, SimulationTeam } from "@prisma/client";
 import { AiSimulationEngineService } from "./ai-simulation.engine";
-import { BillingContext } from "../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../ai-infra/facade";
 
 export interface CreateScenarioInput {
   name: string;

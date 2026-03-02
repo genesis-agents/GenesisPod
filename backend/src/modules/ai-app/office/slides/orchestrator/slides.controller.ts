@@ -72,7 +72,7 @@ import {
 } from "../../../../../common/guards/rate-limit.guard";
 import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
-import { BillingContext } from "../../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../../ai-infra/facade";
 import {
   KernelContext,
   MissionExecutorService,
@@ -1725,12 +1725,18 @@ export class SlidesController {
       const result = await KernelContext.run({ processId, userId }, async () =>
         fn(),
       );
-      void this.missionExecutor.complete(processId).catch(() => {});
+      void this.missionExecutor
+        .complete(processId)
+        .catch((err) =>
+          this.logger.debug("Mission completion cleanup failed", err),
+        );
       return result;
     } catch (error) {
       void this.missionExecutor
         .fail(processId, error instanceof Error ? error.message : String(error))
-        .catch(() => {});
+        .catch((err) =>
+          this.logger.debug("Mission failure cleanup failed", err),
+        );
       throw error;
     }
   }

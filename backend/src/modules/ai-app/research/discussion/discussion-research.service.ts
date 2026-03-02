@@ -14,9 +14,11 @@ import {
   Reflection,
   ThinkingStep,
 } from "./types";
-import { CreditsService } from "../../../ai-infra/credits/credits.service";
-import { InsufficientCreditsException } from "../../../ai-infra/credits/exceptions/insufficient-credits.exception";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import {
+  CreditsService,
+  InsufficientCreditsException,
+  BillingContext,
+} from "../../../ai-infra/facade";
 import {
   KernelContext,
   MissionExecutorService,
@@ -107,7 +109,11 @@ export class DiscussionResearchService {
             )
           : billingRun());
         if (kernelProcessId && this.missionExecutor) {
-          void this.missionExecutor.complete(kernelProcessId).catch(() => {});
+          void this.missionExecutor
+            .complete(kernelProcessId)
+            .catch((err) =>
+              this.logger.debug("Mission completion cleanup failed", err),
+            );
         }
       } catch (error) {
         if (kernelProcessId && this.missionExecutor) {
@@ -116,7 +122,9 @@ export class DiscussionResearchService {
               kernelProcessId,
               error instanceof Error ? error.message : String(error),
             )
-            .catch(() => {});
+            .catch((err) =>
+              this.logger.debug("Mission failure cleanup failed", err),
+            );
         }
         throw error;
       }

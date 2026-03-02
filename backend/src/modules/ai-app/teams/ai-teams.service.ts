@@ -44,7 +44,7 @@ import {
   TopicForwardBookmarkService,
   TopicEventEmitterService,
 } from "./services";
-import { BillingContext } from "../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../ai-infra/facade";
 
 @Injectable()
 export class AiTeamsService {

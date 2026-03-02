@@ -6,7 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import * as puppeteer from "puppeteer";
-import { R2StorageService } from "../../../ai-infra/storage/r2-storage.service";
+import { R2StorageService } from "../../../ai-infra/facade";
 import {
   ExportOptions,
   ExportResult,

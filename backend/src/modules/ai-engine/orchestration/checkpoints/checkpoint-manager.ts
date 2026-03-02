@@ -4,8 +4,8 @@
 export {
   CheckpointManager,
   InMemoryCheckpointStore,
-} from "../../../ai-kernel/journal/checkpoint-manager";
+} from "../../../ai-kernel/facade";
 export type {
   ICheckpointStore,
   CheckpointManagerConfig,
-} from "../../../ai-kernel/journal/checkpoint-manager";
+} from "../../../ai-kernel/facade";

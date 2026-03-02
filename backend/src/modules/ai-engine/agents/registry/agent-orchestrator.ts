@@ -10,9 +10,9 @@ import { AgentRegistry } from "./agent-registry";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
-import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
-import { CapabilityGuardService } from "../../../ai-kernel/security/capability-guard.service";
-import { KernelContext } from "../../../ai-kernel/context/kernel-context";
+import { EventJournalService } from "../../../ai-kernel/facade";
+import { CapabilityGuardService } from "../../../ai-kernel/facade";
+import { KernelContext } from "../../../ai-kernel/facade";
 
 /**
  * 状态报告项
@@ -135,7 +135,9 @@ export class AgentOrchestrator {
             agentId: selectedAgentId,
             stepCount: plan?.steps?.length ?? 0,
           })
-          .catch(() => {});
+          .catch((err) =>
+            this.logger.debug("Process event emission failed", err),
+          );
       }
 
       // ★ CapabilityGuard: Check tool access before execution
@@ -213,7 +215,9 @@ export class AgentOrchestrator {
                 agentId: selectedAgentId,
                 success: event.result?.success ?? false,
               })
-              .catch(() => {});
+              .catch((err) =>
+                this.logger.debug("Process event emission failed", err),
+              );
           }
         } else if (event.type === "error") {
           this.registry.recordExecution(selectedAgentId, false);
@@ -230,7 +234,9 @@ export class AgentOrchestrator {
             agentId: selectedAgentId,
             error: error instanceof Error ? error.message : String(error),
           })
-          .catch(() => {});
+          .catch((err) =>
+            this.logger.debug("Process event emission failed", err),
+          );
       }
 
       yield {

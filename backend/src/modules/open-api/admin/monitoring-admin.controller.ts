@@ -14,10 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { Request } from "express";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import {
-  ErrorTrackingService,
-  AIMetricsService,
-} from "../../ai-infra/monitoring";
+import { ErrorTrackingService, AIMetricsService } from "../../ai-infra/facade";
 import { AIAdminService } from "./ai-admin.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {

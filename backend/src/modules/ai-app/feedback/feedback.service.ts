@@ -3,8 +3,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
-import { EmailService } from "../../ai-infra/email/email.service";
-import { R2StorageService } from "../../ai-infra/storage/r2-storage.service";
+import { EmailService, R2StorageService } from "../../ai-infra/facade";
 import {
   FeedbackEvent,
   FeedbackCreatedPayload,

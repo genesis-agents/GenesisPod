@@ -24,7 +24,14 @@ export {
 
 // Journal
 export { EventJournalService } from "../journal/event-journal.service";
-export { CheckpointManager } from "../journal/checkpoint-manager";
+export {
+  CheckpointManager,
+  InMemoryCheckpointStore,
+} from "../journal/checkpoint-manager";
+export type {
+  ICheckpointStore,
+  CheckpointManagerConfig,
+} from "../journal/checkpoint-manager";
 
 // Memory
 export { KernelMemoryManagerService } from "../memory/kernel-memory-manager.service";
@@ -34,6 +41,7 @@ export { PersistentMemoryStore } from "../memory/stores/persistent-memory.store"
 // IPC
 export { EventBusService } from "../ipc/event-bus.service";
 export { MessageBusService } from "../ipc/message-bus.service";
+export type { A2AMessage, A2AMessageType } from "../ipc/message-bus.service";
 
 // Resource
 export { ResourceManagerService } from "../resource/resource-manager.service";
@@ -41,6 +49,12 @@ export { ResourceManagerService } from "../resource/resource-manager.service";
 // Observability
 export { ProcessEventLogService } from "../observability/process-event-log.service";
 export { KernelMetricsService } from "../observability/kernel-metrics.service";
+export type {
+  LLMCallEvent,
+  ModelMetrics,
+  ModuleMetrics,
+  ObservabilityDashboard,
+} from "../observability/kernel-metrics.service";
 
 // Mission
 export { MissionExecutorService } from "../mission/mission-executor.service";
@@ -58,6 +72,62 @@ export { KernelSchedulerService } from "../scheduler/kernel-scheduler.service";
 
 // Supervisor
 export { ProcessSupervisorService } from "../supervisor/process-supervisor.service";
+export { StateCategory } from "../supervisor/process-supervisor.service";
+export type {
+  StateEntry,
+  ExecutionStateStats,
+  ExecutionStateConfig,
+} from "../supervisor/process-supervisor.service";
+
+// Observability — additional
+export { CostAttributionService } from "../observability/cost-attribution.service";
+export type {
+  CostEvent,
+  CostReport,
+  CostByUser,
+  CostByModule,
+  CostByModel,
+  HourlyBucket,
+  BudgetAlert,
+} from "../observability/cost-attribution.service";
+export { ObservabilityController } from "../observability/observability.controller";
+
+// IPC — A2A
+export { A2AController } from "../ipc/a2a/a2a.controller";
+export { A2AClientService } from "../ipc/a2a/a2a-client.service";
+export { A2ATeamMemberAdapter } from "../ipc/a2a/a2a-team-member-adapter";
+export { AgentCardRegistry } from "../ipc/a2a/agent-card-registry";
+export { A2AApiKeyGuard } from "../ipc/a2a/a2a-api-key.guard";
+
+// IPC — Progress
+export { ProgressTrackerService } from "../ipc/progress-tracker.service";
+
+// Resource — additional
+export { CircuitBreakerService } from "../resource/circuit-breaker.service";
+export {
+  TaskCompletionType,
+  type CircuitState,
+} from "../resource/circuit-breaker.service";
+export type {
+  CircuitBreakerConfig,
+  HealthMetrics,
+} from "../resource/circuit-breaker.service";
+export { ConstraintEnforcementService } from "../resource/constraint-enforcement.service";
+export { ConstraintEngine } from "../resource/constraint-engine";
+export { RateLimiter, TokenBucket } from "../resource/rate-limiter";
+export type {
+  RateLimitResult,
+  RateLimitConfig,
+} from "../resource/rate-limiter";
+export { CostController } from "../resource/cost-controller";
+export type {
+  CostRecord,
+  CostCategory,
+  CostBudget,
+  CostCheckResult,
+  BudgetPeriod,
+  ModelPricing,
+} from "../resource/cost-controller";
 
 // API
 export { KernelApiService } from "../api/kernel-api.service";

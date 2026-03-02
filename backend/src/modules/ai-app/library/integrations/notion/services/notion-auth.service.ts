@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   BadRequestException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Client } from "@notionhq/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
@@ -41,12 +42,19 @@ export class NotionAuthService {
   private readonly clientSecret: string;
   private readonly callbackUrl: string;
 
-  constructor(private readonly prisma: PrismaService) {
-    this.clientId = process.env.NOTION_CLIENT_ID || "";
-    this.clientSecret = process.env.NOTION_CLIENT_SECRET || "";
-    this.callbackUrl =
-      process.env.NOTION_CALLBACK_URL ||
-      "http://localhost:8080/api/v1/notion/callback";
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    this.clientId = this.configService.get<string>("NOTION_CLIENT_ID", "");
+    this.clientSecret = this.configService.get<string>(
+      "NOTION_CLIENT_SECRET",
+      "",
+    );
+    this.callbackUrl = this.configService.get<string>(
+      "NOTION_CALLBACK_URL",
+      "http://localhost:8080/api/v1/notion/callback",
+    );
 
     if (!this.clientId || !this.clientSecret) {
       this.logger.warn(

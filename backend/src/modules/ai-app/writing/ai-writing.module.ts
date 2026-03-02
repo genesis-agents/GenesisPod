@@ -8,7 +8,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PromptSkillBridge } from "../../ai-engine/facade";
-import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../ai-infra/facade";
 
 // WebSocket Gateway and Event Emitter
 import { AiWritingGateway } from "./ai-writing.gateway";

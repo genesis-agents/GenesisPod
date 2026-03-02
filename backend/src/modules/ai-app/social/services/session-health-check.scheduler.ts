@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { NotificationService } from "../../../ai-infra/notifications/notification.service";
+import { NotificationService } from "../../../ai-infra/facade";
 import { NotificationTypeDto } from "../../../ai-infra/notifications/dto/notification.dto";
 import { PlaywrightService } from "./playwright.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";

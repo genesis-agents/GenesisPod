@@ -12,7 +12,7 @@ import {
   UnauthorizedException,
   HttpCode,
 } from "@nestjs/common";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../ai-infra/facade";
 import { CollectionsService } from "./collections.service";
 import {
   CreateCollectionDto,

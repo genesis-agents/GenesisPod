@@ -37,7 +37,7 @@ import { ResourcesService } from "./resources.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
-import { R2StorageService } from "../../../ai-infra/storage/r2-storage.service";
+import { R2StorageService } from "../../../ai-infra/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
 import { Prisma } from "@prisma/client";

@@ -14,7 +14,7 @@ import {
   KernelContext,
   MissionExecutorService,
 } from "../../../ai-engine/facade";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../ai-infra/facade";
 
 export interface ChatMessage {
   id: string;
@@ -115,7 +115,11 @@ export class ResearchProjectChatService {
         ? KernelContext.run({ processId: kernelProcessId, userId }, billingRun)
         : billingRun());
       if (kernelProcessId && this.missionExecutor) {
-        void this.missionExecutor.complete(kernelProcessId).catch(() => {});
+        void this.missionExecutor
+          .complete(kernelProcessId)
+          .catch((err) =>
+            this.logger.debug("Mission completion cleanup failed", err),
+          );
       }
       return result;
     } catch (error) {
@@ -125,7 +129,9 @@ export class ResearchProjectChatService {
             kernelProcessId,
             error instanceof Error ? error.message : String(error),
           )
-          .catch(() => {});
+          .catch((err) =>
+            this.logger.debug("Mission failure cleanup failed", err),
+          );
       }
       throw error;
     }

@@ -17,9 +17,11 @@ import {
 } from "../../ai-engine/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import { RAGPipelineService } from "../../ai-engine/facade";
-import { CreditsService } from "../../ai-infra/credits/credits.service";
-import { InsufficientCreditsException } from "../../ai-infra/credits/exceptions/insufficient-credits.exception";
-import { BillingContext } from "../../ai-infra/credits/billing-context";
+import {
+  CreditsService,
+  InsufficientCreditsException,
+  BillingContext,
+} from "../../ai-infra/facade";
 import {
   GENESIS_AI_CONTEXT,
   isProjectRelatedQuery,
@@ -522,7 +524,7 @@ export class AiAskService {
                     tokensUsed,
                   },
                 })
-                .catch(() => {});
+                .catch((err) => this.logger.debug("Memory write failed", err));
             }
           }
 

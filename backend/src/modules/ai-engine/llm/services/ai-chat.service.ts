@@ -7,8 +7,7 @@ import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
-// ★ Direct import to avoid circular dep via monitoring barrel → health-check → facade → this
-import { AIMetricsService } from "../../../ai-infra/monitoring/ai-metrics.service";
+import { AIMetricsService } from "../../../ai-infra/facade";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import {
   CircuitBreakerService,
@@ -21,10 +20,10 @@ import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
-import { CostAttributionService } from "../../../ai-kernel/observability/cost-attribution.service";
-import { KernelMetricsService } from "../../../ai-kernel/observability/kernel-metrics.service";
-import { KernelContext } from "../../../ai-kernel/context/kernel-context";
+import { EventJournalService } from "../../../ai-kernel/facade";
+import { CostAttributionService } from "../../../ai-kernel/facade";
+import { KernelMetricsService } from "../../../ai-kernel/facade";
+import { KernelContext } from "../../../ai-kernel/facade";
 
 export interface ChatCompletionOptions {
   model: string;
@@ -1077,7 +1076,9 @@ export class AiChatService {
               tokens: result.tokensUsed,
               latencyMs: duration,
             })
-            .catch(() => {});
+            .catch((err) =>
+              this.logger.debug("Process event emission failed", err),
+            );
         }
         if (processId && this.costAttribution) {
           this.costAttribution.recordCost({
@@ -1188,7 +1189,9 @@ export class AiChatService {
             model: currentModel,
             error: result.content.substring(0, 200),
           })
-          .catch(() => {});
+          .catch((err) =>
+            this.logger.debug("Process event emission failed", err),
+          );
       }
       if (this.kernelMetrics) {
         this.kernelMetrics.recordLLMCall({

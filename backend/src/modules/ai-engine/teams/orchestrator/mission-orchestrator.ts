@@ -77,8 +77,8 @@ import {
   ExecutionContext,
   StepResult,
 } from "../../orchestration/abstractions/orchestrator.interface";
-import { MissionExecutorService } from "../../../ai-kernel/mission/mission-executor.service";
-import { EventJournalService } from "../../../ai-kernel/journal/event-journal.service";
+import { MissionExecutorService } from "../../../ai-kernel/facade";
+import { EventJournalService } from "../../../ai-kernel/facade";
 
 /**
  * 步骤执行结果（内部使用）

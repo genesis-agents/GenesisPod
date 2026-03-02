@@ -26,9 +26,11 @@ import { TeamMemberAgent } from "../../agents";
 import type { AgentEvent, BuiltinToolId } from "../../../../ai-engine/facade";
 import type { AICapabilityContext } from "../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../events";
-import { CreditsService } from "../../../../ai-infra/credits/credits.service";
-import { InsufficientCreditsException } from "../../../../ai-infra/credits/exceptions/insufficient-credits.exception";
-import { BillingContext } from "../../../../ai-infra/credits/billing-context";
+import {
+  CreditsService,
+  InsufficientCreditsException,
+  BillingContext,
+} from "../../../../ai-infra/facade";
 import { MetricsService, Trace } from "../../../../../common/observability";
 import { AuditService } from "../../../../../common/audit";
 

@@ -1,7 +1,7 @@
 /**
  * @deprecated Migrated to ai-kernel. This re-export shim maintains backward compatibility.
  */
-export { CostController } from "../../../../ai-kernel/resource/cost-controller";
+export { CostController } from "../../../../ai-kernel/facade";
 export type {
   CostRecord,
   CostCategory,
@@ -9,4 +9,4 @@ export type {
   BudgetPeriod,
   CostCheckResult,
   ModelPricing,
-} from "../../../../ai-kernel/resource/cost-controller";
+} from "../../../../ai-kernel/facade";

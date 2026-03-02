@@ -71,28 +71,40 @@ export class AiWritingGateway
    * 客户端加入项目房间
    */
   @SubscribeMessage("join:project")
-  handleJoinProject(
+  async handleJoinProject(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { projectId: string },
   ) {
-    const roomName = `writing:${data.projectId}`;
-    client.join(roomName);
-    this.logger.log(`Client ${client.id} joined room ${roomName}`);
-    return { success: true, room: roomName };
+    try {
+      const roomName = `writing:${data.projectId}`;
+      await client.join(roomName);
+      this.logger.log(`Client ${client.id} joined room ${roomName}`);
+      return { success: true, room: roomName };
+    } catch (error) {
+      this.logger.error(`Failed to handle join:project: ${error}`);
+      client.emit("error", { message: "Operation failed" });
+      return { success: false };
+    }
   }
 
   /**
    * 客户端离开项目房间
    */
   @SubscribeMessage("leave:project")
-  handleLeaveProject(
+  async handleLeaveProject(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { projectId: string },
   ) {
-    const roomName = `writing:${data.projectId}`;
-    client.leave(roomName);
-    this.logger.log(`Client ${client.id} left room ${roomName}`);
-    return { success: true };
+    try {
+      const roomName = `writing:${data.projectId}`;
+      await client.leave(roomName);
+      this.logger.log(`Client ${client.id} left room ${roomName}`);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Failed to handle leave:project: ${error}`);
+      client.emit("error", { message: "Operation failed" });
+      return { success: false };
+    }
   }
 
   /**

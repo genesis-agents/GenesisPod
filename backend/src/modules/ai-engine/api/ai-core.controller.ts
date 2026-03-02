@@ -19,11 +19,10 @@ import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { AIEngineFacade } from "../facade/ai-engine.facade";
 import { RAGPipelineService } from "../knowledge/rag/pipeline";
-import { SecretsService } from "../../ai-infra/secrets/secrets.service";
+import { SecretsService, BillingContext } from "../../ai-infra/facade";
 import { SearchService } from "../knowledge/search/search.service";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
-import { BillingContext } from "../../ai-infra/credits/billing-context";
 import { RequestContext } from "../../../common/context/request-context";
 
 interface TranslateSingleRequest {

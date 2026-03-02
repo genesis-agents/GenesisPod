@@ -13,7 +13,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { QualityMonitorService } from "../quality-monitor.service";
-import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
+import { AiChatService } from "../../../../../ai-engine/facade";
 import {
   DEFAULT_QUALITY_MONITOR_CONFIG,
   QualityMonitorConfig,

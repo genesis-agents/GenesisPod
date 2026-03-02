@@ -11,7 +11,7 @@ import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { SecretsService } from "../../../ai-infra/facade";
 
 @Injectable()
 export class ImageGenerationService {

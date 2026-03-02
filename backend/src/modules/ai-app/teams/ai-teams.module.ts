@@ -30,7 +30,7 @@ import { AiTeamsGateway } from "./ai-teams.gateway";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { CreditsModule } from "../../ai-infra/facade";
 import {
   // AI 服务
   ContextRouterService,

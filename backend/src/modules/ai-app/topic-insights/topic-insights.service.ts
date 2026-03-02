@@ -51,7 +51,7 @@ import {
   buildEditPrompt,
   buildEnhancedEditPrompt,
 } from "./prompts";
-import { BillingContext } from "../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../ai-infra/facade";
 import type { ResearchDepth } from "./types";
 
 // 维度模板已外置到 config/dimension-templates.config.ts

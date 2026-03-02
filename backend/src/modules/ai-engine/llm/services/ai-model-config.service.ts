@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
-import { UserApiKeysService } from "../../../ai-infra/user-api-keys/user-api-keys.service";
+import { SecretsService, UserApiKeysService } from "../../../ai-infra/facade";
 import { RequestContext } from "../../../../common/context/request-context";
 import { AIModelType } from "@prisma/client";
 import { inferIsReasoning } from "../types";
