@@ -241,9 +241,10 @@ describe('aiEngine layer (level 2)', () => {
     expect(card?.href).toBe('/admin/ai/models');
   });
 
-  it('guardrails card is not clickable', () => {
+  it('guardrails card is clickable with href /admin/ai/guardrails', () => {
     const card = layer.cards?.find((c) => c.id === 'guardrails');
-    expect(card?.clickable).toBe(false);
+    expect(card?.clickable).toBe(true);
+    expect(card?.href).toBe('/admin/ai/guardrails');
   });
 
   it('rag card is clickable with href /library/rag', () => {

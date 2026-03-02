@@ -1,6 +1,8 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KernelApiService } from "../../../ai-kernel/facade";
+import { MCPServerService } from "../../../open-api/mcp-server/mcp-server.service";
+import { GuardrailsPipelineService } from "../../../ai-engine/facade";
 
 /**
  * Statistics Service
@@ -13,6 +15,8 @@ export class StatisticsService {
   constructor(
     private prisma: PrismaService,
     @Optional() private kernelApi?: KernelApiService,
+    @Optional() private mcpServer?: MCPServerService,
+    @Optional() private guardrailsPipeline?: GuardrailsPipelineService,
   ) {}
 
   /**
@@ -119,6 +123,9 @@ export class StatisticsService {
     // Kernel in-memory stats (IPC, Resources)
     const kernelInMemory = this.getKernelInMemoryStats();
 
+    // MCP Server registered tools (runtime count)
+    const mcpRegisteredTools = this.getMcpRegisteredTools();
+
     // DB table count (from PostgreSQL information_schema)
     const dbTables = await this.getDbTableCount();
 
@@ -157,7 +164,7 @@ export class StatisticsService {
       mcpServers,
       agents,
       knowledgeBases,
-      guardrailRules: 2, // static: input + output validators (no DB model)
+      guardrailRules: this.getGuardrailRulesCount(),
       // L3 Observability: use DB count when in-memory is 0
       kernelLLMCalls:
         kernelInMemory.kernelLLMCalls > 0
@@ -165,6 +172,7 @@ export class StatisticsService {
           : llmCallsDb,
       // L5 Open API
       webhookSubscriptions,
+      mcpRegisteredTools,
       // L6 Gateway
       askSessions,
       agentTraces,
@@ -195,6 +203,26 @@ export class StatisticsService {
       };
     } catch {
       return { kernelSubscriptions: 0, kernelBreakers: 0, kernelLLMCalls: 0 };
+    }
+  }
+
+  /** Guardrail rules count from pipeline service */
+  private getGuardrailRulesCount(): number {
+    if (!this.guardrailsPipeline) return 0;
+    try {
+      return this.guardrailsPipeline.getRegisteredGuardrails().totalRules;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** MCP Server runtime registered tool count */
+  private getMcpRegisteredTools(): number {
+    if (!this.mcpServer) return 0;
+    try {
+      return this.mcpServer.getDetailedStatus().totalToolCount;
+    } catch {
+      return 0;
     }
   }
 

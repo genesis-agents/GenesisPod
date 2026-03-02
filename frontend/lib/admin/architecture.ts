@@ -130,7 +130,7 @@ const openApiLayer: ArchitectureLayer = {
       href: '/admin/system/mcp-server',
       icon: Radio,
       clickable: true,
-      stats: [{ label: '工具', key: 'tools' }],
+      stats: [{ label: '已注册工具', key: 'mcpRegisteredTools' }],
     },
     {
       id: 'webhooks',
@@ -356,7 +356,7 @@ const aiKernelLayer: ArchitectureLayer = {
       href: '/admin/kernel/security',
       icon: Shield,
       clickable: true,
-      stats: [{ label: '进程', key: 'kernelProcesses' }],
+      stats: [{ label: '受控进程', key: 'kernelProcesses' }],
     },
     {
       id: 'kernelScheduler',
@@ -440,8 +440,9 @@ const aiEngineLayer: ArchitectureLayer = {
       id: 'guardrails',
       i18nKey: 'admin.nav.guardrails',
       descriptionKey: 'admin.architecture.cards.guardrailsDesc',
+      href: '/admin/ai/guardrails',
       icon: Shield,
-      clickable: false,
+      clickable: true,
       stats: [{ label: '规则', key: 'guardrailRules' }],
     },
   ],

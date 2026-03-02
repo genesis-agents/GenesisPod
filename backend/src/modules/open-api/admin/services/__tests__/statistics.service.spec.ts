@@ -203,6 +203,7 @@ describe("StatisticsService", () => {
         "guardrailRules",
         // L5 Open API
         "webhookSubscriptions",
+        "mcpRegisteredTools",
         // L6 Gateway
         "askSessions",
         "agentTraces",
@@ -303,10 +304,9 @@ describe("StatisticsService", () => {
       // Act
       const result = await service.getOverviewStats();
 
-      // Assert — static constants are not queried from DB
+      // Assert — storageProviders is static (5), everything else is 0
       const staticKeys: Record<string, number> = {
         storageProviders: 5,
-        guardrailRules: 2,
       };
       Object.entries(result).forEach(([key, v]) => {
         if (key in staticKeys) {

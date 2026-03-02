@@ -24,6 +24,7 @@ import {
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { AIAdminService } from "./ai-admin.service";
+import { GuardrailsPipelineService } from "../../ai-engine/facade";
 
 /**
  * AI 能力管理控制器
@@ -36,7 +37,10 @@ import { AIAdminService } from "./ai-admin.service";
 export class AIAdminController {
   private readonly logger = new Logger(AIAdminController.name);
 
-  constructor(private readonly aiAdminService: AIAdminService) {}
+  constructor(
+    private readonly aiAdminService: AIAdminService,
+    private readonly guardrailsPipeline: GuardrailsPipelineService,
+  ) {}
 
   // ==================== Batch Operations ====================
 
@@ -591,5 +595,14 @@ export class AIAdminController {
   async deleteMCPServer(@Param("serverId") serverId: string) {
     this.logger.log(`Admin: Deleting MCP server ${serverId}`);
     return this.aiAdminService.deleteMCPServer(serverId);
+  }
+
+  // ─── Guardrails ───
+
+  @Get("guardrails")
+  @ApiOperation({ summary: "Get registered guardrails" })
+  @ApiResponse({ status: 200, description: "List of registered guardrails" })
+  getGuardrails() {
+    return this.guardrailsPipeline.getRegisteredGuardrails();
   }
 }

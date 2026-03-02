@@ -58,6 +58,7 @@ const EXPECTED_STAT_KEYS = [
   "agentTraces",
   // L5 Open API
   "webhookSubscriptions",
+  "mcpRegisteredTools",
 ];
 
 // Layer badge labels (L6 → L1)
@@ -83,6 +84,7 @@ const CLICKABLE_CARDS_HREFS = [
   "/admin/ai/teams",
   "/admin/ai/skills",
   "/admin/ai/tools",
+  "/admin/ai/guardrails",
   "/admin/access/users",
   "/admin/access/permissions",
   "/admin/access/secrets",
@@ -207,10 +209,9 @@ test.describe("Admin Overview — Architecture Diagram", () => {
   });
 
   test("non-clickable cards are not wrapped in links", async ({ page }) => {
-    // Cards like "webhooks", "guardrails", "intentRouter" should not be links
+    // Cards like "webhooks", "intentRouter" should not be links
     const nonClickableIds = [
       "webhooks",
-      "guardrails",
       "intentRouter",
       "aiPlanning",
     ];

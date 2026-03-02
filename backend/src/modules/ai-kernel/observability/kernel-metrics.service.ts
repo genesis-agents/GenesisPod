@@ -685,6 +685,175 @@ export class KernelMetricsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * 获取仪表盘（带 DB 回退）
+   *
+   * 先读内存环形缓冲区，若为空则从 AIEngineMetric 表回退查询。
+   * 适用于服务重启后内存清空但 DB 有持久化数据的场景。
+   */
+  async getDashboardWithFallback(
+    periodMinutes: number = 60,
+  ): Promise<ObservabilityDashboard> {
+    const inMemory = this.getDashboard(periodMinutes);
+    if (inMemory.totalCalls > 0) return inMemory;
+    return this.getDashboardFromDB(periodMinutes);
+  }
+
+  /**
+   * 从 DB 聚合仪表盘数据（AIEngineMetric 表）
+   */
+  private async getDashboardFromDB(
+    periodMinutes: number = 60,
+  ): Promise<ObservabilityDashboard> {
+    const now = new Date();
+    const startTime = new Date(now.getTime() - periodMinutes * 60 * 1000);
+
+    if (!this.prisma) {
+      return this.getEmptyDashboard(startTime, now);
+    }
+
+    try {
+      const metrics = await this.prisma.aIEngineMetric.findMany({
+        where: {
+          metricType: "llm_call",
+          createdAt: { gte: startTime, lte: now },
+        },
+        orderBy: { createdAt: "desc" },
+        take: this.MAX_EVENTS,
+      });
+
+      if (metrics.length === 0) {
+        return this.getEmptyDashboard(startTime, now);
+      }
+
+      const totalCalls = metrics.length;
+      const successfulCalls = metrics.filter((m) => m.success).length;
+      const totalTokens = metrics.reduce(
+        (sum, m) => sum + (m.totalTokens ?? 0),
+        0,
+      );
+      const totalCost = metrics.reduce(
+        (sum, m) => sum + Number(m.estimatedCost ?? 0),
+        0,
+      );
+      const totalLatency = metrics.reduce(
+        (sum, m) => sum + (m.duration ?? 0),
+        0,
+      );
+      const fallbackCount = metrics.filter((m) => {
+        const meta = m.metadata as Record<string, unknown> | null;
+        return meta?.fallbackUsed === true;
+      }).length;
+
+      // By model
+      const byModel: Record<string, ModelMetrics> = {};
+      const modelGroups = new Map<string, typeof metrics>();
+      for (const m of metrics) {
+        const model = m.modelId || "unknown";
+        if (!modelGroups.has(model)) modelGroups.set(model, []);
+        modelGroups.get(model)!.push(m);
+      }
+      for (const [model, events] of modelGroups) {
+        const calls = events.length;
+        const successes = events.filter((e) => e.success).length;
+        const tokens = events.reduce((s, e) => s + (e.totalTokens ?? 0), 0);
+        const cost = events.reduce(
+          (s, e) => s + Number(e.estimatedCost ?? 0),
+          0,
+        );
+        const latency = events.reduce((s, e) => s + (e.duration ?? 0), 0);
+        byModel[model] = {
+          calls,
+          tokens,
+          cost,
+          avgLatencyMs: latency / calls,
+          errorRate: 1 - successes / calls,
+        };
+      }
+
+      // By module (from metadata)
+      const byModule: Record<string, ModuleMetrics> = {};
+      const moduleGroups = new Map<string, typeof metrics>();
+      for (const m of metrics) {
+        const meta = m.metadata as Record<string, unknown> | null;
+        const mod = (meta?.module as string) || "unknown";
+        if (!moduleGroups.has(mod)) moduleGroups.set(mod, []);
+        moduleGroups.get(mod)!.push(m);
+      }
+      for (const [mod, events] of moduleGroups) {
+        const calls = events.length;
+        const tokens = events.reduce((s, e) => s + (e.totalTokens ?? 0), 0);
+        const cost = events.reduce(
+          (s, e) => s + Number(e.estimatedCost ?? 0),
+          0,
+        );
+        const modelCounts = new Map<string, number>();
+        for (const e of events) {
+          const mdl = e.modelId || "unknown";
+          modelCounts.set(mdl, (modelCounts.get(mdl) || 0) + 1);
+        }
+        const topModels = Array.from(modelCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name]) => name);
+        byModule[mod] = { calls, tokens, cost, topModels };
+      }
+
+      // By user
+      const userMap = new Map<
+        string,
+        { calls: number; tokens: number; cost: number }
+      >();
+      for (const m of metrics) {
+        if (!m.userId) continue;
+        if (!userMap.has(m.userId))
+          userMap.set(m.userId, { calls: 0, tokens: 0, cost: 0 });
+        const u = userMap.get(m.userId)!;
+        u.calls++;
+        u.tokens += m.totalTokens ?? 0;
+        u.cost += Number(m.estimatedCost ?? 0);
+      }
+      const byUser = Array.from(userMap.entries())
+        .map(([userId, stats]) => ({ userId, ...stats }))
+        .sort((a, b) => b.cost - a.cost)
+        .slice(0, 20);
+
+      // Latency percentiles
+      const latencies = metrics
+        .map((m) => m.duration ?? 0)
+        .sort((a, b) => a - b);
+
+      // Recent errors
+      const recentErrors = metrics
+        .filter((m) => !m.success && m.errorCode)
+        .slice(0, 10)
+        .map((m) => ({
+          timestamp: m.createdAt,
+          model: m.modelId || "unknown",
+          error: m.errorCode || "Unknown error",
+        }));
+
+      return {
+        period: { start: startTime, end: now },
+        totalCalls,
+        totalTokens,
+        totalCost,
+        successRate: totalCalls > 0 ? successfulCalls / totalCalls : 0,
+        avgLatencyMs: totalCalls > 0 ? totalLatency / totalCalls : 0,
+        p95LatencyMs: this.percentile(latencies, 0.95),
+        p99LatencyMs: this.percentile(latencies, 0.99),
+        fallbackRate: totalCalls > 0 ? fallbackCount / totalCalls : 0,
+        byModel,
+        byModule,
+        byUser,
+        recentErrors,
+      };
+    } catch (error) {
+      this.logger.warn(`getDashboardFromDB failed: ${error}`);
+      return this.getEmptyDashboard(startTime, now);
+    }
+  }
+
+  /**
    * 获取空仪表盘（无数据时）
    */
   private getEmptyDashboard(start: Date, end: Date): ObservabilityDashboard {

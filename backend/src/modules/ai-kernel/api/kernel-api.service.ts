@@ -195,6 +195,10 @@ export class KernelApiService {
     return this.kernelMetrics.getDashboard(periodMinutes);
   }
 
+  async getDashboardWithFallback(periodMinutes?: number) {
+    return this.kernelMetrics.getDashboardWithFallback(periodMinutes);
+  }
+
   getCostReport(options?: { periodHours?: number; userId?: string }) {
     return this.costAttribution.getCostReport(options);
   }

@@ -312,9 +312,9 @@ export class KernelAdminController {
     description: "Period in minutes (default 60)",
   })
   @ApiResponse({ status: 200, description: "Observability dashboard" })
-  getDashboard(@Query("period") period?: string) {
+  async getDashboard(@Query("period") period?: string) {
     const periodMinutes = parseInt(period ?? "60", 10) || 60;
-    const raw = this.kernelApi.getDashboard(periodMinutes);
+    const raw = await this.kernelApi.getDashboardWithFallback(periodMinutes);
 
     return {
       period: {

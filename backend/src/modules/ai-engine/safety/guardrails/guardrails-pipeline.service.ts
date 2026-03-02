@@ -187,6 +187,29 @@ export class GuardrailsPipelineService {
   }
 
   /**
+   * Get detailed guardrail list for admin display
+   */
+  getRegisteredGuardrails(): {
+    input: Array<{ id: string; name: string; enabled: boolean }>;
+    output: Array<{ id: string; name: string; enabled: boolean }>;
+    totalRules: number;
+  } {
+    return {
+      input: this.inputGuardrails.map((g) => ({
+        id: g.id,
+        name: g.name,
+        enabled: g.enabled,
+      })),
+      output: this.outputGuardrails.map((g) => ({
+        id: g.id,
+        name: g.name,
+        enabled: g.enabled,
+      })),
+      totalRules: this.inputGuardrails.length + this.outputGuardrails.length,
+    };
+  }
+
+  /**
    * Get count of registered guardrails
    */
   getCount(): { input: number; output: number } {
