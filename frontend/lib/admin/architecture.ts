@@ -94,6 +94,7 @@ const agentOsLayer: ArchitectureLayer = {
       descriptionKey: 'admin.architecture.cards.aiAskEntryDesc',
       icon: MessageSquare,
       clickable: false,
+      stats: [{ label: '会话', key: 'askSessions' }],
     },
     {
       id: 'traces',
@@ -109,6 +110,7 @@ const agentOsLayer: ArchitectureLayer = {
       descriptionKey: 'admin.architecture.cards.intentRouterDesc',
       icon: TrendingUp,
       clickable: false,
+      stats: [{ label: '追踪', key: 'agentTraces' }],
     },
   ],
 };
@@ -134,6 +136,7 @@ const openApiLayer: ArchitectureLayer = {
       descriptionKey: 'admin.architecture.cards.webhooksDesc',
       icon: Webhook,
       clickable: false,
+      stats: [{ label: '订阅', key: 'webhookSubscriptions' }],
     },
   ],
 };
@@ -172,6 +175,7 @@ const aiAppsLayer: ArchitectureLayer = {
           href: '/library/rag',
           icon: Brain,
           clickable: true,
+          stats: [{ label: '知识库', key: 'knowledgeBases' }],
         },
       ],
     },
@@ -221,6 +225,7 @@ const aiAppsLayer: ArchitectureLayer = {
           i18nKey: 'nav.aiPlanning',
           icon: Hammer,
           clickable: false,
+          stats: [{ label: '方案', key: 'researchMissions' }],
         },
         {
           id: 'aiSimulation',
@@ -274,6 +279,7 @@ const aiAppsLayer: ArchitectureLayer = {
           href: '/admin/feedback',
           icon: MessageSquare,
           clickable: true,
+          stats: [{ label: '反馈', key: 'feedbackCount' }],
         },
       ],
     },
@@ -348,6 +354,7 @@ const aiKernelLayer: ArchitectureLayer = {
       href: '/admin/kernel/security',
       icon: Shield,
       clickable: true,
+      stats: [{ label: '进程', key: 'kernelProcesses' }],
     },
     {
       id: 'kernelScheduler',
@@ -383,6 +390,7 @@ const aiEngineLayer: ArchitectureLayer = {
       href: '/admin/ai/agents',
       icon: Cpu,
       clickable: true,
+      stats: [{ label: '已注册', key: 'agents' }],
     },
     {
       id: 'teams',
@@ -414,6 +422,7 @@ const aiEngineLayer: ArchitectureLayer = {
       descriptionKey: 'admin.architecture.cards.ragDesc',
       icon: Brain,
       clickable: false,
+      stats: [{ label: '知识库', key: 'knowledgeBases' }],
     },
     {
       id: 'mcpClients',
@@ -430,6 +439,7 @@ const aiEngineLayer: ArchitectureLayer = {
       descriptionKey: 'admin.architecture.cards.guardrailsDesc',
       icon: Shield,
       clickable: false,
+      stats: [{ label: '规则', key: 'guardrailRules' }],
     },
   ],
 };
@@ -553,6 +563,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/system/monitoring',
           icon: Activity,
           clickable: true,
+          stats: [{ label: '错误(24h)', key: 'recentLogs' }],
         },
       ],
     },

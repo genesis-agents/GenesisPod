@@ -30,6 +30,12 @@ describe("StatisticsService", () => {
     systemSetting: { count: jest.Mock };
     systemErrorLog: { count: jest.Mock };
     mCPServerConfig: { count: jest.Mock };
+    askSession: { count: jest.Mock };
+    agentTrace: { count: jest.Mock };
+    webhookSubscription: { count: jest.Mock };
+    knowledgeBase: { count: jest.Mock };
+    feedback: { count: jest.Mock };
+    agentConfig: { count: jest.Mock };
   };
   let mockKernelApi: {
     getEventBusStats: jest.Mock;
@@ -62,6 +68,12 @@ describe("StatisticsService", () => {
       systemSetting: { count: jest.fn().mockResolvedValue(0) },
       systemErrorLog: { count: jest.fn().mockResolvedValue(0) },
       mCPServerConfig: { count: jest.fn().mockResolvedValue(0) },
+      askSession: { count: jest.fn().mockResolvedValue(0) },
+      agentTrace: { count: jest.fn().mockResolvedValue(0) },
+      webhookSubscription: { count: jest.fn().mockResolvedValue(0) },
+      knowledgeBase: { count: jest.fn().mockResolvedValue(0) },
+      feedback: { count: jest.fn().mockResolvedValue(0) },
+      agentConfig: { count: jest.fn().mockResolvedValue(0) },
     };
 
     mockKernelApi = {
@@ -123,6 +135,12 @@ describe("StatisticsService", () => {
       mockPrisma.systemSetting.count.mockResolvedValue(value + 20);
       mockPrisma.systemErrorLog.count.mockResolvedValue(value + 21);
       mockPrisma.mCPServerConfig.count.mockResolvedValue(value + 22);
+      mockPrisma.askSession.count.mockResolvedValue(value + 23);
+      mockPrisma.agentTrace.count.mockResolvedValue(value + 24);
+      mockPrisma.webhookSubscription.count.mockResolvedValue(value + 25);
+      mockPrisma.knowledgeBase.count.mockResolvedValue(value + 26);
+      mockPrisma.feedback.count.mockResolvedValue(value + 27);
+      mockPrisma.agentConfig.count.mockResolvedValue(value + 28);
     };
 
     it("should return all stat keys including kernel in-memory stats", async () => {
@@ -165,8 +183,18 @@ describe("StatisticsService", () => {
         "storageProviders",
         "systemSettings",
         "recentLogs",
-        // L2 MCP
+        // L2 Engine
         "mcpServers",
+        "agents",
+        "knowledgeBases",
+        "guardrailRules",
+        // L5 Open API
+        "webhookSubscriptions",
+        // L6 Gateway
+        "askSessions",
+        "agentTraces",
+        // L4 Apps
+        "feedbackCount",
       ];
       expectedKeys.forEach((key) => {
         expect(result).toHaveProperty(key);
@@ -242,6 +270,12 @@ describe("StatisticsService", () => {
       mockPrisma.systemSetting.count.mockResolvedValue(0);
       mockPrisma.systemErrorLog.count.mockResolvedValue(0);
       mockPrisma.mCPServerConfig.count.mockResolvedValue(0);
+      mockPrisma.askSession.count.mockResolvedValue(0);
+      mockPrisma.agentTrace.count.mockResolvedValue(0);
+      mockPrisma.webhookSubscription.count.mockResolvedValue(0);
+      mockPrisma.knowledgeBase.count.mockResolvedValue(0);
+      mockPrisma.feedback.count.mockResolvedValue(0);
+      mockPrisma.agentConfig.count.mockResolvedValue(0);
       mockKernelApi.getEventBusStats.mockReturnValue({
         activeSubscriptions: 0,
       });
@@ -251,10 +285,14 @@ describe("StatisticsService", () => {
       // Act
       const result = await service.getOverviewStats();
 
-      // Assert — storageProviders is a static constant (5), not queried
+      // Assert — static constants are not queried from DB
+      const staticKeys: Record<string, number> = {
+        storageProviders: 5,
+        guardrailRules: 2,
+      };
       Object.entries(result).forEach(([key, v]) => {
-        if (key === "storageProviders") {
-          expect(v).toBe(5);
+        if (key in staticKeys) {
+          expect(v).toBe(staticKeys[key]);
         } else {
           expect(v).toBe(0);
         }

@@ -45,6 +45,13 @@ export class StatisticsService {
       systemSettings,
       recentLogs,
       mcpServers,
+      // New: L6/L5/L4/L2 stats for cards that previously had no counts
+      askSessions,
+      agentTraces,
+      webhookSubscriptions,
+      knowledgeBases,
+      feedbackCount,
+      agents,
     ] = await Promise.all([
       this.prisma.resource.count(),
       this.prisma.researchMission.count(),
@@ -83,6 +90,13 @@ export class StatisticsService {
         }),
       ),
       this.safeCount(() => this.prisma.mCPServerConfig.count()),
+      // New: L6 Ask sessions, L6 Agent traces, L5 Webhooks, L4 RAG, L4 Feedback, L2 Agents
+      this.safeCount(() => this.prisma.askSession.count()),
+      this.safeCount(() => this.prisma.agentTrace.count()),
+      this.safeCount(() => this.prisma.webhookSubscription.count()),
+      this.safeCount(() => this.prisma.knowledgeBase.count()),
+      this.safeCount(() => this.prisma.feedback.count()),
+      this.safeCount(() => this.prisma.agentConfig.count()),
     ]);
 
     // Kernel in-memory stats (IPC, Resources, Observability)
@@ -118,8 +132,18 @@ export class StatisticsService {
       storageProviders: 5, // static: 5 supported providers
       systemSettings,
       recentLogs,
-      // L2 MCP
+      // L2 Engine
       mcpServers,
+      agents,
+      knowledgeBases,
+      guardrailRules: 2, // static: input + output validators (no DB model)
+      // L5 Open API
+      webhookSubscriptions,
+      // L6 Gateway
+      askSessions,
+      agentTraces,
+      // L4 Apps
+      feedbackCount,
     };
   }
 
