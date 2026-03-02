@@ -2641,9 +2641,8 @@ export class AIEngineFacade {
 
   // ==================== 意图路由（IntentRouter）====================
 
-  /** 意图置信度阈值（低于此值需要用户确认） */
-  static readonly INTENT_CONFIRMATION_THRESHOLD =
-    IntentRouterService.CONFIRMATION_THRESHOLD;
+  /** 意图置信度阈值（低于此值需要用户确认） — mirrors IntentRouterService.CONFIRMATION_THRESHOLD */
+  static readonly INTENT_CONFIRMATION_THRESHOLD = 0.6;
 
   /** 路由用户意图，返回 TaskPlan 和是否需要确认 */
   routeIntent(

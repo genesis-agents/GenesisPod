@@ -33,7 +33,7 @@ function makeMockCacheService() {
 
 function makeMockPrisma() {
   return {
-    $queryRawUnsafe: jest.fn().mockResolvedValue([{ exists: true }]),
+    $queryRaw: jest.fn().mockResolvedValue([{ exists: true }]),
     agentProcess: {
       findMany: jest.fn(),
       updateMany: jest.fn(),

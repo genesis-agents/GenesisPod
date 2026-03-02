@@ -19,6 +19,7 @@ jest.mock("cache-manager", () => ({}));
 jest.mock("ioredis", () => ({}));
 
 import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { UnauthorizedException } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { ThrottlerModule } from "@nestjs/throttler";
@@ -47,6 +48,12 @@ const mockAuthService = {
 
 const mockAdminAuthService = {
   isAdmin: jest.fn(),
+};
+
+const mockConfigService = {
+  get: jest.fn().mockImplementation((_key: string, defaultValue?: string) => {
+    return defaultValue ?? "http://localhost:3000";
+  }),
 };
 
 // ---------------------------------------------------------------------------
@@ -82,12 +89,19 @@ describe("AuthController", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    // Reset configService mock to default behavior each test
+    mockConfigService.get.mockImplementation(
+      (_key: string, defaultValue?: string) =>
+        defaultValue ?? "http://localhost:3000",
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       imports: [ThrottlerModule.forRoot([{ limit: 100, ttl: 60000 }])],
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: mockAuthService },
         { provide: AdminAuthService, useValue: mockAdminAuthService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     })
       // Bypass all Passport guards — guard logic is tested separately
@@ -353,7 +367,12 @@ describe("AuthController", () => {
       });
       const res = makeResponse();
 
-      process.env.FRONTEND_URL = "https://app.example.com";
+      mockConfigService.get.mockImplementation(
+        (key: string, defaultValue?: string) =>
+          key === "FRONTEND_URL"
+            ? "https://app.example.com"
+            : (defaultValue ?? "http://localhost:3000"),
+      );
 
       await controller.googleAuthCallback(req as never, res as never);
 
@@ -374,7 +393,7 @@ describe("AuthController", () => {
       });
       const res = makeResponse();
 
-      delete process.env.FRONTEND_URL;
+      // ConfigService returns defaultValue when key is not configured
 
       await controller.googleAuthCallback(req as never, res as never);
 
