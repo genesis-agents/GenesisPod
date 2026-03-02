@@ -578,5 +578,164 @@ describe("MissionReviewService", () => {
         }),
       );
     });
+
+    it("should truncate taskResult in review prompt when it exceeds 2500 chars", async () => {
+      // A long result to trigger the truncation branch in buildLeaderReviewPrompt
+      const longResult = "A".repeat(3000);
+
+      (
+        leaderModelService.executeWithFallback as jest.Mock
+      ).mockResolvedValueOnce({
+        success: true,
+        data: { content: "## 审核结果：通过\n内容很好", tokensUsed: 50 },
+        fallbackUsed: false,
+        modelUsed: "gpt-4",
+      });
+
+      const mission = buildMockMission();
+      const task = { ...buildMockTask(), result: longResult };
+
+      await service.leaderReviewTask(mission as any, task as any, longResult);
+
+      // Should still call update (not throw) — truncation handled gracefully
+      expect(leaderModelService.executeWithFallback).toHaveBeenCalled();
+    });
+  });
+
+  describe("evolveContextAfterTaskCompletion (via leaderReviewTask approval)", () => {
+    beforeEach(() => {
+      service.setCallbacks(mockCallbacks as any);
+    });
+
+    it("should update mission context when facts are extracted from task output", async () => {
+      // Make extractFacts return non-empty facts
+      mockContextEvolution.extractFacts.mockResolvedValueOnce({
+        facts: [
+          {
+            id: "fact-1",
+            content: "Alice is the protagonist",
+            taskId: "task-1",
+            confidence: 0.9,
+            category: "character",
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
+      mockContextEvolution.mergeFacts.mockReturnValueOnce([
+        {
+          id: "fact-1",
+          content: "Alice is the protagonist",
+          taskId: "task-1",
+          confidence: 0.9,
+          category: "character",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      // Approve the task
+      (
+        leaderModelService.executeWithFallback as jest.Mock
+      ).mockResolvedValueOnce({
+        success: true,
+        data: { content: "## 审核结果：通过\n内容很好", tokensUsed: 50 },
+        fallbackUsed: false,
+        modelUsed: "gpt-4",
+      });
+
+      const mission = buildMockMission();
+      // Use long enough task result (>= 200 chars) to trigger evolveContext
+      const longResult = "Very detailed chapter content ".repeat(20);
+      const task = { ...buildMockTask(), result: longResult };
+
+      await service.leaderReviewTask(mission as any, task as any, longResult);
+
+      expect(mockContextEvolution.extractFacts).toHaveBeenCalled();
+      expect(mockContextEvolution.mergeFacts).toHaveBeenCalled();
+    });
+
+    it("should skip context evolution when task output is too short", async () => {
+      // Clear existing mock calls
+      jest.clearAllMocks();
+      service.setCallbacks(mockCallbacks as any);
+
+      (
+        leaderModelService.executeWithFallback as jest.Mock
+      ).mockResolvedValueOnce({
+        success: true,
+        data: { content: "## 审核结果：通过\n内容很好", tokensUsed: 50 },
+        fallbackUsed: false,
+        modelUsed: "gpt-4",
+      });
+
+      const mission = buildMockMission();
+      // Short result (< 200 chars) — should skip evolution
+      const shortResult = "Short output";
+      const task = { ...buildMockTask(), result: shortResult };
+
+      await service.leaderReviewTask(mission as any, task as any, shortResult);
+
+      // extractFacts should NOT have been called
+      expect(mockContextEvolution.extractFacts).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("summarizeForLeaderReview (triggered via long content path)", () => {
+    beforeEach(() => {
+      service.setCallbacks(mockCallbacks as any);
+    });
+
+    it("should return content as-is when content is within SUMMARY_THRESHOLD", async () => {
+      const shortContent = "Short content below 3000 chars";
+
+      // Mock longContentService to indicate no intervention needed
+      (
+        longContentService.checkQualityIntervention as jest.Mock
+      ).mockReturnValueOnce({
+        needed: false,
+      });
+
+      (
+        leaderModelService.executeWithFallback as jest.Mock
+      ).mockResolvedValueOnce({
+        success: true,
+        data: { content: "## 审核结果：通过\n内容很好", tokensUsed: 50 },
+        fallbackUsed: false,
+        modelUsed: "gpt-4",
+      });
+
+      const mission = buildMockMission();
+      const task = { ...buildMockTask(), result: shortContent };
+
+      // This exercises the path where content <= SUMMARY_THRESHOLD
+      await service.leaderReviewTask(mission as any, task as any, shortContent);
+
+      expect(leaderModelService.executeWithFallback).toHaveBeenCalled();
+    });
+
+    it("should fall back to truncation when AI summarization fails", async () => {
+      // Make outputReviewer.executeAICall throw to trigger fallback
+      mockOutputReviewer.executeAICall.mockRejectedValueOnce(
+        new Error("AI summarization failed"),
+      );
+
+      const longContent = "X".repeat(4000); // > SUMMARY_THRESHOLD (3000)
+
+      (
+        leaderModelService.executeWithFallback as jest.Mock
+      ).mockResolvedValueOnce({
+        success: true,
+        data: { content: "## 审核结果：通过\n内容很好", tokensUsed: 50 },
+        fallbackUsed: false,
+        modelUsed: "gpt-4",
+      });
+
+      const mission = buildMockMission();
+      const task = { ...buildMockTask(), result: longContent };
+
+      // Should not throw — falls back to truncation
+      await expect(
+        service.leaderReviewTask(mission as any, task as any, longContent),
+      ).resolves.not.toThrow();
+    });
   });
 });

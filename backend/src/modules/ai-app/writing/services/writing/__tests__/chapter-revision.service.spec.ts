@@ -377,5 +377,230 @@ describe("ChapterRevisionService", () => {
         NotFoundException,
       );
     });
+
+    it("should throw ForbiddenException when user is not owner", async () => {
+      prisma.chapterRevision.findUnique.mockResolvedValue({
+        ...mockRevision,
+        chapter: {
+          volume: { project: { ownerId: "other-user" } },
+        },
+      });
+
+      await expect(service.getRevision("revision-1", "user-1")).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe("compareRevisions", () => {
+    it("should return diff between two revisions", async () => {
+      const revision1 = {
+        ...mockRevision,
+        id: "rev-1",
+        content: "Line A\nLine B\nLine C",
+      };
+      const revision2 = {
+        ...mockRevision,
+        id: "rev-2",
+        content: "Line A\nLine D\nLine C",
+      };
+
+      prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
+      prisma.chapterRevision.findUnique
+        .mockResolvedValueOnce(revision1)
+        .mockResolvedValueOnce(revision2);
+
+      const result = await service.compareRevisions(
+        "chapter-1",
+        "rev-1",
+        "rev-2",
+        "user-1",
+      );
+
+      expect(result.revision1.id).toBe("rev-1");
+      expect(result.revision2.id).toBe("rev-2");
+      expect(result.diff).toBeDefined();
+      expect(result.diff.additions).toBeDefined();
+      expect(result.diff.deletions).toBeDefined();
+    });
+
+    it("should throw NotFoundException when one revision is not found", async () => {
+      prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
+      prisma.chapterRevision.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ ...mockRevision, id: "rev-2" });
+
+      await expect(
+        service.compareRevisions("chapter-1", "missing", "rev-2", "user-1"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw BadRequestException when revision belongs to different chapter", async () => {
+      prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
+      prisma.chapterRevision.findUnique
+        .mockResolvedValueOnce({
+          ...mockRevision,
+          id: "rev-1",
+          chapterId: "chapter-1",
+        })
+        .mockResolvedValueOnce({
+          ...mockRevision,
+          id: "rev-2",
+          chapterId: "different-chapter",
+        });
+
+      await expect(
+        service.compareRevisions("chapter-1", "rev-1", "rev-2", "user-1"),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("aiEdit - expand", () => {
+    it("should expand selected chapter text", async () => {
+      prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
+      prisma.chapterRevision.aggregate.mockResolvedValue({
+        _max: { versionNumber: 2 },
+      });
+      prisma.chapterRevision.create.mockResolvedValue({
+        ...mockRevision,
+        versionNumber: 3,
+        changeType: RevisionChangeType.AI_EXPAND,
+      });
+      prisma.writingChapter.update.mockResolvedValue({
+        id: "chapter-1",
+        content: "AI revised content here",
+        wordCount: 4,
+      });
+
+      const result = await service.aiEdit("chapter-1", "user-1", {
+        operation: "expand",
+        selection: {
+          startOffset: 0,
+          endOffset: 8,
+          originalText: "Original",
+        },
+        userFeedback: "Add more detail",
+      });
+
+      expect(facade.chatWithSkills).toHaveBeenCalled();
+      expect(result.revision.changeType).toBe(RevisionChangeType.AI_EXPAND);
+    });
+  });
+
+  describe("aiEdit - condense", () => {
+    it("should condense selected chapter text", async () => {
+      prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
+      prisma.chapterRevision.aggregate.mockResolvedValue({
+        _max: { versionNumber: 2 },
+      });
+      prisma.chapterRevision.create.mockResolvedValue({
+        ...mockRevision,
+        versionNumber: 3,
+        changeType: RevisionChangeType.AI_CONDENSE,
+      });
+      prisma.writingChapter.update.mockResolvedValue({
+        id: "chapter-1",
+        content: "AI revised content here",
+        wordCount: 4,
+      });
+
+      const result = await service.aiEdit("chapter-1", "user-1", {
+        operation: "condense",
+        selection: {
+          startOffset: 0,
+          endOffset: 8,
+          originalText: "Original",
+        },
+        userFeedback: "Be more concise",
+      });
+
+      expect(facade.chatWithSkills).toHaveBeenCalled();
+      expect(result.revision.changeType).toBe(RevisionChangeType.AI_CONDENSE);
+    });
+  });
+
+  describe("aiEdit - style_fix", () => {
+    it("should apply style fix to chapter content", async () => {
+      prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
+      prisma.chapterRevision.aggregate.mockResolvedValue({
+        _max: { versionNumber: 2 },
+      });
+      prisma.chapterRevision.create.mockResolvedValue({
+        ...mockRevision,
+        versionNumber: 3,
+        changeType: RevisionChangeType.AI_STYLE_FIX,
+      });
+      prisma.writingChapter.update.mockResolvedValue({
+        id: "chapter-1",
+        content: "AI revised content here",
+        wordCount: 4,
+      });
+
+      const result = await service.aiEdit("chapter-1", "user-1", {
+        operation: "style_fix",
+        targetStyle: {
+          tone: "formal",
+          vocabulary: "classical",
+          sentenceLength: "long",
+        },
+        userFeedback: "Make it more literary",
+      });
+
+      expect(facade.chatWithSkills).toHaveBeenCalled();
+      expect(result.revision.changeType).toBe(RevisionChangeType.AI_STYLE_FIX);
+    });
+
+    it("should apply style fix without targetStyle fields", async () => {
+      prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
+      prisma.chapterRevision.aggregate.mockResolvedValue({
+        _max: { versionNumber: 0 },
+      });
+      prisma.chapterRevision.create.mockResolvedValue({
+        ...mockRevision,
+        versionNumber: 1,
+        changeType: RevisionChangeType.AI_STYLE_FIX,
+      });
+      prisma.writingChapter.update.mockResolvedValue({
+        id: "chapter-1",
+        content: "AI revised content here",
+        wordCount: 4,
+      });
+
+      const result = await service.aiEdit("chapter-1", "user-1", {
+        operation: "style_fix",
+        targetStyle: {},
+        userFeedback: "Improve style",
+      });
+
+      expect(result.revision.changeType).toBe(RevisionChangeType.AI_STYLE_FIX);
+    });
+  });
+
+  describe("createInitialRevision - manual source", () => {
+    it("should create initial version for manual source", async () => {
+      prisma.chapterRevision.create.mockResolvedValue({
+        ...mockRevision,
+        versionNumber: 1,
+        changeType: RevisionChangeType.MANUAL_EDIT,
+        changedBy: "user",
+        changeSummary: "初始版本",
+      });
+
+      const result = await service.createInitialRevision(
+        "chapter-1",
+        "Manual content",
+        "manual",
+      );
+
+      expect(result.changeType).toBe(RevisionChangeType.MANUAL_EDIT);
+      expect(prisma.chapterRevision.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            changedBy: "user",
+            changeSummary: "初始版本",
+          }),
+        }),
+      );
+    });
   });
 });

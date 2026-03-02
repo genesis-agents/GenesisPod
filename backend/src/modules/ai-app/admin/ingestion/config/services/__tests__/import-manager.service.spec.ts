@@ -696,4 +696,340 @@ describe("ImportManagerService", () => {
       expect(result.status).toBe("SUCCESS");
     });
   });
+
+  // ─── generatePdfUrl (via importWithMetadata) ─────────────────────────────────
+
+  describe("generatePdfUrl (via importWithMetadata)", () => {
+    // Helper to set up the standard mock chain for a new resource import
+    function setupNewResourceMocks(taskId = "task-gen") {
+      mockPrisma.resource.findFirst.mockResolvedValueOnce(null);
+      mockMongodb.insertRawData.mockResolvedValueOnce("raw-gen");
+      mockPrisma.resource.create.mockResolvedValueOnce({ id: "res-gen" });
+      mockMongodb.linkResourceToRawData.mockResolvedValueOnce(undefined);
+      mockPrisma.importTask.create.mockResolvedValueOnce({ id: taskId });
+      mockPrisma.importTask.update.mockResolvedValueOnce({});
+      mockDuplicateDetector.detectDuplicates.mockResolvedValueOnce({});
+    }
+
+    const basePaperMeta = {
+      url: "",
+      domain: "",
+      title: "Paper",
+      contentHash: "hash",
+    } as any;
+
+    it("generates arXiv PDF URL from abs path", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://arxiv.org/abs/2401.12345",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe("https://arxiv.org/pdf/2401.12345.pdf");
+    });
+
+    it("generates arXiv PDF URL from alphaxiv.org domain", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://alphaxiv.org/abs/2401.99999v2",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe("https://arxiv.org/pdf/2401.99999v2.pdf");
+    });
+
+    it("generates IEEE stamp URL from document path", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://ieeexplore.ieee.org/document/9876543",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(
+        "https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9876543",
+      );
+    });
+
+    it("generates DOI URL for ACM with 10.1145 DOI", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://dl.acm.org/doi/10.1145/3474085.3475216",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe("https://doi.org/10.1145/3474085.3475216");
+    });
+
+    it("returns original URL for ACM without matching DOI", async () => {
+      setupNewResourceMocks();
+      const url = "https://dl.acm.org/some/other/path";
+      await service.importWithMetadata(url, "PAPER" as any, basePaperMeta);
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(url);
+    });
+
+    it("generates DOI URL for Springer with 10.1007 DOI", async () => {
+      setupNewResourceMocks();
+      // Regex /(10\.1007\/[\w.]+)/ matches word chars and dots only (no hyphens)
+      await service.importWithMetadata(
+        "https://link.springer.com/article/10.1007/s12345.67890",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe("https://doi.org/10.1007/s12345.67890");
+    });
+
+    it("generates DOI URL for ScienceDirect with 10.1016 DOI", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://www.sciencedirect.com/science/article/pii/S0004370224000123?via=doi&doi=10.1016/j.artint.2024.104094",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(
+        "https://doi.org/10.1016/j.artint.2024.104094",
+      );
+    });
+
+    it("generates PII URL for ScienceDirect without DOI", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://www.sciencedirect.com/science/article/pii/S1234567890123456",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(
+        "https://sciencedirect.com/science/article/pii/S1234567890123456",
+      );
+    });
+
+    it("generates DOI URL for Nature with 10.1038 DOI", async () => {
+      setupNewResourceMocks();
+      // Regex /(10\.1038\/[\w.]+)/ matches word chars and dots (no hyphens in DOI suffix)
+      await service.importWithMetadata(
+        "https://www.nature.com/articles/ncomms12345?doi=10.1038/ncomms12345",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe("https://doi.org/10.1038/ncomms12345");
+    });
+
+    it("returns original URL for PubMed with article path", async () => {
+      setupNewResourceMocks();
+      const url = "https://pubmed.ncbi.nlm.nih.gov/articles/PMC1234567";
+      await service.importWithMetadata(url, "PAPER" as any, basePaperMeta);
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(url);
+    });
+
+    it("returns original URL for JSTOR", async () => {
+      setupNewResourceMocks();
+      const url = "https://www.jstor.org/stable/41234567";
+      await service.importWithMetadata(url, "PAPER" as any, basePaperMeta);
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(url);
+    });
+
+    it("generates DOI URL for Wiley with 10.1002 DOI", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://onlinelibrary.wiley.com/doi/10.1002/adma.202312345",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe("https://doi.org/10.1002/adma.202312345");
+    });
+
+    it("generates DOI URL for Elsevier with generic DOI", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://www.elsevier.com/article/10.1234/j.example.2024.01.001",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(
+        "https://doi.org/10.1234/j.example.2024.01.001",
+      );
+    });
+
+    it("generates OpenReview forum URL from forum query param", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://openreview.net/forum?id=aBcDeFgHiJ",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(
+        "https://openreview.net/forum?id=aBcDeFgHiJ",
+      );
+    });
+
+    it("returns original URL for Papers with Code", async () => {
+      setupNewResourceMocks();
+      const url = "https://paperswithcode.com/paper/attention-is-all-you-need";
+      await service.importWithMetadata(url, "PAPER" as any, basePaperMeta);
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(url);
+    });
+
+    it("returns original URL for ResearchGate", async () => {
+      setupNewResourceMocks();
+      const url =
+        "https://www.researchgate.net/publication/123456789_Some_Paper";
+      await service.importWithMetadata(url, "PAPER" as any, basePaperMeta);
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      expect(createData.pdfUrl).toBe(url);
+    });
+
+    it("encodes generic DOI pattern from pathname", async () => {
+      setupNewResourceMocks();
+      await service.importWithMetadata(
+        "https://semanticscholar.org/doi/10.9999/some.paper.2024",
+        "PAPER" as any,
+        basePaperMeta,
+      );
+      const createData = mockPrisma.resource.create.mock.calls[0][0].data;
+      // Should match the generic DOI pattern
+      expect(createData.pdfUrl).toContain("doi.org");
+    });
+  });
+
+  // ─── isPaperUrl (via importWithMetadata) ─────────────────────────────────────
+
+  describe("isPaperUrl (via importWithMetadata)", () => {
+    const baseMeta = {
+      url: "",
+      domain: "",
+      title: "Paper",
+      contentHash: "hash",
+    } as any;
+
+    function setupNewResourceMocks() {
+      mockPrisma.resource.findFirst.mockResolvedValueOnce(null);
+      mockMongodb.insertRawData.mockResolvedValueOnce("raw-ipu");
+      mockPrisma.resource.create.mockResolvedValueOnce({ id: "res-ipu" });
+      mockMongodb.linkResourceToRawData.mockResolvedValueOnce(undefined);
+      mockPrisma.importTask.create.mockResolvedValueOnce({ id: "task-ipu" });
+      mockPrisma.importTask.update.mockResolvedValueOnce({});
+      mockDuplicateDetector.detectDuplicates.mockResolvedValueOnce({});
+    }
+
+    it("recognises arxiv.org as a paper domain", async () => {
+      setupNewResourceMocks();
+      const result = await service.importWithMetadata(
+        "https://arxiv.org/abs/2401.12345",
+        "PAPER" as any,
+        baseMeta,
+      );
+      expect(result.status).toBe("SUCCESS");
+    });
+
+    it("recognises ieeexplore.ieee.org as a paper domain", async () => {
+      setupNewResourceMocks();
+      const result = await service.importWithMetadata(
+        "https://ieeexplore.ieee.org/document/9876543",
+        "PAPER" as any,
+        baseMeta,
+      );
+      expect(result.status).toBe("SUCCESS");
+    });
+
+    it("recognises URL pattern /abs/NNNN.NNNN as a paper URL", async () => {
+      setupNewResourceMocks();
+      // unknown domain but arXiv-style abs pattern
+      const result = await service.importWithMetadata(
+        "https://mirror.example.com/abs/2401.12345",
+        "PAPER" as any,
+        baseMeta,
+      );
+      expect(result.status).toBe("SUCCESS");
+    });
+
+    it("recognises DOI path pattern /10.XXXX/ as a paper URL", async () => {
+      setupNewResourceMocks();
+      const result = await service.importWithMetadata(
+        "https://some-journal.org/10.1234/some.paper",
+        "PAPER" as any,
+        baseMeta,
+      );
+      expect(result.status).toBe("SUCCESS");
+    });
+
+    it("recognises PDF file URL matching /pdf/xxx.pdf pattern as a paper URL", async () => {
+      setupNewResourceMocks();
+      // isPaperUrl checks /pdf\/[\w.]+\.pdf$/i — path must start with /pdf/
+      const result = await service.importWithMetadata(
+        "https://example.org/pdf/myresearch.pdf",
+        "PAPER" as any,
+        baseMeta,
+      );
+      expect(result.status).toBe("SUCCESS");
+    });
+
+    it("rejects non-academic URL for PAPER type (returns error)", async () => {
+      await expect(
+        service.importWithMetadata(
+          "https://twitter.com/user/status/123456789",
+          "PAPER" as any,
+          baseMeta,
+        ),
+      ).rejects.toThrow("Invalid paper URL");
+    });
+
+    it("returns false for invalid URL (invalid URL → catch → false)", async () => {
+      // isPaperUrl catches URL parse errors and returns false
+      await expect(
+        service.importWithMetadata("not-a-valid-url", "PAPER" as any, baseMeta),
+      ).rejects.toThrow();
+    });
+  });
+
+  // ─── getQualityStats error path ──────────────────────────────────────────────
+
+  describe("getQualityStats error path (via getDataQualityMetrics)", () => {
+    it("returns zeros in stats when quality stats query throws", async () => {
+      mockPrisma.dataQualityMetric.findMany.mockResolvedValueOnce([]);
+      // Make the count query inside getQualityStats throw
+      mockPrisma.dataQualityMetric.count.mockRejectedValue(
+        new Error("DB connection lost"),
+      );
+
+      // getDataQualityMetrics calls getQualityStats internally;
+      // getQualityStats catches errors and returns zeros
+      const result = await service.getDataQualityMetrics();
+
+      expect(result.stats).toEqual({
+        totalItems: 0,
+        duplicates: 0,
+        avgQuality: 0,
+        needsReview: 0,
+      });
+    });
+
+    it("still returns findMany data even when stats query throws", async () => {
+      mockPrisma.dataQualityMetric.findMany.mockResolvedValueOnce([
+        { id: "m1" },
+        { id: "m2" },
+      ]);
+      mockPrisma.dataQualityMetric.count.mockRejectedValue(
+        new Error("timeout"),
+      );
+
+      const result = await service.getDataQualityMetrics();
+
+      expect(result.data).toHaveLength(2);
+      expect(result.stats.totalItems).toBe(0);
+    });
+  });
 });

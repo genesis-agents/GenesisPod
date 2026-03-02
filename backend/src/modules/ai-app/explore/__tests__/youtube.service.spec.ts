@@ -556,4 +556,570 @@ describe("YoutubeService", () => {
       ensureClientSpy.mockRestore();
     });
   });
+
+  // ─── getTranscript – fallback JSON parsing ───────────────────────────────────
+
+  describe("getTranscript – fallback JSON transcript", () => {
+    it("parses JSON array response from fallback service", async () => {
+      const jsonArray = JSON.stringify([
+        { text: "Hello world", start: 0, dur: 2 },
+        { text: "Second segment", start: 2.5, dur: 1.5 },
+      ]);
+
+      // timedtext fails (no caption tracks), fallback uses JSON
+      const timedtextPageHtml = "<html><body>No captions</body></html>";
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("youtube.com/watch") && !url.includes("oembed")) {
+          return Promise.resolve({
+            ok: true,
+            text: jest.fn().mockResolvedValue(timedtextPageHtml),
+          });
+        }
+        if (url.includes("youtubetranscript.com")) {
+          return Promise.resolve({
+            ok: true,
+            text: jest.fn().mockResolvedValue(jsonArray),
+          });
+        }
+        if (url.includes("oembed")) {
+          return Promise.resolve({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ title: "My Video" }),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      const result = await service.getTranscript("fallbackId", "en");
+
+      expect(result.transcript.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("parses JSON with transcripts wrapper from fallback service", async () => {
+      const jsonWrapper = JSON.stringify({
+        transcripts: [
+          { text: "First", start: 0, dur: 1 },
+          { text: "Second", start: 1.5, dur: 1 },
+        ],
+      });
+
+      const timedtextPageHtml = "<html><body>No captions</body></html>";
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("youtube.com/watch") && !url.includes("oembed")) {
+          return Promise.resolve({
+            ok: true,
+            text: jest.fn().mockResolvedValue(timedtextPageHtml),
+          });
+        }
+        if (url.includes("youtubetranscript.com")) {
+          return Promise.resolve({
+            ok: true,
+            text: jest.fn().mockResolvedValue(jsonWrapper),
+          });
+        }
+        if (url.includes("oembed")) {
+          return Promise.resolve({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ title: "My Video" }),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      const result = await service.getTranscript("wrapId", "en");
+
+      expect(result.transcript.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("skips fallback response that starts with non-transcript XML", async () => {
+      const xmlString = `<?xml version="1.0"?><root><item>no transcript here</item></root>`;
+
+      const timedtextPageHtml = "<html><body>No captions</body></html>";
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("youtube.com/watch") && !url.includes("oembed")) {
+          return Promise.resolve({
+            ok: true,
+            text: jest.fn().mockResolvedValue(timedtextPageHtml),
+          });
+        }
+        if (url.includes("youtubetranscript.com")) {
+          return Promise.resolve({
+            ok: true,
+            text: jest.fn().mockResolvedValue(xmlString),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      // All methods fail, should throw NotFoundException
+      await expect(service.getTranscript("xmlFallId", "en")).rejects.toThrow();
+    });
+  });
+
+  // ─── Supadata – string content response ──────────────────────────────────────
+
+  describe("fetchTranscriptSupadata – string content", () => {
+    it("handles plain text string content from Supadata", async () => {
+      mockAdminService.getYoutubeApiKey.mockResolvedValue("supadata-key");
+
+      const oEmbedResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ title: "Text Video" }),
+      };
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("supadata.ai/v1/transcript?")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: jest.fn().mockResolvedValue({
+              content: "This is the full transcript as plain text",
+              lang: "en",
+              availableLangs: ["en"],
+            }),
+          });
+        }
+        if (url.includes("oembed")) {
+          return Promise.resolve(oEmbedResponse);
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      const result = await service.getTranscript("textVid", "en");
+
+      expect(result.transcript).toHaveLength(1);
+      expect(result.transcript[0].text).toBe(
+        "This is the full transcript as plain text",
+      );
+      expect(result.transcript[0].start).toBe(0);
+    });
+
+    it("returns null when Supadata returns unexpected content type", async () => {
+      mockAdminService.getYoutubeApiKey.mockResolvedValue("supadata-key");
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("supadata.ai/v1/transcript?")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: jest.fn().mockResolvedValue({
+              content: 42, // neither string nor array
+              lang: "en",
+              availableLangs: ["en"],
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      // Since Supadata returns null, should throw NotFoundException
+      await expect(
+        service.getTranscript("unexpectedVid", "en"),
+      ).rejects.toThrow();
+    });
+  });
+
+  // ─── pollSupadataJob – internal behavior ─────────────────────────────────────
+
+  describe("pollSupadataJob", () => {
+    it("returns null after max attempts when job stays in 202 state", async () => {
+      // Access private method via any cast
+      const pollFn = (
+        service as unknown as {
+          pollSupadataJob: (
+            jobId: string,
+            videoId: string,
+            apiKey: string,
+            maxAttempts: number,
+            intervalMs: number,
+          ) => Promise<unknown>;
+        }
+      ).pollSupadataJob.bind(service);
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 202,
+        json: jest.fn().mockResolvedValue({}),
+      });
+
+      const result = await pollFn("job-timeout", "vid-1", "key", 2, 0);
+
+      expect(result).toBeNull();
+    }, 10000);
+
+    it("returns null when job fetch fails", async () => {
+      const pollFn = (
+        service as unknown as {
+          pollSupadataJob: (
+            jobId: string,
+            videoId: string,
+            apiKey: string,
+            maxAttempts: number,
+            intervalMs: number,
+          ) => Promise<unknown>;
+        }
+      ).pollSupadataJob.bind(service);
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: jest.fn().mockResolvedValue({}),
+      });
+
+      const result = await pollFn("job-fail", "vid-1", "key", 2, 0);
+
+      expect(result).toBeNull();
+    }, 10000);
+
+    it("returns transcript when job succeeds with array content", async () => {
+      const pollFn = (
+        service as unknown as {
+          pollSupadataJob: (
+            jobId: string,
+            videoId: string,
+            apiKey: string,
+            maxAttempts: number,
+            intervalMs: number,
+          ) => Promise<unknown>;
+        }
+      ).pollSupadataJob.bind(service);
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("transcript/job-ok")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: jest.fn().mockResolvedValue({
+              content: [
+                { text: "Polled segment", offset: 500, duration: 1000 },
+              ],
+              lang: "en",
+            }),
+          });
+        }
+        // oEmbed for fetchVideoTitle
+        if (url.includes("oembed")) {
+          return Promise.resolve({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ title: "Polled Video Title" }),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      const result = (await pollFn("job-ok", "vid-ok", "key", 2, 0)) as {
+        transcript: { text: string }[];
+      };
+
+      expect(result).not.toBeNull();
+      expect(result.transcript[0].text).toBe("Polled segment");
+    }, 10000);
+
+    it("returns transcript when job succeeds with string content", async () => {
+      const pollFn = (
+        service as unknown as {
+          pollSupadataJob: (
+            jobId: string,
+            videoId: string,
+            apiKey: string,
+            maxAttempts: number,
+            intervalMs: number,
+          ) => Promise<unknown>;
+        }
+      ).pollSupadataJob.bind(service);
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("transcript/job-str")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: jest.fn().mockResolvedValue({
+              content: "Full text transcript",
+              lang: "en",
+            }),
+          });
+        }
+        if (url.includes("oembed")) {
+          return Promise.resolve({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ title: "String Video" }),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      const result = (await pollFn("job-str", "vid-str", "key", 2, 0)) as {
+        transcript: { text: string }[];
+      };
+
+      expect(result).not.toBeNull();
+      expect(result.transcript[0].text).toBe("Full text transcript");
+    }, 10000);
+
+    it("returns null when job returns unexpected content type", async () => {
+      const pollFn = (
+        service as unknown as {
+          pollSupadataJob: (
+            jobId: string,
+            videoId: string,
+            apiKey: string,
+            maxAttempts: number,
+            intervalMs: number,
+          ) => Promise<unknown>;
+        }
+      ).pollSupadataJob.bind(service);
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          content: 999, // neither string nor array
+          lang: "en",
+        }),
+      });
+
+      const result = await pollFn("job-bad", "vid-bad", "key", 2, 0);
+
+      expect(result).toBeNull();
+    }, 10000);
+  });
+
+  // ─── XML parsing – edge cases ─────────────────────────────────────────────────
+
+  describe("XML parsing – edge cases", () => {
+    it("parses XML with reversed dur/start attribute order", async () => {
+      const reversedXml = `<?xml version="1.0"?>
+<transcript>
+  <text dur="2.5" start="1.0">Reversed order</text>
+  <text dur="3.0" start="4.0">Another segment</text>
+</transcript>`;
+
+      const captionTracks = JSON.stringify([
+        { languageCode: "en", baseUrl: "https://captions.example.com/rev" },
+      ]);
+      const videoPageHtml = `<html><script>"captionTracks": ${captionTracks}</script></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(videoPageHtml),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(reversedXml),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ title: "Rev Video" }),
+        });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      const result = await service.getTranscript("revId", "en");
+
+      expect(result.transcript.length).toBeGreaterThan(0);
+    });
+
+    it("decodes HTML entities in transcript text", async () => {
+      const xmlWithEntities = `<?xml version="1.0"?>
+<transcript>
+  <text start="0" dur="2">&amp; &lt;tag&gt; &quot;quoted&quot; &#39;apos&#39;</text>
+  <text start="2" dur="1">second segment</text>
+</transcript>`;
+
+      const captionTracks = JSON.stringify([
+        { languageCode: "en", baseUrl: "https://captions.example.com/ent" },
+      ]);
+      const videoPageHtml = `<html><script>"captionTracks": ${captionTracks}</script></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(videoPageHtml),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(xmlWithEntities),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ title: "Entity Video" }),
+        });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      const result = await service.getTranscript("entId", "en");
+
+      // &amp; → "&", &quot; → '"', &#39; → "'"
+      // Note: &lt;tag&gt; decodes to <tag> which is then stripped by HTML tag removal
+      expect(result.transcript[0].text).toContain("&");
+      expect(result.transcript[0].text).toContain('"quoted"');
+      expect(result.transcript[0].text).toContain("'apos'");
+    });
+
+    it("returns error page detection (HTML response in XML parser)", async () => {
+      // The 'skips HTML/error page content in XML parser' test verifies this already.
+      // Here we test an additional path: XML containing <error> tag
+      const errorXml = `<xml><error>Video unavailable</error></xml>`;
+
+      const captionTracks = JSON.stringify([
+        { languageCode: "en", baseUrl: "https://captions.example.com/err" },
+      ]);
+      const videoPageHtml = `<html><script>"captionTracks": ${captionTracks}</script></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(videoPageHtml),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(errorXml),
+        })
+        .mockResolvedValue({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+
+      await expect(service.getTranscript("errorId", "en")).rejects.toThrow();
+    });
+  });
+
+  // ─── getTranscript – cloud environment handling ───────────────────────────────
+
+  describe("getTranscript – cloud environment", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+      delete process.env.RAILWAY_ENVIRONMENT;
+    });
+
+    it("skips youtubei.js in production environment", async () => {
+      process.env.NODE_ENV = "production";
+
+      // All free methods fail → throws NotFoundException
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: jest.fn().mockResolvedValue(""),
+      });
+
+      await expect(service.getTranscript("cloudVid", "en")).rejects.toThrow();
+    });
+
+    it("skips youtubei.js when RAILWAY_ENVIRONMENT is set", async () => {
+      process.env.RAILWAY_ENVIRONMENT = "production";
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: jest.fn().mockResolvedValue(""),
+      });
+
+      await expect(service.getTranscript("railwayVid", "en")).rejects.toThrow();
+    });
+  });
+
+  // ─── cacheTranscript – error handling ─────────────────────────────────────────
+
+  describe("cacheTranscript – error handling", () => {
+    it("silently swallows errors when upsert fails", async () => {
+      mockPrismaService.youTubeTranscriptCache.upsert.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      // Should not throw since saveToCache catches and warns
+      await expect(
+        service.cacheTranscript("vidErr", "Title", [], "en"),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  // ─── getSupadataApiKey – fallback to env var ──────────────────────────────────
+
+  describe("getSupadataApiKey – env var fallback", () => {
+    const originalEnv = process.env.SUPADATA_API_KEY;
+
+    afterEach(() => {
+      if (originalEnv === undefined) {
+        delete process.env.SUPADATA_API_KEY;
+      } else {
+        process.env.SUPADATA_API_KEY = originalEnv;
+      }
+    });
+
+    it("falls back to SUPADATA_API_KEY env var when DB returns null", async () => {
+      process.env.SUPADATA_API_KEY = "env-supadata-key";
+      mockAdminService.getYoutubeApiKey.mockResolvedValue(null);
+
+      const supadataResult = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          content: [{ text: "Env key segment", offset: 1000, duration: 2000 }],
+          lang: "en",
+          availableLangs: ["en"],
+        }),
+      };
+      const oEmbedResult = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ title: "Env Video" }),
+      };
+
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes("supadata.ai")) return Promise.resolve(supadataResult);
+        if (url.includes("oembed")) return Promise.resolve(oEmbedResult);
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: jest.fn().mockResolvedValue(""),
+        });
+      });
+
+      mockPrismaService.youTubeTranscriptCache.upsert.mockResolvedValue({});
+
+      const result = await service.getTranscript("envVid", "en");
+
+      expect(result.transcript[0].text).toBe("Env key segment");
+    });
+  });
 });

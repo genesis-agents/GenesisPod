@@ -49,11 +49,16 @@ describe("DialogueConstraintsService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DialogueConstraintsService,
-        { provide: CharacterPersonalityService, useValue: mockCharacterPersonality },
+        {
+          provide: CharacterPersonalityService,
+          useValue: mockCharacterPersonality,
+        },
       ],
     }).compile();
 
-    service = module.get<DialogueConstraintsService>(DialogueConstraintsService);
+    service = module.get<DialogueConstraintsService>(
+      DialogueConstraintsService,
+    );
   });
 
   afterEach(() => {
@@ -140,7 +145,9 @@ describe("DialogueConstraintsService", () => {
 
   describe("generateCharacterDialogueConstraints", () => {
     it("should return null when character not found", async () => {
-      (mockCharacterPersonality.getCharacterByName as jest.Mock).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
 
       const result = await service.generateCharacterDialogueConstraints({
         projectId: "proj-1",
@@ -151,12 +158,12 @@ describe("DialogueConstraintsService", () => {
     });
 
     it("should return null when no personality constraints found", async () => {
-      (mockCharacterPersonality.getCharacterByName as jest.Mock).mockResolvedValue(
-        mockCharacter,
-      );
-      (mockCharacterPersonality.getPersonalityConstraints as jest.Mock).mockResolvedValue(
-        [],
-      );
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(mockCharacter);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.generateCharacterDialogueConstraints({
         projectId: "proj-1",
@@ -167,12 +174,12 @@ describe("DialogueConstraintsService", () => {
     });
 
     it("should return character dialogue constraints", async () => {
-      (mockCharacterPersonality.getCharacterByName as jest.Mock).mockResolvedValue(
-        mockCharacter,
-      );
-      (mockCharacterPersonality.getPersonalityConstraints as jest.Mock).mockResolvedValue(
-        [mockConstraint],
-      );
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(mockCharacter);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([mockConstraint]);
 
       const result = await service.generateCharacterDialogueConstraints({
         projectId: "proj-1",
@@ -188,10 +195,12 @@ describe("DialogueConstraintsService", () => {
 
   describe("checkDialogueRealism", () => {
     it("should detect modern vocabulary in dialogue", async () => {
-      (mockCharacterPersonality.getCharacterByName as jest.Mock).mockResolvedValue(null);
-      (mockCharacterPersonality.getPersonalityConstraints as jest.Mock).mockResolvedValue(
-        [],
-      );
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.checkDialogueRealism({
         projectId: "proj-1",
@@ -206,14 +215,18 @@ describe("DialogueConstraintsService", () => {
 
       expect(result.isRealistic).toBe(false);
       expect(result.issues.length).toBeGreaterThan(0);
-      expect(result.issues.some((i) => i.type === "modern_expression")).toBe(true);
+      expect(result.issues.some((i) => i.type === "modern_expression")).toBe(
+        true,
+      );
     });
 
     it("should return realistic when dialogue has no issues", async () => {
-      (mockCharacterPersonality.getCharacterByName as jest.Mock).mockResolvedValue(null);
-      (mockCharacterPersonality.getPersonalityConstraints as jest.Mock).mockResolvedValue(
-        [],
-      );
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.checkDialogueRealism({
         projectId: "proj-1",
@@ -228,6 +241,190 @@ describe("DialogueConstraintsService", () => {
 
       expect(result.isRealistic).toBe(true);
       expect(result.issues).toHaveLength(0);
+    });
+
+    it("should detect rank mismatch when speaking to emperor without formal address", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
+
+      const result = await service.checkDialogueRealism({
+        projectId: "proj-1",
+        dynasty: "清朝",
+        dialogues: [
+          {
+            characterName: "苏曼",
+            dialogue: "你说得对，我去办这件事情好了",
+            targetRank: "emperor",
+          },
+        ],
+      });
+
+      expect(result.issues.some((i) => i.type === "rank_mismatch")).toBe(true);
+    });
+
+    it("should not report rank mismatch when formal address is used", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
+
+      const result = await service.checkDialogueRealism({
+        projectId: "proj-1",
+        dynasty: "清朝",
+        dialogues: [
+          {
+            characterName: "苏曼",
+            dialogue: "陛下英明，奴婢领命",
+            targetRank: "emperor",
+          },
+        ],
+      });
+
+      expect(
+        result.issues.filter((i) => i.type === "rank_mismatch"),
+      ).toHaveLength(0);
+    });
+
+    it("should detect emotion mismatch when angry dialogue lacks intensity markers", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
+
+      const result = await service.checkDialogueRealism({
+        projectId: "proj-1",
+        dynasty: "清朝",
+        dialogues: [
+          {
+            characterName: "苏曼",
+            // No exclamation, no "岂/竟敢" - calm tone, but emotion is 愤怒
+            dialogue: "你的做法我认为是不恰当的，需要改正",
+            emotion: "愤怒",
+          },
+        ],
+      });
+
+      expect(result.issues.some((i) => i.type === "emotion_mismatch")).toBe(
+        true,
+      );
+    });
+
+    it("should detect character forbidden phrases in dialogue", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(mockCharacter);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([mockConstraint]);
+
+      const result = await service.checkDialogueRealism({
+        projectId: "proj-1",
+        dynasty: "清朝",
+        dialogues: [
+          {
+            characterName: "苏曼",
+            // mockConstraint.tabooWords includes "粗俗词汇"
+            dialogue: "粗俗词汇，真是不像话",
+          },
+        ],
+      });
+
+      expect(result.isRealistic).toBe(false);
+      expect(
+        result.issues.some((i) => i.description.includes("粗俗词汇")),
+      ).toBe(true);
+    });
+  });
+
+  describe("generateCharacterDialoguePrompt", () => {
+    it("should return empty string when character has no constraints", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
+
+      const result = await service.generateCharacterDialoguePrompt(
+        "proj-1",
+        "不存在角色",
+      );
+
+      expect(result).toBe("");
+    });
+
+    it("should generate character dialogue prompt with full constraints", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(mockCharacter);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([mockConstraint]);
+
+      const result = await service.generateCharacterDialoguePrompt(
+        "proj-1",
+        "苏曼",
+      );
+
+      expect(typeof result).toBe("string");
+      expect(result).toContain("苏曼");
+      expect(result).toContain("说话特点");
+    });
+
+    it("should include speech patterns when present", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(mockCharacter);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([mockConstraint]);
+
+      const result = await service.generateCharacterDialoguePrompt(
+        "proj-1",
+        "苏曼",
+      );
+
+      expect(result).toContain("常用表达");
+    });
+
+    it("should include forbidden phrases when present", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(mockCharacter);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([mockConstraint]);
+
+      const result = await service.generateCharacterDialoguePrompt(
+        "proj-1",
+        "苏曼",
+      );
+
+      expect(result).toContain("禁止使用");
+    });
+
+    it("should include dialogue examples when present", async () => {
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(mockCharacter);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([mockConstraint]);
+
+      const result = await service.generateCharacterDialoguePrompt(
+        "proj-1",
+        "苏曼",
+      );
+
+      expect(result).toContain("对话参考");
     });
   });
 
@@ -267,14 +464,42 @@ describe("DialogueConstraintsService", () => {
       expect(result).toHaveProperty("needsActionDescription");
       expect(result).toHaveProperty("suggestedActions");
     });
+
+    it("should include scene suggestions when consecutive dialogues >= 7", () => {
+      // Build a string with 7+ consecutive short dialogues (no separating punctuation between them)
+      const content = '"甲。""乙。""丙。""丁。""戊。""己。""庚。"';
+
+      const result = service.analyzeDialoguePacing(content);
+
+      if (result.consecutiveDialogues >= 7) {
+        expect(
+          result.suggestedActions.some((s) => s.includes("场景细节")),
+        ).toBe(true);
+      }
+    });
+
+    it("should include inner-thought suggestions when consecutive dialogues >= 10", () => {
+      // Build a string with 10+ consecutive short dialogues
+      const content = '"一""二""三""四""五""六""七""八""九""十""十一"';
+
+      const result = service.analyzeDialoguePacing(content);
+
+      if (result.consecutiveDialogues >= 10) {
+        expect(
+          result.suggestedActions.some((s) => s.includes("心理活动")),
+        ).toBe(true);
+      }
+    });
   });
 
   describe("generateCompleteDialogueConstraints", () => {
     it("should combine dialect and character constraints", async () => {
-      (mockCharacterPersonality.getCharacterByName as jest.Mock).mockResolvedValue(null);
-      (mockCharacterPersonality.getPersonalityConstraints as jest.Mock).mockResolvedValue(
-        [],
-      );
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.generateCompleteDialogueConstraints({
         projectId: "proj-1",
@@ -287,10 +512,12 @@ describe("DialogueConstraintsService", () => {
     });
 
     it("should return at least dialect constraints even without character info", async () => {
-      (mockCharacterPersonality.getCharacterByName as jest.Mock).mockResolvedValue(null);
-      (mockCharacterPersonality.getPersonalityConstraints as jest.Mock).mockResolvedValue(
-        [],
-      );
+      (
+        mockCharacterPersonality.getCharacterByName as jest.Mock
+      ).mockResolvedValue(null);
+      (
+        mockCharacterPersonality.getPersonalityConstraints as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.generateCompleteDialogueConstraints({
         projectId: "proj-1",

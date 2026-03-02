@@ -443,4 +443,230 @@ describe("RssService", () => {
       expect(result.total).toBe(0);
     });
   });
+
+  // ── YouTube duration filtering ────────────────────────────────────────────────
+
+  describe("fetchRssFeed – YouTube duration filtering", () => {
+    const ytFeedUrl =
+      "https://www.youtube.com/feeds/videos.xml?channel_id=UCtest";
+
+    it("skips a YouTube video that is shorter than minDurationSeconds", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "YouTube Channel",
+        items: [
+          {
+            title: "Short Video",
+            link: "https://www.youtube.com/watch?v=shortId",
+            guid: "yt-short",
+          },
+        ],
+      });
+
+      // Spy on private getYouTubeVideoDuration to return a short duration
+      const durationSpy = jest
+        .spyOn(service as any, "getYouTubeVideoDuration")
+        .mockResolvedValue(120); // 2 minutes
+
+      const result = await service.fetchRssFeed(
+        ytFeedUrl,
+        10,
+        "YOUTUBE_VIDEO",
+        {
+          minDurationSeconds: 600, // 10 minutes minimum
+        },
+      );
+
+      expect(result.skipped).toBe(1);
+      expect(result.success).toBe(0);
+      durationSpy.mockRestore();
+    });
+
+    it("processes a YouTube video that meets the minDurationSeconds threshold", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "YouTube Channel",
+        items: [
+          {
+            title: "Long Enough Video",
+            link: "https://www.youtube.com/watch?v=longId",
+            guid: "yt-long",
+          },
+        ],
+      });
+
+      const durationSpy = jest
+        .spyOn(service as any, "getYouTubeVideoDuration")
+        .mockResolvedValue(900); // 15 minutes
+
+      const result = await service.fetchRssFeed(
+        ytFeedUrl,
+        10,
+        "YOUTUBE_VIDEO",
+        {
+          minDurationSeconds: 600,
+        },
+      );
+
+      expect(result.success).toBe(1);
+      expect(result.skipped).toBe(0);
+      durationSpy.mockRestore();
+    });
+
+    it("skips a video with unknown duration when skipUnknownDuration=true", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "YouTube Channel",
+        items: [
+          {
+            title: "Unknown Duration Video",
+            link: "https://www.youtube.com/watch?v=unknownId",
+            guid: "yt-unknown",
+          },
+        ],
+      });
+
+      const durationSpy = jest
+        .spyOn(service as any, "getYouTubeVideoDuration")
+        .mockResolvedValue(null);
+
+      const result = await service.fetchRssFeed(
+        ytFeedUrl,
+        10,
+        "YOUTUBE_VIDEO",
+        {
+          minDurationSeconds: 600,
+          skipUnknownDuration: true,
+        },
+      );
+
+      expect(result.skipped).toBe(1);
+      expect(result.success).toBe(0);
+      durationSpy.mockRestore();
+    });
+
+    it("processes a video with unknown duration when skipUnknownDuration=false (default)", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "YouTube Channel",
+        items: [
+          {
+            title: "Unknown Duration Video",
+            link: "https://www.youtube.com/watch?v=unknownId",
+            guid: "yt-unknown",
+          },
+        ],
+      });
+
+      const durationSpy = jest
+        .spyOn(service as any, "getYouTubeVideoDuration")
+        .mockResolvedValue(null);
+
+      const result = await service.fetchRssFeed(
+        ytFeedUrl,
+        10,
+        "YOUTUBE_VIDEO",
+        {
+          minDurationSeconds: 600,
+          skipUnknownDuration: false,
+        },
+      );
+
+      // Video with unknown duration should still be processed
+      expect(result.success).toBe(1);
+      expect(result.skipped).toBe(0);
+      durationSpy.mockRestore();
+    });
+
+    it("does not check duration for non-YouTube URLs even in YouTube feed", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "YouTube Channel",
+        items: [
+          {
+            title: "Non-YouTube Link",
+            link: "https://example.com/article",
+            guid: "not-yt",
+          },
+        ],
+      });
+
+      const durationSpy = jest
+        .spyOn(service as any, "getYouTubeVideoDuration")
+        .mockResolvedValue(null);
+
+      const result = await service.fetchRssFeed(
+        ytFeedUrl,
+        10,
+        "YOUTUBE_VIDEO",
+        {
+          minDurationSeconds: 600,
+        },
+      );
+
+      // Non-YouTube URL in YouTube feed: duration check is skipped, item is processed
+      expect(result.success).toBe(1);
+      expect(durationSpy).not.toHaveBeenCalled();
+      durationSpy.mockRestore();
+    });
+
+    it("does not apply duration filtering for non-YouTube feeds", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "Regular Blog",
+        items: [
+          {
+            title: "Blog Post",
+            link: "https://blog.example.com/post/1",
+            guid: "blog-1",
+          },
+        ],
+      });
+
+      const durationSpy = jest
+        .spyOn(service as any, "getYouTubeVideoDuration")
+        .mockResolvedValue(null);
+
+      const result = await service.fetchRssFeed(
+        "https://blog.example.com/rss.xml",
+        10,
+        "BLOG",
+        { minDurationSeconds: 600 },
+      );
+
+      expect(result.success).toBe(1);
+      expect(durationSpy).not.toHaveBeenCalled();
+      durationSpy.mockRestore();
+    });
+  });
+
+  // ── fetchRssFeed – error handling ────────────────────────────────────────────
+
+  describe("fetchRssFeed – additional error codes", () => {
+    it("throws descriptive error when feed returns 500", async () => {
+      mockParseURL.mockRejectedValue(new Error("Status code 500"));
+
+      await expect(
+        service.fetchRssFeed("https://example.com/feed.rss"),
+      ).rejects.toThrow(/500/);
+    });
+
+    it("throws descriptive error when feed connection is refused", async () => {
+      mockParseURL.mockRejectedValue(new Error("ECONNREFUSED 127.0.0.1:80"));
+
+      await expect(
+        service.fetchRssFeed("https://example.com/feed.rss"),
+      ).rejects.toThrow(/ECONNREFUSED|Cannot connect/);
+    });
+
+    it("throws generic error for unknown error messages", async () => {
+      mockParseURL.mockRejectedValue(new Error("Some unknown parser error"));
+
+      await expect(
+        service.fetchRssFeed("https://example.com/feed.rss"),
+      ).rejects.toThrow(/Some unknown parser error/);
+    });
+
+    it("handles non-Error thrown values", async () => {
+      mockParseURL.mockRejectedValue("string error");
+
+      await expect(
+        service.fetchRssFeed("https://example.com/feed.rss"),
+      ).rejects.toThrow();
+    });
+  });
 });

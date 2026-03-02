@@ -695,6 +695,198 @@ describe("ResourcesService", () => {
       expect(mockRepository.create).toHaveBeenCalled();
       expect(result).toBeDefined();
     });
+
+    it("should create resource for YOUTUBE_VIDEO type with valid video ID", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ title: "My YouTube Video" }),
+      });
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "YOUTUBE_VIDEO",
+        title: "My YouTube Video",
+      });
+
+      const result = await service.importFromUrl(
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "YOUTUBE_VIDEO",
+      );
+
+      expect(mockRepository.create).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should create resource for YOUTUBE_VIDEO type without extractable video ID", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "YOUTUBE_VIDEO",
+        title: "YouTube Video",
+      });
+
+      // Use a URL that doesn't match any pattern
+      const result = await service.importFromUrl(
+        "https://www.youtube.com/channel/UCxxx",
+        "YOUTUBE_VIDEO",
+      );
+
+      expect(mockRepository.create).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should create resource for BLOG type using fetchWebPageInfo", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            "<html><head><title>My Blog Post</title></head><body>Content</body></html>",
+          ),
+      });
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "BLOG",
+        title: "My Blog Post",
+      });
+
+      const result = await service.importFromUrl(
+        "https://medium.com/some-blog-post",
+        "BLOG",
+      );
+
+      expect(mockRepository.create).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should create resource for REPORT type using fetchWebPageInfo", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            "<html><head><title>Industry Report 2024</title></head><body>Report content</body></html>",
+          ),
+      });
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "REPORT",
+        title: "Industry Report 2024",
+      });
+
+      const result = await service.importFromUrl(
+        "https://example.com/reports/2024",
+        "REPORT",
+      );
+
+      expect(mockRepository.create).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should create resource for unknown type using path-based title fallback", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "OTHER",
+        title: "some document",
+      });
+
+      const result = await service.importFromUrl(
+        "https://example.com/path/to/some-document",
+        "OTHER",
+      );
+
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expect.stringContaining("some document"),
+        }),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it("should extract PDF URL for openreview.net forum URL (PAPER type)", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            "<feed><entry><title>OpenReview Paper</title><summary>Abstract</summary></entry></feed>",
+          ),
+      });
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "PAPER",
+        pdfUrl: "https://openreview.net/pdf?id=abc123",
+      });
+
+      const result = await service.importFromUrl(
+        "https://openreview.net/forum?id=abc123",
+        "PAPER",
+      );
+
+      // Should have tried to create with a pdfUrl derived from the openreview URL
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pdfUrl: "https://openreview.net/pdf?id=abc123",
+        }),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it("should use direct URL as pdfUrl when URL ends with .pdf (PAPER type)", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      mockFetch.mockResolvedValue({
+        ok: false,
+        text: jest.fn().mockResolvedValue(""),
+      });
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "PAPER",
+        pdfUrl: "https://arxiv.org/pdf/2311.12345.pdf",
+      });
+
+      await service.importFromUrl(
+        "https://arxiv.org/pdf/2311.12345.pdf",
+        "PAPER",
+      );
+
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pdfUrl: "https://arxiv.org/pdf/2311.12345.pdf",
+        }),
+      );
+    });
+
+    it("should use hostname as title fallback when fetchWebPageInfo returns non-ok response", async () => {
+      (mockRepository.findFirst as jest.Mock).mockResolvedValue(null);
+      // Simulate non-ok response
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: jest.fn().mockResolvedValue(""),
+      });
+      (mockRepository.create as jest.Mock).mockResolvedValue({
+        ...mockResource,
+        type: "NEWS",
+        title: "techcrunch.com",
+      });
+
+      const result = await service.importFromUrl(
+        "https://techcrunch.com/article-that-404s",
+        "NEWS",
+      );
+
+      // When fetchWebPageInfo gets non-ok, it falls back to hostname
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expect.any(String),
+        }),
+      );
+      expect(result).toBeDefined();
+    });
   });
 
   describe("cleanupDuplicates", () => {
