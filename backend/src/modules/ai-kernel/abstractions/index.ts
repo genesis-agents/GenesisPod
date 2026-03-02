@@ -27,7 +27,25 @@ export type {
   TaskPhase,
 } from "../../ai-engine/facade";
 
-export { calculateOverallProgress } from "../../ai-engine/facade";
+// ★ Inlined from ai-engine to avoid circular dependency at runtime:
+// facade barrel → AIEngineFacade → AiChatService → CircuitBreakerService(shim)
+// → ai-kernel/facade → ProgressTrackerService → abstractions → facade (cycle!)
+// All `export type` are erased at runtime (safe). Only runtime values trigger the cycle.
+import type { TaskPhase as _TaskPhase } from "../../ai-engine/facade";
+
+export function calculateOverallProgress(phases: _TaskPhase[]): number {
+  const totalWeight = phases.reduce((sum, p) => sum + p.weight, 0);
+  if (totalWeight === 0) return 0;
+
+  let completedWeight = 0;
+  for (const phase of phases) {
+    if (phase.status === "completed" || phase.status === "skipped") {
+      completedWeight += phase.weight;
+    }
+  }
+
+  return Math.round((completedWeight / totalWeight) * 100);
+}
 
 // ==================== Observability / Trace ====================
 
