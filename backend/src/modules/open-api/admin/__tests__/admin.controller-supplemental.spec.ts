@@ -23,6 +23,28 @@ import { AdminGuard } from "../../../../common/guards/admin.guard";
 // ---------------------------------------------------------------------------
 // Module-level mocks for heavy transitive deps
 // ---------------------------------------------------------------------------
+
+// @prisma/client is not fully generated in this worktree — mock the entire
+// module using a Proxy so that any enum member access returns the key name as
+// a string value, preventing "Cannot read properties of undefined" errors from
+// transitive imports (e.g. AIModelType.CHAT_FAST, CreditTransactionType.AI_ASK).
+jest.mock("@prisma/client", () => {
+  const enumProxy = new Proxy(
+    {},
+    { get: (_target, prop) => (typeof prop === "string" ? prop : undefined) },
+  );
+  return new Proxy(
+    { PrismaClient: jest.fn().mockImplementation(() => ({})) },
+    {
+      get(target, prop) {
+        if (prop in target)
+          return (target as Record<string | symbol, unknown>)[prop];
+        return enumProxy;
+      },
+    },
+  );
+});
+
 jest.mock("../../../../common/cache/cache.module", () => ({}));
 jest.mock("../../../../common/cache/cache.service", () => ({
   CacheService: jest.fn(),
