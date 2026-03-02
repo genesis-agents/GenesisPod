@@ -25,6 +25,12 @@ module.exports = {
     "!**/*.example.ts",
   ],
   coverageDirectory: "../coverage",
+  coveragePathIgnorePatterns: [
+    "/node_modules/",
+    "/deprecated/",
+    "\\.example\\.ts$",
+    "\\.d\\.ts$",
+  ],
   testEnvironment: "node",
 
   // 覆盖率阈值 - Phase 1: 50%
