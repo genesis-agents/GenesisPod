@@ -48,14 +48,12 @@ function buildMocks() {
     getDefaultModelByType: jest
       .fn()
       .mockResolvedValue({ displayName: "GPT-4o", modelId: "gpt-4o" }),
-    getReasoningModel: jest
-      .fn()
-      .mockResolvedValue({
-        id: "gpt-4o",
-        name: "GPT-4o",
-        provider: "openai",
-        isReasoning: false,
-      }),
+    getReasoningModel: jest.fn().mockResolvedValue({
+      id: "gpt-4o",
+      name: "GPT-4o",
+      provider: "openai",
+      isReasoning: false,
+    }),
   };
 
   const mockLeaderService = {
@@ -398,6 +396,580 @@ describe("MissionQueryService", () => {
       expect(service.getPhaseFromStatus(ResearchMissionStatus.FAILED)).toBe(
         "failed",
       );
+    });
+
+    it("should return reviewing phase for REVIEWING status", () => {
+      expect(service.getPhaseFromStatus(ResearchMissionStatus.REVIEWING)).toBe(
+        "reviewing",
+      );
+    });
+
+    it("should return unknown for unrecognized status", () => {
+      expect(
+        service.getPhaseFromStatus("SOME_UNKNOWN" as ResearchMissionStatus),
+      ).toBe("unknown");
+    });
+  });
+
+  // ─── getAgentRole - more branches ──────────────────────────────────────────
+
+  describe("getAgentRole - all branches", () => {
+    it("should return quality_reviewer role", () => {
+      expect(service.getAgentRole("quality_reviewer")).toBe("质量审核员");
+    });
+
+    it("should return report_writer role", () => {
+      expect(service.getAgentRole("report_writer")).toBe("报告撰写员");
+    });
+
+    it("should return default researcher role for null", () => {
+      expect(service.getAgentRole(null)).toBe("研究员");
+    });
+
+    it("should return default researcher role for undefined", () => {
+      expect(service.getAgentRole(undefined)).toBe("研究员");
+    });
+  });
+
+  // ─── getAgentRoleFromTaskType ───────────────────────────────────────────────
+
+  describe("getAgentRoleFromTaskType", () => {
+    it("should return researcher for dimension_research", () => {
+      expect(service.getAgentRoleFromTaskType("dimension_research")).toBe(
+        "researcher",
+      );
+    });
+
+    it("should return reviewer for quality_review", () => {
+      expect(service.getAgentRoleFromTaskType("quality_review")).toBe(
+        "reviewer",
+      );
+    });
+
+    it("should return synthesizer for report_synthesis", () => {
+      expect(service.getAgentRoleFromTaskType("report_synthesis")).toBe(
+        "synthesizer",
+      );
+    });
+
+    it("should return researcher as default for unknown type", () => {
+      expect(service.getAgentRoleFromTaskType("unknown_type")).toBe(
+        "researcher",
+      );
+    });
+  });
+
+  // ─── getAgentNameFromTaskType ───────────────────────────────────────────────
+
+  describe("getAgentNameFromTaskType", () => {
+    it("should return 研究员 for dimension_research", () => {
+      expect(service.getAgentNameFromTaskType("dimension_research")).toBe(
+        "研究员",
+      );
+    });
+
+    it("should return 质量审核员 for quality_review", () => {
+      expect(service.getAgentNameFromTaskType("quality_review")).toBe(
+        "质量审核员",
+      );
+    });
+
+    it("should return 报告撰写员 for report_synthesis", () => {
+      expect(service.getAgentNameFromTaskType("report_synthesis")).toBe(
+        "报告撰写员",
+      );
+    });
+
+    it("should return 研究员 as default", () => {
+      expect(service.getAgentNameFromTaskType("unknown")).toBe("研究员");
+    });
+  });
+
+  // ─── getModelForAgentType ───────────────────────────────────────────────────
+
+  describe("getModelForAgentType", () => {
+    it("should return CHAT model for any agent type", () => {
+      const { AIModelType } = jest.requireActual("@prisma/client");
+      const modelMap = new Map([[AIModelType.CHAT, "gpt-4o"]]);
+      expect(
+        service.getModelForAgentType("dimension_researcher", modelMap),
+      ).toBe("gpt-4o");
+    });
+
+    it("should return undefined if no CHAT model in map", () => {
+      const modelMap = new Map<import("@prisma/client").AIModelType, string>();
+      expect(
+        service.getModelForAgentType("dimension_researcher", modelMap),
+      ).toBeUndefined();
+    });
+  });
+
+  // ─── getDefaultModelNames ───────────────────────────────────────────────────
+
+  describe("getDefaultModelNames", () => {
+    it("should return a map with CHAT model when facade returns one", async () => {
+      const { AIModelType } = jest.requireActual("@prisma/client");
+      const result = await service.getDefaultModelNames();
+      expect(result.get(AIModelType.CHAT)).toBe("GPT-4o");
+    });
+
+    it("should return empty map when facade returns null", async () => {
+      const mocks = buildMocks();
+      mocks.mockAiFacade.getDefaultModelByType = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const module2 = await Test.createTestingModule({
+        providers: [
+          MissionQueryService,
+          { provide: PrismaService, useValue: mocks.mockPrisma },
+          { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
+          {
+            provide: ResearchEventEmitterService,
+            useValue: mocks.mockResearchEventEmitter,
+          },
+          { provide: ChatFacade, useValue: mocks.mockAiFacade },
+          { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
+        ],
+      }).compile();
+
+      const svc = module2.get<MissionQueryService>(MissionQueryService);
+      const result = await svc.getDefaultModelNames();
+      expect(result.size).toBe(0);
+    });
+  });
+
+  // ─── getTaskActivities - additional branches ────────────────────────────────
+
+  describe("getTaskActivities - additional branches", () => {
+    it("should query by reviewer role for quality_review tasks", async () => {
+      const reviewTask = {
+        ...mockTask,
+        taskType: "quality_review",
+        dimensionId: null,
+        assignedAgent: "reviewer-1",
+      };
+      prisma.researchTask.findUnique.mockResolvedValue(reviewTask);
+      prisma.researchAgentActivity.findMany.mockResolvedValue([]);
+
+      await service.getTaskActivities("task-1");
+
+      expect(prisma.researchAgentActivity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ agentRole: "reviewer" }),
+        }),
+      );
+    });
+
+    it("should query by synthesizer role for report_synthesis tasks", async () => {
+      const synthTask = {
+        ...mockTask,
+        taskType: "report_synthesis",
+        dimensionId: null,
+        assignedAgent: "writer-1",
+      };
+      prisma.researchTask.findUnique.mockResolvedValue(synthTask);
+      prisma.researchAgentActivity.findMany.mockResolvedValue([]);
+
+      await service.getTaskActivities("task-1");
+
+      expect(prisma.researchAgentActivity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ agentRole: "synthesizer" }),
+        }),
+      );
+    });
+
+    it("should use agentId filter for unknown task types", async () => {
+      const unknownTask = {
+        ...mockTask,
+        taskType: "custom_task",
+        dimensionId: null,
+        assignedAgent: "custom-agent",
+      };
+      prisma.researchTask.findUnique.mockResolvedValue(unknownTask);
+      prisma.researchAgentActivity.findMany.mockResolvedValue([]);
+
+      await service.getTaskActivities("task-1");
+
+      expect(prisma.researchAgentActivity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            missionId: "mission-1",
+            agentId: "custom-agent",
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── updateTaskStatus - additional branches ─────────────────────────────────
+
+  describe("updateTaskStatus - additional branches", () => {
+    it("should use conditional update for terminal FAILED status", async () => {
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 1 });
+      prisma.researchTask.findUnique.mockResolvedValue({
+        ...mockTask,
+        status: ResearchTaskStatus.FAILED,
+        missionId: "mission-1",
+      });
+      prisma.researchTask.findMany.mockResolvedValue([
+        { ...mockTask, status: ResearchTaskStatus.FAILED },
+      ]);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.updateTaskStatus("task-1", ResearchTaskStatus.FAILED);
+
+      expect(prisma.researchTask.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: "task-1",
+            status: {
+              notIn: [ResearchTaskStatus.FAILED, ResearchTaskStatus.COMPLETED],
+            },
+          }),
+        }),
+      );
+    });
+
+    it("should still return task when count is 0 (already in terminal state)", async () => {
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchTask.findUnique.mockResolvedValue({
+        ...mockTask,
+        status: ResearchTaskStatus.COMPLETED,
+        missionId: "mission-1",
+      });
+      prisma.researchTask.findMany.mockResolvedValue([
+        { ...mockTask, status: ResearchTaskStatus.COMPLETED },
+      ]);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      const result = await service.updateTaskStatus(
+        "task-1",
+        ResearchTaskStatus.COMPLETED,
+      );
+
+      expect(result.status).toBe(ResearchTaskStatus.COMPLETED);
+    });
+
+    it("should update result and resultSummary when provided for non-terminal status", async () => {
+      prisma.researchTask.update.mockResolvedValue({
+        ...mockTask,
+        status: ResearchTaskStatus.EXECUTING,
+        missionId: "mission-1",
+      });
+      prisma.researchTask.findMany.mockResolvedValue([]);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.updateTaskStatus("task-1", ResearchTaskStatus.EXECUTING, {
+        result: { summary: "In progress" },
+        resultSummary: "Working",
+        actualModelId: "gpt-4o",
+      });
+
+      expect(prisma.researchTask.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            result: { summary: "In progress" },
+            resultSummary: "Working",
+            modelId: "gpt-4o",
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── updateMissionProgress ──────────────────────────────────────────────────
+
+  describe("updateMissionProgress", () => {
+    it("should set COMPLETED when all tasks completed", async () => {
+      prisma.researchTask.findMany.mockResolvedValue([
+        { status: ResearchTaskStatus.COMPLETED },
+        { status: ResearchTaskStatus.COMPLETED },
+      ]);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.updateMissionProgress("mission-1");
+
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.COMPLETED,
+            completedAt: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it("should set FAILED when all terminal and some failed", async () => {
+      prisma.researchTask.findMany.mockResolvedValue([
+        { status: ResearchTaskStatus.COMPLETED },
+        { status: ResearchTaskStatus.FAILED },
+      ]);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.updateMissionProgress("mission-1");
+
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.FAILED,
+          }),
+        }),
+      );
+    });
+
+    it("should not update status when tasks still running", async () => {
+      prisma.researchTask.findMany.mockResolvedValue([
+        { status: ResearchTaskStatus.COMPLETED },
+        { status: ResearchTaskStatus.EXECUTING },
+      ]);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.updateMissionProgress("mission-1");
+
+      const updateArgs = prisma.researchMission.update.mock.calls[0][0];
+      expect(updateArgs.data.status).toBeUndefined();
+    });
+
+    it("should calculate 0 progress when no tasks", async () => {
+      prisma.researchTask.findMany.mockResolvedValue([]);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.updateMissionProgress("mission-1");
+
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            progressPercent: 0,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── getTeamInfo ────────────────────────────────────────────────────────────
+
+  describe("getTeamInfo", () => {
+    it("should throw NotFoundException when mission not found", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue(null);
+
+      await expect(service.getTeamInfo("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it("should return team info with agents from tasks", async () => {
+      const missionWithTasks = {
+        ...mockMission,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: null,
+        tasks: [
+          {
+            id: "task-1",
+            title: "Tech Research",
+            assignedAgent: "researcher-1",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.EXECUTING,
+            dimensionName: "Technology",
+            modelId: "gpt-4o",
+          },
+        ],
+      };
+      prisma.researchMission.findUnique.mockResolvedValue(missionWithTasks);
+
+      const result = await service.getTeamInfo("mission-1");
+
+      expect(result.leaderId).toBe("leader");
+      expect(result.leaderModel).toBe("o3-mini");
+      expect(result.agents).toHaveLength(1);
+      expect(result.agents[0].status).toBe("working");
+    });
+
+    it("should use leaderService fallback when no stored model", async () => {
+      const mocks = buildMocks();
+      mocks.mockLeaderService.getReasoningModel = jest.fn().mockResolvedValue({
+        modelId: "dynamic-model",
+        modelName: "Dynamic Model",
+      });
+
+      const missionNoModel = {
+        ...mockMission,
+        leaderModelId: null,
+        leaderModelName: null,
+        leaderPlan: null,
+        tasks: [],
+      };
+      prisma.researchMission.findUnique.mockResolvedValue(missionNoModel);
+
+      const module2 = await Test.createTestingModule({
+        providers: [
+          MissionQueryService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
+          {
+            provide: ResearchEventEmitterService,
+            useValue: mocks.mockResearchEventEmitter,
+          },
+          {
+            provide: ChatFacade,
+            useValue: {
+              getDefaultModelByType: jest.fn().mockResolvedValue(null),
+            },
+          },
+          { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
+        ],
+      }).compile();
+
+      const svc = module2.get<MissionQueryService>(MissionQueryService);
+      const result = await svc.getTeamInfo("mission-1");
+
+      expect(result.leaderModel).toBe("dynamic-model");
+    });
+
+    it("should parse leaderPlan agentAssignments to extract skills and tools", async () => {
+      const missionWithPlan = {
+        ...mockMission,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: {
+          agentAssignments: [
+            {
+              agentId: "researcher-1",
+              agentType: "dimension_researcher",
+              skills: ["deep_research", "synthesis"],
+              tools: ["web-search"],
+              modelId: "gpt-4o",
+            },
+          ],
+        },
+        tasks: [
+          {
+            id: "task-1",
+            title: "Tech Research",
+            assignedAgent: "researcher-1",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.PENDING,
+            dimensionName: "Technology",
+            modelId: null,
+          },
+        ],
+      };
+      prisma.researchMission.findUnique.mockResolvedValue(missionWithPlan);
+
+      const result = await service.getTeamInfo("mission-1");
+
+      const agent = result.agents.find((a) => a.id === "researcher-1");
+      expect(agent?.skills).toEqual(["deep_research", "synthesis"]);
+      expect(agent?.tools).toEqual(["web-search"]);
+    });
+
+    it("should mark agent as failed when task status is FAILED", async () => {
+      const missionWithFailedTask = {
+        ...mockMission,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: null,
+        tasks: [
+          {
+            id: "task-1",
+            title: "Failed Task",
+            assignedAgent: "researcher-1",
+            assignedAgentType: "dimension_researcher",
+            status: ResearchTaskStatus.FAILED,
+            dimensionName: null,
+            modelId: null,
+          },
+        ],
+      };
+      prisma.researchMission.findUnique.mockResolvedValue(
+        missionWithFailedTask,
+      );
+
+      const result = await service.getTeamInfo("mission-1");
+
+      const agent = result.agents.find((a) => a.id === "researcher-1");
+      expect(agent?.status).toBe("failed");
+    });
+
+    it("should handle empty/invalid leaderPlan without throwing", async () => {
+      const missionWithInvalidPlan = {
+        ...mockMission,
+        leaderModelId: "o3-mini",
+        leaderModelName: "o3-mini",
+        leaderPlan: "invalid json",
+        tasks: [],
+      };
+      prisma.researchMission.findUnique.mockResolvedValue(
+        missionWithInvalidPlan,
+      );
+
+      await expect(service.getTeamInfo("mission-1")).resolves.toBeDefined();
+    });
+  });
+
+  // ─── getMissionByTopicId - additional branches ──────────────────────────────
+
+  describe("getMissionByTopicId - additional branches", () => {
+    it("should include leaderModelId and leaderModelName in result", async () => {
+      prisma.researchMission.findFirst.mockResolvedValue({
+        ...mockMission,
+        leaderModelId: "claude-opus",
+        leaderModelName: "Claude Opus",
+        tasks: [],
+      });
+
+      const result = await service.getMissionByTopicId("topic-1");
+
+      expect(result?.leaderModelId).toBe("claude-opus");
+      expect(result?.leaderModelName).toBe("Claude Opus");
+    });
+
+    it("should handle mission with tasks including modelId", async () => {
+      prisma.researchMission.findFirst.mockResolvedValue({
+        ...mockMission,
+        tasks: [
+          {
+            ...mockTask,
+            modelId: "gpt-4o",
+          },
+        ],
+      });
+
+      const result = await service.getMissionByTopicId("topic-1");
+
+      expect(result?.tasks[0].modelId).toBe("gpt-4o");
+    });
+  });
+
+  // ─── getMissionStatus - additional branches ─────────────────────────────────
+
+  describe("getMissionStatus - additional branches", () => {
+    it("should map task fields correctly including null values", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        ...mockMission,
+        tasks: [
+          {
+            ...mockTask,
+            progress: null,
+            reviewStatus: null,
+            result: null,
+            resultSummary: null,
+            startedAt: null,
+            completedAt: null,
+            dimensionName: null,
+            modelId: null,
+          },
+        ],
+      });
+
+      const result = await service.getMissionStatus("mission-1");
+
+      const task = result.tasks[0];
+      expect(task.progress).toBe(0);
+      expect(task.dimensionName).toBeUndefined();
+      expect(task.modelId).toBeUndefined();
     });
   });
 });

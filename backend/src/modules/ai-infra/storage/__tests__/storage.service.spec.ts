@@ -1115,4 +1115,619 @@ describe("StorageService", () => {
       expect(result.status).toBe("critical");
     });
   });
+
+  // ==================== private stat helpers (via getStorageStats) ====================
+
+  describe("private stats helpers (via getStorageStats without mocking private methods)", () => {
+    const setupAllCountMocks = (overrides: Record<string, unknown> = {}) => {
+      const defaults: Record<string, number> = {
+        generatedImageCount: 0,
+        generatedImageBookmarked: 0,
+        rawDataCount: 0,
+        rawDataProcessed: 0,
+        rawDataOldProcessed: 0,
+        resourceCount: 0,
+        noteCount: 0,
+        researchProjectSourceCount: 0,
+        collectionTaskCount: 0,
+        collectionTaskOld: 0,
+        importTaskCount: 0,
+        importTaskOld: 0,
+        parsedMetadataCount: 0,
+        parsedMetadataExpired: 0,
+        deduplicationCount: 0,
+        dataQualityCount: 0,
+        userActivityCount: 0,
+        userActivityOld: 0,
+        topicMessageCount: 0,
+        officeDocumentCount: 0,
+        officeDocumentVersionCount: 0,
+        officeDocumentOld: 0,
+        userCount: 0,
+        commentCount: 0,
+        askSessionCount: 0,
+        askMessageCount: 0,
+        askSessionOld: 0,
+        topicCount: 0,
+        workspaceCount: 0,
+        reportCount: 0,
+        debateCount: 0,
+        brandKitCount: 0,
+        slidesSessionCount: 0,
+        slidesCheckpointCount: 0,
+        slidesSessionOld: 0,
+        slidesTeamExecution: 0,
+        slidesTeamLog: 0,
+        knowledgeBaseCount: 0,
+        knowledgeBaseDocumentCount: 0,
+        parentChunkCount: 0,
+        childChunkCount: 0,
+        childEmbeddingCount: 0,
+      };
+      const vals = { ...defaults, ...overrides };
+
+      const callIndex = 0;
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      // generatedImage
+      mockPrisma.generatedImage.count
+        .mockResolvedValueOnce(vals.generatedImageCount as number)
+        .mockResolvedValueOnce(vals.generatedImageBookmarked as number);
+      mockPrisma.generatedImage.groupBy.mockResolvedValue([]);
+
+      // rawData - ensureLinkedRawDataProcessed uses $queryRawUnsafe
+      mockPrisma.rawData.count
+        .mockResolvedValueOnce(vals.rawDataCount as number)
+        .mockResolvedValueOnce(vals.rawDataProcessed as number)
+        .mockResolvedValueOnce(vals.rawDataOldProcessed as number);
+      mockPrisma.rawData.groupBy.mockResolvedValue([]);
+
+      // resource
+      mockPrisma.resource.count.mockResolvedValueOnce(
+        vals.resourceCount as number,
+      );
+      mockPrisma.resource.groupBy.mockResolvedValue([]);
+
+      // note
+      mockPrisma.note.count.mockResolvedValueOnce(vals.noteCount as number);
+
+      // researchProjectSource
+      mockPrisma.researchProjectSource.count.mockResolvedValueOnce(
+        vals.researchProjectSourceCount as number,
+      );
+      mockPrisma.researchProjectSource.groupBy.mockResolvedValue([]);
+
+      // collectionTask
+      mockPrisma.collectionTask.count
+        .mockResolvedValueOnce(vals.collectionTaskCount as number)
+        .mockResolvedValueOnce(vals.collectionTaskOld as number);
+      mockPrisma.collectionTask.groupBy.mockResolvedValue([]);
+
+      // importTask
+      mockPrisma.importTask.count
+        .mockResolvedValueOnce(vals.importTaskCount as number)
+        .mockResolvedValueOnce(vals.importTaskOld as number);
+      mockPrisma.importTask.groupBy.mockResolvedValue([]);
+
+      // parsedMetadata
+      mockPrisma.parsedMetadata.count
+        .mockResolvedValueOnce(vals.parsedMetadataCount as number)
+        .mockResolvedValueOnce(vals.parsedMetadataExpired as number);
+
+      // deduplication
+      mockPrisma.deduplicationRecord.count.mockResolvedValueOnce(
+        vals.deduplicationCount as number,
+      );
+
+      // dataQuality
+      mockPrisma.dataQualityMetric.count.mockResolvedValueOnce(
+        vals.dataQualityCount as number,
+      );
+
+      // userActivity
+      mockPrisma.userActivity.count
+        .mockResolvedValueOnce(vals.userActivityCount as number)
+        .mockResolvedValueOnce(vals.userActivityOld as number);
+
+      // topicMessage
+      mockPrisma.topicMessage.count.mockResolvedValueOnce(
+        vals.topicMessageCount as number,
+      );
+
+      // officeDocument
+      mockPrisma.officeDocument.count
+        .mockResolvedValueOnce(vals.officeDocumentCount as number)
+        .mockResolvedValueOnce(vals.officeDocumentOld as number);
+      mockPrisma.officeDocumentVersion.count.mockResolvedValueOnce(
+        vals.officeDocumentVersionCount as number,
+      );
+      mockPrisma.officeDocument.groupBy.mockResolvedValue([]);
+
+      // user
+      mockPrisma.user.count.mockResolvedValueOnce(vals.userCount as number);
+
+      // comment
+      mockPrisma.comment.count.mockResolvedValueOnce(
+        vals.commentCount as number,
+      );
+
+      // askSession
+      mockPrisma.askSession.count
+        .mockResolvedValueOnce(vals.askSessionCount as number)
+        .mockResolvedValueOnce(vals.askSessionOld as number);
+      mockPrisma.askMessage.count.mockResolvedValueOnce(
+        vals.askMessageCount as number,
+      );
+
+      // topic
+      mockPrisma.topic.count.mockResolvedValueOnce(vals.topicCount as number);
+
+      // workspace
+      mockPrisma.workspace.count.mockResolvedValueOnce(
+        vals.workspaceCount as number,
+      );
+
+      // report
+      mockPrisma.report.count.mockResolvedValueOnce(vals.reportCount as number);
+
+      // debate
+      mockPrisma.debateSession.count.mockResolvedValueOnce(
+        vals.debateCount as number,
+      );
+
+      // brandKit
+      mockPrisma.brandKit.count.mockResolvedValueOnce(
+        vals.brandKitCount as number,
+      );
+
+      // slidesSession
+      mockPrisma.slidesSession.count
+        .mockResolvedValueOnce(vals.slidesSessionCount as number)
+        .mockResolvedValueOnce(vals.slidesSessionOld as number);
+      mockPrisma.slidesCheckpoint.count.mockResolvedValueOnce(
+        vals.slidesCheckpointCount as number,
+      );
+      mockPrisma.slidesTeamExecution.count.mockResolvedValueOnce(
+        vals.slidesTeamExecution as number,
+      );
+      mockPrisma.slidesTeamLog.count.mockResolvedValueOnce(
+        vals.slidesTeamLog as number,
+      );
+
+      // knowledgeBase
+      mockPrisma.knowledgeBase.count.mockResolvedValueOnce(
+        vals.knowledgeBaseCount as number,
+      );
+      mockPrisma.knowledgeBaseDocument.count.mockResolvedValueOnce(
+        vals.knowledgeBaseDocumentCount as number,
+      );
+      mockPrisma.parentChunk.count.mockResolvedValueOnce(
+        vals.parentChunkCount as number,
+      );
+      mockPrisma.childChunk.count.mockResolvedValueOnce(
+        vals.childChunkCount as number,
+      );
+      mockPrisma.childEmbedding.count.mockResolvedValueOnce(
+        vals.childEmbeddingCount as number,
+      );
+      mockPrisma.childEmbedding.groupBy.mockResolvedValue([]);
+
+      void callIndex;
+    };
+
+    it("returns all 23 categories via real private methods", async () => {
+      setupAllCountMocks();
+
+      const result = await service.getStorageStats();
+
+      expect(result.totalCategories).toBe(23);
+      expect(Array.isArray(result.categories)).toBe(true);
+    });
+
+    it("generates cleanup recommendation when many unbookmarked images", async () => {
+      setupAllCountMocks({
+        generatedImageCount: 200,
+        generatedImageBookmarked: 5,
+      });
+
+      const result = await service.getStorageStats();
+      const imageCategory = result.categories.find(
+        (c) => c.name === "generatedImages",
+      );
+
+      expect(imageCategory!.count).toBe(200);
+      expect(imageCategory!.canCleanup).toBe(true);
+      // 195 unbookmarked > 100 threshold → cleanupRecommendation set
+      expect(result.recommendations.length).toBeGreaterThan(0);
+    });
+
+    it("generates cleanup recommendation for old collection tasks", async () => {
+      setupAllCountMocks({
+        collectionTaskCount: 50,
+        collectionTaskOld: 25,
+      });
+
+      const result = await service.getStorageStats();
+      const taskCategory = result.categories.find(
+        (c) => c.name === "collectionTasks",
+      );
+
+      expect(taskCategory!.canCleanup).toBe(true);
+      // 25 > 20 threshold
+      expect(
+        result.recommendations.some((r) =>
+          r.includes("25 completed/failed collection tasks"),
+        ),
+      ).toBe(true);
+    });
+
+    it("generates cleanup recommendation for old import tasks", async () => {
+      setupAllCountMocks({
+        importTaskCount: 100,
+        importTaskOld: 60,
+      });
+
+      const result = await service.getStorageStats();
+      const importCategory = result.categories.find(
+        (c) => c.name === "importTasks",
+      );
+
+      expect(importCategory!.canCleanup).toBe(true);
+      // 60 > 50 threshold
+      expect(
+        result.recommendations.some((r) =>
+          r.includes("60 completed import tasks"),
+        ),
+      ).toBe(true);
+    });
+
+    it("generates cleanup recommendation for expired metadata", async () => {
+      setupAllCountMocks({
+        parsedMetadataCount: 100,
+        parsedMetadataExpired: 30,
+      });
+
+      const result = await service.getStorageStats();
+      const metaCategory = result.categories.find(
+        (c) => c.name === "parsedMetadata",
+      );
+
+      expect(metaCategory!.canCleanup).toBe(true);
+      expect(
+        result.recommendations.some((r) =>
+          r.includes("30 expired metadata cache entries"),
+        ),
+      ).toBe(true);
+    });
+
+    it("generates cleanup recommendation for old user activities", async () => {
+      setupAllCountMocks({
+        userActivityCount: 5000,
+        userActivityOld: 2000,
+      });
+
+      const result = await service.getStorageStats();
+      const activityCategory = result.categories.find(
+        (c) => c.name === "userActivities",
+      );
+
+      expect(activityCategory!.canCleanup).toBe(true);
+      // 2000 > 1000 threshold
+      expect(
+        result.recommendations.some((r) =>
+          r.includes("2000 user activity records"),
+        ),
+      ).toBe(true);
+    });
+
+    it("generates cleanup recommendation for old Ask sessions", async () => {
+      setupAllCountMocks({
+        askSessionCount: 100,
+        askSessionOld: 60,
+      });
+
+      const result = await service.getStorageStats();
+      const askCategory = result.categories.find(
+        (c) => c.name === "askSessions",
+      );
+
+      expect(askCategory!.canCleanup).toBe(true);
+      expect(
+        result.recommendations.some((r) =>
+          r.includes("60 AI chat sessions older than 30 days"),
+        ),
+      ).toBe(true);
+    });
+
+    it("generates cleanup recommendation for old PPT documents", async () => {
+      setupAllCountMocks({
+        officeDocumentCount: 20,
+        officeDocumentOld: 15,
+        officeDocumentVersionCount: 40,
+      });
+
+      const result = await service.getStorageStats();
+      const docCategory = result.categories.find(
+        (c) => c.name === "officeDocuments",
+      );
+
+      expect(docCategory!.canCleanup).toBe(true);
+      expect(
+        result.recommendations.some((r) =>
+          r.includes("15 PPT documents older than 7 days"),
+        ),
+      ).toBe(true);
+    });
+
+    it("generates cleanup recommendation for large embedding storage", async () => {
+      setupAllCountMocks({
+        knowledgeBaseCount: 5,
+        knowledgeBaseDocumentCount: 100,
+        childEmbeddingCount: 15000,
+      });
+
+      const result = await service.getStorageStats();
+      const kbCategory = result.categories.find(
+        (c) => c.name === "knowledgeBase",
+      );
+
+      expect(kbCategory!.canCleanup).toBe(true);
+      expect(
+        result.recommendations.some((r) =>
+          r.includes("Large embedding storage detected"),
+        ),
+      ).toBe(true);
+    });
+
+    it("handles knowledge base stats error gracefully", async () => {
+      setupAllCountMocks();
+      // The knowledgeBase stats are called via getKnowledgeBaseStats which has its own try/catch.
+      // Override count to throw AFTER the setupAllCountMocks() already set the first mock.
+      // We need to reset and provide a rejection for all KB-related queries.
+      // Since setupAllCountMocks already consumed the mock, the next call will throw.
+      mockPrisma.knowledgeBase.count.mockRejectedValue(
+        new Error("table not found"),
+      );
+
+      const result = await service.getStorageStats();
+      const kbCategory = result.categories.find(
+        (c) => c.name === "knowledgeBase",
+      );
+
+      expect(kbCategory).toBeDefined();
+      // The error is caught at the getKnowledgeBaseStats level → returns fallback
+      expect(kbCategory!.count).toBe(0);
+      expect(kbCategory!.canCleanup).toBe(false);
+    });
+
+    it("generates slides cleanup recommendation when old sessions or many checkpoints", async () => {
+      setupAllCountMocks({
+        slidesSessionCount: 10,
+        slidesSessionOld: 8,
+        slidesCheckpointCount: 150,
+      });
+
+      const result = await service.getStorageStats();
+      const slidesCategory = result.categories.find((c) => c.name === "slides");
+
+      expect(slidesCategory!.canCleanup).toBe(true);
+      // 8 > 5 OR 150 > 100 → recommendation should exist
+      expect(
+        result.recommendations.some(
+          (r) =>
+            r.includes("sessions older than 7 days") ||
+            r.includes("checkpoints can be cleaned"),
+        ),
+      ).toBe(true);
+    });
+
+    it("handles slides team table errors gracefully in stats", async () => {
+      setupAllCountMocks({
+        slidesSessionCount: 2,
+        slidesCheckpointCount: 10,
+      });
+      // Simulate team tables not existing
+      mockPrisma.slidesTeamExecution.count.mockRejectedValue(
+        new Error("relation does not exist"),
+      );
+
+      const result = await service.getStorageStats();
+      const slidesCategory = result.categories.find((c) => c.name === "slides");
+
+      // Should still return category without throwing
+      expect(slidesCategory).toBeDefined();
+      expect(slidesCategory!.count).toBe(2);
+    });
+
+    it("uses dimension-based size calculation for embeddings when groupBy succeeds", async () => {
+      setupAllCountMocks({
+        knowledgeBaseCount: 1,
+        knowledgeBaseDocumentCount: 10,
+        childEmbeddingCount: 500,
+      });
+      // Override groupBy to return dimension data
+      mockPrisma.childEmbedding.groupBy.mockResolvedValue([
+        { dimensions: 1536, _count: 500 },
+      ]);
+
+      const result = await service.getStorageStats();
+      const kbCategory = result.categories.find(
+        (c) => c.name === "knowledgeBase",
+      );
+
+      expect(kbCategory).toBeDefined();
+      // Size should be calculated from dimensions, not flat estimate
+      expect(kbCategory!.estimatedSizeMB).toBeGreaterThan(0);
+    });
+
+    it("calculates total records and size across all categories", async () => {
+      setupAllCountMocks({
+        generatedImageCount: 10,
+        rawDataCount: 20,
+        resourceCount: 5,
+        noteCount: 15,
+        userCount: 100,
+      });
+
+      const result = await service.getStorageStats();
+
+      // Total records should sum all category counts
+      expect(result.totalRecords).toBe(
+        result.categories.reduce((sum, c) => sum + c.count, 0),
+      );
+      expect(result.estimatedTotalSizeMB).toBeGreaterThan(0);
+    });
+  });
+
+  // ==================== deleteAllRawData (error path) ====================
+
+  describe("deleteAllRawData (error path)", () => {
+    it("returns failure when deleteMany throws", async () => {
+      mockPrisma.rawData.count.mockResolvedValue(50);
+      mockPrisma.rawData.deleteMany.mockRejectedValue(
+        new Error("constraint violation"),
+      );
+
+      const result = await service.deleteAllRawData();
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("constraint violation");
+    });
+  });
+
+  // ==================== cleanupOldImportTasks (error path) ====================
+
+  describe("cleanupOldImportTasks (error path)", () => {
+    it("returns failure when deleteMany throws", async () => {
+      mockPrisma.importTask.deleteMany.mockRejectedValue(
+        new Error("DB timeout"),
+      );
+
+      const result = await service.cleanupOldImportTasks();
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("DB timeout");
+    });
+
+    it("uses default 7 days when no argument provided", async () => {
+      mockPrisma.importTask.deleteMany.mockResolvedValue({ count: 5 });
+
+      const result = await service.cleanupOldImportTasks();
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("7 days");
+    });
+  });
+
+  // ==================== cleanupExpiredMetadata (error path) ====================
+
+  describe("cleanupExpiredMetadata (error path)", () => {
+    it("returns failure when deleteMany throws", async () => {
+      mockPrisma.parsedMetadata.deleteMany.mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      const result = await service.cleanupExpiredMetadata();
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  // ==================== cleanupOldUserActivities (error path) ====================
+
+  describe("cleanupOldUserActivities (error path)", () => {
+    it("returns failure when deleteMany throws", async () => {
+      mockPrisma.userActivity.deleteMany.mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      const result = await service.cleanupOldUserActivities();
+
+      expect(result.success).toBe(false);
+    });
+
+    it("uses default 30 days when no argument provided", async () => {
+      mockPrisma.userActivity.deleteMany.mockResolvedValue({ count: 200 });
+
+      const result = await service.cleanupOldUserActivities();
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("30 days");
+    });
+  });
+
+  // ==================== deleteAllOfficeDocuments (error path) ====================
+
+  describe("deleteAllOfficeDocuments (error path)", () => {
+    it("returns failure when deletion throws", async () => {
+      mockPrisma.officeDocument.count.mockResolvedValue(3);
+      mockPrisma.officeDocumentVersion.count.mockResolvedValue(6);
+      mockPrisma.officeDocumentResourceRef.deleteMany.mockRejectedValue(
+        new Error("FK error"),
+      );
+
+      const result = await service.deleteAllOfficeDocuments();
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  // ==================== deleteAllSlides (error path) ====================
+
+  describe("deleteAllSlides (error path)", () => {
+    it("returns failure when slidesCheckpoint.deleteMany throws (outer catch)", async () => {
+      // The outer try/catch fires when slidesCheckpoint.deleteMany or slidesSession.deleteMany throws
+      // (team table errors are caught by inner try/catch)
+      mockPrisma.slidesSession.count.mockResolvedValue(2);
+      mockPrisma.slidesCheckpoint.count.mockResolvedValue(5);
+      mockPrisma.slidesTeamLog.count.mockResolvedValue(10);
+      mockPrisma.slidesTeamExecution.count.mockResolvedValue(3);
+      mockPrisma.slidesTeamLog.deleteMany.mockResolvedValue({ count: 10 });
+      mockPrisma.slidesTeamExecution.deleteMany.mockResolvedValue({ count: 3 });
+      mockPrisma.slidesCheckpoint.deleteMany.mockRejectedValue(
+        new Error("FK constraint"),
+      );
+
+      const result = await service.deleteAllSlides();
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("FK constraint");
+    });
+  });
+
+  // ==================== deleteAllKnowledgeBaseData (error path) ====================
+
+  describe("deleteAllKnowledgeBaseData (error path)", () => {
+    it("returns failure when deletion throws", async () => {
+      mockPrisma.childEmbedding.count.mockResolvedValue(100);
+      mockPrisma.childChunk.count.mockResolvedValue(50);
+      mockPrisma.parentChunk.count.mockResolvedValue(10);
+      mockPrisma.knowledgeBaseDocument.count.mockResolvedValue(5);
+      mockPrisma.knowledgeBase.count.mockResolvedValue(2);
+      mockPrisma.childEmbedding.deleteMany.mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      const result = await service.deleteAllKnowledgeBaseData();
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  // ==================== cleanupOrphanedRagData (edge cases) ====================
+
+  describe("cleanupOrphanedRagData (edge cases)", () => {
+    it("deletes when orphaned embeddings exist but no orphaned chunks", async () => {
+      mockPrisma.$queryRawUnsafe
+        .mockResolvedValueOnce([{ count: "5" }]) // orphaned embeddings
+        .mockResolvedValueOnce([{ count: "0" }]) // orphaned child chunks
+        .mockResolvedValueOnce([{ count: "0" }]); // orphaned parent chunks
+      mockPrisma.$executeRawUnsafe.mockResolvedValue(undefined);
+
+      const result = await service.cleanupOrphanedRagData();
+
+      expect(result.success).toBe(true);
+      expect(result.deletedCount).toBe(5);
+    });
+  });
 });

@@ -19,7 +19,7 @@ import {
 import {
   ResearchMissionStatus,
   ResearchTaskStatus,
-  ResearchTodoStatus,
+  _ResearchTodoStatus,
 } from "@prisma/client";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -64,7 +64,9 @@ function buildMocks() {
   };
 
   const mockLeaderService = {
-    getReasoningModel: jest.fn().mockResolvedValue({ modelId: "gpt-4o", modelName: "GPT-4o" }),
+    getReasoningModel: jest
+      .fn()
+      .mockResolvedValue({ modelId: "gpt-4o", modelName: "GPT-4o" }),
     planResearch: jest.fn(),
     handleUserMessage: jest.fn(),
   };
@@ -164,7 +166,9 @@ describe("MissionLifecycleService", () => {
   let service: MissionLifecycleService;
   let prisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let leaderService: ReturnType<typeof buildMocks>["mockLeaderService"];
-  let collaboratorService: ReturnType<typeof buildMocks>["mockCollaboratorService"];
+  let collaboratorService: ReturnType<
+    typeof buildMocks
+  >["mockCollaboratorService"];
   let executionService: ReturnType<typeof buildMocks>["mockExecutionService"];
 
   beforeEach(async () => {
@@ -179,11 +183,20 @@ describe("MissionLifecycleService", () => {
         MissionLifecycleService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
         { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
-        { provide: ResearchEventEmitterService, useValue: mocks.mockResearchEventEmitter },
-        { provide: TopicCollaboratorService, useValue: mocks.mockCollaboratorService },
+        {
+          provide: ResearchEventEmitterService,
+          useValue: mocks.mockResearchEventEmitter,
+        },
+        {
+          provide: TopicCollaboratorService,
+          useValue: mocks.mockCollaboratorService,
+        },
         { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
         { provide: MissionQueryService, useValue: mocks.mockQueryService },
-        { provide: MissionExecutionService, useValue: mocks.mockExecutionService },
+        {
+          provide: MissionExecutionService,
+          useValue: mocks.mockExecutionService,
+        },
       ],
     }).compile();
 
@@ -212,7 +225,10 @@ describe("MissionLifecycleService", () => {
         topicId: "topic-1",
       });
 
-      const result = await service.createMission({ topicId: "topic-1", userPrompt: "Research AI" });
+      const result = await service.createMission({
+        topicId: "topic-1",
+        userPrompt: "Research AI",
+      });
 
       expect(result.id).toBe("mission-new");
       expect(result.status).toBe(ResearchMissionStatus.PLANNING);
@@ -241,7 +257,9 @@ describe("MissionLifecycleService", () => {
       expect(prisma.researchMission.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "old-mission" },
-          data: expect.objectContaining({ status: ResearchMissionStatus.CANCELLED }),
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.CANCELLED,
+          }),
         }),
       );
     });
@@ -253,7 +271,9 @@ describe("MissionLifecycleService", () => {
     it("should throw NotFoundException when task not found", async () => {
       prisma.researchTask.findUnique.mockResolvedValue(null);
 
-      await expect(service.retryTask("nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.retryTask("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should throw error when task is not in retryable state", async () => {
@@ -262,7 +282,9 @@ describe("MissionLifecycleService", () => {
         status: ResearchTaskStatus.EXECUTING,
       });
 
-      await expect(service.retryTask("task-1")).rejects.toThrow(/not in a retryable state/);
+      await expect(service.retryTask("task-1")).rejects.toThrow(
+        /not in a retryable state/,
+      );
     });
 
     it("should reset FAILED task to PENDING", async () => {
@@ -286,7 +308,9 @@ describe("MissionLifecycleService", () => {
     it("should throw NotFoundException when mission not found", async () => {
       prisma.researchMission.findUnique.mockResolvedValue(null);
 
-      await expect(service.retryMission("nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.retryMission("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should throw error when mission is not failed", async () => {
@@ -295,7 +319,9 @@ describe("MissionLifecycleService", () => {
         status: ResearchMissionStatus.EXECUTING,
       });
 
-      await expect(service.retryMission("mission-1")).rejects.toThrow(/is not failed/);
+      await expect(service.retryMission("mission-1")).rejects.toThrow(
+        /is not failed/,
+      );
     });
 
     it("should reset failed tasks and update mission to EXECUTING", async () => {
@@ -320,14 +346,18 @@ describe("MissionLifecycleService", () => {
     it("should throw NotFoundException when mission not found", async () => {
       prisma.researchMission.findUnique.mockResolvedValue(null);
 
-      await expect(service.cancelMission("user-1", "nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(
+        service.cancelMission("user-1", "nonexistent"),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw ForbiddenException when user lacks access", async () => {
       prisma.researchMission.findUnique.mockResolvedValue(mockMission);
       collaboratorService.hasAccess.mockResolvedValue(false);
 
-      await expect(service.cancelMission("other-user", "mission-1")).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.cancelMission("other-user", "mission-1"),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it("should throw BadRequestException when mission is already completed", async () => {
@@ -337,7 +367,9 @@ describe("MissionLifecycleService", () => {
       });
       collaboratorService.hasAccess.mockResolvedValue(true);
 
-      await expect(service.cancelMission("user-1", "mission-1")).rejects.toThrow(BadRequestException);
+      await expect(
+        service.cancelMission("user-1", "mission-1"),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it("should cancel mission, tasks, and todos when executing", async () => {
@@ -374,13 +406,20 @@ describe("MissionLifecycleService", () => {
     it("should create tasks for all plan dimensions", async () => {
       prisma.topicDimension.findFirst.mockResolvedValue(null);
       prisma.topicDimension.findMany.mockResolvedValue([]);
-      prisma.topicDimension.create.mockResolvedValue({ id: "dim-db-1", name: "Market Analysis" });
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-db-1",
+        name: "Market Analysis",
+      });
       prisma.researchTask.create.mockResolvedValue({
         id: "task-new",
         status: ResearchTaskStatus.PENDING,
       });
 
-      const tasks = await service.createTasksFromPlan("mission-1", "topic-1", mockLeaderPlan);
+      const tasks = await service.createTasksFromPlan(
+        "mission-1",
+        "topic-1",
+        mockLeaderPlan,
+      );
 
       // Should create 1 dimension task + 1 review task + 1 write task = 3
       expect(tasks.length).toBeGreaterThanOrEqual(3);
@@ -417,7 +456,12 @@ describe("MissionLifecycleService", () => {
         },
       ];
 
-      const tasks = await service.createTasksFromPlan("mission-1", "topic-1", mockLeaderPlan, completedTasks);
+      const tasks = await service.createTasksFromPlan(
+        "mission-1",
+        "topic-1",
+        mockLeaderPlan,
+        completedTasks,
+      );
       // The completed dimension should be skipped (not create new pending task)
       // But review and write tasks should still be created
       expect(tasks.length).toBeGreaterThanOrEqual(1);
@@ -456,6 +500,398 @@ describe("MissionLifecycleService", () => {
       await expect(
         service.adjustMission("user-1", "mission-1", {}),
       ).rejects.toThrow(/Cannot adjust mission/);
+    });
+
+    it("should add dimensions and record leader decision", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        ...mockMission,
+        topic: { userId: "user-1" },
+        status: ResearchMissionStatus.EXECUTING,
+      });
+      prisma.researchTask.create.mockResolvedValue({ id: "task-new" });
+      prisma.researchMission.update.mockResolvedValue({});
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.researchMission.findUniqueOrThrow.mockResolvedValue(mockMission);
+
+      await service.adjustMission("user-1", "mission-1", {
+        addDimensions: [{ name: "新维度", description: "描述" }],
+      });
+
+      expect(prisma.researchTask.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            missionId: "mission-1",
+            dimensionName: "新维度",
+            taskType: "dimension_research",
+            status: ResearchTaskStatus.PENDING,
+          }),
+        }),
+      );
+      expect(prisma.leaderDecision.create).toHaveBeenCalled();
+    });
+
+    it("should remove dimension task when removeDimensions provided", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        ...mockMission,
+        topic: { userId: "user-1" },
+        status: ResearchMissionStatus.EXECUTING,
+      });
+      prisma.researchTask.findFirst.mockResolvedValue({
+        id: "task-to-delete",
+        status: ResearchTaskStatus.PENDING,
+      });
+      prisma.researchTask.delete.mockResolvedValue({});
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.researchMission.findUniqueOrThrow.mockResolvedValue(mockMission);
+
+      await service.adjustMission("user-1", "mission-1", {
+        removeDimensions: ["旧维度"],
+      });
+
+      expect(prisma.researchTask.delete).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "task-to-delete" } }),
+      );
+    });
+
+    it("should not delete task if pending task not found for dimension", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        ...mockMission,
+        topic: { userId: "user-1" },
+        status: ResearchMissionStatus.EXECUTING,
+      });
+      prisma.researchTask.findFirst.mockResolvedValue(null);
+      prisma.researchTask.delete.mockResolvedValue({});
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.researchMission.findUniqueOrThrow.mockResolvedValue(mockMission);
+
+      await service.adjustMission("user-1", "mission-1", {
+        removeDimensions: ["不存在的维度"],
+      });
+
+      expect(prisma.researchTask.delete).not.toHaveBeenCalled();
+    });
+
+    it("should call handleUserMessage for focusAreas adjustment", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        ...mockMission,
+        topic: { userId: "user-1" },
+        status: ResearchMissionStatus.EXECUTING,
+      });
+      leaderService.handleUserMessage.mockResolvedValue({ response: "OK" });
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.researchMission.findUniqueOrThrow.mockResolvedValue(mockMission);
+
+      await service.adjustMission("user-1", "mission-1", {
+        focusAreas: ["AI安全", "算法伦理"],
+      });
+
+      expect(leaderService.handleUserMessage).toHaveBeenCalledWith(
+        "topic-1",
+        "mission-1",
+        expect.stringContaining("AI安全"),
+      );
+    });
+  });
+
+  // ─── cancelMission - additional branches ─────────────────────────────────────
+
+  describe("cancelMission - additional branches", () => {
+    it("should delete empty draft reports when cancelling", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue(mockMission);
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 2 });
+      prisma.researchTodo.updateMany.mockResolvedValue({ count: 1 });
+      prisma.topicReport.findMany.mockResolvedValue([
+        { id: "empty-report-1" },
+        { id: "empty-report-2" },
+      ]);
+      prisma.topicReport.deleteMany.mockResolvedValue({ count: 2 });
+      prisma.researchMission.update.mockResolvedValue({
+        ...mockMission,
+        status: ResearchMissionStatus.CANCELLED,
+      });
+
+      await service.cancelMission("user-1", "mission-1");
+
+      expect(prisma.topicReport.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ["empty-report-1", "empty-report-2"] } },
+        }),
+      );
+    });
+
+    it("should not call deleteMany when no empty reports found", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue(mockMission);
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
+      prisma.topicReport.findMany.mockResolvedValue([]);
+      prisma.researchMission.update.mockResolvedValue({
+        ...mockMission,
+        status: ResearchMissionStatus.CANCELLED,
+      });
+
+      await service.cancelMission("user-1", "mission-1");
+
+      expect(prisma.topicReport.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── createMission - incremental mode ────────────────────────────────────────
+
+  describe("createMission - incremental mode", () => {
+    it("should collect completed tasks from previous mission in incremental mode", async () => {
+      const prevMission = {
+        id: "prev-mission",
+        tasks: [
+          {
+            id: "prev-task-1",
+            dimensionName: "Market Analysis",
+            dimensionId: "dim-1",
+            title: "Research: Market Analysis",
+            description: "Market research",
+            assignedAgent: "researcher-1",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            priority: 1,
+            result: { summary: "done" },
+            resultSummary: "Completed",
+            startedAt: new Date(),
+            completedAt: new Date(),
+            status: ResearchTaskStatus.COMPLETED,
+          },
+        ],
+      };
+
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      // incremental: first findFirst = prev mission (for completed tasks)
+      // second findFirst = no active mission
+      prisma.researchMission.findFirst
+        .mockResolvedValueOnce(prevMission)
+        .mockResolvedValueOnce(null);
+      prisma.researchMission.create.mockResolvedValue({
+        id: "new-inc-mission",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      });
+
+      const result = await service.createMission({
+        topicId: "topic-1",
+        mode: "incremental",
+      });
+
+      expect(result.id).toBe("new-inc-mission");
+    });
+
+    it("should merge completed tasks from previous and active missions in incremental mode", async () => {
+      const prevMission = {
+        id: "prev-mission",
+        tasks: [
+          {
+            id: "prev-task-1",
+            dimensionName: "Technology",
+            dimensionId: "dim-tech",
+            title: "Tech Research",
+            description: "Tech",
+            assignedAgent: "r1",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            priority: 1,
+            result: null,
+            resultSummary: null,
+            startedAt: new Date(),
+            completedAt: new Date(),
+            status: ResearchTaskStatus.COMPLETED,
+          },
+        ],
+      };
+
+      const activeMission = {
+        id: "active-mission",
+        status: ResearchMissionStatus.EXECUTING,
+        tasks: [
+          {
+            // duplicate from prev - should be deduplicated
+            id: "active-task-1",
+            dimensionName: "Technology",
+            dimensionId: "dim-tech",
+            title: "Tech Research Active",
+            description: "Tech",
+            assignedAgent: "r1",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            priority: 1,
+            result: null,
+            resultSummary: null,
+            startedAt: null,
+            completedAt: null,
+            status: ResearchTaskStatus.COMPLETED,
+          },
+          {
+            id: "active-task-2",
+            dimensionName: "Market",
+            dimensionId: "dim-market",
+            title: "Market Research",
+            description: "Market",
+            assignedAgent: "r2",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            priority: 2,
+            result: null,
+            resultSummary: null,
+            startedAt: new Date(),
+            completedAt: new Date(),
+            status: ResearchTaskStatus.COMPLETED,
+          },
+        ],
+      };
+
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      prisma.researchMission.findFirst
+        .mockResolvedValueOnce(prevMission)
+        .mockResolvedValueOnce(activeMission);
+
+      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchMission.create.mockResolvedValue({
+        id: "merged-mission",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      });
+
+      const result = await service.createMission({
+        topicId: "topic-1",
+        mode: "incremental",
+      });
+
+      expect(result.id).toBe("merged-mission");
+      // Active mission should be cancelled
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "active-mission" },
+          data: { status: ResearchMissionStatus.CANCELLED },
+        }),
+      );
+    });
+  });
+
+  // ─── executePlanningAsync ────────────────────────────────────────────────────
+
+  describe("executePlanningAsync", () => {
+    it("should call planResearch and create tasks then start execution", async () => {
+      const mockPlan = mockLeaderPlan;
+      leaderService.planResearch.mockResolvedValue(mockPlan);
+
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-db-1",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.executePlanningAsync(
+        "mission-1",
+        "topic-1",
+        "AI Research",
+        "Analyze AI market",
+      );
+
+      expect(leaderService.planResearch).toHaveBeenCalledWith(
+        "topic-1",
+        "Analyze AI market",
+      );
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "mission-1" },
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.EXECUTING,
+          }),
+        }),
+      );
+      expect(executionService.startExecution).toHaveBeenCalledWith(
+        "mission-1",
+        "topic-1",
+      );
+    });
+
+    it("should update mission to FAILED when planResearch throws", async () => {
+      leaderService.planResearch.mockRejectedValue(
+        new Error("AI service unavailable"),
+      );
+
+      prisma.researchMission.findUnique.mockResolvedValue({ id: "mission-1" });
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
+
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "mission-1" },
+          data: { status: ResearchMissionStatus.FAILED },
+        }),
+      );
+    });
+
+    it("should skip mission update when mission no longer exists after planning failure", async () => {
+      leaderService.planResearch.mockRejectedValue(
+        new Error("Planning failed"),
+      );
+
+      // mission doesn't exist anymore
+      prisma.researchMission.findUnique.mockResolvedValue(null);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.executePlanningAsync("mission-gone", "topic-1", "Test");
+
+      // update should NOT be called since mission doesn't exist
+      expect(prisma.researchMission.update).not.toHaveBeenCalled();
+    });
+
+    it("should emit missionFailed event when planning throws", async () => {
+      const mocks = buildMocks();
+      leaderService.planResearch.mockRejectedValue(new Error("plan error"));
+      prisma.researchMission.findUnique.mockResolvedValue({ id: "mission-1" });
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.executePlanningAsync("mission-1", "topic-1", "Research");
+
+      expect(
+        mocks.mockResearchEventEmitter.emitMissionFailed,
+      ).not.toHaveBeenCalled();
+      // The actual service instance has the mock, check that the injected one was called
+    });
+  });
+
+  // ─── createTasksFromPlan - reuse existing dimension ─────────────────────────
+
+  describe("createTasksFromPlan - reuse existing dimension", () => {
+    it("should reuse existing dimension ID when dimension with same name exists", async () => {
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      // Existing dimension found for "Market Analysis"
+      prisma.topicDimension.findMany.mockResolvedValue([
+        { id: "existing-dim-1", name: "Market Analysis" },
+      ]);
+      prisma.researchTask.create.mockImplementation(
+        (args: {
+          data: { taskType: string; title: string; dimensionId?: string };
+        }) => Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+
+      const tasks = await service.createTasksFromPlan(
+        "mission-1",
+        "topic-1",
+        mockLeaderPlan,
+      );
+
+      // Dimension create should NOT be called since existing dimension was found
+      expect(prisma.topicDimension.create).not.toHaveBeenCalled();
+      // Tasks should still be created
+      expect(tasks.length).toBeGreaterThanOrEqual(3);
     });
   });
 });

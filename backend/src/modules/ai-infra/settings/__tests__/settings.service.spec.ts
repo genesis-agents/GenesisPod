@@ -420,5 +420,460 @@ describe("SettingsService", () => {
       const wasFailed = result.failed.includes("corrupt_key");
       expect(wasFixed || wasFailed).toBe(true);
     });
+
+    it("identifies null value settings as failed", async () => {
+      (mockPrisma.systemSetting!.findMany as jest.Mock).mockResolvedValue([
+        makeSetting("null_encrypted_key", null, true),
+      ]);
+      (mockPrisma.systemSetting!.count as jest.Mock).mockResolvedValue(1);
+
+      const result = await service.diagnoseEncryptionIssues(false);
+
+      expect(result.failed).toContain("null_encrypted_key");
+    });
+  });
+
+  // ==================== getWithEnvFallback ====================
+
+  describe("getWithEnvFallback", () => {
+    it("returns DB value when it exists", async () => {
+      await service.set("my_setting", "db_value");
+
+      const result = await service.getWithEnvFallback(
+        "my_setting",
+        "MY_SETTING_ENV",
+        "default",
+      );
+
+      expect(result).toBe("db_value");
+    });
+
+    it("falls back to env var when DB value is null", async () => {
+      (mockConfigService.get as jest.Mock).mockImplementation((key: string) => {
+        if (key === "MY_ENV_VAR") return "env_value";
+        return undefined;
+      });
+
+      const result = await service.getWithEnvFallback(
+        "nonexistent_key",
+        "MY_ENV_VAR",
+      );
+
+      expect(result).toBe("env_value");
+    });
+
+    it("returns default when both DB and env are missing", async () => {
+      (mockConfigService.get as jest.Mock).mockReturnValue(undefined);
+
+      const result = await service.getWithEnvFallback(
+        "missing_key",
+        "MISSING_ENV",
+        "fallback_default",
+      );
+
+      expect(result).toBe("fallback_default");
+    });
+
+    it("returns null when DB, env, and default are all missing", async () => {
+      (mockConfigService.get as jest.Mock).mockReturnValue(undefined);
+
+      const result = await service.getWithEnvFallback(
+        "missing_key",
+        "MISSING_ENV",
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
+  // ==================== updateEmailSettings ====================
+
+  describe("updateEmailSettings", () => {
+    it("updates all email settings fields", async () => {
+      await service.updateEmailSettings({
+        provider: "resend",
+        enabled: true,
+        from: "from@test.com",
+        adminEmail: "admin@test.com",
+        host: "smtp.test.com",
+        port: 465,
+        user: "user@test.com",
+        pass: "secret",
+        resendApiKey: "re_test_key",
+      });
+
+      // Should have called upsert for each non-undefined field
+      const upsertCalls = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertCalls).toContain("email_provider");
+      expect(upsertCalls).toContain("email_enabled");
+      expect(upsertCalls).toContain("email_from");
+      expect(upsertCalls).toContain("admin_email");
+      expect(upsertCalls).toContain("smtp_host");
+      expect(upsertCalls).toContain("smtp_port");
+      expect(upsertCalls).toContain("smtp_user");
+      expect(upsertCalls).toContain("smtp_pass");
+      expect(upsertCalls).toContain("resend_api_key");
+    });
+
+    it("skips empty string pass and resendApiKey", async () => {
+      await service.updateEmailSettings({ pass: "", resendApiKey: "" });
+
+      const upsertCalls = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertCalls).not.toContain("smtp_pass");
+      expect(upsertCalls).not.toContain("resend_api_key");
+    });
+
+    it("skips undefined fields", async () => {
+      await service.updateEmailSettings({ enabled: true });
+
+      const upsertCalls = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertCalls).toEqual(["email_enabled"]);
+    });
+  });
+
+  // ==================== updateSiteSettings ====================
+
+  describe("updateSiteSettings", () => {
+    it("updates all site settings fields", async () => {
+      await service.updateSiteSettings({
+        siteName: "My Site",
+        siteDescription: "Great platform",
+        maintenanceMode: true,
+        maintenanceMessage: "Under maintenance",
+        allowRegistration: false,
+        requireEmailVerification: true,
+      });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).toContain("site_name");
+      expect(upsertKeys).toContain("site_description");
+      expect(upsertKeys).toContain("maintenance_mode");
+      expect(upsertKeys).toContain("maintenance_message");
+      expect(upsertKeys).toContain("allow_registration");
+      expect(upsertKeys).toContain("require_email_verification");
+    });
+
+    it("stores boolean values as string 'true'/'false'", async () => {
+      await service.updateSiteSettings({
+        maintenanceMode: true,
+        allowRegistration: false,
+        requireEmailVerification: true,
+      });
+
+      const calls = (mockPrisma.systemSetting!.upsert as jest.Mock).mock.calls;
+      const maintenanceCall = calls.find(
+        (c) => c[0].where.key === "maintenance_mode",
+      );
+      expect(maintenanceCall![0].create.value).toBe("true");
+
+      const registrationCall = calls.find(
+        (c) => c[0].where.key === "allow_registration",
+      );
+      expect(registrationCall![0].create.value).toBe("false");
+    });
+  });
+
+  // ==================== updateAiSettings ====================
+
+  describe("updateAiSettings", () => {
+    it("updates all AI settings fields", async () => {
+      await service.updateAiSettings({
+        defaultModel: "",
+        maxTokens: 8000,
+        temperature: 0.5,
+        rateLimitPerMinute: 30,
+        rateLimitPerDay: 1000,
+      });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).toContain("default_ai_model");
+      expect(upsertKeys).toContain("ai_max_tokens");
+      expect(upsertKeys).toContain("ai_temperature");
+      expect(upsertKeys).toContain("ai_rate_limit_per_minute");
+      expect(upsertKeys).toContain("ai_rate_limit_per_day");
+    });
+
+    it("converts numeric values to strings for storage", async () => {
+      await service.updateAiSettings({ maxTokens: 4096 });
+
+      const upsertCall = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.find((c) => c[0].where.key === "ai_max_tokens");
+      expect(upsertCall![0].create.value).toBe("4096");
+    });
+  });
+
+  // ==================== updateSecuritySettings ====================
+
+  describe("updateSecuritySettings", () => {
+    it("updates all security settings fields", async () => {
+      await service.updateSecuritySettings({
+        sessionTimeoutHours: 48,
+        maxLoginAttempts: 10,
+        lockoutDurationMinutes: 30,
+      });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).toContain("session_timeout_hours");
+      expect(upsertKeys).toContain("max_login_attempts");
+      expect(upsertKeys).toContain("lockout_duration_minutes");
+    });
+
+    it("skips undefined fields", async () => {
+      await service.updateSecuritySettings({ maxLoginAttempts: 3 });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).toEqual(["max_login_attempts"]);
+    });
+  });
+
+  // ==================== getStorageSettings ====================
+
+  describe("getStorageSettings", () => {
+    it("returns storage settings with numeric maxUploadSizeMb", async () => {
+      const settings = await service.getStorageSettings();
+
+      expect(typeof settings.maxUploadSizeMb).toBe("number");
+      expect(settings.maxUploadSizeMb).toBe(10);
+    });
+
+    it("returns custom values when stored in cache", async () => {
+      await service.set("max_upload_size_mb", "50");
+      await service.set("allowed_file_types", "image/*,application/pdf");
+
+      const settings = await service.getStorageSettings();
+
+      expect(settings.maxUploadSizeMb).toBe(50);
+      expect(settings.allowedFileTypes).toBe("image/*,application/pdf");
+    });
+  });
+
+  // ==================== updateStorageSettings ====================
+
+  describe("updateStorageSettings", () => {
+    it("updates maxUploadSizeMb and allowedFileTypes", async () => {
+      await service.updateStorageSettings({
+        maxUploadSizeMb: 100,
+        allowedFileTypes: "image/*,.pdf",
+      });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).toContain("max_upload_size_mb");
+      expect(upsertKeys).toContain("allowed_file_types");
+    });
+
+    it("skips undefined fields", async () => {
+      await service.updateStorageSettings({ maxUploadSizeMb: 25 });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).toEqual(["max_upload_size_mb"]);
+    });
+  });
+
+  // ==================== getSmtpSettings ====================
+
+  describe("getSmtpSettings", () => {
+    it("returns SMTP settings with numeric port", async () => {
+      (mockConfigService.get as jest.Mock).mockImplementation((key: string) => {
+        if (key === "SMTP_HOST") return "smtp.example.com";
+        if (key === "SMTP_PORT") return "587";
+        if (key === "SMTP_USER") return "user@example.com";
+        if (key === "SMTP_PASS") return "password";
+        return undefined;
+      });
+
+      const settings = await service.getSmtpSettings();
+
+      expect(settings.host).toBe("smtp.example.com");
+      expect(typeof settings.port).toBe("number");
+      expect(settings.port).toBe(587);
+    });
+
+    it("defaults to disabled and port 587 when env vars not set", async () => {
+      const settings = await service.getSmtpSettings();
+
+      expect(settings.enabled).toBe(false);
+      expect(settings.port).toBe(587);
+    });
+  });
+
+  // ==================== updateSmtpSettings ====================
+
+  describe("updateSmtpSettings", () => {
+    it("updates all SMTP settings", async () => {
+      await service.updateSmtpSettings({
+        host: "smtp.new.com",
+        port: 465,
+        user: "newuser@example.com",
+        pass: "newpassword",
+        from: "noreply@new.com",
+        enabled: true,
+        adminEmail: "admin@new.com",
+      });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).toContain("smtp_host");
+      expect(upsertKeys).toContain("smtp_port");
+      expect(upsertKeys).toContain("smtp_user");
+      expect(upsertKeys).toContain("smtp_pass");
+      expect(upsertKeys).toContain("smtp_from");
+      expect(upsertKeys).toContain("smtp_enabled");
+      expect(upsertKeys).toContain("admin_email");
+    });
+
+    it("skips empty string pass", async () => {
+      await service.updateSmtpSettings({ pass: "" });
+
+      const upsertKeys = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.map((call) => call[0].where.key);
+
+      expect(upsertKeys).not.toContain("smtp_pass");
+    });
+
+    it("encrypts smtp_pass when set", async () => {
+      await service.updateSmtpSettings({ pass: "secret123" });
+
+      const upsertCall = (
+        mockPrisma.systemSetting!.upsert as jest.Mock
+      ).mock.calls.find((c) => c[0].where.key === "smtp_pass");
+
+      expect(upsertCall![0].create.encrypted).toBe(true);
+      expect(upsertCall![0].create.value).not.toBe("secret123");
+    });
+  });
+
+  // ==================== testSmtpConnection ====================
+
+  describe("testSmtpConnection", () => {
+    it("returns failure when SMTP settings are incomplete", async () => {
+      const result = await service.testSmtpConnection();
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("SMTP settings incomplete");
+    });
+
+    it("returns failure when connection fails", async () => {
+      (mockConfigService.get as jest.Mock).mockImplementation((key: string) => {
+        if (key === "SMTP_HOST") return "smtp.test.com";
+        if (key === "SMTP_USER") return "user@test.com";
+        if (key === "SMTP_PASS") return "password";
+        if (key === "SMTP_PORT") return "587";
+        return undefined;
+      });
+
+      // nodemailer.createTransport and verify will fail in test environment
+      const result = await service.testSmtpConnection();
+
+      // Connection should fail (no real SMTP server)
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("SMTP connection failed");
+    });
+  });
+
+  // ==================== refreshCache ====================
+
+  describe("refreshCache", () => {
+    it("populates cache with decrypted values for encrypted settings", async () => {
+      // Store an encrypted value
+      await service.set("my_encrypted", "secret", { encrypted: true });
+      const upsertCall = (mockPrisma.systemSetting!.upsert as jest.Mock).mock
+        .calls[0][0];
+      const encryptedValue = upsertCall.create.value;
+
+      // Set up findMany to return the encrypted setting
+      (mockPrisma.systemSetting!.findMany as jest.Mock).mockResolvedValue([
+        makeSetting("my_encrypted", encryptedValue, true),
+      ]);
+
+      await service.refreshCache();
+
+      // Now get should return decrypted value from cache without hitting DB again
+      (mockPrisma.systemSetting!.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
+      const result = await service.get("my_encrypted");
+      expect(result).toBe("secret");
+    });
+
+    it("handles DB error gracefully (logs warning, does not throw)", async () => {
+      (mockPrisma.systemSetting!.findMany as jest.Mock).mockRejectedValue(
+        new Error("connection reset"),
+      );
+
+      await expect(service.refreshCache()).resolves.not.toThrow();
+    });
+  });
+
+  // ==================== get (additional edge cases) ====================
+
+  describe("get (edge cases)", () => {
+    it("returns null when DB throws and key is not in cache", async () => {
+      (mockPrisma.systemSetting!.findUnique as jest.Mock).mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      const result = await service.get("failing_key");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns default value when DB throws", async () => {
+      (mockPrisma.systemSetting!.findUnique as jest.Mock).mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      const result = await service.get("failing_key", "my_default");
+
+      expect(result).toBe("my_default");
+    });
+
+    it("decrypts encrypted values fetched from DB (not in cache)", async () => {
+      // Store encrypted value
+      await service.set("smtp_secret", "plaintext", { encrypted: true });
+      const upsertCall = (mockPrisma.systemSetting!.upsert as jest.Mock).mock
+        .calls[0][0];
+      const encryptedValue = upsertCall.create.value;
+
+      // Clear cache by creating a new service instance (simulate fresh start)
+      // Instead, directly mock findUnique to return encrypted record
+      (mockPrisma.systemSetting!.findUnique as jest.Mock).mockResolvedValue(
+        makeSetting("fresh_encrypted_key", encryptedValue, true),
+      );
+
+      const result = await service.get("fresh_encrypted_key");
+
+      expect(result).toBe("plaintext");
+    });
   });
 });
