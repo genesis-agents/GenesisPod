@@ -23,6 +23,7 @@ import {
   Optional,
 } from "@nestjs/common";
 import { CacheService } from "@/common/cache/cache.service";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ProcessManagerService } from "../process/process-manager.service";
 
@@ -165,10 +166,8 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
   private async checkTableExists(tableName: string): Promise<boolean> {
     if (!this.prisma) return false;
     try {
-      const result = await this.prisma.$queryRawUnsafe<
-        Array<{ exists: boolean }>
-      >(
-        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${tableName}') AS "exists"`,
+      const result = await this.prisma.$queryRaw<Array<{ exists: boolean }>>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ${tableName}) AS "exists"`,
       );
       return result[0]?.exists === true;
     } catch {

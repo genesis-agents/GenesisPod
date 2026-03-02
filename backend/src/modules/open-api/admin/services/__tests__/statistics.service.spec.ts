@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { StatisticsService } from "../statistics.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { KernelApiService } from "../../../../ai-kernel/facade";
 
 describe("StatisticsService", () => {
   let service: StatisticsService;
@@ -20,6 +21,20 @@ describe("StatisticsService", () => {
     aIModel: { count: jest.Mock };
     user: { count: jest.Mock };
     secret: { count: jest.Mock };
+    agentProcess: { count: jest.Mock };
+    processEvent: { count: jest.Mock };
+    processMemory: { count: jest.Mock };
+    creditAccount: { count: jest.Mock };
+    creditTransaction: { count: jest.Mock };
+    notification: { count: jest.Mock };
+    systemSetting: { count: jest.Mock };
+    systemErrorLog: { count: jest.Mock };
+    mCPServerConfig: { count: jest.Mock };
+  };
+  let mockKernelApi: {
+    getEventBusStats: jest.Mock;
+    getCircuitBreakerMetrics: jest.Mock;
+    getDashboard: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -38,12 +53,30 @@ describe("StatisticsService", () => {
       aIModel: { count: jest.fn() },
       user: { count: jest.fn() },
       secret: { count: jest.fn() },
+      agentProcess: { count: jest.fn().mockResolvedValue(0) },
+      processEvent: { count: jest.fn().mockResolvedValue(0) },
+      processMemory: { count: jest.fn().mockResolvedValue(0) },
+      creditAccount: { count: jest.fn().mockResolvedValue(0) },
+      creditTransaction: { count: jest.fn().mockResolvedValue(0) },
+      notification: { count: jest.fn().mockResolvedValue(0) },
+      systemSetting: { count: jest.fn().mockResolvedValue(0) },
+      systemErrorLog: { count: jest.fn().mockResolvedValue(0) },
+      mCPServerConfig: { count: jest.fn().mockResolvedValue(0) },
+    };
+
+    mockKernelApi = {
+      getEventBusStats: jest.fn().mockReturnValue({ activeSubscriptions: 5 }),
+      getCircuitBreakerMetrics: jest
+        .fn()
+        .mockReturnValue([{ entityId: "gpt-4" }, { entityId: "claude" }]),
+      getDashboard: jest.fn().mockReturnValue({ totalCalls: 42 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StatisticsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: KernelApiService, useValue: mockKernelApi },
       ],
     }).compile();
 
@@ -74,14 +107,25 @@ describe("StatisticsService", () => {
       mockPrisma.toolConfig.count.mockResolvedValue(value + 10);
       mockPrisma.skillConfig.count.mockResolvedValue(value + 11);
       mockPrisma.aIModel.count.mockResolvedValue(value + 12);
-      // user.count is called twice: totalUsers, activeUsers
+      // user.count is called 3 times: totalUsers, activeUsers, adminUsers
       mockPrisma.user.count
         .mockResolvedValueOnce(value + 13)
-        .mockResolvedValueOnce(value + 14);
+        .mockResolvedValueOnce(value + 14)
+        .mockResolvedValueOnce(value + 16);
       mockPrisma.secret.count.mockResolvedValue(value + 15);
+      // L1 Infrastructure stats
+      mockPrisma.agentProcess.count.mockResolvedValue(value);
+      mockPrisma.processEvent.count.mockResolvedValue(value);
+      mockPrisma.processMemory.count.mockResolvedValue(value);
+      mockPrisma.creditAccount.count.mockResolvedValue(value + 17);
+      mockPrisma.creditTransaction.count.mockResolvedValue(value + 18);
+      mockPrisma.notification.count.mockResolvedValue(value + 19);
+      mockPrisma.systemSetting.count.mockResolvedValue(value + 20);
+      mockPrisma.systemErrorLog.count.mockResolvedValue(value + 21);
+      mockPrisma.mCPServerConfig.count.mockResolvedValue(value + 22);
     };
 
-    it("should return all 15 stat keys", async () => {
+    it("should return all stat keys including kernel in-memory stats", async () => {
       // Arrange
       mockAllCounts();
 
@@ -105,10 +149,41 @@ describe("StatisticsService", () => {
         "totalUsers",
         "activeUsers",
         "secrets",
+        "kernelProcesses",
+        "kernelRunning",
+        "kernelEvents",
+        "kernelMemories",
+        "kernelSubscriptions",
+        "kernelBreakers",
+        "kernelLLMCalls",
+        // L1 Infrastructure
+        "adminUsers",
+        "creditAccounts",
+        "creditTransactions",
+        "notifications",
+        "dbTables",
+        "storageProviders",
+        "systemSettings",
+        "recentLogs",
+        // L2 MCP
+        "mcpServers",
       ];
       expectedKeys.forEach((key) => {
         expect(result).toHaveProperty(key);
       });
+    });
+
+    it("should include kernel in-memory stats from KernelApiService", async () => {
+      // Arrange
+      mockAllCounts();
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.kernelSubscriptions).toBe(5);
+      expect(result.kernelBreakers).toBe(2);
+      expect(result.kernelLLMCalls).toBe(42);
     });
 
     it("should return correct count values for each key", async () => {
@@ -142,7 +217,7 @@ describe("StatisticsService", () => {
       expect(result.secrets).toBe(25);
     });
 
-    it("should return zeros when all tables are empty", async () => {
+    it("should return zeros for DB stats when all tables are empty", async () => {
       // Arrange
       mockPrisma.resource.count.mockResolvedValue(0);
       mockPrisma.researchMission.count.mockResolvedValue(0);
@@ -158,12 +233,32 @@ describe("StatisticsService", () => {
       mockPrisma.aIModel.count.mockResolvedValue(0);
       mockPrisma.user.count.mockResolvedValue(0);
       mockPrisma.secret.count.mockResolvedValue(0);
+      mockPrisma.agentProcess.count.mockResolvedValue(0);
+      mockPrisma.processEvent.count.mockResolvedValue(0);
+      mockPrisma.processMemory.count.mockResolvedValue(0);
+      mockPrisma.creditAccount.count.mockResolvedValue(0);
+      mockPrisma.creditTransaction.count.mockResolvedValue(0);
+      mockPrisma.notification.count.mockResolvedValue(0);
+      mockPrisma.systemSetting.count.mockResolvedValue(0);
+      mockPrisma.systemErrorLog.count.mockResolvedValue(0);
+      mockPrisma.mCPServerConfig.count.mockResolvedValue(0);
+      mockKernelApi.getEventBusStats.mockReturnValue({
+        activeSubscriptions: 0,
+      });
+      mockKernelApi.getCircuitBreakerMetrics.mockReturnValue([]);
+      mockKernelApi.getDashboard.mockReturnValue({ totalCalls: 0 });
 
       // Act
       const result = await service.getOverviewStats();
 
-      // Assert
-      Object.values(result).forEach((v) => expect(v).toBe(0));
+      // Assert — storageProviders is a static constant (5), not queried
+      Object.entries(result).forEach(([key, v]) => {
+        if (key === "storageProviders") {
+          expect(v).toBe(5);
+        } else {
+          expect(v).toBe(0);
+        }
+      });
     });
 
     it("should query activeUsers with isActive=true filter", async () => {

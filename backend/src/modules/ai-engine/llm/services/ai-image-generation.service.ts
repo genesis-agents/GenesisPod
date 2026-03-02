@@ -1,4 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 
 interface ImagenGeneratedImage {
   image?: { imageBytes?: string };
@@ -144,7 +148,7 @@ export class AiImageGenerationService {
         };
       }
 
-      throw new Error("No image data in response");
+      throw new InternalServerErrorException("No image data in response");
     } catch (error: unknown) {
       const e = error as {
         response?: { data?: { error?: { message?: string } } };
@@ -272,7 +276,9 @@ export class AiImageGenerationService {
       this.logger.warn(
         `[Imagen] No images found in response: ${JSON.stringify(data).substring(0, 1000)}`,
       );
-      throw new Error("No images generated - check response format");
+      throw new InternalServerErrorException(
+        "No images generated - check response format",
+      );
     } catch (error: unknown) {
       const e = error as {
         response?: { data?: { error?: { message?: string } } };

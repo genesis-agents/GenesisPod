@@ -38,10 +38,11 @@ import { TeamFactory } from "../teams/factory/team-factory";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
 // ★ Content Feature 依赖
-// ★ Phase 3: long-form services use forwardRef + lazy require to avoid circular dep
-//   (facade → providers → content-engine services → facade)
-import type { LongContentEngineService } from "../../ai-app/writing/content-engine/services/long-content-engine.service";
-import type { ContinuationProtocolService } from "../../ai-app/writing/content-engine/services/continuation-protocol.service";
+// ★ Phase 3→Phase 7: replaced L4 type imports with L2 abstractions (audit E-1)
+import type {
+  ILongContentEngine,
+  IContinuationProtocol,
+} from "../content/abstractions/content-engine.interfaces";
 import { ContentFetchService } from "../content/fetch/content-fetch.service";
 // ★ Knowledge Feature 依赖
 import { EmbeddingService } from "../knowledge/rag/embedding";
@@ -50,8 +51,8 @@ import { VectorService } from "../knowledge/rag/vector";
 import { IntentRouterService } from "../orchestration/services/intent-router.service";
 import { ReflectionService } from "../orchestration/services/reflection.service";
 import { ContextCompressionService } from "../orchestration/services/context-compression.service";
-// ★ Phase 3: synthesis moved to ai-app/office/content-synthesis/
-import type { ReportSynthesisEngine } from "../../ai-app/office/content-synthesis/report-synthesis.service";
+// ★ Phase 3→Phase 7: replaced L4 type import with L2 abstraction (audit E-2)
+import type { IReportSynthesisEngine } from "../content/abstractions/content-engine.interfaces";
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../knowledge/evidence/services/evidence-manager.service";
 import { VotingManager } from "../agents/collaboration/patterns/voting-pattern";
@@ -152,8 +153,8 @@ export interface TeamsFeature {
  * 内容生产特性
  */
 export interface ContentFeature {
-  longContentEngine?: LongContentEngineService;
-  continuationProtocol?: ContinuationProtocolService;
+  longContentEngine?: ILongContentEngine;
+  continuationProtocol?: IContinuationProtocol;
   contentFetch?: ContentFetchService;
 }
 
@@ -172,7 +173,7 @@ export interface IntelligenceFeature {
   intentRouter?: IntentRouterService;
   reflection?: ReflectionService;
   contextCompression?: ContextCompressionService;
-  synthesisEngine?: ReportSynthesisEngine;
+  synthesisEngine?: IReportSynthesisEngine;
 }
 
 /**
@@ -405,8 +406,8 @@ export const REPORT_SYNTHESIS_ENGINE_TOKEN = "ReportSynthesisEngine";
 export const contentFeatureProvider: Provider = {
   provide: CONTENT_FEATURE,
   useFactory: (
-    longContentEngine?: LongContentEngineService,
-    continuationProtocol?: ContinuationProtocolService,
+    longContentEngine?: ILongContentEngine,
+    continuationProtocol?: IContinuationProtocol,
     contentFetch?: ContentFetchService,
   ): ContentFeature | undefined => {
     if (!longContentEngine && !continuationProtocol && !contentFetch)
@@ -441,7 +442,7 @@ export const intelligenceFeatureProvider: Provider = {
     intentRouter?: IntentRouterService,
     reflection?: ReflectionService,
     contextCompression?: ContextCompressionService,
-    synthesisEngine?: ReportSynthesisEngine,
+    synthesisEngine?: IReportSynthesisEngine,
   ): IntelligenceFeature | undefined => {
     if (!intentRouter && !reflection && !contextCompression && !synthesisEngine)
       return undefined;

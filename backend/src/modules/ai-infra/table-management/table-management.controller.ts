@@ -6,8 +6,11 @@ import {
   Param,
   Logger,
   BadRequestException,
+  UseGuards,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
 import { TableManagementService } from "./table-management.service";
 import {
   TableCategory,
@@ -21,6 +24,7 @@ import {
 } from "./dto/table-info.dto";
 
 @ApiTags("Admin - Tables")
+@UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("admin/tables")
 export class TableManagementController {
   private readonly logger = new Logger(TableManagementController.name);

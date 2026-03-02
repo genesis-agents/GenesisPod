@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { CreditTransactionType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
@@ -122,6 +122,89 @@ export class BillingService {
       byModule,
       byModel,
       dailyTrend,
+    };
+  }
+
+  async getDailyDetail(dateStr: string) {
+    // Validate date format YYYY-MM-DD
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      throw new BadRequestException("Invalid date format. Use YYYY-MM-DD");
+    }
+
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+    const dayEnd = new Date(`${dateStr}T23:59:59.999Z`);
+
+    if (isNaN(dayStart.getTime())) {
+      throw new BadRequestException("Invalid date");
+    }
+
+    const spendWhere = {
+      type: { in: SPEND_TYPES },
+      createdAt: { gte: dayStart, lte: dayEnd },
+    };
+
+    const [transactions, byModule, byModel] = await Promise.all([
+      this.prisma.creditTransaction.findMany({
+        where: spendWhere,
+        select: {
+          id: true,
+          amount: true,
+          moduleType: true,
+          modelName: true,
+          description: true,
+          createdAt: true,
+          account: {
+            select: {
+              user: {
+                select: { email: true, username: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      }),
+      this.prisma.creditTransaction.groupBy({
+        by: ["moduleType"],
+        where: { ...spendWhere, moduleType: { not: null } },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.creditTransaction.groupBy({
+        by: ["modelName"],
+        where: { ...spendWhere, modelName: { not: null } },
+        _sum: { amount: true },
+        _count: true,
+      }),
+    ]);
+
+    return {
+      date: dateStr,
+      totalSpent: transactions.reduce(
+        (sum, tx) => sum + Math.abs(tx.amount),
+        0,
+      ),
+      transactionCount: transactions.length,
+      transactions: transactions.map((tx) => ({
+        id: tx.id,
+        amount: Math.abs(tx.amount),
+        module: tx.moduleType,
+        model: tx.modelName,
+        description: tx.description,
+        userEmail: tx.account?.user?.email ?? "-",
+        userName: tx.account?.user?.username ?? null,
+        createdAt: tx.createdAt,
+      })),
+      byModule: byModule.map((r) => ({
+        module: r.moduleType,
+        spent: Math.abs(r._sum.amount ?? 0),
+        count: r._count,
+      })),
+      byModel: byModel.map((r) => ({
+        model: r.modelName,
+        spent: Math.abs(r._sum.amount ?? 0),
+        count: r._count,
+      })),
     };
   }
 }

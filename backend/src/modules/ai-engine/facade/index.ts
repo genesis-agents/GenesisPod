@@ -369,6 +369,107 @@ export type {
   RegistryFeature,
 } from "./facade.providers";
 
+// ★ Phase 7: Content engine abstractions (replaces L4 type imports — audit E-1/E-2)
+export type {
+  ILongContentEngine,
+  IContinuationProtocol,
+  IReportSynthesisEngine,
+} from "../content/abstractions/content-engine.interfaces";
+
+// ★ Phase 8: Kernel integration types — L3 imports L2 types only through this facade (audit K-1)
+// Event emitter (expand existing re-exports)
+export type {
+  IEngineEventEmitter,
+  ProgressEvent,
+  RoomType,
+} from "../infra/realtime/abstractions/event-emitter.interface";
+
+// Progress tracker
+export type {
+  IProgressTracker,
+  TrackedTask,
+  CreateTrackedTaskRequest,
+  TaskPhase,
+} from "../infra/realtime/abstractions/progress-tracker.interface";
+export { calculateOverallProgress } from "../infra/realtime/abstractions/progress-tracker.interface";
+
+// Trace / Observability (expand existing TraceType re-export)
+export type {
+  SpanType,
+  ExecutionStatus,
+  SpanData,
+  TraceData,
+  TraceSummary,
+  CreateTraceInput,
+  CreateSpanInput,
+  EndSpanInput,
+  EndTraceInput,
+  ListTracesOptions,
+} from "../infra/observability/trace.interface";
+
+// A2A messaging
+export type {
+  A2AMessage,
+  A2AMessageType,
+  A2APriority,
+  A2AMessageHandler,
+} from "../teams/abstractions/a2a-message.interface";
+
+// Team member
+export type {
+  ITeamMember,
+  TeamMemberId,
+  MemberStatus,
+} from "../teams/abstractions/member.interface";
+
+// Role (expand existing BUILTIN_ROLES re-export)
+export type { IRole, WorkStyle } from "../teams/abstractions/role.interface";
+
+// Team (expand existing ITeam/TeamConfig re-export)
+export type { TeamId } from "../teams/abstractions/team.interface";
+
+// Agent types (expand existing ToolId re-export)
+export type { SkillId } from "../core/types/agent.types";
+
+// Orchestrator abstractions
+export type {
+  Checkpoint,
+  ExecutionContext,
+} from "../orchestration/abstractions/orchestrator.interface";
+
+// Constraint engine
+export type {
+  IConstraintEngine,
+  ConstraintEvaluation,
+  CostEvaluation,
+  QualityEvaluation,
+  EfficiencyEvaluation,
+  ConstraintWarning,
+  ConstraintViolation as ConstraintEngineViolation,
+  ConstraintSuggestion,
+  ResourceRequirement,
+  ResourceAllocation,
+  ResourceUsage,
+  CostEstimate,
+  CostBreakdown,
+  DegradationStrategy,
+} from "../teams/constraints/constraint-engine.interface";
+
+// Orchestration interfaces (expand existing — add IConstraintEnforcementService)
+export type { IConstraintEnforcementService } from "../orchestration/services/interfaces";
+
+// Memory abstractions
+export type {
+  IMemoryStore,
+  IConversationMemory,
+  IWorkingMemory,
+  MemoryEntry,
+  MemoryType,
+  MemorySearchOptions,
+  MemorySearchResult,
+  ConversationMessage,
+} from "../knowledge/memory/abstractions/memory.interface";
+
 // ★ Phase 5: Domain Facades — focused APIs that replace the monolithic AIEngineFacade
 // Consumers should gradually migrate from AIEngineFacade to the domain facade they need.
 export { ChatFacade } from "./domain/chat.facade";
@@ -377,7 +478,11 @@ export { AgentFacade } from "./domain/agent.facade";
 export { TeamFacade } from "./domain/team.facade";
 export { ToolFacade } from "./domain/tool.facade";
 
-// ★ AI Kernel re-exports — forwarded from kernel's own facade (backward compatible)
+/**
+ * @deprecated AI Kernel re-exports — import directly from "../../ai-kernel/facade" instead.
+ * These re-exports exist for backward compatibility and will be removed in a future version.
+ * Migration: change `from "../../ai-engine/facade"` → `from "../../ai-kernel/facade"` for kernel symbols.
+ */
 export {
   KernelContext,
   type KernelContextData,

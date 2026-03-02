@@ -11,7 +11,9 @@ import {
   X,
   Settings,
 } from 'lucide-react';
-import { getAuthTokens } from '@/lib/utils/auth';
+import { getAuthHeader } from '@/lib/utils/auth';
+import { config } from '@/lib/utils/config';
+import { logger } from '@/lib/utils/logger';
 
 interface StorageConfig {
   provider: 'local' | 's3' | 'azure' | 'gdrive' | 'b2';
@@ -95,16 +97,16 @@ function ConfigModal({
   onClose,
   onSave,
   provider,
-  config,
-  setConfig,
+  storageConfig: config,
+  setStorageConfig: setConfig,
   saving,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
   provider: ProviderInfo | null;
-  config: StorageConfig;
-  setConfig: (config: StorageConfig) => void;
+  storageConfig: StorageConfig;
+  setStorageConfig: (config: StorageConfig) => void;
   saving: boolean;
 }) {
   if (!isOpen || !provider) return null;
@@ -352,7 +354,8 @@ function isProviderConfigured(
 export default function StorageSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState<StorageConfig>({
+  const [error, setError] = useState<string | null>(null);
+  const [storageConfig, setStorageConfig] = useState<StorageConfig>({
     provider: 'local',
     localPath: '/uploads',
     s3Bucket: '',
@@ -371,23 +374,22 @@ export default function StorageSettings() {
     useState<ProviderInfo | null>(null);
 
   useEffect(() => {
-    loadConfig();
+    void loadConfig();
   }, []);
 
   const loadConfig = async () => {
     try {
-      const token = getAuthTokens()?.accessToken;
-      const res = await fetch('/api/v1/admin/storage-config', {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${config.apiUrl}/admin/storage-config`, {
+        headers: getAuthHeader(),
       });
       if (res.ok) {
         const result = await res.json();
-        // Handle wrapped API response { success: true, data: T }
         const data = result?.data ?? result;
-        setConfig(data);
+        setStorageConfig(data);
       }
-    } catch (error) {
-      // Silently fail - use defaults
+    } catch (err) {
+      logger.error('Failed to load storage config:', err);
+      setError('Failed to load storage configuration');
     } finally {
       setLoading(false);
     }
@@ -395,34 +397,36 @@ export default function StorageSettings() {
 
   const handleSave = async () => {
     setSaving(true);
+    setError(null);
     try {
-      const token = getAuthTokens()?.accessToken;
-      const res = await fetch('/api/v1/admin/storage-config', {
+      const res = await fetch(`${config.apiUrl}/admin/storage-config`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeader(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(config),
+        body: JSON.stringify(storageConfig),
       });
-      if (res.ok) {
-        setConfigModalProvider(null);
+      if (!res.ok) {
+        throw new Error('Failed to save storage configuration');
       }
-    } catch (error) {
-      // Handle silently
+      setConfigModalProvider(null);
+    } catch (err) {
+      logger.error('Failed to save storage config:', err);
+      setError('Failed to save storage configuration');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSetActive = (providerId: ProviderId) => {
-    setConfig({ ...config, provider: providerId });
-    handleSave();
+  const handleSetActive = async (providerId: ProviderId) => {
+    setStorageConfig({ ...storageConfig, provider: providerId });
+    await handleSave();
   };
 
   const handleSaveAndActivate = async () => {
     if (configModalProvider) {
-      setConfig({ ...config, provider: configModalProvider.id });
+      setStorageConfig({ ...storageConfig, provider: configModalProvider.id });
     }
     await handleSave();
   };
@@ -437,6 +441,13 @@ export default function StorageSettings() {
 
   return (
     <>
+      {/* Error */}
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Provider Cards */}
       <div className="mb-8">
         <div className="mb-4 flex items-center gap-2">
@@ -446,8 +457,11 @@ export default function StorageSettings() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {PROVIDERS.map((provider) => {
-            const isActive = config.provider === provider.id;
-            const isConfigured = isProviderConfigured(provider.id, config);
+            const isActive = storageConfig.provider === provider.id;
+            const isConfigured = isProviderConfigured(
+              provider.id,
+              storageConfig
+            );
 
             return (
               <div
@@ -506,35 +520,35 @@ export default function StorageSettings() {
                   </div>
 
                   {/* Provider-specific info */}
-                  {provider.id === 'local' && config.localPath && (
+                  {provider.id === 'local' && storageConfig.localPath && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Path:</span>
                       <span className="font-mono text-gray-700">
-                        {config.localPath}
+                        {storageConfig.localPath}
                       </span>
                     </div>
                   )}
-                  {provider.id === 's3' && config.s3Bucket && (
+                  {provider.id === 's3' && storageConfig.s3Bucket && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Bucket:</span>
                       <span className="font-mono text-gray-700">
-                        {config.s3Bucket}
+                        {storageConfig.s3Bucket}
                       </span>
                     </div>
                   )}
-                  {provider.id === 'gdrive' && config.gdriveClientId && (
+                  {provider.id === 'gdrive' && storageConfig.gdriveClientId && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Client ID:</span>
                       <span className="font-mono text-gray-700">
-                        {config.gdriveClientId.substring(0, 12)}...
+                        {storageConfig.gdriveClientId.substring(0, 12)}...
                       </span>
                     </div>
                   )}
-                  {provider.id === 'b2' && config.b2BucketName && (
+                  {provider.id === 'b2' && storageConfig.b2BucketName && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Bucket:</span>
                       <span className="font-mono text-gray-700">
-                        {config.b2BucketName}
+                        {storageConfig.b2BucketName}
                       </span>
                     </div>
                   )}
@@ -551,7 +565,7 @@ export default function StorageSettings() {
                   </button>
                   {!isActive && isConfigured && (
                     <button
-                      onClick={() => handleSetActive(provider.id)}
+                      onClick={() => void handleSetActive(provider.id)}
                       className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
                     >
                       Set Active
@@ -574,10 +588,10 @@ export default function StorageSettings() {
             </label>
             <input
               type="number"
-              value={config.maxFileSize}
+              value={storageConfig.maxFileSize}
               onChange={(e) =>
-                setConfig({
-                  ...config,
+                setStorageConfig({
+                  ...storageConfig,
                   maxFileSize: parseInt(e.target.value) || 10,
                 })
               }
@@ -590,10 +604,10 @@ export default function StorageSettings() {
             </label>
             <input
               type="text"
-              value={config.allowedTypes.join(', ')}
+              value={storageConfig.allowedTypes.join(', ')}
               onChange={(e) =>
-                setConfig({
-                  ...config,
+                setStorageConfig({
+                  ...storageConfig,
                   allowedTypes: e.target.value.split(',').map((s) => s.trim()),
                 })
               }
@@ -604,7 +618,7 @@ export default function StorageSettings() {
         </div>
         <div className="mt-4 flex justify-end">
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
           >
@@ -624,8 +638,8 @@ export default function StorageSettings() {
         onClose={() => setConfigModalProvider(null)}
         onSave={handleSaveAndActivate}
         provider={configModalProvider}
-        config={config}
-        setConfig={setConfig}
+        storageConfig={storageConfig}
+        setStorageConfig={setStorageConfig}
         saving={saving}
       />
     </>

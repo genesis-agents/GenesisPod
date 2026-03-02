@@ -29,6 +29,8 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  BadRequestException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
@@ -532,7 +534,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         return { result, usedKey: null };
       }
       default:
-        throw new Error(`Unknown search provider: ${provider}`);
+        throw new BadRequestException(`Unknown search provider: ${provider}`);
     }
   }
 
@@ -582,7 +584,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     if (lastError) {
       throw lastError;
     }
-    throw new Error(`No healthy ${provider} API key available`);
+    throw new ServiceUnavailableException(
+      `No healthy ${provider} API key available`,
+    );
   }
 
   /**

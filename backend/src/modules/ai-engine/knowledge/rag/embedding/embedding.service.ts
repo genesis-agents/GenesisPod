@@ -9,7 +9,11 @@
  * - 动态模型配置
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "../../../../ai-infra/facade";
@@ -164,7 +168,7 @@ export class EmbeddingService {
     // Fallback to environment variable (不推荐，应该在 Admin 中配置)
     const apiKey = this.configService.get<string>("OPENAI_API_KEY")?.trim();
     if (!apiKey) {
-      throw new Error(
+      throw new ServiceUnavailableException(
         "No embedding model configured. Please add an EMBEDDING type model in Admin > AI Models, or set OPENAI_API_KEY.",
       );
     }

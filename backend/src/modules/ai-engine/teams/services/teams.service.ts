@@ -14,6 +14,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { TeamFactory } from "../factory/team-factory";
@@ -336,7 +337,9 @@ export class TeamsService {
   ): Promise<MissionResult> {
     const running = this.runningMissions.get(_missionId);
     if (!running) {
-      throw new Error(`Mission ${_missionId} not initialized`);
+      throw new InternalServerErrorException(
+        `Mission ${_missionId} not initialized`,
+      );
     }
 
     try {
@@ -382,12 +385,14 @@ export class TeamsService {
             typeof errorData === "string"
               ? errorData
               : errorData?.message || "Mission failed";
-          throw new Error(errorMessage);
+          throw new InternalServerErrorException(errorMessage);
         }
       }
 
       if (!result) {
-        throw new Error("Mission completed without result");
+        throw new InternalServerErrorException(
+          "Mission completed without result",
+        );
       }
 
       // 更新状态为完成

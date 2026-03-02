@@ -10,6 +10,7 @@ import {
   Logger,
   HttpCode,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   Request as ExpressRequest,
   Response as ExpressResponse,
@@ -59,6 +60,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly adminAuthService: AdminAuthService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -236,7 +238,10 @@ export class AuthController {
     );
 
     // 重定向到前端，只携带授权码
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const frontendUrl = this.configService.get<string>(
+      "FRONTEND_URL",
+      "http://localhost:3000",
+    );
     const redirectUrl = `${frontendUrl}/auth/callback?code=${authCode}`;
 
     return res.redirect(redirectUrl);

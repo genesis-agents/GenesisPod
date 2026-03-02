@@ -16,7 +16,11 @@
  *   调用方可根据 plan.confidence 决定是否向用户展示确认 UI
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import {
@@ -292,7 +296,9 @@ export class IntentRouterService {
       const firstBrace = content.indexOf("{");
       const lastBrace = content.lastIndexOf("}");
       if (firstBrace === -1 || lastBrace === -1) {
-        throw new Error("No JSON object found in response");
+        throw new InternalServerErrorException(
+          "No JSON object found in response",
+        );
       }
       const parsed = JSON.parse(content.slice(firstBrace, lastBrace + 1));
 
@@ -301,7 +307,7 @@ export class IntentRouterService {
         !Array.isArray(parsed.capabilities) ||
         parsed.capabilities.length === 0
       ) {
-        throw new Error("No capabilities in response");
+        throw new InternalServerErrorException("No capabilities in response");
       }
 
       const confidence =

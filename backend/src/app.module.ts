@@ -86,6 +86,13 @@ import { PublicApiModule } from "./modules/open-api/public-api/public-api.module
 import { A2AModule } from "./modules/ai-engine/infra/a2a";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
+// L1→L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
+import {
+  AI_CHAT_TOKEN,
+  AI_OBSERVABILITY_TOKEN,
+} from "./modules/ai-infra/abstractions/ai-services.interfaces";
+import { ChatFacade } from "./modules/ai-engine/facade";
+import { AiObservabilityService } from "./modules/ai-engine/facade";
 
 @Module({
   imports: [
@@ -211,6 +218,9 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
   controllers: [AppController],
   providers: [
     AppService,
+    // L1→L2 DI bindings: map abstract tokens to concrete L2 services (audit I-1/I-2)
+    { provide: AI_CHAT_TOKEN, useExisting: ChatFacade },
+    { provide: AI_OBSERVABILITY_TOKEN, useExisting: AiObservabilityService },
     // 全局 JWT 认证守卫（@Public() 装饰器跳过）
     {
       provide: APP_GUARD,

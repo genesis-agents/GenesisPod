@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import {
   S3Client,
   PutObjectCommand,
@@ -269,7 +274,7 @@ export class R2StorageService implements OnModuleInit {
    */
   async getPresignedUrl(key: string): Promise<string> {
     if (!this.s3Client) {
-      throw new Error("Storage not configured");
+      throw new ServiceUnavailableException("Storage not configured");
     }
 
     const command = new GetObjectCommand({

@@ -126,16 +126,36 @@ export class MemoryCoordinatorService {
 
     const [l1, l2, l3, l4] = await Promise.all([
       layers.includes(1) && sessionId
-        ? this.recallLayer1(query, sessionId).catch(() => [])
+        ? this.recallLayer1(query, sessionId).catch((err) => {
+            this.logger.warn(
+              `[recall] Layer 1 failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return [];
+          })
         : Promise.resolve([] as MemoryFragment[]),
       layers.includes(2) && sessionId
-        ? this.recallLayer2(query, sessionId).catch(() => [])
+        ? this.recallLayer2(query, sessionId).catch((err) => {
+            this.logger.warn(
+              `[recall] Layer 2 failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return [];
+          })
         : Promise.resolve([] as MemoryFragment[]),
       layers.includes(3)
-        ? this.recallLayer3(query, userId).catch(() => [])
+        ? this.recallLayer3(query, userId).catch((err) => {
+            this.logger.warn(
+              `[recall] Layer 3 failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return [];
+          })
         : Promise.resolve([] as MemoryFragment[]),
       layers.includes(4) && this.knowledgeGraph
-        ? this.recallLayer4(query, userId).catch(() => [])
+        ? this.recallLayer4(query, userId).catch((err) => {
+            this.logger.warn(
+              `[recall] Layer 4 failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return [];
+          })
         : Promise.resolve([] as MemoryFragment[]),
     ]);
 

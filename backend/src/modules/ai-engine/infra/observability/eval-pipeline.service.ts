@@ -25,7 +25,11 @@
  *   - evaluate() 整体 fire-and-forget 调用，不阻塞主业务流程
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { TraceCollectorService } from "./trace-collector.service";
 import { TraceData, SpanData } from "./trace.interface";
@@ -347,7 +351,7 @@ export class EvalPipelineService {
     const firstBrace = content.indexOf("{");
     const lastBrace = content.lastIndexOf("}");
     if (firstBrace === -1 || lastBrace === -1) {
-      throw new Error("No JSON in judge response");
+      throw new InternalServerErrorException("No JSON in judge response");
     }
 
     const parsed = JSON.parse(content.slice(firstBrace, lastBrace + 1));

@@ -7,10 +7,20 @@
  * 3. 批量推送通知给所有用户
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+  Inject,
+  Optional,
+} from "@nestjs/common";
 import { execFileSync } from "child_process";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../ai-engine/facade";
+import {
+  type IAiChat,
+  AI_CHAT_TOKEN,
+} from "../abstractions/ai-services.interfaces";
 import { NotificationService } from "../notifications/notification.service";
 import { NotificationTypeDto } from "../notifications/dto/notification.dto";
 import { APP_CONFIG } from "../../../common/config/app.config";
@@ -28,7 +38,9 @@ export class ReleaseService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: ChatFacade,
+    @Inject(AI_CHAT_TOKEN)
+    @Optional()
+    private readonly aiFacade: IAiChat | undefined,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -46,7 +58,7 @@ export class ReleaseService {
     // Security: validate tag format to prevent command injection
     const TAG_PATTERN = /^[a-zA-Z0-9._\-/]+$/;
     if (!TAG_PATTERN.test(fromTag) || !TAG_PATTERN.test(toTag)) {
-      throw new Error(
+      throw new BadRequestException(
         `Invalid tag format. Tags must match ${TAG_PATTERN}. Got: "${fromTag}", "${toTag}"`,
       );
     }
@@ -82,7 +94,7 @@ export class ReleaseService {
       return { commits, stats };
     } catch (error) {
       this.logger.error("Failed to collect git changes", error);
-      throw new Error(
+      throw new InternalServerErrorException(
         `Failed to collect git changes: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
@@ -216,6 +228,12 @@ ${Object.entries(commitsByType)
   ]
 }`;
 
+    if (!this.aiFacade) {
+      throw new InternalServerErrorException(
+        "AI chat service is not available",
+      );
+    }
+
     try {
       const response = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
@@ -230,7 +248,9 @@ ${Object.entries(commitsByType)
       // 提取 JSON（处理可能的 markdown 代码块）
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error("AI response does not contain valid JSON");
+        throw new InternalServerErrorException(
+          "AI response does not contain valid JSON",
+        );
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
@@ -391,7 +411,9 @@ ${Object.entries(commitsByType)
     const { commits, stats } = await this.collectGitChanges(fromTag, toTag);
 
     if (commits.length === 0) {
-      throw new Error(`No commits found between ${fromTag} and ${toTag}`);
+      throw new BadRequestException(
+        `No commits found between ${fromTag} and ${toTag}`,
+      );
     }
 
     // 2. 生成发布说明

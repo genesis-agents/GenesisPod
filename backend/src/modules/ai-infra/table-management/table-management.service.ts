@@ -1,4 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   TableCategory,
@@ -558,7 +563,7 @@ export class TableManagementService {
       );
 
       if (!tableInfo.length) {
-        throw new Error(`Table ${tableName} not found`);
+        throw new NotFoundException(`Table ${tableName} not found`);
       }
 
       const info = tableInfo[0];
@@ -710,7 +715,7 @@ export class TableManagementService {
     // Validate format: must be alphanumeric with underscores, starting with letter or underscore
     const tableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
     if (!tableNameRegex.test(tableName)) {
-      throw new Error(
+      throw new BadRequestException(
         `Invalid table name format: ${tableName}. Only alphanumeric characters and underscores are allowed.`,
       );
     }
@@ -718,7 +723,7 @@ export class TableManagementService {
     // Additional validation: check against known Prisma model names
     const knownTables = Object.keys(TABLE_CATEGORIES);
     if (!knownTables.includes(tableName)) {
-      throw new Error(
+      throw new BadRequestException(
         `Unknown table: ${tableName}. Table must be a valid Prisma model.`,
       );
     }
@@ -749,7 +754,7 @@ export class TableManagementService {
       );
 
       if (!validTables.length) {
-        throw new Error(`Table ${tableName} not found`);
+        throw new NotFoundException(`Table ${tableName} not found`);
       }
 
       // SAFETY: tableName validated by pg_class existence check above

@@ -43,15 +43,23 @@ export { SettingsService } from "../settings/settings.service";
 // ─── Monitoring ───
 export { AIMetricsService } from "../monitoring/ai-metrics.service";
 export { ErrorTrackingService } from "../monitoring/error-tracking.service";
-// NOTE: HealthCheckService NOT exported — it imports from ai-engine/facade
-// which creates L1→L2 circular chains. Import directly if needed.
+export { HealthCheckService } from "../monitoring/health-check.service";
 
 // ─── User API Keys ───
 export { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 
 // ─── Release ───
-// NOTE: ReleaseService NOT exported — it imports from ai-engine/facade
-// which creates L1→L2 circular chains. Import directly if needed.
+export { ReleaseService } from "../release/release.service";
+
+// ─── Abstractions (DI tokens for L2 service injection) ───
+export type {
+  IAiChat,
+  IAiObservability,
+} from "../abstractions/ai-services.interfaces";
+export {
+  AI_CHAT_TOKEN,
+  AI_OBSERVABILITY_TOKEN,
+} from "../abstractions/ai-services.interfaces";
 
 // ─── Table Management ───
 export { TableManagementService } from "../table-management/table-management.service";

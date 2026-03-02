@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
   Optional,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -93,7 +94,7 @@ export class UserApiKeysService {
     if (!key) {
       const nodeEnv = this.configService.get<string>("NODE_ENV");
       if (nodeEnv === "production") {
-        throw new Error(
+        throw new InternalServerErrorException(
           "CRITICAL: SETTINGS_ENCRYPTION_KEY is required in production.",
         );
       }

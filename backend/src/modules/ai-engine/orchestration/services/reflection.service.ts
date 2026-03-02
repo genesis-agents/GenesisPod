@@ -16,7 +16,13 @@
  * ★ P0 能力沉淀：从 Deep Research SelfReflectionService 提取
  */
 
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import type { ChatFacade } from "../../facade/domain/chat.facade";
 
@@ -321,7 +327,7 @@ ${dimensions}
         response.match(/\{[\s\S]*"decision"[\s\S]*\}/);
 
       if (!jsonMatch) {
-        throw new Error("No JSON found in response");
+        throw new InternalServerErrorException("No JSON found in response");
       }
 
       const jsonStr = jsonMatch[1] || jsonMatch[0];

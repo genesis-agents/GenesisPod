@@ -3,7 +3,7 @@
  * 任务管理和持久化服务
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Subject, Observable } from "rxjs";
 import { filter, map } from "rxjs/operators";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
@@ -255,7 +255,7 @@ export class AgentsService {
       where: { id: artifactId },
     });
     if (!artifact) {
-      throw new Error("Artifact not found");
+      throw new NotFoundException("Artifact not found");
     }
     return {
       url: artifact.url,

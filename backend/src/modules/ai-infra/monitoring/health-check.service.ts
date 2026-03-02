@@ -14,10 +14,13 @@
  * - AI Engine 仪表盘快照
  */
 
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable, Optional, Inject } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CacheService } from "../../../common/cache/cache.service";
-import { AiObservabilityService } from "../../ai-engine/facade";
+import {
+  type IAiObservability,
+  AI_OBSERVABILITY_TOKEN,
+} from "../abstractions/ai-services.interfaces";
 import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
@@ -55,7 +58,9 @@ export class HealthCheckService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly cache?: CacheService,
-    @Optional() private readonly observability?: AiObservabilityService,
+    @Inject(AI_OBSERVABILITY_TOKEN)
+    @Optional()
+    private readonly observability?: IAiObservability,
   ) {}
 
   /**

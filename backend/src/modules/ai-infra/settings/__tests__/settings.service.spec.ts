@@ -86,6 +86,50 @@ describe("SettingsService", () => {
     });
   });
 
+  // ==================== constructor: production encryption key ====================
+
+  describe("constructor - production encryption key", () => {
+    it("throws in production when SETTINGS_ENCRYPTION_KEY is not set", async () => {
+      const prodConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === "NODE_ENV") return "production";
+          return undefined;
+        }),
+      };
+
+      await expect(
+        Test.createTestingModule({
+          providers: [
+            SettingsService,
+            { provide: PrismaService, useValue: mockPrisma },
+            { provide: ConfigService, useValue: prodConfigService },
+          ],
+        }).compile(),
+      ).rejects.toThrow("SETTINGS_ENCRYPTION_KEY is required in production");
+    });
+
+    it("does not throw in production when SETTINGS_ENCRYPTION_KEY is set", async () => {
+      const prodConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === "NODE_ENV") return "production";
+          if (key === "SETTINGS_ENCRYPTION_KEY")
+            return "my-secure-key-32chars-long!!!!!";
+          return undefined;
+        }),
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          SettingsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: ConfigService, useValue: prodConfigService },
+        ],
+      }).compile();
+
+      expect(module.get(SettingsService)).toBeDefined();
+    });
+  });
+
   // ==================== get ====================
 
   describe("get", () => {

@@ -1,4 +1,10 @@
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreditTransactionType } from "@prisma/client";
 import { AlreadyCheckedInException } from "../exceptions/insufficient-credits.exception";
@@ -291,7 +297,7 @@ export class CheckinService {
       });
 
       if (!currentAccount) {
-        throw new Error("Account not found");
+        throw new NotFoundException("Account not found");
       }
 
       // 创建签到记录

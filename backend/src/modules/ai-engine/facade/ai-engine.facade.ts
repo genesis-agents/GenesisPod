@@ -2872,7 +2872,9 @@ export class AIEngineFacade {
    * Will be removed in Phase 6.
    */
   get longContentEngine(): LongContentEngineService | undefined {
-    return this.content?.longContentEngine;
+    return this.content?.longContentEngine as
+      | LongContentEngineService
+      | undefined;
   }
 
   /**
@@ -2881,7 +2883,9 @@ export class AIEngineFacade {
    * Will be removed in Phase 6.
    */
   get continuationProtocol(): ContinuationProtocolService | undefined {
-    return this.content?.continuationProtocol;
+    return this.content?.continuationProtocol as
+      | ContinuationProtocolService
+      | undefined;
   }
 
   /** 获取 EmbeddingService（供 RAG 模块直接使用） */

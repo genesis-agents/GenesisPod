@@ -6,7 +6,7 @@
  * 提供结构化输出、版本管理、部分更新等功能
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import {
   IIterationManagerService,
@@ -269,7 +269,7 @@ export class IterationManagerService implements IIterationManagerService {
   ): Promise<ResearchContext> {
     const context = this.store.contexts.get(contextId);
     if (!context) {
-      throw new Error(`Context not found: ${contextId}`);
+      throw new NotFoundException(`Context not found: ${contextId}`);
     }
 
     const updated = {

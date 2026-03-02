@@ -5,7 +5,12 @@
  * Supports encrypted values for sensitive data like passwords
  */
 
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ConfigService } from "@nestjs/config";
 import * as crypto from "crypto";
@@ -83,10 +88,15 @@ export class SettingsService implements OnModuleInit {
     private prisma: PrismaService,
     private configService: ConfigService,
   ) {
-    const key =
-      this.configService.get<string>("SETTINGS_ENCRYPTION_KEY") ||
-      "deepdive-default-encryption-key!";
-    this.encryptionKey = key.padEnd(32, "0").substring(0, 32);
+    const key = this.configService.get<string>("SETTINGS_ENCRYPTION_KEY");
+    if (!key && this.configService.get<string>("NODE_ENV") === "production") {
+      throw new InternalServerErrorException(
+        "SETTINGS_ENCRYPTION_KEY is required in production. Set this environment variable before starting the application.",
+      );
+    }
+    this.encryptionKey = (key || "deepdive-default-encryption-key!")
+      .padEnd(32, "0")
+      .substring(0, 32);
   }
 
   async onModuleInit() {

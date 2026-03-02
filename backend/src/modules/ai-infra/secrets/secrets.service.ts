@@ -5,7 +5,14 @@
  * All secrets are encrypted using AES-256-CBC with separate IV storage.
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  InternalServerErrorException,
+  BadRequestException,
+  ConflictException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
@@ -83,7 +90,7 @@ export class SecretsService {
     if (!key) {
       const nodeEnv = this.configService.get<string>("NODE_ENV");
       if (nodeEnv === "production") {
-        throw new Error(
+        throw new InternalServerErrorException(
           "CRITICAL: SETTINGS_ENCRYPTION_KEY environment variable is required in production. " +
             "Generate a secure 32-byte key using: openssl rand -hex 32",
         );
@@ -284,7 +291,7 @@ export class SecretsService {
 
     const references = await this.getReferences(name);
     if (references.length > 0) {
-      throw new Error(
+      throw new ConflictException(
         `Cannot delete secret '${name}': still referenced by ${references.length} configuration(s)`,
       );
     }
@@ -723,7 +730,7 @@ export class SecretsService {
 
     const currentVersion = secret.currentVersion || 1;
     if (version === currentVersion) {
-      throw new Error("Cannot rollback to current version");
+      throw new BadRequestException("Cannot rollback to current version");
     }
 
     const targetVersion = await this.prisma.secretVersion.findUnique({
@@ -747,7 +754,9 @@ export class SecretsService {
       targetVersion.iv,
     );
     if (!decryptedValue) {
-      throw new Error(`Failed to decrypt version ${version}`);
+      throw new InternalServerErrorException(
+        `Failed to decrypt version ${version}`,
+      );
     }
 
     // Create a new version with the rolled-back value

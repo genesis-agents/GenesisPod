@@ -1,4 +1,10 @@
-import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  HttpException,
+  HttpStatus,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ChatFacade } from "../facade";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
@@ -50,7 +56,9 @@ export class AiCoreService {
         fastModel || (await this.aiFacade.getDefaultTextModel());
 
       if (!modelConfig) {
-        throw new Error("No AI model available for translation");
+        throw new ServiceUnavailableException(
+          "No AI model available for translation",
+        );
       }
 
       this.logger.log(

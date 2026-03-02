@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { KernelApiService } from "../../../ai-kernel/facade";
 
 /**
  * Statistics Service
@@ -7,7 +8,10 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
  */
 @Injectable()
 export class StatisticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private kernelApi?: KernelApiService,
+  ) {}
 
   /**
    * 获取 Overview 页面各模块统计数据（供架构图展示）
@@ -33,6 +37,14 @@ export class StatisticsService {
       kernelRunning,
       kernelEvents,
       kernelMemories,
+      // L1 Infrastructure stats
+      adminUsers,
+      creditAccounts,
+      creditTransactions,
+      notifications,
+      systemSettings,
+      recentLogs,
+      mcpServers,
     ] = await Promise.all([
       this.prisma.resource.count(),
       this.prisma.researchMission.count(),
@@ -55,7 +67,26 @@ export class StatisticsService {
       ),
       this.safeCount(() => this.prisma.processEvent.count()),
       this.safeCount(() => this.prisma.processMemory.count()),
+      // L1 Infrastructure stats
+      this.prisma.user.count({ where: { role: "ADMIN" } }),
+      this.safeCount(() => this.prisma.creditAccount.count()),
+      this.safeCount(() => this.prisma.creditTransaction.count()),
+      this.safeCount(() => this.prisma.notification.count()),
+      this.safeCount(() => this.prisma.systemSetting.count()),
+      this.safeCount(() =>
+        this.prisma.systemErrorLog.count({
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            },
+          },
+        }),
+      ),
+      this.safeCount(() => this.prisma.mCPServerConfig.count()),
     ]);
+
+    // Kernel in-memory stats (IPC, Resources, Observability)
+    const kernelInMemory = this.getKernelInMemoryStats();
 
     return {
       resources,
@@ -77,7 +108,43 @@ export class StatisticsService {
       kernelRunning,
       kernelEvents,
       kernelMemories,
+      ...kernelInMemory,
+      // L1 Infrastructure
+      adminUsers,
+      creditAccounts,
+      creditTransactions,
+      notifications,
+      dbTables: 0, // placeholder — no dynamic table count needed
+      storageProviders: 5, // static: 5 supported providers
+      systemSettings,
+      recentLogs,
+      // L2 MCP
+      mcpServers,
     };
+  }
+
+  /**
+   * Kernel in-memory stats (not in database)
+   * IPC subscriptions, circuit breakers, LLM call counts
+   */
+  private getKernelInMemoryStats(): Record<string, number> {
+    if (!this.kernelApi) {
+      return { kernelSubscriptions: 0, kernelBreakers: 0, kernelLLMCalls: 0 };
+    }
+
+    try {
+      const ipcStats = this.kernelApi.getEventBusStats();
+      const breakers = this.kernelApi.getCircuitBreakerMetrics();
+      const dashboard = this.kernelApi.getDashboard(60);
+
+      return {
+        kernelSubscriptions: ipcStats.activeSubscriptions,
+        kernelBreakers: breakers.length,
+        kernelLLMCalls: dashboard.totalCalls,
+      };
+    } catch {
+      return { kernelSubscriptions: 0, kernelBreakers: 0, kernelLLMCalls: 0 };
+    }
   }
 
   /** Table-safe count — returns 0 if the table does not exist */

@@ -321,6 +321,7 @@ const aiKernelLayer: ArchitectureLayer = {
       href: '/admin/kernel/ipc',
       icon: GitBranch,
       clickable: true,
+      stats: [{ label: '订阅', key: 'kernelSubscriptions' }],
     },
     {
       id: 'kernelResources',
@@ -329,6 +330,7 @@ const aiKernelLayer: ArchitectureLayer = {
       href: '/admin/kernel/resources',
       icon: Gauge,
       clickable: true,
+      stats: [{ label: '熔断器', key: 'kernelBreakers' }],
     },
     {
       id: 'kernelObservability',
@@ -337,6 +339,7 @@ const aiKernelLayer: ArchitectureLayer = {
       href: '/admin/kernel/observability',
       icon: Activity,
       clickable: true,
+      stats: [{ label: 'LLM调用', key: 'kernelLLMCalls' }],
     },
     {
       id: 'kernelSecurity',
@@ -416,8 +419,10 @@ const aiEngineLayer: ArchitectureLayer = {
       id: 'mcpClients',
       i18nKey: 'admin.nav.mcpClients',
       descriptionKey: 'admin.architecture.cards.mcpClientsDesc',
+      href: '/admin/ai/mcp-servers',
       icon: Share2,
-      clickable: false,
+      clickable: true,
+      stats: [{ label: '服务器', key: 'mcpServers' }],
     },
     {
       id: 'guardrails',
@@ -458,6 +463,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/access/permissions',
           icon: Shield,
           clickable: true,
+          stats: [{ label: '管理员', key: 'adminUsers' }],
         },
         {
           id: 'secrets',
@@ -479,6 +485,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/access/credits',
           icon: Coins,
           clickable: true,
+          stats: [{ label: '账户', key: 'creditAccounts' }],
         },
         {
           id: 'billing',
@@ -486,6 +493,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/access/billing',
           icon: CreditCard,
           clickable: true,
+          stats: [{ label: '交易', key: 'creditTransactions' }],
         },
         {
           id: 'notifications',
@@ -493,6 +501,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/system/notifications',
           icon: Bell,
           clickable: true,
+          stats: [{ label: '通知', key: 'notifications' }],
         },
       ],
     },
@@ -506,6 +515,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/data-management',
           icon: Layers,
           clickable: true,
+          stats: [{ label: '表', key: 'dbTables' }],
         },
         {
           id: 'storage',
@@ -513,6 +523,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/system/storage',
           icon: HardDrive,
           clickable: true,
+          stats: [{ label: '配置', key: 'storageProviders' }],
         },
       ],
     },
@@ -526,6 +537,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/system',
           icon: Settings,
           clickable: true,
+          stats: [{ label: '设置', key: 'systemSettings' }],
         },
         {
           id: 'logs',
@@ -533,6 +545,7 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/system/logs',
           icon: ScrollText,
           clickable: true,
+          stats: [{ label: '近期', key: 'recentLogs' }],
         },
         {
           id: 'monitoring',

@@ -12,6 +12,8 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  InternalServerErrorException,
+  ServiceUnavailableException,
   Optional,
   Inject,
 } from "@nestjs/common";
@@ -153,7 +155,9 @@ export class ContentFetchService {
       const extracted = await this.webExtractor.extractContent(url);
 
       if (extracted.error || !extracted.content) {
-        throw new Error(extracted.error || "无法提取内容");
+        throw new InternalServerErrorException(
+          extracted.error || "无法提取内容",
+        );
       }
 
       return {
@@ -172,7 +176,7 @@ export class ContentFetchService {
     } catch (error) {
       const err = error as Error;
       this.logger.error(`Failed to fetch URL: ${url}`, err);
-      throw new Error(`无法获取URL内容: ${err.message}`);
+      throw new InternalServerErrorException(`无法获取URL内容: ${err.message}`);
     }
   }
 
@@ -238,7 +242,9 @@ export class ContentFetchService {
 
       // 2. 缓存不存在或已过期，使用 YoutubeService 获取（会自动缓存）
       if (!this.youtubeService) {
-        throw new Error("YoutubeService 未注入，无法获取视频字幕");
+        throw new ServiceUnavailableException(
+          "YoutubeService 未注入，无法获取视频字幕",
+        );
       }
       this.logger.log(
         `[Cache Miss] Fetching transcript via YoutubeService for ${videoId}`,
@@ -251,7 +257,7 @@ export class ContentFetchService {
       } | null;
 
       if (!transcript?.transcript?.length) {
-        throw new Error("无法获取视频字幕");
+        throw new InternalServerErrorException("无法获取视频字幕");
       }
 
       // 构建内容
@@ -289,7 +295,9 @@ export class ContentFetchService {
     } catch (error) {
       const err = error as Error;
       this.logger.error(`Failed to fetch YouTube transcript: ${videoId}`, err);
-      throw new Error(`无法获取YouTube字幕: ${err.message}`);
+      throw new InternalServerErrorException(
+        `无法获取YouTube字幕: ${err.message}`,
+      );
     }
   }
 

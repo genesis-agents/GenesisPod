@@ -6,7 +6,14 @@
  * with MCPManager for actual connections.
  */
 
-import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  Optional,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { MCPManager } from "../manager/mcp-manager";
@@ -81,11 +88,13 @@ export class MCPClientRegistryService implements OnModuleInit {
     });
 
     if (!serverConfig) {
-      throw new Error(`Server config not found for serverId: ${serverId}`);
+      throw new NotFoundException(
+        `Server config not found for serverId: ${serverId}`,
+      );
     }
 
     if (!serverConfig.url) {
-      throw new Error(
+      throw new BadRequestException(
         `Server ${serverId} has no URL configured. URL is required for external MCP connections.`,
       );
     }
@@ -199,11 +208,11 @@ export class MCPClientRegistryService implements OnModuleInit {
   async discoverTools(serverId: string) {
     const client = this.mcpManager.getClient(serverId);
     if (!client) {
-      throw new Error(`No connected client for server ${serverId}`);
+      throw new NotFoundException(`No connected client for server ${serverId}`);
     }
 
     if (!client.connected) {
-      throw new Error(
+      throw new BadRequestException(
         `Client for server ${serverId} is not connected. Connect first.`,
       );
     }

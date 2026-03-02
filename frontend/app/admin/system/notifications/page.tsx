@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, Send, Loader2 } from 'lucide-react';
+import {
+  Bell,
+  Send,
+  Loader2,
+  Trash2,
+  CheckCircle,
+  CheckCheck,
+} from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -47,6 +54,17 @@ const TYPE_COLORS: Record<string, string> = {
   MENTION: 'bg-pink-100 text-pink-800',
 };
 
+const NOTIFICATION_TYPES = [
+  'SYSTEM',
+  'UPDATE',
+  'TIP',
+  'CREDITS_LOW',
+  'CREDITS_RECEIVED',
+  'RESEARCH_COMPLETED',
+  'TASK_ASSIGNED',
+  'MENTION',
+];
+
 export default function NotificationsPage() {
   const { t } = useTranslation();
   const [stats, setStats] = useState<NotificationStats | null>(null);
@@ -55,9 +73,14 @@ export default function NotificationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
+  // Filters
+  const [filterType, setFilterType] = useState('');
+  const [filterReadStatus, setFilterReadStatus] = useState('');
+
   // Broadcast form
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastType, setBroadcastType] = useState('SYSTEM');
   const [sending, setSending] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -79,6 +102,8 @@ export default function NotificationsPage() {
     setError(null);
     try {
       const params = new URLSearchParams({ page: String(page), limit: '20' });
+      if (filterType) params.append('type', filterType);
+      if (filterReadStatus) params.append('readStatus', filterReadStatus);
       const res = await fetch(
         `${config.apiUrl}/admin/notifications/recent?${params}`,
         { headers: getAuthHeader() }
@@ -96,7 +121,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, t]);
+  }, [page, filterType, filterReadStatus, t]);
 
   useEffect(() => {
     void fetchStats();
@@ -120,6 +145,7 @@ export default function NotificationsPage() {
           body: JSON.stringify({
             title: broadcastTitle,
             message: broadcastMessage,
+            type: broadcastType,
           }),
         }
       );
@@ -146,6 +172,54 @@ export default function NotificationsPage() {
       logger.error('Failed to broadcast notification:', err);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/admin/notifications/${id}/read`,
+        {
+          method: 'PATCH',
+          headers: getAuthHeader(),
+        }
+      );
+      if (!res.ok) throw new Error('Failed to mark as read');
+      void fetchRecent();
+      void fetchStats();
+    } catch (err) {
+      logger.error('Failed to mark notification as read:', err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/admin/notifications/mark-all-read`,
+        {
+          method: 'POST',
+          headers: getAuthHeader(),
+        }
+      );
+      if (!res.ok) throw new Error('Failed to mark all as read');
+      void fetchRecent();
+      void fetchStats();
+    } catch (err) {
+      logger.error('Failed to mark all as read:', err);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/notifications/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) throw new Error('Failed to delete notification');
+      void fetchRecent();
+      void fetchStats();
+    } catch (err) {
+      logger.error('Failed to delete notification:', err);
     }
   };
 
@@ -225,6 +299,17 @@ export default function NotificationsPage() {
               rows={4}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
             />
+            <select
+              value={broadcastType}
+              onChange={(e) => setBroadcastType(e.target.value)}
+              className="w-full rounded-lg border bg-white px-3 py-2 text-sm focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
+            >
+              {NOTIFICATION_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               disabled={
@@ -244,11 +329,50 @@ export default function NotificationsPage() {
 
         {/* Recent Notifications */}
         <div className="rounded-xl border bg-white shadow-sm lg:col-span-2">
-          <div className="border-b px-4 py-3">
+          <div className="flex items-center justify-between border-b px-4 py-3">
             <h3 className="font-medium">
               {t('admin.notifications.recentTitle')}
             </h3>
+            <button
+              onClick={() => void handleMarkAllRead()}
+              className="flex items-center gap-1 rounded-lg border border-green-200 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              {t('admin.notifications.markAllRead')}
+            </button>
           </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+            <select
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border bg-white px-2 py-1 text-xs focus:border-blue-300 focus:outline-none"
+            >
+              <option value="">{t('admin.notifications.allTypes')}</option>
+              {NOTIFICATION_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filterReadStatus}
+              onChange={(e) => {
+                setFilterReadStatus(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border bg-white px-2 py-1 text-xs focus:border-blue-300 focus:outline-none"
+            >
+              <option value="">{t('admin.notifications.allStatus')}</option>
+              <option value="read">{t('admin.notifications.read')}</option>
+              <option value="unread">{t('admin.notifications.unread')}</option>
+            </select>
+          </div>
+
           {loading ? (
             <div className="flex h-48 items-center justify-center text-gray-400">
               {t('admin.notifications.loading')}
@@ -273,6 +397,9 @@ export default function NotificationsPage() {
                       </th>
                       <th className="px-4 py-2">
                         {t('admin.notifications.columns.status')}
+                      </th>
+                      <th className="px-4 py-2 text-right">
+                        {t('admin.notifications.columns.actions')}
                       </th>
                     </tr>
                   </thead>
@@ -307,12 +434,32 @@ export default function NotificationsPage() {
                               : t('admin.notifications.unread')}
                           </span>
                         </td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {!item.read && (
+                              <button
+                                onClick={() => void handleMarkRead(item.id)}
+                                className="rounded p-1 text-green-600 hover:bg-green-50"
+                                title={t('admin.notifications.markRead')}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => void handleDelete(item.id)}
+                              className="rounded p-1 text-red-500 hover:bg-red-50"
+                              title={t('admin.notifications.delete')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                     {(!notifData?.items || notifData.items.length === 0) && (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="px-4 py-8 text-center text-gray-400"
                         >
                           {t('admin.notifications.noNotifications')}

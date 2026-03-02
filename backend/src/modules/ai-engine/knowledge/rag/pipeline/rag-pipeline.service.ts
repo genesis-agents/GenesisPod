@@ -15,7 +15,11 @@
  * Migrated from ai-app/rag/ to ai-engine/rag/pipeline/ for cross-module reuse.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "../embedding";
@@ -421,7 +425,7 @@ Focus on being specific and informative.`;
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Cohere rerank failed: ${error}`);
+      throw new InternalServerErrorException(`Cohere rerank failed: ${error}`);
     }
 
     const data = await response.json();

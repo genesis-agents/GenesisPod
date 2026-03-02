@@ -51,13 +51,30 @@ export class NotificationsAdminService {
     }
   }
 
-  async getRecentNotifications(page: number, limit: number) {
+  async getRecentNotifications(
+    page: number,
+    limit: number,
+    type?: string,
+    readStatus?: string,
+  ) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(100, Math.max(1, limit));
+
+    // Build filter
+    const where: Record<string, unknown> = {};
+    if (type) {
+      where.type = type;
+    }
+    if (readStatus === "read") {
+      where.read = true;
+    } else if (readStatus === "unread") {
+      where.read = false;
+    }
 
     try {
       const [items, total] = await Promise.all([
         this.prisma.notification.findMany({
+          where,
           skip: (safePage - 1) * safeLimit,
           take: safeLimit,
           orderBy: { createdAt: "desc" },
@@ -67,7 +84,7 @@ export class NotificationsAdminService {
             },
           },
         }),
-        this.prisma.notification.count(),
+        this.prisma.notification.count({ where }),
       ]);
 
       return {
@@ -92,9 +109,33 @@ export class NotificationsAdminService {
     }
   }
 
-  async broadcastNotification(title: string, message: string) {
+  async markAsRead(notificationId: string) {
+    await this.prisma.notification.update({
+      where: { id: notificationId },
+      data: { read: true },
+    });
+    return { success: true };
+  }
+
+  async markAllRead() {
+    const result = await this.prisma.notification.updateMany({
+      where: { read: false },
+      data: { read: true },
+    });
+    return { updated: result.count };
+  }
+
+  async deleteNotification(notificationId: string) {
+    await this.prisma.notification.delete({
+      where: { id: notificationId },
+    });
+    return { success: true };
+  }
+
+  async broadcastNotification(title: string, message: string, type = "SYSTEM") {
     const trimmedTitle = title.trim().slice(0, 200);
     const trimmedMessage = message.trim().slice(0, 2000);
+    const safeType = type.trim() || "SYSTEM";
 
     // Use raw SQL INSERT...SELECT to avoid loading all users into memory
     const sent: number = await this.prisma.$executeRaw`
@@ -102,7 +143,7 @@ export class NotificationsAdminService {
       SELECT
         gen_random_uuid(),
         id,
-        'SYSTEM'::"NotificationType",
+        ${safeType}::"NotificationType",
         ${trimmedTitle},
         ${trimmedMessage},
         false,
@@ -112,7 +153,7 @@ export class NotificationsAdminService {
     `;
 
     this.logger.log(
-      `Broadcast notification to ${sent} users: "${trimmedTitle}"`,
+      `Broadcast notification to ${sent} users: "${trimmedTitle}" (${safeType})`,
     );
     return { sent };
   }

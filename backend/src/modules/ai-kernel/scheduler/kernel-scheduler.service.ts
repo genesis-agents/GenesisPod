@@ -11,6 +11,7 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 @Injectable()
@@ -64,10 +65,8 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   private async checkTableExists(): Promise<boolean> {
     try {
-      const result = await this.prisma.$queryRawUnsafe<
-        Array<{ exists: boolean }>
-      >(
-        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_processes') AS "exists"`,
+      const result = await this.prisma.$queryRaw<Array<{ exists: boolean }>>(
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_processes') AS "exists"`,
       );
       return result[0]?.exists === true;
     } catch {

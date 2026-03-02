@@ -2,9 +2,10 @@
  * AI Kernel - Abstractions Layer
  *
  * This is the ONLY file in ai-kernel that is permitted to import from ai-engine.
- * All other kernel files must import from this barrel instead of reaching into
- * ai-engine directly. This indirection layer keeps L3 (ai-kernel) decoupled
- * from L2 (ai-engine) internal paths.
+ * All types are imported through the ai-engine FACADE — never from internal paths.
+ * This keeps L3 (ai-kernel) decoupled from L2 (ai-engine) internal structure.
+ *
+ * @see ai-engine/facade/index.ts (Phase 8 section)
  */
 
 // ==================== Realtime / Event Emitter ====================
@@ -15,7 +16,7 @@ export type {
   ProgressEvent,
   RoomConfig,
   RoomType,
-} from "../../ai-engine/infra/realtime/abstractions/event-emitter.interface";
+} from "../../ai-engine/facade";
 
 // ==================== Realtime / Progress Tracker ====================
 
@@ -24,9 +25,9 @@ export type {
   TrackedTask,
   CreateTrackedTaskRequest,
   TaskPhase,
-} from "../../ai-engine/infra/realtime/abstractions/progress-tracker.interface";
+} from "../../ai-engine/facade";
 
-export { calculateOverallProgress } from "../../ai-engine/infra/realtime/abstractions/progress-tracker.interface";
+export { calculateOverallProgress } from "../../ai-engine/facade";
 
 // ==================== Observability / Trace ====================
 
@@ -42,7 +43,7 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../../ai-engine/infra/observability/trace.interface";
+} from "../../ai-engine/facade";
 
 // ==================== Teams / A2A Message ====================
 
@@ -51,7 +52,7 @@ export type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../ai-engine/teams/abstractions/a2a-message.interface";
+} from "../../ai-engine/facade";
 
 // ==================== Teams / Member ====================
 
@@ -59,29 +60,23 @@ export type {
   ITeamMember,
   TeamMemberId,
   MemberStatus,
-} from "../../ai-engine/teams/abstractions/member.interface";
+} from "../../ai-engine/facade";
 
 // ==================== Teams / Role ====================
 
-export type {
-  IRole,
-  WorkStyle,
-} from "../../ai-engine/teams/abstractions/role.interface";
+export type { IRole, WorkStyle } from "../../ai-engine/facade";
 
 // ==================== Teams / Team ====================
 
-export type { TeamId } from "../../ai-engine/teams/abstractions/team.interface";
+export type { TeamId } from "../../ai-engine/facade";
 
 // ==================== Core / Agent Types ====================
 
-export type { SkillId, ToolId } from "../../ai-engine/core/types/agent.types";
+export type { SkillId, ToolId } from "../../ai-engine/facade";
 
 // ==================== Orchestration / Abstractions ====================
 
-export type {
-  Checkpoint,
-  ExecutionContext,
-} from "../../ai-engine/orchestration/abstractions/orchestrator.interface";
+export type { Checkpoint, ExecutionContext } from "../../ai-engine/facade";
 
 // ==================== Teams / Constraint Engine ====================
 
@@ -92,7 +87,7 @@ export type {
   QualityEvaluation,
   EfficiencyEvaluation,
   ConstraintWarning,
-  ConstraintViolation as ConstraintEngineViolation,
+  ConstraintEngineViolation,
   ConstraintSuggestion,
   ResourceRequirement,
   ResourceAllocation,
@@ -100,10 +95,11 @@ export type {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../../ai-engine/teams/constraints/constraint-engine.interface";
+} from "../../ai-engine/facade";
 
 // Also re-export ConstraintViolation under its original name for kernel-internal use
-export type { ConstraintViolation } from "../../ai-engine/teams/constraints/constraint-engine.interface";
+// (the facade exports this as ConstraintEngineViolation to avoid collision)
+export type { ConstraintEngineViolation as ConstraintViolation } from "../../ai-engine/facade";
 
 // ==================== Orchestration / Services / Interfaces ====================
 
@@ -114,11 +110,11 @@ export type {
   OutputValidationResult,
   HardConstraint,
   IConstraintEnforcementService,
-} from "../../ai-engine/orchestration/services/interfaces";
+} from "../../ai-engine/facade";
 
 // ==================== Teams / Constraints / Constraint Profile ====================
 
-export type { ConstraintProfile } from "../../ai-engine/teams/constraints/constraint-profile";
+export type { ConstraintProfile } from "../../ai-engine/facade";
 
 // ==================== Memory / Abstractions ====================
 
@@ -131,7 +127,7 @@ export type {
   MemorySearchOptions,
   MemorySearchResult,
   ConversationMessage,
-} from "../../ai-engine/knowledge/memory/abstractions/memory.interface";
+} from "../../ai-engine/facade";
 
 // ==================== DI Tokens for Service-Class Injections ====================
 
