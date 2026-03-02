@@ -29,6 +29,7 @@ describe("StatisticsService", () => {
     notification: { count: jest.Mock };
     systemSetting: { count: jest.Mock };
     systemErrorLog: { count: jest.Mock };
+    loginHistory: { count: jest.Mock };
     mCPServerConfig: { count: jest.Mock };
     askSession: { count: jest.Mock };
     agentTrace: { count: jest.Mock };
@@ -36,6 +37,9 @@ describe("StatisticsService", () => {
     knowledgeBase: { count: jest.Mock };
     feedback: { count: jest.Mock };
     agentConfig: { count: jest.Mock };
+    collectionItem: { count: jest.Mock };
+    aIEngineMetric: { count: jest.Mock };
+    $queryRaw: jest.Mock;
   };
   let mockKernelApi: {
     getEventBusStats: jest.Mock;
@@ -67,6 +71,7 @@ describe("StatisticsService", () => {
       notification: { count: jest.fn().mockResolvedValue(0) },
       systemSetting: { count: jest.fn().mockResolvedValue(0) },
       systemErrorLog: { count: jest.fn().mockResolvedValue(0) },
+      loginHistory: { count: jest.fn().mockResolvedValue(0) },
       mCPServerConfig: { count: jest.fn().mockResolvedValue(0) },
       askSession: { count: jest.fn().mockResolvedValue(0) },
       agentTrace: { count: jest.fn().mockResolvedValue(0) },
@@ -74,6 +79,9 @@ describe("StatisticsService", () => {
       knowledgeBase: { count: jest.fn().mockResolvedValue(0) },
       feedback: { count: jest.fn().mockResolvedValue(0) },
       agentConfig: { count: jest.fn().mockResolvedValue(0) },
+      collectionItem: { count: jest.fn().mockResolvedValue(0) },
+      aIEngineMetric: { count: jest.fn().mockResolvedValue(0) },
+      $queryRaw: jest.fn().mockResolvedValue([{ count: BigInt(42) }]),
     };
 
     mockKernelApi = {
@@ -134,6 +142,7 @@ describe("StatisticsService", () => {
       mockPrisma.notification.count.mockResolvedValue(value + 19);
       mockPrisma.systemSetting.count.mockResolvedValue(value + 20);
       mockPrisma.systemErrorLog.count.mockResolvedValue(value + 21);
+      mockPrisma.loginHistory.count.mockResolvedValue(value);
       mockPrisma.mCPServerConfig.count.mockResolvedValue(value + 22);
       mockPrisma.askSession.count.mockResolvedValue(value + 23);
       mockPrisma.agentTrace.count.mockResolvedValue(value + 24);
@@ -141,6 +150,9 @@ describe("StatisticsService", () => {
       mockPrisma.knowledgeBase.count.mockResolvedValue(value + 26);
       mockPrisma.feedback.count.mockResolvedValue(value + 27);
       mockPrisma.agentConfig.count.mockResolvedValue(value + 28);
+      mockPrisma.collectionItem.count.mockResolvedValue(value);
+      mockPrisma.aIEngineMetric.count.mockResolvedValue(value);
+      mockPrisma.$queryRaw.mockResolvedValue([{ count: BigInt(42) }]);
     };
 
     it("should return all stat keys including kernel in-memory stats", async () => {
@@ -182,7 +194,8 @@ describe("StatisticsService", () => {
         "dbTables",
         "storageProviders",
         "systemSettings",
-        "recentLogs",
+        "totalLogins",
+        "monitoringErrors",
         // L2 Engine
         "mcpServers",
         "agents",
@@ -195,6 +208,7 @@ describe("StatisticsService", () => {
         "agentTraces",
         // L4 Apps
         "feedbackCount",
+        "bookmarkedResources",
       ];
       expectedKeys.forEach((key) => {
         expect(result).toHaveProperty(key);
@@ -269,6 +283,7 @@ describe("StatisticsService", () => {
       mockPrisma.notification.count.mockResolvedValue(0);
       mockPrisma.systemSetting.count.mockResolvedValue(0);
       mockPrisma.systemErrorLog.count.mockResolvedValue(0);
+      mockPrisma.loginHistory.count.mockResolvedValue(0);
       mockPrisma.mCPServerConfig.count.mockResolvedValue(0);
       mockPrisma.askSession.count.mockResolvedValue(0);
       mockPrisma.agentTrace.count.mockResolvedValue(0);
@@ -276,6 +291,9 @@ describe("StatisticsService", () => {
       mockPrisma.knowledgeBase.count.mockResolvedValue(0);
       mockPrisma.feedback.count.mockResolvedValue(0);
       mockPrisma.agentConfig.count.mockResolvedValue(0);
+      mockPrisma.collectionItem.count.mockResolvedValue(0);
+      mockPrisma.aIEngineMetric.count.mockResolvedValue(0);
+      mockPrisma.$queryRaw.mockResolvedValue([{ count: BigInt(0) }]);
       mockKernelApi.getEventBusStats.mockReturnValue({
         activeSubscriptions: 0,
       });

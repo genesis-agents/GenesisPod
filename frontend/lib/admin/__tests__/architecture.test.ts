@@ -246,6 +246,18 @@ describe('aiEngine layer (level 2)', () => {
     expect(card?.clickable).toBe(false);
   });
 
+  it('rag card is clickable with href /library/rag', () => {
+    const card = layer.cards?.find((c) => c.id === 'rag');
+    expect(card?.clickable).toBe(true);
+    expect(card?.href).toBe('/library/rag');
+  });
+
+  it('mcpClients card has href /admin/ai/tools', () => {
+    const card = layer.cards?.find((c) => c.id === 'mcpClients');
+    expect(card?.clickable).toBe(true);
+    expect(card?.href).toBe('/admin/ai/tools');
+  });
+
   it('skills card has stats with key "skills"', () => {
     const card = layer.cards?.find((c) => c.id === 'skills');
     const stat = card?.stats?.find((s) => s.key === 'skills');
@@ -292,11 +304,18 @@ describe('infrastructure layer (level 1)', () => {
     expect(statKeys).toContain('activeUsers');
   });
 
-  it('systemOps group has monitoring card', () => {
+  it('systemOps group has monitoring card with monitoringErrors stat', () => {
     const group = layer.groups?.find((g) => g.id === 'systemOps');
     const card = group?.cards.find((c) => c.id === 'monitoring');
     expect(card?.href).toBe('/admin/system/monitoring');
     expect(card?.clickable).toBe(true);
+    expect(card?.stats?.[0]?.key).toBe('monitoringErrors');
+  });
+
+  it('systemOps group has logs card with totalLogins stat', () => {
+    const group = layer.groups?.find((g) => g.id === 'systemOps');
+    const card = group?.cards.find((c) => c.id === 'logs');
+    expect(card?.stats?.[0]?.key).toBe('totalLogins');
   });
 
   it('dataStorage group has storage card with correct href', () => {

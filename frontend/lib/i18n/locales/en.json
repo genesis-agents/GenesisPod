@@ -3898,8 +3898,8 @@
       "subtitle": "Click on configurable cards to manage settings",
       "backToOverview": "Back to Architecture",
       "layers": {
-        "agentOs": "Layer 6: Gateway",
-        "agentOsDesc": "Smart Gateway — unified entry, intent parsing, request dispatch, trace collection",
+        "agentOs": "Layer 6: Intent Gateway",
+        "agentOsDesc": "Intent Gateway — unified entry, intent parsing, request dispatch, trace collection",
         "openApi": "Layer 5: Open API",
         "openApiDesc": "External interfaces for AI agents and third-party integrations",
         "aiApps": "Layer 4: AI Agents",

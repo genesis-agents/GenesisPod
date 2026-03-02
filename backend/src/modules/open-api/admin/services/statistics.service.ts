@@ -1,4 +1,4 @@
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KernelApiService } from "../../../ai-kernel/facade";
 
@@ -8,6 +8,8 @@ import { KernelApiService } from "../../../ai-kernel/facade";
  */
 @Injectable()
 export class StatisticsService {
+  private readonly logger = new Logger(StatisticsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Optional() private kernelApi?: KernelApiService,
@@ -17,6 +19,8 @@ export class StatisticsService {
    * 获取 Overview 页面各模块统计数据（供架构图展示）
    */
   async getOverviewStats(): Promise<Record<string, number>> {
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
     const [
       resources,
       researchMissions,
@@ -43,15 +47,20 @@ export class StatisticsService {
       creditTransactions,
       notifications,
       systemSettings,
-      recentLogs,
+      monitoringErrors,
+      totalLogins,
       mcpServers,
-      // New: L6/L5/L4/L2 stats for cards that previously had no counts
+      // L6/L5/L4/L2 stats
       askSessions,
       agentTraces,
       webhookSubscriptions,
       knowledgeBases,
       feedbackCount,
       agents,
+      // L4 Library-specific: bookmarked resources
+      bookmarkedResources,
+      // L3 Observability: DB-backed LLM call count (last 24h)
+      llmCallsDb,
     ] = await Promise.all([
       this.prisma.resource.count(),
       this.prisma.researchMission.count(),
@@ -82,25 +91,36 @@ export class StatisticsService {
       this.safeCount(() => this.prisma.systemSetting.count()),
       this.safeCount(() =>
         this.prisma.systemErrorLog.count({
-          where: {
-            createdAt: {
-              gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
-            },
-          },
+          where: { createdAt: { gte: last24h } },
         }),
       ),
+      this.safeCount(() => this.prisma.loginHistory.count()),
       this.safeCount(() => this.prisma.mCPServerConfig.count()),
-      // New: L6 Ask sessions, L6 Agent traces, L5 Webhooks, L4 RAG, L4 Feedback, L2 Agents
+      // L6 Ask sessions, L6 Agent traces, L5 Webhooks, L4 RAG, L4 Feedback, L2 Agents
       this.safeCount(() => this.prisma.askSession.count()),
       this.safeCount(() => this.prisma.agentTrace.count()),
       this.safeCount(() => this.prisma.webhookSubscription.count()),
       this.safeCount(() => this.prisma.knowledgeBase.count()),
       this.safeCount(() => this.prisma.feedback.count()),
       this.safeCount(() => this.prisma.agentConfig.count()),
+      // L4 Library: user-saved items in collections
+      this.safeCount(() => this.prisma.collectionItem.count()),
+      // L3 Observability: LLM calls persisted in DB (last 24h)
+      this.safeCount(() =>
+        this.prisma.aIEngineMetric.count({
+          where: {
+            metricType: "llm_call",
+            createdAt: { gte: last24h },
+          },
+        }),
+      ),
     ]);
 
-    // Kernel in-memory stats (IPC, Resources, Observability)
+    // Kernel in-memory stats (IPC, Resources)
     const kernelInMemory = this.getKernelInMemoryStats();
+
+    // DB table count (from PostgreSQL information_schema)
+    const dbTables = await this.getDbTableCount();
 
     return {
       resources,
@@ -128,15 +148,21 @@ export class StatisticsService {
       creditAccounts,
       creditTransactions,
       notifications,
-      dbTables: 0, // placeholder — no dynamic table count needed
+      dbTables,
       storageProviders: 5, // static: 5 supported providers
       systemSettings,
-      recentLogs,
+      totalLogins,
+      monitoringErrors,
       // L2 Engine
       mcpServers,
       agents,
       knowledgeBases,
       guardrailRules: 2, // static: input + output validators (no DB model)
+      // L3 Observability: use DB count when in-memory is 0
+      kernelLLMCalls:
+        kernelInMemory.kernelLLMCalls > 0
+          ? kernelInMemory.kernelLLMCalls
+          : llmCallsDb,
       // L5 Open API
       webhookSubscriptions,
       // L6 Gateway
@@ -144,6 +170,7 @@ export class StatisticsService {
       agentTraces,
       // L4 Apps
       feedbackCount,
+      bookmarkedResources,
     };
   }
 
@@ -168,6 +195,21 @@ export class StatisticsService {
       };
     } catch {
       return { kernelSubscriptions: 0, kernelBreakers: 0, kernelLLMCalls: 0 };
+    }
+  }
+
+  /** Count real DB tables from PostgreSQL information_schema */
+  private async getDbTableCount(): Promise<number> {
+    try {
+      const result = await this.prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT count(*)::bigint as count
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      `;
+      return Number(result[0]?.count ?? 0);
+    } catch (e) {
+      this.logger.warn(`Failed to query DB table count: ${e}`);
+      return 0;
     }
   }
 

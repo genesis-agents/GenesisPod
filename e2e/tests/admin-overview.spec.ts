@@ -25,6 +25,7 @@ const EXPECTED_STAT_KEYS = [
   "tools",
   "skills",
   "feedbackCount",
+  "bookmarkedResources",
   // L3 Kernel
   "kernelProcesses",
   "kernelRunning",
@@ -50,7 +51,8 @@ const EXPECTED_STAT_KEYS = [
   "dbTables",
   "storageProviders",
   "systemSettings",
-  "recentLogs",
+  "totalLogins",
+  "monitoringErrors",
   // L6 Gateway
   "askSessions",
   "agentTraces",
@@ -81,7 +83,6 @@ const CLICKABLE_CARDS_HREFS = [
   "/admin/ai/teams",
   "/admin/ai/skills",
   "/admin/ai/tools",
-  "/admin/ai/mcp-servers",
   "/admin/access/users",
   "/admin/access/permissions",
   "/admin/access/secrets",
@@ -210,7 +211,6 @@ test.describe("Admin Overview — Architecture Diagram", () => {
     const nonClickableIds = [
       "webhooks",
       "guardrails",
-      "rag",
       "intentRouter",
       "aiPlanning",
     ];
@@ -243,13 +243,13 @@ test.describe("Admin Overview — Architecture Diagram", () => {
     const l2Heading = page.getByRole("heading", { name: /Engine/i });
     await expect(l2Heading).toBeVisible();
 
-    // L2 should have engine module links (models, agents, teams, skills, tools, mcp-servers + non-link cards)
+    // L2 should have engine module links (models, agents, teams, skills, tools + mcp-clients now under /admin/ai/tools)
     const engineLinks = page.locator(
       'a[href^="/admin/ai/"]:not([href*="traces"])',
     );
-    // At minimum: models, agents, teams, skills, tools, mcp-servers = 6 clickable cards
+    // At minimum: models, agents, teams, skills, tools, mcp-clients = 6 clickable cards (mcp-clients shares tools href)
     const count = await engineLinks.count();
-    expect(count, "L2 should have at least 6 clickable engine cards").toBeGreaterThanOrEqual(6);
+    expect(count, "L2 should have at least 5 clickable engine cards").toBeGreaterThanOrEqual(5);
   });
 
   test("static stat values are correct", async ({ page, baseURL }) => {
@@ -267,5 +267,7 @@ test.describe("Admin Overview — Architecture Diagram", () => {
     expect(stats.storageProviders).toBe(5);
     // guardrailRules is always 2
     expect(stats.guardrailRules).toBe(2);
+    // dbTables should be > 0 (real table count from PostgreSQL)
+    expect(stats.dbTables).toBeGreaterThan(0);
   });
 });

@@ -3898,8 +3898,8 @@
       "subtitle": "点击可配置的卡片进入管理设置",
       "backToOverview": "返回架构图",
       "layers": {
-        "agentOs": "第六层：Gateway",
-        "agentOsDesc": "智能网关 — 统一入口、意图解析、请求分发、调用链追踪",
+        "agentOs": "第六层：Intent Gateway",
+        "agentOsDesc": "意图网关 — 统一入口、意图解析、请求分发、调用链追踪",
         "openApi": "第五层：开放 API",
         "openApiDesc": "面向 AI Agent 和第三方的外部接口",
         "aiApps": "第四层：AI Agents",
