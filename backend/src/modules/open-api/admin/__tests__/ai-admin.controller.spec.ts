@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { AIAdminController } from "../ai-admin.controller";
 import { AIAdminService } from "../ai-admin.service";
+import { GuardrailsPipelineService } from "../../../ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 
@@ -49,6 +50,14 @@ const mockAIAdminService = {
   getUsageCountsByType: jest.fn(),
 };
 
+const mockGuardrailsPipeline = {
+  getRegisteredGuardrails: jest.fn().mockReturnValue({
+    input: [],
+    output: [],
+    totalRules: 0,
+  }),
+};
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -60,7 +69,13 @@ describe("AIAdminController", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AIAdminController],
-      providers: [{ provide: AIAdminService, useValue: mockAIAdminService }],
+      providers: [
+        { provide: AIAdminService, useValue: mockAIAdminService },
+        {
+          provide: GuardrailsPipelineService,
+          useValue: mockGuardrailsPipeline,
+        },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })

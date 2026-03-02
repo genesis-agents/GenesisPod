@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
-import AppShell from '@/components/layout/AppShell';
 import PDFThumbnail from '@/components/ui/PDFThumbnail';
 import PDFViewer from '@/components/ui/PDFViewer';
 import HTMLViewer from '@/components/ui/HTMLViewer';
@@ -1618,7 +1617,7 @@ function HomeContent() {
   };
 
   return (
-    <AppShell className="relative w-screen overflow-hidden">
+    <>
       <ReportWorkspace />
 
       {/* Center Content Area */}
@@ -3716,7 +3715,7 @@ function HomeContent() {
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
       />
-    </AppShell>
+    </>
   );
 }
 
