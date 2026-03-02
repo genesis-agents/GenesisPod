@@ -1,6 +1,6 @@
 {
   "name": "genesis-backend",
-  "version": "13.1.0",
+  "version": "14.0.1",
   "description": "Genesis.ai Backend API",
   "private": true,
   "scripts": {
