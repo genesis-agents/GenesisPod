@@ -5,15 +5,15 @@
  * All higher-layer modules (L2 AI Engine, L4 AI Apps, L5 Open API)
  * should import ai-infra symbols from this facade, not from internal paths.
  *
- * Pattern: same as ai-engine/facade/index.ts
+ * NOTE: NestJS Module classes are NOT exported here to avoid circular
+ * dependency chains. Module imports in `imports: []` arrays should use
+ * direct paths (e.g., `import { CreditsModule } from "../ai-infra/credits/credits.module"`).
  */
 
 // ─── Auth ───
-export { AuthModule } from "../auth/auth.module";
 export { AuthService } from "../auth/auth.service";
 
 // ─── Credits & Billing ───
-export { CreditsModule } from "../credits/credits.module";
 export { CreditsService } from "../credits/credits.service";
 export { CreditRulesService } from "../credits/services/credit-rules.service";
 export { CheckinService } from "../credits/services/checkin.service";
@@ -21,7 +21,6 @@ export { BillingContext } from "../credits/billing-context";
 export { InsufficientCreditsException } from "../credits/exceptions/insufficient-credits.exception";
 
 // ─── Secrets ───
-export { SecretsModule } from "../secrets/secrets.module";
 export { SecretsService } from "../secrets/secrets.service";
 export {
   SECRET_NAMES,
@@ -29,36 +28,30 @@ export {
 } from "../secrets/secret-name-mapping";
 
 // ─── Storage ───
-export { StorageModule } from "../storage/storage.module";
 export { StorageService } from "../storage/storage.service";
 export { R2StorageService } from "../storage/r2-storage.service";
 
 // ─── Email ───
-export { EmailModule } from "../email/email.module";
 export { EmailService } from "../email/email.service";
 
 // ─── Notifications ───
-export { NotificationModule } from "../notifications/notification.module";
 export { NotificationService } from "../notifications/notification.service";
 
 // ─── Settings ───
-export { SettingsModule } from "../settings/settings.module";
 export { SettingsService } from "../settings/settings.service";
 
 // ─── Monitoring ───
-export { MonitoringModule } from "../monitoring/monitoring.module";
 export { AIMetricsService } from "../monitoring/ai-metrics.service";
 export { ErrorTrackingService } from "../monitoring/error-tracking.service";
-export { HealthCheckService } from "../monitoring/health-check.service";
+// NOTE: HealthCheckService NOT exported — it imports from ai-engine/facade
+// which creates L1→L2 circular chains. Import directly if needed.
 
 // ─── User API Keys ───
-export { UserApiKeysModule } from "../user-api-keys/user-api-keys.module";
 export { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 
 // ─── Release ───
-export { ReleaseModule } from "../release/release.module";
-export { ReleaseService } from "../release/release.service";
+// NOTE: ReleaseService NOT exported — it imports from ai-engine/facade
+// which creates L1→L2 circular chains. Import directly if needed.
 
 // ─── Table Management ───
-export { TableManagementModule } from "../table-management/table-management.module";
 export { TableManagementService } from "../table-management/table-management.service";

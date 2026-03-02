@@ -3,11 +3,9 @@ import { ConfigModule } from "@nestjs/config";
 import { FeedbackController } from "./feedback.controller";
 import { FeedbackService } from "./feedback.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import {
-  StorageModule,
-  EmailModule,
-  SecretsModule,
-} from "../../ai-infra/facade";
+import { StorageModule } from "../../ai-infra/storage/storage.module";
+import { EmailModule } from "../../ai-infra/email/email.module";
+import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 
 // AI Services
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";

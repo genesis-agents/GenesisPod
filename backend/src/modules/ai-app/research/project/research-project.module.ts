@@ -11,7 +11,8 @@ import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
-import { StorageModule, CreditsModule } from "../../../ai-infra/facade";
+import { StorageModule } from "../../../ai-infra/storage/storage.module";
+import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 // ★ 依赖反转: 导入 token 用于提供 ITTSService 实现
 import { TTS_SERVICE } from "../../../ai-engine/facade";
 

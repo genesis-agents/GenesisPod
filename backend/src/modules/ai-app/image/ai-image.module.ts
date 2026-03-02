@@ -2,7 +2,8 @@ import { Module, forwardRef, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { MulterModule } from "@nestjs/platform-express";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { StorageModule, SecretsModule } from "../../ai-infra/facade";
+import { StorageModule } from "../../ai-infra/storage/storage.module";
+import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 // ★ 依赖反转: 导入 token 用于提供 ImageGenerationService 实现

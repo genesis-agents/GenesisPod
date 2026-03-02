@@ -25,7 +25,7 @@
 import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { SecretsModule } from "../ai-infra/facade";
+import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 
 // ★ 子模块导入
 import { AiEngineLLMModule } from "./ai-engine-llm.module";
@@ -64,7 +64,7 @@ import { ImageModule } from "./content/image/image.module";
 import { TeamsModule } from "./teams/teams.module";
 // ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
-import { CreditsModule } from "../ai-infra/facade";
+import { CreditsModule } from "../ai-infra/credits/credits.module";
 
 // MCP
 import { MCPManager } from "./mcp/manager/mcp-manager";

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { GoogleDriveAuthService } from "../google-drive-auth.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
 
@@ -71,10 +72,22 @@ describe("GoogleDriveAuthService", () => {
       $transaction: jest.fn(),
     };
 
+    const configMock = {
+      get: jest.fn((key: string, defaultValue?: string) => {
+        const envMap: Record<string, string | undefined> = {
+          GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+          GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+          GOOGLE_DRIVE_REDIRECT_URI: process.env.GOOGLE_DRIVE_REDIRECT_URI,
+        };
+        return envMap[key] ?? defaultValue;
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GoogleDriveAuthService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
 
@@ -146,6 +159,14 @@ describe("GoogleDriveAuthService", () => {
         providers: [
           GoogleDriveAuthService,
           { provide: PrismaService, useValue: { googleDriveConnection: {} } },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn(
+                (_key: string, defaultValue?: string) => defaultValue,
+              ),
+            },
+          },
         ],
       }).compile();
       const unconfiguredService = module.get<GoogleDriveAuthService>(
@@ -257,6 +278,14 @@ describe("GoogleDriveAuthService", () => {
         providers: [
           GoogleDriveAuthService,
           { provide: PrismaService, useValue: { googleDriveConnection: {} } },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn(
+                (_key: string, defaultValue?: string) => defaultValue,
+              ),
+            },
+          },
         ],
       }).compile();
       const unconfiguredService = module.get<GoogleDriveAuthService>(

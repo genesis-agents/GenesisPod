@@ -13,7 +13,8 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService, SecretsModule } from "../../../ai-infra/facade";
+import { SecretsService } from "../../../ai-infra/facade";
+import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { AIModelType } from "@prisma/client";
 
 import { ImageFactory } from "./factory/image-factory";
