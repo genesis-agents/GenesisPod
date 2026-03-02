@@ -6,7 +6,10 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import {
+  LongContentEngineService,
+  ContinuationProtocolService,
+} from "../../../writing/content-engine/services";
 import type {
   LongContentProjectConfig,
   TaskExecutionContext,
@@ -54,7 +57,11 @@ export class TeamsLongContentService {
   /** 任务配置缓存 */
   private missionConfigs = new Map<string, TeamsMissionConfig>();
 
-  constructor(@Optional() private readonly aiFacade?: AIEngineFacade) {}
+  constructor(
+    @Optional() private readonly longContentEngine?: LongContentEngineService,
+    @Optional()
+    private readonly continuationProtocol?: ContinuationProtocolService,
+  ) {}
 
   // ============ 任务初始化 ============
 
@@ -86,7 +93,7 @@ export class TeamsLongContentService {
       expectedWordsPerTask: config.expectedWordsPerTask || 1500,
     };
 
-    await this.aiFacade!.longContentEngine!.initProject(projectConfig);
+    await this.longContentEngine!.initProject(projectConfig);
 
     this.logger.log(
       `Mission ${config.missionId} initialized with ${projectConfig.totalTasks} tasks`,
@@ -98,8 +105,7 @@ export class TeamsLongContentService {
    */
   isMissionInitialized(missionId: string): boolean {
     try {
-      const config =
-        this.aiFacade!.longContentEngine!.getProjectConfig(missionId);
+      const config = this.longContentEngine!.getProjectConfig(missionId);
       return !!config;
     } catch {
       return false;
@@ -126,7 +132,7 @@ export class TeamsLongContentService {
    */
   clearMission(missionId: string): void {
     this.missionConfigs.delete(missionId);
-    this.aiFacade!.longContentEngine!.clearProject(missionId);
+    this.longContentEngine!.clearProject(missionId);
     this.logger.log(`Mission ${missionId} cleared`);
   }
 
@@ -135,7 +141,7 @@ export class TeamsLongContentService {
    * 当实际任务数与初始预估不同时调用
    */
   updateTotalTasks(missionId: string, totalTasks: number): void {
-    this.aiFacade!.longContentEngine!.updateTotalTasks(missionId, totalTasks);
+    this.longContentEngine!.updateTotalTasks(missionId, totalTasks);
     this.logger.log(`Mission ${missionId} totalTasks updated to ${totalTasks}`);
   }
 
@@ -144,8 +150,7 @@ export class TeamsLongContentService {
    */
   getExpectedTaskCount(missionId: string): number | undefined {
     try {
-      const projectConfig =
-        this.aiFacade!.longContentEngine!.getProjectConfig(missionId);
+      const projectConfig = this.longContentEngine!.getProjectConfig(missionId);
       return projectConfig?.totalTasks;
     } catch {
       return undefined;
@@ -220,7 +225,7 @@ export class TeamsLongContentService {
     objectives: string[],
   ): Promise<TaskEstimate> {
     const fullRequirement = `${description}\n\n目标：\n${objectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}`;
-    return this.aiFacade!.longContentEngine!.estimateTaskScale(fullRequirement);
+    return this.longContentEngine!.estimateTaskScale(fullRequirement);
   }
 
   // ============ 任务分解 ============
@@ -235,12 +240,9 @@ export class TeamsLongContentService {
       return "";
     }
 
-    return this.aiFacade!.longContentEngine!.buildGranularityConstraintPrompt(
-      missionId,
-      {
-        projectType: this.detectProjectType(config),
-      },
-    );
+    return this.longContentEngine!.buildGranularityConstraintPrompt(missionId, {
+      projectType: this.detectProjectType(config),
+    });
   }
 
   /**
@@ -256,7 +258,7 @@ export class TeamsLongContentService {
       order: idx + 1,
     }));
 
-    return this.aiFacade!.longContentEngine!.validateTaskDecomposition(
+    return this.longContentEngine!.validateTaskDecomposition(
       missionId,
       taskDecompositions,
     );
@@ -273,7 +275,7 @@ export class TeamsLongContentService {
     currentContent: string,
     taskTitle?: string,
   ): Promise<TaskExecutionContext> {
-    return this.aiFacade!.longContentEngine!.buildTaskExecutionContext(
+    return this.longContentEngine!.buildTaskExecutionContext(
       missionId,
       taskId,
       currentContent,
@@ -297,7 +299,7 @@ export class TeamsLongContentService {
       requireStructuredEnd: true,
     };
 
-    return this.aiFacade!.longContentEngine!.processTaskCompletion(
+    return this.longContentEngine!.processTaskCompletion(
       missionId,
       taskId,
       taskTitle,
@@ -315,13 +317,10 @@ export class TeamsLongContentService {
     content: string,
     expectedWords: number = 1500,
   ): boolean {
-    const result = this.aiFacade!.continuationProtocol!.detectContinuation(
-      content,
-      {
-        minWords: expectedWords,
-        hasStructuredEnd: true,
-      },
-    );
+    const result = this.continuationProtocol!.detectContinuation(content, {
+      minWords: expectedWords,
+      hasStructuredEnd: true,
+    });
     return result.needsContinuation;
   }
 
@@ -333,7 +332,7 @@ export class TeamsLongContentService {
     taskTitle: string,
     taskDescription: string,
   ): string {
-    return this.aiFacade!.longContentEngine!.buildContinuationPrompt(taskId, {
+    return this.longContentEngine!.buildContinuationPrompt(taskId, {
       taskTitle,
       taskDescription,
     });
@@ -343,14 +342,14 @@ export class TeamsLongContentService {
    * 获取续写状态
    */
   getContinuationState(taskId: string): ContinuationState | undefined {
-    return this.aiFacade!.continuationProtocol!.getState(taskId);
+    return this.continuationProtocol!.getState(taskId);
   }
 
   /**
    * 获取续写后的最终结果
    */
   getFinalResult(taskId: string): string | null {
-    return this.aiFacade!.continuationProtocol!.getFinalResult(taskId);
+    return this.continuationProtocol!.getFinalResult(taskId);
   }
 
   // ============ 质量监控 ============
@@ -359,7 +358,7 @@ export class TeamsLongContentService {
    * 获取质量仪表盘
    */
   getQualityDashboard(missionId: string): QualityDashboard {
-    return this.aiFacade!.longContentEngine!.getQualityDashboard(missionId);
+    return this.longContentEngine!.getQualityDashboard(missionId);
   }
 
   /**
@@ -408,7 +407,7 @@ export class TeamsLongContentService {
     fullContent: string;
     dashboard: QualityDashboard;
   }> {
-    return this.aiFacade!.longContentEngine!.buildFinalReport(missionId);
+    return this.longContentEngine!.buildFinalReport(missionId);
   }
 
   /**
@@ -419,9 +418,7 @@ export class TeamsLongContentService {
     title: string;
     content: string;
   }> {
-    return this.aiFacade!.longContentEngine!.getAllCompletedTaskContents(
-      missionId,
-    );
+    return this.longContentEngine!.getAllCompletedTaskContents(missionId);
   }
 
   // ============ 私有方法 ============

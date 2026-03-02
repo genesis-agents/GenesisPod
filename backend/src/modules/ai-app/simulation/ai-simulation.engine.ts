@@ -12,14 +12,16 @@ import { ExternalDataService } from "./external-data.service";
 import {
   ChatFacade,
   ChatMessage,
+  ProgressTrackerService,
+} from "../../ai-engine/facade";
+import {
   MissionExecutorService,
   KernelContext,
-  ProgressTrackerService,
   EventJournalService,
   KernelMemoryManagerService,
   ResourceManagerService,
   EventBusService,
-} from "../../ai-engine/facade";
+} from "../../ai-kernel/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 interface EvidenceRef {

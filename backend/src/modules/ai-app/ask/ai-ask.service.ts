@@ -16,11 +16,13 @@ import {
   type AICapabilityContext,
   type ExecutionConfig,
   type TaskPlan,
-  MissionExecutorService,
-  KernelMemoryManagerService,
   IntentRouterService,
   RAGPipelineService,
 } from "../../ai-engine/facade";
+import {
+  MissionExecutorService,
+  KernelMemoryManagerService,
+} from "../../ai-kernel/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,

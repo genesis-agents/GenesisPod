@@ -182,10 +182,6 @@ import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 import { TeamFactory } from "../teams/factory/team-factory";
-// ★ Phase 3: long-form moved to ai-app/writing/content-engine/
-// Use `import type` to prevent circular dep (facade → content-engine → facade)
-import type { LongContentEngineService } from "../../ai-app/writing/content-engine/services/long-content-engine.service";
-import type { ContinuationProtocolService } from "../../ai-app/writing/content-engine/services/continuation-protocol.service";
 import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
@@ -2865,27 +2861,8 @@ export class AIEngineFacade {
     return this.teamsFeature?.teamFactory;
   }
 
-  /**
-   * @deprecated Cross-layer violation: LongContentEngineService is L4 (ai-app/writing).
-   * Writing module should import LongContentEngineService directly.
-   * Will be removed in Phase 6.
-   */
-  get longContentEngine(): LongContentEngineService | undefined {
-    return this.content?.longContentEngine as
-      | LongContentEngineService
-      | undefined;
-  }
-
-  /**
-   * @deprecated Cross-layer violation: ContinuationProtocolService is L4 (ai-app/writing).
-   * Writing module should import ContinuationProtocolService directly.
-   * Will be removed in Phase 6.
-   */
-  get continuationProtocol(): ContinuationProtocolService | undefined {
-    return this.content?.continuationProtocol as
-      | ContinuationProtocolService
-      | undefined;
-  }
+  // ★ longContentEngine and continuationProtocol getters REMOVED (Phase 6).
+  // Consumers now inject LongContentEngineService / ContinuationProtocolService directly.
 
   /** 获取 EmbeddingService（供 RAG 模块直接使用） */
   get embedding(): EmbeddingService | undefined {

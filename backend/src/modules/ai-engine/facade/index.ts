@@ -478,38 +478,4 @@ export { AgentFacade } from "./domain/agent.facade";
 export { TeamFacade } from "./domain/team.facade";
 export { ToolFacade } from "./domain/tool.facade";
 
-/**
- * @deprecated AI Kernel re-exports — import directly from "../../ai-kernel/facade" instead.
- * These re-exports exist for backward compatibility and will be removed in a future version.
- * Migration: change `from "../../ai-engine/facade"` → `from "../../ai-kernel/facade"` for kernel symbols.
- */
-export {
-  KernelContext,
-  type KernelContextData,
-  ProcessManagerService,
-  EventJournalService,
-  CheckpointManager,
-  KernelMemoryManagerService,
-  WorkingMemoryStore,
-  PersistentMemoryStore,
-  EventBusService,
-  MessageBusService,
-  ResourceManagerService,
-  ProcessEventLogService,
-  KernelMetricsService,
-  MissionExecutorService,
-  type IMissionExecutor,
-  type MissionExecuteOptions,
-  type MissionExecuteResult,
-  CapabilityGuardService,
-  KernelSchedulerService,
-  ProcessSupervisorService,
-  KernelApiService,
-  type ProcessId,
-  type SpawnOptions,
-  type ProcessSnapshot,
-  type ProcessTree,
-  type ProcessCapabilities,
-  VALID_TRANSITIONS,
-  TERMINAL_STATES,
-} from "../../ai-kernel/facade";
+// ★ Phase 8: Kernel re-exports REMOVED — all AI App consumers now import from "../../ai-kernel/facade" directly.

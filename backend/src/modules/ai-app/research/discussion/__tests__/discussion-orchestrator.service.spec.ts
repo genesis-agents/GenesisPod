@@ -77,7 +77,8 @@ describe("DiscussionOrchestratorService", () => {
   let mockAgentService: any;
   let mockSearchService: any;
   let mockReportService: any;
-  let mockFacade: any;
+  let mockAgentFacade: any;
+  let mockTeamFacade: any;
   let mockCreditsService: any;
   let mockIdeaService: any;
   let mockReplanner: any;
@@ -170,14 +171,17 @@ describe("DiscussionOrchestratorService", () => {
       generateReport: jest.fn().mockResolvedValue(makeReport()),
     };
 
-    mockFacade = {
+    mockAgentFacade = {
       startTrace: jest.fn().mockReturnValue("trace-001"),
       endTrace: jest.fn(),
       addSpan: jest.fn().mockReturnValue("span-001"),
       endSpan: jest.fn(),
+      coordinatorStore: jest.fn().mockReturnValue(Promise.resolve()),
+    };
+
+    mockTeamFacade = {
       a2aPublish: jest.fn().mockResolvedValue(undefined),
       a2aClearSession: jest.fn(),
-      coordinatorStore: jest.fn().mockReturnValue(Promise.resolve()),
     };
 
     mockCreditsService = {
@@ -208,7 +212,8 @@ describe("DiscussionOrchestratorService", () => {
         // @Optional dependencies — inject via useValue to override
         { provide: "CreditsService", useValue: mockCreditsService },
         { provide: "ResearchIdeaService", useValue: mockIdeaService },
-        { provide: "AIEngineFacade", useValue: mockFacade },
+        { provide: "AgentFacade", useValue: mockAgentFacade },
+        { provide: "TeamFacade", useValue: mockTeamFacade },
         { provide: "ResearchReplannerService", useValue: mockReplanner },
       ],
     })
@@ -222,7 +227,8 @@ describe("DiscussionOrchestratorService", () => {
             mockReportService,
             mockCreditsService,
             mockIdeaService,
-            mockFacade,
+            mockAgentFacade,
+            mockTeamFacade,
             mockReplanner,
           ),
       })
@@ -588,7 +594,8 @@ describe("DiscussionOrchestratorService", () => {
         mockReportService,
         null as any, // no credits service
         null as any, // no idea service
-        mockFacade,
+        mockAgentFacade,
+        mockTeamFacade,
         null as any, // no replanner
       );
 
@@ -608,7 +615,7 @@ describe("DiscussionOrchestratorService", () => {
         });
     }, 10000);
 
-    it("should work without aiFacade (optional)", (done) => {
+    it("should work without domain facades (optional)", (done) => {
       const serviceWithoutFacade = new DiscussionOrchestratorService(
         mockPrisma,
         mockAgentService,
@@ -616,7 +623,8 @@ describe("DiscussionOrchestratorService", () => {
         mockReportService,
         mockCreditsService,
         null as any, // no idea service
-        null as any, // no facade
+        null as any, // no agent facade
+        null as any, // no team facade
         null as any,
       );
 
@@ -881,7 +889,7 @@ describe("DiscussionOrchestratorService", () => {
           next: () => {},
           error: (err) => done.fail(err),
           complete: () => {
-            expect(mockFacade.endTrace).toHaveBeenCalledWith(
+            expect(mockAgentFacade.endTrace).toHaveBeenCalledWith(
               "trace-001",
               expect.objectContaining({ status: "success" }),
             );
@@ -904,7 +912,7 @@ describe("DiscussionOrchestratorService", () => {
           next: () => {},
           error: (err) => done.fail(err),
           complete: () => {
-            expect(mockFacade.endTrace).toHaveBeenCalledWith(
+            expect(mockAgentFacade.endTrace).toHaveBeenCalledWith(
               "trace-001",
               expect.objectContaining({ status: "error" }),
             );
@@ -1039,10 +1047,10 @@ describe("DiscussionOrchestratorService", () => {
       (service as any).publishMessage(sessionId, msg, subject);
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe("discussion.message");
-      expect(mockFacade.a2aPublish).toHaveBeenCalled();
+      expect(mockTeamFacade.a2aPublish).toHaveBeenCalled();
     });
 
-    it("should not throw if aiFacade is null", () => {
+    it("should not throw if domain facades are null", () => {
       const serviceWithoutFacade = new DiscussionOrchestratorService(
         mockPrisma,
         mockAgentService,
@@ -1050,7 +1058,8 @@ describe("DiscussionOrchestratorService", () => {
         mockReportService,
         null as any,
         null as any,
-        null as any, // no facade
+        null as any, // no agent facade
+        null as any, // no team facade
         null as any,
       );
 
@@ -1115,7 +1124,8 @@ describe("DiscussionOrchestratorService", () => {
         mockReportService,
         null as any,
         null as any, // no idea service
-        mockFacade,
+        mockAgentFacade,
+        mockTeamFacade,
         null as any,
       );
 

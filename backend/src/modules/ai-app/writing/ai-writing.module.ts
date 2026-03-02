@@ -9,6 +9,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PromptSkillBridge } from "../../ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { LongContentModule } from "./content-engine/long-content.module";
 
 // WebSocket Gateway and Event Emitter
 import { AiWritingGateway } from "./ai-writing.gateway";
@@ -106,7 +107,13 @@ import {
 } from "./agents";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, ConfigModule, CreditsModule],
+  imports: [
+    PrismaModule,
+    AiEngineModule,
+    ConfigModule,
+    CreditsModule,
+    LongContentModule,
+  ],
   controllers: [AiWritingController],
   providers: [
     // Repository

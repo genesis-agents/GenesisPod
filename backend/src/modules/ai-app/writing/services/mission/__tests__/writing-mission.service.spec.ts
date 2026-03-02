@@ -27,7 +27,6 @@ import { ConflictException } from "@nestjs/common";
 import { WritingMissionService } from "../writing-mission.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import {
-  AIEngineFacade,
   ChatFacade,
   TeamFacade,
   AgentFacade,
@@ -35,6 +34,7 @@ import {
   TeamRegistry,
   RoleRegistry,
 } from "@/modules/ai-engine/facade";
+import { LongContentEngineService } from "../../../content-engine/services/long-content-engine.service";
 import { ContextBuilderService } from "../../writing/context-builder.service";
 import { StoryBibleService } from "../../bible/story-bible.service";
 import { ExpressionMemoryService } from "../../quality/expression-memory.service";
@@ -280,7 +280,7 @@ describe("WritingMissionService", () => {
         { provide: TeamFacade, useValue: mockFacade },
         { provide: AgentFacade, useValue: mockFacade },
         { provide: ToolFacade, useValue: mockFacade },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: LongContentEngineService, useValue: mockFacade },
         { provide: WritingEventEmitterService, useValue: mockEventEmitter },
         {
           provide: ExpressionMemoryService,
@@ -4131,15 +4131,13 @@ describe("WritingMissionService", () => {
     };
 
     let svc: ServiceWithPrivate;
-    let mockLongContentEngine: { initProject: jest.Mock };
 
     beforeEach(() => {
       svc = service as unknown as ServiceWithPrivate;
-      mockLongContentEngine = {
-        initProject: jest.fn().mockResolvedValue(undefined),
-      };
-      (mockFacade as unknown as Record<string, unknown>).longContentEngine =
-        mockLongContentEngine;
+      // LongContentEngineService is now directly injected (provided as mockFacade)
+      (mockFacade as Record<string, unknown>).initProject = jest
+        .fn()
+        .mockResolvedValue(undefined);
     });
 
     it("should initialize with chapter granularity for full_story", async () => {
@@ -4148,7 +4146,7 @@ describe("WritingMissionService", () => {
         userPrompt: "story",
       });
 
-      expect(mockLongContentEngine.initProject).toHaveBeenCalledWith(
+      expect((mockFacade as any).initProject).toHaveBeenCalledWith(
         expect.objectContaining({ granularityLevel: "chapter" }),
       );
     });
@@ -4159,7 +4157,7 @@ describe("WritingMissionService", () => {
         userPrompt: "story",
       });
 
-      expect(mockLongContentEngine.initProject).toHaveBeenCalledWith(
+      expect((mockFacade as any).initProject).toHaveBeenCalledWith(
         expect.objectContaining({ granularityLevel: "section" }),
       );
     });
@@ -4170,7 +4168,7 @@ describe("WritingMissionService", () => {
         userPrompt: "story",
       });
 
-      expect(mockLongContentEngine.initProject).toHaveBeenCalledWith(
+      expect((mockFacade as any).initProject).toHaveBeenCalledWith(
         expect.objectContaining({ granularityLevel: "section" }),
       );
     });
@@ -4181,7 +4179,7 @@ describe("WritingMissionService", () => {
         userPrompt: "story",
       });
 
-      expect(mockLongContentEngine.initProject).toHaveBeenCalledWith(
+      expect((mockFacade as any).initProject).toHaveBeenCalledWith(
         expect.objectContaining({ granularityLevel: "section" }),
       );
     });
@@ -4192,7 +4190,7 @@ describe("WritingMissionService", () => {
         userPrompt: "story",
       });
 
-      expect(mockLongContentEngine.initProject).toHaveBeenCalledWith(
+      expect((mockFacade as any).initProject).toHaveBeenCalledWith(
         expect.objectContaining({ granularityLevel: "chapter" }),
       );
     });
@@ -4204,7 +4202,7 @@ describe("WritingMissionService", () => {
         userPrompt: "story",
       });
 
-      expect(mockLongContentEngine.initProject).toHaveBeenCalledWith(
+      expect((mockFacade as any).initProject).toHaveBeenCalledWith(
         expect.objectContaining({ totalTasks: 3 }), // ceil(9000/3000) = 3
       );
     });

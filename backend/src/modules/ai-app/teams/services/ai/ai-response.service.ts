@@ -10,9 +10,11 @@ import {
   ChatFacade,
   ToolFacade,
   ChatMessage,
+} from "../../../../ai-engine/facade";
+import {
   KernelContext,
   MissionExecutorService,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-kernel/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";

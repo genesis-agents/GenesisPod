@@ -86,11 +86,13 @@ import {
 import {
   AgentFacade,
   TeamFacade,
+  ProgressTrackerService,
+} from "../../../../../ai-engine/facade";
+import {
   MissionExecutorService,
   EventJournalService,
   KernelContext,
-  ProgressTrackerService,
-} from "../../../../../ai-engine/facade";
+} from "../../../../../ai-kernel/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts

@@ -10,9 +10,8 @@
  */
 import { Module, forwardRef, OnModuleInit } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-// Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 
 import { DiscussionController } from "./discussion.controller";

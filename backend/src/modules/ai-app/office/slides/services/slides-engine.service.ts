@@ -37,11 +37,11 @@ import {
 import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import {
-  ChatFacade,
   MissionExecutorService,
   EventBusService,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-kernel/facade";
 import { AIModelType } from "@prisma/client";
 import { LruMap } from "@/common/utils/lru-map";
 /**

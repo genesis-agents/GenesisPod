@@ -45,14 +45,13 @@ import {
 import { TopicCollaboratorService } from "../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../monitoring/agent-activity.service";
 import { CollaboratorRole } from "../../dto/collaborator.dto";
+import { ChatFacade, ProgressTrackerService } from "@/modules/ai-engine/facade";
 import {
-  ChatFacade,
   MissionExecutorService,
   EventJournalService,
   KernelContext,
-  ProgressTrackerService,
   KernelMemoryManagerService,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-kernel/facade";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import type { ResearchDepth } from "../../types/v5-research.types";

@@ -1,12 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EmbeddingProcessorService } from "../services/embedding-processor.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { RAGFacade } from "../../../../ai-engine/facade";
 
 describe("EmbeddingProcessorService", () => {
   let service: EmbeddingProcessorService;
   let prisma: jest.Mocked<PrismaService>;
-  let _aiFacade: jest.Mocked<AIEngineFacade>;
 
   const mockEmbeddingService = {
     getModel: jest.fn().mockResolvedValue("text-embedding-3-small"),
@@ -38,13 +37,12 @@ describe("EmbeddingProcessorService", () => {
       providers: [
         EmbeddingProcessorService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: RAGFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
     service = module.get<EmbeddingProcessorService>(EmbeddingProcessorService);
     prisma = module.get(PrismaService);
-    _aiFacade = module.get(AIEngineFacade);
   });
 
   afterEach(() => {

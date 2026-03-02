@@ -11,9 +11,11 @@ import { SendChatMessageDto, CreateNoteDto, UpdateNoteDto } from "./dto";
 import {
   ChatFacade,
   ChatMessage as FacadeChatMessage,
+} from "../../../ai-engine/facade";
+import {
   KernelContext,
   MissionExecutorService,
-} from "../../../ai-engine/facade";
+} from "../../../ai-kernel/facade";
 import { BillingContext } from "../../../ai-infra/facade";
 
 export interface ChatMessage {

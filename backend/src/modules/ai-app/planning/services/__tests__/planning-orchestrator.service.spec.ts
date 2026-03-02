@@ -15,8 +15,10 @@ jest.mock("../../../../ai-engine/facade", () => ({
   ChatFacade: class {},
   TeamFacade: class {},
   RAGFacade: class {},
-  MissionExecutorService: class {},
   ProgressTrackerService: class {},
+}));
+jest.mock("../../../../ai-kernel/facade", () => ({
+  MissionExecutorService: class {},
   EventJournalService: class {},
   KernelMemoryManagerService: class {},
   ResourceManagerService: class {},

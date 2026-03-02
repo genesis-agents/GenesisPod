@@ -22,14 +22,16 @@ import {
   ChatFacade,
   TeamFacade,
   RAGFacade,
+  ProgressTrackerService,
+} from "../../../ai-engine/facade";
+import {
   MissionExecutorService,
   KernelContext,
-  ProgressTrackerService,
   EventJournalService,
   KernelMemoryManagerService,
   ResourceManagerService,
   EventBusService,
-} from "../../../ai-engine/facade";
+} from "../../../ai-kernel/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/facade";
 import { LruMap } from "@/common/utils/lru-map";

@@ -11,7 +11,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamsLongContentService } from "../teams-long-content.service";
-import { AiChatService, AIEngineFacade } from "../../../../../ai-engine/facade";
+import { AiChatService } from "../../../../../ai-engine/facade";
 import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";
 import { TaskGranularityService } from "../../../../writing/content-engine/services/task-granularity.service";
@@ -42,16 +42,15 @@ describe("TeamsLongContentService", () => {
     const longContentEngine = engineModule.get(LongContentEngineService);
     const continuationProtocol = engineModule.get(ContinuationProtocolService);
 
-    // Create a minimal AIEngineFacade mock exposing the needed services
-    const mockFacade = {
-      longContentEngine,
-      continuationProtocol,
-    } as unknown as AIEngineFacade;
-
+    // Inject services directly (no longer through AIEngineFacade)
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TeamsLongContentService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: LongContentEngineService, useValue: longContentEngine },
+        {
+          provide: ContinuationProtocolService,
+          useValue: continuationProtocol,
+        },
       ],
     }).compile();
 

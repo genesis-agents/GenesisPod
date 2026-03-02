@@ -31,6 +31,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { LongContentModule } from "../writing/content-engine/long-content.module";
 import {
   // AI 服务
   ContextRouterService,
@@ -74,7 +75,7 @@ import { TeamRegistry, AgentRegistry } from "../../ai-engine/facade";
 import { DEBATE_TEAM_CONFIG } from "./teams";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, CreditsModule],
+  imports: [PrismaModule, AiEngineModule, CreditsModule, LongContentModule],
   controllers: [
     AiTeamsController,
     UsersController,

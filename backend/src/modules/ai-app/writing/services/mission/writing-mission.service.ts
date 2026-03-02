@@ -22,16 +22,17 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
-  AIEngineFacade,
   ChatFacade,
   TeamFacade,
   AgentFacade,
   ToolFacade,
+  ProgressTrackerService,
+} from "../../../../ai-engine/facade";
+import {
   KernelMemoryManagerService,
   MissionExecutorService,
   KernelContext,
-  ProgressTrackerService,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-kernel/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 
 // AI Capability Context type - from facade
@@ -50,6 +51,7 @@ import type {
   TaskExecutionContext,
   GranularityLevel,
 } from "../../../writing/content-engine";
+import { LongContentEngineService } from "../../content-engine/services/long-content-engine.service";
 import { TeamRegistry, RoleRegistry } from "../../../../ai-engine/facade";
 
 // Writing Agents
@@ -232,13 +234,13 @@ export class WritingMissionService {
     private readonly writer: WriterAgent,
     private readonly consistencyChecker: ConsistencyCheckerAgent,
     private readonly editor: EditorAgent,
-    // Domain facades (P4 迁移：拆分 AIEngineFacade)
+    // Domain facades
     private readonly chatFacade: ChatFacade,
     private readonly teamFacade: TeamFacade,
     private readonly agentFacade: AgentFacade,
     private readonly toolFacade: ToolFacade,
-    // AIEngineFacade retained for longContentEngine only
-    private readonly aiFacade: AIEngineFacade,
+    // Direct injection (replaces AIEngineFacade.longContentEngine)
+    private readonly longContentEngine: LongContentEngineService,
     // Event Emitter - 实时事件推送
     private readonly eventEmitter: WritingEventEmitterService,
     // Expression Memory - 表达冷却服务
@@ -543,7 +545,7 @@ export class WritingMissionService {
     }
 
     try {
-      // ★ 使用 AIEngineFacade 获取模型列表
+      // ★ 使用 ChatFacade 获取模型列表
       const models = await this.chatFacade.getAvailableModelsExtended(
         AIModelType.CHAT,
       );
@@ -1096,7 +1098,7 @@ export class WritingMissionService {
         (a) => a.roleId === "writer" && a.isActive,
       )?.modelId;
 
-      // 使用默认模型如果没有分配（通过 AIEngineFacade 获取，避免硬编码模型名）
+      // 使用默认模型如果没有分配（通过 ChatFacade 获取，避免硬编码模型名）
       const defaultModelConfig = await this.chatFacade.getDefaultTextModel();
       const modelToUse =
         writerModel || leaderModel || defaultModelConfig?.modelId;
@@ -3315,7 +3317,7 @@ ${narrativeConstraints}`;
 
       // 更新上下文（使用 LongContentEngine）
       try {
-        await this.aiFacade.longContentEngine!.processTaskCompletion(
+        await this.longContentEngine.processTaskCompletion(
           missionId,
           `chapter-${chapterNumber}`,
           `第${chapterNumber}章 ${chapterInfo.title}`,
@@ -3497,7 +3499,7 @@ ${narrativeConstraints}`;
     const totalWords = this.textProcessor.countWords(fullContent);
 
     // 清理 LongContentEngine
-    this.aiFacade.longContentEngine!.clearProject(missionId);
+    this.longContentEngine.clearProject(missionId);
 
     this.logger.log(
       `[${missionId}] Long novel completed: ${totalVolumes} volumes, ${allChapters.length} chapters, ${totalWords} words`,
@@ -4586,12 +4588,12 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       }
 
       // 12. 清理 LongContentEngine 项目
-      this.aiFacade.longContentEngine!.clearProject(missionId);
+      this.longContentEngine.clearProject(missionId);
 
       return writingResult;
     } catch (error) {
       // 清理 LongContentEngine 项目
-      this.aiFacade.longContentEngine!.clearProject(missionId);
+      this.longContentEngine.clearProject(missionId);
 
       await this.updateMissionRecord(dbMission.id, {
         missionId,
@@ -4725,7 +4727,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       },
     };
 
-    await this.aiFacade.longContentEngine!.initProject(config);
+    await this.longContentEngine.initProject(config);
     this.logger.log(`LongContentEngine project initialized: ${missionId}`);
   }
 
@@ -5545,7 +5547,7 @@ ${instruction}
     let longContentContext: TaskExecutionContext | null = null;
     try {
       longContentContext =
-        await this.aiFacade.longContentEngine!.buildTaskExecutionContext(
+        await this.longContentEngine.buildTaskExecutionContext(
           missionId,
           input.chapterId || "main",
           input.userPrompt,
@@ -5702,7 +5704,7 @@ ${instruction}
           : `写作任务 ${missionId.slice(0, 8)}`;
 
         const completionResult =
-          await this.aiFacade.longContentEngine!.processTaskCompletion(
+          await this.longContentEngine.processTaskCompletion(
             missionId,
             input.chapterId || "main",
             taskTitle,

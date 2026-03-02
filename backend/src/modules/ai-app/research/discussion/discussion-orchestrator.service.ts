@@ -11,11 +11,11 @@ import {
   BillingContext,
 } from "../../../ai-infra/facade";
 import { ResearchIdeaService } from "../idea/research-idea.service";
+import { AgentFacade, TeamFacade } from "../../../ai-engine/facade";
 import {
-  AIEngineFacade,
   MissionExecutorService,
   KernelContext,
-} from "../../../ai-engine/facade";
+} from "../../../ai-kernel/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
 import { LruMap } from "@/common/utils/lru-map";
 import {
@@ -59,7 +59,8 @@ export class DiscussionOrchestratorService {
     private readonly reportService: ReportSynthesizerService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly ideaService: ResearchIdeaService,
-    @Optional() private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly agentFacade: AgentFacade,
+    @Optional() private readonly teamFacade: TeamFacade,
     @Optional() private readonly replanner: ResearchReplannerService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
@@ -126,7 +127,7 @@ export class DiscussionOrchestratorService {
     const searchRounds: SearchRound[] = [];
 
     // Start observability trace
-    const traceId = this.aiFacade?.startTrace({
+    const traceId = this.agentFacade?.startTrace({
       name: `Research: ${dto.query.slice(0, 80)}`,
       type: "research",
       metadata: { projectId, depth: dto.options?.depth || "standard" },
@@ -209,7 +210,7 @@ export class DiscussionOrchestratorService {
         });
 
         const ideationSpanId = traceId
-          ? this.aiFacade?.addSpan(traceId, {
+          ? this.agentFacade?.addSpan(traceId, {
               name: "ideation",
               type: "phase",
             })
@@ -225,7 +226,7 @@ export class DiscussionOrchestratorService {
         );
 
         if (ideationSpanId) {
-          this.aiFacade?.endSpan(ideationSpanId, {
+          this.agentFacade?.endSpan(ideationSpanId, {
             status: "success",
             output: { directionsCount: directions.length },
           });
@@ -248,7 +249,7 @@ export class DiscussionOrchestratorService {
         });
 
         const executionSpanId = traceId
-          ? this.aiFacade?.addSpan(traceId, {
+          ? this.agentFacade?.addSpan(traceId, {
               name: "execution",
               type: "phase",
             })
@@ -268,7 +269,7 @@ export class DiscussionOrchestratorService {
         // ========== Dynamic Replanning ==========
         if (this.replanner && searchRounds.length > 0) {
           const replanSpanId = traceId
-            ? this.aiFacade?.addSpan(traceId, {
+            ? this.agentFacade?.addSpan(traceId, {
                 name: "replanning",
                 type: "evaluation",
               })
@@ -338,7 +339,7 @@ export class DiscussionOrchestratorService {
           }
 
           if (replanSpanId) {
-            this.aiFacade?.endSpan(replanSpanId, {
+            this.agentFacade?.endSpan(replanSpanId, {
               status: "success",
               output: {
                 replanned: replanResult.needsReplan,
@@ -349,7 +350,7 @@ export class DiscussionOrchestratorService {
         }
 
         if (executionSpanId) {
-          this.aiFacade?.endSpan(executionSpanId, {
+          this.agentFacade?.endSpan(executionSpanId, {
             status: "success",
             output: { searchRounds: searchRounds.length },
           });
@@ -374,7 +375,7 @@ export class DiscussionOrchestratorService {
         });
 
         const findingsSpanId = traceId
-          ? this.aiFacade?.addSpan(traceId, {
+          ? this.agentFacade?.addSpan(traceId, {
               name: "findings",
               type: "phase",
             })
@@ -391,7 +392,7 @@ export class DiscussionOrchestratorService {
         );
 
         if (findingsSpanId) {
-          this.aiFacade?.endSpan(findingsSpanId, { status: "success" });
+          this.agentFacade?.endSpan(findingsSpanId, { status: "success" });
         }
 
         await this.updateSession(session.id, {
@@ -412,7 +413,7 @@ export class DiscussionOrchestratorService {
         });
 
         const synthesisSpanId = traceId
-          ? this.aiFacade?.addSpan(traceId, {
+          ? this.agentFacade?.addSpan(traceId, {
               name: "synthesis",
               type: "phase",
             })
@@ -429,7 +430,7 @@ export class DiscussionOrchestratorService {
         );
 
         if (synthesisSpanId) {
-          this.aiFacade?.endSpan(synthesisSpanId, {
+          this.agentFacade?.endSpan(synthesisSpanId, {
             status: "success",
             output: {
               sections: report.sections.length,
@@ -482,14 +483,14 @@ export class DiscussionOrchestratorService {
 
         // End observability trace
         if (traceId) {
-          this.aiFacade?.endTrace(traceId, {
+          this.agentFacade?.endTrace(traceId, {
             status: "success",
             totalDuration: Date.now() - startTime,
           });
         }
 
         // 反哺长期记忆（fire-and-forget，不阻塞主流程）
-        this.aiFacade
+        this.agentFacade
           ?.coordinatorStore(
             {
               type: "knowledge",
@@ -532,7 +533,7 @@ export class DiscussionOrchestratorService {
 
         // End trace on failure
         if (traceId) {
-          this.aiFacade?.endTrace(traceId, {
+          this.agentFacade?.endTrace(traceId, {
             status: "error",
             totalDuration: Date.now() - startTime,
           });
@@ -545,7 +546,7 @@ export class DiscussionOrchestratorService {
         throw error;
       } finally {
         subject.complete();
-        this.aiFacade?.a2aClearSession(session.id);
+        this.teamFacade?.a2aClearSession(session.id);
       }
     };
 
@@ -1173,7 +1174,7 @@ export class DiscussionOrchestratorService {
     subject: Subject<DeepResearchSSEEvent>,
   ): void {
     subject.next({ type: "discussion.message", data: msg });
-    void this.aiFacade?.a2aPublish({
+    void this.teamFacade?.a2aPublish({
       sessionId,
       // Discussion agents are virtual roles with no UUID; agentRole is their stable identifier
       fromAgentId: msg.agentRole,
