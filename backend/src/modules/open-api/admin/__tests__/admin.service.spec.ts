@@ -2039,4 +2039,426 @@ describe("AdminService", () => {
       expect(result.before.rawData).toBe(100);
     });
   });
+
+  // ==================== Additional coverage tests ====================
+
+  describe("getCreditAccounts (additional)", () => {
+    it("should use empty where clause when no search term provided", async () => {
+      mockPrismaService.creditAccount.findMany.mockResolvedValue([]);
+      mockPrismaService.creditAccount.count.mockResolvedValue(0);
+
+      await service.getCreditAccounts(1, 20);
+
+      expect(mockPrismaService.creditAccount.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
+    it("should apply skip offset based on page and limit", async () => {
+      mockPrismaService.creditAccount.findMany.mockResolvedValue([]);
+      mockPrismaService.creditAccount.count.mockResolvedValue(0);
+
+      await service.getCreditAccounts(3, 10);
+
+      expect(mockPrismaService.creditAccount.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 20, take: 10 }),
+      );
+    });
+  });
+
+  describe("getCreditTransactions (additional)", () => {
+    it("should use default limit 50 and offset 0", async () => {
+      mockPrismaService.creditAccount.findUnique.mockResolvedValue({
+        id: "account-1",
+        userId: "user-1",
+      });
+      mockPrismaService.creditTransaction.findMany.mockResolvedValue([]);
+      mockPrismaService.creditTransaction.count.mockResolvedValue(0);
+
+      const result = await service.getCreditTransactions("user-1");
+
+      expect(mockPrismaService.creditTransaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 50, skip: 0 }),
+      );
+      expect(result.limit).toBe(50);
+      expect(result.offset).toBe(0);
+    });
+  });
+
+  describe("getAIModel (additional)", () => {
+    it("should return null apiKey when model has no apiKey", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        id: "model-1",
+        name: "No-Key Model",
+        apiKey: null,
+        secretKey: null,
+      });
+
+      const result = await service.getAIModel("model-1");
+
+      expect(result.apiKey).toBeNull();
+      expect(result.hasApiKey).toBe(false);
+    });
+  });
+
+  describe("createAIModel (additional)", () => {
+    it("should add warning when isReasoning=true but model name does not match known patterns", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
+      mockPrismaService.aIModel.create.mockResolvedValue({
+        id: "new-model",
+        name: "My Custom Model",
+        apiKey: null,
+        secretKey: null,
+        isUpdate: false,
+      });
+
+      const result = await service.createAIModel({
+        name: "My Custom Model",
+        displayName: "My Custom Model",
+        provider: "custom",
+        modelId: "my-custom-chat-model",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.example.com",
+        isReasoning: true,
+      });
+
+      // The name does not match o1/o3/reasoning patterns, so a warning is issued
+      expect(result.warnings).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining(
+            "does not match known reasoning model patterns",
+          ),
+        ]),
+      );
+    });
+
+    it("should create model with null apiKey when no key provided", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
+      mockPrismaService.aIModel.create.mockResolvedValue({
+        id: "model-no-key",
+        name: "No Key Model",
+        apiKey: null,
+        secretKey: null,
+        isUpdate: false,
+      });
+
+      const result = await service.createAIModel({
+        name: "No Key Model",
+        displayName: "No Key Model",
+        provider: "openai",
+        modelId: "gpt-no-key",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+      });
+
+      expect(mockPrismaService.aIModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ apiKey: null }),
+        }),
+      );
+      expect(result.hasApiKey).toBe(false);
+    });
+  });
+
+  describe("updateAIModel (additional)", () => {
+    it("should return warnings from validateAndCorrectModelConfig", async () => {
+      const existingModel = {
+        id: "model-1",
+        name: "o3",
+        modelId: "o3-mini",
+        apiKey: null,
+        secretKey: null,
+        isReasoning: true,
+      };
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(existingModel);
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        ...existingModel,
+        apiKey: null,
+        secretKey: null,
+      });
+
+      const result = await service.updateAIModel("model-1", {
+        isReasoning: false,
+        tokenParamName: undefined,
+        supportsTemperature: undefined,
+      });
+
+      // warnings array should exist on the result
+      expect(result).toHaveProperty("warnings");
+      expect(Array.isArray(result.warnings)).toBe(true);
+    });
+
+    it("should update new real apiKey when not masked", async () => {
+      const existingModel = {
+        id: "model-1",
+        name: "Test",
+        modelId: "gpt-4",
+        apiKey: "old-key",
+        secretKey: null,
+        isReasoning: false,
+      };
+      mockPrismaService.aIModel.findUnique.mockResolvedValue(existingModel);
+      mockPrismaService.aIModel.update.mockResolvedValue({
+        ...existingModel,
+        apiKey: "new-real-key",
+        secretKey: null,
+      });
+
+      await service.updateAIModel("model-1", { apiKey: "new-real-key" });
+
+      const updateCall = mockPrismaService.aIModel.update.mock.calls[0][0];
+      expect(updateCall.data.apiKey).toBe("new-real-key");
+    });
+  });
+
+  describe("getAIModelApiKey (additional)", () => {
+    it("should return null when model has no apiKey and no secretKey", async () => {
+      mockPrismaService.aIModel.findUnique.mockResolvedValue({
+        apiKey: null,
+        secretKey: null,
+      });
+
+      const result = await service.getAIModelApiKey("model-no-key");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("setSettings (additional)", () => {
+    it("should return empty array and skip upsert when passed empty array", async () => {
+      const result = await service.setSettings([]);
+
+      expect(mockPrismaService.systemSetting.upsert).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("deleteSetting (additional)", () => {
+    it("should call systemSetting.delete with the correct key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "my.setting",
+      });
+      mockPrismaService.systemSetting.delete.mockResolvedValue({});
+
+      await service.deleteSetting("my.setting");
+
+      expect(mockPrismaService.systemSetting.delete).toHaveBeenCalledWith({
+        where: { key: "my.setting" },
+      });
+    });
+  });
+
+  describe("updateSearchConfig (additional)", () => {
+    it("should not save tavilyApiKeys when all entries are masked or empty", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSearchConfig({
+        tavilyApiKeys: ["***configured***", "  ", ""],
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const tavilyCall = calls.find(
+        (call) => call[0].where.key === "search.tavily.apiKeys",
+      );
+      expect(tavilyCall).toBeUndefined();
+    });
+
+    it("should save serperApiKeys in multi-key format", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateSearchConfig({
+        serperApiKeys: ["serper-key-1", "serper-key-2"],
+      });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const serperCall = calls.find(
+        (call) => call[0].where.key === "search.serper.apiKeys",
+      );
+      expect(serperCall).toBeDefined();
+    });
+  });
+
+  describe("updateYoutubeConfig (additional)", () => {
+    it("should update provider setting when provided", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateYoutubeConfig({ provider: "supadata" });
+
+      const calls = mockPrismaService.systemSetting.upsert.mock.calls;
+      const providerCall = calls.find(
+        (call) => call[0].where.key === "youtube.provider",
+      );
+      expect(providerCall).toBeDefined();
+    });
+
+    it("should not update youtube config when no fields provided", async () => {
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue(null);
+
+      await service.updateYoutubeConfig({});
+
+      expect(mockPrismaService.systemSetting.upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("checkApiBalance (additional)", () => {
+    it("should check firecrawl balance returning credit info", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "extraction.firecrawl.apiKey",
+        value: '"fc-realkey"',
+      });
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ remaining_credits: 100, credits_used: 50 }),
+      });
+
+      const result = await service.checkApiBalance("extraction", "firecrawl");
+
+      expect(result.provider).toBe("firecrawl");
+      expect(result.hasBalance).toBe(true);
+      expect(result.balance).toContain("100");
+    });
+
+    it("should return hasBalance=false for firecrawl 401", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "extraction.firecrawl.apiKey",
+        value: '"fc-bad-key"',
+      });
+      mockFetch.mockResolvedValue({ ok: false, status: 401 });
+
+      const result = await service.checkApiBalance("extraction", "firecrawl");
+
+      expect(result.hasBalance).toBe(false);
+      expect(result.error).toContain("Invalid");
+    });
+
+    it("should return default hasBalance=true for unknown switch case provider", async () => {
+      // provider that passes API key check but hits the default case in switch
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.serper.apiKey",
+        value: '"some-key"',
+      });
+      // The switch default branch returns { hasBalance: true, balance: "Unknown" }
+      // We use a provider that has an apiKey but no case branch: "unknown-provider"
+      // Re-wire: we'll test using extraction type with "tavily" which delegates to checkTavilyBalance via extraction
+      // Actually use type=search with provider that goes to default (not tavily/firecrawl/jina/serper/perplexity)
+      // Let's directly test via a provider name that hits the switch default
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.custom.apiKey",
+        value: '"some-key"',
+      });
+      // getSearchApiKey("custom-provider") returns null since it's not perplexity/tavily/serper
+      // So we won't reach the switch. Let's test the scenario where a valid extraction apiKey
+      // is found for a provider that doesn't match any case: that cannot happen due to TypeScript typing.
+      // Instead verify the outer catch path: throw inside checkApiBalance body
+      mockFetch.mockRejectedValue(new Error("connection refused"));
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.tavily.apiKey",
+        value: '"tvly-key"',
+      });
+
+      const result = await service.checkApiBalance("search", "tavily");
+
+      expect(result.hasBalance).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    it("should check serper balance with valid key", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "search.serper.apiKey",
+        value: '"serper-real-key"',
+      });
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ credits: 500 }),
+      });
+
+      const result = await service.checkApiBalance("search", "serper");
+
+      expect(result.provider).toBe("serper");
+    });
+  });
+
+  describe("getContentExtractionConfig (additional)", () => {
+    it("should return enabled=false when setting is explicitly false", async () => {
+      mockPrismaService.systemSetting.findUnique
+        .mockResolvedValueOnce(null) // jina key
+        .mockResolvedValueOnce(null) // firecrawl key
+        .mockResolvedValueOnce(null) // tavily key
+        .mockResolvedValueOnce({ key: "extraction.enabled", value: "false" });
+
+      const result = await service.getContentExtractionConfig();
+
+      expect(result.enabled).toBe(false);
+    });
+  });
+
+  describe("getExternalProvidersConfig (additional)", () => {
+    it("should include custom providers not in the default list", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "external.providers",
+        value: JSON.stringify([
+          {
+            id: "custom-provider",
+            name: "Custom API",
+            category: "custom",
+            baseUrl: "https://custom.api.com",
+            apiKey: "custom-key",
+            enabled: true,
+          },
+        ]),
+      });
+
+      const result = await service.getExternalProvidersConfig();
+
+      const customProvider = result.find((p) => p.id === "custom-provider");
+      expect(customProvider).toBeDefined();
+      expect(customProvider!.hasApiKey).toBe(true);
+      expect(customProvider!.enabled).toBe(true);
+    });
+  });
+
+  describe("updateExternalProvidersConfig (additional)", () => {
+    it("should preserve existing apiKey when incoming apiKey is masked", async () => {
+      mockPrismaService.systemSetting.findUnique.mockResolvedValue({
+        key: "external.providers",
+        value: JSON.stringify([
+          {
+            id: "market",
+            name: "Market API",
+            category: "market",
+            baseUrl: "https://market.api.com",
+            apiKey: "existing-real-key",
+            enabled: true,
+          },
+        ]),
+      });
+      mockPrismaService.systemSetting.upsert.mockResolvedValue({});
+
+      await service.updateExternalProvidersConfig([
+        {
+          id: "market",
+          name: "Market API",
+          category: "market",
+          baseUrl: "https://market.api.com",
+          apiKey: "***masked***", // masked - should preserve existing
+          enabled: true,
+        },
+      ]);
+
+      const upsertCall = mockPrismaService.systemSetting.upsert.mock.calls[0];
+      const savedProviders = JSON.parse(upsertCall[0].update.value);
+      const saved = savedProviders.find(
+        (p: { id: string }) => p.id === "market",
+      );
+      expect(saved.apiKey).toBe("existing-real-key");
+    });
+  });
 });

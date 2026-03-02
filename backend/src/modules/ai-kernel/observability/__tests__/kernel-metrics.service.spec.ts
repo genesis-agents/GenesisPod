@@ -17,6 +17,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
+import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { KernelMetricsService, LLMCallEvent } from "../kernel-metrics.service";
 
@@ -1058,5 +1059,227 @@ describe("KernelMetricsService (_doFlush empty guard)", () => {
     expect(result).toBe(1);
     expect(mockPrisma.aIEngineMetric.createMany).toHaveBeenCalledTimes(1);
     expect(service.getPendingFlushCount()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDashboardWithFallback() — DB fallback for observability
+// ---------------------------------------------------------------------------
+
+describe("KernelMetricsService (getDashboardWithFallback)", () => {
+  let service: KernelMetricsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma> & {
+    aIEngineMetric: {
+      createMany: jest.Mock;
+      findMany: jest.Mock;
+    };
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      aIEngineMetric: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        KernelMetricsService,
+        { provide: PrismaService, useValue: mockPrisma as any },
+      ],
+    }).compile();
+
+    service = module.get<KernelMetricsService>(KernelMetricsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it("should return in-memory dashboard when ring buffer has data", async () => {
+    service.recordLLMCall(makeCallInput({ totalTokens: 200 }));
+
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.totalCalls).toBe(1);
+    expect(dashboard.totalTokens).toBe(200);
+    // Should NOT query DB when in-memory has data
+    expect(mockPrisma.aIEngineMetric.findMany).not.toHaveBeenCalled();
+  });
+
+  it("should fall back to DB when ring buffer is empty", async () => {
+    mockPrisma.aIEngineMetric.findMany.mockResolvedValue([
+      {
+        id: "m1",
+        metricType: "llm_call",
+        modelId: "gpt-4o",
+        providerId: "openai",
+        operationId: "chat",
+        userId: "user-1",
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        duration: 500,
+        estimatedCost: new Decimal("0.01"),
+        success: true,
+        errorCode: null,
+        metadata: { module: "ai-ask", fallbackUsed: false, retryCount: 0 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.totalCalls).toBe(1);
+    expect(dashboard.totalTokens).toBe(150);
+    expect(mockPrisma.aIEngineMetric.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("should aggregate DB metrics by model", async () => {
+    mockPrisma.aIEngineMetric.findMany.mockResolvedValue([
+      {
+        id: "m1",
+        metricType: "llm_call",
+        modelId: "gpt-4o",
+        providerId: "openai",
+        operationId: "chat",
+        userId: "user-1",
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        duration: 500,
+        estimatedCost: new Decimal("0.01"),
+        success: true,
+        errorCode: null,
+        metadata: { module: "ai-ask", fallbackUsed: false },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "m2",
+        metricType: "llm_call",
+        modelId: "gpt-4o",
+        providerId: "openai",
+        operationId: "chat",
+        userId: "user-1",
+        inputTokens: 200,
+        outputTokens: 100,
+        totalTokens: 300,
+        duration: 800,
+        estimatedCost: new Decimal("0.02"),
+        success: false,
+        errorCode: "rate_limit",
+        metadata: { module: "research", fallbackUsed: true },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.totalCalls).toBe(2);
+    expect(dashboard.totalTokens).toBe(450);
+    expect(dashboard.totalCost).toBeCloseTo(0.03);
+    expect(dashboard.successRate).toBeCloseTo(0.5);
+    expect(dashboard.fallbackRate).toBeCloseTo(0.5);
+    expect(dashboard.byModel["gpt-4o"]).toBeDefined();
+    expect(dashboard.byModel["gpt-4o"].calls).toBe(2);
+    expect(dashboard.byModule["ai-ask"]).toBeDefined();
+    expect(dashboard.byModule["research"]).toBeDefined();
+    expect(dashboard.byUser).toHaveLength(1);
+    expect(dashboard.recentErrors).toHaveLength(1);
+  });
+
+  it("should return empty dashboard when DB has no data", async () => {
+    mockPrisma.aIEngineMetric.findMany.mockResolvedValue([]);
+
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.totalCalls).toBe(0);
+    expect(dashboard.totalTokens).toBe(0);
+  });
+
+  it("should return empty dashboard when DB query fails", async () => {
+    mockPrisma.aIEngineMetric.findMany.mockRejectedValue(
+      new Error("DB connection lost"),
+    );
+
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.totalCalls).toBe(0);
+  });
+
+  it("should handle metrics without userId in byUser", async () => {
+    mockPrisma.aIEngineMetric.findMany.mockResolvedValue([
+      {
+        id: "m1",
+        metricType: "llm_call",
+        modelId: "gpt-4o",
+        providerId: "openai",
+        operationId: "chat",
+        userId: null,
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        duration: 500,
+        estimatedCost: new Decimal("0.01"),
+        success: true,
+        errorCode: null,
+        metadata: { module: "ai-ask" },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.byUser).toHaveLength(0);
+  });
+
+  it("should handle metrics with null metadata in module aggregation", async () => {
+    mockPrisma.aIEngineMetric.findMany.mockResolvedValue([
+      {
+        id: "m1",
+        metricType: "llm_call",
+        modelId: "gpt-4o",
+        providerId: "openai",
+        operationId: "chat",
+        userId: "user-1",
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        duration: 500,
+        estimatedCost: new Decimal("0.01"),
+        success: true,
+        errorCode: null,
+        metadata: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.byModule["unknown"]).toBeDefined();
+    expect(dashboard.byModule["unknown"].calls).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDashboardWithFallback() without Prisma — always returns in-memory or empty
+// ---------------------------------------------------------------------------
+
+describe("KernelMetricsService (getDashboardWithFallback without Prisma)", () => {
+  let service: KernelMetricsService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [KernelMetricsService],
+    }).compile();
+    service = module.get<KernelMetricsService>(KernelMetricsService);
+  });
+
+  it("should return empty dashboard when no Prisma and no in-memory data", async () => {
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.totalCalls).toBe(0);
+  });
+
+  it("should return in-memory dashboard when data exists", async () => {
+    service.recordLLMCall(makeCallInput());
+    const dashboard = await service.getDashboardWithFallback(60);
+    expect(dashboard.totalCalls).toBe(1);
   });
 });

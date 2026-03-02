@@ -318,4 +318,260 @@ describe("BillingService", () => {
       expect(result).toHaveProperty("dailyTrend");
     });
   });
+
+  describe("getDailyDetail", () => {
+    const setupDailyDetailMocks = (
+      transactions: object[],
+      byModule: object[] = [],
+      byModel: object[] = [],
+    ) => {
+      mockPrisma.creditTransaction.findMany.mockResolvedValue(transactions);
+      mockPrisma.creditTransaction.groupBy
+        .mockResolvedValueOnce(byModule)
+        .mockResolvedValueOnce(byModel);
+    };
+
+    it("should return formatted daily detail for a valid date", async () => {
+      // Arrange
+      const createdAt = new Date("2025-06-15T10:00:00.000Z");
+      setupDailyDetailMocks(
+        [
+          {
+            id: "tx-1",
+            amount: -100,
+            moduleType: "AI_RESEARCH",
+            modelName: "gpt-4",
+            description: "Research run",
+            createdAt,
+            account: { user: { email: "user@test.com", username: "tester" } },
+          },
+        ],
+        [{ moduleType: "AI_RESEARCH", _sum: { amount: -100 }, _count: 1 }],
+        [{ modelName: "gpt-4", _sum: { amount: -100 }, _count: 1 }],
+      );
+
+      // Act
+      const result = await service.getDailyDetail("2025-06-15");
+
+      // Assert
+      expect(result.date).toBe("2025-06-15");
+      expect(result.transactionCount).toBe(1);
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0].id).toBe("tx-1");
+    });
+
+    it("should throw BadRequestException for invalid date format", async () => {
+      await expect(service.getDailyDetail("15-06-2025")).rejects.toThrow(
+        "Invalid date format. Use YYYY-MM-DD",
+      );
+    });
+
+    it("should throw BadRequestException for a non-ISO string without dashes", async () => {
+      await expect(service.getDailyDetail("20250615")).rejects.toThrow(
+        "Invalid date format. Use YYYY-MM-DD",
+      );
+    });
+
+    it("should throw BadRequestException for invalid calendar date like 2025-13-45", async () => {
+      // Matches regex but produces an invalid Date
+      // new Date("2025-13-45T00:00:00.000Z") → NaN
+      await expect(service.getDailyDetail("2025-13-45")).rejects.toThrow(
+        "Invalid date",
+      );
+    });
+
+    it("should compute totalSpent as sum of absolute amounts", async () => {
+      // Arrange: three transactions with negative amounts
+      const createdAt = new Date("2025-06-15T10:00:00.000Z");
+      setupDailyDetailMocks([
+        {
+          id: "tx-1",
+          amount: -50,
+          moduleType: null,
+          modelName: null,
+          description: null,
+          createdAt,
+          account: { user: { email: "a@a.com", username: "a" } },
+        },
+        {
+          id: "tx-2",
+          amount: -75,
+          moduleType: null,
+          modelName: null,
+          description: null,
+          createdAt,
+          account: { user: { email: "b@b.com", username: "b" } },
+        },
+        {
+          id: "tx-3",
+          amount: -25,
+          moduleType: null,
+          modelName: null,
+          description: null,
+          createdAt,
+          account: { user: { email: "c@c.com", username: "c" } },
+        },
+      ]);
+
+      // Act
+      const result = await service.getDailyDetail("2025-06-15");
+
+      // Assert: 50 + 75 + 25 = 150
+      expect(result.totalSpent).toBe(150);
+    });
+
+    it("should map transactions with user email and username", async () => {
+      // Arrange
+      const createdAt = new Date("2025-06-15T12:00:00.000Z");
+      setupDailyDetailMocks([
+        {
+          id: "tx-42",
+          amount: -200,
+          moduleType: "AI_ASK",
+          modelName: "claude-3",
+          description: "Ask query",
+          createdAt,
+          account: {
+            user: { email: "alice@example.com", username: "alice" },
+          },
+        },
+      ]);
+
+      // Act
+      const result = await service.getDailyDetail("2025-06-15");
+
+      // Assert
+      expect(result.transactions[0].userEmail).toBe("alice@example.com");
+      expect(result.transactions[0].userName).toBe("alice");
+      expect(result.transactions[0].amount).toBe(200);
+      expect(result.transactions[0].module).toBe("AI_ASK");
+      expect(result.transactions[0].model).toBe("claude-3");
+    });
+
+    it("should fall back to '-' for null user email", async () => {
+      // Arrange: account exists but user email is null
+      const createdAt = new Date("2025-06-15T08:00:00.000Z");
+      setupDailyDetailMocks([
+        {
+          id: "tx-5",
+          amount: -10,
+          moduleType: null,
+          modelName: null,
+          description: null,
+          createdAt,
+          account: { user: { email: null, username: "ghost" } },
+        },
+      ]);
+
+      // Act
+      const result = await service.getDailyDetail("2025-06-15");
+
+      // Assert
+      expect(result.transactions[0].userEmail).toBe("-");
+      expect(result.transactions[0].userName).toBe("ghost");
+    });
+
+    it("should fall back to null for null username", async () => {
+      // Arrange
+      const createdAt = new Date("2025-06-15T09:00:00.000Z");
+      setupDailyDetailMocks([
+        {
+          id: "tx-6",
+          amount: -15,
+          moduleType: null,
+          modelName: null,
+          description: null,
+          createdAt,
+          account: { user: { email: "anon@test.com", username: null } },
+        },
+      ]);
+
+      // Act
+      const result = await service.getDailyDetail("2025-06-15");
+
+      // Assert
+      expect(result.transactions[0].userEmail).toBe("anon@test.com");
+      expect(result.transactions[0].userName).toBeNull();
+    });
+
+    it("should return byModule and byModel breakdowns", async () => {
+      // Arrange
+      setupDailyDetailMocks(
+        [],
+        [
+          { moduleType: "AI_WRITING", _sum: { amount: -300 }, _count: 3 },
+          { moduleType: "AI_TEAMS", _sum: { amount: -200 }, _count: 2 },
+        ],
+        [{ modelName: "gpt-4o", _sum: { amount: -500 }, _count: 5 }],
+      );
+
+      // Act
+      const result = await service.getDailyDetail("2025-06-15");
+
+      // Assert byModule
+      expect(result.byModule).toHaveLength(2);
+      expect(result.byModule[0]).toEqual({
+        module: "AI_WRITING",
+        spent: 300,
+        count: 3,
+      });
+      expect(result.byModule[1]).toEqual({
+        module: "AI_TEAMS",
+        spent: 200,
+        count: 2,
+      });
+
+      // Assert byModel
+      expect(result.byModel).toHaveLength(1);
+      expect(result.byModel[0]).toEqual({
+        model: "gpt-4o",
+        spent: 500,
+        count: 5,
+      });
+    });
+
+    it("should pass take: 200 to findMany to limit transactions", async () => {
+      // Arrange
+      setupDailyDetailMocks([]);
+
+      // Act
+      await service.getDailyDetail("2025-06-15");
+
+      // Assert: findMany was called with take: 200
+      const findManyCall =
+        mockPrisma.creditTransaction.findMany.mock.calls[0][0];
+      expect(findManyCall.take).toBe(200);
+    });
+
+    it("should return empty result when no transactions exist on that date", async () => {
+      // Arrange: no transactions, no groupBy entries
+      setupDailyDetailMocks([]);
+
+      // Act
+      const result = await service.getDailyDetail("2025-06-15");
+
+      // Assert
+      expect(result.date).toBe("2025-06-15");
+      expect(result.totalSpent).toBe(0);
+      expect(result.transactionCount).toBe(0);
+      expect(result.transactions).toHaveLength(0);
+      expect(result.byModule).toHaveLength(0);
+      expect(result.byModel).toHaveLength(0);
+    });
+
+    it("should query with the correct date range (dayStart and dayEnd)", async () => {
+      // Arrange
+      setupDailyDetailMocks([]);
+
+      // Act
+      await service.getDailyDetail("2025-06-15");
+
+      // Assert: the findMany where clause has the correct UTC range
+      const findManyCall =
+        mockPrisma.creditTransaction.findMany.mock.calls[0][0];
+      const { gte, lte } = findManyCall.where.createdAt;
+      expect(gte.toISOString()).toBe("2025-06-15T00:00:00.000Z");
+      expect(lte.toISOString()).toBe("2025-06-15T23:59:59.999Z");
+    });
+  });
 });

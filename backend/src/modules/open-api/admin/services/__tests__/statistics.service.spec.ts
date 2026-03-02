@@ -3,6 +3,8 @@ import { Logger } from "@nestjs/common";
 import { StatisticsService } from "../statistics.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KernelApiService } from "../../../../ai-kernel/facade";
+import { MCPServerService } from "../../../../open-api/mcp-server/mcp-server.service";
+import { GuardrailsPipelineService } from "../../../../ai-engine/facade";
 
 describe("StatisticsService", () => {
   let service: StatisticsService;
@@ -427,6 +429,654 @@ describe("StatisticsService", () => {
       // Assert
       const groupByCall = mockPrisma.resource.groupBy.mock.calls[0][0];
       expect(groupByCall.by).toContain("type");
+    });
+
+    it("should propagate error when user.count throws", async () => {
+      // Arrange
+      mockPrisma.user.count.mockRejectedValue(new Error("DB connection lost"));
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.resource.groupBy.mockResolvedValue([]);
+
+      // Act & Assert
+      await expect(service.getSystemStats()).rejects.toThrow(
+        "DB connection lost",
+      );
+    });
+
+    it("should return empty byType when resource.groupBy returns empty array", async () => {
+      // Arrange
+      mockPrisma.user.count.mockResolvedValue(10);
+      mockPrisma.resource.count.mockResolvedValue(5);
+      mockPrisma.resource.groupBy.mockResolvedValue([]);
+
+      // Act
+      const result = await service.getSystemStats();
+
+      // Assert
+      expect(result.resources.byType).toEqual({});
+    });
+  });
+
+  // ==================== getOverviewStats - without KernelApiService ====================
+
+  describe("getOverviewStats - without KernelApiService", () => {
+    let serviceNoKernel: StatisticsService;
+
+    beforeEach(async () => {
+      const moduleNoKernel: TestingModule = await Test.createTestingModule({
+        providers: [
+          StatisticsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          // KernelApiService intentionally omitted — @Optional() should handle it
+        ],
+      }).compile();
+
+      serviceNoKernel =
+        moduleNoKernel.get<StatisticsService>(StatisticsService);
+
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+    });
+
+    it("should return kernelSubscriptions, kernelBreakers, kernelLLMCalls as 0 when KernelApiService is not provided", async () => {
+      // Arrange — all Prisma counts return 0 by default from mockPrisma setup
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await serviceNoKernel.getOverviewStats();
+
+      // Assert
+      expect(result.kernelSubscriptions).toBe(0);
+      expect(result.kernelBreakers).toBe(0);
+      expect(result.kernelLLMCalls).toBe(0);
+    });
+
+    it("should still return all required stat keys even without KernelApiService", async () => {
+      // Arrange
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await serviceNoKernel.getOverviewStats();
+
+      // Assert — all three kernel in-memory keys must be present
+      expect(result).toHaveProperty("kernelSubscriptions");
+      expect(result).toHaveProperty("kernelBreakers");
+      expect(result).toHaveProperty("kernelLLMCalls");
+    });
+  });
+
+  // ==================== getOverviewStats - KernelApiService throws ====================
+
+  describe("getOverviewStats - KernelApiService throws", () => {
+    it("should gracefully fall back to 0 when getEventBusStats throws", async () => {
+      // Arrange
+      mockKernelApi.getEventBusStats.mockImplementation(() => {
+        throw new Error("IPC unavailable");
+      });
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.kernelSubscriptions).toBe(0);
+      expect(result.kernelBreakers).toBe(0);
+      expect(result.kernelLLMCalls).toBe(0);
+    });
+
+    it("should gracefully fall back to 0 when getCircuitBreakerMetrics throws", async () => {
+      // Arrange
+      mockKernelApi.getCircuitBreakerMetrics.mockImplementation(() => {
+        throw new Error("Circuit breaker service down");
+      });
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert — entire in-memory block returns zeros on any throw
+      expect(result.kernelSubscriptions).toBe(0);
+      expect(result.kernelBreakers).toBe(0);
+    });
+
+    it("should gracefully fall back to 0 when getDashboard throws", async () => {
+      // Arrange
+      mockKernelApi.getDashboard.mockImplementation(() => {
+        throw new Error("Dashboard service unavailable");
+      });
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.kernelLLMCalls).toBe(0);
+    });
+  });
+
+  // ==================== getGuardrailRulesCount ====================
+
+  describe("getGuardrailRulesCount (via getOverviewStats)", () => {
+    it("should return guardrailRules from GuardrailsPipelineService", async () => {
+      // Arrange
+      const mockGuardrails = {
+        getRegisteredGuardrails: jest.fn().mockReturnValue({ totalRules: 5 }),
+      };
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          StatisticsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: KernelApiService, useValue: mockKernelApi },
+          {
+            provide: GuardrailsPipelineService,
+            useValue: mockGuardrails,
+          },
+        ],
+      }).compile();
+
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      const svc = mod.get<StatisticsService>(StatisticsService);
+
+      // Act
+      const result = await svc.getOverviewStats();
+
+      // Assert
+      expect(result.guardrailRules).toBe(5);
+    });
+
+    it("should return guardrailRules 0 when GuardrailsPipelineService is not provided", async () => {
+      // Arrange — default service fixture has no guardrailsPipeline
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.guardrailRules).toBe(0);
+    });
+
+    it("should return guardrailRules 0 when GuardrailsPipelineService throws", async () => {
+      // Arrange
+      const mockGuardrailsThrowing = {
+        getRegisteredGuardrails: jest.fn().mockImplementation(() => {
+          throw new Error("Pipeline not ready");
+        }),
+      };
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          StatisticsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: KernelApiService, useValue: mockKernelApi },
+          {
+            provide: GuardrailsPipelineService,
+            useValue: mockGuardrailsThrowing,
+          },
+        ],
+      }).compile();
+
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      const svc = mod.get<StatisticsService>(StatisticsService);
+
+      // Act
+      const result = await svc.getOverviewStats();
+
+      // Assert
+      expect(result.guardrailRules).toBe(0);
+    });
+  });
+
+  // ==================== getMcpRegisteredTools ====================
+
+  describe("getMcpRegisteredTools (via getOverviewStats)", () => {
+    it("should return mcpRegisteredTools from MCPServerService", async () => {
+      // Arrange
+      const mockMcpServer = {
+        getDetailedStatus: jest.fn().mockReturnValue({ totalToolCount: 12 }),
+      };
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          StatisticsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: KernelApiService, useValue: mockKernelApi },
+          { provide: MCPServerService, useValue: mockMcpServer },
+        ],
+      }).compile();
+
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      const svc = mod.get<StatisticsService>(StatisticsService);
+
+      // Act
+      const result = await svc.getOverviewStats();
+
+      // Assert
+      expect(result.mcpRegisteredTools).toBe(12);
+    });
+
+    it("should return mcpRegisteredTools 0 when MCPServerService is not provided", async () => {
+      // Arrange — default service fixture has no mcpServer
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.mcpRegisteredTools).toBe(0);
+    });
+
+    it("should return mcpRegisteredTools 0 when MCPServerService throws", async () => {
+      // Arrange
+      const mockMcpServerThrowing = {
+        getDetailedStatus: jest.fn().mockImplementation(() => {
+          throw new Error("MCP server not initialized");
+        }),
+      };
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          StatisticsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: KernelApiService, useValue: mockKernelApi },
+          { provide: MCPServerService, useValue: mockMcpServerThrowing },
+        ],
+      }).compile();
+
+      jest.spyOn(Logger.prototype, "log").mockImplementation();
+      jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      const svc = mod.get<StatisticsService>(StatisticsService);
+
+      // Act
+      const result = await svc.getOverviewStats();
+
+      // Assert
+      expect(result.mcpRegisteredTools).toBe(0);
+    });
+  });
+
+  // ==================== getDbTableCount ====================
+
+  describe("getDbTableCount (via getOverviewStats)", () => {
+    it("should return dbTables as the BigInt count from $queryRaw", async () => {
+      // Arrange
+      mockPrisma.$queryRaw.mockResolvedValue([{ count: BigInt(42) }]);
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.dbTables).toBe(42);
+    });
+
+    it("should return dbTables 0 when $queryRaw throws", async () => {
+      // Arrange
+      mockPrisma.$queryRaw.mockRejectedValue(
+        new Error("information_schema unavailable"),
+      );
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.dbTables).toBe(0);
+    });
+
+    it("should return dbTables 0 when $queryRaw returns count of BigInt(0)", async () => {
+      // Arrange
+      mockPrisma.$queryRaw.mockResolvedValue([{ count: BigInt(0) }]);
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.dbTables).toBe(0);
+    });
+  });
+
+  // ==================== safeCount edge cases ====================
+
+  describe("safeCount edge cases (via getOverviewStats)", () => {
+    it("should return 0 for a safeCount field when that table count throws", async () => {
+      // Arrange: make agentProcess.count throw to simulate missing table
+      mockPrisma.agentProcess.count.mockRejectedValue(
+        new Error("relation does not exist"),
+      );
+      mockPrisma.resource.count.mockResolvedValue(10);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert — safeCount catches the error, kernelProcesses becomes 0
+      expect(result.kernelProcesses).toBe(0);
+      // Other fields are unaffected
+      expect(result.resources).toBe(10);
+    });
+
+    it("should return correct values for non-throwing fields when multiple safeCount calls fail", async () => {
+      // Arrange: several safeCount-wrapped tables throw
+      mockPrisma.agentProcess.count.mockRejectedValue(new Error("no table"));
+      mockPrisma.processEvent.count.mockRejectedValue(new Error("no table"));
+      mockPrisma.processMemory.count.mockRejectedValue(new Error("no table"));
+      mockPrisma.resource.count.mockResolvedValue(99);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert — failed tables are 0, healthy field is intact
+      expect(result.kernelProcesses).toBe(0);
+      expect(result.kernelEvents).toBe(0);
+      expect(result.kernelMemories).toBe(0);
+      expect(result.resources).toBe(99);
+    });
+  });
+
+  // ==================== kernelLLMCalls DB fallback ====================
+
+  describe("kernelLLMCalls DB fallback", () => {
+    it("should use in-memory kernelLLMCalls when kernel totalCalls > 0", async () => {
+      // Arrange
+      mockKernelApi.getDashboard.mockReturnValue({ totalCalls: 77 });
+      mockPrisma.aIEngineMetric.count.mockResolvedValue(200); // DB value should be ignored
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.kernelLLMCalls).toBe(77);
+    });
+
+    it("should fall back to DB aIEngineMetric count when kernel in-memory totalCalls is 0", async () => {
+      // Arrange
+      mockKernelApi.getDashboard.mockReturnValue({ totalCalls: 0 });
+      mockPrisma.aIEngineMetric.count.mockResolvedValue(55);
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.kernelLLMCalls).toBe(55);
+    });
+
+    it("should use DB value of 0 when both in-memory and DB return 0", async () => {
+      // Arrange
+      mockKernelApi.getDashboard.mockReturnValue({ totalCalls: 0 });
+      mockPrisma.aIEngineMetric.count.mockResolvedValue(0);
+      mockPrisma.resource.count.mockResolvedValue(0);
+      mockPrisma.researchMission.count.mockResolvedValue(0);
+      mockPrisma.officeDocument.count.mockResolvedValue(0);
+      mockPrisma.topic.count.mockResolvedValue(0);
+      mockPrisma.debateSession.count.mockResolvedValue(0);
+      mockPrisma.simulationScenario.count.mockResolvedValue(0);
+      mockPrisma.simulationRun.count.mockResolvedValue(0);
+      mockPrisma.writingProject.count.mockResolvedValue(0);
+      mockPrisma.socialContent.count.mockResolvedValue(0);
+      mockPrisma.toolConfig.count.mockResolvedValue(0);
+      mockPrisma.skillConfig.count.mockResolvedValue(0);
+      mockPrisma.aIModel.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.secret.count.mockResolvedValue(0);
+
+      // Act
+      const result = await service.getOverviewStats();
+
+      // Assert
+      expect(result.kernelLLMCalls).toBe(0);
     });
   });
 });
