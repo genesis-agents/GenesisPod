@@ -15,7 +15,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -77,7 +77,7 @@ export class SlideHtmlGenerationSkill implements ISkill<
   readonly tags = ["slides", "html", "generation", "ai-adaptive"];
   readonly version = "6.0.0";
 
-  constructor(@Optional() private readonly aiFacade?: AIEngineFacade) {}
+  constructor(@Optional() private readonly chatFacade?: ChatFacade) {}
 
   async execute(
     input: SlideHtmlGenerationInput,
@@ -85,7 +85,7 @@ export class SlideHtmlGenerationSkill implements ISkill<
   ): Promise<SkillResult<SlideHtmlGenerationOutput>> {
     const startTime = new Date();
 
-    if (!this.aiFacade) {
+    if (!this.chatFacade) {
       return {
         success: false,
         error: {
@@ -139,7 +139,7 @@ export class SlideHtmlGenerationSkill implements ISkill<
         { role: "user", content: userPrompt },
       ];
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: "CHAT" as AIModelType,
         taskProfile: {

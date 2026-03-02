@@ -12,7 +12,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ToolRegistry,
 } from "@/modules/ai-engine/facade";
 import type { ToolContext } from "@/modules/ai-engine/facade";
@@ -127,7 +127,7 @@ export class DataSupplementSkill implements ISkill<
   readonly version = "4.0.0";
 
   constructor(
-    @Optional() private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly chatFacade: ChatFacade,
     // ★ 架构重构：通过 ToolRegistry 调用工具
     @Optional() private readonly toolRegistry: ToolRegistry,
   ) {}
@@ -598,12 +598,12 @@ ${resultsSummary}
     ];
 
     try {
-      if (!this.aiFacade) {
+      if (!this.chatFacade) {
         this.logger.warn("[extractDataFromResults] No LLM adapter available");
         return { extractedData: {}, tokensUsed: 0 };
       }
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: "CHAT" as const,
         taskProfile: {

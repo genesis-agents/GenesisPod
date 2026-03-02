@@ -8,7 +8,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -23,20 +23,20 @@ import {
 } from "./types";
 
 /**
- * ✅ 已迁移：使用 AIEngineFacade 统一入口
+ * ✅ 已迁移：使用 ChatFacade 统一入口
  */
 @Injectable()
 export class SlidesLeader {
   private readonly logger = new Logger(SlidesLeader.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   // ============================================
   // AI 调用辅助方法
   // ============================================
 
   /**
-   * 使用 AIEngineFacade 统一入口
+   * 使用 ChatFacade 统一入口
    * 模型选择由 Facade 内部处理
    */
   private async callAI(
@@ -46,7 +46,7 @@ export class SlidesLeader {
       outputLength?: "minimal" | "short" | "medium" | "standard" | "long";
     },
   ): Promise<string> {
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },

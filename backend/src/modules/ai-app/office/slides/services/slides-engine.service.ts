@@ -38,7 +38,7 @@ import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
 import {
-  AIEngineFacade,
+  ChatFacade,
   MissionExecutorService,
   EventBusService,
 } from "../../../../ai-engine/facade";
@@ -127,7 +127,7 @@ export class SlidesEngineService {
     private readonly exportService: SlidesExportService,
     @Optional() private readonly contentCompression: ContentCompressionSkill,
     @Optional() private readonly templateRendering: TemplateRenderingSkill,
-    @Optional() private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly aiFacade: ChatFacade,
     @Optional() private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly eventBus?: EventBusService,

@@ -17,7 +17,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -46,7 +46,7 @@ export class SlideIterativeRefinerSkill implements ISkill<
   readonly version = "1.0.0";
 
   constructor(
-    @Optional() private readonly aiFacade?: AIEngineFacade,
+    @Optional() private readonly chatFacade?: ChatFacade,
     @Optional()
     private readonly visualValidator?: SlideVisualValidatorSkill,
   ) {}
@@ -92,7 +92,7 @@ export class SlideIterativeRefinerSkill implements ISkill<
         );
 
         let refinedHtml = quickFixed;
-        if (remainingIssues.length > 0 && this.aiFacade) {
+        if (remainingIssues.length > 0 && this.chatFacade) {
           try {
             const llmFixed = await this.llmRefine(
               quickFixed,
@@ -244,7 +244,7 @@ export class SlideIterativeRefinerSkill implements ISkill<
     input: SlideIterativeRefinerInput,
     _context: SkillContext,
   ): Promise<string | null> {
-    if (!this.aiFacade) return null;
+    if (!this.chatFacade) return null;
 
     const issueList = issues
       .map((issue, i) => `${i + 1}. [${issue.type}] ${issue.message}`)
@@ -263,7 +263,7 @@ The slide is 1280x720px. Return ONLY the complete fixed HTML wrapped in \`\`\`ht
       },
     ];
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages,
       modelType: "CHAT" as AIModelType,
       taskProfile: {

@@ -18,7 +18,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -335,7 +335,7 @@ export class ContentCompressionSkill implements ISkill<
   readonly version = "4.0.0";
 
   constructor(
-    @Optional() private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly chatFacade: ChatFacade,
     @Inject(forwardRef(() => DataSupplementSkill))
     private readonly dataSupplementSkill: DataSupplementSkill,
     @Inject(forwardRef(() => ContentAnalyzerSkill))
@@ -415,8 +415,8 @@ export class ContentCompressionSkill implements ISkill<
       const inputWithDefaults = { ...normalizedInput, maxCharacters: maxChars };
       const userMessage = this.buildUserMessage(inputWithDefaults);
 
-      // ★ 使用 AIEngineFacade 统一入口
-      if (!this.aiFacade) {
+      // ★ 使用 ChatFacade 统一入口
+      if (!this.chatFacade) {
         throw new Error(
           "AIEngineFacade not available. Please check module configuration.",
         );
@@ -427,7 +427,7 @@ export class ContentCompressionSkill implements ISkill<
         { role: "user", content: userMessage },
       ];
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: AIModelType.CHAT,
         taskProfile: {

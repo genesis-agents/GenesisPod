@@ -15,7 +15,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -116,7 +116,7 @@ export class VoiceNarrationSkill implements ISkill<
 
   constructor(
     @Optional()
-    private readonly aiFacade?: AIEngineFacade,
+    private readonly chatFacade?: ChatFacade,
   ) {}
 
   async execute(
@@ -224,7 +224,7 @@ export class VoiceNarrationSkill implements ISkill<
     language: string,
     targetAudience?: string,
   ): Promise<string> {
-    if (!this.aiFacade) {
+    if (!this.chatFacade) {
       // Fallback: simple template-based narration
       return this.generateTemplateNarration(page, style, language);
     }
@@ -270,7 +270,7 @@ Requirements:
 
     const messages: ChatMessage[] = [{ role: "user", content: prompt }];
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages,
       modelType: AIModelType.CHAT,
       taskProfile: {

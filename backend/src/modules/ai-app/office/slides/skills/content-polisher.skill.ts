@@ -15,7 +15,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -123,7 +123,7 @@ export class ContentPolisherSkill implements ISkill<
   readonly tags = ["slides", "content", "polish", "style", "tone"];
   readonly version = "5.0.0";
 
-  constructor(@Optional() private readonly aiFacade: AIEngineFacade) {}
+  constructor(@Optional() private readonly chatFacade: ChatFacade) {}
 
   // ============================================================================
   // ISkill Methods
@@ -246,7 +246,7 @@ export class ContentPolisherSkill implements ISkill<
     language?: string,
   ): Promise<{ page: SlidePage; changes: ContentChange[] }> {
     // 如果没有 AI Facade，返回原始内容
-    if (!this.aiFacade) {
+    if (!this.chatFacade) {
       this.logger.warn(
         "[polishPage] AIEngineFacade not available, returning original content",
       );
@@ -260,7 +260,7 @@ export class ContentPolisherSkill implements ISkill<
 
     try {
       const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "low", outputLength: "medium" },

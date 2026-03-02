@@ -12,8 +12,8 @@
  * 调用本服务完成通用操作。
  */
 
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
-import type { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { Injectable, Logger } from "@nestjs/common";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   SynthesisSection,
@@ -29,16 +29,7 @@ import { sanitizeMarkdownContent } from "../../../../common/utils/sanitize-conte
 export class ReportSynthesisEngine {
   private readonly logger = new Logger(ReportSynthesisEngine.name);
 
-  constructor(
-    // forwardRef breaks the circular import cycle: ReportSynthesisEngine ↔ AIEngineFacade
-    @Inject(
-      forwardRef(
-        () =>
-          require("../../../ai-engine/facade/ai-engine.facade").AIEngineFacade,
-      ),
-    )
-    private readonly aiFacade: AIEngineFacade,
-  ) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 生成单个报告章节
@@ -59,7 +50,7 @@ export class ReportSynthesisEngine {
       ? `${prompt}\n\n## 参考来源\n${sourceContext}`
       : prompt;
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [{ role: "user", content: fullPrompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {
@@ -117,7 +108,7 @@ ${sectionsSummary}
 \`\`\``;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: checkPrompt }],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: {

@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   CONTENT_ANALYSIS_SYSTEM_PROMPT,
@@ -25,13 +25,13 @@ import {
 } from "./content-analysis.types";
 
 /**
- * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+ * ★ P3 迁移：使用 ChatFacade 替代 AiChatService
  */
 @Injectable()
 export class ContentAnalysisService {
   private readonly logger = new Logger(ContentAnalysisService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 分析内容特征
@@ -340,7 +340,7 @@ export class ContentAnalysisService {
   /**
    * AI 深度分析
    *
-   * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+   * ★ P3 迁移：使用 ChatFacade 替代 AiChatService
    */
   private async performAIAnalysis(input: ContentAnalysisInput): Promise<{
     features: Partial<ContentFeatures>;
@@ -355,8 +355,8 @@ export class ContentAnalysisService {
         .replace("{{purpose}}", input.context?.purpose || "生成专业报告")
         .replace("{{content}}", input.content.slice(0, 8000)); // 限制长度
 
-      // ★ 使用 AIEngineFacade 统一入口
-      const response = await this.aiFacade.chat({
+      // ★ 使用 ChatFacade 统一入口
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: CONTENT_ANALYSIS_SYSTEM_PROMPT },
           { role: "user", content: userPrompt },

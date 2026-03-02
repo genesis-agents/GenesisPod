@@ -5,8 +5,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { SkillRegistry } from "@/modules/ai-engine/facade";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { SkillRegistry, TeamFacade } from "@/modules/ai-engine/facade";
 import {
   SlidesTask,
   SlidesTeamMemberRole,
@@ -27,7 +26,7 @@ export class SlidesTeamMember {
 
   constructor(
     private readonly skillRegistry: SkillRegistry,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly teamFacade: TeamFacade,
   ) {}
 
   /**
@@ -106,7 +105,7 @@ export class SlidesTeamMember {
       const skillInput = this.buildSkillInput(task, context, targetSkill);
 
       // 执行 Skill（通过 Facade，内部处理 LLM 适配器注入）
-      const skillResult = await this.aiFacade.executeSkill(
+      const skillResult = await this.teamFacade.executeSkill(
         targetSkill,
         skillInput,
         {
@@ -181,7 +180,7 @@ export class SlidesTeamMember {
     };
 
     // ★ PromptSkillAdapter: 声明式 InputBinding 解析（通过 Facade 封装）
-    const resolved = this.aiFacade.resolveSkillInputBindings(skill, {
+    const resolved = this.teamFacade.resolveSkillInputBindings(skill, {
       outputManager: context.outputManager,
       context: {
         ...context.globalContext,

@@ -15,7 +15,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -128,7 +128,7 @@ export class LayoutFixerSkill implements ISkill<
   readonly tags = ["slides", "layout", "fix", "html", "css"];
   readonly version = "5.0.0";
 
-  constructor(@Optional() private readonly aiFacade: AIEngineFacade) {}
+  constructor(@Optional() private readonly chatFacade: ChatFacade) {}
 
   // ============================================================================
   // ISkill Methods
@@ -497,7 +497,7 @@ ${html.substring(0, 2000)}${html.length > 2000 ? "... (truncated)" : ""}
 只返回 JSON 数组，不要其他内容。`;
 
     try {
-      if (!this.aiFacade) {
+      if (!this.chatFacade) {
         this.logger.warn(
           "[generateFixes] AIEngineFacade not available, using rule-based fixes",
         );
@@ -505,7 +505,7 @@ ${html.substring(0, 2000)}${html.length > 2000 ? "... (truncated)" : ""}
       }
 
       const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "deterministic", outputLength: "short" },

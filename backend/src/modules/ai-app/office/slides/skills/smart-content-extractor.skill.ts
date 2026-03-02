@@ -19,7 +19,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type {
@@ -44,7 +44,7 @@ export class SmartContentExtractorSkill implements ISkill<
   readonly tags = ["slides", "content", "extraction", "relevance"];
   readonly version = "1.0.0";
 
-  constructor(@Optional() private readonly aiFacade?: AIEngineFacade) {}
+  constructor(@Optional() private readonly chatFacade?: ChatFacade) {}
 
   async execute(
     input: SmartContentExtractorInput,
@@ -87,7 +87,7 @@ export class SmartContentExtractorSkill implements ISkill<
       let relevantParagraphs = this.rankParagraphs(paragraphs, keywords);
 
       // 4. If too many candidates, optionally use LLM for refined ranking
-      if (relevantParagraphs.length > 10 && this.aiFacade) {
+      if (relevantParagraphs.length > 10 && this.chatFacade) {
         try {
           relevantParagraphs = await this.llmRankParagraphs(
             relevantParagraphs,
@@ -234,14 +234,14 @@ export class SmartContentExtractorSkill implements ISkill<
     contentBrief: string,
     _context: SkillContext,
   ): Promise<string[]> {
-    if (!this.aiFacade) return paragraphs;
+    if (!this.chatFacade) return paragraphs;
 
     const numbered = paragraphs
       .slice(0, 15)
       .map((p, i) => `[${i + 1}] ${p.substring(0, 200)}`)
       .join("\n");
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",

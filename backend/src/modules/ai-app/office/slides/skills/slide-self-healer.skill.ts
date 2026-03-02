@@ -19,7 +19,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -48,7 +48,7 @@ export class SlideSelfHealerSkill implements ISkill<
   readonly tags = ["slides", "recovery", "fallback", "healing"];
   readonly version = "1.0.0";
 
-  constructor(@Optional() private readonly aiFacade?: AIEngineFacade) {}
+  constructor(@Optional() private readonly chatFacade?: ChatFacade) {}
 
   async execute(
     input: SlideSelfHealerInput,
@@ -349,7 +349,7 @@ export class SlideSelfHealerSkill implements ISkill<
     input: SlideSelfHealerInput,
     _context: SkillContext,
   ): Promise<{ html: string; confidence: number }> {
-    if (!this.aiFacade) {
+    if (!this.chatFacade) {
       return this.generateMinimalTemplate(input);
     }
 
@@ -372,7 +372,7 @@ Key points: ${keyElements.map((e) => `- ${e}`).join("\n")}`,
     ];
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: "CHAT" as AIModelType,
         taskProfile: {

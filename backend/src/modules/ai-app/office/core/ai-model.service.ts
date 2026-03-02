@@ -1,18 +1,18 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 
 /**
  * AI 模型动态配置服务
  * 严禁硬编码模型名称！所有模型选择都通过此服务获取
  *
- * ★ 重构说明：已迁移到使用 AIEngineFacade，不再直接访问 prisma.aIModel
+ * ★ 重构说明：已迁移到使用 ChatFacade，不再直接访问 prisma.aIModel
  */
 @Injectable()
 export class AIModelService {
   private readonly logger = new Logger(AIModelService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 获取默认文本模型 (用于推理、生成)
@@ -28,7 +28,7 @@ export class AIModelService {
 
     // 1. 用户指定了模型
     if (userModelId) {
-      const userModel = await this.aiFacade.getModelById(userModelId);
+      const userModel = await this.chatFacade.getModelById(userModelId);
       if (userModel) {
         this.logger.debug(
           `[getDefaultTextModel] Using user specified model: ${userModel.displayName}`,
@@ -51,7 +51,7 @@ export class AIModelService {
     }
 
     // 2. 查找系统默认文本模型
-    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    const defaultModel = await this.chatFacade.getDefaultTextModel();
     if (defaultModel) {
       this.logger.debug(
         `[getDefaultTextModel] Using system default model: ${defaultModel.displayName}`,
@@ -89,7 +89,7 @@ export class AIModelService {
 
     // 1. 用户指定了模型
     if (userModelId) {
-      const userModel = await this.aiFacade.getModelById(userModelId);
+      const userModel = await this.chatFacade.getModelById(userModelId);
       if (userModel) {
         this.logger.debug(
           `[getDefaultImageModel] Using user specified model: ${userModel.displayName}`,
@@ -109,7 +109,7 @@ export class AIModelService {
     }
 
     // 2. 查找系统默认图像生成模型
-    const defaultModel = await this.aiFacade.getDefaultImageModel();
+    const defaultModel = await this.chatFacade.getDefaultImageModel();
     if (defaultModel) {
       this.logger.debug(
         `[getDefaultImageModel] Using system default model: ${defaultModel.displayName}`,
@@ -138,7 +138,7 @@ export class AIModelService {
    * 获取所有可用的文本模型列表 (用于前端下拉选择)
    */
   async getAvailableTextModels() {
-    const models = await this.aiFacade.getAvailableModels(AIModelType.CHAT);
+    const models = await this.chatFacade.getAvailableModels(AIModelType.CHAT);
 
     // 转换为原有格式，并按默认排序
     return models
@@ -148,7 +148,7 @@ export class AIModelService {
         displayName: model.name,
         provider: model.provider,
         modelId: model.id,
-        isDefault: false, // AIEngineFacade 不返回 isDefault，可以扩展
+        isDefault: false, // ChatFacade 不返回 isDefault，可以扩展
         icon: null,
         color: null,
       }))
@@ -165,7 +165,7 @@ export class AIModelService {
    * 获取所有可用的图像生成模型列表
    */
   async getAvailableImageModels() {
-    const models = await this.aiFacade.getAvailableModels(
+    const models = await this.chatFacade.getAvailableModels(
       AIModelType.IMAGE_GENERATION,
     );
 
@@ -177,7 +177,7 @@ export class AIModelService {
         displayName: model.name,
         provider: model.provider,
         modelId: model.id,
-        isDefault: false, // AIEngineFacade 不返回 isDefault，可以扩展
+        isDefault: false, // ChatFacade 不返回 isDefault，可以扩展
         icon: null,
         color: null,
       }))

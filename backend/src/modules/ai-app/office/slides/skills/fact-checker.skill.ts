@@ -14,7 +14,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -152,7 +152,7 @@ export class FactCheckerSkill implements ISkill<
   readonly tags = ["slides", "fact-check", "verification", "quality"];
   readonly version = "5.0.0";
 
-  constructor(@Optional() private readonly aiFacade: AIEngineFacade) {}
+  constructor(@Optional() private readonly chatFacade: ChatFacade) {}
 
   // ============================================================================
   // ISkill Methods
@@ -295,7 +295,7 @@ export class FactCheckerSkill implements ISkill<
     page: FactCheckSlidePage,
     language?: string,
   ): Promise<Claim[]> {
-    if (!this.aiFacade) {
+    if (!this.chatFacade) {
       this.logger.warn(
         "[extractClaims] AIEngineFacade not available, using regex-based extraction",
       );
@@ -351,7 +351,7 @@ Return only JSON array, no other content. If no verifiable claims, return empty 
 
     try {
       const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "deterministic", outputLength: "short" },
@@ -432,7 +432,7 @@ Return only JSON array, no other content. If no verifiable claims, return empty 
     strictMode?: boolean,
     language?: string,
   ): Promise<ClaimVerification[]> {
-    if (!this.aiFacade || claims.length === 0) {
+    if (!this.chatFacade || claims.length === 0) {
       // 没有 AI 能力时，返回需要人工核查的状态
       return claims.map((claim) => ({
         claim,
@@ -496,7 +496,7 @@ Return only JSON array.`;
 
     try {
       const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages,
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "deterministic", outputLength: "medium" },

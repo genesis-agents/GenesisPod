@@ -16,7 +16,7 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   LayoutFixerSkill,
@@ -123,7 +123,7 @@ export class AIEditService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly aiFacade: ChatFacade,
     @Optional() private readonly layoutFixerSkill: LayoutFixerSkill,
     @Optional() private readonly contentPolisherSkill: ContentPolisherSkill,
     @Optional() private readonly factCheckerSkill: FactCheckerSkill,
