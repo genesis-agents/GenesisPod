@@ -1,5 +1,19 @@
 [
   {
+    "version": "9.0.0",
+    "date": "2026-03-02",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "resolve circular dependency chains in facade exports"
+      },
+      {
+        "type": "improvement",
+        "description": "enforce 3-layer facade pattern across all modules"
+      }
+    ]
+  },
+  {
     "version": "7.0.0",
     "date": "2026-03-01",
     "changes": [
