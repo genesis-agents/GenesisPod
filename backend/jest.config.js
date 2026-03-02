@@ -21,6 +21,8 @@ module.exports = {
     "!**/*.spec.ts",
     "!**/__tests__/**",
     "!**/__mocks__/**",
+    "!**/deprecated/**",
+    "!**/*.example.ts",
   ],
   coverageDirectory: "../coverage",
   testEnvironment: "node",

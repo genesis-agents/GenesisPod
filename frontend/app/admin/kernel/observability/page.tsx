@@ -136,7 +136,15 @@ interface CostsData {
 // Constants
 // ============================
 
-const METRICS_PERIODS = [15, 30, 60, 120] as const;
+const METRICS_PERIODS = [
+  { value: 15, label: '15m' },
+  { value: 30, label: '30m' },
+  { value: 60, label: '1h' },
+  { value: 120, label: '2h' },
+  { value: 360, label: '6h' },
+  { value: 720, label: '12h' },
+  { value: 1440, label: '24h' },
+] as const;
 const COSTS_HOURS = [1, 6, 12, 24] as const;
 
 // ============================
@@ -721,8 +729,7 @@ function CostsTab({ data, loading }: CostsTabProps) {
 
 export default function KernelObservabilityPage() {
   const [activeTab, setActiveTab] = useState<'metrics' | 'costs'>('metrics');
-  const [metricsPeriod, setMetricsPeriod] =
-    useState<(typeof METRICS_PERIODS)[number]>(60);
+  const [metricsPeriod, setMetricsPeriod] = useState(1440);
   const [costsHours, setCostsHours] =
     useState<(typeof COSTS_HOURS)[number]>(24);
 
@@ -847,15 +854,15 @@ export default function KernelObservabilityPage() {
             <span className="text-xs text-gray-500">Period:</span>
             {METRICS_PERIODS.map((p) => (
               <button
-                key={p}
-                onClick={() => setMetricsPeriod(p)}
+                key={p.value}
+                onClick={() => setMetricsPeriod(p.value)}
                 className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                  metricsPeriod === p
+                  metricsPeriod === p.value
                     ? 'bg-violet-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {p}m
+                {p.label}
               </button>
             ))}
           </div>

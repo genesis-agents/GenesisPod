@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Shield,
   Search,
@@ -8,6 +8,8 @@ import {
   Wrench,
   Sparkles,
   Database as DataIcon,
+  ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -28,6 +30,14 @@ interface CapabilityGuard {
   grantedSkills: string[];
   dataScope: DataScope;
   meta: Record<string, unknown>;
+}
+
+interface KernelProcess {
+  id: string;
+  userId: string;
+  type: string;
+  state: string;
+  createdAt: string;
 }
 
 // ============================
@@ -185,6 +195,14 @@ function MetaSection({ meta }: MetaSectionProps) {
 // Main Page
 // ============================
 
+const STATE_COLORS: Record<string, string> = {
+  RUNNING: 'bg-green-100 text-green-800',
+  PAUSED: 'bg-yellow-100 text-yellow-800',
+  COMPLETED: 'bg-gray-100 text-gray-600',
+  FAILED: 'bg-red-100 text-red-800',
+  CANCELLED: 'bg-gray-100 text-gray-500',
+};
+
 export default function KernelSecurityPage() {
   const [processId, setProcessId] = useState('');
   const [capabilities, setCapabilities] = useState<CapabilityGuard | null>(
@@ -194,34 +212,66 @@ export default function KernelSecurityPage() {
   const [loading, setLoading] = useState(false);
   const [queriedId, setQueriedId] = useState('');
 
+  // Process listing state
+  const [processes, setProcesses] = useState<KernelProcess[]>([]);
+  const [loadingProcesses, setLoadingProcesses] = useState(true);
+
   const apiUrl = config.apiUrl;
 
-  const fetchCapabilities = useCallback(async () => {
-    const trimmed = processId.trim();
-    if (!trimmed) return;
-
-    setLoading(true);
-    setCapabilities(null);
+  const fetchProcesses = useCallback(async () => {
+    setLoadingProcesses(true);
     try {
-      const res = await fetch(
-        `${apiUrl}/admin/kernel/security/capabilities/${encodeURIComponent(trimmed)}`,
-        { headers: getAuthHeader() }
-      );
-      if (!res.ok) throw new Error(`Capabilities query failed: ${res.status}`);
+      const res = await fetch(`${apiUrl}/admin/kernel/processes?limit=50`, {
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) throw new Error(`Process list fetch failed: ${res.status}`);
       const json = await res.json();
-      const data = (json?.data ?? json) as CapabilityGuard;
-      setCapabilities(data);
-      setQueriedId(trimmed);
-      setQueried(true);
+      const data = json?.data ?? json;
+      const list = data?.processes ?? (Array.isArray(data) ? data : []);
+      setProcesses(list);
     } catch (err) {
-      logger.error('KernelSecurity', 'Failed to fetch capabilities', err);
-      setCapabilities(null);
-      setQueriedId(trimmed);
-      setQueried(true);
+      logger.error('KernelSecurity', 'Failed to fetch processes', err);
+      setProcesses([]);
     } finally {
-      setLoading(false);
+      setLoadingProcesses(false);
     }
-  }, [apiUrl, processId]);
+  }, [apiUrl]);
+
+  // Load processes on mount
+  useEffect(() => {
+    void fetchProcesses();
+  }, [fetchProcesses]);
+
+  const fetchCapabilities = useCallback(
+    async (targetId?: string) => {
+      const trimmed = (targetId ?? processId).trim();
+      if (!trimmed) return;
+
+      setLoading(true);
+      setCapabilities(null);
+      try {
+        const res = await fetch(
+          `${apiUrl}/admin/kernel/security/capabilities/${encodeURIComponent(trimmed)}`,
+          { headers: getAuthHeader() }
+        );
+        if (!res.ok)
+          throw new Error(`Capabilities query failed: ${res.status}`);
+        const json = await res.json();
+        const data = (json?.data ?? json) as CapabilityGuard;
+        setCapabilities(data);
+        setQueriedId(trimmed);
+        setQueried(true);
+      } catch (err) {
+        logger.error('KernelSecurity', 'Failed to fetch capabilities', err);
+        setCapabilities(null);
+        setQueriedId(trimmed);
+        setQueried(true);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [apiUrl, processId]
+  );
 
   const handleQuery = () => {
     void fetchCapabilities();
@@ -233,14 +283,93 @@ export default function KernelSecurityPage() {
     }
   };
 
+  const handleSelectProcess = (pid: string) => {
+    setProcessId(pid);
+    void fetchCapabilities(pid);
+  };
+
   return (
     <AdminPageLayout
       title="Capability Guard"
       description="Inspect the granted tools, skills, and data scope for an AI kernel process"
       icon={Shield}
       domain="ai"
+      actions={
+        <button
+          onClick={() => void fetchProcesses()}
+          disabled={loadingProcesses}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${loadingProcesses ? 'animate-spin' : ''}`}
+          />
+          Refresh
+        </button>
+      }
     >
       <div className="space-y-4">
+        {/* Process List */}
+        <div className="rounded-lg bg-white shadow">
+          <div className="border-b px-4 py-3">
+            <h3 className="text-sm font-semibold text-gray-800">
+              Active Processes
+              {processes.length > 0 && (
+                <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                  {processes.length}
+                </span>
+              )}
+            </h3>
+          </div>
+          {loadingProcesses ? (
+            <div className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading processes...
+            </div>
+          ) : processes.length === 0 ? (
+            <div className="p-8 text-center text-sm text-gray-400">
+              No active processes found
+            </div>
+          ) : (
+            <div className="divide-y">
+              {processes.map((proc) => (
+                <button
+                  key={proc.id}
+                  onClick={() => handleSelectProcess(proc.id)}
+                  className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
+                    queriedId === proc.id ? 'bg-violet-50' : ''
+                  }`}
+                >
+                  <Shield className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono truncate text-xs font-medium text-gray-800">
+                        {proc.id}
+                      </span>
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          STATE_COLORS[proc.state] ??
+                          'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {proc.state}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {proc.type}
+                      {proc.userId && (
+                        <span className="ml-2 text-gray-400">
+                          user: {proc.userId.slice(0, 8)}...
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-300" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Query Input */}
         <div className="rounded-lg bg-white p-4 shadow">
           <div className="flex items-end gap-3">
@@ -253,7 +382,7 @@ export default function KernelSecurityPage() {
                 value={processId}
                 onChange={(e) => setProcessId(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter process ID to inspect capabilities"
+                placeholder="Enter process ID or select from list above"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>
@@ -272,15 +401,8 @@ export default function KernelSecurityPage() {
           </div>
         </div>
 
-        {/* Results */}
-        {!queried ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg bg-white p-16 text-gray-400 shadow">
-            <Shield className="h-8 w-8 opacity-40" />
-            <p className="text-sm">
-              Enter a Process ID to view its capabilities
-            </p>
-          </div>
-        ) : loading ? (
+        {/* Capability Results */}
+        {!queried ? null : loading ? (
           <div className="flex items-center justify-center gap-2 rounded-lg bg-white p-12 text-sm text-gray-500 shadow">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading capabilities...
