@@ -7,16 +7,21 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import {
-  AIEngineFacade,
+  ChatFacade,
+  ToolFacade,
+  RAGFacade,
+  AgentFacade,
   BUILTIN_TOOLS,
   type BuiltinToolId,
   type AICapabilityContext,
   type ExecutionConfig,
+  type TaskPlan,
   MissionExecutorService,
   KernelMemoryManagerService,
+  IntentRouterService,
+  RAGPipelineService,
 } from "../../ai-engine/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
-import { RAGPipelineService } from "../../ai-engine/facade";
 import {
   CreditsService,
   InsufficientCreditsException,
@@ -78,7 +83,10 @@ export class AiAskService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly toolFacade: ToolFacade,
+    private readonly ragFacade: RAGFacade,
+    private readonly agentFacade: AgentFacade,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
@@ -89,7 +97,7 @@ export class AiAskService {
    * 检查工具能力是否可用
    */
   private isToolCapabilityAvailable(): boolean {
-    return this.aiFacade.isToolExecutionAvailable();
+    return this.toolFacade.isToolExecutionAvailable();
   }
 
   /**
@@ -99,7 +107,7 @@ export class AiAskService {
     if (!this.isToolCapabilityAvailable()) {
       return [];
     }
-    return AI_ASK_TOOLS.filter((tool) => this.aiFacade.isToolAvailable(tool));
+    return AI_ASK_TOOLS.filter((tool) => this.toolFacade.isToolAvailable(tool));
   }
 
   /**
@@ -186,7 +194,7 @@ export class AiAskService {
             role: m.role as "user" | "assistant" | "system",
             content: this.sanitizeMessageContent(m.content),
           }));
-        await this.aiFacade.sessionMemorySet(
+        await this.ragFacade.sessionMemorySet(
           sessionId,
           this.MEMORY_KEY,
           contextMessages,
@@ -243,7 +251,7 @@ export class AiAskService {
 
     // 清理 ShortTermMemory 中的对话历史
     try {
-      await this.aiFacade.sessionMemoryClear(sessionId);
+      await this.ragFacade.sessionMemoryClear(sessionId);
       this.logger.debug(
         `[deleteSession] Cleared memory for session ${sessionId}`,
       );
@@ -445,7 +453,7 @@ export class AiAskService {
             };
 
             // 通过 Facade 的 chatWithToolsStream 执行工具调用
-            const events = this.aiFacade.chatWithToolsStream({
+            const events = this.toolFacade.chatWithToolsStream({
               systemPrompt,
               userPrompt: dto.content,
               context: capabilityContext,
@@ -494,7 +502,7 @@ export class AiAskService {
             ];
 
             // 使用 AIEngineFacade 统一入口
-            const aiResponse = await this.aiFacade.chat({
+            const aiResponse = await this.chatFacade.chat({
               messages: messagesWithSystem,
               model: modelConfig.modelId, // 指定模型
               modelType: AIModelType.CHAT,
@@ -826,7 +834,7 @@ export class AiAskService {
 
     try {
       // 调用 AI (通过 AIEngineFacade 统一入口，带自动积分扣除)
-      const aiResponse = await this.aiFacade.chat({
+      const aiResponse = await this.chatFacade.chat({
         messages: contextMessages,
         model: modelConfig.modelId, // 指定模型
         modelType: AIModelType.CHAT,
@@ -855,7 +863,7 @@ export class AiAskService {
       });
 
       try {
-        await this.aiFacade.sessionMemoryClear(sessionId);
+        await this.ragFacade.sessionMemoryClear(sessionId);
         // Rebuild cache from DB to prevent stale reads
         const freshMessages = await this.prisma.askMessage.findMany({
           where: { sessionId },
@@ -870,7 +878,7 @@ export class AiAskService {
               content: this.sanitizeMessageContent(m.content),
             }),
           );
-          await this.aiFacade.sessionMemorySet(
+          await this.ragFacade.sessionMemorySet(
             sessionId,
             this.MEMORY_KEY,
             updatedHistory,
@@ -903,7 +911,7 @@ export class AiAskService {
     let contextMessages: MessageWithContext[] = [];
 
     try {
-      const cachedHistory = await this.aiFacade.sessionMemoryGet(
+      const cachedHistory = await this.ragFacade.sessionMemoryGet(
         sessionId,
         this.MEMORY_KEY,
       );
@@ -995,7 +1003,7 @@ export class AiAskService {
         content: this.sanitizeMessageContent(m.content),
       }));
 
-      await this.aiFacade.sessionMemorySet(
+      await this.ragFacade.sessionMemorySet(
         sessionId,
         this.MEMORY_KEY,
         updatedHistory,
@@ -1050,7 +1058,7 @@ export class AiAskService {
   private async getModelConfig(modelId?: string | null) {
     if (modelId) {
       // 尝试根据 modelId 获取模型配置
-      const model = await this.aiFacade.getModelById(modelId);
+      const model = await this.chatFacade.getModelById(modelId);
       if (model) {
         return {
           id: model.id,
@@ -1065,7 +1073,7 @@ export class AiAskService {
     }
 
     // 获取默认 CHAT 模型
-    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    const defaultModel = await this.chatFacade.getDefaultTextModel();
     if (defaultModel) {
       return {
         id: defaultModel.id,
@@ -1175,14 +1183,14 @@ export class AiAskService {
     sessionId: string,
   ): Promise<SuggestedAction[]> {
     try {
-      const result = await this.aiFacade.routeIntent(userInput, {
+      const result = await this.agentFacade.routeIntent(userInput, {
         userId,
         sessionId,
       });
 
       if (!result) return [];
 
-      if (result.plan.confidence < AIEngineFacade.INTENT_CONFIRMATION_THRESHOLD)
+      if (result.plan.confidence < IntentRouterService.CONFIRMATION_THRESHOLD)
         return [];
 
       return this.buildSuggestedActions(userInput, result.plan);
@@ -1202,13 +1210,13 @@ export class AiAskService {
    */
   private buildSuggestedActions(
     userInput: string,
-    plan: import("../../ai-engine/facade").TaskPlan,
+    plan: TaskPlan,
   ): SuggestedAction[] {
     const seen = new Set<string>();
     const actions: SuggestedAction[] = [];
 
     // 从 Facade 动态获取模块配置（单一数据来源）
-    const moduleCapabilities = this.aiFacade.listModuleCapabilities();
+    const moduleCapabilities = this.toolFacade.listModuleCapabilities();
     const capabilityMap = new Map(moduleCapabilities.map((c) => [c.module, c]));
 
     for (const step of plan.steps) {

@@ -13,7 +13,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   EntityType,
@@ -38,7 +38,7 @@ export class KnowledgeGraphService {
   /** 实体名称索引（用于快速去重） */
   private readonly entityNameIndex = new Map<string, string>();
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 从文本中提取实体和关系
@@ -51,7 +51,7 @@ export class KnowledgeGraphService {
     );
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

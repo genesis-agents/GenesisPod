@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SelfConsistencyService } from "../self-consistency.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { DEFAULT_SELF_CONSISTENCY_CONFIG } from "../../../types/quality-enhancement.types";
 import type { SelfConsistencyRequest } from "../self-consistency.service";
 
@@ -8,14 +8,24 @@ const mockAiFacade = {
   chat: jest.fn(),
 };
 
-const makeRequest = (question = "What is the impact of AI on employment?"): SelfConsistencyRequest => ({
+const makeRequest = (
+  question = "What is the impact of AI on employment?",
+): SelfConsistencyRequest => ({
   question,
   context: {
     topicName: "AI and Employment",
     dimensionName: "Job Market Impact",
     evidences: [
-      { id: "e1", content: "AI is automating many routine tasks.", source: "McKinsey Report 2024" },
-      { id: "e2", content: "New AI-related jobs are being created.", source: "WEF Future of Jobs 2025" },
+      {
+        id: "e1",
+        content: "AI is automating many routine tasks.",
+        source: "McKinsey Report 2024",
+      },
+      {
+        id: "e2",
+        content: "New AI-related jobs are being created.",
+        source: "WEF Future of Jobs 2025",
+      },
     ],
   },
 });
@@ -29,7 +39,7 @@ describe("SelfConsistencyService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SelfConsistencyService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -47,7 +57,10 @@ describe("SelfConsistencyService", () => {
         reasoning: "Based on evidence, AI creates more jobs than it displaces.",
         conclusion: "AI net positive for employment in the long run.",
         confidence: 0.8,
-        keySteps: ["Step 1: Analyze job creation", "Step 2: Analyze displacement"],
+        keySteps: [
+          "Step 1: Analyze job creation",
+          "Step 2: Analyze displacement",
+        ],
         evidenceUsed: ["e1", "e2"],
       });
 
@@ -151,7 +164,12 @@ describe("SelfConsistencyService", () => {
         agreementRate: 1.0,
         majorityConclusion: "Clear conclusion",
         clusters: [
-          { theme: "Agreement", pathIndices: [0], isMajority: true, representativeConclusion: "Clear conclusion" },
+          {
+            theme: "Agreement",
+            pathIndices: [0],
+            isMajority: true,
+            representativeConclusion: "Clear conclusion",
+          },
         ],
         synthesizedConclusion: "Clear conclusion",
         needsHumanReview: false,
@@ -186,14 +204,20 @@ describe("SelfConsistencyService", () => {
       const analysisResponse = JSON.stringify({
         agreementRate: 0.8,
         majorityConclusion: "Conclusion",
-        clusters: [{ theme: "X", pathIndices: [0], isMajority: true, representativeConclusion: "C" }],
+        clusters: [
+          {
+            theme: "X",
+            pathIndices: [0],
+            isMajority: true,
+            representativeConclusion: "C",
+          },
+        ],
         synthesizedConclusion: "Conclusion",
         needsHumanReview: false,
         reviewReasons: [],
       });
 
-      mockAiFacade.chat
-        .mockResolvedValue({ content: pathResponse });
+      mockAiFacade.chat.mockResolvedValue({ content: pathResponse });
 
       // Override to return analysis on last call
       const callCount = DEFAULT_SELF_CONSISTENCY_CONFIG.numPaths;
@@ -347,8 +371,18 @@ describe("SelfConsistencyService", () => {
         agreementRate: 0.3, // below humanReviewThreshold (0.5)
         majorityConclusion: "Uncertain",
         clusters: [
-          { theme: "Group A", pathIndices: [0, 1], isMajority: true, representativeConclusion: "A" },
-          { theme: "Group B", pathIndices: [2, 3, 4], isMajority: false, representativeConclusion: "B" },
+          {
+            theme: "Group A",
+            pathIndices: [0, 1],
+            isMajority: true,
+            representativeConclusion: "A",
+          },
+          {
+            theme: "Group B",
+            pathIndices: [2, 3, 4],
+            isMajority: false,
+            representativeConclusion: "B",
+          },
         ],
         synthesizedConclusion: "Synthesis needed",
         needsHumanReview: true,

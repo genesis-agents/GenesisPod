@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { AgentExecutorService } from "../analytics/agent-executor.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 
 describe("AgentExecutorService", () => {
   let service: AgentExecutorService;
@@ -21,7 +21,7 @@ describe("AgentExecutorService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AgentExecutorService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -70,7 +70,9 @@ describe("AgentExecutorService", () => {
         tokensUsed: 200,
       });
 
-      const result = await service.executeContentAgent("Technology trends content");
+      const result = await service.executeContentAgent(
+        "Technology trends content",
+      );
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -81,7 +83,20 @@ describe("AgentExecutorService", () => {
     });
 
     it("should handle JSON wrapped in markdown code fences", async () => {
-      const output = { informationArchitecture: { title: "Test", sections: [] }, contentAnalysis: { type: "balanced", structureType: "parallel_stories", language: "en", complexity: "low", wordCount: 50, hasData: false, hasTimeline: false, mainPointsCount: 1, hasSummaryConclusion: false } };
+      const output = {
+        informationArchitecture: { title: "Test", sections: [] },
+        contentAnalysis: {
+          type: "balanced",
+          structureType: "parallel_stories",
+          language: "en",
+          complexity: "low",
+          wordCount: 50,
+          hasData: false,
+          hasTimeline: false,
+          mainPointsCount: 1,
+          hasSummaryConclusion: false,
+        },
+      };
       mockFacade.chat.mockResolvedValue({
         content: `\`\`\`json\n${JSON.stringify(output)}\n\`\`\``,
         tokensUsed: 100,
@@ -153,7 +168,9 @@ describe("AgentExecutorService", () => {
 
       const result = await service.executeLayoutAgent(
         contentAnalysis,
-        informationArchitecture as Parameters<typeof service.executeLayoutAgent>[1],
+        informationArchitecture as Parameters<
+          typeof service.executeLayoutAgent
+        >[1],
       );
 
       expect(result.success).toBe(true);
@@ -174,7 +191,9 @@ describe("AgentExecutorService", () => {
 
       const result = await service.executeLayoutAgent(
         contentAnalysis,
-        informationArchitecture as Parameters<typeof service.executeLayoutAgent>[1],
+        informationArchitecture as Parameters<
+          typeof service.executeLayoutAgent
+        >[1],
       );
 
       // Should be corrected from "comparison" to "cards" because sections > 2
@@ -224,7 +243,9 @@ describe("AgentExecutorService", () => {
 
       const result = await service.executeLayoutAgent(
         contentAnalysis,
-        informationArchitecture as Parameters<typeof service.executeLayoutAgent>[1],
+        informationArchitecture as Parameters<
+          typeof service.executeLayoutAgent
+        >[1],
       );
 
       // 3 sections, matrix requires 4 - should be corrected to cards
@@ -266,7 +287,9 @@ describe("AgentExecutorService", () => {
 
       const result = await service.executeLayoutAgent(
         contentAnalysis,
-        informationArchitecture as Parameters<typeof service.executeLayoutAgent>[1],
+        informationArchitecture as Parameters<
+          typeof service.executeLayoutAgent
+        >[1],
       );
 
       expect(result.success).toBe(false);
@@ -399,8 +422,20 @@ describe("AgentExecutorService", () => {
         informationArchitecture: {
           title: "Tech Report",
           sections: [
-            { title: "S1", summary: "Summary 1", bullets: [], metrics: [], sectionType: "main" },
-            { title: "S2", summary: "Summary 2", bullets: [], metrics: [], sectionType: "main" },
+            {
+              title: "S1",
+              summary: "Summary 1",
+              bullets: [],
+              metrics: [],
+              sectionType: "main",
+            },
+            {
+              title: "S2",
+              summary: "Summary 2",
+              bullets: [],
+              metrics: [],
+              sectionType: "main",
+            },
           ],
         },
         contentAnalysis: {
@@ -453,12 +488,26 @@ describe("AgentExecutorService", () => {
       };
 
       mockFacade.chat
-        .mockResolvedValueOnce({ content: JSON.stringify(contentOutput), tokensUsed: 200 })
-        .mockResolvedValueOnce({ content: JSON.stringify(layoutOutput), tokensUsed: 100 })
-        .mockResolvedValueOnce({ content: JSON.stringify(visualOutput), tokensUsed: 120 })
-        .mockResolvedValueOnce({ content: JSON.stringify(styleOutput), tokensUsed: 150 });
+        .mockResolvedValueOnce({
+          content: JSON.stringify(contentOutput),
+          tokensUsed: 200,
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(layoutOutput),
+          tokensUsed: 100,
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(visualOutput),
+          tokensUsed: 120,
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(styleOutput),
+          tokensUsed: 150,
+        });
 
-      const spec = await service.orchestrate("Technology trends 2026 content report");
+      const spec = await service.orchestrate(
+        "Technology trends 2026 content report",
+      );
 
       expect(spec).toBeDefined();
       expect(spec.templateLayout).toBe("cards");
@@ -478,7 +527,15 @@ describe("AgentExecutorService", () => {
       const contentOutput = {
         informationArchitecture: {
           title: "Report",
-          sections: [{ title: "S1", summary: "", bullets: [], metrics: [], sectionType: "main" }],
+          sections: [
+            {
+              title: "S1",
+              summary: "",
+              bullets: [],
+              metrics: [],
+              sectionType: "main",
+            },
+          ],
         },
         contentAnalysis: {
           type: "balanced",
@@ -495,7 +552,10 @@ describe("AgentExecutorService", () => {
 
       // Content agent succeeds, others return invalid JSON
       mockFacade.chat
-        .mockResolvedValueOnce({ content: JSON.stringify(contentOutput), tokensUsed: 200 })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(contentOutput),
+          tokensUsed: 200,
+        })
         .mockResolvedValueOnce({ content: "invalid", tokensUsed: 10 })
         .mockResolvedValueOnce({ content: "invalid", tokensUsed: 10 })
         .mockResolvedValueOnce({ content: "invalid", tokensUsed: 10 });
@@ -510,16 +570,34 @@ describe("AgentExecutorService", () => {
     it("should add imagePrompt when background type is ai_generated", async () => {
       const contentOutput = {
         informationArchitecture: { title: "Report", sections: [] },
-        contentAnalysis: { type: "balanced", structureType: "parallel_stories", language: "en", complexity: "low", wordCount: 50, hasData: false, hasTimeline: false, mainPointsCount: 0, hasSummaryConclusion: false },
+        contentAnalysis: {
+          type: "balanced",
+          structureType: "parallel_stories",
+          language: "en",
+          complexity: "low",
+          wordCount: 50,
+          hasData: false,
+          hasTimeline: false,
+          mainPointsCount: 0,
+          hasSummaryConclusion: false,
+        },
       };
 
-      const layoutOutput = { templateLayout: "cards", layoutPlan: [], reasoning: "default" };
+      const layoutOutput = {
+        templateLayout: "cards",
+        layoutPlan: [],
+        reasoning: "default",
+      };
 
       const visualOutput = {
         backgroundDecision: {
           type: "ai_generated",
           reasoning: "Marketing content",
-          colors: { primary: "#ff0000", secondary: "#0000ff", direction: "radial" },
+          colors: {
+            primary: "#ff0000",
+            secondary: "#0000ff",
+            direction: "radial",
+          },
           aiConfig: {
             prompt: "Abstract tech background",
             style: "abstract",
@@ -532,16 +610,38 @@ describe("AgentExecutorService", () => {
       };
 
       const styleOutput = {
-        visualLanguage: { colorPalette: [], primaryColor: "#1e3a5f", accentColor: "#0891b2", backgroundColor: "#fff", textColor: "#000", designStyle: "tech", fontStyle: "sans", borderRadius: "medium", shadowStyle: "subtle" },
+        visualLanguage: {
+          colorPalette: [],
+          primaryColor: "#1e3a5f",
+          accentColor: "#0891b2",
+          backgroundColor: "#fff",
+          textColor: "#000",
+          designStyle: "tech",
+          fontStyle: "sans",
+          borderRadius: "medium",
+          shadowStyle: "subtle",
+        },
         designJournal: [],
         qualityChecks: [],
       };
 
       mockFacade.chat
-        .mockResolvedValueOnce({ content: JSON.stringify(contentOutput), tokensUsed: 100 })
-        .mockResolvedValueOnce({ content: JSON.stringify(layoutOutput), tokensUsed: 80 })
-        .mockResolvedValueOnce({ content: JSON.stringify(visualOutput), tokensUsed: 100 })
-        .mockResolvedValueOnce({ content: JSON.stringify(styleOutput), tokensUsed: 100 });
+        .mockResolvedValueOnce({
+          content: JSON.stringify(contentOutput),
+          tokensUsed: 100,
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(layoutOutput),
+          tokensUsed: 80,
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(visualOutput),
+          tokensUsed: 100,
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(styleOutput),
+          tokensUsed: 100,
+        });
 
       const spec = await service.orchestrate("marketing content");
 

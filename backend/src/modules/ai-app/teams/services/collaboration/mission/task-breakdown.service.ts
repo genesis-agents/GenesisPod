@@ -21,7 +21,7 @@ import {
 } from "../interfaces";
 
 // ★ AI Engine 服务（通过 AIEngineFacade 访问）
-import { AIEngineFacade } from "../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../ai-engine/facade";
 import type { TeamMemberInfo } from "../../../../../ai-engine/facade";
 
 @Injectable()
@@ -30,8 +30,8 @@ export class TaskBreakdownService {
 
   constructor(
     private prisma: PrismaService,
-    // ★ 通过 AIEngineFacade 访问任务分解服务
-    private aiFacade: AIEngineFacade,
+    // ★ 通过 AgentFacade 访问任务分解服务
+    private agentFacade: AgentFacade,
   ) {}
 
   // ==================== 任务分解解析 ====================
@@ -54,7 +54,7 @@ export class TaskBreakdownService {
     }));
 
     // ★ 委托给 AI Engine 解析
-    const result = this.aiFacade.taskDecomposer?.parseTaskBreakdown({
+    const result = this.agentFacade.taskDecomposer?.parseTaskBreakdown({
       content,
       teamMembers: memberInfos,
     });
@@ -321,7 +321,7 @@ export class TaskBreakdownService {
 
     // ★ 委托给 AI Engine 执行再平衡
     const rebalancedTasks =
-      this.aiFacade.taskDecomposer?.rebalanceTaskAssignments(
+      this.agentFacade.taskDecomposer?.rebalanceTaskAssignments(
         taskDefinitions,
         memberInfos,
       );

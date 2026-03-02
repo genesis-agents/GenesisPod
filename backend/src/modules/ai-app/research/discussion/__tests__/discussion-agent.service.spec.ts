@@ -1,12 +1,12 @@
 // Prevent transitive module resolution issues from NestJS deep imports
 jest.mock("../../../../ai-engine/facade", () => ({
-  AIEngineFacade: jest.fn(),
+  ChatFacade: jest.fn(),
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
 import { DiscussionAgentService } from "../discussion-agent.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import {
   AgentState,
   DiscussionPhase,
@@ -15,7 +15,7 @@ import {
 
 describe("DiscussionAgentService", () => {
   let service: DiscussionAgentService;
-  let mockFacade: jest.Mocked<Pick<AIEngineFacade, "chat">>;
+  let mockFacade: jest.Mocked<Pick<ChatFacade, "chat">>;
 
   beforeEach(async () => {
     mockFacade = {
@@ -25,7 +25,7 @@ describe("DiscussionAgentService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiscussionAgentService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

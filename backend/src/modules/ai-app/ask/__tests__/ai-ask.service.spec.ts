@@ -17,7 +17,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException } from "@nestjs/common";
 import { AiAskService } from "../ai-ask.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import {
+  ChatFacade,
+  AgentFacade,
+  RAGFacade,
+  ToolFacade,
+} from "../../../ai-engine/facade";
 
 describe("AiAskService", () => {
   let service: AiAskService;
@@ -144,7 +149,10 @@ describe("AiAskService", () => {
       providers: [
         AiAskService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
+        { provide: AgentFacade, useValue: mockFacade },
+        { provide: RAGFacade, useValue: mockFacade },
+        { provide: ToolFacade, useValue: mockFacade },
         // All other dependencies are @Optional
       ],
     }).compile();
@@ -694,8 +702,12 @@ describe("AiAskService", () => {
       };
 
       // Directly instantiate service with credits service injected
+      // Constructor: prisma, chatFacade, toolFacade, ragFacade, agentFacade, ragPipeline?, creditsService?
       const svcWithCredits = new AiAskService(
         mockPrisma,
+        mockFacade,
+        mockFacade,
+        mockFacade,
         mockFacade,
         null as any,
         creditsService as any,

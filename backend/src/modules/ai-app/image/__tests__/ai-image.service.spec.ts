@@ -24,7 +24,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ContentExtractorService } from "../../../../common/content-processing/content-extractor.service";
 import { DataFetchingService } from "../../../../common/content-processing/data-fetching.service";
 import { Imagen4PromptService } from "../generation/imagen4-prompt.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 
 describe("AiImageService", () => {
   let service: AiImageService;
@@ -120,7 +120,7 @@ describe("AiImageService", () => {
         { provide: ImageGenerationService, useValue: mockImageGeneration },
         { provide: ImageStorageService, useValue: mockImageStorage },
         { provide: Imagen4PromptService, useValue: mockImagen4Prompt },
-        { provide: AIEngineFacade, useValue: mockAIEngineFacade },
+        { provide: ChatFacade, useValue: mockAIEngineFacade },
       ],
     }).compile();
 

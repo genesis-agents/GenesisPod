@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ClaimVerificationService } from "../claim-verification.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ClaimType } from "../../../types/claim-verification.types";
 import type { VerifiableClaim } from "../../../types/claim-verification.types";
 import type { EnrichedEvidenceData } from "../../../types/research.types";
@@ -9,27 +9,42 @@ const mockAiFacade = {
   chat: jest.fn(),
 };
 
-const makeClaim = (id: string, text: string, priority: "high" | "medium" | "low" = "medium"): VerifiableClaim => ({
+const makeClaim = (
+  id: string,
+  text: string,
+  priority: "high" | "medium" | "low" = "medium",
+): VerifiableClaim => ({
   id,
   text,
   type: ClaimType.FACTUAL,
-  location: { sectionId: "s1", paragraphIndex: 0, sentenceIndex: 0, charStart: 0, charEnd: text.length },
+  location: {
+    sectionId: "s1",
+    paragraphIndex: 0,
+    sentenceIndex: 0,
+    charStart: 0,
+    charEnd: text.length,
+  },
   verificationPriority: priority,
   extractedAt: new Date(),
 });
 
-const makeEvidence = (id: string, title: string, snippet = "Evidence content that supports the claim."): EnrichedEvidenceData => ({
-  id,
-  title,
-  url: `https://source-${id}.com/article`,
-  snippet,
-  fullContent: snippet + " More detailed content here. " + snippet,
-  contentSource: "fetched",
-  urlValid: true,
-  sourceType: "WEB",
-  domain: `source-${id}.com`,
-  publishedAt: new Date("2025-01-01"),
-} as any);
+const makeEvidence = (
+  id: string,
+  title: string,
+  snippet = "Evidence content that supports the claim.",
+): EnrichedEvidenceData =>
+  ({
+    id,
+    title,
+    url: `https://source-${id}.com/article`,
+    snippet,
+    fullContent: snippet + " More detailed content here. " + snippet,
+    contentSource: "fetched",
+    urlValid: true,
+    sourceType: "WEB",
+    domain: `source-${id}.com`,
+    publishedAt: new Date("2025-01-01"),
+  }) as any;
 
 describe("ClaimVerificationService", () => {
   let service: ClaimVerificationService;
@@ -40,7 +55,7 @@ describe("ClaimVerificationService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ClaimVerificationService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -78,10 +93,14 @@ describe("ClaimVerificationService", () => {
         }),
       });
 
-      const claims = await service.extractClaims("section-1", "OpenAI content", {
-        verificationPriorities: ["high", "medium", "low"],
-        maxClaimsPerSection: 10,
-      });
+      const claims = await service.extractClaims(
+        "section-1",
+        "OpenAI content",
+        {
+          verificationPriorities: ["high", "medium", "low"],
+          maxClaimsPerSection: 10,
+        },
+      );
 
       expect(claims.length).toBe(2);
       expect(claims[0].text).toBe("OpenAI was founded in 2015.");
@@ -120,8 +139,18 @@ describe("ClaimVerificationService", () => {
       mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           claims: [
-            { text: "High priority fact", type: "factual", isVerifiable: true, verificationPriority: "high" },
-            { text: "Low priority fact", type: "factual", isVerifiable: true, verificationPriority: "low" },
+            {
+              text: "High priority fact",
+              type: "factual",
+              isVerifiable: true,
+              verificationPriority: "high",
+            },
+            {
+              text: "Low priority fact",
+              type: "factual",
+              isVerifiable: true,
+              verificationPriority: "low",
+            },
           ],
         }),
       });
@@ -197,7 +226,10 @@ describe("ClaimVerificationService", () => {
       });
 
       const claim = makeClaim("c1", "OpenAI was founded in 2015.");
-      const evidences = [makeEvidence("e1", "OpenAI History"), makeEvidence("e2", "AI History")];
+      const evidences = [
+        makeEvidence("e1", "OpenAI History"),
+        makeEvidence("e2", "AI History"),
+      ];
 
       const result = await service.verifyClaim(claim, evidences);
 
@@ -239,7 +271,12 @@ describe("ClaimVerificationService", () => {
       // extractClaims returns []
       mockAiFacade.chat.mockResolvedValue({ content: "invalid json" });
 
-      const report = await service.verifySection("s1", "Introduction", "Content here", []);
+      const report = await service.verifySection(
+        "s1",
+        "Introduction",
+        "Content here",
+        [],
+      );
 
       expect(report.sectionId).toBe("s1");
       expect(report.claims).toHaveLength(0);
@@ -255,7 +292,12 @@ describe("ClaimVerificationService", () => {
         .mockResolvedValueOnce({
           content: JSON.stringify({
             claims: [
-              { text: "AI is growing", type: "factual", isVerifiable: true, verificationPriority: "high" },
+              {
+                text: "AI is growing",
+                type: "factual",
+                isVerifiable: true,
+                verificationPriority: "high",
+              },
             ],
           }),
         })
@@ -269,7 +311,10 @@ describe("ClaimVerificationService", () => {
           }),
         });
 
-      const evidences = [makeEvidence("e1", "AI Report"), makeEvidence("e2", "Market Study")];
+      const evidences = [
+        makeEvidence("e1", "AI Report"),
+        makeEvidence("e2", "Market Study"),
+      ];
       const report = await service.verifySection(
         "s1",
         "AI Market Overview",
@@ -379,7 +424,10 @@ describe("ClaimVerificationService", () => {
       });
 
       const claim = makeClaim("c1", "AI has been growing.", "high");
-      const evidences = [makeEvidence("e1", "Source 1"), makeEvidence("e2", "Source 2")];
+      const evidences = [
+        makeEvidence("e1", "Source 1"),
+        makeEvidence("e2", "Source 2"),
+      ];
 
       const result = await service.verifyClaim(claim, evidences);
 

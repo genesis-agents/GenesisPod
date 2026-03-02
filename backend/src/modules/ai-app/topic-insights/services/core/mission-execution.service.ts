@@ -25,7 +25,7 @@ import { MissionQueryService } from "./mission-query.service";
 import { DimensionMissionService } from "../dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../report/report-synthesis.service";
 import { AgentActivityService } from "../monitoring/agent-activity.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import type { ResearchDepth } from "../../types/v5-research.types";
@@ -81,7 +81,7 @@ export class MissionExecutionService {
     private readonly dimensionMissionService: DimensionMissionService,
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly agentActivity: AgentActivityService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly reviewerService: ResearchReviewerService,
     @Inject(forwardRef(() => ResearchMemoryService))
     private readonly researchMemory: ResearchMemoryService,
@@ -1077,7 +1077,7 @@ export class MissionExecutionService {
 
     try {
       // 获取所有启用的 CHAT 模型
-      const models = await this.aiFacade.getAvailableModels(AIModelType.CHAT);
+      const models = await this.chatFacade.getAvailableModels(AIModelType.CHAT);
 
       // 统计唯一 Provider 数量
       const uniqueProviders = new Set(models.map((m) => m.provider));

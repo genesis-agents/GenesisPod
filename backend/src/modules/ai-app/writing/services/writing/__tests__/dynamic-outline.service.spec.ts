@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DynamicOutlineService } from "../dynamic-outline.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 function buildMockPrisma() {
@@ -62,7 +62,7 @@ describe("DynamicOutlineService", () => {
       providers: [
         DynamicOutlineService,
         { provide: PrismaService, useValue: prisma },
-        { provide: AIEngineFacade, useValue: facade },
+        { provide: ChatFacade, useValue: facade },
       ],
     }).compile();
 

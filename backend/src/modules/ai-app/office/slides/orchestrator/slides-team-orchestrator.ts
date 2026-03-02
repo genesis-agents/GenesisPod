@@ -13,7 +13,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 import { SlidesLeader } from "./slides-leader";
 import { SlidesTeamMember, TaskExecutionResult } from "./slides-team-member";
 import { SlidesRepository } from "./slides-repository";
@@ -43,7 +43,7 @@ export class SlidesTeamOrchestrator {
     private readonly leader: SlidesLeader,
     private readonly teamMember: SlidesTeamMember,
     @Optional() private readonly repository?: SlidesRepository,
-    @Optional() private readonly aiFacade?: AIEngineFacade,
+    @Optional() private readonly agentFacade?: AgentFacade,
     @Optional()
     private readonly deckConsistencyAuditor?: DeckConsistencyAuditorSkill,
   ) {
@@ -92,7 +92,7 @@ export class SlidesTeamOrchestrator {
     this.logger.log(`[executeMission] Starting mission ${mission.id}`);
 
     // ★ TraceCollector: 开始链路追踪
-    const traceId = this.aiFacade?.startTrace({
+    const traceId = this.agentFacade?.startTrace({
       name: "AI Office: Slides",
       type: "team_execution",
       metadata: {
@@ -118,7 +118,7 @@ export class SlidesTeamOrchestrator {
     try {
       // Phase 1: Leader 规划
       planningSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Planning",
             type: "planning",
             metadata: { missionId: mission.id },
@@ -126,7 +126,7 @@ export class SlidesTeamOrchestrator {
         : undefined;
       yield* this.executePlanningPhase(mission, errors);
       if (planningSpanId) {
-        this.aiFacade?.endSpan(planningSpanId, {
+        this.agentFacade?.endSpan(planningSpanId, {
           status: "success",
           output: { taskCount: mission.tasks.length },
         });
@@ -134,7 +134,7 @@ export class SlidesTeamOrchestrator {
 
       // Phase 2: 任务执行
       executingSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Task Execution",
             type: "phase",
             metadata: { totalTasks: mission.totalTasks },
@@ -142,7 +142,7 @@ export class SlidesTeamOrchestrator {
         : undefined;
       yield* this.executeTasksPhase(mission, errors);
       if (executingSpanId) {
-        this.aiFacade?.endSpan(executingSpanId, {
+        this.agentFacade?.endSpan(executingSpanId, {
           status: "success",
           output: { completedTasks: mission.completedTasks },
         });
@@ -150,7 +150,7 @@ export class SlidesTeamOrchestrator {
 
       // Phase 3: Leader 审核
       reviewingSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Review",
             type: "review",
             metadata: { missionId: mission.id },
@@ -158,7 +158,7 @@ export class SlidesTeamOrchestrator {
         : undefined;
       yield* this.executeReviewPhase(mission, errors);
       if (reviewingSpanId) {
-        this.aiFacade?.endSpan(reviewingSpanId, {
+        this.agentFacade?.endSpan(reviewingSpanId, {
           status: "success",
           output: { completedTasks: mission.completedTasks },
         });
@@ -166,7 +166,7 @@ export class SlidesTeamOrchestrator {
 
       // Phase 4: 质量审计
       auditingSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Quality Audit",
             type: "evaluation",
             metadata: { missionId: mission.id },
@@ -174,7 +174,7 @@ export class SlidesTeamOrchestrator {
         : undefined;
       yield* this.executeAuditPhase(mission, errors);
       if (auditingSpanId) {
-        this.aiFacade?.endSpan(auditingSpanId, {
+        this.agentFacade?.endSpan(auditingSpanId, {
           status: "success",
           output: {
             passed: (mission.metadata.qualityAudit as { passed?: boolean })
@@ -185,7 +185,7 @@ export class SlidesTeamOrchestrator {
 
       // Phase 5: Leader 综合
       synthesisSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Synthesis",
             type: "synthesis",
             metadata: { missionId: mission.id },
@@ -193,7 +193,7 @@ export class SlidesTeamOrchestrator {
         : undefined;
       yield* this.executeSynthesisPhase(mission, errors);
       if (synthesisSpanId) {
-        this.aiFacade?.endSpan(synthesisSpanId, {
+        this.agentFacade?.endSpan(synthesisSpanId, {
           status: "success",
           output: { pageCount: mission.pages.length },
         });
@@ -239,7 +239,7 @@ export class SlidesTeamOrchestrator {
 
       // ★ 结束链路追踪（成功）
       if (traceId) {
-        this.aiFacade?.endTrace(traceId, { status: "success" });
+        this.agentFacade?.endTrace(traceId, { status: "success" });
       }
 
       const completedEvent = this.createEvent("mission:completed", mission.id, {
@@ -266,14 +266,14 @@ export class SlidesTeamOrchestrator {
         executingSpanId ??
         planningSpanId;
       if (activeSpanId) {
-        this.aiFacade?.endSpan(activeSpanId, {
+        this.agentFacade?.endSpan(activeSpanId, {
           status: "error",
           error: errorMsg,
         });
       }
       // ★ 结束链路追踪（失败）
       if (traceId) {
-        this.aiFacade?.endTrace(traceId, { status: "error" });
+        this.agentFacade?.endTrace(traceId, { status: "error" });
       }
 
       mission.status = "failed";

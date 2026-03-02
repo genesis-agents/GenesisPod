@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -24,7 +24,7 @@ export class NotesService {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -397,7 +397,7 @@ export class NotesService {
         ? `你是一个专业的文档分析助手。以下是相关的文档上下文：\n\n${context}`
         : "你是一个专业的文档分析助手。";
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "user",
@@ -619,7 +619,7 @@ export class NotesService {
     }
 
     try {
-      const model = await this.aiFacade.getDefaultTextModel();
+      const model = await this.chatFacade.getDefaultTextModel();
       if (!model) {
         throw new Error("No default text model available");
       }
@@ -632,7 +632,7 @@ export class NotesService {
         )
         .join("\n\n");
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "user",
@@ -706,7 +706,7 @@ export class NotesService {
     }
 
     try {
-      const model = await this.aiFacade.getDefaultTextModel();
+      const model = await this.chatFacade.getDefaultTextModel();
       if (!model) {
         throw new Error("No default text model available");
       }
@@ -718,7 +718,7 @@ export class NotesService {
         )
         .join("\n\n");
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "user",
@@ -834,7 +834,7 @@ export class NotesService {
     }
 
     try {
-      const model = await this.aiFacade.getDefaultTextModel();
+      const model = await this.chatFacade.getDefaultTextModel();
       if (!model) {
         throw new Error("No default text model available");
       }
@@ -846,7 +846,7 @@ export class NotesService {
         )
         .join("\n\n");
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "user",

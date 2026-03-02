@@ -11,7 +11,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { TaskProfile } from "@/modules/ai-engine/facade";
 import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
@@ -82,7 +82,7 @@ export class ChapterCoherenceService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -370,7 +370,7 @@ ${pair.toChapter.openingContent}
         outputLength: "medium", // 分析结果需要中等长度 (原 maxTokens: 3000)
       };
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -471,7 +471,7 @@ ${pair.toChapter.openingContent}
         outputLength: "short", // 整体问题输出较短 (原 maxTokens: 2000)
       };
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           {

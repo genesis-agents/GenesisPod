@@ -10,9 +10,17 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderChatService } from "../leader-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade, UserIntent } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  AgentFacade,
+  ToolFacade,
+  UserIntent,
+} from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
-import { LeaderToolService, LeaderActionType } from "../../data/leader-tool.service";
+import {
+  LeaderToolService,
+  LeaderActionType,
+} from "../../data/leader-tool.service";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -98,7 +106,9 @@ describe("LeaderChatService", () => {
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockFacade: ReturnType<typeof buildMocks>["mockFacade"];
   let mockEventEmitter: ReturnType<typeof buildMocks>["mockEventEmitter"];
-  let mockLeaderToolService: ReturnType<typeof buildMocks>["mockLeaderToolService"];
+  let mockLeaderToolService: ReturnType<
+    typeof buildMocks
+  >["mockLeaderToolService"];
 
   beforeEach(async () => {
     const mocks = buildMocks();
@@ -111,7 +121,9 @@ describe("LeaderChatService", () => {
       providers: [
         LeaderChatService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
+        { provide: AgentFacade, useValue: mockFacade },
+        { provide: ToolFacade, useValue: mockFacade },
         { provide: ResearchEventEmitterService, useValue: mockEventEmitter },
         { provide: LeaderToolService, useValue: mockLeaderToolService },
       ],
@@ -129,7 +141,13 @@ describe("LeaderChatService", () => {
   describe("getReasoningModel", () => {
     it("should return model info from facade", async () => {
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "o3", name: "o3", provider: "openai", isReasoning: true, isAvailable: true },
+        {
+          id: "o3",
+          name: "o3",
+          provider: "openai",
+          isReasoning: true,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3",
@@ -177,9 +195,17 @@ describe("LeaderChatService", () => {
   describe("handleUserMessage", () => {
     function setupBasicMission() {
       mockPrisma.researchMission.findUnique.mockResolvedValue(mockMission);
-      mockPrisma.leaderDecision.create.mockResolvedValue({ id: "decision-001" });
+      mockPrisma.leaderDecision.create.mockResolvedValue({
+        id: "decision-001",
+      });
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
-        { id: "o3", name: "o3", provider: "openai", isReasoning: true, isAvailable: true },
+        {
+          id: "o3",
+          name: "o3",
+          provider: "openai",
+          isReasoning: true,
+          isAvailable: true,
+        },
       ]);
       mockFacade.getReasoningModel.mockResolvedValue({
         id: "o3",
@@ -197,7 +223,11 @@ describe("LeaderChatService", () => {
       });
 
       await expect(
-        service.handleUserMessage("topic-001", "nonexistent-mission", "进度如何？"),
+        service.handleUserMessage(
+          "topic-001",
+          "nonexistent-mission",
+          "进度如何？",
+        ),
       ).rejects.toThrow("Mission nonexistent-mission not found");
     });
 
@@ -461,7 +491,9 @@ describe("LeaderChatService", () => {
       });
 
       // Create dimension fails
-      mockLeaderToolService.createDimension.mockRejectedValue(new Error("DB constraint"));
+      mockLeaderToolService.createDimension.mockRejectedValue(
+        new Error("DB constraint"),
+      );
 
       const result = await service.handleUserMessage(
         "topic-001",
@@ -483,7 +515,10 @@ describe("LeaderChatService", () => {
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           actions: [
-            { type: LeaderActionType.CANCEL_TASK, params: { dimensionName: "市场分析" } },
+            {
+              type: LeaderActionType.CANCEL_TASK,
+              params: { dimensionName: "市场分析" },
+            },
           ],
           response: "已停止任务",
         }),
@@ -497,7 +532,7 @@ describe("LeaderChatService", () => {
       const result = await service.handleUserMessage(
         "topic-001",
         "mission-001",
-        "停止市场分析任务的执行",  // avoid 取消/删除 keywords to prevent fallback delete
+        "停止市场分析任务的执行", // avoid 取消/删除 keywords to prevent fallback delete
       );
 
       expect(mockLeaderToolService.cancelTask).toHaveBeenCalledWith(
@@ -517,7 +552,11 @@ describe("LeaderChatService", () => {
           actions: [
             {
               type: LeaderActionType.UPDATE_DIMENSION,
-              params: { dimensionName: "技术现状", newName: "技术架构", newDescription: "更新" },
+              params: {
+                dimensionName: "技术现状",
+                newName: "技术架构",
+                newDescription: "更新",
+              },
             },
           ],
           response: "已更新维度",
@@ -529,14 +568,17 @@ describe("LeaderChatService", () => {
         message: "更新成功",
       });
 
-      const result = await service.handleUserMessage(
+      const _result = await service.handleUserMessage(
         "topic-001",
         "mission-001",
         "修改技术现状的名称",
       );
 
       expect(mockLeaderToolService.updateDimension).toHaveBeenCalledWith(
-        expect.objectContaining({ dimensionName: "技术现状", newName: "技术架构" }),
+        expect.objectContaining({
+          dimensionName: "技术现状",
+          newName: "技术架构",
+        }),
       );
     });
 
@@ -639,7 +681,7 @@ describe("LeaderChatService", () => {
         message: "维度已删除",
       });
 
-      const result = await service.handleUserMessage(
+      const _result = await service.handleUserMessage(
         "topic-001",
         "mission-001",
         "删除技术现状这个维度",
@@ -664,7 +706,7 @@ describe("LeaderChatService", () => {
       await service.handleUserMessage(
         "topic-001",
         "mission-001",
-        "删除",  // no dimension name extractable after keyword
+        "删除", // no dimension name extractable after keyword
       );
 
       expect(mockLeaderToolService.deleteDimension).not.toHaveBeenCalled();
@@ -702,7 +744,11 @@ describe("LeaderChatService", () => {
       });
       mockPrisma.researchTask.update.mockResolvedValue({});
 
-      await service.handleUserMessage("topic-001", "mission-001", "添加新增维度");
+      await service.handleUserMessage(
+        "topic-001",
+        "mission-001",
+        "添加新增维度",
+      );
 
       expect(mockPrisma.researchTask.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -715,7 +761,9 @@ describe("LeaderChatService", () => {
       expect(mockPrisma.researchTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "review-task-001" },
-          data: expect.objectContaining({ dependencies: expect.arrayContaining(["task-new-001"]) }),
+          data: expect.objectContaining({
+            dependencies: expect.arrayContaining(["task-new-001"]),
+          }),
         }),
       );
     });
@@ -738,13 +786,18 @@ describe("LeaderChatService", () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(null);
       mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
       mockFacade.getReasoningModel.mockResolvedValue({
-        id: "o3", name: "o3", provider: "openai", isReasoning: true,
+        id: "o3",
+        name: "o3",
+        provider: "openai",
+        isReasoning: true,
       });
       mockFacade.getAvailableTools = jest.fn().mockReturnValue([]);
       mockPrisma.researchTopic = {
         findUnique: jest.fn().mockResolvedValue(mockTopic),
       };
-      mockEventEmitter.getLeaderConversationHistory = jest.fn().mockResolvedValue([]);
+      mockEventEmitter.getLeaderConversationHistory = jest
+        .fn()
+        .mockResolvedValue([]);
     });
 
     it("should throw when topic not found", async () => {
@@ -832,7 +885,10 @@ describe("LeaderChatService", () => {
         }),
       });
 
-      const result = await service.decodeUserInput("topic-001", "帮我研究一下AI教育应用");
+      const result = await service.decodeUserInput(
+        "topic-001",
+        "帮我研究一下AI教育应用",
+      );
 
       expect(result.decisionType).toBe("CREATE_TODO");
       expect(result.todoTitle).toBe("研究AI教育应用");
@@ -843,9 +899,24 @@ describe("LeaderChatService", () => {
         id: "mission-001",
         status: "EXECUTING",
         tasks: [
-          { id: "t1", status: "COMPLETED", title: "技术研究", dimensionName: "技术现状" },
-          { id: "t2", status: "EXECUTING", title: "市场分析", dimensionName: "市场格局" },
-          { id: "t3", status: "PENDING", title: "政策研究", dimensionName: "政策分析" },
+          {
+            id: "t1",
+            status: "COMPLETED",
+            title: "技术研究",
+            dimensionName: "技术现状",
+          },
+          {
+            id: "t2",
+            status: "EXECUTING",
+            title: "市场分析",
+            dimensionName: "市场格局",
+          },
+          {
+            id: "t3",
+            status: "PENDING",
+            title: "政策研究",
+            dimensionName: "政策分析",
+          },
         ],
       });
       mockFacade.chat.mockResolvedValue({
@@ -856,7 +927,11 @@ describe("LeaderChatService", () => {
         }),
       });
 
-      const result = await service.decodeUserInput("topic-001", "进度如何", "mission-001");
+      const result = await service.decodeUserInput(
+        "topic-001",
+        "进度如何",
+        "mission-001",
+      );
 
       // With mission, progress calculation should work
       expect(result.decisionType).toBeDefined();
@@ -879,9 +954,24 @@ describe("LeaderChatService", () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue({
         id: "mission-001",
         tasks: [
-          { assignedAgent: "researcher-01", assignedAgentType: "dimension_researcher", modelId: "gpt-4o", status: "COMPLETED" },
-          { assignedAgent: "researcher-01", assignedAgentType: "dimension_researcher", modelId: "gpt-4o", status: "COMPLETED" },
-          { assignedAgent: "researcher-02", assignedAgentType: "dimension_researcher", modelId: "claude-3", status: "PENDING" },
+          {
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            status: "COMPLETED",
+          },
+          {
+            assignedAgent: "researcher-01",
+            assignedAgentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            status: "COMPLETED",
+          },
+          {
+            assignedAgent: "researcher-02",
+            assignedAgentType: "dimension_researcher",
+            modelId: "claude-3",
+            status: "PENDING",
+          },
         ],
       });
       mockFacade.getAvailableModelsExtended.mockResolvedValue([
@@ -889,7 +979,11 @@ describe("LeaderChatService", () => {
         { id: "claude-3", isReasoning: false, isAvailable: true },
       ]);
 
-      const result = await service.selectAgentForTask("topic-001", "mission-001", "新研究任务");
+      const result = await service.selectAgentForTask(
+        "topic-001",
+        "mission-001",
+        "新研究任务",
+      );
 
       expect(result.agentId).toBe("researcher-02");
       expect(result.modelId).toBe("claude-3");
@@ -901,37 +995,58 @@ describe("LeaderChatService", () => {
         tasks: [],
       });
 
-      const result = await service.selectAgentForTask("topic-001", "mission-001", "全新任务");
+      const result = await service.selectAgentForTask(
+        "topic-001",
+        "mission-001",
+        "全新任务",
+      );
 
       expect(result.agentId).toMatch(/researcher_user_/);
       expect(result.agentName).toBe("新研究员");
     });
 
     it("should select technology skills for tech task", async () => {
-      mockPrisma.researchMission.findUnique.mockResolvedValue({ id: "mission-001", tasks: [] });
+      mockPrisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-001",
+        tasks: [],
+      });
 
       const result = await service.selectAgentForTask(
-        "topic-001", "mission-001", "技术架构分析", "研究系统架构",
+        "topic-001",
+        "mission-001",
+        "技术架构分析",
+        "研究系统架构",
       );
 
       expect(result.skills).toContain("deep_dive");
     });
 
     it("should select strategy skills for strategy task", async () => {
-      mockPrisma.researchMission.findUnique.mockResolvedValue({ id: "mission-001", tasks: [] });
+      mockPrisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-001",
+        tasks: [],
+      });
 
       const result = await service.selectAgentForTask(
-        "topic-001", "mission-001", "战略布局分析", "未来发展预测",
+        "topic-001",
+        "mission-001",
+        "战略布局分析",
+        "未来发展预测",
       );
 
       expect(result.skills).toContain("future_projection");
     });
 
     it("should use default skills when no keywords match", async () => {
-      mockPrisma.researchMission.findUnique.mockResolvedValue({ id: "mission-001", tasks: [] });
+      mockPrisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-001",
+        tasks: [],
+      });
 
       const result = await service.selectAgentForTask(
-        "topic-001", "mission-001", "General Research",
+        "topic-001",
+        "mission-001",
+        "General Research",
       );
 
       expect(result.skills).toContain("synthesis");
@@ -939,7 +1054,10 @@ describe("LeaderChatService", () => {
     });
 
     it("should record decision after selecting agent", async () => {
-      mockPrisma.researchMission.findUnique.mockResolvedValue({ id: "mission-001", tasks: [] });
+      mockPrisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-001",
+        tasks: [],
+      });
 
       await service.selectAgentForTask("topic-001", "mission-001", "研究任务");
 
@@ -958,8 +1076,18 @@ describe("LeaderChatService", () => {
   describe("getDecisionHistory", () => {
     it("should return decision history from prisma", async () => {
       const decisions = [
-        { id: "d-001", missionId: "mission-001", type: "INTERVENE", createdAt: new Date() },
-        { id: "d-002", missionId: "mission-001", type: "PLAN", createdAt: new Date() },
+        {
+          id: "d-001",
+          missionId: "mission-001",
+          type: "INTERVENE",
+          createdAt: new Date(),
+        },
+        {
+          id: "d-002",
+          missionId: "mission-001",
+          type: "PLAN",
+          createdAt: new Date(),
+        },
       ];
       mockPrisma.leaderDecision.findMany.mockResolvedValue(decisions);
 

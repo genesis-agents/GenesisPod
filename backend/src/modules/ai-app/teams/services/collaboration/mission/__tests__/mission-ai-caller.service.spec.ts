@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionAICallerService } from "../mission-ai-caller.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../../../ai-engine/facade";
 
 const mockModelConfig = {
   id: "model-1",
@@ -35,7 +35,7 @@ describe("MissionAICallerService", () => {
       providers: [
         MissionAICallerService,
         { provide: PrismaService, useValue: prisma },
-        { provide: AIEngineFacade, useValue: aiFacade },
+        { provide: ChatFacade, useValue: aiFacade },
       ],
     }).compile();
 

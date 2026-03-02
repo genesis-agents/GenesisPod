@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MCPClientService } from "../mcp-client.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-engine/facade";
 
 // Mock child_process.execSync so tests never hit the real shell
 jest.mock("child_process", () => ({
@@ -29,7 +29,7 @@ function buildMockMcpManager(overrides: Record<string, jest.Mock> = {}) {
 function buildFacade(
   mcpManager: ReturnType<typeof buildMockMcpManager> | null,
 ) {
-  return { mcpManager } as unknown as AIEngineFacade;
+  return { mcpManager } as unknown as ToolFacade;
 }
 
 // ── test suite ────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ describe("MCPClientService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MCPClientService,
-        { provide: AIEngineFacade, useValue: buildFacade(mockManager) },
+        { provide: ToolFacade, useValue: buildFacade(mockManager) },
       ],
     }).compile();
 
@@ -158,7 +158,7 @@ describe("MCPClientService", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           MCPClientService,
-          { provide: AIEngineFacade, useValue: buildFacade(null) },
+          { provide: ToolFacade, useValue: buildFacade(null) },
         ],
       }).compile();
 
@@ -351,7 +351,7 @@ describe("MCPClientService", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           MCPClientService,
-          { provide: AIEngineFacade, useValue: buildFacade(null) },
+          { provide: ToolFacade, useValue: buildFacade(null) },
         ],
       }).compile();
 

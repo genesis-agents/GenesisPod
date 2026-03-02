@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Imagen4PromptService } from "../generation/imagen4-prompt.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { TeamFacade } from "../../../ai-engine/facade";
 
 // Helper to create an async generator that yields the given events
 function createMockEventGenerator(events: object[]) {
@@ -30,7 +30,7 @@ describe("Imagen4PromptService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         Imagen4PromptService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: TeamFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -139,7 +139,12 @@ describe("Imagen4PromptService", () => {
           data: {
             stepId: "content-analysis",
             result: {
-              subject: { type: "scene", mainSubject: "Mountain", secondarySubjects: [], actions: [] },
+              subject: {
+                type: "scene",
+                mainSubject: "Mountain",
+                secondarySubjects: [],
+                actions: [],
+              },
               mood: { primary: "peaceful", keywords: ["serene"] },
               narrative: { type: "static", focusPoint: "summit" },
               language: "en",
@@ -378,7 +383,7 @@ describe("Imagen4PromptService", () => {
 
       const errorEvent = streamEvents.find(
         (e: Record<string, unknown>) => e.type === "error",
-      ) as Record<string, unknown> | undefined;
+      );
       expect(errorEvent).toBeDefined();
       expect((errorEvent!.data as Record<string, unknown>).message).toContain(
         "Stream creation failed",

@@ -10,7 +10,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { execSync } from "child_process";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../ai-engine/facade";
 import { NotificationService } from "../notifications/notification.service";
 import { NotificationTypeDto } from "../notifications/dto/notification.dto";
 import { APP_CONFIG } from "../../../common/config/app.config";
@@ -28,7 +28,7 @@ export class ReleaseService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiFacade: ChatFacade,
     private readonly notificationService: NotificationService,
   ) {}
 

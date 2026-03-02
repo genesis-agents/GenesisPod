@@ -7,7 +7,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ToolFacade } from "../../../../ai-engine/facade";
 import type { AICapabilityContext } from "../../../../ai-engine/facade";
 import { StyleTemplateService } from "../style/style-template.service";
 import { WriterAgent } from "../../agents";
@@ -25,7 +25,7 @@ export class WritingContextService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly toolFacade: ToolFacade,
     private readonly styleTemplateService: StyleTemplateService,
     private readonly professionalVoice: ProfessionalVoiceService,
     private readonly sensoryImmersion: SensoryImmersionService,
@@ -57,7 +57,7 @@ export class WritingContextService {
 
       // 从 AIEngineFacade 获取技能提示
       const skillPrompts =
-        await this.aiFacade.capabilityGetSkillPrompts(context);
+        await this.toolFacade.capabilityGetSkillPrompts(context);
 
       if (
         skillPrompts &&

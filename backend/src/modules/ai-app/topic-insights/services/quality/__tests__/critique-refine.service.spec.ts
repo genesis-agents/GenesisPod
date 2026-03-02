@@ -3,7 +3,7 @@ import {
   CritiqueRefineService,
   CritiqueRefineRequest,
 } from "../critique-refine.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import {
   CritiqueCategory,
   CritiqueSeverity,
@@ -89,7 +89,7 @@ describe("CritiqueRefineService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CritiqueRefineService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -221,9 +221,15 @@ describe("CritiqueRefineService", () => {
       });
 
       const critique = makeCritique();
-      const result = await service.refineContent("Original content", critique, baseContext);
+      const result = await service.refineContent(
+        "Original content",
+        critique,
+        baseContext,
+      );
 
-      expect(result.refinedContent).toBe("Improved content with citations and clearer logic.");
+      expect(result.refinedContent).toBe(
+        "Improved content with citations and clearer logic.",
+      );
       expect(result.changesApplied).toHaveLength(1);
     });
 
@@ -242,7 +248,11 @@ describe("CritiqueRefineService", () => {
         criticalIssues: [],
       });
 
-      const result = await service.refineContent("Original content", critiqueWithOnlyMinor, baseContext);
+      const result = await service.refineContent(
+        "Original content",
+        critiqueWithOnlyMinor,
+        baseContext,
+      );
 
       expect(result.refinedContent).toBe("Original content");
       expect(result.changesApplied).toHaveLength(0);
@@ -253,7 +263,11 @@ describe("CritiqueRefineService", () => {
       mockFacade.chat.mockRejectedValue(new Error("Network error"));
 
       const critique = makeCritique();
-      const result = await service.refineContent("Original content", critique, baseContext);
+      const result = await service.refineContent(
+        "Original content",
+        critique,
+        baseContext,
+      );
 
       expect(result.refinedContent).toBe("Original content");
       expect(result.changesApplied).toHaveLength(0);
@@ -292,10 +306,26 @@ describe("CritiqueRefineService", () => {
       // First iteration: critique shows poor score, refine improves it
       // After refine, second critique shows good score
       mockFacade.chat
-        .mockResolvedValueOnce({ content: JSON.stringify(poorCritiqueResponse), tokensUsed: 100, model: "gpt-4" }) // iteration 1 critique
-        .mockResolvedValueOnce({ content: JSON.stringify(refineResponse), tokensUsed: 150, model: "gpt-4" }) // iteration 1 refine
-        .mockResolvedValueOnce({ content: JSON.stringify(goodCritiqueResponse), tokensUsed: 100, model: "gpt-4" }) // iteration 2 critique (stop: target_reached)
-        .mockResolvedValueOnce({ content: JSON.stringify(goodCritiqueResponse), tokensUsed: 100, model: "gpt-4" }); // final critique
+        .mockResolvedValueOnce({
+          content: JSON.stringify(poorCritiqueResponse),
+          tokensUsed: 100,
+          model: "gpt-4",
+        }) // iteration 1 critique
+        .mockResolvedValueOnce({
+          content: JSON.stringify(refineResponse),
+          tokensUsed: 150,
+          model: "gpt-4",
+        }) // iteration 1 refine
+        .mockResolvedValueOnce({
+          content: JSON.stringify(goodCritiqueResponse),
+          tokensUsed: 100,
+          model: "gpt-4",
+        }) // iteration 2 critique (stop: target_reached)
+        .mockResolvedValueOnce({
+          content: JSON.stringify(goodCritiqueResponse),
+          tokensUsed: 100,
+          model: "gpt-4",
+        }); // final critique
 
       const request: CritiqueRefineRequest = {
         content: "Content needing improvement",
@@ -305,7 +335,9 @@ describe("CritiqueRefineService", () => {
       const result = await service.runCritiqueRefineLoop(request);
 
       expect(result.iterations).toHaveLength(1);
-      expect(result.finalContent).toBe("Improved content with citations and clearer logic.");
+      expect(result.finalContent).toBe(
+        "Improved content with citations and clearer logic.",
+      );
     });
 
     it("should stop after max iterations", async () => {
@@ -336,10 +368,26 @@ describe("CritiqueRefineService", () => {
 
     it("should track total changes across iterations", async () => {
       mockFacade.chat
-        .mockResolvedValueOnce({ content: JSON.stringify(poorCritiqueResponse), tokensUsed: 100, model: "gpt-4" })
-        .mockResolvedValueOnce({ content: JSON.stringify(refineResponse), tokensUsed: 150, model: "gpt-4" })
-        .mockResolvedValueOnce({ content: JSON.stringify(goodCritiqueResponse), tokensUsed: 100, model: "gpt-4" })
-        .mockResolvedValueOnce({ content: JSON.stringify(goodCritiqueResponse), tokensUsed: 100, model: "gpt-4" });
+        .mockResolvedValueOnce({
+          content: JSON.stringify(poorCritiqueResponse),
+          tokensUsed: 100,
+          model: "gpt-4",
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(refineResponse),
+          tokensUsed: 150,
+          model: "gpt-4",
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(goodCritiqueResponse),
+          tokensUsed: 100,
+          model: "gpt-4",
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(goodCritiqueResponse),
+          tokensUsed: 100,
+          model: "gpt-4",
+        });
 
       const request: CritiqueRefineRequest = {
         content: "Content",

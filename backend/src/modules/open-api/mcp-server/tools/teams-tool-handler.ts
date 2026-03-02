@@ -10,8 +10,8 @@ import {
   MCPRequestContext,
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
-import type { ChatMessage } from "../../../ai-engine/facade/types/facade.types";
+import { ChatFacade } from "../../../ai-engine/facade";
+import type { ChatMessage } from "../../../ai-engine/facade";
 import { withToolTimeout, MULTI_STEP_TIMEOUT_MS } from "./tool-timeout";
 
 interface DebateRound {
@@ -47,7 +47,7 @@ export class TeamsDebateToolHandler implements IMCPToolHandler {
     required: ["topic"],
   };
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly aiFacade: ChatFacade) {}
 
   async execute(
     args: Record<string, unknown>,

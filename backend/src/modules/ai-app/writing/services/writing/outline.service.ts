@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { StoryBibleService } from "../bible/story-bible.service";
 
 export interface ChapterOutline {
@@ -25,7 +25,7 @@ export class OutlineService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly storyBibleService: StoryBibleService,
   ) {}
 
@@ -113,7 +113,7 @@ export class OutlineService {
 
     try {
       // ★ P3 迁移：使用 chatWithSkills 统一入口
-      const response = await this.aiFacade.chatWithSkills({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "user",

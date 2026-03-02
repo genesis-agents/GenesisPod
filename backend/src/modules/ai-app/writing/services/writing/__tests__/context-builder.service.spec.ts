@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ContextBuilderService } from "../context-builder.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { StoryBibleService } from "../../bible/story-bible.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-engine/facade";
 
 function buildMockPrisma() {
   return {
@@ -71,7 +71,7 @@ describe("ContextBuilderService", () => {
         ContextBuilderService,
         { provide: PrismaService, useValue: prisma },
         { provide: StoryBibleService, useValue: storyBible },
-        { provide: AIEngineFacade, useValue: facade },
+        { provide: ToolFacade, useValue: facade },
       ],
     }).compile();
 
@@ -244,7 +244,8 @@ describe("ContextBuilderService", () => {
             {
               chapterNumber: 10,
               title: "Ending",
-              content: "The conclusion of volume one with a cliffhanger ending.",
+              content:
+                "The conclusion of volume one with a cliffhanger ending.",
             },
           ],
         },

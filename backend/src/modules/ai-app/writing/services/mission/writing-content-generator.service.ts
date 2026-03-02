@@ -9,7 +9,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import {
   generateStylePrompt,
   recommendStyleByGenre,
@@ -27,7 +27,7 @@ export class WritingContentGeneratorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -259,7 +259,7 @@ ${avoidancePrompt ? `【表达约束 - 禁止使用以下表达】\n${avoidanceP
       this.logger.log(`Calling LLM (${modelId}) for mission ${missionId}`);
 
       // 调用 AiChatService
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

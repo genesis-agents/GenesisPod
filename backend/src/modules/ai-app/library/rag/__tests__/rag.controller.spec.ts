@@ -3,7 +3,7 @@ import { RAGController } from "../rag.controller";
 import { KnowledgeBaseService } from "../services/knowledge-base.service";
 import { RAGPipelineService } from "../services/rag-pipeline.service";
 import { GoogleDriveRAGService } from "../services/google-drive-rag.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { RAGFacade } from "../../../../ai-engine/facade";
 import { UrlFetchService } from "../services/url-fetch.service";
 import { PlatformImportService } from "../services/platform-import.service";
 
@@ -12,7 +12,7 @@ describe("RAGController", () => {
   let knowledgeBaseService: jest.Mocked<KnowledgeBaseService>;
   let ragPipelineService: jest.Mocked<RAGPipelineService>;
   let googleDriveRAGService: jest.Mocked<GoogleDriveRAGService>;
-  let _aiFacade: jest.Mocked<AIEngineFacade>;
+  let _aiFacade: jest.Mocked<RAGFacade>;
   let urlFetchService: jest.Mocked<UrlFetchService>;
   let platformImportService: jest.Mocked<PlatformImportService>;
 
@@ -116,7 +116,7 @@ describe("RAGController", () => {
         { provide: KnowledgeBaseService, useValue: mockKbService },
         { provide: RAGPipelineService, useValue: mockRagPipelineService },
         { provide: GoogleDriveRAGService, useValue: mockGoogleDriveService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: RAGFacade, useValue: mockAiFacade },
         { provide: UrlFetchService, useValue: mockUrlFetchService },
         { provide: PlatformImportService, useValue: mockPlatformImportService },
       ],
@@ -126,7 +126,7 @@ describe("RAGController", () => {
     knowledgeBaseService = module.get(KnowledgeBaseService);
     ragPipelineService = module.get(RAGPipelineService);
     googleDriveRAGService = module.get(GoogleDriveRAGService);
-    _aiFacade = module.get(AIEngineFacade);
+    _aiFacade = module.get(RAGFacade);
     urlFetchService = module.get(UrlFetchService);
     platformImportService = module.get(PlatformImportService);
   });

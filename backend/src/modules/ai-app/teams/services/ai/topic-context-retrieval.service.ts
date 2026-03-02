@@ -11,7 +11,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { RAGFacade } from "@/modules/ai-engine/facade";
 import type { EmbeddingResult } from "@/modules/ai-engine/facade";
 
 /**
@@ -51,7 +51,7 @@ export class TopicContextRetrievalService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly ragFacade: RAGFacade,
   ) {}
 
   /**
@@ -121,7 +121,7 @@ export class TopicContextRetrievalService {
 
       // 生成嵌入
       const embeddingResult: EmbeddingResult | null =
-        await this.aiFacade.embeddingGenerate(
+        await this.ragFacade.embeddingGenerate(
           message.content.substring(0, 8000), // 限制长度
         );
 
@@ -134,7 +134,7 @@ export class TopicContextRetrievalService {
 
       // 存储嵌入（embedding 字段为 pgvector Unsupported 类型，必须使用 $executeRaw）
       const vectorStr = `[${embeddingResult.embedding.join(",")}]`;
-      const embeddingModel = await this.aiFacade.embeddingGetModel();
+      const embeddingModel = await this.ragFacade.embeddingGetModel();
       const contentSummary = this.generateSummary(message.content);
       await this.prisma.$executeRaw(Prisma.sql`
         INSERT INTO topic_message_embeddings (id, message_id, embedding, model, dimensions, content_summary, token_count, created_at, updated_at)
@@ -212,7 +212,7 @@ export class TopicContextRetrievalService {
 
     try {
       // 生成查询向量
-      const queryEmbedding = await this.aiFacade.embeddingGenerate(query);
+      const queryEmbedding = await this.ragFacade.embeddingGenerate(query);
       if (!queryEmbedding) {
         this.logger.warn(
           `Embedding service unavailable, cannot retrieve context for topic ${topicId}`,

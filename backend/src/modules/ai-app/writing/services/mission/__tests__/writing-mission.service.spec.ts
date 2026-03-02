@@ -26,8 +26,15 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConflictException } from "@nestjs/common";
 import { WritingMissionService } from "../writing-mission.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { TeamRegistry, RoleRegistry } from "@/modules/ai-engine/facade";
+import {
+  AIEngineFacade,
+  ChatFacade,
+  TeamFacade,
+  AgentFacade,
+  ToolFacade,
+  TeamRegistry,
+  RoleRegistry,
+} from "@/modules/ai-engine/facade";
 import { ContextBuilderService } from "../../writing/context-builder.service";
 import { StoryBibleService } from "../../bible/story-bible.service";
 import { ExpressionMemoryService } from "../../quality/expression-memory.service";
@@ -267,6 +274,10 @@ describe("WritingMissionService", () => {
           useValue: agents.consistencyChecker,
         },
         { provide: EditorAgent, useValue: agents.editor },
+        { provide: ChatFacade, useValue: mockFacade },
+        { provide: TeamFacade, useValue: mockFacade },
+        { provide: AgentFacade, useValue: mockFacade },
+        { provide: ToolFacade, useValue: mockFacade },
         { provide: AIEngineFacade, useValue: mockFacade },
         { provide: WritingEventEmitterService, useValue: mockEventEmitter },
         {

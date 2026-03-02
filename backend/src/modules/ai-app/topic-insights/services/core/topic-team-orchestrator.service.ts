@@ -1,6 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "./research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -113,7 +113,7 @@ export class TopicTeamOrchestratorService {
     private readonly researchCheckpointService: ResearchCheckpointService,
     private readonly dataSourceRouterService: DataSourceRouterService,
     private readonly researchTodoService: ResearchTodoService,
-    @Optional() private readonly aiFacade?: AIEngineFacade,
+    @Optional() private readonly agentFacade?: AgentFacade,
   ) {}
 
   /**
@@ -165,7 +165,7 @@ export class TopicTeamOrchestratorService {
       );
 
       // ★ TraceCollector: start trace for this research mission
-      traceId = this.aiFacade?.startTrace({
+      traceId = this.agentFacade?.startTrace({
         name: `AI Insights: ${topic.name}`,
         type: "research_mission",
         metadata: {
@@ -212,7 +212,7 @@ export class TopicTeamOrchestratorService {
 
         // 调用 Leader 规划
         const leaderPlanSpanId = traceId
-          ? this.aiFacade?.addSpan(traceId, {
+          ? this.agentFacade?.addSpan(traceId, {
               name: "Leader AI Planning",
               type: "planning",
               metadata: { topicId },
@@ -224,7 +224,7 @@ export class TopicTeamOrchestratorService {
         try {
           leaderPlan = await this.researchLeaderService.planResearch(topicId);
           if (leaderPlanSpanId) {
-            this.aiFacade?.endSpan(leaderPlanSpanId, {
+            this.agentFacade?.endSpan(leaderPlanSpanId, {
               status: "success",
               output: {
                 dimensionsPlanned: leaderPlan.dimensions?.length ?? 0,
@@ -234,7 +234,7 @@ export class TopicTeamOrchestratorService {
           }
         } catch (planErr) {
           if (leaderPlanSpanId) {
-            this.aiFacade?.endSpan(leaderPlanSpanId, {
+            this.agentFacade?.endSpan(leaderPlanSpanId, {
               status: "error",
               error: String(planErr),
             });
@@ -489,7 +489,6 @@ export class TopicTeamOrchestratorService {
       }
 
       // V5: Research design extracted from global outline (populated after Phase 2)
-      let researchDesign: ResearchDesign | undefined;
       // V5: Validation context built from cognitive loop (used for future iterative rewriting)
       let validationContext = "";
 
@@ -516,7 +515,7 @@ export class TopicTeamOrchestratorService {
 
       // 3. 并行执行维度研究（传递 Agent 分配信息以使用正确的工具和技能）
       const dimensionSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Dimension Research (Parallel)",
             type: "phase",
             metadata: {
@@ -548,7 +547,7 @@ export class TopicTeamOrchestratorService {
           (r) => r.status === "fulfilled",
         ).length;
         if (dimensionSpanId) {
-          this.aiFacade?.endSpan(dimensionSpanId, {
+          this.agentFacade?.endSpan(dimensionSpanId, {
             status: "success",
             output: {
               totalDimensions: dimensions.length,
@@ -559,14 +558,14 @@ export class TopicTeamOrchestratorService {
         }
       } catch (dimErr) {
         if (dimensionSpanId) {
-          this.aiFacade?.endSpan(dimensionSpanId, {
+          this.agentFacade?.endSpan(dimensionSpanId, {
             status: "error",
             error: String(dimErr),
           });
         }
         throw dimErr;
       }
-      researchDesign = extractedDesign;
+      const researchDesign = extractedDesign;
 
       // V5: Checkpoint after Phase 2 (global outline + research design)
       try {
@@ -783,7 +782,7 @@ export class TopicTeamOrchestratorService {
       // 5. 质量审核阶段（non-fatal）
       // ★ Hoist reviewSpanId outside try so catch can end it on error
       const reviewSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Quality Review",
             type: "review",
             metadata: { missionId, dimensionCount: dimensions.length },
@@ -811,7 +810,7 @@ export class TopicTeamOrchestratorService {
         );
 
         if (reviewSpanId) {
-          this.aiFacade?.endSpan(reviewSpanId, {
+          this.agentFacade?.endSpan(reviewSpanId, {
             status: "success",
             output: {
               qualityLevel: reviewResult.qualityLevel,
@@ -831,7 +830,7 @@ export class TopicTeamOrchestratorService {
         }
       } catch (reviewError) {
         if (reviewSpanId) {
-          this.aiFacade?.endSpan(reviewSpanId, {
+          this.agentFacade?.endSpan(reviewSpanId, {
             status: "error",
             error: String(reviewError),
           });
@@ -880,7 +879,7 @@ export class TopicTeamOrchestratorService {
         }
       }
       const synthesisSpanId = traceId
-        ? this.aiFacade?.addSpan(traceId, {
+        ? this.agentFacade?.addSpan(traceId, {
             name: "Report Synthesis",
             type: "synthesis",
             metadata: { missionId, reportId: report.id },
@@ -893,7 +892,7 @@ export class TopicTeamOrchestratorService {
           report.id,
         );
         if (synthesisSpanId) {
-          this.aiFacade?.endSpan(synthesisSpanId, {
+          this.agentFacade?.endSpan(synthesisSpanId, {
             status: "success",
             output: {
               finalReportId: finalReport.id,
@@ -903,7 +902,7 @@ export class TopicTeamOrchestratorService {
         }
       } catch (synthErr) {
         if (synthesisSpanId) {
-          this.aiFacade?.endSpan(synthesisSpanId, {
+          this.agentFacade?.endSpan(synthesisSpanId, {
             status: "error",
             error: String(synthErr),
           });
@@ -1048,7 +1047,7 @@ export class TopicTeamOrchestratorService {
       this.logger.log(`Completed refresh for topic: ${topic.name}`);
 
       if (traceId) {
-        this.aiFacade?.endTrace(traceId, { status: "success" });
+        this.agentFacade?.endTrace(traceId, { status: "success" });
       }
 
       return finalReport;
@@ -1119,7 +1118,7 @@ export class TopicTeamOrchestratorService {
       }
 
       if (traceId) {
-        this.aiFacade?.endTrace(traceId, {
+        this.agentFacade?.endTrace(traceId, {
           status: "error",
         });
       }

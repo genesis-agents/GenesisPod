@@ -17,7 +17,7 @@ import { AIModelType } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
 import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
-import { AIEngineFacade } from "../facade/ai-engine.facade";
+import { ChatFacade } from "../facade";
 import { RAGPipelineService } from "../knowledge/rag/pipeline";
 import { SecretsService, BillingContext } from "../../ai-infra/facade";
 import { SearchService } from "../knowledge/search/search.service";
@@ -64,7 +64,7 @@ export class AiCoreController {
 
   constructor(
     private readonly aiCoreService: AiCoreService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiFacade: ChatFacade,
     private readonly configService: ConfigService,
     private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly secretsService?: SecretsService,

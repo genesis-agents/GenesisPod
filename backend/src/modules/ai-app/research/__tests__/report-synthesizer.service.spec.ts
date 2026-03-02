@@ -2,50 +2,51 @@
  * Tests for ReportSynthesizerService
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { ReportSynthesizerService } from '../discussion/report-synthesizer.service';
-import { AIEngineFacade } from '@/modules/ai-engine/facade';
-import type { SearchRound } from '../discussion/types';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ReportSynthesizerService } from "../discussion/report-synthesizer.service";
+import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
+import type { SearchRound } from "../discussion/types";
 
-jest.mock('@prisma/client', () => ({
+jest.mock("@prisma/client", () => ({
   AIModelType: {
-    CHAT: 'CHAT',
-    CHAT_FAST: 'CHAT_FAST',
+    CHAT: "CHAT",
+    CHAT_FAST: "CHAT_FAST",
   },
 }));
 
-jest.mock('@/modules/ai-engine/facade', () => ({
-  AIEngineFacade: jest.fn().mockImplementation(() => ({
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
     sanitizeReport: jest.fn((text: string) => text),
   })),
+  TeamFacade: jest.fn().mockImplementation(() => ({})),
 }));
 
-describe('ReportSynthesizerService', () => {
+describe("ReportSynthesizerService", () => {
   let service: ReportSynthesizerService;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
 
   const mockSearchRound: SearchRound = {
     round: 1,
-    stepId: 'step_1',
-    query: 'AI trends',
+    stepId: "step_1",
+    query: "AI trends",
     resultsCount: 3,
     sources: [
       {
-        id: 's1',
-        title: 'AI Progress Report',
-        url: 'https://example.com/ai',
-        snippet: 'AI is advancing rapidly in 2025...',
-        domain: 'example.com',
+        id: "s1",
+        title: "AI Progress Report",
+        url: "https://example.com/ai",
+        snippet: "AI is advancing rapidly in 2025...",
+        domain: "example.com",
         relevanceScore: 0.9,
-        publishedDate: '2025-01-01',
+        publishedDate: "2025-01-01",
       },
       {
-        id: 's2',
-        title: 'Machine Learning Updates',
-        url: 'https://ml.com/updates',
-        snippet: 'Latest ML breakthroughs...',
-        domain: 'ml.com',
+        id: "s2",
+        title: "Machine Learning Updates",
+        url: "https://ml.com/updates",
+        snippet: "Latest ML breakthroughs...",
+        domain: "ml.com",
         relevanceScore: 0.8,
       },
     ],
@@ -62,21 +63,25 @@ describe('ReportSynthesizerService', () => {
       providers: [
         ReportSynthesizerService,
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
+          useValue: mockFacadeInstance,
+        },
+        {
+          provide: TeamFacade,
           useValue: mockFacadeInstance,
         },
       ],
     }).compile();
 
     service = module.get<ReportSynthesizerService>(ReportSynthesizerService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('generateReport', () => {
+  describe("generateReport", () => {
     beforeEach(() => {
       // Mock section topics identification
       let callCount = 0;
@@ -86,23 +91,23 @@ describe('ReportSynthesizerService', () => {
           // First call: identify section topics
           return {
             content: JSON.stringify([
-              'Current State of AI',
-              'Key Breakthroughs',
-              'Future Outlook',
+              "Current State of AI",
+              "Key Breakthroughs",
+              "Future Outlook",
             ]),
             tokensUsed: 100,
           };
         }
         // Subsequent calls: generate sections / summary / conclusion
         return {
-          content: 'Generated content for this section...',
+          content: "Generated content for this section...",
           tokensUsed: 500,
         };
       });
     });
 
-    it('should generate a report with sections', async () => {
-      const report = await service.generateReport('AI trends 2025', [
+    it("should generate a report with sections", async () => {
+      const report = await service.generateReport("AI trends 2025", [
         mockSearchRound,
       ]);
 
@@ -113,8 +118,8 @@ describe('ReportSynthesizerService', () => {
       expect(report.metadata).toBeDefined();
     });
 
-    it('should include metadata with correct fields', async () => {
-      const report = await service.generateReport('AI trends 2025', [
+    it("should include metadata with correct fields", async () => {
+      const report = await service.generateReport("AI trends 2025", [
         mockSearchRound,
       ]);
 
@@ -123,26 +128,26 @@ describe('ReportSynthesizerService', () => {
       expect(report.metadata.duration).toBeGreaterThanOrEqual(0);
     });
 
-    it('should build references from sources', async () => {
-      const report = await service.generateReport('AI trends 2025', [
+    it("should build references from sources", async () => {
+      const report = await service.generateReport("AI trends 2025", [
         mockSearchRound,
       ]);
 
       expect(report.references.length).toBeGreaterThan(0);
-      expect(report.references[0].title).toBe('AI Progress Report');
-      expect(report.references[0].url).toBe('https://example.com/ai');
+      expect(report.references[0].title).toBe("AI Progress Report");
+      expect(report.references[0].url).toBe("https://example.com/ai");
     });
 
-    it('should sanitize report content via aiFacade', async () => {
-      await service.generateReport('AI trends 2025', [mockSearchRound]);
+    it("should sanitize report content via aiFacade", async () => {
+      await service.generateReport("AI trends 2025", [mockSearchRound]);
 
       expect(aiFacade.sanitizeReport).toHaveBeenCalled();
     });
 
-    it('should fallback gracefully when AI fails', async () => {
-      (aiFacade.chat as jest.Mock).mockRejectedValue(new Error('API Error'));
+    it("should fallback gracefully when AI fails", async () => {
+      (aiFacade.chat as jest.Mock).mockRejectedValue(new Error("API Error"));
 
-      const report = await service.generateReport('AI trends 2025', [
+      const report = await service.generateReport("AI trends 2025", [
         mockSearchRound,
       ]);
 
@@ -150,29 +155,27 @@ describe('ReportSynthesizerService', () => {
       expect(report.sections.length).toBeGreaterThan(0);
     });
 
-    it('should handle follow-up mode with previous context', async () => {
+    it("should handle follow-up mode with previous context", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify({
-          executiveSummary: 'Updated summary...',
+          executiveSummary: "Updated summary...",
           sections: [
-            { title: 'Updates', content: 'New findings...', citations: [1] },
+            { title: "Updates", content: "New findings...", citations: [1] },
           ],
-          conclusion: 'Updated conclusion...',
+          conclusion: "Updated conclusion...",
         }),
         tokensUsed: 500,
       });
 
       const previousContext = {
-        executiveSummary: 'Previous summary',
-        sections: [{ title: 'Section A', content: 'Old content' }],
-        conclusion: 'Old conclusion',
-        references: [
-          { title: 'Old Ref', url: 'https://old.com' },
-        ],
+        executiveSummary: "Previous summary",
+        sections: [{ title: "Section A", content: "Old content" }],
+        conclusion: "Old conclusion",
+        references: [{ title: "Old Ref", url: "https://old.com" }],
       };
 
       const report = await service.generateReport(
-        'Follow-up query',
+        "Follow-up query",
         [mockSearchRound],
         {
           isFollowUp: true,
@@ -185,28 +188,28 @@ describe('ReportSynthesizerService', () => {
       expect(report.references.length).toBeGreaterThan(0);
     });
 
-    it('should use language option for report generation', async () => {
-      await service.generateReport('AI trends 2025', [mockSearchRound], {
-        language: 'en-US',
+    it("should use language option for report generation", async () => {
+      await service.generateReport("AI trends 2025", [mockSearchRound], {
+        language: "en-US",
       });
 
       expect(aiFacade.chat).toHaveBeenCalled();
     });
 
-    it('should deduplicate sources from multiple rounds', async () => {
+    it("should deduplicate sources from multiple rounds", async () => {
       const duplicateRound: SearchRound = {
         round: 2,
-        stepId: 'step_2',
-        query: 'duplicate',
+        stepId: "step_2",
+        query: "duplicate",
         resultsCount: 1,
         sources: [mockSearchRound.sources[0]], // Same URL
         timestamp: new Date(),
       };
 
-      const report = await service.generateReport(
-        'Test',
-        [mockSearchRound, duplicateRound],
-      );
+      const report = await service.generateReport("Test", [
+        mockSearchRound,
+        duplicateRound,
+      ]);
 
       // Should deduplicate
       const urls = report.references.map((r) => r.url);
@@ -214,24 +217,24 @@ describe('ReportSynthesizerService', () => {
       expect(urls.length).toBe(uniqueUrls.size);
     });
 
-    it('should handle empty search rounds', async () => {
-      const report = await service.generateReport('AI trends 2025', []);
+    it("should handle empty search rounds", async () => {
+      const report = await service.generateReport("AI trends 2025", []);
 
       expect(report).toBeDefined();
       expect(report.metadata.totalSources).toBe(0);
     });
 
-    it('should handle fallback when AI section topics returns invalid format', async () => {
+    it("should handle fallback when AI section topics returns invalid format", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValueOnce({
-        content: 'Not JSON',
+        content: "Not JSON",
         tokensUsed: 100,
       });
       (aiFacade.chat as jest.Mock).mockResolvedValue({
-        content: 'Section content',
+        content: "Section content",
         tokensUsed: 200,
       });
 
-      const report = await service.generateReport('Test query', [
+      const report = await service.generateReport("Test query", [
         mockSearchRound,
       ]);
 
@@ -239,33 +242,32 @@ describe('ReportSynthesizerService', () => {
     });
   });
 
-  describe('generateReportStream', () => {
-    it('should yield sections as it generates', async () => {
+  describe("generateReportStream", () => {
+    it("should yield sections as it generates", async () => {
       let callCount = 0;
       (aiFacade.chat as jest.Mock).mockImplementation(async () => {
         callCount++;
         if (callCount === 1) {
           return {
-            content: JSON.stringify(['Section A', 'Section B']),
+            content: JSON.stringify(["Section A", "Section B"]),
             tokensUsed: 100,
           };
         }
-        return { content: 'Section content', tokensUsed: 200 };
+        return { content: "Section content", tokensUsed: 200 };
       });
 
       const chunks: { section: string; content: string }[] = [];
-      for await (const chunk of service.generateReportStream(
-        'AI trends',
-        [mockSearchRound],
-      )) {
+      for await (const chunk of service.generateReportStream("AI trends", [
+        mockSearchRound,
+      ])) {
         chunks.push(chunk);
       }
 
       expect(chunks.length).toBeGreaterThan(0);
       // Should have executive_summary and conclusion at minimum
       const sections = chunks.map((c) => c.section);
-      expect(sections).toContain('executive_summary');
-      expect(sections).toContain('conclusion');
+      expect(sections).toContain("executive_summary");
+      expect(sections).toContain("conclusion");
     });
   });
 });

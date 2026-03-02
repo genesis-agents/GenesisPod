@@ -310,6 +310,7 @@ export { MCPExternalAdminController } from "../mcp/admin/mcp-external-admin.cont
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
 export { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";
+export { IntentRouterService } from "../orchestration/services/intent-router.service";
 
 // ★ Batch 2 — Safety（for mcp-server guardrails integration）
 export { GuardrailsPipelineService } from "../safety/guardrails/guardrails-pipeline.service";

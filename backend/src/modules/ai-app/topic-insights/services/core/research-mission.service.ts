@@ -46,7 +46,7 @@ import { TopicCollaboratorService } from "../collaboration/topic-collaborator.se
 import { AgentActivityService } from "../monitoring/agent-activity.service";
 import { CollaboratorRole } from "../../dto/collaborator.dto";
 import {
-  AIEngineFacade,
+  ChatFacade,
   MissionExecutorService,
   EventJournalService,
   KernelContext,
@@ -122,7 +122,7 @@ export class ResearchMissionService {
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly agentActivity: AgentActivityService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly reviewerService: ResearchReviewerService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelJournal?: EventJournalService,
@@ -1444,7 +1444,7 @@ export class ResearchMissionService {
     const map = new Map<AIModelType, string>();
 
     // 获取 CHAT 类型的默认模型
-    const chatModel = await this.aiFacade.getDefaultModelByType(
+    const chatModel = await this.chatFacade.getDefaultModelByType(
       AIModelType.CHAT,
     );
     if (chatModel) {
@@ -2900,7 +2900,7 @@ export class ResearchMissionService {
 
     try {
       // 获取所有启用的 CHAT 模型
-      const models = await this.aiFacade.getAvailableModels(AIModelType.CHAT);
+      const models = await this.chatFacade.getAvailableModels(AIModelType.CHAT);
 
       // 统计唯一 Provider 数量
       const uniqueProviders = new Set(models.map((m) => m.provider));

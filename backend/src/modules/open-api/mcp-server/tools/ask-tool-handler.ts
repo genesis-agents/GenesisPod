@@ -10,7 +10,7 @@ import {
   MCPRequestContext,
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade, RAGFacade } from "../../../ai-engine/facade";
 import { withToolTimeout, TOOL_TIMEOUT_MS } from "./tool-timeout";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 
@@ -42,7 +42,10 @@ export class AskToolHandler implements IMCPToolHandler {
     required: ["question"],
   };
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly aiFacade: ChatFacade,
+    private readonly ragFacade: RAGFacade,
+  ) {}
 
   async execute(
     args: Record<string, unknown>,
@@ -75,7 +78,7 @@ export class AskToolHandler implements IMCPToolHandler {
 
       if (webSearch) {
         try {
-          const searchResponse = await this.aiFacade.search({
+          const searchResponse = await this.ragFacade.search({
             query: question,
             maxResults: 5,
           });

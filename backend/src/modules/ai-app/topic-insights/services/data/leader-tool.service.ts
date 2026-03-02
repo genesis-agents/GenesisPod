@@ -16,8 +16,11 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  ToolFacade,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   AIModelType,
@@ -149,7 +152,8 @@ export class LeaderToolService {
   private readonly logger = new Logger(LeaderToolService.name);
 
   constructor(
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly toolFacade: ToolFacade,
     private readonly toolRegistry: ToolRegistry,
     private readonly prisma: PrismaService,
   ) {}
@@ -638,7 +642,7 @@ export class LeaderToolService {
     // ★ 检查 web-search 工具是否可用
     if (capabilityContext) {
       const availableTools =
-        await this.aiFacade.capabilityResolveTools(capabilityContext);
+        await this.toolFacade.capabilityResolveTools(capabilityContext);
 
       if (!availableTools.includes("web-search")) {
         this.logger.warn(
@@ -751,7 +755,7 @@ export class LeaderToolService {
     // ★ 检查工具可用性（如果提供了 capability context）
     if (capabilityContext) {
       const availableTools =
-        await this.aiFacade.capabilityResolveTools(capabilityContext);
+        await this.toolFacade.capabilityResolveTools(capabilityContext);
       this.logger.log(
         `[generateEnhancedPlanningContext] Available tools for Leader: ${availableTools.join(", ")}`,
       );
@@ -822,7 +826,7 @@ ${context.dimensionName}
 直接输出 3 个查询词，每行一个，不要编号或解释。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: {
@@ -904,7 +908,7 @@ ${resultsText}
 4. 直接输出概述，不要添加标题或前缀`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: {

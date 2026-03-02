@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { SocialLeaderService } from "../social-leader.service";
 import type { PrismaService } from "../../../../../common/prisma/prisma.service";
-import type { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import type { ChatFacade } from "../../../../ai-engine/facade";
 import type { ContentFetcherService } from "../content-fetcher.service";
 import type { ContentTransformerService } from "../content-transformer.service";
 import type { ContentCheckerService } from "../content-checker.service";
@@ -24,8 +24,8 @@ function createMockPrisma() {
   } as unknown as jest.Mocked<PrismaService>;
 }
 
-function createMockAiFacade() {
-  return {} as unknown as jest.Mocked<AIEngineFacade>;
+function createMockChatFacade() {
+  return {} as unknown as jest.Mocked<ChatFacade>;
 }
 
 function createMockFetcher() {
@@ -108,7 +108,7 @@ function createMockCreatedContent() {
 describe("SocialLeaderService", () => {
   let service: SocialLeaderService;
   let mockPrisma: ReturnType<typeof createMockPrisma>;
-  let mockAiFacade: ReturnType<typeof createMockAiFacade>;
+  let mockChatFacade: ReturnType<typeof createMockChatFacade>;
   let mockFetcher: ReturnType<typeof createMockFetcher>;
   let mockTransformer: ReturnType<typeof createMockTransformer>;
   let mockChecker: ReturnType<typeof createMockChecker>;
@@ -116,7 +116,7 @@ describe("SocialLeaderService", () => {
 
   beforeEach(() => {
     mockPrisma = createMockPrisma();
-    mockAiFacade = createMockAiFacade();
+    mockChatFacade = createMockChatFacade();
     mockFetcher = createMockFetcher();
     mockTransformer = createMockTransformer();
     mockChecker = createMockChecker();
@@ -124,7 +124,7 @@ describe("SocialLeaderService", () => {
 
     service = new SocialLeaderService(
       mockPrisma as unknown as PrismaService,
-      mockAiFacade as unknown as AIEngineFacade,
+      mockChatFacade as unknown as ChatFacade,
       mockFetcher as unknown as ContentFetcherService,
       mockTransformer as unknown as ContentTransformerService,
       mockChecker as unknown as ContentCheckerService,
@@ -136,9 +136,9 @@ describe("SocialLeaderService", () => {
     jest.clearAllMocks();
   });
 
-  describe("getAiFacade", () => {
-    it("should return the AI facade instance", () => {
-      expect(service.getAiFacade()).toBe(mockAiFacade);
+  describe("getChatFacade", () => {
+    it("should return the chat facade instance", () => {
+      expect(service.getChatFacade()).toBe(mockChatFacade);
     });
   });
 

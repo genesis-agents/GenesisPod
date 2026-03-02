@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import {
   DiscussionRole,
   AgentState,
@@ -26,7 +26,7 @@ import {
 export class DiscussionAgentService {
   private readonly logger = new Logger(DiscussionAgentService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 初始化 Agent 团队
@@ -130,7 +130,7 @@ export class DiscussionAgentService {
     this.trimConversationHistory(agentState, 10);
 
     try {
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: agentState.conversationHistory.map((m) => ({
           role: m.role as "system" | "user" | "assistant",
           content: m.content,

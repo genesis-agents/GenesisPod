@@ -45,7 +45,7 @@ import {
   TopicExportService,
   TopicScheduleService,
 } from "./services";
-import { AIEngineFacade } from "../../ai-engine/facade";
+import { ChatFacade } from "../../ai-engine/facade";
 import {
   REPORT_EDITING_SYSTEM_PROMPT,
   buildEditPrompt,
@@ -118,7 +118,7 @@ export class TopicInsightsService {
     private readonly orchestrator: TopicTeamOrchestratorService,
     private readonly reportService: ReportSynthesisService,
     private readonly evidenceService: EvidenceManagementService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly reportChangeService: ReportChangeService,
     private readonly reportAnnotationService: ReportAnnotationService,
     private readonly researchStrategyService: ResearchStrategyService,
@@ -917,7 +917,7 @@ export class TopicInsightsService {
     }
 
     // 调用 AI 服务进行编辑（带自动积分扣除）
-    const aiResponse = await this.aiFacade.chat({
+    const aiResponse = await this.chatFacade.chat({
       messages: [
         {
           role: "system",

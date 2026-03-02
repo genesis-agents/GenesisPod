@@ -10,7 +10,7 @@ import {
   MCPRequestContext,
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { withToolTimeout, TOOL_TIMEOUT_MS } from "./tool-timeout";
 
 type AnalysisType =
@@ -170,7 +170,7 @@ export class ContentAnalysisToolHandler implements IMCPToolHandler {
     required: ["content"],
   };
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly aiFacade: ChatFacade) {}
 
   async execute(
     args: Record<string, unknown>,

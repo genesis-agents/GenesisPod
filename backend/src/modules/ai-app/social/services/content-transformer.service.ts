@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { SocialContentType, AIModelType } from "@prisma/client";
 import {
   BILINGUAL_FORMAT_GUIDE,
@@ -34,7 +34,7 @@ export interface TransformOutput {
 export class ContentTransformerService {
   private readonly logger = new Logger(ContentTransformerService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   async transform(input: TransformInput): Promise<TransformOutput> {
     this.logger.log(
@@ -43,7 +43,7 @@ export class ContentTransformerService {
 
     const prompt = this.buildPrompt(input);
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",

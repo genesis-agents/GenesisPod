@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportEditorService } from "../report-editor.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Mock fixtures
@@ -20,16 +20,14 @@ const mockFacade = {
   chat: jest.fn(),
 };
 
-const makeDimensionInput = (
-  id: string,
-  name: string,
-  content = "",
-) => ({
+const makeDimensionInput = (id: string, name: string, content = "") => ({
   dimensionId: id,
   dimensionName: name,
   dimensionDescription: `Description for ${name}`,
   summary: `Summary for ${name}`,
-  keyFindings: [{ finding: `Finding for ${name}`, significance: "high", evidenceIds: [] }],
+  keyFindings: [
+    { finding: `Finding for ${name}`, significance: "high", evidenceIds: [] },
+  ],
   trends: [],
   challenges: [],
   opportunities: [],
@@ -50,7 +48,7 @@ describe("ReportEditorService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportEditorService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

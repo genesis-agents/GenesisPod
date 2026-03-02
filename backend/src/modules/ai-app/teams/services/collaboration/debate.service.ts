@@ -15,7 +15,11 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
+import {
+  ChatFacade,
+  TeamFacade,
+  ChatMessage,
+} from "../../../../ai-engine/facade";
 import { DebateStatus, DebateRole, DebateAgent, Prisma } from "@prisma/client";
 
 // 辩论消息类型（用于Agent的conversationHistory）
@@ -50,7 +54,8 @@ export class DebateService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly teamFacade: TeamFacade,
   ) {}
 
   /**
@@ -253,7 +258,7 @@ export class DebateService {
     );
 
     // 获取AI模型配置
-    const aiModelConfig = await this.aiFacade.getModelById(agent.aiModel);
+    const aiModelConfig = await this.chatFacade.getModelById(agent.aiModel);
     if (!aiModelConfig) {
       throw new Error(`AI model not found: ${agent.aiModel}`);
     }
@@ -295,7 +300,7 @@ export class DebateService {
         content: m.content,
       })),
     ];
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: debateMessages,
       model: agent.aiModel,
       taskProfile: {
@@ -364,7 +369,7 @@ export class DebateService {
     );
 
     // 通过 A2A Bus 广播辩论发言，供可观测性系统记录消息流
-    void this.aiFacade.a2aPublish({
+    void this.teamFacade.a2aPublish({
       sessionId,
       fromAgentId: agentId,
       type: "info_share",
@@ -482,7 +487,7 @@ export class DebateService {
         `[Debate] Final consensus position: ${consensusPosition}`,
       );
     }
-    this.aiFacade.a2aClearSession(sessionId);
+    this.teamFacade.a2aClearSession(sessionId);
   }
 
   /**
@@ -497,7 +502,7 @@ export class DebateService {
   ): Promise<{ winner?: string; consensus: boolean } | null> {
     try {
       // 创建投票会话
-      const session = this.aiFacade.votingCreate({
+      const session = this.teamFacade.votingCreate({
         id: `debate-${sessionId}-round-${round}`,
         topic: `第 ${round} 轮辩论投票`,
         options: [
@@ -544,11 +549,11 @@ export class DebateService {
         // 基于评分投票
         const preferredOption =
           redScore > blueScore ? redPosition.id : bluePosition.id;
-        this.aiFacade.votingCastVote(session.id, voterId, preferredOption);
+        this.teamFacade.votingCastVote(session.id, voterId, preferredOption);
       }
 
       // 关闭投票并获取结果
-      const result = this.aiFacade.votingClose(session.id, voters.length);
+      const result = this.teamFacade.votingClose(session.id, voters.length);
 
       if (result) {
         this.logger.log(
@@ -639,7 +644,7 @@ export class DebateService {
       },
     });
     this.logger.log(`[Debate] Session ${sessionId} marked as completed`);
-    this.aiFacade.a2aClearSession(sessionId);
+    this.teamFacade.a2aClearSession(sessionId);
   }
 
   /**

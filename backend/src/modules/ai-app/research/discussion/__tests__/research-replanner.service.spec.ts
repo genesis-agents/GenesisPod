@@ -14,7 +14,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { ResearchReplannerService } from "../research-replanner.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import type { SearchRound, SearchSource } from "../types";
 
 // ============================================================
@@ -86,7 +86,7 @@ describe("ResearchReplannerService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchReplannerService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

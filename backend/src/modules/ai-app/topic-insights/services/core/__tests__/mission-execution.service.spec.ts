@@ -15,7 +15,7 @@ import { MissionQueryService } from "../mission-query.service";
 import { DimensionMissionService } from "../../dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import { ResearchMemoryService } from "../research-memory.service";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
@@ -192,7 +192,7 @@ describe("MissionExecutionService", () => {
           useValue: mocks.mockReportSynthesisService,
         },
         { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-        { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+        { provide: ChatFacade, useValue: mocks.mockAiFacade },
         {
           provide: ResearchReviewerService,
           useValue: mocks.mockReviewerService,
@@ -383,7 +383,7 @@ describe("MissionExecutionService", () => {
             useValue: mocks.mockReportSynthesisService,
           },
           { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+          { provide: ChatFacade, useValue: mocks.mockAiFacade },
           {
             provide: ResearchReviewerService,
             useValue: mocks.mockReviewerService,
@@ -423,7 +423,7 @@ describe("MissionExecutionService", () => {
             useValue: mocks.mockReportSynthesisService,
           },
           { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+          { provide: ChatFacade, useValue: mocks.mockAiFacade },
           {
             provide: ResearchReviewerService,
             useValue: mocks.mockReviewerService,
@@ -466,7 +466,7 @@ describe("MissionExecutionService", () => {
             useValue: mocks.mockReportSynthesisService,
           },
           { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+          { provide: ChatFacade, useValue: mocks.mockAiFacade },
           {
             provide: ResearchReviewerService,
             useValue: mocks.mockReviewerService,
@@ -505,7 +505,7 @@ describe("MissionExecutionService", () => {
             useValue: mocks.mockReportSynthesisService,
           },
           { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+          { provide: ChatFacade, useValue: mocks.mockAiFacade },
           {
             provide: ResearchReviewerService,
             useValue: mocks.mockReviewerService,
@@ -1371,7 +1371,7 @@ describe("MissionExecutionService", () => {
             useValue: mocks.mockReportSynthesisService,
           },
           { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+          { provide: ChatFacade, useValue: mocks.mockAiFacade },
           {
             provide: ResearchReviewerService,
             useValue: mocks.mockReviewerService,
@@ -2685,14 +2685,12 @@ describe("MissionExecutionService", () => {
 
       // Mock getModelDisplayNameMap dependency (aIModel.findMany)
       (prisma as any).aIModel = {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            {
-              id: "different-actual-model",
-              displayName: "Actual Model Display",
-            },
-          ]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "different-actual-model",
+            displayName: "Actual Model Display",
+          },
+        ]),
       };
 
       // Mock researchAgentActivity for updateMany

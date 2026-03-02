@@ -12,7 +12,9 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { MissionExecutionService } from "../mission-execution.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
 import {
-  AIEngineFacade,
+  ChatFacade,
+  AgentFacade,
+  ToolFacade,
   ToolRegistry,
 } from "../../../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../../../events";
@@ -106,7 +108,7 @@ const mockCallbacks = {
 describe("MissionExecutionService", () => {
   let service: MissionExecutionService;
   let prisma: jest.Mocked<PrismaService>;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
   let topicEventEmitter: jest.Mocked<TopicEventEmitterService>;
   let longContentService: jest.Mocked<TeamsLongContentService>;
   let stateManager: jest.Mocked<MissionStateManager>;
@@ -199,7 +201,9 @@ describe("MissionExecutionService", () => {
       providers: [
         MissionExecutionService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: AgentFacade, useValue: mockAiFacade },
+        { provide: ToolFacade, useValue: mockAiFacade },
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: TopicEventEmitterService, useValue: mockTopicEventEmitter },
         { provide: TeamsLongContentService, useValue: mockLongContentService },
@@ -210,7 +214,7 @@ describe("MissionExecutionService", () => {
 
     service = module.get<MissionExecutionService>(MissionExecutionService);
     prisma = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
     topicEventEmitter = module.get(TopicEventEmitterService);
     longContentService = module.get(TeamsLongContentService);
     stateManager = module.get(MissionStateManager);
@@ -234,6 +238,8 @@ describe("MissionExecutionService", () => {
       const freshService = new MissionExecutionService(
         prisma,
         aiFacade,
+        aiFacade as unknown as AgentFacade,
+        aiFacade as unknown as ToolFacade,
         toolRegistry,
         topicEventEmitter,
         longContentService,

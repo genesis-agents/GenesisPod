@@ -7,7 +7,7 @@ import {
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { GenerateOutputDto, OutputTypeValue } from "./dto";
-import { AIEngineFacade, ChatMessage } from "../../../ai-engine/facade";
+import { ChatFacade, ChatMessage } from "../../../ai-engine/facade";
 
 // Detailed prompt templates for each output type
 const PROMPT_TEMPLATES: Record<OutputTypeValue, string> = {
@@ -490,7 +490,7 @@ export class ResearchProjectOutputService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -616,7 +616,7 @@ export class ResearchProjectOutputService {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ];
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages,
         model,
         taskProfile: {

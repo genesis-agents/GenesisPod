@@ -7,7 +7,7 @@
  */
 
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { TeamFacade } from "@/modules/ai-engine/facade";
 import type { SaveEvidenceRequest } from "@/modules/ai-engine/facade";
 
 /**
@@ -57,7 +57,7 @@ export class EvidenceSyncCompensationService implements OnModuleDestroy {
   /** 定时器 */
   private retryIntervalId?: NodeJS.Timeout;
 
-  constructor(private readonly aiFacade: AIEngineFacade) {
+  constructor(private readonly teamFacade: TeamFacade) {
     // 启动定期重试任务
     this.startRetryTask();
   }
@@ -128,7 +128,7 @@ export class EvidenceSyncCompensationService implements OnModuleDestroy {
 
     for (const entry of toRetry) {
       try {
-        const saveResult = this.aiFacade.evidenceSave(entry.request);
+        const saveResult = this.teamFacade.evidenceSave(entry.request);
         if (!saveResult) throw new Error("EvidenceManager not available");
         await saveResult;
 

@@ -7,7 +7,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { ImageGenerationService } from "../generation/image-generation.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { of } from "rxjs";
 
 // Mock SecretsService
@@ -72,7 +72,7 @@ describe("ImageGenerationService", () => {
       providers: [
         ImageGenerationService,
         { provide: HttpService, useValue: mockHttpService },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
         { provide: SecretsService, useValue: mockSecretsService },
       ],
     }).compile();

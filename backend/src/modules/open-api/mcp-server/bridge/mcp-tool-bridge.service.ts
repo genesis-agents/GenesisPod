@@ -22,7 +22,9 @@ import {
   ToolRegistry,
   SkillRegistry,
   AgentRegistry,
-  AIEngineFacade,
+  ChatFacade,
+  ToolFacade,
+  AgentFacade,
 } from "../../../ai-engine/facade";
 
 interface BridgedToolMeta {
@@ -38,7 +40,9 @@ export class MCPToolBridgeService {
   private readonly bridgedToolMeta = new Map<string, BridgedToolMeta>();
 
   constructor(
-    private readonly facade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly toolFacade: ToolFacade,
+    private readonly agentFacade: AgentFacade,
     @Optional() private readonly toolRegistry?: ToolRegistry,
     @Optional() private readonly skillRegistry?: SkillRegistry,
     @Optional() private readonly agentRegistry?: AgentRegistry,
@@ -233,7 +237,7 @@ export class MCPToolBridgeService {
     args: Record<string, unknown>,
     context: MCPRequestContext,
   ): Promise<MCPToolResponse> {
-    const result = await this.facade.executeTool({
+    const result = await this.toolFacade.executeTool({
       toolId,
       input: args,
       context: {
@@ -298,7 +302,7 @@ export class MCPToolBridgeService {
     }
     messages.push({ role: "user", content: task });
 
-    const response = await this.facade.chat({
+    const response = await this.chatFacade.chat({
       messages,
       additionalSkills: [skillId],
       taskProfile: { creativity: "medium", outputLength: "medium" },
@@ -333,7 +337,7 @@ export class MCPToolBridgeService {
     const task = (args.task as string) || "";
     const agentContext = (args.context as string) || "";
 
-    const result = await this.facade.executeAgent({
+    const result = await this.agentFacade.executeAgent({
       agentType: agentId,
       task,
       context: agentContext,

@@ -9,9 +9,12 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportGeneratorService } from "../report-generator.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { ResearchTopic } from "@prisma/client";
-import type { DimensionAnalysisInput, EvidenceInput } from "../../../types/report.types";
+import type {
+  DimensionAnalysisInput,
+  EvidenceInput,
+} from "../../../types/report.types";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -44,20 +47,44 @@ const mockTopic: ResearchTopic = {
   tags: [],
 } as unknown as ResearchTopic;
 
-const mockEnglishTopic = { ...mockTopic, language: "en" } as unknown as ResearchTopic;
+const mockEnglishTopic = {
+  ...mockTopic,
+  language: "en",
+} as unknown as ResearchTopic;
 
-function buildDimensionInput(overrides?: Partial<DimensionAnalysisInput>): DimensionAnalysisInput {
+function buildDimensionInput(
+  overrides?: Partial<DimensionAnalysisInput>,
+): DimensionAnalysisInput {
   return {
     dimensionId: "dim-001",
     dimensionName: "技术现状",
     dimensionDescription: "当前量子计算技术状态",
     summary: "量子计算进入实用化阶段",
     keyFindings: [
-      { finding: "超导量子位错误率下降至 1%", significance: "high", evidenceIds: ["ev-1"] },
+      {
+        finding: "超导量子位错误率下降至 1%",
+        significance: "high",
+        evidenceIds: ["ev-1"],
+      },
     ],
-    trends: [{ trend: "量子优越性实验增加", direction: "up", timeframe: "2024", evidenceIds: ["ev-1"] }],
-    challenges: [{ challenge: "退相干问题", impact: "high", evidenceIds: ["ev-2"] }],
-    opportunities: [{ opportunity: "药物研发加速", potential: "very high", evidenceIds: ["ev-3"] }],
+    trends: [
+      {
+        trend: "量子优越性实验增加",
+        direction: "up",
+        timeframe: "2024",
+        evidenceIds: ["ev-1"],
+      },
+    ],
+    challenges: [
+      { challenge: "退相干问题", impact: "high", evidenceIds: ["ev-2"] },
+    ],
+    opportunities: [
+      {
+        opportunity: "药物研发加速",
+        potential: "very high",
+        evidenceIds: ["ev-3"],
+      },
+    ],
     detailedContent: "## 技术现状\n\n量子计算机已突破 1000 量子位门槛。",
     sourcesUsed: 10,
     figureReferences: [],
@@ -81,9 +108,15 @@ function buildEvidenceInput(): EvidenceInput {
 const VALID_REPORT_JSON = JSON.stringify({
   executiveSummary: "量子计算进入新纪元，商业化路径逐渐清晰。",
   preface: "本报告基于最新研究数据...",
-  conclusion: "## 跨维度关联分析\n内容\n\n## 风险评估\n内容\n\n## 战略建议\n内容\n\n## 结语\n最终结论。",
+  conclusion:
+    "## 跨维度关联分析\n内容\n\n## 风险评估\n内容\n\n## 战略建议\n内容\n\n## 结语\n最终结论。",
   highlights: [
-    { title: "量子优越性", description: "已超越经典计算机", category: "breakthrough", importance: "high" },
+    {
+      title: "量子优越性",
+      description: "已超越经典计算机",
+      category: "breakthrough",
+      importance: "high",
+    },
   ],
   charts: [],
 });
@@ -102,7 +135,7 @@ describe("ReportGeneratorService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportGeneratorService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -128,7 +161,10 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should return high consistency without AI call for zero dimensions", async () => {
-      const result = await service.checkCrossDimensionConsistency(mockTopic, []);
+      const result = await service.checkCrossDimensionConsistency(
+        mockTopic,
+        [],
+      );
 
       expect(mockFacade.chat).not.toHaveBeenCalled();
       expect(result.overallConsistency).toBe("high");
@@ -152,8 +188,17 @@ describe("ReportGeneratorService", () => {
         }),
       });
 
-      const dims = [buildDimensionInput(), buildDimensionInput({ dimensionName: "市场应用", dimensionId: "dim-002" })];
-      const result = await service.checkCrossDimensionConsistency(mockTopic, dims);
+      const dims = [
+        buildDimensionInput(),
+        buildDimensionInput({
+          dimensionName: "市场应用",
+          dimensionId: "dim-002",
+        }),
+      ];
+      const result = await service.checkCrossDimensionConsistency(
+        mockTopic,
+        dims,
+      );
 
       expect(mockFacade.chat).toHaveBeenCalledTimes(1);
       expect(result.overallConsistency).toBe("medium");
@@ -164,8 +209,14 @@ describe("ReportGeneratorService", () => {
     it("should return default high consistency when AI call fails", async () => {
       mockFacade.chat.mockRejectedValue(new Error("AI service unavailable"));
 
-      const dims = [buildDimensionInput(), buildDimensionInput({ dimensionId: "dim-002" })];
-      const result = await service.checkCrossDimensionConsistency(mockTopic, dims);
+      const dims = [
+        buildDimensionInput(),
+        buildDimensionInput({ dimensionId: "dim-002" }),
+      ];
+      const result = await service.checkCrossDimensionConsistency(
+        mockTopic,
+        dims,
+      );
 
       expect(result.overallConsistency).toBe("high");
       expect(result.conflicts).toHaveLength(0);
@@ -175,8 +226,14 @@ describe("ReportGeneratorService", () => {
     it("should return default high consistency when AI response cannot be parsed", async () => {
       mockFacade.chat.mockResolvedValue({ content: "This is not JSON" });
 
-      const dims = [buildDimensionInput(), buildDimensionInput({ dimensionId: "dim-002" })];
-      const result = await service.checkCrossDimensionConsistency(mockTopic, dims);
+      const dims = [
+        buildDimensionInput(),
+        buildDimensionInput({ dimensionId: "dim-002" }),
+      ];
+      const result = await service.checkCrossDimensionConsistency(
+        mockTopic,
+        dims,
+      );
 
       expect(result.overallConsistency).toBe("high");
       expect(result.conflicts).toHaveLength(0);
@@ -211,10 +268,15 @@ describe("ReportGeneratorService", () => {
         buildDimensionInput(),
         buildDimensionInput({ dimensionId: "dim-002", dimensionName: "B" }),
       ];
-      const result = await service.checkCrossDimensionConsistency(mockTopic, dims);
+      const result = await service.checkCrossDimensionConsistency(
+        mockTopic,
+        dims,
+      );
 
       expect(result.overallConsistency).toBe("low");
-      expect(result.conflicts.filter((c) => c.severity === "critical")).toHaveLength(1);
+      expect(
+        result.conflicts.filter((c) => c.severity === "critical"),
+      ).toHaveLength(1);
     });
   });
 
@@ -233,7 +295,9 @@ describe("ReportGeneratorService", () => {
       );
 
       expect(mockFacade.chat).toHaveBeenCalledTimes(1);
-      expect(result.executiveSummary).toBe("量子计算进入新纪元，商业化路径逐渐清晰。");
+      expect(result.executiveSummary).toBe(
+        "量子计算进入新纪元，商业化路径逐渐清晰。",
+      );
       expect(result.highlights).toHaveLength(1);
       expect(result.fullReport).toBeDefined();
     });
@@ -321,7 +385,11 @@ describe("ReportGeneratorService", () => {
       mockFacade.chat.mockRejectedValue(new Error("Authentication failed"));
 
       await expect(
-        service.generateComprehensiveReport(mockTopic, [buildDimensionInput()], []),
+        service.generateComprehensiveReport(
+          mockTopic,
+          [buildDimensionInput()],
+          [],
+        ),
       ).rejects.toThrow("Authentication failed");
 
       expect(mockFacade.chat).toHaveBeenCalledTimes(1);
@@ -331,7 +399,10 @@ describe("ReportGeneratorService", () => {
       mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
 
       const manyDimensions = Array.from({ length: 20 }, (_, i) =>
-        buildDimensionInput({ dimensionId: `dim-${i}`, dimensionName: `维度 ${i}` }),
+        buildDimensionInput({
+          dimensionId: `dim-${i}`,
+          dimensionName: `维度 ${i}`,
+        }),
       );
 
       await service.generateComprehensiveReport(mockTopic, manyDimensions, []);
@@ -344,7 +415,11 @@ describe("ReportGeneratorService", () => {
     it("should use correct modelType (CHAT) for report synthesis", async () => {
       mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
 
-      await service.generateComprehensiveReport(mockTopic, [buildDimensionInput()], []);
+      await service.generateComprehensiveReport(
+        mockTopic,
+        [buildDimensionInput()],
+        [],
+      );
 
       const chatCall = mockFacade.chat.mock.calls[0][0];
       expect(chatCall.modelType).toBe("CHAT");
@@ -355,7 +430,8 @@ describe("ReportGeneratorService", () => {
         content: JSON.stringify({
           executiveSummary: "Executive summary here",
           preface: "Preface content",
-          conclusion: "## Cross-Dimension Analysis\nContent\n\n## Risk Assessment\nContent\n\n## Strategic Recommendations\nContent\n\n## Conclusion\nFinal conclusion.",
+          conclusion:
+            "## Cross-Dimension Analysis\nContent\n\n## Risk Assessment\nContent\n\n## Strategic Recommendations\nContent\n\n## Conclusion\nFinal conclusion.",
           highlights: [],
           charts: [],
         }),
@@ -393,10 +469,9 @@ describe("ReportGeneratorService", () => {
     it("should return only the executive summary from a comprehensive report", async () => {
       mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
 
-      const summary = await service.generateExecutiveSummary(
-        mockTopic,
-        [buildDimensionInput()],
-      );
+      const summary = await service.generateExecutiveSummary(mockTopic, [
+        buildDimensionInput(),
+      ]);
 
       expect(summary).toBe("量子计算进入新纪元，商业化路径逐渐清晰。");
     });
@@ -404,7 +479,9 @@ describe("ReportGeneratorService", () => {
     it("should call AI once and delegate to generateComprehensiveReport", async () => {
       mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
 
-      await service.generateExecutiveSummary(mockTopic, [buildDimensionInput()]);
+      await service.generateExecutiveSummary(mockTopic, [
+        buildDimensionInput(),
+      ]);
 
       expect(mockFacade.chat).toHaveBeenCalledTimes(1);
     });
@@ -455,8 +532,15 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should sort dimensions by priority", () => {
-      const dim1 = buildDimensionInput({ dimensionName: "低优先级维度", priority: 999 });
-      const dim2 = buildDimensionInput({ dimensionId: "dim-002", dimensionName: "高优先级维度", priority: 1 });
+      const dim1 = buildDimensionInput({
+        dimensionName: "低优先级维度",
+        priority: 999,
+      });
+      const dim2 = buildDimensionInput({
+        dimensionId: "dim-002",
+        dimensionName: "高优先级维度",
+        priority: 1,
+      });
 
       const result = service.buildFullReportFromDimensions(
         mockTopic,
@@ -480,7 +564,9 @@ describe("ReportGeneratorService", () => {
       const dim2 = buildDimensionInput({
         dimensionId: "dim-002",
         dimensionName: "维度B",
-        keyFindings: [{ finding: "发现3", significance: "high", evidenceIds: [] }],
+        keyFindings: [
+          { finding: "发现3", significance: "high", evidenceIds: [] },
+        ],
       });
 
       const result = service.buildFullReportFromDimensions(
@@ -544,7 +630,8 @@ describe("ReportGeneratorService", () => {
 
     it("should strip inline images from dimension content", () => {
       const dim = buildDimensionInput({
-        detailedContent: "内容\n\n![alt text](https://example.com/image.png)\n\n更多内容",
+        detailedContent:
+          "内容\n\n![alt text](https://example.com/image.png)\n\n更多内容",
       });
 
       const result = service.buildFullReportFromDimensions(
@@ -561,11 +648,9 @@ describe("ReportGeneratorService", () => {
         detailedContent: "## 跨维度关联分析\n\n已有跨维度内容",
       });
 
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [dim],
-        { crossDimensionAnalysis: "新的跨维度分析" },
-      );
+      const result = service.buildFullReportFromDimensions(mockTopic, [dim], {
+        crossDimensionAnalysis: "新的跨维度分析",
+      });
 
       // Should not duplicate the section
       expect(result).toBeDefined();
@@ -574,14 +659,16 @@ describe("ReportGeneratorService", () => {
     it("should include table of contents entries for all dimensions", () => {
       const dims = [
         buildDimensionInput({ dimensionName: "技术现状", priority: 1 }),
-        buildDimensionInput({ dimensionId: "dim-002", dimensionName: "市场分析", priority: 2 }),
+        buildDimensionInput({
+          dimensionId: "dim-002",
+          dimensionName: "市场分析",
+          priority: 2,
+        }),
       ];
 
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        dims,
-        { crossDimensionAnalysis: "跨维度分析" },
-      );
+      const result = service.buildFullReportFromDimensions(mockTopic, dims, {
+        crossDimensionAnalysis: "跨维度分析",
+      });
 
       expect(result).toContain("技术现状");
       expect(result).toContain("市场分析");
@@ -605,11 +692,9 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should handle empty dimensionInputs array", () => {
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [],
-        { executiveSummary: "Summary with no dims" },
-      );
+      const result = service.buildFullReportFromDimensions(mockTopic, [], {
+        executiveSummary: "Summary with no dims",
+      });
 
       expect(result).toBeDefined();
       expect(result).toContain(mockTopic.name);
@@ -649,7 +734,9 @@ describe("ReportGeneratorService", () => {
         content: JSON.stringify({
           executiveSummary: {
             coreConclusions: ["量子计算超越经典算法", "商业应用加速落地"],
-            keyMetrics: [{ metric: "市场规模", value: "$500B", source: "Gartner" }],
+            keyMetrics: [
+              { metric: "市场规模", value: "$500B", source: "Gartner" },
+            ],
             riskAlerts: ["量子纠错成本高"],
             actionItems: ["加大量子投资"],
           },
@@ -771,10 +858,18 @@ describe("ReportGeneratorService", () => {
           executiveSummary: "摘要",
           crossDimensionAnalysis: {
             causalChains: [
-              { chain: "A→B→C", explanation: "原因链解释", timeframe: "2024-2026" },
+              {
+                chain: "A→B→C",
+                explanation: "原因链解释",
+                timeframe: "2024-2026",
+              },
             ],
             keyLinkages: [
-              { dimensions: ["技术", "市场"], relationship: "相互促进", impact: "高" },
+              {
+                dimensions: ["技术", "市场"],
+                relationship: "相互促进",
+                impact: "高",
+              },
             ],
           },
           preface: "",
@@ -890,7 +985,8 @@ describe("ReportGeneratorService", () => {
 
   describe("createFallbackReport via malformed AI response", () => {
     it("should extract viewpoints from numbered list in fallback", async () => {
-      const contentWithPoints = "分析结果\n\n1. 量子计算市场规模快速增长。\n2. 技术突破持续推进。";
+      const contentWithPoints =
+        "分析结果\n\n1. 量子计算市场规模快速增长。\n2. 技术突破持续推进。";
       mockFacade.chat.mockResolvedValue({ content: contentWithPoints });
 
       const result = await service.generateComprehensiveReport(
@@ -904,7 +1000,8 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should extract viewpoints from key-phrase patterns in fallback", async () => {
-      const contentWithKeyPhrases = "研究内容\n\n关键：量子计算将在五年内实现商业化突破。核心：错误纠正率成关键指标。";
+      const contentWithKeyPhrases =
+        "研究内容\n\n关键：量子计算将在五年内实现商业化突破。核心：错误纠正率成关键指标。";
       mockFacade.chat.mockResolvedValue({ content: contentWithKeyPhrases });
 
       const result = await service.generateComprehensiveReport(
@@ -930,7 +1027,9 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should use English label for fallback section when language is en", async () => {
-      mockFacade.chat.mockResolvedValue({ content: "Research content without valid JSON." });
+      mockFacade.chat.mockResolvedValue({
+        content: "Research content without valid JSON.",
+      });
 
       const result = await service.generateComprehensiveReport(
         mockEnglishTopic,
@@ -1024,7 +1123,11 @@ describe("ReportGeneratorService", () => {
     it("should calculate small maxTokens for 1 dimension", async () => {
       mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
 
-      await service.generateComprehensiveReport(mockTopic, [buildDimensionInput()], []);
+      await service.generateComprehensiveReport(
+        mockTopic,
+        [buildDimensionInput()],
+        [],
+      );
 
       const chatCall = mockFacade.chat.mock.calls[0][0];
       // 1 dim: base(16000) + 1*2500 = 18500
@@ -1055,12 +1158,30 @@ describe("ReportGeneratorService", () => {
           { finding: "发现A4", significance: "low", evidenceIds: [] }, // Only first 3 included
         ],
         trends: [
-          { trend: "趋势A1", direction: "up", timeframe: "2024", evidenceIds: [] },
-          { trend: "趋势A2", direction: "stable", timeframe: "2024", evidenceIds: [] },
-          { trend: "趋势A3", direction: "down", timeframe: "2024", evidenceIds: [] }, // Only first 2 included
+          {
+            trend: "趋势A1",
+            direction: "up",
+            timeframe: "2024",
+            evidenceIds: [],
+          },
+          {
+            trend: "趋势A2",
+            direction: "stable",
+            timeframe: "2024",
+            evidenceIds: [],
+          },
+          {
+            trend: "趋势A3",
+            direction: "down",
+            timeframe: "2024",
+            evidenceIds: [],
+          }, // Only first 2 included
         ],
       });
-      const dimB = buildDimensionInput({ dimensionId: "dim-002", dimensionName: "市场" });
+      const dimB = buildDimensionInput({
+        dimensionId: "dim-002",
+        dimensionName: "市场",
+      });
 
       await service.checkCrossDimensionConsistency(mockTopic, [dimA, dimB]);
 
@@ -1091,10 +1212,10 @@ describe("ReportGeneratorService", () => {
       });
       const dimB = buildDimensionInput({ dimensionId: "dim-002" });
 
-      const result = await service.checkCrossDimensionConsistency(
-        mockTopic,
-        [dimEmpty, dimB],
-      );
+      const result = await service.checkCrossDimensionConsistency(mockTopic, [
+        dimEmpty,
+        dimB,
+      ]);
 
       expect(result.overallConsistency).toBe("high");
     });
@@ -1149,8 +1270,16 @@ describe("ReportGeneratorService", () => {
       const dims = [
         buildDimensionInput({
           keyFindings: [
-            { finding: "超导量子位错误率降至1%", significance: "high", evidenceIds: [] },
-            { finding: "机会：量子计算市场潜力巨大", significance: "medium", evidenceIds: [] },
+            {
+              finding: "超导量子位错误率降至1%",
+              significance: "high",
+              evidenceIds: [],
+            },
+            {
+              finding: "机会：量子计算市场潜力巨大",
+              significance: "medium",
+              evidenceIds: [],
+            },
           ],
         }),
       ];
@@ -1165,7 +1294,12 @@ describe("ReportGeneratorService", () => {
       const report = {
         executiveSummary: "Summary",
         sections: [
-          { sectionNumber: 1, title: "机会分析", coreViewpoints: ["机会：市场增长潜力"], content: "" },
+          {
+            sectionNumber: 1,
+            title: "机会分析",
+            coreViewpoints: ["机会：市场增长潜力"],
+            content: "",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1182,7 +1316,12 @@ describe("ReportGeneratorService", () => {
       const report = {
         executiveSummary: "Summary",
         sections: [
-          { sectionNumber: 1, title: "趋势", coreViewpoints: ["趋势：AI技术快速演进"], content: "" },
+          {
+            sectionNumber: 1,
+            title: "趋势",
+            coreViewpoints: ["趋势：AI技术快速演进"],
+            content: "",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1199,7 +1338,12 @@ describe("ReportGeneratorService", () => {
       const report = {
         executiveSummary: "Summary",
         sections: [
-          { sectionNumber: 1, title: "风险", coreViewpoints: ["风险：数据隐私挑战严峻"], content: "" },
+          {
+            sectionNumber: 1,
+            title: "风险",
+            coreViewpoints: ["风险：数据隐私挑战严峻"],
+            content: "",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1216,7 +1360,12 @@ describe("ReportGeneratorService", () => {
       const report = {
         executiveSummary: "Summary",
         sections: [
-          { sectionNumber: 1, title: "战略", coreViewpoints: ["战略：重点布局AI基础设施建设"], content: "" },
+          {
+            sectionNumber: 1,
+            title: "战略",
+            coreViewpoints: ["战略：重点布局AI基础设施建设"],
+            content: "",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1233,7 +1382,12 @@ describe("ReportGeneratorService", () => {
       const report = {
         executiveSummary: "Summary",
         sections: [
-          { sectionNumber: 1, title: "结论", coreViewpoints: ["综合来看表现良好"], content: "" },
+          {
+            sectionNumber: 1,
+            title: "结论",
+            coreViewpoints: ["综合来看表现良好"],
+            content: "",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1247,7 +1401,10 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should limit highlights to 10 items", () => {
-      const coreViewpoints = Array.from({ length: 20 }, (_, i) => `观点${i + 1}：内容`);
+      const coreViewpoints = Array.from(
+        { length: 20 },
+        (_, i) => `观点${i + 1}：内容`,
+      );
       const sections = coreViewpoints.map((_, i) => ({
         sectionNumber: i + 1,
         title: `章节${i + 1}`,
@@ -1255,7 +1412,10 @@ describe("ReportGeneratorService", () => {
         content: "",
       }));
       const dims = sections.map((s, i) =>
-        buildDimensionInput({ dimensionId: `dim-${i}`, dimensionName: s.title }),
+        buildDimensionInput({
+          dimensionId: `dim-${i}`,
+          dimensionName: s.title,
+        }),
       );
 
       const report = { sections, highlights: [], charts: [] } as never;
@@ -1276,7 +1436,12 @@ describe("ReportGeneratorService", () => {
     it("should use colon strategy in extractTitleFromContent (first key phrase before colon)", () => {
       const report = {
         sections: [
-          { sectionNumber: 1, title: "测试", coreViewpoints: ["市场规模：2025年预计达到5000亿美元"], content: "" },
+          {
+            sectionNumber: 1,
+            title: "测试",
+            coreViewpoints: ["市场规模：2025年预计达到5000亿美元"],
+            content: "",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1312,10 +1477,16 @@ describe("ReportGeneratorService", () => {
 
     it("should truncate very long content in extractTitleFromContent", () => {
       // Content longer than 20 chars with no early comma/colon
-      const longContent = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const longContent =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const report = {
         sections: [
-          { sectionNumber: 1, title: "Long", coreViewpoints: [longContent], content: "" },
+          {
+            sectionNumber: 1,
+            title: "Long",
+            coreViewpoints: [longContent],
+            content: "",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1336,7 +1507,10 @@ describe("ReportGeneratorService", () => {
     it("should extract section using ## heading pattern", () => {
       const conclusion = `## 跨维度关联分析\n\n这是跨维度分析内容。\n\n## 风险评估\n\n风险内容。`;
 
-      const result = service.extractSectionFromConclusion(conclusion, "跨维度关联分析");
+      const result = service.extractSectionFromConclusion(
+        conclusion,
+        "跨维度关联分析",
+      );
 
       expect(result).toContain("跨维度分析内容");
     });
@@ -1350,7 +1524,10 @@ describe("ReportGeneratorService", () => {
     it("should return empty string when section not found", () => {
       const conclusion = "这是结论，没有对应章节。";
 
-      const result = service.extractSectionFromConclusion(conclusion, "不存在的章节");
+      const result = service.extractSectionFromConclusion(
+        conclusion,
+        "不存在的章节",
+      );
 
       expect(result).toBe("");
     });
@@ -1358,7 +1535,10 @@ describe("ReportGeneratorService", () => {
     it("should fall back to # heading pattern (single hash)", () => {
       const conclusion = `# 战略建议\n\n建议一：加大研发投入。\n\n# 结语\n\n最后总结。`;
 
-      const result = service.extractSectionFromConclusion(conclusion, "战略建议");
+      const result = service.extractSectionFromConclusion(
+        conclusion,
+        "战略建议",
+      );
 
       expect(result).toContain("加大研发投入");
     });
@@ -1366,7 +1546,10 @@ describe("ReportGeneratorService", () => {
     it("should use plain title pattern as third fallback", () => {
       const conclusion = `\n风险评估\n\n风险点一。风险点二。`;
 
-      const result = service.extractSectionFromConclusion(conclusion, "风险评估");
+      const result = service.extractSectionFromConclusion(
+        conclusion,
+        "风险评估",
+      );
 
       expect(result).toBeDefined();
     });
@@ -1445,9 +1628,7 @@ describe("ReportGeneratorService", () => {
             title: "技术现状",
             content: "内容",
             coreViewpoints: ["观点一"],
-            keyData: [
-              { data: "AI市场规模5000亿", source: "IDC 2025" },
-            ],
+            keyData: [{ data: "AI市场规模5000亿", source: "IDC 2025" }],
           },
         ],
         conclusion: "结论",
@@ -1477,7 +1658,11 @@ describe("ReportGeneratorService", () => {
             content: "内容",
             coreViewpoints: [],
             figureReferences: [
-              { id: "fig-1", description: "AI市场增长图", suggestedType: "bar" },
+              {
+                id: "fig-1",
+                description: "AI市场增长图",
+                suggestedType: "bar",
+              },
             ],
           },
         ],
@@ -1508,7 +1693,12 @@ describe("ReportGeneratorService", () => {
             content: "内容",
             coreViewpoints: [],
             inlineCharts: [
-              { id: "chart-1", type: "bar", position: "end_of_section", data: {} },
+              {
+                id: "chart-1",
+                type: "bar",
+                position: "end_of_section",
+                data: {},
+              },
             ],
           },
         ],
@@ -1558,7 +1748,13 @@ describe("ReportGeneratorService", () => {
         executiveSummary: "Summary",
         conclusion: "结论",
         references: [
-          { index: 1, title: "Quantum Computing 2024", domain: "arxiv.org", url: "https://arxiv.org/abs/2024", accessDate: "2024-01-01" },
+          {
+            index: 1,
+            title: "Quantum Computing 2024",
+            domain: "arxiv.org",
+            url: "https://arxiv.org/abs/2024",
+            accessDate: "2024-01-01",
+          },
         ],
         highlights: [],
         charts: [],
@@ -1579,7 +1775,9 @@ describe("ReportGeneratorService", () => {
     it("should handle normalizeExecutiveSummary with JSON containing fullText string", async () => {
       // executiveSummary as stringified JSON with fullText field
       const reportWithJsonEs = JSON.stringify({
-        executiveSummary: JSON.stringify({ fullText: "This is the full executive summary text." }),
+        executiveSummary: JSON.stringify({
+          fullText: "This is the full executive summary text.",
+        }),
         conclusion: "结论",
         highlights: [],
         charts: [],
@@ -1603,7 +1801,7 @@ describe("ReportGeneratorService", () => {
   // ──────────────────────────────────────────────────────────────────────────────
 
   describe("buildFullReportFromDimensions — additional branch coverage", () => {
-    it("should demote ## headings inside dimension content to ###", async () => {
+    it("should demote ## headings inside dimension content to ###", () => {
       const dimWithDoubleHash = buildDimensionInput({
         detailedContent: "## 子章节标题\n\n内容段落。",
       });
@@ -1617,7 +1815,7 @@ describe("ReportGeneratorService", () => {
 
       mockFacade.chat.mockResolvedValue({ content: reportJson });
 
-      const result = await service.buildFullReportFromDimensions(
+      const result = service.buildFullReportFromDimensions(
         mockTopic,
         [dimWithDoubleHash],
         { conclusion: "结论" },
@@ -1627,11 +1825,17 @@ describe("ReportGeneratorService", () => {
       expect(result).not.toContain("\n## 子章节标题");
     });
 
-    it("should handle dimensions with inlineCharts with after_paragraph position", async () => {
+    it("should handle dimensions with inlineCharts with after_paragraph position", () => {
       const dimWithCharts = buildDimensionInput({
         detailedContent: "段落一内容。\n\n段落二内容。",
         generatedCharts: [
-          { id: "chart-g1", type: "line", position: "after_paragraph_1", data: {}, config: {} } as never,
+          {
+            id: "chart-g1",
+            type: "line",
+            position: "after_paragraph_1",
+            data: {},
+            config: {},
+          } as never,
         ],
       });
 
@@ -1644,7 +1848,7 @@ describe("ReportGeneratorService", () => {
 
       mockFacade.chat.mockResolvedValue({ content: reportJson });
 
-      const result = await service.buildFullReportFromDimensions(
+      const result = service.buildFullReportFromDimensions(
         mockTopic,
         [dimWithCharts],
         { conclusion: "结论" },
@@ -1653,11 +1857,17 @@ describe("ReportGeneratorService", () => {
       expect(result).toBeDefined();
     });
 
-    it("should handle dimensions with figureReferences in resolveChartPlaceholders", async () => {
+    it("should handle dimensions with figureReferences in resolveChartPlaceholders", () => {
       const dimWithFigures = buildDimensionInput({
         detailedContent: "内容 <!-- figure:1:0 --> 更多内容。",
         figureReferences: [
-          { id: "fig-a", evidenceCitationIndex: 1, figureIndex: 0, description: "图表A", suggestedType: "bar" },
+          {
+            id: "fig-a",
+            evidenceCitationIndex: 1,
+            figureIndex: 0,
+            description: "图表A",
+            suggestedType: "bar",
+          },
         ],
       });
 
@@ -1670,7 +1880,7 @@ describe("ReportGeneratorService", () => {
 
       mockFacade.chat.mockResolvedValue({ content: reportJson });
 
-      const result = await service.buildFullReportFromDimensions(
+      const result = service.buildFullReportFromDimensions(
         mockTopic,
         [dimWithFigures],
         { conclusion: "结论" },

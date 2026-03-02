@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { ChapterRevisionService } from "../chapter-revision.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { RevisionChangeType } from "@prisma/client";
 
 function buildMockPrisma() {
@@ -72,7 +72,7 @@ describe("ChapterRevisionService", () => {
       providers: [
         ChapterRevisionService,
         { provide: PrismaService, useValue: prisma },
-        { provide: AIEngineFacade, useValue: facade },
+        { provide: ChatFacade, useValue: facade },
       ],
     }).compile();
 
@@ -109,9 +109,9 @@ describe("ChapterRevisionService", () => {
         volume: { project: { ownerId: "other-user" } },
       });
 
-      await expect(
-        service.getRevisions("chapter-1", "user-1"),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.getRevisions("chapter-1", "user-1")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -373,9 +373,9 @@ describe("ChapterRevisionService", () => {
     it("should throw NotFoundException when revision not found", async () => {
       prisma.chapterRevision.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.getRevision("missing", "user-1"),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getRevision("missing", "user-1")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

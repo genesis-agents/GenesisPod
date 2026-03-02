@@ -29,7 +29,7 @@ import {
   BookmarkMessageDto,
 } from "./dto";
 import {
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
   KernelContext,
   MissionExecutorService,
@@ -53,7 +53,7 @@ export class AiTeamsService {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
     private urlParserService: UrlParserService,
     private aiResponseService: AiResponseService,
     private membershipService: TopicMembershipService,
@@ -1082,7 +1082,7 @@ ${messagesForSummary.map((m) => `[${m.sender}]: ${m.content}`).join("\n")}`;
         const summaryMessages: ChatMessage[] = [
           { role: "user", content: summaryPrompt },
         ];
-        const result = await this.aiFacade.chat({
+        const result = await this.chatFacade.chat({
           messages: summaryMessages,
           model: aiModel,
           taskProfile: { creativity: "low", outputLength: "standard" },

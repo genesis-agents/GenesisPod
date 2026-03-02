@@ -1,16 +1,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  FactExtractorService,
-  ExtractedFact,
-} from "../fact-extractor.service";
+import { FactExtractorService, ExtractedFact } from "../fact-extractor.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ChapterWritingContext } from "../../../interfaces/writing-context.interface";
 
 describe("FactExtractorService", () => {
   let service: FactExtractorService;
   let mockPrisma: jest.Mocked<PrismaService>;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
 
   beforeEach(async () => {
     mockPrisma = {
@@ -26,13 +23,13 @@ describe("FactExtractorService", () => {
       chat: jest.fn(),
       chatStream: jest.fn(),
       chatWithSkills: jest.fn(),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FactExtractorService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -50,7 +47,7 @@ describe("FactExtractorService", () => {
         chapterNumber,
         title: "第一章",
       },
-    } as ChapterWritingContext);
+    }) as ChapterWritingContext;
 
   const makeFact = (overrides: Partial<ExtractedFact> = {}): ExtractedFact => ({
     type: "CHARACTER_STATE",
@@ -184,7 +181,9 @@ describe("FactExtractorService", () => {
         metadata: {},
         volume: { projectId: "project-1" },
       };
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(mockChapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        mockChapter,
+      );
       (mockPrisma.writingChapter.update as jest.Mock).mockResolvedValue({});
 
       const facts = [makeFact()];
@@ -201,7 +200,9 @@ describe("FactExtractorService", () => {
     });
 
     it("should throw when chapter not found", async () => {
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.saveFacts("project-1", "nonexistent", []),
@@ -214,7 +215,9 @@ describe("FactExtractorService", () => {
         metadata: {},
         volume: { projectId: "different-project" },
       };
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(mockChapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        mockChapter,
+      );
 
       await expect(
         service.saveFacts("project-1", "chapter-1", []),
@@ -228,7 +231,9 @@ describe("FactExtractorService", () => {
         metadata: existingMeta,
         volume: { projectId: "project-1" },
       };
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(mockChapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        mockChapter,
+      );
       (mockPrisma.writingChapter.update as jest.Mock).mockResolvedValue({});
 
       const facts = [makeFact()];
@@ -274,7 +279,9 @@ describe("FactExtractorService", () => {
         { id: "ch1", chapterNumber: 1, metadata: { facts } },
       ]);
 
-      const result = await service.getFacts("project-1", { type: "PLOT_EVENT" });
+      const result = await service.getFacts("project-1", {
+        type: "PLOT_EVENT",
+      });
 
       expect(result.every((f) => f.type === "PLOT_EVENT")).toBe(true);
     });
@@ -292,7 +299,11 @@ describe("FactExtractorService", () => {
 
       const result = await service.getFacts("project-1", { character: "萧炎" });
 
-      expect(result.every((f) => f.subject.includes("萧炎") || f.object?.includes("萧炎"))).toBe(true);
+      expect(
+        result.every(
+          (f) => f.subject.includes("萧炎") || f.object?.includes("萧炎"),
+        ),
+      ).toBe(true);
     });
 
     it("should apply limit when option provided", async () => {
@@ -355,7 +366,12 @@ describe("FactExtractorService", () => {
     });
 
     it("should detect conflicts between new and existing facts", async () => {
-      const previousFact = makeFact({ chapterNumber: 1, subject: "萧炎", predicate: "拥有", object: "黑色眼睛" });
+      const previousFact = makeFact({
+        chapterNumber: 1,
+        subject: "萧炎",
+        predicate: "拥有",
+        object: "黑色眼睛",
+      });
 
       (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([
         { id: "ch1", chapterNumber: 1, metadata: { facts: [previousFact] } },
@@ -372,7 +388,14 @@ describe("FactExtractorService", () => {
         tokensUsed: 100,
       } as any);
 
-      const newFacts = [makeFact({ chapterNumber: 3, subject: "萧炎", predicate: "拥有", object: "蓝色眼睛" })];
+      const newFacts = [
+        makeFact({
+          chapterNumber: 3,
+          subject: "萧炎",
+          predicate: "拥有",
+          object: "蓝色眼睛",
+        }),
+      ];
       const result = await service.detectConflicts("project-1", newFacts);
 
       expect(result.length).toBeGreaterThan(0);
@@ -398,8 +421,12 @@ describe("FactExtractorService", () => {
 
       // Verify chatWithSkills was called with only previous facts
       const callArgs = mockFacade.chatWithSkills.mock.calls[0][0];
-      const existingFacts = JSON.parse(callArgs.skillContext?.existingFacts as string);
-      expect(existingFacts.every((f: ExtractedFact) => f.chapterNumber < 3)).toBe(true);
+      const existingFacts = JSON.parse(
+        callArgs.skillContext?.existingFacts as string,
+      );
+      expect(
+        existingFacts.every((f: ExtractedFact) => f.chapterNumber < 3),
+      ).toBe(true);
     });
 
     it("should return empty array on LLM failure", async () => {
@@ -429,9 +456,21 @@ describe("FactExtractorService", () => {
     it("should build context grouped by type", async () => {
       const facts = [
         makeFact({ type: "CHARACTER_STATE", chapterNumber: 1 }),
-        makeFact({ type: "PLOT_EVENT", chapterNumber: 1, subject: "战斗", predicate: "发生", object: "城门" }),
+        makeFact({
+          type: "PLOT_EVENT",
+          chapterNumber: 1,
+          subject: "战斗",
+          predicate: "发生",
+          object: "城门",
+        }),
         makeFact({ type: "TIMELINE", chapterNumber: 1, storyTime: "第一天" }),
-        makeFact({ type: "RELATIONSHIP", chapterNumber: 1, subject: "萧炎", predicate: "认识", object: "药老" }),
+        makeFact({
+          type: "RELATIONSHIP",
+          chapterNumber: 1,
+          subject: "萧炎",
+          predicate: "认识",
+          object: "药老",
+        }),
       ];
 
       (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([

@@ -2,7 +2,7 @@
  * Public API Controller E2E Tests
  *
  * Tests all endpoints exposed by the PublicApiController.
- * Mocks AI dependencies (AIEngineFacade).
+ * Mocks AI dependencies (AIEngineFacade, ChatFacade, ToolFacade).
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -10,15 +10,27 @@ import { NotImplementedException, ExecutionContext } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PublicApiController } from "../public-api.controller";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade, ToolFacade } from "../../../ai-engine/facade";
 import { MCPApiKeyGuard } from "../../mcp-server/guards/mcp-api-key.guard";
 
 describe("PublicApiController", () => {
   let controller: PublicApiController;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  // Single shared mock object registered under all three DI tokens.
+  // Each token satisfies one part of the production constructor, and
+  // the shared reference lets tests assert on any method regardless of
+  // which facade it belongs to in production.
+  let aiFacade: {
+    chat: jest.Mock;
+    executeDirectResearch: jest.Mock;
+    getAvailableTools: jest.Mock;
+    getToolFunctionDefinitions: jest.Mock;
+    getAvailableModels: jest.Mock;
+    getAvailableCapabilities: jest.Mock;
+  };
 
   beforeEach(async () => {
-    // Mock AIEngineFacade
-    const mockAiFacade = {
+    // One mock object covering all three facades
+    const sharedMock = {
       chat: jest.fn(),
       executeDirectResearch: jest.fn(),
       getAvailableTools: jest.fn(),
@@ -27,6 +39,9 @@ describe("PublicApiController", () => {
       getAvailableCapabilities: jest.fn(),
     };
 
+    // Expose via the test-suite variable so assertions can reach it
+    aiFacade = sharedMock;
+
     // Mock MCPApiKeyGuard to always allow requests
     const mockGuard = {
       canActivate: (_context: ExecutionContext) => true,
@@ -34,14 +49,17 @@ describe("PublicApiController", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PublicApiController],
-      providers: [{ provide: AIEngineFacade, useValue: mockAiFacade }],
+      providers: [
+        { provide: AIEngineFacade, useValue: sharedMock },
+        { provide: ChatFacade, useValue: sharedMock },
+        { provide: ToolFacade, useValue: sharedMock },
+      ],
     })
       .overrideGuard(MCPApiKeyGuard)
       .useValue(mockGuard)
       .compile();
 
     controller = module.get<PublicApiController>(PublicApiController);
-    aiFacade = module.get(AIEngineFacade);
 
     jest.clearAllMocks();
   });

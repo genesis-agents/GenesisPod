@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchTemplateService } from "../research-template.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { TemplateCategory } from "../../../types/research-template.types";
 
@@ -23,7 +23,7 @@ describe("ResearchTemplateService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchTemplateService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
@@ -41,10 +41,16 @@ describe("ResearchTemplateService", () => {
     });
 
     it("should filter templates by category", () => {
-      const competitiveTemplates = service.getTemplates(TemplateCategory.COMPETITIVE_ANALYSIS);
+      const competitiveTemplates = service.getTemplates(
+        TemplateCategory.COMPETITIVE_ANALYSIS,
+      );
 
       expect(competitiveTemplates.length).toBeGreaterThanOrEqual(1);
-      expect(competitiveTemplates.every((t) => t.category === TemplateCategory.COMPETITIVE_ANALYSIS)).toBe(true);
+      expect(
+        competitiveTemplates.every(
+          (t) => t.category === TemplateCategory.COMPETITIVE_ANALYSIS,
+        ),
+      ).toBe(true);
     });
 
     it("should return empty array for nonexistent category filter", () => {
@@ -137,7 +143,9 @@ describe("ResearchTemplateService", () => {
     });
 
     it("should fall back to in-memory when DB lookup fails", async () => {
-      mockPrisma.researchTemplate.findUnique.mockRejectedValue(new Error("DB error"));
+      mockPrisma.researchTemplate.findUnique.mockRejectedValue(
+        new Error("DB error"),
+      );
 
       const template = await service.getTemplateAsync("competitive-analysis");
 
@@ -189,7 +197,9 @@ describe("ResearchTemplateService", () => {
     });
 
     it("should include research config with depth and sources", () => {
-      const result = service.applyTemplate("market-research", { market: "AI Software" });
+      const result = service.applyTemplate("market-research", {
+        market: "AI Software",
+      });
 
       expect(result!.researchConfig.depth).toBeDefined();
       expect(result!.researchConfig.sources.length).toBeGreaterThan(0);
@@ -200,7 +210,11 @@ describe("ResearchTemplateService", () => {
     it("should return template recommendations based on AI response", async () => {
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify([
-          { templateId: "competitive-analysis", score: 0.9, reason: "Best fit" },
+          {
+            templateId: "competitive-analysis",
+            score: 0.9,
+            reason: "Best fit",
+          },
           { templateId: "market-research", score: 0.7, reason: "Good fit" },
         ]),
         tokensUsed: 100,
@@ -227,17 +241,28 @@ describe("ResearchTemplateService", () => {
     it("should filter out recommendations with unknown template IDs", async () => {
       mockFacade.chat.mockResolvedValue({
         content: JSON.stringify([
-          { templateId: "nonexistent-template", score: 0.9, reason: "Top pick" },
+          {
+            templateId: "nonexistent-template",
+            score: 0.9,
+            reason: "Top pick",
+          },
           { templateId: "competitive-analysis", score: 0.8, reason: "Good" },
         ]),
         tokensUsed: 100,
         model: "gpt-4",
       });
 
-      const recommendations = await service.recommendTemplate("Market analysis");
+      const recommendations =
+        await service.recommendTemplate("Market analysis");
 
       expect(recommendations.every((r) => r.template !== undefined)).toBe(true);
-      expect(recommendations.find((r) => (r.template as unknown as { id: string })?.id === "nonexistent-template")).toBeUndefined();
+      expect(
+        recommendations.find(
+          (r) =>
+            (r.template as unknown as { id: string })?.id ===
+            "nonexistent-template",
+        ),
+      ).toBeUndefined();
     });
   });
 
@@ -266,7 +291,9 @@ describe("ResearchTemplateService", () => {
       });
 
       const categories = service.getCategories();
-      const litCategory = categories.find((c) => c.category === TemplateCategory.LITERATURE_REVIEW);
+      const litCategory = categories.find(
+        (c) => c.category === TemplateCategory.LITERATURE_REVIEW,
+      );
 
       expect(litCategory).toBeDefined();
       expect(litCategory!.count).toBeGreaterThanOrEqual(1);
@@ -310,7 +337,9 @@ describe("ResearchTemplateService", () => {
     });
 
     it("should skip templates already in DB", async () => {
-      mockPrisma.researchTemplate.findUnique.mockResolvedValue({ templateId: "existing" });
+      mockPrisma.researchTemplate.findUnique.mockResolvedValue({
+        templateId: "existing",
+      });
 
       const count = await service.syncBuiltInTemplates();
 

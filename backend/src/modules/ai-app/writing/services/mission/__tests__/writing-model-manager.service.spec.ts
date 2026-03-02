@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingModelManager } from "../writing-model-manager.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 function buildMockFacade() {
@@ -51,7 +51,7 @@ describe("WritingModelManager", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WritingModelManager,
-        { provide: AIEngineFacade, useValue: facade },
+        { provide: ChatFacade, useValue: facade },
       ],
     }).compile();
 

@@ -5,7 +5,7 @@ import {
   RefreshOptions,
 } from "../topic-team-orchestrator.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 import { DimensionMissionService } from "../../dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
@@ -13,12 +13,7 @@ import { ResearchLeaderService } from "../research-leader.service";
 import { ResearchCheckpointService } from "../../monitoring/research-checkpoint.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
 import { ResearchTodoService } from "../../collaboration/research-todo.service";
-import {
-  ResearchTopicStatus,
-  ResearchMissionStatus,
-  RefreshLogStatus,
-  DimensionStatus,
-} from "@prisma/client";
+import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 const mockPrisma = {
   topicRefreshLog: {
@@ -134,24 +129,44 @@ describe("TopicTeamOrchestratorService", () => {
         TopicTeamOrchestratorService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: DimensionMissionService, useValue: mockDimensionMissionService },
-        { provide: ReportSynthesisService, useValue: mockReportSynthesisService },
-        { provide: ResearchReviewerService, useValue: mockResearchReviewerService },
+        {
+          provide: DimensionMissionService,
+          useValue: mockDimensionMissionService,
+        },
+        {
+          provide: ReportSynthesisService,
+          useValue: mockReportSynthesisService,
+        },
+        {
+          provide: ResearchReviewerService,
+          useValue: mockResearchReviewerService,
+        },
         { provide: ResearchLeaderService, useValue: mockResearchLeaderService },
-        { provide: ResearchCheckpointService, useValue: mockResearchCheckpointService },
-        { provide: DataSourceRouterService, useValue: mockDataSourceRouterService },
+        {
+          provide: ResearchCheckpointService,
+          useValue: mockResearchCheckpointService,
+        },
+        {
+          provide: DataSourceRouterService,
+          useValue: mockDataSourceRouterService,
+        },
         { provide: ResearchTodoService, useValue: mockResearchTodoService },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: AgentFacade, useValue: mockFacade },
       ],
     }).compile();
 
-    service = module.get<TopicTeamOrchestratorService>(TopicTeamOrchestratorService);
+    service = module.get<TopicTeamOrchestratorService>(
+      TopicTeamOrchestratorService,
+    );
     jest.clearAllMocks();
   });
 
   describe("executeRefresh", () => {
     beforeEach(() => {
-      mockPrisma.topicRefreshLog.create.mockResolvedValue({ id: "log-1", topicId: "topic-1" });
+      mockPrisma.topicRefreshLog.create.mockResolvedValue({
+        id: "log-1",
+        topicId: "topic-1",
+      });
       mockPrisma.topicRefreshLog.update.mockResolvedValue({});
       mockPrisma.researchTopic.update.mockResolvedValue({});
       mockPrisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
@@ -170,7 +185,15 @@ describe("TopicTeamOrchestratorService", () => {
       mockResearchLeaderService.evaluateAndAssign.mockResolvedValue([]);
       const mockSearchResult = {
         dimension: mockDimension,
-        evidence: [{ id: "ev-1", title: "Evidence 1", url: "https://example.com", snippet: "Snippet", contentSource: "fetched" }],
+        evidence: [
+          {
+            id: "ev-1",
+            title: "Evidence 1",
+            url: "https://example.com",
+            snippet: "Snippet",
+            contentSource: "fetched",
+          },
+        ],
         evidenceCount: 3,
         searchQueries: ["market size 2024"],
       };
@@ -187,7 +210,9 @@ describe("TopicTeamOrchestratorService", () => {
         },
         evidenceCount: 3,
       });
-      mockDimensionMissionService.executeSearchPhase.mockResolvedValue(mockSearchResult);
+      mockDimensionMissionService.executeSearchPhase.mockResolvedValue(
+        mockSearchResult,
+      );
       mockDimensionMissionService.executeAnalysisPhase.mockResolvedValue({
         analysis: {
           summary: "Market summary",
@@ -206,7 +231,13 @@ describe("TopicTeamOrchestratorService", () => {
         dimensionName: "Market Size",
         qualityLevel: "good",
         overallScore: 80,
-        scores: { breadth: 80, depth: 75, evidence: 85, coherence: 80, currency: 75 },
+        scores: {
+          breadth: 80,
+          depth: 75,
+          evidence: 85,
+          coherence: 80,
+          currency: 75,
+        },
         issues: [],
         suggestions: [],
         needsReresearch: false,
@@ -218,7 +249,11 @@ describe("TopicTeamOrchestratorService", () => {
         overallScore: 80,
         dimensionReviews: [],
         crossDimensionIssues: [],
-        coverageAnalysis: { coveredAspects: [], missingAspects: [], coverageScore: 80 },
+        coverageAnalysis: {
+          coveredAspects: [],
+          missingAspects: [],
+          coverageScore: 80,
+        },
         recommendations: [],
         needsReresearch: false,
         dimensionsToReresearch: [],
@@ -227,12 +262,17 @@ describe("TopicTeamOrchestratorService", () => {
       mockResearchCheckpointService.getCheckpoint.mockReturnValue(null);
       mockResearchTodoService.createTodo.mockResolvedValue({});
       mockResearchTodoService.updateTodoStatus.mockResolvedValue({});
-      mockResearchTodoService.getTodoSummary.mockResolvedValue({ total: 1, completed: 1 });
+      mockResearchTodoService.getTodoSummary.mockResolvedValue({
+        total: 1,
+        completed: 1,
+      });
     });
 
     it("should throw error when refresh already in progress", async () => {
       // Simulate an active refresh
-      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+      (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes.set("topic-1", {
         abortController: new AbortController(),
         startedAt: new Date(),
       });
@@ -242,7 +282,9 @@ describe("TopicTeamOrchestratorService", () => {
       );
 
       // Cleanup
-      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.delete("topic-1");
+      (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes.delete("topic-1");
     });
 
     it("should create refresh log with RUNNING status", async () => {
@@ -261,7 +303,9 @@ describe("TopicTeamOrchestratorService", () => {
     it("should create draft report before researching", async () => {
       await service.executeRefresh(mockTopic as never);
 
-      expect(mockReportSynthesisService.createDraftReport).toHaveBeenCalledWith("topic-1");
+      expect(mockReportSynthesisService.createDraftReport).toHaveBeenCalledWith(
+        "topic-1",
+      );
     });
 
     it("should emit progress events during execution", async () => {
@@ -281,7 +325,9 @@ describe("TopicTeamOrchestratorService", () => {
   describe("cancelRefresh", () => {
     it("should cancel active refresh and return true", async () => {
       const abortController = new AbortController();
-      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+      (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes.set("topic-1", {
         abortController,
         startedAt: new Date(),
       });
@@ -300,7 +346,9 @@ describe("TopicTeamOrchestratorService", () => {
     it("should call abort() on the AbortController", async () => {
       const abortController = new AbortController();
       const abortSpy = jest.spyOn(abortController, "abort");
-      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+      (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes.set("topic-1", {
         abortController,
         startedAt: new Date(),
       });
@@ -314,7 +362,9 @@ describe("TopicTeamOrchestratorService", () => {
 
     it("should update refresh log to CANCELLED status", async () => {
       const abortController = new AbortController();
-      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+      (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes.set("topic-1", {
         abortController,
         startedAt: new Date(),
       });
@@ -338,8 +388,13 @@ describe("TopicTeamOrchestratorService", () => {
 
     it("should remove topic from activeRefreshes after cancel", async () => {
       const abortController = new AbortController();
-      const activeRefreshes = (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes;
-      activeRefreshes.set("topic-1", { abortController, startedAt: new Date() });
+      const activeRefreshes = (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes;
+      activeRefreshes.set("topic-1", {
+        abortController,
+        startedAt: new Date(),
+      });
 
       mockPrisma.topicRefreshLog.updateMany.mockResolvedValue({ count: 1 });
 
@@ -360,7 +415,9 @@ describe("TopicTeamOrchestratorService", () => {
     it("should return isRunning=true with startedAt when active refresh exists", () => {
       const startedAt = new Date("2026-01-01T10:00:00.000Z");
       const abortController = new AbortController();
-      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.set("topic-1", {
+      (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes.set("topic-1", {
         abortController,
         startedAt,
       });
@@ -371,13 +428,18 @@ describe("TopicTeamOrchestratorService", () => {
       expect(status.startedAt).toEqual(startedAt);
 
       // Cleanup
-      (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes.delete("topic-1");
+      (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes.delete("topic-1");
     });
   });
 
   describe("executeRefresh - error handling", () => {
     beforeEach(() => {
-      mockPrisma.topicRefreshLog.create.mockResolvedValue({ id: "log-1", topicId: "topic-1" });
+      mockPrisma.topicRefreshLog.create.mockResolvedValue({
+        id: "log-1",
+        topicId: "topic-1",
+      });
       mockPrisma.topicRefreshLog.update.mockResolvedValue({});
       mockPrisma.topicRefreshLog.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.researchTopic.update.mockResolvedValue({});
@@ -438,7 +500,13 @@ describe("TopicTeamOrchestratorService", () => {
         dimensionName: "Market Size",
         qualityLevel: "good",
         overallScore: 80,
-        scores: { breadth: 80, depth: 75, evidence: 85, coherence: 80, currency: 75 },
+        scores: {
+          breadth: 80,
+          depth: 75,
+          evidence: 85,
+          coherence: 80,
+          currency: 75,
+        },
         issues: [],
         suggestions: [],
         needsReresearch: false,
@@ -450,7 +518,11 @@ describe("TopicTeamOrchestratorService", () => {
         overallScore: 80,
         dimensionReviews: [],
         crossDimensionIssues: [],
-        coverageAnalysis: { coveredAspects: [], missingAspects: [], coverageScore: 80 },
+        coverageAnalysis: {
+          coveredAspects: [],
+          missingAspects: [],
+          coverageScore: 80,
+        },
         recommendations: [],
         needsReresearch: false,
         dimensionsToReresearch: [],
@@ -459,7 +531,10 @@ describe("TopicTeamOrchestratorService", () => {
       mockResearchCheckpointService.getCheckpoint.mockReturnValue(null);
       mockResearchTodoService.createTodo.mockResolvedValue({ id: "todo-1" });
       mockResearchTodoService.updateTodoStatus.mockResolvedValue({});
-      mockResearchTodoService.getTodoSummary.mockResolvedValue({ total: 1, completed: 1 });
+      mockResearchTodoService.getTodoSummary.mockResolvedValue({
+        total: 1,
+        completed: 1,
+      });
     });
 
     it("should update refresh log to FAILED when synthesizeReport throws", async () => {
@@ -467,7 +542,9 @@ describe("TopicTeamOrchestratorService", () => {
         new Error("Synthesis failed"),
       );
 
-      await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow("Synthesis failed");
+      await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow(
+        "Synthesis failed",
+      );
 
       expect(mockPrisma.topicRefreshLog.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -484,9 +561,13 @@ describe("TopicTeamOrchestratorService", () => {
         new Error("Synthesis failed"),
       );
 
-      const activeRefreshes = (service as unknown as { activeRefreshes: Map<string, unknown> }).activeRefreshes;
+      const activeRefreshes = (
+        service as unknown as { activeRefreshes: Map<string, unknown> }
+      ).activeRefreshes;
 
-      await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow();
+      await expect(
+        service.executeRefresh(mockTopic as never),
+      ).rejects.toThrow();
 
       expect(activeRefreshes.has("topic-1")).toBe(false);
     });
@@ -519,7 +600,9 @@ describe("TopicTeamOrchestratorService", () => {
 
       await service.executeRefresh(mockTopic as never);
 
-      expect(mockResearchLeaderService.planResearch).toHaveBeenCalledWith("topic-1");
+      expect(mockResearchLeaderService.planResearch).toHaveBeenCalledWith(
+        "topic-1",
+      );
       expect(mockPrisma.topicDimension.create).toHaveBeenCalled();
     });
 

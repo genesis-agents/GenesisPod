@@ -1,5 +1,5 @@
 // Mock heavy dependencies before imports
-jest.mock("../../../../../ai-engine/facade/ai-engine.facade");
+jest.mock("../../../../../ai-engine/facade");
 jest.mock("../../../../../../common/prisma/prisma.service");
 jest.mock("../feishu-auth.service");
 jest.mock("../feishu-data-source.service");
@@ -15,7 +15,7 @@ import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { FeishuService } from "../feishu.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../../ai-engine/facade";
 import { FeishuAuthService } from "../feishu-auth.service";
 import { FeishuDataSourceService } from "../feishu-data-source.service";
 import { UrlFetchService } from "../../../rag/services/url-fetch.service";
@@ -56,7 +56,7 @@ describe("FeishuService", () => {
   let service: FeishuService;
   let httpService: jest.Mocked<HttpService>;
   let prisma: jest.Mocked<PrismaService>;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
   let _feishuAuth: jest.Mocked<FeishuAuthService>;
   let feishuDataSource: jest.Mocked<FeishuDataSourceService>;
   let urlFetchService: jest.Mocked<UrlFetchService>;
@@ -81,7 +81,7 @@ describe("FeishuService", () => {
           },
         },
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
           useValue: {
             getDefaultTextModel: jest.fn(),
             chat: jest.fn(),
@@ -114,7 +114,7 @@ describe("FeishuService", () => {
     service = module.get<FeishuService>(FeishuService);
     httpService = module.get(HttpService);
     prisma = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
     _feishuAuth = module.get(FeishuAuthService);
     feishuDataSource = module.get(FeishuDataSourceService);
     urlFetchService = module.get(UrlFetchService);

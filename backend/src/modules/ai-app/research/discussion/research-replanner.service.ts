@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { SearchRound, ResearchPlanStep, ResearchStepType } from "./types";
 import { ResearchLanguage, resolveLanguage } from "./prompt-locale";
 
@@ -32,7 +32,7 @@ interface AIReplanResponse {
 export class ResearchReplannerService {
   private readonly logger = new Logger(ResearchReplannerService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 评估已完成的搜索轮次，决定是否需要补充搜索。
@@ -167,7 +167,7 @@ Rules:
         ? `Research Topic: "${originalQuery}"\n\nCompleted Searches:\n${searchSummary}\n\nAre there critical gaps that require additional searches?`
         : `研究主题: "${originalQuery}"\n\n已完成的搜索:\n${searchSummary}\n\n是否存在需要补充搜索的关键信息缺口？`;
 
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

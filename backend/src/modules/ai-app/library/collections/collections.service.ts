@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,
@@ -33,7 +33,7 @@ export class CollectionsService {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -326,14 +326,14 @@ export class CollectionsService {
 
     try {
       // ★ 通过 AIEngineFacade 获取默认文本模型
-      const model = await this.aiFacade.getDefaultTextModel();
+      const model = await this.chatFacade.getDefaultTextModel();
       if (!model) {
         this.logger.warn("[generateAutoTags] No default text model available");
         return;
       }
       const content = `Title: ${resource.title}\n${resource.abstract ? `Abstract: ${resource.abstract}` : ""}`;
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "user",
@@ -778,7 +778,7 @@ export class CollectionsService {
    */
   async aiBatchGenerateTags(userId: string, collectionId?: string) {
     // ★ 通过 AIEngineFacade 获取默认文本模型
-    const model = await this.aiFacade.getDefaultTextModel();
+    const model = await this.chatFacade.getDefaultTextModel();
     if (!model) {
       throw new Error("No default text model available for batch tagging");
     }
@@ -827,7 +827,7 @@ export class CollectionsService {
           const content = `Title: ${item.resource.title}\n${item.resource.abstract ? `Abstract: ${item.resource.abstract}` : ""}`;
 
           try {
-            const response = await this.aiFacade.chat({
+            const response = await this.chatFacade.chat({
               messages: [
                 {
                   role: "user",
@@ -906,7 +906,7 @@ export class CollectionsService {
    */
   async aiSmartClassify(userId: string) {
     // ★ 通过 AIEngineFacade 获取默认文本模型
-    const model = await this.aiFacade.getDefaultTextModel();
+    const model = await this.chatFacade.getDefaultTextModel();
     if (!model) {
       throw new Error("No default text model available for smart classify");
     }
@@ -967,7 +967,7 @@ export class CollectionsService {
       if (!item.resource) continue;
 
       try {
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [
             {
               role: "user",
@@ -1019,7 +1019,7 @@ export class CollectionsService {
    */
   async aiThemeCluster(userId: string) {
     // ★ 通过 AIEngineFacade 获取默认文本模型
-    const model = await this.aiFacade.getDefaultTextModel();
+    const model = await this.chatFacade.getDefaultTextModel();
     if (!model) {
       throw new Error("No default text model available for theme clustering");
     }
@@ -1055,7 +1055,7 @@ export class CollectionsService {
       .join("\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "user",

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchReflectionService } from "../research-reflection.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { ReflectionContext } from "../../../types/collaboration.types";
 import type { EnrichedEvidenceData } from "../../../types/research.types";
 
@@ -28,7 +28,11 @@ const makeContext = (
   dimensionName: "Market Analysis",
   dimensionDescription: "Analysis of the current market",
   researchGoals: ["Understand market size", "Identify key players"],
-  evidence: [makeEvidence(), makeEvidence({ id: "ev-2" }), makeEvidence({ id: "ev-3" })],
+  evidence: [
+    makeEvidence(),
+    makeEvidence({ id: "ev-2" }),
+    makeEvidence({ id: "ev-3" }),
+  ],
   freshnessRequirement: "Last 12 months",
   ...overrides,
 });
@@ -41,7 +45,7 @@ describe("ResearchReflectionService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchReflectionService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -116,7 +120,12 @@ describe("ResearchReflectionService", () => {
 
     it("should pass context with no research goals gracefully", async () => {
       facade.chat.mockResolvedValue({
-        content: JSON.stringify({ decision: "sufficient", score: 75, gaps: [], reasoning: "OK" }),
+        content: JSON.stringify({
+          decision: "sufficient",
+          score: 75,
+          gaps: [],
+          reasoning: "OK",
+        }),
         tokensUsed: 80,
         model: "gemini-pro",
       });
@@ -133,7 +142,12 @@ describe("ResearchReflectionService", () => {
         makeEvidence({ id: `ev-${i}` }),
       );
       facade.chat.mockResolvedValue({
-        content: JSON.stringify({ decision: "sufficient", score: 80, gaps: [], reasoning: "OK" }),
+        content: JSON.stringify({
+          decision: "sufficient",
+          score: 80,
+          gaps: [],
+          reasoning: "OK",
+        }),
         tokensUsed: 100,
         model: "gemini-pro",
       });
@@ -198,13 +212,19 @@ describe("ResearchReflectionService", () => {
 
   describe("suggestAdditionalQueries", () => {
     it("should return empty array when no gaps", async () => {
-      const queries = await service.suggestAdditionalQueries("Market Analysis", []);
+      const queries = await service.suggestAdditionalQueries(
+        "Market Analysis",
+        [],
+      );
       expect(queries).toHaveLength(0);
     });
 
     it("should return up to 3 queries based on gaps", async () => {
       const gaps = ["gap1", "gap2", "gap3", "gap4"];
-      const queries = await service.suggestAdditionalQueries("Market Analysis", gaps);
+      const queries = await service.suggestAdditionalQueries(
+        "Market Analysis",
+        gaps,
+      );
 
       expect(queries).toHaveLength(3);
       expect(queries[0]).toContain("Market Analysis");
@@ -213,7 +233,9 @@ describe("ResearchReflectionService", () => {
 
     it("should include current year in each query", async () => {
       const currentYear = new Date().getFullYear();
-      const queries = await service.suggestAdditionalQueries("Tech", ["missing aspect"]);
+      const queries = await service.suggestAdditionalQueries("Tech", [
+        "missing aspect",
+      ]);
 
       expect(queries[0]).toContain(String(currentYear));
     });

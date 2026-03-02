@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../ai-engine/facade";
 import { TaskProfile } from "../../ai-engine/facade";
 import {
   CreateTeamDto,
@@ -22,7 +22,7 @@ export class AITeamsAdminService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiFacade: ChatFacade,
   ) {}
 
   // ==================== Team CRUD ====================

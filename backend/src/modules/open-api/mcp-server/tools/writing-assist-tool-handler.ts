@@ -10,8 +10,8 @@ import {
   MCPRequestContext,
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
-import type { TaskProfile } from "../../../ai-engine/facade/types/facade.types";
+import { ChatFacade } from "../../../ai-engine/facade";
+import type { TaskProfile } from "../../../ai-engine/facade";
 import { withToolTimeout, TOOL_TIMEOUT_MS } from "./tool-timeout";
 
 type WritingTask =
@@ -186,7 +186,7 @@ export class WritingAssistToolHandler implements IMCPToolHandler {
     required: ["content", "task"],
   };
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly aiFacade: ChatFacade) {}
 
   async execute(
     args: Record<string, unknown>,

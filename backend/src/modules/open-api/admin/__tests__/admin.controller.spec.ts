@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { AdminController } from "../admin.controller";
 import { AdminService } from "../admin.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
@@ -96,7 +96,7 @@ describe("AdminController", () => {
       controllers: [AdminController],
       providers: [
         { provide: AdminService, useValue: mockAdminService },
-        { provide: AIEngineFacade, useValue: mockAIEngineFacade },
+        { provide: ChatFacade, useValue: mockAIEngineFacade },
         { provide: SecretsService, useValue: mockSecretsService },
       ],
     })

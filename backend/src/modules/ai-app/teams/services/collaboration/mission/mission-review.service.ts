@@ -20,7 +20,7 @@ import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AIEngineFacade 访问熔断器服务
 import {
   TaskCompletionType,
-  AIEngineFacade,
+  AgentFacade,
 } from "../../../../../ai-engine/facade";
 import { MissionStateManager } from "./mission-state.manager";
 import { parseReviewResult } from "../utils";
@@ -35,10 +35,7 @@ import {
   HardConstraint,
 } from "../../../interfaces/mission-context.interface";
 // Types only needed from engine internals
-import type {
-  AiCallerFn,
-  EstablishedFact,
-} from "../../../../../ai-engine/facade";
+import type { AiCallerFn } from "../../../../../ai-engine/facade";
 
 /**
  * 审核服务回调接口
@@ -101,14 +98,14 @@ export class MissionReviewService {
     private prisma: PrismaService,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private aiFacade: AIEngineFacade,
+    private agentFacade: AgentFacade,
     private stateManager: MissionStateManager,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
   ) {
     // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionReviewService] AI Engine services injected: OutputReviewer=${!!this.aiFacade.outputReviewer}, ContextEvolution=${!!this.aiFacade.contextEvolution}, LeaderModel=${!!this.leaderModelService}`,
+      `[MissionReviewService] AI Engine services injected: OutputReviewer=${!!this.agentFacade.outputReviewer}, ContextEvolution=${!!this.agentFacade.contextEvolution}, LeaderModel=${!!this.leaderModelService}`,
     );
   }
 
@@ -265,7 +262,7 @@ export class MissionReviewService {
         const result = await this.leaderModelService.executeWithFallback(
           leader.aiModel,
           async (modelConfig) => {
-            return this.aiFacade.outputReviewer!.executeAICall(
+            return this.agentFacade.outputReviewer!.executeAICall(
               modelConfig.modelId,
               [
                 { role: "system", content: systemPrompt },
@@ -478,12 +475,12 @@ export class MissionReviewService {
 
       // ==================== 阶段2：AI 提取新事实（事务外，避免长时间持锁） ====================
       const extractionResult =
-        await this.aiFacade.contextEvolution!.extractFacts(
+        await this.agentFacade.contextEvolution!.extractFacts(
           {
             taskId: task.id,
             taskTitle: task.title,
             taskOutput,
-            existingFacts: currentFacts as EstablishedFact[],
+            existingFacts: currentFacts,
             existingEntities: currentEntities,
           },
           aiCaller,
@@ -510,11 +507,10 @@ export class MissionReviewService {
 
         const latestContext =
           latestMission.contextPackage as MissionContextPackage | null;
-        const latestFacts = (latestContext?.establishedFacts ||
-          []) as EstablishedFact[];
+        const latestFacts = latestContext?.establishedFacts || [];
 
         // 合并事实（带数量限制）
-        const mergedFacts = this.aiFacade.contextEvolution!.mergeFacts(
+        const mergedFacts = this.agentFacade.contextEvolution!.mergeFacts(
           latestFacts,
           extractionResult.facts,
         );
@@ -625,7 +621,7 @@ export class MissionReviewService {
           },
         });
 
-        this.aiFacade.circuitBreaker?.recordFailure(
+        this.agentFacade.circuitBreaker?.recordFailure(
           task.assignedTo.id,
           TaskCompletionType.CONTENT_ERROR,
           `Task "${task.title}" blocked after max revisions`,
@@ -766,7 +762,7 @@ export class MissionReviewService {
         const aiCaller = this.createAiCaller(callbacks, mission.id);
 
         // 委托给 AI Engine 执行
-        aiResponse = await this.aiFacade.outputReviewer!.executeAICall(
+        aiResponse = await this.agentFacade.outputReviewer!.executeAICall(
           assignedTo.aiModel,
           [
             { role: "system", content: systemPrompt },
@@ -988,9 +984,9 @@ export class MissionReviewService {
       );
 
       const errorType =
-        this.aiFacade.circuitBreaker?.parseErrorType(errorMsg) ??
+        this.agentFacade.circuitBreaker?.parseErrorType(errorMsg) ??
         TaskCompletionType.API_ERROR;
-      this.aiFacade.circuitBreaker?.recordFailure(
+      this.agentFacade.circuitBreaker?.recordFailure(
         assignedTo.id,
         errorType,
         errorMsg,
@@ -1072,7 +1068,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
         "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。";
 
       // 委托给 AI Engine 执行
-      const response = await this.aiFacade.outputReviewer!.executeAICall(
+      const response = await this.agentFacade.outputReviewer!.executeAICall(
         leaderModel,
         [
           { role: "system", content: systemPrompt },
@@ -1138,10 +1134,11 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
     // ★ AI Engine 能力下沉：使用 ContextEvolutionService 构建已确立事实的审核提示
     const contextPackage =
       mission.contextPackage as MissionContextPackage | null;
-    const establishedFacts = (contextPackage?.establishedFacts ||
-      []) as EstablishedFact[];
+    const establishedFacts = contextPackage?.establishedFacts || [];
     const establishedFactsSection =
-      this.aiFacade.contextEvolution!.buildFactsPromptSection(establishedFacts);
+      this.agentFacade.contextEvolution!.buildFactsPromptSection(
+        establishedFacts,
+      );
 
     return `你是团队 Leader，请审核以下任务产出。
 

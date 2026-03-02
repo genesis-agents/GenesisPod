@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import {
   ResearchPlan,
   ResearchPlanStep,
@@ -26,7 +26,7 @@ import {
 export class ResearchPlannerService {
   private readonly logger = new Logger(ResearchPlannerService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 生成研究计划
@@ -65,7 +65,7 @@ export class ResearchPlannerService {
 
     try {
       // ★ 使用 AIEngineFacade 统一入口
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

@@ -3,23 +3,23 @@ import {
   ExpressionAlternativesService,
   AlternativeRequest,
 } from "../expression-alternatives.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 describe("ExpressionAlternativesService", () => {
   let service: ExpressionAlternativesService;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
 
   beforeEach(async () => {
     mockFacade = {
       chat: jest.fn(),
       chatStream: jest.fn(),
       chatWithSkills: jest.fn(),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExpressionAlternativesService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -75,12 +75,8 @@ describe("ExpressionAlternativesService", () => {
         tokensUsed: 50,
       } as any);
 
-      await service.getAlternatives(
-        makeRequest({ type: "emotion" }),
-      );
-      await service.getAlternatives(
-        makeRequest({ type: "action" }),
-      );
+      await service.getAlternatives(makeRequest({ type: "emotion" }));
+      await service.getAlternatives(makeRequest({ type: "action" }));
 
       expect(mockFacade.chat).toHaveBeenCalledTimes(2);
     });
@@ -185,7 +181,10 @@ describe("ExpressionAlternativesService", () => {
         content: "心跳加速\n呼吸微滞",
         tokensUsed: 50,
       } as any);
-      await service.getAlternatives({ expression: "心中一震", type: "emotion" });
+      await service.getAlternatives({
+        expression: "心中一震",
+        type: "emotion",
+      });
 
       mockFacade.chat.mockClear();
 
@@ -207,8 +206,7 @@ describe("ExpressionAlternativesService", () => {
 
     it("should group by type for batch generation", async () => {
       mockFacade.chat.mockResolvedValue({
-        content:
-          "心中一震 → 心跳加速\n他走了 → 他离去",
+        content: "心中一震 → 心跳加速\n他走了 → 他离去",
         tokensUsed: 100,
       } as any);
 

@@ -6,10 +6,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { ContentVersionService } from "../services/content-version.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { SocialPlatformType } from "@prisma/client";
 
-jest.mock("../../../ai-engine/facade/ai-engine.facade");
+jest.mock("../../../ai-engine/facade");
 
 describe("ContentVersionService", () => {
   let service: ContentVersionService;
@@ -84,7 +84,7 @@ describe("ContentVersionService", () => {
       providers: [
         ContentVersionService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -97,7 +97,11 @@ describe("ContentVersionService", () => {
 
   describe("generateVersion", () => {
     it("should generate a version for WECHAT_MP", async () => {
-      const result = await service.generateVersion(contentId, SocialPlatformType.WECHAT_MP, userId);
+      const result = await service.generateVersion(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+        userId,
+      );
 
       expect(result).toBeDefined();
       expect(result.contentId).toBe(contentId);
@@ -124,7 +128,11 @@ describe("ContentVersionService", () => {
       };
       mockPrisma.socialContent.findUnique.mockResolvedValue(longContent);
 
-      await service.generateVersion(contentId, SocialPlatformType.XIAOHONGSHU, userId);
+      await service.generateVersion(
+        contentId,
+        SocialPlatformType.XIAOHONGSHU,
+        userId,
+      );
 
       expect(mockAiFacade.chat).toHaveBeenCalled();
     });
@@ -155,7 +163,10 @@ describe("ContentVersionService", () => {
         isError: true,
       });
 
-      const result = await service.generateVersion(contentId, SocialPlatformType.XIAOHONGSHU);
+      const result = await service.generateVersion(
+        contentId,
+        SocialPlatformType.XIAOHONGSHU,
+      );
 
       expect(result).toBeDefined();
     });
@@ -168,7 +179,10 @@ describe("ContentVersionService", () => {
       mockPrisma.socialContent.findUnique.mockResolvedValue(longContent);
       mockAiFacade.chat.mockRejectedValue(new Error("AI service unavailable"));
 
-      const result = await service.generateVersion(contentId, SocialPlatformType.XIAOHONGSHU);
+      const result = await service.generateVersion(
+        contentId,
+        SocialPlatformType.XIAOHONGSHU,
+      );
 
       expect(result).toBeDefined();
     });
@@ -180,7 +194,11 @@ describe("ContentVersionService", () => {
       };
       mockPrisma.socialContent.findUnique.mockResolvedValue(longContent);
 
-      await service.generateVersion(contentId, SocialPlatformType.XIAOHONGSHU, userId);
+      await service.generateVersion(
+        contentId,
+        SocialPlatformType.XIAOHONGSHU,
+        userId,
+      );
 
       const chatCall = mockAiFacade.chat.mock.calls[0][0];
       expect(chatCall.billing).toBeDefined();
@@ -197,8 +215,8 @@ describe("ContentVersionService", () => {
 
     it("should continue even if one platform fails", async () => {
       mockPrisma.socialContent.findUnique
-        .mockResolvedValueOnce(mockContent)   // First platform succeeds
-        .mockResolvedValueOnce(null);         // Second platform fails (content not found)
+        .mockResolvedValueOnce(mockContent) // First platform succeeds
+        .mockResolvedValueOnce(null); // Second platform fails (content not found)
 
       const results = await service.generateAllVersions(contentId, userId);
 
@@ -228,25 +246,39 @@ describe("ContentVersionService", () => {
 
   describe("getVersion", () => {
     it("should return version for specific platform", async () => {
-      const result = await service.getVersion(contentId, SocialPlatformType.WECHAT_MP);
+      const result = await service.getVersion(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+      );
 
       expect(result).toEqual(mockVersion);
       expect(mockPrisma.socialContentVersion.findUnique).toHaveBeenCalledWith({
-        where: { contentId_platformType: { contentId, platformType: SocialPlatformType.WECHAT_MP } },
+        where: {
+          contentId_platformType: {
+            contentId,
+            platformType: SocialPlatformType.WECHAT_MP,
+          },
+        },
       });
     });
 
     it("should return null when version not found", async () => {
       mockPrisma.socialContentVersion.findUnique.mockResolvedValue(null);
 
-      const result = await service.getVersion(contentId, SocialPlatformType.WECHAT_MP);
+      const result = await service.getVersion(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+      );
       expect(result).toBeNull();
     });
   });
 
   describe("getVersionForPublish", () => {
     it("should return platform-specific version when available", async () => {
-      const result = await service.getVersionForPublish(contentId, SocialPlatformType.WECHAT_MP);
+      const result = await service.getVersionForPublish(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+      );
 
       expect(result).not.toBeNull();
       expect(result!.title).toBe(mockVersion.title);
@@ -260,7 +292,10 @@ describe("ContentVersionService", () => {
         title: "Default Version",
       });
 
-      const result = await service.getVersionForPublish(contentId, SocialPlatformType.WECHAT_MP);
+      const result = await service.getVersionForPublish(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+      );
 
       expect(result!.title).toBe("Default Version");
     });
@@ -269,7 +304,10 @@ describe("ContentVersionService", () => {
       mockPrisma.socialContentVersion.findUnique.mockResolvedValue(null);
       mockPrisma.socialContentVersion.findFirst.mockResolvedValue(null);
 
-      const result = await service.getVersionForPublish(contentId, SocialPlatformType.WECHAT_MP);
+      const result = await service.getVersionForPublish(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+      );
 
       expect(result).toBeNull();
     });
@@ -280,7 +318,10 @@ describe("ContentVersionService", () => {
         digest: undefined,
       });
 
-      const result = await service.getVersionForPublish(contentId, SocialPlatformType.WECHAT_MP);
+      const result = await service.getVersionForPublish(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+      );
 
       expect(result!.digest).toBeNull();
     });
@@ -290,7 +331,11 @@ describe("ContentVersionService", () => {
     it("should update existing version", async () => {
       const updateData = { title: "Updated Title" };
 
-      await service.updateVersion(contentId, SocialPlatformType.WECHAT_MP, updateData);
+      await service.updateVersion(
+        contentId,
+        SocialPlatformType.WECHAT_MP,
+        updateData,
+      );
 
       expect(mockPrisma.socialContentVersion.update).toHaveBeenCalledWith({
         where: { id: mockVersion.id },
@@ -322,7 +367,9 @@ describe("ContentVersionService", () => {
       mockPrisma.socialContent.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateVersion(contentId, SocialPlatformType.WECHAT_MP, { title: "New" }),
+        service.updateVersion(contentId, SocialPlatformType.WECHAT_MP, {
+          title: "New",
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -331,7 +378,8 @@ describe("ContentVersionService", () => {
         content: "Only updating content",
       });
 
-      const updateCall = mockPrisma.socialContentVersion.update.mock.calls[0][0];
+      const updateCall =
+        mockPrisma.socialContentVersion.update.mock.calls[0][0];
       expect(updateCall.data.content).toBe("Only updating content");
       expect(updateCall.data.title).toBeUndefined();
     });
@@ -356,7 +404,12 @@ describe("ContentVersionService", () => {
         data: { isDefault: false },
       });
       expect(mockPrisma.socialContentVersion.update).toHaveBeenCalledWith({
-        where: { contentId_platformType: { contentId, platformType: SocialPlatformType.WECHAT_MP } },
+        where: {
+          contentId_platformType: {
+            contentId,
+            platformType: SocialPlatformType.WECHAT_MP,
+          },
+        },
         data: { isDefault: true },
       });
     });

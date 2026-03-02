@@ -17,7 +17,7 @@ import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { TopicCollaboratorService } from "../../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import {
@@ -159,8 +159,22 @@ const mockTopic = {
 
 const mockLeaderPlan = {
   dimensions: [
-    { id: "planned-dim-001", name: "技术现状", description: "云计算技术现状", priority: "high", searchQueries: ["cloud tech"], dataSources: ["web"] },
-    { id: "planned-dim-002", name: "市场格局", description: "云计算市场份额", priority: "medium", searchQueries: ["cloud market"], dataSources: ["web"] },
+    {
+      id: "planned-dim-001",
+      name: "技术现状",
+      description: "云计算技术现状",
+      priority: "high",
+      searchQueries: ["cloud tech"],
+      dataSources: ["web"],
+    },
+    {
+      id: "planned-dim-002",
+      name: "市场格局",
+      description: "云计算市场份额",
+      priority: "medium",
+      searchQueries: ["cloud market"],
+      dataSources: ["web"],
+    },
   ],
   agentAssignments: [
     {
@@ -193,8 +207,12 @@ describe("ResearchMissionService", () => {
   let service: ResearchMissionService;
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockLeaderService: ReturnType<typeof buildMocks>["mockLeaderService"];
-  let mockResearchEventEmitter: ReturnType<typeof buildMocks>["mockResearchEventEmitter"];
-  let mockReportSynthesisService: ReturnType<typeof buildMocks>["mockReportSynthesisService"];
+  let mockResearchEventEmitter: ReturnType<
+    typeof buildMocks
+  >["mockResearchEventEmitter"];
+  let mockReportSynthesisService: ReturnType<
+    typeof buildMocks
+  >["mockReportSynthesisService"];
 
   beforeEach(async () => {
     const mocks = buildMocks();
@@ -209,13 +227,28 @@ describe("ResearchMissionService", () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
         { provide: ResearchLeaderService, useValue: mockLeaderService },
-        { provide: DimensionMissionService, useValue: mocks.mockDimensionMissionService },
-        { provide: ReportSynthesisService, useValue: mockReportSynthesisService },
-        { provide: ResearchEventEmitterService, useValue: mockResearchEventEmitter },
-        { provide: TopicCollaboratorService, useValue: mocks.mockCollaboratorService },
+        {
+          provide: DimensionMissionService,
+          useValue: mocks.mockDimensionMissionService,
+        },
+        {
+          provide: ReportSynthesisService,
+          useValue: mockReportSynthesisService,
+        },
+        {
+          provide: ResearchEventEmitterService,
+          useValue: mockResearchEventEmitter,
+        },
+        {
+          provide: TopicCollaboratorService,
+          useValue: mocks.mockCollaboratorService,
+        },
         { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-        { provide: AIEngineFacade, useValue: mocks.mockFacade },
-        { provide: ResearchReviewerService, useValue: mocks.mockReviewerService },
+        { provide: ChatFacade, useValue: mocks.mockFacade },
+        {
+          provide: ResearchReviewerService,
+          useValue: mocks.mockReviewerService,
+        },
       ],
     }).compile();
 
@@ -302,8 +335,9 @@ describe("ResearchMissionService", () => {
       };
 
       // mode: "fresh" => isIncremental=false => only ONE findFirst call (for existing active mission)
-      mockPrisma.researchMission.findFirst
-        .mockResolvedValueOnce(existingMission); // existing active mission
+      mockPrisma.researchMission.findFirst.mockResolvedValueOnce(
+        existingMission,
+      ); // existing active mission
 
       mockLeaderService.getReasoningModel.mockResolvedValue({
         modelId: "o3-mini",
@@ -346,8 +380,9 @@ describe("ResearchMissionService", () => {
       };
 
       // mode: "fresh" => isIncremental=false => only ONE findFirst call
-      mockPrisma.researchMission.findFirst
-        .mockResolvedValueOnce(existingMission);
+      mockPrisma.researchMission.findFirst.mockResolvedValueOnce(
+        existingMission,
+      );
 
       mockLeaderService.getReasoningModel.mockResolvedValue({
         modelId: "o3-mini",
@@ -369,7 +404,9 @@ describe("ResearchMissionService", () => {
       expect(mockPrisma.researchTodo.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ missionId: "old-mission-001" }),
-          data: expect.objectContaining({ status: ResearchTodoStatus.CANCELLED }),
+          data: expect.objectContaining({
+            status: ResearchTodoStatus.CANCELLED,
+          }),
         }),
       );
     });
@@ -430,9 +467,9 @@ describe("ResearchMissionService", () => {
       setupCreateMissionHappy();
 
       // Make planning never resolve to test that we return before it completes
-      let planningStarted = false;
+      let _planningStarted = false;
       mockLeaderService.planResearch = jest.fn().mockImplementation(() => {
-        planningStarted = true;
+        _planningStarted = true;
         return new Promise(() => {}); // never resolves
       });
 
@@ -478,11 +515,13 @@ describe("ResearchMissionService", () => {
       // createTasksFromPlan dependencies
       mockPrisma.topicDimension.findFirst.mockResolvedValue(null);
       mockPrisma.topicDimension.findMany.mockResolvedValue([]);
-      mockPrisma.topicDimension.create.mockImplementation((args: { data: { name: string; topicId: string } }) =>
-        Promise.resolve({ id: `dim-${args.data.name}`, ...args.data }),
+      mockPrisma.topicDimension.create.mockImplementation(
+        (args: { data: { name: string; topicId: string } }) =>
+          Promise.resolve({ id: `dim-${args.data.name}`, ...args.data }),
       );
-      mockPrisma.researchTask.create.mockImplementation((args: { data: { title: string } }) =>
-        Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      mockPrisma.researchTask.create.mockImplementation(
+        (args: { data: { title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
       );
       mockPrisma.researchMission.update.mockResolvedValue({
         id: "mission-001",
@@ -539,7 +578,9 @@ describe("ResearchMissionService", () => {
       };
       mockPrisma.researchMission.findUnique.mockResolvedValue(mockFullMission);
 
-      await expect(service.getMissionStatus("mission-001")).resolves.toMatchObject({
+      await expect(
+        service.getMissionStatus("mission-001"),
+      ).resolves.toMatchObject({
         id: "mission-001",
         status: ResearchMissionStatus.EXECUTING,
         tasks: expect.any(Array),
@@ -549,7 +590,9 @@ describe("ResearchMissionService", () => {
     it("should throw NotFoundException when mission not found", async () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(null);
 
-      await expect(service.getMissionStatus("nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.getMissionStatus("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -803,7 +846,9 @@ describe("ResearchMissionService", () => {
     it("should throw NotFoundException when task not found", async () => {
       mockPrisma.researchTask.findUnique = jest.fn().mockResolvedValue(null);
 
-      await expect(service.retryTask("nonexistent-task")).rejects.toThrow(NotFoundException);
+      await expect(service.retryTask("nonexistent-task")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should throw when task is not in a retryable state", async () => {
@@ -827,7 +872,7 @@ describe("ResearchMissionService", () => {
         status: ResearchTaskStatus.PENDING,
       });
 
-      const result = await service.retryTask("task-001");
+      const _result = await service.retryTask("task-001");
 
       expect(mockPrisma.researchTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -866,7 +911,9 @@ describe("ResearchMissionService", () => {
     it("should throw NotFoundException when mission not found", async () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(null);
 
-      await expect(service.retryMission("nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.retryMission("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should throw when mission is not failed", async () => {
@@ -891,17 +938,23 @@ describe("ResearchMissionService", () => {
         status: ResearchMissionStatus.EXECUTING,
       });
 
-      const result = await service.retryMission("mission-001");
+      const _result = await service.retryMission("mission-001");
 
       expect(mockPrisma.researchTask.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ missionId: "mission-001" }),
-          data: { status: ResearchTaskStatus.PENDING, startedAt: null, completedAt: null },
+          data: {
+            status: ResearchTaskStatus.PENDING,
+            startedAt: null,
+            completedAt: null,
+          },
         }),
       );
       expect(mockPrisma.researchMission.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: ResearchMissionStatus.EXECUTING }),
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.EXECUTING,
+          }),
         }),
       );
     });
@@ -915,7 +968,9 @@ describe("ResearchMissionService", () => {
     it("should throw NotFoundException when task not found", async () => {
       mockPrisma.researchTask.findUnique = jest.fn().mockResolvedValue(null);
 
-      await expect(service.getTaskActivities("nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.getTaskActivities("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should query activities by dimensionId for dimension_research tasks", async () => {
@@ -929,7 +984,9 @@ describe("ResearchMissionService", () => {
         mission: { topicId: "topic-001" },
       };
       mockPrisma.researchTask.findUnique = jest.fn().mockResolvedValue(task);
-      mockPrisma.researchAgentActivity = { findMany: jest.fn().mockResolvedValue([]) };
+      mockPrisma.researchAgentActivity = {
+        findMany: jest.fn().mockResolvedValue([]),
+      };
 
       await service.getTaskActivities("task-001");
 
@@ -953,7 +1010,9 @@ describe("ResearchMissionService", () => {
         mission: { topicId: "topic-001" },
       };
       mockPrisma.researchTask.findUnique = jest.fn().mockResolvedValue(task);
-      mockPrisma.researchAgentActivity = { findMany: jest.fn().mockResolvedValue([]) };
+      mockPrisma.researchAgentActivity = {
+        findMany: jest.fn().mockResolvedValue([]),
+      };
 
       await service.getTaskActivities("task-001");
 
@@ -977,7 +1036,9 @@ describe("ResearchMissionService", () => {
         mission: { topicId: "topic-001" },
       };
       mockPrisma.researchTask.findUnique = jest.fn().mockResolvedValue(task);
-      mockPrisma.researchAgentActivity = { findMany: jest.fn().mockResolvedValue([]) };
+      mockPrisma.researchAgentActivity = {
+        findMany: jest.fn().mockResolvedValue([]),
+      };
 
       await service.getTaskActivities("task-001");
 
@@ -998,7 +1059,9 @@ describe("ResearchMissionService", () => {
         mission: { topicId: "topic-001" },
       };
       mockPrisma.researchTask.findUnique = jest.fn().mockResolvedValue(task);
-      mockPrisma.researchAgentActivity = { findMany: jest.fn().mockResolvedValue([]) };
+      mockPrisma.researchAgentActivity = {
+        findMany: jest.fn().mockResolvedValue([]),
+      };
 
       await service.getTaskActivities("task-001");
 
@@ -1027,7 +1090,9 @@ describe("ResearchMissionService", () => {
 
     beforeEach(() => {
       mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 2 });
-      mockPrisma.researchTodo = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
+      mockPrisma.researchTodo = {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      };
       mockPrisma.topicReport = {
         findMany: jest.fn().mockResolvedValue([]),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -1040,7 +1105,7 @@ describe("ResearchMissionService", () => {
 
     it("should throw NotFoundException when mission not found", async () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(null);
-      const mockCollaboratorService = { hasAccess: jest.fn() };
+      const _mockCollaboratorService = { hasAccess: jest.fn() };
 
       await expect(
         service.cancelMission("user-001", "nonexistent"),
@@ -1052,18 +1117,20 @@ describe("ResearchMissionService", () => {
 
       // Access the collaboratorService via the module
       const mocks = buildMocks();
-      mocks.mockCollaboratorService.hasAccess = jest.fn().mockResolvedValue(false);
+      mocks.mockCollaboratorService.hasAccess = jest
+        .fn()
+        .mockResolvedValue(false);
 
       // Rebuild module with restricted access
-      const module = await (async () => {
+      const _module = await (async () => {
         const { Test } = await import("@nestjs/testing");
-        const { ResearchMissionService: RMS } = await import("../research-mission.service");
+        const { ResearchMissionService: RMS } =
+          await import("../research-mission.service");
         const m = await Test.createTestingModule({
-          providers: [
-            RMS,
-            { provide: "PrismaService", useValue: mockPrisma },
-          ],
-        }).compile().catch(() => null);
+          providers: [RMS, { provide: "PrismaService", useValue: mockPrisma }],
+        })
+          .compile()
+          .catch(() => null);
         return m;
       })();
 
@@ -1086,16 +1153,28 @@ describe("ResearchMissionService", () => {
           { provide: PrismaService, useValue: mockPrisma },
           { provide: EventEmitter2, useValue: mocks2.mockEventEmitter },
           { provide: ResearchLeaderService, useValue: mockLeaderService },
-          { provide: DimensionMissionService, useValue: mocks2.mockDimensionMissionService },
-          { provide: ReportSynthesisService, useValue: mockReportSynthesisService },
-          { provide: ResearchEventEmitterService, useValue: mockResearchEventEmitter },
+          {
+            provide: DimensionMissionService,
+            useValue: mocks2.mockDimensionMissionService,
+          },
+          {
+            provide: ReportSynthesisService,
+            useValue: mockReportSynthesisService,
+          },
+          {
+            provide: ResearchEventEmitterService,
+            useValue: mockResearchEventEmitter,
+          },
           {
             provide: TopicCollaboratorService,
             useValue: { hasAccess: jest.fn().mockResolvedValue(true) },
           },
           { provide: AgentActivityService, useValue: mocks2.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks2.mockFacade },
-          { provide: ResearchReviewerService, useValue: mocks2.mockReviewerService },
+          { provide: ChatFacade, useValue: mocks2.mockFacade },
+          {
+            provide: ResearchReviewerService,
+            useValue: mocks2.mockReviewerService,
+          },
         ],
       }).compile();
 
@@ -1121,24 +1200,36 @@ describe("ResearchMissionService", () => {
           { provide: PrismaService, useValue: mockPrisma },
           { provide: EventEmitter2, useValue: mocks2.mockEventEmitter },
           { provide: ResearchLeaderService, useValue: mockLeaderService },
-          { provide: DimensionMissionService, useValue: mocks2.mockDimensionMissionService },
-          { provide: ReportSynthesisService, useValue: mockReportSynthesisService },
-          { provide: ResearchEventEmitterService, useValue: mockResearchEventEmitter },
+          {
+            provide: DimensionMissionService,
+            useValue: mocks2.mockDimensionMissionService,
+          },
+          {
+            provide: ReportSynthesisService,
+            useValue: mockReportSynthesisService,
+          },
+          {
+            provide: ResearchEventEmitterService,
+            useValue: mockResearchEventEmitter,
+          },
           {
             provide: TopicCollaboratorService,
             useValue: { hasAccess: jest.fn().mockResolvedValue(true) },
           },
           { provide: AgentActivityService, useValue: mocks2.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks2.mockFacade },
-          { provide: ResearchReviewerService, useValue: mocks2.mockReviewerService },
+          { provide: ChatFacade, useValue: mocks2.mockFacade },
+          {
+            provide: ResearchReviewerService,
+            useValue: mocks2.mockReviewerService,
+          },
         ],
       }).compile();
 
       const svc = module2.get<ResearchMissionService>(ResearchMissionService);
 
-      await expect(svc.cancelMission("user-001", "mission-001")).rejects.toThrow(
-        "Cannot cancel mission that is already completed",
-      );
+      await expect(
+        svc.cancelMission("user-001", "mission-001"),
+      ).rejects.toThrow("Cannot cancel mission that is already completed");
     });
 
     it("should cancel tasks and todos and update mission status", async () => {
@@ -1155,16 +1246,28 @@ describe("ResearchMissionService", () => {
           { provide: PrismaService, useValue: mockPrisma },
           { provide: EventEmitter2, useValue: mocks2.mockEventEmitter },
           { provide: ResearchLeaderService, useValue: mockLeaderService },
-          { provide: DimensionMissionService, useValue: mocks2.mockDimensionMissionService },
-          { provide: ReportSynthesisService, useValue: mockReportSynthesisService },
-          { provide: ResearchEventEmitterService, useValue: mockResearchEventEmitter },
+          {
+            provide: DimensionMissionService,
+            useValue: mocks2.mockDimensionMissionService,
+          },
+          {
+            provide: ReportSynthesisService,
+            useValue: mockReportSynthesisService,
+          },
+          {
+            provide: ResearchEventEmitterService,
+            useValue: mockResearchEventEmitter,
+          },
           {
             provide: TopicCollaboratorService,
             useValue: { hasAccess: jest.fn().mockResolvedValue(true) },
           },
           { provide: AgentActivityService, useValue: mocks2.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: mocks2.mockFacade },
-          { provide: ResearchReviewerService, useValue: mocks2.mockReviewerService },
+          { provide: ChatFacade, useValue: mocks2.mockFacade },
+          {
+            provide: ResearchReviewerService,
+            useValue: mocks2.mockReviewerService,
+          },
         ],
       }).compile();
 
@@ -1233,7 +1336,9 @@ describe("ResearchMissionService", () => {
       mockPrisma.researchTask.create.mockResolvedValue({ id: "task-new" });
       mockPrisma.researchMission.update.mockResolvedValue({});
       mockPrisma.leaderDecision.create.mockResolvedValue({});
-      mockPrisma.researchMission.findUniqueOrThrow = jest.fn().mockResolvedValue(executingMission);
+      mockPrisma.researchMission.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(executingMission);
 
       await service.adjustMission("user-owner", "mission-001", {
         addDimensions: [{ name: "新维度", description: "新增研究方向" }],
@@ -1382,20 +1487,44 @@ describe("ResearchMissionService", () => {
   // ============================================================
 
   describe("getTeamInfo", () => {
-    function buildServiceWithMocks(customMockPrisma: ReturnType<typeof buildMocks>["mockPrisma"], customMocks: ReturnType<typeof buildMocks>) {
+    function buildServiceWithMocks(
+      customMockPrisma: ReturnType<typeof buildMocks>["mockPrisma"],
+      customMocks: ReturnType<typeof buildMocks>,
+    ) {
       return Test.createTestingModule({
         providers: [
           ResearchMissionService,
           { provide: PrismaService, useValue: customMockPrisma },
           { provide: EventEmitter2, useValue: customMocks.mockEventEmitter },
-          { provide: ResearchLeaderService, useValue: customMocks.mockLeaderService },
-          { provide: DimensionMissionService, useValue: customMocks.mockDimensionMissionService },
-          { provide: ReportSynthesisService, useValue: customMocks.mockReportSynthesisService },
-          { provide: ResearchEventEmitterService, useValue: customMocks.mockResearchEventEmitter },
-          { provide: TopicCollaboratorService, useValue: customMocks.mockCollaboratorService },
-          { provide: AgentActivityService, useValue: customMocks.mockAgentActivity },
-          { provide: AIEngineFacade, useValue: customMocks.mockFacade },
-          { provide: ResearchReviewerService, useValue: customMocks.mockReviewerService },
+          {
+            provide: ResearchLeaderService,
+            useValue: customMocks.mockLeaderService,
+          },
+          {
+            provide: DimensionMissionService,
+            useValue: customMocks.mockDimensionMissionService,
+          },
+          {
+            provide: ReportSynthesisService,
+            useValue: customMocks.mockReportSynthesisService,
+          },
+          {
+            provide: ResearchEventEmitterService,
+            useValue: customMocks.mockResearchEventEmitter,
+          },
+          {
+            provide: TopicCollaboratorService,
+            useValue: customMocks.mockCollaboratorService,
+          },
+          {
+            provide: AgentActivityService,
+            useValue: customMocks.mockAgentActivity,
+          },
+          { provide: ChatFacade, useValue: customMocks.mockFacade },
+          {
+            provide: ResearchReviewerService,
+            useValue: customMocks.mockReviewerService,
+          },
         ],
       }).compile();
     }
@@ -1406,7 +1535,9 @@ describe("ResearchMissionService", () => {
       const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
       const svc = module2.get<ResearchMissionService>(ResearchMissionService);
 
-      await expect(svc.getTeamInfo("nonexistent-mission")).rejects.toThrow(NotFoundException);
+      await expect(svc.getTeamInfo("nonexistent-mission")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should return team info with agents extracted from tasks", async () => {
@@ -1460,13 +1591,17 @@ describe("ResearchMissionService", () => {
       expect(workingAgent?.status).toBe("working");
       expect(workingAgent?.currentTask).toBe("研究技术现状");
 
-      const completedAgent = result.agents.find((a) => a.id === "researcher-02");
+      const completedAgent = result.agents.find(
+        (a) => a.id === "researcher-02",
+      );
       expect(completedAgent?.status).toBe("completed");
     });
 
     it("should mark agent as failed when any task is FAILED", async () => {
       const mocks2 = buildMocks();
-      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+      mocks2.mockFacade.getDefaultModelByType = jest
+        .fn()
+        .mockResolvedValue(null);
 
       const missionWithFailedTask = {
         id: "mission-001",
@@ -1488,7 +1623,9 @@ describe("ResearchMissionService", () => {
         ],
       };
 
-      mockPrisma.researchMission.findUnique.mockResolvedValue(missionWithFailedTask);
+      mockPrisma.researchMission.findUnique.mockResolvedValue(
+        missionWithFailedTask,
+      );
 
       const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
       const svc = module2.get<ResearchMissionService>(ResearchMissionService);
@@ -1501,7 +1638,9 @@ describe("ResearchMissionService", () => {
 
     it("should parse leaderPlan to extract agent skills and tools", async () => {
       const mocks2 = buildMocks();
-      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+      mocks2.mockFacade.getDefaultModelByType = jest
+        .fn()
+        .mockResolvedValue(null);
 
       const missionWithPlan = {
         id: "mission-001",
@@ -1553,7 +1692,9 @@ describe("ResearchMissionService", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+      mocks2.mockFacade.getDefaultModelByType = jest
+        .fn()
+        .mockResolvedValue(null);
 
       const missionNoModel = {
         id: "mission-001",
@@ -1577,7 +1718,9 @@ describe("ResearchMissionService", () => {
 
     it("should include dimension names in agent assignedDimensions", async () => {
       const mocks2 = buildMocks();
-      mocks2.mockFacade.getDefaultModelByType = jest.fn().mockResolvedValue(null);
+      mocks2.mockFacade.getDefaultModelByType = jest
+        .fn()
+        .mockResolvedValue(null);
 
       const missionWithDimTasks = {
         id: "mission-001",
@@ -1608,7 +1751,9 @@ describe("ResearchMissionService", () => {
         ],
       };
 
-      mockPrisma.researchMission.findUnique.mockResolvedValue(missionWithDimTasks);
+      mockPrisma.researchMission.findUnique.mockResolvedValue(
+        missionWithDimTasks,
+      );
 
       const module2 = await buildServiceWithMocks(mockPrisma, mocks2);
       const svc = module2.get<ResearchMissionService>(ResearchMissionService);
@@ -1648,7 +1793,9 @@ describe("ResearchMissionService", () => {
       mockPrisma.researchTask.delete = jest.fn().mockResolvedValue({});
       mockPrisma.researchMission.update.mockResolvedValue({});
       mockPrisma.leaderDecision.create.mockResolvedValue({});
-      mockPrisma.researchMission.findUniqueOrThrow = jest.fn().mockResolvedValue(executingMission);
+      mockPrisma.researchMission.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(executingMission);
 
       await service.adjustMission("user-owner", "mission-001", {
         removeDimensions: ["旧维度"],
@@ -1667,7 +1814,9 @@ describe("ResearchMissionService", () => {
       mockPrisma.researchTask.delete = jest.fn();
       mockPrisma.researchMission.update.mockResolvedValue({});
       mockPrisma.leaderDecision.create.mockResolvedValue({});
-      mockPrisma.researchMission.findUniqueOrThrow = jest.fn().mockResolvedValue(executingMission);
+      mockPrisma.researchMission.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(executingMission);
 
       await service.adjustMission("user-owner", "mission-001", {
         removeDimensions: ["不存在的维度"],
@@ -1677,11 +1826,15 @@ describe("ResearchMissionService", () => {
     });
 
     it("should call handleUserMessage for focusAreas adjustment", async () => {
-      mockLeaderService.handleUserMessage = jest.fn().mockResolvedValue({ response: "OK" });
+      mockLeaderService.handleUserMessage = jest
+        .fn()
+        .mockResolvedValue({ response: "OK" });
       mockPrisma.researchMission.findUnique.mockResolvedValue(executingMission);
       mockPrisma.researchMission.update.mockResolvedValue({});
       mockPrisma.leaderDecision.create.mockResolvedValue({});
-      mockPrisma.researchMission.findUniqueOrThrow = jest.fn().mockResolvedValue(executingMission);
+      mockPrisma.researchMission.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(executingMission);
 
       await service.adjustMission("user-owner", "mission-001", {
         focusAreas: ["技术创新", "市场机会"],

@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   VerifiableClaim,
@@ -29,7 +29,7 @@ import { EnrichedEvidenceData } from "../../types/research.types";
 export class ClaimVerificationService {
   private readonly logger = new Logger(ClaimVerificationService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 从章节内容中提取可验证的声明
@@ -86,7 +86,7 @@ ${content}
 只输出 JSON，不要其他内容。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "deterministic", outputLength: "long" },
       });
@@ -111,13 +111,16 @@ ${content}
       }
 
       // 过滤和转换
-      const verifiableClaims = (result.data.claims as Array<Record<string, unknown>>)
+      const verifiableClaims = (
+        result.data.claims as Array<Record<string, unknown>>
+      )
         .filter(
           (c) =>
             c["type"] !== "opinion" &&
             c["isVerifiable"] !== false &&
             mergedConfig.verificationPriorities.includes(
-              (c["verificationPriority"] as "high" | "medium" | "low") || "medium",
+              (c["verificationPriority"] as "high" | "medium" | "low") ||
+                "medium",
             ),
         )
         .slice(0, mergedConfig.maxClaimsPerSection)
@@ -132,7 +135,9 @@ ${content}
             charStart: 0,
             charEnd: (c["text"] as string).length,
           },
-          verificationPriority: (c["verificationPriority"] as "high" | "medium" | "low") || "medium",
+          verificationPriority:
+            (c["verificationPriority"] as "high" | "medium" | "low") ||
+            "medium",
           extractedAt: new Date(),
         }));
 
@@ -233,7 +238,7 @@ ${evidences.map((e, i) => `[${i + 1}] ${e.title}\n摘要：${(e.snippet || e.ful
 }`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "deterministic", outputLength: "short" },
       });
@@ -298,7 +303,7 @@ ${evidenceContent.substring(0, 3000)}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });

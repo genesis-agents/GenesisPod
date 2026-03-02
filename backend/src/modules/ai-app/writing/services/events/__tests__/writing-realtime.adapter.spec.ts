@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 
 // Break circular dependency: writing-realtime.adapter imports WritingEventType from
 // writing-event-emitter.service, which in turn imports WritingRealtimeAdapter.
@@ -30,12 +30,11 @@ jest.mock("../writing-event-emitter.service", () => ({
   WritingEventEmitterService: jest.fn(),
 }));
 
-// eslint-disable-next-line import/order
 import { WritingRealtimeAdapter } from "../writing-realtime.adapter";
 
 describe("WritingRealtimeAdapter", () => {
   let adapter: WritingRealtimeAdapter;
-  let mockAiFacade: jest.Mocked<AIEngineFacade>;
+  let mockAiFacade: jest.Mocked<AgentFacade>;
   let mockRealtimeProgress: {
     create: jest.Mock;
     start: jest.Mock;
@@ -71,12 +70,12 @@ describe("WritingRealtimeAdapter", () => {
     mockAiFacade = {
       realtimeProgress: mockRealtimeProgress,
       realtimeEmitter: mockRealtimeEmitter,
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<AgentFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WritingRealtimeAdapter,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: AgentFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -311,8 +310,9 @@ describe("WritingRealtimeAdapter", () => {
         providers: [WritingRealtimeAdapter],
       }).compile();
 
-      adapterWithoutFacade =
-        module.get<WritingRealtimeAdapter>(WritingRealtimeAdapter);
+      adapterWithoutFacade = module.get<WritingRealtimeAdapter>(
+        WritingRealtimeAdapter,
+      );
     });
 
     it("should not throw when aiFacade is not provided", () => {

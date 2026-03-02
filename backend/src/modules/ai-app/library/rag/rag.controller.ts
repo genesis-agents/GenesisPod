@@ -26,7 +26,7 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { KnowledgeBaseService } from "./services/knowledge-base.service";
 import { RAGPipelineService } from "./services/rag-pipeline.service";
 import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { RAGFacade } from "../../../ai-engine/facade";
 import {
   CreateKnowledgeBaseDto,
   UpdateKnowledgeBaseDto,
@@ -55,7 +55,7 @@ export class RAGController {
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly ragPipelineService: RAGPipelineService,
     private readonly googleDriveRAGService: GoogleDriveRAGService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly ragFacade: RAGFacade,
     private readonly urlFetchService: UrlFetchService,
     private readonly platformImportService: PlatformImportService,
   ) {}
@@ -66,7 +66,7 @@ export class RAGController {
   @ApiOperation({ summary: "Get current embedding model configuration" })
   @ApiResponse({ status: 200, description: "Embedding configuration" })
   async getEmbeddingConfig() {
-    return this.aiFacade.embedding?.getConfigInfo();
+    return this.ragFacade.embedding?.getConfigInfo();
   }
 
   // ==================== Knowledge Base CRUD ====================

@@ -1,12 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { StoryCompletionDetectorService } from "../story-completion-detector.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 describe("StoryCompletionDetectorService", () => {
   let service: StoryCompletionDetectorService;
   let mockPrisma: jest.Mocked<PrismaService>;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
 
   const makeChapter = (
     content: string,
@@ -61,13 +61,13 @@ describe("StoryCompletionDetectorService", () => {
 
     mockFacade = {
       chat: jest.fn(),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StoryCompletionDetectorService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -86,7 +86,9 @@ describe("StoryCompletionDetectorService", () => {
 
   describe("analyzeCompletion", () => {
     it("should return isComplete=false for non-existent project", async () => {
-      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.analyzeCompletion("nonexistent");
 
@@ -133,7 +135,8 @@ describe("StoryCompletionDetectorService", () => {
         volumes: [{ id: "vol-1", chapters: [makeChapter("内容", 1)] }],
       });
       (mockFacade.chat as jest.Mock).mockResolvedValue({
-        content: '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
+        content:
+          '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
       });
 
       const result = await service.analyzeCompletion("proj-1");
@@ -176,7 +179,8 @@ describe("StoryCompletionDetectorService", () => {
         ],
       });
       (mockFacade.chat as jest.Mock).mockResolvedValue({
-        content: '{"mainConflictsResolved": false, "resolutionRatio": 0.2, "reason": "too early"}',
+        content:
+          '{"mainConflictsResolved": false, "resolutionRatio": 0.2, "reason": "too early"}',
       });
 
       const result = await service.analyzeCompletion("proj-1");
@@ -187,7 +191,9 @@ describe("StoryCompletionDetectorService", () => {
 
   describe("quickDetectCompletion", () => {
     it("should return isComplete=false when no chapters found", async () => {
-      (mockPrisma.writingChapter.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingChapter.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.quickDetectCompletion("proj-1");
 
@@ -254,7 +260,8 @@ describe("StoryCompletionDetectorService", () => {
         volumes: [{ id: "vol-1", chapters: [makeChapter("普通内容", 1)] }],
       });
       (mockFacade.chat as jest.Mock).mockResolvedValue({
-        content: '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
+        content:
+          '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
       });
 
       const result = await service.analyzeCompletion("proj-1");
@@ -275,7 +282,8 @@ describe("StoryCompletionDetectorService", () => {
         volumes: [{ id: "vol-1", chapters }],
       });
       (mockFacade.chat as jest.Mock).mockResolvedValue({
-        content: '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
+        content:
+          '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
       });
 
       const result = await service.analyzeCompletion("proj-1");
@@ -290,7 +298,8 @@ describe("StoryCompletionDetectorService", () => {
         volumes: [{ id: "vol-1", chapters: [makeChapter("内容", 1, 5000)] }],
       });
       (mockFacade.chat as jest.Mock).mockResolvedValue({
-        content: '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
+        content:
+          '{"mainConflictsResolved": false, "resolutionRatio": 0.3, "reason": "test"}',
       });
 
       const result = await service.analyzeCompletion("proj-1");

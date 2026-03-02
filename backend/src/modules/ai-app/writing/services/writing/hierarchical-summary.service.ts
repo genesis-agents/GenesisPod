@@ -18,7 +18,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
@@ -179,7 +179,7 @@ export class HierarchicalSummaryService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -194,7 +194,7 @@ export class HierarchicalSummaryService {
     this.logger.log(`Generating chapter summary for chapter ${chapterNumber}`);
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -295,7 +295,7 @@ ${content.slice(0, 8000)}
       .join("\n\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -416,7 +416,7 @@ ${summariesText}
       .join("\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -500,10 +500,7 @@ ${summariesText}
     );
 
     // 2. 获取中期章节（中等详细）
-    const mediumStart = Math.max(
-      1,
-      currentChapter - CONTEXT_WINDOWS.MEDIUM,
-    );
+    const mediumStart = Math.max(1, currentChapter - CONTEXT_WINDOWS.MEDIUM);
     const mediumEnd = Math.max(1, currentChapter - CONTEXT_WINDOWS.RECENT - 1);
     const mediumChapters =
       mediumStart <= mediumEnd
@@ -612,7 +609,7 @@ ${summariesText}
       .join("\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -655,16 +652,19 @@ ${summariesText}
         select: { metadata: true },
       });
 
-      const existingMetadata = (chapter?.metadata as Record<string, unknown>) || {};
+      const existingMetadata =
+        (chapter?.metadata as Record<string, unknown>) || {};
 
       await this.prisma.writingChapter.update({
         where: { id: chapterId },
         data: {
-          metadata: JSON.parse(JSON.stringify({
-            ...existingMetadata,
-            summary,
-            summaryUpdatedAt: new Date().toISOString(),
-          })),
+          metadata: JSON.parse(
+            JSON.stringify({
+              ...existingMetadata,
+              summary,
+              summaryUpdatedAt: new Date().toISOString(),
+            }),
+          ),
         },
       });
     } catch (error) {
@@ -854,7 +854,7 @@ ${summariesText}
     title: string,
   ): Promise<ChapterSummary> {
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

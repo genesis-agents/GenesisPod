@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { AIModelType, Prisma, SocialPlatformType } from "@prisma/client";
 import {
   PLATFORM_LIMITS,
@@ -32,7 +32,7 @@ export class ContentVersionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -328,7 +328,7 @@ export class ContentVersionService {
     const prompt = this.buildAdaptationPrompt(content, platformType, limits);
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

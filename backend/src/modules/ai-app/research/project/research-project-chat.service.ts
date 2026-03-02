@@ -9,7 +9,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { SendChatMessageDto, CreateNoteDto, UpdateNoteDto } from "./dto";
 import {
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage as FacadeChatMessage,
   KernelContext,
   MissionExecutorService,
@@ -30,7 +30,7 @@ export class ResearchProjectChatService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
@@ -236,7 +236,7 @@ export class ResearchProjectChatService {
           content: m.content,
         })),
       ];
-      const aiResult = await this.aiFacade.chat({
+      const aiResult = await this.chatFacade.chat({
         messages: facadeMessages,
         model: modelConfig.modelId,
         taskProfile: {
@@ -350,12 +350,12 @@ export class ResearchProjectChatService {
   }
 
   /**
-   * Get model configuration using AIEngineFacade
+   * Get model configuration using ChatFacade
    */
   private async getModelConfig(modelId?: string) {
     // If model ID is provided, find by ID
     if (modelId) {
-      const model = await this.aiFacade.getModelById(modelId);
+      const model = await this.chatFacade.getModelById(modelId);
       if (model) {
         this.logger.log(
           `[AIStudio] Using specified model: ${model.displayName} (${model.modelId})`,
@@ -365,7 +365,7 @@ export class ResearchProjectChatService {
     }
 
     // Fallback to default CHAT model
-    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    const defaultModel = await this.chatFacade.getDefaultTextModel();
 
     if (defaultModel) {
       this.logger.log(

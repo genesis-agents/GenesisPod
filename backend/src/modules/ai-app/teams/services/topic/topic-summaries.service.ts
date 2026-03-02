@@ -7,7 +7,7 @@ import {
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole, Prisma } from "@prisma/client";
 import { GenerateSummaryDto } from "../../dto";
-import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
+import { ChatFacade, ChatMessage } from "../../../../ai-engine/facade";
 import { TopicCrudService } from "./topic-crud.service";
 
 @Injectable()
@@ -16,7 +16,7 @@ export class TopicSummariesService {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
     private topicCrudService: TopicCrudService,
   ) {}
 
@@ -70,7 +70,12 @@ export class TopicSummariesService {
         select: { createdAt: true },
       });
       if (fromMsg) {
-        const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+        const existing =
+          typeof where.createdAt === "object" &&
+          where.createdAt !== null &&
+          !(where.createdAt instanceof Date)
+            ? (where.createdAt as Prisma.DateTimeFilter)
+            : {};
         where.createdAt = { ...existing, gte: fromMsg.createdAt };
       }
     }
@@ -81,7 +86,12 @@ export class TopicSummariesService {
         select: { createdAt: true },
       });
       if (toMsg) {
-        const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+        const existing =
+          typeof where.createdAt === "object" &&
+          where.createdAt !== null &&
+          !(where.createdAt instanceof Date)
+            ? (where.createdAt as Prisma.DateTimeFilter)
+            : {};
         where.createdAt = { ...existing, lte: toMsg.createdAt };
       }
     }
@@ -125,7 +135,7 @@ ${messagesForSummary.map((m) => `[${m.sender}]: ${m.content}`).join("\n")}`;
       const summaryMessages: ChatMessage[] = [
         { role: "user", content: summaryPrompt },
       ];
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: summaryMessages,
         model: aiModel,
         taskProfile: { creativity: "low", outputLength: "standard" },

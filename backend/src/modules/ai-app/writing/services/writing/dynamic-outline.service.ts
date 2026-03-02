@@ -24,7 +24,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { ExtractedFact } from "../consistency/fact-extractor.service";
 
@@ -187,7 +187,7 @@ export class DynamicOutlineService {
 
   constructor(
     private readonly _prisma: PrismaService, // 保留用于未来扩展
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {
     void this._prisma; // 保留用于未来持久化扩展
   }
@@ -263,7 +263,7 @@ export class DynamicOutlineService {
       fallingChapters;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -430,7 +430,7 @@ export class DynamicOutlineService {
     const phaseInfo = roughOutline[this.getPhaseKey(current.phase)];
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -472,14 +472,17 @@ ${previous ? `前章摘要：${previous.summary}` : "（无前章）"}
         },
       });
 
-      const result = this.parseJsonResponse<Partial<DetailedOutline>>(response.content || "", {
-        title: current.title,
-        summary: current.summary,
-        keyEvents: [],
-        involvedCharacters: [],
-        scenes: [],
-        emotionalTone: "待定",
-      });
+      const result = this.parseJsonResponse<Partial<DetailedOutline>>(
+        response.content || "",
+        {
+          title: current.title,
+          summary: current.summary,
+          keyEvents: [],
+          involvedCharacters: [],
+          scenes: [],
+          emotionalTone: "待定",
+        },
+      );
 
       return {
         ...current,
@@ -513,9 +516,7 @@ ${previous ? `前章摘要：${previous.summary}` : "（无前章）"}
     writtenContent: string,
     extractedFacts: ExtractedFact[],
   ): Promise<OutlineAdjustment[]> {
-    this.logger.log(
-      `Updating outline after writing chapter ${chapterNumber}`,
-    );
+    this.logger.log(`Updating outline after writing chapter ${chapterNumber}`);
 
     // 1. 获取当前动态大纲
     const outline = await this.getDynamicOutline(projectId);
@@ -565,15 +566,14 @@ ${previous ? `前章摘要：${previous.summary}` : "（无前章）"}
     try {
       // 获取后续未写章节
       const futureChapters = outline.detailedOutlines.filter(
-        (o) =>
-          o.chapterNumber > plan.chapterNumber && o.status !== "WRITTEN",
+        (o) => o.chapterNumber > plan.chapterNumber && o.status !== "WRITTEN",
       );
 
       if (futureChapters.length === 0) {
         return [];
       }
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -608,7 +608,10 @@ ${JSON.stringify(plan, null, 2)}
 ${writtenContent.slice(0, 2000)}
 
 提取的关键事实：
-${facts.slice(0, 10).map((f) => `- ${f.subject} ${f.predicate} ${f.object || ""}`).join("\n")}
+${facts
+  .slice(0, 10)
+  .map((f) => `- ${f.subject} ${f.predicate} ${f.object || ""}`)
+  .join("\n")}
 
 后续计划：
 ${JSON.stringify(futureChapters.slice(0, 5), null, 2)}
@@ -633,9 +636,12 @@ ${JSON.stringify(futureChapters.slice(0, 5), null, 2)}
         }>;
       }
 
-      const result = this.parseJsonResponse<AdjustmentResult>(response.content || "", {
-        adjustments: [],
-      });
+      const result = this.parseJsonResponse<AdjustmentResult>(
+        response.content || "",
+        {
+          adjustments: [],
+        },
+      );
 
       for (const adj of result.adjustments || []) {
         if ((adj.confidence ?? 0) >= 0.6 && adj.targetChapter) {
@@ -737,7 +743,9 @@ ${JSON.stringify(futureChapters.slice(0, 5), null, 2)}
     outline: DynamicOutline,
   ): Promise<void> {
     this.outlineCache.set(projectId, outline);
-    this.logger.debug(`Saved dynamic outline for project ${projectId} (v${outline.version})`);
+    this.logger.debug(
+      `Saved dynamic outline for project ${projectId} (v${outline.version})`,
+    );
   }
 
   /**
@@ -758,9 +766,8 @@ ${JSON.stringify(futureChapters.slice(0, 5), null, 2)}
     if (!outline) return null;
 
     return (
-      outline.detailedOutlines.find(
-        (o) => o.chapterNumber === chapterNumber,
-      ) || null
+      outline.detailedOutlines.find((o) => o.chapterNumber === chapterNumber) ||
+      null
     );
   }
 

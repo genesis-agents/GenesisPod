@@ -12,7 +12,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { AiResponseService } from "../ai-response.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade, ToolRegistry } from "../../../../../ai-engine/facade";
+import {
+  ChatFacade,
+  ToolFacade,
+  ToolRegistry,
+} from "../../../../../ai-engine/facade";
 import { ContextRouterService } from "../context-router.service";
 import { TopicContextRetrievalService } from "../topic-context-retrieval.service";
 import { TeamMemberAgent } from "../../../agents";
@@ -177,7 +181,8 @@ describe("AiResponseService", () => {
       providers: [
         AiResponseService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: ToolFacade, useValue: mockAiFacade },
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: ContextRouterService, useValue: mockContextRouter },
         { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -600,7 +605,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -1094,7 +1100,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -1139,7 +1146,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -1370,7 +1378,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -1488,7 +1497,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           {
             provide: ContextRouterService,
@@ -1544,7 +1554,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: facadeWithoutFC },
+          { provide: ChatFacade, useValue: facadeWithoutFC },
+          { provide: ToolFacade, useValue: facadeWithoutFC },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -1618,7 +1629,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: facadeWithFC },
+          { provide: ChatFacade, useValue: facadeWithFC },
+          { provide: ToolFacade, useValue: facadeWithFC },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -1691,7 +1703,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: facadeWithFC },
+          { provide: ChatFacade, useValue: facadeWithFC },
+          { provide: ToolFacade, useValue: facadeWithFC },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },
@@ -2043,7 +2056,8 @@ describe("AiResponseService", () => {
         providers: [
           AiResponseService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           { provide: ToolRegistry, useValue: mockToolRegistry },
           { provide: ContextRouterService, useValue: mockContextRouter },
           { provide: TeamMemberAgent, useValue: mockTeamMemberAgent },

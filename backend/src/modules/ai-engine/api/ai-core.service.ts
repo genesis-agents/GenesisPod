@@ -1,6 +1,6 @@
 import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../facade/ai-engine.facade";
+import { ChatFacade } from "../facade";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
 import { AIModelType } from "@prisma/client";
 
@@ -15,7 +15,7 @@ export class AiCoreService {
 
   constructor(
     private readonly prisma: PrismaService, // 仅用于非模型相关的查询（如 Topic）
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiFacade: ChatFacade,
     private readonly modelConfigService: AiModelConfigService,
   ) {}
 

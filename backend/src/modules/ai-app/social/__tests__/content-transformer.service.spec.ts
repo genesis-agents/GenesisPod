@@ -4,17 +4,18 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentTransformerService } from "../services/content-transformer.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { SocialContentType } from "@prisma/client";
 
-jest.mock("../../../ai-engine/facade/ai-engine.facade");
+jest.mock("../../../ai-engine/facade");
 
 describe("ContentTransformerService", () => {
   let service: ContentTransformerService;
   let mockAiFacade: { chat: jest.Mock };
 
   const baseInput = {
-    sourceContent: "This is a long article about AI technology and its impact...",
+    sourceContent:
+      "This is a long article about AI technology and its impact...",
     sourceTitle: "AI Technology Impact",
     targetType: SocialContentType.WECHAT_ARTICLE,
   };
@@ -36,7 +37,7 @@ describe("ContentTransformerService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContentTransformerService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -94,7 +95,9 @@ describe("ContentTransformerService", () => {
       await service.transform(bilingualInput);
 
       const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const userMessage = chatCall.messages.find((m: { role: string }) => m.role === "user");
+      const userMessage = chatCall.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
       expect(userMessage.content).toContain("AI is transforming");
       expect(userMessage.content).toContain("AI正在全球");
     });
@@ -108,7 +111,9 @@ describe("ContentTransformerService", () => {
       await service.transform(inputWithOriginalOnly);
 
       const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const userMessage = chatCall.messages.find((m: { role: string }) => m.role === "user");
+      const userMessage = chatCall.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
       expect(userMessage.content).toContain("英文原文");
     });
 
@@ -119,7 +124,9 @@ describe("ContentTransformerService", () => {
       });
 
       const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const userMessage = chatCall.messages.find((m: { role: string }) => m.role === "user");
+      const userMessage = chatCall.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
       expect(userMessage.content).toContain("请保持专业语气");
     });
 
@@ -145,7 +152,9 @@ describe("ContentTransformerService", () => {
         isError: true,
       });
 
-      await expect(service.transform(baseInput)).rejects.toThrow("AI 内容转换失败");
+      await expect(service.transform(baseInput)).rejects.toThrow(
+        "AI 内容转换失败",
+      );
     });
 
     it("should throw when AI response content is too short", async () => {
@@ -154,7 +163,9 @@ describe("ContentTransformerService", () => {
         isError: false,
       });
 
-      await expect(service.transform(baseInput)).rejects.toThrow("AI 返回的内容无效或过短");
+      await expect(service.transform(baseInput)).rejects.toThrow(
+        "AI 返回的内容无效或过短",
+      );
     });
 
     it("should fallback to raw response when JSON parsing fails", async () => {
@@ -205,7 +216,9 @@ describe("ContentTransformerService", () => {
       });
 
       const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const systemMessage = chatCall.messages.find((m: { role: string }) => m.role === "system");
+      const systemMessage = chatCall.messages.find(
+        (m: { role: string }) => m.role === "system",
+      );
       expect(systemMessage.content).toContain("社交媒体");
     });
 
@@ -216,7 +229,9 @@ describe("ContentTransformerService", () => {
       });
 
       const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const systemMessage = chatCall.messages.find((m: { role: string }) => m.role === "system");
+      const systemMessage = chatCall.messages.find(
+        (m: { role: string }) => m.role === "system",
+      );
       // The bilingual format guide should be included
       expect(systemMessage.content.length).toBeGreaterThan(100);
     });

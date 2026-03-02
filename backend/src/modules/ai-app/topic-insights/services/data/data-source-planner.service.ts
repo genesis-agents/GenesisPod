@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, ToolFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   DataSourceType,
@@ -204,7 +204,10 @@ export class DataSourcePlannerService {
     },
   ];
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly chatFacade: ChatFacade,
+    private readonly toolFacade: ToolFacade,
+  ) {}
 
   /**
    * 为指定维度规划数据源
@@ -225,7 +228,7 @@ export class DataSourcePlannerService {
       const prompt = this.buildPlanningPrompt(input, availableSources);
 
       // 3. 调用 AI 进行规划
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -297,7 +300,7 @@ export class DataSourcePlannerService {
    */
   private async isToolEnabled(toolId: string): Promise<boolean> {
     try {
-      const availableTools = await this.aiFacade.capabilityResolveTools({});
+      const availableTools = await this.toolFacade.capabilityResolveTools({});
       return availableTools.includes(toolId);
     } catch (error) {
       this.logger.debug(

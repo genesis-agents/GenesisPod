@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 import type { DimensionAnalysisResult } from "../../types/research.types";
@@ -69,7 +69,7 @@ export class ResearchReviewerService {
   // 最低可接受分数
   private readonly MIN_ACCEPTABLE_SCORE = 60;
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 审核单个维度的研究质量
@@ -93,7 +93,7 @@ export class ResearchReviewerService {
     );
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -321,7 +321,7 @@ export class ResearchReviewerService {
       ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
 
       try {
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -423,7 +423,7 @@ export class ResearchReviewerService {
     ).replace("{originalEvidence}", evidenceText);
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

@@ -7,10 +7,10 @@ import { MissionQueryService } from "../mission-query.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchLeaderService } from "../research-leader.service";
 import { NotFoundException } from "@nestjs/common";
-import { ResearchMissionStatus, ResearchTaskStatus, AIModelType } from "@prisma/client";
+import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -32,9 +32,9 @@ function buildMocks() {
     },
     aIModel: {
       findFirst: jest.fn(),
-      findMany: jest.fn().mockResolvedValue([
-        { modelId: "gpt-4o", displayName: "GPT-4o" },
-      ]),
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ modelId: "gpt-4o", displayName: "GPT-4o" }]),
     },
   };
 
@@ -45,15 +45,30 @@ function buildMocks() {
   };
 
   const mockAiFacade = {
-    getDefaultModelByType: jest.fn().mockResolvedValue({ displayName: "GPT-4o", modelId: "gpt-4o" }),
-    getReasoningModel: jest.fn().mockResolvedValue({ id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false }),
+    getDefaultModelByType: jest
+      .fn()
+      .mockResolvedValue({ displayName: "GPT-4o", modelId: "gpt-4o" }),
+    getReasoningModel: jest
+      .fn()
+      .mockResolvedValue({
+        id: "gpt-4o",
+        name: "GPT-4o",
+        provider: "openai",
+        isReasoning: false,
+      }),
   };
 
   const mockLeaderService = {
     getReasoningModel: jest.fn().mockResolvedValue(null),
   };
 
-  return { mockPrisma, mockEventEmitter, mockResearchEventEmitter, mockAiFacade, mockLeaderService };
+  return {
+    mockPrisma,
+    mockEventEmitter,
+    mockResearchEventEmitter,
+    mockAiFacade,
+    mockLeaderService,
+  };
 }
 
 const mockTask = {
@@ -99,10 +114,18 @@ describe("MissionQueryService", () => {
   let service: MissionQueryService;
   let prisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let eventEmitter: ReturnType<typeof buildMocks>["mockEventEmitter"];
-  let researchEventEmitter: ReturnType<typeof buildMocks>["mockResearchEventEmitter"];
+  let researchEventEmitter: ReturnType<
+    typeof buildMocks
+  >["mockResearchEventEmitter"];
 
   beforeEach(async () => {
-    const { mockPrisma, mockEventEmitter, mockResearchEventEmitter, mockAiFacade, mockLeaderService } = buildMocks();
+    const {
+      mockPrisma,
+      mockEventEmitter,
+      mockResearchEventEmitter,
+      mockAiFacade,
+      mockLeaderService,
+    } = buildMocks();
     prisma = mockPrisma;
     eventEmitter = mockEventEmitter;
     researchEventEmitter = mockResearchEventEmitter;
@@ -112,8 +135,11 @@ describe("MissionQueryService", () => {
         MissionQueryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: ResearchEventEmitterService, useValue: mockResearchEventEmitter },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        {
+          provide: ResearchEventEmitterService,
+          useValue: mockResearchEventEmitter,
+        },
+        { provide: ChatFacade, useValue: mockAiFacade },
         { provide: ResearchLeaderService, useValue: mockLeaderService },
       ],
     }).compile();
@@ -140,7 +166,9 @@ describe("MissionQueryService", () => {
     it("should throw NotFoundException when mission not found", async () => {
       prisma.researchMission.findUnique.mockResolvedValue(null);
 
-      await expect(service.getMissionStatus("nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.getMissionStatus("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should return correct phase from status", async () => {
@@ -179,7 +207,9 @@ describe("MissionQueryService", () => {
     it("should throw NotFoundException when task not found", async () => {
       prisma.researchTask.findUnique.mockResolvedValue(null);
 
-      await expect(service.getTaskActivities("nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.getTaskActivities("nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should return task and activities for dimension task", async () => {
@@ -193,7 +223,11 @@ describe("MissionQueryService", () => {
     });
 
     it("should use leader role filter for leader_planning tasks", async () => {
-      const leaderTask = { ...mockTask, taskType: "leader_planning", dimensionId: null };
+      const leaderTask = {
+        ...mockTask,
+        taskType: "leader_planning",
+        dimensionId: null,
+      };
       prisma.researchTask.findUnique.mockResolvedValue(leaderTask);
       prisma.researchAgentActivity.findMany.mockResolvedValue([]);
 
@@ -212,17 +246,30 @@ describe("MissionQueryService", () => {
   describe("updateTaskStatus", () => {
     it("should use conditional update for terminal COMPLETED status", async () => {
       prisma.researchTask.updateMany.mockResolvedValue({ count: 1 });
-      prisma.researchTask.findUnique.mockResolvedValue({ ...mockTask, status: ResearchTaskStatus.COMPLETED, missionId: "mission-1" });
-      prisma.researchTask.findMany.mockResolvedValue([{ ...mockTask, status: ResearchTaskStatus.COMPLETED }]);
+      prisma.researchTask.findUnique.mockResolvedValue({
+        ...mockTask,
+        status: ResearchTaskStatus.COMPLETED,
+        missionId: "mission-1",
+      });
+      prisma.researchTask.findMany.mockResolvedValue([
+        { ...mockTask, status: ResearchTaskStatus.COMPLETED },
+      ]);
       prisma.researchMission.update.mockResolvedValue({});
 
-      const result = await service.updateTaskStatus("task-1", ResearchTaskStatus.COMPLETED);
+      const result = await service.updateTaskStatus(
+        "task-1",
+        ResearchTaskStatus.COMPLETED,
+      );
       expect(result.status).toBe(ResearchTaskStatus.COMPLETED);
       expect(prisma.researchTask.updateMany).toHaveBeenCalled();
     });
 
     it("should use regular update for non-terminal status", async () => {
-      prisma.researchTask.update.mockResolvedValue({ ...mockTask, status: ResearchTaskStatus.EXECUTING, missionId: "mission-1" });
+      prisma.researchTask.update.mockResolvedValue({
+        ...mockTask,
+        status: ResearchTaskStatus.EXECUTING,
+        missionId: "mission-1",
+      });
       prisma.researchTask.findMany.mockResolvedValue([]);
       prisma.researchMission.update.mockResolvedValue({});
 
@@ -244,7 +291,11 @@ describe("MissionQueryService", () => {
 
   describe("getExecutableTasks", () => {
     it("should return pending tasks with no dependencies", async () => {
-      const pendingTask = { ...mockTask, status: ResearchTaskStatus.PENDING, dependencies: [] };
+      const pendingTask = {
+        ...mockTask,
+        status: ResearchTaskStatus.PENDING,
+        dependencies: [],
+      };
       prisma.researchTask.findMany.mockResolvedValue([pendingTask]);
 
       const result = await service.getExecutableTasks("mission-1");
@@ -253,23 +304,45 @@ describe("MissionQueryService", () => {
     });
 
     it("should exclude tasks with incomplete dependencies", async () => {
-      const completedTask = { ...mockTask, id: "task-0", status: ResearchTaskStatus.COMPLETED };
+      const completedTask = {
+        ...mockTask,
+        id: "task-0",
+        status: ResearchTaskStatus.COMPLETED,
+      };
       const pendingTaskWithDep = {
         ...mockTask,
         id: "task-dep",
         status: ResearchTaskStatus.PENDING,
         dependencies: ["task-missing"],
       };
-      prisma.researchTask.findMany.mockResolvedValue([completedTask, pendingTaskWithDep]);
+      prisma.researchTask.findMany.mockResolvedValue([
+        completedTask,
+        pendingTaskWithDep,
+      ]);
 
       const result = await service.getExecutableTasks("mission-1");
       expect(result).toHaveLength(0);
     });
 
     it("should sort tasks by priority", async () => {
-      const highPriority = { ...mockTask, id: "task-high", priority: 1, status: ResearchTaskStatus.PENDING, dependencies: [] };
-      const lowPriority = { ...mockTask, id: "task-low", priority: 10, status: ResearchTaskStatus.PENDING, dependencies: [] };
-      prisma.researchTask.findMany.mockResolvedValue([lowPriority, highPriority]);
+      const highPriority = {
+        ...mockTask,
+        id: "task-high",
+        priority: 1,
+        status: ResearchTaskStatus.PENDING,
+        dependencies: [],
+      };
+      const lowPriority = {
+        ...mockTask,
+        id: "task-low",
+        priority: 10,
+        status: ResearchTaskStatus.PENDING,
+        dependencies: [],
+      };
+      prisma.researchTask.findMany.mockResolvedValue([
+        lowPriority,
+        highPriority,
+      ]);
 
       const result = await service.getExecutableTasks("mission-1");
       expect(result[0].id).toBe("task-high");
@@ -313,10 +386,18 @@ describe("MissionQueryService", () => {
 
   describe("getPhaseFromStatus", () => {
     it("should return correct phases for each status", () => {
-      expect(service.getPhaseFromStatus(ResearchMissionStatus.PLANNING)).toBe("planning");
-      expect(service.getPhaseFromStatus(ResearchMissionStatus.EXECUTING)).toBe("researching");
-      expect(service.getPhaseFromStatus(ResearchMissionStatus.COMPLETED)).toBe("completed");
-      expect(service.getPhaseFromStatus(ResearchMissionStatus.FAILED)).toBe("failed");
+      expect(service.getPhaseFromStatus(ResearchMissionStatus.PLANNING)).toBe(
+        "planning",
+      );
+      expect(service.getPhaseFromStatus(ResearchMissionStatus.EXECUTING)).toBe(
+        "researching",
+      );
+      expect(service.getPhaseFromStatus(ResearchMissionStatus.COMPLETED)).toBe(
+        "completed",
+      );
+      expect(service.getPhaseFromStatus(ResearchMissionStatus.FAILED)).toBe(
+        "failed",
+      );
     });
   });
 });

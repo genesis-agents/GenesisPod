@@ -18,7 +18,7 @@
 
 import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import type { AIEngineFacade } from "../../facade/ai-engine.facade";
+import type { ChatFacade } from "../../facade/domain/chat.facade";
 
 // ==================== 类型定义 ====================
 
@@ -126,8 +126,10 @@ export class ReflectionService {
   private readonly logger = new Logger(ReflectionService.name);
 
   constructor(
-    @Inject(forwardRef(() => require("../../facade/ai-engine.facade").AIEngineFacade))
-    private readonly aiFacade: AIEngineFacade,
+    @Inject(
+      forwardRef(() => require("../../facade/domain/chat.facade").ChatFacade),
+    )
+    private readonly aiFacade: ChatFacade,
   ) {}
 
   /**

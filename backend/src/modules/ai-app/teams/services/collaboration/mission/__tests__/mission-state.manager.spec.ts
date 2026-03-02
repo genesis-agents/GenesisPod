@@ -4,8 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionStateManager } from "../mission-state.manager";
-import { AIEngineFacade } from "../../../../../../ai-engine/facade";
-import { StateCategory } from "../../../../../../ai-engine/facade";
+import { AgentFacade, StateCategory } from "../../../../../../ai-engine/facade";
 
 const mockStats = {
   activeCounts: {
@@ -42,7 +41,7 @@ const mockExecStateManager = {
 
 describe("MissionStateManager", () => {
   let service: MissionStateManager;
-  let aiFacade: { execStateManager: typeof mockExecStateManager | null };
+  let aiFacade: { execStateManager: typeof mockExecStateManager | null }; // shape matches AgentFacade.execStateManager
 
   beforeEach(async () => {
     aiFacade = {
@@ -52,7 +51,7 @@ describe("MissionStateManager", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MissionStateManager,
-        { provide: AIEngineFacade, useValue: aiFacade },
+        { provide: AgentFacade, useValue: aiFacade },
       ],
     }).compile();
 

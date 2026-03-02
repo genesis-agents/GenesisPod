@@ -10,7 +10,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/facade";
 
 @Injectable()
@@ -19,7 +19,7 @@ export class ImageGenerationService {
 
   constructor(
     private readonly httpService: HttpService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly secretsService: SecretsService,
   ) {}
 
@@ -53,7 +53,7 @@ export class ImageGenerationService {
    * ★ 完全通过 AIEngineFacade 获取，不再直接访问数据库
    */
   async getDefaultTextModel() {
-    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    const defaultModel = await this.chatFacade.getDefaultTextModel();
 
     if (defaultModel) {
       this.logger.log(
@@ -74,7 +74,7 @@ export class ImageGenerationService {
    */
   async getDefaultImageModel() {
     // First try to find IMAGE_GENERATION model via AIEngineFacade
-    const imageModel = await this.aiFacade.getDefaultImageModel();
+    const imageModel = await this.chatFacade.getDefaultImageModel();
 
     if (imageModel) {
       this.logger.log(
@@ -85,7 +85,7 @@ export class ImageGenerationService {
     }
 
     // Fallback: Try to get any IMAGE_GENERATION model from available models
-    const availableModels = await this.aiFacade.getAvailableModelsExtended(
+    const availableModels = await this.chatFacade.getAvailableModelsExtended(
       AIModelType.IMAGE_GENERATION,
     );
 
@@ -104,7 +104,7 @@ export class ImageGenerationService {
     }
 
     // Fallback to MULTIMODAL model
-    const multimodalModels = await this.aiFacade.getAvailableModelsExtended(
+    const multimodalModels = await this.chatFacade.getAvailableModelsExtended(
       AIModelType.MULTIMODAL,
     );
 
@@ -140,7 +140,7 @@ export class ImageGenerationService {
     apiEndpoint?: string;
   }) {
     // Get full config via AIEngineFacade (includes secretKey and all fields)
-    const fullConfig = await this.aiFacade.getFullModelConfig(
+    const fullConfig = await this.chatFacade.getFullModelConfig(
       facadeModel.modelId,
     );
 
@@ -188,7 +188,7 @@ export class ImageGenerationService {
    * ★ apiKey 通过 getApiKeyForModel 解析
    */
   async getModelById(id: string) {
-    const facadeModel = await this.aiFacade.getModelById(id);
+    const facadeModel = await this.chatFacade.getModelById(id);
     if (!facadeModel) {
       this.logger.warn(`[getModelById] Model not found: ${id}`);
       return null;

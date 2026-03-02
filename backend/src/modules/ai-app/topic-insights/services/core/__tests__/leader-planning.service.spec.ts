@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderPlanningService } from "../leader-planning.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchMemoryService } from "../research-memory.service";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -18,9 +18,17 @@ function buildMocks() {
   };
 
   const mockAiFacade = {
-    getAvailableModelsExtended: jest.fn().mockResolvedValue([
-      { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false, isAvailable: true },
-    ]),
+    getAvailableModelsExtended: jest
+      .fn()
+      .mockResolvedValue([
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+          isAvailable: true,
+        },
+      ]),
     getReasoningModel: jest.fn().mockResolvedValue({
       id: "gpt-4o",
       name: "GPT-4o",
@@ -104,7 +112,7 @@ describe("LeaderPlanningService", () => {
       providers: [
         LeaderPlanningService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
-        { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+        { provide: ChatFacade, useValue: mocks.mockAiFacade },
         { provide: ResearchMemoryService, useValue: mocks.mockResearchMemory },
       ],
     }).compile();
@@ -137,14 +145,18 @@ describe("LeaderPlanningService", () => {
     it("should throw error when topic not found", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.planResearch("nonexistent")).rejects.toThrow("Topic nonexistent not found");
+      await expect(service.planResearch("nonexistent")).rejects.toThrow(
+        "Topic nonexistent not found",
+      );
     });
 
     it("should throw error when no reasoning model available", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       aiFacade.getReasoningModel.mockResolvedValue(null);
 
-      await expect(service.planResearch("topic-1")).rejects.toThrow("No reasoning model available");
+      await expect(service.planResearch("topic-1")).rejects.toThrow(
+        "No reasoning model available",
+      );
     });
 
     it("should return leader plan on successful AI response", async () => {
@@ -154,7 +166,10 @@ describe("LeaderPlanningService", () => {
         isError: false,
       });
 
-      const result = await service.planResearch("topic-1", "Research AI trends");
+      const result = await service.planResearch(
+        "topic-1",
+        "Research AI trends",
+      );
       expect(result.dimensions).toHaveLength(1);
       expect(result.dimensions[0].name).toBe("Market Analysis");
     });
@@ -163,14 +178,18 @@ describe("LeaderPlanningService", () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       aiFacade.chat.mockResolvedValue({ content: "", isError: false });
 
-      await expect(service.planResearch("topic-1")).rejects.toThrow("AI 返回空响应");
+      await expect(service.planResearch("topic-1")).rejects.toThrow(
+        "AI 返回空响应",
+      );
     });
 
     it("should throw error when AI call fails", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       aiFacade.chat.mockRejectedValue(new Error("API timeout"));
 
-      await expect(service.planResearch("topic-1")).rejects.toThrow("AI 调用失败");
+      await expect(service.planResearch("topic-1")).rejects.toThrow(
+        "AI 调用失败",
+      );
     });
 
     it("should auto-assign default skills to researchers without skills", async () => {
@@ -186,8 +205,20 @@ describe("LeaderPlanningService", () => {
             skills: [],
             tools: [],
           },
-          { agentId: "reviewer-1", agentType: "quality_reviewer", modelId: "gpt-4o", skills: [], tools: [] },
-          { agentId: "writer-1", agentType: "report_writer", modelId: "gpt-4o", skills: [], tools: [] },
+          {
+            agentId: "reviewer-1",
+            agentType: "quality_reviewer",
+            modelId: "gpt-4o",
+            skills: [],
+            tools: [],
+          },
+          {
+            agentId: "writer-1",
+            agentType: "report_writer",
+            modelId: "gpt-4o",
+            skills: [],
+            tools: [],
+          },
         ],
       };
 
@@ -198,7 +229,9 @@ describe("LeaderPlanningService", () => {
       });
 
       const result = await service.planResearch("topic-1");
-      const researcher = result.agentAssignments.find((a) => a.agentType === "dimension_researcher");
+      const researcher = result.agentAssignments.find(
+        (a) => a.agentType === "dimension_researcher",
+      );
       expect(researcher?.skills).toContain("deep_dive");
       expect(researcher?.tools).toContain("web-search");
     });
@@ -207,14 +240,27 @@ describe("LeaderPlanningService", () => {
   // ─── planGlobalOutline ──────────────────────────────────────────────────────
 
   describe("planGlobalOutline", () => {
-    const mockTopic = { name: "AI Research", type: "TECHNOLOGY", description: "AI study", language: "zh" };
+    const mockTopic = {
+      name: "AI Research",
+      type: "TECHNOLOGY",
+      description: "AI study",
+      language: "zh",
+    };
 
     it("should throw when all retries fail", async () => {
-      aiFacade.chat.mockResolvedValue({ content: "invalid json", isError: false });
+      aiFacade.chat.mockResolvedValue({
+        content: "invalid json",
+        isError: false,
+      });
 
       await expect(
         service.planGlobalOutline(mockTopic, [
-          { dimensionId: "dim-1", dimensionName: "Market", evidenceSummary: "Evidence...", figuresSummary: "" },
+          {
+            dimensionId: "dim-1",
+            dimensionName: "Market",
+            evidenceSummary: "Evidence...",
+            figuresSummary: "",
+          },
         ]),
       ).rejects.toThrow(/Failed to parse global outline/);
     }, 20000);
@@ -244,16 +290,27 @@ describe("LeaderPlanningService", () => {
                   evidenceRequirements: { minReferences: 3 },
                 },
               ],
-              executionPlan: { parallelGroups: [["s-1"]], estimatedTotalWords: 1000 },
+              executionPlan: {
+                parallelGroups: [["s-1"]],
+                estimatedTotalWords: 1000,
+              },
             },
           },
         ],
       };
 
-      aiFacade.chat.mockResolvedValue({ content: JSON.stringify(mockOutline), isError: false });
+      aiFacade.chat.mockResolvedValue({
+        content: JSON.stringify(mockOutline),
+        isError: false,
+      });
 
       const result = await service.planGlobalOutline(mockTopic, [
-        { dimensionId: "dim-1", dimensionName: "Market", evidenceSummary: "Evidence...", figuresSummary: "" },
+        {
+          dimensionId: "dim-1",
+          dimensionName: "Market",
+          evidenceSummary: "Evidence...",
+          figuresSummary: "",
+        },
       ]);
 
       expect(result.dimensions).toHaveLength(1);
@@ -264,14 +321,30 @@ describe("LeaderPlanningService", () => {
   // ─── planDimensionOutline ───────────────────────────────────────────────────
 
   describe("planDimensionOutline", () => {
-    const mockTopic = { name: "AI Research", type: "TECHNOLOGY", description: "AI study", language: "zh" };
-    const mockDimension = { name: "Market Analysis", description: "Market research", searchQueries: [] };
+    const mockTopic = {
+      name: "AI Research",
+      type: "TECHNOLOGY",
+      description: "AI study",
+      language: "zh",
+    };
+    const mockDimension = {
+      name: "Market Analysis",
+      description: "Market research",
+      searchQueries: [],
+    };
 
     it("should throw when all retries fail", async () => {
-      aiFacade.chat.mockResolvedValue({ content: "no json here", isError: false });
+      aiFacade.chat.mockResolvedValue({
+        content: "no json here",
+        isError: false,
+      });
 
       await expect(
-        service.planDimensionOutline(mockTopic, mockDimension, "evidence summary"),
+        service.planDimensionOutline(
+          mockTopic,
+          mockDimension,
+          "evidence summary",
+        ),
       ).rejects.toThrow(/Failed to parse dimension outline/);
     }, 20000);
 
@@ -297,9 +370,16 @@ describe("LeaderPlanningService", () => {
         executionPlan: { parallelGroups: [["s-1"]], estimatedTotalWords: 800 },
       };
 
-      aiFacade.chat.mockResolvedValue({ content: JSON.stringify(mockOutline), isError: false });
+      aiFacade.chat.mockResolvedValue({
+        content: JSON.stringify(mockOutline),
+        isError: false,
+      });
 
-      const result = await service.planDimensionOutline(mockTopic, mockDimension, "Market is large");
+      const result = await service.planDimensionOutline(
+        mockTopic,
+        mockDimension,
+        "Market is large",
+      );
       expect(result.sections).toHaveLength(1);
     });
   });

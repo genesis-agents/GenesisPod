@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { InteractiveResearchService } from "../interactive-research.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import {
   InteractionType,
   ResearchState,
@@ -42,11 +42,13 @@ describe("InteractiveResearchService", () => {
       providers: [
         InteractiveResearchService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
-    service = module.get<InteractiveResearchService>(InteractiveResearchService);
+    service = module.get<InteractiveResearchService>(
+      InteractiveResearchService,
+    );
     jest.clearAllMocks();
   });
 
@@ -369,7 +371,9 @@ describe("InteractiveResearchService", () => {
 
       service.cleanup("mission-cleanup");
 
-      expect(service.getState("mission-cleanup")).toBe(ResearchState.RESEARCHING); // default
+      expect(service.getState("mission-cleanup")).toBe(
+        ResearchState.RESEARCHING,
+      ); // default
       expect(service.getCheckpoint("mission-cleanup")).toBeUndefined();
       expect(service.isPaused("mission-cleanup")).toBe(false);
     });

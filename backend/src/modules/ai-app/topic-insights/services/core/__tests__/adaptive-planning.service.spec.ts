@@ -3,10 +3,14 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { AdaptivePlanningService, TaskEvaluation, PlanAdjustments } from "../adaptive-planning.service";
+import {
+  AdaptivePlanningService,
+  TaskEvaluation,
+  PlanAdjustments,
+} from "../adaptive-planning.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { ResearchEventEmitterService, ResearchEventType } from "../research-event-emitter.service";
+import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ResearchEventEmitterService } from "../research-event-emitter.service";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -83,8 +87,11 @@ describe("AdaptivePlanningService", () => {
       providers: [
         AdaptivePlanningService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
-        { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
-        { provide: ResearchEventEmitterService, useValue: mocks.mockEventEmitter },
+        { provide: ChatFacade, useValue: mocks.mockAiFacade },
+        {
+          provide: ResearchEventEmitterService,
+          useValue: mocks.mockEventEmitter,
+        },
       ],
     }).compile();
 
@@ -117,7 +124,9 @@ describe("AdaptivePlanningService", () => {
       const evaluation: TaskEvaluation = {
         ...mockEvaluation,
         qualityScore: 75,
-        contradictions: [{ description: "Conflicting stats", conflictingPoints: ["A", "B"] }],
+        contradictions: [
+          { description: "Conflicting stats", conflictingPoints: ["A", "B"] },
+        ],
       };
       expect(service.shouldAdaptPlan(evaluation)).toBe(true);
     });
@@ -170,7 +179,11 @@ describe("AdaptivePlanningService", () => {
         }),
       });
 
-      const result = await service.evaluateTaskCompletion("mission-1", "task-1", "topic-1");
+      const result = await service.evaluateTaskCompletion(
+        "mission-1",
+        "task-1",
+        "topic-1",
+      );
       expect(result.qualityScore).toBe(90);
       expect(result.dimensionName).toBe("Market Analysis");
     });
@@ -179,7 +192,11 @@ describe("AdaptivePlanningService", () => {
       prisma.researchTask.findUnique.mockResolvedValue(mockTask);
       aiFacade.chat.mockRejectedValue(new Error("AI service error"));
 
-      const result = await service.evaluateTaskCompletion("mission-1", "task-1", "topic-1");
+      const result = await service.evaluateTaskCompletion(
+        "mission-1",
+        "task-1",
+        "topic-1",
+      );
       // Default evaluation has qualityScore of 70
       expect(result.qualityScore).toBe(70);
     });
@@ -188,7 +205,11 @@ describe("AdaptivePlanningService", () => {
       prisma.researchTask.findUnique.mockResolvedValue(mockTask);
       aiFacade.chat.mockResolvedValue({ content: "not valid json" });
 
-      const result = await service.evaluateTaskCompletion("mission-1", "task-1", "topic-1");
+      const result = await service.evaluateTaskCompletion(
+        "mission-1",
+        "task-1",
+        "topic-1",
+      );
       expect(result.qualityScore).toBe(70);
     });
   });
@@ -204,7 +225,11 @@ describe("AdaptivePlanningService", () => {
       });
       aiFacade.chat.mockRejectedValue(new Error("API error"));
 
-      const result = await service.generatePlanAdjustments("mission-1", "topic-1", mockEvaluation);
+      const result = await service.generatePlanAdjustments(
+        "mission-1",
+        "topic-1",
+        mockEvaluation,
+      );
       expect(result.addTasks).toEqual([]);
       expect(result.removeTasks).toEqual([]);
       expect(result.reorderTasks).toEqual([]);
@@ -214,13 +239,24 @@ describe("AdaptivePlanningService", () => {
       prisma.researchMission.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.generatePlanAdjustments("nonexistent", "topic-1", mockEvaluation),
+        service.generatePlanAdjustments(
+          "nonexistent",
+          "topic-1",
+          mockEvaluation,
+        ),
       ).rejects.toThrow("Mission nonexistent not found");
     });
 
     it("should return parsed adjustments on success", async () => {
       const mockAdjustments: PlanAdjustments = {
-        addTasks: [{ title: "Extra research", description: "Fill the gap", priority: 2, reasoning: "Gap found" }],
+        addTasks: [
+          {
+            title: "Extra research",
+            description: "Fill the gap",
+            priority: 2,
+            reasoning: "Gap found",
+          },
+        ],
         removeTasks: [],
         reorderTasks: [],
         adjustmentRationale: "Adding supplementary research",
@@ -231,9 +267,15 @@ describe("AdaptivePlanningService", () => {
         leaderPlan: null,
         tasks: [],
       });
-      aiFacade.chat.mockResolvedValue({ content: JSON.stringify(mockAdjustments) });
+      aiFacade.chat.mockResolvedValue({
+        content: JSON.stringify(mockAdjustments),
+      });
 
-      const result = await service.generatePlanAdjustments("mission-1", "topic-1", mockEvaluation);
+      const result = await service.generatePlanAdjustments(
+        "mission-1",
+        "topic-1",
+        mockEvaluation,
+      );
       expect(result.addTasks).toHaveLength(1);
     });
   });
@@ -266,7 +308,14 @@ describe("AdaptivePlanningService", () => {
       prisma.researchMission.update.mockResolvedValue({});
 
       const adjustments: PlanAdjustments = {
-        addTasks: [{ title: "New Task", description: "Additional research", priority: 3, reasoning: "Gap found" }],
+        addTasks: [
+          {
+            title: "New Task",
+            description: "Additional research",
+            priority: 3,
+            reasoning: "Gap found",
+          },
+        ],
         removeTasks: [],
         reorderTasks: [],
         adjustmentRationale: "Gap found",
@@ -323,7 +372,10 @@ describe("AdaptivePlanningService", () => {
 
       // Should not throw
       await expect(
-        service.handleTaskCompleted({ taskId: "task-1", taskType: "dimension_research" }),
+        service.handleTaskCompleted({
+          taskId: "task-1",
+          taskType: "dimension_research",
+        }),
       ).resolves.toBeUndefined();
     });
   });

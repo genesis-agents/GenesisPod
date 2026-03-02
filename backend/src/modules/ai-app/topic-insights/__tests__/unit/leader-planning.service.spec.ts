@@ -8,7 +8,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderPlanningService } from "../../services/core/leader-planning.service";
 import { ResearchMemoryService } from "../../services/core/research-memory.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 import {
@@ -33,7 +33,7 @@ describe("LeaderPlanningService", () => {
       providers: [
         LeaderPlanningService,
         { provide: PrismaService, useValue: prisma },
-        { provide: AIEngineFacade, useValue: aiFacade },
+        { provide: ChatFacade, useValue: aiFacade },
         { provide: ResearchMemoryService, useValue: mockResearchMemoryService },
       ],
     }).compile();

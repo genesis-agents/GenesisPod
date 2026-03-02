@@ -5,7 +5,8 @@ import {
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
-  AIEngineFacade,
+  ChatFacade,
+  RAGFacade,
 } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 
@@ -45,7 +46,8 @@ describe("DataSourceFetcherService", () => {
         { provide: FederalRegisterTool, useValue: mockFederalRegisterTool },
         { provide: CongressGovTool, useValue: mockCongressGovTool },
         { provide: WhiteHouseNewsTool, useValue: mockWhiteHouseNewsTool },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: RAGFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -72,7 +74,11 @@ describe("DataSourceFetcherService", () => {
     it("should return empty array when web-search tool is not registered", async () => {
       mockToolRegistry.tryGet.mockReturnValue(null);
 
-      const results = await service.executeSearch(DataSourceType.WEB, "AI trends", 5);
+      const results = await service.executeSearch(
+        DataSourceType.WEB,
+        "AI trends",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -99,7 +105,11 @@ describe("DataSourceFetcherService", () => {
       };
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
-      const results = await service.executeSearch(DataSourceType.WEB, "AI trends", 5);
+      const results = await service.executeSearch(
+        DataSourceType.WEB,
+        "AI trends",
+        5,
+      );
 
       expect(results).toHaveLength(1);
       expect(results[0].sourceType).toBe(DataSourceType.WEB);
@@ -109,11 +119,17 @@ describe("DataSourceFetcherService", () => {
 
     it("should return empty array when tool returns unsuccessful result", async () => {
       const mockTool = {
-        execute: jest.fn().mockResolvedValue({ success: false, error: { message: "failed" } }),
+        execute: jest
+          .fn()
+          .mockResolvedValue({ success: false, error: { message: "failed" } }),
       };
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
-      const results = await service.executeSearch(DataSourceType.WEB, "test", 5);
+      const results = await service.executeSearch(
+        DataSourceType.WEB,
+        "test",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -124,7 +140,11 @@ describe("DataSourceFetcherService", () => {
       };
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
-      const results = await service.executeSearch(DataSourceType.WEB, "test", 5);
+      const results = await service.executeSearch(
+        DataSourceType.WEB,
+        "test",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -138,7 +158,11 @@ describe("DataSourceFetcherService", () => {
     it("should return empty array when arxiv-search tool not registered", async () => {
       mockToolRegistry.tryGet.mockReturnValue(null);
 
-      const results = await service.executeSearch(DataSourceType.ACADEMIC, "machine learning", 5);
+      const results = await service.executeSearch(
+        DataSourceType.ACADEMIC,
+        "machine learning",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -169,7 +193,11 @@ describe("DataSourceFetcherService", () => {
       };
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
-      const results = await service.executeSearch(DataSourceType.ACADEMIC, "machine learning", 5);
+      const results = await service.executeSearch(
+        DataSourceType.ACADEMIC,
+        "machine learning",
+        5,
+      );
 
       expect(results).toHaveLength(1);
       expect(results[0].sourceType).toBe(DataSourceType.ACADEMIC);
@@ -212,7 +240,11 @@ describe("DataSourceFetcherService", () => {
       };
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
-      const results = await service.executeSearch(DataSourceType.GITHUB, "react", 5);
+      const results = await service.executeSearch(
+        DataSourceType.GITHUB,
+        "react",
+        5,
+      );
 
       expect(results[0].sourceType).toBe(DataSourceType.GITHUB);
       expect(results[0].domain).toBe("github.com");
@@ -250,7 +282,11 @@ describe("DataSourceFetcherService", () => {
       };
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
-      const results = await service.executeSearch(DataSourceType.HACKERNEWS, "AI tools", 5);
+      const results = await service.executeSearch(
+        DataSourceType.HACKERNEWS,
+        "AI tools",
+        5,
+      );
 
       expect(results[0].sourceType).toBe(DataSourceType.HACKERNEWS);
       expect(results[0].metadata?.points).toBe(500);
@@ -263,7 +299,11 @@ describe("DataSourceFetcherService", () => {
 
   describe("executeSearch - RSS", () => {
     it("should return empty array for RSS (not implemented)", async () => {
-      const results = await service.executeSearch(DataSourceType.RSS, "test", 5);
+      const results = await service.executeSearch(
+        DataSourceType.RSS,
+        "test",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -275,9 +315,17 @@ describe("DataSourceFetcherService", () => {
 
   describe("executeSearch - LOCAL", () => {
     it("should return empty array when no knowledge bases configured", async () => {
-      service.setCurrentTopic({ id: "t1", name: "Topic", topicConfig: {} } as any);
+      service.setCurrentTopic({
+        id: "t1",
+        name: "Topic",
+        topicConfig: {},
+      } as any);
 
-      const results = await service.executeSearch(DataSourceType.LOCAL, "test", 5);
+      const results = await service.executeSearch(
+        DataSourceType.LOCAL,
+        "test",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -289,7 +337,9 @@ describe("DataSourceFetcherService", () => {
         topicConfig: { knowledgeBaseIds: ["kb1"] },
       } as any);
 
-      mockAiFacade.embeddingGenerate.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] });
+      mockAiFacade.embeddingGenerate.mockResolvedValue({
+        embedding: [0.1, 0.2, 0.3],
+      });
       mockAiFacade.vectorSimilaritySearch.mockResolvedValue([
         {
           content: "Some knowledge base content",
@@ -301,7 +351,11 @@ describe("DataSourceFetcherService", () => {
         },
       ]);
 
-      const results = await service.executeSearch(DataSourceType.LOCAL, "test", 5);
+      const results = await service.executeSearch(
+        DataSourceType.LOCAL,
+        "test",
+        5,
+      );
 
       expect(results).toHaveLength(1);
       expect(results[0].sourceType).toBe(DataSourceType.LOCAL);
@@ -317,7 +371,11 @@ describe("DataSourceFetcherService", () => {
 
       mockAiFacade.embeddingGenerate.mockResolvedValue(null);
 
-      const results = await service.executeSearch(DataSourceType.LOCAL, "test", 5);
+      const results = await service.executeSearch(
+        DataSourceType.LOCAL,
+        "test",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -346,7 +404,11 @@ describe("DataSourceFetcherService", () => {
         },
       });
 
-      const results = await service.executeSearch(DataSourceType.FEDERAL_REGISTER, "AI regulation", 5);
+      const results = await service.executeSearch(
+        DataSourceType.FEDERAL_REGISTER,
+        "AI regulation",
+        5,
+      );
 
       expect(results[0].sourceType).toBe(DataSourceType.FEDERAL_REGISTER);
       expect(results[0].domain).toBe("federalregister.gov");
@@ -358,7 +420,11 @@ describe("DataSourceFetcherService", () => {
         error: { message: "API error" },
       });
 
-      const results = await service.executeSearch(DataSourceType.FEDERAL_REGISTER, "test", 5);
+      const results = await service.executeSearch(
+        DataSourceType.FEDERAL_REGISTER,
+        "test",
+        5,
+      );
 
       expect(results).toEqual([]);
     });
@@ -390,7 +456,11 @@ describe("DataSourceFetcherService", () => {
         },
       });
 
-      const results = await service.executeSearch(DataSourceType.CONGRESS, "AI", 5);
+      const results = await service.executeSearch(
+        DataSourceType.CONGRESS,
+        "AI",
+        5,
+      );
 
       expect(results[0].sourceType).toBe(DataSourceType.CONGRESS);
       expect(results[0].domain).toBe("congress.gov");
@@ -418,7 +488,11 @@ describe("DataSourceFetcherService", () => {
         },
       });
 
-      const results = await service.executeSearch(DataSourceType.WHITEHOUSE, "executive order", 5);
+      const results = await service.executeSearch(
+        DataSourceType.WHITEHOUSE,
+        "executive order",
+        5,
+      );
 
       expect(results[0].sourceType).toBe(DataSourceType.WHITEHOUSE);
       expect(results[0].domain).toBe("whitehouse.gov");
@@ -459,7 +533,11 @@ describe("DataSourceFetcherService", () => {
     });
 
     it("should return empty for unknown source type", async () => {
-      const results = await service.executeSearch("unknown" as DataSourceType, "test", 5);
+      const results = await service.executeSearch(
+        "unknown" as DataSourceType,
+        "test",
+        5,
+      );
 
       expect(results).toEqual([]);
     });

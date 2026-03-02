@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SlidesTeamMember } from "../slides-team-member";
-import { SkillRegistry, AIEngineFacade } from "@/modules/ai-engine/facade";
+import { SkillRegistry, TeamFacade } from "@/modules/ai-engine/facade";
 import type { SlidesTask, SkillExecutionContext } from "../types";
 
 // ==================== Mocks ====================
@@ -76,7 +76,7 @@ describe("SlidesTeamMember", () => {
       providers: [
         SlidesTeamMember,
         { provide: SkillRegistry, useValue: mockSkillRegistry },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: TeamFacade, useValue: mockAiFacade },
       ],
     }).compile();
 

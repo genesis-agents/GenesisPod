@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingContextService } from "../writing-context.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-engine/facade";
 import { StyleTemplateService } from "../../style/style-template.service";
 import { ProfessionalVoiceService } from "../../quality/professional-voice.service";
 import { SensoryImmersionService } from "../../quality/sensory-immersion.service";
@@ -75,7 +75,7 @@ describe("WritingContextService", () => {
       providers: [
         WritingContextService,
         { provide: PrismaService, useValue: mocks.prisma },
-        { provide: AIEngineFacade, useValue: mocks.facade },
+        { provide: ToolFacade, useValue: mocks.facade },
         { provide: StyleTemplateService, useValue: mocks.styleTemplate },
         {
           provide: ProfessionalVoiceService,

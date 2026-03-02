@@ -10,7 +10,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 /**
@@ -43,7 +43,7 @@ export class WritingModelManager {
   private modelCacheTime: number = 0;
   private readonly MODEL_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 获取可用的 AI 模型列表
@@ -59,7 +59,7 @@ export class WritingModelManager {
 
     try {
       // 使用 AIEngineFacade 获取模型列表
-      const models = await this.aiFacade.getAvailableModelsExtended(
+      const models = await this.chatFacade.getAvailableModelsExtended(
         AIModelType.CHAT,
       );
 

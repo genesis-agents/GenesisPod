@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchProjectOutputService } from "../research-project-output.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { GenerateOutputDto } from "../dto";
 
 const mockPrisma = {
@@ -59,7 +59,7 @@ describe("ResearchProjectOutputService", () => {
       providers: [
         ResearchProjectOutputService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 

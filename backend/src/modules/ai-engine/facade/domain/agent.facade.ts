@@ -47,6 +47,7 @@ import type {
   RoomConfig,
   ProgressEvent,
 } from "../../infra/realtime/abstractions/event-emitter.interface";
+import { CircuitBreakerService } from "../../orchestration/services/circuit-breaker.service";
 import { AgentExecutorService } from "../../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../../orchestration/services/intent-detection.service";
@@ -194,6 +195,11 @@ export class AgentFacade {
   }
 
   // ==================== Orchestration Service Getters ====================
+
+  /** CircuitBreakerService for load control and health monitoring */
+  get circuitBreaker(): CircuitBreakerService | undefined {
+    return this.orchestration?.circuitBreaker;
+  }
 
   get agentExecutor(): AgentExecutorService | undefined {
     return this.orchestration?.agentExecutor;

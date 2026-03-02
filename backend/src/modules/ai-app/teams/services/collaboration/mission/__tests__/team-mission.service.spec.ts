@@ -15,7 +15,8 @@ import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { TeamMissionService } from "../team-mission.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
 import {
-  AIEngineFacade,
+  AgentFacade,
+  TeamFacade,
   ToolRegistry,
 } from "../../../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../../../events";
@@ -384,7 +385,8 @@ describe("TeamMissionService", () => {
         { provide: MissionAICallerService, useValue: mockAICallerService },
         { provide: TeamMessageService, useValue: mockMessageService },
         { provide: TeamMemberService, useValue: mockMemberService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: AgentFacade, useValue: mockAiFacade },
+        { provide: TeamFacade, useValue: mockAiFacade },
       ],
     }).compile();
 

@@ -1,22 +1,22 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NarrativeCraftService } from "../narrative-craft.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 describe("NarrativeCraftService", () => {
   let service: NarrativeCraftService;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
 
   beforeEach(async () => {
     mockFacade = {
       chat: jest.fn(),
       chatStream: jest.fn(),
       chatWithSkills: jest.fn(),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NarrativeCraftService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -88,9 +88,7 @@ describe("NarrativeCraftService", () => {
 
       const report = service.analyzeContent(content);
 
-      const npcIssues = report.issues.filter(
-        (i) => i.type === "npc_dialogue",
-      );
+      const npcIssues = report.issues.filter((i) => i.type === "npc_dialogue");
       expect(npcIssues.length).toBeGreaterThan(0);
     });
 

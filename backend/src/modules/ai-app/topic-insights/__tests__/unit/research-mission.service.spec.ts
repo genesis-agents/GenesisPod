@@ -17,7 +17,7 @@ import { ResearchEventEmitterService } from "../../services/core/research-event-
 import { TopicCollaboratorService } from "../../services/collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../../services/monitoring/agent-activity.service";
 import { ResearchReviewerService } from "../../services/collaboration/research-reviewer.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 import {
@@ -103,7 +103,7 @@ describe("ResearchMissionService", () => {
           useValue: mockCollaboratorService,
         },
         { provide: AgentActivityService, useValue: agentActivity },
-        { provide: AIEngineFacade, useValue: createMockAiEngineFacade() },
+        { provide: ChatFacade, useValue: createMockAiEngineFacade() },
         {
           provide: ResearchReviewerService,
           useValue: {

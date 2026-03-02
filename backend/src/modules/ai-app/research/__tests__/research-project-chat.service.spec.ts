@@ -6,10 +6,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchProjectChatService } from "../project/research-project-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 jest.mock("@/modules/ai-engine/facade", () => ({
-  AIEngineFacade: jest.fn().mockImplementation(() => ({
+  ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
     getModelById: jest.fn(),
     getDefaultTextModel: jest.fn(),
@@ -28,7 +28,7 @@ jest.mock("../../../ai-infra/credits/billing-context", () => ({
 describe("ResearchProjectChatService", () => {
   let service: ResearchProjectChatService;
   let prisma: jest.Mocked<PrismaService>;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
 
   const userId = "user-123";
   const projectId = "project-456";
@@ -111,7 +111,7 @@ describe("ResearchProjectChatService", () => {
           useValue: mockPrismaService,
         },
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
           useValue: mockFacadeInstance,
         },
       ],
@@ -121,7 +121,7 @@ describe("ResearchProjectChatService", () => {
       ResearchProjectChatService,
     );
     prisma = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {

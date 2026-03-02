@@ -7,7 +7,7 @@ import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AiCoreController } from "../ai-core.controller";
 import { AiCoreService } from "../ai-core.service";
-import { AIEngineFacade } from "../../facade/ai-engine.facade";
+import { ChatFacade } from "../../facade";
 import { RAGPipelineService } from "../../knowledge/rag/pipeline";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { SearchService } from "../../knowledge/search/search.service";
@@ -82,7 +82,7 @@ describe("AiCoreController", () => {
       controllers: [AiCoreController],
       providers: [
         { provide: AiCoreService, useValue: mockAiCoreService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: RAGPipelineService, useValue: mockRagPipelineService },
         { provide: SecretsService, useValue: mockSecretsService },

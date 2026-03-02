@@ -28,7 +28,7 @@ import {
   TopicExportService,
   TopicScheduleService,
 } from "../services";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Mock factory
@@ -217,7 +217,7 @@ describe("TopicInsightsService", () => {
           provide: EvidenceManagementService,
           useValue: mocks.mockEvidenceService,
         },
-        { provide: AIEngineFacade, useValue: mocks.mockFacade },
+        { provide: ChatFacade, useValue: mocks.mockFacade },
         {
           provide: ReportChangeService,
           useValue: mocks.mockReportChangeService,
@@ -1176,12 +1176,10 @@ describe("TopicInsightsService", () => {
                 create: jest.fn(),
               },
               topicReport: {
-                update: jest
-                  .fn()
-                  .mockResolvedValue({
-                    id: "report-001",
-                    fullReport: "Edited content",
-                  }),
+                update: jest.fn().mockResolvedValue({
+                  id: "report-001",
+                  fullReport: "Edited content",
+                }),
               },
             };
             return fn(fakeTx);
@@ -1192,8 +1190,8 @@ describe("TopicInsightsService", () => {
     it("should perform AI edit with selectedText and replace in report", async () => {
       setupAiEditMocks();
       const facadeMock = (
-        service as unknown as { aiFacade: { chat: jest.Mock } }
-      ).aiFacade;
+        service as unknown as { chatFacade: { chat: jest.Mock } }
+      ).chatFacade;
       facadeMock.chat = jest
         .fn()
         .mockResolvedValue({ content: "Edited content", isError: false });
@@ -1216,14 +1214,12 @@ describe("TopicInsightsService", () => {
     it("should use entire report when no selectedText is provided", async () => {
       setupAiEditMocks();
       const facadeMock = (
-        service as unknown as { aiFacade: { chat: jest.Mock } }
-      ).aiFacade;
-      facadeMock.chat = jest
-        .fn()
-        .mockResolvedValue({
-          content: "Completely new report",
-          isError: false,
-        });
+        service as unknown as { chatFacade: { chat: jest.Mock } }
+      ).chatFacade;
+      facadeMock.chat = jest.fn().mockResolvedValue({
+        content: "Completely new report",
+        isError: false,
+      });
 
       const result = await service.aiEditReport(
         "user-001",
@@ -2171,12 +2167,10 @@ describe("TopicInsightsService", () => {
                 create: jest.fn().mockResolvedValue({ id: "rev-003" }),
               },
               topicReport: {
-                update: jest
-                  .fn()
-                  .mockResolvedValue({
-                    id: "report-001",
-                    fullReport: "New content",
-                  }),
+                update: jest.fn().mockResolvedValue({
+                  id: "report-001",
+                  fullReport: "New content",
+                }),
               },
             };
             return fn(fakeTx);
@@ -2238,12 +2232,10 @@ describe("TopicInsightsService", () => {
                 create: jest.fn().mockResolvedValue({ id: "rev-001" }),
               },
               topicReport: {
-                update: jest
-                  .fn()
-                  .mockResolvedValue({
-                    id: "report-001",
-                    executiveSummary: "New summary",
-                  }),
+                update: jest.fn().mockResolvedValue({
+                  id: "report-001",
+                  executiveSummary: "New summary",
+                }),
               },
             };
             return fn(fakeTx);
@@ -2461,20 +2453,18 @@ describe("TopicInsightsService", () => {
                 create: jest.fn(),
               },
               topicReport: {
-                update: jest
-                  .fn()
-                  .mockResolvedValue({
-                    id: "report-001",
-                    fullReport: "replaced",
-                  }),
+                update: jest.fn().mockResolvedValue({
+                  id: "report-001",
+                  fullReport: "replaced",
+                }),
               },
             };
             return fn(fakeTx);
           },
         );
       const facadeMock = (
-        service as unknown as { aiFacade: { chat: jest.Mock } }
-      ).aiFacade;
+        service as unknown as { chatFacade: { chat: jest.Mock } }
+      ).chatFacade;
       facadeMock.chat = jest
         .fn()
         .mockResolvedValue({ content: "AI edited text", isError: false });

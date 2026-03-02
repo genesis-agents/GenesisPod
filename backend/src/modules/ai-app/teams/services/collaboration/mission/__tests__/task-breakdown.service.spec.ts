@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TaskBreakdownService } from "../task-breakdown.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../../ai-engine/facade";
 
 const mockTeamMembers = [
   {
@@ -66,7 +66,7 @@ describe("TaskBreakdownService", () => {
     };
     $transaction: jest.Mock;
   };
-  let aiFacade: { taskDecomposer: typeof mockTaskDecomposer | null };
+  let aiFacade: { taskDecomposer: typeof mockTaskDecomposer | null }; // shape matches AgentFacade.taskDecomposer
 
   beforeEach(async () => {
     prisma = {
@@ -96,7 +96,7 @@ describe("TaskBreakdownService", () => {
       providers: [
         TaskBreakdownService,
         { provide: PrismaService, useValue: prisma },
-        { provide: AIEngineFacade, useValue: aiFacade },
+        { provide: AgentFacade, useValue: aiFacade },
       ],
     }).compile();
 

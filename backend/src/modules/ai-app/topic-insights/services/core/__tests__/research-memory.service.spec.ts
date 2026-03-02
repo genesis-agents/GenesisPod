@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchMemoryService } from "../research-memory.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ describe("ResearchMemoryService", () => {
       providers: [
         ResearchMemoryService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
-        { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+        { provide: ChatFacade, useValue: mocks.mockAiFacade },
       ],
     }).compile();
 
@@ -90,14 +90,23 @@ describe("ResearchMemoryService", () => {
     it("should return 0 when mission not found", async () => {
       prisma.researchMission.findUnique.mockResolvedValue(null);
 
-      const result = await service.extractAndStoreFindings("nonexistent", "topic-1");
+      const result = await service.extractAndStoreFindings(
+        "nonexistent",
+        "topic-1",
+      );
       expect(result).toBe(0);
     });
 
     it("should return 0 when mission has no completed tasks", async () => {
-      prisma.researchMission.findUnique.mockResolvedValue({ id: "mission-1", tasks: [] });
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-1",
+        tasks: [],
+      });
 
-      const result = await service.extractAndStoreFindings("mission-1", "topic-1");
+      const result = await service.extractAndStoreFindings(
+        "mission-1",
+        "topic-1",
+      );
       expect(result).toBe(0);
     });
 
@@ -105,7 +114,10 @@ describe("ResearchMemoryService", () => {
       prisma.researchMission.findUnique.mockResolvedValue(mockMission);
       prisma.researchMemory.createMany.mockResolvedValue({ count: 1 });
 
-      const result = await service.extractAndStoreFindings("mission-1", "topic-1");
+      const result = await service.extractAndStoreFindings(
+        "mission-1",
+        "topic-1",
+      );
       expect(result).toBe(1);
       expect(prisma.researchMemory.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -124,7 +136,10 @@ describe("ResearchMemoryService", () => {
       prisma.researchMission.findUnique.mockResolvedValue(mockMission);
       aiFacade.chat.mockResolvedValue({ content: null });
 
-      const result = await service.extractAndStoreFindings("mission-1", "topic-1");
+      const result = await service.extractAndStoreFindings(
+        "mission-1",
+        "topic-1",
+      );
       expect(result).toBe(0);
     });
 
@@ -132,7 +147,10 @@ describe("ResearchMemoryService", () => {
       prisma.researchMission.findUnique.mockResolvedValue(mockMission);
       aiFacade.chat.mockResolvedValue({ content: "not valid json" });
 
-      const result = await service.extractAndStoreFindings("mission-1", "topic-1");
+      const result = await service.extractAndStoreFindings(
+        "mission-1",
+        "topic-1",
+      );
       expect(result).toBe(0);
     });
 
@@ -140,7 +158,10 @@ describe("ResearchMemoryService", () => {
       prisma.researchMission.findUnique.mockResolvedValue(mockMission);
       aiFacade.chat.mockRejectedValue(new Error("API error"));
 
-      const result = await service.extractAndStoreFindings("mission-1", "topic-1");
+      const result = await service.extractAndStoreFindings(
+        "mission-1",
+        "topic-1",
+      );
       expect(result).toBe(0);
     });
 
@@ -148,7 +169,10 @@ describe("ResearchMemoryService", () => {
       prisma.researchMission.findUnique.mockResolvedValue(mockMission);
       prisma.researchMemory.createMany.mockRejectedValue(new Error("DB error"));
 
-      const result = await service.extractAndStoreFindings("mission-1", "topic-1");
+      const result = await service.extractAndStoreFindings(
+        "mission-1",
+        "topic-1",
+      );
       expect(result).toBe(0);
     });
   });
@@ -215,8 +239,18 @@ describe("ResearchMemoryService", () => {
 
     it("should return formatted summary grouped by category", async () => {
       prisma.researchMemory.findMany.mockResolvedValue([
-        { entity: "AI", finding: "AI is transformative", category: "fact", confidence: 0.9 },
-        { entity: "Market", finding: "Market is growing", category: "trend", confidence: 0.85 },
+        {
+          entity: "AI",
+          finding: "AI is transformative",
+          category: "fact",
+          confidence: 0.9,
+        },
+        {
+          entity: "Market",
+          finding: "Market is growing",
+          category: "trend",
+          confidence: 0.85,
+        },
       ]);
 
       const result = await service.getMemorySummary("topic-1");

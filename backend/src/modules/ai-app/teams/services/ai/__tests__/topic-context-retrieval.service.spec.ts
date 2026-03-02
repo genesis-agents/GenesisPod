@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TopicContextRetrievalService } from "../topic-context-retrieval.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { RAGFacade } from "@/modules/ai-engine/facade";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ function buildMockFacade() {
   return {
     embeddingGenerate: jest.fn(),
     embeddingGetModel: jest.fn(),
-  } as unknown as jest.Mocked<AIEngineFacade>;
+  } as unknown as jest.Mocked<RAGFacade>;
 }
 
 const LONG_TEXT = "A".repeat(600); // > 500 chars threshold
@@ -44,7 +44,7 @@ describe("TopicContextRetrievalService", () => {
       providers: [
         TopicContextRetrievalService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: RAGFacade, useValue: mockFacade },
       ],
     }).compile();
 

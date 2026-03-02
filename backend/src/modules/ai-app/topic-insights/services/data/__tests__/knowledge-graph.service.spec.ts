@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { KnowledgeGraphService } from "../knowledge-graph.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import {
   EntityType,
   RelationType,
@@ -59,7 +59,7 @@ describe("KnowledgeGraphService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KnowledgeGraphService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -161,8 +161,12 @@ describe("KnowledgeGraphService", () => {
       service.addEntity(makeEntity("e1", "OpenAI"));
       service.addEntity(makeEntity("e2", "Microsoft"));
 
-      service.addRelation(makeRelation("r1", "e1", "e2", RelationType.COLLABORATES_WITH));
-      service.addRelation(makeRelation("r2", "e1", "e2", RelationType.DEPENDS_ON));
+      service.addRelation(
+        makeRelation("r1", "e1", "e2", RelationType.COLLABORATES_WITH),
+      );
+      service.addRelation(
+        makeRelation("r2", "e1", "e2", RelationType.DEPENDS_ON),
+      );
 
       const result = service.query({});
       expect(result.relations).toHaveLength(2);
@@ -175,10 +179,16 @@ describe("KnowledgeGraphService", () => {
 
   describe("query", () => {
     beforeEach(() => {
-      service.addEntity(makeEntity("e1", "OpenAI", EntityType.ORGANIZATION, ["t1"]));
+      service.addEntity(
+        makeEntity("e1", "OpenAI", EntityType.ORGANIZATION, ["t1"]),
+      );
       service.addEntity(makeEntity("e2", "GPT-4", EntityType.PRODUCT, ["t1"]));
-      service.addEntity(makeEntity("e3", "Transformer", EntityType.CONCEPT, ["t2"]));
-      service.addRelation(makeRelation("r1", "e1", "e2", RelationType.PRODUCES));
+      service.addEntity(
+        makeEntity("e3", "Transformer", EntityType.CONCEPT, ["t2"]),
+      );
+      service.addRelation(
+        makeRelation("r1", "e1", "e2", RelationType.PRODUCES),
+      );
       service.addRelation(makeRelation("r2", "e2", "e3", RelationType.USES));
     });
 
@@ -233,8 +243,12 @@ describe("KnowledgeGraphService", () => {
 
   describe("findRelatedKnowledge", () => {
     beforeEach(() => {
-      service.addEntity(makeEntity("e1", "OpenAI GPT models", EntityType.TECHNOLOGY, ["t1"]));
-      service.addEntity(makeEntity("e2", "Microsoft Azure", EntityType.ORGANIZATION, ["t2"]));
+      service.addEntity(
+        makeEntity("e1", "OpenAI GPT models", EntityType.TECHNOLOGY, ["t1"]),
+      );
+      service.addEntity(
+        makeEntity("e2", "Microsoft Azure", EntityType.ORGANIZATION, ["t2"]),
+      );
       service.addRelation(makeRelation("r1", "e1", "e2"));
     });
 
@@ -272,7 +286,9 @@ describe("KnowledgeGraphService", () => {
     it("should return correct stats for populated graph", () => {
       service.addEntity(makeEntity("e1", "OpenAI", EntityType.ORGANIZATION));
       service.addEntity(makeEntity("e2", "GPT-4", EntityType.PRODUCT));
-      service.addRelation(makeRelation("r1", "e1", "e2", RelationType.PRODUCES));
+      service.addRelation(
+        makeRelation("r1", "e1", "e2", RelationType.PRODUCES),
+      );
 
       const stats = service.getStats();
 
@@ -353,8 +369,22 @@ describe("KnowledgeGraphService", () => {
       mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           entities: [
-            { name: "Google", type: "organization", description: "Tech giant", confidence: 0.9, aliases: [], properties: {} },
-            { name: "Gemini", type: "product", description: "AI model", confidence: 0.9, aliases: [], properties: {} },
+            {
+              name: "Google",
+              type: "organization",
+              description: "Tech giant",
+              confidence: 0.9,
+              aliases: [],
+              properties: {},
+            },
+            {
+              name: "Gemini",
+              type: "product",
+              description: "AI model",
+              confidence: 0.9,
+              aliases: [],
+              properties: {},
+            },
           ],
           relations: [
             {

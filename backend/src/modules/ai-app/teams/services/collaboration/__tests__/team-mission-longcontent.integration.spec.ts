@@ -34,6 +34,8 @@ import {
   ContextInitializationService,
   ToolRegistry,
   AIEngineFacade,
+  AgentFacade,
+  TeamFacade,
 } from "../../../../../ai-engine/facade";
 import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";
@@ -312,6 +314,26 @@ describe("TeamMissionService Long Content Integration", () => {
           useValue: {
             getMemberById: jest.fn().mockResolvedValue(null),
             getMembersByMission: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: AgentFacade,
+          useValue: {
+            circuitBreaker: mockCircuitBreakerService,
+            coordinatorStore: jest.fn().mockResolvedValue(undefined),
+            coordinatorRecall: jest.fn().mockResolvedValue(undefined),
+            startTrace: jest.fn().mockReturnValue("trace-1"),
+            addSpan: jest.fn(),
+            endSpan: jest.fn(),
+            endTrace: jest.fn(),
+          },
+        },
+        {
+          provide: TeamFacade,
+          useValue: {
+            aiCompressContext: jest.fn().mockResolvedValue("compressed"),
+            sanitizeReport: jest.fn().mockImplementation((r) => r),
+            reflect: jest.fn().mockResolvedValue({ content: "reflection" }),
           },
         },
       ],

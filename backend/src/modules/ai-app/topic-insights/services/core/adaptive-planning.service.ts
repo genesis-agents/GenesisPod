@@ -11,7 +11,7 @@
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { LeaderPlan } from "../../types/leader.types";
 import {
@@ -73,7 +73,7 @@ export class AdaptivePlanningService implements OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly eventEmitter: ResearchEventEmitterService,
   ) {}
 
@@ -284,7 +284,7 @@ ${findingsText || "无"}
 }`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -466,7 +466,7 @@ ${completedTasks.map((t) => `- ${t.title} (${t.dimensionName || "通用"})`).joi
 - 优先级：1=最高，越大越低`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

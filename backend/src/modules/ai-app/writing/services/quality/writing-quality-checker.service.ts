@@ -20,7 +20,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ExpressionMemoryService } from "./expression-memory.service";
 import { CharacterPersonalityService } from "./character-personality.service";
 import { NarrativeCraftService } from "./narrative-craft.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ==================== 类型定义 ====================
 
@@ -176,7 +176,7 @@ export class WritingQualityCheckerService {
     private readonly expressionMemoryService: ExpressionMemoryService,
     private readonly characterPersonalityService: CharacterPersonalityService,
     private readonly narrativeCraftService: NarrativeCraftService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   // ==================== 核心检查方法 ====================
@@ -1029,7 +1029,7 @@ export class WritingQualityCheckerService {
 
     try {
       // ★ P3 迁移：使用 chatWithSkills 统一入口
-      const response = await this.aiFacade.chatWithSkills({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "user",

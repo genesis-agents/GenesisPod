@@ -15,7 +15,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { EnrichedEvidenceData } from "../../types/research.types";
 import type {
@@ -27,7 +27,7 @@ import type {
 export class ResearchReflectionService {
   private readonly logger = new Logger(ResearchReflectionService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 评估当前收集的证据是否足够
@@ -45,7 +45,7 @@ export class ResearchReflectionService {
     const prompt = this.buildReflectionPrompt(context);
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: {

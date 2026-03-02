@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 import type { RoomConfig, EngineEvent } from "@/modules/ai-engine/facade";
 import { WritingEventType } from "./writing-event-emitter.service";
 
@@ -35,7 +35,7 @@ const CHAPTER_PHASES = [
 export class WritingRealtimeAdapter implements OnModuleInit {
   private readonly logger = new Logger(WritingRealtimeAdapter.name);
 
-  constructor(@Optional() private readonly aiFacade?: AIEngineFacade) {}
+  constructor(@Optional() private readonly agentFacade?: AgentFacade) {}
 
   onModuleInit() {
     this.logger.log(
@@ -73,7 +73,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
   startMissionTracking(projectId: string, missionId: string): void {
     const roomConfig = this.createMissionRoomConfig(missionId);
 
-    this.aiFacade?.realtimeProgress?.create({
+    this.agentFacade?.realtimeProgress?.create({
       id: missionId,
       type: "writing_mission",
       name: `写作任务 ${missionId}`,
@@ -82,7 +82,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
       metadata: { projectId },
     });
 
-    this.aiFacade?.realtimeProgress?.start(missionId);
+    this.agentFacade?.realtimeProgress?.start(missionId);
     this.logger.debug(`Started tracking writing mission ${missionId}`);
   }
 
@@ -93,7 +93,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
     const trackingId = `chapter:${chapterId}`;
     const roomConfig = this.createMissionRoomConfig(missionId);
 
-    this.aiFacade?.realtimeProgress?.create({
+    this.agentFacade?.realtimeProgress?.create({
       id: trackingId,
       type: "chapter_writing",
       name: `章节写作 ${chapterId}`,
@@ -102,7 +102,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
       metadata: { chapterId, missionId },
     });
 
-    this.aiFacade?.realtimeProgress?.start(trackingId);
+    this.agentFacade?.realtimeProgress?.start(trackingId);
     this.logger.debug(`Started tracking chapter ${chapterId}`);
   }
 
@@ -110,7 +110,11 @@ export class WritingRealtimeAdapter implements OnModuleInit {
    * 开始阶段
    */
   startPhase(trackingId: string, phaseId: string, message?: string): void {
-    this.aiFacade?.realtimeProgress?.startPhase(trackingId, phaseId, message);
+    this.agentFacade?.realtimeProgress?.startPhase(
+      trackingId,
+      phaseId,
+      message,
+    );
   }
 
   /**
@@ -122,14 +126,14 @@ export class WritingRealtimeAdapter implements OnModuleInit {
     progress: number,
     message?: string,
   ): number {
-    this.aiFacade?.realtimeProgress?.updatePhaseProgress(
+    this.agentFacade?.realtimeProgress?.updatePhaseProgress(
       missionId,
       phase,
       progress,
       message,
     );
     const progressEvent =
-      this.aiFacade?.realtimeProgress?.getProgress(missionId);
+      this.agentFacade?.realtimeProgress?.getProgress(missionId);
     return progressEvent?.progress ?? 0;
   }
 
@@ -143,14 +147,14 @@ export class WritingRealtimeAdapter implements OnModuleInit {
     message?: string,
   ): number {
     const trackingId = `chapter:${chapterId}`;
-    this.aiFacade?.realtimeProgress?.updatePhaseProgress(
+    this.agentFacade?.realtimeProgress?.updatePhaseProgress(
       trackingId,
       phase,
       progress,
       message,
     );
     const progressEvent =
-      this.aiFacade?.realtimeProgress?.getProgress(trackingId);
+      this.agentFacade?.realtimeProgress?.getProgress(trackingId);
     return progressEvent?.progress ?? 0;
   }
 
@@ -158,7 +162,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
    * 完成阶段
    */
   completePhase(trackingId: string, phaseId: string, message?: string): void {
-    this.aiFacade?.realtimeProgress?.completePhase(
+    this.agentFacade?.realtimeProgress?.completePhase(
       trackingId,
       phaseId,
       message,
@@ -169,7 +173,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
    * 完成任务追踪
    */
   completeMissionTracking(missionId: string, message?: string): void {
-    this.aiFacade?.realtimeProgress?.complete(missionId, message);
+    this.agentFacade?.realtimeProgress?.complete(missionId, message);
     this.logger.debug(`Completed tracking for mission ${missionId}`);
   }
 
@@ -178,7 +182,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
    */
   completeChapterTracking(chapterId: string, message?: string): void {
     const trackingId = `chapter:${chapterId}`;
-    this.aiFacade?.realtimeProgress?.complete(trackingId, message);
+    this.agentFacade?.realtimeProgress?.complete(trackingId, message);
     this.logger.debug(`Completed tracking for chapter ${chapterId}`);
   }
 
@@ -186,7 +190,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
    * 任务失败
    */
   failMissionTracking(missionId: string, error: string): void {
-    this.aiFacade?.realtimeProgress?.fail(missionId, error);
+    this.agentFacade?.realtimeProgress?.fail(missionId, error);
   }
 
   // ==================== 事件发射 ====================
@@ -218,7 +222,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
   emitToProject<T>(projectId: string, eventType: string, data: T): void {
     const roomConfig = this.createProjectRoomConfig(projectId);
     const event = this.createEvent(eventType, data, projectId);
-    this.aiFacade?.realtimeEmitter?.emitToRoom(roomConfig, event);
+    this.agentFacade?.realtimeEmitter?.emitToRoom(roomConfig, event);
   }
 
   /**
@@ -227,7 +231,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
   emitToMission<T>(missionId: string, eventType: string, data: T): void {
     const roomConfig = this.createMissionRoomConfig(missionId);
     const event = this.createEvent(eventType, data, undefined, missionId);
-    this.aiFacade?.realtimeEmitter?.emitToRoom(roomConfig, event);
+    this.agentFacade?.realtimeEmitter?.emitToRoom(roomConfig, event);
   }
 
   /**
@@ -513,7 +517,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
     callback: (eventType: string, data: unknown) => void,
   ): () => void {
     const unsubscribers = Object.values(WritingEventType).map((eventType) =>
-      this.aiFacade?.realtimeEmitter?.subscribe(
+      this.agentFacade?.realtimeEmitter?.subscribe(
         eventType,
         (event: EngineEvent) => {
           if (event.metadata?.sessionId === projectId) {
@@ -536,7 +540,7 @@ export class WritingRealtimeAdapter implements OnModuleInit {
     callback: (eventType: string, data: unknown) => void,
   ): () => void {
     const unsubscribers = Object.values(WritingEventType).map((eventType) =>
-      this.aiFacade?.realtimeEmitter?.subscribe(
+      this.agentFacade?.realtimeEmitter?.subscribe(
         eventType,
         (event: EngineEvent) => {
           if (event.metadata?.correlationId === missionId) {

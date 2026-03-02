@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { OutlineService } from "../outline.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { StoryBibleService } from "../../bible/story-bible.service";
 
 function buildMockPrisma() {
@@ -93,7 +93,7 @@ describe("OutlineService", () => {
       providers: [
         OutlineService,
         { provide: PrismaService, useValue: prisma },
-        { provide: AIEngineFacade, useValue: facade },
+        { provide: ChatFacade, useValue: facade },
         { provide: StoryBibleService, useValue: storyBible },
       ],
     }).compile();
@@ -144,9 +144,7 @@ describe("OutlineService", () => {
         {
           volumeNumber: 1,
           title: "Volume One",
-          chapters: [
-            { title: "Chapter 1", outline: "The beginning" },
-          ],
+          chapters: [{ title: "Chapter 1", outline: "The beginning" }],
         },
       ]);
 
@@ -160,9 +158,9 @@ describe("OutlineService", () => {
       prisma.writingProject.findUnique.mockResolvedValue(mockProject);
       facade.chatWithSkills.mockRejectedValue(new Error("API Error"));
 
-      await expect(
-        service.generateOutline("project-1", 1, 5),
-      ).rejects.toThrow("API Error");
+      await expect(service.generateOutline("project-1", 1, 5)).rejects.toThrow(
+        "API Error",
+      );
     });
 
     it("should handle malformed JSON response gracefully", async () => {
@@ -171,9 +169,9 @@ describe("OutlineService", () => {
         content: "This is not valid JSON",
       });
 
-      await expect(
-        service.generateOutline("project-1", 1, 5),
-      ).rejects.toThrow("Failed to parse outline JSON");
+      await expect(service.generateOutline("project-1", 1, 5)).rejects.toThrow(
+        "Failed to parse outline JSON",
+      );
     });
   });
 

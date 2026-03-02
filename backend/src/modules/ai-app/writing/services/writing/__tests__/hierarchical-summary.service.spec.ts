@@ -19,7 +19,7 @@ import {
   ContextRequest,
 } from "../hierarchical-summary.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 describe("HierarchicalSummaryService", () => {
@@ -27,7 +27,10 @@ describe("HierarchicalSummaryService", () => {
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
   let mockFacade: { chat: jest.Mock };
 
-  const makeChapterSummary = (num: number, overrides: Partial<ChapterSummary> = {}): ChapterSummary => ({
+  const makeChapterSummary = (
+    num: number,
+    overrides: Partial<ChapterSummary> = {},
+  ): ChapterSummary => ({
     chapterNumber: num,
     title: `Chapter ${num}`,
     summary: `Summary of chapter ${num}`,
@@ -67,11 +70,13 @@ describe("HierarchicalSummaryService", () => {
       providers: [
         HierarchicalSummaryService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
-    service = module.get<HierarchicalSummaryService>(HierarchicalSummaryService);
+    service = module.get<HierarchicalSummaryService>(
+      HierarchicalSummaryService,
+    );
   });
 
   // ==================== generateChapterSummary ====================
@@ -140,15 +145,20 @@ describe("HierarchicalSummaryService", () => {
     it("should truncate chapter content to 8000 chars for AI call", async () => {
       const longContent = "a".repeat(10000);
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
       });
-      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({ metadata: {} });
+      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({
+        metadata: {},
+      });
       (mockPrisma.writingChapter!.update as jest.Mock).mockResolvedValue({});
 
       await service.generateChapterSummary("ch-1", longContent, 1, "Title");
 
       const callArg = mockFacade.chat.mock.calls[0][0];
-      const userMessage = callArg.messages.find((m: { role: string }) => m.role === "user");
+      const userMessage = callArg.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
       expect(userMessage.content).toContain("a".repeat(100));
       expect(userMessage.content.length).toBeLessThan(10000 + 200);
     });
@@ -156,7 +166,12 @@ describe("HierarchicalSummaryService", () => {
     it("should return fallback summary when AI throws", async () => {
       mockFacade.chat.mockRejectedValue(new Error("AI unavailable"));
 
-      const result = await service.generateChapterSummary("ch-1", "content", 3, "Title");
+      const result = await service.generateChapterSummary(
+        "ch-1",
+        "content",
+        3,
+        "Title",
+      );
 
       expect(result.chapterNumber).toBe(3);
       expect(result.summary).toBe("第3章");
@@ -166,10 +181,17 @@ describe("HierarchicalSummaryService", () => {
 
     it("should return fallback when AI returns invalid JSON", async () => {
       mockFacade.chat.mockResolvedValue({ content: "not json at all" });
-      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({ metadata: {} });
+      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({
+        metadata: {},
+      });
       (mockPrisma.writingChapter!.update as jest.Mock).mockResolvedValue({});
 
-      const result = await service.generateChapterSummary("ch-1", "content", 2, "My Title");
+      const result = await service.generateChapterSummary(
+        "ch-1",
+        "content",
+        2,
+        "My Title",
+      );
 
       expect(result.chapterNumber).toBe(2);
       expect(result.title).toBe("My Title");
@@ -179,7 +201,8 @@ describe("HierarchicalSummaryService", () => {
 
     it("should skip DB save when chapterId is empty string", async () => {
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
       });
 
       await service.generateChapterSummary("", "content", 1, "Title");
@@ -189,19 +212,30 @@ describe("HierarchicalSummaryService", () => {
 
     it("should handle DB save failure gracefully without throwing", async () => {
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"test summary","keyEvents":[],"emotionalTone":"calm","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"test summary","keyEvents":[],"emotionalTone":"calm","characterChanges":{},"scenes":[]}',
       });
-      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({ metadata: {} });
-      (mockPrisma.writingChapter!.update as jest.Mock).mockRejectedValue(new Error("DB error"));
+      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({
+        metadata: {},
+      });
+      (mockPrisma.writingChapter!.update as jest.Mock).mockRejectedValue(
+        new Error("DB error"),
+      );
 
       // Should not throw
-      const result = await service.generateChapterSummary("ch-1", "content", 1, "Title");
+      const result = await service.generateChapterSummary(
+        "ch-1",
+        "content",
+        1,
+        "Title",
+      );
       expect(result.summary).toBe("test summary");
     });
 
     it("should merge with existing metadata when saving", async () => {
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"new summary","keyEvents":[],"emotionalTone":"tense","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"new summary","keyEvents":[],"emotionalTone":"tense","characterChanges":{},"scenes":[]}',
       });
       (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({
         metadata: { existingKey: "existingValue", otherData: 42 },
@@ -210,7 +244,8 @@ describe("HierarchicalSummaryService", () => {
 
       await service.generateChapterSummary("ch-1", "content", 1, "Title");
 
-      const updateCall = (mockPrisma.writingChapter!.update as jest.Mock).mock.calls[0][0];
+      const updateCall = (mockPrisma.writingChapter!.update as jest.Mock).mock
+        .calls[0][0];
       expect(updateCall.data.metadata).toMatchObject({
         existingKey: "existingValue",
         otherData: 42,
@@ -260,7 +295,8 @@ describe("HierarchicalSummaryService", () => {
 
     it("should pass chapter range to DB query", async () => {
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"arc","arcType":"sub","mainConflict":"c","mainCharacters":[]}',
+        content:
+          '{"summary":"arc","arcType":"sub","mainConflict":"c","mainCharacters":[]}',
       });
 
       await service.generateArcSummary("project-1", "Sub Arc", [5, 10]);
@@ -277,7 +313,11 @@ describe("HierarchicalSummaryService", () => {
     it("should return fallback arc summary when AI throws", async () => {
       mockFacade.chat.mockRejectedValue(new Error("timeout"));
 
-      const result = await service.generateArcSummary("project-1", "Test Arc", [1, 5]);
+      const result = await service.generateArcSummary(
+        "project-1",
+        "Test Arc",
+        [1, 5],
+      );
 
       expect(result.arcName).toBe("Test Arc");
       expect(result.summary).toBe("Test Arc弧线");
@@ -287,10 +327,15 @@ describe("HierarchicalSummaryService", () => {
 
     it("should cast arcType to valid union type", async () => {
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"arc","arcType":"character","mainConflict":"inner","mainCharacters":["hero"]}',
+        content:
+          '{"summary":"arc","arcType":"character","mainConflict":"inner","mainCharacters":["hero"]}',
       });
 
-      const result = await service.generateArcSummary("p1", "Growth Arc", [1, 3]);
+      const result = await service.generateArcSummary(
+        "p1",
+        "Growth Arc",
+        [1, 3],
+      );
 
       expect(result.arcType).toBe("character");
     });
@@ -300,7 +345,9 @@ describe("HierarchicalSummaryService", () => {
 
   describe("generateVolumeSummary", () => {
     it("should return empty volume when volume not found in DB", async () => {
-      (mockPrisma.writingVolume!.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingVolume!.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.generateVolumeSummary("project-1", 2);
 
@@ -356,16 +403,20 @@ describe("HierarchicalSummaryService", () => {
           },
         ],
       });
-      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({ metadata: {} });
+      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({
+        metadata: {},
+      });
       (mockPrisma.writingChapter!.update as jest.Mock).mockResolvedValue({});
       mockFacade.chat
         // First call: chapter summary generation
         .mockResolvedValueOnce({
-          content: '{"summary":"ch1 summary","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
+          content:
+            '{"summary":"ch1 summary","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
         })
         // Second call: volume summary generation
         .mockResolvedValueOnce({
-          content: '{"summary":"volume summary","arcs":[],"theme":"Power","startingState":"weak","endingState":"strong"}',
+          content:
+            '{"summary":"volume summary","arcs":[],"theme":"Power","startingState":"weak","endingState":"strong"}',
         });
 
       const result = await service.generateVolumeSummary("project-1", 1);
@@ -395,7 +446,8 @@ describe("HierarchicalSummaryService", () => {
         chapters: [],
       });
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"s","arcs":[],"theme":"t","startingState":"s","endingState":"e"}',
+        content:
+          '{"summary":"s","arcs":[],"theme":"t","startingState":"s","endingState":"e"}',
       });
 
       await service.generateVolumeSummary("project-1", 1);
@@ -432,9 +484,12 @@ describe("HierarchicalSummaryService", () => {
         makeDbChapter(1, null), // no metadata
       ]);
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"generated","keyEvents":["e1"],"emotionalTone":"tense","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"generated","keyEvents":["e1"],"emotionalTone":"tense","characterChanges":{},"scenes":[]}',
       });
-      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({ metadata: {} });
+      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({
+        metadata: {},
+      });
       (mockPrisma.writingChapter!.update as jest.Mock).mockResolvedValue({});
 
       const result = await service.getChapterSummaries("project-1", 1, 1);
@@ -476,9 +531,12 @@ describe("HierarchicalSummaryService", () => {
         makeDbChapter(2, null), // needs generation
       ]);
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"ch2 generated","keyEvents":[],"emotionalTone":"hopeful","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"ch2 generated","keyEvents":[],"emotionalTone":"hopeful","characterChanges":{},"scenes":[]}',
       });
-      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({ metadata: {} });
+      (mockPrisma.writingChapter!.findUnique as jest.Mock).mockResolvedValue({
+        metadata: {},
+      });
       (mockPrisma.writingChapter!.update as jest.Mock).mockResolvedValue({});
 
       const result = await service.getChapterSummaries("project-1", 1, 2);
@@ -494,17 +552,21 @@ describe("HierarchicalSummaryService", () => {
   describe("getHierarchicalContext", () => {
     it("should assemble hierarchical context with recent, medium, and distant layers", async () => {
       // Return different data based on chapter range queries
-      (mockPrisma.writingChapter!.findMany as jest.Mock).mockImplementation(({ where }) => {
-        const { gte, lte } = where.chapterNumber;
-        const chapters = [];
-        for (let i = gte; i <= lte; i++) {
-          chapters.push(makeDbChapter(i, { summary: makeChapterSummary(i) }));
-        }
-        return Promise.resolve(chapters);
-      });
+      (mockPrisma.writingChapter!.findMany as jest.Mock).mockImplementation(
+        ({ where }) => {
+          const { gte, lte } = where.chapterNumber;
+          const chapters = [];
+          for (let i = gte; i <= lte; i++) {
+            chapters.push(makeDbChapter(i, { summary: makeChapterSummary(i) }));
+          }
+          return Promise.resolve(chapters);
+        },
+      );
 
       // For distant context compression
-      mockFacade.chat.mockResolvedValue({ content: "Background summary of early chapters" });
+      mockFacade.chat.mockResolvedValue({
+        content: "Background summary of early chapters",
+      });
 
       const request: ContextRequest = {
         currentChapter: 10,
@@ -524,10 +586,14 @@ describe("HierarchicalSummaryService", () => {
     it("should use correct CONTEXT_WINDOWS slicing (RECENT=3, MEDIUM=6)", async () => {
       (mockPrisma.writingChapter!.findMany as jest.Mock).mockResolvedValue([]);
 
-      const request: ContextRequest = { currentChapter: 10, targetTokens: 2000 };
+      const request: ContextRequest = {
+        currentChapter: 10,
+        targetTokens: 2000,
+      };
       await service.getHierarchicalContext("project-1", request);
 
-      const calls = (mockPrisma.writingChapter!.findMany as jest.Mock).mock.calls;
+      const calls = (mockPrisma.writingChapter!.findMany as jest.Mock).mock
+        .calls;
       // First call: recent chapters (chapter 7-9 for currentChapter=10, RECENT=3)
       expect(calls[0][0].where.chapterNumber).toEqual({ gte: 7, lte: 9 });
       // Second call: medium chapters (chapter 4-6 for MEDIUM=6, RECENT=3)
@@ -561,13 +627,34 @@ describe("HierarchicalSummaryService", () => {
         summary: "a".repeat(150), // 150 chars
         scenes: [{ sceneNumber: 1, summary: "b".repeat(60), characters: [] }],
       });
-      const summary7 = makeChapterSummary(7, { summary: "c".repeat(100), scenes: [] });
-      const summary6 = makeChapterSummary(6, { summary: "d".repeat(80), scenes: [] });
-      const summary5 = makeChapterSummary(5, { summary: "e".repeat(90), scenes: [] });
-      const summary4 = makeChapterSummary(4, { summary: "f".repeat(70), scenes: [] });
-      const summary3 = makeChapterSummary(3, { summary: "g".repeat(60), scenes: [] });
-      const summary2 = makeChapterSummary(2, { summary: "h".repeat(50), scenes: [] });
-      const summary1 = makeChapterSummary(1, { summary: "i".repeat(40), scenes: [] });
+      const summary7 = makeChapterSummary(7, {
+        summary: "c".repeat(100),
+        scenes: [],
+      });
+      const summary6 = makeChapterSummary(6, {
+        summary: "d".repeat(80),
+        scenes: [],
+      });
+      const summary5 = makeChapterSummary(5, {
+        summary: "e".repeat(90),
+        scenes: [],
+      });
+      const summary4 = makeChapterSummary(4, {
+        summary: "f".repeat(70),
+        scenes: [],
+      });
+      const summary3 = makeChapterSummary(3, {
+        summary: "g".repeat(60),
+        scenes: [],
+      });
+      const summary2 = makeChapterSummary(2, {
+        summary: "h".repeat(50),
+        scenes: [],
+      });
+      const summary1 = makeChapterSummary(1, {
+        summary: "i".repeat(40),
+        scenes: [],
+      });
 
       (mockPrisma.writingChapter!.findMany as jest.Mock)
         // recent (chapters 6-8)
@@ -741,7 +828,8 @@ describe("HierarchicalSummaryService", () => {
         makeDbChapter(2, null), // needs summary
       ]);
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"generated","keyEvents":[],"emotionalTone":"calm","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"generated","keyEvents":[],"emotionalTone":"calm","characterChanges":{},"scenes":[]}',
       });
       (mockPrisma.$transaction as jest.Mock).mockResolvedValue([{}, {}]);
 
@@ -761,7 +849,8 @@ describe("HierarchicalSummaryService", () => {
       ]);
       mockFacade.chat
         .mockResolvedValueOnce({
-          content: '{"summary":"ok","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
+          content:
+            '{"summary":"ok","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
         })
         .mockRejectedValueOnce(new Error("AI error for chapter 2"));
       (mockPrisma.$transaction as jest.Mock).mockResolvedValue([{}, {}]);
@@ -773,12 +862,19 @@ describe("HierarchicalSummaryService", () => {
     });
 
     it("should process chapters in batches of 3 for concurrency control", async () => {
-      const chapters = Array.from({ length: 5 }, (_, i) => makeDbChapter(i + 1, null));
-      (mockPrisma.writingChapter!.findMany as jest.Mock).mockResolvedValue(chapters);
+      const chapters = Array.from({ length: 5 }, (_, i) =>
+        makeDbChapter(i + 1, null),
+      );
+      (mockPrisma.writingChapter!.findMany as jest.Mock).mockResolvedValue(
+        chapters,
+      );
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
       });
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValue(new Array(5).fill({}));
+      (mockPrisma.$transaction as jest.Mock).mockResolvedValue(
+        new Array(5).fill({}),
+      );
 
       const result = await service.batchUpdateSummaries("project-1");
 
@@ -793,9 +889,12 @@ describe("HierarchicalSummaryService", () => {
         makeDbChapter(2, null),
       ]);
       mockFacade.chat.mockResolvedValue({
-        content: '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
+        content:
+          '{"summary":"s","keyEvents":[],"emotionalTone":"t","characterChanges":{},"scenes":[]}',
       });
-      (mockPrisma.$transaction as jest.Mock).mockRejectedValue(new Error("Transaction failed"));
+      (mockPrisma.$transaction as jest.Mock).mockRejectedValue(
+        new Error("Transaction failed"),
+      );
       (mockPrisma.writingChapter!.update as jest.Mock).mockResolvedValue({});
 
       const result = await service.batchUpdateSummaries("project-1");

@@ -11,7 +11,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType, LeaderDecisionType } from "@prisma/client";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
@@ -38,7 +38,7 @@ export class LeaderReviewService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -48,13 +48,13 @@ export class LeaderReviewService {
   async getReasoningModel(): Promise<LeaderModelInfo | null> {
     this.logger.debug("[getReasoningModel] Starting model selection");
 
-    const allModels = await this.aiFacade.getAvailableModelsExtended();
+    const allModels = await this.chatFacade.getAvailableModelsExtended();
     this.logger.debug(
       `[getReasoningModel] Found ${allModels.length} available models`,
     );
 
     // 使用 AIEngineFacade 的能力获取推理模型
-    const modelInfo = await this.aiFacade.getReasoningModel();
+    const modelInfo = await this.chatFacade.getReasoningModel();
 
     if (!modelInfo) {
       this.logger.error("[getReasoningModel] AI Engine returned no model");
@@ -107,7 +107,7 @@ export class LeaderReviewService {
 
     // 调用 AI 审核
     const startTime = Date.now();
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",
@@ -227,7 +227,7 @@ export class LeaderReviewService {
       prompt += `\n\n## 章节图表数据\n\`\`\`json\n${JSON.stringify(charts, null, 2)}\n\`\`\``;
     }
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",
@@ -362,7 +362,7 @@ ${fullContent.substring(0, 8000)}
 \`\`\`
 要求：summary 200-300字，keyFindings 5-8条，每条50-100字。`;
 
-      const metaResponse = await this.aiFacade.chat({
+      const metaResponse = await this.chatFacade.chat({
         messages: [
           { role: "system", content: "你是研究报告整合专家，请输出JSON。" },
           { role: "user", content: metaPrompt },
@@ -420,7 +420,7 @@ ${fullContent.substring(0, 8000)}
     ).replace("{sectionId}", sectionId);
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -481,7 +481,7 @@ ${fullContent.substring(0, 8000)}
     ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

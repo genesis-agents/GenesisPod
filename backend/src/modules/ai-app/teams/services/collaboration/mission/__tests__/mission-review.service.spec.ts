@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionReviewService } from "../mission-review.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../../../events";
 import { TeamsLongContentService } from "../../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../../ai/leader-model.service";
@@ -66,7 +66,7 @@ const mockCallbacks = {
 describe("MissionReviewService", () => {
   let service: MissionReviewService;
   let prisma: jest.Mocked<PrismaService>;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<AgentFacade>;
   let topicEventEmitter: jest.Mocked<TopicEventEmitterService>;
   let longContentService: jest.Mocked<TeamsLongContentService>;
   let leaderModelService: jest.Mocked<LeaderModelService>;
@@ -147,7 +147,7 @@ describe("MissionReviewService", () => {
       providers: [
         MissionReviewService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: AgentFacade, useValue: mockAiFacade },
         { provide: TopicEventEmitterService, useValue: mockTopicEventEmitter },
         { provide: TeamsLongContentService, useValue: mockLongContentService },
         { provide: LeaderModelService, useValue: mockLeaderModelService },
@@ -157,7 +157,7 @@ describe("MissionReviewService", () => {
 
     service = module.get<MissionReviewService>(MissionReviewService);
     prisma = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(AgentFacade);
     topicEventEmitter = module.get(TopicEventEmitterService);
     longContentService = module.get(TeamsLongContentService);
     leaderModelService = module.get(LeaderModelService);

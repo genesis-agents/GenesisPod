@@ -11,7 +11,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { TeamInfo } from "../../../../ai-engine/facade";
 import {
-  AIEngineFacade,
+  TeamFacade,
   TeamRegistry,
   RoleRegistry,
 } from "../../../../ai-engine/facade";
@@ -34,7 +34,7 @@ export class AiTeamsIntegrationService {
   private static readonly CUSTOM_TEAM_PREFIX = "custom-";
 
   constructor(
-    @Optional() private readonly aiFacade?: AIEngineFacade,
+    @Optional() private readonly teamFacade?: TeamFacade,
     @Optional() private readonly teamRegistry?: TeamRegistry,
     @Optional() private readonly roleRegistry?: RoleRegistry,
   ) {}
@@ -45,11 +45,11 @@ export class AiTeamsIntegrationService {
    * 获取所有可用团队（预定义 + 自定义）
    */
   listAllTeams(): TeamInfo[] {
-    if (!this.aiFacade?.teams) {
+    if (!this.teamFacade?.teams) {
       this.logger.warn("[listAllTeams] TeamsService not available");
       return [];
     }
-    return this.aiFacade!.teams!.listTeams();
+    return this.teamFacade.teams.listTeams();
   }
 
   /**
@@ -78,7 +78,7 @@ export class AiTeamsIntegrationService {
    * 创建自定义团队
    */
   createCustomTeam(dto: CreateCustomTeamDto): TeamInfo {
-    if (!this.teamRegistry || !this.roleRegistry || !this.aiFacade?.teams) {
+    if (!this.teamRegistry || !this.roleRegistry || !this.teamFacade?.teams) {
       throw new Error(
         "TeamsService not available - AI Engine Teams module not loaded",
       );
@@ -150,14 +150,14 @@ export class AiTeamsIntegrationService {
       `[createCustomTeam] Created custom team: ${teamId} (${dto.name})`,
     );
 
-    return this.aiFacade!.teams!.getTeam(teamId);
+    return this.teamFacade.teams.getTeam(teamId);
   }
 
   /**
    * 更新自定义团队
    */
   updateCustomTeam(teamId: string, dto: UpdateCustomTeamDto): TeamInfo {
-    if (!this.teamRegistry || !this.aiFacade?.teams) {
+    if (!this.teamRegistry || !this.teamFacade?.teams) {
       throw new Error("TeamsService not available");
     }
 
@@ -217,7 +217,7 @@ export class AiTeamsIntegrationService {
 
     this.logger.log(`[updateCustomTeam] Updated custom team: ${teamId}`);
 
-    return this.aiFacade!.teams!.getTeam(teamId);
+    return this.teamFacade.teams.getTeam(teamId);
   }
 
   /**
@@ -249,25 +249,25 @@ export class AiTeamsIntegrationService {
    * 获取自定义团队列表
    */
   listCustomTeams(): TeamInfo[] {
-    if (!this.aiFacade?.teams) {
+    if (!this.teamFacade?.teams) {
       return [];
     }
 
-    return this.aiFacade!.teams!.listTeams().filter(
-      (team) => team.type === "custom",
-    );
+    return this.teamFacade.teams
+      .listTeams()
+      .filter((team) => team.type === "custom");
   }
 
   /**
    * 获取团队详情
    */
   getTeamById(teamId: string): TeamInfo | null {
-    if (!this.aiFacade?.teams) {
+    if (!this.teamFacade?.teams) {
       return null;
     }
 
     try {
-      return this.aiFacade!.teams!.getTeam(teamId);
+      return this.teamFacade.teams.getTeam(teamId);
     } catch {
       return null;
     }

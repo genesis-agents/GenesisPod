@@ -24,7 +24,7 @@ import {
   SkillRegistry,
   AgentRegistry,
   TeamRegistry,
-  AIEngineFacade,
+  ChatFacade,
 } from "../../../ai-engine/facade";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import { ResearchToolHandler } from "../tools/research-tool-handler";
@@ -37,7 +37,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
   private readonly logger = new Logger(MCPResourceProvider.name);
 
   constructor(
-    private readonly facade: AIEngineFacade,
+    private readonly facade: ChatFacade,
     @Optional() private readonly toolRegistry?: ToolRegistry,
     @Optional() private readonly skillRegistry?: SkillRegistry,
     @Optional() private readonly agentRegistry?: AgentRegistry,

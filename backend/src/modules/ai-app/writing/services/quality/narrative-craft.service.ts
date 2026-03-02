@@ -22,7 +22,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { TaskProfile } from "@/modules/ai-engine/facade";
 import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
@@ -593,7 +593,7 @@ export interface NarrativeCraftReport {
 export class NarrativeCraftService {
   private readonly logger = new Logger(NarrativeCraftService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 生成叙事工艺约束提示词
@@ -1105,7 +1105,7 @@ ${targetPart}
       };
 
       try {
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },

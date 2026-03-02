@@ -1,7 +1,6 @@
 // Prevent transitive module resolution issues from NestJS deep imports
-// Prevent transitive module resolution issues from NestJS deep imports
 jest.mock("../../../../ai-engine/facade", () => ({
-  AIEngineFacade: jest.fn(),
+  ChatFacade: jest.fn(),
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -9,7 +8,7 @@ import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { ResearchDemoService } from "../research-demo.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 
 describe("ResearchDemoService", () => {
   let service: ResearchDemoService;
@@ -39,7 +38,7 @@ describe("ResearchDemoService", () => {
       providers: [
         ResearchDemoService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

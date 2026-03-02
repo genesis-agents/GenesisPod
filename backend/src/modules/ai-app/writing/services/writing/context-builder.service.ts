@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { StoryBibleService } from "../bible/story-bible.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ToolFacade } from "../../../../ai-engine/facade";
 
 /**
  * Context Builder Service
@@ -19,7 +19,7 @@ export class ContextBuilderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storyBibleService: StoryBibleService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly toolFacade: ToolFacade,
   ) {
     void this.logger;
   }
@@ -30,7 +30,7 @@ export class ContextBuilderService {
    */
   async getContextSkillPrompts(projectId: string): Promise<string> {
     try {
-      const skillPrompts = await this.aiFacade.capabilityGetSkillPrompts({
+      const skillPrompts = await this.toolFacade.capabilityGetSkillPrompts({
         domain: "writing",
         agentId: projectId,
       });

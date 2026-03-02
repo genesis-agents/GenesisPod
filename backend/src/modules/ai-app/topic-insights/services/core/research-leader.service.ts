@@ -7,8 +7,12 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { UserIntent } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  AgentFacade,
+  ToolFacade,
+  UserIntent,
+} from "@/modules/ai-engine/facade";
 import {
   LeaderDecisionType,
   ResearchTaskStatus,
@@ -83,7 +87,9 @@ export class ResearchLeaderService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly agentFacade: AgentFacade,
+    private readonly toolFacade: ToolFacade,
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly leaderToolService: LeaderToolService,
   ) {}
@@ -95,13 +101,13 @@ export class ResearchLeaderService {
   async getReasoningModel(): Promise<LeaderModelInfo | null> {
     this.logger.debug("[getReasoningModel] Starting model selection");
 
-    const allModels = await this.aiFacade.getAvailableModelsExtended();
+    const allModels = await this.chatFacade.getAvailableModelsExtended();
     this.logger.debug(
       `[getReasoningModel] Found ${allModels.length} available models`,
     );
 
     // 使用 AIEngineFacade 的能力获取推理模型
-    const modelInfo = await this.aiFacade.getReasoningModel();
+    const modelInfo = await this.chatFacade.getReasoningModel();
 
     if (!modelInfo) {
       this.logger.error("[getReasoningModel] AI Engine returned no model");
@@ -154,7 +160,7 @@ export class ResearchLeaderService {
     }
 
     // 3. 获取可用的 CHAT 模型列表（供 Leader 为 Agent 分配）
-    const availableModels = await this.aiFacade.getAvailableModelsExtended();
+    const availableModels = await this.chatFacade.getAvailableModelsExtended();
     // ★ 过滤不可用模型（如 API key 过期、熔断器打开），并对重复 modelId 去重
     const reachableModels = availableModels.filter(
       (m) => m.isAvailable !== false,
@@ -237,7 +243,7 @@ export class ResearchLeaderService {
     const startTime = Date.now();
     let response;
     try {
-      response = await this.aiFacade.chat({
+      response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -465,7 +471,7 @@ export class ResearchLeaderService {
 
     // 调用 AI 审核
     const startTime = Date.now();
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",
@@ -549,7 +555,7 @@ export class ResearchLeaderService {
 
     // 0. 使用 AI Engine 的意图检测服务进行快速预检测
     const intentResult =
-      this.aiFacade.intentDetector!.detectIntent(sanitizedMessage);
+      this.agentFacade.intentDetector!.detectIntent(sanitizedMessage);
     this.logger.log(
       `[handleUserMessage] Intent detected: ${intentResult.intent} (confidence: ${intentResult.confidence})`,
     );
@@ -658,7 +664,7 @@ export class ResearchLeaderService {
 
     // 7. 调用 AI
     const startTime = Date.now();
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",
@@ -986,7 +992,7 @@ export class ResearchLeaderService {
     ).replace("{sectionId}", sectionId);
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -1047,7 +1053,7 @@ export class ResearchLeaderService {
     ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -1188,7 +1194,7 @@ export class ResearchLeaderService {
       }
 
       // 4. ★ 动态获取可用工具列表（从 AI Engine）- 添加空值防护
-      const availableTools = this.aiFacade.getAvailableTools() || [];
+      const availableTools = this.toolFacade.getAvailableTools() || [];
       const toolsText =
         availableTools.length > 0
           ? availableTools
@@ -1460,7 +1466,7 @@ ${teamMembersText}`;
     // 添加当前用户消息（包含完整上下文的 prompt）
     messages.push({ role: "user", content: prompt });
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages,
       model: leaderModel.modelId,
       taskProfile: {
@@ -1561,7 +1567,7 @@ ${teamMembersText}`;
     });
 
     // 2. 获取可用模型列表（过滤不可用模型，优先用于对话的模型）
-    const allModelsRaw = await this.aiFacade.getAvailableModelsExtended();
+    const allModelsRaw = await this.chatFacade.getAvailableModelsExtended();
     const availableModels = allModelsRaw.filter((m) => m.isAvailable !== false);
     // 过滤掉推理模型（用于研究任务的应是普通对话模型）
     const chatModels = availableModels.filter((m) => !m.isReasoning);
@@ -2065,7 +2071,7 @@ ${teamMembersText}`;
         );
 
         const startTime = Date.now();
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -2251,7 +2257,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         );
 
         const startTime = Date.now();
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -2454,7 +2460,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
       prompt += `\n\n## 章节图表数据\n\`\`\`json\n${JSON.stringify(charts, null, 2)}\n\`\`\``;
     }
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",
@@ -2608,7 +2614,7 @@ ${fullContent.substring(0, 8000)}
 \`\`\`
 要求：summary 200-300字，keyFindings 5-8条，每条50-100字。`;
 
-      const metaResponse = await this.aiFacade.chat({
+      const metaResponse = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

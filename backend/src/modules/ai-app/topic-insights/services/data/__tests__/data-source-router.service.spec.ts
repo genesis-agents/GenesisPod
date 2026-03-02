@@ -17,8 +17,10 @@ import {
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
+  ChatFacade,
+  RAGFacade,
+  ToolFacade,
 } from "@/modules/ai-engine/facade";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { DataSourcePlannerService } from "../data-source-planner.service";
 import { DataSourceConnectorRegistry } from "../connectors/data-source-connector.registry";
 import { DataSourceType } from "../../../types/data-source.types";
@@ -203,7 +205,9 @@ describe("DataSourceRouterService", () => {
         { provide: CongressGovTool, useValue: mockCongressGovTool },
         { provide: WhiteHouseNewsTool, useValue: mockWhiteHouseNewsTool },
         { provide: DataSourcePlannerService, useValue: mockDataSourcePlanner },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: RAGFacade, useValue: mockAiFacade },
+        { provide: ToolFacade, useValue: mockAiFacade },
         {
           provide: DataSourceConnectorRegistry,
           useValue: mockConnectorRegistry,
@@ -1287,7 +1291,9 @@ describe("DataSourceRouterService", () => {
             provide: DataSourcePlannerService,
             useValue: mockDataSourcePlanner,
           },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: RAGFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           {
             provide: DataSourceConnectorRegistry,
             useValue: mockConnectorWithSearchFn,
@@ -3435,7 +3441,9 @@ describe("DataSourceRouterService", () => {
             provide: DataSourcePlannerService,
             useValue: mockDataSourcePlanner,
           },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
+          { provide: RAGFacade, useValue: mockAiFacade },
+          { provide: ToolFacade, useValue: mockAiFacade },
           // DataSourceConnectorRegistry intentionally NOT provided → connectorRegistry is undefined
         ],
       }).compile();

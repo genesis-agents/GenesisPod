@@ -16,7 +16,7 @@ import {
   JsonSchema,
 } from "../abstractions/skill.interface";
 import { SkillMdDefinition, SkillInputBinding } from "../types/skill-md.types";
-import type { AIEngineFacade } from "../../facade/ai-engine.facade";
+import type { ChatFacade } from "../../facade/domain/chat.facade";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 
 export class PromptSkillAdapter implements ISkill<unknown, unknown> {
@@ -49,7 +49,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
 
   constructor(
     private readonly definition: SkillMdDefinition,
-    private readonly facade: AIEngineFacade,
+    private readonly facade: ChatFacade,
     private readonly promptBuilder: SkillPromptBuilder,
   ) {
     const fm = definition.metadata;

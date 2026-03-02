@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
@@ -100,7 +100,7 @@ export interface SemanticCheckResult {
 export class SemanticConsistencyService {
   private readonly logger = new Logger(SemanticConsistencyService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 执行语义一致性检查
@@ -207,7 +207,7 @@ export class SemanticConsistencyService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiFacade.chat({
+          this.chatFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -291,7 +291,7 @@ export class SemanticConsistencyService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiFacade.chat({
+          this.chatFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -381,7 +381,7 @@ export class SemanticConsistencyService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiFacade.chat({
+          this.chatFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               {

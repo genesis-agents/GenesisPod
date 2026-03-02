@@ -8,7 +8,7 @@ import {
   FourAgentOutputs,
   TeamProgressCallback,
 } from "../imagen4-prompt.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { TeamFacade } from "../../../../ai-engine/facade";
 import { GenerateImageOptions } from "../../core/image.types";
 
 // ============================================================================
@@ -129,7 +129,7 @@ function* buildMissionStream(
 
 describe("Imagen4PromptService", () => {
   let service: Imagen4PromptService;
-  let aiFacade: jest.Mocked<Pick<AIEngineFacade, "executeMissionStream">>;
+  let aiFacade: jest.Mocked<Pick<TeamFacade, "executeMissionStream">>;
 
   beforeEach(async () => {
     aiFacade = {
@@ -139,7 +139,7 @@ describe("Imagen4PromptService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         Imagen4PromptService,
-        { provide: AIEngineFacade, useValue: aiFacade },
+        { provide: TeamFacade, useValue: aiFacade },
       ],
     }).compile();
 
@@ -170,7 +170,7 @@ describe("Imagen4PromptService", () => {
 
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -197,7 +197,7 @@ describe("Imagen4PromptService", () => {
 
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -213,7 +213,7 @@ describe("Imagen4PromptService", () => {
       const events = [{ type: "mission_completed", data: {} }];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -232,7 +232,7 @@ describe("Imagen4PromptService", () => {
       ];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -268,7 +268,7 @@ describe("Imagen4PromptService", () => {
 
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -289,7 +289,7 @@ describe("Imagen4PromptService", () => {
       const events = [{ type: "mission_completed", data: {} }];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -307,7 +307,7 @@ describe("Imagen4PromptService", () => {
       const events = [{ type: "mission_completed", data: {} }];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -323,7 +323,7 @@ describe("Imagen4PromptService", () => {
       const events = [{ type: "mission_completed", data: {} }];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -355,7 +355,7 @@ describe("Imagen4PromptService", () => {
 
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -370,7 +370,7 @@ describe("Imagen4PromptService", () => {
       const events = [{ type: "mission_completed", data: {} }];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -385,7 +385,7 @@ describe("Imagen4PromptService", () => {
       const events = [{ type: "mission_completed", data: {} }];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -410,7 +410,7 @@ describe("Imagen4PromptService", () => {
 
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -436,7 +436,7 @@ describe("Imagen4PromptService", () => {
 
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -457,7 +457,7 @@ describe("Imagen4PromptService", () => {
       const events = [{ type: "mission_completed", data: {} }];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -477,7 +477,7 @@ describe("Imagen4PromptService", () => {
       ];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -516,7 +516,7 @@ describe("Imagen4PromptService", () => {
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream([
           { type: "mission_completed", data: {} },
-        ]) as unknown as ReturnType<AIEngineFacade["executeMissionStream"]>,
+        ]) as unknown as ReturnType<TeamFacade["executeMissionStream"]>,
       );
     });
 
@@ -583,7 +583,7 @@ describe("Imagen4PromptService", () => {
       ];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -606,7 +606,7 @@ describe("Imagen4PromptService", () => {
       ];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 
@@ -630,7 +630,7 @@ describe("Imagen4PromptService", () => {
       ];
       aiFacade.executeMissionStream.mockReturnValue(
         buildMissionStream(events) as unknown as ReturnType<
-          AIEngineFacade["executeMissionStream"]
+          TeamFacade["executeMissionStream"]
         >,
       );
 

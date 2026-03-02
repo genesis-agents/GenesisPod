@@ -10,7 +10,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchLeaderService } from "../research-leader.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  AgentFacade,
+  ToolFacade,
+} from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
 
@@ -138,7 +142,9 @@ describe("ResearchLeaderService", () => {
       providers: [
         ResearchLeaderService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
+        { provide: AgentFacade, useValue: mockFacade },
+        { provide: ToolFacade, useValue: mockFacade },
         { provide: ResearchEventEmitterService, useValue: mockEventEmitter },
         { provide: LeaderToolService, useValue: mockLeaderToolService },
       ],

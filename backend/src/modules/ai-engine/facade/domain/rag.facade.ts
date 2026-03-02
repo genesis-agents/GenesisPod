@@ -34,11 +34,14 @@ import type {
   RetrieveMemoryRequest,
   MemoryItem,
 } from "../types";
+import type { EmbeddingService } from "../../knowledge/rag/embedding";
 import type { EmbeddingResult } from "../../knowledge/rag/embedding";
 import type {
+  VectorService,
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../../knowledge/rag/vector/vector.service";
+import type { ContentFetchService } from "../../content/fetch/content-fetch.service";
 import type { ToolContext } from "../../tools/abstractions/tool.interface";
 
 @Injectable()
@@ -56,7 +59,7 @@ export class RAGFacade {
     private readonly knowledge?: KnowledgeFeature,
     @Optional()
     @Inject(CONTENT_FEATURE)
-    _content?: ContentFeature, // reserved for future content-fetch operations
+    private readonly content?: ContentFeature,
     @Optional()
     @Inject(TOOL_FEATURE)
     private readonly tools?: ToolFeature,
@@ -358,6 +361,23 @@ export class RAGFacade {
         options,
       )) ?? []
     );
+  }
+
+  // ==================== Service Getters ====================
+
+  /** Raw EmbeddingService instance (for direct operations like getConfigInfo) */
+  get embedding(): EmbeddingService | undefined {
+    return this.knowledge?.embedding;
+  }
+
+  /** Raw VectorService instance (for advanced vector operations) */
+  get vector(): VectorService | undefined {
+    return this.knowledge?.vector;
+  }
+
+  /** ContentFetchService for URL/YouTube content fetching */
+  get contentFetch(): ContentFetchService | undefined {
+    return this.content?.contentFetch;
   }
 
   // ==================== Helpers ====================

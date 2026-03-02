@@ -8,9 +8,6 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 // ★ P0: 数据源连接器注册中心
 import { DataSourceConnectorRegistry } from "./connectors/data-source-connector.registry";
 
-// ★ AI Engine Facade 导入 - 用于 Social X 搜索
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-
 // ★ 政策研究工具导入
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import {
@@ -19,6 +16,9 @@ import {
   CongressGovTool,
   WhiteHouseNewsTool,
   type ToolContext,
+  ChatFacade,
+  RAGFacade,
+  ToolFacade,
 } from "@/modules/ai-engine/facade";
 
 import {
@@ -82,8 +82,10 @@ export class DataSourceRouterService {
     private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
     // ★ AI 数据源规划器
     private readonly dataSourcePlanner: DataSourcePlannerService,
-    // ★ AI Facade - 用于 Social X 搜索（Grok Live Search）、RAG 搜索、能力解析
-    private readonly aiFacade: AIEngineFacade,
+    // ★ Domain Facades - 用于 Social X 搜索（Grok Live Search）、RAG 搜索、能力解析
+    private readonly chatFacade: ChatFacade,
+    private readonly ragFacade: RAGFacade,
+    private readonly toolFacade: ToolFacade,
     // ★ P0: 数据源连接器注册中心（可选，向后兼容）
     @Optional()
     private readonly connectorRegistry?: DataSourceConnectorRegistry,
@@ -1091,7 +1093,7 @@ export class DataSourceRouterService {
       );
 
       // 2. 生成查询嵌入向量
-      const queryEmbedding = await this.aiFacade.embeddingGenerate(query);
+      const queryEmbedding = await this.ragFacade.embeddingGenerate(query);
 
       if (!queryEmbedding) {
         this.logger.warn("[searchLocal] Failed to generate query embedding");
@@ -1099,7 +1101,7 @@ export class DataSourceRouterService {
       }
 
       // 3. 在指定知识库中进行相似度搜索
-      const searchResults = await this.aiFacade.vectorSimilaritySearch(
+      const searchResults = await this.ragFacade.vectorSimilaritySearch(
         queryEmbedding.embedding,
         {
           limit: maxResults,
@@ -1369,7 +1371,7 @@ export class DataSourceRouterService {
     retries = 2,
   ): Promise<DataSourceResult[]> {
     // 检查是否有可用的 Grok 模型
-    const aiModels = await this.aiFacade.getAvailableModels();
+    const aiModels = await this.chatFacade.getAvailableModels();
     const grokModel = aiModels.find(
       (m: { id: string; provider: string }) => m.provider === "xai",
     );
@@ -1406,7 +1408,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -1943,7 +1945,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
   private async isToolEnabled(toolId: string): Promise<boolean> {
     try {
       // 使用空上下文，只检查全局配置
-      const availableTools = await this.aiFacade.capabilityResolveTools({});
+      const availableTools = await this.toolFacade.capabilityResolveTools({});
       return availableTools.includes(toolId);
     } catch (error) {
       this.logger.error(

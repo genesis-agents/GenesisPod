@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import {
   SearchRound,
   SearchSource,
@@ -26,7 +26,7 @@ import {
 export class SelfReflectionService {
   private readonly logger = new Logger(SelfReflectionService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 对当前搜索结果进行反思评估
@@ -57,7 +57,7 @@ export class SelfReflectionService {
 
     try {
       // ★ 使用 AIEngineFacade 统一入口，使用 CHAT_FAST 模型进行快速反思
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

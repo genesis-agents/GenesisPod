@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { TaskProfile } from "../../../ai-engine/facade";
 
 export interface FileInfo {
@@ -57,7 +57,7 @@ export class AiFileOrganizerService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -75,7 +75,7 @@ export class AiFileOrganizerService {
         outputLength: "short", // maxTokens: 1500
       };
 
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: this.getSystemPrompt() },
           { role: "user", content: prompt },

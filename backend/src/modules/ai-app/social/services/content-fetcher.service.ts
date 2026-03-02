@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialContentSourceType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { RAGFacade } from "../../../ai-engine/facade";
 import { sanitizeForDb, sanitizeJson } from "../../../ai-engine/facade";
 
 export interface FetchedContent {
@@ -25,7 +25,7 @@ export class ContentFetcherService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly ragFacade: RAGFacade,
   ) {}
 
   /**
@@ -33,7 +33,7 @@ export class ContentFetcherService {
    * 委托给 AI Engine ContentFetchService 处理（含 SSRF 防护和 YouTube 字幕）
    */
   async fetchFromUrl(url: string): Promise<FetchedContent> {
-    const result = await this.aiFacade.contentFetch!.fetchFromUrl(url);
+    const result = await this.ragFacade.contentFetch!.fetchFromUrl(url);
     return {
       title: result.title || "Untitled",
       content: result.content,
@@ -88,7 +88,7 @@ export class ContentFetcherService {
 
     // ===== YouTube 视频：优先使用数据库缓存的字幕（和 AI Explore 一致） =====
     if (resource.type === "YOUTUBE_VIDEO") {
-      const videoId = this.aiFacade.contentFetch!.extractYoutubeVideoId(
+      const videoId = this.ragFacade.contentFetch!.extractYoutubeVideoId(
         resource.sourceUrl,
       );
       if (videoId) {
@@ -99,7 +99,7 @@ export class ContentFetcherService {
         // 直接使用 engine 的 fetchFromYoutubeUrl，它会先检查缓存
         try {
           const youtubeContent =
-            await this.aiFacade.contentFetch!.fetchFromYoutubeUrl(
+            await this.ragFacade.contentFetch!.fetchFromYoutubeUrl(
               videoId,
               resource.sourceUrl,
             );
@@ -148,7 +148,7 @@ export class ContentFetcherService {
         `Resource ${resourceId} has insufficient content (${bestContent?.length || 0} chars), fetching from URL...`,
       );
       try {
-        const fetched = await this.aiFacade.contentFetch!.fetchFromUrl(
+        const fetched = await this.ragFacade.contentFetch!.fetchFromUrl(
           resource.sourceUrl,
         );
         if (

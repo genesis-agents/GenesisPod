@@ -23,7 +23,7 @@ import {
   DataFetchingResult,
 } from "../../../../common/content-processing/data-fetching.service";
 import { AIModelType, Prisma } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import {
   MissionExecutorService,
   KernelContext,
@@ -77,7 +77,7 @@ export class AiImageService {
     private readonly imageGenerationService: ImageGenerationService,
     private readonly imageStorageService: ImageStorageService,
     private readonly imagen4PromptService: Imagen4PromptService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
 
@@ -87,10 +87,10 @@ export class AiImageService {
    */
   async getAvailableModels() {
     // Use AIEngineFacade to get available models (now includes icon and isDefault)
-    const textModelsData = await this.aiFacade.getAvailableModels(
+    const textModelsData = await this.chatFacade.getAvailableModels(
       AIModelType.CHAT,
     );
-    const imageModelsData = await this.aiFacade.getAvailableModels(
+    const imageModelsData = await this.chatFacade.getAvailableModels(
       AIModelType.IMAGE_GENERATION,
     );
 

@@ -12,8 +12,11 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
-import type { CreativityLevel, OutputLengthLevel } from "../../../../../ai-engine/facade";
+import { ChatFacade, ChatMessage } from "../../../../../ai-engine/facade";
+import type {
+  CreativityLevel,
+  OutputLengthLevel,
+} from "../../../../../ai-engine/facade";
 
 /**
  * TaskProfile 直接配置（推荐方式）
@@ -55,7 +58,7 @@ export class MissionAICallerService {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
   ) {}
 
   // ==================== 模型配置 ====================
@@ -65,7 +68,7 @@ export class MissionAICallerService {
    * ★ 使用 AIEngineFacade 替代直接访问 prisma.aIModel
    */
   async getModelConfig(aiModel: string) {
-    const modelConfig = await this.aiFacade.getModelById(aiModel);
+    const modelConfig = await this.chatFacade.getModelById(aiModel);
 
     if (!modelConfig) {
       this.logger.warn(`Model config not found for: ${aiModel}`);
@@ -109,7 +112,7 @@ export class MissionAICallerService {
       outputLength: this.mapMaxTokensToOutputLength(options?.maxTokens),
     };
 
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: facadeMessages,
       model: modelConfig?.modelId ?? aiModel,
       taskProfile,

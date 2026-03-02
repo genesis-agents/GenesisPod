@@ -5,7 +5,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ResourceType, AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../../ai-engine/facade";
 
 export interface UrlClassificationResult {
   /**
@@ -63,7 +63,7 @@ export class AiUrlClassifierService {
     RSS: "RSS 订阅源 - 任何 RSS/Atom feed 链接",
   };
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 使用 AI 对 URL 进行分类
@@ -495,7 +495,7 @@ Only include alternatives if there are other plausible classifications with conf
    * - outputLength: "minimal"    — 简短的 JSON 分类结果
    */
   private async callLLM(prompt: string): Promise<string> {
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         {
           role: "system",

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MultiLanguageResearchService } from "../multi-language-research.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchLanguage } from "../../../types/multi-language.types";
 
 const mockAiFacade = {
@@ -16,11 +16,13 @@ describe("MultiLanguageResearchService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MultiLanguageResearchService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
-    service = module.get<MultiLanguageResearchService>(MultiLanguageResearchService);
+    service = module.get<MultiLanguageResearchService>(
+      MultiLanguageResearchService,
+    );
   });
 
   // ============================================================
@@ -38,7 +40,9 @@ describe("MultiLanguageResearchService", () => {
         }),
       });
 
-      const result = await service.detectLanguage("This is an English text about AI.");
+      const result = await service.detectLanguage(
+        "This is an English text about AI.",
+      );
 
       expect(result.primaryLanguage).toBe(ResearchLanguage.EN);
       expect(result.confidence).toBe(0.99);
@@ -55,7 +59,8 @@ describe("MultiLanguageResearchService", () => {
         }),
       });
 
-      const result = await service.detectLanguage("这是一段关于人工智能的中文文本。");
+      const result =
+        await service.detectLanguage("这是一段关于人工智能的中文文本。");
 
       expect(result.primaryLanguage).toBe(ResearchLanguage.ZH);
     });
@@ -108,7 +113,9 @@ describe("MultiLanguageResearchService", () => {
       });
 
       expect(result.originalQuery).toBe("artificial intelligence trends");
-      expect(result.translatedQueries[ResearchLanguage.ZH]).toBe("人工智能趋势");
+      expect(result.translatedQueries[ResearchLanguage.ZH]).toBe(
+        "人工智能趋势",
+      );
       expect(result.terminologyMapping).toHaveLength(1);
     });
 
@@ -127,7 +134,10 @@ describe("MultiLanguageResearchService", () => {
 
     it("should include domain context in request", async () => {
       mockAiFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ translatedQueries: {}, terminologyMapping: [] }),
+        content: JSON.stringify({
+          translatedQueries: {},
+          terminologyMapping: [],
+        }),
       });
 
       await service.generateCrossLanguageQueries({
@@ -180,7 +190,9 @@ describe("MultiLanguageResearchService", () => {
         targetLanguage: ResearchLanguage.EN,
       });
 
-      expect(result.translatedContent).toBe("Artificial intelligence is developing rapidly.");
+      expect(result.translatedContent).toBe(
+        "Artificial intelligence is developing rapidly.",
+      );
       expect(result.translationQuality).toBe(0.92);
       expect(result.culturalNotes).toContain("Chinese tech context");
     });
@@ -205,7 +217,10 @@ describe("MultiLanguageResearchService", () => {
 
   describe("getRecommendedLanguages", () => {
     it("should recommend EN, ZH, JA for TECHNOLOGY_INSIGHT", () => {
-      const langs = service.getRecommendedLanguages("AI Research", "TECHNOLOGY_INSIGHT");
+      const langs = service.getRecommendedLanguages(
+        "AI Research",
+        "TECHNOLOGY_INSIGHT",
+      );
 
       expect(langs).toContain(ResearchLanguage.EN);
       expect(langs).toContain(ResearchLanguage.ZH);
@@ -213,21 +228,30 @@ describe("MultiLanguageResearchService", () => {
     });
 
     it("should recommend EN and ZH for COMPANY_INSIGHT", () => {
-      const langs = service.getRecommendedLanguages("Apple Inc", "COMPANY_INSIGHT");
+      const langs = service.getRecommendedLanguages(
+        "Apple Inc",
+        "COMPANY_INSIGHT",
+      );
 
       expect(langs).toContain(ResearchLanguage.EN);
       expect(langs).toContain(ResearchLanguage.ZH);
     });
 
     it("should default to EN and ZH for unknown topic types", () => {
-      const langs = service.getRecommendedLanguages("Unknown Topic", "UNKNOWN_TYPE");
+      const langs = service.getRecommendedLanguages(
+        "Unknown Topic",
+        "UNKNOWN_TYPE",
+      );
 
       expect(langs).toContain(ResearchLanguage.EN);
       expect(langs).toContain(ResearchLanguage.ZH);
     });
 
     it("should recommend DE and FR for MACRO_INSIGHT", () => {
-      const langs = service.getRecommendedLanguages("Global Economy", "MACRO_INSIGHT");
+      const langs = service.getRecommendedLanguages(
+        "Global Economy",
+        "MACRO_INSIGHT",
+      );
 
       expect(langs).toContain(ResearchLanguage.DE);
       expect(langs).toContain(ResearchLanguage.FR);

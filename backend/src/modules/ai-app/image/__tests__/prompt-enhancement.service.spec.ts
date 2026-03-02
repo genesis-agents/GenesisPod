@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { PromptEnhancementService } from "../generation/prompt-enhancement.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 
 describe("PromptEnhancementService", () => {
   let service: PromptEnhancementService;
@@ -21,7 +21,7 @@ describe("PromptEnhancementService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PromptEnhancementService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -58,25 +58,25 @@ describe("PromptEnhancementService", () => {
     it("should throw when LLM returns empty content", async () => {
       mockFacade.chat.mockResolvedValue({ content: "", tokensUsed: 0 });
 
-      await expect(
-        service.enhancePromptWithLLM("test prompt"),
-      ).rejects.toThrow("No response from LLM");
+      await expect(service.enhancePromptWithLLM("test prompt")).rejects.toThrow(
+        "No response from LLM",
+      );
     });
 
     it("should throw when LLM returns null content", async () => {
       mockFacade.chat.mockResolvedValue({ content: null, tokensUsed: 0 });
 
-      await expect(
-        service.enhancePromptWithLLM("test prompt"),
-      ).rejects.toThrow("No response from LLM");
+      await expect(service.enhancePromptWithLLM("test prompt")).rejects.toThrow(
+        "No response from LLM",
+      );
     });
 
     it("should propagate errors from facade.chat", async () => {
       mockFacade.chat.mockRejectedValue(new Error("LLM API unavailable"));
 
-      await expect(
-        service.enhancePromptWithLLM("test prompt"),
-      ).rejects.toThrow("LLM API unavailable");
+      await expect(service.enhancePromptWithLLM("test prompt")).rejects.toThrow(
+        "LLM API unavailable",
+      );
     });
   });
 
@@ -160,7 +160,9 @@ describe("PromptEnhancementService", () => {
         "fallback",
       );
 
-      expect(result.imagePrompt).toBe("A stunning mountain landscape at sunset");
+      expect(result.imagePrompt).toBe(
+        "A stunning mountain landscape at sunset",
+      );
       expect(result.renderingMode).toBe("ai_image");
     });
 
@@ -183,7 +185,9 @@ describe("PromptEnhancementService", () => {
         fallbackPrompt,
       );
 
-      expect(result.imagePrompt).toBe("Fenced prompt test for structured content visualization");
+      expect(result.imagePrompt).toBe(
+        "Fenced prompt test for structured content visualization",
+      );
       expect(result.renderingMode).toBe("html_render");
       expect(result.templateLayout).toBe("timeline");
     });
@@ -216,10 +220,7 @@ describe("PromptEnhancementService", () => {
       });
 
       // "cat" is short and has no structured content
-      const result = service.parsePromptEnhancementResponse(
-        json,
-        "cat",
-      );
+      const result = service.parsePromptEnhancementResponse(json, "cat");
 
       expect(result.renderingMode).toBe("ai_image");
     });
@@ -299,7 +300,10 @@ describe("PromptEnhancementService", () => {
         ],
       });
 
-      const result = service.parsePromptEnhancementResponse(json, "fallback for long enough content");
+      const result = service.parsePromptEnhancementResponse(
+        json,
+        "fallback for long enough content",
+      );
 
       expect(result.designJournal).toHaveLength(2);
       expect(result.designJournal[0].title).toBe("Step 1");

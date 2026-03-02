@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   sanitizeMarkdownContent,
@@ -51,7 +51,7 @@ import {
 export class ReportGeneratorService {
   private readonly logger = new Logger(ReportGeneratorService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * ★ 跨维度一致性检查 Skill
@@ -111,7 +111,7 @@ export class ReportGeneratorService {
       .join("\n---\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: CONSISTENCY_CHECK_SYSTEM_PROMPT },
           {
@@ -272,7 +272,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // 调用 AI 生成报告（带 input-complexity-check 容错）
     let response;
     try {
-      response = await this.aiFacade.chat({
+      response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -314,7 +314,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
             "（证据列表已省略以减少输入量，请基于维度摘要中的信息生成报告）",
           ) + feedbackNotice;
 
-        response = await this.aiFacade.chat({
+        response = await this.chatFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: reducedUserPrompt },

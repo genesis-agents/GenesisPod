@@ -10,7 +10,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research-leader.service";
 import {
@@ -97,7 +97,10 @@ export interface SectionRevisionInput {
 export class SectionWriterService {
   private readonly logger = new Logger(SectionWriterService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly chatFacade: ChatFacade,
+    private readonly teamFacade: TeamFacade,
+  ) {}
 
   /**
    * 撰写单个章节
@@ -213,7 +216,7 @@ export class SectionWriterService {
     });
 
     const startTime = Date.now();
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: finalUserPrompt },
@@ -337,7 +340,7 @@ export class SectionWriterService {
     );
 
     const startTime = Date.now();
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         { role: "system", content: revisionSystemPrompt },
         { role: "user", content: userPrompt },
@@ -453,7 +456,7 @@ export class SectionWriterService {
     // 如果有失败的章节，尝试用备用模型重试
     if (failedIndices.length > 0) {
       // 获取备用模型（使用 AI Engine 的智能选择，一次性获取）
-      const fallbackModel = await this.aiFacade.selectModel({
+      const fallbackModel = await this.chatFacade.selectModel({
         modelType: AIModelType.CHAT,
       });
 
@@ -623,7 +626,7 @@ export class SectionWriterService {
       for (const skillId of config.skills) {
         const fileId = skillIdMapping[skillId] || skillId.replace(/_/g, "-");
         // 同步获取技能（skillLoader 已在启动时预加载所有技能）
-        const skill = this.aiFacade
+        const skill = this.teamFacade
           .skillLoaderGetAll()
           .find((s) => s.metadata.id === fileId);
 

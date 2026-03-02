@@ -3,14 +3,14 @@ jest.mock("../../../../../common/cache/cache.module", () => ({}));
 jest.mock("../../../../../common/cache/cache.service", () => ({
   CacheService: jest.fn(),
 }));
-jest.mock("../../../../ai-engine/facade/ai-engine.facade");
+jest.mock("../../../../ai-engine/facade");
 jest.mock("../../../../../common/prisma/prisma.service");
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { NotesService } from "../notes.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "../dto";
 
 // ── Mock data ────────────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ describe("NotesService", () => {
       providers: [
         NotesService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

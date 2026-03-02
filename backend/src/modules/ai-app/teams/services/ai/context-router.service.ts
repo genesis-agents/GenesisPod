@@ -17,7 +17,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../ai-engine/facade";
 import { UserIntent, ContextStrategy } from "../../../../ai-engine/facade";
 
 // 重导出 AI Engine 的类型（向后兼容）
@@ -51,7 +51,7 @@ export class ContextRouterService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly agentFacade: AgentFacade,
   ) {}
 
   /**
@@ -63,7 +63,7 @@ export class ContextRouterService {
     mentionedAiIds: string[],
   ): Promise<ContextRouteResult> {
     // 1. 使用 AI Engine 的意图检测服务
-    const detectionResult = this.aiFacade.intentDetector?.detectIntent(
+    const detectionResult = this.agentFacade.intentDetector?.detectIntent(
       userMessage,
       { mentionedCount: mentionedAiIds.length },
     );

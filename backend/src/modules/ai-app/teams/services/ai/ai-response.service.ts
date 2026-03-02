@@ -7,7 +7,8 @@ import {
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
 import {
-  AIEngineFacade,
+  ChatFacade,
+  ToolFacade,
   ChatMessage,
   KernelContext,
   MissionExecutorService,
@@ -45,7 +46,8 @@ export class AiResponseService {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
+    private toolFacade: ToolFacade,
     // ★ 架构重构：通过 ToolRegistry 调用工具
     private toolRegistry: ToolRegistry,
     private contextRouter: ContextRouterService,
@@ -1189,7 +1191,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
             `[AI Model Lookup] aiMember.aiModel = "${aiMember.aiModel}", displayName = "${aiMember.displayName}"`,
           );
 
-          const aiModelConfig = await this.aiFacade.getModelById(
+          const aiModelConfig = await this.chatFacade.getModelById(
             aiMember.aiModel,
           );
 
@@ -1240,7 +1242,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
               })),
             ];
 
-            const result = await this.aiFacade.chat({
+            const result = await this.chatFacade.chat({
               messages: facadeMessages,
               model: modelId,
               taskProfile: {
@@ -1713,14 +1715,14 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
     // 配置 LLM Adapter (使用 AI Engine 的 FunctionCallingLLMAdapter，通过 Facade 访问)
     if (
-      !this.aiFacade.functionCallingAdapter ||
-      !this.aiFacade.functionCallingExecutor
+      !this.toolFacade.functionCallingAdapter ||
+      !this.toolFacade.functionCallingExecutor
     ) {
       throw new Error(
         "FunctionCallingLLMAdapter or FunctionCallingExecutor is not available",
       );
     }
-    this.aiFacade.functionCallingAdapter.setConfig({
+    this.toolFacade.functionCallingAdapter.setConfig({
       aiMemberId: aiMember.id,
       workspaceId: topicId,
     });
@@ -1751,8 +1753,8 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       // T2 Fix: 使用 executeWithContext() 替代 execute()
       // executeWithContext() 会通过 AICapabilityResolver 解析可用工具
       const eventGenerator =
-        this.aiFacade.functionCallingExecutor.executeWithContext(
-          this.aiFacade.functionCallingAdapter,
+        this.toolFacade.functionCallingExecutor.executeWithContext(
+          this.toolFacade.functionCallingAdapter,
           systemPrompt,
           userPrompt,
           capabilityContext,
@@ -1917,7 +1919,8 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
     // Resolve shorthand by finding the first available model matching the prefix
     try {
-      const availableModels = await this.aiFacade.getAvailableModelsExtended();
+      const availableModels =
+        await this.chatFacade.getAvailableModelsExtended();
       const match = availableModels.find((m) =>
         m.id.toLowerCase().startsWith(lower),
       );

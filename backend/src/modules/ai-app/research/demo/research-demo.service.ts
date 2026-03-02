@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 
 @Injectable()
 export class ResearchDemoService {
@@ -14,7 +14,7 @@ export class ResearchDemoService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -171,7 +171,7 @@ export class ResearchDemoService {
 ## 输出
 只输出 HTML 代码，不要其他内容。不要用 markdown 代码块包裹。`;
 
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           {

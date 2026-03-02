@@ -10,7 +10,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import type { DimensionAnalysisInput } from "../../types/report.types";
@@ -159,7 +159,7 @@ const DEDUP_CHECK_PROMPT = `你是报告编辑专家，负责检查跨维度的�
 export class ReportEditorService {
   private readonly logger = new Logger(ReportEditorService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 编辑维度内容：跨维度去重 + 过渡生成
@@ -302,7 +302,7 @@ export class ReportEditorService {
       .join("\n\n---\n\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

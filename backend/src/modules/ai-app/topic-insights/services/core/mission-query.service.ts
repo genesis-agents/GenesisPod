@@ -25,7 +25,7 @@ import {
   RESEARCH_INTERNAL_EVENTS,
 } from "./research-event-emitter.service";
 
-import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchLeaderService } from "./research-leader.service";
 import type { LeaderPlan } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
@@ -45,7 +45,7 @@ export class MissionQueryService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly researchEventEmitter: ResearchEventEmitterService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
   ) {}
@@ -535,7 +535,7 @@ export class MissionQueryService {
     const map = new Map<AIModelType, string>();
 
     // 获取 CHAT 类型的默认模型
-    const chatModel = await this.aiFacade.getDefaultModelByType(
+    const chatModel = await this.chatFacade.getDefaultModelByType(
       AIModelType.CHAT,
     );
     if (chatModel) {
@@ -602,7 +602,7 @@ export class MissionQueryService {
     this.eventEmitter.emit(RESEARCH_INTERNAL_EVENTS.MISSION_PROGRESS, event);
 
     // WebSocket 事件（推送给前端）
-    this.researchEventEmitter.emitMissionProgress(event.topicId, {
+    void this.researchEventEmitter.emitMissionProgress(event.topicId, {
       missionId: event.missionId,
       progress: event.progress,
       phase: event.phase,

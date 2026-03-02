@@ -5,7 +5,7 @@
  */
 
 jest.mock("../../../../ai-engine/facade", () => ({
-  AIEngineFacade: jest.fn(),
+  ChatFacade: jest.fn(),
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -17,7 +17,7 @@ import {
 import { AIModelType, ResearchIdeaType } from "@prisma/client";
 import { ResearchIdeaService } from "../research-idea.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import {
   CreateResearchIdeaDto,
   UpdateResearchIdeaDto,
@@ -106,7 +106,7 @@ describe("ResearchIdeaService", () => {
       providers: [
         ResearchIdeaService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

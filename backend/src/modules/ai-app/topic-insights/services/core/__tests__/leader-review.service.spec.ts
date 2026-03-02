@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderReviewService } from "../leader-review.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -17,9 +17,16 @@ function buildMocks() {
   };
 
   const mockAiFacade = {
-    getAvailableModelsExtended: jest.fn().mockResolvedValue([
-      { id: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false },
-    ]),
+    getAvailableModelsExtended: jest
+      .fn()
+      .mockResolvedValue([
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]),
     getReasoningModel: jest.fn().mockResolvedValue({
       id: "gpt-4o",
       name: "GPT-4o",
@@ -57,7 +64,7 @@ describe("LeaderReviewService", () => {
       providers: [
         LeaderReviewService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
-        { provide: AIEngineFacade, useValue: mocks.mockAiFacade },
+        { provide: ChatFacade, useValue: mocks.mockAiFacade },
       ],
     }).compile();
 
@@ -103,7 +110,12 @@ describe("LeaderReviewService", () => {
         }),
       });
 
-      const result = await service.reviewTaskResult("mission-1", "task-1", "Research content", "Market Analysis");
+      const result = await service.reviewTaskResult(
+        "mission-1",
+        "task-1",
+        "Research content",
+        "Market Analysis",
+      );
       expect(result.taskId).toBe("task-1");
       expect(result.status).toBe("approved");
       expect(prisma.leaderDecision.create).toHaveBeenCalled();
@@ -112,7 +124,11 @@ describe("LeaderReviewService", () => {
     it("should default to approved when AI response cannot be parsed", async () => {
       aiFacade.chat.mockResolvedValue({ content: "invalid json" });
 
-      const result = await service.reviewTaskResult("mission-1", "task-1", "Research content");
+      const result = await service.reviewTaskResult(
+        "mission-1",
+        "task-1",
+        "Research content",
+      );
       expect(result.status).toBe("approved");
       expect(result.feedback).toContain("解析失败");
     });
@@ -126,7 +142,11 @@ describe("LeaderReviewService", () => {
         }),
       });
 
-      const result = await service.reviewTaskResult("mission-1", "task-1", "Incomplete research");
+      const result = await service.reviewTaskResult(
+        "mission-1",
+        "task-1",
+        "Incomplete research",
+      );
       expect(result.status).toBe("needs_revision");
       expect(result.revisionInstructions).toBe("Add more evidence");
     });
@@ -139,7 +159,10 @@ describe("LeaderReviewService", () => {
       aiFacade.getReasoningModel.mockResolvedValue(null);
       aiFacade.getAvailableModelsExtended.mockResolvedValue([]);
 
-      const result = await service.reviewSectionOutput(mockSection, "Section content");
+      const result = await service.reviewSectionOutput(
+        mockSection,
+        "Section content",
+      );
       expect(result.approved).toBe(true);
       expect(result.score).toBe(70);
     });
@@ -153,7 +176,10 @@ describe("LeaderReviewService", () => {
         }),
       });
 
-      const result = await service.reviewSectionOutput(mockSection, "Excellent content");
+      const result = await service.reviewSectionOutput(
+        mockSection,
+        "Excellent content",
+      );
       expect(result.approved).toBe(true);
       expect(result.score).toBe(85);
     });
@@ -169,7 +195,11 @@ describe("LeaderReviewService", () => {
       });
 
       // revisionCount >= 2 triggers force approval
-      const result = await service.reviewSectionOutput(mockSection, "Content", 2);
+      const result = await service.reviewSectionOutput(
+        mockSection,
+        "Content",
+        2,
+      );
       expect(result.approved).toBe(true);
       expect(result.feedback).toContain("强制通过");
     });
@@ -184,7 +214,11 @@ describe("LeaderReviewService", () => {
         }),
       });
 
-      const result = await service.reviewSectionOutput(mockSection, "Incomplete content", 0);
+      const result = await service.reviewSectionOutput(
+        mockSection,
+        "Incomplete content",
+        0,
+      );
       expect(result.approved).toBe(false);
       expect(result.revisionInstructions).toBe("Add more data");
     });
@@ -262,12 +296,21 @@ describe("LeaderReviewService", () => {
       aiFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           claims: [
-            { id: "c-1", text: "AI market is growing", type: "fact", confidence: 0.9, sectionId: "section-1" },
+            {
+              id: "c-1",
+              text: "AI market is growing",
+              type: "fact",
+              confidence: 0.9,
+              sectionId: "section-1",
+            },
           ],
         }),
       });
 
-      const result = await service.extractClaims("section-1", "AI market is growing at 15% annually");
+      const result = await service.extractClaims(
+        "section-1",
+        "AI market is growing at 15% annually",
+      );
       expect(result).toHaveLength(1);
     });
   });
@@ -285,9 +328,17 @@ describe("LeaderReviewService", () => {
       aiFacade.chat.mockRejectedValue(new Error("API error"));
 
       const hypotheses = [
-        { id: "h-1", statement: "AI will replace jobs", confidence: 0.7, dimension: "Market" },
+        {
+          id: "h-1",
+          statement: "AI will replace jobs",
+          confidence: 0.7,
+          dimension: "Market",
+        },
       ];
-      const result = await service.verifyHypotheses(hypotheses as any, "evidence text");
+      const result = await service.verifyHypotheses(
+        hypotheses as any,
+        "evidence text",
+      );
       expect(result).toEqual([]);
     });
 
@@ -295,15 +346,28 @@ describe("LeaderReviewService", () => {
       aiFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           results: [
-            { hypothesisId: "h-1", verified: true, confidence: 0.8, evidence: "Supporting data" },
+            {
+              hypothesisId: "h-1",
+              verified: true,
+              confidence: 0.8,
+              evidence: "Supporting data",
+            },
           ],
         }),
       });
 
       const hypotheses = [
-        { id: "h-1", statement: "AI will replace jobs", confidence: 0.7, dimension: "Market" },
+        {
+          id: "h-1",
+          statement: "AI will replace jobs",
+          confidence: 0.7,
+          dimension: "Market",
+        },
       ];
-      const result = await service.verifyHypotheses(hypotheses as any, "evidence text");
+      const result = await service.verifyHypotheses(
+        hypotheses as any,
+        "evidence text",
+      );
       expect(result).toHaveLength(1);
     });
   });

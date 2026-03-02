@@ -16,7 +16,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ChapterWritingContext } from "../../interfaces/writing-context.interface";
 
 // ==================== 事实类型定义 ====================
@@ -98,7 +98,7 @@ export class FactExtractorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -119,7 +119,7 @@ export class FactExtractorService {
 
     try {
       // 调用 Skills 提取事实
-      const response = await this.aiFacade.chatWithSkills({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "user",
@@ -147,17 +147,19 @@ export class FactExtractorService {
       }
 
       // 转换为 ExtractedFact 类型并添加章节编号
-      const facts: ExtractedFact[] = factsData.map((fact: Record<string, unknown>) => ({
-        type: fact["type"] as FactType,
-        subject: (fact["subject"] as string) || "",
-        predicate: (fact["predicate"] as string) || "",
-        object: (fact["object"] as string) || undefined,
-        confidence: (fact["confidence"] as number) || 0.5,
-        evidence: (fact["evidence"] as string) || "",
-        chapterNumber: context.chapter.chapterNumber,
-        storyTime: (fact["storyTime"] as string) || undefined,
-        extractedAt: new Date().toISOString(),
-      }));
+      const facts: ExtractedFact[] = factsData.map(
+        (fact: Record<string, unknown>) => ({
+          type: fact["type"] as FactType,
+          subject: (fact["subject"] as string) || "",
+          predicate: (fact["predicate"] as string) || "",
+          object: (fact["object"] as string) || undefined,
+          confidence: (fact["confidence"] as number) || 0.5,
+          evidence: (fact["evidence"] as string) || "",
+          chapterNumber: context.chapter.chapterNumber,
+          storyTime: (fact["storyTime"] as string) || undefined,
+          extractedAt: new Date().toISOString(),
+        }),
+      );
 
       this.logger.log(`Extracted ${facts.length} facts from chapter`);
 
@@ -335,7 +337,7 @@ export class FactExtractorService {
       }
 
       // 调用 Skills 检测冲突
-      const response = await this.aiFacade.chatWithSkills({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "user",
@@ -372,8 +374,12 @@ export class FactExtractorService {
             existingFact,
             newFact,
             conflictType: conflictData["conflictType"] as ConflictType,
-            description: (conflictData["description"] as string) || "Unknown conflict",
-            severity: conflictData["severity"] as "CRITICAL" | "WARNING" | "INFO",
+            description:
+              (conflictData["description"] as string) || "Unknown conflict",
+            severity: conflictData["severity"] as
+              | "CRITICAL"
+              | "WARNING"
+              | "INFO",
           };
         })
         .filter((c) => c !== null) as FactConflict[];

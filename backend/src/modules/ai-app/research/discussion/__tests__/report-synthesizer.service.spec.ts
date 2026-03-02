@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportSynthesizerService } from "../report-synthesizer.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade, TeamFacade } from "../../../../ai-engine/facade";
 import { SearchRound, SearchSource } from "../types";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -54,7 +54,11 @@ describe("ReportSynthesizerService", () => {
       providers: [
         ReportSynthesizerService,
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
+          useValue: mockAiFacade,
+        },
+        {
+          provide: TeamFacade,
           useValue: mockAiFacade,
         },
       ],

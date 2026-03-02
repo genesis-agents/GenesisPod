@@ -10,7 +10,7 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
 import {
-  AIEngineFacade,
+  ChatFacade,
   ChatMessage,
   MissionExecutorService,
   KernelContext,
@@ -122,7 +122,7 @@ export class AiSimulationEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly externalData: ExternalDataService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
     @Optional() private readonly kernelJournal?: EventJournalService,
@@ -155,10 +155,10 @@ export class AiSimulationEngineService {
     irrationalBias: boolean,
   ): Promise<{ innerMonologue: string; publicAction: string }> {
     // 获取所有可用的AI模型（优先CHAT_FAST，回退CHAT）
-    const fastModels = await this.aiFacade.getAvailableModelsExtended(
+    const fastModels = await this.chatFacade.getAvailableModelsExtended(
       AIModelType.CHAT_FAST,
     );
-    const chatModels = await this.aiFacade.getAvailableModelsExtended(
+    const chatModels = await this.chatFacade.getAvailableModelsExtended(
       AIModelType.CHAT,
     );
     const models = [...fastModels, ...chatModels];
@@ -195,7 +195,7 @@ export class AiSimulationEngineService {
       }
 
       try {
-        const result = await this.aiFacade.chat({
+        const result = await this.chatFacade.chat({
           messages,
           model: model.id,
           taskProfile: {

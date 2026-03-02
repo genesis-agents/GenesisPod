@@ -7,7 +7,7 @@ import { HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiCoreService } from "../ai-core.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../facade/ai-engine.facade";
+import { ChatFacade } from "../../facade";
 import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
 
 const mockPrisma = {
@@ -44,7 +44,7 @@ describe("AiCoreService", () => {
       providers: [
         AiCoreService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
         { provide: AiModelConfigService, useValue: mockModelConfigService },
       ],
     }).compile();
@@ -55,14 +55,15 @@ describe("AiCoreService", () => {
   describe("getEnabledModels", () => {
     it("delegates to modelConfigService.getEnabledModelsForFrontend without userId", async () => {
       const expected = [{ id: "m1", name: "GPT-4" }];
-      mockModelConfigService.getEnabledModelsForFrontend.mockResolvedValue(expected);
+      mockModelConfigService.getEnabledModelsForFrontend.mockResolvedValue(
+        expected,
+      );
 
       const result = await service.getEnabledModels();
 
-      expect(mockModelConfigService.getEnabledModelsForFrontend).toHaveBeenCalledWith(
-        undefined,
-        undefined,
-      );
+      expect(
+        mockModelConfigService.getEnabledModelsForFrontend,
+      ).toHaveBeenCalledWith(undefined, undefined);
       expect(result).toEqual(expected);
     });
 
@@ -71,10 +72,9 @@ describe("AiCoreService", () => {
 
       await service.getEnabledModels("user-123");
 
-      expect(mockModelConfigService.getEnabledModelsForFrontend).toHaveBeenCalledWith(
-        undefined,
-        "user-123",
-      );
+      expect(
+        mockModelConfigService.getEnabledModelsForFrontend,
+      ).toHaveBeenCalledWith(undefined, "user-123");
     });
   });
 
@@ -88,7 +88,11 @@ describe("AiCoreService", () => {
       mockAiFacade.getDefaultModelByType.mockResolvedValue(mockModel);
       mockAiFacade.chat.mockResolvedValue({ content: "Hello world" });
 
-      const result = await service.translateText("Bonjour le monde", "fr", "en");
+      const result = await service.translateText(
+        "Bonjour le monde",
+        "fr",
+        "en",
+      );
 
       expect(mockAiFacade.getDefaultModelByType).toHaveBeenCalledWith(
         AIModelType.CHAT_FAST,
@@ -121,7 +125,9 @@ describe("AiCoreService", () => {
       mockAiFacade.getDefaultModelByType.mockResolvedValue(mockModel);
       mockAiFacade.chat.mockRejectedValue(new Error("LLM failure"));
 
-      await expect(service.translateText("text", "fr", "en")).rejects.toMatchObject({
+      await expect(
+        service.translateText("text", "fr", "en"),
+      ).rejects.toMatchObject({
         response: expect.objectContaining({
           statusCode: HttpStatus.SERVICE_UNAVAILABLE,
           originalText: "text",
@@ -136,7 +142,9 @@ describe("AiCoreService", () => {
       const longText = "a".repeat(3000); // ~1000 estimated tokens -> maxTokens = 2000
       await service.translateText(longText, "fr", "en");
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0] as { maxTokens: number };
+      const chatCall = mockAiFacade.chat.mock.calls[0][0] as {
+        maxTokens: number;
+      };
       expect(chatCall.maxTokens).toBeGreaterThanOrEqual(2000);
     });
 
@@ -159,11 +167,15 @@ describe("AiCoreService", () => {
   describe("getAllModels", () => {
     it("delegates to modelConfigService.getAllModelsForDiagnostics", async () => {
       const expected = [{ id: "m1" }];
-      mockModelConfigService.getAllModelsForDiagnostics.mockResolvedValue(expected);
+      mockModelConfigService.getAllModelsForDiagnostics.mockResolvedValue(
+        expected,
+      );
 
       const result = await service.getAllModels();
 
-      expect(mockModelConfigService.getAllModelsForDiagnostics).toHaveBeenCalled();
+      expect(
+        mockModelConfigService.getAllModelsForDiagnostics,
+      ).toHaveBeenCalled();
       expect(result).toEqual(expected);
     });
   });
@@ -175,7 +187,9 @@ describe("AiCoreService", () => {
 
       const result = await service.getGoogleModels();
 
-      expect(mockModelConfigService.getModelsByProvider).toHaveBeenCalledWith("gemini");
+      expect(mockModelConfigService.getModelsByProvider).toHaveBeenCalledWith(
+        "gemini",
+      );
       expect(result).toEqual(expected);
     });
   });
@@ -183,11 +197,15 @@ describe("AiCoreService", () => {
   describe("getFirstGoogleModelWithKey", () => {
     it("delegates to modelConfigService.getFirstModelByProvider with 'gemini'", async () => {
       const expected = { id: "g1" };
-      mockModelConfigService.getFirstModelByProvider.mockResolvedValue(expected);
+      mockModelConfigService.getFirstModelByProvider.mockResolvedValue(
+        expected,
+      );
 
       const result = await service.getFirstGoogleModelWithKey();
 
-      expect(mockModelConfigService.getFirstModelByProvider).toHaveBeenCalledWith("gemini");
+      expect(
+        mockModelConfigService.getFirstModelByProvider,
+      ).toHaveBeenCalledWith("gemini");
       expect(result).toEqual(expected);
     });
   });
@@ -222,7 +240,9 @@ describe("AiCoreService", () => {
 
       const result = await service.findModelByModelId("gpt-4o");
 
-      expect(mockModelConfigService.getModelById).toHaveBeenCalledWith("gpt-4o");
+      expect(mockModelConfigService.getModelById).toHaveBeenCalledWith(
+        "gpt-4o",
+      );
       expect(result).toEqual(expected);
     });
   });

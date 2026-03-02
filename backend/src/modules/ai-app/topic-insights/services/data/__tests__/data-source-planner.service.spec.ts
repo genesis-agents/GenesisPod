@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourcePlannerService } from "../data-source-planner.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, ToolFacade } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 
 const mockAiFacade = {
@@ -20,7 +20,8 @@ describe("DataSourcePlannerService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DataSourcePlannerService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: ToolFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -93,7 +94,9 @@ describe("DataSourcePlannerService", () => {
 
       expect(plan.recommendedSources).toContain(DataSourceType.WEB);
       expect(plan.recommendedSources).toContain(DataSourceType.ACADEMIC);
-      expect(plan.overallRationale).toBe("Both web and academic sources needed");
+      expect(plan.overallRationale).toBe(
+        "Both web and academic sources needed",
+      );
       expect(plan.confidence).toBe(88);
       expect(plan.searchStrategy.suggestedMaxResults).toBe(20);
       expect(plan.searchStrategy.needsTimeFilter).toBe(true);
@@ -194,7 +197,9 @@ describe("DataSourcePlannerService", () => {
         const plan = await service.planDataSources(policyInput);
 
         expect(plan.recommendedSources).toContain(DataSourceType.WEB);
-        expect(plan.recommendedSources).toContain(DataSourceType.FEDERAL_REGISTER);
+        expect(plan.recommendedSources).toContain(
+          DataSourceType.FEDERAL_REGISTER,
+        );
         expect(plan.recommendedSources).toContain(DataSourceType.CONGRESS);
         expect(plan.recommendedSources).toContain(DataSourceType.WHITEHOUSE);
       });
@@ -208,7 +213,9 @@ describe("DataSourcePlannerService", () => {
 
         const plan = await service.planDataSources(regInput);
 
-        expect(plan.recommendedSources).toContain(DataSourceType.FEDERAL_REGISTER);
+        expect(plan.recommendedSources).toContain(
+          DataSourceType.FEDERAL_REGISTER,
+        );
       });
 
       it("should recommend policy sources for English 'policy' dimension", async () => {
@@ -220,7 +227,9 @@ describe("DataSourcePlannerService", () => {
 
         const plan = await service.planDataSources(policyEnInput);
 
-        expect(plan.recommendedSources).toContain(DataSourceType.FEDERAL_REGISTER);
+        expect(plan.recommendedSources).toContain(
+          DataSourceType.FEDERAL_REGISTER,
+        );
       });
 
       it("should recommend technical sources for technology dimensions", async () => {

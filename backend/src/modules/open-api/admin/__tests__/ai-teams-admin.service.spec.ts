@@ -8,7 +8,7 @@ jest.mock("../../../ai-engine/facade/ai-engine.facade", () => {
 });
 jest.mock("../../../ai-engine/facade", () => {
   return {
-    AIEngineFacade: class MockAIEngineFacade {},
+    ChatFacade: class MockChatFacade {},
     TaskProfile: {},
   };
 });
@@ -17,7 +17,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { AITeamsAdminService } from "../ai-teams-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { AITeamTemplateStatus } from "@prisma/client";
 
 describe("AITeamsAdminService", () => {
@@ -120,7 +120,7 @@ describe("AITeamsAdminService", () => {
       providers: [
         AITeamsAdminService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 

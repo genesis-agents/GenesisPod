@@ -4,12 +4,12 @@ import {
   TemporalTriple,
 } from "../temporal-conflict-analyzer.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 describe("TemporalConflictAnalyzerService", () => {
   let service: TemporalConflictAnalyzerService;
   let mockPrisma: jest.Mocked<PrismaService>;
-  let mockAiFacade: jest.Mocked<AIEngineFacade>;
+  let mockAiFacade: jest.Mocked<ChatFacade>;
 
   const makeMockTriple = (
     partial: Partial<TemporalTriple> & {
@@ -37,13 +37,13 @@ describe("TemporalConflictAnalyzerService", () => {
         content: JSON.stringify({ triples: [] }),
         tokensUsed: 100,
       }),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TemporalConflictAnalyzerService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -229,7 +229,8 @@ describe("TemporalConflictAnalyzerService", () => {
       });
 
       // Must be at least 100 characters in JS string length
-      const longContent = "张三到达了北京，开始了他的新生活。" + "x".repeat(100);
+      const longContent =
+        "张三到达了北京，开始了他的新生活。" + "x".repeat(100);
       const result = await service.extractTriples(longContent, 3);
 
       expect(mockAiFacade.chat).toHaveBeenCalled();
@@ -253,7 +254,9 @@ describe("TemporalConflictAnalyzerService", () => {
     it("should assign correct chapter number to extracted triples", async () => {
       mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify({
-          triples: [{ subject: "李四", predicate: "出发", tripleType: "ACTION" }],
+          triples: [
+            { subject: "李四", predicate: "出发", tripleType: "ACTION" },
+          ],
         }),
         tokensUsed: 60,
       });

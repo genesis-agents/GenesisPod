@@ -14,7 +14,7 @@ import { DimensionMissionService } from "../../services/dimension/dimension-miss
 import { ReportSynthesisService } from "../../services/report/report-synthesis.service";
 import { AgentActivityService } from "../../services/monitoring/agent-activity.service";
 import { ResearchReviewerService } from "../../services/collaboration/research-reviewer.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
@@ -124,7 +124,7 @@ describe("MissionExecutionService", () => {
         { provide: DimensionMissionService, useValue: dimensionMissionService },
         { provide: ReportSynthesisService, useValue: reportSynthesisService },
         { provide: AgentActivityService, useValue: agentActivity },
-        { provide: AIEngineFacade, useValue: aiFacade },
+        { provide: ChatFacade, useValue: aiFacade },
         { provide: ResearchReviewerService, useValue: reviewerService },
       ],
     }).compile();

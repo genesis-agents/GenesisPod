@@ -4,8 +4,12 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingAgentCoordinator } from "../writing-agent-coordinator.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { TeamRegistry, RoleRegistry } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  TeamFacade,
+  TeamRegistry,
+  RoleRegistry,
+} from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   StoryArchitectAgent,
@@ -86,7 +90,8 @@ describe("WritingAgentCoordinator", () => {
         WritingAgentCoordinator,
         { provide: TeamRegistry, useValue: mocks.teamRegistry },
         { provide: RoleRegistry, useValue: mocks.roleRegistry },
-        { provide: AIEngineFacade, useValue: mocks.facade },
+        { provide: ChatFacade, useValue: mocks.facade },
+        { provide: TeamFacade, useValue: mocks.facade },
         {
           provide: StoryArchitectAgent,
           useValue: mocks.storyArchitect,

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
@@ -62,7 +62,8 @@ export class ReportSynthesisService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly teamFacade: TeamFacade,
     private readonly reportEditor: ReportEditorService,
   ) {}
 
@@ -106,8 +107,7 @@ export class ReportSynthesisService {
         // 检查是否是唯一约束冲突（并发创建导致）
         const e = error as { code?: string; message?: string };
         const isUniqueConstraintError =
-          e.code === "P2002" ||
-          e.message?.includes("Unique constraint");
+          e.code === "P2002" || e.message?.includes("Unique constraint");
 
         if (isUniqueConstraintError && attempt < maxRetries) {
           this.logger.warn(
@@ -531,7 +531,7 @@ export class ReportSynthesisService {
       .join("\n---\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: CONSISTENCY_CHECK_SYSTEM_PROMPT },
           {
@@ -965,7 +965,7 @@ export class ReportSynthesisService {
       parts.push("\n");
     }
 
-    return this.aiFacade.sanitizeReport(parts.join("\n"));
+    return this.teamFacade.sanitizeReport(parts.join("\n"));
   }
 
   /**
@@ -1169,7 +1169,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     );
 
     // 调用 AI 生成报告
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -1948,7 +1948,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     }
 
     // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
-    return this.aiFacade.sanitizeReport(parts.join("\n"));
+    return this.teamFacade.sanitizeReport(parts.join("\n"));
   }
 
   /**

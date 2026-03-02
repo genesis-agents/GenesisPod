@@ -19,7 +19,12 @@ import {
   MissionLogType,
   MessageContentType,
 } from "@prisma/client";
-import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
+import {
+  ChatFacade,
+  AgentFacade,
+  ToolFacade,
+  ChatMessage,
+} from "../../../../../ai-engine/facade";
 import type { TaskProfile } from "../../../../../ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../../ai-engine/facade";
@@ -124,7 +129,9 @@ export class MissionExecutionService {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
+    private agentFacade: AgentFacade,
+    private toolFacade: ToolFacade,
     // ★ 架构重构：通过 ToolRegistry 调用工具
     private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
@@ -176,7 +183,7 @@ export class MissionExecutionService {
    */
   private async getModelConfig(aiModel: string) {
     try {
-      const modelConfig = await this.aiFacade.getModelById(aiModel);
+      const modelConfig = await this.chatFacade.getModelById(aiModel);
       return modelConfig;
     } catch (error) {
       this.logger.warn(
@@ -229,7 +236,7 @@ export class MissionExecutionService {
           outputLength: this.mapMaxTokensToOutputLength(options?.maxTokens),
         };
 
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: facadeMessages,
       model: modelConfig?.modelId ?? aiModel,
       taskProfile,
@@ -367,7 +374,7 @@ export class MissionExecutionService {
       heartbeatCount = 0;
       heartbeatTimer = setInterval(() => {
         heartbeatCount++;
-        this.topicEventEmitter.emitToTopic(
+        void this.topicEventEmitter.emitToTopic(
           heartbeatContext.topicId,
           "mission:agent_working",
           {
@@ -556,7 +563,7 @@ export class MissionExecutionService {
       const candidates = allMembers.filter((m: TeamMemberBase) => {
         if (failedAgentIds.includes(m.id)) return false;
         if (m.isLeader) return false;
-        if (!this.aiFacade.circuitBreaker?.canExecute(m.id)) {
+        if (!this.agentFacade.circuitBreaker?.canExecute(m.id)) {
           this.logger.debug(
             `[findAlternativeAgentWithCircuitBreaker] Agent ${m.displayName} excluded (circuit breaker open)`,
           );
@@ -570,7 +577,7 @@ export class MissionExecutionService {
           (m: TeamMemberBase) =>
             m.isLeader &&
             !failedAgentIds.includes(m.id) &&
-            this.aiFacade.circuitBreaker?.canExecute(m.id),
+            this.agentFacade.circuitBreaker?.canExecute(m.id),
         );
         if (leader) {
           this.logger.log(
@@ -588,7 +595,7 @@ export class MissionExecutionService {
       }
 
       // 使用 Circuit Breaker 的健康评分选择最佳 Agent
-      const bestAgentId = this.aiFacade.circuitBreaker?.selectBest(
+      const bestAgentId = this.agentFacade.circuitBreaker?.selectBest(
         candidates.map((c: TeamMemberBase) => c.id),
       );
 
@@ -1022,7 +1029,7 @@ export class MissionExecutionService {
       };
 
       const capabilities =
-        await this.aiFacade.getAvailableCapabilities(capabilityContext);
+        await this.toolFacade.getAvailableCapabilities(capabilityContext);
 
       this.logger.log(
         `[executeTask] Agent ${assignedTo.displayName} capabilities: ` +
@@ -1052,7 +1059,7 @@ export class MissionExecutionService {
       );
 
       // 广播 Agent 工作状态
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_working",
         {
@@ -1141,14 +1148,14 @@ export class MissionExecutionService {
       });
 
       // ★ 修复：任务失败时发送状态更新事件
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.BLOCKED,
       });
 
       // ★ 修复：任务失败时清除 Agent 工作状态
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -1166,7 +1173,7 @@ export class MissionExecutionService {
       );
     } finally {
       this.stateManager.finishTask(task.id);
-      this.aiFacade.circuitBreaker?.decrementLoad(assignedTo.id);
+      this.agentFacade.circuitBreaker?.decrementLoad(assignedTo.id);
       this.logger.debug(
         `[executeTask] Released lock for task "${task.title}" (${task.id})`,
       );
@@ -1189,10 +1196,11 @@ export class MissionExecutionService {
     let switchCount = 0;
 
     // 检查初始 Agent 是否可用
-    if (!this.aiFacade.circuitBreaker?.canExecute(currentAgent.id)) {
+    if (!this.agentFacade.circuitBreaker?.canExecute(currentAgent.id)) {
       const cooldownRemaining =
-        this.aiFacade.circuitBreaker?.getCooldownRemaining(currentAgent.id) ??
-        0;
+        this.agentFacade.circuitBreaker?.getCooldownRemaining(
+          currentAgent.id,
+        ) ?? 0;
       const cooldownSeconds = Math.ceil(cooldownRemaining / 1000);
       this.logger.warn(
         `[executeTask] Agent ${currentAgent.displayName} is in cooldown for ${cooldownSeconds}s, finding alternative`,
@@ -1225,17 +1233,21 @@ export class MissionExecutionService {
         });
 
         // ★ 修复：任务被阻塞时发送状态更新事件
-        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
-          missionId: mission.id,
-          taskId: task.id,
-          status: AgentTaskStatus.BLOCKED,
-        });
+        void this.topicEventEmitter.emitToTopic(
+          mission.topicId,
+          "task:status",
+          {
+            missionId: mission.id,
+            taskId: task.id,
+            status: AgentTaskStatus.BLOCKED,
+          },
+        );
 
         return null;
       }
     }
 
-    this.aiFacade.circuitBreaker?.incrementLoad(currentAgent.id);
+    this.agentFacade.circuitBreaker?.incrementLoad(currentAgent.id);
     const taskStartTime = Date.now();
 
     // Agent 切换循环
@@ -1257,7 +1269,7 @@ export class MissionExecutionService {
           data: { assignedToId: currentAgent.id },
         });
 
-        this.topicEventEmitter.emitToTopic(
+        void this.topicEventEmitter.emitToTopic(
           mission.topicId,
           "mission:agent_switched",
           {
@@ -1300,7 +1312,7 @@ export class MissionExecutionService {
         aiResponse = { content: result.content };
 
         const responseTime = Date.now() - taskStartTime;
-        this.aiFacade.circuitBreaker?.recordSuccess(
+        this.agentFacade.circuitBreaker?.recordSuccess(
           currentAgent.id,
           responseTime,
         );
@@ -1315,9 +1327,10 @@ export class MissionExecutionService {
       failedAgentIds.push(currentAgent.id);
       const errorMsg = result.error || "Unknown error";
 
-      const errorType = this.aiFacade.circuitBreaker?.parseErrorType(errorMsg);
+      const errorType =
+        this.agentFacade.circuitBreaker?.parseErrorType(errorMsg);
       if (errorType !== undefined) {
-        this.aiFacade.circuitBreaker?.recordFailure(
+        this.agentFacade.circuitBreaker?.recordFailure(
           currentAgent.id,
           errorType,
           errorMsg,
@@ -1376,8 +1389,8 @@ export class MissionExecutionService {
         return null;
       }
 
-      this.aiFacade.circuitBreaker?.decrementLoad(currentAgent.id);
-      this.aiFacade.circuitBreaker?.incrementLoad(alternativeAgent.id);
+      this.agentFacade.circuitBreaker?.decrementLoad(currentAgent.id);
+      this.agentFacade.circuitBreaker?.incrementLoad(alternativeAgent.id);
 
       this.logger.log(
         `[executeTask] Switching from ${currentAgent.displayName} to ${alternativeAgent.displayName}`,
@@ -1514,17 +1527,21 @@ export class MissionExecutionService {
     });
 
     // 广播任务完成
-    this.topicEventEmitter.emitToTopic(mission.topicId, "task:completed", {
+    void this.topicEventEmitter.emitToTopic(mission.topicId, "task:completed", {
       missionId: mission.id,
       taskId: task.id,
       agentId: currentAgent.id,
     });
 
-    this.topicEventEmitter.emitToTopic(mission.topicId, "mission:agent_done", {
-      missionId: mission.id,
-      taskId: task.id,
-      agentId: currentAgent.id,
-    });
+    void this.topicEventEmitter.emitToTopic(
+      mission.topicId,
+      "mission:agent_done",
+      {
+        missionId: mission.id,
+        taskId: task.id,
+        agentId: currentAgent.id,
+      },
+    );
 
     // Leader 审核
     await callbacks.leaderReviewTask(mission, task, finalContent);
@@ -1841,7 +1858,7 @@ export class MissionExecutionService {
         ? now - new Date(task.updatedAt).getTime()
         : stuckTimeoutMs + 1;
 
-      const canRetry = this.aiFacade.circuitBreaker?.canExecute(
+      const canRetry = this.agentFacade.circuitBreaker?.canExecute(
         task.assignedTo.id,
       );
 
@@ -1874,7 +1891,7 @@ export class MissionExecutionService {
         );
       } else {
         const cooldown =
-          this.aiFacade.circuitBreaker?.getCooldownRemaining(
+          this.agentFacade.circuitBreaker?.getCooldownRemaining(
             task.assignedTo.id,
           ) ?? 0;
         this.logger.debug(

@@ -1,11 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AgentExecutorService } from "../agent-executor.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 
 describe("AgentExecutorService", () => {
   let service: AgentExecutorService;
-  let mockFacade: jest.Mocked<Partial<AIEngineFacade>>;
+  let mockFacade: jest.Mocked<Partial<ChatFacade>>;
 
   const mockContentAgentResponse = {
     informationArchitecture: {
@@ -92,7 +92,7 @@ describe("AgentExecutorService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AgentExecutorService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

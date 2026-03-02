@@ -11,7 +11,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { StateCategory } from "@/modules/ai-engine/facade";
 import type { ExecutionStateStats } from "@/modules/ai-engine/facade";
-import { AIEngineFacade } from "../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../ai-engine/facade";
 
 /**
  * 状态统计信息 (保持原有接口)
@@ -36,9 +36,9 @@ export interface StateStats {
 export class MissionStateManager {
   private readonly logger = new Logger(MissionStateManager.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {
+  constructor(private readonly agentFacade: AgentFacade) {
     this.logger.log(
-      "[MissionStateManager] Initialized (delegating to ExecutionStateManager via AIEngineFacade)",
+      "[MissionStateManager] Initialized (delegating to ExecutionStateManager via AgentFacade)",
     );
   }
 
@@ -49,7 +49,7 @@ export class MissionStateManager {
    */
   startTask(taskId: string, description?: string): boolean {
     return (
-      this.aiFacade.execStateManager?.startTask(taskId, description) ?? false
+      this.agentFacade.execStateManager?.startTask(taskId, description) ?? false
     );
   }
 
@@ -57,14 +57,14 @@ export class MissionStateManager {
    * 标记任务执行完成
    */
   finishTask(taskId: string): void {
-    this.aiFacade.execStateManager?.finishTask(taskId);
+    this.agentFacade.execStateManager?.finishTask(taskId);
   }
 
   /**
    * 检查任务是否正在执行
    */
   isTaskExecuting(taskId: string): boolean {
-    return this.aiFacade.execStateManager?.isTaskExecuting(taskId) ?? false;
+    return this.agentFacade.execStateManager?.isTaskExecuting(taskId) ?? false;
   }
 
   // ==================== Mission 执行状态 ====================
@@ -74,8 +74,10 @@ export class MissionStateManager {
    */
   startMissionExecution(missionId: string, description?: string): boolean {
     return (
-      this.aiFacade.execStateManager?.startWorkflow(missionId, description) ??
-      false
+      this.agentFacade.execStateManager?.startWorkflow(
+        missionId,
+        description,
+      ) ?? false
     );
   }
 
@@ -83,7 +85,7 @@ export class MissionStateManager {
    * 标记 Mission 执行完成
    */
   finishMissionExecution(missionId: string): void {
-    this.aiFacade.execStateManager?.finishWorkflow(missionId);
+    this.agentFacade.execStateManager?.finishWorkflow(missionId);
   }
 
   /**
@@ -91,7 +93,7 @@ export class MissionStateManager {
    */
   isMissionExecuting(missionId: string): boolean {
     return (
-      this.aiFacade.execStateManager?.isWorkflowExecuting(missionId) ?? false
+      this.agentFacade.execStateManager?.isWorkflowExecuting(missionId) ?? false
     );
   }
 
@@ -102,7 +104,7 @@ export class MissionStateManager {
    */
   startRevision(taskId: string, description?: string): boolean {
     return (
-      this.aiFacade.execStateManager?.startRevision(taskId, description) ??
+      this.agentFacade.execStateManager?.startRevision(taskId, description) ??
       false
     );
   }
@@ -111,7 +113,7 @@ export class MissionStateManager {
    * 标记任务修订完成
    */
   finishRevision(taskId: string): void {
-    this.aiFacade.execStateManager?.finishRevision(taskId);
+    this.agentFacade.execStateManager?.finishRevision(taskId);
   }
 
   /**
@@ -119,7 +121,7 @@ export class MissionStateManager {
    */
   isRevisionInProgress(taskId: string): boolean {
     return (
-      this.aiFacade.execStateManager?.isRevisionInProgress(taskId) ?? false
+      this.agentFacade.execStateManager?.isRevisionInProgress(taskId) ?? false
     );
   }
 
@@ -130,7 +132,7 @@ export class MissionStateManager {
    * 转换为原有的 StateStats 格式
    */
   getStats(): StateStats {
-    const stats = this.aiFacade.execStateManager?.getStats();
+    const stats = this.agentFacade.execStateManager?.getStats();
 
     if (!stats) {
       return {
@@ -157,21 +159,21 @@ export class MissionStateManager {
    * 获取所有正在执行的任务 ID
    */
   getExecutingTaskIds(): string[] {
-    return this.aiFacade.execStateManager?.getExecutingTaskIds() ?? [];
+    return this.agentFacade.execStateManager?.getExecutingTaskIds() ?? [];
   }
 
   /**
    * 获取所有正在执行的 Mission ID
    */
   getExecutingMissionIds(): string[] {
-    return this.aiFacade.execStateManager?.getExecutingMissionIds() ?? [];
+    return this.agentFacade.execStateManager?.getExecutingMissionIds() ?? [];
   }
 
   /**
    * 获取所有正在修订的任务 ID
    */
   getRevisingTaskIds(): string[] {
-    return this.aiFacade.execStateManager?.getRevisingTaskIds() ?? [];
+    return this.agentFacade.execStateManager?.getRevisingTaskIds() ?? [];
   }
 
   // ==================== 清理方法 ====================
@@ -180,7 +182,7 @@ export class MissionStateManager {
    * 强制清理所有状态（用于测试或紧急情况）
    */
   forceCleanAll(): void {
-    this.aiFacade.execStateManager?.forceCleanAll();
+    this.agentFacade.execStateManager?.forceCleanAll();
   }
 
   /**
@@ -196,7 +198,7 @@ export class MissionStateManager {
       oldestRevisionAge: null,
     };
 
-    const result = this.aiFacade.execStateManager?.triggerCleanup();
+    const result = this.agentFacade.execStateManager?.triggerCleanup();
     if (!result) {
       return { before: emptyStats, after: emptyStats };
     }

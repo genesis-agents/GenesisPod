@@ -15,7 +15,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
@@ -153,7 +153,7 @@ export class StoryCompletionDetectorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -350,7 +350,7 @@ export class StoryCompletionDetectorService {
 
       const premise = storyBible?.premise || "未知";
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -429,7 +429,7 @@ ${recentContent.slice(0, 8000)}
         .map((c) => c.content || "")
         .join("\n\n");
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -533,7 +533,7 @@ ${recentContent.slice(0, 6000)}
         .map((c) => c.content || "")
         .join("\n");
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

@@ -30,7 +30,7 @@ jest.mock("../research-event-emitter.service", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchRealtimeAdapter } from "../research-realtime.adapter";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -111,9 +111,7 @@ describe("ResearchRealtimeAdapter (degraded mode - no facade)", () => {
   });
 
   it("completePhase should silently return when not enabled", () => {
-    expect(() =>
-      adapter.completePhase("mission-1", "planning"),
-    ).not.toThrow();
+    expect(() => adapter.completePhase("mission-1", "planning")).not.toThrow();
   });
 
   it("getMissionProgress should return 0 when not enabled", () => {
@@ -236,9 +234,15 @@ describe("ResearchRealtimeAdapter (degraded mode - no facade)", () => {
 
 describe("ResearchRealtimeAdapter (enabled mode - with facade)", () => {
   let adapter: ResearchRealtimeAdapter;
-  let mockRealtimeEmitter: ReturnType<typeof buildRealtimeMocks>["mockRealtimeEmitter"];
-  let mockRealtimeProgress: ReturnType<typeof buildRealtimeMocks>["mockRealtimeProgress"];
-  let mockFacadeWithRealtime: ReturnType<typeof buildRealtimeMocks>["mockFacadeWithRealtime"];
+  let mockRealtimeEmitter: ReturnType<
+    typeof buildRealtimeMocks
+  >["mockRealtimeEmitter"];
+  let mockRealtimeProgress: ReturnType<
+    typeof buildRealtimeMocks
+  >["mockRealtimeProgress"];
+  let mockFacadeWithRealtime: ReturnType<
+    typeof buildRealtimeMocks
+  >["mockFacadeWithRealtime"];
 
   beforeEach(async () => {
     const mocks = buildRealtimeMocks();
@@ -249,7 +253,7 @@ describe("ResearchRealtimeAdapter (enabled mode - with facade)", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchRealtimeAdapter,
-        { provide: AIEngineFacade, useValue: mockFacadeWithRealtime },
+        { provide: AgentFacade, useValue: mockFacadeWithRealtime },
       ],
     }).compile();
 
@@ -288,7 +292,10 @@ describe("ResearchRealtimeAdapter (enabled mode - with facade)", () => {
       expect.objectContaining({
         id: "mission-1",
         type: "research_mission",
-        metadata: expect.objectContaining({ topicId: "topic-1", isQuickMode: false }),
+        metadata: expect.objectContaining({
+          topicId: "topic-1",
+          isQuickMode: false,
+        }),
       }),
     );
     expect(mockRealtimeProgress.start).toHaveBeenCalledWith("mission-1");
@@ -319,7 +326,12 @@ describe("ResearchRealtimeAdapter (enabled mode - with facade)", () => {
   it("updatePhaseProgress should return progress from getProgress", () => {
     mockRealtimeProgress.getProgress.mockReturnValue({ progress: 42 });
 
-    const result = adapter.updatePhaseProgress("mission-1", "researching", 70, "msg");
+    const result = adapter.updatePhaseProgress(
+      "mission-1",
+      "researching",
+      70,
+      "msg",
+    );
 
     expect(mockRealtimeProgress.updatePhaseProgress).toHaveBeenCalledWith(
       "mission-1",
@@ -357,12 +369,18 @@ describe("ResearchRealtimeAdapter (enabled mode - with facade)", () => {
 
   it("completeMissionTracking should call progress complete", () => {
     adapter.completeMissionTracking("mission-1", "done");
-    expect(mockRealtimeProgress.complete).toHaveBeenCalledWith("mission-1", "done");
+    expect(mockRealtimeProgress.complete).toHaveBeenCalledWith(
+      "mission-1",
+      "done",
+    );
   });
 
   it("failMissionTracking should call progress fail", () => {
     adapter.failMissionTracking("mission-1", "error details");
-    expect(mockRealtimeProgress.fail).toHaveBeenCalledWith("mission-1", "error details");
+    expect(mockRealtimeProgress.fail).toHaveBeenCalledWith(
+      "mission-1",
+      "error details",
+    );
   });
 
   // ── Event emission ──
@@ -419,19 +437,31 @@ describe("ResearchRealtimeAdapter (enabled mode - with facade)", () => {
       totalWords: 2000,
     });
 
-    expect(mockRealtimeProgress.complete).toHaveBeenCalledWith("mission-1", "研究完成");
+    expect(mockRealtimeProgress.complete).toHaveBeenCalledWith(
+      "mission-1",
+      "研究完成",
+    );
     expect(mockRealtimeEmitter.emitToRoom).toHaveBeenCalled();
   });
 
   it("emitMissionFailed should fail tracking and emit event", () => {
     adapter.emitMissionFailed("topic-1", "mission-1", "AI error");
 
-    expect(mockRealtimeProgress.fail).toHaveBeenCalledWith("mission-1", "AI error");
+    expect(mockRealtimeProgress.fail).toHaveBeenCalledWith(
+      "mission-1",
+      "AI error",
+    );
     expect(mockRealtimeEmitter.emitToRoom).toHaveBeenCalled();
   });
 
   it("emitDimensionProgress should update phase and emit event", () => {
-    adapter.emitDimensionProgress("topic-1", "mission-1", "技术分析", 60, "分析中");
+    adapter.emitDimensionProgress(
+      "topic-1",
+      "mission-1",
+      "技术分析",
+      60,
+      "分析中",
+    );
 
     expect(mockRealtimeProgress.updatePhaseProgress).toHaveBeenCalledWith(
       "mission-1",
@@ -538,10 +568,9 @@ describe("ResearchRealtimeAdapter (enabled mode - with facade)", () => {
       });
     }
 
-    expect(callback).toHaveBeenCalledWith(
-      "mission:started",
-      { missionId: "mission-1" },
-    );
+    expect(callback).toHaveBeenCalledWith("mission:started", {
+      missionId: "mission-1",
+    });
   });
 
   it("subscribeToTopic callback should NOT be triggered for non-matching topic", () => {
@@ -640,19 +669,19 @@ describe("ResearchRealtimeAdapter (partially available facade)", () => {
     const module = await Test.createTestingModule({
       providers: [
         ResearchRealtimeAdapter,
-        { provide: AIEngineFacade, useValue: mockFacadeNoProgress },
+        { provide: AgentFacade, useValue: mockFacadeNoProgress },
       ],
     }).compile();
 
-    const adapter = module.get<ResearchRealtimeAdapter>(ResearchRealtimeAdapter);
+    const adapter = module.get<ResearchRealtimeAdapter>(
+      ResearchRealtimeAdapter,
+    );
 
     // In degraded mode, should return 0
     expect(adapter.getMissionProgress("mission-1")).toBe(0);
 
     // emitToTopic should also silently return
-    expect(() =>
-      adapter.emitToTopic("topic-1", "event", {}),
-    ).not.toThrow();
+    expect(() => adapter.emitToTopic("topic-1", "event", {})).not.toThrow();
   });
 
   it("should be in degraded mode when realtimeEmitter is missing", async () => {
@@ -664,11 +693,13 @@ describe("ResearchRealtimeAdapter (partially available facade)", () => {
     const module = await Test.createTestingModule({
       providers: [
         ResearchRealtimeAdapter,
-        { provide: AIEngineFacade, useValue: mockFacadeNoEmitter },
+        { provide: AgentFacade, useValue: mockFacadeNoEmitter },
       ],
     }).compile();
 
-    const adapter = module.get<ResearchRealtimeAdapter>(ResearchRealtimeAdapter);
+    const adapter = module.get<ResearchRealtimeAdapter>(
+      ResearchRealtimeAdapter,
+    );
     expect(adapter.getMissionProgress("mission-1")).toBe(0);
   });
 });

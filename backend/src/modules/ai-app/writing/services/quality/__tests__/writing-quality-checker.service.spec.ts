@@ -6,14 +6,14 @@ import {
 import { ExpressionMemoryService } from "../expression-memory.service";
 import { CharacterPersonalityService } from "../character-personality.service";
 import { NarrativeCraftService } from "../narrative-craft.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 describe("WritingQualityCheckerService", () => {
   let service: WritingQualityCheckerService;
   let mockExpressionMemory: jest.Mocked<ExpressionMemoryService>;
   let mockCharacterPersonality: jest.Mocked<CharacterPersonalityService>;
   let mockNarrativeCraft: jest.Mocked<NarrativeCraftService>;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
 
   const defaultContext: ChapterContext = {
     projectId: "project-1",
@@ -43,7 +43,9 @@ describe("WritingQualityCheckerService", () => {
     } as unknown as jest.Mocked<ExpressionMemoryService>;
 
     mockCharacterPersonality = {
-      checkPersonalityConsistency: jest.fn().mockResolvedValue(mockPersonalityCheck),
+      checkPersonalityConsistency: jest
+        .fn()
+        .mockResolvedValue(mockPersonalityCheck),
       validateDialogue: jest.fn().mockResolvedValue(mockDialogueValidation),
     } as unknown as jest.Mocked<CharacterPersonalityService>;
 
@@ -63,7 +65,7 @@ describe("WritingQualityCheckerService", () => {
         content: "fixed content",
         tokensUsed: 100,
       }),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -74,7 +76,7 @@ describe("WritingQualityCheckerService", () => {
           useValue: mockCharacterPersonality,
         },
         { provide: NarrativeCraftService, useValue: mockNarrativeCraft },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -87,7 +89,8 @@ describe("WritingQualityCheckerService", () => {
     jest.clearAllMocks();
   });
 
-  const makeCleanContent = () => `
+  const makeCleanContent = () =>
+    `
 她推开门，走进了安静的院子。
 "你来了，"他说，"坐。"
 两人相对而坐，茶香袅袅。
@@ -174,9 +177,7 @@ describe("WritingQualityCheckerService", () => {
     it("should check expression repetition", async () => {
       mockExpressionMemory.analyzeExpressionsOnly.mockResolvedValue({
         newExpressions: [],
-        violatedExpressions: [
-          { expression: "心中一震", useCount: 8 },
-        ],
+        violatedExpressions: [{ expression: "心中一震", useCount: 8 }],
       } as any);
 
       const result = await service.checkChapterQuality(
@@ -238,9 +239,7 @@ describe("WritingQualityCheckerService", () => {
         characters: ["萧炎", "药老"],
       });
 
-      const dialogueIssues = result.issues.filter(
-        (i) => i.type === "dialogue",
-      );
+      const dialogueIssues = result.issues.filter((i) => i.type === "dialogue");
       expect(dialogueIssues.length).toBeGreaterThan(0);
     });
 
@@ -255,7 +254,7 @@ describe("WritingQualityCheckerService", () => {
 
       // Style shift detection checks adjacent paragraphs
       // One paragraph has classical markers (之乎者也矣焉哉), next doesn't
-      const styleIssues = result.issues.filter((i) => i.type === "style");
+      const _styleIssues = result.issues.filter((i) => i.type === "style");
       // The service detects this as a style shift between paragraphs
       expect(result).toBeDefined();
       // We verify the check ran without error; style detection may or may not trigger
@@ -286,7 +285,9 @@ describe("WritingQualityCheckerService", () => {
       );
 
       // Content with issues should score lower
-      expect(resultWithIssues.overallScore).toBeLessThan(cleanResult.overallScore);
+      expect(resultWithIssues.overallScore).toBeLessThan(
+        cleanResult.overallScore,
+      );
     });
   });
 
@@ -323,7 +324,11 @@ describe("WritingQualityCheckerService", () => {
         autoFixable: true,
       };
 
-      await service.autoFix("some content here\n\n她绝不随波逐流。", [endingIssue], defaultContext);
+      await service.autoFix(
+        "some content here\n\n她绝不随波逐流。",
+        [endingIssue],
+        defaultContext,
+      );
 
       expect(mockNarrativeCraft.rewriteEnding).toHaveBeenCalled();
     });
@@ -370,7 +375,11 @@ describe("WritingQualityCheckerService", () => {
       };
 
       const content = makeCleanContent();
-      const result = await service.autoFix(content, [dialogueIssue], defaultContext);
+      const result = await service.autoFix(
+        content,
+        [dialogueIssue],
+        defaultContext,
+      );
 
       // Should return original content on failure
       expect(result).toBe(content);

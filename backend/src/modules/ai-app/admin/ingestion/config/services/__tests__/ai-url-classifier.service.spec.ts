@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiUrlClassifierService } from "../ai-url-classifier.service";
-import { AIEngineFacade } from "../../../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../../../ai-engine/facade";
 
 describe("AiUrlClassifierService", () => {
   let service: AiUrlClassifierService;
@@ -23,12 +23,12 @@ describe("AiUrlClassifierService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiUrlClassifierService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
     service = module.get<AiUrlClassifierService>(AiUrlClassifierService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {

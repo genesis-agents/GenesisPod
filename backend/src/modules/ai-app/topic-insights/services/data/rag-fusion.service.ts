@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   QueryVariant,
@@ -36,7 +36,7 @@ const CONCURRENT_SEARCH_LIMIT = 3;
 export class RAGFusionService {
   private readonly logger = new Logger(RAGFusionService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 生成查询变体
@@ -97,7 +97,7 @@ ${typeDescriptions}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "medium", outputLength: "medium" },
       });

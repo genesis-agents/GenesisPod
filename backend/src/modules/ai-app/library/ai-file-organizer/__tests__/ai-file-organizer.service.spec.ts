@@ -1,4 +1,4 @@
-jest.mock("../../../../ai-engine/facade/ai-engine.facade");
+jest.mock("../../../../ai-engine/facade");
 jest.mock("../../../../../common/prisma/prisma.service");
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -8,7 +8,7 @@ import {
   OrganizationSuggestion,
 } from "../ai-file-organizer.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ const VALID_AI_RESPONSE = JSON.stringify({
 describe("AiFileOrganizerService", () => {
   let service: AiFileOrganizerService;
   let prisma: jest.Mocked<PrismaService>;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -59,7 +59,7 @@ describe("AiFileOrganizerService", () => {
           },
         },
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
           useValue: {
             chat: jest.fn(),
           },
@@ -69,7 +69,7 @@ describe("AiFileOrganizerService", () => {
 
     service = module.get<AiFileOrganizerService>(AiFileOrganizerService);
     prisma = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {

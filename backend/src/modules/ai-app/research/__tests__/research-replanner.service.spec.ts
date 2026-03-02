@@ -2,40 +2,40 @@
  * Tests for ResearchReplannerService
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { ResearchReplannerService } from '../discussion/research-replanner.service';
-import { AIEngineFacade } from '@/modules/ai-engine/facade';
-import type { SearchRound } from '../discussion/types';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ResearchReplannerService } from "../discussion/research-replanner.service";
+import { ChatFacade } from "@/modules/ai-engine/facade";
+import type { SearchRound } from "../discussion/types";
 
-jest.mock('@prisma/client', () => ({
+jest.mock("@prisma/client", () => ({
   AIModelType: {
-    CHAT: 'CHAT',
-    CHAT_FAST: 'CHAT_FAST',
+    CHAT: "CHAT",
+    CHAT_FAST: "CHAT_FAST",
   },
 }));
 
-jest.mock('@/modules/ai-engine/facade', () => ({
-  AIEngineFacade: jest.fn().mockImplementation(() => ({
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
   })),
 }));
 
-describe('ResearchReplannerService', () => {
+describe("ResearchReplannerService", () => {
   let service: ResearchReplannerService;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
 
   const mockSearchRound: SearchRound = {
     round: 1,
-    stepId: 'step_1',
-    query: 'AI trends',
+    stepId: "step_1",
+    query: "AI trends",
     resultsCount: 5,
     sources: [
       {
-        id: 's1',
-        title: 'Source 1',
-        url: 'https://example.com',
-        snippet: 'AI is growing rapidly...',
-        domain: 'example.com',
+        id: "s1",
+        title: "Source 1",
+        url: "https://example.com",
+        snippet: "AI is growing rapidly...",
+        domain: "example.com",
         relevanceScore: 0.9,
       },
     ],
@@ -51,71 +51,71 @@ describe('ResearchReplannerService', () => {
       providers: [
         ResearchReplannerService,
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
           useValue: mockFacadeInstance,
         },
       ],
     }).compile();
 
     service = module.get<ResearchReplannerService>(ResearchReplannerService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('evaluateAndReplan', () => {
-    it('should return needsReplan false for empty rounds', async () => {
-      const result = await service.evaluateAndReplan('AI research', []);
+  describe("evaluateAndReplan", () => {
+    it("should return needsReplan false for empty rounds", async () => {
+      const result = await service.evaluateAndReplan("AI research", []);
 
       expect(result.needsReplan).toBe(false);
       expect(result.additionalSteps).toEqual([]);
     });
 
-    it('should return needsReplan true with additional steps when AI suggests replan', async () => {
+    it("should return needsReplan true with additional steps when AI suggests replan", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify({
           needsReplan: true,
-          reason: 'Missing market data',
+          reason: "Missing market data",
           additionalQueries: [
             {
-              query: 'AI market size 2025',
-              type: 'deep_dive',
-              rationale: 'Need market data',
+              query: "AI market size 2025",
+              type: "deep_dive",
+              rationale: "Need market data",
             },
             {
-              query: 'AI investment trends',
-              type: 'comparison',
-              rationale: 'Need investment info',
+              query: "AI investment trends",
+              type: "comparison",
+              rationale: "Need investment info",
             },
           ],
         }),
         tokensUsed: 300,
       });
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
       ]);
 
       expect(result.needsReplan).toBe(true);
       expect(result.additionalSteps.length).toBe(2);
-      expect(result.additionalSteps[0].query).toBe('AI market size 2025');
+      expect(result.additionalSteps[0].query).toBe("AI market size 2025");
       expect(result.record).toBeDefined();
-      expect(result.record!.reason).toBe('Missing market data');
+      expect(result.record!.reason).toBe("Missing market data");
     });
 
-    it('should return needsReplan false when AI says no replan needed', async () => {
+    it("should return needsReplan false when AI says no replan needed", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify({
           needsReplan: false,
-          reason: 'Coverage is adequate',
+          reason: "Coverage is adequate",
           additionalQueries: [],
         }),
         tokensUsed: 200,
       });
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
       ]);
 
@@ -123,36 +123,36 @@ describe('ResearchReplannerService', () => {
       expect(result.additionalSteps).toEqual([]);
     });
 
-    it('should limit additional steps to 3', async () => {
+    it("should limit additional steps to 3", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify({
           needsReplan: true,
-          reason: 'Many gaps',
+          reason: "Many gaps",
           additionalQueries: [
-            { query: 'Query 1', type: 'deep_dive', rationale: 'Reason 1' },
-            { query: 'Query 2', type: 'deep_dive', rationale: 'Reason 2' },
-            { query: 'Query 3', type: 'deep_dive', rationale: 'Reason 3' },
-            { query: 'Query 4', type: 'deep_dive', rationale: 'Reason 4' },
-            { query: 'Query 5', type: 'deep_dive', rationale: 'Reason 5' },
+            { query: "Query 1", type: "deep_dive", rationale: "Reason 1" },
+            { query: "Query 2", type: "deep_dive", rationale: "Reason 2" },
+            { query: "Query 3", type: "deep_dive", rationale: "Reason 3" },
+            { query: "Query 4", type: "deep_dive", rationale: "Reason 4" },
+            { query: "Query 5", type: "deep_dive", rationale: "Reason 5" },
           ],
         }),
         tokensUsed: 300,
       });
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
       ]);
 
       expect(result.additionalSteps.length).toBe(3);
     });
 
-    it('should handle AI parse errors gracefully', async () => {
+    it("should handle AI parse errors gracefully", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
-        content: 'Not valid JSON at all',
+        content: "Not valid JSON at all",
         tokensUsed: 100,
       });
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
       ]);
 
@@ -160,12 +160,12 @@ describe('ResearchReplannerService', () => {
       expect(result.additionalSteps).toEqual([]);
     });
 
-    it('should handle AI call errors gracefully', async () => {
+    it("should handle AI call errors gracefully", async () => {
       (aiFacade.chat as jest.Mock).mockRejectedValue(
-        new Error('Service unavailable'),
+        new Error("Service unavailable"),
       );
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
       ]);
 
@@ -173,17 +173,17 @@ describe('ResearchReplannerService', () => {
       expect(result.additionalSteps).toEqual([]);
     });
 
-    it('should handle response with invalid needsReplan type', async () => {
+    it("should handle response with invalid needsReplan type", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify({
-          needsReplan: 'yes',
-          reason: 'Some reason',
+          needsReplan: "yes",
+          reason: "Some reason",
           additionalQueries: [],
         }),
         tokensUsed: 100,
       });
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
       ]);
 
@@ -191,20 +191,20 @@ describe('ResearchReplannerService', () => {
       expect(result.additionalSteps).toEqual([]);
     });
 
-    it('should work with en-US language', async () => {
+    it("should work with en-US language", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify({
           needsReplan: false,
-          reason: 'Coverage is adequate',
+          reason: "Coverage is adequate",
           additionalQueries: [],
         }),
         tokensUsed: 200,
       });
 
       const result = await service.evaluateAndReplan(
-        'AI research',
+        "AI research",
         [mockSearchRound],
-        'en-US',
+        "en-US",
       );
 
       expect(result.needsReplan).toBe(false);
@@ -213,33 +213,33 @@ describe('ResearchReplannerService', () => {
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
-              content: expect.stringContaining('research strategist'),
+              content: expect.stringContaining("research strategist"),
             }),
           ]),
         }),
       );
     });
 
-    it('should handle response wrapped in JSON code blocks', async () => {
+    it("should handle response wrapped in JSON code blocks", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content:
-          '```json\n' +
+          "```json\n" +
           JSON.stringify({
             needsReplan: true,
-            reason: 'Gap found',
+            reason: "Gap found",
             additionalQueries: [
               {
-                query: 'Extra query',
-                type: 'deep_dive',
-                rationale: 'Fill gap',
+                query: "Extra query",
+                type: "deep_dive",
+                rationale: "Fill gap",
               },
             ],
           }) +
-          '\n```',
+          "\n```",
         tokensUsed: 200,
       });
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
       ]);
 
@@ -247,26 +247,26 @@ describe('ResearchReplannerService', () => {
       expect(result.additionalSteps.length).toBe(1);
     });
 
-    it('should include record with triggerStep and addedQueries', async () => {
+    it("should include record with triggerStep and addedQueries", async () => {
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify({
           needsReplan: true,
-          reason: 'Missing data',
+          reason: "Missing data",
           additionalQueries: [
-            { query: 'New query', type: 'deep_dive', rationale: 'Need more' },
+            { query: "New query", type: "deep_dive", rationale: "Need more" },
           ],
         }),
         tokensUsed: 200,
       });
 
-      const result = await service.evaluateAndReplan('AI research', [
+      const result = await service.evaluateAndReplan("AI research", [
         mockSearchRound,
         { ...mockSearchRound, round: 2 },
       ]);
 
       expect(result.record).toBeDefined();
       expect(result.record!.triggerStep).toBe(2);
-      expect(result.record!.addedQueries).toContain('New query');
+      expect(result.record!.addedQueries).toContain("New query");
     });
   });
 });

@@ -14,7 +14,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WriterAgent, WriterInput } from "../writer.agent";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ExpressionMemoryService } from "../../services/quality/expression-memory.service";
 import { CharacterPersonalityService } from "../../services/quality/character-personality.service";
 import { HistoricalKnowledgeService } from "../../services/quality/historical-knowledge.service";
@@ -283,7 +283,7 @@ describe("WriterAgent", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WriterAgent,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
         { provide: ExpressionMemoryService, useValue: mockExpressionMemory },
         {
           provide: CharacterPersonalityService,

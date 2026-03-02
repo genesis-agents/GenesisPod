@@ -17,8 +17,7 @@ import { CheckpointService } from "../../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../../rendering/slides-export.service";
 import { ContentCompressionSkill } from "../../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../../skills/template-rendering.skill";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { AIModelType } from "@prisma/client";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import type {
   CheckpointState,
   PageOutline,
@@ -69,7 +68,9 @@ function makeMockContentCompression(): jest.Mocked<ContentCompressionSkill> {
       data: {
         pageContent: {
           title: "Regenerated Title",
-          sections: [{ type: "text", position: "left", content: "New content" }],
+          sections: [
+            { type: "text", position: "left", content: "New content" },
+          ],
         },
       },
       metadata: {
@@ -195,7 +196,7 @@ describe("SlidesEngineService", () => {
       mockExport as unknown as SlidesExportService,
       mockCompression,
       mockRendering,
-      mockFacade as unknown as AIEngineFacade,
+      mockFacade as unknown as ChatFacade,
       mockEventEmitter as unknown as EventEmitter2,
     );
   });
@@ -222,9 +223,7 @@ describe("SlidesEngineService", () => {
       ];
 
       mockOrchestrator.executeMission.mockReturnValue(
-        mockMissionEventGenerator(missionEvents) as ReturnType<
-          typeof mockOrchestrator.executeMission
-        >,
+        mockMissionEventGenerator(missionEvents),
       );
 
       const events = await collectEvents(
@@ -252,9 +251,7 @@ describe("SlidesEngineService", () => {
       ];
 
       mockOrchestrator.executeMission.mockReturnValue(
-        mockMissionEventGenerator(missionEvents) as ReturnType<
-          typeof mockOrchestrator.executeMission
-        >,
+        mockMissionEventGenerator(missionEvents),
       );
 
       await collectEvents(
@@ -277,7 +274,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -299,7 +296,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [{ html: "<div>Slide 1</div>" }], duration: 1000 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -318,11 +315,7 @@ describe("SlidesEngineService", () => {
         yield {} as SlidesMissionEvent; // unreachable but satisfies type
       }
 
-      mockOrchestrator.executeMission.mockReturnValue(
-        failingGenerator() as ReturnType<
-          typeof mockOrchestrator.executeMission
-        >,
-      );
+      mockOrchestrator.executeMission.mockReturnValue(failingGenerator());
 
       const events = await collectEvents(
         service.generateSlides({
@@ -349,7 +342,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -360,7 +353,9 @@ describe("SlidesEngineService", () => {
       );
 
       expect(
-        events.some((e) => e.type === "agent:working" || e.type === "agent:thinking"),
+        events.some(
+          (e) => e.type === "agent:working" || e.type === "agent:thinking",
+        ),
       ).toBe(true);
     });
 
@@ -373,7 +368,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       await collectEvents(
@@ -397,7 +392,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       await collectEvents(
@@ -422,7 +417,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       await collectEvents(
@@ -556,7 +551,7 @@ describe("SlidesEngineService", () => {
         id: "ckpt-1",
         sessionId: "session-1",
         state,
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
 
       const result = await service.getSessionState("session-1");
 
@@ -600,7 +595,7 @@ describe("SlidesEngineService", () => {
     it("should return Buffer from exportService", async () => {
       mockCheckpoint.getLatestCheckpoint.mockResolvedValue({
         state: makeCheckpointState(),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
 
       const buffer = await service.exportPptx("session-1");
 
@@ -625,7 +620,7 @@ describe("SlidesEngineService", () => {
     it("should return Buffer from exportService", async () => {
       mockCheckpoint.getLatestCheckpoint.mockResolvedValue({
         state: makeCheckpointState(),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
 
       const buffer = await service.exportPdf("session-1");
 
@@ -650,7 +645,7 @@ describe("SlidesEngineService", () => {
     it("should throw when page not found in session", async () => {
       mockCheckpoint.getLatestCheckpoint.mockResolvedValue({
         state: makeCheckpointState([]),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
 
       await expect(
         service.regeneratePage("session-1", 1, "feedback"),
@@ -678,7 +673,7 @@ describe("SlidesEngineService", () => {
             html: "<div>Old HTML</div>",
           },
         ]),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
 
       await expect(
         serviceWithoutSkills.regeneratePage("session-1", 1, "feedback"),
@@ -695,7 +690,7 @@ describe("SlidesEngineService", () => {
             html: "<div>Old HTML</div>",
           },
         ]),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
       mockCheckpoint.create.mockResolvedValue({ id: "ckpt-new" });
 
       const events = await service.regeneratePage(
@@ -717,11 +712,15 @@ describe("SlidesEngineService", () => {
             html: "<div>Old</div>",
           },
         ]),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
 
       mockCompression.execute.mockResolvedValue({
         success: false,
-        error: { code: "COMPRESSION_FAILED", message: "Failed", retryable: false },
+        error: {
+          code: "COMPRESSION_FAILED",
+          message: "Failed",
+          retryable: false,
+        },
         metadata: {
           executionId: "e1",
           startTime: new Date(),
@@ -745,7 +744,7 @@ describe("SlidesEngineService", () => {
             html: "<div>Old</div>",
           },
         ]),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
       mockCheckpoint.create.mockResolvedValue({ id: "ckpt-new" });
 
       await service.regeneratePage("session-1", 1, "改为更现代的设计风格");
@@ -763,7 +762,7 @@ describe("SlidesEngineService", () => {
             html: "<div>Old</div>",
           },
         ]),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
       mockCheckpoint.create.mockResolvedValue({ id: "ckpt-new" });
 
       // Empty feedback - AI should not be called for parsing
@@ -783,7 +782,7 @@ describe("SlidesEngineService", () => {
             html: "<div>Old</div>",
           },
         ]),
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
       mockCheckpoint.create.mockResolvedValue({ id: "ckpt-new" });
 
       // AI returns non-JSON response
@@ -823,7 +822,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -832,9 +831,7 @@ describe("SlidesEngineService", () => {
 
       expect(
         events.some(
-          (e) =>
-            e.type === "agent:thinking" ||
-            e.type === "agent:working",
+          (e) => e.type === "agent:thinking" || e.type === "agent:working",
         ),
       ).toBe(true);
     });
@@ -854,7 +851,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -880,7 +877,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -888,7 +885,9 @@ describe("SlidesEngineService", () => {
       );
 
       expect(
-        events.some((e) => e.type === "agent:thinking" || e.type === "phase:started"),
+        events.some(
+          (e) => e.type === "agent:thinking" || e.type === "phase:started",
+        ),
       ).toBe(true);
     });
 
@@ -915,16 +914,14 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
         service.generateSlides({ userId: "u1", sourceText: "text" }),
       );
 
-      expect(
-        events.some((e) => e.type === "agent:completed"),
-      ).toBe(true);
+      expect(events.some((e) => e.type === "agent:completed")).toBe(true);
     });
 
     it("should transform task:started to agent:working events", async () => {
@@ -934,7 +931,12 @@ describe("SlidesEngineService", () => {
             type: "task:started",
             missionId: "m1",
             timestamp: new Date(),
-            data: { task: { skillId: "slides-outline-planning", title: "Planning outline" } },
+            data: {
+              task: {
+                skillId: "slides-outline-planning",
+                title: "Planning outline",
+              },
+            },
           },
           {
             type: "mission:completed",
@@ -942,7 +944,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -960,7 +962,10 @@ describe("SlidesEngineService", () => {
             missionId: "m1",
             timestamp: new Date(),
             data: {
-              task: { skillId: "slides-outline-planning", title: "Outline Planning" },
+              task: {
+                skillId: "slides-outline-planning",
+                title: "Outline Planning",
+              },
               result: {
                 pages: [
                   { pageNumber: 1, title: "Cover", templateType: "cover" },
@@ -978,7 +983,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -987,7 +992,9 @@ describe("SlidesEngineService", () => {
 
       // Should emit agent:completed with pageOutlines data
       const completedEvent = events.find(
-        (e) => e.type === "agent:completed" && (e.data as { agent?: string })?.agent === "strategist",
+        (e) =>
+          e.type === "agent:completed" &&
+          (e.data as { agent?: string })?.agent === "strategist",
       );
       expect(completedEvent).toBeDefined();
     });
@@ -1003,8 +1010,18 @@ describe("SlidesEngineService", () => {
               task: { skillId: "slides-page-pipeline", title: "Page Pipeline" },
               result: {
                 pages: [
-                  { pageNumber: 1, title: "Slide 1", html: "<div>Slide 1 HTML</div>", status: "completed" },
-                  { pageNumber: 2, title: "Slide 2", renderedHtml: "<div>Slide 2 HTML</div>", status: "completed" },
+                  {
+                    pageNumber: 1,
+                    title: "Slide 1",
+                    html: "<div>Slide 1 HTML</div>",
+                    status: "completed",
+                  },
+                  {
+                    pageNumber: 2,
+                    title: "Slide 2",
+                    renderedHtml: "<div>Slide 2 HTML</div>",
+                    status: "completed",
+                  },
                   { pageNumber: 3, title: "Slide 3", status: "pending" }, // No HTML
                 ],
               },
@@ -1017,7 +1034,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1025,7 +1042,9 @@ describe("SlidesEngineService", () => {
       );
 
       // Should have slide:generated events for pages with HTML
-      expect(events.filter((e) => e.type === "slide:generated").length).toBeGreaterThanOrEqual(2);
+      expect(
+        events.filter((e) => e.type === "slide:generated").length,
+      ).toBeGreaterThanOrEqual(2);
     });
 
     it("should transform task:completed with page-pipeline containing direct html", async () => {
@@ -1051,7 +1070,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1079,7 +1098,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1107,7 +1126,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       // Should complete without throwing
@@ -1133,7 +1152,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1158,7 +1177,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1167,7 +1186,9 @@ describe("SlidesEngineService", () => {
 
       expect(
         events.some(
-          (e) => e.type === "agent:thinking" && (e.data as { agent?: string })?.agent === "reviewer",
+          (e) =>
+            e.type === "agent:thinking" &&
+            (e.data as { agent?: string })?.agent === "reviewer",
         ),
       ).toBe(true);
     });
@@ -1191,7 +1212,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1228,7 +1249,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1253,7 +1274,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1277,9 +1298,7 @@ describe("SlidesEngineService", () => {
                   { name: "Content", score: 80, weight: 1 },
                   { name: "Formatting", score: 76, weight: 1 },
                 ],
-                issues: [
-                  { type: "spacing", message: "Inconsistent spacing" },
-                ],
+                issues: [{ type: "spacing", message: "Inconsistent spacing" }],
                 fixes: [
                   { type: "alignment", description: "Auto-fixed alignment" },
                 ],
@@ -1293,7 +1312,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1320,7 +1339,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1328,7 +1347,9 @@ describe("SlidesEngineService", () => {
       );
 
       const phaseEvent = events.find(
-        (e) => e.type === "phase:started" && (e.data as { phase?: string })?.phase === "generating",
+        (e) =>
+          e.type === "phase:started" &&
+          (e.data as { phase?: string })?.phase === "generating",
       );
       expect(phaseEvent).toBeDefined();
     });
@@ -1348,7 +1369,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1356,7 +1377,9 @@ describe("SlidesEngineService", () => {
       );
 
       const agentCompletedEvent = events.find(
-        (e) => e.type === "agent:completed" && (e.data as { agent?: string })?.agent === "writer",
+        (e) =>
+          e.type === "agent:completed" &&
+          (e.data as { agent?: string })?.agent === "writer",
       );
       expect(agentCompletedEvent).toBeDefined();
     });
@@ -1383,7 +1406,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1413,7 +1436,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1440,7 +1463,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1465,7 +1488,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1491,7 +1514,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
@@ -1606,7 +1629,11 @@ describe("SlidesEngineService", () => {
             type: "planning:completed",
             missionId: "m1",
             timestamp: new Date(),
-            data: { taskCount: 3, breakdown: { tasks: [], themes: [], keywords: [] }, duration: 1000 },
+            data: {
+              taskCount: 3,
+              breakdown: { tasks: [], themes: [], keywords: [] },
+              duration: 1000,
+            },
           },
           {
             type: "mission:completed",
@@ -1614,7 +1641,7 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { pages: [], duration: 100 },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       await collectEvents(
@@ -1634,13 +1661,23 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: {
               pages: [
-                { pageNumber: 1, title: "Cover", html: "<div>Cover HTML</div>", status: "completed" },
-                { pageNumber: 2, title: "Content", renderedHtml: "<div>Content HTML</div>", status: "completed" },
+                {
+                  pageNumber: 1,
+                  title: "Cover",
+                  html: "<div>Cover HTML</div>",
+                  status: "completed",
+                },
+                {
+                  pageNumber: 2,
+                  title: "Content",
+                  renderedHtml: "<div>Content HTML</div>",
+                  status: "completed",
+                },
               ],
               duration: 5000,
             },
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       await collectEvents(
@@ -1664,16 +1701,20 @@ describe("SlidesEngineService", () => {
             timestamp: new Date(),
             data: { duration: 100 }, // no pages key
           },
-        ]) as ReturnType<typeof mockOrchestrator.executeMission>,
+        ]),
       );
 
       const events = await collectEvents(
         service.generateSlides({ userId: "u1", sourceText: "text" }),
       );
 
-      const completedEvent = events.find((e) => e.type === "execution:completed");
+      const completedEvent = events.find(
+        (e) => e.type === "execution:completed",
+      );
       expect(completedEvent).toBeDefined();
-      expect((completedEvent?.data as { totalPages?: number })?.totalPages).toBe(0);
+      expect(
+        (completedEvent?.data as { totalPages?: number })?.totalPages,
+      ).toBe(0);
     });
   });
 
@@ -1697,17 +1738,22 @@ describe("SlidesEngineService", () => {
           conversation: [],
           globalStyles: { themeId: "tech-dark" },
         },
-      } as unknown as Awaited<ReturnType<typeof mockCheckpoint.getLatestCheckpoint>>);
+      } as unknown);
       mockCheckpoint.create.mockResolvedValue({ id: "ckpt-new" });
     });
 
     it("should use AI facade to parse JSON feedback from code block", async () => {
       mockFacade.chat.mockResolvedValue({
-        content: '```json\n{"title":"Updated Title","templateType":"cover","keyElements":["Point A","Point B"]}\n```',
+        content:
+          '```json\n{"title":"Updated Title","templateType":"cover","keyElements":["Point A","Point B"]}\n```',
         tokensUsed: 150,
       });
 
-      const events = await service.regeneratePage("session-1", 1, "标题改为：更专业的标题");
+      const events = await service.regeneratePage(
+        "session-1",
+        1,
+        "标题改为：更专业的标题",
+      );
 
       expect(mockFacade.chat).toHaveBeenCalled();
       expect(events.some((e) => e.type === "slide:generated")).toBe(true);
@@ -1715,11 +1761,16 @@ describe("SlidesEngineService", () => {
 
     it("should parse direct JSON when no code block wrapper present", async () => {
       mockFacade.chat.mockResolvedValue({
-        content: '{"title":"Direct JSON Title","templateType":"cover","keyElements":[]}',
+        content:
+          '{"title":"Direct JSON Title","templateType":"cover","keyElements":[]}',
         tokensUsed: 80,
       });
 
-      const events = await service.regeneratePage("session-1", 1, "make it better");
+      const events = await service.regeneratePage(
+        "session-1",
+        1,
+        "make it better",
+      );
 
       expect(events.some((e) => e.type === "slide:generated")).toBe(true);
     });
@@ -1730,7 +1781,11 @@ describe("SlidesEngineService", () => {
         tokensUsed: 30,
       });
 
-      const events = await service.regeneratePage("session-1", 1, "修改为：全新的演示标题");
+      const events = await service.regeneratePage(
+        "session-1",
+        1,
+        "修改为：全新的演示标题",
+      );
 
       // Regex should catch "修改为：" and extract the title
       expect(events.some((e) => e.type === "slide:generated")).toBe(true);
@@ -1739,7 +1794,11 @@ describe("SlidesEngineService", () => {
     it("should return original outline when AI fails with exception", async () => {
       mockFacade.chat.mockRejectedValue(new Error("API timeout"));
 
-      const events = await service.regeneratePage("session-1", 1, "改为：Timeout Test");
+      const events = await service.regeneratePage(
+        "session-1",
+        1,
+        "改为：Timeout Test",
+      );
 
       // Even with AI failure, regex fallback should handle "改为："
       expect(events.some((e) => e.type === "slide:generated")).toBe(true);
@@ -1748,7 +1807,11 @@ describe("SlidesEngineService", () => {
     it("should return slide:generated when rendering fails (caught error path)", async () => {
       mockRendering.execute.mockResolvedValue({
         success: false,
-        error: { code: "RENDER_FAILED", message: "Failed to render", retryable: false },
+        error: {
+          code: "RENDER_FAILED",
+          message: "Failed to render",
+          retryable: false,
+        },
         metadata: {
           executionId: "e1",
           startTime: new Date(),
@@ -1757,14 +1820,22 @@ describe("SlidesEngineService", () => {
         },
       });
 
-      const events = await service.regeneratePage("session-1", 1, "some feedback");
+      const events = await service.regeneratePage(
+        "session-1",
+        1,
+        "some feedback",
+      );
 
       // Should return execution:failed event
       expect(events.some((e) => e.type === "execution:failed")).toBe(true);
     });
 
     it("should emit events via eventEmitter when regeneration succeeds", async () => {
-      const events = await service.regeneratePage("session-1", 1, "改为：New Title");
+      const events = await service.regeneratePage(
+        "session-1",
+        1,
+        "改为：New Title",
+      );
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         "slides.page.regenerated",

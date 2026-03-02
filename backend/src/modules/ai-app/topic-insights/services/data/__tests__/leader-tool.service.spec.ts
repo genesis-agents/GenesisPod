@@ -1,7 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderToolService } from "../leader-tool.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  ToolFacade,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { DimensionStatus, ResearchTaskStatus } from "@prisma/client";
 
@@ -43,7 +46,8 @@ describe("LeaderToolService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LeaderToolService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: ToolFacade, useValue: mockAiFacade },
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -59,7 +63,9 @@ describe("LeaderToolService", () => {
   describe("createDimension", () => {
     it("should create a new dimension successfully", async () => {
       mockPrisma.topicDimension.findFirst.mockResolvedValue(null);
-      mockPrisma.topicDimension.aggregate.mockResolvedValue({ _max: { sortOrder: 3 } });
+      mockPrisma.topicDimension.aggregate.mockResolvedValue({
+        _max: { sortOrder: 3 },
+      });
       mockPrisma.topicDimension.create.mockResolvedValue({
         id: "dim1",
         name: "Market Analysis",
@@ -86,7 +92,10 @@ describe("LeaderToolService", () => {
     });
 
     it("should return failure when dimension already exists", async () => {
-      mockPrisma.topicDimension.findFirst.mockResolvedValue({ id: "dim1", name: "Market Analysis" });
+      mockPrisma.topicDimension.findFirst.mockResolvedValue({
+        id: "dim1",
+        name: "Market Analysis",
+      });
 
       const result = await service.createDimension({
         topicId: "t1",
@@ -98,7 +107,9 @@ describe("LeaderToolService", () => {
     });
 
     it("should handle database errors gracefully", async () => {
-      mockPrisma.topicDimension.findFirst.mockRejectedValue(new Error("DB error"));
+      mockPrisma.topicDimension.findFirst.mockRejectedValue(
+        new Error("DB error"),
+      );
 
       const result = await service.createDimension({
         topicId: "t1",
@@ -116,7 +127,10 @@ describe("LeaderToolService", () => {
 
   describe("deleteDimension", () => {
     it("should delete dimension by name and cancel running tasks", async () => {
-      mockPrisma.topicDimension.findFirst.mockResolvedValue({ id: "dim1", name: "Old Dimension" });
+      mockPrisma.topicDimension.findFirst.mockResolvedValue({
+        id: "dim1",
+        name: "Old Dimension",
+      });
       mockPrisma.researchTask.count.mockResolvedValue(2);
       mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 2 });
       mockPrisma.topicDimension.delete.mockResolvedValue({});
@@ -146,7 +160,10 @@ describe("LeaderToolService", () => {
     });
 
     it("should delete by dimensionId when provided", async () => {
-      mockPrisma.topicDimension.findUnique.mockResolvedValue({ id: "dim1", name: "Some Dimension" });
+      mockPrisma.topicDimension.findUnique.mockResolvedValue({
+        id: "dim1",
+        name: "Some Dimension",
+      });
       mockPrisma.researchTask.count.mockResolvedValue(0);
       mockPrisma.topicDimension.delete.mockResolvedValue({});
 
@@ -165,11 +182,21 @@ describe("LeaderToolService", () => {
 
   describe("cancelTask", () => {
     it("should cancel task by taskId", async () => {
-      const task = { id: "task1", dimensionName: "Tech Trends", status: ResearchTaskStatus.PENDING };
+      const task = {
+        id: "task1",
+        dimensionName: "Tech Trends",
+        status: ResearchTaskStatus.PENDING,
+      };
       mockPrisma.researchTask.findUnique.mockResolvedValue(task);
-      mockPrisma.researchTask.update.mockResolvedValue({ ...task, status: ResearchTaskStatus.FAILED });
+      mockPrisma.researchTask.update.mockResolvedValue({
+        ...task,
+        status: ResearchTaskStatus.FAILED,
+      });
 
-      const result = await service.cancelTask({ topicId: "t1", taskId: "task1" });
+      const result = await service.cancelTask({
+        topicId: "t1",
+        taskId: "task1",
+      });
 
       expect(result.success).toBe(true);
       expect(mockPrisma.researchTask.update).toHaveBeenCalledWith(
@@ -180,10 +207,17 @@ describe("LeaderToolService", () => {
     });
 
     it("should return success without update when task already failed", async () => {
-      const task = { id: "task1", dimensionName: "Tech Trends", status: ResearchTaskStatus.FAILED };
+      const task = {
+        id: "task1",
+        dimensionName: "Tech Trends",
+        status: ResearchTaskStatus.FAILED,
+      };
       mockPrisma.researchTask.findUnique.mockResolvedValue(task);
 
-      const result = await service.cancelTask({ topicId: "t1", taskId: "task1" });
+      const result = await service.cancelTask({
+        topicId: "t1",
+        taskId: "task1",
+      });
 
       expect(result.success).toBe(true);
       expect(mockPrisma.researchTask.update).not.toHaveBeenCalled();
@@ -192,7 +226,10 @@ describe("LeaderToolService", () => {
     it("should return failure when task not found", async () => {
       mockPrisma.researchTask.findUnique.mockResolvedValue(null);
 
-      const result = await service.cancelTask({ topicId: "t1", taskId: "nonexistent" });
+      const result = await service.cancelTask({
+        topicId: "t1",
+        taskId: "nonexistent",
+      });
 
       expect(result.success).toBe(false);
     });
@@ -204,9 +241,16 @@ describe("LeaderToolService", () => {
 
   describe("updateDimension", () => {
     it("should update dimension name and description", async () => {
-      const dimension = { id: "dim1", name: "Old Name", description: "Old desc" };
+      const dimension = {
+        id: "dim1",
+        name: "Old Name",
+        description: "Old desc",
+      };
       mockPrisma.topicDimension.findFirst.mockResolvedValue(dimension);
-      mockPrisma.topicDimension.update.mockResolvedValue({ ...dimension, name: "New Name" });
+      mockPrisma.topicDimension.update.mockResolvedValue({
+        ...dimension,
+        name: "New Name",
+      });
 
       const result = await service.updateDimension({
         topicId: "t1",
@@ -232,7 +276,10 @@ describe("LeaderToolService", () => {
     });
 
     it("should return failure when no update fields are provided", async () => {
-      mockPrisma.topicDimension.findFirst.mockResolvedValue({ id: "dim1", name: "Test" });
+      mockPrisma.topicDimension.findFirst.mockResolvedValue({
+        id: "dim1",
+        name: "Test",
+      });
 
       const result = await service.updateDimension({
         topicId: "t1",
@@ -251,7 +298,9 @@ describe("LeaderToolService", () => {
   describe("createMultipleDimensions", () => {
     it("should create multiple dimensions and report success count", async () => {
       mockPrisma.topicDimension.findFirst.mockResolvedValue(null);
-      mockPrisma.topicDimension.aggregate.mockResolvedValue({ _max: { sortOrder: 0 } });
+      mockPrisma.topicDimension.aggregate.mockResolvedValue({
+        _max: { sortOrder: 0 },
+      });
       mockPrisma.topicDimension.create.mockImplementation((args: any) =>
         Promise.resolve({ id: `dim-${args.data.name}`, name: args.data.name }),
       );
@@ -270,8 +319,13 @@ describe("LeaderToolService", () => {
       mockPrisma.topicDimension.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ id: "existing", name: "Dimension B" });
-      mockPrisma.topicDimension.aggregate.mockResolvedValue({ _max: { sortOrder: 0 } });
-      mockPrisma.topicDimension.create.mockResolvedValue({ id: "new", name: "Dimension A" });
+      mockPrisma.topicDimension.aggregate.mockResolvedValue({
+        _max: { sortOrder: 0 },
+      });
+      mockPrisma.topicDimension.create.mockResolvedValue({
+        id: "new",
+        name: "Dimension A",
+      });
 
       const result = await service.createMultipleDimensions("t1", [
         { name: "Dimension A" },
@@ -289,7 +343,11 @@ describe("LeaderToolService", () => {
 
   describe("mergeDimensions", () => {
     it("should merge source dimensions into target", async () => {
-      const targetDimension = { id: "target", name: "Target", description: "Target desc" };
+      const targetDimension = {
+        id: "target",
+        name: "Target",
+        description: "Target desc",
+      };
       const sourceDimensions = [
         { id: "src1", name: "Source A", description: "Desc A" },
         { id: "src2", name: "Source B", description: "Desc B" },
@@ -325,7 +383,10 @@ describe("LeaderToolService", () => {
     });
 
     it("should return failure when no source dimensions found", async () => {
-      mockPrisma.topicDimension.findFirst.mockResolvedValue({ id: "target", name: "Target" });
+      mockPrisma.topicDimension.findFirst.mockResolvedValue({
+        id: "target",
+        name: "Target",
+      });
       mockPrisma.topicDimension.findMany.mockResolvedValue([]);
 
       const result = await service.mergeDimensions({

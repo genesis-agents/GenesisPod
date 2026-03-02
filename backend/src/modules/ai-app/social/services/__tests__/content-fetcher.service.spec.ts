@@ -1,12 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentFetcherService } from "../content-fetcher.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { RAGFacade } from "../../../../ai-engine/facade";
 import { SocialContentSourceType } from "@prisma/client";
 
 // Mock sanitize utilities from the facade
 jest.mock("../../../../ai-engine/facade", () => ({
-  AIEngineFacade: jest.fn(),
+  RAGFacade: jest.fn(),
   sanitizeForDb: jest.fn((s: string) => s),
   sanitizeJson: jest.fn((obj: unknown) => obj),
 }));
@@ -65,7 +65,7 @@ describe("ContentFetcherService", () => {
       providers: [
         ContentFetcherService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: RAGFacade, useValue: mockAiFacade },
       ],
     }).compile();
 

@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   CritiqueCategory,
@@ -40,7 +40,7 @@ export interface CritiqueRefineRequest {
 export class CritiqueRefineService {
   private readonly logger = new Logger(CritiqueRefineService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 执行完整的批评-改进循环
@@ -212,7 +212,7 @@ ${categoryDescriptions}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "low", outputLength: "long" },
       });
@@ -392,7 +392,7 @@ ${issuesText}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "low", outputLength: "long" },
       });
@@ -426,16 +426,14 @@ ${issuesText}
 
         return {
           refinedContent: result.data.refinedContent || content,
-          changesApplied: (result.data.changesApplied || []).map(
-            (change) => ({
-              critiqueItemId: change.critiqueItemId || "",
-              original: change.original || "",
-              revised: change.revised || "",
-              reason: change.reason || "",
-              changeType: (change.changeType ||
-                "improvement") as RefineResult["changesApplied"][0]["changeType"],
-            }),
-          ),
+          changesApplied: (result.data.changesApplied || []).map((change) => ({
+            critiqueItemId: change.critiqueItemId || "",
+            original: change.original || "",
+            revised: change.revised || "",
+            reason: change.reason || "",
+            changeType: (change.changeType ||
+              "improvement") as RefineResult["changesApplied"][0]["changeType"],
+          })),
           remainingIssues,
           scoreImprovement: Math.max(0, Math.min(0.3, scoreImprovement)),
           refinementSummary:

@@ -14,7 +14,7 @@ import {
   RevisionDiffResponse,
   AiEditOperation,
 } from "../../dto/chapter-revision.dto";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 @Injectable()
 export class ChapterRevisionService {
@@ -22,7 +22,7 @@ export class ChapterRevisionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -568,7 +568,7 @@ export class ChapterRevisionService {
       selection.endOffset + 200,
     );
 
-    const response = await this.aiFacade.chatWithSkills({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         {
           role: "user",
@@ -614,7 +614,7 @@ export class ChapterRevisionService {
       heavy: "重度润色：大幅改善文字质量，重新组织段落结构，提升整体可读性",
     };
 
-    const response = await this.aiFacade.chatWithSkills({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         {
           role: "user",
@@ -653,7 +653,7 @@ export class ChapterRevisionService {
       selection.endOffset + 200,
     );
 
-    const response = await this.aiFacade.chatWithSkills({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         {
           role: "user",
@@ -701,7 +701,7 @@ export class ChapterRevisionService {
       selection.endOffset + 200,
     );
 
-    const response = await this.aiFacade.chatWithSkills({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         {
           role: "user",
@@ -753,7 +753,7 @@ export class ChapterRevisionService {
 
     const targetStyleText = styleDesc.join("\n") || "根据用户要求调整";
 
-    const response = await this.aiFacade.chatWithSkills({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         {
           role: "user",

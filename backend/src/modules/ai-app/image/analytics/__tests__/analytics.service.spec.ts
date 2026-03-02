@@ -2,12 +2,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AiImageAnalyticsService } from "../analytics.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 
 describe("AiImageAnalyticsService", () => {
   let service: AiImageAnalyticsService;
   let mockPrisma: any;
-  let mockFacade: jest.Mocked<Partial<AIEngineFacade>>;
+  let mockFacade: jest.Mocked<Partial<ChatFacade>>;
 
   beforeEach(async () => {
     mockPrisma = {
@@ -24,7 +24,7 @@ describe("AiImageAnalyticsService", () => {
       providers: [
         AiImageAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

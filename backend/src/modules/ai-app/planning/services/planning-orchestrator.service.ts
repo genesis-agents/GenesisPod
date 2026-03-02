@@ -19,7 +19,9 @@ import {
   MemoryLayer as _MemoryLayer,
 } from "@prisma/client";
 import {
-  AIEngineFacade,
+  ChatFacade,
+  TeamFacade,
+  RAGFacade,
   MissionExecutorService,
   KernelContext,
   ProgressTrackerService,
@@ -153,7 +155,9 @@ export class PlanningOrchestratorService {
     private readonly aiTeamsService: AiTeamsService,
     private readonly aiResponseService: AiResponseService,
     private readonly templateService: PlanningTemplateService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly teamFacade: TeamFacade,
+    private readonly ragFacade: RAGFacade,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
     @Optional() private readonly kernelJournal?: EventJournalService,
@@ -810,7 +814,7 @@ export class PlanningOrchestratorService {
           meta.planConfig.depth,
         );
 
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages,
           modelType: AIModelType.CHAT,
           taskProfile,
@@ -875,7 +879,7 @@ export class PlanningOrchestratorService {
       // 7b. Quality gate (STANDARD and COMPREHENSIVE only)
       if (meta.planConfig.depth !== PlanningDepth.QUICK) {
         const qualityDimensions = this.getQualityDimensions(phase);
-        const reflection = await this.aiFacade.reflect(
+        const reflection = await this.teamFacade.reflect(
           {
             objective: `Phase ${phase} (${PHASE_LABELS[phase]}): ${meta.planConfig.goal}`,
             progressSummary: summary.substring(0, 8000),
@@ -909,7 +913,7 @@ export class PlanningOrchestratorService {
               { role: "user", content: retryPrompt },
             ];
 
-            const retryResponse = await this.aiFacade.chat({
+            const retryResponse = await this.chatFacade.chat({
               messages: retryMessages,
               modelType: AIModelType.CHAT,
               taskProfile: this.getTaskProfileForPhase(
@@ -1142,7 +1146,7 @@ export class PlanningOrchestratorService {
         let summary = phaseStatus.summary;
         if (summary.length > perPhaseLimit) {
           try {
-            const result = await this.aiFacade.aiCompressContext(summary, {
+            const result = await this.teamFacade.aiCompressContext(summary, {
               targetSize: perPhaseLimit,
               summaryStyle: i === 2 ? "analytical" : "detailed",
             });
@@ -1753,7 +1757,7 @@ export class PlanningOrchestratorService {
 
       for (const query of queries) {
         try {
-          const searchResponse = await this.aiFacade.search({
+          const searchResponse = await this.ragFacade.search({
             query,
             maxResults: 8,
           });
@@ -1868,7 +1872,7 @@ Requirements:
 Return ONLY a JSON array of 6 strings, no other text. Example:
 ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`;
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: {
@@ -2135,7 +2139,7 @@ ${researchOutput.substring(0, 12000)}
 返回 JSON 数组，无其他文字。示例：
 [{"claim": "某数据", "sourceRef": "[1]", "confidence": "high"}]`;
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: extractPrompt }],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: {
@@ -2224,10 +2228,10 @@ ${researchOutput.substring(0, 12000)}
 
   private async buildAIMembers(depth: PlanningDepth) {
     // Get reasoning model for leader/analyst
-    const reasoningModel = await this.aiFacade.getReasoningModel();
+    const reasoningModel = await this.chatFacade.getReasoningModel();
 
     // Get available chat models
-    const chatModels = await this.aiFacade.getAvailableModelsExtended(
+    const chatModels = await this.chatFacade.getAvailableModelsExtended(
       AIModelType.CHAT,
     );
     const availableChatModels = chatModels.filter(

@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { ContentVersionService } from "../content-version.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { SocialPlatformType } from "@prisma/client";
 
 describe("ContentVersionService", () => {
@@ -67,13 +67,13 @@ describe("ContentVersionService", () => {
       providers: [
         ContentVersionService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
     service = module.get<ContentVersionService>(ContentVersionService);
     prismaService = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {

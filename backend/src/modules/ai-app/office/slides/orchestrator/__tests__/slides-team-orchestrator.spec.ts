@@ -10,7 +10,7 @@ import { SlidesTeamOrchestrator } from "../slides-team-orchestrator";
 import { SlidesLeader } from "../slides-leader";
 import { SlidesTeamMember } from "../slides-team-member";
 import { SlidesRepository } from "../slides-repository";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 import type {
   SlidesTeamOrchestratorInput,
   SlidesMissionEvent,
@@ -182,13 +182,13 @@ function makeMockRepository(): jest.Mocked<SlidesRepository> {
   } as unknown as jest.Mocked<SlidesRepository>;
 }
 
-function makeMockFacade(): jest.Mocked<AIEngineFacade> {
+function makeMockFacade(): jest.Mocked<AgentFacade> {
   return {
     startTrace: jest.fn().mockReturnValue("trace-001"),
     endTrace: jest.fn(),
     addSpan: jest.fn().mockReturnValue("span-001"),
     endSpan: jest.fn(),
-  } as unknown as jest.Mocked<AIEngineFacade>;
+  } as unknown as jest.Mocked<AgentFacade>;
 }
 
 // Collect all events from async generator
@@ -210,7 +210,7 @@ describe("SlidesTeamOrchestrator", () => {
   let orchestrator: SlidesTeamOrchestrator;
   let mockLeader: jest.Mocked<SlidesLeader>;
   let mockTeamMember: jest.Mocked<SlidesTeamMember>;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<AgentFacade>;
 
   beforeEach(() => {
     mockLeader = makeMockLeader();
@@ -336,7 +336,9 @@ describe("SlidesTeamOrchestrator", () => {
     });
 
     it("should yield audit:started and audit:completed events during audit phase", async () => {
-      const events = await collectEvents(orchestrator.executeMission(makeInput()));
+      const events = await collectEvents(
+        orchestrator.executeMission(makeInput()),
+      );
 
       expect(events.some((e) => e.type === "audit:started")).toBe(true);
       expect(events.some((e) => e.type === "audit:completed")).toBe(true);
@@ -383,8 +385,9 @@ describe("SlidesTeamOrchestrator", () => {
       );
 
       const completedEvent = events.find((e) => e.type === "mission:completed");
-      const mission = (completedEvent!.data as { mission?: { status?: string } })
-        .mission;
+      const mission = (
+        completedEvent!.data as { mission?: { status?: string } }
+      ).mission;
 
       expect(mission?.status).toBe("completed");
     });
@@ -439,9 +442,9 @@ describe("SlidesTeamOrchestrator", () => {
 
       const failedEvent = events.find((e) => e.type === "mission:failed");
       expect(failedEvent).toBeDefined();
-      expect(
-        (failedEvent!.data as { error?: string }).error,
-      ).toContain("Synthesis catastrophically failed");
+      expect((failedEvent!.data as { error?: string }).error).toContain(
+        "Synthesis catastrophically failed",
+      );
     });
 
     it("should end trace with error status on failure", async () => {
@@ -536,9 +539,7 @@ describe("SlidesTeamOrchestrator", () => {
         // yields nothing
       }
 
-      jest
-        .spyOn(orchestrator, "executeMission")
-        .mockReturnValue(emptyGen() as AsyncGenerator<SlidesMissionEvent>);
+      jest.spyOn(orchestrator, "executeMission").mockReturnValue(emptyGen());
 
       const result = await orchestrator.execute(makeInput());
 
@@ -661,9 +662,7 @@ describe("SlidesTeamOrchestrator", () => {
 
     it("should handle optional targetPages", async () => {
       const events = await collectEvents(
-        orchestrator.executeMission(
-          makeInput({ targetPages: undefined }),
-        ),
+        orchestrator.executeMission(makeInput({ targetPages: undefined })),
       );
 
       expect(events.some((e) => e.type === "mission:completed")).toBe(true);

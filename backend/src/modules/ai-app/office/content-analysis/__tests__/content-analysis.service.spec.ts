@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentAnalysisService } from "../content-analysis.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import {
   ContentCategory,
   ContentComplexity,
@@ -8,7 +8,7 @@ import {
   TemporalDimension,
 } from "../content-analysis.types";
 
-// ─── Mock AIEngineFacade ──────────────────────────────────
+// ─── Mock ChatFacade ──────────────────────────────────
 const mockAiFacade = {
   chat: jest.fn(),
   embed: jest.fn(),
@@ -31,7 +31,7 @@ describe("ContentAnalysisService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContentAnalysisService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -650,7 +650,7 @@ async function runWithComplexity(complexity: "low" | "high") {
       })}\n\`\`\``,
     }),
     embed: jest.fn(),
-  } as unknown as AIEngineFacade);
+  } as unknown as ChatFacade);
 
   return service.analyzeContent({ content: "test content with some words" });
 }

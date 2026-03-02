@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   ReasoningPath,
@@ -39,7 +39,7 @@ export interface SelfConsistencyRequest {
 export class SelfConsistencyService {
   private readonly logger = new Logger(SelfConsistencyService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 执行自一致性检查
@@ -141,7 +141,7 @@ ${evidenceContext}
                 ? ("medium" as const)
                 : ("high" as const);
 
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [{ role: "user", content: prompt }],
           taskProfile: { creativity: creativityLevel, outputLength: "medium" },
         });
@@ -248,7 +248,7 @@ ${conclusionsText}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });

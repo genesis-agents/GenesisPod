@@ -10,7 +10,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   ChatMessage,
   TaskProfile,
-  AIEngineFacade,
+  ChatFacade,
 } from "../../../../ai-engine/facade";
 import { FeishuAuthService } from "./feishu-auth.service";
 import { FeishuDataSourceService } from "./feishu-data-source.service";
@@ -91,7 +91,7 @@ export class FeishuService implements OnModuleDestroy {
   constructor(
     private httpService: HttpService,
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
     private feishuAuth: FeishuAuthService,
     private feishuDataSource: FeishuDataSourceService,
     private urlFetchService: UrlFetchService,
@@ -426,7 +426,7 @@ export class FeishuService implements OnModuleDestroy {
     query: string,
     url?: string | null,
   ): Promise<string> {
-    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    const defaultModel = await this.chatFacade.getDefaultTextModel();
 
     if (!defaultModel) {
       throw new Error("No CHAT AI model configured");
@@ -458,7 +458,7 @@ export class FeishuService implements OnModuleDestroy {
       outputLength: "short",
     };
 
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       model: defaultModel.modelId,
       systemPrompt,
       messages,

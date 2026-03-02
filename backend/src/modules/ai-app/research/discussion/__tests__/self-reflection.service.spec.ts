@@ -16,7 +16,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { SelfReflectionService } from "../self-reflection.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import type {
   ResearchPlan,
   SearchRound,
@@ -95,7 +95,7 @@ describe("SelfReflectionService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SelfReflectionService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

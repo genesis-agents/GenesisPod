@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import type { TaskProfile } from "../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
@@ -16,7 +16,7 @@ export class AiImageAnalyticsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -54,7 +54,7 @@ export class AiImageAnalyticsService {
         .join("\n");
 
       // ★ P3 迁移：使用 AIEngineFacade 统一入口
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -124,7 +124,7 @@ export class AiImageAnalyticsService {
         .join("\n");
 
       // ★ P3 迁移：使用 AIEngineFacade 统一入口
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -197,7 +197,7 @@ export class AiImageAnalyticsService {
         .join("\n");
 
       // ★ P3 迁移：使用 AIEngineFacade 统一入口
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

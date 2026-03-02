@@ -3,34 +3,38 @@ import {
   SemanticConsistencyService,
   SemanticFact,
 } from "../semantic-consistency.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 describe("SemanticConsistencyService", () => {
   let service: SemanticConsistencyService;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
 
   beforeEach(async () => {
     mockFacade = {
       chat: jest.fn(),
       chatStream: jest.fn(),
       chatWithSkills: jest.fn(),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SemanticConsistencyService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
-    service = module.get<SemanticConsistencyService>(SemanticConsistencyService);
+    service = module.get<SemanticConsistencyService>(
+      SemanticConsistencyService,
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  const makeSemanticFact = (overrides: Partial<SemanticFact> = {}): SemanticFact => ({
+  const makeSemanticFact = (
+    overrides: Partial<SemanticFact> = {},
+  ): SemanticFact => ({
     statement: "萧炎的眼睛是黑色的",
     category: "character",
     relatedEntities: ["萧炎"],
@@ -182,10 +186,7 @@ describe("SemanticConsistencyService", () => {
         tokensUsed: 50,
       } as any);
 
-      const result = await service.checkSemanticConsistency(
-        "短内容。",
-        [],
-      );
+      const result = await service.checkSemanticConsistency("短内容。", []);
 
       expect(result.processingTimeMs).toBeGreaterThanOrEqual(0);
     });
@@ -249,10 +250,9 @@ describe("SemanticConsistencyService", () => {
         tokensUsed: 50,
       } as any);
 
-      const result = await service.checkSemanticConsistency(
-        "测试内容。",
-        [makeSemanticFact()],
-      );
+      const result = await service.checkSemanticConsistency("测试内容。", [
+        makeSemanticFact(),
+      ]);
 
       expect(result).toBeDefined();
     });
@@ -260,7 +260,10 @@ describe("SemanticConsistencyService", () => {
     it("should return no conflicts when allFacts is empty", async () => {
       // With empty facts: extractStatements -> extractNewFacts (no conflict check)
       mockFacade.chat
-        .mockResolvedValueOnce({ content: "陈述1\n陈述2", tokensUsed: 50 } as any)
+        .mockResolvedValueOnce({
+          content: "陈述1\n陈述2",
+          tokensUsed: 50,
+        } as any)
         .mockResolvedValueOnce({ content: "[]", tokensUsed: 50 } as any);
 
       const result = await service.checkSemanticConsistency("内容", []);

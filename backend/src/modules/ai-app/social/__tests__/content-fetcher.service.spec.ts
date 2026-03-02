@@ -5,11 +5,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentFetcherService } from "../services/content-fetcher.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { RAGFacade } from "../../../ai-engine/facade";
 import { SocialContentSourceType } from "@prisma/client";
 
 jest.mock("../../../ai-engine/facade", () => ({
-  AIEngineFacade: jest.fn(),
+  RAGFacade: jest.fn(),
   sanitizeForDb: jest.fn((str: string) => str || ""),
   sanitizeJson: jest.fn((obj: unknown) => obj),
 }));
@@ -71,7 +71,7 @@ describe("ContentFetcherService", () => {
       providers: [
         ContentFetcherService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: RAGFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -88,7 +88,9 @@ describe("ContentFetcherService", () => {
 
       expect(result.title).toBe("Fetched Title");
       expect(result.content).toBe("Fetched content from URL");
-      expect(mockAiFacade.contentFetch.fetchFromUrl).toHaveBeenCalledWith("https://example.com/article");
+      expect(mockAiFacade.contentFetch.fetchFromUrl).toHaveBeenCalledWith(
+        "https://example.com/article",
+      );
     });
 
     it("should use 'Untitled' when fetched content has no title", async () => {
@@ -152,7 +154,11 @@ describe("ContentFetcherService", () => {
         mockPrisma.resource.findUnique.mockResolvedValue(null);
 
         await expect(
-          service.fetchFromSource(SocialContentSourceType.AI_EXPLORE, resourceId, userId),
+          service.fetchFromSource(
+            SocialContentSourceType.AI_EXPLORE,
+            resourceId,
+            userId,
+          ),
         ).rejects.toThrow("资源不存在");
       });
 
@@ -170,10 +176,16 @@ describe("ContentFetcherService", () => {
         };
         mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
         // URL fetch fails entirely
-        mockAiFacade.contentFetch.fetchFromUrl.mockRejectedValue(new Error("Fetch failed"));
+        mockAiFacade.contentFetch.fetchFromUrl.mockRejectedValue(
+          new Error("Fetch failed"),
+        );
 
         await expect(
-          service.fetchFromSource(SocialContentSourceType.AI_EXPLORE, resourceId, userId),
+          service.fetchFromSource(
+            SocialContentSourceType.AI_EXPLORE,
+            resourceId,
+            userId,
+          ),
         ).rejects.toThrow("该资源内容不足");
       });
 
@@ -197,7 +209,11 @@ describe("ContentFetcherService", () => {
         });
 
         await expect(
-          service.fetchFromSource(SocialContentSourceType.AI_EXPLORE, resourceId, userId),
+          service.fetchFromSource(
+            SocialContentSourceType.AI_EXPLORE,
+            resourceId,
+            userId,
+          ),
         ).rejects.toThrow("该资源内容不足");
       });
 
@@ -214,9 +230,12 @@ describe("ContentFetcherService", () => {
           authors: [],
         };
         mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
-        mockAiFacade.contentFetch.extractYoutubeVideoId.mockReturnValue("abc123");
+        mockAiFacade.contentFetch.extractYoutubeVideoId.mockReturnValue(
+          "abc123",
+        );
         mockAiFacade.contentFetch.fetchFromYoutubeUrl.mockResolvedValue({
-          content: "YouTube transcript with enough content here " + "x".repeat(100),
+          content:
+            "YouTube transcript with enough content here " + "x".repeat(100),
           title: "YouTube Title",
           originalContent: "English transcript",
           translatedContent: "Chinese translation",
@@ -248,7 +267,9 @@ describe("ContentFetcherService", () => {
           authors: [],
         };
         mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
-        mockAiFacade.contentFetch.extractYoutubeVideoId.mockReturnValue("abc123");
+        mockAiFacade.contentFetch.extractYoutubeVideoId.mockReturnValue(
+          "abc123",
+        );
         mockAiFacade.contentFetch.fetchFromYoutubeUrl.mockResolvedValue({
           content: "Short", // Less than 100 chars
           title: "YouTube Title",
@@ -337,9 +358,7 @@ describe("ContentFetcherService", () => {
           name: "Research Topic",
           description: "Topic description",
           status: "COMPLETED",
-          reports: [
-            { fullReport: "Full research report content", version: 1 },
-          ],
+          reports: [{ fullReport: "Full research report content", version: 1 }],
         };
         mockPrisma.researchTopic.findFirst.mockResolvedValue(mockTopic);
 
@@ -359,7 +378,11 @@ describe("ContentFetcherService", () => {
         mockPrisma.researchTopic.findFirst.mockResolvedValue(null);
 
         await expect(
-          service.fetchFromSource(SocialContentSourceType.AI_RESEARCH, topicId, userId),
+          service.fetchFromSource(
+            SocialContentSourceType.AI_RESEARCH,
+            topicId,
+            userId,
+          ),
         ).rejects.toThrow("研究主题不存在");
       });
 
@@ -413,7 +436,11 @@ describe("ContentFetcherService", () => {
         mockPrisma.officeDocument.findFirst.mockResolvedValue(null);
 
         await expect(
-          service.fetchFromSource(SocialContentSourceType.AI_OFFICE, documentId, userId),
+          service.fetchFromSource(
+            SocialContentSourceType.AI_OFFICE,
+            documentId,
+            userId,
+          ),
         ).rejects.toThrow("文档不存在");
       });
 
@@ -471,7 +498,11 @@ describe("ContentFetcherService", () => {
         mockPrisma.writingChapter.findFirst.mockResolvedValue(null);
 
         await expect(
-          service.fetchFromSource(SocialContentSourceType.AI_WRITING, chapterId, userId),
+          service.fetchFromSource(
+            SocialContentSourceType.AI_WRITING,
+            chapterId,
+            userId,
+          ),
         ).rejects.toThrow("章节不存在");
       });
 
@@ -491,7 +522,11 @@ describe("ContentFetcherService", () => {
         mockPrisma.writingChapter.findFirst.mockResolvedValue(mockChapter);
 
         await expect(
-          service.fetchFromSource(SocialContentSourceType.AI_WRITING, chapterId, userId),
+          service.fetchFromSource(
+            SocialContentSourceType.AI_WRITING,
+            chapterId,
+            userId,
+          ),
         ).rejects.toThrow("章节不存在");
       });
     });

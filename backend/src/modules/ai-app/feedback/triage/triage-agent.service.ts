@@ -14,7 +14,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SimilarityMatcherService } from "./similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../analyzer/screenshot-analyzer.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import {
   TriageInput,
@@ -108,7 +108,7 @@ export class TriageAgentService {
     private readonly configService: ConfigService,
     private readonly similarityMatcher: SimilarityMatcherService,
     private readonly screenshotAnalyzer: ScreenshotAnalyzerService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {
     // 加载配置（模型将在运行时从数据库获取）
     this.config = {
@@ -257,7 +257,7 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
    */
   private async callAiApi(userPrompt: string): Promise<string> {
     // ★ 通过 AIEngineFacade 获取默认聊天模型
-    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    const defaultModel = await this.chatFacade.getDefaultTextModel();
     if (!defaultModel) {
       throw new Error("No default text model available for triage");
     }
@@ -265,7 +265,7 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
 
     this.logger.debug(`[callAiApi] Using model: ${modelName}`);
 
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: [
         { role: "system", content: TRIAGE_SYSTEM_PROMPT },
         { role: "user", content: userPrompt },

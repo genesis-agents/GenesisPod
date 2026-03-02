@@ -1,9 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RAGFusionService } from "../rag-fusion.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import {
   QueryVariantType,
-  DEFAULT_RAG_FUSION_CONFIG,
   VariantSearchResult,
   QueryVariant,
 } from "../../../types/rag-fusion.types";
@@ -14,7 +13,10 @@ const mockAiFacade = {
   chat: jest.fn(),
 };
 
-const makeDataSourceResult = (url: string, snippet = "content"): DataSourceResult => ({
+const makeDataSourceResult = (
+  url: string,
+  snippet = "content",
+): DataSourceResult => ({
   sourceType: DataSourceType.WEB,
   title: `Article ${url}`,
   url,
@@ -22,7 +24,12 @@ const makeDataSourceResult = (url: string, snippet = "content"): DataSourceResul
   domain: new URL(url).hostname,
 });
 
-const makeVariant = (id: string, query: string, type = QueryVariantType.ORIGINAL, weight = 1.0): QueryVariant => ({
+const makeVariant = (
+  id: string,
+  query: string,
+  type = QueryVariantType.ORIGINAL,
+  weight = 1.0,
+): QueryVariant => ({
   id,
   query,
   type,
@@ -49,7 +56,7 @@ describe("RAGFusionService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RAGFusionService,
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -84,7 +91,11 @@ describe("RAGFusionService", () => {
       mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           variants: [
-            { query: "machine learning advances", type: "paraphrased", weight: 0.8 },
+            {
+              query: "machine learning advances",
+              type: "paraphrased",
+              weight: 0.8,
+            },
             { query: "AI progress 2025", type: "temporal", weight: 0.9 },
           ],
           overallRationale: "Comprehensive coverage",
@@ -97,7 +108,9 @@ describe("RAGFusionService", () => {
       });
 
       expect(result.variants.length).toBeGreaterThan(1);
-      expect(result.variants.some((v) => v.type === QueryVariantType.PARAPHRASED)).toBe(true);
+      expect(
+        result.variants.some((v) => v.type === QueryVariantType.PARAPHRASED),
+      ).toBe(true);
     });
 
     it("should return only original query on AI error", async () => {
@@ -129,7 +142,9 @@ describe("RAGFusionService", () => {
         context: { topicName: "Test", dimensionName: "Test" },
       });
 
-      const generatedVariants = result.variants.filter((v) => v.type !== QueryVariantType.ORIGINAL);
+      const generatedVariants = result.variants.filter(
+        (v) => v.type !== QueryVariantType.ORIGINAL,
+      );
       generatedVariants.forEach((v) => {
         expect(v.weight).toBeGreaterThanOrEqual(0.5);
         expect(v.weight).toBeLessThanOrEqual(1.0);
@@ -157,7 +172,12 @@ describe("RAGFusionService", () => {
   describe("fuseResults", () => {
     it("should deduplicate results from multiple variants", () => {
       const original = makeVariant("v0", "AI", QueryVariantType.ORIGINAL, 1.0);
-      const paraphrased = makeVariant("v1", "artificial intelligence", QueryVariantType.PARAPHRASED, 0.8);
+      const paraphrased = makeVariant(
+        "v1",
+        "artificial intelligence",
+        QueryVariantType.PARAPHRASED,
+        0.8,
+      );
 
       const sharedUrl = "https://example.com/shared";
       const variantResults: VariantSearchResult[] = [
@@ -180,8 +200,18 @@ describe("RAGFusionService", () => {
 
     it("should apply coverage bonus to results appearing in multiple variants", () => {
       const original = makeVariant("v0", "AI", QueryVariantType.ORIGINAL, 1.0);
-      const paraphrased = makeVariant("v1", "ML", QueryVariantType.PARAPHRASED, 1.0);
-      const expanded = makeVariant("v2", "AI ML trends", QueryVariantType.EXPANDED, 1.0);
+      const paraphrased = makeVariant(
+        "v1",
+        "ML",
+        QueryVariantType.PARAPHRASED,
+        1.0,
+      );
+      const expanded = makeVariant(
+        "v2",
+        "AI ML trends",
+        QueryVariantType.EXPANDED,
+        1.0,
+      );
 
       const popularUrl = "https://popular.com/article";
       const variantResults: VariantSearchResult[] = [
@@ -203,7 +233,9 @@ describe("RAGFusionService", () => {
       const failed = makeVariant("v1", "ML", QueryVariantType.PARAPHRASED, 0.8);
 
       const variantResults: VariantSearchResult[] = [
-        makeVariantResult(original, [makeDataSourceResult("https://example.com/a")]),
+        makeVariantResult(original, [
+          makeDataSourceResult("https://example.com/a"),
+        ]),
         makeVariantResult(failed, [], false), // failed
       ];
 
@@ -214,9 +246,16 @@ describe("RAGFusionService", () => {
     });
 
     it("should mark contrastive results", () => {
-      const contrastive = makeVariant("v0", "AI risks", QueryVariantType.CONTRASTIVE, 0.7);
+      const contrastive = makeVariant(
+        "v0",
+        "AI risks",
+        QueryVariantType.CONTRASTIVE,
+        0.7,
+      );
       const variantResults: VariantSearchResult[] = [
-        makeVariantResult(contrastive, [makeDataSourceResult("https://risks.com/article")]),
+        makeVariantResult(contrastive, [
+          makeDataSourceResult("https://risks.com/article"),
+        ]),
       ];
 
       const fused = service.fuseResults(variantResults);
@@ -226,7 +265,12 @@ describe("RAGFusionService", () => {
 
     it("should sort items by fusion score descending", () => {
       const original = makeVariant("v0", "AI", QueryVariantType.ORIGINAL, 1.0);
-      const paraphrased = makeVariant("v1", "ML", QueryVariantType.PARAPHRASED, 0.5);
+      const paraphrased = makeVariant(
+        "v1",
+        "ML",
+        QueryVariantType.PARAPHRASED,
+        0.5,
+      );
 
       // First result appears in both variants (higher score), second only in one
       const sharedUrl = "https://shared.com";
@@ -295,9 +339,9 @@ describe("RAGFusionService", () => {
         }),
       });
 
-      const mockSearchFn = jest.fn().mockResolvedValue([
-        makeDataSourceResult("https://example.com/ai"),
-      ]);
+      const mockSearchFn = jest
+        .fn()
+        .mockResolvedValue([makeDataSourceResult("https://example.com/ai")]);
 
       const result = await service.fusionSearch(
         {
@@ -314,12 +358,16 @@ describe("RAGFusionService", () => {
     it("should handle search function failures gracefully", async () => {
       mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify({
-          variants: [{ query: "AI research latest", type: "temporal", weight: 0.8 }],
+          variants: [
+            { query: "AI research latest", type: "temporal", weight: 0.8 },
+          ],
           overallRationale: "test",
         }),
       });
 
-      const mockSearchFn = jest.fn().mockRejectedValue(new Error("Search error"));
+      const mockSearchFn = jest
+        .fn()
+        .mockRejectedValue(new Error("Search error"));
 
       const result = await service.fusionSearch(
         {

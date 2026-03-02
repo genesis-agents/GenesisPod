@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
@@ -88,7 +88,7 @@ export class ExpressionAlternativesService {
   private readonly cacheExpiry = 24 * 60 * 60 * 1000; // 24 小时
   private readonly cacheTimestamps = new Map<string, number>();
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 获取表达的替代方案
@@ -195,7 +195,7 @@ export class ExpressionAlternativesService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiFacade.chat({
+          this.chatFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
@@ -260,7 +260,7 @@ ${style ? `4. 风格：${style}` : ""}
         // ★ 使用重试机制包装 LLM 调用
         const response = await withRetry(
           () =>
-            this.aiFacade.chat({
+            this.chatFacade.chat({
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },

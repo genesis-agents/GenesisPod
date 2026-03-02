@@ -14,7 +14,7 @@ import { AiImageService } from "../generation.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ContentExtractorService } from "../../../../../common/content-processing/content-extractor.service";
 import { DataFetchingService } from "../../../../../common/content-processing/data-fetching.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { InfographicTemplateService } from "../../infographic/infographic.service";
 import { PromptEnhancementService } from "../prompt-enhancement.service";
 import { ImageGenerationService } from "../image-generation.service";
@@ -254,7 +254,7 @@ describe("AiImageService", () => {
         { provide: ImageGenerationService, useValue: mockImageGeneration },
         { provide: ImageStorageService, useValue: mockImageStorage },
         { provide: Imagen4PromptService, useValue: mockImagen4Prompt },
-        { provide: AIEngineFacade, useValue: mockAIFacade },
+        { provide: ChatFacade, useValue: mockAIFacade },
       ],
     }).compile();
 

@@ -2,35 +2,35 @@
  * Tests for ResearchIdeaService
  */
 
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from "@nestjs/testing";
 import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common';
-import { ResearchIdeaService } from '../idea/research-idea.service';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
-import { AIEngineFacade } from '@/modules/ai-engine/facade';
+} from "@nestjs/common";
+import { ResearchIdeaService } from "../idea/research-idea.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
-jest.mock('@prisma/client', () => ({
+jest.mock("@prisma/client", () => ({
   AIModelType: {
-    CHAT: 'CHAT',
-    CHAT_FAST: 'CHAT_FAST',
+    CHAT: "CHAT",
+    CHAT_FAST: "CHAT_FAST",
   },
   ResearchIdeaType: {
-    INSIGHT: 'INSIGHT',
-    CREATIVE_IDEA: 'CREATIVE_IDEA',
+    INSIGHT: "INSIGHT",
+    CREATIVE_IDEA: "CREATIVE_IDEA",
   },
   PrismaClient: class MockPrismaClient {},
 }));
 
-jest.mock('@/modules/ai-engine/facade', () => ({
-  AIEngineFacade: jest.fn().mockImplementation(() => ({
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
   })),
 }));
 
-jest.mock('../../../../common/prisma/prisma.service', () => ({
+jest.mock("../../../../common/prisma/prisma.service", () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
     researchProject: { findUnique: jest.fn() },
     researchIdea: {
@@ -45,27 +45,27 @@ jest.mock('../../../../common/prisma/prisma.service', () => ({
   })),
 }));
 
-describe('ResearchIdeaService', () => {
+describe("ResearchIdeaService", () => {
   let service: ResearchIdeaService;
   let prisma: jest.Mocked<PrismaService>;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
 
-  const userId = 'user-123';
-  const projectId = 'project-456';
-  const ideaId = 'idea-789';
+  const userId = "user-123";
+  const projectId = "project-456";
+  const ideaId = "idea-789";
 
   const mockProject = {
     id: projectId,
     userId,
-    name: 'Test Project',
+    name: "Test Project",
   };
 
   const mockIdea = {
     id: ideaId,
     projectId,
-    title: 'Test Idea',
-    description: 'Test Description',
-    type: 'INSIGHT',
+    title: "Test Idea",
+    description: "Test Description",
+    type: "INSIGHT",
     tags: [],
     metadata: {},
     createdAt: new Date(),
@@ -103,7 +103,7 @@ describe('ResearchIdeaService', () => {
           useValue: mockPrismaService,
         },
         {
-          provide: AIEngineFacade,
+          provide: ChatFacade,
           useValue: mockFacadeInstance,
         },
       ],
@@ -111,15 +111,15 @@ describe('ResearchIdeaService', () => {
 
     service = module.get<ResearchIdeaService>(ResearchIdeaService);
     prisma = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('listByProject', () => {
-    it('should list ideas for a project', async () => {
+  describe("listByProject", () => {
+    it("should list ideas for a project", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -135,7 +135,7 @@ describe('ResearchIdeaService', () => {
       );
     });
 
-    it('should throw NotFoundException when project not found', async () => {
+    it("should throw NotFoundException when project not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(service.listByProject(userId, projectId)).rejects.toThrow(
@@ -143,10 +143,10 @@ describe('ResearchIdeaService', () => {
       );
     });
 
-    it('should throw ForbiddenException when user is not owner', async () => {
+    it("should throw ForbiddenException when user is not owner", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue({
         ...mockProject,
-        userId: 'other-user',
+        userId: "other-user",
       });
 
       await expect(service.listByProject(userId, projectId)).rejects.toThrow(
@@ -154,33 +154,33 @@ describe('ResearchIdeaService', () => {
       );
     });
 
-    it('should filter by type when provided', async () => {
+    it("should filter by type when provided", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchIdea.findMany as jest.Mock).mockResolvedValue([]);
 
-      await service.listByProject(userId, projectId, 'INSIGHT' as any);
+      await service.listByProject(userId, projectId, "INSIGHT" as any);
 
       expect(prisma.researchIdea.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { projectId, type: 'INSIGHT' },
+          where: { projectId, type: "INSIGHT" },
         }),
       );
     });
   });
 
-  describe('create', () => {
-    it('should create an idea', async () => {
+  describe("create", () => {
+    it("should create an idea", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchIdea.create as jest.Mock).mockResolvedValue(mockIdea);
 
       const dto = {
-        title: 'New Idea',
-        description: 'Description',
-        tags: ['tag1'],
+        title: "New Idea",
+        description: "Description",
+        tags: ["tag1"],
       };
 
       const result = await service.create(userId, projectId, dto);
@@ -190,20 +190,20 @@ describe('ResearchIdeaService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             projectId,
-            title: 'New Idea',
-            tags: ['tag1'],
+            title: "New Idea",
+            tags: ["tag1"],
           }),
         }),
       );
     });
 
-    it('should use empty tags array when not provided', async () => {
+    it("should use empty tags array when not provided", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchIdea.create as jest.Mock).mockResolvedValue(mockIdea);
 
-      await service.create(userId, projectId, { title: 'No Tags' });
+      await service.create(userId, projectId, { title: "No Tags" });
 
       expect(prisma.researchIdea.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -215,94 +215,94 @@ describe('ResearchIdeaService', () => {
     });
   });
 
-  describe('update', () => {
-    it('should update an idea', async () => {
+  describe("update", () => {
+    it("should update an idea", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchIdea.update as jest.Mock).mockResolvedValue({
         ...mockIdea,
-        title: 'Updated',
+        title: "Updated",
       });
 
       const result = await service.update(userId, projectId, ideaId, {
-        title: 'Updated',
+        title: "Updated",
       });
 
-      expect(result.title).toBe('Updated');
+      expect(result.title).toBe("Updated");
     });
 
-    it('should throw NotFoundException when idea not found (P2025)', async () => {
+    it("should throw NotFoundException when idea not found (P2025)", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
-      const prismaError = { code: 'P2025', message: 'Not found' };
+      const prismaError = { code: "P2025", message: "Not found" };
       (prisma.researchIdea.update as jest.Mock).mockRejectedValue(prismaError);
 
       await expect(
-        service.update(userId, projectId, 'nonexistent', {}),
+        service.update(userId, projectId, "nonexistent", {}),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should rethrow non-P2025 errors', async () => {
+    it("should rethrow non-P2025 errors", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchIdea.update as jest.Mock).mockRejectedValue(
-        new Error('DB Error'),
+        new Error("DB Error"),
       );
 
       await expect(
         service.update(userId, projectId, ideaId, {}),
-      ).rejects.toThrow('DB Error');
+      ).rejects.toThrow("DB Error");
     });
   });
 
-  describe('delete', () => {
-    it('should delete an idea', async () => {
+  describe("delete", () => {
+    it("should delete an idea", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchIdea.delete as jest.Mock).mockResolvedValue(mockIdea);
 
-      const result = await service.delete(userId, projectId, ideaId);
+      const _result = await service.delete(userId, projectId, ideaId);
 
       expect(prisma.researchIdea.delete).toHaveBeenCalledWith({
         where: { id: ideaId, projectId },
       });
     });
 
-    it('should throw NotFoundException when idea not found (P2025)', async () => {
+    it("should throw NotFoundException when idea not found (P2025)", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
-      const prismaError = { code: 'P2025' };
+      const prismaError = { code: "P2025" };
       (prisma.researchIdea.delete as jest.Mock).mockRejectedValue(prismaError);
 
       await expect(
-        service.delete(userId, projectId, 'nonexistent'),
+        service.delete(userId, projectId, "nonexistent"),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('extractFromSession', () => {
-    const sessionId = 'session-abc';
+  describe("extractFromSession", () => {
+    const sessionId = "session-abc";
     const mockSession = {
       id: sessionId,
       projectId,
       discussion: [
         {
-          id: 'msg1',
-          agentRole: 'researcher-a',
-          agentName: 'Researcher A',
-          content: 'AI is transforming industries...',
-          phase: 'ideation',
-          messageType: 'idea',
+          id: "msg1",
+          agentRole: "researcher-a",
+          agentName: "Researcher A",
+          content: "AI is transforming industries...",
+          phase: "ideation",
+          messageType: "idea",
         },
       ],
     };
 
-    it('should return empty array when discussion is empty', async () => {
+    it("should return empty array when discussion is empty", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -320,7 +320,7 @@ describe('ResearchIdeaService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should throw NotFoundException when session not found', async () => {
+    it("should throw NotFoundException when session not found", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -333,7 +333,7 @@ describe('ResearchIdeaService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should extract ideas from session discussion', async () => {
+    it("should extract ideas from session discussion", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -349,23 +349,23 @@ describe('ResearchIdeaService', () => {
 
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content:
-          '```json\n' +
+          "```json\n" +
           JSON.stringify([
             {
-              title: 'AI Market Disruption',
-              coreInsight: 'AI is fundamentally disrupting traditional markets',
-              evidence: ['Evidence 1', 'Evidence 2'],
-              researchDirection: 'Study market disruption patterns',
-              impactLevel: 'high',
-              sourceAgent: 'Researcher A',
-              tags: ['AI', 'market'],
+              title: "AI Market Disruption",
+              coreInsight: "AI is fundamentally disrupting traditional markets",
+              evidence: ["Evidence 1", "Evidence 2"],
+              researchDirection: "Study market disruption patterns",
+              impactLevel: "high",
+              sourceAgent: "Researcher A",
+              tags: ["AI", "market"],
             },
           ]) +
-          '\n```',
+          "\n```",
         tokensUsed: 500,
       });
 
-      const result = await service.extractFromSession(
+      const _result = await service.extractFromSession(
         userId,
         projectId,
         sessionId,
@@ -374,7 +374,7 @@ describe('ResearchIdeaService', () => {
       expect(prisma.researchIdea.createMany).toHaveBeenCalled();
     });
 
-    it('should handle AI extraction failure gracefully', async () => {
+    it("should handle AI extraction failure gracefully", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -382,7 +382,7 @@ describe('ResearchIdeaService', () => {
         mockSession,
       );
       (prisma.researchIdea.findMany as jest.Mock).mockResolvedValue([]);
-      (aiFacade.chat as jest.Mock).mockRejectedValue(new Error('AI Error'));
+      (aiFacade.chat as jest.Mock).mockRejectedValue(new Error("AI Error"));
 
       const result = await service.extractFromSession(
         userId,
@@ -393,7 +393,7 @@ describe('ResearchIdeaService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should re-extract by clearing old ideas first', async () => {
+    it("should re-extract by clearing old ideas first", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -408,7 +408,7 @@ describe('ResearchIdeaService', () => {
         count: 1,
       });
       (aiFacade.chat as jest.Mock).mockResolvedValue({
-        content: '[]',
+        content: "[]",
         tokensUsed: 100,
       });
 
@@ -421,7 +421,7 @@ describe('ResearchIdeaService', () => {
       );
     });
 
-    it('should filter out ideas with invalid quality', async () => {
+    it("should filter out ideas with invalid quality", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -434,35 +434,35 @@ describe('ResearchIdeaService', () => {
         content: JSON.stringify([
           // Valid idea
           {
-            title: 'Valid Title',
-            coreInsight: 'Valid core insight that is long enough',
-            evidence: ['Evidence 1'],
-            researchDirection: 'Valid direction',
-            impactLevel: 'high',
+            title: "Valid Title",
+            coreInsight: "Valid core insight that is long enough",
+            evidence: ["Evidence 1"],
+            researchDirection: "Valid direction",
+            impactLevel: "high",
           },
           // Too short title
           {
-            title: 'Hi',
-            coreInsight: 'Some insight',
-            evidence: ['Evidence'],
-            researchDirection: 'Direction',
-            impactLevel: 'high',
+            title: "Hi",
+            coreInsight: "Some insight",
+            evidence: ["Evidence"],
+            researchDirection: "Direction",
+            impactLevel: "high",
           },
           // Invalid impact level
           {
-            title: 'Valid Title 2',
-            coreInsight: 'Valid core insight',
-            evidence: ['Evidence'],
-            researchDirection: 'Direction',
-            impactLevel: 'critical', // invalid
+            title: "Valid Title 2",
+            coreInsight: "Valid core insight",
+            evidence: ["Evidence"],
+            researchDirection: "Direction",
+            impactLevel: "critical", // invalid
           },
           // Starts with 各位
           {
-            title: '各位同事请注意',
-            coreInsight: 'Some insight',
-            evidence: ['Evidence'],
-            researchDirection: 'Direction',
-            impactLevel: 'medium',
+            title: "各位同事请注意",
+            coreInsight: "Some insight",
+            evidence: ["Evidence"],
+            researchDirection: "Direction",
+            impactLevel: "medium",
           },
         ]),
         tokensUsed: 500,
@@ -481,15 +481,15 @@ describe('ResearchIdeaService', () => {
       expect(prisma.researchIdea.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.arrayContaining([
-            expect.objectContaining({ title: 'Valid Title' }),
+            expect.objectContaining({ title: "Valid Title" }),
           ]),
         }),
       );
     });
   });
 
-  describe('extractCreativeIdeas', () => {
-    it('should throw BadRequestException when no insights exist', async () => {
+  describe("extractCreativeIdeas", () => {
+    it("should throw BadRequestException when no insights exist", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -500,7 +500,7 @@ describe('ResearchIdeaService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should extract creative ideas from insights', async () => {
+    it("should extract creative ideas from insights", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
@@ -508,32 +508,32 @@ describe('ResearchIdeaService', () => {
         .mockResolvedValueOnce([
           // insights
           {
-            id: 'insight-1',
+            id: "insight-1",
             projectId,
-            title: 'AI Insight',
-            description: 'AI insight desc',
-            type: 'INSIGHT',
+            title: "AI Insight",
+            description: "AI insight desc",
+            type: "INSIGHT",
             metadata: {
-              coreInsight: 'Core AI insight',
-              evidence: ['Evidence 1'],
-              impactLevel: 'high',
+              coreInsight: "Core AI insight",
+              evidence: ["Evidence 1"],
+              impactLevel: "high",
             },
             createdAt: new Date(),
           },
         ])
-        .mockResolvedValueOnce([{ id: 'insight-1' }]) // valid insight IDs
+        .mockResolvedValueOnce([{ id: "insight-1" }]) // valid insight IDs
         .mockResolvedValue([mockIdea]); // final return
 
       (aiFacade.chat as jest.Mock).mockResolvedValue({
         content: JSON.stringify([
           {
-            title: 'Creative Idea 1',
-            concept: 'A creative concept for AI',
-            innovationPoints: ['Point 1', 'Point 2'],
-            approach: 'Use AI in new ways',
-            feasibility: 'high',
-            dimension: '新方案',
-            sourceInsightIds: ['insight-1'],
+            title: "Creative Idea 1",
+            concept: "A creative concept for AI",
+            innovationPoints: ["Point 1", "Point 2"],
+            approach: "Use AI in new ways",
+            feasibility: "high",
+            dimension: "新方案",
+            sourceInsightIds: ["insight-1"],
           },
         ]),
         tokensUsed: 500,
@@ -546,29 +546,27 @@ describe('ResearchIdeaService', () => {
         count: 1,
       });
 
-      const result = await service.extractCreativeIdeas(userId, projectId);
+      const _result = await service.extractCreativeIdeas(userId, projectId);
 
       expect(prisma.researchIdea.createMany).toHaveBeenCalled();
     });
 
-    it('should return empty array when AI produces no ideas', async () => {
+    it("should return empty array when AI produces no ideas", async () => {
       (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(
         mockProject,
       );
       (prisma.researchIdea.findMany as jest.Mock).mockResolvedValueOnce([
         {
-          id: 'insight-1',
+          id: "insight-1",
           projectId,
-          title: 'AI Insight',
-          type: 'INSIGHT',
-          metadata: { impactLevel: 'high' },
+          title: "AI Insight",
+          type: "INSIGHT",
+          metadata: { impactLevel: "high" },
           createdAt: new Date(),
         },
       ]);
 
-      (aiFacade.chat as jest.Mock).mockRejectedValue(
-        new Error('AI failure'),
-      );
+      (aiFacade.chat as jest.Mock).mockRejectedValue(new Error("AI failure"));
 
       const result = await service.extractCreativeIdeas(userId, projectId);
 

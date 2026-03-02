@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReleaseService } from "../release.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { NotificationService } from "../../notifications/notification.service";
 import { NotificationTypeDto } from "../../notifications/dto/notification.dto";
 import { ReleaseInfo } from "../dto/release.dto";
@@ -38,7 +38,7 @@ describe("ReleaseService", () => {
       providers: [
         ReleaseService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: AIEngineFacade, useValue: mockAIFacade },
+        { provide: ChatFacade, useValue: mockAIFacade },
         { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();

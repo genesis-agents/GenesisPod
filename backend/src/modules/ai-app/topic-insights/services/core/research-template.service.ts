@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType, Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -537,7 +537,7 @@ export class ResearchTemplateService {
   private readonly customTemplates = new Map<string, ResearchTemplate>();
 
   constructor(
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -650,7 +650,7 @@ export class ResearchTemplateService {
         .map((t) => `- ${t.id}: ${t.name} - ${t.description}`)
         .join("\n");
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -671,9 +671,7 @@ Score from 0-1, recommend up to 3 templates.`,
         taskProfile: { creativity: "low", outputLength: "short" },
       });
 
-      const parsed = this.parseJsonArray(response.content || "") as Array<
-        Record<string, unknown>
-      >;
+      const parsed = this.parseJsonArray(response.content || "");
       return parsed
         .map((item: Record<string, unknown>) => ({
           template: this.getTemplate(item.templateId as string)!,
@@ -811,7 +809,7 @@ Score from 0-1, recommend up to 3 templates.`,
   private dbTemplateToResearchTemplate(
     dbTemplate: Record<string, unknown>,
   ): ResearchTemplate {
-    const dimensions = dbTemplate.dimensions as TemplateDimension[] | unknown;
+    const dimensions = dbTemplate.dimensions;
     return {
       id: dbTemplate.templateId as string,
       name: dbTemplate.name as string,

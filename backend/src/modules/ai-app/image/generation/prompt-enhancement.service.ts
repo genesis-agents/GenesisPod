@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import type { TaskProfile } from "../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
@@ -38,7 +38,7 @@ import {
 export class PromptEnhancementService {
   private readonly logger = new Logger(PromptEnhancementService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 调用 LLM 进行 Prompt 增强
@@ -48,9 +48,9 @@ export class PromptEnhancementService {
     content: string,
     _modelId?: string,
   ): Promise<string> {
-    this.logger.log(`[enhancePromptWithLLM] Calling LLM via AIEngineFacade`);
+    this.logger.log(`[enhancePromptWithLLM] Calling LLM via ChatFacade`);
 
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: [{ role: "user", content }],
       systemPrompt: PROMPT_ENHANCEMENT_SYSTEM,
       modelType: AIModelType.CHAT_FAST, // Prompt 增强使用快速模型
@@ -242,24 +242,31 @@ export class PromptEnhancementService {
       const designJournalRaw = parsed.design_journal ?? parsed.designJournal;
       if (Array.isArray(designJournalRaw)) {
         insights.designJournal = designJournalRaw
-          .map((entry: unknown, index: number): PromptDesignJournalEntry | null => {
-            if (entry && typeof entry === "object") {
-              const e = entry as Record<string, unknown>;
-              const title = normalizeString(e["title"] as string | undefined) || `Step ${index + 1}`;
-              const narrative =
-                normalizeString(e["narrative"] as string | undefined) ??
-                normalizeString(e["description"] as string | undefined) ??
-                normalizeString(e["text"] as string | undefined);
-              if (narrative) {
-                return { title, narrative };
+          .map(
+            (
+              entry: unknown,
+              index: number,
+            ): PromptDesignJournalEntry | null => {
+              if (entry && typeof entry === "object") {
+                const e = entry as Record<string, unknown>;
+                const title =
+                  normalizeString(e["title"] as string | undefined) ||
+                  `Step ${index + 1}`;
+                const narrative =
+                  normalizeString(e["narrative"] as string | undefined) ??
+                  normalizeString(e["description"] as string | undefined) ??
+                  normalizeString(e["text"] as string | undefined);
+                if (narrative) {
+                  return { title, narrative };
+                }
+                return null;
+              }
+              if (typeof entry === "string") {
+                return { title: `Step ${index + 1}`, narrative: entry.trim() };
               }
               return null;
-            }
-            if (typeof entry === "string") {
-              return { title: `Step ${index + 1}`, narrative: entry.trim() };
-            }
-            return null;
-          })
+            },
+          )
           .filter((entry): entry is PromptDesignJournalEntry => entry !== null);
       }
 
@@ -269,43 +276,68 @@ export class PromptEnhancementService {
       const sectionsRaw = Array.isArray(infoRaw.sections)
         ? infoRaw.sections
         : [];
-      const sections: PromptSection[] = sectionsRaw.map((section: Record<string, unknown>) => ({
-        title: normalizeString(section["title"] as string | undefined),
-        summary: normalizeString((section["summary"] ?? section["description"]) as string | undefined),
-        bullets: toArray((section["bullets"] ?? section["points"]) as unknown),
-        metrics: Array.isArray(section["metrics"])
-          ? (section["metrics"] as Record<string, unknown>[])
-              .map((metric: Record<string, unknown>) => ({
-                label: normalizeString(metric["label"] as string | undefined) || undefined,
-                value: normalizeString(metric["value"] as string | undefined) || undefined,
-                comparison:
-                  normalizeString((metric["comparison"] ?? metric["delta"]) as string | undefined) ||
-                  undefined,
-              }))
-              .filter((metric: { label?: string; value?: string }) =>
-                Boolean(metric.label || metric.value),
-              )
-          : [],
-        visual:
-          section["visual"] || section["chart"]
-            ? {
-                type: normalizeString(
-                  ((section["visual"] as Record<string, unknown> | undefined)?.["type"] ?? (section["chart"] as Record<string, unknown> | undefined)?.["type"]) as string | undefined,
-                ),
-                description: normalizeString(
-                  ((section["visual"] as Record<string, unknown> | undefined)?.["description"] ?? (section["chart"] as Record<string, unknown> | undefined)?.["description"]) as string | undefined,
-                ),
-              }
-            : undefined,
-        iconType: normalizeString(
-          (section["icon_type"] ?? section["iconType"] ?? section["icon"]) as string | undefined,
-        ),
-        sectionType:
-          section["section_type"] === "summary" ||
-          section["sectionType"] === "summary"
-            ? "summary"
-            : "main",
-      }));
+      const sections: PromptSection[] = sectionsRaw.map(
+        (section: Record<string, unknown>) => ({
+          title: normalizeString(section["title"] as string | undefined),
+          summary: normalizeString(
+            (section["summary"] ?? section["description"]) as
+              | string
+              | undefined,
+          ),
+          bullets: toArray(section["bullets"] ?? section["points"]),
+          metrics: Array.isArray(section["metrics"])
+            ? (section["metrics"] as Record<string, unknown>[])
+                .map((metric: Record<string, unknown>) => ({
+                  label:
+                    normalizeString(metric["label"] as string | undefined) ||
+                    undefined,
+                  value:
+                    normalizeString(metric["value"] as string | undefined) ||
+                    undefined,
+                  comparison:
+                    normalizeString(
+                      (metric["comparison"] ?? metric["delta"]) as
+                        | string
+                        | undefined,
+                    ) || undefined,
+                }))
+                .filter((metric: { label?: string; value?: string }) =>
+                  Boolean(metric.label || metric.value),
+                )
+            : [],
+          visual:
+            section["visual"] || section["chart"]
+              ? {
+                  type: normalizeString(
+                    ((
+                      section["visual"] as Record<string, unknown> | undefined
+                    )?.["type"] ??
+                      (
+                        section["chart"] as Record<string, unknown> | undefined
+                      )?.["type"]) as string | undefined,
+                  ),
+                  description: normalizeString(
+                    ((
+                      section["visual"] as Record<string, unknown> | undefined
+                    )?.["description"] ??
+                      (
+                        section["chart"] as Record<string, unknown> | undefined
+                      )?.["description"]) as string | undefined,
+                  ),
+                }
+              : undefined,
+          iconType: normalizeString(
+            (section["icon_type"] ?? section["iconType"] ?? section["icon"]) as
+              | string
+              | undefined,
+          ),
+          sectionType:
+            section["section_type"] === "summary" ||
+            section["sectionType"] === "summary"
+              ? "summary"
+              : "main",
+        }),
+      );
 
       // Validate section count against quantity patterns
       for (const { pattern, expected } of QUANTITY_PATTERNS) {

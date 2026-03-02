@@ -52,9 +52,19 @@ import type {
   StructuredChatRequest,
   StructuredChatResponse,
 } from "../types/facade.types";
+import type { ConstraintConfig, ConstraintResult } from "../types/facade.types";
 
 /** Skills 系统提示词 Token 预算 */
 const SKILLS_PROMPT_TOKEN_BUDGET = 4000;
+
+/** 敏感词过滤列表（基础版） */
+const SENSITIVE_PATTERNS = [
+  /password\s*[:=]\s*\S+/gi,
+  /api[_-]?key\s*[:=]\s*\S+/gi,
+  /secret\s*[:=]\s*\S+/gi,
+  /token\s*[:=]\s*\S+/gi,
+  /bearer\s+\S+/gi,
+];
 
 @Injectable()
 export class ChatFacade {
@@ -749,6 +759,159 @@ export class ChatFacade {
     } catch (creditError) {
       this.logger.warn(`[Billing] Failed to deduct credits: ${creditError}`);
     }
+  }
+
+  // ==================== Constraint Checking ====================
+
+  /**
+   * Validates content against constraints (token limits, sensitive patterns, JSON schema).
+   */
+  checkConstraints(request: {
+    content: string;
+    constraints: ConstraintConfig;
+  }): ConstraintResult {
+    this.logger.debug(
+      `[checkConstraints] contentLength=${request.content.length}`,
+    );
+
+    const violations: Array<{
+      type: "token_limit" | "content_filter" | "json_schema";
+      message: string;
+    }> = [];
+
+    if (request.constraints.maxTokens) {
+      const estimatedTokens = this.estimateTokens(request.content);
+      if (estimatedTokens > request.constraints.maxTokens) {
+        violations.push({
+          type: "token_limit",
+          message: `Content exceeds token limit: ${estimatedTokens} > ${request.constraints.maxTokens}`,
+        });
+      }
+    }
+
+    if (request.constraints.contentFilter?.enabled) {
+      for (const pattern of SENSITIVE_PATTERNS) {
+        if (pattern.test(request.content)) {
+          violations.push({
+            type: "content_filter",
+            message: `Content contains potentially sensitive information matching pattern: ${pattern.source}`,
+          });
+        }
+      }
+
+      if (request.constraints.contentFilter.rules) {
+        for (const rule of request.constraints.contentFilter.rules) {
+          try {
+            const regex = new RegExp(rule, "gi");
+            if (regex.test(request.content)) {
+              violations.push({
+                type: "content_filter",
+                message: `Content matches custom filter rule: ${rule}`,
+              });
+            }
+          } catch {
+            this.logger.warn(`Invalid regex rule: ${rule}`);
+          }
+        }
+      }
+    }
+
+    if (request.constraints.jsonSchema) {
+      try {
+        const parsed = JSON.parse(request.content);
+        const schemaValid = this.validateJsonSchema(
+          parsed,
+          request.constraints.jsonSchema,
+        );
+        if (!schemaValid) {
+          violations.push({
+            type: "json_schema",
+            message: "Content does not match the required JSON schema",
+          });
+        }
+      } catch {
+        violations.push({
+          type: "json_schema",
+          message: "Content is not valid JSON",
+        });
+      }
+    }
+
+    let adjustedContent: string | undefined;
+    if (violations.some((v) => v.type === "token_limit")) {
+      adjustedContent = this.compressContext(
+        request.content,
+        request.constraints.maxTokens || 4000,
+      );
+    }
+
+    return {
+      passed: violations.length === 0,
+      violations: violations.length > 0 ? violations : undefined,
+      adjustedContent,
+    };
+  }
+
+  private estimateTokens(text: string): number {
+    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+    const otherChars = text.length - chineseChars;
+    return Math.ceil(chineseChars * 2 + otherChars / 4);
+  }
+
+  private compressContext(context: string, maxTokens: number): string {
+    const currentTokens = this.estimateTokens(context);
+    if (currentTokens <= maxTokens) {
+      return context;
+    }
+
+    const ratio = maxTokens / currentTokens;
+    const targetLength = Math.floor(context.length * ratio * 0.9);
+
+    const headLength = Math.floor(targetLength * 0.6);
+    const tailLength = Math.floor(targetLength * 0.3);
+
+    const head = context.substring(0, headLength);
+    const tail = context.substring(context.length - tailLength);
+
+    return `${head}\n\n[... content compressed ...]\n\n${tail}`;
+  }
+
+  private validateJsonSchema(data: unknown, schema: object): boolean {
+    const schemaObj = schema as {
+      type?: string;
+      required?: string[];
+      properties?: Record<string, { type?: string }>;
+    };
+
+    if (schemaObj.type === "object" && typeof data !== "object") {
+      return false;
+    }
+    if (schemaObj.type === "array" && !Array.isArray(data)) {
+      return false;
+    }
+
+    if (
+      schemaObj.required &&
+      typeof data === "object" &&
+      data !== null &&
+      !Array.isArray(data)
+    ) {
+      const obj = data as Record<string, unknown>;
+      for (const field of schemaObj.required) {
+        if (!(field in obj)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  // ==================== Service Getters ====================
+
+  /** ModelFallbackService for direct model fallback chain access */
+  get modelFallback(): ModelFallbackService | undefined {
+    return this.modelFallbackService;
   }
 
   // ==================== Model Selection & Config ====================

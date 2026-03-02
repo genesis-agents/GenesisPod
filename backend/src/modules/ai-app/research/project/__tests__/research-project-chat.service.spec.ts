@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchProjectChatService } from "../research-project-chat.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 
 describe("ResearchProjectChatService", () => {
   let service: ResearchProjectChatService;
@@ -85,7 +85,7 @@ describe("ResearchProjectChatService", () => {
       providers: [
         ResearchProjectChatService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -93,7 +93,7 @@ describe("ResearchProjectChatService", () => {
       ResearchProjectChatService,
     );
     prismaService = module.get(PrismaService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
   });
 
   afterEach(() => {

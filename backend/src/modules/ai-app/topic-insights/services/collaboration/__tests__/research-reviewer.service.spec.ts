@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchReviewerService } from "../research-reviewer.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import {
   ReviewQualityLevel,
   type DimensionReviewResult,
@@ -59,7 +59,8 @@ const mockAnalysis: DimensionAnalysisResult = {
   ],
   confidenceLevel: "high",
   evidenceUsed: 5,
-  detailedContent: "Detailed analysis of the AI market showing strong growth. ".repeat(20),
+  detailedContent:
+    "Detailed analysis of the AI market showing strong growth. ".repeat(20),
 };
 
 const goodAiResponse = {
@@ -85,7 +86,7 @@ describe("ResearchReviewerService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchReviewerService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -117,7 +118,11 @@ describe("ResearchReviewerService", () => {
 
     it("should return EXCELLENT quality level for score >= 90", async () => {
       facade.chat.mockResolvedValue({
-        content: JSON.stringify({ ...goodAiResponse, overallScore: 95, qualityLevel: "excellent" }),
+        content: JSON.stringify({
+          ...goodAiResponse,
+          overallScore: 95,
+          qualityLevel: "excellent",
+        }),
         tokensUsed: 200,
         model: "gpt-4",
       });
@@ -223,7 +228,13 @@ describe("ResearchReviewerService", () => {
       dimensionName: "Market Size",
       qualityLevel: ReviewQualityLevel.GOOD,
       overallScore: 80,
-      scores: { breadth: 80, depth: 75, evidence: 85, coherence: 80, currency: 75 },
+      scores: {
+        breadth: 80,
+        depth: 75,
+        evidence: 85,
+        coherence: 80,
+        currency: 75,
+      },
       issues: [],
       suggestions: [],
       needsReresearch: false,
@@ -233,12 +244,19 @@ describe("ResearchReviewerService", () => {
     it("should calculate correct overall score as average of dimension scores", async () => {
       const reviews = [
         makeDimensionReview({ overallScore: 80 }),
-        makeDimensionReview({ dimensionId: "dim-2", dimensionName: "Competitors", overallScore: 60 }),
+        makeDimensionReview({
+          dimensionId: "dim-2",
+          dimensionName: "Competitors",
+          overallScore: 60,
+        }),
       ];
 
       const result = await service.reviewOverall(
         mockTopic as never,
-        [mockDimension, { ...mockDimension, id: "dim-2", name: "Competitors" }] as never,
+        [
+          mockDimension,
+          { ...mockDimension, id: "dim-2", name: "Competitors" },
+        ] as never,
         reviews,
       );
 
@@ -249,7 +267,12 @@ describe("ResearchReviewerService", () => {
     it("should flag needsReresearch when any dimension needs it", async () => {
       const reviews = [
         makeDimensionReview({ needsReresearch: false }),
-        makeDimensionReview({ dimensionId: "dim-2", dimensionName: "Bad", needsReresearch: true, overallScore: 40 }),
+        makeDimensionReview({
+          dimensionId: "dim-2",
+          dimensionName: "Bad",
+          needsReresearch: true,
+          overallScore: 40,
+        }),
       ];
 
       const result = await service.reviewOverall(
@@ -275,18 +298,25 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should return score 0 and no reresearch for empty dimension reviews", async () => {
-      const result = await service.reviewOverall(
-        mockTopic as never,
-        [],
-        [],
-      );
+      const result = await service.reviewOverall(mockTopic as never, [], []);
 
       expect(result.overallScore).toBe(0);
       expect(result.needsReresearch).toBe(false);
     });
 
     it("should generate recommendations for missing coverage", async () => {
-      const reviews = [makeDimensionReview({ overallScore: 65, scores: { breadth: 50, depth: 50, evidence: 50, coherence: 50, currency: 50 } })];
+      const reviews = [
+        makeDimensionReview({
+          overallScore: 65,
+          scores: {
+            breadth: 50,
+            depth: 50,
+            evidence: 50,
+            coherence: 50,
+            currency: 50,
+          },
+        }),
+      ];
       const dimensions = [{ ...mockDimension, name: "现状分析" }];
 
       const result = await service.reviewOverall(
@@ -312,8 +342,20 @@ describe("ResearchReviewerService", () => {
       facade.chat.mockResolvedValue({
         content: JSON.stringify({
           results: [
-            { claimId: "c1", status: "verified", supportingSourceIndices: [0], contradictingSourceIndices: [], explanation: "OK" },
-            { claimId: "c2", status: "verified", supportingSourceIndices: [1], contradictingSourceIndices: [], explanation: "OK" },
+            {
+              claimId: "c1",
+              status: "verified",
+              supportingSourceIndices: [0],
+              contradictingSourceIndices: [],
+              explanation: "OK",
+            },
+            {
+              claimId: "c2",
+              status: "verified",
+              supportingSourceIndices: [1],
+              contradictingSourceIndices: [],
+              explanation: "OK",
+            },
           ],
         }),
         tokensUsed: 100,
@@ -356,7 +398,9 @@ describe("ResearchReviewerService", () => {
     it("should call AI and return fact check results when citations exist", async () => {
       facade.chat.mockResolvedValue({
         content: JSON.stringify({
-          citations: [{ mark: "[1]", status: "accurate", explanation: "Verified" }],
+          citations: [
+            { mark: "[1]", status: "accurate", explanation: "Verified" },
+          ],
           accuracyScore: 95,
           issues: [],
         }),
@@ -365,7 +409,9 @@ describe("ResearchReviewerService", () => {
       });
 
       const reportContent = "The market grew by 50% [1] according to analysts.";
-      const evidence = [{ id: "ev-1", title: "Market Report", snippet: "Market grew 50%" }];
+      const evidence = [
+        { id: "ev-1", title: "Market Report", snippet: "Market grew 50%" },
+      ];
 
       const result = await service.factCheckReport(reportContent, evidence);
 

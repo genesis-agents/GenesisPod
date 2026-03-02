@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   AgentResult,
@@ -168,7 +168,7 @@ const STYLE_AGENT_PROMPT = `你是视觉风格专家。负责整体设计风格�
 export class AgentExecutorService {
   private readonly logger = new Logger(AgentExecutorService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 调用 LLM API
@@ -179,7 +179,7 @@ export class AgentExecutorService {
     userContent: string,
     _temperature = 0.7,
   ): Promise<string> {
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: [{ role: "user", content: userContent }],
       systemPrompt,
       modelType: AIModelType.CHAT,

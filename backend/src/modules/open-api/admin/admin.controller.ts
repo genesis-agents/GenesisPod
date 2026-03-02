@@ -15,7 +15,7 @@ import {
 import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
@@ -35,7 +35,7 @@ export class AdminController {
 
   constructor(
     private adminService: AdminService,
-    private aiEngineFacade: AIEngineFacade,
+    private chatFacade: ChatFacade,
     private secretsService: SecretsService,
   ) {}
 
@@ -356,7 +356,7 @@ export class AdminController {
     if (!resolvedApiKey) {
       throw new BadRequestException("请提供 API Key 或选择有效的 Secret");
     }
-    return this.aiEngineFacade.fetchAvailableModels(
+    return this.chatFacade.fetchAvailableModels(
       body.provider,
       resolvedApiKey,
       body.apiEndpoint,
@@ -451,7 +451,7 @@ export class AdminController {
     }
 
     // 使用数据库中的真实 API Key 测试连接
-    const result = await this.aiEngineFacade.testModelConnectionWithKey(
+    const result = await this.chatFacade.testModelConnectionWithKey(
       model.provider,
       model.modelId,
       apiKey,

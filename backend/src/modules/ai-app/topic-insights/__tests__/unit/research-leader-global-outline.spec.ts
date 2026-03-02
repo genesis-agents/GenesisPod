@@ -15,7 +15,11 @@ import {
 } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchLeaderService } from "../../services/core/research-leader.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  AgentFacade,
+  ToolFacade,
+} from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
 import { LeaderToolService } from "../../services/data/leader-tool.service";
@@ -46,7 +50,9 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
       providers: [
         ResearchLeaderService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: AgentFacade, useValue: mockAiFacade },
+        { provide: ToolFacade, useValue: mockAiFacade },
         {
           provide: ResearchEventEmitterService,
           useValue: mockResearchEventEmitter,

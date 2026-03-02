@@ -23,6 +23,10 @@ import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   AIEngineFacade,
+  ChatFacade,
+  TeamFacade,
+  AgentFacade,
+  ToolFacade,
   KernelMemoryManagerService,
   MissionExecutorService,
   KernelContext,
@@ -226,7 +230,12 @@ export class WritingMissionService {
     private readonly writer: WriterAgent,
     private readonly consistencyChecker: ConsistencyCheckerAgent,
     private readonly editor: EditorAgent,
-    // ★ P3 迁移：使用 AIEngineFacade 统一入口
+    // Domain facades (P4 迁移：拆分 AIEngineFacade)
+    private readonly chatFacade: ChatFacade,
+    private readonly teamFacade: TeamFacade,
+    private readonly agentFacade: AgentFacade,
+    private readonly toolFacade: ToolFacade,
+    // AIEngineFacade retained for longContentEngine only
     private readonly aiFacade: AIEngineFacade,
     // Event Emitter - 实时事件推送
     private readonly eventEmitter: WritingEventEmitterService,
@@ -324,7 +333,7 @@ export class WritingMissionService {
 
       // 从 AICapabilityResolver 获取技能提示
       const skillPrompts =
-        await this.aiFacade.capabilityGetSkillPrompts(context);
+        await this.toolFacade.capabilityGetSkillPrompts(context);
 
       if (skillPrompts?.content && skillPrompts.usedSkills.length > 0) {
         this.logger.debug(
@@ -333,7 +342,7 @@ export class WritingMissionService {
 
         // 记录技能使用
         for (const skillId of skillPrompts.usedSkills) {
-          await this.aiFacade.capabilityResolverService
+          await this.toolFacade.capabilityResolverService
             ?.logCapabilityUsage({
               capabilityType: "skill",
               capabilityId: skillId,
@@ -531,7 +540,7 @@ export class WritingMissionService {
 
     try {
       // ★ 使用 AIEngineFacade 获取模型列表
-      const models = await this.aiFacade.getAvailableModelsExtended(
+      const models = await this.chatFacade.getAvailableModelsExtended(
         AIModelType.CHAT,
       );
 
@@ -698,7 +707,7 @@ export class WritingMissionService {
    */
   private getWritingTeam(): ITeam {
     if (!this.writingTeam) {
-      this.writingTeam = this.aiFacade.teamFactory!.createFromId(
+      this.writingTeam = this.teamFacade.teamFactory!.createFromId(
         this.WRITING_TEAM_ID,
       );
       this.logger.log("Writing Team initialized on first use");
@@ -1038,7 +1047,7 @@ export class WritingMissionService {
     modelAssignments: RoleModelAssignment[],
   ): Promise<void> {
     // ★ TraceCollector: 开始链路追踪
-    const traceId = this.aiFacade.startTrace({
+    const traceId = this.agentFacade.startTrace({
       name: `AI Writing: ${input.missionType}`,
       type: "research",
       metadata: {
@@ -1084,7 +1093,7 @@ export class WritingMissionService {
       )?.modelId;
 
       // 使用默认模型如果没有分配（通过 AIEngineFacade 获取，避免硬编码模型名）
-      const defaultModelConfig = await this.aiFacade.getDefaultTextModel();
+      const defaultModelConfig = await this.chatFacade.getDefaultTextModel();
       const modelToUse =
         writerModel || leaderModel || defaultModelConfig?.modelId;
       if (!modelToUse) {
@@ -1103,7 +1112,7 @@ export class WritingMissionService {
 
       // ★ 开始内容生成 span
       generationSpanId = traceId
-        ? this.aiFacade.addSpan(traceId, {
+        ? this.agentFacade.addSpan(traceId, {
             name: `Content Generation (${input.missionType})`,
             type: "synthesis",
             metadata: { missionType: input.missionType, modelUsed: modelToUse },
@@ -1264,14 +1273,14 @@ export class WritingMissionService {
 
         // ★ 结束内容生成 span（成功）
         if (generationSpanId) {
-          this.aiFacade.endSpan(generationSpanId, {
+          this.agentFacade.endSpan(generationSpanId, {
             status: "success",
             output: { wordCount: totalWordCount, missionId },
           });
         }
         // ★ 结束链路追踪（成功）
         if (traceId) {
-          this.aiFacade.endTrace(traceId, { status: "success" });
+          this.agentFacade.endTrace(traceId, { status: "success" });
         }
       } else {
         throw new Error("未能生成内容");
@@ -1303,14 +1312,14 @@ export class WritingMissionService {
 
       // ★ 结束内容生成 span（失败）
       if (generationSpanId) {
-        this.aiFacade.endSpan(generationSpanId, {
+        this.agentFacade.endSpan(generationSpanId, {
           status: "error",
           error: (error as Error).message,
         });
       }
       // ★ 结束链路追踪（失败）
       if (traceId) {
-        this.aiFacade.endTrace(traceId, { status: "error" });
+        this.agentFacade.endTrace(traceId, { status: "error" });
       }
 
       // ★ 发送任务失败事件
@@ -1464,7 +1473,7 @@ export class WritingMissionService {
     );
 
     // 更新 orchestrator 状态 - world-building 阶段开始
-    this.aiFacade.missionOrchestrator!.updateState(missionId, {
+    this.teamFacade.missionOrchestrator!.updateState(missionId, {
       phase: "executing",
       currentSteps: ["world-building"],
       completedSteps: [],
@@ -1575,7 +1584,7 @@ ${storyCreativitySection}
       const worldStartTime = Date.now();
 
       // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
-      const worldResponse = await this.aiFacade.chat({
+      const worldResponse = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -1910,7 +1919,7 @@ ${storyCreativitySection}
     }
 
     // 更新 orchestrator 状态 - world-building 完成, plan 开始
-    this.aiFacade.missionOrchestrator!.updateState(missionId, {
+    this.teamFacade.missionOrchestrator!.updateState(missionId, {
       phase: "executing",
       currentSteps: ["plan"],
       completedSteps: ["world-building"],
@@ -2079,7 +2088,7 @@ ${Array.from(
         const startTime = Date.now();
 
         // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
-        const outlineResponse = await this.aiFacade.chat({
+        const outlineResponse = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -2195,7 +2204,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
 请以JSON数组格式输出，每个元素是章节标题字符串：
 ["标题1", "标题2", ...]`;
 
-        const fillResponse = await this.aiFacade.chat({
+        const fillResponse = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -2297,7 +2306,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
     await this.createOutlineStructure(input.projectId, outline);
 
     // 更新 orchestrator 状态 - plan 完成, write 开始
-    this.aiFacade.missionOrchestrator!.updateState(missionId, {
+    this.teamFacade.missionOrchestrator!.updateState(missionId, {
       phase: "executing",
       currentSteps: ["write"],
       completedSteps: ["world-building", "plan"],
@@ -2442,7 +2451,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 - 对话要符合角色性格
 - 描写要符合世界观设定`;
 
-        const writerResponse = await this.aiFacade.chat({
+        const writerResponse = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -2487,7 +2496,7 @@ ${WriterAgent.CORE_WRITING_PRINCIPLES}
 
 ${qualityConstraints ? `${qualityConstraints}\n` : ""}`;
 
-          const retryResponse = await this.aiFacade.chat({
+          const retryResponse = await this.chatFacade.chat({
             messages: [
               {
                 role: "system",
@@ -2560,7 +2569,7 @@ ${previousChapterSummary || "这是第一章"}
   ]
 }`;
 
-      const checkResponse = await this.aiFacade.chat({
+      const checkResponse = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -2643,7 +2652,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 3. 不改变主要情节和人物关系
 4. 直接输出修复后的完整内容，不要加任何解释`;
 
-        const fixResponse = await this.aiFacade.chat({
+        const fixResponse = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -2692,7 +2701,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           )
           .join("\n\n");
 
-        const reCheckResponse = await this.aiFacade.chat({
+        const reCheckResponse = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -2841,7 +2850,7 @@ ${chapterContent}
 
 ${editNarrativeConstraints}`;
 
-        const editResponse = await this.aiFacade.chat({
+        const editResponse = await this.chatFacade.chat({
           messages: [
             { role: "system", content: editSystemPrompt },
             { role: "user", content: editPrompt },
@@ -2924,7 +2933,7 @@ ${firstChapterGuidance}
 4. 让读者立刻关心主角的处境`;
 
           try {
-            const openingRewriteResponse = await this.aiFacade.chat({
+            const openingRewriteResponse = await this.chatFacade.chat({
               messages: [
                 {
                   role: "system",
@@ -3212,7 +3221,7 @@ ${chapterContent}
 
 ${narrativeConstraints}`;
 
-            const rewriteResponse = await this.aiFacade.chat({
+            const rewriteResponse = await this.chatFacade.chat({
               messages: [
                 {
                   role: "system",
@@ -3424,7 +3433,7 @@ ${narrativeConstraints}`;
     }
 
     // 更新 orchestrator 状态 - write/check/edit 完成, review 开始
-    this.aiFacade.missionOrchestrator!.updateState(missionId, {
+    this.teamFacade.missionOrchestrator!.updateState(missionId, {
       phase: "reviewing",
       currentSteps: ["review"],
       completedSteps: ["plan", "context-injection", "write", "check", "edit"],
@@ -4188,7 +4197,7 @@ ${content.slice(0, 6000)}${content.length > 6000 ? "...(内容截断)" : ""}
 
 直接输出摘要内容，不要添加额外格式标记。`;
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -4272,7 +4281,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 3000)}
 }`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -4413,7 +4422,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 务必提取所有出现的有名角色，即使只是一笔带过的角色也要记录！`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -4496,7 +4505,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           // 【重试机制】尝试让 LLM 修复 JSON
           try {
             this.logger.log(`[${missionId}] Attempting JSON repair via LLM...`);
-            const repairResponse = await this.aiFacade.chat({
+            const repairResponse = await this.chatFacade.chat({
               messages: [
                 {
                   role: "system",
@@ -5037,7 +5046,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       this.logger.log(`Calling LLM (${modelId}) for mission ${missionId}`);
 
       // 调用 AiChatService
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -5121,7 +5130,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 
     // 8. 执行任务
     try {
-      const result = yield* this.aiFacade.missionOrchestrator!.execute(
+      const result = yield* this.teamFacade.missionOrchestrator!.execute(
         missionInput,
         team,
         constraints,
@@ -5646,7 +5655,7 @@ ${userPrompt}
     // 添加当前用户消息
     messages.push({ role: "user", content: userPrompt });
 
-    const analysisResponse = await this.aiFacade.chat({
+    const analysisResponse = await this.chatFacade.chat({
       messages,
       model: modelId,
       taskProfile: {
@@ -5929,7 +5938,7 @@ ${instruction}
 
 请输出修改后的完整章节内容：`;
 
-    const response = await this.aiFacade.chat({
+    const response = await this.chatFacade.chat({
       messages: [{ role: "user", content: modifyPrompt }],
       model: modelId,
       taskProfile: {
@@ -7526,7 +7535,7 @@ ${WriterAgent.CORE_WRITING_PRINCIPLES}
 ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 请直接输出章节内容。`;
 
-      const writerResponse = await this.aiFacade.chat({
+      const writerResponse = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -7549,7 +7558,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
           `[${missionId}] Chapter content too short, retrying...`,
         );
         // ★★★ 重试时也必须包含完整质量约束（修复：之前遗漏了 qualityConstraints）
-        const retryResponse = await this.aiFacade.chat({
+        const retryResponse = await this.chatFacade.chat({
           messages: [
             {
               role: "system",
@@ -7594,7 +7603,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
             this.openingHook.generateOpeningConstraints(1, undefined);
 
           try {
-            const openingRewriteResponse = await this.aiFacade.chat({
+            const openingRewriteResponse = await this.chatFacade.chat({
               messages: [
                 {
                   role: "system",
@@ -8315,7 +8324,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 
     // 获取 orchestrator 状态
     const orchestratorState =
-      this.aiFacade.missionOrchestrator!.getState(missionId);
+      this.teamFacade.missionOrchestrator!.getState(missionId);
 
     return {
       id: mission.id,
@@ -8408,7 +8417,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
     // 尝试取消所有相关的 orchestrator
     for (const mission of stuckMissions) {
       try {
-        await this.aiFacade.missionOrchestrator!.cancel(mission.id);
+        await this.teamFacade.missionOrchestrator!.cancel(mission.id);
       } catch {
         // 忽略错误
       }
@@ -8445,7 +8454,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
       );
       // 尝试取消 orchestrator（可能在内存中）
       try {
-        await this.aiFacade.missionOrchestrator!.cancel(missionId);
+        await this.teamFacade.missionOrchestrator!.cancel(missionId);
       } catch {
         // 忽略
       }
@@ -8495,7 +8504,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 
     // 尝试取消 orchestrator 执行（忽略错误）
     try {
-      await this.aiFacade.missionOrchestrator!.cancel(missionId);
+      await this.teamFacade.missionOrchestrator!.cancel(missionId);
     } catch (err) {
       this.logger.warn(
         `Failed to cancel orchestrator for mission ${missionId}: ${err instanceof Error ? err.message : err}`,

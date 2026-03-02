@@ -16,7 +16,9 @@ import {
   AICapabilityResolver,
   EmbeddingService,
   VectorService,
-  AIEngineFacade,
+  ChatFacade,
+  RAGFacade,
+  ToolFacade,
 } from "@/modules/ai-engine/facade";
 import { DataSourcePlannerService } from "../../services/data/data-source-planner.service";
 import { createMockAiEngineFacade } from "../mocks";
@@ -57,7 +59,9 @@ describe("DataSourceRouterService - Domain Diversity", () => {
         { provide: DataSourcePlannerService, useValue: mockDataSourcePlanner },
         { provide: EmbeddingService, useValue: mockEmbeddingService },
         { provide: VectorService, useValue: mockVectorService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: RAGFacade, useValue: mockAiFacade },
+        { provide: ToolFacade, useValue: mockAiFacade },
       ],
     }).compile();
 

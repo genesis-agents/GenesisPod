@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { TriageAgentService } from "../triage-agent.service";
 import { SimilarityMatcherService } from "../similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../../analyzer/screenshot-analyzer.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { TriageInput, SimilarIssue } from "../triage-decision.types";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ describe("TriageAgentService", () => {
           provide: ScreenshotAnalyzerService,
           useValue: mockScreenshotAnalyzer,
         },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -520,7 +520,7 @@ describe("TriageAgentService", () => {
             provide: ScreenshotAnalyzerService,
             useValue: mockScreenshotAnalyzer,
           },
-          { provide: AIEngineFacade, useValue: mockAiFacade },
+          { provide: ChatFacade, useValue: mockAiFacade },
         ],
       }).compile();
 

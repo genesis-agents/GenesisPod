@@ -9,8 +9,11 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import type { ModelFallbackOptions, AIModelConfig } from "@/modules/ai-engine/facade";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import type {
+  ModelFallbackOptions,
+  AIModelConfig,
+} from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIError } from "@/common/ai-orchestration/error-classifier";
 
 // ==================== 类型定义 (保持原有接口) ====================
@@ -59,9 +62,9 @@ export interface LeaderModelOptions {
 export class LeaderModelService {
   private readonly logger = new Logger(LeaderModelService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {
+  constructor(private readonly chatFacade: ChatFacade) {
     this.logger.log(
-      "[LeaderModelService] Initialized (delegating to ModelFallbackService via AIEngineFacade)",
+      "[LeaderModelService] Initialized (delegating to ModelFallbackService via ChatFacade)",
     );
   }
 
@@ -72,13 +75,13 @@ export class LeaderModelService {
   async getReasoningModelFallbackChain(
     excludeModels: string[] = [],
   ): Promise<AIModelConfig[]> {
-    if (!this.aiFacade.modelFallback) {
+    if (!this.chatFacade.modelFallback) {
       this.logger.warn(
         "[LeaderModelService] modelFallback not available, returning empty chain",
       );
       return [];
     }
-    return this.aiFacade.modelFallback.getModelFallbackChain({
+    return this.chatFacade.modelFallback.getModelFallbackChain({
       preferReasoning: true,
       excludeModels,
     });
@@ -108,12 +111,12 @@ export class LeaderModelService {
     };
 
     // 委托给 ModelFallbackService (通过 AIEngineFacade)
-    if (!this.aiFacade.modelFallback) {
+    if (!this.chatFacade.modelFallback) {
       throw new Error(
         "ModelFallbackService is not available via AIEngineFacade",
       );
     }
-    const result = await this.aiFacade.modelFallback.executeWithFallback(
+    const result = await this.chatFacade.modelFallback.executeWithFallback(
       preferredModelId,
       executor,
       fallbackOptions,
@@ -127,25 +130,25 @@ export class LeaderModelService {
    * 获取单个模型配置
    */
   async getModelConfig(modelId: string): Promise<AIModelConfig | null> {
-    if (!this.aiFacade.modelFallback) {
+    if (!this.chatFacade.modelFallback) {
       this.logger.warn(
         "[LeaderModelService] modelFallback not available, cannot get model config",
       );
       return null;
     }
-    return this.aiFacade.modelFallback.getModelConfig(modelId);
+    return this.chatFacade.modelFallback.getModelConfig(modelId);
   }
 
   /**
    * 检查模型是否为需要切换的错误类型
    */
   shouldSwitchModel(error: AIError): boolean {
-    if (!this.aiFacade.modelFallback) {
+    if (!this.chatFacade.modelFallback) {
       this.logger.warn(
         "[LeaderModelService] modelFallback not available, defaulting shouldSwitchModel to false",
       );
       return false;
     }
-    return this.aiFacade.modelFallback.shouldSwitchModel(error);
+    return this.chatFacade.modelFallback.shouldSwitchModel(error);
   }
 }

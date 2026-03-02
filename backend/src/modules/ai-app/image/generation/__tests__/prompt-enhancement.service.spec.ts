@@ -1,11 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PromptEnhancementService } from "../prompt-enhancement.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 
 describe("PromptEnhancementService", () => {
   let service: PromptEnhancementService;
-  let mockFacade: jest.Mocked<Partial<AIEngineFacade>>;
+  let mockFacade: jest.Mocked<Partial<ChatFacade>>;
 
   beforeEach(async () => {
     mockFacade = {
@@ -15,7 +15,7 @@ describe("PromptEnhancementService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PromptEnhancementService,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { TeamFacade } from "../../../ai-engine/facade";
 import type { MissionEvent } from "../../../ai-engine/facade";
 import {
   GenerateImageOptions,
@@ -223,7 +223,7 @@ export type TeamProgressCallback = (event: {
 export class Imagen4PromptService {
   private readonly logger = new Logger(Imagen4PromptService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly teamFacade: TeamFacade) {}
 
   /**
    * 使用 Visual Design Team 生成 Imagen 4 专属 prompt
@@ -301,7 +301,7 @@ export class Imagen4PromptService {
       };
 
       // 流式执行
-      const eventGenerator = this.aiFacade.executeMissionStream(missionDto);
+      const eventGenerator = this.teamFacade.executeMissionStream(missionDto);
 
       for await (const event of eventGenerator) {
         // 发送进度事件
@@ -438,7 +438,7 @@ export class Imagen4PromptService {
     };
 
     // 流式执行并收集结果
-    const eventGenerator = this.aiFacade.executeMissionStream(missionDto);
+    const eventGenerator = this.teamFacade.executeMissionStream(missionDto);
     let currentPhaseIndex = 0;
 
     for await (const event of eventGenerator) {

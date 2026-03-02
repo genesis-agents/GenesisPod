@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   SpecializedAgentType,
@@ -60,7 +60,7 @@ export interface DebateRequest {
 export class SpecializedAgentCoordinatorService {
   private readonly logger = new Logger(SpecializedAgentCoordinatorService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 执行多角色协作
@@ -282,7 +282,7 @@ ${opposingContext}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "medium", outputLength: "medium" },
       });
@@ -355,7 +355,7 @@ ${conArgument.argument}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
@@ -436,7 +436,7 @@ ${roundsSummary}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
@@ -545,7 +545,7 @@ ${previousContext}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: role.taskProfile,
       });
@@ -635,7 +635,7 @@ ${viewsText}
 只输出 JSON。`;
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });

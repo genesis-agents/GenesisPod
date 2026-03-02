@@ -1,12 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ChapterCoherenceService } from "../chapter-coherence.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 describe("ChapterCoherenceService", () => {
   let service: ChapterCoherenceService;
   let mockPrisma: jest.Mocked<PrismaService>;
-  let mockFacade: jest.Mocked<AIEngineFacade>;
+  let mockFacade: jest.Mocked<ChatFacade>;
 
   const mockCoherenceJson = JSON.stringify({
     score: 85,
@@ -34,13 +34,13 @@ describe("ChapterCoherenceService", () => {
       chat: jest.fn(),
       chatStream: jest.fn(),
       chatWithSkills: jest.fn(),
-    } as unknown as jest.Mocked<AIEngineFacade>;
+    } as unknown as jest.Mocked<ChatFacade>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChapterCoherenceService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -55,32 +55,33 @@ describe("ChapterCoherenceService", () => {
     currentChapterNum: number,
     prevChapterNum?: number,
   ) => {
-    const chapters = prevChapterNum !== undefined
-      ? [
-          {
-            id: `chapter-${prevChapterNum}`,
-            chapterNumber: prevChapterNum,
-            title: `第${prevChapterNum}章`,
-            content: "前章内容".repeat(100),
-            outline: `大纲${prevChapterNum}`,
-          },
-          {
-            id: `chapter-${currentChapterNum}`,
-            chapterNumber: currentChapterNum,
-            title: `第${currentChapterNum}章`,
-            content: "当章内容".repeat(100),
-            outline: `大纲${currentChapterNum}`,
-          },
-        ]
-      : [
-          {
-            id: `chapter-${currentChapterNum}`,
-            chapterNumber: currentChapterNum,
-            title: `第${currentChapterNum}章`,
-            content: "当章内容".repeat(100),
-            outline: `大纲${currentChapterNum}`,
-          },
-        ];
+    const chapters =
+      prevChapterNum !== undefined
+        ? [
+            {
+              id: `chapter-${prevChapterNum}`,
+              chapterNumber: prevChapterNum,
+              title: `第${prevChapterNum}章`,
+              content: "前章内容".repeat(100),
+              outline: `大纲${prevChapterNum}`,
+            },
+            {
+              id: `chapter-${currentChapterNum}`,
+              chapterNumber: currentChapterNum,
+              title: `第${currentChapterNum}章`,
+              content: "当章内容".repeat(100),
+              outline: `大纲${currentChapterNum}`,
+            },
+          ]
+        : [
+            {
+              id: `chapter-${currentChapterNum}`,
+              chapterNumber: currentChapterNum,
+              title: `第${currentChapterNum}章`,
+              content: "当章内容".repeat(100),
+              outline: `大纲${currentChapterNum}`,
+            },
+          ];
 
     return {
       id: `chapter-${currentChapterNum}`,
@@ -143,7 +144,9 @@ describe("ChapterCoherenceService", () => {
     });
 
     it("should throw when chapter not found", async () => {
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.checkChapterTransition("nonexistent"),
@@ -198,7 +201,9 @@ describe("ChapterCoherenceService", () => {
 
   describe("checkVolumeCoherence", () => {
     it("should return empty results when volume not found", async () => {
-      (mockPrisma.writingVolume.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingVolume.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.checkVolumeCoherence("nonexistent");
 
@@ -305,9 +310,9 @@ describe("ChapterCoherenceService", () => {
 
       const result = await service.quickCoherenceCheck("chapter-2");
 
-      expect(result.criticalIssues.every((i) => i.severity === "CRITICAL")).toBe(
-        true,
-      );
+      expect(
+        result.criticalIssues.every((i) => i.severity === "CRITICAL"),
+      ).toBe(true);
     });
   });
 

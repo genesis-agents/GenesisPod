@@ -19,7 +19,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
@@ -156,7 +156,7 @@ export class TemporalConflictAnalyzerService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -305,7 +305,9 @@ export class TemporalConflictAnalyzerService {
 
     for (const chapter of chapters) {
       // 尝试从 metadata 获取缓存的三元组
-      const metadata = chapter.metadata as { triples?: TemporalTriple[] } | null;
+      const metadata = chapter.metadata as {
+        triples?: TemporalTriple[];
+      } | null;
       if (metadata?.triples && Array.isArray(metadata.triples)) {
         allTriples.push(...metadata.triples);
       } else {
@@ -333,7 +335,7 @@ export class TemporalConflictAnalyzerService {
     }
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -445,7 +447,10 @@ ${content.slice(0, 6000)}
       // 4. 检查与每个历史三元组的潜在冲突
       for (const histTriple of historicalTriples) {
         const pairConflict = this.checkPairConflict(histTriple, newTriple);
-        if (pairConflict && !conflicts.some((c) => this.isSameConflict(c, pairConflict))) {
+        if (
+          pairConflict &&
+          !conflicts.some((c) => this.isSameConflict(c, pairConflict))
+        ) {
           conflicts.push(pairConflict);
         }
       }
@@ -822,16 +827,19 @@ ${content.slice(0, 6000)}
         select: { metadata: true },
       });
 
-      const existingMetadata = (chapter?.metadata as Record<string, unknown>) || {};
+      const existingMetadata =
+        (chapter?.metadata as Record<string, unknown>) || {};
 
       await this.prisma.writingChapter.update({
         where: { id: chapterId },
         data: {
-          metadata: JSON.parse(JSON.stringify({
-            ...existingMetadata,
-            triples,
-            triplesUpdatedAt: new Date().toISOString(),
-          })),
+          metadata: JSON.parse(
+            JSON.stringify({
+              ...existingMetadata,
+              triples,
+              triplesUpdatedAt: new Date().toISOString(),
+            }),
+          ),
         },
       });
     } catch (error) {

@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import { ChatFacade, TeamFacade } from "../../../../ai-engine/facade";
 import { TeamRegistry, RoleRegistry } from "../../../../ai-engine/facade";
 import type { ITeam } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -57,7 +57,8 @@ export class WritingAgentCoordinator {
   constructor(
     private readonly teamRegistry: TeamRegistry,
     private readonly roleRegistry: RoleRegistry,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly teamFacade: TeamFacade,
     // Writing Agents
     private readonly storyArchitect: StoryArchitectAgent,
     private readonly bibleKeeper: BibleKeeperAgent,
@@ -84,7 +85,7 @@ export class WritingAgentCoordinator {
 
     try {
       // ★ 使用 AIEngineFacade 获取模型列表
-      const models = await this.aiFacade.getAvailableModelsExtended(
+      const models = await this.chatFacade.getAvailableModelsExtended(
         AIModelType.CHAT,
       );
 
@@ -249,7 +250,7 @@ export class WritingAgentCoordinator {
    */
   getWritingTeam(): ITeam {
     if (!this.writingTeam) {
-      this.writingTeam = this.aiFacade.teamFactory!.createFromId(
+      this.writingTeam = this.teamFacade.teamFactory!.createFromId(
         this.WRITING_TEAM_ID,
       );
       this.logger.log("Writing Team initialized on first use");

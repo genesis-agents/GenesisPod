@@ -2866,12 +2866,20 @@ export class AIEngineFacade {
     return this.teamsFeature?.teamFactory;
   }
 
-  /** 获取 LongContentEngineService（用于长内容处理） */
+  /**
+   * @deprecated Cross-layer violation: LongContentEngineService is L4 (ai-app/writing).
+   * Writing module should import LongContentEngineService directly.
+   * Will be removed in Phase 6.
+   */
   get longContentEngine(): LongContentEngineService | undefined {
     return this.content?.longContentEngine;
   }
 
-  /** 获取 ContinuationProtocolService（用于续写协议） */
+  /**
+   * @deprecated Cross-layer violation: ContinuationProtocolService is L4 (ai-app/writing).
+   * Writing module should import ContinuationProtocolService directly.
+   * Will be removed in Phase 6.
+   */
   get continuationProtocol(): ContinuationProtocolService | undefined {
     return this.content?.continuationProtocol;
   }

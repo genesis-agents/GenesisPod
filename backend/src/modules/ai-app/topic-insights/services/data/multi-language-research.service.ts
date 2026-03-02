@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   ResearchLanguage,
@@ -53,7 +53,7 @@ export class MultiLanguageResearchService {
     [ResearchLanguage.AR]: "Arabic",
   };
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 检测文本语言
@@ -64,7 +64,7 @@ export class MultiLanguageResearchService {
     );
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -115,7 +115,7 @@ export class MultiLanguageResearchService {
       .join(", ");
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -192,7 +192,7 @@ ${request.preserveTerminology ? "Preserve technical terminology in original lang
     }
 
     try {
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -294,11 +294,9 @@ Content: ${request.content.slice(0, 3000)}`,
     evidenceLanguages: Array<{ language: ResearchLanguage; count: number }>,
   ): MultiLanguageStats {
     const evidenceByLanguage = {} as Record<ResearchLanguage, number>;
-    let totalEvidence = 0;
 
     for (const item of evidenceLanguages) {
       evidenceByLanguage[item.language] = item.count;
-      totalEvidence += item.count;
     }
 
     return {

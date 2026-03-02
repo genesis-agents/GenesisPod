@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportSynthesisEngine } from "../report-synthesis.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../../../ai-engine/facade";
 
 describe("ReportSynthesisEngine", () => {
   let service: ReportSynthesisEngine;
@@ -21,7 +21,7 @@ describe("ReportSynthesisEngine", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportSynthesisEngine,
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 

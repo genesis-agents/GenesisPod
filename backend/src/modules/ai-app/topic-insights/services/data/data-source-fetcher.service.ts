@@ -4,8 +4,9 @@ import {
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
+  ChatFacade,
+  RAGFacade,
 } from "@/modules/ai-engine/facade";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import {
   DataSourceType,
   DataSourceResult,
@@ -36,7 +37,8 @@ export class DataSourceFetcherService {
     private readonly federalRegisterTool: FederalRegisterTool,
     private readonly congressGovTool: CongressGovTool,
     private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
+    private readonly ragFacade: RAGFacade,
   ) {}
 
   /**
@@ -472,7 +474,7 @@ export class DataSourceFetcherService {
         `[searchLocal] Searching ${knowledgeBaseIds.length} knowledge bases: "${query}"`,
       );
 
-      const queryEmbedding = await this.aiFacade.embeddingGenerate(query);
+      const queryEmbedding = await this.ragFacade.embeddingGenerate(query);
       if (!queryEmbedding) {
         this.logger.warn(
           "[searchLocal] Failed to generate embedding for query",
@@ -480,7 +482,7 @@ export class DataSourceFetcherService {
         return [];
       }
 
-      const searchResults = await this.aiFacade.vectorSimilaritySearch(
+      const searchResults = await this.ragFacade.vectorSimilaritySearch(
         queryEmbedding.embedding,
         {
           limit: maxResults,
@@ -728,7 +730,7 @@ export class DataSourceFetcherService {
     maxResults: number,
     retries = 2,
   ): Promise<DataSourceResult[]> {
-    const aiModels = await this.aiFacade.getAvailableModels();
+    const aiModels = await this.chatFacade.getAvailableModels();
     const grokModel = aiModels.find(
       (m: { id: string; provider: string }) => m.provider === "xai",
     );
@@ -765,7 +767,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const response = await this.aiFacade.chat({
+        const response = await this.chatFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },

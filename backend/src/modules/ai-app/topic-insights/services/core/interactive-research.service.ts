@@ -13,7 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   InteractionType,
@@ -42,7 +42,7 @@ export class InteractiveResearchService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -221,7 +221,7 @@ export class InteractiveResearchService {
 
     try {
       // 使用 AI 分析新方向对现有研究的影响
-      await this.aiFacade.chat({
+      await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -284,7 +284,7 @@ export class InteractiveResearchService {
       }
 
       // 使用 AI 回答追问
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",

@@ -36,7 +36,7 @@ import { PacingControlService } from "../services/quality/pacing-control.service
 // 新增：对话约束和角色一致性服务
 import { DialogueConstraintsService } from "../services/quality/dialogue-constraints.service";
 import { CharacterConsistencyService } from "../services/quality/character-consistency.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import {
   generateStylePrompt,
   getRandomTechniques,
@@ -218,7 +218,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     private readonly narrativeCraft: NarrativeCraftService,
     private readonly foreshadowing: ForeshadowingService,
     private readonly pacingControl: PacingControlService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
     // 新增：对话约束和角色一致性服务
     private readonly dialogueConstraints: DialogueConstraintsService,
     private readonly characterConsistency: CharacterConsistencyService,
@@ -299,7 +299,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     );
 
     // ★ P3 迁移：使用 chatWithSkills 统一入口
-    const response = await this.aiFacade.chatWithSkills({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [{ role: "user", content: userPrompt }],
       taskType: "chapter-writing",
       domain: "writing",
@@ -357,7 +357,7 @@ ${content.slice(-500)}
 
       try {
         // ★ P3 迁移：使用 chatWithSkills 统一入口
-        const continuationResponse = await this.aiFacade.chatWithSkills({
+        const continuationResponse = await this.chatFacade.chatWithSkills({
           messages: [{ role: "user", content: continuationPrompt }],
           taskType: "chapter-continuation",
           domain: "writing",

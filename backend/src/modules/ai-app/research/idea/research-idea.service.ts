@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { AIModelType, ResearchIdeaType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 import {
   CreateResearchIdeaDto,
   UpdateResearchIdeaDto,
@@ -19,7 +19,7 @@ export class ResearchIdeaService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -316,7 +316,7 @@ export class ResearchIdeaService {
 ${discussionContent}`;
 
     try {
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -582,7 +582,7 @@ ${discussionContent}`;
 ${insightsContent}`;
 
     try {
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

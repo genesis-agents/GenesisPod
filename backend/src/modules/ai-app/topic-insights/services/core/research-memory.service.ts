@@ -9,7 +9,7 @@
 
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 
 interface ExtractedFinding {
@@ -32,7 +32,7 @@ export class ResearchMemoryService implements OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly chatFacade: ChatFacade,
   ) {}
 
   /**
@@ -86,20 +86,32 @@ export class ResearchMemoryService implements OnModuleDestroy {
         const result = task.result as Record<string, unknown> | null;
         return {
           dimensionName: task.dimensionName || "未知维度",
-          summary: (result?.["summary"] as string | undefined) || task.resultSummary || "无摘要",
+          summary:
+            (result?.["summary"] as string | undefined) ||
+            task.resultSummary ||
+            "无摘要",
           keyFindings:
             (result?.["keyFindings"] as unknown[] | undefined)?.slice(0, 5) ||
-            ((result?.["analysisResult"] as Record<string, unknown> | undefined)?.["keyFindings"] as unknown[] | undefined)?.slice(0, 5) ||
+            (
+              (
+                result?.["analysisResult"] as
+                  | Record<string, unknown>
+                  | undefined
+              )?.["keyFindings"] as unknown[] | undefined
+            )?.slice(0, 5) ||
             [],
-          trends: (result?.["trends"] as unknown[] | undefined)?.slice(0, 3) || [],
-          challenges: (result?.["challenges"] as unknown[] | undefined)?.slice(0, 3) || [],
+          trends:
+            (result?.["trends"] as unknown[] | undefined)?.slice(0, 3) || [],
+          challenges:
+            (result?.["challenges"] as unknown[] | undefined)?.slice(0, 3) ||
+            [],
         };
       });
 
       // 3. 使用 AI 提取关键发现
       const extractionPrompt = this.buildExtractionPrompt(taskResults);
 
-      const response = await this.aiFacade.chat({
+      const response = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
@@ -317,13 +329,28 @@ export class ResearchMemoryService implements OnModuleDestroy {
 **摘要**: ${task.summary}
 
 **关键发现**:
-${task.keyFindings.map((f, i) => { const fr = f as Record<string, unknown>; return `${i + 1}. ${typeof f === "string" ? f : (fr["finding"] || fr["title"] || JSON.stringify(f))}`; }).join("\n")}
+${task.keyFindings
+  .map((f, i) => {
+    const fr = f as Record<string, unknown>;
+    return `${i + 1}. ${typeof f === "string" ? f : fr["finding"] || fr["title"] || JSON.stringify(f)}`;
+  })
+  .join("\n")}
 
 **趋势**:
-${task.trends.map((t, i) => { const tr = t as Record<string, unknown>; return `${i + 1}. ${typeof t === "string" ? t : (tr["description"] || JSON.stringify(t))}`; }).join("\n")}
+${task.trends
+  .map((t, i) => {
+    const tr = t as Record<string, unknown>;
+    return `${i + 1}. ${typeof t === "string" ? t : tr["description"] || JSON.stringify(t)}`;
+  })
+  .join("\n")}
 
 **挑战**:
-${task.challenges.map((c, i) => { const cr = c as Record<string, unknown>; return `${i + 1}. ${typeof c === "string" ? c : (cr["description"] || JSON.stringify(c))}`; }).join("\n")}
+${task.challenges
+  .map((c, i) => {
+    const cr = c as Record<string, unknown>;
+    return `${i + 1}. ${typeof c === "string" ? c : cr["description"] || JSON.stringify(c)}`;
+  })
+  .join("\n")}
 `;
       })
       .join("\n\n---\n\n");

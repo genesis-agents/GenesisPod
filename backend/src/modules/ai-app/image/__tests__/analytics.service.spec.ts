@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiImageAnalyticsService } from "../analytics/analytics.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-engine/facade";
 
 describe("AiImageAnalyticsService", () => {
   let service: AiImageAnalyticsService;
@@ -27,7 +27,7 @@ describe("AiImageAnalyticsService", () => {
       providers: [
         AiImageAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: AIEngineFacade, useValue: mockFacade },
+        { provide: ChatFacade, useValue: mockFacade },
       ],
     }).compile();
 
@@ -72,7 +72,10 @@ describe("AiImageAnalyticsService", () => {
           { imageId: "img-2", tags: ["ocean", "water", "waves"] },
         ],
       });
-      mockFacade.chat.mockResolvedValue({ content: aiResponse, tokensUsed: 120 });
+      mockFacade.chat.mockResolvedValue({
+        content: aiResponse,
+        tokensUsed: 120,
+      });
 
       const result = await service.autoTagImages("user-001");
 
@@ -101,7 +104,9 @@ describe("AiImageAnalyticsService", () => {
       expect(result.taggedCount).toBe(1);
       // Verify the content sent to AI contains the enhanced prompt
       const chatCall = mockFacade.chat.mock.calls[0][0];
-      const userMessage = chatCall.messages.find((m: { role: string }) => m.role === "user");
+      const userMessage = chatCall.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
       expect(userMessage.content).toContain("Enhanced ocean description");
     });
 
@@ -177,7 +182,10 @@ describe("AiImageAnalyticsService", () => {
         ],
         colorPalettes: [],
       });
-      mockFacade.chat.mockResolvedValue({ content: aiResponse, tokensUsed: 150 });
+      mockFacade.chat.mockResolvedValue({
+        content: aiResponse,
+        tokensUsed: 150,
+      });
 
       const result = await service.analyzeStyles("user-001");
 
@@ -254,7 +262,10 @@ describe("AiImageAnalyticsService", () => {
           },
         ],
       });
-      mockFacade.chat.mockResolvedValue({ content: aiResponse, tokensUsed: 100 });
+      mockFacade.chat.mockResolvedValue({
+        content: aiResponse,
+        tokensUsed: 100,
+      });
 
       const result = await service.clusterVisualThemes("user-001");
 

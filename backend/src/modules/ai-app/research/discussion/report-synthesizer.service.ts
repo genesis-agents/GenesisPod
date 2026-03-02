@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade, TeamFacade } from "../../../ai-engine/facade";
 import {
   SearchRound,
   SearchSource,
@@ -25,7 +25,10 @@ import {
 export class ReportSynthesizerService {
   private readonly logger = new Logger(ReportSynthesizerService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly chatFacade: ChatFacade,
+    private readonly teamFacade: TeamFacade,
+  ) {}
 
   /**
    * 生成完整研究报告
@@ -88,14 +91,14 @@ export class ReportSynthesizerService {
 
     // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
     return {
-      executiveSummary: this.aiFacade.sanitizeReport(
+      executiveSummary: this.teamFacade.sanitizeReport(
         reportContent.executiveSummary,
       ),
       sections: reportContent.sections.map((section) => ({
         ...section,
-        content: this.aiFacade.sanitizeReport(section.content),
+        content: this.teamFacade.sanitizeReport(section.content),
       })),
-      conclusion: this.aiFacade.sanitizeReport(reportContent.conclusion),
+      conclusion: this.teamFacade.sanitizeReport(reportContent.conclusion),
       references: allReferences,
       metadata: {
         totalSources: sources.length + previousRefsCount,
@@ -321,7 +324,7 @@ export class ReportSynthesizerService {
     prompt: string,
     outputLength: "medium" | "long" = "long",
   ): Promise<string> {
-    const result = await this.aiFacade.chat({
+    const result = await this.chatFacade.chat({
       messages: [{ role: "user", content: prompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {
@@ -365,7 +368,7 @@ export class ReportSynthesizerService {
     );
 
     try {
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -400,7 +403,7 @@ export class ReportSynthesizerService {
 
     try {
       // ★ 使用 AIEngineFacade 统一入口
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT,
         taskProfile: {
@@ -435,7 +438,7 @@ export class ReportSynthesizerService {
       .join("\n");
 
     try {
-      const result = await this.aiFacade.chat({
+      const result = await this.chatFacade.chat({
         messages: [
           {
             role: "system",
