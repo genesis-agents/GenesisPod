@@ -170,19 +170,24 @@ describe("TeamsDebateToolHandler", () => {
       expect(mockChatFacade.chat).toHaveBeenCalledTimes(11);
     });
 
-    it("should use minimum 1 round", async () => {
+    it("should use default 3 rounds when 0 is passed (falsy)", async () => {
+      mockChatFacade.chat.mockResolvedValue({ content: proResponse });
       mockChatFacade.chat
+        .mockResolvedValueOnce({ content: proResponse })
+        .mockResolvedValueOnce({ content: conResponse })
+        .mockResolvedValueOnce({ content: proResponse })
+        .mockResolvedValueOnce({ content: conResponse })
         .mockResolvedValueOnce({ content: proResponse })
         .mockResolvedValueOnce({ content: conResponse })
         .mockResolvedValueOnce({ content: judgmentJson });
 
       await handler.execute(
-        { topic: "AI", rounds: 0 }, // Request 0, should become 1
+        { topic: "AI", rounds: 0 }, // 0 is falsy, defaults to 3 rounds
         mockContext,
       );
 
-      // 1 round * 2 + 1 judgment = 3 calls
-      expect(mockChatFacade.chat).toHaveBeenCalledTimes(3);
+      // 0 || 3 = 3 rounds; 3 rounds * 2 + 1 judgment = 7 calls
+      expect(mockChatFacade.chat).toHaveBeenCalledTimes(7);
     });
 
     it("should include perspective in debate when provided", async () => {
