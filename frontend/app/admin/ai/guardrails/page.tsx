@@ -39,7 +39,7 @@ export default function GuardrailsPage() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        setData(json);
+        setData(json.data ?? json);
       } catch (e) {
         logger.error('Failed to fetch guardrails', e);
         setError(e instanceof Error ? e.message : 'Unknown error');
