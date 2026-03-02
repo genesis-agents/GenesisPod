@@ -24,9 +24,11 @@ jest.mock("@prisma/client", () => ({
     $disconnect = jest.fn();
   },
 }));
-jest.mock("@nestjs/cache-manager", () => ({ CACHE_MANAGER: "CACHE_MANAGER" }));
-jest.mock("cache-manager", () => ({}));
-jest.mock("ioredis", () => ({}));
+jest.mock("@nestjs/cache-manager", () => ({ CACHE_MANAGER: "CACHE_MANAGER" }), {
+  virtual: true,
+});
+jest.mock("cache-manager", () => ({}), { virtual: true });
+jest.mock("ioredis", () => ({}), { virtual: true });
 jest.mock("../../../teams/ai-teams.service", () => ({
   AiTeamsService: class {},
 }));
