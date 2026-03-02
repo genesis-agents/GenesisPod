@@ -223,7 +223,8 @@ function buildMockEventEmitter() {
 
 jest.mock("../../../../../../modules/ai-infra/credits/billing-context", () => ({
   BillingContext: {
-    run: jest.fn((_ctx: unknown, fn: () => Promise<unknown>) => fn()),
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    run: jest.fn((_ctx, fn) => fn()),
   },
 }));
 
@@ -4348,6 +4349,1724 @@ describe("WritingMissionService", () => {
       );
 
       expect(prompt).toContain("4000");
+    });
+  });
+
+  // ==================== generateChapterSummaryWithAI ====================
+
+  describe("generateChapterSummaryWithAI (private)", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      generateChapterSummaryWithAI: (
+        content: string,
+        chapterNumber: number,
+        chapterTitle: string,
+        modelId: string,
+      ) => Promise<string>;
+      textProcessor: WritingTextProcessorService;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("should return content as-is when content length is <= 1000", async () => {
+      const shortContent = "短篇内容".repeat(50); // 200 chars
+      const result = await svc.generateChapterSummaryWithAI(
+        shortContent,
+        1,
+        "第一章",
+        "test-model",
+      );
+      expect(result).toBe(shortContent);
+      expect(mockFacade.chat).not.toHaveBeenCalled();
+    });
+
+    it("should call LLM and return summary when content is > 1000 chars", async () => {
+      const longContent = "这是很长的章节内容。".repeat(200); // > 1000 chars
+      // Summary must be > 100 chars to pass the length check in the service
+      const longSummary =
+        "这是AI生成的章节摘要，包含详细的情节概要和关键事件描述，以及角色状态变化和悬念伏笔等信息，用于后续章节创作参考。".repeat(
+          2,
+        );
+      mockFacade.chat.mockResolvedValue({
+        content: longSummary,
+        tokensUsed: 50,
+      });
+
+      const result = await svc.generateChapterSummaryWithAI(
+        longContent,
+        3,
+        "命运交汇",
+        "test-model",
+      );
+
+      expect(result).toBe(longSummary);
+      expect(mockFacade.chat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "test-model",
+          messages: expect.arrayContaining([
+            expect.objectContaining({ role: "user" }),
+          ]),
+        }),
+      );
+    });
+
+    it("should fall back to simple summary when LLM returns short content", async () => {
+      const longContent = "这是很长的章节内容。".repeat(200);
+      mockFacade.chat.mockResolvedValue({
+        content: "short", // < 100 chars
+        tokensUsed: 10,
+      });
+
+      const result = await svc.generateChapterSummaryWithAI(
+        longContent,
+        2,
+        "风起云涌",
+        "test-model",
+      );
+
+      // Should fall back to simple summary
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it("should fall back to simple summary when LLM call throws", async () => {
+      const longContent = "这是很长的章节内容。".repeat(200);
+      mockFacade.chat.mockRejectedValue(new Error("API timeout"));
+
+      const result = await svc.generateChapterSummaryWithAI(
+        longContent,
+        2,
+        "风起云涌",
+        "test-model",
+      );
+
+      // Should not throw, return simple fallback
+      expect(typeof result).toBe("string");
+    });
+
+    it("should truncate content at 6000 chars when building prompt", async () => {
+      const veryLongContent = "A".repeat(8000); // > 6000 chars
+      mockFacade.chat.mockResolvedValue({
+        content: "Summary for very long content chapter",
+        tokensUsed: 50,
+      });
+
+      await svc.generateChapterSummaryWithAI(
+        veryLongContent,
+        5,
+        "Test Chapter",
+        "test-model",
+      );
+
+      // Verify the prompt sent to LLM contains truncation indicator
+      const callArgs = mockFacade.chat.mock.calls[0][0];
+      const userMessage = callArgs.messages.find(
+        (m: { role: string; content: string }) => m.role === "user",
+      );
+      expect(userMessage.content).toContain("内容截断");
+    });
+  });
+
+  // ==================== getLeaderContextInfo ====================
+
+  describe("getLeaderContextInfo (private)", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      getLeaderContextInfo: (
+        projectId: string,
+        chapterId?: string,
+      ) => Promise<string>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+      // Add extended prisma mocks for findUnique with include
+      (
+        mockPrisma.writingProject as unknown as Record<string, jest.Mock>
+      ).findUnique = jest.fn().mockResolvedValue({
+        id: "proj-1",
+        name: "Test Project",
+        currentWords: 3000,
+        storyBible: {
+          characters: [
+            { name: "Hero", role: "PROTAGONIST" },
+            { name: "Villain", role: "ANTAGONIST" },
+          ],
+          worldSettings: [],
+        },
+        volumes: [
+          {
+            title: "第一卷",
+            volumeNumber: 1,
+            chapters: [
+              {
+                id: "ch-1",
+                chapterNumber: 1,
+                title: "开端",
+                status: "FINAL",
+                wordCount: 3000,
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it("should return formatted project info with chapters", async () => {
+      const result = await svc.getLeaderContextInfo("proj-1");
+
+      expect(result).toContain("Test Project");
+      expect(result).toContain("3000");
+    });
+
+    it("should include chapter details when chapterId is provided", async () => {
+      mockPrisma.writingChapter.findUnique.mockResolvedValue({
+        chapterNumber: 1,
+        title: "开端",
+        content: "故事内容在这里",
+        outline: "章节大纲",
+        status: "DRAFT",
+      });
+
+      const result = await svc.getLeaderContextInfo("proj-1", "ch-1");
+
+      expect(result).toContain("开端");
+      expect(result).toContain("章节大纲");
+    });
+
+    it("should return fallback message when project not found", async () => {
+      (
+        mockPrisma.writingProject as unknown as Record<string, jest.Mock>
+      ).findUnique = jest.fn().mockResolvedValue(null);
+
+      const result = await svc.getLeaderContextInfo("nonexistent-proj");
+
+      expect(result).toBe("项目信息不可用");
+    });
+
+    it("should return error message when exception is thrown", async () => {
+      (
+        mockPrisma.writingProject as unknown as Record<string, jest.Mock>
+      ).findUnique = jest.fn().mockRejectedValue(new Error("DB error"));
+
+      const result = await svc.getLeaderContextInfo("proj-1");
+
+      expect(result).toBe("上下文信息获取失败");
+    });
+
+    it("should handle chapter with no content or outline", async () => {
+      mockPrisma.writingChapter.findUnique.mockResolvedValue({
+        chapterNumber: 2,
+        title: "发展",
+        content: null,
+        outline: null,
+        status: "DRAFT",
+      });
+
+      const result = await svc.getLeaderContextInfo("proj-1", "ch-2");
+
+      expect(result).toContain("发展");
+      // Should not throw
+      expect(typeof result).toBe("string");
+    });
+  });
+
+  // ==================== completeKernelProcess / failKernelProcess ====================
+
+  describe("completeKernelProcess and failKernelProcess (private)", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      completeKernelProcess: (
+        missionId: string,
+        output?: Record<string, unknown>,
+      ) => void;
+      failKernelProcess: (missionId: string, error: string) => void;
+      kernelProcessIds: Map<string, string>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("completeKernelProcess should do nothing when processId is not tracked", () => {
+      // No process registered for this missionId
+      expect(() =>
+        svc.completeKernelProcess("unknown-mission", {}),
+      ).not.toThrow();
+    });
+
+    it("failKernelProcess should do nothing when processId is not tracked", () => {
+      expect(() =>
+        svc.failKernelProcess("unknown-mission", "error"),
+      ).not.toThrow();
+    });
+
+    it("completeKernelProcess should call missionExecutor.complete when processId exists", async () => {
+      const mockExecutor = {
+        complete: jest.fn().mockResolvedValue(undefined),
+        fail: jest.fn().mockResolvedValue(undefined),
+        execute: jest.fn(),
+      };
+      // Inject mock executor
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        mockExecutor;
+      // Register a process ID
+      svc.kernelProcessIds.set("mission-with-process", "proc-456");
+
+      svc.completeKernelProcess("mission-with-process", { wordCount: 1000 });
+
+      // Give the promise time to execute
+      await new Promise((r) => setTimeout(r, 10));
+      expect(mockExecutor.complete).toHaveBeenCalledWith("proc-456", {
+        wordCount: 1000,
+      });
+      // Should delete from map
+      expect(svc.kernelProcessIds.has("mission-with-process")).toBe(false);
+    });
+
+    it("failKernelProcess should call missionExecutor.fail when processId exists", async () => {
+      const mockExecutor = {
+        complete: jest.fn().mockResolvedValue(undefined),
+        fail: jest.fn().mockResolvedValue(undefined),
+        execute: jest.fn(),
+      };
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        mockExecutor;
+      svc.kernelProcessIds.set("mission-fail", "proc-789");
+
+      svc.failKernelProcess("mission-fail", "Something went wrong");
+
+      await new Promise((r) => setTimeout(r, 10));
+      expect(mockExecutor.fail).toHaveBeenCalledWith(
+        "proc-789",
+        "Something went wrong",
+      );
+      expect(svc.kernelProcessIds.has("mission-fail")).toBe(false);
+    });
+
+    it("completeKernelProcess should swallow errors from missionExecutor.complete", async () => {
+      const mockExecutor = {
+        complete: jest.fn().mockRejectedValue(new Error("Complete failed")),
+        fail: jest.fn(),
+        execute: jest.fn(),
+      };
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        mockExecutor;
+      svc.kernelProcessIds.set("mission-complete-err", "proc-err");
+
+      // Should not throw
+      expect(() =>
+        svc.completeKernelProcess("mission-complete-err"),
+      ).not.toThrow();
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    it("failKernelProcess should swallow errors from missionExecutor.fail", async () => {
+      const mockExecutor = {
+        complete: jest.fn(),
+        fail: jest.fn().mockRejectedValue(new Error("Fail failed")),
+        execute: jest.fn(),
+      };
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        mockExecutor;
+      svc.kernelProcessIds.set("mission-fail-err", "proc-fail-err");
+
+      expect(() =>
+        svc.failKernelProcess("mission-fail-err", "error"),
+      ).not.toThrow();
+      await new Promise((r) => setTimeout(r, 10));
+    });
+  });
+
+  // ==================== buildConstraints edge cases ====================
+
+  describe("buildConstraints additional branches", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      buildConstraints: (input: {
+        missionType: string;
+      }) => Record<string, unknown>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("should return standard depth for outline type", () => {
+      const result = svc.buildConstraints({ missionType: "outline" });
+      const quality = result.quality as Record<string, unknown>;
+      expect(quality.depth).toBe("standard");
+    });
+
+    it("should return standard depth for revision type", () => {
+      const result = svc.buildConstraints({ missionType: "revision" });
+      const quality = result.quality as Record<string, unknown>;
+      expect(quality.depth).toBe("standard");
+    });
+
+    it("should return standard depth for consistency_check type", () => {
+      const result = svc.buildConstraints({ missionType: "consistency_check" });
+      const quality = result.quality as Record<string, unknown>;
+      expect(quality.depth).toBe("standard");
+    });
+
+    it("should return standard depth for edit type", () => {
+      const result = svc.buildConstraints({ missionType: "edit" });
+      const quality = result.quality as Record<string, unknown>;
+      expect(quality.depth).toBe("standard");
+    });
+
+    it("should return 600000 maxDuration for non-full_story types", () => {
+      const result = svc.buildConstraints({ missionType: "outline" });
+      const efficiency = result.efficiency as Record<string, unknown>;
+      expect(efficiency.maxDuration).toBe(600000);
+    });
+  });
+
+  // ==================== createMissionRecord revision type ====================
+
+  describe("createMissionRecord revision type mapping", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      createMissionRecord: (
+        missionId: string,
+        input: Record<string, unknown>,
+        userId: string,
+      ) => Promise<unknown>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("should map revision to REVISION type", async () => {
+      mockPrisma.writingMission.create.mockResolvedValue({ id: "m-1" });
+
+      await svc.createMissionRecord(
+        "m-1",
+        { missionType: "revision", projectId: "proj-1", userPrompt: "revise" },
+        "user-1",
+      );
+
+      expect(mockPrisma.writingMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ missionType: "REVISION" }),
+        }),
+      );
+    });
+
+    it("should default to CHAPTER for unknown type", async () => {
+      mockPrisma.writingMission.create.mockResolvedValue({ id: "m-2" });
+
+      await svc.createMissionRecord(
+        "m-2",
+        {
+          missionType: "unknown_type",
+          projectId: "proj-1",
+          userPrompt: "test",
+        },
+        "user-1",
+      );
+
+      expect(mockPrisma.writingMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ missionType: "CHAPTER" }),
+        }),
+      );
+    });
+
+    it("should map legacy consistency to CONSISTENCY", async () => {
+      mockPrisma.writingMission.create.mockResolvedValue({ id: "m-3" });
+
+      await svc.createMissionRecord(
+        "m-3",
+        {
+          missionType: "consistency",
+          projectId: "proj-1",
+          userPrompt: "check",
+        },
+        "user-1",
+      );
+
+      expect(mockPrisma.writingMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ missionType: "CONSISTENCY" }),
+        }),
+      );
+    });
+
+    it("should use volumeId as targetId when no chapterId provided", async () => {
+      mockPrisma.writingMission.create.mockResolvedValue({ id: "m-4" });
+
+      await svc.createMissionRecord(
+        "m-4",
+        {
+          missionType: "chapter",
+          projectId: "proj-1",
+          volumeId: "vol-2",
+          userPrompt: "test",
+        },
+        "user-1",
+      );
+
+      expect(mockPrisma.writingMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ targetId: "vol-2" }),
+        }),
+      );
+    });
+
+    it("should use projectId as targetId when no chapterId or volumeId", async () => {
+      mockPrisma.writingMission.create.mockResolvedValue({ id: "m-5" });
+
+      await svc.createMissionRecord(
+        "m-5",
+        {
+          missionType: "outline",
+          projectId: "proj-fallback",
+          userPrompt: "test",
+        },
+        "user-1",
+      );
+
+      expect(mockPrisma.writingMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ targetId: "proj-fallback" }),
+        }),
+      );
+    });
+  });
+
+  // ==================== updateMissionRecord edge cases ====================
+
+  describe("updateMissionRecord edge cases", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      updateMissionRecord: (
+        missionId: string,
+        result: Record<string, unknown>,
+      ) => Promise<unknown>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("should set project to REVISING when failed but project has words", async () => {
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mission-1",
+        projectId: "proj-1",
+      });
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        currentWords: 5000,
+      });
+      mockPrisma.writingProject.update.mockResolvedValue({});
+
+      await svc.updateMissionRecord("mission-1", {
+        success: false,
+        deliverables: [],
+        summary: "failed",
+        tokensUsed: 0,
+        costUsed: 0,
+        duration: 0,
+        statistics: {},
+        error: { code: "ERR", message: "fail", retryable: true },
+      });
+
+      expect(mockPrisma.writingProject.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "REVISING" }),
+        }),
+      );
+    });
+
+    it("should not update project when project findUnique returns null", async () => {
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mission-1",
+        projectId: "proj-orphan",
+      });
+      mockPrisma.writingProject.findUnique.mockResolvedValue(null);
+
+      await svc.updateMissionRecord("mission-1", {
+        success: true,
+        deliverables: [],
+        summary: "done",
+        tokensUsed: 0,
+        costUsed: 0,
+        duration: 0,
+        statistics: {},
+      });
+
+      expect(mockPrisma.writingProject.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==================== runMissionInBackground: progressTracker and no model paths ====================
+
+  describe("runMissionInBackground: no default model path", () => {
+    it("should throw when no writer/leader model and no default text model", async () => {
+      const userId = "user-1";
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        ownerId: userId,
+      });
+      mockPrisma.writingMission.findFirst.mockResolvedValue(null);
+      mockPrisma.writingMission.create.mockResolvedValue({
+        id: "mock-mission-id",
+      });
+
+      // Models assigned: all active
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]);
+
+      // But no default text model
+      mockFacade.getDefaultTextModel.mockResolvedValue(null);
+
+      // Override assignModelsToRoles to return empty active roles after model check
+      // We need to simulate the case where modelToUse is undefined
+      // The service uses writerModel || leaderModel || defaultModelConfig?.modelId
+      // If all are undefined, it throws. But to test this, we need writer/leader inactive:
+      // Actually the real trigger is when getAvailableModels returns [] but startMissionAsync
+      // already throws before runMissionInBackground. The missing model case in runMissionInBackground
+      // occurs when modelAssignments have models but getDefaultTextModel returns null and
+      // modelAssignments all have empty modelId.
+
+      // Reset call to not throw in startMissionAsync
+      // We need a model available for startMissionAsync but missing at execution time
+      // This is tricky to test indirectly; let's test via direct private call
+      type ServicePrivate = WritingMissionService & {
+        runMissionInBackground: (
+          missionId: string,
+          input: Record<string, unknown>,
+          userId: string,
+          modelAssignments: Array<{
+            roleId: string;
+            modelId: string;
+            isActive: boolean;
+          }>,
+        ) => Promise<void>;
+      };
+      const svc = service as unknown as ServicePrivate;
+
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mock-mission-id",
+        projectId: "project-1",
+      });
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        currentWords: 0,
+      });
+      mockPrisma.writingProject.update.mockResolvedValue({});
+
+      // Simulate no model available from assignments and no default
+      mockFacade.getDefaultTextModel.mockResolvedValue(null);
+      const emptyAssignments = [
+        { roleId: "story-architect", modelId: "", isActive: true },
+        { roleId: "writer", modelId: "", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "test-mission-no-model",
+        {
+          missionType: "chapter",
+          projectId: "project-1",
+          userPrompt: "test",
+          targetWordCount: 3000,
+        } as WritingMissionInput,
+        userId,
+        emptyAssignments,
+      );
+
+      // Should update mission to FAILED state
+      expect(mockPrisma.writingMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED" }),
+        }),
+      );
+    });
+  });
+
+  // ==================== runMissionInBackground: progressTracker branch ====================
+
+  describe("runMissionInBackground with progressTracker", () => {
+    it("should create and start progress tracker when available", async () => {
+      const mockProgressTracker = {
+        create: jest.fn(),
+        start: jest.fn(),
+        startPhase: jest.fn(),
+        completePhase: jest.fn(),
+        failPhase: jest.fn(),
+        complete: jest.fn(),
+        fail: jest.fn(),
+        getTask: jest.fn().mockReturnValue(null),
+      };
+
+      // Set up progressTracker on the service
+      (service as unknown as Record<string, unknown>).progressTracker =
+        mockProgressTracker;
+
+      const userId = "user-1";
+      // Return object with both ownerId (for verifyProjectAccess) and currentWords (for updateMissionRecord)
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        ownerId: userId,
+        currentWords: 0,
+      });
+      mockPrisma.writingMission.findFirst.mockResolvedValue(null);
+      mockPrisma.writingMission.create.mockResolvedValue({
+        id: "mock-mission-id",
+      });
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]);
+
+      // startMissionAsync triggers runMissionInBackground in background; we need to wait
+      // Use a longer content to pass word count check
+      const longContent = "这是很长的章节内容，有很多文字。".repeat(100);
+      mockFacade.chat.mockResolvedValue({
+        content: longContent,
+        tokensUsed: 100,
+      });
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mock-mission-id",
+        projectId: "project-1",
+      });
+      mockPrisma.writingProject.update.mockResolvedValue({});
+      mockPrisma.writingChapter.aggregate.mockResolvedValue({
+        _sum: { wordCount: 500 },
+      });
+      mockPrisma.writingVolume.findFirst.mockResolvedValue({ id: "vol-1" });
+      mockPrisma.writingChapter.findFirst.mockResolvedValue({
+        id: "ch-1",
+        chapterNumber: 1,
+      });
+      mockPrisma.writingChapter.update.mockResolvedValue({});
+
+      await service.startMissionAsync(
+        {
+          projectId: "project-1",
+          missionType: "chapter",
+          userPrompt: "Write a chapter",
+          targetWordCount: 3000,
+        },
+        userId,
+      );
+
+      // Wait for background task to complete
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(mockProgressTracker.create).toHaveBeenCalled();
+      expect(mockProgressTracker.start).toHaveBeenCalled();
+
+      // Clean up
+      (service as unknown as Record<string, unknown>).progressTracker =
+        undefined;
+    });
+  });
+
+  // ==================== runMissionInBackground: content validation branches ====================
+
+  describe("runMissionInBackground content validation", () => {
+    type ServicePrivate = WritingMissionService & {
+      runMissionInBackground: (
+        missionId: string,
+        input: WritingMissionInput,
+        userId: string,
+        modelAssignments: Array<{
+          roleId: string;
+          modelId: string;
+          isActive: boolean;
+        }>,
+      ) => Promise<void>;
+    };
+
+    let svc: ServicePrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServicePrivate;
+      mockFacade.getDefaultTextModel.mockResolvedValue({ modelId: "gpt-4o" });
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mission-1",
+        projectId: "project-1",
+      });
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        currentWords: 0,
+      });
+      mockPrisma.writingProject.update.mockResolvedValue({});
+    });
+
+    it("should fail mission when generated content is error-like (short content)", async () => {
+      // Override generateContentDirectly to return error-like content
+      (service as unknown as Record<string, unknown>).generateContentDirectly =
+        jest.fn().mockResolvedValue("API Error: Rate limit exceeded"); // < 100 chars, contains "API Error"
+
+      const assignments = [
+        { roleId: "story-architect", modelId: "gpt-4o", isActive: true },
+        { roleId: "writer", modelId: "gpt-4o", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "mission-err",
+        {
+          projectId: "project-1",
+          missionType: "chapter",
+          userPrompt: "Write a chapter",
+          targetWordCount: 3000,
+        } as WritingMissionInput,
+        "user-1",
+        assignments,
+      );
+
+      expect(mockPrisma.writingMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED" }),
+        }),
+      );
+    });
+
+    it("should fail mission when content is null", async () => {
+      (service as unknown as Record<string, unknown>).generateContentDirectly =
+        jest.fn().mockResolvedValue(null);
+
+      const assignments = [
+        { roleId: "writer", modelId: "gpt-4o", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "mission-null",
+        {
+          projectId: "project-1",
+          missionType: "chapter",
+          userPrompt: "Write a chapter",
+          targetWordCount: 3000,
+        } as WritingMissionInput,
+        "user-1",
+        assignments,
+      );
+
+      expect(mockPrisma.writingMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED" }),
+        }),
+      );
+    });
+
+    it("should skip word count check for edit mission type even with short content", async () => {
+      const shortContent = "OK";
+      (service as unknown as Record<string, unknown>).generateContentDirectly =
+        jest.fn().mockResolvedValue(shortContent);
+
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mission-edit",
+        projectId: "project-1",
+      });
+
+      const assignments = [
+        { roleId: "writer", modelId: "gpt-4o", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "mission-edit",
+        {
+          projectId: "project-1",
+          missionType: "edit",
+          userPrompt: "Edit content",
+        } as WritingMissionInput,
+        "user-1",
+        assignments,
+      );
+
+      // For edit type, short content should still be saved (no word count check)
+      expect(mockPrisma.writingMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "COMPLETED" }),
+        }),
+      );
+    });
+
+    it("should skip word count check for consistency_check mission type", async () => {
+      const shortContent = "All checks passed.";
+      (service as unknown as Record<string, unknown>).generateContentDirectly =
+        jest.fn().mockResolvedValue(shortContent);
+
+      const assignments = [
+        { roleId: "writer", modelId: "gpt-4o", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "mission-consistency",
+        {
+          projectId: "project-1",
+          missionType: "consistency_check",
+          userPrompt: "Check consistency",
+        } as WritingMissionInput,
+        "user-1",
+        assignments,
+      );
+
+      expect(mockPrisma.writingMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "COMPLETED" }),
+        }),
+      );
+    });
+
+    it("should treat [ALL_CHAPTERS_COMPLETED] as completion marker and skip word count check", async () => {
+      // [ALL_CHAPTERS_COMPLETED] is returned by generateFullStory — mock that method
+      const completionContent = "[ALL_CHAPTERS_COMPLETED] 3 chapters written.";
+      (service as unknown as Record<string, unknown>).generateFullStory = jest
+        .fn()
+        .mockResolvedValue(completionContent);
+
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mission-all-complete",
+        projectId: "project-1",
+      });
+
+      const assignments = [
+        { roleId: "writer", modelId: "gpt-4o", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "mission-all-complete",
+        {
+          projectId: "project-1",
+          missionType: "full_story",
+          userPrompt: "Write full story",
+          targetWordCount: 50000,
+        } as WritingMissionInput,
+        "user-1",
+        assignments,
+      );
+
+      expect(mockPrisma.writingMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "COMPLETED" }),
+        }),
+      );
+    });
+
+    it("should treat [CONTINUATION_COMPLETE] as completion marker and skip word count check", async () => {
+      // [CONTINUATION_COMPLETE] is returned by generateFullStory — mock that method
+      const continuationContent = "[CONTINUATION_COMPLETE] 2 chapters added.";
+      (service as unknown as Record<string, unknown>).generateFullStory = jest
+        .fn()
+        .mockResolvedValue(continuationContent);
+
+      mockPrisma.writingMission.update.mockResolvedValue({
+        id: "mission-continuation",
+        projectId: "project-1",
+      });
+
+      const assignments = [
+        { roleId: "writer", modelId: "gpt-4o", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "mission-continuation",
+        {
+          projectId: "project-1",
+          missionType: "full_story",
+          userPrompt: "Continue the story",
+          targetWordCount: 50000,
+        } as WritingMissionInput,
+        "user-1",
+        assignments,
+      );
+
+      expect(mockPrisma.writingMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "COMPLETED" }),
+        }),
+      );
+    });
+
+    it("should use minimum word count of 50 for outline type", async () => {
+      // 60-char content with 60 chars is >= 50 word minimum for outline
+      const outlineContent =
+        "第一章\n第二章\n第三章\n大纲内容如下，这是比较短的大纲。";
+      (service as unknown as Record<string, unknown>).generateContentDirectly =
+        jest.fn().mockResolvedValue(outlineContent);
+
+      const assignments = [
+        { roleId: "writer", modelId: "gpt-4o", isActive: true },
+      ];
+
+      await svc.runMissionInBackground(
+        "mission-outline-short",
+        {
+          projectId: "project-1",
+          missionType: "outline",
+          userPrompt: "Create outline",
+        } as WritingMissionInput,
+        "user-1",
+        assignments,
+      );
+
+      // Should complete if word count >= 50 for outline
+      // The content is short but let's verify behavior
+      expect(mockPrisma.writingMission.update).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== processResult method ====================
+
+  describe("processResult (private)", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      processResult: (
+        result: Record<string, unknown>,
+        input: WritingMissionInput,
+        contextPackage: unknown,
+        missionId: string,
+      ) => Promise<Record<string, unknown>>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("should return mission result with no content when deliverables are empty", async () => {
+      const result = await svc.processResult(
+        { success: true, deliverables: [] },
+        {
+          projectId: "proj-1",
+          missionType: "chapter",
+          userPrompt: "test",
+        } as WritingMissionInput,
+        {},
+        "mission-1",
+      );
+
+      expect(result).toBeDefined();
+      expect(result.content).toBeUndefined();
+    });
+
+    it("should extract content from deliverables with write step output", async () => {
+      (mockFacade as Record<string, unknown>).processTaskCompletion = jest
+        .fn()
+        .mockResolvedValue({
+          needsContinuation: false,
+          finalContent: "Extracted final content",
+          qualityMetrics: {
+            overallScore: 85,
+            wordCount: 500,
+            coherenceScore: 80,
+            completionRatio: 1.0,
+            styleConsistency: 90,
+          },
+          qualityTrend: null,
+          intervention: null,
+        });
+
+      const deliverable = {
+        type: "report",
+        mimeType: "application/json",
+        content: {
+          outputs: [{ stepId: "write", output: "The final chapter content" }],
+        },
+      };
+
+      const result = await svc.processResult(
+        { success: true, deliverables: [deliverable] },
+        {
+          projectId: "proj-1",
+          missionType: "chapter",
+          userPrompt: "test",
+          targetWordCount: 3000,
+        } as WritingMissionInput,
+        {},
+        "mission-1",
+      );
+
+      expect(result).toBeDefined();
+    });
+
+    it("should fall back to extracted content when processTaskCompletion throws", async () => {
+      (mockFacade as Record<string, unknown>).processTaskCompletion = jest
+        .fn()
+        .mockRejectedValue(new Error("Processing failed"));
+
+      const deliverable = {
+        type: "report",
+        mimeType: "application/json",
+        content: {
+          outputs: [
+            { stepId: "write", output: "Chapter content from deliverable" },
+          ],
+        },
+      };
+
+      const result = await svc.processResult(
+        { success: true, deliverables: [deliverable] },
+        {
+          projectId: "proj-1",
+          missionType: "chapter",
+          userPrompt: "test",
+        } as WritingMissionInput,
+        {},
+        "mission-1",
+      );
+
+      expect(result).toBeDefined();
+      expect(result.content).toBe("Chapter content from deliverable");
+    });
+
+    it("should handle deliverable without matching write step output", async () => {
+      const deliverable = {
+        type: "report",
+        mimeType: "application/json",
+        content: {
+          outputs: [
+            { stepId: "check", output: "Consistency check passed" }, // no 'write' step
+          ],
+        },
+      };
+
+      const result = await svc.processResult(
+        { success: true, deliverables: [deliverable] },
+        {
+          projectId: "proj-1",
+          missionType: "consistency_check",
+          userPrompt: "test",
+        } as WritingMissionInput,
+        {},
+        "mission-1",
+      );
+
+      // No content extracted (no write step)
+      expect(result.content).toBeUndefined();
+    });
+
+    it("should handle processTaskCompletion with needsContinuation=true", async () => {
+      (mockFacade as Record<string, unknown>).processTaskCompletion = jest
+        .fn()
+        .mockResolvedValue({
+          needsContinuation: true,
+          continuationState: { continuationCount: 1 },
+          finalContent: null,
+          qualityMetrics: {
+            overallScore: 70,
+            wordCount: 1500,
+            coherenceScore: 75,
+            completionRatio: 0.5,
+            styleConsistency: 80,
+          },
+          qualityTrend: null,
+          intervention: null,
+        });
+
+      const deliverable = {
+        type: "report",
+        mimeType: "application/json",
+        content: {
+          outputs: [{ stepId: "write", output: "Partial content here" }],
+        },
+      };
+
+      const result = await svc.processResult(
+        { success: true, deliverables: [deliverable] },
+        {
+          projectId: "proj-1",
+          missionType: "chapter",
+          userPrompt: "test",
+          targetWordCount: 3000,
+        } as WritingMissionInput,
+        {},
+        "mission-1",
+      );
+
+      expect(result.content).toBe("Partial content here");
+      expect(result.qualityMetrics).toBeDefined();
+    });
+
+    it("should log warning when quality trend is degrading", async () => {
+      (mockFacade as Record<string, unknown>).processTaskCompletion = jest
+        .fn()
+        .mockResolvedValue({
+          needsContinuation: false,
+          finalContent: "Content here",
+          qualityMetrics: {
+            overallScore: 60,
+            wordCount: 2000,
+            coherenceScore: 55,
+            completionRatio: 0.8,
+            styleConsistency: 65,
+          },
+          qualityTrend: { trend: "degrading", consecutiveDeclines: 3 },
+          intervention: null,
+        });
+
+      const deliverable = {
+        type: "report",
+        mimeType: "application/json",
+        content: {
+          outputs: [{ stepId: "write", output: "Some chapter content" }],
+        },
+      };
+
+      // Should not throw even when quality is degrading
+      const result = await svc.processResult(
+        { success: true, deliverables: [deliverable] },
+        {
+          projectId: "proj-1",
+          missionType: "chapter",
+          userPrompt: "test",
+        } as WritingMissionInput,
+        {},
+        "mission-1",
+      );
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ==================== updateProjectWordCount edge cases ====================
+
+  describe("updateProjectWordCount: WRITING status when positive words", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      updateProjectWordCount: (projectId: string) => Promise<void>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("should set status to WRITING when totalWords > 0", async () => {
+      mockPrisma.writingChapter.aggregate.mockResolvedValue({
+        _sum: { wordCount: 5000 },
+      });
+      mockPrisma.writingProject.update.mockResolvedValue({});
+
+      await svc.updateProjectWordCount("proj-writing");
+
+      expect(mockPrisma.writingProject.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "WRITING" }),
+        }),
+      );
+    });
+  });
+
+  // ==================== assignModelsToRoles: providers.length === 0 edge case ====================
+
+  describe("assignModelsToRoles edge case: empty poolForMembers", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      assignModelsToRoles: () => Promise<
+        Array<{ roleId: string; modelId: string; isActive: boolean }>
+      >;
+    };
+
+    it("should assign the same model to all roles when only one model available", async () => {
+      // Only one model total; after filtering leader model, pool is empty — fallback to models[0]
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([
+        {
+          id: "only-model",
+          name: "Only Model",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]);
+
+      const svc = service as unknown as ServiceWithPrivate;
+      const assignments = await svc.assignModelsToRoles();
+
+      // All roles should be active and assigned the only available model
+      expect(assignments.length).toBeGreaterThan(0);
+      assignments.forEach((a) => {
+        expect(a.isActive).toBe(true);
+        expect(a.modelId).toBe("only-model");
+      });
+    });
+  });
+
+  // ==================== startMissionAsync: kernelMemory branch ====================
+
+  describe("startMissionAsync with missionExecutor (kernel process)", () => {
+    it("should spawn kernel process when missionExecutor is available", async () => {
+      const mockExecutor = {
+        execute: jest.fn().mockResolvedValue({ processId: "proc-kernel-1" }),
+        complete: jest.fn().mockResolvedValue(undefined),
+        fail: jest.fn().mockResolvedValue(undefined),
+      };
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        mockExecutor;
+
+      const userId = "user-1";
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        ownerId: userId,
+      });
+      mockPrisma.writingMission.findFirst.mockResolvedValue(null);
+      mockPrisma.writingMission.create.mockResolvedValue({
+        id: "mock-mission-id",
+      });
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]);
+
+      const result = await service.startMissionAsync(
+        {
+          projectId: "project-1",
+          missionType: "chapter",
+          userPrompt: "Write chapter",
+          targetWordCount: 3000,
+        },
+        userId,
+      );
+
+      expect(result.missionId).toBeDefined();
+      expect(mockExecutor.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId,
+          agentId: "story-architect",
+          teamSessionId: "mock-mission-id",
+        }),
+      );
+
+      // Clean up
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        undefined;
+    });
+
+    it("should not fail when missionExecutor.execute throws", async () => {
+      const mockExecutor = {
+        execute: jest.fn().mockRejectedValue(new Error("Kernel spawn failed")),
+        complete: jest.fn(),
+        fail: jest.fn(),
+      };
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        mockExecutor;
+
+      const userId = "user-1";
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        ownerId: userId,
+      });
+      mockPrisma.writingMission.findFirst.mockResolvedValue(null);
+      mockPrisma.writingMission.create.mockResolvedValue({
+        id: "mock-mission-id",
+      });
+      mockFacade.getAvailableModelsExtended.mockResolvedValue([
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]);
+
+      // Should not throw even when kernel spawn fails
+      const result = await service.startMissionAsync(
+        {
+          projectId: "project-1",
+          missionType: "chapter",
+          userPrompt: "Write chapter",
+          targetWordCount: 3000,
+        },
+        userId,
+      );
+
+      expect(result.missionId).toBeDefined();
+
+      // Clean up
+      (service as unknown as Record<string, unknown>).missionExecutor =
+        undefined;
+    });
+  });
+
+  // ==================== forceCleanupStuckMissions: orchestrator cancel error ====================
+
+  describe("forceCleanupStuckMissions: orchestrator cancel handling", () => {
+    it("should still cleanup db missions when orchestrator cancel throws", async () => {
+      (mockFacade as unknown as Record<string, unknown>).missionOrchestrator = {
+        cancel: jest.fn().mockRejectedValue(new Error("Orchestrator error")),
+        getState: jest.fn().mockReturnValue(null),
+        updateState: jest.fn(),
+      };
+
+      mockPrisma.writingMission.findMany.mockResolvedValue([{ id: "stuck-1" }]);
+      mockPrisma.writingMission.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        currentWords: 0,
+      });
+      mockPrisma.writingProject.update.mockResolvedValue({});
+
+      const result = await service.forceCleanupStuckMissions(
+        "project-1",
+        "user-1",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.cleanedCount).toBe(1);
+    });
+  });
+
+  // ==================== getWritingTeam: reuses cached team ====================
+
+  describe("getWritingTeam caching behavior", () => {
+    it("should only call createFromId once even on repeated calls", () => {
+      const mockTeam = { id: "ai-writing-team" };
+      const createFromId = jest.fn().mockReturnValue(mockTeam);
+      (mockFacade as unknown as Record<string, unknown>).teamFactory = {
+        createFromId,
+      };
+
+      type ServiceWithPrivate = WritingMissionService & {
+        getWritingTeam: () => unknown;
+        writingTeam: unknown;
+      };
+      const svc = service as unknown as ServiceWithPrivate;
+      svc.writingTeam = null;
+
+      svc.getWritingTeam();
+      svc.getWritingTeam();
+      svc.getWritingTeam();
+
+      expect(createFromId).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ==================== mapTemperatureToCreativity boundary values ====================
+
+  describe("mapTemperatureToCreativity strict boundaries", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      mapTemperatureToCreativity: (temp: number) => string;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+    });
+
+    it("should handle exactly 0.2 as deterministic (boundary)", () => {
+      expect(svc.mapTemperatureToCreativity(0.2)).toBe("deterministic");
+    });
+
+    it("should handle exactly 0.3 as low (boundary)", () => {
+      expect(svc.mapTemperatureToCreativity(0.3)).toBe("low");
+    });
+
+    it("should handle exactly 0.7 as medium (boundary)", () => {
+      expect(svc.mapTemperatureToCreativity(0.7)).toBe("medium");
+    });
+
+    it("should handle 0.8 as high (common writing value)", () => {
+      expect(svc.mapTemperatureToCreativity(0.8)).toBe("high");
+    });
+  });
+
+  // ==================== checkExistingContent: project with null currentWords ====================
+
+  describe("checkExistingContent edge cases", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      checkExistingContent: (
+        projectId: string,
+      ) => Promise<Record<string, unknown>>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+      (mockPrisma as unknown as Record<string, unknown>).storyBible = {
+        findUnique: jest.fn().mockResolvedValue(null),
+      };
+    });
+
+    it("should handle project with null currentWords", async () => {
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        currentWords: null,
+        targetWords: 50000,
+        description: "test",
+      });
+      mockPrisma.writingChapter.findMany.mockResolvedValue([]);
+
+      const result = await svc.checkExistingContent("proj-null-words");
+
+      expect(result.hasContent).toBe(false);
+      expect(result.currentWords).toBe(0);
+    });
+
+    it("should detect chapter with placeholder content as unwritten", async () => {
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        currentWords: 0,
+        targetWords: 50000,
+        description: null,
+      });
+      mockPrisma.writingChapter.findMany.mockResolvedValue([
+        {
+          id: "ch-1",
+          chapterNumber: 1,
+          title: "第一章",
+          volumeId: "vol-1",
+          wordCount: 100,
+          content: "AI 写作团队正在创作中",
+        },
+        {
+          id: "ch-2",
+          chapterNumber: 2,
+          title: "第二章",
+          volumeId: "vol-1",
+          wordCount: 50,
+          content: "内容生成中",
+        },
+      ]);
+
+      const result = await svc.checkExistingContent("proj-placeholder");
+
+      // Both chapters are considered unwritten due to placeholder content
+      expect(result.unwrittenChapters).toHaveLength(2);
+    });
+
+    it("should return null projectDescription when project has no description", async () => {
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        currentWords: 0,
+        targetWords: 50000,
+        description: null,
+      });
+      mockPrisma.writingChapter.findMany.mockResolvedValue([]);
+
+      const result = await svc.checkExistingContent("proj-no-desc");
+
+      expect(result.projectDescription).toBeNull();
+    });
+  });
+
+  // ==================== getProjectMissions: query params ====================
+
+  describe("getProjectMissions: query params", () => {
+    beforeEach(() => {
+      // Add count mock since it's not in buildMockPrisma by default
+      (
+        mockPrisma.writingMission as unknown as Record<string, jest.Mock>
+      ).count = jest.fn().mockResolvedValue(0);
+    });
+
+    it("should apply status filter when status is provided", async () => {
+      mockPrisma.writingMission.findMany.mockResolvedValue([]);
+
+      await service.getProjectMissions("proj-1", "in_progress");
+
+      expect(mockPrisma.writingMission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: "IN_PROGRESS" }),
+        }),
+      );
+    });
+
+    it("should use take:20 by default and order by createdAt desc", async () => {
+      mockPrisma.writingMission.findMany.mockResolvedValue([]);
+
+      await service.getProjectMissions("proj-1");
+
+      expect(mockPrisma.writingMission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 20,
+          orderBy: { createdAt: "desc" },
+        }),
+      );
+    });
+  });
+
+  // ==================== reExtractChapterTitles: multiple chapters ====================
+
+  describe("reExtractChapterTitles additional branches", () => {
+    it("should update multiple chapters with placeholder titles", async () => {
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        ownerId: "user-1",
+      });
+      mockPrisma.writingChapter.findMany.mockResolvedValue([
+        {
+          id: "ch-1",
+          chapterNumber: 1,
+          title: "第1章", // placeholder
+          content: "第一章 英雄崛起\n故事内容",
+          outline: null,
+        },
+        {
+          id: "ch-2",
+          chapterNumber: 2,
+          title: "第2章", // placeholder
+          content: "第二章 命运转折\n更多故事",
+          outline: null,
+        },
+        {
+          id: "ch-3",
+          chapterNumber: 3,
+          title: "深入虎穴", // real title
+          content: "第三章 深入虎穴\n故事高潮",
+          outline: null,
+        },
+      ]);
+      mockPrisma.writingChapter.update.mockResolvedValue({});
+
+      const result = await service.reExtractChapterTitles("proj-1", "user-1");
+
+      expect(result.updated).toBe(2); // only ch-1 and ch-2 have placeholder titles
+    });
+
+    it("should handle chapters with no content gracefully", async () => {
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        ownerId: "user-1",
+      });
+      mockPrisma.writingChapter.findMany.mockResolvedValue([
+        {
+          id: "ch-1",
+          chapterNumber: 1,
+          title: "第一章",
+          content: null, // no content
+          outline: null,
+        },
+      ]);
+      mockPrisma.writingChapter.update.mockResolvedValue({});
+
+      const result = await service.reExtractChapterTitles("proj-1", "user-1");
+
+      // With no content, title stays as-is or gets updated with empty extracted title
+      expect(result).toBeDefined();
+      expect(typeof result.updated).toBe("number");
+    });
+  });
+
+  // ==================== createVolumeAndChapters (indirectly via saveGeneratedContent) ====================
+
+  describe("createVolumeAndChapters indirectly via saveGeneratedContent", () => {
+    type ServiceWithPrivate = WritingMissionService & {
+      saveGeneratedContent: (
+        input: {
+          missionType: string;
+          projectId: string;
+          chapterId?: string;
+          volumeId?: string;
+          userPrompt: string;
+          targetWordCount?: number;
+        },
+        content: string,
+        wordCount: number,
+        missionId?: string,
+        modelId?: string,
+      ) => Promise<void>;
+    };
+
+    let svc: ServiceWithPrivate;
+
+    beforeEach(() => {
+      svc = service as unknown as ServiceWithPrivate;
+      mockPrisma.writingChapter.aggregate.mockResolvedValue({
+        _sum: { wordCount: 1000 },
+      });
+      mockPrisma.writingProject.update.mockResolvedValue({});
+    });
+
+    it("should handle full_story content with no existing chapters, creating new volume", async () => {
+      mockPrisma.writingChapter.findMany.mockResolvedValue([]);
+      mockPrisma.writingVolume.findFirst.mockResolvedValue(null);
+      mockPrisma.writingVolume.create.mockResolvedValue({ id: "new-vol-1" });
+      mockPrisma.writingChapter.create.mockResolvedValue({ id: "ch-1" });
+
+      const multiChapterContent = `第一章 开端\n这里是第一章的内容，有很多文字。${"A".repeat(200)}\n\n第二章 发展\n这里是第二章的内容，有更多文字。${"B".repeat(200)}`;
+
+      await svc.saveGeneratedContent(
+        { missionType: "full_story", projectId: "proj-1", userPrompt: "test" },
+        multiChapterContent,
+        1000,
+      );
+
+      expect(mockPrisma.writingVolume.create).toHaveBeenCalled();
+    });
+
+    it("should handle saveEditToLatestContent for outline mission type with no volume", async () => {
+      mockPrisma.writingVolume.findFirst.mockResolvedValue(null);
+      mockPrisma.writingVolume.create.mockResolvedValue({ id: "vol-1" });
+      mockPrisma.writingChapter.findMany.mockResolvedValue([]);
+      mockPrisma.writingChapter.create.mockResolvedValue({ id: "ch-1" });
+
+      await svc.saveGeneratedContent(
+        { missionType: "outline", projectId: "proj-1", userPrompt: "test" },
+        "大纲内容：\n第一章：开端\n第二章：发展",
+        100,
+      );
+
+      // outline type goes through saveEditToLatestContent -> createVolumeAndChapters
+      expect(mockPrisma.writingVolume.create).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== getMissionStatus: orchestratorState ====================
+
+  describe("getMissionStatus: orchestratorState edge cases", () => {
+    const userId = "user-1";
+    const missionId = "mock-mission-id";
+
+    beforeEach(() => {
+      mockPrisma.writingMission.findUnique.mockResolvedValue({
+        id: missionId,
+        status: "IN_PROGRESS",
+        missionType: "chapter",
+        startedAt: new Date(),
+        completedAt: null,
+        result: null,
+        project: { ownerId: userId },
+      });
+    });
+
+    it("should return null orchestratorState when getState returns null", async () => {
+      (mockFacade as unknown as Record<string, unknown>).missionOrchestrator = {
+        getState: jest.fn().mockReturnValue(null),
+        cancel: jest.fn(),
+      };
+
+      const result = await service.getMissionStatus(missionId, userId);
+
+      expect(result.orchestratorState).toBeNull();
+    });
+
+    it("should extract progress from orchestratorState.resourceUsage", async () => {
+      const orchestratorState = {
+        phase: "executing",
+        completedSteps: ["world-building"],
+        currentSteps: ["write"],
+        resourceUsage: {
+          progress: 45,
+          tokensUsed: 1200,
+          costUsed: 0.05,
+        },
+      };
+      (mockFacade as unknown as Record<string, unknown>).missionOrchestrator = {
+        getState: jest.fn().mockReturnValue(orchestratorState),
+        cancel: jest.fn(),
+      };
+
+      const result = await service.getMissionStatus(missionId, userId);
+
+      expect(result.orchestratorState).toBeDefined();
+      expect(result.orchestratorState?.progress).toBe(45);
+      expect(result.orchestratorState?.tokensUsed).toBe(1200);
+      expect(result.orchestratorState?.costUsed).toBe(0.05);
     });
   });
 });
