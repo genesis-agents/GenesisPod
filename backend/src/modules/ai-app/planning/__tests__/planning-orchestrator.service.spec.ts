@@ -28,6 +28,14 @@ jest.mock("../../../ai-infra/credits/billing-context", () => ({
   },
 }));
 
+jest.mock("../../../ai-infra/facade", () => ({
+  BillingContext: {
+    run: jest
+      .fn()
+      .mockImplementation((_ctx: unknown, fn: () => unknown) => fn()),
+  },
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { PlanningOrchestratorService } from "../services/planning-orchestrator.service";
@@ -35,16 +43,20 @@ import { PlanningTemplateService } from "../services/planning-template.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiTeamsService } from "../../teams/ai-teams.service";
 import { AiResponseService } from "../../teams/services/ai/ai-response.service";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { ChatFacade, TeamFacade, RAGFacade } from "../../../ai-engine/facade";
 import { PlanningDepth } from "../dto/create-plan.dto";
 import { TopicType } from "@prisma/client";
 
 describe("PlanningOrchestratorService", () => {
   let service: PlanningOrchestratorService;
-  let prisma: jest.Mocked<PrismaService>;
+  let prisma: jest.Mocked<PrismaService> & {
+    message: { findMany: jest.Mock };
+  };
   let aiTeamsService: jest.Mocked<AiTeamsService>;
   let templateService: jest.Mocked<PlanningTemplateService>;
-  let aiFacade: jest.Mocked<AIEngineFacade>;
+  let aiFacade: jest.Mocked<ChatFacade>;
+  let teamFacade: any;
+  let ragFacade: any;
 
   const mockTemplate = {
     id: "general",
@@ -155,7 +167,22 @@ describe("PlanningOrchestratorService", () => {
           },
         },
         { provide: PlanningTemplateService, useValue: mockTemplateService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        {
+          provide: TeamFacade,
+          useValue: {
+            reflect: jest.fn().mockResolvedValue(null),
+            aiCompressContext: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: RAGFacade,
+          useValue: {
+            search: jest
+              .fn()
+              .mockResolvedValue({ success: false, results: [] }),
+          },
+        },
       ],
     }).compile();
 
@@ -165,7 +192,9 @@ describe("PlanningOrchestratorService", () => {
     prisma = module.get(PrismaService);
     aiTeamsService = module.get(AiTeamsService);
     templateService = module.get(PlanningTemplateService);
-    aiFacade = module.get(AIEngineFacade);
+    aiFacade = module.get(ChatFacade);
+    teamFacade = module.get(TeamFacade);
+    ragFacade = module.get(RAGFacade);
   });
 
   afterEach(() => {
@@ -456,7 +485,7 @@ describe("PlanningOrchestratorService", () => {
       };
       (prisma.topic.findFirst as jest.Mock).mockResolvedValue(notStartedTopic);
       (prisma.topic.update as jest.Mock).mockResolvedValue(notStartedTopic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
 
       const result = await service.advancePhase("topic-123", "user-1");
 
@@ -507,7 +536,7 @@ describe("PlanningOrchestratorService", () => {
         .mockResolvedValueOnce(pendingTopic)
         .mockResolvedValueOnce(pendingTopic);
       (prisma.topic.update as jest.Mock).mockResolvedValue(pendingTopic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
 
       const result = await service.advancePhase("topic-123", "user-1");
 
@@ -529,7 +558,7 @@ describe("PlanningOrchestratorService", () => {
         .mockResolvedValueOnce(failedTopic)
         .mockResolvedValueOnce(failedTopic);
       (prisma.topic.update as jest.Mock).mockResolvedValue(failedTopic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
 
       const result = await service.advancePhase("topic-123", "user-1");
 
@@ -552,7 +581,7 @@ describe("PlanningOrchestratorService", () => {
         .mockResolvedValueOnce(completedTopic)
         .mockResolvedValueOnce(completedTopic);
       (prisma.topic.update as jest.Mock).mockResolvedValue(completedTopic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
 
       const result = await service.advancePhase("topic-123", "user-1");
 
@@ -584,7 +613,7 @@ describe("PlanningOrchestratorService", () => {
     it("should retry a specific phase by index", async () => {
       (prisma.topic.findFirst as jest.Mock).mockResolvedValue(mockTopic);
       (prisma.topic.update as jest.Mock).mockResolvedValue(mockTopic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
 
       await service.retryPhase("topic-123", 2, "user-1");
 
@@ -640,7 +669,7 @@ describe("PlanningOrchestratorService", () => {
       };
       (prisma.topic.findFirst as jest.Mock).mockResolvedValue(topic);
       (prisma.topic.update as jest.Mock).mockResolvedValue(topic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
 
       const result = await service.replanFromPhase("topic-123", 3, "user-1");
 
@@ -711,7 +740,7 @@ describe("PlanningOrchestratorService", () => {
       };
       (prisma.topic.findFirst as jest.Mock).mockResolvedValue(topic);
       (prisma.topic.update as jest.Mock).mockResolvedValue(topic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
 
       await service.replanFromPhase("topic-123", 1, "user-1");
 
@@ -1068,7 +1097,7 @@ describe("PlanningOrchestratorService", () => {
         .mockResolvedValue(activeTopic); // all subsequent calls in executePhaseAsyncInner
 
       (prisma.topic.update as jest.Mock).mockResolvedValue(activeTopic);
-      (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.message.findMany.mockResolvedValue([]);
     });
 
     it("should call aiFacade.chat for each agent in the phase", async () => {
@@ -1078,7 +1107,7 @@ describe("PlanningOrchestratorService", () => {
         model: "test-model",
         tokensUsed: 100,
       });
-      (aiFacade.reflect as jest.Mock).mockResolvedValue(null); // skip quality gate
+      (teamFacade.reflect as jest.Mock).mockResolvedValue(null); // skip quality gate
 
       await service.retryPhase("topic-123", 1, "user-1");
       // Allow the async phase execution to complete
@@ -1095,7 +1124,7 @@ describe("PlanningOrchestratorService", () => {
         model: "test-model",
         tokensUsed: 200,
       });
-      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+      (teamFacade.reflect as jest.Mock).mockResolvedValue(null);
 
       await service.retryPhase("topic-123", 1, "user-1");
       await new Promise((r) => setTimeout(r, 50));
@@ -1136,7 +1165,7 @@ describe("PlanningOrchestratorService", () => {
         model: "test-model",
         tokensUsed: 100,
       });
-      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+      (teamFacade.reflect as jest.Mock).mockResolvedValue(null);
 
       await service.retryPhase("topic-123", 1, "user-1");
 
@@ -1166,7 +1195,7 @@ describe("PlanningOrchestratorService", () => {
         model: "test-model",
         tokensUsed: 100,
       });
-      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+      (teamFacade.reflect as jest.Mock).mockResolvedValue(null);
 
       await service.retryPhase("topic-123", 4, "user-1");
       await new Promise((r) => setTimeout(r, 50));
@@ -1182,7 +1211,7 @@ describe("PlanningOrchestratorService", () => {
         tokensUsed: 100,
       });
       // Quality gate returns low score
-      (aiFacade.reflect as jest.Mock).mockResolvedValue({
+      (teamFacade.reflect as jest.Mock).mockResolvedValue({
         qualityScore: 30,
         gaps: ["Missing data points", "Incomplete analysis"],
         decision: "continue",
@@ -1222,7 +1251,7 @@ describe("PlanningOrchestratorService", () => {
       await new Promise((r) => setTimeout(r, 50));
 
       // reflect should NOT be called for QUICK depth
-      expect(aiFacade.reflect).not.toHaveBeenCalled();
+      expect(teamFacade.reflect).not.toHaveBeenCalled();
     });
 
     it("should handle phase 6 delivery refinement for subsequent agents", async () => {
@@ -1253,7 +1282,7 @@ describe("PlanningOrchestratorService", () => {
         model: "test-model",
         tokensUsed: 500,
       });
-      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+      (teamFacade.reflect as jest.Mock).mockResolvedValue(null);
       // Phase 6 uses agents at indices [0, 3] = 策划总监 + 文案专家
       // Second agent (文案专家) gets a refinement prompt
 
@@ -1276,7 +1305,7 @@ describe("PlanningOrchestratorService", () => {
       (prisma.topic.findFirst as jest.Mock)
         .mockResolvedValueOnce(topicPhase2)
         .mockResolvedValue(topicPhase2);
-      (aiFacade.search as jest.Mock) = jest.fn().mockResolvedValue({
+      (ragFacade.search as jest.Mock) = jest.fn().mockResolvedValue({
         success: true,
         results: [
           {
@@ -1293,7 +1322,7 @@ describe("PlanningOrchestratorService", () => {
         model: "test-model",
         tokensUsed: 50,
       });
-      (aiFacade.reflect as jest.Mock).mockResolvedValue(null);
+      (teamFacade.reflect as jest.Mock).mockResolvedValue(null);
 
       await service.retryPhase("topic-123", 2, "user-1");
       await new Promise((r) => setTimeout(r, 50));

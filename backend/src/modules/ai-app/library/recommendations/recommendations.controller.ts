@@ -7,12 +7,14 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { RecommendationsService } from "./recommendations.service.postgres";
 import { Public } from "../../../../common/decorators/public.decorator";
 
 /**
  * 推荐系统控制器
  */
+@ApiTags("Recommendations")
 @Public()
 @Controller("recommendations")
 export class RecommendationsController {

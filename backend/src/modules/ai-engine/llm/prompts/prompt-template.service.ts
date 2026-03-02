@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, PromptTemplate } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 /**
@@ -87,15 +87,16 @@ export class PromptTemplateService {
   /**
    * 将数据库模型转换为业务数据结构
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Prisma model result without importing specific type
-  private buildTemplateData(template: any): PromptTemplateData {
+  private buildTemplateData(template: PromptTemplate): PromptTemplateData {
     return {
       id: template.id,
       taskType: template.taskType,
       name: template.name,
       version: template.version,
       template: template.template,
-      variables: Array.isArray(template.variables) ? template.variables : null,
+      variables: Array.isArray(template.variables)
+        ? (template.variables as string[])
+        : null,
       isActive: template.isActive,
       description: template.description,
       createdBy: template.createdBy,

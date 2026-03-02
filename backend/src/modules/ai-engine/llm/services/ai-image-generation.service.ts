@@ -1,4 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
+
+interface ImagenGeneratedImage {
+  image?: { imageBytes?: string };
+  imageBytes?: string;
+}
+
+interface ImagenPrediction {
+  bytesBase64Encoded?: string;
+  image?: { imageBytes?: string };
+}
+
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
@@ -135,11 +146,12 @@ export class AiImageGenerationService {
 
       throw new Error("No image data in response");
     } catch (error: unknown) {
-      const e = error as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const e = error as {
+        response?: { data?: { error?: { message?: string } } };
+        message?: string;
+      };
       const errMsg = e.response?.data?.error?.message || e.message;
-      this.logger.error(
-        `DALL-E 3 API error: ${errMsg}`,
-      );
+      this.logger.error(`DALL-E 3 API error: ${errMsg}`);
 
       return {
         content: `抱歉，图像生成失败: ${errMsg}\n\n请检查 OpenAI API Key 是否有 DALL-E 3 的访问权限。`,
@@ -215,7 +227,7 @@ export class AiImageGenerationService {
       if (data.generatedImages && data.generatedImages.length > 0) {
         images = data.generatedImages
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response item
-          .map((img: any, index: number) => {
+          .map((img: ImagenGeneratedImage, index: number) => {
             const imageBytes = img.image?.imageBytes || img.imageBytes;
             if (imageBytes) {
               const cleanBase64 = imageBytes.replace(/\s/g, "");
@@ -234,7 +246,7 @@ export class AiImageGenerationService {
       ) {
         images = data.predictions
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response item
-          .map((pred: any, index: number) => {
+          .map((pred: ImagenPrediction, index: number) => {
             const imageBytes =
               pred.bytesBase64Encoded || pred.image?.imageBytes;
             if (imageBytes) {
@@ -262,7 +274,10 @@ export class AiImageGenerationService {
       );
       throw new Error("No images generated - check response format");
     } catch (error: unknown) {
-      const e = error as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const e = error as {
+        response?: { data?: { error?: { message?: string } } };
+        message?: string;
+      };
       const errorMsg = e.response?.data?.error?.message || e.message;
       this.logger.error(`[Imagen] API error: ${errorMsg}`);
       this.logger.error(

@@ -1,5 +1,16 @@
 import { Injectable, Logger } from "@nestjs/common";
 
+interface LlmResponseWithUsage {
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    completion_tokens_details?: {
+      reasoning_tokens?: number;
+    };
+  };
+}
+
 /**
  * AI Chat Token Service
  * 职责：Token 计数、成本计算、限制验证
@@ -67,7 +78,7 @@ export class AiChatTokenService {
    * 解析 API 响应中的 token 使用量
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw LLM response object; structure varies by provider
-  parseTokenUsage(response: any): {
+  parseTokenUsage(response: LlmResponseWithUsage): {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;

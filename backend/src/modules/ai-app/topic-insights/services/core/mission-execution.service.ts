@@ -11,6 +11,7 @@ import {
   ResearchMissionStatus,
   ResearchTaskStatus,
   AIModelType,
+  Prisma,
 } from "@prisma/client";
 import type {
   ResearchTask,
@@ -40,12 +41,15 @@ interface TaskResultJson {
   summary?: string;
   content?: string;
   reportId?: string;
-  analysisResult?: {
-    summary?: string;
-    keyFindings?: Array<
-      string | { finding: string; title?: string; significance?: string }
-    >;
-  };
+  chapters?: unknown[];
+  status?: string;
+  message?: string;
+  feedback?: string;
+  wordCount?: number;
+  sourcesFound?: number;
+  reviewedTasks?: number;
+  dimensionReviews?: unknown[];
+  overallReview?: unknown;
   keyFindings?: Array<
     | string
     | {
@@ -55,6 +59,12 @@ interface TaskResultJson {
         evidenceIds?: string[];
       }
   >;
+  analysisResult?: {
+    summary?: string;
+    keyFindings?: Array<
+      string | { finding: string; title?: string; significance?: string }
+    >;
+  };
   trends?: DimensionAnalysisResult["trends"];
   challenges?: DimensionAnalysisResult["challenges"];
   opportunities?: DimensionAnalysisResult["opportunities"];
@@ -304,8 +314,7 @@ export class MissionExecutionService {
         missionId,
       );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- result shape varies by taskType, stored as Prisma JSON
-      let result: any;
+      let result: TaskResultJson = {} as TaskResultJson;
 
       switch (task.taskType) {
         case "dimension_research": {
@@ -377,7 +386,7 @@ export class MissionExecutionService {
                 missionResult.error || "Dimension mission failed",
               );
             }
-            result = missionResult.analysisResult;
+            result = missionResult.analysisResult as unknown as TaskResultJson;
 
             // ★ 发送维度研究完成事件
             await this.researchEventEmitter.emitDimensionResearchCompleted(
@@ -392,11 +401,11 @@ export class MissionExecutionService {
             this.logger.warn(
               `[executeTask] Dimension not found for task ${task.id}, creating new one`,
             );
-            result = await this.executeGenericDimensionResearch(
+            result = (await this.executeGenericDimensionResearch(
               task,
               topic,
               reportId,
-            );
+            )) as unknown as TaskResultJson;
 
             // ★ 发送维度研究完成事件
             await this.researchEventEmitter.emitDimensionResearchCompleted(
@@ -790,10 +799,10 @@ export class MissionExecutionService {
           }
 
           // 合成最终报告
-          result = await this.reportSynthesisService.synthesizeReport(
+          result = (await this.reportSynthesisService.synthesizeReport(
             topic,
             reportId, // ★ 使用已有的 reportId
-          );
+          )) as unknown as TaskResultJson;
 
           // V5: 深度门控后处理（fact-check for thorough mode）
           const missionDepth = (currentMission?.researchDepth ??
@@ -803,7 +812,7 @@ export class MissionExecutionService {
           if (depthConfig.factCheckEnabled) {
             this.logger.log(`[V5] Running fact-check (depth=${missionDepth})`);
             try {
-              const reportContent = (result as TaskResultJson)?.content || "";
+              const reportContent = result?.content || "";
               const evidenceForFactCheck =
                 await this.prisma.topicEvidence.findMany({
                   where: { reportId },
@@ -849,7 +858,7 @@ export class MissionExecutionService {
                     evidenceIds: [],
                   }),
                 )
-              : 0,
+              : [],
             reportId,
           };
           break;
@@ -922,7 +931,7 @@ export class MissionExecutionService {
       // ★ 修复：从 result 中提取人类可读的摘要，而不是 JSON.stringify
       let summary: string;
       if (typeof result === "string") {
-        summary = result.substring(0, 500);
+        summary = (result as unknown as string).substring(0, 500);
       } else if (result?.summary) {
         // 优先使用 result.summary 字段
         summary = result.summary.substring(0, 500);
@@ -947,7 +956,7 @@ export class MissionExecutionService {
         task.id,
         ResearchTaskStatus.COMPLETED,
         {
-          result,
+          result: result as unknown as Prisma.InputJsonValue,
           resultSummary: summary,
           actualModelId,
         },

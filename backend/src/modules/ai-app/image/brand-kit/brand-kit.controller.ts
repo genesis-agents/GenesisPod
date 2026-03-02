@@ -17,6 +17,7 @@ import {
 interface AuthenticatedRequest {
   user: { id: string; email: string };
 }
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import {
   BrandKitService,
@@ -24,6 +25,7 @@ import {
   UpdateBrandKitDto,
 } from "./brand-kit.service";
 
+@ApiTags("Brand Kit")
 @Controller("brand-kit")
 @UseGuards(JwtAuthGuard)
 export class BrandKitController {

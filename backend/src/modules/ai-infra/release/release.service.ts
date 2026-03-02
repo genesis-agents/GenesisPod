@@ -8,7 +8,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ChatFacade } from "../../ai-engine/facade";
 import { NotificationService } from "../notifications/notification.service";
@@ -43,20 +43,35 @@ export class ReleaseService {
   ): Promise<{ commits: GitCommit[]; stats: GitChangeStats }> {
     this.logger.log(`Collecting git changes from ${fromTag} to ${toTag}`);
 
+    // Security: validate tag format to prevent command injection
+    const TAG_PATTERN = /^[a-zA-Z0-9._\-/]+$/;
+    if (!TAG_PATTERN.test(fromTag) || !TAG_PATTERN.test(toTag)) {
+      throw new Error(
+        `Invalid tag format. Tags must match ${TAG_PATTERN}. Got: "${fromTag}", "${toTag}"`,
+      );
+    }
+
     try {
-      // 获取 commits
-      const rawCommits = execSync(
-        `git log ${fromTag}..${toTag} --pretty=format:"%H|%s|%an|%ad" --date=short`,
+      // 获取 commits (use execFileSync to avoid shell injection)
+      const rawCommits = execFileSync(
+        "git",
+        [
+          "log",
+          `${fromTag}..${toTag}`,
+          "--pretty=format:%H|%s|%an|%ad",
+          "--date=short",
+        ],
         { encoding: "utf-8", cwd: process.cwd() },
       );
 
       const commits = this.parseCommits(rawCommits);
 
       // 获取变更统计
-      const rawStats = execSync(`git diff ${fromTag}..${toTag} --stat`, {
-        encoding: "utf-8",
-        cwd: process.cwd(),
-      });
+      const rawStats = execFileSync(
+        "git",
+        ["diff", `${fromTag}..${toTag}`, "--stat"],
+        { encoding: "utf-8", cwd: process.cwd() },
+      );
 
       const stats = this.parseStats(rawStats);
 

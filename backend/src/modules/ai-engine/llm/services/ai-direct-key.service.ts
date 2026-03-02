@@ -290,7 +290,7 @@ export class AiDirectKeyService {
           return await this.callApiWithKey(
             "https://api.x.ai/v1/chat/completions",
             {
-              model: "grok-beta",
+              model: modelId || "",
               messages: fullMessages.map((m) => ({
                 role: m.role,
                 content: m.content,

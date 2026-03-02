@@ -11,11 +11,11 @@
 | Phase 2 | 目录归位                      | MOSTLY DONE | 85%    |
 | Phase 3 | AI Engine 内容模块下沉        | DONE        | 100%   |
 | Phase 4 | AI Kernel L3 合规             | DONE        | 100%   |
-| Phase 5 | 拆 God Facade → 5 领域 Facade | PARTIAL     | 40%    |
+| Phase 5 | 拆 God Facade → 5 领域 Facade | MOSTLY DONE | 85%    |
 | Phase 6 | 消费者迁移到领域 Facade       | NOT STARTED | 5%     |
 | Phase 7 | 去 @Global()                  | NOT STARTED | 0%     |
 
-**整体进度: ~61%** (Phase 4 completed 2026-03-01)
+**整体进度: ~68%** (Phase 5 nearly complete 2026-03-01)
 
 ---
 
@@ -123,33 +123,35 @@
 
 ---
 
-## Phase 5: 拆 God Facade → 5 领域 Facade - PARTIAL (40%)
+## Phase 5: 拆 God Facade → 5 领域 Facade - MOSTLY DONE (85%)
 
 ### 已完成
 
-- 5 个领域 Facade 文件已创建:
-  - `ai-engine/facade/domain/chat.facade.ts`
-  - `ai-engine/facade/domain/rag.facade.ts`
-  - `ai-engine/facade/domain/agent.facade.ts`
-  - `ai-engine/facade/domain/team.facade.ts`
-  - `ai-engine/facade/domain/tool.facade.ts`
-- 通过 `facade/index.ts` 导出
+- 5 个领域 Facade 文件已创建并通过 `facade/index.ts` 导出
+- **审计**: 100 个方法中 97 个已有领域 Facade 覆盖 (97%)
+- **新增覆盖** (2026-03-01):
+  - RAGFacade: `get embedding`, `get vector`, `get contentFetch` getters
+  - ChatFacade: `checkConstraints()`, `get modelFallback`
+  - AgentFacade: `get circuitBreaker`
+- AIEngineFacade 类级别已标记 `@deprecated`
+- Group B 跨层方法已标记 `@deprecated`: `longContentEngine`, `continuationProtocol`
+
+### 未覆盖 (3 个方法 — 刻意保留)
+
+| 方法                            | 原因                                          | 处置计划                |
+| ------------------------------- | --------------------------------------------- | ----------------------- |
+| `registerResearchExecutor`      | 跨层注册桥 (L5→L2→L4)                         | Phase 6 重构为直接 DI   |
+| `executeDirectResearch`         | 跨层执行桥 (L5→L2→L4)                         | Phase 6 重构为直接 DI   |
+| `INTENT_CONFIRMATION_THRESHOLD` | 静态常量, 消费者应从 IntentRouterService 导入 | Phase 6 迁移 1 个消费者 |
 
 ### 未完成
 
-| 项目                                           | 状态                               |
-| ---------------------------------------------- | ---------------------------------- |
-| AIEngineFacade 变 thin shim (标记 @deprecated) | NOT DONE — 仍是 2951 行 God Object |
-| facade/index.ts 精简到类型+常量                | NOT DONE — 仍是 399+ 行 139 export |
-| 领域 Facade 方法覆盖 AIEngineFacade 80 个方法  | PARTIAL — 需验证覆盖度             |
+| 项目                                            | 状态                                   |
+| ----------------------------------------------- | -------------------------------------- |
+| AIEngineFacade 变 thin shim (委托到领域 Facade) | NOT DONE — 2971 行, 方法仍有自己的实现 |
+| facade/index.ts 精简到类型+常量                 | NOT DONE — 仍是 399+ 行 139 export     |
 
-### 修复计划
-
-**Step 1**: 审计 AIEngineFacade 80 个方法，确认每个方法对应到哪个领域 Facade
-**Step 2**: 将 AIEngineFacade 方法逐个委托到领域 Facade
-**Step 3**: 标记 AIEngineFacade 所有方法 @deprecated
-
-**预估工作量**: L (2951 行需重构, 高影响面)
+**预估工作量**: M (委托逻辑可渐进实施，Phase 6 消费者迁移后 God Object 自然变空)
 
 ---
 

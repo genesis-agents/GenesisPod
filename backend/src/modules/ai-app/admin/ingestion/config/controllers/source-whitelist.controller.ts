@@ -12,6 +12,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { SourceWhitelistService } from "../services/source-whitelist.service";
 import { ResourceType } from "@prisma/client";
 
@@ -19,6 +20,7 @@ import { ResourceType } from "@prisma/client";
  * Source Whitelist Controller
  * 提供源白名单管理的API端点
  */
+@ApiTags("Data Management - Whitelist")
 @Controller("data-management/whitelists")
 export class SourceWhitelistController {
   private readonly logger = new Logger(SourceWhitelistController.name);

@@ -134,8 +134,9 @@ export class PuppeteerFetcherService {
 
         // 模拟权限
         const originalQuery = window.navigator.permissions.query;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        window.navigator.permissions.query = (parameters: any) =>
+        window.navigator.permissions.query = (
+          parameters: PermissionDescriptor,
+        ) =>
           parameters.name === "notifications"
             ? Promise.resolve({
                 state: Notification.permission,

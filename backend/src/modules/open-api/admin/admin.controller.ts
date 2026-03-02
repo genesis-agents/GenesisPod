@@ -12,6 +12,7 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
@@ -28,6 +29,7 @@ const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";
  * 管理员控制器
  * 所有接口都需要管理员权限
  */
+@ApiTags("Admin - Dashboard")
 @Controller("admin")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {

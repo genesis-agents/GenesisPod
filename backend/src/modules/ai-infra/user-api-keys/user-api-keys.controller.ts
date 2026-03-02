@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { UserApiKeysService } from "./user-api-keys.service";
@@ -18,6 +19,7 @@ interface AuthenticatedRequest {
   user: { id: string; email: string };
 }
 
+@ApiTags("User API Keys")
 @Controller("user/api-keys")
 @UseGuards(JwtAuthGuard)
 export class UserApiKeysController {

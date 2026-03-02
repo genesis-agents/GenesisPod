@@ -2,6 +2,13 @@ import { Injectable, UnauthorizedException, Logger } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
+import { CacheService } from "../../../common/cache/cache.service";
+
+/** Redis key prefix for the JWT blocklist */
+const BLOCKLIST_PREFIX = "blocklist:user:";
+
+/** TTL for blocklist entries: 30 days in seconds */
+const BLOCKLIST_TTL_SECONDS = 86400 * 30;
 
 /**
  * JWT 认证策略
@@ -11,16 +18,16 @@ import { ConfigService } from "@nestjs/config";
  *
  * PERFORMANCE: 不查询数据库，直接返回 JWT payload
  * - 用户信息由业务层按需获取（通过 UserService）
- * - 用户禁用/删除通过黑名单机制处理
+ * - 用户禁用/删除通过 Redis 黑名单机制处理（持久化，重启不丢失）
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   private readonly logger: Logger;
 
-  // ★ 被禁用/删除用户黑名单（O(1) 查询）
-  private readonly blockedUsers = new Set<string>();
-
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly cacheService: CacheService,
+  ) {
     const jwtSecret = configService.get<string>("JWT_SECRET");
 
     // SECURITY: Fail fast if JWT_SECRET is not configured
@@ -44,7 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Warn if secret is too short (should be at least 32 characters)
     if (jwtSecret.length < 32) {
       this.logger.warn(
-        "⚠️ WARNING: JWT_SECRET is less than 32 characters. " +
+        "WARNING: JWT_SECRET is less than 32 characters. " +
           "For production security, use a longer secret (64+ characters recommended).",
       );
     }
@@ -53,14 +60,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   /**
    * JWT 验证 - 只返回 payload，不查数据库
    *
-   * @performance O(1) - 只检查黑名单，无数据库查询
-   * @security 通过黑名单机制处理被禁用/删除的用户
+   * @performance O(1) - 只检查 Redis 黑名单，无数据库查询
+   * @security 通过 Redis 黑名单机制处理被禁用/删除的用户（重启持久化）
    */
   async validate(payload: { sub: string; email: string; username: string }) {
     const userId = payload.sub;
 
-    // ★ 检查黑名单（被禁用/删除的用户）
-    if (this.blockedUsers.has(userId)) {
+    // ★ 检查 Redis 黑名单（被禁用/删除的用户）
+    const isBlocked = await this.cacheService.get<string>(
+      `${BLOCKLIST_PREFIX}${userId}`,
+    );
+    if (isBlocked) {
       throw new UnauthorizedException("User account is disabled");
     }
 
@@ -74,24 +84,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   /**
    * 将用户加入黑名单（禁用/删除用户时调用）
+   * 黑名单存储于 Redis，TTL 30 天，重启后不丢失
    */
-  blockUser(userId: string) {
-    this.blockedUsers.add(userId);
+  async blockUser(userId: string): Promise<void> {
+    await this.cacheService.set(
+      `${BLOCKLIST_PREFIX}${userId}`,
+      "true",
+      BLOCKLIST_TTL_SECONDS,
+    );
     this.logger.log(`User ${userId} added to blocklist`);
   }
 
   /**
    * 将用户从黑名单移除（恢复用户时调用）
    */
-  unblockUser(userId: string) {
-    this.blockedUsers.delete(userId);
+  async unblockUser(userId: string): Promise<void> {
+    await this.cacheService.del(`${BLOCKLIST_PREFIX}${userId}`);
     this.logger.log(`User ${userId} removed from blocklist`);
   }
 
   /**
    * 检查用户是否在黑名单中
    */
-  isUserBlocked(userId: string): boolean {
-    return this.blockedUsers.has(userId);
+  async isUserBlocked(userId: string): Promise<boolean> {
+    const value = await this.cacheService.get<string>(
+      `${BLOCKLIST_PREFIX}${userId}`,
+    );
+    return value !== undefined;
   }
 }

@@ -1,5 +1,5 @@
-import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { Module, OnModuleInit } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AiSocialController } from "./ai-social.controller";
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
@@ -23,6 +23,7 @@ import { NotificationModule } from "../../ai-infra/notifications/notification.mo
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { YoutubeService } from "../explore/youtube.service";
 import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/facade";
+import { initSessionCrypto } from "./utils/session-crypto";
 
 @Module({
   imports: [
@@ -56,4 +57,13 @@ import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/facade";
   ],
   exports: [AiSocialService],
 })
-export class AiSocialModule {}
+export class AiSocialModule implements OnModuleInit {
+  constructor(private readonly configService: ConfigService) {}
+
+  onModuleInit() {
+    const key = this.configService.get<string>("SESSION_ENCRYPTION_KEY");
+    if (key) {
+      initSessionCrypto(key);
+    }
+  }
+}

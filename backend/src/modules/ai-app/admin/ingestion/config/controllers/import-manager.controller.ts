@@ -9,6 +9,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { ImportManagerService } from "../services/import-manager.service";
 import { ImportTaskProcessorService } from "../services/import-task-processor.service";
 import { SourceWhitelistService } from "../services/source-whitelist.service";
@@ -20,6 +21,7 @@ import { ImportTaskStatus, ResourceType } from "@prisma/client";
  * Import Manager Controller
  * 提供导入管理、URL解析和数据质量指标的API端点
  */
+@ApiTags("Data Management - Import")
 @Controller("data-management")
 export class ImportManagerController {
   private readonly logger = new Logger(ImportManagerController.name);

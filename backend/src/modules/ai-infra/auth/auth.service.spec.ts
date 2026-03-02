@@ -3,6 +3,7 @@ import { AuthService } from "./auth.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 import { CacheService } from "../../../common/cache/cache.service";
+import { ConfigService } from "@nestjs/config";
 import { UnauthorizedException, ConflictException } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 
@@ -87,12 +88,22 @@ describe("AuthService", () => {
         ),
     };
 
+    const mockConfigService = {
+      get: jest.fn().mockImplementation((key: string) => {
+        if (key === "JWT_SECRET") return "test-jwt-secret-minimum-32-chars!!";
+        if (key === "REFRESH_TOKEN_SECRET")
+          return "test-refresh-secret-32-chars!!!!";
+        return undefined;
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: CacheService, useValue: mockCacheService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 

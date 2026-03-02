@@ -12,6 +12,7 @@ import {
   Logger,
   Request,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { FeedbackService } from "./feedback.service";
 import { CreateFeedbackDto } from "./dto/create-feedback.dto";
@@ -35,6 +36,7 @@ type FeedbackTypeEnum =
   | "ANNOTATION";
 type FeedbackPriorityEnum = "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
 
+@ApiTags("Feedback")
 @Controller("feedback")
 export class FeedbackController {
   private readonly logger = new Logger(FeedbackController.name);

@@ -7,9 +7,11 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { HistoryService } from "./history.service";
 import { CollectionTaskStatus } from "@prisma/client";
 
+@ApiTags("Data Collection - History")
 @Controller("data-collection/history")
 export class HistoryController {
   constructor(private readonly historyService: HistoryService) {}

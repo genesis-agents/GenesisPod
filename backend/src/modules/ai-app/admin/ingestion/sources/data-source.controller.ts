@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import {
   DataSourceService,
   CreateDataSourceDto,
@@ -17,6 +18,7 @@ import {
 } from "./data-source.service";
 import { DataSourceStatus, DataSourceType } from "@prisma/client";
 
+@ApiTags("Data Collection - Sources")
 @Controller("data-collection/sources")
 export class DataSourceController {
   constructor(private readonly dataSourceService: DataSourceService) {}

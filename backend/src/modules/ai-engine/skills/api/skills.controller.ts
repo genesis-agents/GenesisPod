@@ -16,11 +16,13 @@ import {
   Logger,
   UseGuards,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { SkillsApiService } from "./skills-api.service";
 import { SetDomainOverrideDto } from "./dto/set-domain-override.dto";
 
+@ApiTags("Skills")
 @Controller("skills")
 @UseGuards(JwtAuthGuard)
 export class SkillsController {

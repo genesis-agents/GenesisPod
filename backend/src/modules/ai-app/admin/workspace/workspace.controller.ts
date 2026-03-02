@@ -23,8 +23,10 @@ import {
 import { WorkspaceService } from "./workspace.service";
 import { WorkspaceTaskService } from "./workspace-task.service";
 import { ReportTemplateService } from "./report-template.service";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
+@ApiTags("Workspace")
 @Controller("workspaces")
 @UseGuards(JwtAuthGuard)
 export class WorkspaceController {

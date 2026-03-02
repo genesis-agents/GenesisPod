@@ -8,11 +8,13 @@ import { ReleaseInfo } from "../dto/release.dto";
 
 // Mock child_process to avoid real git commands
 jest.mock("child_process", () => ({
-  execSync: jest.fn(),
+  execFileSync: jest.fn(),
 }));
 
-import { execSync } from "child_process";
-const mockExecSync = execSync as jest.MockedFunction<typeof execSync>;
+import { execFileSync } from "child_process";
+const mockExecFileSync = execFileSync as jest.MockedFunction<
+  typeof execFileSync
+>;
 
 const mockPrismaService = {
   user: {
@@ -58,7 +60,7 @@ describe("ReleaseService", () => {
 
       const rawStats = "5 files changed, 100 insertions(+), 20 deletions(-)";
 
-      mockExecSync
+      mockExecFileSync
         .mockReturnValueOnce(rawCommits as any)
         .mockReturnValueOnce(rawStats as any);
 
@@ -83,7 +85,7 @@ describe("ReleaseService", () => {
       const rawCommits = "abc1234|Merged PR #42|Dev|2026-01-01";
       const rawStats = "1 file changed, 5 insertions(+)";
 
-      mockExecSync
+      mockExecFileSync
         .mockReturnValueOnce(rawCommits as any)
         .mockReturnValueOnce(rawStats as any);
 
@@ -94,7 +96,7 @@ describe("ReleaseService", () => {
     });
 
     it("handles empty commit log", async () => {
-      mockExecSync
+      mockExecFileSync
         .mockReturnValueOnce("" as any)
         .mockReturnValueOnce("0 files changed" as any);
 
@@ -104,7 +106,7 @@ describe("ReleaseService", () => {
     });
 
     it("parses stats with only insertions", async () => {
-      mockExecSync
+      mockExecFileSync
         .mockReturnValueOnce("abc|feat: something|Dev|2026-01-01" as any)
         .mockReturnValueOnce("3 files changed, 50 insertions(+)" as any);
 
@@ -116,13 +118,23 @@ describe("ReleaseService", () => {
     });
 
     it("throws when git command fails", async () => {
-      mockExecSync.mockImplementationOnce(() => {
+      mockExecFileSync.mockImplementationOnce(() => {
         throw new Error("not a git repository");
       });
 
       await expect(
         service.collectGitChanges("v1.0.0", "v1.1.0"),
       ).rejects.toThrow("Failed to collect git changes");
+    });
+
+    it("rejects invalid tag format to prevent command injection", async () => {
+      await expect(
+        service.collectGitChanges("v1.0.0; rm -rf /", "v1.1.0"),
+      ).rejects.toThrow("Invalid tag format");
+
+      await expect(
+        service.collectGitChanges("v1.0.0", "$(malicious)"),
+      ).rejects.toThrow("Invalid tag format");
     });
   });
 
@@ -370,7 +382,7 @@ describe("ReleaseService", () => {
       const rawCommits = "abc|feat(ui): add dark mode|Dev|2026-01-01";
       const rawStats = "10 files changed, 200 insertions(+), 50 deletions(-)";
 
-      mockExecSync
+      mockExecFileSync
         .mockReturnValueOnce(rawCommits as any)
         .mockReturnValueOnce(rawStats as any);
 
@@ -418,7 +430,7 @@ describe("ReleaseService", () => {
     });
 
     it("throws when no commits found between tags", async () => {
-      mockExecSync
+      mockExecFileSync
         .mockReturnValueOnce("" as any)
         .mockReturnValueOnce("0 files changed" as any);
 
@@ -430,7 +442,7 @@ describe("ReleaseService", () => {
     it("sets success=false when some notifications fail", async () => {
       const rawCommits = "abc|feat: stuff|Dev|2026-01-01";
       const rawStats = "1 file changed, 10 insertions(+)";
-      mockExecSync
+      mockExecFileSync
         .mockReturnValueOnce(rawCommits as any)
         .mockReturnValueOnce(rawStats as any);
 

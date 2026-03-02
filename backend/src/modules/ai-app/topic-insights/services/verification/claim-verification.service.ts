@@ -13,6 +13,14 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+
+interface VerificationJsonResult {
+  verdict?: "supports" | "refutes" | "neutral" | "insufficient";
+  confidence?: number;
+  relevantQuote?: string;
+  reasoning?: string;
+  factualAlignment?: number;
+}
 import {
   VerifiableClaim,
   ClaimType,
@@ -308,8 +316,9 @@ ${evidenceContent.substring(0, 3000)}
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- extractJsonFromAIResponse generic; result shape validated at runtime
-      const result = extractJsonFromAIResponse<any>(response.content);
+      const result = extractJsonFromAIResponse<VerificationJsonResult>(
+        response.content,
+      );
 
       if (!result.success || !result.data) {
         return {

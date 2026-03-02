@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
   HttpCode,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { BillingContext } from "../../../ai-infra/facade";
 import { NotesService } from "./notes.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
@@ -36,6 +37,7 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
  * - POST /api/v1/notes/:id/ai-explain - 请求AI解释
  * - POST /api/v1/notes/:id/graph-nodes - 关联知识图谱节点
  */
+@ApiTags("Notes")
 @Controller("notes")
 export class NotesController {
   constructor(private readonly notesService: NotesService) {}

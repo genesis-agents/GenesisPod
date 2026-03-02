@@ -16,6 +16,9 @@ const IV_LENGTH = 16; // 128 bits
 const AUTH_TAG_LENGTH = 16; // 128 bits
 const KEY_LENGTH = 32; // 256 bits
 
+// Module-level cached key (set via initSessionCrypto from ConfigService)
+let cachedKeyHex: string | undefined;
+
 /**
  * Encrypted data structure
  */
@@ -31,13 +34,21 @@ interface EncryptedData {
 }
 
 /**
- * Get encryption key from environment variable or passed parameter
+ * Initialize encryption key from ConfigService (call once in module onModuleInit).
+ * This avoids direct process.env access at runtime.
+ */
+export function initSessionCrypto(keyHex: string): void {
+  cachedKeyHex = keyHex;
+}
+
+/**
+ * Get encryption key from cached value, passed parameter, or environment fallback.
  * Key should be 32 bytes (64 hex characters) for AES-256
  *
- * @param keyHex - Optional key hex string (from ConfigService). Falls back to process.env.SESSION_ENCRYPTION_KEY
+ * @param keyHex - Optional key hex string override
  */
 function getEncryptionKey(keyHex?: string): Buffer {
-  keyHex = keyHex || process.env.SESSION_ENCRYPTION_KEY;
+  keyHex = keyHex || cachedKeyHex || process.env.SESSION_ENCRYPTION_KEY;
 
   if (!keyHex) {
     // In development, use a default key (NOT for production!)

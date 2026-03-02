@@ -7,12 +7,14 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { FeedService } from "./feed.service";
 import { Public } from "../../../../common/decorators/public.decorator";
 
 /**
  * Feed 流控制器
  */
+@ApiTags("Feed")
 @Public()
 @Controller("feed")
 export class FeedController {

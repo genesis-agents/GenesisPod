@@ -4,6 +4,7 @@ import {
   MinLength,
   MaxLength,
   IsUrl,
+  ArrayMaxSize,
 } from "class-validator";
 
 /**
@@ -33,6 +34,8 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  @ArrayMaxSize(20)
   interests?: string[];
 
   // 用户偏好设置

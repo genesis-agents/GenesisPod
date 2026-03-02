@@ -13,6 +13,7 @@ import {
   HttpStatus,
   Logger,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
@@ -37,6 +38,7 @@ interface AuthenticatedRequest {
   user: { id: string };
 }
 
+@ApiTags("AI Social")
 @Controller("ai-social")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AiSocialController {

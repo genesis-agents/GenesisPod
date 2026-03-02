@@ -25,6 +25,10 @@ import { FetchedContent, sanitizeForDb } from "./content-fetch.types";
  */
 export const YOUTUBE_SERVICE_TOKEN = "YOUTUBE_SERVICE";
 
+interface YoutubeServiceLike {
+  getTranscript(videoId: string): Promise<unknown>;
+}
+
 // ===== SSRF 防护常量 =====
 const ALLOWED_PROTOCOLS = ["http:", "https:"];
 
@@ -113,8 +117,7 @@ export class ContentFetchService {
     private readonly webExtractor: WebContentExtractionService,
     @Optional()
     @Inject(YOUTUBE_SERVICE_TOKEN)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- injected service type unknown at compile time
-    private readonly youtubeService?: any,
+    private readonly youtubeService?: YoutubeServiceLike,
   ) {}
 
   /**

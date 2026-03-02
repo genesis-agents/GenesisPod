@@ -186,7 +186,7 @@ describe("AiSocialController", () => {
 
   describe("getContentVersions", () => {
     it("should return versions after ownership check", async () => {
-      const _result = await controller.getContentVersions(mockReq, "content-1");
+      const result = await controller.getContentVersions(mockReq, "content-1");
       expect(mockAiSocialService.getContent).toHaveBeenCalledWith(
         "user-abc",
         "content-1",
@@ -201,7 +201,7 @@ describe("AiSocialController", () => {
   describe("generateVersion", () => {
     it("should generate a version successfully", async () => {
       const dto = { platformType: SocialPlatformType.XIAOHONGSHU };
-      const _result = await controller.generateVersion(
+      const result = await controller.generateVersion(
         mockReq,
         "content-1",
         dto,
@@ -232,10 +232,7 @@ describe("AiSocialController", () => {
 
   describe("generateAllVersions", () => {
     it("should generate all versions", async () => {
-      const _result = await controller.generateAllVersions(
-        mockReq,
-        "content-1",
-      );
+      const result = await controller.generateAllVersions(mockReq, "content-1");
       expect(
         mockContentVersionService.generateAllVersions,
       ).toHaveBeenCalledWith("content-1", "user-abc");
@@ -256,7 +253,7 @@ describe("AiSocialController", () => {
   describe("updateVersion", () => {
     it("should update version for platform", async () => {
       const dto = { content: "Updated content" };
-      const _result = await controller.updateVersion(
+      const result = await controller.updateVersion(
         mockReq,
         "content-1",
         "xiaohongshu",
@@ -273,7 +270,7 @@ describe("AiSocialController", () => {
 
   describe("deleteVersion", () => {
     it("should delete version for platform", async () => {
-      const _result = await controller.deleteVersion(
+      const result = await controller.deleteVersion(
         mockReq,
         "content-1",
         "xiaohongshu",

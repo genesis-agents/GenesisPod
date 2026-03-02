@@ -11,12 +11,14 @@ import {
   Res,
 } from "@nestjs/common";
 import { Response } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import { ReportsService } from "./reports.service";
 import { GenerateReportDto } from "./dto/generate-report.dto";
 
 /**
  * 报告控制器 - 多素材AI综合报告生成
  */
+@ApiTags("Reports")
 @Controller("reports")
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}

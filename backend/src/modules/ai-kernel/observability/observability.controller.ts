@@ -6,6 +6,7 @@ import {
   NotFoundException,
   UseGuards,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ProcessEventLogService } from "./process-event-log.service";
@@ -21,6 +22,7 @@ import type { TraceType } from "../abstractions";
  * GET /api/v1/admin/traces/stats   - trace statistics
  * GET /api/v1/admin/traces/:id     - trace detail with spans
  */
+@ApiTags("Admin - Observability")
 @Controller("api/v1/admin/traces")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class ObservabilityController {

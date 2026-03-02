@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Param, Query, Body } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { QualityService } from "./quality.service";
 
+@ApiTags("Data Collection - Quality")
 @Controller("data-collection/quality")
 export class QualityController {
   constructor(private readonly qualityService: QualityService) {}

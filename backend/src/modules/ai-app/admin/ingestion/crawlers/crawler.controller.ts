@@ -6,6 +6,7 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { ArxivService } from "./arxiv.service";
 import { GithubService } from "./github.service";
 import { HackernewsService } from "./hackernews.service";
@@ -13,6 +14,7 @@ import { HackernewsService } from "./hackernews.service";
 /**
  * 数据采集器控制器
  */
+@ApiTags("Data Collection - Crawler")
 @Controller("crawler")
 export class CrawlerController {
   private readonly logger = new Logger(CrawlerController.name);

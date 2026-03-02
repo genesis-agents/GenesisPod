@@ -12,6 +12,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
@@ -33,6 +34,7 @@ import type {
 import { getAllStylePresets, recommendStyleByGenre } from "./constants";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
 
+@ApiTags("AI Writing")
 @Controller("ai-writing")
 @UseGuards(JwtAuthGuard)
 export class AiWritingController {

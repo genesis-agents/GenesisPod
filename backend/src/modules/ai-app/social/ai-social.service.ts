@@ -15,6 +15,16 @@ import {
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
 import { PlaywrightService } from "./services/playwright.service";
+
+interface BrowserPage {
+  goto(url: string, options?: { timeout?: number }): Promise<unknown>;
+  waitForLoadState(
+    state: string,
+    options?: { timeout?: number },
+  ): Promise<void>;
+  url(): string;
+  $(selector: string): Promise<unknown>;
+}
 import { XhsMcpAdapter } from "./adapters/xiaohongshu.adapter";
 import type {
   XhsFeed,
@@ -381,8 +391,7 @@ export class AiSocialService {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page type not available in this context
-  private async validateWechatSession(page: any): Promise<boolean> {
+  private async validateWechatSession(page: BrowserPage): Promise<boolean> {
     try {
       await page.goto("https://mp.weixin.qq.com/cgi-bin/home", {
         timeout: 30000,

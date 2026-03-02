@@ -13,6 +13,37 @@ import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
 import { ChatFacade } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/facade";
 
+interface ImageModelConfig {
+  id: string;
+  modelId: string;
+  displayName: string;
+  provider: string;
+  apiEndpoint: string | null;
+  apiKey: string | null | undefined;
+  secretKey: string | null;
+  maxTokens: number | null;
+  temperature: number | null;
+  isEnabled: boolean;
+  isDefault: boolean;
+  modelType: AIModelType;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  isReasoning: boolean;
+  apiFormat: string | null;
+  supportsTemperature: boolean;
+  supportsStreaming: boolean;
+  supportsFunctionCalling: boolean;
+  supportsVision: boolean;
+  tokenParamName: string | null;
+  defaultTimeoutMs: number | null;
+  priceInputPerMillion: number | null;
+  priceOutputPerMillion: number | null;
+  priority: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 @Injectable()
 export class ImageGenerationService {
   private readonly logger = new Logger(ImageGenerationService.name);
@@ -203,8 +234,7 @@ export class ImageGenerationService {
    * ★ 使用 getApiKeyForModel 从 Secret Manager 解析 API Key
    */
   async callImageGenerationAPI(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- modelConfig shape varies by provider
-    modelConfig: any,
+    modelConfig: ImageModelConfig,
     prompt: string,
     dimensions: { width: number; height: number },
     negativePrompt?: string,
@@ -297,8 +327,7 @@ export class ImageGenerationService {
    * ★ apiKey 已在 callImageGenerationAPI 中通过 Secret Manager 解析
    */
   private async callImageToImageAPI(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- modelConfig shape varies by provider
-    modelConfig: any,
+    modelConfig: ImageModelConfig,
     apiKey: string,
     referenceImageBase64: string,
     modificationPrompt: string,
@@ -905,7 +934,7 @@ export class ImageGenerationService {
       this.httpService.post(
         "https://api.together.xyz/v1/images/generations",
         {
-          model: modelId || "black-forest-labs/FLUX.1-schnell-Free",
+          model: modelId || "",
           prompt,
           width: dimensions.width,
           height: dimensions.height,

@@ -7,6 +7,16 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+
+interface StepArtifact {
+  id: string;
+  type: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  url?: string;
+  metadata?: Record<string, unknown>;
+}
 import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
 import {
   BUILTIN_AGENTS,
@@ -456,8 +466,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
   ): Promise<{
     enhancedPrompt?: string;
     html?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- artifact shape varies by step type
-    artifact?: any;
+    artifact?: StepArtifact;
     content?: string;
   }> {
     const { taskType: _taskType } = context;

@@ -185,9 +185,9 @@ describe("TopicInsightsGateway", () => {
   });
 
   describe("handleLeaveTopic", () => {
-    it("should leave the topic room and return success", () => {
+    it("should leave the topic room and return success", async () => {
       // Act
-      const result = gateway.handleLeaveTopic(mockClient as any, {
+      const result = await gateway.handleLeaveTopic(mockClient as any, {
         topicId: "topic-123",
       });
 

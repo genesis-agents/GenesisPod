@@ -21,6 +21,7 @@ import { ChatFacade } from "../facade";
 import { RAGPipelineService } from "../knowledge/rag/pipeline";
 import { SecretsService, BillingContext } from "../../ai-infra/facade";
 import { SearchService } from "../knowledge/search/search.service";
+import { ApiTags } from "@nestjs/swagger";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
 import { RequestContext } from "../../../common/context/request-context";
@@ -58,6 +59,7 @@ interface InsightsRequest {
   language?: string;
 }
 
+@ApiTags("AI Core")
 @Controller("ai")
 export class AiCoreController {
   private readonly logger = new Logger(AiCoreController.name);

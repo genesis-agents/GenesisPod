@@ -1184,8 +1184,7 @@ export class CollectionsService {
     const sortOrder = options.sortOrder || "desc";
 
     // Build orderBy clause based on sortBy field
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let orderBy: any;
+    let orderBy: Prisma.CollectionItemOrderByWithRelationInput;
 
     if (sortBy === "title") {
       orderBy = { resource: { title: sortOrder } };

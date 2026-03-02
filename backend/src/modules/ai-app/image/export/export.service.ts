@@ -13,6 +13,27 @@ import {
   EditableInfographic,
 } from "../core/engine.types";
 
+interface PptxSlide {
+  addImage(options: {
+    data: string;
+    x: number;
+    y: number;
+    w: string;
+    h: string;
+  }): void;
+}
+
+interface PptxGenJSInstance {
+  defineLayout(options: { name: string; width: number; height: number }): void;
+  layout: string;
+  addSlide(): PptxSlide;
+  write(outputType: string): Promise<unknown>;
+}
+
+interface PptxGenJSConstructor {
+  new (): PptxGenJSInstance;
+}
+
 @Injectable()
 export class ExportService {
   private readonly logger = new Logger(ExportService.name);
@@ -265,8 +286,7 @@ export class ExportService {
   ): Promise<ExportResult> {
     try {
       // 动态导入 pptxgenjs (避免没安装时报错)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import, no type definitions available
-      let PptxGenJS: any;
+      let PptxGenJS: PptxGenJSConstructor;
       try {
         PptxGenJS = require("pptxgenjs");
       } catch {

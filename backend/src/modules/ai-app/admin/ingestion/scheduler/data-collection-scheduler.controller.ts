@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { DataCollectionSchedulerService } from "./data-collection-scheduler.service";
 import {
   SchedulerStatus,
@@ -20,6 +21,7 @@ import {
  * Data Collection Scheduler Controller
  * 提供调度器管理 API 端点
  */
+@ApiTags("Data Collection - Scheduler")
 @Controller("data-collection/scheduler")
 export class DataCollectionSchedulerController {
   private readonly logger = new Logger(DataCollectionSchedulerController.name);

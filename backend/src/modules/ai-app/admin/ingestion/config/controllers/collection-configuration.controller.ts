@@ -11,6 +11,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { CollectionConfigurationService } from "../services/collection-configuration.service";
 import { ResourceType } from "@prisma/client";
 
@@ -18,6 +19,7 @@ import { ResourceType } from "@prisma/client";
  * Collection Configuration Controller
  * 提供采集配置管理API端点
  */
+@ApiTags("Data Management - Collection Config")
 @Controller("data-management/collection-configurations")
 export class CollectionConfigurationController {
   private readonly logger = new Logger(CollectionConfigurationController.name);

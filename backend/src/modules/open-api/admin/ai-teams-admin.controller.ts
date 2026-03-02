@@ -10,6 +10,7 @@ import {
   UseGuards,
   Logger,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { AITeamsAdminService } from "./ai-teams-admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
@@ -27,6 +28,7 @@ import { AITeamTemplateStatus } from "@prisma/client";
  * AI 团队模板管理控制器
  * 所有接口都需要管理员权限
  */
+@ApiTags("Admin - AI Teams")
 @Controller("admin/ai-teams")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AITeamsAdminController {
@@ -215,6 +217,7 @@ export class AITeamsAdminController {
  * AI 团队模板公共控制器（不需要管理员权限）
  * 用于其他应用获取可用的团队模板
  */
+@ApiTags("Admin - AI Teams")
 @Controller("ai-teams/templates")
 @UseGuards(JwtAuthGuard)
 export class AITeamsTemplatesController {

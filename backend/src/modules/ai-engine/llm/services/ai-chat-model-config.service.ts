@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../ai-infra/facade";
-import { AIModelType } from "@prisma/client";
+import { AIModel, AIModelType } from "@prisma/client";
 
 /**
  * 数据库中的 AI 模型配置
@@ -84,11 +84,9 @@ export class AiChatModelConfigService {
    * 从数据库模型构建 AIModelConfig
    * ★ 统一处理所有字段，兼容新旧数据库
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma result with complex select loses its inferred type at the call site; typed at the return boundary via AIModelConfig
-  private buildModelConfig(model: any): AIModelConfig {
-    const modelAny = model;
+  private buildModelConfig(model: AIModel): AIModelConfig {
     const isReasoning =
-      modelAny.isReasoning ?? this.inferIsReasoning(model.modelId);
+      model.isReasoning ?? this.inferIsReasoning(model.modelId);
 
     return {
       id: model.id,
@@ -106,23 +104,23 @@ export class AiChatModelConfigService {
 
       // ★ 模型能力配置 - 优先使用数据库值，否则根据 isReasoning 推断
       isReasoning,
-      apiFormat: this.resolveApiFormat(modelAny.apiFormat, model.provider),
-      supportsTemperature: modelAny.supportsTemperature ?? !isReasoning,
-      supportsStreaming: modelAny.supportsStreaming ?? true,
-      supportsFunctionCalling: modelAny.supportsFunctionCalling ?? true,
-      supportsVision: modelAny.supportsVision ?? false,
+      apiFormat: this.resolveApiFormat(model.apiFormat, model.provider),
+      supportsTemperature: model.supportsTemperature ?? !isReasoning,
+      supportsStreaming: model.supportsStreaming ?? true,
+      supportsFunctionCalling: model.supportsFunctionCalling ?? true,
+      supportsVision: model.supportsVision ?? false,
       tokenParamName:
-        modelAny.tokenParamName ??
+        model.tokenParamName ??
         (isReasoning ? "max_completion_tokens" : "max_tokens"),
       defaultTimeoutMs:
-        modelAny.defaultTimeoutMs ?? (isReasoning ? 300000 : 120000),
-      priceInputPerMillion: modelAny.priceInputPerMillion
-        ? Number(modelAny.priceInputPerMillion)
+        model.defaultTimeoutMs ?? (isReasoning ? 300000 : 120000),
+      priceInputPerMillion: model.priceInputPerMillion
+        ? Number(model.priceInputPerMillion)
         : undefined,
-      priceOutputPerMillion: modelAny.priceOutputPerMillion
-        ? Number(modelAny.priceOutputPerMillion)
+      priceOutputPerMillion: model.priceOutputPerMillion
+        ? Number(model.priceOutputPerMillion)
         : undefined,
-      priority: modelAny.priority ?? 50,
+      priority: model.priority ?? 50,
     };
   }
 

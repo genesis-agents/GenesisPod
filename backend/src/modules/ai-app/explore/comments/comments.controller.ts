@@ -11,6 +11,7 @@ import {
   UnauthorizedException,
   HttpCode,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { CommentsService } from "./comments.service";
 import { CreateCommentDto, UpdateCommentDto } from "./dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
@@ -34,6 +35,7 @@ interface AuthenticatedRequest {
  * - GET /api/v1/comments/resource/:resourceId/stats - 获取评论统计
  * - GET /api/v1/comments/source/:source/stats - 获取 source 评论统计
  */
+@ApiTags("Comments")
 @Controller("comments")
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}

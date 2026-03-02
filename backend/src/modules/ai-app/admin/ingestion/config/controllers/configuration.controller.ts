@@ -9,8 +9,10 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { ConfigurationService } from "../services/configuration.service";
 
+@ApiTags("Data Management - Config")
 @Controller("data-management/configurations")
 export class ConfigurationController {
   constructor(private readonly configurationService: ConfigurationService) {}

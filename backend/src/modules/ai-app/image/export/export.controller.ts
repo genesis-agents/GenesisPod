@@ -9,6 +9,7 @@ import {
   UseGuards,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { ExportService } from "./export.service";
 import { ExportFormat, ExportOptions } from "../core/engine.types";
@@ -23,6 +24,7 @@ interface ExportRequestDto {
   pageSize?: "a4" | "letter" | "16:9" | "custom";
 }
 
+@ApiTags("AI Image - Export")
 @Controller("ai-image/export")
 @UseGuards(JwtAuthGuard)
 export class ExportController {

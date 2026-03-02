@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   CreateChapterDto,
@@ -82,8 +83,7 @@ export class ChapterWritingService {
     // Verify access
     await this.getChapter(id, userId);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma update input type is complex and varies by DTO shape
-    const updateData: any = { ...dto };
+    const updateData: Prisma.WritingChapterUpdateInput = { ...dto };
 
     // Update word count if content is provided
     if (dto.content) {

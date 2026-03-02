@@ -4,9 +4,12 @@ import {
   Post,
   Delete,
   Query,
+  Headers,
   Logger,
   BadRequestException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { ApiTags } from "@nestjs/swagger";
 import {
   StorageService,
   StorageStats,
@@ -18,14 +21,18 @@ import {
 import { safeCompare } from "../../../common/utils/crypto.utils";
 import { Public } from "../../../common/decorators/public.decorator";
 
+@ApiTags("Storage")
 @Public()
 @Controller("storage")
 export class StorageController {
   private readonly logger = new Logger(StorageController.name);
   private readonly adminKey: string;
 
-  constructor(private readonly storageService: StorageService) {
-    const adminKey = process.env.STORAGE_ADMIN_KEY;
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly configService: ConfigService,
+  ) {
+    const adminKey = this.configService.get<string>("STORAGE_ADMIN_KEY");
     if (!adminKey) {
       throw new Error(
         "STORAGE_ADMIN_KEY environment variable is required but not set. " +
@@ -48,7 +55,9 @@ export class StorageController {
    * Get comprehensive storage statistics
    */
   @Get("stats")
-  async getStorageStats(@Query("key") key: string): Promise<StorageStats> {
+  async getStorageStats(
+    @Headers("x-admin-key") key: string,
+  ): Promise<StorageStats> {
     this.validateKey(key);
     this.logger.log("Getting storage statistics");
     return this.storageService.getStorageStats();
@@ -59,7 +68,7 @@ export class StorageController {
    */
   @Post("cleanup/images")
   async cleanupImages(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("keepPerUser") keepPerUser?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -72,7 +81,9 @@ export class StorageController {
    * Delete ALL images
    */
   @Delete("images/all")
-  async deleteAllImages(@Query("key") key: string): Promise<CleanupResult> {
+  async deleteAllImages(
+    @Headers("x-admin-key") key: string,
+  ): Promise<CleanupResult> {
     this.validateKey(key);
     this.logger.log("Deleting all images");
     return this.storageService.deleteAllImages();
@@ -83,7 +94,7 @@ export class StorageController {
    */
   @Post("cleanup/raw-data")
   async cleanupRawData(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("daysOld") daysOld?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -96,7 +107,9 @@ export class StorageController {
    * Delete ALL raw data (both processed and pending)
    */
   @Delete("raw-data/all")
-  async deleteAllRawData(@Query("key") key: string): Promise<CleanupResult> {
+  async deleteAllRawData(
+    @Headers("x-admin-key") key: string,
+  ): Promise<CleanupResult> {
     this.validateKey(key);
     this.logger.log("Deleting all raw data");
     return this.storageService.deleteAllRawData();
@@ -107,7 +120,7 @@ export class StorageController {
    */
   @Post("cleanup/collection-tasks")
   async cleanupCollectionTasks(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("daysOld") daysOld?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -121,7 +134,7 @@ export class StorageController {
    */
   @Post("cleanup/import-tasks")
   async cleanupImportTasks(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("daysOld") daysOld?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -134,7 +147,9 @@ export class StorageController {
    * Cleanup expired metadata cache
    */
   @Post("cleanup/metadata")
-  async cleanupMetadata(@Query("key") key: string): Promise<CleanupResult> {
+  async cleanupMetadata(
+    @Headers("x-admin-key") key: string,
+  ): Promise<CleanupResult> {
     this.validateKey(key);
     this.logger.log("Cleaning up expired metadata cache");
     return this.storageService.cleanupExpiredMetadata();
@@ -145,7 +160,7 @@ export class StorageController {
    */
   @Post("cleanup/user-activities")
   async cleanupUserActivities(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("daysOld") daysOld?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -159,7 +174,7 @@ export class StorageController {
    */
   @Post("cleanup/ask-sessions")
   async cleanupAskSessions(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("daysOld") daysOld?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -173,7 +188,7 @@ export class StorageController {
    */
   @Post("cleanup/office-documents")
   async cleanupOfficeDocuments(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("daysOld") daysOld?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -187,7 +202,7 @@ export class StorageController {
    */
   @Delete("office-documents/all")
   async deleteAllOfficeDocuments(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
     this.logger.log("Deleting all office documents");
@@ -199,7 +214,7 @@ export class StorageController {
    */
   @Post("cleanup/slides")
   async cleanupSlides(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("daysOld") daysOld?: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -212,7 +227,9 @@ export class StorageController {
    * Delete ALL slides data (sessions, checkpoints, team executions)
    */
   @Delete("slides/all")
-  async deleteAllSlides(@Query("key") key: string): Promise<CleanupResult> {
+  async deleteAllSlides(
+    @Headers("x-admin-key") key: string,
+  ): Promise<CleanupResult> {
     this.validateKey(key);
     this.logger.log("Deleting all slides data");
     return this.storageService.deleteAllSlides();
@@ -223,7 +240,7 @@ export class StorageController {
    */
   @Post("cleanup/knowledge-base")
   async cleanupKnowledgeBase(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("id") knowledgeBaseId: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
@@ -239,7 +256,7 @@ export class StorageController {
    */
   @Post("cleanup/orphaned-rag")
   async cleanupOrphanedRagData(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
     this.logger.log("Cleaning up orphaned RAG data");
@@ -251,7 +268,7 @@ export class StorageController {
    */
   @Delete("knowledge-base/all")
   async deleteAllKnowledgeBaseData(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
   ): Promise<CleanupResult> {
     this.validateKey(key);
     this.logger.log("Deleting all knowledge base data");
@@ -262,7 +279,7 @@ export class StorageController {
    * Run full cleanup (all categories)
    */
   @Post("cleanup/all")
-  async runFullCleanup(@Query("key") key: string): Promise<{
+  async runFullCleanup(@Headers("x-admin-key") key: string): Promise<{
     success: boolean;
     results: CleanupResult[];
     totalDeleted: number;
@@ -279,7 +296,7 @@ export class StorageController {
    */
   @Get("database-analysis")
   async getDatabaseAnalysis(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
   ): Promise<DatabaseAnalysis> {
     this.validateKey(key);
     this.logger.log("Analyzing database table sizes");
@@ -291,7 +308,7 @@ export class StorageController {
    */
   @Post("vacuum")
   async vacuumDatabase(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
   ): Promise<{ success: boolean; message: string }> {
     this.validateKey(key);
     this.logger.log("Running VACUUM ANALYZE on database");
@@ -303,7 +320,7 @@ export class StorageController {
    * WARNING: This locks tables during operation - use during low traffic
    */
   @Post("vacuum-full-all")
-  async vacuumFullAll(@Query("key") key: string): Promise<{
+  async vacuumFullAll(@Headers("x-admin-key") key: string): Promise<{
     success: boolean;
     message: string;
     results: Array<{
@@ -325,7 +342,7 @@ export class StorageController {
    */
   @Post("vacuum-full")
   async vacuumFullTable(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
     @Query("table") tableName: string,
   ): Promise<{
     success: boolean;
@@ -346,7 +363,7 @@ export class StorageController {
    */
   @Post("cleanup-wal")
   async cleanupWAL(
-    @Query("key") key: string,
+    @Headers("x-admin-key") key: string,
   ): Promise<{ success: boolean; message: string }> {
     this.validateKey(key);
     this.logger.log("Running CHECKPOINT to cleanup WAL");
@@ -357,7 +374,7 @@ export class StorageController {
    * Get full disk usage breakdown including WAL, TOAST, etc.
    */
   @Get("disk-usage")
-  async getFullDiskUsage(@Query("key") key: string): Promise<{
+  async getFullDiskUsage(@Headers("x-admin-key") key: string): Promise<{
     totalDiskMB: number;
     databaseSizeMB: number;
     tableDataMB: number;
@@ -376,7 +393,7 @@ export class StorageController {
    * Get Node.js process memory statistics
    */
   @Get("node-memory")
-  getNodeMemoryStats(@Query("key") key: string): NodeMemoryStats {
+  getNodeMemoryStats(@Headers("x-admin-key") key: string): NodeMemoryStats {
     this.validateKey(key);
     this.logger.log("Getting Node.js memory stats");
     return this.storageService.getNodeMemoryStats();
@@ -386,7 +403,7 @@ export class StorageController {
    * Get system (OS) memory statistics
    */
   @Get("system-memory")
-  getSystemMemoryStats(@Query("key") key: string): SystemMemoryStats {
+  getSystemMemoryStats(@Headers("x-admin-key") key: string): SystemMemoryStats {
     this.validateKey(key);
     this.logger.log("Getting system memory stats");
     return this.storageService.getSystemMemoryStats();

@@ -122,7 +122,7 @@ export class AiConnectionTestService {
             this.httpService.post(
               apiEndpoint || "https://api.x.ai/v1/chat/completions",
               {
-                model: modelId || "grok-beta",
+                model: modelId || "",
                 messages: grokTestMessages,
                 max_tokens: 50,
                 temperature: 0,

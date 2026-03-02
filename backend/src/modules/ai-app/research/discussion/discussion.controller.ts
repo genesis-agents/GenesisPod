@@ -10,6 +10,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
@@ -21,6 +22,7 @@ import { StartDeepResearchDto } from "./types";
  *
  * 使用 DiscussionOrchestratorService 驱动讨论式研究流程
  */
+@ApiTags("Research - Discussion")
 @Controller("ai-studio/projects/:projectId/deep-research")
 export class DiscussionController {
   private readonly logger = new Logger(DiscussionController.name);

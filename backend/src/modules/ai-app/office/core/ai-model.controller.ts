@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { AIModelService } from "./ai-model.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
@@ -6,6 +7,7 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
  * AI 模型配置接口
  * 提供前端获取可用模型列表，用于用户选择
  */
+@ApiTags("AI Office - Models")
 @Controller("ai-office/models")
 export class AIModelController {
   constructor(private readonly aiModelService: AIModelService) {}

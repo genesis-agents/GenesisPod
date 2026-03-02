@@ -9,6 +9,7 @@ import {
   UseGuards,
   UnauthorizedException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { YoutubeVideosService } from "./youtube-videos.service";
 import { SaveVideoDto } from "./dto/save-video.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
@@ -22,6 +23,7 @@ import { Public } from "../../../common/decorators/public.decorator";
 /**
  * YouTube视频管理控制器
  */
+@ApiTags("YouTube Videos")
 @Controller("youtube-videos")
 export class YoutubeVideosController {
   constructor(private readonly youtubeVideosService: YoutubeVideosService) {}

@@ -22,6 +22,7 @@ import { Throttle } from "@nestjs/throttler";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { Observable } from "rxjs";
 import { Response } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import { AiImageService } from "./generation.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
@@ -53,6 +54,7 @@ interface GenerateImageDto {
   skipEnhancement?: boolean;
 }
 
+@ApiTags("AI Image")
 @Controller("ai-image")
 export class AiImageController {
   private readonly logger = new Logger(AiImageController.name);

@@ -1,6 +1,8 @@
 import { Controller, Get } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { DashboardService } from "../services/dashboard.service";
 
+@ApiTags("Data Management - Dashboard")
 @Controller("data-management/dashboard")
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}

@@ -19,6 +19,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { Request } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import { SecretsService } from "./secrets.service";
 import { CreateSecretDto } from "./dto/create-secret.dto";
 import { UpdateSecretDto } from "./dto/update-secret.dto";
@@ -39,6 +40,7 @@ interface AuthenticatedRequest extends Request {
  * Secrets Management Controller
  * All endpoints require admin privileges
  */
+@ApiTags("Admin - Secrets")
 @Controller("admin/secrets")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class SecretsController {

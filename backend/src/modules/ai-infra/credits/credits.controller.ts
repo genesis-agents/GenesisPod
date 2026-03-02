@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Param,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { CreditTransactionType } from "@prisma/client";
@@ -22,6 +23,11 @@ import {
   AdminGrantCreditsDto,
   BatchGrantCreditsDto,
 } from "./dto/grant-credits.dto";
+import {
+  FreezeAccountDto,
+  UnfreezeAccountDto,
+  UpdateCreditRuleDto,
+} from "./dto/admin-credits.dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
@@ -30,6 +36,7 @@ interface AuthenticatedRequest {
 /**
  * 积分控制器
  */
+@ApiTags("Credits")
 @Controller("credits")
 @UseGuards(JwtAuthGuard)
 export class CreditsController {
@@ -144,6 +151,7 @@ export class CreditsController {
 /**
  * 管理员积分控制器
  */
+@ApiTags("Credits")
 @Controller("admin/credits")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminCreditsController {
@@ -209,8 +217,8 @@ export class AdminCreditsController {
    */
   @Post("freeze")
   @HttpCode(HttpStatus.OK)
-  async freezeAccount(@Body() body: { userId: string; reason: string }) {
-    await this.creditsService.freezeAccount(body.userId, body.reason);
+  async freezeAccount(@Body() dto: FreezeAccountDto) {
+    await this.creditsService.freezeAccount(dto.userId, dto.reason);
     return { message: "Account frozen successfully" };
   }
 
@@ -219,8 +227,8 @@ export class AdminCreditsController {
    */
   @Post("unfreeze")
   @HttpCode(HttpStatus.OK)
-  async unfreezeAccount(@Body() body: { userId: string }) {
-    await this.creditsService.unfreezeAccount(body.userId);
+  async unfreezeAccount(@Body() dto: UnfreezeAccountDto) {
+    await this.creditsService.unfreezeAccount(dto.userId);
     return { message: "Account unfrozen successfully" };
   }
 
@@ -239,17 +247,8 @@ export class AdminCreditsController {
    */
   @Post("rules/update")
   @HttpCode(HttpStatus.OK)
-  async updateRule(
-    @Body()
-    body: {
-      moduleType: string;
-      operationType: string;
-      baseCredits?: number;
-      tokenMultiplier?: number;
-      isActive?: boolean;
-    },
-  ) {
-    const { moduleType, operationType, ...data } = body;
+  async updateRule(@Body() dto: UpdateCreditRuleDto) {
+    const { moduleType, operationType, ...data } = dto;
     return this.creditRulesService.updateRule(moduleType, operationType, data);
   }
 

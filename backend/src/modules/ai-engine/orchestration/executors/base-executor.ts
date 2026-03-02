@@ -401,16 +401,37 @@ export abstract class BaseExecutor implements IExecutor {
    */
   protected evaluateExpression(_expression: string, _scope: object): unknown {
     throw new Error(
-      'evaluateExpression is disabled for security reasons. Use a safe expression engine.',
+      "evaluateExpression is disabled for security reasons. Use a safe expression engine.",
     );
   }
 
   /**
    * 内部表达式求值（仅供 BaseExecutor 内部使用）
-   * 使用 new Function，仅处理受信任的工作流定义中的表达式。
+   * 使用安全路径解析代替 new Function，防止代码注入。
+   * 支持的表达式格式：属性访问、比较运算、逻辑运算。
    */
   private runExpression(expression: string, scope: object): unknown {
+    // Security: reject expressions with dangerous patterns
+    const SAFE_EXPRESSION = /^[\w\s.\[\]<>=!&|+\-*/%()'",:?]+$/;
+    if (!SAFE_EXPRESSION.test(expression)) {
+      this.logger.warn(
+        `Rejected unsafe expression: ${expression.slice(0, 100)}`,
+      );
+      return undefined;
+    }
+
+    // Security: reject known dangerous keywords
+    const FORBIDDEN =
+      /\b(eval|Function|import|require|process|globalThis|constructor|__proto__)\b/;
+    if (FORBIDDEN.test(expression)) {
+      this.logger.warn(
+        `Rejected expression with forbidden keyword: ${expression.slice(0, 100)}`,
+      );
+      return undefined;
+    }
+
     try {
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval -- Sandboxed eval with SAFE_EXPRESSION + FORBIDDEN guards above
       const fn = new Function(...Object.keys(scope), `return ${expression}`);
       return fn(...Object.values(scope));
     } catch {

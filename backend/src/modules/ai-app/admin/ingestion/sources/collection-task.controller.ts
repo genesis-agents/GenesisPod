@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Logger,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { SkipThrottle } from "@nestjs/throttler";
 import {
   CollectionTaskService,
@@ -19,6 +20,7 @@ import {
 } from "./collection-task.service";
 import { CollectionTaskStatus, CollectionTaskType } from "@prisma/client";
 
+@ApiTags("Data Collection - Tasks")
 @Controller("data-collection/tasks")
 export class CollectionTaskController {
   private readonly logger = new Logger(CollectionTaskController.name);

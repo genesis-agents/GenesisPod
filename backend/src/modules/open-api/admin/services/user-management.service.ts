@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import * as bcrypt from "bcrypt";
 
@@ -247,8 +248,7 @@ export class UserManagementService {
     }
 
     // 创建用户
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userData: any = {
+    const userData: Prisma.UserCreateInput = {
       email: data.email,
       username: data.username || null,
       role: data.role || "USER",
@@ -365,8 +365,7 @@ export class UserManagementService {
       throw new NotFoundException(`User ${userId} not found`);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = {};
+    const updateData: Prisma.UserUpdateInput = {};
     if (data.username !== undefined) updateData.username = data.username;
     if (data.role !== undefined) updateData.role = data.role;
     if (data.status !== undefined) {

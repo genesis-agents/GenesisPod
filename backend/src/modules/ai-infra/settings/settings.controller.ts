@@ -13,6 +13,7 @@ import {
   UseGuards,
   Logger,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import {
@@ -26,6 +27,7 @@ import {
 } from "./settings.service";
 import { EmailService } from "../email/email.service";
 
+@ApiTags("Admin - Settings")
 @Controller("api/v1/admin/settings")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class SettingsController {

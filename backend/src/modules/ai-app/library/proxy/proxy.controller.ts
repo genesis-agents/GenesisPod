@@ -8,6 +8,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Response } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import axios from "axios";
 import {
   isDomainAllowed,
@@ -31,6 +32,7 @@ import { Public } from "../../../../common/decorators/public.decorator";
  * 5. 优雅降级（提示用户手动访问）
  */
 @Public()
+@ApiTags("Proxy")
 @Controller("proxy")
 export class ProxyController {
   private readonly logger = new Logger(ProxyController.name);
@@ -299,7 +301,7 @@ export class ProxyController {
           error.stack,
         );
         throw new HttpException(
-          `Failed to fetch PDF: ${error.message}`,
+          "Failed to fetch external PDF resource",
           error.response?.status || HttpStatus.BAD_GATEWAY,
         );
       }

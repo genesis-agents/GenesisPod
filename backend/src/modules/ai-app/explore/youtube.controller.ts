@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { Response } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import { YoutubeService } from "./youtube.service";
 import {
   PdfGeneratorService,
@@ -51,6 +52,7 @@ interface ExportPdfRequestDto {
 }
 
 @Public()
+@ApiTags("YouTube")
 @Controller("youtube")
 export class YoutubeController {
   private readonly logger = new Logger(YoutubeController.name);

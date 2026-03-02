@@ -11,6 +11,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { BlogCollectionService } from "./blog-collection.service";
 import { BlogSchedulerService } from "./blog-scheduler.service";
 import { SchedulerConfig } from "./blog-collection.types";
@@ -19,6 +20,7 @@ import { SchedulerConfig } from "./blog-collection.types";
  * Blog Collection Controller
  * 提供博客采集相关的API端点
  */
+@ApiTags("Data Collection - Blog")
 @Controller("blog")
 export class BlogCollectionController {
   private readonly logger = new Logger(BlogCollectionController.name);

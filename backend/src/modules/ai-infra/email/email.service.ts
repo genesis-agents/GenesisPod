@@ -15,6 +15,17 @@ import { Resend } from "resend";
 import { SettingsService } from "../settings/settings.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
 
+interface ResendEmailPayload {
+  from: string;
+  to: string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  replyTo?: string;
+  attachments?: Array<{ filename: string; content: Buffer | string }>;
+  [key: string]: unknown;
+}
+
 export type EmailProvider = "smtp" | "resend";
 
 export interface EmailAttachment {
@@ -209,9 +220,8 @@ export class EmailService implements OnModuleInit {
     }
 
     try {
-      // Build email options - use Record to avoid complex Resend SDK typing
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const emailOptions: any = {
+      // Build email options
+      const emailOptions: ResendEmailPayload = {
         from: this.emailFrom,
         to,
         subject: options.subject,
@@ -240,7 +250,9 @@ export class EmailService implements OnModuleInit {
         }));
       }
 
-      const response = await this.resendClient.emails.send(emailOptions);
+      const response = await this.resendClient.emails.send(
+        emailOptions as Parameters<typeof this.resendClient.emails.send>[0],
+      );
 
       if (response.error) {
         this.logger.error(`Resend error: ${response.error.message}`);

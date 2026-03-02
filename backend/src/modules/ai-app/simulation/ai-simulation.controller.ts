@@ -11,6 +11,7 @@ import {
   Sse,
   MessageEvent,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Observable, interval, map, switchMap, from, takeWhile } from "rxjs";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
@@ -19,6 +20,7 @@ import { Prisma, SimulationTeam, SimulationRunStatus } from "@prisma/client";
 import { ExternalDataService } from "./external-data.service";
 import { AIAssistService } from "./ai-assist.service";
 
+@ApiTags("AI Simulation")
 @Controller("simulation")
 @UseGuards(JwtAuthGuard)
 export class AiSimulationController {

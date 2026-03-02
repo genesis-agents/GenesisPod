@@ -10,6 +10,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { CollectionRuleService } from "../services/collection-rule.service";
 import { ResourceType } from "@prisma/client";
 
@@ -17,6 +18,7 @@ import { ResourceType } from "@prisma/client";
  * Collection Rule Controller
  * 提供采集规则管理的API端点
  */
+@ApiTags("Data Management - Rules")
 @Controller("data-management/rules")
 export class CollectionRuleController {
   private readonly logger = new Logger(CollectionRuleController.name);

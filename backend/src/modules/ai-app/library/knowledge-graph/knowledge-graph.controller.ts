@@ -13,6 +13,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { Request } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
 import { Public } from "../../../../common/decorators/public.decorator";
 import { AiChatService } from "../../../ai-engine/facade";
@@ -23,6 +24,7 @@ import { AIModelType } from "@prisma/client";
  * GET endpoints are public (read-only browsing).
  * POST and DELETE endpoints require authentication (write/expensive operations).
  */
+@ApiTags("Knowledge Graph")
 @Controller("knowledge-graph")
 export class KnowledgeGraphController {
   private readonly logger = new Logger(KnowledgeGraphController.name);

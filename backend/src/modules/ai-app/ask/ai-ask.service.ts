@@ -582,11 +582,13 @@ export class AiAskService {
 
           if (messageCount === 2 && session.title === "New Chat") {
             // 异步生成标题
-            this.generateSessionTitle(sessionId, dto.content).catch((err) => {
-              this.logger.warn(
-                `Failed to generate session title: ${err.message}`,
-              );
-            });
+            void this.generateSessionTitle(sessionId, dto.content).catch(
+              (err) => {
+                this.logger.warn(
+                  `Failed to generate session title: ${err.message}`,
+                );
+              },
+            );
           }
 
           // 串行检测意图（AI 回复写入数据库后执行，所有异常静默捕获）

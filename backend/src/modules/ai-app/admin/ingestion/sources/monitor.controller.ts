@@ -1,6 +1,8 @@
 import { Controller, Get, Param, Query } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { MonitorService } from "./monitor.service";
 
+@ApiTags("Data Collection - Monitor")
 @Controller("data-collection/monitor")
 export class MonitorController {
   constructor(private readonly monitorService: MonitorService) {}

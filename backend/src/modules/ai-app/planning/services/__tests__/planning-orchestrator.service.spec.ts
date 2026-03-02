@@ -12,6 +12,19 @@ jest.mock("../../../teams/services/ai/ai-response.service", () => ({
 }));
 jest.mock("../../../../ai-engine/facade", () => ({
   AIEngineFacade: class {},
+  ChatFacade: class {},
+  TeamFacade: class {},
+  RAGFacade: class {},
+  MissionExecutorService: class {},
+  ProgressTrackerService: class {},
+  EventJournalService: class {},
+  KernelMemoryManagerService: class {},
+  ResourceManagerService: class {},
+  EventBusService: class {},
+  KernelContext: { run: jest.fn((_, fn) => fn()) },
+}));
+jest.mock("../../../../ai-infra/facade", () => ({
+  BillingContext: { run: jest.fn((_, fn) => fn()) },
 }));
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -20,12 +33,17 @@ import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
   PlanningOrchestratorService,
   PlanningTopicMetadata,
+  PlanPhaseStatus,
 } from "../planning-orchestrator.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiTeamsService } from "../../../teams/ai-teams.service";
 import { AiResponseService } from "../../../teams/services/ai/ai-response.service";
 import { PlanningTemplateService } from "../planning-template.service";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
+import {
+  ChatFacade,
+  TeamFacade,
+  RAGFacade,
+} from "../../../../ai-engine/facade";
 import { CreatePlanDto, PlanningDepth } from "../../dto/create-plan.dto";
 import { UpdatePlanDto } from "../../dto/update-plan.dto";
 import { TopicType } from "@prisma/client";
@@ -128,11 +146,17 @@ const mockTemplateService = {
 
 const mockAiFacade = {
   chat: jest.fn(),
-  reflect: jest.fn(),
-  search: jest.fn(),
-  aiCompressContext: jest.fn(),
   getReasoningModel: jest.fn(),
   getAvailableModelsExtended: jest.fn(),
+};
+
+const mockTeamFacade = {
+  reflect: jest.fn(),
+  aiCompressContext: jest.fn(),
+};
+
+const mockRagFacade = {
+  search: jest.fn(),
 };
 
 // ======================================================
@@ -152,7 +176,9 @@ describe("PlanningOrchestratorService", () => {
         { provide: AiTeamsService, useValue: mockAiTeamsService },
         { provide: AiResponseService, useValue: mockAiResponseService },
         { provide: PlanningTemplateService, useValue: mockTemplateService },
-        { provide: AIEngineFacade, useValue: mockAiFacade },
+        { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: TeamFacade, useValue: mockTeamFacade },
+        { provide: RAGFacade, useValue: mockRagFacade },
       ],
     }).compile();
 
@@ -408,7 +434,7 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 100,
       });
-      mockAiFacade.reflect.mockResolvedValue(null);
+      mockTeamFacade.reflect.mockResolvedValue(null);
       mockAiResponseService.createAIMessage.mockResolvedValue({});
 
       const result = await service.advancePhase("topic-1", "user-1");
@@ -422,7 +448,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 2,
         phaseStatus: { 2: { status: "active" } } as Record<
           number,
-          { status: string }
+          PlanPhaseStatus
         >,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
@@ -438,7 +464,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 3,
         phaseStatus: { 3: { status: "pending" } } as Record<
           number,
-          { status: string }
+          PlanPhaseStatus
         >,
       });
       mockPrisma.topic.findFirst
@@ -451,7 +477,7 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 50,
       });
-      mockAiFacade.reflect.mockResolvedValue(null);
+      mockTeamFacade.reflect.mockResolvedValue(null);
       mockAiResponseService.createAIMessage.mockResolvedValue({});
 
       const result = await service.advancePhase("topic-1", "user-1");
@@ -464,7 +490,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 2,
         phaseStatus: {
           2: { status: "completed", summary: "done" },
-        } as Record<number, { status: string; summary?: string }>,
+        } as Record<number, PlanPhaseStatus>,
       });
       mockPrisma.topic.findFirst
         .mockResolvedValueOnce(topic) // advancePhase ownership check
@@ -476,7 +502,7 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 50,
       });
-      mockAiFacade.reflect.mockResolvedValue(null);
+      mockTeamFacade.reflect.mockResolvedValue(null);
       mockAiResponseService.createAIMessage.mockResolvedValue({});
 
       const result = await service.advancePhase("topic-1", "user-1");
@@ -489,7 +515,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 6,
         phaseStatus: {
           6: { status: "completed", summary: "done" },
-        } as Record<number, { status: string; summary?: string }>,
+        } as Record<number, PlanPhaseStatus>,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
 
@@ -516,7 +542,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 2,
         phaseStatus: {
           2: { status: "failed", error: "timeout" },
-        } as Record<number, { status: string; error?: string }>,
+        } as Record<number, PlanPhaseStatus>,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
       mockPrisma.topic.update.mockResolvedValue({});
@@ -526,8 +552,8 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 50,
       });
-      mockAiFacade.reflect.mockResolvedValue(null);
-      mockAiFacade.search.mockResolvedValue({ success: false, results: [] });
+      mockTeamFacade.reflect.mockResolvedValue(null);
+      mockRagFacade.search.mockResolvedValue({ success: false, results: [] });
       mockAiResponseService.createAIMessage.mockResolvedValue({});
 
       await expect(
@@ -567,7 +593,7 @@ describe("PlanningOrchestratorService", () => {
           4: { status: "pending" },
           5: { status: "pending" },
           6: { status: "pending" },
-        } as Record<number, { status: string; summary?: string }>,
+        } as Record<number, PlanPhaseStatus>,
       });
       mockPrisma.topic.findFirst
         .mockResolvedValueOnce(topic) // replanFromPhase check
@@ -579,7 +605,7 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 50,
       });
-      mockAiFacade.reflect.mockResolvedValue(null);
+      mockTeamFacade.reflect.mockResolvedValue(null);
       mockAiResponseService.createAIMessage.mockResolvedValue({});
 
       const result = await service.replanFromPhase("topic-1", 3, "user-1");
@@ -594,7 +620,7 @@ describe("PlanningOrchestratorService", () => {
           1: { status: "completed" },
           2: { status: "completed" },
           3: { status: "failed" },
-        } as Record<number, { status: string }>,
+        } as Record<number, PlanPhaseStatus>,
         references: [
           {
             id: "ref-1",
@@ -617,7 +643,7 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 50,
       });
-      mockAiFacade.reflect.mockResolvedValue(null);
+      mockTeamFacade.reflect.mockResolvedValue(null);
       mockAiResponseService.createAIMessage.mockResolvedValue({});
 
       await service.replanFromPhase("topic-1", 2, "user-1");
@@ -641,7 +667,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 2,
         phaseStatus: { 2: { status: "active" } } as Record<
           number,
-          { status: string }
+          PlanPhaseStatus
         >,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
@@ -668,7 +694,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 3,
         phaseStatus: { 3: { status: "active" } } as Record<
           number,
-          { status: string }
+          PlanPhaseStatus
         >,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
@@ -695,7 +721,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 2,
         phaseStatus: { 2: { status: "completed" } } as Record<
           number,
-          { status: string }
+          PlanPhaseStatus
         >,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
@@ -722,7 +748,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 6,
         phaseStatus: {
           6: { status: "completed", summary: "# Final Report\n\nContent here" },
-        } as Record<number, { status: string; summary?: string }>,
+        } as Record<number, PlanPhaseStatus>,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
 
@@ -752,10 +778,7 @@ describe("PlanningOrchestratorService", () => {
           },
           2: { status: "completed", summary: "Phase 2 output" },
           3: { status: "active" },
-        } as Record<
-          number,
-          { status: string; summary?: string; completedAt?: string }
-        >,
+        } as Record<number, PlanPhaseStatus>,
       });
       mockPrisma.topic.findFirst.mockResolvedValue(topic);
 
@@ -774,7 +797,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 6,
         phaseStatus: {
           6: { status: "completed", summary: "Final" },
-        } as Record<number, { status: string; summary?: string }>,
+        } as Record<number, PlanPhaseStatus>,
         references: [
           {
             id: "ref-1",
@@ -842,7 +865,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 1,
         phaseStatus: { 1: { status: "active" } } as Record<
           number,
-          { status: string }
+          PlanPhaseStatus
         >,
       });
       // Used by activatePhase → executePhaseAsync inner
@@ -854,7 +877,7 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 0,
       });
-      mockAiFacade.reflect.mockResolvedValue(null);
+      mockTeamFacade.reflect.mockResolvedValue(null);
 
       // Trigger activation, which fires executePhaseAsync in background
       const topic2 = makeTopic({ currentPhase: 0 });
@@ -876,7 +899,7 @@ describe("PlanningOrchestratorService", () => {
         currentPhase: 2,
         phaseStatus: { 2: { status: "active" } } as Record<
           number,
-          { status: string }
+          PlanPhaseStatus
         >,
       });
       const topic = { ...makeTopic(activeMeta), metadata: activeMeta };
@@ -889,8 +912,8 @@ describe("PlanningOrchestratorService", () => {
         model: "gpt-4o",
         tokensUsed: 10,
       });
-      mockAiFacade.search.mockResolvedValue({ success: false, results: [] });
-      mockAiFacade.reflect.mockResolvedValue(null);
+      mockRagFacade.search.mockResolvedValue({ success: false, results: [] });
+      mockTeamFacade.reflect.mockResolvedValue(null);
       mockAiResponseService.createAIMessage.mockResolvedValue({});
 
       // Direct call to the private method via bracket notation for testing
@@ -903,7 +926,7 @@ describe("PlanningOrchestratorService", () => {
       };
       await innerService.executePhaseAsyncInner("topic-1", "user-1", 2);
 
-      expect(mockAiFacade.search).toHaveBeenCalled();
+      expect(mockRagFacade.search).toHaveBeenCalled();
     });
   });
 

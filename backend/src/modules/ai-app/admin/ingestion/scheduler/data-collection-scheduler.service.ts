@@ -26,6 +26,15 @@ interface CronJob {
   destroy?: () => void;
 }
 
+interface CronModule {
+  schedule(
+    expression: string,
+    callback: () => void,
+    options?: { timezone?: string },
+  ): CronJob;
+  validate?(expression: string): boolean;
+}
+
 /**
  * Data Collection Scheduler Service
  * 通用数据采集调度器，支持所有数据源类型的定期自动采集
@@ -46,8 +55,7 @@ export class DataCollectionSchedulerService
   private runningResourceTypes: Set<string> = new Set();
 
   /** cron 模块引用 */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private cron: any = null;
+  private cron: CronModule | null = null;
 
   constructor(
     private configService: ConfigService,

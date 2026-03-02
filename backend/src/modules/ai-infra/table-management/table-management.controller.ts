@@ -7,6 +7,7 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { TableManagementService } from "./table-management.service";
 import {
   TableCategory,
@@ -19,6 +20,7 @@ import {
   HealthStatus,
 } from "./dto/table-info.dto";
 
+@ApiTags("Admin - Tables")
 @Controller("admin/tables")
 export class TableManagementController {
   private readonly logger = new Logger(TableManagementController.name);

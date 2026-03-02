@@ -12,11 +12,13 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { QuotaService } from "./quota.service";
 import { ProviderQuota } from "./quota.types";
 
+@ApiTags("Admin - Quota")
 @Controller("admin/quota")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class QuotaController {

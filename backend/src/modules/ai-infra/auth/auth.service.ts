@@ -5,6 +5,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CacheService, CachePrefix } from "../../../common/cache/cache.service";
 import * as bcrypt from "bcrypt";
@@ -93,6 +94,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private cacheService: CacheService,
+    private configService: ConfigService,
   ) {}
 
   /**
@@ -314,6 +316,8 @@ export class AuthService {
    *
    * @note JWT payload 包含 sub(userId), email, username
    *       JwtStrategy.validate() 直接返回这些信息，不查数据库
+   * @security Refresh token 使用独立密钥（REFRESH_TOKEN_SECRET），与 access
+   *           token 密钥隔离，防止 refresh token 被当作 access token 使用
    */
   private generateTokens(
     userId: string,
@@ -326,8 +330,16 @@ export class AuthService {
       username: username || email.split("@")[0],
     };
 
+    const jwtSecret = this.configService.get<string>("JWT_SECRET") ?? "";
+    const refreshSecret =
+      this.configService.get<string>("REFRESH_TOKEN_SECRET") ||
+      jwtSecret + "-refresh";
+
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: "30d" });
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: "30d",
+      secret: refreshSecret,
+    });
 
     return {
       accessToken,

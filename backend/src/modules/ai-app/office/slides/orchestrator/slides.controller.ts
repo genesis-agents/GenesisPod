@@ -34,6 +34,7 @@ import {
   UseGuards,
   Optional,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { Observable } from "rxjs";
@@ -219,6 +220,7 @@ export class UpdateSubscriptionDto {
   action!: "refresh" | "unsubscribe";
 }
 
+@ApiTags("AI Office - Slides")
 @Controller("ai-office/slides")
 @UseGuards(JwtAuthGuard, RateLimitGuard)
 export class SlidesController {

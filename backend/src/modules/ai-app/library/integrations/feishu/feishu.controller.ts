@@ -24,6 +24,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { Request, Response } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import { FeishuService } from "./feishu.service";
 import { FeishuCryptoService } from "./feishu-crypto.service";
 import { FeishuAuthService } from "./feishu-auth.service";
@@ -54,6 +55,7 @@ interface FeishuCallbackBody {
   event?: Record<string, unknown>;
 }
 
+@ApiTags("Feishu Integration")
 @Controller("feishu")
 export class FeishuController {
   private readonly logger = new Logger(FeishuController.name);

@@ -25,6 +25,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Response } from "express";
+import { ApiTags } from "@nestjs/swagger";
 import {
   TeamsService,
   CreateMissionDto,
@@ -73,6 +74,7 @@ interface MissionCancelResponse {
 
 // ==================== Controller ====================
 
+@ApiTags("AI Teams")
 @Controller("api/ai/teams")
 export class TeamsController {
   private readonly logger = new Logger(TeamsController.name);

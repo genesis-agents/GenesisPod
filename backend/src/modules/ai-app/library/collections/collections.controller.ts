@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
   HttpCode,
 } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { BillingContext } from "../../../ai-infra/facade";
 import { CollectionsService } from "./collections.service";
 import {
@@ -36,6 +37,7 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
  * - 所有修改操作（POST/PATCH/DELETE）需要强制认证
  * - 查询操作根据公开性决定是否需要认证
  */
+@ApiTags("Collections")
 @Controller("collections")
 export class CollectionsController {
   constructor(private readonly collectionsService: CollectionsService) {}

@@ -52,6 +52,8 @@ import { WritingContextService } from "../writing-context.service";
 import { WritingStyleService } from "../writing-style.service";
 import { WritingQualityService } from "../writing-quality.service";
 import { CheckpointService } from "../checkpoint.service";
+import { WritingJsonParserService } from "../writing-json-parser.service";
+import { WritingTextProcessorService } from "../writing-text-processor.service";
 import {
   StoryArchitectAgent,
   BibleKeeperAgent,
@@ -297,6 +299,8 @@ describe("WritingMissionService", () => {
         { provide: WritingStyleService, useValue: {} },
         { provide: WritingQualityService, useValue: {} },
         { provide: CheckpointService, useValue: {} },
+        WritingJsonParserService,
+        WritingTextProcessorService,
       ],
     }).compile();
 
@@ -1495,17 +1499,8 @@ describe("WritingMissionService", () => {
     type ServicePrivate = WritingMissionService & {
       mapTemperatureToCreativity: (temp: number) => string;
       mapMaxTokensToOutputLength: (tokens: number) => string;
-      numberToChinese: (num: number) => string;
-      countWords: (text: string) => number;
-      extractChapterTitle: (content: string, chapterNumber: number) => string;
-      parseOutlineJSON: (
-        content: string,
-        totalVolumes: number,
-        totalChapters: number,
-      ) => unknown;
-      parseWorldSettings: (content: string) => Record<string, unknown>;
-      normalizeConsistencyResult: (parsed: Record<string, unknown>) => unknown;
-      parseVerificationResult: (content: string) => unknown;
+      jsonParser: WritingJsonParserService;
+      textProcessor: WritingTextProcessorService;
     };
 
     let svc: ServicePrivate;
@@ -1572,98 +1567,98 @@ describe("WritingMissionService", () => {
 
     describe("numberToChinese", () => {
       it("should convert single digits correctly", () => {
-        expect(svc.numberToChinese(0)).toBe("零");
-        expect(svc.numberToChinese(1)).toBe("一");
-        expect(svc.numberToChinese(5)).toBe("五");
-        expect(svc.numberToChinese(10)).toBe("十");
+        expect(svc.textProcessor.numberToChinese(0)).toBe("零");
+        expect(svc.textProcessor.numberToChinese(1)).toBe("一");
+        expect(svc.textProcessor.numberToChinese(5)).toBe("五");
+        expect(svc.textProcessor.numberToChinese(10)).toBe("十");
       });
 
       it("should convert teens correctly", () => {
-        expect(svc.numberToChinese(11)).toBe("十一");
-        expect(svc.numberToChinese(19)).toBe("十九");
-        expect(svc.numberToChinese(15)).toBe("十五");
+        expect(svc.textProcessor.numberToChinese(11)).toBe("十一");
+        expect(svc.textProcessor.numberToChinese(19)).toBe("十九");
+        expect(svc.textProcessor.numberToChinese(15)).toBe("十五");
       });
 
       it("should convert 20-99 correctly", () => {
-        expect(svc.numberToChinese(20)).toBe("二十");
-        expect(svc.numberToChinese(21)).toBe("二十一");
-        expect(svc.numberToChinese(30)).toBe("三十");
-        expect(svc.numberToChinese(99)).toBe("九十九");
+        expect(svc.textProcessor.numberToChinese(20)).toBe("二十");
+        expect(svc.textProcessor.numberToChinese(21)).toBe("二十一");
+        expect(svc.textProcessor.numberToChinese(30)).toBe("三十");
+        expect(svc.textProcessor.numberToChinese(99)).toBe("九十九");
       });
 
       it("should return numeric string for >= 100", () => {
-        expect(svc.numberToChinese(100)).toBe("100");
-        expect(svc.numberToChinese(200)).toBe("200");
+        expect(svc.textProcessor.numberToChinese(100)).toBe("100");
+        expect(svc.textProcessor.numberToChinese(200)).toBe("200");
       });
     });
 
     describe("countWords", () => {
       it("should count Chinese characters correctly", () => {
         const text = "这是一段中文文本，共十一个汉字。";
-        const count = svc.countWords(text);
+        const count = svc.textProcessor.countWords(text);
         expect(count).toBeGreaterThan(0);
       });
 
       it("should count English words correctly", () => {
         const text = "This is a simple English sentence with seven words";
-        const count = svc.countWords(text);
+        const count = svc.textProcessor.countWords(text);
         expect(count).toBe(9);
       });
 
       it("should count mixed Chinese and English text", () => {
         const text = "这是mixed content with Chinese and English";
-        const count = svc.countWords(text);
+        const count = svc.textProcessor.countWords(text);
         expect(count).toBeGreaterThan(5);
       });
 
       it("should return 0 for empty string", () => {
-        expect(svc.countWords("")).toBe(0);
+        expect(svc.textProcessor.countWords("")).toBe(0);
       });
     });
 
     describe("extractChapterTitle", () => {
       it("should extract title after 第X章：format", () => {
         const content = "第一章：暗流涌动\n\n故事开始了...";
-        const title = svc.extractChapterTitle(content, 1);
+        const title = svc.textProcessor.extractChapterTitle(content, 1);
         expect(title).toBe("暗流涌动");
       });
 
       it("should extract title after 第X章: format", () => {
         const content = "第二章: 风起云涌\n\n故事继续...";
-        const title = svc.extractChapterTitle(content, 2);
+        const title = svc.textProcessor.extractChapterTitle(content, 2);
         expect(title).toBe("风起云涌");
       });
 
       it("should extract title from markdown heading", () => {
         const content = "## 第三章：命运交汇\n\n故事内容...";
-        const title = svc.extractChapterTitle(content, 3);
+        const title = svc.textProcessor.extractChapterTitle(content, 3);
         expect(title).toBe("命运交汇");
       });
 
       it("should return fallback when no title can be extracted", () => {
         const content = "这是没有章节格式的内容，直接开始了故事情节。";
-        const title = svc.extractChapterTitle(content, 1);
+        const title = svc.textProcessor.extractChapterTitle(content, 1);
         // Should return something (either empty or fallback)
         expect(typeof title).toBe("string");
       });
 
       it("should handle 第X章 第X回 format", () => {
         const content = "第一章 第一回 初入江湖\n\n故事开始...";
-        const title = svc.extractChapterTitle(content, 1);
+        const title = svc.textProcessor.extractChapterTitle(content, 1);
         expect(title).toBe("初入江湖");
       });
 
       it("should handle pure 第X章 without title", () => {
         const content =
           "第一章\n\n故事开始了，这里是正文内容，有足够长的文字。";
-        const title = svc.extractChapterTitle(content, 1);
+        const title = svc.textProcessor.extractChapterTitle(content, 1);
         expect(typeof title).toBe("string");
       });
     });
 
     describe("parseOutlineJSON", () => {
       it("should return default structure when content is empty", () => {
-        const result = svc.parseOutlineJSON("", 1, 3) as {
+        const result = svc.jsonParser.parseOutlineJSON("", 1, 3) as {
           bookTitle: string;
           chapters: unknown[];
           volumes: unknown[];
@@ -1706,7 +1701,11 @@ describe("WritingMissionService", () => {
             },
           ],
         };
-        const result = svc.parseOutlineJSON(JSON.stringify(outline), 1, 3) as {
+        const result = svc.jsonParser.parseOutlineJSON(
+          JSON.stringify(outline),
+          1,
+          3,
+        ) as {
           bookTitle: string;
           chapters: Array<{ title: string }>;
           core: { theme: string };
@@ -1734,7 +1733,7 @@ describe("WritingMissionService", () => {
           ],
         };
         const content = "```json\n" + JSON.stringify(outline) + "\n```";
-        const result = svc.parseOutlineJSON(content, 1, 1) as {
+        const result = svc.jsonParser.parseOutlineJSON(content, 1, 1) as {
           bookTitle: string;
           chapters: Array<{ title: string }>;
         };
@@ -1754,7 +1753,11 @@ describe("WritingMissionService", () => {
             { volumeIndex: 0, title: "仅一章", plot: "情节", keyPoint: "关键" },
           ],
         };
-        const result = svc.parseOutlineJSON(JSON.stringify(outline), 1, 5) as {
+        const result = svc.jsonParser.parseOutlineJSON(
+          JSON.stringify(outline),
+          1,
+          5,
+        ) as {
           chapters: Array<{ title: string }>;
         };
 
@@ -1771,7 +1774,11 @@ describe("WritingMissionService", () => {
             { volumeIndex: 0, title: "第一章", plot: "情节", keyPoint: "关键" },
           ],
         };
-        const result = svc.parseOutlineJSON(JSON.stringify(outline), 1, 1) as {
+        const result = svc.jsonParser.parseOutlineJSON(
+          JSON.stringify(outline),
+          1,
+          1,
+        ) as {
           chapters: Array<{ title: string }>;
         };
         // Pure chapter number format should be stripped to empty
@@ -1779,7 +1786,11 @@ describe("WritingMissionService", () => {
       });
 
       it("should handle malformed JSON gracefully", () => {
-        const result = svc.parseOutlineJSON("{invalid json", 1, 2) as {
+        const result = svc.jsonParser.parseOutlineJSON(
+          "{invalid json",
+          1,
+          2,
+        ) as {
           chapters: unknown[];
         };
         expect(result.chapters).toHaveLength(2);
@@ -1793,14 +1804,18 @@ describe("WritingMissionService", () => {
           world: { type: "Fantasy", era: "Medieval", geography: "Kingdoms" },
           characters: [{ name: "Hero", role: "protagonist" }],
         };
-        const result = svc.parseWorldSettings(JSON.stringify(settings));
+        const result = svc.jsonParser.parseWorldSettings(
+          JSON.stringify(settings),
+        );
 
         expect(result.core).toBeDefined();
         expect(result.characters).toHaveLength(1);
       });
 
       it("should return a default structure on invalid JSON", () => {
-        const result = svc.parseWorldSettings("not valid json at all");
+        const result = svc.jsonParser.parseWorldSettings(
+          "not valid json at all",
+        );
         // Returns a fallback object with empty arrays for characters, factions, etc.
         expect(result).toBeDefined();
         expect(typeof result).toBe("object");
@@ -1811,7 +1826,7 @@ describe("WritingMissionService", () => {
       it("should handle markdown-wrapped JSON", () => {
         const settings = { core: { summary: "test" }, characters: [] };
         const content = "```json\n" + JSON.stringify(settings) + "\n```";
-        const result = svc.parseWorldSettings(content);
+        const result = svc.jsonParser.parseWorldSettings(content);
 
         expect(result.core).toBeDefined();
       });
@@ -1832,7 +1847,7 @@ describe("WritingMissionService", () => {
             },
           ],
         };
-        const result = svc.normalizeConsistencyResult(parsed) as {
+        const result = svc.jsonParser.normalizeConsistencyResult(parsed) as {
           passed: boolean;
           score: number;
           issues: Array<{ type: string; severity: string }>;
@@ -1845,7 +1860,7 @@ describe("WritingMissionService", () => {
       });
 
       it("should use defaults for missing fields", () => {
-        const result = svc.normalizeConsistencyResult({}) as {
+        const result = svc.jsonParser.normalizeConsistencyResult({}) as {
           passed: boolean;
           score: number;
           issues: unknown[];
@@ -1857,7 +1872,7 @@ describe("WritingMissionService", () => {
       });
 
       it("should handle non-array issues field", () => {
-        const result = svc.normalizeConsistencyResult({
+        const result = svc.jsonParser.normalizeConsistencyResult({
           issues: "not-array",
         }) as {
           issues: unknown[];
@@ -1875,7 +1890,9 @@ describe("WritingMissionService", () => {
             { issueIndex: 2, fixed: false, evidence: "Still present" },
           ],
         };
-        const result = svc.parseVerificationResult(JSON.stringify(data)) as {
+        const result = svc.jsonParser.parseVerificationResult(
+          JSON.stringify(data),
+        ) as {
           allFixed: boolean;
           verifications: Array<{ fixed: boolean }>;
         };
@@ -1887,7 +1904,9 @@ describe("WritingMissionService", () => {
       });
 
       it("should return default when input is invalid JSON", () => {
-        const result = svc.parseVerificationResult("invalid json!!!") as {
+        const result = svc.jsonParser.parseVerificationResult(
+          "invalid json!!!",
+        ) as {
           allFixed: boolean;
           verifications: unknown[];
         };
@@ -1902,7 +1921,7 @@ describe("WritingMissionService", () => {
           verifications: [{ issueIndex: 1, fixed: true, evidence: "done" }],
         };
         const content = "```json\n" + JSON.stringify(data) + "\n```";
-        const result = svc.parseVerificationResult(content) as {
+        const result = svc.jsonParser.parseVerificationResult(content) as {
           allFixed: boolean;
           verifications: unknown[];
         };
@@ -1914,7 +1933,7 @@ describe("WritingMissionService", () => {
       it("should handle ``` prefix without json", () => {
         const data = { allFixed: false, verifications: [] };
         const content = "```\n" + JSON.stringify(data) + "\n```";
-        const result = svc.parseVerificationResult(content) as {
+        const result = svc.jsonParser.parseVerificationResult(content) as {
           allFixed: boolean;
         };
 
@@ -2382,9 +2401,9 @@ describe("WritingMissionService", () => {
 
   // ==================== extractSummaryFromContent ====================
 
-  describe("extractSummaryFromContent (private)", () => {
+  describe("extractSummaryFromContent (via textProcessor)", () => {
     type ServiceWithPrivate = WritingMissionService & {
-      extractSummaryFromContent: (content: string) => string;
+      textProcessor: { extractSummaryFromContent: (content: string) => string };
     };
 
     let svc: ServiceWithPrivate;
@@ -2396,13 +2415,13 @@ describe("WritingMissionService", () => {
     it("should return content as-is when length <= 800", () => {
       const content = "短内容".repeat(10);
       expect(content.length).toBeLessThanOrEqual(800);
-      const result = svc.extractSummaryFromContent(content);
+      const result = svc.textProcessor.extractSummaryFromContent(content);
       expect(result).toBe(content);
     });
 
     it("should truncate long content to start and end", () => {
       const content = "A".repeat(1000);
-      const result = svc.extractSummaryFromContent(content);
+      const result = svc.textProcessor.extractSummaryFromContent(content);
       expect(result.length).toBeLessThan(content.length);
       expect(result).toContain("...");
     });
@@ -2410,9 +2429,11 @@ describe("WritingMissionService", () => {
 
   // ==================== generateChapterSummarySimple ====================
 
-  describe("generateChapterSummarySimple (private)", () => {
+  describe("generateChapterSummarySimple (via textProcessor)", () => {
     type ServiceWithPrivate = WritingMissionService & {
-      generateChapterSummarySimple: (content: string) => string;
+      textProcessor: {
+        generateChapterSummarySimple: (content: string) => string;
+      };
     };
 
     let svc: ServiceWithPrivate;
@@ -2423,13 +2444,13 @@ describe("WritingMissionService", () => {
 
     it("should return content unchanged when length <= 800", () => {
       const short = "这是短内容";
-      const result = svc.generateChapterSummarySimple(short);
+      const result = svc.textProcessor.generateChapterSummarySimple(short);
       expect(result).toBe(short);
     });
 
     it("should combine first and last 400 chars for long content", () => {
       const content = "A".repeat(400) + "B".repeat(400) + "C".repeat(400);
-      const result = svc.generateChapterSummarySimple(content);
+      const result = svc.textProcessor.generateChapterSummarySimple(content);
       expect(result).toContain("A");
       expect(result).toContain("C");
       expect(result).toContain("...");
@@ -2438,12 +2459,14 @@ describe("WritingMissionService", () => {
 
   // ==================== parseConsistencyCheckResult ====================
 
-  describe("parseConsistencyCheckResult (private)", () => {
+  describe("parseConsistencyCheckResult (via jsonParser)", () => {
     type ServiceWithPrivate = WritingMissionService & {
-      parseConsistencyCheckResult: (content: string) => {
-        passed: boolean;
-        score: number;
-        issues: unknown[];
+      jsonParser: {
+        parseConsistencyCheckResult: (content: string) => {
+          passed: boolean;
+          score: number;
+          issues: unknown[];
+        };
       };
     };
 
@@ -2467,7 +2490,7 @@ describe("WritingMissionService", () => {
           },
         ],
       });
-      const result = svc.parseConsistencyCheckResult(json);
+      const result = svc.jsonParser.parseConsistencyCheckResult(json);
       expect(result.passed).toBe(false);
       expect(result.score).toBe(75);
       expect(result.issues).toHaveLength(1);
@@ -2478,7 +2501,7 @@ describe("WritingMissionService", () => {
         "```json\n" +
         JSON.stringify({ passed: true, score: 100, issues: [] }) +
         "\n```";
-      const result = svc.parseConsistencyCheckResult(json);
+      const result = svc.jsonParser.parseConsistencyCheckResult(json);
       expect(result.passed).toBe(true);
       expect(result.score).toBe(100);
     });
@@ -2488,12 +2511,14 @@ describe("WritingMissionService", () => {
         "```\n" +
         JSON.stringify({ passed: true, score: 90, issues: [] }) +
         "\n```";
-      const result = svc.parseConsistencyCheckResult(json);
+      const result = svc.jsonParser.parseConsistencyCheckResult(json);
       expect(result.score).toBe(90);
     });
 
     it("should return default when content is invalid JSON", () => {
-      const result = svc.parseConsistencyCheckResult("not valid json at all");
+      const result = svc.jsonParser.parseConsistencyCheckResult(
+        "not valid json at all",
+      );
       expect(result.passed).toBe(true);
       expect(result.score).toBe(100);
       expect(result.issues).toHaveLength(0);
@@ -2502,16 +2527,18 @@ describe("WritingMissionService", () => {
     it("should extract embedded JSON object from surrounding text", () => {
       const content =
         'Some text before {"passed": true, "score": 85, "issues": []} some text after';
-      const result = svc.parseConsistencyCheckResult(content);
+      const result = svc.jsonParser.parseConsistencyCheckResult(content);
       expect(result.score).toBe(85);
     });
   });
 
   // ==================== extractFirstJsonObject ====================
 
-  describe("extractFirstJsonObject (private)", () => {
+  describe("extractFirstJsonObject (via jsonParser)", () => {
     type ServiceWithPrivate = WritingMissionService & {
-      extractFirstJsonObject: (content: string) => string | null;
+      jsonParser: {
+        extractFirstJsonObject: (content: string) => string | null;
+      };
     };
 
     let svc: ServiceWithPrivate;
@@ -2521,29 +2548,33 @@ describe("WritingMissionService", () => {
     });
 
     it("should return null when no opening brace", () => {
-      const result = svc.extractFirstJsonObject("no json here");
+      const result = svc.jsonParser.extractFirstJsonObject("no json here");
       expect(result).toBeNull();
     });
 
     it("should extract valid JSON object", () => {
-      const result = svc.extractFirstJsonObject(
+      const result = svc.jsonParser.extractFirstJsonObject(
         'prefix {"key": "value"} suffix',
       );
       expect(result).toBe('{"key": "value"}');
     });
 
     it("should handle nested braces", () => {
-      const result = svc.extractFirstJsonObject('{"outer": {"inner": 1}}');
+      const result = svc.jsonParser.extractFirstJsonObject(
+        '{"outer": {"inner": 1}}',
+      );
       expect(result).toBe('{"outer": {"inner": 1}}');
     });
 
     it("should handle strings with escaped braces", () => {
-      const result = svc.extractFirstJsonObject('{"key": "val\\\"ue"}');
+      const result = svc.jsonParser.extractFirstJsonObject(
+        '{"key": "val\\\"ue"}',
+      );
       expect(result).not.toBeNull();
     });
 
     it("should return null for unclosed brace", () => {
-      const result = svc.extractFirstJsonObject('{"key": "value"');
+      const result = svc.jsonParser.extractFirstJsonObject('{"key": "value"');
       expect(result).toBeNull();
     });
   });
