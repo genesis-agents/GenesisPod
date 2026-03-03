@@ -2399,6 +2399,9 @@ enum AIModelType {
   IMAGE_GENERATION // 图片生成模型 (DALL-E 3, Imagen 4, Midjourney)
   IMAGE_EDITING // 图片编辑模型 (Imagen 3, DALL-E 2 edit)
 
+  // === 代码 Tier ===
+  CODE // 代码模型 (Claude Sonnet, GPT-4o, Codestral, DeepSeek Coder) - 用于代码生成、补全和分析
+
   // === 多模态 Tier ===
   MULTIMODAL // 多模态模型 (Gemini 2.0 Flash - 同时支持文本和图片)
 

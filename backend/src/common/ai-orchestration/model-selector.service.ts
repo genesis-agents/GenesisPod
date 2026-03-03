@@ -134,6 +134,9 @@ export class ModelSelectorService {
       case AiTaskType.EXTRACTION:
         return AIModelType.CHAT;
 
+      case AiTaskType.CODE:
+        return AIModelType.CODE;
+
       case AiTaskType.IMAGE_GENERATION:
         return AIModelType.IMAGE_GENERATION;
 

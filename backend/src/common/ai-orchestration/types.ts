@@ -16,6 +16,7 @@ export enum AiTaskType {
   SUMMARIZATION = "summarization", // 摘要
   TRANSLATION = "translation", // 翻译
   EXTRACTION = "extraction", // 信息提取
+  CODE = "code", // 代码生成/补全/分析
 
   // 图像任务
   IMAGE_GENERATION = "image_generation", // 图像生成

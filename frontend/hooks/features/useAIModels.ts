@@ -8,6 +8,7 @@ import { logger } from '@/lib/utils/logger';
 export type AIModelType =
   | 'CHAT' // 标准聊天模型 (GPT-4, Claude, Gemini Pro)
   | 'CHAT_FAST' // 快速/低成本聊天模型 (GPT-4o-mini, Claude Haiku, Gemini Flash)
+  | 'CODE' // 代码模型 (Claude Sonnet, GPT-4o, Codestral, DeepSeek Coder)
   | 'IMAGE_GENERATION' // 图片生成模型 (DALL-E 3, Imagen 4)
   | 'IMAGE_EDITING' // 图片编辑模型 (Imagen 3)
   | 'MULTIMODAL'; // 多模态模型 (Gemini 2.0 Flash)

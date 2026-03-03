@@ -12,6 +12,7 @@ import { ClientDate } from '@/components/common/ClientDate';
 type AIModelType =
   | 'CHAT'
   | 'CHAT_FAST'
+  | 'CODE'
   | 'IMAGE_GENERATION'
   | 'IMAGE_EDITING'
   | 'MULTIMODAL'
@@ -32,6 +33,14 @@ const MODEL_TYPE_OPTIONS = [
     label: '快速聊天',
     description:
       'GPT-4o-mini, Claude Haiku, Gemini Flash 等 - 用于分类、翻译、摘要等低成本任务',
+    tier: 'text',
+  },
+  // === 代码 Tier ===
+  {
+    value: 'CODE',
+    label: '代码生成',
+    description:
+      'Claude Sonnet, GPT-4o, Codestral, DeepSeek Coder 等 - 用于代码生成、补全和分析',
     tier: 'text',
   },
   // === 图片处理 Tier ===
