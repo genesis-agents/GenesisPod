@@ -302,10 +302,72 @@ describe("ProxyController (supplemental)", () => {
       expect(result).toHaveProperty("title");
     });
 
-    // Fallback chain tests skipped: proxy controller fallback logic
-    // involves complex internal state that requires integration-level mocking
-    it.todo("should fall through to Jina Reader when FlareSolverr fails");
-    it.todo("should fall through to Puppeteer when FlareSolverr and Jina fail");
+    it("should fall through to Jina Reader when FlareSolverr fails", async () => {
+      // 1st axios.get: direct fetch → 403
+      const fetchError = {
+        isAxiosError: true,
+        response: { status: 403 },
+        message: "Forbidden",
+      };
+      mockedAxios.get.mockRejectedValueOnce(fetchError);
+      (axios as unknown as Record<string, unknown>).isAxiosError = () => true;
+
+      // FlareSolverr available but fails
+      mockFlareSolverr.getIsAvailable.mockReturnValue(true);
+      mockFlareSolverr.fetchPage.mockResolvedValue({
+        success: false,
+        error: "timeout",
+      });
+
+      // 2nd axios.get: Jina Reader call → returns markdown (>200 chars)
+      const longMarkdown =
+        "# Article Title\n\n" + "This is a long article. ".repeat(20);
+      mockedAxios.get.mockResolvedValueOnce({
+        status: 200,
+        data: longMarkdown,
+      });
+
+      const result = await controller.proxyHtmlReader(
+        "https://arxiv.org/abs/1234",
+      );
+
+      expect(mockFlareSolverr.fetchPage).toHaveBeenCalled();
+      // Jina Reader was called (2nd axios.get)
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+      expect(result).toHaveProperty("title");
+      expect(result).toHaveProperty("viaJinaReader", true);
+    });
+
+    it("should fall through to Puppeteer when FlareSolverr and Jina fail", async () => {
+      // 1st axios.get: direct fetch → 403
+      const fetchError = {
+        isAxiosError: true,
+        response: { status: 403 },
+        message: "Forbidden",
+      };
+      mockedAxios.get.mockRejectedValueOnce(fetchError);
+      (axios as unknown as Record<string, unknown>).isAxiosError = () => true;
+
+      // FlareSolverr unavailable
+      mockFlareSolverr.getIsAvailable.mockReturnValue(false);
+
+      // 2nd axios.get: Jina Reader → fails
+      mockedAxios.get.mockRejectedValueOnce(new Error("Jina timeout"));
+
+      // Puppeteer succeeds
+      mockPuppeteerFetcher.fetchPage.mockResolvedValue({
+        success: true,
+        html: "<html><head><title>Puppeteer Page</title></head><body><p>Content from Puppeteer</p></body></html>",
+        loadTime: 3000,
+      });
+
+      const result = await controller.proxyHtmlReader(
+        "https://arxiv.org/abs/5678",
+      );
+
+      expect(mockPuppeteerFetcher.fetchPage).toHaveBeenCalled();
+      expect(result).toHaveProperty("title");
+    });
   });
 
   // ── proxyHtmlReaderNews ───────────────────────────────────────────────────
@@ -419,11 +481,37 @@ describe("ProxyController (supplemental)", () => {
       expect(result.finalUrl).toBe("https://example.com/final");
     });
 
-    // News reader fallback tests skipped: complex fallback chain
-    // requires integration-level mocking
-    it.todo(
-      "should return graceful degradation when all fallbacks fail for news reader",
-    );
+    it("should return graceful degradation when all fallbacks fail for news reader", async () => {
+      // 1st axios.get: direct fetch → 403
+      const fetchError = {
+        isAxiosError: true,
+        response: { status: 403 },
+        message: "Forbidden",
+      };
+      mockedAxios.get.mockRejectedValueOnce(fetchError);
+      (axios as unknown as Record<string, unknown>).isAxiosError = () => true;
+
+      // FlareSolverr unavailable
+      mockFlareSolverr.getIsAvailable.mockReturnValue(false);
+
+      // 2nd axios.get: Jina Reader → fails
+      mockedAxios.get.mockRejectedValueOnce(new Error("Jina timeout"));
+
+      // Puppeteer also fails
+      mockPuppeteerFetcher.fetchPage.mockResolvedValue({
+        success: false,
+        html: null,
+      });
+
+      const result = await controller.proxyHtmlReaderNews(
+        "https://example.com/protected-article",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.requiresCaptcha).toBe(true);
+      expect(result.plan).toBe("blocked");
+      expect(result.confidence).toBe(0);
+    });
 
     it("should use FlareSolverr for news reader when available on 403", async () => {
       const fetchError = {
@@ -455,8 +543,57 @@ describe("ProxyController (supplemental)", () => {
   // ── proxyImage – FlareSolverr retry path ──────────────────────────────────
 
   describe("proxyImage – FlareSolverr retry path", () => {
-    // Image FlareSolverr retry tests skipped: complex retry chain
-    // requires integration-level mocking of axios error flow
-    it.todo("should retry with cookies from FlareSolverr when available");
+    it("should retry with cookies from FlareSolverr when available", async () => {
+      // 1st axios.get: direct image fetch → 403
+      const fetchError = {
+        isAxiosError: true,
+        response: { status: 403 },
+        message: "Forbidden",
+      };
+      mockedAxios.get.mockRejectedValueOnce(fetchError);
+      (axios as unknown as Record<string, unknown>).isAxiosError = () => true;
+
+      // FlareSolverr available, returns success with cookies
+      mockFlareSolverr.getIsAvailable.mockReturnValue(true);
+      mockFlareSolverr.fetchPage.mockResolvedValue({
+        success: true,
+        html: "<html></html>",
+        solveTime: 2000,
+        cookies: [
+          { name: "cf_clearance", value: "abc123" },
+          { name: "session", value: "xyz789" },
+        ],
+        userAgent: "Mozilla/5.0 (FlareSolverr)",
+      });
+
+      // 2nd axios.get: retry with cookies → success
+      const imageBuffer = Buffer.from("fake-image-data");
+      mockedAxios.get.mockResolvedValueOnce({
+        status: 200,
+        data: imageBuffer,
+        headers: { "content-type": "image/png" },
+      });
+
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      };
+
+      await controller.proxyImage(
+        "https://example.com/photo.png",
+        res as never,
+      );
+
+      // Verify FlareSolverr was used
+      expect(mockFlareSolverr.fetchPage).toHaveBeenCalled();
+      // Verify retry request included cookies
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+      const retryCall = mockedAxios.get.mock.calls[1];
+      expect(retryCall[1]?.headers?.Cookie).toContain("cf_clearance=abc123");
+      expect(retryCall[1]?.headers?.Cookie).toContain("session=xyz789");
+      // Verify image was sent
+      expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/png");
+      expect(res.send).toHaveBeenCalled();
+    });
   });
 });
