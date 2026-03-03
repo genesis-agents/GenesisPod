@@ -33,8 +33,12 @@ interface CircuitBreaker {
 
 interface CircuitBreakerConfig {
   failureThreshold: number;
-  cooldownMs: number;
-  halfOpenMaxAttempts: number;
+  defaultCooldownMs: number;
+  rateLimitCooldownMs: number;
+  halfOpenSuccessThreshold: number;
+  inactiveTtlMs: number;
+  cleanupIntervalMs: number;
+  maxResponseSamples: number;
 }
 
 interface CircuitBreakersResponse {
@@ -356,15 +360,23 @@ export default function KernelResourcesPage() {
                 </span>
               </div>
               <div>
-                <span className="text-gray-500">Cooldown:</span>{' '}
+                <span className="text-gray-500">Default Cooldown:</span>{' '}
                 <span className="font-medium text-gray-800">
-                  {formatMs(breakerStats.config.cooldownMs)}
+                  {formatMs(breakerStats.config.defaultCooldownMs)}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500">Half-Open Max Attempts:</span>{' '}
+                <span className="text-gray-500">Rate Limit Cooldown:</span>{' '}
                 <span className="font-medium text-gray-800">
-                  {breakerStats.config.halfOpenMaxAttempts}
+                  {formatMs(breakerStats.config.rateLimitCooldownMs)}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">
+                  Half-Open Success Threshold:
+                </span>{' '}
+                <span className="font-medium text-gray-800">
+                  {breakerStats.config.halfOpenSuccessThreshold}
                 </span>
               </div>
               <div>

@@ -567,7 +567,10 @@ const infrastructureLayer: ArchitectureLayer = {
           href: '/admin/system/monitoring',
           icon: Activity,
           clickable: true,
-          stats: [{ label: '错误(24h)', key: 'monitoringErrors' }],
+          stats: [
+            { label: 'AI调用(24h)', key: 'kernelLLMCalls' },
+            { label: '错误(24h)', key: 'monitoringErrors' },
+          ],
         },
       ],
     },

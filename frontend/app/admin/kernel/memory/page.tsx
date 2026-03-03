@@ -360,34 +360,58 @@ export default function KernelMemoryPage() {
       domain="ai"
     >
       <div className="space-y-4">
-        {/* Process Selector */}
+        {/* Recent Processes Table */}
         {processes.length > 0 && (
-          <div className="rounded-lg bg-white p-4 shadow">
-            <label className="mb-2 block text-xs font-medium text-gray-700">
-              Recent Processes
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {processes.slice(0, 12).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleProcessSelect(p.id)}
-                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-                    processId === p.id
-                      ? 'border-violet-300 bg-violet-50 text-violet-700'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <span
-                    className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATE_BADGE_CLASSES[p.state]}`}
-                  >
-                    {p.state}
-                  </span>
-                  <span className="font-mono">{p.id.slice(0, 8)}...</span>
-                  <span className="text-gray-400">
-                    {p.agentId ? `(${p.agentId})` : ''}
-                  </span>
-                </button>
-              ))}
+          <div className="rounded-lg bg-white shadow">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Recent Processes
+              </h3>
+              <span className="text-xs text-gray-400">
+                {processes.length} processes
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-4 py-2.5">State</th>
+                    <th className="px-4 py-2.5">Process ID</th>
+                    <th className="px-4 py-2.5">Agent</th>
+                    <th className="px-4 py-2.5">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {processes.map((p) => (
+                    <tr
+                      key={p.id}
+                      onClick={() => handleProcessSelect(p.id)}
+                      className={`cursor-pointer transition-colors ${
+                        processId === p.id ? 'bg-violet-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATE_BADGE_CLASSES[p.state]}`}
+                        >
+                          {p.state}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="font-mono text-xs text-gray-700">
+                          {p.id}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-gray-600">
+                        {p.agentId || '-'}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-gray-500">
+                        {new Date(p.createdAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

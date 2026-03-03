@@ -305,12 +305,14 @@ describe('infrastructure layer (level 1)', () => {
     expect(statKeys).toContain('activeUsers');
   });
 
-  it('systemOps group has monitoring card with monitoringErrors stat', () => {
+  it('systemOps group has monitoring card with AI calls and error stats', () => {
     const group = layer.groups?.find((g) => g.id === 'systemOps');
     const card = group?.cards.find((c) => c.id === 'monitoring');
     expect(card?.href).toBe('/admin/system/monitoring');
     expect(card?.clickable).toBe(true);
-    expect(card?.stats?.[0]?.key).toBe('monitoringErrors');
+    expect(card?.stats).toHaveLength(2);
+    expect(card?.stats?.[0]?.key).toBe('kernelLLMCalls');
+    expect(card?.stats?.[1]?.key).toBe('monitoringErrors');
   });
 
   it('systemOps group has logs card with totalLogins stat', () => {
