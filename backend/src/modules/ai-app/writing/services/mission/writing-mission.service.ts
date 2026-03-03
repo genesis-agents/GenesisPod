@@ -1070,9 +1070,11 @@ export class WritingMissionService {
           entityId: missionId,
         },
         phases: [
-          { id: "outline", name: "Outline Generation", weight: 1 },
-          { id: "chapters", name: "Chapter Writing", weight: 5 },
-          { id: "review", name: "Review & Polish", weight: 1 },
+          { id: "preparation", name: "准备阶段", weight: 1 },
+          { id: "planning", name: "大纲规划", weight: 1 },
+          { id: "writing", name: "章节写作", weight: 5 },
+          { id: "checking", name: "一致性检查", weight: 1 },
+          { id: "editing", name: "编辑润色", weight: 1 },
         ],
       });
       this.progressTracker.start(missionId);
@@ -1119,9 +1121,9 @@ export class WritingMissionService {
           })
         : undefined;
 
-      // ★ ProgressTracker: 开始 outline 阶段
+      // ★ ProgressTracker: 开始 preparation 阶段（世界观建设 + 大纲规划）
       if (this.progressTracker) {
-        this.progressTracker.startPhase(missionId, "outline");
+        this.progressTracker.startPhase(missionId, "preparation");
       }
 
       // 根据任务类型决定生成策略
@@ -1162,10 +1164,11 @@ export class WritingMissionService {
         }
       }
 
-      // ★ ProgressTracker: outline 完成，开始 chapters 阶段
+      // ★ ProgressTracker: planning 完成，开始 writing 阶段
       if (this.progressTracker) {
-        this.progressTracker.completePhase(missionId, "outline");
-        this.progressTracker.startPhase(missionId, "chapters");
+        this.progressTracker.completePhase(missionId, "preparation");
+        this.progressTracker.completePhase(missionId, "planning");
+        this.progressTracker.startPhase(missionId, "writing");
       }
 
       if (generatedContent) {
@@ -1208,10 +1211,12 @@ export class WritingMissionService {
           );
         }
 
-        // ★ ProgressTracker: chapters 完成，开始 review 阶段
+        // ★ ProgressTracker: writing 完成，开始 editing 阶段
         if (this.progressTracker) {
-          this.progressTracker.completePhase(missionId, "chapters");
-          this.progressTracker.startPhase(missionId, "review");
+          this.progressTracker.completePhase(missionId, "writing");
+          this.progressTracker.startPhase(missionId, "checking");
+          this.progressTracker.completePhase(missionId, "checking");
+          this.progressTracker.startPhase(missionId, "editing");
         }
 
         // 保存生成的内容
@@ -1265,9 +1270,9 @@ export class WritingMissionService {
         // ★ AI Kernel: 标记进程完成
         this.completeKernelProcess(missionId, { wordCount: totalWordCount });
 
-        // ★ ProgressTracker: review 完成，任务结束
+        // ★ ProgressTracker: editing 完成，任务结束
         if (this.progressTracker) {
-          this.progressTracker.completePhase(missionId, "review");
+          this.progressTracker.completePhase(missionId, "editing");
           this.progressTracker.complete(missionId);
         }
 
@@ -1569,11 +1574,19 @@ ${storyCreativitySection}
     let worldSettings: Record<string, unknown> = {};
 
     // ★ 启动心跳日志（每30秒输出一次，表示AI调用仍在进行）
+    // ★ 同时更新DB进度，防止前端3分钟无变化判定为"卡住"
     let worldHeartbeatCount = 0;
     const worldHeartbeatInterval = setInterval(() => {
       worldHeartbeatCount++;
       this.logger.log(
         `[${missionId}] ♥ Heartbeat: world building in progress... (${worldHeartbeatCount * 30}s elapsed)`,
+      );
+      // 进度从5%缓慢递增到9%（每30秒+1%，防止前端stuck检测）
+      const heartbeatProgress = Math.min(5 + worldHeartbeatCount, 9);
+      void this.updateMissionProgress(
+        missionId,
+        heartbeatProgress,
+        `设定守护者正在建立世界观... (${worldHeartbeatCount * 30}s)`,
       );
     }, 30000);
 
@@ -2075,11 +2088,19 @@ ${Array.from(
       );
 
       // ★ 启动心跳日志（每30秒输出一次，表示AI调用仍在进行）
+      // ★ 同时更新DB进度，防止前端3分钟无变化判定为"卡住"
       let heartbeatCount = 0;
       const heartbeatInterval = setInterval(() => {
         heartbeatCount++;
         this.logger.log(
           `[${missionId}] ♥ Heartbeat: outline generation in progress... (${heartbeatCount * 30}s elapsed)`,
+        );
+        // 进度从10%缓慢递增到14%（每30秒+1%，防止前端stuck检测）
+        const heartbeatProgress = Math.min(10 + heartbeatCount, 14);
+        void this.updateMissionProgress(
+          missionId,
+          heartbeatProgress,
+          `故事架构师正在生成大纲... (${heartbeatCount * 30}s)`,
         );
       }, 30000);
 
