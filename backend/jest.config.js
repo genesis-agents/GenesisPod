@@ -33,8 +33,8 @@ module.exports = {
   ],
   coverageDirectory: "../coverage",
   coveragePathIgnorePatterns: [
-    "[/\\\\]node_modules[/\\\\]",
-    "[/\\\\]deprecated[/\\\\]",
+    "node_modules",
+    "deprecated",
     "\\.example\\.ts$",
     "\\.d\\.ts$",
   ],
