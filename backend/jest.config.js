@@ -23,6 +23,13 @@ module.exports = {
     "!**/__mocks__/**",
     "!**/deprecated/**",
     "!**/*.example.ts",
+    "!**/*.prompt.ts",
+    "!**/*-team.config.ts",
+    "!**/builtin-templates.ts",
+    "!**/agent-roles.ts",
+    "!**/ai-prompts.config.ts",
+    "!**/theme.types.ts",
+    "!**/slides/templates/base/components.ts",
   ],
   coverageDirectory: "../coverage",
   coveragePathIgnorePatterns: [
