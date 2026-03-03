@@ -1,5 +1,15 @@
 [
   {
+    "version": "25.0.0",
+    "date": "2026-03-03",
+    "changes": [
+      {
+        "type": "improvement",
+        "description": "complete 8-batch architecture improvement (P0-P4)"
+      }
+    ]
+  },
+  {
     "version": "24.0.0",
     "date": "2026-03-03",
     "changes": [
