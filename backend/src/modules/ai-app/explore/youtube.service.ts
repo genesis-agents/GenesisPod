@@ -1,12 +1,6 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  Inject,
-  forwardRef,
-} from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AdminService } from "../../open-api/admin/admin.service";
+import { SystemSettingService } from "../../../common/settings/system-setting.service";
 import { Prisma } from "@prisma/client";
 
 type YoutubeModule = typeof import("youtubei.js");
@@ -50,8 +44,7 @@ export class YoutubeService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => AdminService))
-    private readonly adminService: AdminService,
+    private readonly systemSettingService: SystemSettingService,
   ) {}
 
   async onModuleInit() {
@@ -82,7 +75,8 @@ export class YoutubeService {
   private async getSupadataApiKey(): Promise<string | null> {
     try {
       // Try database first
-      const dbKey = await this.adminService.getYoutubeApiKey("supadata");
+      const dbKey =
+        await this.systemSettingService.getYoutubeApiKey("supadata");
       if (dbKey) {
         return dbKey;
       }

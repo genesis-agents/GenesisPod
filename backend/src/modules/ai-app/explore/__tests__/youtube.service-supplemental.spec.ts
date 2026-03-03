@@ -1,5 +1,4 @@
-// Mock the entire AdminService module before any imports
-jest.mock("../../../open-api/admin/admin.service");
+// No module-level mock needed — SystemSettingService has no heavy dependencies
 
 /**
  * YoutubeService Supplemental Tests
@@ -30,7 +29,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { YoutubeService } from "../youtube.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AdminService } from "../../../open-api/admin/admin.service";
+import { SystemSettingService } from "../../../../common/settings/system-setting.service";
 
 // Mock external fetch globally
 const mockFetch = jest.fn();
@@ -51,7 +50,7 @@ const mockPrismaService = {
   },
 };
 
-const mockAdminService = {
+const mockSystemSettingService = {
   getYoutubeApiKey: jest.fn(),
 };
 
@@ -75,7 +74,7 @@ describe("YoutubeService (supplemental)", () => {
       providers: [
         YoutubeService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: AdminService, useValue: mockAdminService },
+        { provide: SystemSettingService, useValue: mockSystemSettingService },
       ],
     }).compile();
 
@@ -84,7 +83,7 @@ describe("YoutubeService (supplemental)", () => {
     // Default: no cache hit
     mockPrismaService.youTubeTranscriptCache.findUnique.mockResolvedValue(null);
     // Default: no Supadata key
-    mockAdminService.getYoutubeApiKey.mockResolvedValue(null);
+    mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(null);
     // Default: fetch fails
     makeAllFetchFail();
   });
@@ -106,7 +105,7 @@ describe("YoutubeService (supplemental)", () => {
 
     it("falls back to env var when adminService.getYoutubeApiKey throws", async () => {
       process.env.SUPADATA_API_KEY = "env-key-from-error-fallback";
-      mockAdminService.getYoutubeApiKey.mockRejectedValue(
+      mockSystemSettingService.getYoutubeApiKey.mockRejectedValue(
         new Error("DB connection failed"),
       );
 
@@ -142,7 +141,7 @@ describe("YoutubeService (supplemental)", () => {
 
     it("returns null Supadata key when DB throws and no env var", async () => {
       delete process.env.SUPADATA_API_KEY;
-      mockAdminService.getYoutubeApiKey.mockRejectedValue(
+      mockSystemSettingService.getYoutubeApiKey.mockRejectedValue(
         new Error("DB error"),
       );
 
@@ -636,7 +635,9 @@ describe("YoutubeService (supplemental)", () => {
 
   describe("onModuleInit – Supadata key present", () => {
     it("logs Supadata enabled when key is configured in DB", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue("supadata-key-123");
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(
+        "supadata-key-123",
+      );
 
       const ensureClientSpy = jest
         .spyOn(
@@ -842,7 +843,9 @@ describe("YoutubeService (supplemental)", () => {
 
   describe("getTranscript – Supadata 202 job returns null", () => {
     it("throws NotFoundException when Supadata 202 job poll returns null", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue("key-for-job-null");
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(
+        "key-for-job-null",
+      );
 
       const pollSpy = jest
         .spyOn(

@@ -202,7 +202,7 @@ export default function ConnectionsTab() {
         'instructions' in result &&
         Array.isArray(result.instructions) &&
         result.instructions.every((item: unknown) => typeof item === 'string')
-          ? (result.instructions as string[])
+          ? result.instructions
           : null;
       setLoginModal((prev) => ({
         ...prev,

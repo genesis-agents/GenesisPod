@@ -15,7 +15,7 @@ import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AxiosHeaders, AxiosResponse } from "axios";
 import { DataFetchingService } from "../data-fetching.service";
-import { AdminService } from "../../../modules/open-api/admin/admin.service";
+import { SystemSettingService } from "../../settings/system-setting.service";
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -41,7 +41,7 @@ const originalEnv = process.env;
 describe("DataFetchingService", () => {
   let service: DataFetchingService;
   let mockHttpService: jest.Mocked<HttpService>;
-  let mockAdminService: jest.Mocked<Partial<AdminService>>;
+  let mockAdminService: jest.Mocked<Partial<SystemSettingService>>;
 
   beforeEach(async () => {
     process.env = { ...originalEnv };
@@ -70,7 +70,7 @@ describe("DataFetchingService", () => {
       providers: [
         DataFetchingService,
         { provide: HttpService, useValue: mockHttpService },
-        { provide: AdminService, useValue: mockAdminService },
+        { provide: SystemSettingService, useValue: mockAdminService },
       ],
     }).compile();
 

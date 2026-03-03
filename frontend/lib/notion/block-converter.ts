@@ -278,7 +278,9 @@ export function notionBlocksToBlockNote(
           props: {
             checked: block.to_do?.checked || false,
           },
-          content: convertNotionRichTextToInlineContent(block.to_do?.rich_text) as unknown,
+          content: convertNotionRichTextToInlineContent(
+            block.to_do?.rich_text
+          ) as unknown,
         } as PartialBlock);
         break;
 
@@ -289,7 +291,9 @@ export function notionBlocksToBlockNote(
           props: {
             textColor: 'gray',
           },
-          content: convertNotionRichTextToInlineContent(block.quote?.rich_text) as unknown,
+          content: convertNotionRichTextToInlineContent(
+            block.quote?.rich_text
+          ) as unknown,
         } as PartialBlock);
         break;
 
@@ -300,7 +304,9 @@ export function notionBlocksToBlockNote(
           props: {
             language: block.code?.language || 'plain text',
           },
-          content: convertNotionRichTextToInlineContent(block.code?.rich_text) as unknown,
+          content: convertNotionRichTextToInlineContent(
+            block.code?.rich_text
+          ) as unknown,
         } as PartialBlock);
         break;
 
@@ -308,7 +314,9 @@ export function notionBlocksToBlockNote(
         flushList();
         blocks.push({
           type: 'paragraph',
-          content: [{ type: 'text', text: '───────────────────', styles: {} }] as unknown,
+          content: [
+            { type: 'text', text: '───────────────────', styles: {} },
+          ] as unknown,
         } as PartialBlock);
         break;
 
@@ -516,7 +524,9 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
               table_row: {
                 cells:
                   row.cells?.map((cell: unknown) =>
-                    convertInlineContentToNotionRichText(cell as unknown as BlockNoteInlineContent[])
+                    convertInlineContentToNotionRichText(
+                      cell as BlockNoteInlineContent[]
+                    )
                   ) || [],
               },
             })),

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { AdminService } from "../../modules/open-api/admin/admin.service";
+import { SystemSettingService } from "../settings/system-setting.service";
 
 /**
  * 结构化数据项
@@ -66,7 +66,7 @@ export class DataFetchingService {
 
   constructor(
     private readonly httpService: HttpService,
-    private readonly adminService: AdminService,
+    private readonly systemSettingService: SystemSettingService,
   ) {}
 
   /**
@@ -344,7 +344,7 @@ export class DataFetchingService {
 
     try {
       // 1. 首先尝试从数据库读取配置
-      const dbConfig = await this.adminService.getSearchConfig();
+      const dbConfig = await this.systemSettingService.getSearchConfig();
 
       // 检查是否启用搜索
       if (dbConfig.enabled === false) {
@@ -358,7 +358,7 @@ export class DataFetchingService {
       // 2. 优先使用用户配置的 provider
       // 先检查 DB 中的 API key，再检查环境变量
       const dbApiKey =
-        await this.adminService.getSearchApiKey(configuredProvider);
+        await this.systemSettingService.getSearchApiKey(configuredProvider);
       const envApiKey =
         envKeys[configuredProvider as keyof typeof envKeys] || null;
 
@@ -382,7 +382,8 @@ export class DataFetchingService {
       );
 
       for (const provider of fallbackOrder) {
-        const fallbackDbKey = await this.adminService.getSearchApiKey(provider);
+        const fallbackDbKey =
+          await this.systemSettingService.getSearchApiKey(provider);
         if (fallbackDbKey) {
           this.logger.warn(
             `[getSearchApiConfig] ${configuredProvider} has no API key, falling back to ${provider} (from DB)`,

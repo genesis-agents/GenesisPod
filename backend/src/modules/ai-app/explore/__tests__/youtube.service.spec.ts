@@ -1,12 +1,8 @@
-// Mock the entire AdminService module before any imports to avoid
-// transitive dependency on @nestjs/cache-manager (not installed in test env)
-jest.mock("../../../open-api/admin/admin.service");
-
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { YoutubeService, TranscriptSegment } from "../youtube.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AdminService } from "../../../open-api/admin/admin.service";
+import { SystemSettingService } from "../../../../common/settings/system-setting.service";
 
 // Mock external fetch globally
 const mockFetch = jest.fn();
@@ -27,7 +23,7 @@ const mockPrismaService = {
   },
 };
 
-const mockAdminService = {
+const mockSystemSettingService = {
   getYoutubeApiKey: jest.fn(),
 };
 
@@ -41,7 +37,7 @@ describe("YoutubeService", () => {
       providers: [
         YoutubeService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: AdminService, useValue: mockAdminService },
+        { provide: SystemSettingService, useValue: mockSystemSettingService },
       ],
     }).compile();
 
@@ -50,7 +46,7 @@ describe("YoutubeService", () => {
     // Default: no cache hit
     mockPrismaService.youTubeTranscriptCache.findUnique.mockResolvedValue(null);
     // Default: no Supadata key
-    mockAdminService.getYoutubeApiKey.mockResolvedValue(null);
+    mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(null);
   });
 
   // ─── extractVideoId ──────────────────────────────────────────────
@@ -213,7 +209,9 @@ describe("YoutubeService", () => {
 
   describe("getTranscript – Supadata fallback", () => {
     it("uses Supadata when all free methods fail and key is configured", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue("supadata-key-123");
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(
+        "supadata-key-123",
+      );
 
       // The service tries timedtext (video page fetch), fallback (up to 13 language attempts),
       // then npm (dynamic import). We make all fail with non-ok responses.
@@ -277,7 +275,7 @@ describe("YoutubeService", () => {
     });
 
     it("throws NotFoundException when Supadata also fails", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue("key");
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue("key");
       mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
@@ -479,7 +477,7 @@ describe("YoutubeService", () => {
 
   describe("Supadata async job handling", () => {
     it("polls until job completes and returns transcript", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue("test-key");
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue("test-key");
 
       // Spy on the private pollSupadataJob to return result immediately
       // instead of waiting for real setTimeout delays
@@ -530,7 +528,7 @@ describe("YoutubeService", () => {
 
   describe("onModuleInit", () => {
     it("completes without throwing when initialization succeeds", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue(null);
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(null);
 
       // Mock ensureClient – we spy on the private method via any cast
       const ensureClientSpy = jest
@@ -679,7 +677,9 @@ describe("YoutubeService", () => {
 
   describe("fetchTranscriptSupadata – string content", () => {
     it("handles plain text string content from Supadata", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue("supadata-key");
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(
+        "supadata-key",
+      );
 
       const oEmbedResponse = {
         ok: true,
@@ -720,7 +720,9 @@ describe("YoutubeService", () => {
     });
 
     it("returns null when Supadata returns unexpected content type", async () => {
-      mockAdminService.getYoutubeApiKey.mockResolvedValue("supadata-key");
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(
+        "supadata-key",
+      );
 
       mockFetch.mockImplementation((url: string) => {
         if (url.includes("supadata.ai/v1/transcript?")) {
@@ -1089,7 +1091,7 @@ describe("YoutubeService", () => {
 
     it("falls back to SUPADATA_API_KEY env var when DB returns null", async () => {
       process.env.SUPADATA_API_KEY = "env-supadata-key";
-      mockAdminService.getYoutubeApiKey.mockResolvedValue(null);
+      mockSystemSettingService.getYoutubeApiKey.mockResolvedValue(null);
 
       const supadataResult = {
         ok: true,

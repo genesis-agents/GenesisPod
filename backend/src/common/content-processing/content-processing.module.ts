@@ -14,7 +14,7 @@
  * - ai-studio (深度研究)
  */
 
-import { Module, Global, forwardRef } from "@nestjs/common";
+import { Module, Global } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
 import { ContentExtractorService } from "./content-extractor.service";
@@ -23,7 +23,7 @@ import { MinerUService } from "./mineru.service";
 import { WebContentExtractionService } from "./web-content-extraction.service";
 import { UrlParserService } from "./url-parser.service";
 import { ExploreModule } from "../../modules/ai-app/explore/explore.module";
-import { AdminModule } from "../../modules/open-api/admin/admin.module";
+import { SystemSettingModule } from "../settings/system-setting.module";
 
 @Global()
 @Module({
@@ -33,8 +33,8 @@ import { AdminModule } from "../../modules/open-api/admin/admin.module";
       maxRedirects: 5,
     }),
     ConfigModule,
-    forwardRef(() => ExploreModule),
-    forwardRef(() => AdminModule),
+    ExploreModule,
+    SystemSettingModule,
   ],
   providers: [
     ContentExtractorService,
