@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { BillingContext } from "../../ai-infra/facade";
 import { ProjectService } from "./services/writing/project.service";
 import { StoryBibleService } from "./services/bible/story-bible.service";
 import { CharacterService } from "./services/bible/character.service";
@@ -398,7 +399,15 @@ export class WritingCoordinatorService {
       };
     },
   ) {
-    return this.chapterRevisionService.aiEdit(chapterId, userId, dto);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-writing",
+        operationType: "ai-edit-chapter",
+        referenceId: chapterId,
+      },
+      () => this.chapterRevisionService.aiEdit(chapterId, userId, dto),
+    );
   }
 
   async compareRevisions(
@@ -530,13 +539,29 @@ export class WritingCoordinatorService {
   async getCompletionAnalysis(projectId: string, userId: string) {
     // Verify project ownership
     await this.projectService.findOne(projectId, userId);
-    return this.storyCompletionDetector.analyzeCompletion(projectId);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-writing",
+        operationType: "completion-analysis",
+        referenceId: projectId,
+      },
+      () => this.storyCompletionDetector.analyzeCompletion(projectId),
+    );
   }
 
   async getTimelineConflicts(projectId: string, userId: string) {
     // Verify project ownership
     await this.projectService.findOne(projectId, userId);
-    return this.temporalConflictAnalyzer.analyzeProject(projectId);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-writing",
+        operationType: "timeline-conflicts",
+        referenceId: projectId,
+      },
+      () => this.temporalConflictAnalyzer.analyzeProject(projectId),
+    );
   }
 
   async getChapterTimelineConflicts(chapterId: string, userId: string) {
@@ -557,10 +582,19 @@ export class WritingCoordinatorService {
     }
 
     const projectId = chapter.volume.project.id;
-    return this.temporalConflictAnalyzer.analyzeChapter(
-      projectId,
-      chapter.chapterNumber,
-      chapter.content,
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-writing",
+        operationType: "chapter-timeline-conflicts",
+        referenceId: chapterId,
+      },
+      () =>
+        this.temporalConflictAnalyzer.analyzeChapter(
+          projectId,
+          chapter.chapterNumber,
+          chapter.content as string,
+        ),
     );
   }
 
@@ -593,7 +627,15 @@ export class WritingCoordinatorService {
   async generateSummaries(projectId: string, userId: string) {
     // Verify project ownership
     await this.projectService.findOne(projectId, userId);
-    return this.hierarchicalSummaryService.batchUpdateSummaries(projectId);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-writing",
+        operationType: "generate-summaries",
+        referenceId: projectId,
+      },
+      () => this.hierarchicalSummaryService.batchUpdateSummaries(projectId),
+    );
   }
 
   // ==================== Shared Scratchpad ====================

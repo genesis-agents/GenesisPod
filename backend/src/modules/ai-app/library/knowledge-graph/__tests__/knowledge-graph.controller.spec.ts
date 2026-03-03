@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { KnowledgeGraphController } from "../knowledge-graph.controller";
 import { KnowledgeGraphService } from "../knowledge-graph.service.postgres";
 import { AiChatService } from "../../../../ai-engine/facade";
@@ -427,16 +427,14 @@ describe("KnowledgeGraphController", () => {
       });
     });
 
-    it("uses global overview for anonymous requests", async () => {
-      kgService.getGraphOverview.mockResolvedValue(mockGraphOverview);
-      aiChatService.chat.mockResolvedValue(mockChatResponse as never);
+    it("throws UnauthorizedException for anonymous requests", async () => {
+      await expect(
+        controller.chat(makeReq(undefined) as never, {
+          message: "What does the graph show?",
+        }),
+      ).rejects.toThrow(UnauthorizedException);
 
-      await controller.chat(makeReq(undefined) as never, {
-        message: "What does the graph show?",
-      });
-
-      expect(kgService.getGraphOverview).toHaveBeenCalledTimes(1);
-      expect(kgService.getUserGraphOverview).not.toHaveBeenCalled();
+      expect(aiChatService.chat).not.toHaveBeenCalled();
     });
 
     it("passes collectionId to getUserGraphOverview when provided", async () => {

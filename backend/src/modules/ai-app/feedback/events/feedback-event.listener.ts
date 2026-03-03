@@ -26,6 +26,7 @@ import type {
   TriageInput,
   TriageDecision,
 } from "../triage/triage-decision.types";
+import { BillingContext } from "../../../ai-infra/facade";
 
 @Injectable()
 export class FeedbackEventListener {
@@ -71,8 +72,18 @@ export class FeedbackEventListener {
         startedAt: new Date(),
       });
 
-      // 执行分诊
-      const decision = await this.triageAgent.triage(triageInput);
+      // 执行分诊（有登录用户时记录积分消耗）
+      const decision = payload.userId
+        ? await BillingContext.run(
+            {
+              userId: payload.userId,
+              moduleType: "feedback",
+              operationType: "triage",
+              referenceId: payload.feedbackId,
+            },
+            () => this.triageAgent.triage(triageInput),
+          )
+        : await this.triageAgent.triage(triageInput);
 
       // 保存分诊结果
       await this.saveTriageResult(payload.feedbackId, decision);

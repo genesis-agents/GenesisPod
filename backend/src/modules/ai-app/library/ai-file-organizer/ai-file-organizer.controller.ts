@@ -8,6 +8,7 @@ import {
   Req,
   Logger,
   BadRequestException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { Request } from "express";
 import {
@@ -17,6 +18,7 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { BillingContext } from "../../../ai-infra/facade";
 import {
   AiFileOrganizerService,
   FileInfo,
@@ -49,25 +51,40 @@ export class AiFileOrganizerController {
   @ApiOperation({ summary: "分析文件并生成整理建议" })
   @ApiResponse({ status: 200, description: "返回整理建议" })
   async analyzeFiles(
-    @Req() _req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: AnalyzeFilesDto,
   ) {
-    this.logger.log(`Analyzing ${dto.files.length} files`);
-
-    const result = await this.organizerService.batchAnalyze(dto.files);
-
-    if (!result.success) {
-      throw new BadRequestException(
-        result.errors?.join("; ") || "Failed to analyze files",
-      );
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User authentication required");
     }
 
-    return {
-      suggestions: result.suggestions,
-      totalFiles: result.totalFiles,
-      processedFiles: result.processedFiles,
-      errors: result.errors,
-    };
+    this.logger.log(`Analyzing ${dto.files.length} files`);
+
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-file-organizer",
+        operationType: "analyze",
+        description: "AI File Organizer Batch Analyze",
+      },
+      async () => {
+        const result = await this.organizerService.batchAnalyze(dto.files);
+
+        if (!result.success) {
+          throw new BadRequestException(
+            result.errors?.join("; ") || "Failed to analyze files",
+          );
+        }
+
+        return {
+          suggestions: result.suggestions,
+          totalFiles: result.totalFiles,
+          processedFiles: result.processedFiles,
+          errors: result.errors,
+        };
+      },
+    );
   }
 
   @Post("analyze-single")
@@ -75,14 +92,28 @@ export class AiFileOrganizerController {
   @ApiOperation({ summary: "分析单个文件" })
   @ApiResponse({ status: 200, description: "返回单个文件的整理建议" })
   async analyzeSingleFile(
-    @Req() _req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Body() file: FileInfo,
   ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User authentication required");
+    }
+
     this.logger.log(`Analyzing single file: ${file.name}`);
 
-    const suggestion = await this.organizerService.analyzeFile(file);
-
-    return { suggestion };
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-file-organizer",
+        operationType: "analyze",
+        description: "AI File Organizer Single File Analyze",
+      },
+      () =>
+        this.organizerService
+          .analyzeFile(file)
+          .then((suggestion) => ({ suggestion })),
+    );
   }
 
   @Post("apply")

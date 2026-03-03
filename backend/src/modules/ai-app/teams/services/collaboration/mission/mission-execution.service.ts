@@ -9,7 +9,7 @@
  * - autoRetryBlockedTasks / forceCompleteStuckTasks: 任务恢复
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import {
   AgentTaskStatus,
@@ -29,6 +29,8 @@ import type { TaskProfile } from "../../../../../ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../../ai-engine/facade";
 import type { ToolContext } from "../../../../../ai-engine/facade";
+// ★ IPC: Agent 间消息总线（Kernel L3）
+import { MessageBusService } from "../../../../../ai-kernel/facade";
 import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,
@@ -139,10 +141,11 @@ export class MissionExecutionService {
     private stateManager: MissionStateManager,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
+    // ★ IPC: Agent 间消息总线（L3 Kernel）
+    @Optional() private readonly messageBus?: MessageBusService,
   ) {
-    // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionExecutionService] AI Engine services injected: LeaderModel=${!!this.leaderModelService}`,
+      `[MissionExecutionService] Services injected: LeaderModel=${!!this.leaderModelService}, MessageBus=${!!this.messageBus}`,
     );
   }
 
@@ -698,6 +701,8 @@ export class MissionExecutionService {
         const allCompleted = completedTasks.length === mission.tasks.length;
 
         if (allCompleted) {
+          // ★ IPC: Mission 完成，清理消息总线会话
+          this.messageBus?.clearSession(missionId);
           await callbacks.completeMission(missionId);
           return;
         }
@@ -1071,6 +1076,24 @@ export class MissionExecutionService {
         },
       );
 
+      // ★ IPC: 广播任务开始状态到消息总线
+      if (this.messageBus) {
+        void this.messageBus
+          .publish({
+            sessionId: mission.id,
+            fromAgentId: assignedTo.id,
+            type: "status_update",
+            payload: {
+              taskId: task.id,
+              taskTitle: task.title,
+              status: "started",
+            },
+          })
+          .catch((e) =>
+            this.logger.warn(`[MessageBus] status_update publish failed: ${e}`),
+          );
+      }
+
       // 检查是否需要联网搜索
       let searchContext = "";
       if (
@@ -1117,11 +1140,32 @@ export class MissionExecutionService {
         }
       }
 
+      // ★ IPC: 从消息总线获取同伴 Agent 的已完成任务结果作为上下文
+      let peerContext = "";
+      if (this.messageBus) {
+        const history = this.messageBus.getHistory(mission.id);
+        const peerResults = history.filter(
+          (m) => m.type === "task_result" && m.fromAgentId !== assignedTo.id,
+        );
+        if (peerResults.length > 0) {
+          const summaries = peerResults.slice(-5).map((m) => {
+            const p = m.payload as {
+              taskTitle?: string;
+              result?: string;
+            };
+            return `- [${m.fromAgentId}] ${p.taskTitle ?? "Task"}: ${(p.result ?? "").substring(0, 500)}`;
+          });
+          peerContext =
+            "\n\n[其他成员已完成的任务结果（仅供参考）]\n" +
+            summaries.join("\n");
+        }
+      }
+
       // 构建任务执行提示词
       const taskPrompt = callbacks.buildTaskExecutionPrompt(
         mission,
         task,
-        searchContext,
+        searchContext + peerContext,
       );
 
       // AI 调用（带重试和 Agent 切换）
@@ -1171,6 +1215,27 @@ export class MissionExecutionService {
         `❌ 任务执行出错：${error instanceof Error ? error.message : "未知错误"}`,
         MessageContentType.TEXT,
       );
+
+      // ★ IPC: 广播任务失败到消息总线
+      if (this.messageBus) {
+        void this.messageBus
+          .publish({
+            sessionId: mission.id,
+            fromAgentId: assignedTo.id,
+            type: "task_result",
+            payload: {
+              taskId: task.id,
+              taskTitle: task.title,
+              success: false,
+              error: error instanceof Error ? error.message : "Unknown error",
+            },
+          })
+          .catch((e) =>
+            this.logger.warn(
+              `[MessageBus] task_result (failure) publish failed: ${e}`,
+            ),
+          );
+      }
     } finally {
       this.stateManager.finishTask(task.id);
       this.agentFacade.circuitBreaker?.decrementLoad(assignedTo.id);
@@ -1542,6 +1607,26 @@ export class MissionExecutionService {
         agentId: currentAgent.id,
       },
     );
+
+    // ★ IPC: 广播任务结果到消息总线（供后续 Agent 作为上下文参考）
+    if (this.messageBus) {
+      void this.messageBus
+        .publish({
+          sessionId: mission.id,
+          fromAgentId: currentAgent.id,
+          type: "task_result",
+          priority: "high",
+          payload: {
+            taskId: task.id,
+            taskTitle: task.title,
+            success: true,
+            result: finalContent.substring(0, 2000),
+          },
+        })
+        .catch((e) =>
+          this.logger.warn(`[MessageBus] task_result publish failed: ${e}`),
+        );
+    }
 
     // Leader 审核
     await callbacks.leaderReviewTask(mission, task, finalContent);

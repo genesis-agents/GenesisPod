@@ -36,6 +36,7 @@ export { EmailService } from "../email/email.service";
 
 // ─── Notifications ───
 export { NotificationService } from "../notifications/notification.service";
+export { NotificationTypeDto } from "../notifications/dto/notification.dto";
 
 // ─── Settings ───
 export { SettingsService } from "../settings/settings.service";

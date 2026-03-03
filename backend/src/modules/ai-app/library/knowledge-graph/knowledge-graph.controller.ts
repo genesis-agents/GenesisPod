@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   BadRequestException,
+  UnauthorizedException,
   Req,
 } from "@nestjs/common";
 import { Request } from "express";
@@ -17,6 +18,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
 import { Public } from "../../../../common/decorators/public.decorator";
 import { AiChatService } from "../../../ai-engine/facade";
+import { BillingContext } from "../../../ai-infra/facade";
 import { AIModelType } from "@prisma/client";
 
 /**
@@ -225,20 +227,21 @@ export class KnowledgeGraphController {
     const { message, collectionId } = body;
     // Always use authenticated user's ID — never trust client-supplied userId
     const userId = (req.user as { id?: string })?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User authentication required");
+    }
     if (!message?.trim()) {
       throw new BadRequestException("message is required");
     }
 
-    this.logger.log(
-      `[chat] userId=${userId ?? "anon"} msg="${message.slice(0, 60)}"`,
-    );
+    this.logger.log(`[chat] userId=${userId} msg="${message.slice(0, 60)}"`);
 
     // 获取图谱概览作为上下文
     let graphSummary = "No graph data available yet.";
     try {
-      const overview = userId
-        ? await this.kgService.getUserGraphOverview(userId, { collectionId })
-        : await this.kgService.getGraphOverview();
+      const overview = await this.kgService.getUserGraphOverview(userId, {
+        collectionId,
+      });
 
       const stats = (overview as { stats?: Record<string, number> })?.stats;
       const nodes =
@@ -265,14 +268,23 @@ ${graphSummary}
 
 Help the user understand the connections and insights in their knowledge graph. Answer questions about relationships, suggest what to explore, or help them discover patterns. Be concise and insightful.`;
 
-    const result = await this.aiChatService.chat({
-      messages: [{ role: "user", content: message }],
-      systemPrompt,
-      modelType: AIModelType.CHAT,
-      taskProfile: { creativity: "medium", outputLength: "medium" },
-      userId,
-    });
-
-    return { reply: result.content, model: result.model };
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "knowledge-graph",
+        operationType: "chat",
+        description: "Knowledge Graph Chat",
+      },
+      async () => {
+        const result = await this.aiChatService.chat({
+          messages: [{ role: "user", content: message }],
+          systemPrompt,
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "medium", outputLength: "medium" },
+          userId,
+        });
+        return { reply: result.content, model: result.model };
+      },
+    );
   }
 }
