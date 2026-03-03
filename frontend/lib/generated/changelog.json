@@ -1,5 +1,19 @@
 [
   {
+    "version": "23.0.0",
+    "date": "2026-03-03",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "fix observability 24h default period and security process listing"
+      },
+      {
+        "type": "fix",
+        "description": "capability guard empty detail + credits raw description display"
+      }
+    ]
+  },
+  {
     "version": "17.0.0",
     "date": "2026-03-02",
     "changes": [
