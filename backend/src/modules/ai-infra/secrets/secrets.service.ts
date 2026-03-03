@@ -203,8 +203,18 @@ export class SecretsService {
     const secret = await this.prisma.secret.findUnique({
       where: { name: normalizedName },
     });
-    if (!secret || !secret.isActive || secret.deletedAt) return null;
-    if (secret.expiresAt && secret.expiresAt < new Date()) return null;
+    if (!secret || !secret.isActive || secret.deletedAt) {
+      this.logger.warn(
+        `[getValueInternal] Secret "${normalizedName}" lookup: found=${!!secret}, isActive=${secret?.isActive}, deletedAt=${secret?.deletedAt}`,
+      );
+      return null;
+    }
+    if (secret.expiresAt && secret.expiresAt < new Date()) {
+      this.logger.warn(
+        `[getValueInternal] Secret "${normalizedName}" expired at ${secret.expiresAt}`,
+      );
+      return null;
+    }
 
     // Increment access count for internal calls too
     await this.prisma.secret.update({
@@ -215,7 +225,11 @@ export class SecretsService {
       },
     });
 
-    return this.decrypt(secret.encryptedValue, secret.iv);
+    const decrypted = this.decrypt(secret.encryptedValue, secret.iv);
+    this.logger.log(
+      `[getValueInternal] Secret "${normalizedName}" decrypt: success=${!!decrypted}, length=${decrypted?.length ?? 0}`,
+    );
+    return decrypted;
   }
 
   async update(

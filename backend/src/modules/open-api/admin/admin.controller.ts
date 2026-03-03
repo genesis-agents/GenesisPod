@@ -452,6 +452,10 @@ export class AdminController {
       };
     }
 
+    this.logger.log(
+      `[testConnection] provider=${model.provider}, modelId=${model.modelId}, apiKeyLength=${apiKey.length}, apiKeyPrefix="${apiKey.substring(0, 12)}...", endpoint=${model.apiEndpoint || "default"}`,
+    );
+
     // 使用数据库中的真实 API Key 测试连接
     const result = await this.chatFacade.testModelConnectionWithKey(
       model.provider,

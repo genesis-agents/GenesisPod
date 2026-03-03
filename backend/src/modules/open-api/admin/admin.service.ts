@@ -834,26 +834,30 @@ export class AdminService {
 
     // 优先使用 secretKey 从 Secret Manager 获取
     if (model.secretKey) {
-      this.logger.debug(
-        `Resolving API key for model ${id} from Secret Manager: ${model.secretKey}`,
+      this.logger.log(
+        `[getAIModelApiKey] model=${id}, secretKey="${model.secretKey}", hasLegacyApiKey=${!!model.apiKey}, legacyApiKeyLength=${model.apiKey?.length ?? 0}`,
       );
       const secretValue = await this.secretsService.getValueInternal(
         model.secretKey,
       );
       if (secretValue) {
         const trimmedValue = secretValue.trim();
-        this.logger.debug(
-          `Successfully resolved API key from Secret Manager (length=${trimmedValue.length})`,
+        this.logger.log(
+          `[getAIModelApiKey] Secret resolved: length=${trimmedValue.length}, prefix="${trimmedValue.substring(0, 10)}..."`,
         );
         return trimmedValue;
       }
       this.logger.warn(
-        `Secret '${model.secretKey}' not found for model ${id}, falling back to apiKey`,
+        `[getAIModelApiKey] Secret '${model.secretKey}' not found for model ${id}, falling back to apiKey`,
       );
     }
 
     // 回退到直接存储的 apiKey
-    return model.apiKey?.trim() || null;
+    const fallback = model.apiKey?.trim() || null;
+    this.logger.log(
+      `[getAIModelApiKey] Using fallback apiKey: length=${fallback?.length ?? 0}, prefix="${fallback?.substring(0, 10) ?? "null"}..."`,
+    );
+    return fallback;
   }
 
   // ============ System Settings Management ============
