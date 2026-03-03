@@ -427,7 +427,7 @@ export default function KernelSecurityPage() {
             <CapabilitySection
               title="Granted Tools"
               icon={<Wrench className="h-4 w-4 text-blue-500" />}
-              items={capabilities.grantedTools}
+              items={capabilities.grantedTools ?? []}
               emptyLabel="None"
               badgeClass="bg-blue-100 text-blue-800"
             />
@@ -436,16 +436,23 @@ export default function KernelSecurityPage() {
             <CapabilitySection
               title="Granted Skills"
               icon={<Sparkles className="h-4 w-4 text-violet-500" />}
-              items={capabilities.grantedSkills}
+              items={capabilities.grantedSkills ?? []}
               emptyLabel="None"
               badgeClass="bg-violet-100 text-violet-800"
             />
 
             {/* Data Scope */}
-            <DataScopeSection dataScope={capabilities.dataScope} />
+            <DataScopeSection
+              dataScope={
+                capabilities.dataScope ?? {
+                  allowedTypes: [],
+                  deniedResources: [],
+                }
+              }
+            />
 
             {/* Metadata */}
-            <MetaSection meta={capabilities.meta} />
+            <MetaSection meta={capabilities.meta ?? {}} />
           </div>
         )}
       </div>

@@ -318,7 +318,11 @@ describe("CapabilityGuardService", () => {
       const processData: MockAgentProcess = {
         grantedTools: ["web-search", "calculator"],
         grantedSkills: ["summarise"],
-        dataScope: { document: ["*"] },
+        dataScope: {
+          allowedTypes: ["document", "image"],
+          deniedResources: ["secret-doc"],
+          meta: { source: "admin" },
+        },
       };
       mockPrisma.agentProcess.findUnique.mockResolvedValue(processData);
 
@@ -327,7 +331,11 @@ describe("CapabilityGuardService", () => {
       expect(result).not.toBeNull();
       expect(result!.grantedTools).toEqual(["web-search", "calculator"]);
       expect(result!.grantedSkills).toEqual(["summarise"]);
-      expect(result!.dataScope).toEqual({ document: ["*"] });
+      expect(result!.dataScope).toEqual({
+        allowedTypes: ["document", "image"],
+        deniedResources: ["secret-doc"],
+      });
+      expect(result!.meta).toEqual({ source: "admin" });
     });
 
     it("should return null when process does not exist", async () => {
@@ -338,7 +346,7 @@ describe("CapabilityGuardService", () => {
       expect(result).toBeNull();
     });
 
-    it("should return null dataScope when dataScope is null on the process", async () => {
+    it("should return default dataScope when dataScope is null on the process", async () => {
       mockPrisma.agentProcess.findUnique.mockResolvedValue({
         grantedTools: [],
         grantedSkills: [],
@@ -348,7 +356,11 @@ describe("CapabilityGuardService", () => {
       const result = await service.getCapabilities("proc-1");
 
       expect(result).not.toBeNull();
-      expect(result!.dataScope).toBeNull();
+      expect(result!.dataScope).toEqual({
+        allowedTypes: [],
+        deniedResources: [],
+      });
+      expect(result!.meta).toEqual({});
     });
 
     it("should query with the correct select fields", async () => {

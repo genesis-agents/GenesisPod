@@ -867,7 +867,9 @@ export default function CreditsManagementPage() {
                                 {tx.type.replace(/_/g, ' ')}
                               </span>
                               <p className="mt-1 text-sm text-gray-600">
-                                {tx.description}
+                                {tx.moduleType
+                                  ? `${MODULE_NAMES[tx.moduleType] || tx.moduleType} - ${OPERATION_NAMES[tx.operationType || ''] || tx.operationType}`
+                                  : tx.description}
                               </p>
                             </div>
                             <div className="text-right">

@@ -249,6 +249,13 @@ export class CreditsService implements OnModuleInit {
       modelName,
     );
 
+    // 获取规则名称用于描述
+    const rule = await this.creditRulesService.getRule(
+      moduleType,
+      operationType,
+    );
+    const ruleName = rule?.name;
+
     // 获取交易类型
     const transactionType = this.getTransactionType(moduleType);
 
@@ -320,7 +327,8 @@ export class CreditsService implements OnModuleInit {
           type: transactionType,
           amount: -creditsToConsume,
           balanceAfter: newBalance,
-          description: description || `${moduleType} - ${operationType}`,
+          description:
+            description || ruleName || `${moduleType} - ${operationType}`,
           moduleType,
           operationType,
           referenceId,

@@ -81,6 +81,7 @@ describe("CreditsService", () => {
       getCreditsForOperation: jest.fn().mockReturnValue(100),
       isOperationAllowed: jest.fn().mockReturnValue(true),
       calculateCredits: jest.fn().mockResolvedValue(100),
+      getRule: jest.fn().mockResolvedValue({ name: "AI问答对话" }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

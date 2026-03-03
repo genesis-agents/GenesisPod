@@ -133,10 +133,15 @@ export class CapabilityGuardService {
 
     if (!process) return null;
 
+    const rawScope = (process.dataScope ?? {}) as Record<string, unknown>;
     return {
-      grantedTools: process.grantedTools,
-      grantedSkills: process.grantedSkills,
-      dataScope: process.dataScope as Record<string, unknown> | null,
+      grantedTools: process.grantedTools ?? [],
+      grantedSkills: process.grantedSkills ?? [],
+      dataScope: {
+        allowedTypes: (rawScope.allowedTypes as string[]) ?? [],
+        deniedResources: (rawScope.deniedResources as string[]) ?? [],
+      },
+      meta: (rawScope.meta as Record<string, unknown>) ?? {},
     };
   }
 }
