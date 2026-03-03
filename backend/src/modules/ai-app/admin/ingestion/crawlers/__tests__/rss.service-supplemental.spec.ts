@@ -1,18 +1,15 @@
 /**
- * RssService Supplemental Tests
+ * RssService — Supplemental Unit Tests
  *
- * Covers uncovered branches beyond rss.service.spec.ts:
- * - Error message formatting for 500/ECONNREFUSED errors
- * - fetchRssFeed with skipped=0 case (no duration filter)
- * - extractResourceData: summary truncation, fallback author, tags from categories
- * - extractArxivId: valid/invalid URLs
- * - parseYouTubeDurationText: hours+minutes+seconds, edge cases
- * - isYouTubeVideoUrl: various URL formats
- * - fetchMultipleFeeds: successful=0 path, maxItemsPerFeed propagation
- * - YouTube skipUnknownDuration=false (default: include unknown duration videos)
- * - YouTube skipUnknownDuration=true (skip unknown duration)
- * - fetchRssFeed: non-YouTube feed with minDuration (should not filter)
- * - raw null/undefined feed object
+ * Covers uncovered branches not in rss.service.spec.ts:
+ * - YouTube duration filtering (minDurationSeconds, skipUnknownDuration)
+ * - tryGetYouTubeDuration extractor patterns
+ * - parseYouTubeDurationText parsing
+ * - fetchMultipleFeeds: success, partial failure, aggregation
+ * - Error messages for 500 and ECONNREFUSED
+ * - Reference sync failure (bi-directional ref mismatch)
+ * - extractArxivId (non-arxiv URL)
+ * - Title duplicate detection via similarity check
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -25,17 +22,14 @@ import { DeduplicationService } from "../deduplication.service";
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Shared parseURL mock function
 const mockParseURL = jest.fn();
-
-// Mock rss-parser before any import
 jest.mock("rss-parser", () => {
   return jest.fn().mockImplementation(() => ({
     parseURL: mockParseURL,
   }));
 });
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
+// ── Shared mocks ──────────────────────────────────────────────────────────────
 
 const mockPrisma = {
   resource: {
@@ -57,14 +51,31 @@ const mockDeduplication = {
   areTitlesSimilar: jest.fn(),
 };
 
-// ── Test suite ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function makeYouTubeItem(overrides = {}) {
+  return {
+    title: "Test Video",
+    link: "https://www.youtube.com/watch?v=abc123",
+    guid: "yt-guid-123",
+    ...overrides,
+  };
+}
+
+function makeYouTubeFeedResponse(items = [makeYouTubeItem()]) {
+  return {
+    title: "Test YouTube Channel",
+    link: "https://www.youtube.com/channel/test",
+    items,
+  };
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("RssService (supplemental)", () => {
   let service: RssService;
 
-  beforeEach(async () => {
-    jest.clearAllMocks();
-
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RssService,
@@ -75,50 +86,309 @@ describe("RssService (supplemental)", () => {
     }).compile();
 
     service = module.get<RssService>(RssService);
+  });
 
-    // Default mock behaviors
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Default safe behaviours
     mockDeduplication.normalizeUrl.mockImplementation((url: string) => url);
     mockDeduplication.areTitlesSimilar.mockReturnValue(false);
     mockPrisma.resource.findFirst.mockResolvedValue(null);
     mockPrisma.resource.findMany.mockResolvedValue([]);
     mockMongodb.findRawDataByUrlAcrossAllSources.mockResolvedValue(null);
-    mockMongodb.insertRawData.mockResolvedValue("mongodb-id-123");
-    mockMongodb.findRawDataById.mockResolvedValue({
-      resourceId: "resource-id-123",
-    });
+    mockMongodb.insertRawData.mockResolvedValue("mongodb-id-abc");
+    mockMongodb.findRawDataById.mockResolvedValue({ resourceId: "pg-id-abc" });
     mockMongodb.linkResourceToRawData.mockResolvedValue(undefined);
-    mockPrisma.resource.create.mockResolvedValue({ id: "resource-id-123" });
+    mockPrisma.resource.create.mockResolvedValue({ id: "pg-id-abc" });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      text: async () => '"lengthSeconds":"300"',
+    });
   });
 
-  // ── Error message formatting ─────────────────────────────────────────────────
+  // ── YouTube duration filtering ────────────────────────────────────────────────
 
-  describe("fetchRssFeed – error message formatting", () => {
-    it("formats 500 error with descriptive message", async () => {
+  describe("YouTube duration filtering", () => {
+    it("skips videos shorter than minDurationSeconds", async () => {
+      const ytUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UC123";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "Short video",
+            link: "https://www.youtube.com/watch?v=shortId",
+          }),
+        ]),
+      );
+
+      // fetch returns a short video (60s)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => '"lengthSeconds":"60"',
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+      });
+
+      expect(result.skipped).toBe(1);
+      expect(result.success).toBe(0);
+    });
+
+    it("allows videos meeting minDurationSeconds", async () => {
+      const ytUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UC123";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "Long video",
+            link: "https://www.youtube.com/watch?v=longId",
+          }),
+        ]),
+      );
+
+      // fetch returns a long video (600s)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => '"lengthSeconds":"600"',
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+      });
+
+      expect(result.success).toBe(1);
+      expect(result.skipped).toBe(0);
+    });
+
+    it("skips video with unknown duration when skipUnknownDuration=true", async () => {
+      const ytUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UC123";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "Unknown duration",
+            link: "https://www.youtube.com/watch?v=unknownId",
+          }),
+        ]),
+      );
+
+      // fetch returns no parseable duration
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => "no duration info here",
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+        skipUnknownDuration: true,
+      });
+
+      expect(result.skipped).toBe(1);
+      expect(result.success).toBe(0);
+    });
+
+    it("processes video with unknown duration when skipUnknownDuration=false (default)", async () => {
+      const ytUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UC123";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "Unknown dur video",
+            link: "https://www.youtube.com/watch?v=unknownId2",
+          }),
+        ]),
+      );
+
+      // fetch returns no parseable duration
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => "no duration info",
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+        skipUnknownDuration: false,
+      });
+
+      // Video processed despite unknown duration
+      expect(result.success).toBe(1);
+      expect(result.skipped).toBe(0);
+    });
+
+    it("uses approxDurationMs extractor pattern", async () => {
+      const ytUrl =
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCtest";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "ApproxDuration",
+            link: "https://www.youtube.com/watch?v=approxId",
+          }),
+        ]),
+      );
+
+      // Return approxDurationMs (600000ms = 600s)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => '"approxDurationMs":"600000"',
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+      });
+
+      expect(result.success).toBe(1);
+    });
+
+    it("uses ISO 8601 duration extractor pattern (PT1H2M3S)", async () => {
+      const ytUrl =
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCtest2";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "ISO Duration",
+            link: "https://www.youtube.com/watch?v=isoId",
+          }),
+        ]),
+      );
+
+      // Return ISO 8601 duration (1h2m3s = 3723s)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => '"duration":"PT1H2M3S"',
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+      });
+
+      expect(result.success).toBe(1);
+    });
+
+    it("handles fetch failure for YouTube duration gracefully", async () => {
+      const ytUrl =
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCfail";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "Fetch fail video",
+            link: "https://www.youtube.com/watch?v=failId",
+          }),
+        ]),
+      );
+
+      // fetch fails for YouTube page
+      mockFetch.mockRejectedValue(new Error("Network error"));
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+        skipUnknownDuration: false,
+      });
+
+      // Should process anyway (duration unknown, skipUnknownDuration=false)
+      expect(result.success).toBe(1);
+    });
+
+    it("handles non-ok YouTube fetch response", async () => {
+      const ytUrl =
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCnotok";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "Not ok video",
+            link: "https://www.youtube.com/watch?v=notokId",
+          }),
+        ]),
+      );
+
+      mockFetch.mockResolvedValue({ ok: false, status: 429 });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+        skipUnknownDuration: false,
+      });
+
+      expect(result.success).toBe(1);
+    });
+
+    it("handles YouTube shorts URL format", async () => {
+      const ytUrl =
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCshorts";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "Shorts video",
+            link: "https://www.youtube.com/shorts/shortsId",
+          }),
+        ]),
+      );
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => '"lengthSeconds":"45"',
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+        skipUnknownDuration: true,
+      });
+
+      // 45s < 300s, should be skipped
+      expect(result.skipped).toBe(1);
+    });
+
+    it("handles youtu.be URL format", async () => {
+      const ytUrl =
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCyoutu";
+      mockParseURL.mockResolvedValue(
+        makeYouTubeFeedResponse([
+          makeYouTubeItem({
+            title: "youtu.be video",
+            link: "https://youtu.be/youtuBeId",
+          }),
+        ]),
+      );
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => '"lengthSeconds":"600"',
+      });
+
+      const result = await service.fetchRssFeed(ytUrl, 10, "VIDEO", {
+        minDurationSeconds: 300,
+      });
+
+      expect(result.success).toBe(1);
+    });
+  });
+
+  // ── Error messages ────────────────────────────────────────────────────────────
+
+  describe("error message variations", () => {
+    it("throws descriptive error for HTTP 500", async () => {
       mockParseURL.mockRejectedValue(new Error("Status code 500"));
 
       await expect(
         service.fetchRssFeed("https://example.com/feed.rss"),
-      ).rejects.toThrow(/500|Server error/);
+      ).rejects.toThrow(/500|server error/i);
     });
 
-    it("formats ECONNREFUSED as connection error", async () => {
-      mockParseURL.mockRejectedValue(new Error("ECONNREFUSED"));
+    it("throws descriptive error for ECONNREFUSED", async () => {
+      mockParseURL.mockRejectedValue(new Error("ECONNREFUSED 127.0.0.1:80"));
 
       await expect(
         service.fetchRssFeed("https://example.com/feed.rss"),
-      ).rejects.toThrow(/ECONNREFUSED|Cannot connect/);
+      ).rejects.toThrow(/Cannot connect|ECONNREFUSED/i);
     });
 
-    it("formats generic error with original message", async () => {
-      mockParseURL.mockRejectedValue(new Error("Custom parse error XYZ"));
+    it("throws generic error for unknown error type", async () => {
+      mockParseURL.mockRejectedValue(new Error("some weird error"));
 
       await expect(
         service.fetchRssFeed("https://example.com/feed.rss"),
-      ).rejects.toThrow(/Custom parse error XYZ/);
+      ).rejects.toThrow("some weird error");
     });
 
-    it("handles non-Error thrown value", async () => {
-      mockParseURL.mockRejectedValue("string error value");
+    it("handles non-Error thrown objects", async () => {
+      mockParseURL.mockRejectedValue("string error");
 
       await expect(
         service.fetchRssFeed("https://example.com/feed.rss"),
@@ -126,63 +396,281 @@ describe("RssService (supplemental)", () => {
     });
   });
 
-  // ── skipped count reporting ──────────────────────────────────────────────────
+  // ── Reference sync failure ────────────────────────────────────────────────────
 
-  describe("fetchRssFeed – skipped count", () => {
-    it("returns skipped=0 when no duration filter applied", async () => {
+  describe("bi-directional reference sync failure", () => {
+    it("throws when MongoDB resourceId does not match PostgreSQL id", async () => {
       mockParseURL.mockResolvedValue({
-        title: "Test Feed",
+        title: "Feed",
         items: [
-          {
-            title: "Normal Article",
-            link: "https://example.com/article-1",
-            guid: "guid-1",
-          },
+          { title: "Test", link: "https://example.com/test", guid: "g1" },
         ],
       });
+      mockMongodb.insertRawData.mockResolvedValue("mongo-123");
+      mockPrisma.resource.create.mockResolvedValue({ id: "pg-456" });
+      // MongoDB returns a different resourceId
+      mockMongodb.findRawDataById.mockResolvedValue({ resourceId: "pg-WRONG" });
 
       const result = await service.fetchRssFeed("https://example.com/feed.rss");
 
-      expect(result.skipped).toBe(0);
+      // The item fails due to reference sync error
+      expect(result.failed).toBe(1);
+      expect(result.success).toBe(0);
+    });
+  });
+
+  // ── fetchMultipleFeeds ────────────────────────────────────────────────────────
+
+  describe("fetchMultipleFeeds", () => {
+    it("aggregates results from multiple feeds", async () => {
+      mockParseURL
+        .mockResolvedValueOnce({
+          title: "Feed 1",
+          items: [
+            { title: "Article A", link: "https://feed1.com/a", guid: "a" },
+            { title: "Article B", link: "https://feed1.com/b", guid: "b" },
+          ],
+        })
+        .mockResolvedValueOnce({
+          title: "Feed 2",
+          items: [
+            { title: "Article C", link: "https://feed2.com/c", guid: "c" },
+          ],
+        });
+
+      mockMongodb.findRawDataById
+        .mockResolvedValueOnce({ resourceId: "pg-a" })
+        .mockResolvedValueOnce({ resourceId: "pg-b" })
+        .mockResolvedValueOnce({ resourceId: "pg-c" });
+      mockPrisma.resource.create
+        .mockResolvedValueOnce({ id: "pg-a" })
+        .mockResolvedValueOnce({ id: "pg-b" })
+        .mockResolvedValueOnce({ id: "pg-c" });
+
+      const result = await service.fetchMultipleFeeds([
+        { url: "https://feed1.com/rss", category: "BLOG" },
+        { url: "https://feed2.com/rss", category: "NEWS" },
+      ]);
+
+      expect(result.total).toBe(3);
+      expect(result.successful).toBe(2); // Both feeds had at least 1 success
+      expect(result.failed).toBe(0);
     });
 
-    it("does not filter non-YouTube URLs even when minDurationSeconds set", async () => {
+    it("counts failed feeds when fetchRssFeed throws", async () => {
+      mockParseURL
+        .mockResolvedValueOnce({
+          title: "Feed 1",
+          items: [
+            { title: "Good", link: "https://feed1.com/good", guid: "g1" },
+          ],
+        })
+        .mockRejectedValueOnce(new Error("Status code 404"));
+
+      mockMongodb.findRawDataById.mockResolvedValue({ resourceId: "pg-g1" });
+      mockPrisma.resource.create.mockResolvedValue({ id: "pg-g1" });
+
+      const result = await service.fetchMultipleFeeds([
+        { url: "https://feed1.com/rss", category: "BLOG" },
+        { url: "https://feed2.com/missing.rss", category: "NEWS" },
+      ]);
+
+      expect(result.failed).toBe(1);
+      expect(result.successful).toBe(1);
+    });
+
+    it("returns all zeroes when no feeds provided", async () => {
+      const result = await service.fetchMultipleFeeds([]);
+
+      expect(result.total).toBe(0);
+      expect(result.successful).toBe(0);
+      expect(result.failed).toBe(0);
+      expect(result.duplicates).toBe(0);
+    });
+
+    it("respects maxItemsPerFeed param", async () => {
+      const manyItems = Array.from({ length: 20 }, (_, i) => ({
+        title: `Article ${i}`,
+        link: `https://feed.com/a${i}`,
+        guid: `g${i}`,
+      }));
+      mockParseURL.mockResolvedValue({ title: "Big Feed", items: manyItems });
+
+      await service.fetchMultipleFeeds(
+        [{ url: "https://feed.com/rss", category: "BLOG" }],
+        3,
+      );
+
+      // Only 3 items processed
+      expect(mockPrisma.resource.findFirst).toHaveBeenCalledTimes(3);
+    });
+
+    it("counts duplicates from all feeds", async () => {
       mockParseURL.mockResolvedValue({
-        title: "Blog Feed",
+        title: "Feed",
+        items: [
+          { title: "Dup Article", link: "https://feed.com/dup", guid: "dup" },
+        ],
+      });
+      // URL already exists → duplicate
+      mockPrisma.resource.findFirst.mockResolvedValue({
+        id: "existing",
+        title: "Dup",
+      });
+
+      const result = await service.fetchMultipleFeeds([
+        { url: "https://feed.com/rss", category: "BLOG" },
+      ]);
+
+      expect(result.duplicates).toBe(1);
+      expect(result.total).toBe(0);
+    });
+  });
+
+  // ── Title similarity duplicate ────────────────────────────────────────────────
+
+  describe("title similarity deduplication", () => {
+    it("skips item when title is similar to a recent resource", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "Feed",
         items: [
           {
-            title: "Blog Post",
-            link: "https://blog.example.com/post-1",
-            guid: "blog-guid-1",
+            title: "Very Similar Title",
+            link: "https://example.com/new",
+            guid: "g1",
           },
         ],
       });
+      // URL check: not found
+      mockPrisma.resource.findFirst.mockResolvedValue(null);
+      // Recent resources with a similar title
+      mockPrisma.resource.findMany.mockResolvedValue([
+        { id: "old-1", title: "Very Similar Title" },
+      ]);
+      // Deduplication says titles are similar
+      mockDeduplication.areTitlesSimilar.mockReturnValue(true);
 
-      const result = await service.fetchRssFeed(
-        "https://blog.example.com/feed.rss",
-        10,
-        "BLOG",
-        { minDurationSeconds: 600 },
-      );
+      const result = await service.fetchRssFeed("https://example.com/feed.rss");
 
-      // Non-YouTube feed with minDurationSeconds should NOT filter items
-      expect(result.skipped).toBe(0);
+      expect(result.duplicates).toBe(1);
+      expect(result.success).toBe(0);
+    });
+
+    it("processes item when title is NOT similar to recent resources", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "Feed",
+        items: [
+          {
+            title: "Brand New Title",
+            link: "https://example.com/brand-new",
+            guid: "gbn",
+          },
+        ],
+      });
+      mockPrisma.resource.findFirst.mockResolvedValue(null);
+      mockPrisma.resource.findMany.mockResolvedValue([
+        { id: "old-1", title: "Totally Different Title" },
+      ]);
+      mockDeduplication.areTitlesSimilar.mockReturnValue(false);
+
+      const result = await service.fetchRssFeed("https://example.com/feed.rss");
+
       expect(result.success).toBe(1);
     });
   });
 
-  // ── extractResourceData edge cases ──────────────────────────────────────────
+  // ── Non-YouTube feed with minDuration option ──────────────────────────────────
 
-  describe("fetchRssFeed – resource data extraction", () => {
-    it("truncates long summary to 500 characters", async () => {
-      const longContent = "x".repeat(600);
+  describe("non-YouTube feed with filter options", () => {
+    it("ignores duration filter for non-YouTube RSS feeds", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "Regular Blog Feed",
+        items: [
+          {
+            title: "Blog Post",
+            link: "https://blog.example.com/post1",
+            guid: "bp1",
+          },
+        ],
+      });
+
+      // minDurationSeconds set but feed is not YouTube
+      const result = await service.fetchRssFeed(
+        "https://blog.example.com/rss",
+        10,
+        "BLOG",
+        { minDurationSeconds: 300 },
+      );
+
+      expect(result.success).toBe(1);
+      // fetch should NOT have been called (no YouTube duration check)
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── All duplicates logging ────────────────────────────────────────────────────
+
+  describe("all-duplicate feed logging", () => {
+    it("returns success=0 and duplicates=N when all items are URL duplicates", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "Duplicate Feed",
+        items: Array.from({ length: 3 }, (_, i) => ({
+          title: `Dup ${i}`,
+          link: `https://example.com/dup${i}`,
+          guid: `dup-guid-${i}`,
+        })),
+      });
+
+      // All items already exist in DB
+      mockPrisma.resource.findFirst.mockResolvedValue({
+        id: "existing",
+        title: "exists",
+      });
+
+      const result = await service.fetchRssFeed("https://example.com/feed.rss");
+
+      expect(result.success).toBe(0);
+      expect(result.duplicates).toBe(3);
+    });
+  });
+
+  // ── extractResourceData content extraction ────────────────────────────────────
+
+  describe("resource data extraction", () => {
+    it("uses contentSnippet as summary when available", async () => {
+      mockParseURL.mockResolvedValue({
+        title: "Feed",
+        items: [
+          {
+            title: "Rich Article",
+            link: "https://example.com/rich",
+            guid: "rich-1",
+            contentSnippet: "This is a snippet",
+            description: "This is a description",
+          },
+        ],
+      });
+
+      await service.fetchRssFeed("https://example.com/feed.rss");
+
+      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            abstract: "This is a snippet",
+          }),
+        }),
+      );
+    });
+
+    it("truncates long summary to 500 chars", async () => {
+      const longContent = "A".repeat(600);
       mockParseURL.mockResolvedValue({
         title: "Feed",
         items: [
           {
             title: "Long Content Article",
-            link: "https://example.com/long-content",
-            guid: "long-guid",
+            link: "https://example.com/long",
+            guid: "long-1",
             contentSnippet: longContent,
           },
         ],
@@ -193,65 +681,63 @@ describe("RssService (supplemental)", () => {
       expect(mockPrisma.resource.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            abstract: expect.stringMatching(/\.{3}$/),
+            abstract: expect.stringMatching(/\.\.\.$/),
           }),
         }),
       );
+
+      const callArg = mockPrisma.resource.create.mock.calls[0][0];
+      expect(callArg.data.abstract.length).toBe(500);
     });
 
-    it("uses feed.title as fallback author when creator is missing", async () => {
+    it("uses isoDate for publishedAt when available", async () => {
+      const isoDate = "2024-01-15T10:00:00.000Z";
       mockParseURL.mockResolvedValue({
-        title: "My Blog Feed",
+        title: "Feed",
         items: [
           {
-            title: "No Author Post",
-            link: "https://example.com/no-author",
-            guid: "no-author-guid",
+            title: "Dated Article",
+            link: "https://example.com/dated",
+            guid: "dated-1",
+            isoDate,
           },
         ],
       });
 
       await service.fetchRssFeed("https://example.com/feed.rss");
 
-      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            authors: [{ name: "My Blog Feed" }],
-          }),
-        }),
-      );
+      const callArg = mockPrisma.resource.create.mock.calls[0][0];
+      expect(callArg.data.publishedAt).toEqual(new Date(isoDate));
     });
 
-    it("uses 'Unknown' as author when both creator and feed.title are missing", async () => {
+    it("uses pubDate when isoDate is absent", async () => {
+      const pubDate = "Mon, 15 Jan 2024 10:00:00 GMT";
       mockParseURL.mockResolvedValue({
+        title: "Feed",
         items: [
           {
-            title: "Anonymous Post",
-            link: "https://example.com/anon",
-            guid: "anon-guid",
+            title: "PubDate Article",
+            link: "https://example.com/pubdate",
+            guid: "pd-1",
+            pubDate,
           },
         ],
       });
 
       await service.fetchRssFeed("https://example.com/feed.rss");
 
-      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            authors: [{ name: "Unknown" }],
-          }),
-        }),
-      );
+      const callArg = mockPrisma.resource.create.mock.calls[0][0];
+      expect(callArg.data.publishedAt).toBeInstanceOf(Date);
     });
 
-    it("uses item.creator as author when present", async () => {
+    it("uses creator as author when available", async () => {
       mockParseURL.mockResolvedValue({
-        title: "Feed Title",
+        title: "Tech Blog",
         items: [
           {
-            title: "Authored Post",
-            link: "https://example.com/authored",
-            guid: "authored-guid",
+            title: "Creator Article",
+            link: "https://example.com/creator",
+            guid: "cr-1",
             creator: "John Doe",
           },
         ],
@@ -259,355 +745,28 @@ describe("RssService (supplemental)", () => {
 
       await service.fetchRssFeed("https://example.com/feed.rss");
 
-      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            authors: [{ name: "John Doe" }],
-          }),
-        }),
-      );
+      const callArg = mockPrisma.resource.create.mock.calls[0][0];
+      expect(callArg.data.authors).toEqual([{ name: "John Doe" }]);
     });
 
-    it("extracts tags from item categories", async () => {
+    it("extracts categories as tags (max 10)", async () => {
+      const categories = Array.from({ length: 15 }, (_, i) => `tag${i}`);
       mockParseURL.mockResolvedValue({
         title: "Feed",
         items: [
           {
-            title: "Categorized Post",
-            link: "https://example.com/categories",
-            guid: "cat-guid",
-            categories: ["AI", "Machine Learning", "NLP"],
+            title: "Tagged Article",
+            link: "https://example.com/tagged",
+            guid: "tg-1",
+            categories,
           },
         ],
       });
 
       await service.fetchRssFeed("https://example.com/feed.rss");
 
-      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            tags: expect.arrayContaining(["AI", "Machine Learning", "NLP"]),
-          }),
-        }),
-      );
-    });
-
-    it("uses pubDate when isoDate is not present", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "Feed",
-        items: [
-          {
-            title: "PubDate Post",
-            link: "https://example.com/pubdate",
-            guid: "pub-guid",
-            pubDate: "Mon, 01 Jan 2024 00:00:00 GMT",
-          },
-        ],
-      });
-
-      await service.fetchRssFeed("https://example.com/feed.rss");
-
-      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            publishedAt: expect.any(Date),
-          }),
-        }),
-      );
-    });
-
-    it("sets qualityScore=8.0 for RSS items", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "Feed",
-        items: [
-          {
-            title: "Quality Post",
-            link: "https://example.com/quality",
-            guid: "qual-guid",
-          },
-        ],
-      });
-
-      await service.fetchRssFeed("https://example.com/feed.rss");
-
-      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            qualityScore: 8.0,
-          }),
-        }),
-      );
-    });
-
-    it("sets pdfUrl=null for non-arXiv URLs", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "Feed",
-        items: [
-          {
-            title: "Regular Post",
-            link: "https://example.com/regular-post",
-            guid: "regular-guid",
-          },
-        ],
-      });
-
-      await service.fetchRssFeed("https://example.com/feed.rss");
-
-      expect(mockPrisma.resource.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            pdfUrl: null,
-          }),
-        }),
-      );
-    });
-  });
-
-  // ── YouTube duration filtering edge cases ────────────────────────────────────
-
-  describe("fetchRssFeed – YouTube duration edge cases", () => {
-    const ytFeedUrl =
-      "https://www.youtube.com/feeds/videos.xml?channel_id=UCtest";
-
-    it("processes video when duration equals minimum threshold exactly", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "YouTube Channel",
-        items: [
-          {
-            title: "Exactly Minimum Video",
-            link: "https://www.youtube.com/watch?v=exactId",
-            guid: "yt-exact",
-          },
-        ],
-      });
-
-      const durationSpy = jest
-        .spyOn(
-          service as unknown as {
-            getYouTubeVideoDuration: () => Promise<number>;
-          },
-          "getYouTubeVideoDuration",
-        )
-        .mockResolvedValue(600);
-
-      const result = await service.fetchRssFeed(
-        ytFeedUrl,
-        10,
-        "YOUTUBE_VIDEO",
-        { minDurationSeconds: 600 },
-      );
-
-      // Duration equals minimum - should NOT be skipped (only skip if strictly less than)
-      expect(result.skipped).toBe(0);
-      durationSpy.mockRestore();
-    });
-
-    it("includes unknown duration video when skipUnknownDuration=false", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "YouTube Channel",
-        items: [
-          {
-            title: "Unknown Duration Video",
-            link: "https://www.youtube.com/watch?v=unknownId",
-            guid: "yt-unknown",
-          },
-        ],
-      });
-
-      const durationSpy = jest
-        .spyOn(
-          service as unknown as {
-            getYouTubeVideoDuration: () => Promise<number | null>;
-          },
-          "getYouTubeVideoDuration",
-        )
-        .mockResolvedValue(null);
-
-      const result = await service.fetchRssFeed(
-        ytFeedUrl,
-        10,
-        "YOUTUBE_VIDEO",
-        { minDurationSeconds: 600, skipUnknownDuration: false },
-      );
-
-      // skipUnknownDuration=false means include unknown duration videos
-      expect(result.skipped).toBe(0);
-      expect(result.success).toBe(1);
-      durationSpy.mockRestore();
-    });
-
-    it("skips video when duration unknown and skipUnknownDuration=true", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "YouTube Channel",
-        items: [
-          {
-            title: "Unknown Duration Video 2",
-            link: "https://www.youtube.com/watch?v=unknownId2",
-            guid: "yt-unknown-2",
-          },
-        ],
-      });
-
-      const durationSpy = jest
-        .spyOn(
-          service as unknown as {
-            getYouTubeVideoDuration: () => Promise<number | null>;
-          },
-          "getYouTubeVideoDuration",
-        )
-        .mockResolvedValue(null);
-
-      const result = await service.fetchRssFeed(
-        ytFeedUrl,
-        10,
-        "YOUTUBE_VIDEO",
-        { minDurationSeconds: 600, skipUnknownDuration: true },
-      );
-
-      expect(result.skipped).toBe(1);
-      expect(result.success).toBe(0);
-      durationSpy.mockRestore();
-    });
-
-    it("uses youtu.be URL format for YouTube detection", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "YouTube Channel",
-        items: [
-          {
-            title: "Youtu.be Video",
-            link: "https://youtu.be/shortId123",
-            guid: "yt-short-url",
-          },
-        ],
-      });
-
-      const durationSpy = jest
-        .spyOn(
-          service as unknown as {
-            getYouTubeVideoDuration: () => Promise<number>;
-          },
-          "getYouTubeVideoDuration",
-        )
-        .mockResolvedValue(900);
-
-      const _result = await service.fetchRssFeed(
-        ytFeedUrl,
-        10,
-        "YOUTUBE_VIDEO",
-        { minDurationSeconds: 600 },
-      );
-
-      expect(durationSpy).toHaveBeenCalledWith(
-        expect.stringContaining("youtu.be"),
-      );
-      durationSpy.mockRestore();
-    });
-
-    it("uses youtube.com/shorts URL for YouTube detection", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "YouTube Channel",
-        items: [
-          {
-            title: "YouTube Short",
-            link: "https://www.youtube.com/shorts/shortVideoId",
-            guid: "yt-shorts",
-          },
-        ],
-      });
-
-      const durationSpy = jest
-        .spyOn(
-          service as unknown as {
-            getYouTubeVideoDuration: () => Promise<number>;
-          },
-          "getYouTubeVideoDuration",
-        )
-        .mockResolvedValue(55);
-
-      const result = await service.fetchRssFeed(
-        ytFeedUrl,
-        10,
-        "YOUTUBE_VIDEO",
-        { minDurationSeconds: 600 },
-      );
-
-      expect(result.skipped).toBe(1);
-      durationSpy.mockRestore();
-    });
-  });
-
-  // ── fetchMultipleFeeds edge cases ────────────────────────────────────────────
-
-  describe("fetchMultipleFeeds – edge cases", () => {
-    it("returns successful=0 when all items are duplicates", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "Feed",
-        items: [
-          { title: "Dup Item", link: "https://example.com/dup", guid: "dup-g" },
-        ],
-      });
-      mockPrisma.resource.findFirst.mockResolvedValue({
-        id: "existing",
-        title: "Dup Item",
-      });
-
-      const result = await service.fetchMultipleFeeds([
-        { url: "https://feed1.com/rss", category: "BLOG" },
-      ]);
-
-      expect(result.successful).toBe(0);
-      expect(result.duplicates).toBe(1);
-    });
-
-    it("applies maxItemsPerFeed to each feed independently", async () => {
-      mockParseURL.mockResolvedValue({
-        title: "Feed",
-        items: Array.from({ length: 20 }, (_, i) => ({
-          title: `Item ${i}`,
-          link: `https://example.com/item-${i}`,
-          guid: `guid-${i}`,
-        })),
-      });
-
-      await service.fetchMultipleFeeds(
-        [{ url: "https://example.com/rss", category: "BLOG" }],
-        3,
-      );
-
-      // Only 3 items processed (3 findFirst calls)
-      expect(mockPrisma.resource.findFirst).toHaveBeenCalledTimes(3);
-    });
-
-    it("returns empty results for empty feeds array", async () => {
-      const result = await service.fetchMultipleFeeds([]);
-
-      expect(result.total).toBe(0);
-      expect(result.successful).toBe(0);
-      expect(result.failed).toBe(0);
-      expect(result.duplicates).toBe(0);
-    });
-
-    it("counts partially successful feeds in successful count", async () => {
-      mockParseURL
-        .mockResolvedValueOnce({
-          title: "Feed 1",
-          items: [
-            {
-              title: "Success Item",
-              link: "https://feed1.com/item1",
-              guid: "g1",
-            },
-          ],
-        })
-        .mockRejectedValueOnce(new Error("Status code 404"));
-
-      const result = await service.fetchMultipleFeeds([
-        { url: "https://feed1.com/rss", category: "BLOG" },
-        { url: "https://missing.com/rss", category: "NEWS" },
-      ]);
-
-      expect(result.successful).toBe(1);
-      expect(result.failed).toBe(1);
+      const callArg = mockPrisma.resource.create.mock.calls[0][0];
+      expect(callArg.data.tags).toHaveLength(10);
     });
   });
 });

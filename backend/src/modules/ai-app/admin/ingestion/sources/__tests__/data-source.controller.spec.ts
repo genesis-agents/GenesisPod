@@ -5,291 +5,171 @@ import {
   CreateDataSourceDto,
   UpdateDataSourceDto,
 } from "../data-source.service";
-import { DataSourceStatus, DataSourceType } from "@prisma/client";
-
-const mockDataSourceService = {
-  create: jest.fn(),
-  bulkCreate: jest.fn(),
-  findAll: jest.fn(),
-  getStatsSummary: jest.fn(),
-  findOne: jest.fn(),
-  update: jest.fn(),
-  remove: jest.fn(),
-  test: jest.fn(),
-  fixKnownRssUrls: jest.fn(),
-};
-
-const mockDataSource = {
-  id: "ds-1",
-  name: "Test Source",
-  description: "A test data source",
-  type: "RSS" as DataSourceType,
-  category: "AI",
-  baseUrl: "https://example.com",
-  status: "ACTIVE" as DataSourceStatus,
-  crawlerType: "rss",
-  crawlerConfig: {},
-  keywords: [],
-  categories: [],
-  languages: ["en"],
-  rateLimit: 60,
-  minQualityScore: 0,
-  deduplicationConfig: {},
-  isVerified: false,
-  createdBy: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  authType: "NONE",
-  apiEndpoint: null,
-  credentials: null,
-};
 
 describe("DataSourceController", () => {
   let controller: DataSourceController;
+  let dataSourceService: jest.Mocked<DataSourceService>;
+
+  const mockSource = {
+    id: "source-1",
+    type: "RSS",
+    status: "ACTIVE",
+    url: "https://example.com/feed",
+    name: "Test Feed",
+  };
+
+  const mockStats = {
+    total: 10,
+    active: 8,
+    paused: 2,
+  };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
-
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DataSourceController],
       providers: [
-        { provide: DataSourceService, useValue: mockDataSourceService },
+        {
+          provide: DataSourceService,
+          useValue: {
+            create: jest.fn().mockResolvedValue(mockSource),
+            bulkCreate: jest.fn().mockResolvedValue([mockSource]),
+            findAll: jest.fn().mockResolvedValue([mockSource]),
+            getStatsSummary: jest.fn().mockResolvedValue(mockStats),
+            findOne: jest.fn().mockResolvedValue(mockSource),
+            update: jest.fn().mockResolvedValue(mockSource),
+            remove: jest.fn().mockResolvedValue(undefined),
+            test: jest.fn().mockResolvedValue({ success: true }),
+            fixKnownRssUrls: jest.fn().mockResolvedValue({ fixed: 2 }),
+          },
+        },
       ],
     }).compile();
 
     controller = module.get<DataSourceController>(DataSourceController);
+    dataSourceService = module.get(DataSourceService);
   });
-
-  // ==================== create ====================
 
   describe("create", () => {
-    it("creates a new data source", async () => {
-      mockDataSourceService.create.mockResolvedValue(mockDataSource);
-
+    it("should create a data source", async () => {
       const dto: CreateDataSourceDto = {
-        name: "Test Source",
-        type: "RSS" as DataSourceType,
-        category: "AI",
-        baseUrl: "https://example.com",
-        crawlerType: "rss",
-        crawlerConfig: {},
-      };
+        type: "RSS",
+        url: "https://example.com/feed",
+        name: "Test Feed",
+      } as unknown as CreateDataSourceDto;
 
       const result = await controller.create(dto);
-
-      expect(mockDataSourceService.create).toHaveBeenCalledWith(dto);
-      expect(result).toEqual(mockDataSource);
+      expect(dataSourceService.create).toHaveBeenCalledWith(dto);
+      expect(result).toBe(mockSource);
     });
   });
-
-  // ==================== bulkCreate ====================
 
   describe("bulkCreate", () => {
-    it("creates multiple data sources in bulk", async () => {
-      const sources = [mockDataSource, { ...mockDataSource, id: "ds-2" }];
-      mockDataSourceService.bulkCreate.mockResolvedValue(sources);
-
+    it("should bulk create data sources", async () => {
       const dtos: CreateDataSourceDto[] = [
-        {
-          name: "Source 1",
-          type: "RSS" as DataSourceType,
-          category: "AI",
-          baseUrl: "https://example1.com",
-          crawlerType: "rss",
-          crawlerConfig: {},
-        },
-        {
-          name: "Source 2",
-          type: "API" as DataSourceType,
-          category: "Science",
-          baseUrl: "https://example2.com",
-          crawlerType: "api",
-          crawlerConfig: {},
-        },
-      ];
+        { type: "RSS", url: "https://example.com/feed", name: "Feed 1" },
+      ] as unknown as CreateDataSourceDto[];
 
       const result = await controller.bulkCreate(dtos);
-
-      expect(mockDataSourceService.bulkCreate).toHaveBeenCalledWith(dtos);
-      expect(result).toEqual(sources);
+      expect(dataSourceService.bulkCreate).toHaveBeenCalledWith(dtos);
+      expect(result).toEqual([mockSource]);
     });
   });
-
-  // ==================== findAll ====================
 
   describe("findAll", () => {
-    it("returns all data sources without filters", async () => {
-      mockDataSourceService.findAll.mockResolvedValue([mockDataSource]);
-
+    it("should return all data sources with metadata", async () => {
       const result = await controller.findAll();
-
-      expect(mockDataSourceService.findAll).toHaveBeenCalledWith({
+      expect(dataSourceService.findAll).toHaveBeenCalledWith({
         type: undefined,
         status: undefined,
         category: undefined,
       });
-      expect(result).toEqual({ data: [mockDataSource], total: 1 });
+      expect(result).toEqual({ data: [mockSource], total: 1 });
     });
 
-    it("returns filtered data sources by type and status", async () => {
-      mockDataSourceService.findAll.mockResolvedValue([mockDataSource]);
-
+    it("should pass filters to service", async () => {
+      dataSourceService.findAll.mockResolvedValue([]);
       const result = await controller.findAll(
-        "RSS" as DataSourceType,
-        "ACTIVE" as DataSourceStatus,
+        "RSS" as unknown as import("@prisma/client").DataSourceType,
+        "ACTIVE" as unknown as import("@prisma/client").DataSourceStatus,
+        "news",
       );
-
-      expect(mockDataSourceService.findAll).toHaveBeenCalledWith({
+      expect(dataSourceService.findAll).toHaveBeenCalledWith({
         type: "RSS",
         status: "ACTIVE",
-        category: undefined,
+        category: "news",
       });
-      expect(result.total).toBe(1);
-    });
-
-    it("returns filtered data sources by category", async () => {
-      mockDataSourceService.findAll.mockResolvedValue([mockDataSource]);
-
-      const result = await controller.findAll(undefined, undefined, "AI");
-
-      expect(mockDataSourceService.findAll).toHaveBeenCalledWith({
-        type: undefined,
-        status: undefined,
-        category: "AI",
-      });
-      expect(result.data).toHaveLength(1);
-    });
-
-    it("returns empty array when no sources match", async () => {
-      mockDataSourceService.findAll.mockResolvedValue([]);
-
-      const result = await controller.findAll("API" as DataSourceType);
-
-      expect(result.data).toHaveLength(0);
-      expect(result.total).toBe(0);
+      expect(result).toEqual({ data: [], total: 0 });
     });
   });
-
-  // ==================== getStats ====================
 
   describe("getStats", () => {
-    it("returns statistics summary", async () => {
-      const stats = {
-        total: 10,
-        active: 7,
-        inactive: 2,
-        error: 1,
-      };
-      mockDataSourceService.getStatsSummary.mockResolvedValue(stats);
-
+    it("should return stats summary", async () => {
       const result = await controller.getStats();
-
-      expect(mockDataSourceService.getStatsSummary).toHaveBeenCalled();
-      expect(result).toEqual(stats);
+      expect(dataSourceService.getStatsSummary).toHaveBeenCalled();
+      expect(result).toBe(mockStats);
     });
   });
-
-  // ==================== findOne ====================
 
   describe("findOne", () => {
-    it("returns a single data source by id", async () => {
-      mockDataSourceService.findOne.mockResolvedValue(mockDataSource);
-
-      const result = await controller.findOne("ds-1");
-
-      expect(mockDataSourceService.findOne).toHaveBeenCalledWith("ds-1");
-      expect(result).toEqual(mockDataSource);
+    it("should return a single data source by id", async () => {
+      const result = await controller.findOne("source-1");
+      expect(dataSourceService.findOne).toHaveBeenCalledWith("source-1");
+      expect(result).toBe(mockSource);
     });
   });
-
-  // ==================== update ====================
 
   describe("update", () => {
-    it("updates a data source", async () => {
-      const updated = { ...mockDataSource, name: "Updated Source" };
-      mockDataSourceService.update.mockResolvedValue(updated);
+    it("should update a data source", async () => {
+      const dto: UpdateDataSourceDto = {
+        name: "Updated Feed",
+      } as unknown as UpdateDataSourceDto;
 
-      const dto: UpdateDataSourceDto = { name: "Updated Source" };
-      const result = await controller.update("ds-1", dto);
-
-      expect(mockDataSourceService.update).toHaveBeenCalledWith("ds-1", dto);
-      expect(result.name).toBe("Updated Source");
+      const result = await controller.update("source-1", dto);
+      expect(dataSourceService.update).toHaveBeenCalledWith("source-1", dto);
+      expect(result).toBe(mockSource);
     });
   });
-
-  // ==================== remove ====================
 
   describe("remove", () => {
-    it("removes a data source by id (returns void)", async () => {
-      mockDataSourceService.remove.mockResolvedValue(undefined);
-
-      await controller.remove("ds-1");
-
-      expect(mockDataSourceService.remove).toHaveBeenCalledWith("ds-1");
+    it("should remove a data source", async () => {
+      await controller.remove("source-1");
+      expect(dataSourceService.remove).toHaveBeenCalledWith("source-1");
     });
   });
-
-  // ==================== test ====================
 
   describe("test", () => {
-    it("tests connection to data source", async () => {
-      const testResult = { success: true, message: "Connection OK" };
-      mockDataSourceService.test.mockResolvedValue(testResult);
-
-      const result = await controller.test("ds-1");
-
-      expect(mockDataSourceService.test).toHaveBeenCalledWith("ds-1");
-      expect(result).toEqual(testResult);
+    it("should test a data source connection", async () => {
+      const result = await controller.test("source-1");
+      expect(dataSourceService.test).toHaveBeenCalledWith("source-1");
+      expect(result).toEqual({ success: true });
     });
   });
 
-  // ==================== pause / resume ====================
-
   describe("pause", () => {
-    it("pauses a data source by updating status to PAUSED", async () => {
-      const paused = {
-        ...mockDataSource,
-        status: "PAUSED" as DataSourceStatus,
-      };
-      mockDataSourceService.update.mockResolvedValue(paused);
-
-      const result = await controller.pause("ds-1");
-
-      expect(mockDataSourceService.update).toHaveBeenCalledWith("ds-1", {
+    it("should pause a data source by updating status to PAUSED", async () => {
+      const result = await controller.pause("source-1");
+      expect(dataSourceService.update).toHaveBeenCalledWith("source-1", {
         status: "PAUSED",
       });
-      expect(result.status).toBe("PAUSED");
+      expect(result).toBe(mockSource);
     });
   });
 
   describe("resume", () => {
-    it("resumes a data source by updating status to ACTIVE", async () => {
-      const resumed = {
-        ...mockDataSource,
-        status: "ACTIVE" as DataSourceStatus,
-      };
-      mockDataSourceService.update.mockResolvedValue(resumed);
-
-      const result = await controller.resume("ds-1");
-
-      expect(mockDataSourceService.update).toHaveBeenCalledWith("ds-1", {
+    it("should resume a data source by updating status to ACTIVE", async () => {
+      const result = await controller.resume("source-1");
+      expect(dataSourceService.update).toHaveBeenCalledWith("source-1", {
         status: "ACTIVE",
       });
-      expect(result.status).toBe("ACTIVE");
+      expect(result).toBe(mockSource);
     });
   });
 
-  // ==================== fixRssUrls ====================
-
   describe("fixRssUrls", () => {
-    it("fixes known RSS URL issues", async () => {
-      const fixResult = { fixed: 3, details: [] };
-      mockDataSourceService.fixKnownRssUrls.mockResolvedValue(fixResult);
-
+    it("should fix known RSS URLs", async () => {
       const result = await controller.fixRssUrls();
-
-      expect(mockDataSourceService.fixKnownRssUrls).toHaveBeenCalled();
-      expect(result).toEqual(fixResult);
+      expect(dataSourceService.fixKnownRssUrls).toHaveBeenCalled();
+      expect(result).toEqual({ fixed: 2 });
     });
   });
 });

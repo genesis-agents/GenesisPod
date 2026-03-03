@@ -1,275 +1,204 @@
-// Mock transitive deps that are not installed in the worktree
-jest.mock("@nestjs/cache-manager", () => ({ CACHE_MANAGER: "CACHE_MANAGER" }), {
-  virtual: true,
-});
-jest.mock("cache-manager", () => ({}), { virtual: true });
-jest.mock("ioredis", () => ({}), { virtual: true });
-
-// Mock workspace services to avoid deep transitive imports
-jest.mock("../workspace.service", () => ({ WorkspaceService: class {} }));
-jest.mock("../workspace-task.service", () => ({
-  WorkspaceTaskService: class {},
-}));
-jest.mock("../report-template.service", () => ({
-  ReportTemplateService: class {},
-}));
-
-// Mock the jwt-auth.guard module entirely
-// Note: 5 levels up from __tests__ folder to reach common/guards
-jest.mock("../../../../../common/guards/jwt-auth.guard", () => ({
-  JwtAuthGuard: class {
-    canActivate() {
-      return true;
-    }
-  },
-}));
-
 import { Test, TestingModule } from "@nestjs/testing";
 import { UnauthorizedException } from "@nestjs/common";
 import { WorkspaceController } from "../workspace.controller";
 import { WorkspaceService } from "../workspace.service";
 import { WorkspaceTaskService } from "../workspace-task.service";
 import { ReportTemplateService } from "../report-template.service";
-import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
-
-const mockWorkspaceService = {
-  createWorkspace: jest.fn(),
-  getWorkspace: jest.fn(),
-  updateWorkspaceResources: jest.fn(),
-  ensureWorkspaceOwnership: jest.fn(),
-};
-
-const mockWorkspaceTaskService = {
-  createTask: jest.fn(),
-  getTask: jest.fn(),
-};
-
-const mockReportTemplateService = {
-  listTemplates: jest.fn(),
-  getTemplate: jest.fn(),
-};
-
-const mockWorkspace = {
-  id: "ws-1",
-  userId: "user-123",
-  name: "Test Workspace",
-  description: "Test workspace description",
-  resources: [],
-  tasks: [],
-  reports: [],
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-
-const mockTemplate = {
-  id: "tmpl-1",
-  name: "Research Report",
-  category: "research",
-  description: "A research report template",
-  promptTemplate: "Generate a research report about {{topic}}",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-
-const makeRequest = (userId = "user-123") => ({
-  user: { id: userId, email: "test@example.com" },
-});
 
 describe("WorkspaceController", () => {
   let controller: WorkspaceController;
+  let workspaceService: jest.Mocked<WorkspaceService>;
+  let workspaceTaskService: jest.Mocked<WorkspaceTaskService>;
+  let reportTemplateService: jest.Mocked<ReportTemplateService>;
+
+  const mockWorkspace = {
+    id: "ws-1",
+    title: "Test Workspace",
+    userId: "user-1",
+  };
+
+  const mockTask = {
+    id: "task-1",
+    status: "PENDING",
+    workspaceId: "ws-1",
+  };
+
+  const mockTemplates = [
+    { id: "tpl-1", name: "Research Report", category: "research" },
+  ];
+
+  const authenticatedReq = (userId = "user-1") => ({
+    user: { id: userId, email: "test@example.com" },
+  });
 
   beforeEach(async () => {
-    jest.clearAllMocks();
-
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorkspaceController],
       providers: [
-        { provide: WorkspaceService, useValue: mockWorkspaceService },
-        { provide: WorkspaceTaskService, useValue: mockWorkspaceTaskService },
+        {
+          provide: WorkspaceService,
+          useValue: {
+            createWorkspace: jest.fn().mockResolvedValue(mockWorkspace),
+            getWorkspace: jest.fn().mockResolvedValue(mockWorkspace),
+            updateWorkspaceResources: jest
+              .fn()
+              .mockResolvedValue(mockWorkspace),
+          },
+        },
+        {
+          provide: WorkspaceTaskService,
+          useValue: {
+            createTask: jest.fn().mockResolvedValue(mockTask),
+            getTask: jest.fn().mockResolvedValue(mockTask),
+          },
+        },
         {
           provide: ReportTemplateService,
-          useValue: mockReportTemplateService,
+          useValue: {
+            listTemplates: jest.fn().mockResolvedValue(mockTemplates),
+          },
         },
       ],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
-      .compile();
+    }).compile();
 
     controller = module.get<WorkspaceController>(WorkspaceController);
+    workspaceService = module.get(WorkspaceService);
+    workspaceTaskService = module.get(WorkspaceTaskService);
+    reportTemplateService = module.get(ReportTemplateService);
   });
-
-  // ==================== createWorkspace ====================
 
   describe("createWorkspace", () => {
-    it("creates a workspace for authenticated user", async () => {
-      mockWorkspaceService.createWorkspace.mockResolvedValue(mockWorkspace);
+    it("should create a workspace for authenticated user", async () => {
+      const req = authenticatedReq();
+      const dto = {
+        title: "New Workspace",
+      } as unknown as import("../dto").CreateWorkspaceDto;
 
-      const dto = { resourceIds: ["res-1", "res-2"], name: "Test Workspace" };
-      const result = await controller.createWorkspace(makeRequest(), dto);
-
-      expect(mockWorkspaceService.createWorkspace).toHaveBeenCalledWith(
-        "user-123",
+      const result = await controller.createWorkspace(req, dto);
+      expect(workspaceService.createWorkspace).toHaveBeenCalledWith(
+        "user-1",
         dto,
       );
-      expect(result).toEqual(mockWorkspace);
+      expect(result).toBe(mockWorkspace);
     });
 
-    it("throws UnauthorizedException when user is not authenticated", async () => {
-      const req = { user: { id: undefined as unknown as string, email: "" } };
+    it("should throw UnauthorizedException when user id is missing", async () => {
+      const req = { user: { id: "", email: "test@example.com" } };
+      const dto = {} as unknown as import("../dto").CreateWorkspaceDto;
 
-      await expect(
-        controller.createWorkspace(req, { resourceIds: ["res-1"], name: "x" }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(controller.createWorkspace(req, dto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
-
-  // ==================== listTemplates ====================
 
   describe("listTemplates", () => {
-    it("returns all templates when no category provided", async () => {
-      mockReportTemplateService.listTemplates.mockResolvedValue([mockTemplate]);
-
+    it("should list all templates without category filter", async () => {
       const result = await controller.listTemplates();
-
-      expect(mockReportTemplateService.listTemplates).toHaveBeenCalledWith(
+      expect(reportTemplateService.listTemplates).toHaveBeenCalledWith(
         undefined,
       );
-      expect(result).toEqual([mockTemplate]);
+      expect(result).toBe(mockTemplates);
     });
 
-    it("returns filtered templates by category", async () => {
-      mockReportTemplateService.listTemplates.mockResolvedValue([mockTemplate]);
-
+    it("should pass category filter to service", async () => {
       const result = await controller.listTemplates("research");
-
-      expect(mockReportTemplateService.listTemplates).toHaveBeenCalledWith(
+      expect(reportTemplateService.listTemplates).toHaveBeenCalledWith(
         "research",
       );
-      expect(result).toHaveLength(1);
+      expect(result).toBe(mockTemplates);
     });
   });
 
-  // ==================== getWorkspace ====================
-
   describe("getWorkspace", () => {
-    it("returns workspace detail for authenticated user", async () => {
-      mockWorkspaceService.getWorkspace.mockResolvedValue(mockWorkspace);
-
-      const result = await controller.getWorkspace("ws-1", makeRequest());
-
-      expect(mockWorkspaceService.getWorkspace).toHaveBeenCalledWith(
+    it("should return workspace for authenticated user", async () => {
+      const req = authenticatedReq();
+      const result = await controller.getWorkspace("ws-1", req);
+      expect(workspaceService.getWorkspace).toHaveBeenCalledWith(
         "ws-1",
-        "user-123",
+        "user-1",
       );
-      expect(result).toEqual(mockWorkspace);
+      expect(result).toBe(mockWorkspace);
     });
 
-    it("throws UnauthorizedException when user id is missing", async () => {
-      const req = { user: { id: undefined as unknown as string, email: "" } };
-
+    it("should throw UnauthorizedException when user id is missing", async () => {
+      const req = { user: { id: "", email: "" } };
       await expect(controller.getWorkspace("ws-1", req)).rejects.toThrow(
         UnauthorizedException,
       );
     });
   });
 
-  // ==================== updateWorkspaceResources ====================
-
   describe("updateWorkspaceResources", () => {
-    it("updates workspace resources for authenticated user", async () => {
-      const updated = { ...mockWorkspace, resources: [] };
-      mockWorkspaceService.updateWorkspaceResources.mockResolvedValue(updated);
+    it("should update workspace resources for authenticated user", async () => {
+      const req = authenticatedReq();
+      const dto = {
+        resourceIds: ["r-1"],
+      } as unknown as import("../dto").UpdateWorkspaceResourcesDto;
 
-      const dto = { resourceIds: ["res-1", "res-2"] };
       const result = await controller.updateWorkspaceResources(
         "ws-1",
-        makeRequest(),
+        req,
         dto,
       );
-
-      expect(
-        mockWorkspaceService.updateWorkspaceResources,
-      ).toHaveBeenCalledWith("ws-1", "user-123", dto);
-      expect(result).toEqual(updated);
+      expect(workspaceService.updateWorkspaceResources).toHaveBeenCalledWith(
+        "ws-1",
+        "user-1",
+        dto,
+      );
+      expect(result).toBe(mockWorkspace);
     });
 
-    it("throws UnauthorizedException when not authenticated", async () => {
-      const req = { user: { id: undefined as unknown as string, email: "" } };
+    it("should throw UnauthorizedException when user id is missing", async () => {
+      const req = { user: { id: "", email: "" } };
+      const dto = {} as unknown as import("../dto").UpdateWorkspaceResourcesDto;
 
       await expect(
-        controller.updateWorkspaceResources("ws-1", req, {
-          resourceIds: [],
-        }),
+        controller.updateWorkspaceResources("ws-1", req, dto),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
-
-  // ==================== createWorkspaceTask ====================
 
   describe("createWorkspaceTask", () => {
-    it("creates a task in the workspace for authenticated user", async () => {
-      const mockTask = {
-        id: "task-1",
-        workspaceId: "ws-1",
-        status: "PENDING",
-        createdAt: new Date(),
-      };
-      mockWorkspaceTaskService.createTask.mockResolvedValue(mockTask);
+    it("should create a workspace task for authenticated user", async () => {
+      const req = authenticatedReq();
+      const dto = {
+        type: "RESEARCH",
+      } as unknown as import("../dto").CreateWorkspaceTaskDto;
 
-      const dto = { templateId: "tmpl-1", parameters: {} };
-      const result = await controller.createWorkspaceTask(
-        "ws-1",
-        makeRequest(),
-        dto,
-      );
-
-      expect(mockWorkspaceTaskService.createTask).toHaveBeenCalledWith(
-        "user-123",
+      const result = await controller.createWorkspaceTask("ws-1", req, dto);
+      expect(workspaceTaskService.createTask).toHaveBeenCalledWith(
+        "user-1",
         "ws-1",
         dto,
       );
-      expect(result).toEqual(mockTask);
+      expect(result).toBe(mockTask);
     });
 
-    it("throws UnauthorizedException when not authenticated", async () => {
-      const req = { user: { id: undefined as unknown as string, email: "" } };
+    it("should throw UnauthorizedException when user id is missing", async () => {
+      const req = { user: { id: "", email: "" } };
+      const dto = {} as unknown as import("../dto").CreateWorkspaceTaskDto;
 
       await expect(
-        controller.createWorkspaceTask("ws-1", req, { templateId: "tmpl-1" }),
+        controller.createWorkspaceTask("ws-1", req, dto),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
 
-  // ==================== getWorkspaceTask ====================
-
   describe("getWorkspaceTask", () => {
-    it("returns task status for authenticated user", async () => {
-      const mockTask = {
-        id: "task-1",
-        workspaceId: "ws-1",
-        status: "RUNNING",
-        createdAt: new Date(),
-      };
-      mockWorkspaceTaskService.getTask.mockResolvedValue(mockTask);
-
-      const result = await controller.getWorkspaceTask(
-        "ws-1",
-        "task-1",
-        makeRequest(),
-      );
-
-      expect(mockWorkspaceTaskService.getTask).toHaveBeenCalledWith(
-        "user-123",
+    it("should return task status for authenticated user", async () => {
+      const req = authenticatedReq();
+      const result = await controller.getWorkspaceTask("ws-1", "task-1", req);
+      expect(workspaceTaskService.getTask).toHaveBeenCalledWith(
+        "user-1",
         "ws-1",
         "task-1",
       );
-      expect(result.status).toBe("RUNNING");
+      expect(result).toBe(mockTask);
     });
 
-    it("throws UnauthorizedException when not authenticated", async () => {
-      const req = { user: { id: undefined as unknown as string, email: "" } };
-
+    it("should throw UnauthorizedException when user id is missing", async () => {
+      const req = { user: { id: "", email: "" } };
       await expect(
         controller.getWorkspaceTask("ws-1", "task-1", req),
       ).rejects.toThrow(UnauthorizedException);

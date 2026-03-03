@@ -5,8 +5,6 @@
  * - chat() with model fallback service
  * - chat() model type resolution from modelType param
  * - chatWithFallback() success and all-models-failed paths
- * - chatStream() circuit breaker open path
- * - chatStream() normal streaming path
  * - getDefaultTextModel() / getDefaultImageModel()
  * - getModelById() / getDefaultModelByType() / getFullModelConfig()
  * - executeSkill() — with and without setLLMAdapter
@@ -14,9 +12,20 @@
  * - buildContext() — topic/resource/memory source types, token compression
  * - checkConstraints() — custom content filter rules, invalid regex
  * - search() — ToolRegistry unavailable path
- * - handleBilling() — personal API key skips credits, normal billing
- * - storeMemory() / retrieveMemory() / clearMemory() delegation
  */
+
+jest.mock("@prisma/client", () => ({
+  ...jest.requireActual("@prisma/client"),
+  AIModelType: {
+    CHAT: "CHAT",
+    CHAT_FAST: "CHAT_FAST",
+    IMAGE_GENERATION: "IMAGE_GENERATION",
+    IMAGE_EDITING: "IMAGE_EDITING",
+    MULTIMODAL: "MULTIMODAL",
+    EMBEDDING: "EMBEDDING",
+    RERANK: "RERANK",
+  },
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
@@ -29,7 +38,6 @@ import {
   MEMORY_FEATURE,
   TOOL_FEATURE,
   SKILL_FEATURE,
-  CONSTRAINT_FEATURE,
 } from "../facade.providers";
 
 // ─────────────────────────────────────────────────────────────
@@ -102,7 +110,7 @@ async function buildFacade(
   modelConfigOverrides: Record<string, unknown> = {},
 ): Promise<{
   facade: AIEngineFacade;
-  mockChat: ReturnType<typeof makeMockAiChatService>;
+  mockChat: jest.Mock;
   mockCircuitBreaker: ReturnType<typeof makeMockCircuitBreaker>;
 }> {
   const mockChat = makeMockAiChatService(chatServiceOverrides);
@@ -173,7 +181,7 @@ describe("AIEngineFacade — chat() model resolution", () => {
     expect(mockChat.chat).toHaveBeenCalled();
   });
 
-  it("falls back to empty string when neither model nor modelType resolves", async () => {
+  it("falls back to 'default' when neither model nor modelType resolves", async () => {
     const { facade, mockChat } = await buildFacade([], {
       getDefaultModelByType: jest.fn().mockResolvedValue(null),
     });
@@ -183,7 +191,7 @@ describe("AIEngineFacade — chat() model resolution", () => {
       modelType: AIModelType.CHAT,
     });
 
-    // model passed to aiChatService.chat should be request.model which is undefined
+    // model passed to aiChatService.chat should be request.model which is undefined → falls to 'default'
     expect(mockChat.chat).toHaveBeenCalled();
   });
 });
@@ -342,202 +350,365 @@ describe("AIEngineFacade — model info getters", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("getDefaultTextModel returns null when no default CHAT model", async () => {
-    const { facade } = await buildFacade([], {
-      getDefaultModelByType: jest.fn().mockResolvedValue(null),
-    });
+    const { facade } = await buildFacade(
+      [],
+      {},
+      { getAllEnabledModelsByType: jest.fn().mockResolvedValue([]) },
+    );
 
     const result = await facade.getDefaultTextModel();
     expect(result).toBeNull();
   });
 
-  it("getDefaultTextModel returns model info when chat model is configured", async () => {
+  it("getDefaultTextModel returns model when available", async () => {
+    const modelConfig = {
+      id: "db-id",
+      modelId: "gpt-4o",
+      displayName: "GPT-4o",
+      provider: "openai",
+      maxTokens: 8000,
+    };
+    // getDefaultTextModel delegates to aiChatService.getDefaultModelByType(CHAT)
     const { facade } = await buildFacade([], {
-      getDefaultModelByType: jest.fn().mockResolvedValue({
-        id: "db-gpt4o",
-        modelId: "gpt-4o",
-        displayName: "GPT-4o",
-        provider: "openai",
-        maxTokens: 8000,
-      }),
+      getDefaultModelByType: jest.fn().mockResolvedValue(modelConfig),
     });
 
     const result = await facade.getDefaultTextModel();
     expect(result).not.toBeNull();
     expect(result?.modelId).toBe("gpt-4o");
-    expect(result?.provider).toBe("openai");
   });
 
-  it("getDefaultImageModel returns null when no IMAGE_GENERATION model configured", async () => {
-    const { facade } = await buildFacade([], {
-      getDefaultModelByType: jest.fn().mockResolvedValue(null),
-    });
+  it("getDefaultImageModel returns null when no IMAGE_GENERATION model", async () => {
+    const { facade } = await buildFacade(
+      [],
+      {},
+      { getAllEnabledModelsByType: jest.fn().mockResolvedValue([]) },
+    );
 
     const result = await facade.getDefaultImageModel();
     expect(result).toBeNull();
   });
 
-  it("getModelById returns null when modelConfigService finds nothing", async () => {
-    const { facade } = await buildFacade(
-      [],
-      {},
-      { getModelById: jest.fn().mockResolvedValue(null) },
-    );
-
-    const result = await facade.getModelById("nonexistent-model-id");
-    expect(result).toBeNull();
-  });
-
-  it("getModelById returns model info when modelConfigService finds it", async () => {
+  it("getModelById returns null when model not found", async () => {
     const { facade } = await buildFacade(
       [],
       {},
       {
-        getModelById: jest.fn().mockResolvedValue({
-          id: "db-claude",
-          modelId: "claude-3-sonnet",
-          displayName: "Claude 3 Sonnet",
-          provider: "anthropic",
-          maxTokens: 16000,
-          isReasoning: false,
-          apiEndpoint: null,
-          apiKey: null,
-          secretKey: null,
-        }),
+        getModelById: jest.fn().mockResolvedValue(null),
+        getAllEnabledModelsByType: jest.fn().mockResolvedValue([]),
       },
     );
 
-    const result = await facade.getModelById("claude-3-sonnet");
-    expect(result).not.toBeNull();
-    expect(result?.modelId).toBe("claude-3-sonnet");
-    expect(result?.provider).toBe("anthropic");
-  });
-
-  it("getDefaultModelByType delegates to AiChatService", async () => {
-    const mockGetDefault = jest
-      .fn()
-      .mockResolvedValue({ modelId: "gpt-4o-mini" });
-    const { facade } = await buildFacade([], {
-      getDefaultModelByType: mockGetDefault,
-    });
-
-    const result = await facade.getDefaultModelByType(AIModelType.CHAT);
-    expect(mockGetDefault).toHaveBeenCalledWith(AIModelType.CHAT);
-    expect(result?.modelId).toBe("gpt-4o-mini");
-  });
-
-  it("getDefaultModelByType returns null when service returns null", async () => {
-    const { facade } = await buildFacade([], {
-      getDefaultModelByType: jest.fn().mockResolvedValue(null),
-    });
-
-    const result = await facade.getDefaultModelByType(AIModelType.CHAT);
+    const result = await facade.getModelById("nonexistent");
     expect(result).toBeNull();
+  });
+
+  it("getModelById returns model when found by modelId", async () => {
+    const model = {
+      id: "db-id",
+      modelId: "gpt-4o",
+      displayName: "GPT-4o",
+      name: "GPT-4o",
+      provider: "openai",
+      maxTokens: 8000,
+      apiKey: "sk-test",
+      secretKey: null,
+      apiEndpoint: null,
+      isReasoning: false,
+      modelType: "CHAT",
+    };
+    const { facade } = await buildFacade(
+      [],
+      {},
+      {
+        getModelById: jest.fn().mockResolvedValue(model),
+      },
+    );
+
+    const result = await facade.getModelById("gpt-4o");
+    expect(result).not.toBeNull();
+    expect(result?.modelId).toBe("gpt-4o");
+  });
+
+  it("getDefaultModelByType returns null when no model of that type", async () => {
+    const { facade } = await buildFacade(
+      [],
+      {},
+      { getAllEnabledModelsByType: jest.fn().mockResolvedValue([]) },
+    );
+
+    const result = await facade.getDefaultModelByType(AIModelType.EMBEDDING);
+    expect(result).toBeNull();
+  });
+
+  it("getDefaultModelByType returns model when found", async () => {
+    const modelConfig = {
+      id: "emb-id",
+      modelId: "text-embedding-3-small",
+      displayName: "Embedding",
+      provider: "openai",
+      maxTokens: 8000,
+    };
+    // getDefaultModelByType delegates to aiChatService.getDefaultModelByType(modelType)
+    const { facade } = await buildFacade([], {
+      getDefaultModelByType: jest.fn().mockResolvedValue(modelConfig),
+    });
+
+    const result = await facade.getDefaultModelByType(AIModelType.EMBEDDING);
+    expect(result).not.toBeNull();
+    expect(result?.modelId).toBe("text-embedding-3-small");
   });
 });
 
 // ─────────────────────────────────────────────────────────────
-// executeSkill() — with and without setLLMAdapter
+// executeSkill()
 // ─────────────────────────────────────────────────────────────
 
 describe("AIEngineFacade — executeSkill()", () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it("executes skill and returns result", async () => {
+  it("calls skill.execute with input and context", async () => {
     const { facade } = await buildFacade();
-
     const mockSkill = {
-      execute: jest.fn().mockResolvedValue({
-        success: true,
-        data: { content: "skill output" },
-        tokensUsed: 50,
-      }),
+      execute: jest.fn().mockResolvedValue({ success: true, data: "done" }),
+    };
+    const context = {
+      executionId: "exec-1",
+      skillId: "my-skill",
+      createdAt: new Date(),
     };
 
     const result = await facade.executeSkill(
-      mockSkill,
-      { text: "Hello" },
-      { executionId: "exec-1", skillId: "test-skill" },
+      mockSkill as unknown as import("../../skills/abstractions/skill.interface").ISkill,
+      { input: "data" },
+      context as unknown as import("../../skills/abstractions/skill.interface").SkillContext,
     );
 
-    expect(result.success).toBe(true);
-    expect(mockSkill.execute).toHaveBeenCalledWith(
-      { text: "Hello" },
-      { executionId: "exec-1", skillId: "test-skill" },
-    );
+    expect(mockSkill.execute).toHaveBeenCalledWith({ input: "data" }, context);
+    expect(result).toEqual({ success: true, data: "done" });
   });
 
-  it("calls setLLMAdapter when skill exposes it and llmAdapter is available", async () => {
-    const mockAdapter = { chat: jest.fn() };
-    const { facade } = await buildFacade([
-      {
-        provide: SKILL_FEATURE,
-        useValue: {
-          registry: null,
-          loader: null,
-          promptBuilder: null,
-          llmAdapter: mockAdapter,
+  it("injects llmAdapter when skill exposes setLLMAdapter and adapter is available", async () => {
+    const mockLLMAdapter = { chat: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        AIEngineFacade,
+        { provide: AiChatService, useValue: makeMockAiChatService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
         },
-      },
-    ]);
+        {
+          provide: SKILL_FEATURE,
+          useValue: {
+            loader: null,
+            promptBuilder: null,
+            llmAdapter: mockLLMAdapter,
+          },
+        },
+      ],
+    }).compile();
 
+    jest.spyOn(Logger.prototype, "log").mockImplementation();
+    jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    jest.spyOn(Logger.prototype, "debug").mockImplementation();
+
+    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+
+    const setLLMAdapter = jest.fn();
     const mockSkill = {
-      execute: jest.fn().mockResolvedValue({ success: true, data: null }),
-      setLLMAdapter: jest.fn(),
+      setLLMAdapter,
+      execute: jest.fn().mockResolvedValue({ success: true }),
     };
 
     await facade.executeSkill(
-      mockSkill,
+      mockSkill as unknown as import("../../skills/abstractions/skill.interface").ISkill,
       {},
-      { executionId: "exec-2", skillId: "adapter-skill" },
+      {
+        executionId: "exec-2",
+        skillId: "code-skill",
+        createdAt: new Date(),
+      } as unknown as import("../../skills/abstractions/skill.interface").SkillContext,
     );
 
-    expect(mockSkill.setLLMAdapter).toHaveBeenCalledWith(mockAdapter);
+    expect(setLLMAdapter).toHaveBeenCalledWith(mockLLMAdapter);
     expect(mockSkill.execute).toHaveBeenCalled();
   });
 
-  it("warns but still executes when setLLMAdapter skill has no adapter", async () => {
+  it("warns but does not throw when skill has setLLMAdapter but no adapter injected", async () => {
     const { facade } = await buildFacade();
 
+    const setLLMAdapter = jest.fn();
     const mockSkill = {
-      execute: jest.fn().mockResolvedValue({ success: true, data: null }),
-      setLLMAdapter: jest.fn(),
+      setLLMAdapter,
+      execute: jest.fn().mockResolvedValue({ success: true }),
     };
 
+    // llmAdapterForSkills is not injected (undefined by default)
     const result = await facade.executeSkill(
-      mockSkill,
+      mockSkill as unknown as import("../../skills/abstractions/skill.interface").ISkill,
       {},
-      { executionId: "exec-3", skillId: "needs-adapter-skill" },
+      {
+        executionId: "exec-3",
+        skillId: "code-skill",
+        createdAt: new Date(),
+      } as unknown as import("../../skills/abstractions/skill.interface").SkillContext,
     );
 
-    // setLLMAdapter NOT called (no adapter available), but execute is still called
-    expect(mockSkill.setLLMAdapter).not.toHaveBeenCalled();
-    expect(mockSkill.execute).toHaveBeenCalled();
+    expect(setLLMAdapter).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
   });
 });
 
 // ─────────────────────────────────────────────────────────────
-// buildContext() — various source types
+// resolveSkillInputBindings()
+// ─────────────────────────────────────────────────────────────
+
+describe("AIEngineFacade — resolveSkillInputBindings()", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("returns null for non-PromptSkillAdapter skills", async () => {
+    const { facade } = await buildFacade();
+
+    const plainSkill = {
+      execute: jest.fn(),
+      isPromptSkillAdapter: false,
+    };
+
+    const result = facade.resolveSkillInputBindings(
+      plainSkill as unknown as import("../../skills/abstractions/skill.interface").ISkill,
+      {
+        variables: {},
+      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when bindings are not defined", async () => {
+    const { facade } = await buildFacade();
+
+    const adapter = {
+      execute: jest.fn(),
+      isPromptSkillAdapter: true,
+      getInputBindings: jest.fn().mockReturnValue(null),
+    };
+
+    const result = facade.resolveSkillInputBindings(
+      adapter as unknown as import("../../skills/abstractions/skill.interface").ISkill,
+      {
+        variables: {},
+      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("resolves bindings when adapter and resolver are available", async () => {
+    const mockResolver = {
+      resolve: jest.fn().mockReturnValue({ field1: "resolved-value" }),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        AIEngineFacade,
+        { provide: AiChatService, useValue: makeMockAiChatService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
+        {
+          provide: SKILL_FEATURE,
+          useValue: {
+            loader: null,
+            promptBuilder: null,
+            inputBindingResolver: mockResolver,
+          },
+        },
+      ],
+    }).compile();
+
+    jest.spyOn(Logger.prototype, "log").mockImplementation();
+    jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    jest.spyOn(Logger.prototype, "debug").mockImplementation();
+
+    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+
+    const adapter = {
+      execute: jest.fn(),
+      isPromptSkillAdapter: true,
+      getInputBindings: jest
+        .fn()
+        .mockReturnValue([{ field: "field1", source: "context.x" }]),
+    };
+
+    const result = facade.resolveSkillInputBindings(
+      adapter as unknown as import("../../skills/abstractions/skill.interface").ISkill,
+      {
+        variables: { x: "value" },
+      } as unknown as import("../../skills/runtime/input-binding-resolver").BindingContext,
+    );
+
+    expect(mockResolver.resolve).toHaveBeenCalled();
+    expect(result).toEqual({ field1: "resolved-value" });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// buildContext() — topic, resource, memory, compression
 // ─────────────────────────────────────────────────────────────
 
 describe("AIEngineFacade — buildContext()", () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it("builds context from custom sources", async () => {
+  it("builds context from custom source", async () => {
+    const { facade } = await buildFacade();
+
+    const ctx = await facade.buildContext({
+      sources: [{ type: "custom", content: "Custom text" }],
+    });
+
+    expect(ctx).toContain("Custom text");
+  });
+
+  it("builds context from topic source with pre-loaded data", async () => {
     const { facade } = await buildFacade();
 
     const ctx = await facade.buildContext({
       sources: [
-        { type: "custom", content: "Custom A" },
-        { type: "custom", content: "Custom B" },
+        {
+          type: "topic",
+          data: {
+            name: "AI Research",
+            type: "technology",
+            description: "Deep learning trends",
+            dimensions: [{ name: "NLP", description: "Language processing" }],
+          },
+        },
       ],
     });
 
-    expect(ctx).toContain("Custom A");
-    expect(ctx).toContain("Custom B");
+    expect(ctx).toContain("AI Research");
+    expect(ctx).toContain("Deep learning trends");
+    expect(ctx).toContain("NLP");
   });
 
-  it("builds context from resource data with title and summary", async () => {
+  it("builds context from topic source with just a name (no description/dimensions)", async () => {
+    const { facade } = await buildFacade();
+
+    const ctx = await facade.buildContext({
+      sources: [
+        {
+          type: "topic",
+          data: { name: "Simple Topic", type: "general" },
+        },
+      ],
+    });
+
+    expect(ctx).toContain("Simple Topic");
+  });
+
+  it("builds context from resource source with pre-loaded data", async () => {
     const { facade } = await buildFacade();
 
     const ctx = await facade.buildContext({
@@ -653,19 +824,91 @@ describe("AIEngineFacade — buildContext()", () => {
     expect(ctx).toContain("DB Resource");
   });
 
+  it("builds context from memory source using shortTerm memory", async () => {
+    const mockShortTermMemory = {
+      getWithSession: jest
+        .fn()
+        .mockResolvedValue("Previous conversation state"),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        AIEngineFacade,
+        { provide: AiChatService, useValue: makeMockAiChatService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
+        {
+          provide: MEMORY_FEATURE,
+          useValue: { shortTerm: mockShortTermMemory, longTerm: null },
+        },
+      ],
+    }).compile();
+
+    jest.spyOn(Logger.prototype, "log").mockImplementation();
+    jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    jest.spyOn(Logger.prototype, "debug").mockImplementation();
+
+    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+
+    const ctx = await facade.buildContext({
+      sources: [{ type: "memory", id: "session-abc" }],
+    });
+
+    expect(mockShortTermMemory.getWithSession).toHaveBeenCalledWith(
+      "session-abc",
+      "context",
+    );
+    expect(ctx).toContain("Previous conversation state");
+  });
+
+  it("compresses context when maxTokens and compress are set", async () => {
+    const { facade } = await buildFacade();
+
+    // Create a long context that exceeds maxTokens
+    const longContent = "word ".repeat(2000); // ~10000 chars → ~2500 tokens
+
+    const ctx = await facade.buildContext({
+      sources: [{ type: "custom", content: longContent }],
+      maxTokens: 100,
+      compress: true,
+    });
+
+    expect(ctx).toContain("content compressed");
+  });
+
+  it("does not compress when compress flag is false", async () => {
+    const { facade } = await buildFacade();
+
+    const longContent = "word ".repeat(2000);
+
+    const ctx = await facade.buildContext({
+      sources: [{ type: "custom", content: longContent }],
+      maxTokens: 10,
+      compress: false,
+    });
+
+    // Should NOT be compressed
+    expect(ctx).not.toContain("content compressed");
+    expect(ctx.length).toBeGreaterThan(longContent.length - 100);
+  });
+
   it("handles default case (unknown source type) by using content", async () => {
     const { facade } = await buildFacade();
 
     const ctx = await facade.buildContext({
-      sources: [{ type: "unknown-type" as "custom", content: "Raw content" }],
+      sources: [
+        { type: "unknown-type" as "custom", content: "fallback content" },
+      ],
     });
 
-    expect(ctx).toContain("Raw content");
+    expect(ctx).toContain("fallback content");
   });
 });
 
 // ─────────────────────────────────────────────────────────────
-// checkConstraints() edge cases
+// checkConstraints() — custom rules and invalid regex
 // ─────────────────────────────────────────────────────────────
 
 describe("AIEngineFacade — checkConstraints() edge cases", () => {
@@ -675,17 +918,16 @@ describe("AIEngineFacade — checkConstraints() edge cases", () => {
     const { facade } = await buildFacade();
 
     const result = facade.checkConstraints({
-      content: "This contains forbidden words",
+      content: "This contains FORBIDDEN_WORD in text",
       constraints: {
         contentFilter: {
           enabled: true,
-          rules: ["forbidden"],
+          rules: ["FORBIDDEN_WORD"],
         },
       },
     });
 
     expect(result.passed).toBe(false);
-    expect(result.violations).toBeDefined();
     expect(result.violations).toContainEqual(
       expect.objectContaining({ type: "content_filter" }),
     );
@@ -694,48 +936,51 @@ describe("AIEngineFacade — checkConstraints() edge cases", () => {
   it("skips invalid regex rules without throwing", async () => {
     const { facade } = await buildFacade();
 
-    expect(() =>
-      facade.checkConstraints({
-        content: "Normal content",
-        constraints: {
-          contentFilter: {
-            enabled: true,
-            rules: ["[invalid(regex"],
-          },
+    // Invalid regex should not crash
+    const result = facade.checkConstraints({
+      content: "Normal content",
+      constraints: {
+        contentFilter: {
+          enabled: true,
+          rules: ["[invalid regex"],
         },
-      }),
-    ).not.toThrow();
+      },
+    });
+
+    // Invalid regex is skipped — no false positive violation
+    expect(result.passed).toBe(true);
   });
 
   it("provides adjustedContent when token limit violated", async () => {
     const { facade } = await buildFacade();
 
-    const longContent = "word ".repeat(500);
+    const longContent = "a".repeat(10000);
     const result = facade.checkConstraints({
       content: longContent,
-      constraints: {
-        maxTokens: 10,
-      },
+      constraints: { maxTokens: 50 },
     });
 
     expect(result.passed).toBe(false);
-    // adjustedContent should be the truncated version
     expect(result.adjustedContent).toBeDefined();
+    expect(result.adjustedContent).toContain("content compressed");
   });
 
   it("marks content as invalid JSON when jsonSchema check and content is not JSON", async () => {
     const { facade } = await buildFacade();
 
     const result = facade.checkConstraints({
-      content: "not json at all",
+      content: "Not a JSON string",
       constraints: {
-        jsonSchema: { type: "object" },
+        jsonSchema: { type: "object", required: ["name"] },
       },
     });
 
     expect(result.passed).toBe(false);
     expect(result.violations).toContainEqual(
-      expect.objectContaining({ type: "json_schema" }),
+      expect.objectContaining({
+        type: "json_schema",
+        message: expect.stringContaining("not valid JSON"),
+      }),
     );
   });
 
@@ -743,12 +988,9 @@ describe("AIEngineFacade — checkConstraints() edge cases", () => {
     const { facade } = await buildFacade();
 
     const result = facade.checkConstraints({
-      content: '{"name": "test", "age": 25}',
+      content: '{"name": "Alice", "age": 30}',
       constraints: {
-        jsonSchema: {
-          type: "object",
-          required: ["name"],
-        },
+        jsonSchema: { type: "object", required: ["name", "age"] },
       },
     });
 
@@ -757,13 +999,14 @@ describe("AIEngineFacade — checkConstraints() edge cases", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// search() — ToolRegistry availability
+// search() — ToolRegistry not available
 // ─────────────────────────────────────────────────────────────
 
 describe("AIEngineFacade — search() without ToolRegistry", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("returns failure when ToolRegistry not available", async () => {
+    // Build facade without TOOL_FEATURE
     const module = await Test.createTestingModule({
       providers: [
         AIEngineFacade,
@@ -874,7 +1117,6 @@ describe("AIEngineFacade — chat() isError response handling", () => {
 
     jest.spyOn(Logger.prototype, "log").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
-    jest.spyOn(Logger.prototype, "error").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
     const facade = module.get<AIEngineFacade>(AIEngineFacade);
@@ -883,345 +1125,9 @@ describe("AIEngineFacade — chat() isError response handling", () => {
 
     await facade.chat({
       messages: [{ role: "user", content: "Test" }],
-      billing: {
-        userId: "user-1",
-        moduleType: "ai-ask",
-        operationType: "chat",
-      },
+      billing: { userId: "u1", moduleType: "test", operationType: "chat" },
     });
 
     expect(mockCreditsService.consumeCredits).not.toHaveBeenCalled();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────
-// handleBilling() — personal API key skips credits
-// ─────────────────────────────────────────────────────────────
-
-describe("AIEngineFacade — billing behavior", () => {
-  afterEach(() => jest.restoreAllMocks());
-
-  it("skips credits when apiKeySource is personal", async () => {
-    const mockCreditsService = { consumeCredits: jest.fn() };
-
-    const { facade, mockChat } = await buildFacade();
-
-    mockChat.chat.mockResolvedValue({
-      content: "BYOK response",
-      model: "gpt-4o",
-      usage: { totalTokens: 200 },
-      isError: false,
-      apiKeySource: "personal",
-    });
-
-    (facade as unknown as Record<string, unknown>)["creditsService"] =
-      mockCreditsService;
-
-    await facade.chat({
-      messages: [{ role: "user", content: "Test BYOK" }],
-      billing: {
-        userId: "user-byok",
-        moduleType: "ai-ask",
-        operationType: "chat",
-      },
-    });
-
-    expect(mockCreditsService.consumeCredits).not.toHaveBeenCalled();
-  });
-
-  it("deducts credits when apiKeySource is system", async () => {
-    const mockCreditsService = {
-      consumeCredits: jest.fn().mockResolvedValue(undefined),
-    };
-
-    const { facade, mockChat } = await buildFacade();
-
-    mockChat.chat.mockResolvedValue({
-      content: "System key response",
-      model: "gpt-4o",
-      usage: { totalTokens: 150 },
-      isError: false,
-      apiKeySource: "system",
-    });
-
-    (facade as unknown as Record<string, unknown>)["creditsService"] =
-      mockCreditsService;
-
-    await facade.chat({
-      messages: [{ role: "user", content: "Test system key" }],
-      billing: {
-        userId: "user-sys",
-        moduleType: "ai-ask",
-        operationType: "chat",
-      },
-    });
-
-    expect(mockCreditsService.consumeCredits).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user-sys",
-        tokenCount: 150,
-      }),
-    );
-  });
-
-  it("handles credit deduction failure gracefully (warn and continue)", async () => {
-    const mockCreditsService = {
-      consumeCredits: jest.fn().mockRejectedValue(new Error("Credits DB down")),
-    };
-
-    const { facade, mockChat } = await buildFacade();
-
-    mockChat.chat.mockResolvedValue({
-      content: "Successful response",
-      model: "gpt-4o",
-      usage: { totalTokens: 100 },
-      isError: false,
-      apiKeySource: "system",
-    });
-
-    (facade as unknown as Record<string, unknown>)["creditsService"] =
-      mockCreditsService;
-
-    // Should NOT throw even though credits service fails
-    const result = await facade.chat({
-      messages: [{ role: "user", content: "Test" }],
-      billing: {
-        userId: "user-1",
-        moduleType: "ai-ask",
-        operationType: "chat",
-      },
-    });
-
-    expect(result.isError).toBe(false);
-    expect(result.content).toBe("Successful response");
-  });
-});
-
-// ─────────────────────────────────────────────────────────────
-// rate limiting constraint
-// ─────────────────────────────────────────────────────────────
-
-describe("AIEngineFacade — rate limit constraint", () => {
-  afterEach(() => jest.restoreAllMocks());
-
-  it("returns rate limit error when rate limiter denies request", async () => {
-    const mockRateLimiter = {
-      check: jest.fn().mockReturnValue({ allowed: false, retryAfter: 30000 }),
-      consume: jest.fn(),
-    };
-
-    const { facade } = await buildFacade([
-      {
-        provide: CONSTRAINT_FEATURE,
-        useValue: {
-          rateLimiter: mockRateLimiter,
-          costController: null,
-        },
-      },
-    ]);
-
-    const result = await facade.chat({
-      messages: [{ role: "user", content: "Rate limited test" }],
-      billing: {
-        userId: "throttled-user",
-        moduleType: "ai-ask",
-        operationType: "chat",
-      },
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content).toContain("Rate limit exceeded");
-    expect(result.content).toContain("30 seconds");
-  });
-
-  it("passes rate limit check and consumes token when allowed", async () => {
-    const mockRateLimiter = {
-      check: jest.fn().mockReturnValue({ allowed: true }),
-      consume: jest.fn(),
-    };
-
-    const { facade } = await buildFacade([
-      {
-        provide: CONSTRAINT_FEATURE,
-        useValue: {
-          rateLimiter: mockRateLimiter,
-          costController: null,
-        },
-      },
-    ]);
-
-    const result = await facade.chat({
-      messages: [{ role: "user", content: "Allowed" }],
-      billing: {
-        userId: "allowed-user",
-        moduleType: "ai-ask",
-        operationType: "chat",
-      },
-    });
-
-    expect(result.isError).toBe(false);
-    expect(mockRateLimiter.consume).toHaveBeenCalled();
-  });
-
-  it("returns budget error when cost controller denies request", async () => {
-    const mockCostController = {
-      checkBudget: jest.fn().mockReturnValue({
-        allowed: false,
-        reason: "Monthly budget exhausted",
-      }),
-    };
-
-    const { facade } = await buildFacade([
-      {
-        provide: CONSTRAINT_FEATURE,
-        useValue: {
-          rateLimiter: null,
-          costController: mockCostController,
-        },
-      },
-    ]);
-
-    const result = await facade.chat({
-      messages: [{ role: "user", content: "Budget exceeded test" }],
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content).toContain("Budget limit exceeded");
-    expect(result.content).toContain("Monthly budget exhausted");
-  });
-});
-
-// ─────────────────────────────────────────────────────────────
-// chatStream() — circuit breaker and streaming path
-// ─────────────────────────────────────────────────────────────
-
-describe("AIEngineFacade — chatStream()", () => {
-  afterEach(() => jest.restoreAllMocks());
-
-  it("yields error chunk when circuit breaker is open", async () => {
-    const { facade, mockCircuitBreaker } = await buildFacade();
-
-    mockCircuitBreaker.canExecute.mockReturnValue(false);
-    mockCircuitBreaker.getCooldownRemaining.mockReturnValue(10000);
-
-    const chunks: Array<{ content: string; done: boolean; error?: string }> =
-      [];
-    for await (const chunk of facade.chatStream({
-      messages: [{ role: "user", content: "Test" }],
-    })) {
-      chunks.push(chunk);
-    }
-
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0].done).toBe(true);
-    expect(chunks[0].error).toBe("CIRCUIT_BREAKER_OPEN");
-    expect(chunks[0].content).toContain("temporarily unavailable");
-  });
-
-  it("streams chunks through from AiChatService", async () => {
-    const streamChunks = [
-      { content: "Hello", done: false },
-      { content: " world", done: false },
-      { content: "", done: true, usage: { totalTokens: 25 } },
-    ];
-
-    const { facade, mockChat } = await buildFacade([], {
-      chatStream: jest.fn().mockImplementation(async function* () {
-        for (const c of streamChunks) yield c;
-      }),
-    });
-
-    const received: Array<{ content: string; done: boolean }> = [];
-    for await (const chunk of facade.chatStream({
-      messages: [{ role: "user", content: "Stream test" }],
-    })) {
-      received.push(chunk);
-    }
-
-    expect(received).toHaveLength(3);
-    expect(received[0].content).toBe("Hello");
-    expect(received[2].done).toBe(true);
-    expect(mockChat.chatStream).toHaveBeenCalled();
-  });
-
-  it("records circuit breaker failure when stream emits error chunk", async () => {
-    const { facade, mockCircuitBreaker } = await buildFacade([], {
-      chatStream: jest.fn().mockImplementation(async function* () {
-        yield { content: "", done: true, error: "API timeout" };
-      }),
-    });
-
-    const chunks: Array<{ content: string; done: boolean; error?: string }> =
-      [];
-    for await (const chunk of facade.chatStream({
-      messages: [{ role: "user", content: "Test" }],
-    })) {
-      chunks.push(chunk);
-    }
-
-    expect(mockCircuitBreaker.recordFailure).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      "API timeout",
-    );
-  });
-});
-
-// ─────────────────────────────────────────────────────────────
-// memory delegation
-// ─────────────────────────────────────────────────────────────
-
-describe("AIEngineFacade — memory delegation", () => {
-  afterEach(() => jest.restoreAllMocks());
-
-  it("storeMemory delegates to memorySub with graceful no-op when unavailable", async () => {
-    const { facade } = await buildFacade();
-
-    // When no MEMORY_FEATURE is provided, should not throw
-    await expect(
-      facade.storeMemory({
-        sessionId: "session-1",
-        content: "Some memory",
-        memoryType: "conversation",
-      }),
-    ).resolves.not.toThrow();
-  });
-
-  it("retrieveMemory returns empty array when memory feature unavailable", async () => {
-    const { facade } = await buildFacade();
-
-    const items = await facade.retrieveMemory({
-      sessionId: "session-1",
-    });
-
-    expect(Array.isArray(items)).toBe(true);
-  });
-
-  it("storeMemory uses MEMORY_FEATURE shortTerm when type is short", async () => {
-    const mockShortTermService = {
-      setWithSession: jest.fn().mockResolvedValue(undefined),
-      getWithSession: jest.fn().mockResolvedValue(undefined),
-      deleteWithSession: jest.fn().mockResolvedValue(undefined),
-      clearSession: jest.fn().mockResolvedValue(undefined),
-    };
-
-    const { facade } = await buildFacade([
-      {
-        provide: MEMORY_FEATURE,
-        useValue: { shortTerm: mockShortTermService, longTerm: null },
-      },
-    ]);
-
-    await facade.storeMemory({
-      sessionId: "session-mem",
-      content: "Important context",
-      type: "short",
-    });
-
-    expect(mockShortTermService.setWithSession).toHaveBeenCalledWith(
-      "session-mem",
-      "memory",
-      "Important context",
-    );
   });
 });

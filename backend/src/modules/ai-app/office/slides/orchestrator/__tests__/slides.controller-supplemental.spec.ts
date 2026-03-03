@@ -15,6 +15,19 @@
  * - updateSessionTitle() (updateSession)
  */
 
+jest.mock("@prisma/client", () => ({
+  ...jest.requireActual("@prisma/client"),
+  AIModelType: {
+    CHAT: "CHAT",
+    CHAT_FAST: "CHAT_FAST",
+    IMAGE_GENERATION: "IMAGE_GENERATION",
+    IMAGE_EDITING: "IMAGE_EDITING",
+    MULTIMODAL: "MULTIMODAL",
+    EMBEDDING: "EMBEDDING",
+    RERANK: "RERANK",
+  },
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import {
   NotFoundException,
