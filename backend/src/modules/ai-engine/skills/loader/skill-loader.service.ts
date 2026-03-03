@@ -360,12 +360,8 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
         const content = await fs.readFile(filePath, "utf-8");
         const skill = parseSkillMd(content, filePath);
 
-        // 确保领域与目录配置一致
-        if (skill.metadata.domain !== config.domain) {
-          this.logger.warn(
-            `Skill ${skill.metadata.id} domain mismatch: expected ${config.domain}, got ${skill.metadata.domain}`,
-          );
-        }
+        // Domain from directory config takes precedence over frontmatter
+        skill.metadata.domain = config.domain;
 
         skills.push(skill);
         this.logger.debug(
@@ -422,68 +418,140 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 按任务类型获取 Skills
+   * Description-based skill matching (Anthropic style).
+   * Tokenizes query, scores each skill's name + description + tags.
+   */
+  matchByDescription(query: string, domain?: SkillDomain): SkillMdDefinition[] {
+    const queryTerms = this.tokenize(query);
+    if (queryTerms.length === 0) {
+      return [];
+    }
+
+    const scored: Array<{ skill: SkillMdDefinition; score: number }> = [];
+
+    for (const skill of this.localSkills.values()) {
+      if (skill.metadata.enabled === false) continue;
+      if (domain && skill.metadata.domain !== domain) continue;
+
+      const searchText = [
+        skill.metadata.name,
+        skill.metadata.description,
+        ...(skill.metadata.tags || []),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const score = this.calculateRelevance(
+        queryTerms,
+        searchText,
+        skill.metadata.name,
+      );
+      if (score > 0) {
+        scored.push({ skill, score });
+      }
+    }
+
+    return scored.sort((a, b) => b.score - a.score).map((s) => s.skill);
+  }
+
+  /**
+   * Tokenize a query into searchable terms (supports Chinese + English).
+   */
+  private tokenize(text: string): string[] {
+    const lower = text.toLowerCase();
+    // Split on non-alphanumeric/non-CJK boundaries
+    const terms = lower
+      .split(/[^a-z0-9\u4e00-\u9fa5]+/)
+      .filter((t) => t.length > 0);
+    // Also extract individual CJK characters as terms
+    const cjk = lower.match(/[\u4e00-\u9fa5]/g) || [];
+    return [...new Set([...terms, ...cjk])];
+  }
+
+  /**
+   * Calculate relevance score of query terms against search text.
+   * Name hits get 3x weight; description/tag hits get 1x.
+   */
+  private calculateRelevance(
+    queryTerms: string[],
+    searchText: string,
+    skillName: string,
+  ): number {
+    let score = 0;
+    const nameLower = skillName.toLowerCase();
+
+    for (const term of queryTerms) {
+      if (nameLower.includes(term)) {
+        score += 3; // name match = high weight
+      }
+      if (searchText.includes(term)) {
+        score += 1; // description/tag match
+      }
+    }
+    return score;
+  }
+
+  /**
+   * 获取 Skills (Anthropic 风格: description-based matching)
    *
    * @param options - 获取选项
-   * @returns 匹配的 Skills（按优先级排序）
+   * @returns 匹配的 Skills（按相关度排序）
    */
   async getSkillsForTask(
     options: GetSkillsOptions,
   ): Promise<SkillMdDefinition[]> {
-    const { taskType, domain, additionalSkillIds, maxTokenBudget } = options;
+    const { domain, query, additionalSkillIds, maxTokenBudget } = options;
 
     this.logger.log(
-      `[Skills] 🔍 getSkillsForTask: taskType="${taskType}", domain="${domain}", budget=${maxTokenBudget || "unlimited"}`,
+      `[Skills] getSkillsForTask: query="${query?.slice(0, 60) || ""}", domain="${domain || ""}", budget=${maxTokenBudget || "unlimited"}`,
     );
 
-    const matchedSkills: SkillMdDefinition[] = [];
+    let matchedSkills: SkillMdDefinition[];
+
+    if (query) {
+      // Primary path: description-based matching
+      matchedSkills = this.matchByDescription(query, domain);
+    } else if (domain) {
+      // Fallback: load all skills from domain (wildcard)
+      matchedSkills = await this.loadLocalSkills(domain);
+    } else {
+      matchedSkills = [];
+    }
+
+    this.logger.log(`[Skills]   Candidates: ${matchedSkills.length} skills`);
+
+    // Token budget trimming
     const skippedSkills: string[] = [];
     let currentTokens = 0;
 
-    // 1. 获取领域内所有启用的 Skills
-    const domainSkills = await this.loadLocalSkills(domain);
-    this.logger.log(
-      `[Skills]   └─ Domain "${domain}" has ${domainSkills.length} enabled skills`,
-    );
-
-    // 2. 筛选匹配任务类型的 Skills
-    for (const skill of domainSkills) {
-      // 检查是否匹配任务类型
-      const matchesTaskType =
-        skill.metadata.taskTypes.includes(taskType) ||
-        skill.metadata.taskTypes.includes("*"); // * 表示匹配所有任务
-
-      if (matchesTaskType) {
-        // Token 预算检查
-        if (maxTokenBudget) {
-          const skillTokens =
-            skill.metadata.tokenBudget || estimateTokens(skill.content);
-          if (currentTokens + skillTokens > maxTokenBudget) {
-            skippedSkills.push(`${skill.metadata.id}(${skillTokens}t)`);
-            continue;
-          }
-          currentTokens += skillTokens;
+    if (maxTokenBudget) {
+      const trimmed: SkillMdDefinition[] = [];
+      for (const skill of matchedSkills) {
+        const skillTokens =
+          skill.metadata.tokenBudget || estimateTokens(skill.content);
+        if (currentTokens + skillTokens > maxTokenBudget) {
+          skippedSkills.push(`${skill.metadata.id}(${skillTokens}t)`);
+          continue;
         }
-
-        matchedSkills.push(skill);
+        currentTokens += skillTokens;
+        trimmed.push(skill);
       }
+      matchedSkills = trimmed;
     }
 
-    // 3. 添加额外指定的 Skills
+    // Additional skill IDs
     if (additionalSkillIds && additionalSkillIds.length > 0) {
       this.logger.log(
-        `[Skills]   └─ Adding ${additionalSkillIds.length} additional skills: [${additionalSkillIds.join(", ")}]`,
+        `[Skills]   Adding ${additionalSkillIds.length} additional skills: [${additionalSkillIds.join(", ")}]`,
       );
 
       for (const skillId of additionalSkillIds) {
-        // 避免重复添加
         if (matchedSkills.some((s) => s.metadata.id === skillId)) {
           continue;
         }
 
         const skill = await this.getSkillById(skillId);
         if (skill) {
-          // Token 预算检查
           if (maxTokenBudget) {
             const skillTokens =
               skill.metadata.tokenBudget || estimateTokens(skill.content);
@@ -493,26 +561,23 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
             }
             currentTokens += skillTokens;
           }
-
           matchedSkills.push(skill);
         } else {
-          this.logger.warn(
-            `[Skills] ⚠️ Additional skill not found: ${skillId}`,
-          );
+          this.logger.warn(`[Skills] Additional skill not found: ${skillId}`);
         }
       }
     }
 
-    // 4. 输出匹配结果
+    // Log results
     const matchedIds = matchedSkills.map((s) => s.metadata.id);
     this.logger.log(
-      `[Skills] ✅ Matched ${matchedSkills.length} skills, ~${currentTokens} tokens`,
+      `[Skills] Matched ${matchedSkills.length} skills, ~${currentTokens} tokens`,
     );
-    this.logger.log(`[Skills]   └─ Using: [${matchedIds.join(", ")}]`);
+    this.logger.log(`[Skills]   Using: [${matchedIds.join(", ")}]`);
 
     if (skippedSkills.length > 0) {
       this.logger.log(
-        `[Skills]   └─ Skipped (budget): [${skippedSkills.join(", ")}]`,
+        `[Skills]   Skipped (budget): [${skippedSkills.join(", ")}]`,
       );
     }
 

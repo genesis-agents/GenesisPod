@@ -412,14 +412,14 @@ export class AIEngineFacade {
    *
    * Routes through ModelFallbackService when available for automatic model switching
    * on failures. Falls back to single-model call when fallback service is unavailable.
-   * Automatically delegates to chatWithSkills when domain/taskType is provided.
+   * Automatically delegates to chatWithSkills when domain/query is provided.
    *
    * @param request - Chat request configuration
    * @param request.messages - Conversation messages
    * @param request.modelType - AI model type (CHAT, IMAGE_GENERATION, etc.)
    * @param request.taskProfile - Semantic task configuration
    * @param request.domain - Optional domain for automatic skill injection
-   * @param request.taskType - Optional task type for automatic skill injection
+   * @param request.query - Optional query for description-based skill matching
    * @returns Chat response with content, model used, and token count
    *
    * @example
@@ -430,7 +430,7 @@ export class AIEngineFacade {
    * });
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    // Step 1: Skill proxy — if domain/taskType provided, delegate to chatWithSkills
+    // Step 1: Skill proxy — if domain/query provided, delegate to chatWithSkills
     const skillResult = await this.handleSkillProxy(request);
     if (skillResult !== null) {
       return skillResult;
@@ -459,18 +459,18 @@ export class AIEngineFacade {
   }
 
   /**
-   * Step 1 — Skill proxy: auto-delegate to chatWithSkills when domain/taskType is present.
+   * Step 1 — Skill proxy: auto-delegate to chatWithSkills when domain/query is present.
    * Returns a ChatResponse when delegation occurred, or null to continue normal flow.
    */
   private async handleSkillProxy(
     request: ChatRequest,
   ): Promise<ChatResponse | null> {
-    if (!(request.domain || request.taskType) || !this.skills) {
+    if (!(request.domain || request.query) || !this.skills) {
       return null;
     }
 
     this.logger.debug(
-      `[chat] K3 Fix: Auto-delegating to chatWithSkills (domain=${request.domain}, taskType=${request.taskType})`,
+      `[chat] K3 Fix: Auto-delegating to chatWithSkills (domain=${request.domain}, query=${request.query})`,
     );
 
     const skillResponse = await this.chatWithSkills({
@@ -485,7 +485,7 @@ export class AIEngineFacade {
       temperature: request.temperature,
       strictMode: request.strictMode,
       domain: request.domain || "common",
-      taskType: request.taskType || "general",
+      query: request.query,
       additionalSkills: request.additionalSkills,
       skillContext: request.skillContext,
     });
@@ -975,7 +975,7 @@ export class AIEngineFacade {
    * @param request.modelType - AI model type
    * @param request.taskProfile - Semantic task configuration
    * @param request.domain - Skill domain (e.g., "research", "writing")
-   * @param request.taskType - Task type (e.g., "analysis", "summary")
+   * @param request.query - Query for description-based skill matching
    * @param request.additionalSkills - Additional skill IDs to load
    * @param request.skillContext - Context variables for skill templates
    * @returns Chat response with used skills information
@@ -986,7 +986,6 @@ export class AIEngineFacade {
    *   modelType: AIModelType.CHAT,
    *   taskProfile: { creativity: "low", outputLength: "medium" },
    *   domain: "research",
-   *   taskType: "analysis",
    * });
    */
   async chatWithSkills(
@@ -995,8 +994,12 @@ export class AIEngineFacade {
     this.logger.log(
       `[Skills] ════════════════════════════════════════════════════════`,
     );
+    // Auto-extract query from last user message if not provided
+    const query =
+      request.query || this.extractQueryFromMessages(request.messages);
+
     this.logger.log(
-      `[Skills] 🚀 chatWithSkills START: taskType="${request.taskType}", domain="${request.domain}"`,
+      `[Skills] chatWithSkills START: query="${query?.slice(0, 60) || ""}", domain="${request.domain || ""}"`,
     );
 
     // 检查 Skills 服务是否可用
@@ -1028,7 +1031,7 @@ export class AIEngineFacade {
     // 1. 加载匹配的 Skills
     this.logger.log(`[Skills] Step 1: Loading skills for task...`);
     const skills = await this.skills?.loader.getSkillsForTask({
-      taskType: request.taskType,
+      query,
       domain: request.domain,
       additionalSkillIds: request.additionalSkills,
       maxTokenBudget: SKILLS_PROMPT_TOKEN_BUDGET,
@@ -1923,6 +1926,20 @@ export class AIEngineFacade {
     const tail = context.substring(context.length - tailLength);
 
     return `${head}\n\n[... content compressed ...]\n\n${tail}`;
+  }
+
+  /**
+   * Extract query string from the last user message for description-based skill matching.
+   */
+  private extractQueryFromMessages(
+    messages: Array<{ role: string; content: string }>,
+  ): string {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user" && messages[i].content) {
+        return messages[i].content.slice(0, 200);
+      }
+    }
+    return "";
   }
 
   // ==================== 约束能力 ====================

@@ -1,15 +1,17 @@
 ---
-id: competitive-analysis
-name: 竞争分析
-version: 1.0.0
-domain: research
-tags: [analysis, competitive, market, strategy, research]
-taskTypes: [dimension-research, market-research, strategic-analysis]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业竞争分析技能，分析竞争格局、主要玩家、策略对比
-tokenBudget: 800
+name: competitive-analysis
+description: |
+  竞争分析技能，使用波特五力、竞争者识别矩阵和竞争定位进行市场竞争分析。
+  适用场景：维度调研(dimension-research)、市场研究(market-research)、战略分析(strategic-analysis)
+tags:
+  [
+    competitive,
+    porter,
+    market,
+    dimension-research,
+    market-research,
+    strategic-analysis,
+  ]
 ---
 
 # 竞争分析 Skill

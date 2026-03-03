@@ -1036,7 +1036,6 @@ export class WritingQualityCheckerService {
             content: `请修复以下对话问题，保持原文风格和情节，只改进对话部分。\n\n## 原文\n${content}`,
           },
         ],
-        taskType: "dialogue-fix",
         domain: "writing",
         taskProfile: {
           creativity: "medium",

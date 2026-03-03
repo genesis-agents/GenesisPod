@@ -1,15 +1,9 @@
 ---
-id: comparison
-name: 对比分析
-version: 1.0.0
-domain: research
-tags: [analysis, comparison, benchmark, evaluation, research]
-taskTypes: [dimension-research, evaluation, decision-making]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业对比分析技能，比较不同方案、事物、路径，支撑决策
-tokenBudget: 800
+name: comparison
+description: |
+  对比分析技能，设计MECE维度、构建对比矩阵、雷达图和优劣势表进行系统评估。
+  适用场景：维度调研(dimension-research)、评估(evaluation)、决策分析(decision-making)
+tags: [comparison, evaluation, matrix, dimension-research, decision-making]
 ---
 
 # 对比分析 Skill

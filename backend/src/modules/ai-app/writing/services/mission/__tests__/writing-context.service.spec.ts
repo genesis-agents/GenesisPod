@@ -103,7 +103,6 @@ describe("WritingContextService", () => {
       });
 
       const result = await service.getWritingSkillPrompts({
-        taskType: "chapter-writing",
         roleId: "writer",
       });
 

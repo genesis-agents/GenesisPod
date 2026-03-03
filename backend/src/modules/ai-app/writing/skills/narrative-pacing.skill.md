@@ -1,15 +1,10 @@
 ---
-id: narrative-pacing
-name: 叙事节奏控制
-version: 1.0.0
-domain: writing
-tags: [pacing, structure, tension, rhythm]
-taskTypes: [chapter-writing, plot-development, scene-writing]
-priority: 6
-author: genesis-ai
-source: local
-description: 控制故事节奏，管理张弛有度的叙事进展
-tokenBudget: 400
+name: narrative-pacing
+description: |
+  叙事节奏控制技能，通过加速、减速、场景转换等技巧控制叙事节奏。
+  适用场景：章节写作(chapter-writing)、情节发展(plot-development)、场景写作(scene-writing)
+tags:
+  [pacing, rhythm, narrative, chapter-writing, plot-development, scene-writing]
 ---
 
 # 叙事节奏控制 Skill

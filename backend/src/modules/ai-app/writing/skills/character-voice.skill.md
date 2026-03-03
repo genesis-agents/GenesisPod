@@ -1,15 +1,17 @@
 ---
-id: character-voice
-name: 角色声音塑造
-version: 1.0.0
-domain: writing
-tags: [character, dialogue, voice, personality]
-taskTypes: [chapter-writing, dialogue-writing, character-development]
-priority: 7
-author: genesis-ai
-source: local
-description: 塑造独特的角色声音和对话风格，确保每个角色都有辨识度
-tokenBudget: 500
+name: character-voice
+description: |
+  角色声音塑造技能，通过语言习惯、说话风格、知识背景等维度构建独特角色声音。
+  适用场景：章节写作(chapter-writing)、对话写作(dialogue-writing)、角色发展(character-development)
+tags:
+  [
+    character,
+    voice,
+    dialogue,
+    chapter-writing,
+    dialogue-writing,
+    character-development,
+  ]
 ---
 
 # 角色声音塑造 Skill

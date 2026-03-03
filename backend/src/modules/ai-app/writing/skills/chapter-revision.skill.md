@@ -1,15 +1,19 @@
 ---
-id: chapter-revision
-name: 章节修订润色
-version: 1.0.0
-domain: writing
-tags: [revision, polish, rewrite, editing]
-taskTypes: [chapter-revision, polish, rewrite, expand, condense, style-fix]
-priority: 8
-author: genesis-ai
-source: local
-description: 专业小说章节修订技能，包含重写、润色、扩写、精简等编辑功能
-tokenBudget: 600
+name: chapter-revision
+description: |
+  专业小说章节修订润色技能，包含重写、润色、扩写、精简等编辑功能。
+  适用场景：章节修订(chapter-revision)、润色(polish)、重写(rewrite)、扩写(expand)、精简(condense)、风格修复(style-fix)
+tags:
+  [
+    revision,
+    polish,
+    rewrite,
+    editing,
+    expand,
+    condense,
+    style-fix,
+    chapter-revision,
+  ]
 ---
 
 # 章节修订润色 Skill

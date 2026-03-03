@@ -400,7 +400,6 @@ describe("ChatFacade", () => {
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "medium", outputLength: "medium" },
         domain: "common",
-        taskType: "general",
       });
 
       expect(result.content).toBe("Hello!");

@@ -1,15 +1,17 @@
 ---
-id: trend-analysis
-name: 趋势分析
-version: 1.0.0
-domain: research
-tags: [analysis, trend, forecast, pattern, research]
-taskTypes: [dimension-research, report-writing, market-analysis]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业趋势分析技能，识别发展趋势、变化方向、预测未来走向
-tokenBudget: 800
+name: trend-analysis
+description: |
+  趋势分析技能，进行趋势识别、驱动因素分析和时间维度分析，支持多种趋势类型。
+  适用场景：维度调研(dimension-research)、报告撰写(report-writing)、市场分析(market-analysis)
+tags:
+  [
+    trend,
+    analysis,
+    forecast,
+    dimension-research,
+    report-writing,
+    market-analysis,
+  ]
 ---
 
 # 趋势分析 Skill

@@ -1,15 +1,17 @@
 ---
-id: critical-thinking
-name: 批判性思维
-version: 1.0.0
-domain: research
-tags: [analysis, critical, verification, skepticism, research]
-taskTypes: [dimension-research, quality-review, fact-checking]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业批判性思维技能，质疑验证信息、多角度分析、辨别真伪
-tokenBudget: 800
+name: critical-thinking
+description: |
+  批判性思维技能，使用信息可信度矩阵、逻辑谬误检测和CRITIC框架进行深度审视。
+  适用场景：维度调研(dimension-research)、质量审查(quality-review)、事实核查(fact-checking)
+tags:
+  [
+    critical-thinking,
+    logic,
+    credibility,
+    dimension-research,
+    quality-review,
+    fact-checking,
+  ]
 ---
 
 # 批判性思维 Skill

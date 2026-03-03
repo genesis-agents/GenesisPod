@@ -1,16 +1,18 @@
 ---
-id: fact-extraction
-name: 事实提取
-version: 1.0.0
-domain: writing
-tags: [extraction, fact, analysis, continuity]
-taskTypes:
-  [fact-extraction, entity-extraction, event-extraction, conflict-detection]
-priority: 6
-author: genesis-ai
-source: local
-description: 从章节内容中提取关键事实，用于维护故事一致性和连续性
-tokenBudget: 500
+name: fact-extraction
+description: |
+  事实提取技能，从文本中提取角色状态、情节事件、世界设定、时间线等关键事实。
+  适用场景：事实提取(fact-extraction)、实体提取(entity-extraction)、事件提取(event-extraction)、冲突检测(conflict-detection)
+tags:
+  [
+    extraction,
+    facts,
+    entities,
+    fact-extraction,
+    entity-extraction,
+    event-extraction,
+    conflict-detection,
+  ]
 ---
 
 # 事实提取 Skill

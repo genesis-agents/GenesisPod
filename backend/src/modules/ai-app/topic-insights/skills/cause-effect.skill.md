@@ -1,15 +1,17 @@
 ---
-id: cause-effect
-name: 因果分析
-version: 1.0.0
-domain: research
-tags: [analysis, causality, root-cause, impact, research]
-taskTypes: [dimension-research, problem-analysis, investigation]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业因果分析技能，分析原因和结果、追溯根源、评估影响
-tokenBudget: 800
+name: cause-effect
+description: |
+  因果分析技能，使用5 Whys、鱼骨图等方法深入分析因果关系和影响传导。
+  适用场景：维度调研(dimension-research)、问题分析(problem-analysis)、调查研究(investigation)
+tags:
+  [
+    cause-effect,
+    analysis,
+    5-whys,
+    dimension-research,
+    problem-analysis,
+    investigation,
+  ]
 ---
 
 # 因果分析 Skill

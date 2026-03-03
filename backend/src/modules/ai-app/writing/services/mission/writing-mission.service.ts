@@ -321,11 +321,6 @@ export class WritingMissionService {
    * 根据任务类型从 AICapabilityResolver 获取适用的 Skills
    */
   private async getWritingSkillPrompts(params: {
-    taskType?:
-      | "chapter-writing"
-      | "editing"
-      | "consistency-check"
-      | "outline-planning";
     roleId?: string;
     projectId?: string;
   }): Promise<string> {
@@ -393,7 +388,6 @@ export class WritingMissionService {
     // ★★★ -1. 写作技能提示（从 AICapabilityResolver 获取）★★★
     try {
       const skillPrompts = await this.getWritingSkillPrompts({
-        taskType: "chapter-writing",
         roleId: "writer",
         projectId,
       });

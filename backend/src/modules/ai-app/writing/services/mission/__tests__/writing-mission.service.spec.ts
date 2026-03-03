@@ -2228,7 +2228,6 @@ describe("WritingMissionService", () => {
   describe("getWritingSkillPrompts", () => {
     type ServiceWithPrivate = WritingMissionService & {
       getWritingSkillPrompts: (params: {
-        taskType?: string;
         roleId?: string;
         projectId?: string;
       }) => Promise<string>;
@@ -2252,7 +2251,6 @@ describe("WritingMissionService", () => {
       };
 
       const result = await svc.getWritingSkillPrompts({
-        taskType: "chapter-writing",
         roleId: "writer",
         projectId: "project-1",
       });
@@ -2266,9 +2264,7 @@ describe("WritingMissionService", () => {
         usedSkills: [],
       });
 
-      const result = await svc.getWritingSkillPrompts({
-        taskType: "chapter-writing",
-      });
+      const result = await svc.getWritingSkillPrompts({});
 
       expect(result).toBe("");
     });

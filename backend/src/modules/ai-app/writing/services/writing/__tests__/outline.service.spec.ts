@@ -132,7 +132,6 @@ describe("OutlineService", () => {
 
       expect(facade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
-          taskType: "outline-generation",
           domain: "writing",
         }),
       );

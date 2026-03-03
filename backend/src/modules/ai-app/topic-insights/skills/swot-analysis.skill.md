@@ -1,15 +1,17 @@
 ---
-id: swot-analysis
-name: SWOT分析
-version: 1.0.0
-domain: research
-tags: [analysis, swot, strategy, competitive, research]
-taskTypes: [dimension-research, strategic-analysis, market-research]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业SWOT分析技能，系统分析优势、劣势、机会、威胁
-tokenBudget: 800
+name: swot-analysis
+description: |
+  SWOT分析技能，构建SWOT矩阵、交叉策略矩阵(SO/WO/ST/WT)和权重评估。
+  适用场景：维度调研(dimension-research)、战略分析(strategic-analysis)、市场研究(market-research)
+tags:
+  [
+    swot,
+    strategy,
+    analysis,
+    dimension-research,
+    strategic-analysis,
+    market-research,
+  ]
 ---
 
 # SWOT分析 Skill

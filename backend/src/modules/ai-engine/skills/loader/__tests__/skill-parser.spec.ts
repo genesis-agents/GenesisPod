@@ -12,7 +12,6 @@ import {
   parseSkillIdFromFilename,
   isValidSkillMd,
 } from "../skill-parser";
-import { SkillMdDefinition } from "../../types/skill-md.types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -85,7 +84,10 @@ Content.
 describe("parseSkillMd", () => {
   describe("正常情况", () => {
     it("正确解析含完整 frontmatter 的 SKILL.md", () => {
-      const result = parseSkillMd(VALID_SKILL_MD, "/path/to/test-skill.skill.md");
+      const result = parseSkillMd(
+        VALID_SKILL_MD,
+        "/path/to/test-skill.skill.md",
+      );
 
       expect(result.metadata.id).toBe("test-skill");
       expect(result.metadata.name).toBe("test-skill");
@@ -101,7 +103,9 @@ describe("parseSkillMd", () => {
     it("内容被正确 trim", () => {
       const result = parseSkillMd(VALID_SKILL_MD);
 
-      expect(result.content).toBe("# Test Skill\n\nThis is the content of the test skill.");
+      expect(result.content).toBe(
+        "# Test Skill\n\nThis is the content of the test skill.",
+      );
     });
 
     it("filePath 被设置", () => {
@@ -139,7 +143,7 @@ describe("parseSkillMd", () => {
       // 验证默认值
       expect(result.metadata.version).toBe("1.0.0");
       expect(result.metadata.domain).toBe("general");
-      expect(result.metadata.taskTypes).toEqual(["*"]);
+      expect(result.metadata.taskTypes).toEqual([]);
       expect(result.metadata.priority).toBe(5);
       expect(result.metadata.source).toBe("local");
       expect(result.metadata.enabled).toBe(true);
@@ -160,7 +164,10 @@ describe("parseSkillMd", () => {
       const result = parseSkillMd(KEBAB_CASE_ALIAS_SKILL_MD);
 
       expect(result.metadata.outputKey).toBe("my-output");
-      expect(result.metadata.taskProfile).toEqual({ creativity: "medium", outputLength: "short" });
+      expect(result.metadata.taskProfile).toEqual({
+        creativity: "medium",
+        outputLength: "short",
+      });
       expect(result.metadata.requiredSkills).toEqual(["other-skill"]);
       expect(result.metadata.requiredTools).toEqual(["Read"]);
       expect(result.metadata.executionMode).toBe("provider");
@@ -253,7 +260,9 @@ Content.
     it("不存在 frontmatter 时抛出错误", () => {
       const content = "No frontmatter here, just content";
 
-      expect(() => parseSkillMd(content)).toThrow("Invalid SKILL.md format: Missing YAML frontmatter");
+      expect(() => parseSkillMd(content)).toThrow(
+        "Invalid SKILL.md format: Missing YAML frontmatter",
+      );
     });
 
     it("无效的 YAML 时抛出错误", () => {
@@ -275,7 +284,9 @@ version: 1.0.0
 
 Content.
 `;
-      expect(() => parseSkillMd(content)).toThrow("Missing required field: name or id");
+      expect(() => parseSkillMd(content)).toThrow(
+        "Missing required field: name or id",
+      );
     });
 
     it("错误消息中包含 filePath", () => {
@@ -442,7 +453,9 @@ describe("isValidSkillSource", () => {
 
 describe("parseSkillIdFromFilename", () => {
   it("从 .skill.md 扩展名中提取 ID", () => {
-    expect(parseSkillIdFromFilename("chapter-writing.skill.md")).toBe("chapter-writing");
+    expect(parseSkillIdFromFilename("chapter-writing.skill.md")).toBe(
+      "chapter-writing",
+    );
     expect(parseSkillIdFromFilename("my-skill.skill.md")).toBe("my-skill");
   });
 
@@ -469,6 +482,8 @@ describe("isValidSkillMd", () => {
 
   it("无效的 SKILL.md 内容返回 false", () => {
     expect(isValidSkillMd("No frontmatter")).toBe(false);
-    expect(isValidSkillMd("---\ndescription: no name\n---\nContent")).toBe(false);
+    expect(isValidSkillMd("---\ndescription: no name\n---\nContent")).toBe(
+      false,
+    );
   });
 });

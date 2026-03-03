@@ -301,7 +301,6 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     // ★ P3 迁移：使用 chatWithSkills 统一入口
     const response = await this.chatFacade.chatWithSkills({
       messages: [{ role: "user", content: userPrompt }],
-      taskType: "chapter-writing",
       domain: "writing",
       taskProfile: {
         creativity: "high", // 创作需要更高的创造性
@@ -359,7 +358,6 @@ ${content.slice(-500)}
         // ★ P3 迁移：使用 chatWithSkills 统一入口
         const continuationResponse = await this.chatFacade.chatWithSkills({
           messages: [{ role: "user", content: continuationPrompt }],
-          taskType: "chapter-continuation",
           domain: "writing",
           taskProfile: {
             creativity: "high",

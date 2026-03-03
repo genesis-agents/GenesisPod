@@ -9,7 +9,7 @@
  *   - resolveBillingFromContext() — RequestContext fallback path
  *   - checkConstraints() — contentFilter.rules custom regex
  *   - extractJson() — leading non-JSON text before '{' and trailing text after '}'
- *   - chat() skill proxy — domain/taskType present with skills available
+ *   - chat() skill proxy — domain/query present with skills available
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -114,12 +114,10 @@ describe("ChatFacade — chatWithSkills() with skills available", () => {
       modelType: AIModelType.CHAT,
       taskProfile: { creativity: "low", outputLength: "medium" },
       domain: "research",
-      taskType: "analysis",
     });
 
     expect(mockSkillLoader.getSkillsForTask).toHaveBeenCalledWith(
       expect.objectContaining({
-        taskType: "analysis",
         domain: "research",
       }),
     );
@@ -150,7 +148,6 @@ describe("ChatFacade — chatWithSkills() with skills available", () => {
       modelType: AIModelType.CHAT,
       taskProfile: { creativity: "low", outputLength: "short" },
       domain: "common",
-      taskType: "general",
     });
 
     // Should only have the original user message, no system message prepended
@@ -160,13 +157,12 @@ describe("ChatFacade — chatWithSkills() with skills available", () => {
     expect(result.usedSkills).toEqual([]);
   });
 
-  it("should auto-delegate from chat() when domain/taskType are provided", async () => {
-    // When domain/taskType are provided and skills ARE available,
+  it("should auto-delegate from chat() when domain/query are provided", async () => {
+    // When domain/query are provided and skills ARE available,
     // chat() should invoke handleSkillProxy -> chatWithSkills
     const result = await facade.chat({
       messages: [{ role: "user", content: "Analyze" }],
       domain: "research",
-      taskType: "analysis",
     });
 
     expect(mockSkillLoader.getSkillsForTask).toHaveBeenCalled();

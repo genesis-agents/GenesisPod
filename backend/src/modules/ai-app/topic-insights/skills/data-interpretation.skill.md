@@ -1,15 +1,17 @@
 ---
-id: data-interpretation
-name: 数据解读
-version: 1.0.0
-domain: research
-tags: [analysis, data, quantitative, statistics, research]
-taskTypes: [dimension-research, data-analysis, report-writing]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业数据解读技能，分析和解释定量数据、统计指标、量化信息
-tokenBudget: 800
+name: data-interpretation
+description: |
+  数据解读技能，进行数据质量验证、统计分析、数据陷阱识别和趋势发现。
+  适用场景：维度调研(dimension-research)、数据分析(data-analysis)、报告撰写(report-writing)
+tags:
+  [
+    data,
+    statistics,
+    interpretation,
+    dimension-research,
+    data-analysis,
+    report-writing,
+  ]
 ---
 
 # 数据解读 Skill

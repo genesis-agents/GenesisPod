@@ -120,7 +120,6 @@ export class OutlineService {
             content: `请为小说生成第${volumeNumber}卷的详细章节大纲。`,
           },
         ],
-        taskType: "outline-generation",
         domain: "writing",
         taskProfile: {
           creativity: "medium", // 大纲创作需要平衡创造性和结构性

@@ -384,7 +384,6 @@ describe("WriterAgent", () => {
 
       expect(mockFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
-          taskType: "chapter-writing",
           domain: "writing",
           taskProfile: expect.objectContaining({ creativity: "high" }),
         }),

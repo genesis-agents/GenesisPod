@@ -2,8 +2,8 @@
  * AIEngineFacade - Supplemental3 tests
  *
  * Covers uncovered branches not in supplemental/supplemental2:
- * - handleSkillProxy: domain/taskType provided WITH skills available → auto-delegates
- * - handleSkillProxy: domain/taskType provided WITHOUT skills → returns null (normal flow)
+ * - handleSkillProxy: domain/query provided WITH skills available → auto-delegates
+ * - handleSkillProxy: domain/query provided WITHOUT skills → returns null (normal flow)
  * - enforceRateLimitAndBudget: rate limited (has constraint.rateLimiter)
  * - enforceRateLimitAndBudget: budget exceeded (has constraint.costController)
  * - chatWithSkills: skills loader unavailable → fallback to plain chat
@@ -135,7 +135,7 @@ describe("AIEngineFacade handleSkillProxy (via chat())", () => {
     chatSvc = makeChatService();
   });
 
-  it("returns null (no delegation) when no domain/taskType provided", async () => {
+  it("returns null (no delegation) when no domain/query provided", async () => {
     const facade = await buildFacade(chatSvc);
 
     const result = await facade.chat({
@@ -154,14 +154,13 @@ describe("AIEngineFacade handleSkillProxy (via chat())", () => {
     const result = await facade.chat({
       messages: [{ role: "user", content: "Hello" }],
       domain: "research",
-      taskType: "analysis",
     });
 
     // Still calls plain chat since SKILL_FEATURE is undefined
     expect(result.content).toBe("Hello from AI");
   });
 
-  it("delegates to chatWithSkills when domain/taskType provided WITH skills feature", async () => {
+  it("delegates to chatWithSkills when domain/query provided WITH skills feature", async () => {
     const mockSkillLoader = {
       getSkillsForTask: jest.fn().mockResolvedValue([]),
     };
@@ -186,7 +185,6 @@ describe("AIEngineFacade handleSkillProxy (via chat())", () => {
     const result = await facade.chat({
       messages: [{ role: "user", content: "Analyze AI trends" }],
       domain: "research",
-      taskType: "analysis",
     });
 
     expect(result.content).toBe("Hello from AI");
@@ -279,12 +277,10 @@ describe("AIEngineFacade enforceRateLimitAndBudget (via chat())", () => {
     const constraintFeature = {
       rateLimiter: undefined,
       costController: {
-        checkBudget: jest
-          .fn()
-          .mockReturnValue({
-            allowed: false,
-            reason: "Monthly budget exceeded",
-          }),
+        checkBudget: jest.fn().mockReturnValue({
+          allowed: false,
+          reason: "Monthly budget exceeded",
+        }),
       },
     };
 
@@ -340,7 +336,6 @@ describe("AIEngineFacade chatWithSkills()", () => {
     const result = await facade.chatWithSkills({
       messages: [{ role: "user", content: "Analyze this" }],
       domain: "research",
-      taskType: "analysis",
       taskProfile: { creativity: "low", outputLength: "medium" },
     });
 
@@ -377,7 +372,6 @@ describe("AIEngineFacade chatWithSkills()", () => {
     const result = await facade.chatWithSkills({
       messages: [{ role: "user", content: "Analyze AI trends" }],
       domain: "research",
-      taskType: "analysis",
       taskProfile: { creativity: "medium", outputLength: "long" },
     });
 
@@ -385,7 +379,7 @@ describe("AIEngineFacade chatWithSkills()", () => {
     expect(result.usedSkills).toContain("research-guide");
     expect(result.skillsTokensUsed).toBe(150);
     expect(mockSkillLoader.getSkillsForTask).toHaveBeenCalledWith(
-      expect.objectContaining({ taskType: "analysis", domain: "research" }),
+      expect.objectContaining({ domain: "research" }),
     );
   });
 
@@ -415,7 +409,6 @@ describe("AIEngineFacade chatWithSkills()", () => {
     const result = await facade.chatWithSkills({
       messages: [{ role: "user", content: "Hello" }],
       domain: "common",
-      taskType: "general",
     });
 
     expect(result.usedSkills).toEqual([]);

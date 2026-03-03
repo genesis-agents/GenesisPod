@@ -35,8 +35,12 @@ import { parseSkillMd, estimateTokens } from "../skill-parser";
 
 const mockGlob = glob as jest.MockedFunction<typeof glob>;
 const mockFs = fs as jest.Mocked<typeof fs>;
-const mockParseSkillMd = parseSkillMd as jest.MockedFunction<typeof parseSkillMd>;
-const mockEstimateTokens = estimateTokens as jest.MockedFunction<typeof estimateTokens>;
+const mockParseSkillMd = parseSkillMd as jest.MockedFunction<
+  typeof parseSkillMd
+>;
+const mockEstimateTokens = estimateTokens as jest.MockedFunction<
+  typeof estimateTokens
+>;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -89,7 +93,9 @@ describe("SkillLoaderService", () => {
       delete: jest.fn().mockResolvedValue(true),
       clear: jest.fn().mockResolvedValue(undefined),
       has: jest.fn().mockReturnValue(false),
-      getStats: jest.fn().mockReturnValue({ size: 0, maxSize: 100, hitRate: 0, totalHits: 0 }),
+      getStats: jest
+        .fn()
+        .mockReturnValue({ size: 0, maxSize: 100, hitRate: 0, totalHits: 0 }),
       warmup: jest.fn().mockResolvedValue(0),
       configure: jest.fn(),
     } as unknown as jest.Mocked<SkillCacheService>;
@@ -179,13 +185,15 @@ describe("SkillLoaderService", () => {
     it("找到 SKILL.md 文件并解析", async () => {
       const skill = makeSkillDefinition("chapter-writing");
       mockGlob.mockResolvedValue(["/path/to/chapter-writing.skill.md"]);
-      mockFs.readFile.mockResolvedValue("content" as unknown as Buffer);
+      mockFs.readFile.mockResolvedValue("content" as never);
       mockParseSkillMd.mockReturnValue(skill);
 
       await service.loadAllLocalSkills();
 
       expect(service.getAllLoadedSkills()).toHaveLength(1);
-      expect(service.getAllLoadedSkills()[0].metadata.id).toBe("chapter-writing");
+      expect(service.getAllLoadedSkills()[0].metadata.id).toBe(
+        "chapter-writing",
+      );
     });
 
     it("加载多个 skill 文件", async () => {
@@ -195,10 +203,8 @@ describe("SkillLoaderService", () => {
         .mockResolvedValueOnce(["/path/skill-1.skill.md"])
         .mockResolvedValueOnce(["/path/skill-2.skill.md"])
         .mockResolvedValue([]);
-      mockFs.readFile.mockResolvedValue("content" as unknown as Buffer);
-      mockParseSkillMd
-        .mockReturnValueOnce(skill1)
-        .mockReturnValueOnce(skill2);
+      mockFs.readFile.mockResolvedValue("content" as never);
+      mockParseSkillMd.mockReturnValueOnce(skill1).mockReturnValueOnce(skill2);
 
       await service.loadAllLocalSkills();
 
@@ -207,7 +213,7 @@ describe("SkillLoaderService", () => {
 
     it("文件解析失败时跳过并输出日志", async () => {
       mockGlob.mockResolvedValue(["/path/broken.skill.md"]);
-      mockFs.readFile.mockResolvedValue("invalid" as unknown as Buffer);
+      mockFs.readFile.mockResolvedValue("invalid" as never);
       mockParseSkillMd.mockImplementation(() => {
         throw new Error("Parse error");
       });
@@ -227,7 +233,7 @@ describe("SkillLoaderService", () => {
     it("domain 不匹配时输出警告日志", async () => {
       const skill = makeSkillDefinition("wrong-domain-skill", "research"); // office 目录但 domain 为 research
       mockGlob.mockResolvedValue(["/path/office/wrong.skill.md"]);
-      mockFs.readFile.mockResolvedValue("content" as unknown as Buffer);
+      mockFs.readFile.mockResolvedValue("content" as never);
       mockParseSkillMd.mockReturnValue(skill);
 
       // 只输出警告，不报错
@@ -254,8 +260,18 @@ describe("SkillLoaderService", () => {
     });
 
     it("不返回已禁用的 skill", async () => {
-      const enabledSkill = makeSkillDefinition("enabled-skill", "writing", 5, true);
-      const disabledSkill = makeSkillDefinition("disabled-skill", "writing", 5, false);
+      const enabledSkill = makeSkillDefinition(
+        "enabled-skill",
+        "writing",
+        5,
+        true,
+      );
+      const disabledSkill = makeSkillDefinition(
+        "disabled-skill",
+        "writing",
+        5,
+        false,
+      );
 
       service.registerSkill(enabledSkill);
       service.registerSkill(disabledSkill);
@@ -267,8 +283,16 @@ describe("SkillLoaderService", () => {
     });
 
     it("按优先级从高到低排序", async () => {
-      const lowPrioritySkill = makeSkillDefinition("low-priority", "writing", 1);
-      const highPrioritySkill = makeSkillDefinition("high-priority", "writing", 10);
+      const lowPrioritySkill = makeSkillDefinition(
+        "low-priority",
+        "writing",
+        1,
+      );
+      const highPrioritySkill = makeSkillDefinition(
+        "high-priority",
+        "writing",
+        10,
+      );
 
       service.registerSkill(lowPrioritySkill);
       service.registerSkill(highPrioritySkill);
@@ -337,19 +361,13 @@ describe("SkillLoaderService", () => {
   // getSkillsForTask
   // -------------------------------------------------------------------------
 
-  describe("getSkillsForTask", () => {
-    it("返回与任务类型匹配的 skill", async () => {
-      const skill = {
-        ...makeSkillDefinition("writing-skill", "writing"),
-        metadata: {
-          ...makeSkillDefinition("writing-skill", "writing").metadata,
-          taskTypes: ["chapter-writing"],
-        },
-      };
+  describe("getSkillsForTask (description-based matching)", () => {
+    it("query 匹配 description 中的关键词时返回 skill", async () => {
+      const skill = makeSkillDefinition("writing-skill", "writing");
       service.registerSkill(skill);
 
       const result = await service.getSkillsForTask({
-        taskType: "chapter-writing",
+        query: "writing skill",
         domain: "writing",
       });
 
@@ -357,68 +375,37 @@ describe("SkillLoaderService", () => {
       expect(result[0].metadata.id).toBe("writing-skill");
     });
 
-    it("通配符任务类型的 skill 匹配所有任务", async () => {
-      const wildcardSkill = {
-        ...makeSkillDefinition("wildcard-skill", "writing"),
-        metadata: {
-          ...makeSkillDefinition("wildcard-skill", "writing").metadata,
-          taskTypes: ["*"],
-        },
-      };
-      service.registerSkill(wildcardSkill);
-
-      const result = await service.getSkillsForTask({
-        taskType: "any-task",
-        domain: "writing",
-      });
-
-      expect(result).toHaveLength(1);
-    });
-
-    it("任务类型不匹配的 skill 不包含在结果中", async () => {
-      const skill = {
-        ...makeSkillDefinition("specific-skill", "writing"),
-        metadata: {
-          ...makeSkillDefinition("specific-skill", "writing").metadata,
-          taskTypes: ["other-task"],
-        },
-      };
+    it("query 不匹配任何 skill 时返回空", async () => {
+      const skill = makeSkillDefinition("specific-skill", "writing");
       service.registerSkill(skill);
 
       const result = await service.getSkillsForTask({
-        taskType: "chapter-writing",
+        query: "zzzzunmatchable",
         domain: "writing",
       });
 
       expect(result).toHaveLength(0);
     });
 
+    it("无 query 但有 domain 时返回该 domain 全部 skill (wildcard)", async () => {
+      const skill = makeSkillDefinition("wildcard-skill", "writing");
+      service.registerSkill(skill);
+
+      const result = await service.getSkillsForTask({
+        domain: "writing",
+      });
+
+      expect(result).toHaveLength(1);
+    });
+
     it("超出 maxTokenBudget 的 skill 被跳过", async () => {
       mockEstimateTokens.mockReturnValue(500);
-      const skill1 = {
-        ...makeSkillDefinition("budget-skill-1", "writing"),
-        metadata: {
-          ...makeSkillDefinition("budget-skill-1", "writing").metadata,
-          taskTypes: ["*"],
-          priority: 10,
-          tokenBudget: undefined,
-        },
-      };
-      const skill2 = {
-        ...makeSkillDefinition("budget-skill-2", "writing"),
-        metadata: {
-          ...makeSkillDefinition("budget-skill-2", "writing").metadata,
-          taskTypes: ["*"],
-          priority: 5,
-          tokenBudget: undefined,
-        },
-      };
+      const skill1 = makeSkillDefinition("budget-skill-1", "writing");
+      const skill2 = makeSkillDefinition("budget-skill-2", "writing");
       service.registerSkill(skill1);
       service.registerSkill(skill2);
 
-      // 一个 500 token 的 skill 放入后就超出预算
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         maxTokenBudget: 600,
       });
@@ -431,14 +418,12 @@ describe("SkillLoaderService", () => {
         ...makeSkillDefinition("budgeted-skill", "writing"),
         metadata: {
           ...makeSkillDefinition("budgeted-skill", "writing").metadata,
-          taskTypes: ["*"],
           tokenBudget: 100,
         },
       };
       service.registerSkill(skill);
 
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         maxTokenBudget: 200,
       });
@@ -448,41 +433,39 @@ describe("SkillLoaderService", () => {
     });
 
     it("可以通过 additionalSkillIds 指定额外的 skill", async () => {
-      const additionalSkill = makeSkillDefinition("additional-skill", "research");
+      const additionalSkill = makeSkillDefinition(
+        "additional-skill",
+        "research",
+      );
       service.registerSkill(additionalSkill);
 
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         additionalSkillIds: ["additional-skill"],
       });
 
-      expect(result.some((s) => s.metadata.id === "additional-skill")).toBe(true);
+      expect(result.some((s) => s.metadata.id === "additional-skill")).toBe(
+        true,
+      );
     });
 
     it("additionalSkillIds 中已存在的 skill 不会重复添加", async () => {
-      const skill = {
-        ...makeSkillDefinition("dedup-skill", "writing"),
-        metadata: {
-          ...makeSkillDefinition("dedup-skill", "writing").metadata,
-          taskTypes: ["*"],
-        },
-      };
+      const skill = makeSkillDefinition("dedup-skill", "writing");
       service.registerSkill(skill);
 
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         additionalSkillIds: ["dedup-skill"],
       });
 
-      const dedupCount = result.filter((s) => s.metadata.id === "dedup-skill").length;
+      const dedupCount = result.filter(
+        (s) => s.metadata.id === "dedup-skill",
+      ).length;
       expect(dedupCount).toBe(1);
     });
 
     it("不存在的 additionalSkillId 只输出警告日志", async () => {
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         additionalSkillIds: ["nonexistent-skill"],
       });
@@ -558,11 +541,17 @@ describe("SkillLoaderService", () => {
     it("设置了 tokenBudget 的 skill 合计正确", () => {
       const skill1 = {
         ...makeSkillDefinition("budget-1"),
-        metadata: { ...makeSkillDefinition("budget-1").metadata, tokenBudget: 200 },
+        metadata: {
+          ...makeSkillDefinition("budget-1").metadata,
+          tokenBudget: 200,
+        },
       };
       const skill2 = {
         ...makeSkillDefinition("budget-2"),
-        metadata: { ...makeSkillDefinition("budget-2").metadata, tokenBudget: 300 },
+        metadata: {
+          ...makeSkillDefinition("budget-2").metadata,
+          tokenBudget: 300,
+        },
       };
       service.registerSkill(skill1);
       service.registerSkill(skill2);
@@ -615,7 +604,9 @@ describe("SkillLoaderService", () => {
           path: "/safe/../../../etc/passwd",
           domain: "writing",
         }),
-      ).rejects.toThrow("Invalid skill directory path: contains suspicious patterns");
+      ).rejects.toThrow(
+        "Invalid skill directory path: contains suspicious patterns",
+      );
     });
 
     it("拒绝包含非法字符的路径", async () => {
@@ -644,7 +635,9 @@ describe("SkillLoaderService", () => {
       mockFs.realpath.mockResolvedValue("/some/file.txt");
       mockFs.stat.mockResolvedValue({
         isDirectory: () => false,
-      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T>
+        ? T
+        : never);
 
       await expect(
         service.addSkillDirectory({
@@ -668,13 +661,15 @@ describe("SkillLoaderService", () => {
 
     it("白名单外的路径应被拒绝", async () => {
       mockFs.realpath
-        .mockResolvedValueOnce("/evil/path")  // resolvedPath realpath
+        .mockResolvedValueOnce("/evil/path") // resolvedPath realpath
         .mockResolvedValueOnce("/app/ai-app") // baseSkillsDir
-        .mockResolvedValueOnce("/app");       // projectRoot
+        .mockResolvedValueOnce("/app"); // projectRoot
 
       mockFs.stat.mockResolvedValue({
         isDirectory: () => true,
-      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T>
+        ? T
+        : never);
 
       await expect(
         service.addSkillDirectory({
@@ -691,12 +686,14 @@ describe("SkillLoaderService", () => {
 
       mockFs.realpath
         .mockResolvedValueOnce(childPath) // resolved path
-        .mockResolvedValueOnce(basePath)  // baseSkillsDir
+        .mockResolvedValueOnce(basePath) // baseSkillsDir
         .mockResolvedValueOnce(path.join("app", "src")); // projectRoot
 
       mockFs.stat.mockResolvedValue({
         isDirectory: () => true,
-      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T>
+        ? T
+        : never);
 
       await expect(
         service.addSkillDirectory({
@@ -710,13 +707,15 @@ describe("SkillLoaderService", () => {
       const basePath = path.join("app", "src", "modules", "ai-app");
 
       mockFs.realpath
-        .mockResolvedValueOnce(basePath)          // resolved path
-        .mockResolvedValueOnce(basePath)          // baseSkillsDir
+        .mockResolvedValueOnce(basePath) // resolved path
+        .mockResolvedValueOnce(basePath) // baseSkillsDir
         .mockResolvedValueOnce(path.join("app")); // projectRoot
 
       mockFs.stat.mockResolvedValue({
         isDirectory: () => true,
-      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T>
+        ? T
+        : never);
 
       await expect(
         service.addSkillDirectory({
@@ -731,13 +730,15 @@ describe("SkillLoaderService", () => {
       const childOfRoot = path.join(projectRoot, "other-module", "skills");
 
       mockFs.realpath
-        .mockResolvedValueOnce(childOfRoot)             // resolved path
+        .mockResolvedValueOnce(childOfRoot) // resolved path
         .mockResolvedValueOnce(path.join("app", "ai-app")) // baseSkillsDir (different)
-        .mockResolvedValueOnce(projectRoot);            // projectRoot
+        .mockResolvedValueOnce(projectRoot); // projectRoot
 
       mockFs.stat.mockResolvedValue({
         isDirectory: () => true,
-      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T> ? T : never);
+      } as unknown as ReturnType<typeof fs.stat> extends Promise<infer T>
+        ? T
+        : never);
 
       await expect(
         service.addSkillDirectory({
@@ -756,7 +757,13 @@ describe("SkillLoaderService", () => {
     it("SkillsMP 未启用时跳过更新", async () => {
       skillsMPClient.isEnabled.mockReturnValue(false);
 
-      const mpSkill = makeSkillDefinition("mp-skill", "writing", 5, true, "skillsmp");
+      const mpSkill = makeSkillDefinition(
+        "mp-skill",
+        "writing",
+        5,
+        true,
+        "skillsmp",
+      );
       service.registerSkill(mpSkill);
       cacheService.getStats.mockReturnValue({
         size: 1,
@@ -793,7 +800,13 @@ describe("SkillLoaderService", () => {
     it("发现可更新 Skills 时执行安装", async () => {
       skillsMPClient.isEnabled.mockReturnValue(true);
 
-      const mpSkill = makeSkillDefinition("mp-v1", "writing", 5, true, "skillsmp");
+      const mpSkill = makeSkillDefinition(
+        "mp-v1",
+        "writing",
+        5,
+        true,
+        "skillsmp",
+      );
       service.registerSkill(mpSkill);
       cacheService.getStats.mockReturnValue({
         size: 1,
@@ -803,7 +816,12 @@ describe("SkillLoaderService", () => {
       });
 
       skillsMPClient.checkUpdates.mockResolvedValue([
-        { skillId: "mp-v1", currentVersion: "1.0.0", latestVersion: "1.1.0" },
+        {
+          skillId: "mp-v1",
+          currentVersion: "1.0.0",
+          latestVersion: "1.1.0",
+          hasUpdate: true,
+        },
       ]);
       skillsMPClient.installSkill.mockResolvedValue(true);
 
@@ -819,7 +837,13 @@ describe("SkillLoaderService", () => {
     it("installSkill 返回 false 时记录失败", async () => {
       skillsMPClient.isEnabled.mockReturnValue(true);
 
-      const mpSkill = makeSkillDefinition("fail-skill", "writing", 5, true, "skillsmp");
+      const mpSkill = makeSkillDefinition(
+        "fail-skill",
+        "writing",
+        5,
+        true,
+        "skillsmp",
+      );
       service.registerSkill(mpSkill);
       cacheService.getStats.mockReturnValue({
         size: 1,
@@ -829,7 +853,12 @@ describe("SkillLoaderService", () => {
       });
 
       skillsMPClient.checkUpdates.mockResolvedValue([
-        { skillId: "fail-skill", currentVersion: "1.0.0", latestVersion: "2.0.0" },
+        {
+          skillId: "fail-skill",
+          currentVersion: "1.0.0",
+          latestVersion: "2.0.0",
+          hasUpdate: true,
+        },
       ]);
       skillsMPClient.installSkill.mockResolvedValue(false);
 
@@ -845,8 +874,20 @@ describe("SkillLoaderService", () => {
     it("installSkill 抛出异常时不影响其他更新", async () => {
       skillsMPClient.isEnabled.mockReturnValue(true);
 
-      const skill1 = makeSkillDefinition("err-skill", "writing", 5, true, "skillsmp");
-      const skill2 = makeSkillDefinition("ok-skill", "writing", 5, true, "skillsmp");
+      const skill1 = makeSkillDefinition(
+        "err-skill",
+        "writing",
+        5,
+        true,
+        "skillsmp",
+      );
+      const skill2 = makeSkillDefinition(
+        "ok-skill",
+        "writing",
+        5,
+        true,
+        "skillsmp",
+      );
       service.registerSkill(skill1);
       service.registerSkill(skill2);
       cacheService.getStats.mockReturnValue({
@@ -857,8 +898,18 @@ describe("SkillLoaderService", () => {
       });
 
       skillsMPClient.checkUpdates.mockResolvedValue([
-        { skillId: "err-skill", currentVersion: "1.0.0", latestVersion: "2.0.0" },
-        { skillId: "ok-skill", currentVersion: "1.0.0", latestVersion: "1.1.0" },
+        {
+          skillId: "err-skill",
+          currentVersion: "1.0.0",
+          latestVersion: "2.0.0",
+          hasUpdate: true,
+        },
+        {
+          skillId: "ok-skill",
+          currentVersion: "1.0.0",
+          latestVersion: "1.1.0",
+          hasUpdate: true,
+        },
       ]);
       skillsMPClient.installSkill
         .mockRejectedValueOnce(new Error("Network failure"))
@@ -877,7 +928,13 @@ describe("SkillLoaderService", () => {
     it("checkUpdates 抛出异常时不影响服务", async () => {
       skillsMPClient.isEnabled.mockReturnValue(true);
 
-      const mpSkill = makeSkillDefinition("any-skill", "writing", 5, true, "skillsmp");
+      const mpSkill = makeSkillDefinition(
+        "any-skill",
+        "writing",
+        5,
+        true,
+        "skillsmp",
+      );
       service.registerSkill(mpSkill);
       cacheService.getStats.mockReturnValue({
         size: 1,
@@ -901,7 +958,13 @@ describe("SkillLoaderService", () => {
     it("没有可用更新时输出 up-to-date 日志", async () => {
       skillsMPClient.isEnabled.mockReturnValue(true);
 
-      const mpSkill = makeSkillDefinition("current-skill", "writing", 5, true, "skillsmp");
+      const mpSkill = makeSkillDefinition(
+        "current-skill",
+        "writing",
+        5,
+        true,
+        "skillsmp",
+      );
       service.registerSkill(mpSkill);
       cacheService.getStats.mockReturnValue({
         size: 1,
@@ -925,7 +988,13 @@ describe("SkillLoaderService", () => {
     it("source=local 的 skill 不计入已安装的 Marketplace Skills", async () => {
       skillsMPClient.isEnabled.mockReturnValue(true);
 
-      const localSkill = makeSkillDefinition("local-only", "writing", 5, true, "local");
+      const localSkill = makeSkillDefinition(
+        "local-only",
+        "writing",
+        5,
+        true,
+        "local",
+      );
       service.registerSkill(localSkill);
       cacheService.getStats.mockReturnValue({
         size: 1,
@@ -968,14 +1037,7 @@ describe("SkillLoaderService", () => {
     it("additionalSkillId 超出 token 预算时被跳过", async () => {
       mockEstimateTokens.mockReturnValue(400);
 
-      const domainSkill = {
-        ...makeSkillDefinition("domain-skill", "writing"),
-        metadata: {
-          ...makeSkillDefinition("domain-skill", "writing").metadata,
-          taskTypes: ["*"],
-          tokenBudget: undefined,
-        },
-      };
+      const domainSkill = makeSkillDefinition("domain-skill", "writing");
       const additionalSkill = makeSkillDefinition("extra-skill", "research");
 
       service.registerSkill(domainSkill);
@@ -983,7 +1045,6 @@ describe("SkillLoaderService", () => {
 
       // Budget 500: domain takes 400, extra would need 400 more → skipped
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         additionalSkillIds: ["extra-skill"],
         maxTokenBudget: 500,
@@ -995,21 +1056,13 @@ describe("SkillLoaderService", () => {
     it("additionalSkillId 在预算内时被包含", async () => {
       mockEstimateTokens.mockReturnValue(100);
 
-      const domainSkill = {
-        ...makeSkillDefinition("small-domain", "writing"),
-        metadata: {
-          ...makeSkillDefinition("small-domain", "writing").metadata,
-          taskTypes: ["*"],
-          tokenBudget: undefined,
-        },
-      };
+      const domainSkill = makeSkillDefinition("small-domain", "writing");
       const additionalSkill = makeSkillDefinition("small-extra", "research");
 
       service.registerSkill(domainSkill);
       service.registerSkill(additionalSkill);
 
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         additionalSkillIds: ["small-extra"],
         maxTokenBudget: 500,
@@ -1019,25 +1072,23 @@ describe("SkillLoaderService", () => {
     });
 
     it("无 maxTokenBudget 时 additionalSkillId 总是被包含", async () => {
-      const domainSkill = {
-        ...makeSkillDefinition("domain", "writing"),
-        metadata: {
-          ...makeSkillDefinition("domain", "writing").metadata,
-          taskTypes: ["*"],
-        },
-      };
-      const additionalSkill = makeSkillDefinition("extra-no-budget", "research");
+      const domainSkill = makeSkillDefinition("domain", "writing");
+      const additionalSkill = makeSkillDefinition(
+        "extra-no-budget",
+        "research",
+      );
 
       service.registerSkill(domainSkill);
       service.registerSkill(additionalSkill);
 
       const result = await service.getSkillsForTask({
-        taskType: "any",
         domain: "writing",
         additionalSkillIds: ["extra-no-budget"],
       });
 
-      expect(result.some((s) => s.metadata.id === "extra-no-budget")).toBe(true);
+      expect(result.some((s) => s.metadata.id === "extra-no-budget")).toBe(
+        true,
+      );
     });
   });
 });

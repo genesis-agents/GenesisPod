@@ -1,16 +1,18 @@
 ---
-id: chapter-writing
-name: 章节内容写作
-version: 1.1.0
-domain: writing
-tags: [content, creative, novel, chapter, continuation]
-taskTypes:
-  [chapter-writing, chapter-continuation, scene-writing, content-generation]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业小说章节写作技能，包含展示而非告知、角色驱动、感官细节等核心原则
-tokenBudget: 1000
+name: chapter-writing
+description: |
+  专业小说章节内容写作技能，遵循 Show Don't Tell 原则，生成高质量小说章节。
+  适用场景：章节写作(chapter-writing)、续写(chapter-continuation)、场景写作(scene-writing)、内容生成(content-generation)
+tags:
+  [
+    writing,
+    novel,
+    chapter,
+    creative,
+    chapter-continuation,
+    scene-writing,
+    content-generation,
+  ]
 ---
 
 # 章节内容写作 Skill

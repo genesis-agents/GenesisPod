@@ -1,15 +1,9 @@
 ---
-id: quality-check
-name: 质量检查
-version: 1.0.0
-domain: writing
-tags: [quality, review, dialogue, style, logic]
-taskTypes: [quality-check, review, dialogue-fix, style-check]
-priority: 7
-author: genesis-ai
-source: local
-description: 专业的写作质量检查技能，包括对话质量、风格一致性、逻辑一致性等检查
-tokenBudget: 500
+name: quality-check
+description: |
+  质量检查技能，检测对话质量、风格一致性、逻辑一致性和表达质量等问题。
+  适用场景：质量检查(quality-check)、审阅(review)、对话修复(dialogue-fix)、风格检查(style-check)
+tags: [quality, review, check, quality-check, dialogue-fix, style-check]
 ---
 
 # 质量检查 Skill

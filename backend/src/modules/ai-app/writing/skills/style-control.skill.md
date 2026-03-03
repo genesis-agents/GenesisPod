@@ -1,15 +1,17 @@
 ---
-id: style-control
-name: 写作风格控制
-version: 1.0.0
-domain: writing
-tags: [style, tone, voice, formatting]
-taskTypes: [chapter-writing, style-adaptation, content-generation]
-priority: 8
-author: genesis-ai
-source: local
-description: 控制写作风格、语气和格式的技能，确保内容风格一致性
-tokenBudget: 400
+name: style-control
+description: |
+  写作风格控制技能，通过叙事视角、语言风格、节奏控制等维度管理写作风格。
+  适用场景：章节写作(chapter-writing)、风格适配(style-adaptation)、内容生成(content-generation)
+tags:
+  [
+    style,
+    writing-style,
+    adaptation,
+    chapter-writing,
+    style-adaptation,
+    content-generation,
+  ]
 ---
 
 # 写作风格控制 Skill

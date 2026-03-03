@@ -126,7 +126,6 @@ export class FactExtractorService {
             content: `请从以下章节内容中提取关键事实：\n\n${chapterContent}`,
           },
         ],
-        taskType: "fact-extraction",
         domain: "writing",
         taskProfile: {
           creativity: "low",
@@ -344,7 +343,6 @@ export class FactExtractorService {
             content: `请检测以下新事实与已有事实之间的冲突：\n\n新事实：\n${JSON.stringify(newFacts, null, 2)}`,
           },
         ],
-        taskType: "conflict-detection",
         domain: "writing",
         taskProfile: {
           creativity: "deterministic",

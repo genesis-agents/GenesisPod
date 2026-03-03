@@ -133,12 +133,12 @@ export class ChatFacade {
   private async handleSkillProxy(
     request: ChatRequest,
   ): Promise<ChatResponse | null> {
-    if (!(request.domain || request.taskType) || !this.skills) {
+    if (!(request.domain || request.query) || !this.skills) {
       return null;
     }
 
     this.logger.debug(
-      `[chat] Auto-delegating to chatWithSkills (domain=${request.domain}, taskType=${request.taskType})`,
+      `[chat] Auto-delegating to chatWithSkills (domain=${request.domain}, query=${request.query})`,
     );
 
     const skillResponse = await this.chatWithSkills({
@@ -153,7 +153,7 @@ export class ChatFacade {
       temperature: request.temperature,
       strictMode: request.strictMode,
       domain: request.domain || "common",
-      taskType: request.taskType || "general",
+      query: request.query,
       additionalSkills: request.additionalSkills,
       skillContext: request.skillContext,
     });
@@ -411,8 +411,12 @@ export class ChatFacade {
   async chatWithSkills(
     request: ChatWithSkillsRequest,
   ): Promise<ChatWithSkillsResponse> {
+    // Auto-extract query from last user message if not provided
+    const query =
+      request.query || this.extractQueryFromMessages(request.messages);
+
     this.logger.log(
-      `[Skills] chatWithSkills START: taskType="${request.taskType}", domain="${request.domain}"`,
+      `[Skills] chatWithSkills START: query="${query?.slice(0, 60) || ""}", domain="${request.domain || ""}"`,
     );
 
     if (!this.skills?.loader || !this.skills?.promptBuilder) {
@@ -440,7 +444,7 @@ export class ChatFacade {
     }
 
     const skills = await this.skills.loader.getSkillsForTask({
-      taskType: request.taskType,
+      query,
       domain: request.domain,
       additionalSkillIds: request.additionalSkills,
       maxTokenBudget: SKILLS_PROMPT_TOKEN_BUDGET,
@@ -905,6 +909,23 @@ export class ChatFacade {
     }
 
     return true;
+  }
+
+  // ==================== Helpers ====================
+
+  /**
+   * Extract query string from the last user message for description-based skill matching.
+   */
+  private extractQueryFromMessages(
+    messages: Array<{ role: string; content: string }>,
+  ): string {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user" && messages[i].content) {
+        // Take first 200 chars as query (enough for keyword matching)
+        return messages[i].content.slice(0, 200);
+      }
+    }
+    return "";
   }
 
   // ==================== Service Getters ====================

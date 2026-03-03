@@ -60,12 +60,26 @@ function makeMockModelConfigService() {
     getDefaultModel: jest.fn().mockResolvedValue(null),
     getModelById: jest.fn().mockResolvedValue(null),
     refreshModelConfigCache: jest.fn(),
-    getEnabledModelsForFrontend: jest.fn().mockResolvedValue([
-      { modelId: "gpt-4o", name: "GPT-4o", displayName: "GPT-4o", provider: "openai" },
-    ]),
-    getAllEnabledModelsByType: jest.fn().mockResolvedValue([
-      { modelId: "gpt-4o", name: "GPT-4o", provider: "openai", isReasoning: false },
-    ]),
+    getEnabledModelsForFrontend: jest
+      .fn()
+      .mockResolvedValue([
+        {
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          displayName: "GPT-4o",
+          provider: "openai",
+        },
+      ]),
+    getAllEnabledModelsByType: jest
+      .fn()
+      .mockResolvedValue([
+        {
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]),
   };
 }
 
@@ -99,7 +113,10 @@ describe("AIEngineFacade — chatStream()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: ORCHESTRATION_FEATURE,
           useValue: { circuitBreaker: mockCircuitBreaker, agentExecutor: null },
@@ -204,9 +221,11 @@ describe("AIEngineFacade — chatWithSkills()", () => {
   beforeEach(async () => {
     mockAiChatService = makeMockAiChatService();
     mockSkillLoader = {
-      getSkillsForTask: jest.fn().mockResolvedValue([
-        { id: "research-skill", name: "Research", content: "Be thorough." },
-      ]),
+      getSkillsForTask: jest
+        .fn()
+        .mockResolvedValue([
+          { id: "research-skill", name: "Research", content: "Be thorough." },
+        ]),
     };
     mockSkillBuilder = {
       buildSystemPrompt: jest.fn().mockReturnValue({
@@ -220,10 +239,16 @@ describe("AIEngineFacade — chatWithSkills()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: SKILL_FEATURE,
-          useValue: { loader: mockSkillLoader, promptBuilder: mockSkillBuilder },
+          useValue: {
+            loader: mockSkillLoader,
+            promptBuilder: mockSkillBuilder,
+          },
         },
       ],
     }).compile();
@@ -243,11 +268,10 @@ describe("AIEngineFacade — chatWithSkills()", () => {
       modelType: AIModelType.CHAT,
       taskProfile: { creativity: "low", outputLength: "medium" },
       domain: "research",
-      taskType: "analysis",
     });
 
     expect(mockSkillLoader.getSkillsForTask).toHaveBeenCalledWith(
-      expect.objectContaining({ taskType: "analysis", domain: "research" }),
+      expect.objectContaining({ domain: "research" }),
     );
     expect(mockSkillBuilder.buildSystemPrompt).toHaveBeenCalled();
     expect(result.usedSkills).toContain("research-skill");
@@ -261,7 +285,10 @@ describe("AIEngineFacade — chatWithSkills()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -272,7 +299,6 @@ describe("AIEngineFacade — chatWithSkills()", () => {
       modelType: AIModelType.CHAT,
       taskProfile: { creativity: "medium", outputLength: "medium" },
       domain: "research",
-      taskType: "analysis",
     });
 
     expect(result.usedSkills).toEqual([]);
@@ -286,7 +312,6 @@ describe("AIEngineFacade — chatWithSkills()", () => {
       modelType: AIModelType.CHAT,
       taskProfile: { creativity: "medium", outputLength: "medium" },
       domain: "writing",
-      taskType: "story",
       additionalSkills: ["style-skill", "tone-skill"],
     });
 
@@ -314,7 +339,10 @@ describe("AIEngineFacade — constraint enforcement via CONSTRAINT_FEATURE", () 
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: CONSTRAINT_FEATURE,
           useValue: { rateLimiter: mockRateLimiter, costController: null },
@@ -327,7 +355,11 @@ describe("AIEngineFacade — constraint enforcement via CONSTRAINT_FEATURE", () 
 
     const result = await facade.chat({
       messages: [{ role: "user", content: "Hello" }],
-      billing: { userId: "user-ratelimited", moduleType: "test", operationType: "chat" },
+      billing: {
+        userId: "user-ratelimited",
+        moduleType: "test",
+        operationType: "chat",
+      },
     });
 
     expect(result.isError).toBe(true);
@@ -347,7 +379,10 @@ describe("AIEngineFacade — constraint enforcement via CONSTRAINT_FEATURE", () 
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: CONSTRAINT_FEATURE,
           useValue: { rateLimiter: null, costController: mockCostController },
@@ -378,7 +413,10 @@ describe("AIEngineFacade — constraint enforcement via CONSTRAINT_FEATURE", () 
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: CONSTRAINT_FEATURE,
           useValue: { rateLimiter: mockRateLimiter, costController: null },
@@ -392,7 +430,11 @@ describe("AIEngineFacade — constraint enforcement via CONSTRAINT_FEATURE", () 
 
     await facade.chat({
       messages: [{ role: "user", content: "Hello" }],
-      billing: { userId: "user-allowed", moduleType: "test", operationType: "chat" },
+      billing: {
+        userId: "user-allowed",
+        moduleType: "test",
+        operationType: "chat",
+      },
     });
 
     expect(mockRateLimiter.consume).toHaveBeenCalledWith("user-allowed");
@@ -411,14 +453,18 @@ describe("AIEngineFacade — memory operations", () => {
   beforeEach(async () => {
     mockShortTermMemory = {
       setWithSession: jest.fn().mockResolvedValue(undefined),
-      getWithSession: jest.fn().mockResolvedValue("Previous conversation context"),
+      getWithSession: jest
+        .fn()
+        .mockResolvedValue("Previous conversation context"),
       clear: jest.fn(),
     };
     mockLongTermMemory = {
       setWithUser: jest.fn().mockResolvedValue(undefined),
-      search: jest.fn().mockResolvedValue([
-        { key: "long-1", value: "Stored knowledge", score: 0.9 },
-      ]),
+      search: jest
+        .fn()
+        .mockResolvedValue([
+          { key: "long-1", value: "Stored knowledge", score: 0.9 },
+        ]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -428,7 +474,10 @@ describe("AIEngineFacade — memory operations", () => {
           provide: AiChatService,
           useValue: makeMockAiChatService(),
         },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: MEMORY_FEATURE,
           useValue: {
@@ -512,7 +561,10 @@ describe("AIEngineFacade — memory operations", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -538,7 +590,10 @@ describe("AIEngineFacade — registry getters", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -574,7 +629,10 @@ describe("AIEngineFacade — executeTool()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
         {
           provide: TOOL_FEATURE,
           useValue: { registry: mockToolRegistry, executor: null },
@@ -597,7 +655,9 @@ describe("AIEngineFacade — executeTool()", () => {
       defaultTimeout: 30000,
       execute: jest.fn().mockResolvedValue({
         success: true,
-        data: { results: [{ title: "Result", url: "https://x.com", content: "data" }] },
+        data: {
+          results: [{ title: "Result", url: "https://x.com", content: "data" }],
+        },
         error: undefined,
         metadata: { tokensUsed: 0 },
       }),
@@ -650,7 +710,10 @@ describe("AIEngineFacade — checkConstraints() edge cases", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 
@@ -716,7 +779,10 @@ describe("AIEngineFacade — formatSearchResultsForContext()", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
-        { provide: AiModelConfigService, useValue: makeMockModelConfigService() },
+        {
+          provide: AiModelConfigService,
+          useValue: makeMockModelConfigService(),
+        },
       ],
     }).compile();
 

@@ -467,7 +467,6 @@ export class AICapabilityResolver {
 
     // 使用 SkillLoaderService 加载 Skills（从文件系统）
     const skills = await this.skillLoader.getSkillsForTask({
-      taskType: "*", // 默认匹配所有任务
       domain,
       additionalSkillIds: skillIds,
       maxTokenBudget,

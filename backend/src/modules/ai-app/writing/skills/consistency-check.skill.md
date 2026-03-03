@@ -1,23 +1,18 @@
 ---
-id: consistency-check
-name: 一致性检查
-version: 1.0.0
-domain: writing
-tags: [consistency, validation, character, timeline, world]
-taskTypes:
+name: consistency-check
+description: |
+  一致性检查技能，检测角色、时间线、世界观、术语和情节逻辑的一致性问题。
+  适用场景：一致性检查(consistency-check)、连续性(continuity)、角色检查(character-check)、时间线检查(timeline-check)、世界观检查(world-check)、情节检查(plot-check)
+tags:
   [
-    consistency-check,
+    consistency,
     continuity,
+    validation,
     character-check,
     timeline-check,
     world-check,
     plot-check,
   ]
-priority: 7
-author: genesis-ai
-source: local
-description: 专业的小说一致性检查技能，确保角色、时间线、世界观、术语和剧情的一致性
-tokenBudget: 500
 ---
 
 # 一致性检查 Skill

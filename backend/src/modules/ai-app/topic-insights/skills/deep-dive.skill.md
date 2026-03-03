@@ -1,15 +1,9 @@
 ---
-id: deep-dive
-name: 深度调研
-version: 1.0.0
-domain: research
-tags: [analysis, deep-dive, investigation, detail, research]
-taskTypes: [dimension-research, detailed-analysis, investigation]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业深度调研技能，深入挖掘细节、探究根因、全面分析
-tokenBudget: 1000
+name: deep-dive
+description: |
+  深度调研技能，使用五层深入法、5W2H和多源交叉验证进行详尽调查研究。
+  适用场景：维度调研(dimension-research)、详细分析(detailed-analysis)、调查研究(investigation)
+tags: [deep-dive, investigation, 5W2H, dimension-research, detailed-analysis]
 ---
 
 # 深度调研 Skill

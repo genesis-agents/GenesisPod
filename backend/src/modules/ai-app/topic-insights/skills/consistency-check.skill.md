@@ -1,15 +1,16 @@
 ---
-id: consistency-check
-name: 跨维度一致性检查
-version: 1.0.0
-domain: research
-tags: [analysis, consistency, quality, validation]
-taskTypes: [dimension-research, report-synthesis]
-priority: 10
-author: genesis-ai
-source: local
-description: 检查多个研究维度之间的数据冲突和逻辑矛盾，确保最终报告的一致性和可信度
-tokenBudget: 800
+name: consistency-check
+description: |
+  跨维度一致性检查技能，检测数据冲突、逻辑冲突和来源冲突，确保研究结论一致。
+  适用场景：维度调研(dimension-research)、报告综合(report-synthesis)
+tags:
+  [
+    consistency,
+    cross-validation,
+    conflict-detection,
+    dimension-research,
+    report-synthesis,
+  ]
 ---
 
 # 跨维度一致性检查 Skill

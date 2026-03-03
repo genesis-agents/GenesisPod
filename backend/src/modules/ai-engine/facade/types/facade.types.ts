@@ -93,10 +93,10 @@ export interface ChatRequest {
   domain?: string;
 
   /**
-   * K3 Fix: 任务类型（用于自动注入技能）
+   * K3 Fix: 技能匹配查询（Anthropic 风格 description-based matching）
    * 结合 domain 使用，自动加载匹配的 Skills
    */
-  taskType?: string;
+  query?: string;
 
   /**
    * K3 Fix: 额外加载的技能 ID 列表

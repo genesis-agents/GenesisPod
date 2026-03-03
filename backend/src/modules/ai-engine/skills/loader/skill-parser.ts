@@ -154,7 +154,7 @@ function normalizeFrontmatter(
     version: raw.version || "1.0.0",
     domain: raw.domain || "general",
     tags: raw.tags || [],
-    taskTypes: raw.taskTypes || ["*"], // 默认匹配所有任务
+    taskTypes: raw.taskTypes || [], // Anthropic 风格不再依赖 taskTypes 匹配
     priority: raw.priority ?? 5,
     author: raw.author,
     source: raw.source || "local",
@@ -165,7 +165,7 @@ function normalizeFrontmatter(
     tokenBudget: raw.tokenBudget,
 
     // Runtime 扩展字段
-    layer: raw.layer as SkillMdFrontmatter["layer"],
+    layer: raw.layer,
     outputKey,
     taskProfile,
     outputSchema,

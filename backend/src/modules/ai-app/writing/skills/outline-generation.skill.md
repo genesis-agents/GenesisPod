@@ -1,15 +1,17 @@
 ---
-id: outline-generation
-name: 大纲生成
-version: 1.0.0
-domain: writing
-tags: [outline, structure, planning, plot]
-taskTypes: [outline-generation, structure, chapter-planning, volume-planning]
-priority: 9
-author: genesis-ai
-source: local
-description: 专业的小说大纲生成技能，设计引人入胜的故事结构和章节规划
-tokenBudget: 600
+name: outline-generation
+description: |
+  大纲生成技能，创建结构化的小说章节大纲，包含情节、人物、场景等要素。
+  适用场景：大纲生成(outline-generation)、结构设计(structure)、章节规划(chapter-planning)、卷规划(volume-planning)
+tags:
+  [
+    outline,
+    structure,
+    planning,
+    outline-generation,
+    chapter-planning,
+    volume-planning,
+  ]
 ---
 
 # 大纲生成 Skill

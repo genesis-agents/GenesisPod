@@ -211,10 +211,10 @@ export interface SkillMdFrontmatterBase {
   tags: string[];
 
   /**
-   * 适用的任务类型
-   * 用于精确匹配，'*' 表示匹配所有任务
+   * 适用的任务类型（已弃用，保留向后兼容）
+   * 新 skills 应使用 description + tags 进行匹配
    */
-  taskTypes: string[];
+  taskTypes?: string[];
 
   /**
    * 优先级（数字越大越优先）
@@ -428,14 +428,14 @@ export interface SkillCacheItem {
 }
 
 /**
- * 按任务类型获取 Skills 的选项
+ * 获取 Skills 的选项（Anthropic 风格：description-based matching）
  */
 export interface GetSkillsOptions {
-  /** 任务类型 */
-  taskType: string;
+  /** 领域（可选，按目录推导） */
+  domain?: SkillDomain;
 
-  /** 领域 */
-  domain: SkillDomain;
+  /** Description 模糊匹配查询 */
+  query?: string;
 
   /** 额外指定的 Skill IDs */
   additionalSkillIds?: string[];
@@ -445,13 +445,10 @@ export interface GetSkillsOptions {
 
   /** 是否包含远程 Skills */
   includeRemote?: boolean;
-
-  /** Description 模糊匹配查询（Claude Code 风格） */
-  query?: string;
 }
 
 /**
- * chatWithSkills 请求参数
+ * chatWithSkills 请求参数（Anthropic 风格：description-based matching）
  */
 export interface ChatWithSkillsRequest {
   /** 消息列表 */
@@ -460,11 +457,11 @@ export interface ChatWithSkillsRequest {
     content: string;
   }>;
 
-  /** 任务类型，用于自动选择 Skills */
-  taskType: string;
+  /** 领域（可选） */
+  domain?: SkillDomain;
 
-  /** 领域 */
-  domain: SkillDomain;
+  /** 描述匹配查询（可选，缺省时从 messages 提取） */
+  query?: string;
 
   /** 额外指定的 Skill IDs */
   additionalSkills?: string[];

@@ -1,15 +1,17 @@
 ---
-id: synthesis
-name: 综合归纳
-version: 1.0.0
-domain: research
-tags: [analysis, synthesis, integration, summary, research]
-taskTypes: [dimension-research, report-writing, executive-summary]
-priority: 10
-author: genesis-ai
-source: local
-description: 专业综合归纳技能，整合多源信息、提炼核心观点、形成统一洞察
-tokenBudget: 800
+name: synthesis
+description: |
+  综合归纳技能，使用金字塔结构、MECE原则和信息权重评估进行多维度综合。
+  适用场景：维度调研(dimension-research)、报告撰写(report-writing)、执行摘要(executive-summary)
+tags:
+  [
+    synthesis,
+    integration,
+    summary,
+    dimension-research,
+    report-writing,
+    executive-summary,
+  ]
 ---
 
 # 综合归纳 Skill

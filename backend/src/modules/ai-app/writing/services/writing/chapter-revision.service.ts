@@ -575,7 +575,6 @@ export class ChapterRevisionService {
           content: `请重写以下段落：\n\n${selection.originalText}`,
         },
       ],
-      taskType: "rewrite",
       domain: "writing",
       taskProfile: {
         creativity: "high",
@@ -621,7 +620,6 @@ export class ChapterRevisionService {
           content: `请对以下章节内容进行${levelDescriptions[level]}：\n\n${content}`,
         },
       ],
-      taskType: "polish",
       domain: "writing",
       taskProfile: {
         creativity: level === "heavy" ? "high" : "medium",
@@ -660,7 +658,6 @@ export class ChapterRevisionService {
           content: `请扩写以下段落，增加更多细节和描写：\n\n${selection.originalText}`,
         },
       ],
-      taskType: "expand",
       domain: "writing",
       taskProfile: {
         creativity: "high",
@@ -708,7 +705,6 @@ export class ChapterRevisionService {
           content: `请精简以下段落，保留核心内容：\n\n${selection.originalText}`,
         },
       ],
-      taskType: "condense",
       domain: "writing",
       taskProfile: {
         creativity: "low",
@@ -760,7 +756,6 @@ export class ChapterRevisionService {
           content: `请对以下章节内容进行风格调整，目标风格：${targetStyleText}\n\n${content}`,
         },
       ],
-      taskType: "style-fix",
       domain: "writing",
       taskProfile: {
         creativity: "medium",
