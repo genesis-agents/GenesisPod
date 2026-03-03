@@ -14,9 +14,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import {
-  AiObservabilityService,
+  KernelMetricsService as AiObservabilityService,
   LLMCallEvent,
-} from "../ai-observability.service";
+} from "../../../../ai-kernel/observability/kernel-metrics.service";
 
 describe("AiObservabilityService", () => {
   let service: AiObservabilityService;

@@ -12,8 +12,8 @@ import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pi
 import {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../orchestration/services/circuit-breaker.service";
-import { TraceCollectorService } from "../../infra/observability/trace-collector.service";
+} from "../../../ai-kernel/facade";
+import { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
 // ★ 拆分后的子服务
 import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";

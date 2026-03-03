@@ -33,9 +33,9 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
 // Observability
 import { AiEngineTracingService } from "./infra/observability/ai-engine-tracing.service";
-import { TraceCollectorService } from "./infra/observability/trace-collector.service";
-import { AiObservabilityService } from "./infra/observability/ai-observability.service";
-import { CostAttributionService } from "./infra/observability/cost-attribution.service";
+import { ProcessEventLogService as TraceCollectorService } from "../ai-kernel/facade";
+import { KernelMetricsService as AiObservabilityService } from "../ai-kernel/facade";
+import { CostAttributionService } from "../ai-kernel/facade";
 
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

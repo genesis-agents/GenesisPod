@@ -16,16 +16,19 @@ import { TeamFactory } from "../../factory/team-factory";
 import { TeamRegistry } from "../../registry/team-registry";
 import { RoleRegistry } from "../../registry/role-registry";
 import { MissionOrchestrator } from "../../orchestrator/mission-orchestrator";
-import { ConstraintEngine } from "../../constraints/constraint-engine";
+import { ConstraintEngine } from "../../../../ai-kernel/facade";
 import { getDefaultConstraintProfile } from "../../constraints/constraint-profile";
 import { ITeam, TeamConfig, TeamId } from "../../abstractions/team.interface";
-import { MissionEvent, MissionResult } from "../../abstractions/mission.interface";
+import {
+  MissionEvent,
+  MissionResult,
+} from "../../abstractions/mission.interface";
 
 // ==================== Helpers ====================
 
 function makeMockTeamConfig(teamId = "test-team"): TeamConfig {
   return {
-    id: teamId as TeamId,
+    id: teamId,
     name: "Test Team",
     description: "A test team",
     type: "predefined",
@@ -43,7 +46,7 @@ function makeMockTeamConfig(teamId = "test-team"): TeamConfig {
 
 function makeMockTeam(teamId = "test-team"): ITeam {
   return {
-    id: teamId as TeamId,
+    id: teamId,
     name: "Test Team",
     description: "A test team",
     type: "predefined",
@@ -86,17 +89,23 @@ function makeSuccessResult(missionId: string): MissionResult {
       reviewCount: 1,
       reviewPassRate: 1,
     },
-    metadata: { teamId: "test-team", startTime: new Date(), endTime: new Date() },
+    metadata: {
+      teamId: "test-team",
+      startTime: new Date(),
+      endTime: new Date(),
+    },
   };
 }
 
-function makeService(overrides: {
-  teamFactory?: Partial<TeamFactory>;
-  teamRegistry?: Partial<TeamRegistry>;
-  roleRegistry?: Partial<RoleRegistry>;
-  missionOrchestrator?: Partial<MissionOrchestrator>;
-  constraintEngine?: Partial<ConstraintEngine>;
-} = {}): {
+function makeService(
+  overrides: {
+    teamFactory?: Partial<TeamFactory>;
+    teamRegistry?: Partial<TeamRegistry>;
+    roleRegistry?: Partial<RoleRegistry>;
+    missionOrchestrator?: Partial<MissionOrchestrator>;
+    constraintEngine?: Partial<ConstraintEngine>;
+  } = {},
+): {
   service: TeamsService;
   teamFactory: jest.Mocked<TeamFactory>;
   teamRegistry: jest.Mocked<TeamRegistry>;
@@ -121,7 +130,9 @@ function makeService(overrides: {
   } as unknown as jest.Mocked<TeamRegistry>;
 
   const roleRegistry = {
-    tryGet: jest.fn().mockReturnValue({ id: "leader-role", name: "Leader Role" }),
+    tryGet: jest
+      .fn()
+      .mockReturnValue({ id: "leader-role", name: "Leader Role" }),
     get: jest.fn(),
     has: jest.fn().mockReturnValue(true),
     ...overrides.roleRegistry,
@@ -147,7 +158,14 @@ function makeService(overrides: {
     constraintEngine,
   );
 
-  return { service, teamFactory, teamRegistry, roleRegistry, missionOrchestrator, constraintEngine };
+  return {
+    service,
+    teamFactory,
+    teamRegistry,
+    roleRegistry,
+    missionOrchestrator,
+    constraintEngine,
+  };
 }
 
 // ==================== listTeams ====================
@@ -179,7 +197,10 @@ describe("TeamsService - listTeams", () => {
 
   it("should map leaderRole name from roleRegistry", () => {
     const { service, roleRegistry } = makeService();
-    roleRegistry.tryGet.mockReturnValue({ id: "leader-role", name: "Research Lead" } as unknown as ReturnType<RoleRegistry["tryGet"]>);
+    roleRegistry.tryGet.mockReturnValue({
+      id: "leader-role",
+      name: "Research Lead",
+    } as unknown as ReturnType<RoleRegistry["tryGet"]>);
 
     const teams = service.listTeams();
     expect(teams[0].leaderRole).toBe("Research Lead");
@@ -215,14 +236,22 @@ describe("TeamsService - getTeam", () => {
     const { service, teamRegistry } = makeService();
     teamRegistry.getConfig.mockReturnValue(null as unknown as TeamConfig);
 
-    expect(() => service.getTeam("unknown" as TeamId)).toThrow(NotFoundException);
+    expect(() => service.getTeam("unknown" as TeamId)).toThrow(
+      NotFoundException,
+    );
   });
 
   it("should include leader and member roles in info", () => {
     const { service, roleRegistry } = makeService();
     roleRegistry.tryGet
-      .mockReturnValueOnce({ id: "leader-role", name: "Leader Role" } as unknown as ReturnType<RoleRegistry["tryGet"]>)
-      .mockReturnValueOnce({ id: "member-role", name: "Member Role" } as unknown as ReturnType<RoleRegistry["tryGet"]>);
+      .mockReturnValueOnce({
+        id: "leader-role",
+        name: "Leader Role",
+      } as unknown as ReturnType<RoleRegistry["tryGet"]>)
+      .mockReturnValueOnce({
+        id: "member-role",
+        name: "Member Role",
+      } as unknown as ReturnType<RoleRegistry["tryGet"]>);
 
     const team = service.getTeam("test-team" as TeamId);
     expect(team.leaderRole).toBe("Leader Role");
@@ -258,7 +287,9 @@ describe("TeamsService - executeMission", () => {
     const { service, teamRegistry } = makeService();
     teamRegistry.has.mockReturnValue(false);
 
-    await expect(service.executeMission(dto)).rejects.toThrow(NotFoundException);
+    await expect(service.executeMission(dto)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("should throw BadRequestException for invalid constraints", async () => {
@@ -269,14 +300,25 @@ describe("TeamsService - executeMission", () => {
     });
 
     await expect(
-      service.executeMission({ ...dto, constraints: { cost: { budget: -1 } } as unknown as CreateMissionDto["constraints"] }),
+      service.executeMission({
+        ...dto,
+        constraints: {
+          cost: { budget: -1 },
+        } as unknown as CreateMissionDto["constraints"],
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it("should return a missionId string on success", async () => {
     const { service } = makeService();
     // Spy on the private runMission to prevent it from throwing unhandled rejection
-    jest.spyOn(service as unknown as { runMission: (...args: unknown[]) => Promise<unknown> }, "runMission")
+    jest
+      .spyOn(
+        service as unknown as {
+          runMission: (...args: unknown[]) => Promise<unknown>;
+        },
+        "runMission",
+      )
       .mockResolvedValue({ missionId: "m1", success: true } as MissionResult);
 
     const missionId = await service.executeMission(dto);
@@ -286,7 +328,13 @@ describe("TeamsService - executeMission", () => {
 
   it("should merge constraints with team profile", async () => {
     const { service, constraintEngine } = makeService();
-    jest.spyOn(service as unknown as { runMission: (...args: unknown[]) => Promise<unknown> }, "runMission")
+    jest
+      .spyOn(
+        service as unknown as {
+          runMission: (...args: unknown[]) => Promise<unknown>;
+        },
+        "runMission",
+      )
       .mockResolvedValue({ missionId: "m1", success: true } as MissionResult);
 
     await service.executeMission({ ...dto, constraints: undefined });
@@ -299,12 +347,20 @@ describe("TeamsService - executeMission", () => {
 describe("TeamsService - getMissionStatus", () => {
   it("should throw NotFoundException for unknown missionId", () => {
     const { service } = makeService();
-    expect(() => service.getMissionStatus("nonexistent")).toThrow(NotFoundException);
+    expect(() => service.getMissionStatus("nonexistent")).toThrow(
+      NotFoundException,
+    );
   });
 
   it("should return pending/running status for active mission", async () => {
     const { service } = makeService();
-    jest.spyOn(service as unknown as { runMission: (...args: unknown[]) => Promise<unknown> }, "runMission")
+    jest
+      .spyOn(
+        service as unknown as {
+          runMission: (...args: unknown[]) => Promise<unknown>;
+        },
+        "runMission",
+      )
       .mockReturnValue(new Promise(() => {})); // never resolves
 
     const missionId = await service.executeMission({
@@ -325,16 +381,27 @@ describe("TeamsService - getMissionStatus", () => {
 describe("TeamsService - getMissionResult", () => {
   it("should throw NotFoundException for unknown mission", async () => {
     const { service } = makeService();
-    await expect(service.getMissionResult("unknown")).rejects.toThrow(NotFoundException);
+    await expect(service.getMissionResult("unknown")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("should await and return result for a running mission", async () => {
     const expectedResult = makeSuccessResult("m1");
     const { service } = makeService();
-    jest.spyOn(service as unknown as { runMission: (...args: unknown[]) => Promise<unknown> }, "runMission")
+    jest
+      .spyOn(
+        service as unknown as {
+          runMission: (...args: unknown[]) => Promise<unknown>;
+        },
+        "runMission",
+      )
       .mockResolvedValue(expectedResult);
 
-    const missionId = await service.executeMission({ teamId: "test-team" as TeamId, goal: "Test" });
+    const missionId = await service.executeMission({
+      teamId: "test-team" as TeamId,
+      goal: "Test",
+    });
     // Wait for the mocked runMission to complete and move result to completedMissions
     await new Promise((r) => setTimeout(r, 10));
 
@@ -348,15 +415,26 @@ describe("TeamsService - getMissionResult", () => {
 describe("TeamsService - cancelMission", () => {
   it("should throw NotFoundException for non-running mission", () => {
     const { service } = makeService();
-    expect(() => service.cancelMission("nonexistent")).toThrow(NotFoundException);
+    expect(() => service.cancelMission("nonexistent")).toThrow(
+      NotFoundException,
+    );
   });
 
   it("should cancel a running mission and mark it as cancelled", async () => {
     const { service } = makeService();
-    jest.spyOn(service as unknown as { runMission: (...args: unknown[]) => Promise<unknown> }, "runMission")
+    jest
+      .spyOn(
+        service as unknown as {
+          runMission: (...args: unknown[]) => Promise<unknown>;
+        },
+        "runMission",
+      )
       .mockReturnValue(new Promise(() => {})); // never resolves
 
-    const missionId = await service.executeMission({ teamId: "test-team" as TeamId, goal: "Test" });
+    const missionId = await service.executeMission({
+      teamId: "test-team" as TeamId,
+      goal: "Test",
+    });
     const result = service.cancelMission(missionId);
     expect(result).toBe(true);
 
@@ -372,7 +450,10 @@ describe("TeamsService - executeMissionStream", () => {
     const { service, teamRegistry } = makeService();
     teamRegistry.has.mockReturnValue(false);
 
-    const gen = service.executeMissionStream({ teamId: "unknown" as TeamId, goal: "Test" });
+    const gen = service.executeMissionStream({
+      teamId: "unknown" as TeamId,
+      goal: "Test",
+    });
     await expect(gen.next()).rejects.toThrow(NotFoundException);
   });
 
@@ -380,8 +461,18 @@ describe("TeamsService - executeMissionStream", () => {
     const now = new Date();
     const mockEvents = [
       { type: "mission_started", missionId: "m1", timestamp: now, data: {} },
-      { type: "step_started", missionId: "m1", timestamp: now, data: { stepId: "s1" } },
-      { type: "mission_completed", missionId: "m1", timestamp: now, data: { result: makeSuccessResult("m1") } },
+      {
+        type: "step_started",
+        missionId: "m1",
+        timestamp: now,
+        data: { stepId: "s1" },
+      },
+      {
+        type: "mission_completed",
+        missionId: "m1",
+        timestamp: now,
+        data: { result: makeSuccessResult("m1") },
+      },
     ] as unknown as MissionEvent[];
 
     async function* mockGenerator() {
@@ -389,11 +480,16 @@ describe("TeamsService - executeMissionStream", () => {
     }
 
     const { service, missionOrchestrator } = makeService();
-    missionOrchestrator.execute.mockReturnValue(mockGenerator() as unknown as ReturnType<MissionOrchestrator["execute"]>);
+    missionOrchestrator.execute.mockReturnValue(
+      mockGenerator() as unknown as ReturnType<MissionOrchestrator["execute"]>,
+    );
 
     const collectedEvents: MissionEvent[] = [];
     // executeMissionStream delegates directly to orchestrator.execute without runMission
-    for await (const event of service.executeMissionStream({ teamId: "test-team" as TeamId, goal: "Test" })) {
+    for await (const event of service.executeMissionStream({
+      teamId: "test-team" as TeamId,
+      goal: "Test",
+    })) {
       collectedEvents.push(event);
     }
 
@@ -408,14 +504,18 @@ describe("TeamsService - executeMissionStream", () => {
     }
 
     const { service, missionOrchestrator } = makeService();
-    missionOrchestrator.execute.mockReturnValue(mockGenerator() as unknown as ReturnType<MissionOrchestrator["execute"]>);
+    missionOrchestrator.execute.mockReturnValue(
+      mockGenerator() as unknown as ReturnType<MissionOrchestrator["execute"]>,
+    );
 
-    await service.executeMissionStream({
-      teamId: "test-team" as TeamId,
-      goal: "Test",
-      context: "Extra context",
-      sessionId: "session-42",
-    }).next();
+    await service
+      .executeMissionStream({
+        teamId: "test-team" as TeamId,
+        goal: "Test",
+        context: "Extra context",
+        sessionId: "session-42",
+      })
+      .next();
 
     expect(missionOrchestrator.execute).toHaveBeenCalled();
     const [missionInput] = missionOrchestrator.execute.mock.calls[0];

@@ -5,8 +5,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import axios from "axios";
-import { A2AClientService } from "../a2a-client.service";
-import { A2ATaskStatus } from "../../abstractions/a2a.interface";
+import { A2AClientService } from "../../../../../ai-kernel/facade";
+import { A2ATaskStatus } from "../../../../../ai-kernel/ipc/a2a/a2a.types";
 
 jest.mock("axios");
 

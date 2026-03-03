@@ -1,5 +1,5 @@
 export * from "./ai-engine-tracing.service";
-export * from "./trace-collector.service";
+// trace-collector.service — migrated to ai-kernel
+// ai-observability.service — migrated to ai-kernel
+// cost-attribution.service — migrated to ai-kernel
 export * from "./trace.interface";
-export * from "./ai-observability.service";
-export * from "./cost-attribution.service";

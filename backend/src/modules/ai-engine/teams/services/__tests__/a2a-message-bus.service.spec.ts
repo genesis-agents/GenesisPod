@@ -14,7 +14,7 @@
  * 10. Multiple sessions isolation
  */
 
-import { A2AMessageBusService } from "../a2a-message-bus.service";
+import { MessageBusService as A2AMessageBusService } from "../../../../ai-kernel/facade";
 
 describe("A2AMessageBusService", () => {
   let service: A2AMessageBusService;
@@ -39,7 +39,7 @@ describe("A2AMessageBusService", () => {
       service.subscribe("session-1", "agent-a", handler1);
       service.subscribe("session-1", "agent-a", handler2);
 
-      service.publish({
+      void service.publish({
         sessionId: "session-1",
         fromAgentId: "agent-z",
         toAgentId: "agent-a",

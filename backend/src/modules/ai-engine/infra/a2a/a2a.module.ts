@@ -5,13 +5,13 @@
  */
 
 import { Module } from "@nestjs/common";
-import { A2AController } from "./a2a.controller";
-import { AgentCardRegistry } from "./agent-card/agent-card.registry";
-import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
+import { A2AController } from "../../../ai-kernel/ipc/a2a/a2a.controller";
+import { AgentCardRegistry } from "../../../ai-kernel/facade";
+import { A2AApiKeyGuard } from "../../../ai-kernel/facade";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { TeamsModule } from "../../teams/teams.module";
 import { TeamsService } from "../../teams/services/teams.service";
-import { TraceCollectorService } from "../observability/trace-collector.service";
+import { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
 import { TEAMS_SERVICE_TOKEN } from "../../../ai-kernel/abstractions";
 
 @Module({

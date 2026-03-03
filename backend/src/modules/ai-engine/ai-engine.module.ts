@@ -20,6 +20,7 @@
  * - AiEngineOrchestrationModule: 编排引擎
  * - AiEngineMemoryModule: 记忆系统
  * - AiEngineConstraintModule: 约束引擎
+ * - AiEngineKnowledgeModule: 知识能力 (RAG + Search)
  */
 
 import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
@@ -34,6 +35,7 @@ import { AiEngineSkillsModule } from "./ai-engine-skills.module";
 import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
 import { AiEngineMemoryModule } from "./ai-engine-memory.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
+import { AiEngineKnowledgeModule } from "./ai-engine-knowledge.module";
 // ★ P2 能力下沉：新增子模块导入
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
@@ -73,19 +75,11 @@ import { MCPClientRegistryService } from "./mcp/registry/mcp-client-registry.ser
 // Capabilities
 import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
 
-// RAG
-import { EmbeddingService } from "./knowledge/rag/embedding";
-import { VectorService } from "./knowledge/rag/vector";
-import { DocumentChunker } from "./knowledge/rag/chunking";
-import { RAGPipelineService } from "./knowledge/rag/pipeline";
-
 // Observability
-import {
-  AiEngineTracingService,
-  TraceCollectorService,
-} from "./infra/observability";
-import { AiObservabilityService } from "./infra/observability/ai-observability.service";
-import { CostAttributionService } from "./infra/observability/cost-attribution.service";
+import { AiEngineTracingService } from "./infra/observability/ai-engine-tracing.service";
+import { ProcessEventLogService as TraceCollectorService } from "../ai-kernel/facade";
+import { KernelMetricsService as AiObservabilityService } from "../ai-kernel/facade";
+import { CostAttributionService } from "../ai-kernel/facade";
 // ObservabilityController migrated to AiKernelModule
 // 支柱五：EvalPipeline
 import { EvalPipelineService } from "./infra/observability/eval-pipeline.service";
@@ -123,7 +117,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 @Module({
   imports: [
     PrismaModule,
-    SecretsModule, // Required for EmbeddingService
+    SecretsModule,
 
     // ★ 子模块
     AiEngineLLMModule,
@@ -132,6 +126,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEngineOrchestrationModule,
     AiEngineMemoryModule,
     AiEngineConstraintModule,
+    AiEngineKnowledgeModule,
     // ★ P2 能力下沉：新增子模块
     EvidenceModule,
     QualityModule,
@@ -163,12 +158,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Capabilities ===
     AICapabilityResolver,
-
-    // === RAG ===
-    EmbeddingService,
-    VectorService,
-    DocumentChunker,
-    RAGPipelineService,
 
     // === Observability ===
     AiEngineTracingService,
@@ -202,6 +191,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEngineOrchestrationModule,
     AiEngineMemoryModule,
     AiEngineConstraintModule,
+    AiEngineKnowledgeModule,
     // ★ P2 能力下沉：新增子模块导出
     EvidenceModule,
     QualityModule,
@@ -224,12 +214,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Capabilities ===
     AICapabilityResolver,
-
-    // === RAG ===
-    EmbeddingService,
-    VectorService,
-    DocumentChunker,
-    RAGPipelineService,
 
     // === Observability ===
     AiEngineTracingService,

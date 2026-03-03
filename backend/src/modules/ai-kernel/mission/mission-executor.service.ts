@@ -12,6 +12,7 @@ import type {
   IMissionExecutor,
   MissionExecuteOptions,
   MissionExecuteResult,
+  RetryOptions,
 } from "./mission-executor.interface";
 
 @Injectable()
@@ -118,5 +119,99 @@ export class MissionExecutorService implements IMissionExecutor {
    */
   async getStatus(processId: ProcessId) {
     return this.processManager.getState(processId);
+  }
+
+  /**
+   * Execute with an auto-fail timeout.
+   * If the process is not completed within timeoutMs, it is marked as FAILED.
+   */
+  async executeWithTimeout(
+    options: MissionExecuteOptions,
+    timeoutMs: number,
+  ): Promise<MissionExecuteResult> {
+    const result = await this.execute(options);
+
+    const timer = setTimeout(() => {
+      void this.fail(result.processId, `Timeout after ${timeoutMs}ms`).catch(
+        (err) =>
+          this.logger.warn(
+            `Timeout cleanup failed for ${result.processId}: ${err}`,
+          ),
+      );
+    }, timeoutMs);
+
+    // Attach cleanup handle so callers can clear if they complete early
+    (
+      result as MissionExecuteResult & {
+        _timeoutRef?: ReturnType<typeof setTimeout>;
+      }
+    )._timeoutRef = timer;
+
+    return result;
+  }
+
+  /**
+   * Execute with automatic retry on transient failures.
+   */
+  async executeWithRetry(
+    options: MissionExecuteOptions,
+    retryOptions: RetryOptions = {},
+  ): Promise<MissionExecuteResult> {
+    const maxRetries = retryOptions.maxRetries ?? 3;
+    const backoffMs = retryOptions.backoffMs ?? 1000;
+
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.execute(options);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        this.logger.warn(
+          `Mission execute attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastError.message}`,
+        );
+
+        if (attempt < maxRetries) {
+          const delay = backoffMs * Math.pow(2, attempt);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    throw lastError ?? new Error("All retry attempts exhausted");
+  }
+
+  /**
+   * Recover a failed/interrupted process from its last checkpoint.
+   * Reads the last checkpoint, transitions the process back to RUNNING.
+   */
+  async recover(processId: ProcessId): Promise<MissionExecuteResult> {
+    const snapshot = await this.processManager.getState(processId);
+    if (!snapshot) {
+      throw new Error(`Process ${processId} not found`);
+    }
+
+    if (snapshot.state === "RUNNING") {
+      this.logger.warn(`Process ${processId} is already running`);
+      return { processId, process: snapshot };
+    }
+
+    // Transition back to READY then RUNNING
+    await this.processManager.transition(processId, "READY");
+    const runningProcess = await this.processManager.transition(
+      processId,
+      "RUNNING",
+    );
+
+    await this.eventJournal.record(processId, "process:recovered", {
+      previousState: snapshot.state,
+      hasCheckpoint: snapshot.checkpoint != null,
+    });
+
+    this.logger.log(
+      `Mission process ${processId} recovered from ${snapshot.state}`,
+    );
+
+    return { processId, process: runningProcess };
   }
 }

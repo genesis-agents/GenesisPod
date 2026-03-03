@@ -1,4 +1,4 @@
 /**
  * AI Engine - Orchestration Checkpoints
  */
-export * from "./checkpoint-manager";
+// checkpoint-manager — migrated to ai-kernel, import from ai-kernel/facade

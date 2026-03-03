@@ -11,6 +11,27 @@ export interface IMissionExecutor {
   execute(options: MissionExecuteOptions): Promise<MissionExecuteResult>;
 
   /**
+   * Execute with an auto-fail timeout (AbortController pattern)
+   */
+  executeWithTimeout(
+    options: MissionExecuteOptions,
+    timeoutMs: number,
+  ): Promise<MissionExecuteResult>;
+
+  /**
+   * Execute with automatic retry on transient failures
+   */
+  executeWithRetry(
+    options: MissionExecuteOptions,
+    retryOptions?: RetryOptions,
+  ): Promise<MissionExecuteResult>;
+
+  /**
+   * Recover a failed/interrupted process from its last checkpoint
+   */
+  recover(processId: ProcessId): Promise<MissionExecuteResult>;
+
+  /**
    * Cancel a running mission
    */
   cancel(processId: ProcessId): Promise<void>;
@@ -19,6 +40,11 @@ export interface IMissionExecutor {
    * Get mission status
    */
   getStatus(processId: ProcessId): Promise<ProcessSnapshot | null>;
+}
+
+export interface RetryOptions {
+  maxRetries?: number;
+  backoffMs?: number;
 }
 
 export interface MissionExecuteOptions {

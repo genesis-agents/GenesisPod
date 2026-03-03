@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
-import { AgentCardRegistry } from "../agent-card/agent-card.registry";
+import { AgentCardRegistry } from "../../../../ai-kernel/facade";
 import { APP_CONFIG } from "../../../../../common/config/app.config";
 
 describe("AgentCardRegistry", () => {

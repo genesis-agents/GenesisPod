@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { EngineEventEmitterService } from "../engine-event-emitter.service";
+import { EventBusService as EngineEventEmitterService } from "../../../../../ai-kernel/facade";
 import type {
   EngineEvent,
   ProgressEvent,

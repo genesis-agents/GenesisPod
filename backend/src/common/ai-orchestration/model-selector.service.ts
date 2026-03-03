@@ -18,7 +18,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../modules/ai-engine/facade/ai-engine.facade";
+import { ChatFacade } from "../../modules/ai-engine/facade";
 import { AiTaskType, AiModelConfig, ModelSelectionStrategy } from "./types";
 import {
   AiOrchestrationConfig,
@@ -42,8 +42,8 @@ export class ModelSelectorService {
   private readonly healthCheckConfig: HealthCheckConfig;
 
   constructor(
-    @Inject(forwardRef(() => AIEngineFacade))
-    private readonly aiFacade: AIEngineFacade,
+    @Inject(forwardRef(() => ChatFacade))
+    private readonly chatFacade: ChatFacade,
     @Optional() private readonly configService?: ConfigService,
   ) {
     // 从 ConfigService 获取配置，或使用默认值
@@ -155,8 +155,8 @@ export class ModelSelectorService {
     modelType: AIModelType,
     excludeIds: string[] = [],
   ): Promise<AiModelConfig[]> {
-    // 使用 AIEngineFacade 获取可用模型
-    const availableModels = await this.aiFacade.getAvailableModels(modelType);
+    // 使用 ChatFacade 获取可用模型
+    const availableModels = await this.chatFacade.getAvailableModels(modelType);
 
     // 过滤排除的模型和不健康的模型
     const filteredModels = availableModels
@@ -167,7 +167,7 @@ export class ModelSelectorService {
     const modelConfigs: AiModelConfig[] = [];
     for (const m of filteredModels) {
       // 获取完整的模型配置（包含 secretKey 等字段）
-      const fullConfig = await this.aiFacade.getModelById(m.id);
+      const fullConfig = await this.chatFacade.getModelById(m.id);
       if (fullConfig) {
         modelConfigs.push({
           id: m.dbId || m.id,
@@ -176,8 +176,8 @@ export class ModelSelectorService {
           provider: m.provider,
           modelId: m.id,
           modelType: modelType,
-          apiKey: "", // API Key 由 AIEngineFacade 内部管理
-          secretKey: undefined, // Secret Manager 由 AIEngineFacade 内部管理
+          apiKey: "", // API Key 由 ChatFacade 内部管理
+          secretKey: undefined, // Secret Manager 由 ChatFacade 内部管理
           apiEndpoint: fullConfig.apiEndpoint,
         });
       }
@@ -194,8 +194,8 @@ export class ModelSelectorService {
    * 根据 ID 获取模型
    */
   async getModelById(id: string): Promise<AiModelConfig | null> {
-    // 使用 AIEngineFacade 获取模型配置
-    const modelConfig = await this.aiFacade.getModelById(id);
+    // 使用 ChatFacade 获取模型配置
+    const modelConfig = await this.chatFacade.getModelById(id);
 
     if (!modelConfig) {
       this.logger.warn(`[getModelById] Model ${id} not found or not enabled`);
@@ -208,9 +208,9 @@ export class ModelSelectorService {
       displayName: modelConfig.displayName,
       provider: modelConfig.provider,
       modelId: modelConfig.modelId,
-      modelType: AIModelType.CHAT, // 默认类型，实际由 AIEngineFacade 管理
-      apiKey: "", // API Key 由 AIEngineFacade 内部管理
-      secretKey: undefined, // Secret Manager 由 AIEngineFacade 内部管理
+      modelType: AIModelType.CHAT, // 默认类型，实际由 ChatFacade 管理
+      apiKey: "", // API Key 由 ChatFacade 内部管理
+      secretKey: undefined, // Secret Manager 由 ChatFacade 内部管理
       apiEndpoint: modelConfig.apiEndpoint,
     };
   }

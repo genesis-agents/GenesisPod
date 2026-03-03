@@ -28,7 +28,7 @@ module.exports = {
     "!**/builtin-templates.ts",
     "!**/agent-roles.ts",
     "!**/ai-prompts.config.ts",
-    "!**/theme.types.ts",
+    "!**/*.types.ts",
     "!**/slides/templates/base/components.ts",
   ],
   coverageDirectory: "../coverage",

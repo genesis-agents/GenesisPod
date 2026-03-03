@@ -8,8 +8,8 @@ import {
   CanActivate,
   ExecutionContext,
 } from "@nestjs/common";
-import { ObservabilityController } from "../observability.controller";
-import { TraceCollectorService } from "../trace-collector.service";
+import { ObservabilityController } from "../../../../ai-kernel/observability/observability.controller";
+import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
 import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../../common/guards/admin.guard";
 import type { TraceData, TraceSummary } from "../trace.interface";

@@ -35,7 +35,7 @@ import {
   ResourceUsage,
   mergeConstraintProfiles,
 } from "../constraints";
-import { ConstraintEngine } from "../constraints/constraint-engine";
+import { ConstraintEngine } from "../../../ai-kernel/facade";
 import {
   IMissionOrchestrator,
   MissionExecutionPlan,
@@ -57,7 +57,7 @@ import {
 import { LLMFactory } from "../../llm/factory/llm-factory";
 import { LLMToolDefinition } from "../../llm/abstractions/llm-adapter.interface";
 import { MCPManager } from "../../mcp/manager/mcp-manager";
-import { ShortTermMemoryService } from "../../knowledge/memory/stores/short-term-memory.service";
+import { WorkingMemoryStore as ShortTermMemoryService } from "../../../ai-kernel/facade";
 import {
   HandoffCoordinator,
   HandoffContextBuilder,
@@ -70,9 +70,9 @@ import {
 } from "../../llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { TraceCollectorService } from "../../infra/observability/trace-collector.service";
-import { CheckpointManager } from "../../orchestration/checkpoints/checkpoint-manager";
-import { A2AMessageBusService } from "../services/a2a-message-bus.service";
+import { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
+import { CheckpointManager } from "../../../ai-kernel/facade";
+import { MessageBusService as A2AMessageBusService } from "../../../ai-kernel/facade";
 import {
   ExecutionContext,
   StepResult,

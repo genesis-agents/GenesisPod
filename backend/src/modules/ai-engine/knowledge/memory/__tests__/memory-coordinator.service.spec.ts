@@ -3,7 +3,7 @@ import {
   MemoryCoordinatorService,
   MemoryEvent,
 } from "../memory-coordinator.service";
-import { ShortTermMemoryService } from "../stores/short-term-memory.service";
+import { WorkingMemoryStore as ShortTermMemoryService } from "../../../../ai-kernel/facade";
 import { LongTermMemoryService } from "../stores/long-term-memory.service";
 
 // ─── Mocks ────────────────────────────────────────────────

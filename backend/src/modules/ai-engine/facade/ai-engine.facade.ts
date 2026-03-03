@@ -38,7 +38,7 @@ import {
   CreateMissionDto,
 } from "../teams/services/teams.service";
 import type { MissionEvent } from "../teams/abstractions/mission.interface";
-import { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
+import { TaskCompletionType } from "../../ai-kernel/facade";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 import {
@@ -173,11 +173,11 @@ import type {
   SkillPromptOptions,
 } from "../orchestration/capabilities/types";
 import type { SkillMdDefinition } from "../skills/types/skill-md.types";
-import { CircuitBreakerService } from "../orchestration/services/circuit-breaker.service";
+import { CircuitBreakerService } from "../../ai-kernel/facade";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
-import { ExecutionStateManager } from "../orchestration/state-machine/execution-state.manager";
+import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-kernel/facade";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
@@ -221,17 +221,29 @@ const SENSITIVE_PATTERNS = [
 /**
  * AI Engine 统一入口 (Legacy — 逐步迁移到 Domain Facades)
  *
- * @deprecated 请使用 Domain Facades 替代：
- * - ChatFacade — LLM 聊天、流式、模型选择
- * - RAGFacade — 搜索、上下文、记忆、向量
- * - AgentFacade — Agent 执行、追踪、意图路由
- * - TeamFacade — 团队任务、A2A、投票、证据
- * - ToolFacade — 工具执行、能力、MCP
+ * @deprecated Use domain-specific facades instead:
+ *   - ChatFacade  for LLM chat/streaming/model selection
+ *   - AgentFacade for agent execution, observability, and intent routing
+ *   - TeamFacade  for team missions, A2A, voting, and evidence
+ *   - RAGFacade   for search, context building, memory, and vector ops
+ *   - ToolFacade  for tool execution, capability listing, and MCP tools
  *
- * 通过 facade/index.ts 导入: import { ChatFacade } from "../../ai-engine/facade";
+ * Migration guide:
+ *   1. Replace `import { AIEngineFacade } from "../../ai-engine/facade"` with
+ *      the specific domain facade(s) you need, e.g.:
+ *        import { ChatFacade } from "../../ai-engine/facade"
+ *   2. Update constructor injection:
+ *        private readonly facade: AIEngineFacade  =>  private readonly chatFacade: ChatFacade
+ *   3. Update call sites:
+ *        this.facade.chat(...)  =>  this.chatFacade.chat(...)
  *
- * 此 Facade 保留向后兼容性：所有方法均委托给对应的 Domain Facade。
- * 新代码应直接注入 Domain Facade，旧代码可逐步迁移。
+ * Remaining uses of AIEngineFacade should only be for methods not yet extracted
+ * to a domain facade (e.g. registerResearchExecutor, executeDirectResearch).
+ * Those will be migrated in a future PR once a ResearchFacade or AgentFacade
+ * extension is added.
+ *
+ * This facade is preserved for backwards compatibility; all methods delegate
+ * to the corresponding domain facade. New code MUST use domain facades directly.
  *
  * ============================================================================
  * P1 架构优化：依赖分组

@@ -116,17 +116,13 @@ export * as Image from "./content/image";
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
 export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
-export { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
+export { WorkingMemoryStore as ShortTermMemoryService } from "../ai-kernel/facade";
 export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
 // Teams 模块核心服务
-export {
-  RoleRegistry,
-  TeamRegistry,
-  ConstraintEngine,
-  MissionOrchestrator,
-} from "./teams";
+export { RoleRegistry, TeamRegistry, MissionOrchestrator } from "./teams";
+export { ConstraintEngine } from "../ai-kernel/facade";
 export {
   // Team types
   TeamId,
@@ -194,8 +190,8 @@ export type {
 } from "./facade/types";
 
 // Observability 导出
-export { AiObservabilityService } from "./infra/observability/ai-observability.service";
-export { CostAttributionService } from "./infra/observability/cost-attribution.service";
+export { KernelMetricsService as AiObservabilityService } from "../ai-kernel/facade";
+export { CostAttributionService } from "../ai-kernel/facade";
 
 // Prompt Registry 导出
 export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

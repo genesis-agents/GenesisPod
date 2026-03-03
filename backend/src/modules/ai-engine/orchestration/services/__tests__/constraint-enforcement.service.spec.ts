@@ -11,7 +11,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { ConstraintEnforcementService } from "../constraint-enforcement.service";
+import { ConstraintEnforcementService } from "../../../../ai-kernel/facade";
 
 describe("ConstraintEnforcementService", () => {
   let service: ConstraintEnforcementService;
@@ -44,9 +44,8 @@ describe("ConstraintEnforcementService", () => {
   describe("extractConstraints", () => {
     describe("MUST constraints", () => {
       it("should extract 必须 pattern", () => {
-        const constraints = service.extractConstraints(
-          "必须：所有对话使用古文风格",
-        );
+        const constraints =
+          service.extractConstraints("必须：所有对话使用古文风格");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("MUST");
         expect(constraints[0].rule).toBe("所有对话使用古文风格");
@@ -55,9 +54,8 @@ describe("ConstraintEnforcementService", () => {
       });
 
       it("should extract 硬性约束 pattern", () => {
-        const constraints = service.extractConstraints(
-          "硬性约束：半文半白风格",
-        );
+        const constraints =
+          service.extractConstraints("硬性约束：半文半白风格");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("MUST");
         expect(constraints[0].rule).toBe("半文半白风格");
@@ -71,9 +69,7 @@ describe("ConstraintEnforcementService", () => {
       });
 
       it("should extract 不能 pattern", () => {
-        const constraints = service.extractConstraints(
-          "不能：使用科幻元素",
-        );
+        const constraints = service.extractConstraints("不能：使用科幻元素");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("MUST");
       });
@@ -96,26 +92,20 @@ describe("ConstraintEnforcementService", () => {
 
     describe("SHOULD constraints", () => {
       it("should extract 建议 pattern", () => {
-        const constraints = service.extractConstraints(
-          "建议：多使用环境描写",
-        );
+        const constraints = service.extractConstraints("建议：多使用环境描写");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("SHOULD");
         expect(constraints[0].id).toMatch(/^SC-/);
       });
 
       it("should extract 应该 pattern", () => {
-        const constraints = service.extractConstraints(
-          "应该：体现人物性格",
-        );
+        const constraints = service.extractConstraints("应该：体现人物性格");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("SHOULD");
       });
 
       it("should extract 尽量 pattern", () => {
-        const constraints = service.extractConstraints(
-          "尽量：避免重复情节",
-        );
+        const constraints = service.extractConstraints("尽量：避免重复情节");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("SHOULD");
       });
@@ -123,18 +113,14 @@ describe("ConstraintEnforcementService", () => {
 
     describe("MAY constraints", () => {
       it("should extract 可以 pattern", () => {
-        const constraints = service.extractConstraints(
-          "可以：适当加入对话",
-        );
+        const constraints = service.extractConstraints("可以：适当加入对话");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("MAY");
         expect(constraints[0].id).toMatch(/^MC-/);
       });
 
       it("should extract 允许 pattern", () => {
-        const constraints = service.extractConstraints(
-          "允许：使用白话文解说",
-        );
+        const constraints = service.extractConstraints("允许：使用白话文解说");
         expect(constraints).toHaveLength(1);
         expect(constraints[0].type).toBe("MAY");
       });
@@ -142,9 +128,7 @@ describe("ConstraintEnforcementService", () => {
 
     describe("implicit constraints", () => {
       it("should detect mute character constraint (X是哑巴)", () => {
-        const constraints = service.extractConstraints(
-          "钟叔是哑巴，不能说话",
-        );
+        const constraints = service.extractConstraints("钟叔是哑巴，不能说话");
         const muteConstraint = constraints.find(
           (c) => c.rule.includes("钟叔") && c.rule.includes("不能说话"),
         );
@@ -179,9 +163,8 @@ describe("ConstraintEnforcementService", () => {
       });
 
       it("should detect era setting constraint (背景设定在古代)", () => {
-        const constraints = service.extractConstraints(
-          "背景设定在古代，故事发生在唐代",
-        );
+        const constraints =
+          service.extractConstraints("背景设定在古代，故事发生在唐代");
         const eraConstraint = constraints.find((c) =>
           c.rule.includes("不符的现代词汇"),
         );
@@ -191,16 +174,13 @@ describe("ConstraintEnforcementService", () => {
 
       it("should detect era setting (故事发生在清朝)", () => {
         const constraints = service.extractConstraints("故事发生在清朝时代");
-        const eraConstraint = constraints.find((c) =>
-          c.rule.includes("清朝"),
-        );
+        const eraConstraint = constraints.find((c) => c.rule.includes("清朝"));
         expect(eraConstraint).toBeDefined();
       });
 
       it("should avoid duplicate mute constraints for same character", () => {
         // If character is already constrained via explicit rule, implicit should not add duplicate
-        const description =
-          "必须：钟叔不能说话\n钟叔是哑巴";
+        const description = "必须：钟叔不能说话\n钟叔是哑巴";
         const constraints = service.extractConstraints(description);
 
         // Count rules about 钟叔 not speaking

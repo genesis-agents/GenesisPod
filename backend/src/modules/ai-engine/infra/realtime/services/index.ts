@@ -2,5 +2,5 @@
  * Realtime Module Services
  */
 
-export * from "./engine-event-emitter.service";
-export * from "./progress-tracker.service";
+// engine-event-emitter.service — migrated to ai-kernel, import from ai-kernel/facade
+// progress-tracker.service — migrated to ai-kernel, import from ai-kernel/facade

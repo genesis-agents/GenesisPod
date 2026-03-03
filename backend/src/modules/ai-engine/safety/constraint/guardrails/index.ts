@@ -2,5 +2,5 @@
  * AI Engine - Constraint Guardrails
  */
 export * from "./content-filter";
-export * from "./rate-limiter";
-export * from "./cost-controller";
+// rate-limiter — migrated to ai-kernel
+// cost-controller — migrated to ai-kernel

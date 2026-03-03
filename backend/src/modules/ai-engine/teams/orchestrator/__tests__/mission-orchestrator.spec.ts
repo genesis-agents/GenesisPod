@@ -6,7 +6,7 @@
 
 import { ConfigService } from "@nestjs/config";
 import { MissionOrchestrator } from "../mission-orchestrator";
-import { ConstraintEngine } from "../../constraints/constraint-engine";
+import { ConstraintEngine } from "../../../../ai-kernel/facade";
 import {
   MissionInput,
   MissionEventType,
@@ -21,9 +21,26 @@ import { ConstraintProfile } from "../../constraints";
 // Helper: consume all events from an AsyncGenerator
 // ---------------------------------------------------------------------------
 async function collectEvents(
-  gen: AsyncGenerator<{ type: MissionEventType; missionId: string; timestamp: Date; data?: Record<string, unknown> }>,
-): Promise<Array<{ type: MissionEventType; missionId: string; timestamp: Date; data?: Record<string, unknown> }>> {
-  const events: Array<{ type: MissionEventType; missionId: string; timestamp: Date; data?: Record<string, unknown> }> = [];
+  gen: AsyncGenerator<{
+    type: MissionEventType;
+    missionId: string;
+    timestamp: Date;
+    data?: Record<string, unknown>;
+  }>,
+): Promise<
+  Array<{
+    type: MissionEventType;
+    missionId: string;
+    timestamp: Date;
+    data?: Record<string, unknown>;
+  }>
+> {
+  const events: Array<{
+    type: MissionEventType;
+    missionId: string;
+    timestamp: Date;
+    data?: Record<string, unknown>;
+  }> = [];
   for await (const event of gen) {
     events.push(event);
   }
@@ -802,19 +819,21 @@ describe("MissionOrchestrator", () => {
 
       // Mock memoryService so getContext() returns the plan stored during planning
       const mockMemoryService = {
-        setWithSession: jest.fn().mockImplementation(
-          async (sessionId: string, key: string, value: unknown) => {
-            if (!memoryStore.has(sessionId)) {
-              memoryStore.set(sessionId, new Map());
-            }
-            memoryStore.get(sessionId)!.set(key, value);
-          },
-        ),
-        getWithSession: jest.fn().mockImplementation(
-          async (sessionId: string, key: string) => {
+        setWithSession: jest
+          .fn()
+          .mockImplementation(
+            async (sessionId: string, key: string, value: unknown) => {
+              if (!memoryStore.has(sessionId)) {
+                memoryStore.set(sessionId, new Map());
+              }
+              memoryStore.get(sessionId)!.set(key, value);
+            },
+          ),
+        getWithSession: jest
+          .fn()
+          .mockImplementation(async (sessionId: string, key: string) => {
             return memoryStore.get(sessionId)?.get(key) ?? null;
-          },
-        ),
+          }),
       };
 
       mockLeader = {
@@ -953,41 +972,53 @@ describe("MissionOrchestrator", () => {
     });
 
     it("should emit parsing_started and parsing_completed events", async () => {
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, mockTeam));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, mockTeam),
+      );
       const types = events.map((e) => e.type);
       expect(types).toContain("parsing_started");
       expect(types).toContain("parsing_completed");
     });
 
     it("should emit planning_started and planning_completed events", async () => {
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, mockTeam));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, mockTeam),
+      );
       const types = events.map((e) => e.type);
       expect(types).toContain("planning_started");
       expect(types).toContain("planning_completed");
     });
 
     it("should emit step_started and step_completed for each workflow step", async () => {
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, mockTeam));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, mockTeam),
+      );
       const types = events.map((e) => e.type);
       expect(types).toContain("step_started");
       expect(types).toContain("step_completed");
     });
 
     it("should emit delivering_started and mission_completed events on success", async () => {
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, mockTeam));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, mockTeam),
+      );
       const types = events.map((e) => e.type);
       expect(types).toContain("delivering_started");
       expect(types).toContain("mission_completed");
     });
 
     it("should NOT emit mission_failed when execution succeeds", async () => {
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, mockTeam));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, mockTeam),
+      );
       const types = events.map((e) => e.type);
       expect(types).not.toContain("mission_failed");
     });
 
     it("should emit events in correct sequence order", async () => {
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, mockTeam));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, mockTeam),
+      );
       const types = events.map((e) => e.type);
 
       const missionStartedIdx = types.indexOf("mission_started");
@@ -1009,18 +1040,25 @@ describe("MissionOrchestrator", () => {
       const missionId = first.value?.missionId;
       expect(missionId).toBeDefined();
       // At this point the input should be stored
-      expect(orchestratorWithMemory["originalInputs"].has(missionId!)).toBe(true);
+      expect(orchestratorWithMemory["originalInputs"].has(missionId)).toBe(
+        true,
+      );
       // Drain the rest
       await collectEvents(gen);
     });
 
     it("should clean up originalInputs after successful completion", async () => {
       let missionId: string | undefined;
-      for await (const event of orchestratorWithMemory.execute(missionInput, mockTeam)) {
+      for await (const event of orchestratorWithMemory.execute(
+        missionInput,
+        mockTeam,
+      )) {
         if (!missionId) missionId = event.missionId;
       }
       // After completion, the input should be deleted
-      expect(orchestratorWithMemory["originalInputs"].has(missionId!)).toBe(false);
+      expect(orchestratorWithMemory["originalInputs"].has(missionId!)).toBe(
+        false,
+      );
     });
 
     it("should emit review events when reviewRequired is true", async () => {
@@ -1036,7 +1074,9 @@ describe("MissionOrchestrator", () => {
         },
       } as unknown as ITeam;
 
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, teamWithReview));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, teamWithReview),
+      );
       const types = events.map((e) => e.type);
       expect(types).toContain("review_started");
     });
@@ -1052,7 +1092,9 @@ describe("MissionOrchestrator", () => {
         return { canContinue: true, reason: "" };
       });
 
-      const events = await collectEvents(orchestratorWithMemory.execute(missionInput, mockTeam));
+      const events = await collectEvents(
+        orchestratorWithMemory.execute(missionInput, mockTeam),
+      );
       const types = events.map((e) => e.type);
       // canContinue is called per event; should fail eventually
       expect(types).toContain("mission_started");
@@ -1096,7 +1138,11 @@ describe("MissionOrchestrator", () => {
     });
 
     it("should return passing review result when llmFactory is not available", async () => {
-      const result = await orchestrator.review("step-1", "some output", mockTeam);
+      const result = await orchestrator.review(
+        "step-1",
+        "some output",
+        mockTeam,
+      );
 
       expect(result).toBeDefined();
       expect(result.stepId).toBe("step-1");
@@ -1107,7 +1153,11 @@ describe("MissionOrchestrator", () => {
     });
 
     it("should return review result with correct stepId", async () => {
-      const result = await orchestrator.review("my-special-step", { content: "output" }, mockTeam);
+      const result = await orchestrator.review(
+        "my-special-step",
+        { content: "output" },
+        mockTeam,
+      );
 
       expect(result.stepId).toBe("my-special-step");
     });
@@ -1156,7 +1206,9 @@ describe("MissionOrchestrator", () => {
       const deliverables = await orchestrator.deliver(state, mockTeam);
 
       expect(deliverables.length).toBeGreaterThanOrEqual(1);
-      const jsonReport = deliverables.find((d) => d.mimeType === "application/json");
+      const jsonReport = deliverables.find(
+        (d) => d.mimeType === "application/json",
+      );
       expect(jsonReport).toBeDefined();
     });
 
@@ -1168,7 +1220,9 @@ describe("MissionOrchestrator", () => {
       state.intermediateOutputs.set("step-2", "output 2");
 
       const deliverables = await orchestrator.deliver(state, mockTeam);
-      const jsonReport = deliverables.find((d) => d.mimeType === "application/json");
+      const jsonReport = deliverables.find(
+        (d) => d.mimeType === "application/json",
+      );
 
       expect(jsonReport?.content).toBeDefined();
       const content = jsonReport?.content as Record<string, unknown>;
@@ -1189,7 +1243,9 @@ describe("MissionOrchestrator", () => {
     it("should handle empty intermediate outputs gracefully", async () => {
       const state = orchestrator["initializeState"]("mission-empty-deliver");
 
-      await expect(orchestrator.deliver(state, mockTeam)).resolves.not.toThrow();
+      await expect(
+        orchestrator.deliver(state, mockTeam),
+      ).resolves.not.toThrow();
       const deliverables = await orchestrator.deliver(state, mockTeam);
       expect(deliverables.length).toBeGreaterThanOrEqual(1);
     });
@@ -1210,17 +1266,20 @@ describe("MissionOrchestrator", () => {
       epMemoryStore = new Map();
 
       const mockMemoryService = {
-        setWithSession: jest.fn().mockImplementation(
-          async (sessionId: string, key: string, value: unknown) => {
-            if (!epMemoryStore.has(sessionId)) epMemoryStore.set(sessionId, new Map());
-            epMemoryStore.get(sessionId)!.set(key, value);
-          },
-        ),
-        getWithSession: jest.fn().mockImplementation(
-          async (sessionId: string, key: string) => {
+        setWithSession: jest
+          .fn()
+          .mockImplementation(
+            async (sessionId: string, key: string, value: unknown) => {
+              if (!epMemoryStore.has(sessionId))
+                epMemoryStore.set(sessionId, new Map());
+              epMemoryStore.get(sessionId)!.set(key, value);
+            },
+          ),
+        getWithSession: jest
+          .fn()
+          .mockImplementation(async (sessionId: string, key: string) => {
             return epMemoryStore.get(sessionId)?.get(key) ?? null;
-          },
-        ),
+          }),
       };
 
       mockLeader = {
@@ -1270,32 +1329,72 @@ describe("MissionOrchestrator", () => {
           steps: [],
         },
         constraintProfile: {
-          cost: { budget: 1000, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
-          quality: { depth: "standard", accuracy: "prefer_evidence", reviewRequired: false, minReviewScore: 6, maxReworks: 0 },
-          efficiency: { maxDuration: 600000, priority: "normal", allowParallel: false, maxParallelism: 1 },
+          cost: {
+            budget: 1000,
+            modelPreference: "balanced",
+            allowOverBudget: false,
+            warningThreshold: 80,
+          },
+          quality: {
+            depth: "standard",
+            accuracy: "prefer_evidence",
+            reviewRequired: false,
+            minReviewScore: 6,
+            maxReworks: 0,
+          },
+          efficiency: {
+            maxDuration: 600000,
+            priority: "normal",
+            allowParallel: false,
+            maxParallelism: 1,
+          },
         },
         config: {},
         getAllMembers: () => [mockLeader, mockMember],
-        getMemberById: (id: string) => [mockLeader, mockMember].find((m) => m.id === id),
-        getMembersByRole: (roleId: string) => [mockLeader, mockMember].filter((m) => m.role.id === roleId),
+        getMemberById: (id: string) =>
+          [mockLeader, mockMember].find((m) => m.id === id),
+        getMembersByRole: (roleId: string) =>
+          [mockLeader, mockMember].filter((m) => m.role.id === roleId),
         hasRole: () => true,
         getAvailableSkills: () => [],
         getAvailableTools: () => [],
       } as unknown as ITeam;
 
       baseConstraints = {
-        cost: { budget: 1000, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
-        quality: { depth: "standard", accuracy: "prefer_evidence", reviewRequired: false, minReviewScore: 6, maxReworks: 0 },
-        efficiency: { maxDuration: 600000, priority: "normal", allowParallel: false, maxParallelism: 1 },
+        cost: {
+          budget: 1000,
+          modelPreference: "balanced",
+          allowOverBudget: false,
+          warningThreshold: 80,
+        },
+        quality: {
+          depth: "standard",
+          accuracy: "prefer_evidence",
+          reviewRequired: false,
+          minReviewScore: 6,
+          maxReworks: 0,
+        },
+        efficiency: {
+          maxDuration: 600000,
+          priority: "normal",
+          allowParallel: false,
+          maxParallelism: 1,
+        },
       };
 
       epOrchestrator = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMemoryService as never,
-        undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
     });
@@ -1329,10 +1428,17 @@ describe("MissionOrchestrator", () => {
       // Initialize state
       const state = epOrchestrator["initializeState"]("mission-ep-1");
       epOrchestrator["states"].set("mission-ep-1", state);
-      epOrchestrator["originalInputs"].set("mission-ep-1", { prompt: "test", metadata: {} });
+      epOrchestrator["originalInputs"].set("mission-ep-1", {
+        prompt: "test",
+        metadata: {},
+      });
 
       const events: Array<{ type: MissionEventType }> = [];
-      for await (const event of epOrchestrator.executePlan(plan, mockTeam, baseConstraints)) {
+      for await (const event of epOrchestrator.executePlan(
+        plan,
+        mockTeam,
+        baseConstraints,
+      )) {
         events.push(event);
       }
 
@@ -1344,22 +1450,35 @@ describe("MissionOrchestrator", () => {
     it("should handle step failure gracefully with auto-retry enabled", async () => {
       const retryMemoryStore: Map<string, Map<string, unknown>> = new Map();
       const retryMemService = {
-        setWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string, value: unknown) => {
-          if (!retryMemoryStore.has(sessionId)) retryMemoryStore.set(sessionId, new Map());
-          retryMemoryStore.get(sessionId)!.set(key, value);
-        }),
-        getWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string) => {
-          return retryMemoryStore.get(sessionId)?.get(key) ?? null;
-        }),
+        setWithSession: jest
+          .fn()
+          .mockImplementation(
+            async (sessionId: string, key: string, value: unknown) => {
+              if (!retryMemoryStore.has(sessionId))
+                retryMemoryStore.set(sessionId, new Map());
+              retryMemoryStore.get(sessionId)!.set(key, value);
+            },
+          ),
+        getWithSession: jest
+          .fn()
+          .mockImplementation(async (sessionId: string, key: string) => {
+            return retryMemoryStore.get(sessionId)?.get(key) ?? null;
+          }),
       };
 
       const retryOrchestrator = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         retryMemService as never,
-        undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: true, enableParallel: false },
       );
 
@@ -1388,10 +1507,17 @@ describe("MissionOrchestrator", () => {
       retryMemoryStore.set("mission-fail", new Map([["plan", plan]]));
       const state = retryOrchestrator["initializeState"]("mission-fail");
       retryOrchestrator["states"].set("mission-fail", state);
-      retryOrchestrator["originalInputs"].set("mission-fail", { prompt: "test", metadata: {} });
+      retryOrchestrator["originalInputs"].set("mission-fail", {
+        prompt: "test",
+        metadata: {},
+      });
 
       const events: Array<{ type: MissionEventType }> = [];
-      for await (const event of retryOrchestrator.executePlan(plan, mockTeam, baseConstraints)) {
+      for await (const event of retryOrchestrator.executePlan(
+        plan,
+        mockTeam,
+        baseConstraints,
+      )) {
         events.push(event);
       }
 
@@ -1437,7 +1563,11 @@ describe("MissionOrchestrator", () => {
       epOrchestrator["states"].set("mission-deadlock", state);
 
       async function consumeDeadlock() {
-        for await (const _ of epOrchestrator.executePlan(plan, mockTeam, baseConstraints)) {
+        for await (const _ of epOrchestrator.executePlan(
+          plan,
+          mockTeam,
+          baseConstraints,
+        )) {
           // drain
         }
       }
@@ -1450,7 +1580,12 @@ describe("MissionOrchestrator", () => {
       // to avoid the `0 || Infinity` falsy coercion. Use budget=1 and costUsed=100.
       const tightBudgetConstraints: ConstraintProfile = {
         ...baseConstraints,
-        cost: { budget: 1, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
+        cost: {
+          budget: 1,
+          modelPreference: "balanced",
+          allowOverBudget: false,
+          warningThreshold: 80,
+        },
       };
 
       const plan = {
@@ -1480,10 +1615,17 @@ describe("MissionOrchestrator", () => {
       // costUsed (100) > budget (1) → should throw
       state.resourceUsage.costUsed = 100;
       epOrchestrator["states"].set("mission-budget", state);
-      epOrchestrator["originalInputs"].set("mission-budget", { prompt: "test", metadata: {} });
+      epOrchestrator["originalInputs"].set("mission-budget", {
+        prompt: "test",
+        metadata: {},
+      });
 
       async function consumeBudget() {
-        for await (const _ of epOrchestrator.executePlan(plan, mockTeam, tightBudgetConstraints)) {
+        for await (const _ of epOrchestrator.executePlan(
+          plan,
+          mockTeam,
+          tightBudgetConstraints,
+        )) {
           // drain
         }
       }
@@ -1497,7 +1639,10 @@ describe("MissionOrchestrator", () => {
   // ---------------------------------------------------------------------------
   describe("integrateOutputsForExport()", () => {
     it("should join string outputs with separator", () => {
-      const result = orchestrator["integrateOutputsForExport"](["part one", "part two"]);
+      const result = orchestrator["integrateOutputsForExport"]([
+        "part one",
+        "part two",
+      ]);
       expect(result).toContain("part one");
       expect(result).toContain("part two");
       expect(result).toContain("---");
@@ -1572,18 +1717,24 @@ describe("MissionOrchestrator", () => {
     });
 
     it("should return medium for balanced or undefined workStyle", () => {
-      expect(orchestrator["mapWorkStyleToCreativity"](null as never)).toBe("medium");
-      expect(orchestrator["mapWorkStyleToCreativity"]({
-        riskTolerance: "balanced",
-        outputStyle: "detailed",
-        thinkingDepth: "standard",
-      })).toBe("medium");
+      expect(orchestrator["mapWorkStyleToCreativity"](null as never)).toBe(
+        "medium",
+      );
+      expect(
+        orchestrator["mapWorkStyleToCreativity"]({
+          riskTolerance: "balanced",
+          outputStyle: "detailed",
+          thinkingDepth: "standard",
+        }),
+      ).toBe("medium");
     });
   });
 
   describe("mapDepthToOutputLength()", () => {
     it("should return long for comprehensive depth", () => {
-      expect(orchestrator["mapDepthToOutputLength"]("comprehensive")).toBe("long");
+      expect(orchestrator["mapDepthToOutputLength"]("comprehensive")).toBe(
+        "long",
+      );
     });
 
     it("should return short for quick depth", () => {
@@ -1591,17 +1742,21 @@ describe("MissionOrchestrator", () => {
     });
 
     it("should use outputStyle as tiebreaker for standard depth", () => {
-      expect(orchestrator["mapDepthToOutputLength"]("standard", {
-        outputStyle: "detailed",
-        riskTolerance: "balanced",
-        thinkingDepth: "standard",
-      })).toBe("long");
+      expect(
+        orchestrator["mapDepthToOutputLength"]("standard", {
+          outputStyle: "detailed",
+          riskTolerance: "balanced",
+          thinkingDepth: "standard",
+        }),
+      ).toBe("long");
 
-      expect(orchestrator["mapDepthToOutputLength"]("standard", {
-        outputStyle: "concise",
-        riskTolerance: "balanced",
-        thinkingDepth: "standard",
-      })).toBe("short");
+      expect(
+        orchestrator["mapDepthToOutputLength"]("standard", {
+          outputStyle: "concise",
+          riskTolerance: "balanced",
+          thinkingDepth: "standard",
+        }),
+      ).toBe("short");
 
       expect(orchestrator["mapDepthToOutputLength"]("standard")).toBe("medium");
     });
@@ -1613,7 +1768,10 @@ describe("MissionOrchestrator", () => {
   describe("estimateStepDuration()", () => {
     it("should return higher duration for comprehensive depth", () => {
       const quick = orchestrator["estimateStepDuration"]("task", "quick");
-      const comprehensive = orchestrator["estimateStepDuration"]("task", "comprehensive");
+      const comprehensive = orchestrator["estimateStepDuration"](
+        "task",
+        "comprehensive",
+      );
       expect(comprehensive).toBeGreaterThan(quick);
     });
   });
@@ -1631,22 +1789,43 @@ describe("MissionOrchestrator", () => {
   // ---------------------------------------------------------------------------
   describe("assessComplexity()", () => {
     it("should score higher with files, urls, and requirements", () => {
-      const simple = orchestrator["assessComplexity"]({ prompt: "short", metadata: {} });
+      const simple = orchestrator["assessComplexity"]({
+        prompt: "short",
+        metadata: {},
+      });
       const complex = orchestrator["assessComplexity"]({
         prompt: "short",
-        files: [{ id: "f1", name: "file.pdf", url: "file.pdf", mimeType: "application/pdf", size: 100 }],
+        files: [
+          {
+            id: "f1",
+            name: "file.pdf",
+            url: "file.pdf",
+            mimeType: "application/pdf",
+            size: 100,
+          },
+        ],
         urls: ["https://example.com"],
         requirements: ["req1"],
         metadata: {},
       });
 
-      expect(complex.estimatedSubTasks).toBeGreaterThanOrEqual(simple.estimatedSubTasks);
+      expect(complex.estimatedSubTasks).toBeGreaterThanOrEqual(
+        simple.estimatedSubTasks,
+      );
     });
 
     it("should return very_high for prompts over 500 chars with all extras", () => {
       const result = orchestrator["assessComplexity"]({
         prompt: "a".repeat(600),
-        files: [{ id: "f1", name: "f.pdf", url: "f.pdf", mimeType: "application/pdf", size: 100 }],
+        files: [
+          {
+            id: "f1",
+            name: "f.pdf",
+            url: "f.pdf",
+            mimeType: "application/pdf",
+            size: 100,
+          },
+        ],
         urls: ["https://example.com"],
         requirements: ["r1"],
         metadata: {},
@@ -1682,8 +1861,13 @@ describe("MissionOrchestrator", () => {
         undefined, // toolRegistry
         undefined, // skillRegistry
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -1716,14 +1900,23 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.parse({ prompt: "研究 AI 趋势", metadata: {} });
+      const result = await orchestratorWithLLM.parse({
+        prompt: "研究 AI 趋势",
+        metadata: {},
+      });
 
       // Should fall back to rule-based
       expect(result).toBeDefined();
@@ -1746,14 +1939,23 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.parse({ prompt: "研究 AI 未来", metadata: {} });
+      const result = await orchestratorWithLLM.parse({
+        prompt: "研究 AI 未来",
+        metadata: {},
+      });
 
       expect(result).toBeDefined();
     });
@@ -1770,14 +1972,23 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.parse({ prompt: "设计新 UI 界面", metadata: {} });
+      const result = await orchestratorWithLLM.parse({
+        prompt: "设计新 UI 界面",
+        metadata: {},
+      });
 
       expect(result).toBeDefined();
       expect(result.taskType).toBe("design");
@@ -1792,14 +2003,23 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.parse({ prompt: "分析销售数据", metadata: {} });
+      const result = await orchestratorWithLLM.parse({
+        prompt: "分析销售数据",
+        metadata: {},
+      });
 
       expect(result.taskType).toBe("research"); // rule-based fallback (分析 in research keywords)
     });
@@ -1820,14 +2040,23 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      await orchestratorWithLLM.parse({ prompt: "Design a UI system", metadata: {} });
+      await orchestratorWithLLM.parse({
+        prompt: "Design a UI system",
+        metadata: {},
+      });
 
       expect(mockConstraintEngine.recordCost).toHaveBeenCalledWith(
         "parse_intent",
@@ -1870,7 +2099,8 @@ describe("MissionOrchestrator", () => {
       } as unknown as ITeamMember;
       executorWithPersona.getSystemPrompt = () => "Core analyst prompt";
 
-      const result = orchestrator["buildSystemPromptWithPersona"](executorWithPersona);
+      const result =
+        orchestrator["buildSystemPromptWithPersona"](executorWithPersona);
 
       expect(result).toContain("I am a meticulous data scientist.");
       expect(result).toContain("Core analyst prompt");
@@ -1882,11 +2112,16 @@ describe("MissionOrchestrator", () => {
     it("should add detailed output hint for detailed outputStyle", () => {
       const executorDetailed = {
         ...mockExecutor,
-        workStyle: { outputStyle: "detailed", thinkingDepth: "standard", riskTolerance: "balanced" },
+        workStyle: {
+          outputStyle: "detailed",
+          thinkingDepth: "standard",
+          riskTolerance: "balanced",
+        },
       } as unknown as ITeamMember;
       executorDetailed.getSystemPrompt = () => "Base prompt";
 
-      const result = orchestrator["buildSystemPromptWithPersona"](executorDetailed);
+      const result =
+        orchestrator["buildSystemPromptWithPersona"](executorDetailed);
 
       expect(result).toContain("详尽");
     });
@@ -1894,11 +2129,16 @@ describe("MissionOrchestrator", () => {
     it("should add concise hint for concise outputStyle", () => {
       const executorConcise = {
         ...mockExecutor,
-        workStyle: { outputStyle: "concise", thinkingDepth: "standard", riskTolerance: "balanced" },
+        workStyle: {
+          outputStyle: "concise",
+          thinkingDepth: "standard",
+          riskTolerance: "balanced",
+        },
       } as unknown as ITeamMember;
       executorConcise.getSystemPrompt = () => "Base prompt";
 
-      const result = orchestrator["buildSystemPromptWithPersona"](executorConcise);
+      const result =
+        orchestrator["buildSystemPromptWithPersona"](executorConcise);
 
       expect(result).toContain("简洁");
     });
@@ -1906,7 +2146,11 @@ describe("MissionOrchestrator", () => {
     it("should add deep thinking hint for deep thinkingDepth", () => {
       const executorDeep = {
         ...mockExecutor,
-        workStyle: { outputStyle: "detailed", thinkingDepth: "deep", riskTolerance: "balanced" },
+        workStyle: {
+          outputStyle: "detailed",
+          thinkingDepth: "deep",
+          riskTolerance: "balanced",
+        },
       } as unknown as ITeamMember;
       executorDeep.getSystemPrompt = () => "Base prompt";
 
@@ -1918,11 +2162,16 @@ describe("MissionOrchestrator", () => {
     it("should add quick response hint for quick thinkingDepth", () => {
       const executorQuick = {
         ...mockExecutor,
-        workStyle: { outputStyle: "concise", thinkingDepth: "quick", riskTolerance: "balanced" },
+        workStyle: {
+          outputStyle: "concise",
+          thinkingDepth: "quick",
+          riskTolerance: "balanced",
+        },
       } as unknown as ITeamMember;
       executorQuick.getSystemPrompt = () => "Base prompt";
 
-      const result = orchestrator["buildSystemPromptWithPersona"](executorQuick);
+      const result =
+        orchestrator["buildSystemPromptWithPersona"](executorQuick);
 
       expect(result).toContain("快速响应");
     });
@@ -1930,11 +2179,16 @@ describe("MissionOrchestrator", () => {
     it("should add creative hint for aggressive riskTolerance", () => {
       const executorAggressive = {
         ...mockExecutor,
-        workStyle: { outputStyle: "detailed", thinkingDepth: "deep", riskTolerance: "aggressive" },
+        workStyle: {
+          outputStyle: "detailed",
+          thinkingDepth: "deep",
+          riskTolerance: "aggressive",
+        },
       } as unknown as ITeamMember;
       executorAggressive.getSystemPrompt = () => "Base prompt";
 
-      const result = orchestrator["buildSystemPromptWithPersona"](executorAggressive);
+      const result =
+        orchestrator["buildSystemPromptWithPersona"](executorAggressive);
 
       expect(result).toContain("创新");
     });
@@ -1942,11 +2196,16 @@ describe("MissionOrchestrator", () => {
     it("should add conservative hint for conservative riskTolerance", () => {
       const executorConservative = {
         ...mockExecutor,
-        workStyle: { outputStyle: "concise", thinkingDepth: "quick", riskTolerance: "conservative" },
+        workStyle: {
+          outputStyle: "concise",
+          thinkingDepth: "quick",
+          riskTolerance: "conservative",
+        },
       } as unknown as ITeamMember;
       executorConservative.getSystemPrompt = () => "Base prompt";
 
-      const result = orchestrator["buildSystemPromptWithPersona"](executorConservative);
+      const result =
+        orchestrator["buildSystemPromptWithPersona"](executorConservative);
 
       expect(result).toContain("严谨");
     });
@@ -1959,7 +2218,8 @@ describe("MissionOrchestrator", () => {
       } as unknown as ITeamMember;
       executorNoStyle.getSystemPrompt = () => "Base system prompt only";
 
-      const result = orchestrator["buildSystemPromptWithPersona"](executorNoStyle);
+      const result =
+        orchestrator["buildSystemPromptWithPersona"](executorNoStyle);
 
       expect(result).toBe("Base system prompt only");
     });
@@ -1999,7 +2259,11 @@ describe("MissionOrchestrator", () => {
       };
       const context = { intent: { primaryGoal: "Understand AI trends" } };
 
-      const result = orchestrator["buildStepPromptWithSkills"](step, context, []);
+      const result = orchestrator["buildStepPromptWithSkills"](
+        step,
+        context,
+        [],
+      );
 
       expect(result).toContain("任务目标");
       expect(result).toContain("Understand AI trends");
@@ -2016,9 +2280,15 @@ describe("MissionOrchestrator", () => {
         estimatedDuration: 1000,
         estimatedCost: 5,
       };
-      const context = { previousOutputs: { "s1": "Research findings from step 1" } };
+      const context = {
+        previousOutputs: { s1: "Research findings from step 1" },
+      };
 
-      const result = orchestrator["buildStepPromptWithSkills"](step, context, []);
+      const result = orchestrator["buildStepPromptWithSkills"](
+        step,
+        context,
+        [],
+      );
 
       expect(result).toContain("前序步骤输出");
     });
@@ -2037,11 +2307,19 @@ describe("MissionOrchestrator", () => {
       const skillResults = [
         {
           skillId: "sentiment-analyzer",
-          result: { success: true, data: { sentiment: "positive", score: 0.9 }, metadata: { tokensUsed: 50 } },
+          result: {
+            success: true,
+            data: { sentiment: "positive", score: 0.9 },
+            metadata: { tokensUsed: 50 },
+          },
         },
       ];
 
-      const result = orchestrator["buildStepPromptWithSkills"](step, {}, skillResults as never);
+      const result = orchestrator["buildStepPromptWithSkills"](
+        step,
+        {},
+        skillResults as never,
+      );
 
       expect(result).toContain("技能分析结果");
       expect(result).toContain("sentiment-analyzer");
@@ -2065,7 +2343,11 @@ describe("MissionOrchestrator", () => {
         },
       ];
 
-      const result = orchestrator["buildStepPromptWithSkills"](step, {}, skillResults as never);
+      const result = orchestrator["buildStepPromptWithSkills"](
+        step,
+        {},
+        skillResults as never,
+      );
 
       expect(result).not.toContain("failed-skill");
     });
@@ -2109,7 +2391,12 @@ describe("MissionOrchestrator", () => {
     it("should use LLM for review when llmFactory available and parse JSON response", async () => {
       const mockAdapter = {
         chat: jest.fn().mockResolvedValue({
-          content: JSON.stringify({ score: 8, passed: true, feedback: "Good output", issues: [] }),
+          content: JSON.stringify({
+            score: 8,
+            passed: true,
+            feedback: "Good output",
+            issues: [],
+          }),
           model: "gpt-4o",
           usage: { promptTokens: 50, completionTokens: 80 },
         }),
@@ -2122,14 +2409,24 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.review("step-review", "test output", mockTeamWithLLM);
+      const result = await orchestratorWithLLM.review(
+        "step-review",
+        "test output",
+        mockTeamWithLLM,
+      );
 
       expect(result.passed).toBe(true);
       expect(result.score).toBe(8);
@@ -2154,14 +2451,24 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.review("step-x", "output", mockTeamWithLLM);
+      const result = await orchestratorWithLLM.review(
+        "step-x",
+        "output",
+        mockTeamWithLLM,
+      );
       expect(result.passed).toBe(true);
     });
 
@@ -2181,14 +2488,24 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.review("step-fallback", "output", mockTeamWithLLM);
+      const result = await orchestratorWithLLM.review(
+        "step-fallback",
+        "output",
+        mockTeamWithLLM,
+      );
 
       // Should fall back to degraded pass
       expect(result.passed).toBe(true);
@@ -2207,14 +2524,24 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.review("step-err", "output", mockTeamWithLLM);
+      const result = await orchestratorWithLLM.review(
+        "step-err",
+        "output",
+        mockTeamWithLLM,
+      );
 
       expect(result.passed).toBe(true);
       expect(result.feedback).toContain("降级");
@@ -2223,7 +2550,8 @@ describe("MissionOrchestrator", () => {
     it("should extract JSON from markdown code block in review response", async () => {
       const mockAdapter = {
         chat: jest.fn().mockResolvedValue({
-          content: 'Some text {"score": 9, "passed": true, "feedback": "Excellent"} more text',
+          content:
+            'Some text {"score": 9, "passed": true, "feedback": "Excellent"} more text',
           model: "gpt-4o",
           usage: { promptTokens: 30, completionTokens: 20 },
         }),
@@ -2236,14 +2564,24 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithLLM = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const result = await orchestratorWithLLM.review("step-extract", "output", mockTeamWithLLM);
+      const result = await orchestratorWithLLM.review(
+        "step-extract",
+        "output",
+        mockTeamWithLLM,
+      );
 
       expect(result.score).toBe(9);
       expect(result.passed).toBe(true);
@@ -2273,7 +2611,9 @@ describe("MissionOrchestrator", () => {
         id: "export-docx",
         description: "Export to DOCX",
         inputSchema: {},
-        execute: jest.fn().mockResolvedValue({ data: "binary content", success: true }),
+        execute: jest
+          .fn()
+          .mockResolvedValue({ data: "binary content", success: true }),
       };
       const mockToolRegistry = {
         tryGet: jest.fn().mockImplementation((id: string) => {
@@ -2286,12 +2626,20 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const state = orchestratorWithTool["initializeState"]("mission-docx-test");
+      const state =
+        orchestratorWithTool["initializeState"]("mission-docx-test");
       state.completedSteps = ["step-1"];
       state.intermediateOutputs.set("step-1", "Report content here");
 
@@ -2301,8 +2649,10 @@ describe("MissionOrchestrator", () => {
       // Should have both the document and JSON report
       expect(deliverables.length).toBeGreaterThanOrEqual(2);
       // Check document deliverable exists
-      const docDeliverable = deliverables.find((d) =>
-        d.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      const docDeliverable = deliverables.find(
+        (d) =>
+          d.mimeType ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       );
       expect(docDeliverable).toBeDefined();
     });
@@ -2325,19 +2675,30 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const state = orchestratorWithTool["initializeState"]("mission-fail-export");
+      const state = orchestratorWithTool["initializeState"](
+        "mission-fail-export",
+      );
       state.completedSteps = ["step-1"];
       state.intermediateOutputs.set("step-1", "content");
 
       const deliverables = await orchestratorWithTool.deliver(state, mockTeam);
 
       // Should still have JSON report
-      const jsonReport = deliverables.find((d) => d.mimeType === "application/json");
+      const jsonReport = deliverables.find(
+        (d) => d.mimeType === "application/json",
+      );
       expect(jsonReport).toBeDefined();
     });
 
@@ -2360,8 +2721,15 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2371,7 +2739,9 @@ describe("MissionOrchestrator", () => {
 
       const deliverables = await orchestratorWithTool.deliver(state, mockTeam);
 
-      const pdfDeliverable = deliverables.find((d) => d.mimeType === "application/pdf");
+      const pdfDeliverable = deliverables.find(
+        (d) => d.mimeType === "application/pdf",
+      );
       expect(pdfDeliverable).toBeDefined();
     });
   });
@@ -2395,8 +2765,15 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2420,19 +2797,26 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const toolCalls = [
-        { name: "nonexistent-tool", arguments: {} },
-      ];
+      const toolCalls = [{ name: "nonexistent-tool", arguments: {} }];
 
       const results = await orchestratorWithTool["handleToolCalls"](toolCalls);
 
       expect(results).toHaveLength(1);
-      expect((results[0] as Record<string, unknown>).error).toBe("Tool not found");
+      expect((results[0] as Record<string, unknown>).error).toBe(
+        "Tool not found",
+      );
     });
 
     it("should call MCP tool via mcpManager for mcp_ prefixed tool names", async () => {
@@ -2448,9 +2832,15 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMcpManager as never,
-        undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2461,8 +2851,12 @@ describe("MissionOrchestrator", () => {
       const results = await orchestratorWithMCP["handleToolCalls"](toolCalls);
 
       expect(results).toHaveLength(1);
-      expect((results[0] as Record<string, unknown>).tool).toBe("mcp_web-search");
-      expect(mockMcpManager.callToolAuto).toHaveBeenCalledWith("web-search", { query: "test" });
+      expect((results[0] as Record<string, unknown>).tool).toBe(
+        "mcp_web-search",
+      );
+      expect(mockMcpManager.callToolAuto).toHaveBeenCalledWith("web-search", {
+        query: "test",
+      });
     });
 
     it("should catch tool execution errors and return error result", async () => {
@@ -2480,8 +2874,15 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2489,7 +2890,9 @@ describe("MissionOrchestrator", () => {
       const results = await orchestratorWithTool["handleToolCalls"](toolCalls);
 
       expect(results).toHaveLength(1);
-      expect((results[0] as Record<string, unknown>).error).toBe("Tool crashed");
+      expect((results[0] as Record<string, unknown>).error).toBe(
+        "Tool crashed",
+      );
     });
   });
 
@@ -2512,8 +2915,15 @@ describe("MissionOrchestrator", () => {
         mockConstraintEngine,
         mockConfigService,
         mockToolRegistry as never,
-        undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2524,7 +2934,8 @@ describe("MissionOrchestrator", () => {
         isLeader: () => false,
       } as unknown as ITeamMember;
 
-      const tools = await orchestratorWithTool["collectAvailableTools"](executor);
+      const tools =
+        await orchestratorWithTool["collectAvailableTools"](executor);
 
       expect(tools).toHaveLength(1);
       expect(tools[0].function.name).toBe("data-analyzer");
@@ -2546,9 +2957,16 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithMCP = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMcpManager as never,
-        undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2559,7 +2977,8 @@ describe("MissionOrchestrator", () => {
         isLeader: () => false,
       } as unknown as ITeamMember;
 
-      const tools = await orchestratorWithMCP["collectAvailableTools"](executor);
+      const tools =
+        await orchestratorWithMCP["collectAvailableTools"](executor);
 
       expect(tools).toHaveLength(1);
       expect(tools[0].function.name).toBe("mcp_external-search");
@@ -2567,15 +2986,24 @@ describe("MissionOrchestrator", () => {
 
     it("should handle MCP manager throwing gracefully", async () => {
       const mockMcpManager = {
-        getAllToolsFlat: jest.fn().mockRejectedValue(new Error("MCP unavailable")),
+        getAllToolsFlat: jest
+          .fn()
+          .mockRejectedValue(new Error("MCP unavailable")),
       };
 
       const orchestratorWithMCP = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMcpManager as never,
-        undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2586,7 +3014,8 @@ describe("MissionOrchestrator", () => {
         isLeader: () => false,
       } as unknown as ITeamMember;
 
-      const tools = await orchestratorWithMCP["collectAvailableTools"](executor);
+      const tools =
+        await orchestratorWithMCP["collectAvailableTools"](executor);
 
       // Should not throw, just return empty
       expect(tools).toHaveLength(0);
@@ -2608,9 +3037,16 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithTrace = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         mockTraceCollector as never,
-        undefined, undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2625,7 +3061,13 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithCP = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         undefined,
         mockCheckpointManager as never,
         undefined,
@@ -2644,8 +3086,15 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithA2A = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
-        undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         mockA2ABus as never,
         { enableAutoRetry: false, enableParallel: false },
       );
@@ -2661,9 +3110,16 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithChat = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         mockAiChatService as never,
-        undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -2686,7 +3142,9 @@ describe("MissionOrchestrator", () => {
       // Use a fresh constraint engine to avoid contamination from other tests
       const freshConstraintEngine = {
         check: jest.fn().mockReturnValue({ allowed: true }),
-        canContinue: jest.fn().mockReturnValue({ canContinue: true, reason: "" }),
+        canContinue: jest
+          .fn()
+          .mockReturnValue({ canContinue: true, reason: "" }),
         recordCost: jest.fn().mockReturnValue(0),
         getUsage: jest.fn().mockReturnValue({ tokensUsed: 0, costUsed: 0 }),
         reset: jest.fn(),
@@ -2694,13 +3152,20 @@ describe("MissionOrchestrator", () => {
 
       const mockMemoryStore = new Map<string, Map<string, unknown>>();
       const mockMemService = {
-        setWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string, value: unknown) => {
-          if (!mockMemoryStore.has(sessionId)) mockMemoryStore.set(sessionId, new Map());
-          mockMemoryStore.get(sessionId)!.set(key, value);
-        }),
-        getWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string) => {
-          return mockMemoryStore.get(sessionId)?.get(key) ?? null;
-        }),
+        setWithSession: jest
+          .fn()
+          .mockImplementation(
+            async (sessionId: string, key: string, value: unknown) => {
+              if (!mockMemoryStore.has(sessionId))
+                mockMemoryStore.set(sessionId, new Map());
+              mockMemoryStore.get(sessionId)!.set(key, value);
+            },
+          ),
+        getWithSession: jest
+          .fn()
+          .mockImplementation(async (sessionId: string, key: string) => {
+            return mockMemoryStore.get(sessionId)?.get(key) ?? null;
+          }),
       };
 
       const leader = {
@@ -2740,13 +3205,30 @@ describe("MissionOrchestrator", () => {
           ],
         },
         constraintProfile: {
-          cost: { budget: 1000, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
-          quality: { depth: "standard", accuracy: "prefer_evidence", reviewRequired: false, minReviewScore: 6, maxReworks: 0 },
-          efficiency: { maxDuration: 600000, priority: "normal", allowParallel: false, maxParallelism: 1 },
+          cost: {
+            budget: 1000,
+            modelPreference: "balanced",
+            allowOverBudget: false,
+            warningThreshold: 80,
+          },
+          quality: {
+            depth: "standard",
+            accuracy: "prefer_evidence",
+            reviewRequired: false,
+            minReviewScore: 6,
+            maxReworks: 0,
+          },
+          efficiency: {
+            maxDuration: 600000,
+            priority: "normal",
+            allowParallel: false,
+            maxParallelism: 1,
+          },
         },
         getAllMembers: () => [leader],
-        getMemberById: (id: string) => id === leader.id ? leader : undefined,
-        getMembersByRole: (roleId: string) => roleId === "leader" ? [leader] : [],
+        getMemberById: (id: string) => (id === leader.id ? leader : undefined),
+        getMembersByRole: (roleId: string) =>
+          roleId === "leader" ? [leader] : [],
         hasRole: () => false,
         getAvailableSkills: () => [],
         getAvailableTools: () => [],
@@ -2755,21 +3237,30 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithTrace = new MissionOrchestrator(
         freshConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMemService as never,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         mockTraceCollector as never,
-        undefined, undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const events = await collectEvents(orchestratorWithTrace.execute(
-        { prompt: "Test mission", metadata: {} },
-        team,
-      ));
+      const events = await collectEvents(
+        orchestratorWithTrace.execute(
+          { prompt: "Test mission", metadata: {} },
+          team,
+        ),
+      );
 
       expect(mockTraceCollector.startTrace).toHaveBeenCalled();
-      expect(mockTraceCollector.endTrace).toHaveBeenCalledWith("trace-abc", { status: "success" });
+      expect(mockTraceCollector.endTrace).toHaveBeenCalledWith("trace-abc", {
+        status: "success",
+      });
       expect(events.some((e) => e.type === "mission_completed")).toBe(true);
     });
 
@@ -2824,9 +3315,25 @@ describe("MissionOrchestrator", () => {
           ],
         },
         constraintProfile: {
-          cost: { budget: 1000, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
-          quality: { depth: "standard", accuracy: "prefer_evidence", reviewRequired: false, minReviewScore: 6, maxReworks: 0 },
-          efficiency: { maxDuration: 600000, priority: "normal", allowParallel: false, maxParallelism: 1 },
+          cost: {
+            budget: 1000,
+            modelPreference: "balanced",
+            allowOverBudget: false,
+            warningThreshold: 80,
+          },
+          quality: {
+            depth: "standard",
+            accuracy: "prefer_evidence",
+            reviewRequired: false,
+            minReviewScore: 6,
+            maxReworks: 0,
+          },
+          efficiency: {
+            maxDuration: 600000,
+            priority: "normal",
+            allowParallel: false,
+            maxParallelism: 1,
+          },
         },
         getAllMembers: () => [leader],
         getMemberById: () => leader,
@@ -2839,19 +3346,30 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithTrace = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         mockTraceCollector as never,
-        undefined, undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const events = await collectEvents(orchestratorWithTrace.execute(
-        { prompt: "Failing mission", metadata: {} },
-        team,
-      ));
+      const events = await collectEvents(
+        orchestratorWithTrace.execute(
+          { prompt: "Failing mission", metadata: {} },
+          team,
+        ),
+      );
 
       expect(mockTraceCollector.startTrace).toHaveBeenCalled();
-      expect(mockTraceCollector.endTrace).toHaveBeenCalledWith("trace-fail", { status: "error" });
+      expect(mockTraceCollector.endTrace).toHaveBeenCalledWith("trace-fail", {
+        status: "error",
+      });
       expect(events.some((e) => e.type === "mission_failed")).toBe(true);
     });
   });
@@ -2872,7 +3390,13 @@ describe("MissionOrchestrator", () => {
       const orchestratorFull = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         mockTraceCollector as never,
         undefined,
         mockA2ABus as never,
@@ -2884,11 +3408,16 @@ describe("MissionOrchestrator", () => {
       state.phase = "executing";
       orchestratorFull["states"].set(missionId, state);
       orchestratorFull["missionTraces"].set(missionId, "trace-cancel");
-      orchestratorFull["originalInputs"].set(missionId, { prompt: "test", metadata: {} });
+      orchestratorFull["originalInputs"].set(missionId, {
+        prompt: "test",
+        metadata: {},
+      });
 
       await orchestratorFull.cancel(missionId);
 
-      expect(mockTraceCollector.endTrace).toHaveBeenCalledWith("trace-cancel", { status: "error" });
+      expect(mockTraceCollector.endTrace).toHaveBeenCalledWith("trace-cancel", {
+        status: "error",
+      });
       expect(mockA2ABus.clearSession).toHaveBeenCalledWith(missionId);
       expect(orchestratorFull["missionTraces"].has(missionId)).toBe(false);
       expect(orchestratorFull["originalInputs"].has(missionId)).toBe(false);
@@ -2907,7 +3436,13 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithCP = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         undefined,
         mockCheckpointManager as never,
         undefined,
@@ -2919,10 +3454,15 @@ describe("MissionOrchestrator", () => {
       state.intermediateOutputs.set("step-1", "output-1");
       orchestratorWithCP["states"].set(missionId, state);
 
-      await orchestratorWithCP["saveCheckpoint"](missionId, "workflow-1", "parse_complete", {
-        taskType: "research",
-        complexity: "medium",
-      });
+      await orchestratorWithCP["saveCheckpoint"](
+        missionId,
+        "workflow-1",
+        "parse_complete",
+        {
+          taskType: "research",
+          complexity: "medium",
+        },
+      );
 
       expect(mockCheckpointManager.createCheckpoint).toHaveBeenCalledWith(
         missionId,
@@ -2937,13 +3477,21 @@ describe("MissionOrchestrator", () => {
 
     it("should silently ignore errors from checkpointManager", async () => {
       const mockCheckpointManager = {
-        createCheckpoint: jest.fn().mockRejectedValue(new Error("Checkpoint DB unavailable")),
+        createCheckpoint: jest
+          .fn()
+          .mockRejectedValue(new Error("Checkpoint DB unavailable")),
       };
 
       const orchestratorWithCP = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         undefined,
         mockCheckpointManager as never,
         undefined,
@@ -2958,7 +3506,12 @@ describe("MissionOrchestrator", () => {
 
     it("should do nothing when checkpointManager is not provided", async () => {
       // orchestrator without checkpointManager
-      const result = await orchestrator["saveCheckpoint"]("mission-x", "wf-1", "phase", {});
+      const result = await orchestrator["saveCheckpoint"](
+        "mission-x",
+        "wf-1",
+        "phase",
+        {},
+      );
       expect(result).toBeUndefined();
     });
   });
@@ -2970,22 +3523,35 @@ describe("MissionOrchestrator", () => {
     it("should execute independent steps in parallel when enableParallel is true", async () => {
       const parallelMemStore = new Map<string, Map<string, unknown>>();
       const parallelMemService = {
-        setWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string, value: unknown) => {
-          if (!parallelMemStore.has(sessionId)) parallelMemStore.set(sessionId, new Map());
-          parallelMemStore.get(sessionId)!.set(key, value);
-        }),
-        getWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string) => {
-          return parallelMemStore.get(sessionId)?.get(key) ?? null;
-        }),
+        setWithSession: jest
+          .fn()
+          .mockImplementation(
+            async (sessionId: string, key: string, value: unknown) => {
+              if (!parallelMemStore.has(sessionId))
+                parallelMemStore.set(sessionId, new Map());
+              parallelMemStore.get(sessionId)!.set(key, value);
+            },
+          ),
+        getWithSession: jest
+          .fn()
+          .mockImplementation(async (sessionId: string, key: string) => {
+            return parallelMemStore.get(sessionId)?.get(key) ?? null;
+          }),
       };
 
       const parallelOrchestrator = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         parallelMemService as never,
-        undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: true },
       );
 
@@ -3046,9 +3612,25 @@ describe("MissionOrchestrator", () => {
         members: [],
         workflow: { id: "wf-parallel", type: "parallel", steps: [] },
         constraintProfile: {
-          cost: { budget: 1000, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
-          quality: { depth: "standard", accuracy: "prefer_evidence", reviewRequired: false, minReviewScore: 6, maxReworks: 0 },
-          efficiency: { maxDuration: 600000, priority: "normal", allowParallel: true, maxParallelism: 2 },
+          cost: {
+            budget: 1000,
+            modelPreference: "balanced",
+            allowOverBudget: false,
+            warningThreshold: 80,
+          },
+          quality: {
+            depth: "standard",
+            accuracy: "prefer_evidence",
+            reviewRequired: false,
+            minReviewScore: 6,
+            maxReworks: 0,
+          },
+          efficiency: {
+            maxDuration: 600000,
+            priority: "normal",
+            allowParallel: true,
+            maxParallelism: 2,
+          },
         },
         getAllMembers: () => [leader],
         getMemberById: (id: string) => (id === "leader-1" ? leader : undefined),
@@ -3059,18 +3641,41 @@ describe("MissionOrchestrator", () => {
       } as unknown as ITeam;
 
       const constraints = {
-        cost: { budget: 1000, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
-        quality: { depth: "standard", accuracy: "prefer_evidence", reviewRequired: false, minReviewScore: 6, maxReworks: 0 },
-        efficiency: { maxDuration: 600000, priority: "normal", allowParallel: true, maxParallelism: 2 },
+        cost: {
+          budget: 1000,
+          modelPreference: "balanced",
+          allowOverBudget: false,
+          warningThreshold: 80,
+        },
+        quality: {
+          depth: "standard",
+          accuracy: "prefer_evidence",
+          reviewRequired: false,
+          minReviewScore: 6,
+          maxReworks: 0,
+        },
+        efficiency: {
+          maxDuration: 600000,
+          priority: "normal",
+          allowParallel: true,
+          maxParallelism: 2,
+        },
       };
 
       parallelMemStore.set("mission-parallel", new Map([["plan", plan]]));
       const state = parallelOrchestrator["initializeState"]("mission-parallel");
       parallelOrchestrator["states"].set("mission-parallel", state);
-      parallelOrchestrator["originalInputs"].set("mission-parallel", { prompt: "test", metadata: {} });
+      parallelOrchestrator["originalInputs"].set("mission-parallel", {
+        prompt: "test",
+        metadata: {},
+      });
 
       const events: Array<{ type: MissionEventType }> = [];
-      for await (const event of parallelOrchestrator.executePlan(plan, team, constraints)) {
+      for await (const event of parallelOrchestrator.executePlan(
+        plan,
+        team,
+        constraints,
+      )) {
         events.push(event);
       }
 
@@ -3090,13 +3695,20 @@ describe("MissionOrchestrator", () => {
     it("should emit rework_requested when review fails and rework is performed", async () => {
       const reviewMemStore = new Map<string, Map<string, unknown>>();
       const reviewMemService = {
-        setWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string, value: unknown) => {
-          if (!reviewMemStore.has(sessionId)) reviewMemStore.set(sessionId, new Map());
-          reviewMemStore.get(sessionId)!.set(key, value);
-        }),
-        getWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string) => {
-          return reviewMemStore.get(sessionId)?.get(key) ?? null;
-        }),
+        setWithSession: jest
+          .fn()
+          .mockImplementation(
+            async (sessionId: string, key: string, value: unknown) => {
+              if (!reviewMemStore.has(sessionId))
+                reviewMemStore.set(sessionId, new Map());
+              reviewMemStore.get(sessionId)!.set(key, value);
+            },
+          ),
+        getWithSession: jest
+          .fn()
+          .mockImplementation(async (sessionId: string, key: string) => {
+            return reviewMemStore.get(sessionId)?.get(key) ?? null;
+          }),
       };
 
       // LLM factory for review: first call returns failing review, second passes
@@ -3106,13 +3718,23 @@ describe("MissionOrchestrator", () => {
           reviewCallCount++;
           if (reviewCallCount === 1) {
             return Promise.resolve({
-              content: JSON.stringify({ score: 4, passed: false, feedback: "Needs improvement", issues: ["Too brief"] }),
+              content: JSON.stringify({
+                score: 4,
+                passed: false,
+                feedback: "Needs improvement",
+                issues: ["Too brief"],
+              }),
               model: "gpt-4o",
               usage: { promptTokens: 30, completionTokens: 20 },
             });
           }
           return Promise.resolve({
-            content: JSON.stringify({ score: 8, passed: true, feedback: "Good now", issues: [] }),
+            content: JSON.stringify({
+              score: 8,
+              passed: true,
+              feedback: "Good now",
+              issues: [],
+            }),
             model: "gpt-4o",
             usage: { promptTokens: 40, completionTokens: 30 },
           });
@@ -3160,12 +3782,29 @@ describe("MissionOrchestrator", () => {
           ],
         },
         constraintProfile: {
-          cost: { budget: 1000, modelPreference: "balanced", allowOverBudget: false, warningThreshold: 80 },
-          quality: { depth: "standard", accuracy: "prefer_evidence", reviewRequired: true, minReviewScore: 6, maxReworks: 1 },
-          efficiency: { maxDuration: 600000, priority: "normal", allowParallel: false, maxParallelism: 1 },
+          cost: {
+            budget: 1000,
+            modelPreference: "balanced",
+            allowOverBudget: false,
+            warningThreshold: 80,
+          },
+          quality: {
+            depth: "standard",
+            accuracy: "prefer_evidence",
+            reviewRequired: true,
+            minReviewScore: 6,
+            maxReworks: 1,
+          },
+          efficiency: {
+            maxDuration: 600000,
+            priority: "normal",
+            allowParallel: false,
+            maxParallelism: 1,
+          },
         },
         getAllMembers: () => [leader],
-        getMemberById: (id: string) => (id === "leader-review" ? leader : undefined),
+        getMemberById: (id: string) =>
+          id === "leader-review" ? leader : undefined,
         getMembersByRole: () => [leader],
         hasRole: () => true,
         getAvailableSkills: () => [],
@@ -3175,18 +3814,25 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithReview = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined,
+        undefined,
+        undefined,
         mockLlmFactory as never,
         reviewMemService as never,
-        undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
-      const events = await collectEvents(orchestratorWithReview.execute(
-        { prompt: "Research AI", metadata: {} },
-        teamWithReview,
-      ));
+      const events = await collectEvents(
+        orchestratorWithReview.execute(
+          { prompt: "Research AI", metadata: {} },
+          teamWithReview,
+        ),
+      );
 
       const types = events.map((e) => e.type);
       expect(types).toContain("review_started");
@@ -3201,32 +3847,52 @@ describe("MissionOrchestrator", () => {
     it("should store and retrieve context via memoryService", async () => {
       const memStore = new Map<string, Map<string, unknown>>();
       const mockMemService = {
-        setWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string, value: unknown) => {
-          if (!memStore.has(sessionId)) memStore.set(sessionId, new Map());
-          memStore.get(sessionId)!.set(key, value);
-        }),
-        getWithSession: jest.fn().mockImplementation(async (sessionId: string, key: string) => {
-          return memStore.get(sessionId)?.get(key) ?? null;
-        }),
+        setWithSession: jest
+          .fn()
+          .mockImplementation(
+            async (sessionId: string, key: string, value: unknown) => {
+              if (!memStore.has(sessionId)) memStore.set(sessionId, new Map());
+              memStore.get(sessionId)!.set(key, value);
+            },
+          ),
+        getWithSession: jest
+          .fn()
+          .mockImplementation(async (sessionId: string, key: string) => {
+            return memStore.get(sessionId)?.get(key) ?? null;
+          }),
       };
 
       const orchestratorWithMem = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMemService as never,
-        undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
       const missionId = "mem-test";
-      await orchestratorWithMem["storeContext"](missionId, "input", { prompt: "test" });
-      await orchestratorWithMem["storeContext"](missionId, "plan", { steps: [] });
+      await orchestratorWithMem["storeContext"](missionId, "input", {
+        prompt: "test",
+      });
+      await orchestratorWithMem["storeContext"](missionId, "plan", {
+        steps: [],
+      });
 
       const context = await orchestratorWithMem["getContext"](missionId);
 
-      expect(mockMemService.setWithSession).toHaveBeenCalledWith(missionId, "input", { prompt: "test" });
+      expect(mockMemService.setWithSession).toHaveBeenCalledWith(
+        missionId,
+        "input",
+        { prompt: "test" },
+      );
       expect(context.input).toEqual({ prompt: "test" });
       expect(context.plan).toEqual({ steps: [] });
     });
@@ -3239,17 +3905,25 @@ describe("MissionOrchestrator", () => {
 
     it("should handle memory service throwing during store gracefully", async () => {
       const mockMemService = {
-        setWithSession: jest.fn().mockRejectedValue(new Error("Memory failure")),
+        setWithSession: jest
+          .fn()
+          .mockRejectedValue(new Error("Memory failure")),
         getWithSession: jest.fn(),
       };
 
       const orchestratorWithMem = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMemService as never,
-        undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -3268,10 +3942,16 @@ describe("MissionOrchestrator", () => {
       const orchestratorWithMem = new MissionOrchestrator(
         mockConstraintEngine,
         mockConfigService,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
         mockMemService as never,
-        undefined, undefined, undefined,
-        undefined, undefined, undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         { enableAutoRetry: false, enableParallel: false },
       );
 
@@ -3291,8 +3971,20 @@ describe("MissionOrchestrator", () => {
       state.resourceUsage.tokensUsed = 500;
       state.resourceUsage.costUsed = 2.5;
       state.reviewResults = [
-        { stepId: "s1", passed: true, score: 9, feedback: "Good", reviewedAt: new Date() },
-        { stepId: "s2", passed: false, score: 5, feedback: "Bad", reviewedAt: new Date() },
+        {
+          stepId: "s1",
+          passed: true,
+          score: 9,
+          feedback: "Good",
+          reviewedAt: new Date(),
+        },
+        {
+          stepId: "s2",
+          passed: false,
+          score: 5,
+          feedback: "Bad",
+          reviewedAt: new Date(),
+        },
       ];
 
       const startTime = Date.now() - 1000;
@@ -3314,7 +4006,12 @@ describe("MissionOrchestrator", () => {
       const state = orchestrator["initializeState"]("fail-result-test");
       const startTime = Date.now();
 
-      const result = orchestrator["createResult"](state, startTime, false, "Network error");
+      const result = orchestrator["createResult"](
+        state,
+        startTime,
+        false,
+        "Network error",
+      );
 
       expect(result.success).toBe(false);
       expect(result.summary).toContain("Network error");
@@ -3341,7 +4038,10 @@ describe("MissionOrchestrator", () => {
       state.failedSteps = ["s3"];
       state.currentSteps = ["s4"];
 
-      const usage = orchestrator["updateResourceUsage"](state, Date.now() - 5000);
+      const usage = orchestrator["updateResourceUsage"](
+        state,
+        Date.now() - 5000,
+      );
 
       // 2 completed / (2 completed + 1 failed + 1 current) = 0.5
       expect(usage.progress).toBe(0.5);

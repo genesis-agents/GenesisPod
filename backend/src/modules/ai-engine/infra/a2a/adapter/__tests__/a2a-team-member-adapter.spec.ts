@@ -3,8 +3,11 @@
  */
 
 import { Logger } from "@nestjs/common";
-import { A2ATeamMemberAdapter } from "../a2a-team-member-adapter";
-import { A2ATaskStatus, A2AAgentCard } from "../../abstractions/a2a.interface";
+import { A2ATeamMemberAdapter } from "../../../../../ai-kernel/facade";
+import {
+  A2ATaskStatus,
+  A2AAgentCard,
+} from "../../../../../ai-kernel/ipc/a2a/a2a.types";
 
 function makeAgentCard(overrides: Partial<A2AAgentCard> = {}): A2AAgentCard {
   return {

@@ -38,7 +38,7 @@ import { AiEngineModule } from "../../modules/ai-engine/ai-engine.module";
       timeout: 120000, // 2 分钟超时（图像生成需要较长时间）
       maxRedirects: 5,
     }),
-    // 导入 AiEngineModule 以使用 AIEngineFacade
+    // 导入 AiEngineModule 以使用 ChatFacade
     forwardRef(() => AiEngineModule),
   ],
   providers: [

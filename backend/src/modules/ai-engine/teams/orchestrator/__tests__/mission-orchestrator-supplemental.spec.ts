@@ -14,7 +14,7 @@
 
 import { ConfigService } from "@nestjs/config";
 import { MissionOrchestrator } from "../mission-orchestrator";
-import { ConstraintEngine } from "../../constraints/constraint-engine";
+import { ConstraintEngine } from "../../../../ai-kernel/facade";
 import {
   MissionInput,
   MissionEventType,
@@ -22,8 +22,8 @@ import {
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
-import { TraceCollectorService } from "../../infra/observability/trace-collector.service";
-import { ShortTermMemoryService } from "../../knowledge/memory/stores/short-term-memory.service";
+import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
+import { WorkingMemoryStore as ShortTermMemoryService } from "../../../../ai-kernel/facade";
 
 // ---------------------------------------------------------------------------
 // Helpers

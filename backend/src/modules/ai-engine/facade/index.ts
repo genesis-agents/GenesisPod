@@ -25,7 +25,7 @@ export type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
-export { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
+export { TaskCompletionType } from "../../ai-kernel/facade";
 export { UserIntent } from "../orchestration/services/interfaces";
 export type { TeamInfo } from "../teams/services/teams.service";
 
@@ -84,7 +84,7 @@ export type {
   CompressionOptions,
 } from "../orchestration/services/interfaces";
 export { ContextStrategy } from "../orchestration/services/interfaces";
-export { ConstraintEnforcementService } from "../orchestration/services/constraint-enforcement.service";
+export { ConstraintEnforcementService } from "../../ai-kernel/facade";
 export type {
   ConstraintSeverity,
   ExtractedConstraint,
@@ -102,15 +102,15 @@ export type {
 export { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 export { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 export { AgentExecutorService } from "../orchestration/services/agent-executor.service";
-export { CircuitBreakerService } from "../orchestration/services/circuit-breaker.service";
+export { CircuitBreakerService } from "../../ai-kernel/facade";
 export { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
-export { ExecutionStateManager } from "../orchestration/state-machine/execution-state.manager";
+export { ProcessSupervisorService as ExecutionStateManager } from "../../ai-kernel/facade";
 
 // State-machine types（for teams/mission-state.manager.ts）
-export { StateCategory } from "../orchestration/state-machine";
-export type { ExecutionStateStats } from "../orchestration/state-machine";
+export { StateCategory } from "../../ai-kernel/facade";
+export type { ExecutionStateStats } from "../../ai-kernel/facade";
 
 // MCP abstraction types（for social/mcp-client.service.ts）
 export type {
@@ -311,20 +311,24 @@ export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
 export { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";
 export { IntentRouterService } from "../orchestration/services/intent-router.service";
+export type {
+  RouteResult,
+  AgentContext as IntentAgentContext,
+} from "../orchestration/services/intent-router.service";
 
 // ★ Batch 2 — Safety（for mcp-server guardrails integration）
 export { GuardrailsPipelineService } from "../safety/guardrails/guardrails-pipeline.service";
 
 // ★ Batch 2 — Observability（for admin monitoring and health checks）
-export { TraceCollectorService } from "../infra/observability/trace-collector.service";
-export { AiObservabilityService } from "../infra/observability/ai-observability.service";
-export { CostAttributionService } from "../infra/observability/cost-attribution.service";
+export { ProcessEventLogService as TraceCollectorService } from "../../ai-kernel/facade";
+export { KernelMetricsService as AiObservabilityService } from "../../ai-kernel/facade";
+export { CostAttributionService } from "../../ai-kernel/facade";
 export { EvalPipelineService } from "../infra/observability/eval-pipeline.service";
 export type { TraceType } from "../infra/observability/trace.interface";
 
 // ★ Batch 2 — Realtime（for mcp-server streaming bridge）
-export { EngineEventEmitterService } from "../infra/realtime/services/engine-event-emitter.service";
-export { ProgressTrackerService } from "../infra/realtime/services/progress-tracker.service";
+export { EventBusService as EngineEventEmitterService } from "../../ai-kernel/facade";
+export { ProgressTrackerService } from "../../ai-kernel/facade";
 
 // ★ Batch 2 — Content services（for office re-exports）
 export { ImageMatchingService } from "../content/image/matching/image-matching.service";

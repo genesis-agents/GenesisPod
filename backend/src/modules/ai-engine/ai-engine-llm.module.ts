@@ -32,7 +32,6 @@ import { AiApiCallerService } from "./llm/services/ai-api-caller.service";
 import { AiStreamHandlerService } from "./llm/services/ai-stream-handler.service";
 import { AiChatPromptService } from "./llm/services/ai-chat-prompt.service";
 import { AiChatRetryService } from "./llm/services/ai-chat-retry.service";
-import { SearchService } from "./knowledge/search/search.service";
 
 // Extracted Services (from ai-chat.service.ts God Object split)
 import { AiConnectionTestService } from "./llm/services/ai-connection-test.service";
@@ -85,7 +84,6 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     AiChatPromptService,
     AiChatRetryService,
     AiChatService,
-    SearchService,
 
     // Extracted Services
     AiConnectionTestService,
@@ -108,7 +106,6 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     AiChatPromptService,
     AiChatRetryService,
     AiChatService,
-    SearchService,
     AiConnectionTestService,
     AiModelDiscoveryService,
     AiDirectKeyService,

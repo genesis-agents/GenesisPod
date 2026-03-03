@@ -5,7 +5,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { CostController } from "../cost-controller";
+import { CostController } from "../../../../../ai-kernel/facade";
 import { CacheService } from "@/common/cache/cache.service";
 
 describe("CostController", () => {

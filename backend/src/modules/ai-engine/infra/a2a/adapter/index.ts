@@ -2,5 +2,5 @@
  * A2A Adapter Exports
  */
 
-export * from "./a2a-team-member-adapter";
-export * from "./a2a-client.service";
+// a2a-team-member-adapter — migrated to ai-kernel
+// a2a-client.service — migrated to ai-kernel

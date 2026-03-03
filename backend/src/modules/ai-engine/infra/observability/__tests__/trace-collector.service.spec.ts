@@ -14,7 +14,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { TraceCollectorService } from "../trace-collector.service";
+import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
 
 describe("TraceCollectorService", () => {
   let service: TraceCollectorService;

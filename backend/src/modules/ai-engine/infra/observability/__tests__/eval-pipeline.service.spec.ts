@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EvalPipelineService } from "../eval-pipeline.service";
-import { TraceCollectorService } from "../trace-collector.service";
+import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
 import { AiChatService } from "../../../llm/services/ai-chat.service";
 import { TraceData } from "../trace.interface";
 

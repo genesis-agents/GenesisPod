@@ -26,18 +26,18 @@ import { ParallelExecutor } from "./orchestration/executors/parallel-executor";
 import { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
 
 // Checkpoints
-import { CheckpointManager } from "./orchestration/checkpoints/checkpoint-manager";
+import { CheckpointManager } from "../ai-kernel/facade";
 
 // Orchestration Services
 import { TaskDecomposerService } from "./orchestration/services/task-decomposer.service";
 import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
 import { OutputReviewerService } from "./orchestration/services/output-reviewer.service";
 import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
-import { CircuitBreakerService } from "./orchestration/services/circuit-breaker.service";
+import { CircuitBreakerService } from "../ai-kernel/facade";
 import { TokenBudgetService } from "./orchestration/services/token-budget.service";
 import { ContextEvolutionService } from "./orchestration/services/context-evolution.service";
 import { ContextInitializationService } from "./orchestration/services/context-initialization.service";
-import { ConstraintEnforcementService } from "./orchestration/services/constraint-enforcement.service";
+import { ConstraintEnforcementService } from "../ai-kernel/facade";
 import { ContextCompressionService } from "./orchestration/services/context-compression.service";
 import { IntentDetectionService } from "./orchestration/services/intent-detection.service";
 import { ReflectionService } from "./orchestration/services/reflection.service";
@@ -47,7 +47,7 @@ import { TaskPlannerService } from "./orchestration/services/task-planner.servic
 import { IntentRouterService } from "./orchestration/services/intent-router.service";
 
 // State Machine
-import { ExecutionStateManager } from "./orchestration/state-machine/execution-state.manager";
+import { ProcessSupervisorService as ExecutionStateManager } from "../ai-kernel/facade";
 
 // Agents (needed for executors)
 import { AgentOrchestrator } from "./agents/registry";

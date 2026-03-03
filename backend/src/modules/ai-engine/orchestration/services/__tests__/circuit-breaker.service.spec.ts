@@ -9,7 +9,7 @@ import {
   CircuitBreakerService,
   TaskCompletionType,
   CircuitState as _CircuitState,
-} from "../circuit-breaker.service";
+} from "../../../../ai-kernel/facade";
 
 describe("CircuitBreakerService", () => {
   let service: CircuitBreakerService;
@@ -507,7 +507,7 @@ describe("CircuitBreakerService", () => {
       const entityId = "entity-1";
 
       // Initialize the service to start the cleanup scheduler
-      service.onModuleInit();
+      void service.onModuleInit();
 
       service.recordSuccess(entityId);
 

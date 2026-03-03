@@ -13,7 +13,7 @@ import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 
 // Memory Stores
-import { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
+import { WorkingMemoryStore as ShortTermMemoryService } from "../ai-kernel/facade";
 import { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
 import {
   InMemoryStore,

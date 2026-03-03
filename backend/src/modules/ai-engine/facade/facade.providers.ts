@@ -6,25 +6,25 @@
  */
 
 import { Provider } from "@nestjs/common";
-import { ShortTermMemoryService } from "../knowledge/memory/stores/short-term-memory.service";
+import { WorkingMemoryStore as ShortTermMemoryService } from "../../ai-kernel/facade";
 import { LongTermMemoryService } from "../knowledge/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
-import { CircuitBreakerService } from "../orchestration/services/circuit-breaker.service";
+import { CircuitBreakerService } from "../../ai-kernel/facade";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖
-import { EngineEventEmitterService } from "../infra/realtime/services/engine-event-emitter.service";
-import { ProgressTrackerService } from "../infra/realtime/services/progress-tracker.service";
+import { EventBusService as EngineEventEmitterService } from "../../ai-kernel/facade";
+import { ProgressTrackerService } from "../../ai-kernel/facade";
 // ★ Constraint Feature 依赖
-import { RateLimiter } from "../safety/constraint/guardrails/rate-limiter";
-import { CostController } from "../safety/constraint/guardrails/cost-controller";
+import { RateLimiter } from "../../ai-kernel/facade";
+import { CostController } from "../../ai-kernel/facade";
 // ★ Orchestration 扩展依赖
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
-import { ExecutionStateManager } from "../orchestration/state-machine/execution-state.manager";
+import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-kernel/facade";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 // ★ Skill 扩展依赖
@@ -56,9 +56,9 @@ import type { IReportSynthesisEngine } from "../content/abstractions/content-eng
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../knowledge/evidence/services/evidence-manager.service";
 import { VotingManager } from "../agents/collaboration/patterns/voting-pattern";
-import { A2AMessageBusService } from "../teams/services/a2a-message-bus.service";
+import { MessageBusService as A2AMessageBusService } from "../../ai-kernel/facade";
 // ★ Observability Feature 依赖
-import { TraceCollectorService } from "../infra/observability/trace-collector.service";
+import { ProcessEventLogService as TraceCollectorService } from "../../ai-kernel/facade";
 import { MemoryCoordinatorService } from "../knowledge/memory/memory-coordinator.service";
 // ★ Registry Feature 依赖
 import { AgentRegistry } from "../agents/registry";

@@ -6,10 +6,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import {
-  ExecutionStateManager,
+  ProcessSupervisorService as ExecutionStateManager,
   StateCategory,
   ExecutionStateConfig,
-} from "../execution-state.manager";
+} from "../../../../ai-kernel/facade";
 import { CacheService } from "@/common/cache/cache.service";
 
 describe("ExecutionStateManager", () => {
@@ -261,7 +261,7 @@ describe("ExecutionStateManager", () => {
       jest.advanceTimersByTime(31 * 60 * 1000);
 
       // Trigger cleanup via initialization
-      service.onModuleInit();
+      void service.onModuleInit();
       jest.advanceTimersByTime(5 * 60 * 1000); // Cleanup interval
 
       const ids = service.getActiveIds(StateCategory.TASK);
@@ -274,7 +274,7 @@ describe("ExecutionStateManager", () => {
       // Advance time but stay within TTL
       jest.advanceTimersByTime(20 * 60 * 1000);
 
-      service.onModuleInit();
+      void service.onModuleInit();
       jest.advanceTimersByTime(5 * 60 * 1000);
 
       expect(service.isActive(StateCategory.TASK, "task-1")).toBe(true);
@@ -286,7 +286,7 @@ describe("ExecutionStateManager", () => {
 
       jest.advanceTimersByTime(31 * 60 * 1000);
 
-      service.onModuleInit();
+      void service.onModuleInit();
       jest.advanceTimersByTime(5 * 60 * 1000);
 
       expect(service.getStats().totalActive).toBe(0);

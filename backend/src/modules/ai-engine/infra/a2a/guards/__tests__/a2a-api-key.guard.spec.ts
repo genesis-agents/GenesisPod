@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { A2AApiKeyGuard } from "../a2a-api-key.guard";
+import { A2AApiKeyGuard } from "../../../../../ai-kernel/facade";
 import { SecretsService } from "../../../../../ai-infra/secrets/secrets.service";
 import * as cryptoUtils from "../../../../../../common/utils/crypto.utils";
 

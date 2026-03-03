@@ -12,7 +12,10 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { CostAttributionService, CostEvent } from "../cost-attribution.service";
+import {
+  CostAttributionService,
+  CostEvent,
+} from "../../../../ai-kernel/facade";
 
 describe("CostAttributionService", () => {
   let service: CostAttributionService;

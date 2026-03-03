@@ -10,13 +10,13 @@ import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
 import { AIMetricsService } from "../../../../ai-infra/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
-import { CircuitBreakerService } from "../../../orchestration/services/circuit-breaker.service";
+import { CircuitBreakerService } from "../../../../ai-kernel/facade";
 import { AiConnectionTestService } from "../ai-connection-test.service";
 import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";
 import { AiImageGenerationService } from "../ai-image-generation.service";
 import { AiChatRetryService } from "../ai-chat-retry.service";
-import { TraceCollectorService } from "../../../infra/observability/trace-collector.service";
+import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
 import { AIModelType } from "@prisma/client";
 import { AiServiceUnavailableError } from "../../../core/exceptions";
 

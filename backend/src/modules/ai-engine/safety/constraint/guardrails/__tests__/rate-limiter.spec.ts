@@ -5,7 +5,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { RateLimiter, TokenBucket } from "../rate-limiter";
+import { RateLimiter, TokenBucket } from "../../../../../ai-kernel/facade";
 import { CacheService } from "@/common/cache/cache.service";
 
 describe("RateLimiter", () => {

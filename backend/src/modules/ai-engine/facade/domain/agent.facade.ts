@@ -47,11 +47,11 @@ import type {
   RoomConfig,
   ProgressEvent,
 } from "../../infra/realtime/abstractions/event-emitter.interface";
-import { CircuitBreakerService } from "../../orchestration/services/circuit-breaker.service";
+import { CircuitBreakerService } from "../../../ai-kernel/facade";
 import { AgentExecutorService } from "../../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../../orchestration/services/intent-detection.service";
-import { ExecutionStateManager } from "../../orchestration/state-machine/execution-state.manager";
+import { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-kernel/facade";
 import { OutputReviewerService } from "../../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../../orchestration/services/context-evolution.service";
 import { AgentRegistry } from "../../agents/registry";

@@ -403,4 +403,165 @@ describe("MissionExecutorService", () => {
       expect(result).toBeNull();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // executeWithTimeout()
+  // -------------------------------------------------------------------------
+
+  describe("executeWithTimeout()", () => {
+    const baseOptions = {
+      userId: "user-1",
+      agentId: "agent-1",
+      input: { task: "do something" },
+    };
+
+    it("should execute and return a result with a timeout reference", async () => {
+      const result = await service.executeWithTimeout(baseOptions, 5000);
+
+      expect(result.processId).toBe("proc-1");
+      expect(mockProcessManager.spawn).toHaveBeenCalledTimes(1);
+
+      // Clear the timer to prevent test pollution
+      const ref = (result as any)._timeoutRef;
+      if (ref) clearTimeout(ref);
+    });
+
+    it("should call fail after timeout expires", async () => {
+      jest.useFakeTimers();
+
+      const _result = await service.executeWithTimeout(baseOptions, 3000);
+
+      // Fail should not have been called yet
+      expect(mockProcessManager.transition).not.toHaveBeenCalledWith(
+        "proc-1",
+        "FAILED",
+      );
+
+      // Advance past timeout
+      jest.advanceTimersByTime(3100);
+
+      // Allow microtask queue to flush
+      await Promise.resolve();
+
+      expect(mockProcessManager.transition).toHaveBeenCalledWith(
+        "proc-1",
+        "FAILED",
+      );
+
+      jest.useRealTimers();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // executeWithRetry()
+  // -------------------------------------------------------------------------
+
+  describe("executeWithRetry()", () => {
+    const baseOptions = {
+      userId: "user-1",
+      agentId: "agent-1",
+      input: { task: "do something" },
+    };
+
+    it("should succeed on first attempt without retrying", async () => {
+      const result = await service.executeWithRetry(baseOptions);
+
+      expect(result.processId).toBe("proc-1");
+      expect(mockProcessManager.spawn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should retry on transient failure and succeed", async () => {
+      mockProcessManager.spawn
+        .mockRejectedValueOnce(new Error("transient"))
+        .mockResolvedValueOnce(makeSnapshot({ id: "proc-2" }));
+
+      const result = await service.executeWithRetry(baseOptions, {
+        maxRetries: 2,
+        backoffMs: 10,
+      });
+
+      expect(result.processId).toBe("proc-2");
+      expect(mockProcessManager.spawn).toHaveBeenCalledTimes(2);
+    });
+
+    it("should throw after all retries are exhausted", async () => {
+      mockProcessManager.spawn.mockRejectedValue(new Error("permanent"));
+
+      await expect(
+        service.executeWithRetry(baseOptions, {
+          maxRetries: 1,
+          backoffMs: 10,
+        }),
+      ).rejects.toThrow("permanent");
+
+      expect(mockProcessManager.spawn).toHaveBeenCalledTimes(2); // 1 initial + 1 retry
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // recover()
+  // -------------------------------------------------------------------------
+
+  describe("recover()", () => {
+    it("should recover a FAILED process by transitioning to READY then RUNNING", async () => {
+      mockProcessManager.getState.mockResolvedValue(
+        makeSnapshot({ id: "proc-1", state: "FAILED" }),
+      );
+
+      const result = await service.recover("proc-1");
+
+      expect(mockProcessManager.transition).toHaveBeenNthCalledWith(
+        1,
+        "proc-1",
+        "READY",
+      );
+      expect(mockProcessManager.transition).toHaveBeenNthCalledWith(
+        2,
+        "proc-1",
+        "RUNNING",
+      );
+      expect(result.processId).toBe("proc-1");
+      expect(mockEventJournal.record).toHaveBeenCalledWith(
+        "proc-1",
+        "process:recovered",
+        expect.objectContaining({ previousState: "FAILED" }),
+      );
+    });
+
+    it("should return existing snapshot if process is already RUNNING", async () => {
+      const runningSnapshot = makeSnapshot({ id: "proc-1", state: "RUNNING" });
+      mockProcessManager.getState.mockResolvedValue(runningSnapshot);
+
+      const result = await service.recover("proc-1");
+
+      expect(result.process).toEqual(runningSnapshot);
+      expect(mockProcessManager.transition).not.toHaveBeenCalled();
+    });
+
+    it("should throw if process not found", async () => {
+      mockProcessManager.getState.mockResolvedValue(null);
+
+      await expect(service.recover("proc-missing")).rejects.toThrow(
+        "Process proc-missing not found",
+      );
+    });
+
+    it("should include hasCheckpoint info in recovery event", async () => {
+      mockProcessManager.getState.mockResolvedValue(
+        makeSnapshot({
+          id: "proc-1",
+          state: "FAILED",
+          checkpoint: { step: 3, data: "partial" },
+        }),
+      );
+
+      await service.recover("proc-1");
+
+      expect(mockEventJournal.record).toHaveBeenCalledWith(
+        "proc-1",
+        "process:recovered",
+        expect.objectContaining({ hasCheckpoint: true }),
+      );
+    });
+  });
 });
