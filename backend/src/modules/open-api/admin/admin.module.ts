@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import {
@@ -45,7 +45,7 @@ import {
 @Module({
   imports: [
     PrismaModule,
-    AiEngineModule,
+    forwardRef(() => AiEngineModule),
     SecretsModule,
     QuotaModule,
     MCPServerModule,
