@@ -1,6 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade, EvalPipelineService } from "@/modules/ai-engine/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "./research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -114,6 +114,8 @@ export class TopicTeamOrchestratorService {
     private readonly dataSourceRouterService: DataSourceRouterService,
     private readonly researchTodoService: ResearchTodoService,
     @Optional() private readonly agentFacade?: AgentFacade,
+    // ★ Batch 2: 自动化质量评估
+    @Optional() private readonly evalPipeline?: EvalPipelineService,
   ) {}
 
   /**
@@ -1048,6 +1050,12 @@ export class TopicTeamOrchestratorService {
 
       if (traceId) {
         this.agentFacade?.endTrace(traceId, { status: "success" });
+        // ★ Batch 2: 火后即忘评估 trace 质量
+        if (this.evalPipeline) {
+          void this.evalPipeline
+            .evaluate(traceId)
+            .catch((err) => this.logger.debug(`EvalPipeline failed: ${err}`));
+        }
       }
 
       return finalReport;

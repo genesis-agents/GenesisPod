@@ -57,7 +57,18 @@ import {
   KernelMemoryManagerService,
   CostAttributionService,
   EventBusService,
+  ResourceManagerService,
+  MessageBusService,
+  KernelSchedulerService,
+  type A2AMessageType,
 } from "@/modules/ai-kernel/facade";
+import { GuardrailsPipelineService } from "@/modules/ai-engine/facade";
+import {
+  ErrorTrackingService,
+  AIMetricsService,
+  SettingsService,
+  EmailService,
+} from "@/modules/ai-infra/facade";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import type { ResearchDepth } from "../../types/v5-research.types";
@@ -148,6 +159,18 @@ export class ResearchMissionService {
     @Optional() private readonly costAttribution?: CostAttributionService,
     // ★ Phase 3: 跨模块研究可观测性
     @Optional() private readonly kernelEventBus?: EventBusService,
+    // ★ Batch 2: 输入输出安全验证
+    @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
+    // ★ Batch 2: 错误追踪和 AI 指标
+    @Optional() private readonly errorTracking?: ErrorTrackingService,
+    @Optional() private readonly aiMetrics?: AIMetricsService,
+    // ★ Batch 3: AI 设置和邮件通知
+    @Optional() private readonly settingsService?: SettingsService,
+    @Optional() private readonly emailService?: EmailService,
+    // ★ Batch 3: 内核资源管理、消息总线、调度器
+    @Optional() private readonly resourceManager?: ResourceManagerService,
+    @Optional() private readonly messageBus?: MessageBusService,
+    @Optional() private readonly kernelScheduler?: KernelSchedulerService,
   ) {}
 
   /**
@@ -174,6 +197,30 @@ export class ResearchMissionService {
 
     if (!topic) {
       throw new NotFoundException(`Topic ${topicId} not found`);
+    }
+
+    // ★ Batch 2: Guardrails — 验证输入安全性
+    if (this.guardrailsPipeline) {
+      try {
+        const inputContent = [topic.name, topic.description, userPrompt]
+          .filter(Boolean)
+          .join("\n");
+        const guardrailResult = await this.guardrailsPipeline.processInput({
+          content: inputContent,
+          userId: topic.userId,
+          context: { module: "topic-insights", topicId },
+        });
+        if (!guardrailResult.passed) {
+          throw new BadRequestException(
+            `Input validation failed: blocked by ${guardrailResult.blockedBy || "guardrails"}`,
+          );
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) throw error;
+        this.logger.warn(
+          `[createMission] Guardrails check failed (non-blocking): ${error instanceof Error ? error.message : error}`,
+        );
+      }
     }
 
     // ★ 增量模式：查找已完成的维度任务（用于继承）
@@ -389,6 +436,21 @@ export class ResearchMissionService {
       this.progressTracker.start(mission.id);
     }
 
+    // ★ Batch 3: KernelScheduler — 记录调度器状态用于可观测性
+    if (this.kernelScheduler) {
+      void (async () => {
+        try {
+          const stats = await this.kernelScheduler!.getStats();
+          this.logger.log(
+            `[KernelScheduler] Stats at mission start: running=${stats.running}, ` +
+              `ready=${stats.ready}, maxConcurrent=${stats.maxConcurrent}`,
+          );
+        } catch (e) {
+          this.logger.debug(`KernelScheduler getStats failed: ${e}`);
+        }
+      })();
+    }
+
     // ★ 启动进度追踪（必须在发送其他事件之前）
     const isQuickMode = researchDepth === "quick";
     await this.researchEventEmitter.emitMissionStarted(
@@ -599,6 +661,20 @@ export class ResearchMissionService {
     } catch (error) {
       const errorMsg =
         error instanceof Error ? error.message : "规划失败：未知错误";
+
+      // ★ Batch 2: ErrorTracking — 记录规划失败
+      if (this.errorTracking) {
+        void this.errorTracking
+          .logError({
+            errorCode: "RESEARCH_PLANNING_FAILED",
+            errorType: "ResearchMissionError",
+            message: errorMsg,
+            severity: "error",
+            component: "topic-insights",
+            metadata: { topicId, missionId },
+          })
+          .catch((e) => this.logger.debug(`ErrorTracking failed: ${e}`));
+      }
 
       // 规划失败，更新状态
       // ★ 使用 try-catch 包裹更新操作，避免 mission 已被删除时报错
@@ -2095,6 +2171,48 @@ export class ResearchMissionService {
         ? currentTask.tools
         : agentAssignment?.tools || [];
 
+    // ★ Batch 3: ResourceManager — 执行前预算检查
+    const processId = this.kernelProcessIds.get(missionId);
+    if (processId && this.resourceManager) {
+      try {
+        const budget = await this.resourceManager.checkBudget(processId);
+        if (!budget.canProceed) {
+          this.logger.warn(
+            `[executeTask] Budget exceeded for mission ${missionId}: ${budget.reason}`,
+          );
+          await this.updateTaskStatus(task.id, ResearchTaskStatus.FAILED, {
+            result: { error: `Budget exceeded: ${budget.reason}` },
+            resultSummary: `预算超限: ${budget.reason}`,
+          });
+          return;
+        }
+      } catch (e) {
+        this.logger.debug(`ResourceManager checkBudget failed: ${e}`);
+      }
+    }
+
+    // ★ Batch 3: MessageBus — 获取已完成维度的上下文（跨维度感知）
+    let crossDimensionContext: string | undefined;
+    if (this.messageBus && task.taskType === "dimension_research") {
+      try {
+        const history = this.messageBus.getHistory(missionId);
+        if (history.length > 0) {
+          crossDimensionContext = history
+            .filter((m) => m.type === ("info_share" as A2AMessageType))
+            .map((m) => {
+              const p = m.payload as {
+                dimensionName?: string;
+                keyFindings?: string[];
+              };
+              return `[${p.dimensionName ?? m.fromAgentId}]: ${(p.keyFindings ?? []).join("; ")}`;
+            })
+            .join("\n");
+        }
+      } catch (e) {
+        this.logger.debug(`MessageBus getHistory failed: ${e}`);
+      }
+    }
+
     try {
       // 更新任务状态为执行中
       await this.updateTaskStatus(task.id, ResearchTaskStatus.EXECUTING);
@@ -2169,6 +2287,13 @@ export class ResearchMissionService {
             this.logger.log(
               `[executeTask] Found dimension: ${dimension.name} (${dimension.id})${assignedModelId ? `, model: ${assignedModelId}` : ""}`,
             );
+
+            // ★ Batch 3: 跨维度上下文日志（MessageBus 提供的已完成维度摘要）
+            if (crossDimensionContext) {
+              this.logger.log(
+                `[executeTask] Cross-dimension context available (${crossDimensionContext.length} chars) for ${dimension.name}`,
+              );
+            }
 
             // ★ 发送进度事件：正在采集数据
             await this.researchEventEmitter.emitDimensionResearchProgress(
@@ -2848,6 +2973,52 @@ export class ResearchMissionService {
         );
       }
 
+      // ★ Batch 3: MessageBus — 发布维度研究结果供后续维度参考
+      if (this.messageBus && task.taskType === "dimension_research") {
+        void this.messageBus
+          .publish({
+            sessionId: missionId,
+            fromAgentId: `dimension-${task.dimensionId || task.id}`,
+            type: "info_share" as A2AMessageType,
+            payload: {
+              dimensionId: task.dimensionId,
+              dimensionName: task.dimensionName || task.title,
+              keyFindings:
+                (result?.keyFindings as unknown[])
+                  ?.slice(0, 5)
+                  ?.map((f: unknown) =>
+                    typeof f === "string"
+                      ? f
+                      : ((f as { finding?: string })?.finding ?? ""),
+                  ) ?? [],
+              completedAt: new Date().toISOString(),
+            },
+          })
+          .catch((e) => this.logger.debug(`MessageBus publish failed: ${e}`));
+      }
+
+      // ★ Batch 3: ResourceManager — 记录任务资源消耗
+      if (
+        processId &&
+        this.resourceManager &&
+        task.taskType === "dimension_research"
+      ) {
+        const tokens = result as Record<string, unknown>;
+        const tokensUsed =
+          ((tokens?.inputTokens as number) || 0) +
+          ((tokens?.outputTokens as number) || 0);
+        if (tokensUsed > 0) {
+          void this.resourceManager
+            .consume(processId, {
+              tokensUsed,
+              costUsed: (tokens?.estimatedCost as number) || 0,
+            })
+            .catch((e) =>
+              this.logger.debug(`ResourceManager consume failed: ${e}`),
+            );
+        }
+      }
+
       // Store intermediate dimension research findings in Kernel WORKING memory
       if (this.kernelMemory && task.taskType === "dimension_research") {
         const processId = this.kernelProcessIds.get(missionId);
@@ -2980,6 +3151,23 @@ export class ResearchMissionService {
     const MAX_CONCURRENCY = 10;
 
     try {
+      // ★ Batch 3: SettingsService — 使用 AI 设置的速率限制作为并发度参考
+      let settingsHint: number | undefined;
+      if (this.settingsService) {
+        try {
+          const aiSettings = await this.settingsService.getAiSettings();
+          if (aiSettings.rateLimitPerMinute > 0) {
+            // 速率限制的 1/3 作为并发上限参考（每个任务约执行 3+ 次 LLM 调用）
+            settingsHint = Math.floor(aiSettings.rateLimitPerMinute / 3);
+            this.logger.debug(
+              `[calculateDynamicConcurrency] AI settings rateLimitPerMinute=${aiSettings.rateLimitPerMinute} → hint=${settingsHint}`,
+            );
+          }
+        } catch (e) {
+          this.logger.debug(`SettingsService failed: ${e}`);
+        }
+      }
+
       // 获取所有启用的 CHAT 模型
       const models = await this.chatFacade.getAvailableModels(AIModelType.CHAT);
 
@@ -2989,13 +3177,21 @@ export class ResearchMissionService {
 
       // 根据 Provider 数量计算并发度
       // 公式：基础 5 + 每多一个 Provider 增加 2，上限 10
-      const concurrency = Math.min(
+      let concurrency = Math.min(
         MAX_CONCURRENCY,
         Math.max(MIN_CONCURRENCY, MIN_CONCURRENCY + (providerCount - 1) * 2),
       );
 
+      // ★ Batch 3: 取 provider 计算值和设置提示值中较小的，避免超过速率限制
+      if (settingsHint !== undefined && settingsHint > 0) {
+        concurrency = Math.min(
+          concurrency,
+          Math.max(MIN_CONCURRENCY, settingsHint),
+        );
+      }
+
       this.logger.log(
-        `[calculateDynamicConcurrency] ${providerCount} providers (${Array.from(uniqueProviders).join(", ")}) → concurrency=${concurrency}`,
+        `[calculateDynamicConcurrency] ${providerCount} providers (${Array.from(uniqueProviders).join(", ")}) → concurrency=${concurrency}${settingsHint ? ` (settings hint: ${settingsHint})` : ""}`,
       );
 
       return concurrency;
@@ -3057,6 +3253,59 @@ export class ResearchMissionService {
         completedAt: new Date(),
       },
     });
+
+    // ★ Batch 2: AIMetrics — 记录 Mission 执行指标
+    if (this.aiMetrics) {
+      void this.aiMetrics
+        .recordMetric({
+          metricType: "mission_execution",
+          operationId: missionId,
+          success: finalStatus === ResearchMissionStatus.COMPLETED,
+          metadata: {
+            module: "topic-insights",
+            topicId,
+            completedTasks: completedTasks.length,
+            failedTasks: failedTasks.length,
+            totalTasks: tasks.length,
+          },
+        })
+        .catch((e) => this.logger.debug(`AIMetrics failed: ${e}`));
+    }
+
+    // ★ Batch 3: EmailService — 研究完成时发送邮件通知
+    if (this.emailService && finalStatus === ResearchMissionStatus.COMPLETED) {
+      void (async () => {
+        try {
+          const topic = await this.prisma.researchTopic.findUnique({
+            where: { id: topicId },
+            select: { userId: true, name: true },
+          });
+          if (topic?.userId) {
+            const user = await this.prisma.user.findUnique({
+              where: { id: topic.userId },
+              select: { email: true },
+            });
+            if (user?.email) {
+              await this.emailService!.sendMissionCompletionNotification({
+                to: user.email,
+                missionId,
+                missionTitle: topic.name,
+                reportUrl: `/topics/${topicId}/reports`,
+                summary: `${completedTasks.length}/${tasks.length} dimensions completed`,
+                completedAt: new Date(),
+              });
+            }
+          }
+        } catch (e) {
+          this.logger.debug(`EmailService notification failed: ${e}`);
+        }
+      })();
+    }
+
+    // ★ Batch 3: MessageBus — 清理 Mission 会话消息
+    if (this.messageBus) {
+      this.messageBus.clearSession(missionId);
+    }
 
     // ★ 只清理完全空的草稿报告（没有任何维度分析的）
     // 部分成功的报告应该保留，让用户看到已完成的研究

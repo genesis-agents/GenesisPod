@@ -104,6 +104,12 @@ export type {
 } from "../orchestration/services/token-budget.service";
 export { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 export { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
+// ★ Batch 2 Topic Insights — ContextEvolution types
+export type {
+  FactExtractionRequest,
+  FactExtractionResult,
+  ContextEvolutionConfig,
+} from "../orchestration/services/interfaces";
 export { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 export { CircuitBreakerService } from "../../ai-kernel/facade";
 export { ContextInitializationService } from "../orchestration/services/context-initialization.service";
@@ -321,12 +327,20 @@ export type {
 
 // ★ Batch 2 — Safety（for mcp-server guardrails integration）
 export { GuardrailsPipelineService } from "../safety/guardrails/guardrails-pipeline.service";
+// ★ Batch 2 Topic Insights — Guardrails types
+export type {
+  GuardrailInput,
+  GuardrailOutput,
+  GuardrailsPipelineResult,
+} from "../safety/guardrails/guardrails.interface";
 
 // ★ Batch 2 — Observability（for admin monitoring and health checks）
 export { ProcessEventLogService as TraceCollectorService } from "../../ai-kernel/facade";
 export { KernelMetricsService as AiObservabilityService } from "../../ai-kernel/facade";
 export { CostAttributionService } from "../../ai-kernel/facade";
 export { EvalPipelineService } from "../infra/observability/eval-pipeline.service";
+// ★ Batch 2 Topic Insights — Eval types
+export type { EvalResult } from "../infra/observability/eval-pipeline.service";
 export type { TraceType } from "../infra/observability/trace.interface";
 
 // ★ Batch 2 — Realtime（for mcp-server streaming bridge）

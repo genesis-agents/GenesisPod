@@ -59,7 +59,7 @@ import type {
   Challenge,
   Opportunity,
 } from "../../types/research.types";
-import { AgentActivityType } from "@prisma/client";
+import { AgentActivityType, AIModelType } from "@prisma/client";
 import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
@@ -67,6 +67,11 @@ import {
 import {
   ContextCompressionService,
   type AICapabilityContext,
+  ContextEvolutionService,
+  ChatFacade,
+  type AiCallerFn,
+  type EstablishedFact,
+  TokenBudgetService,
 } from "@/modules/ai-engine/facade";
 import { CostAttributionService } from "@/modules/ai-kernel/facade";
 
@@ -85,6 +90,8 @@ export interface DimensionMissionResult {
   actualModelId?: string; // ★ 实际使用的模型
   /** V5: 提取的事实断言（用于后续验证） */
   extractedClaims?: import("../../types/v5-research.types").ExtractedClaim[];
+  /** Batch 2: 跨维度事实（用于报告一致性） */
+  extractedFacts?: EstablishedFact[];
 }
 
 /**
@@ -143,6 +150,11 @@ export class DimensionMissionService {
     @Optional() private readonly costAttribution?: CostAttributionService,
     // ★ Phase 5: 长研究上下文压缩
     @Optional() private readonly contextCompression?: ContextCompressionService,
+    // ★ Batch 2: 跨维度事实提取
+    @Optional() private readonly contextEvolution?: ContextEvolutionService,
+    @Optional() private readonly chatFacade?: ChatFacade,
+    // ★ Batch 3: Token 预算智能截断
+    @Optional() private readonly tokenBudgetService?: TokenBudgetService,
   ) {}
 
   /**
@@ -476,6 +488,21 @@ export class DimensionMissionService {
           `${logPrefix} Context compression failed (non-fatal), using original: ${err instanceof Error ? err.message : String(err)}`,
         );
         // fallback: 保持原始文本
+      }
+    }
+
+    // ★ Batch 3: TokenBudgetService — 当 ContextCompression 不可用时的后备截断
+    if (this.tokenBudgetService && evidenceSummary.length > 8000) {
+      try {
+        evidenceSummary = this.tokenBudgetService.smartTruncate(
+          evidenceSummary,
+          Math.floor(8000 * 1.5), // token estimation
+        );
+        this.logger.log(
+          `${logPrefix} TokenBudget truncated evidence summary to ${evidenceSummary.length} chars`,
+        );
+      } catch (e) {
+        this.logger.debug(`TokenBudgetService truncation failed: ${e}`);
       }
     }
 
@@ -1086,6 +1113,44 @@ export class DimensionMissionService {
         }
       }
 
+      // ★ Batch 2: 从维度研究结果中提取跨维度事实
+      let extractedFacts: EstablishedFact[] | undefined;
+      if (
+        this.contextEvolution &&
+        this.chatFacade &&
+        analysisResult?.detailedContent
+      ) {
+        try {
+          const aiCaller: AiCallerFn = async (_model, messages, options) => {
+            const resp = await this.chatFacade!.chat({
+              messages,
+              modelType: AIModelType.CHAT,
+              taskProfile: options?.taskProfile ?? {
+                creativity: "deterministic",
+                outputLength: "medium",
+              },
+            });
+            return { content: resp.content, tokensUsed: resp.tokensUsed ?? 0 };
+          };
+          const factResult = await this.contextEvolution.extractFacts(
+            {
+              taskId: dimension.id,
+              taskTitle: dimension.name,
+              taskOutput: analysisResult.detailedContent.slice(0, 10000),
+            },
+            aiCaller,
+          );
+          extractedFacts = factResult.facts;
+          this.logger.log(
+            `${logPrefix} Extracted ${factResult.facts.length} cross-dimension facts`,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `${logPrefix} Fact extraction failed (non-fatal): ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
       return {
         success: true,
         dimensionId: dimension.id,
@@ -1096,6 +1161,7 @@ export class DimensionMissionService {
         integratedResult: finalIntegratedResult,
         actualModelId: lastActualModel, // ★ 记录实际使用的模型
         extractedClaims, // V5: 提取的事实断言
+        extractedFacts, // Batch 2: 跨维度事实
       };
     } catch (error) {
       const errorMessage =

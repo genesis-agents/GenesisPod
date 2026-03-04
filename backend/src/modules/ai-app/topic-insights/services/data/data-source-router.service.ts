@@ -24,6 +24,7 @@ import {
 import {
   CircuitBreakerService,
   TaskCompletionType,
+  CapabilityGuardService,
 } from "@/modules/ai-kernel/facade";
 import {
   DataSourceType,
@@ -53,6 +54,8 @@ export interface FetchDataOptions {
   assignedTools?: string[];
   /** Leader 分配的技能（可用于定制搜索策略） */
   assignedSkills?: string[];
+  /** Kernel 进程 ID（用于能力检查） */
+  processId?: string;
 }
 
 /**
@@ -96,6 +99,9 @@ export class DataSourceRouterService {
     // ★ CircuitBreaker: 数据源容错（可选，Kernel 不可用时降级）
     @Optional()
     private readonly circuitBreaker?: CircuitBreakerService,
+    // ★ Batch 2: 数据源访问能力检查
+    @Optional()
+    private readonly capabilityGuard?: CapabilityGuardService,
   ) {}
 
   /**
@@ -207,6 +213,38 @@ export class DataSourceRouterService {
     this.logger.debug(
       `Using time range filter: since ${since.toISOString()}${!userConfiguredSince ? " (default 6 months)" : ""}`,
     );
+
+    // ★ Batch 2: Capability check — 过滤无权限的数据源
+    if (this.capabilityGuard && options?.processId) {
+      try {
+        const allowedSources: DataSourceType[] = [];
+        for (const source of sources) {
+          const check = await this.capabilityGuard.checkDataAccess(
+            options.processId,
+            "data_source",
+            source,
+          );
+          if (check.allowed) {
+            allowedSources.push(source);
+          } else {
+            this.logger.debug(
+              `[CapabilityGuard] Data source '${source}' denied for process ${options.processId}`,
+            );
+          }
+        }
+        if (allowedSources.length > 0) {
+          sources = allowedSources;
+        } else {
+          this.logger.warn(
+            `[CapabilityGuard] All sources denied, using original sources as fallback`,
+          );
+        }
+      } catch (err) {
+        this.logger.debug(
+          `[CapabilityGuard] Check failed (non-blocking): ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
 
     // 3. 并行调用所有数据源
     // ★ 对每个查询 × 每个数据源执行搜索，按查询分配配额

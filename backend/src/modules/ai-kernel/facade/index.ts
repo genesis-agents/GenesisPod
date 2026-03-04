@@ -66,6 +66,8 @@ export type {
 
 // Security
 export { CapabilityGuardService } from "../security/capability-guard.service";
+// ★ Batch 2 Topic Insights — Capability types
+export type { CapabilityCheckResult } from "../security/capability.types";
 
 // Scheduler
 export { KernelSchedulerService } from "../scheduler/kernel-scheduler.service";

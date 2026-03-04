@@ -4,6 +4,9 @@ import {
   ChatFacade,
   TeamFacade,
   OutputReviewerService,
+  ContextEvolutionService,
+  TokenBudgetService,
+  type EstablishedFact,
 } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
@@ -71,6 +74,10 @@ export class ReportSynthesisService {
     private readonly reportEditor: ReportEditorService,
     // ★ Phase 4: 报告质量关卡
     @Optional() private readonly outputReviewer?: OutputReviewerService,
+    // ★ Batch 2: 跨维度事实一致性
+    @Optional() private readonly contextEvolution?: ContextEvolutionService,
+    // ★ Batch 3: Token 预算智能截断
+    @Optional() private readonly tokenBudgetService?: TokenBudgetService,
   ) {}
 
   /**
@@ -242,6 +249,7 @@ export class ReportSynthesisService {
     topic: ResearchTopic,
     reportId: string,
     userFeedback?: string,
+    crossDimensionFacts?: EstablishedFact[],
   ): Promise<TopicReport> {
     this.logger.log(`Synthesizing report ${reportId} for topic ${topic.name}`);
 
@@ -320,13 +328,36 @@ export class ReportSynthesisService {
       );
     }
 
+    // ★ Batch 2: 注入跨维度事实上下文
+    let factsContext = "";
+    if (crossDimensionFacts?.length && this.contextEvolution) {
+      factsContext =
+        this.contextEvolution.buildFactsPromptSection(crossDimensionFacts);
+    }
+
+    // ★ Batch 3: TokenBudgetService — 截断过长的维度分析，防止超出模型上下文
+    const truncatedDimensionInputs = dimensionInputs.map((d) => {
+      const maxLen = 8000;
+      if (d.detailedContent && d.detailedContent.length > maxLen) {
+        const truncated = this.tokenBudgetService
+          ? this.tokenBudgetService.smartTruncate(d.detailedContent, 6000)
+          : d.detailedContent.slice(0, maxLen);
+        this.logger.debug(
+          `[synthesizeReport] Truncated dimension "${d.dimensionName}" content: ${d.detailedContent.length} → ${truncated.length}`,
+        );
+        return { ...d, detailedContent: truncated };
+      }
+      return d;
+    });
+
     // 6. 使用 AI 生成综合报告（传入一致性检查结果）
     const synthesisResult = await this.generateComprehensiveReport(
       topic,
-      dimensionInputs,
+      truncatedDimensionInputs,
       evidenceInputs,
       consistencyCheck, // ★ 传入冲突信息，让 AI 在报告中主动说明
       userFeedback,
+      factsContext,
     );
 
     // 6.5 ★ 跨维度编辑层：去重 + 过渡
@@ -1133,6 +1164,7 @@ export class ReportSynthesisService {
       recommendations: string[];
     },
     userFeedback?: string,
+    factsContext?: string,
   ): Promise<ReportSynthesisResult> {
     // 准备维度概览
     const dimensionOverview = formatDimensionOverview(
@@ -1192,7 +1224,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         evidenceList,
       ) +
       conflictNotice +
-      feedbackNotice;
+      feedbackNotice +
+      (factsContext ? `\n\n${factsContext}` : "");
 
     this.logger.debug("Calling AI for comprehensive report synthesis");
 
