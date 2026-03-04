@@ -63,6 +63,22 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
     return this.definition.metadata.inputs;
   }
 
+  /**
+   * Get the raw prompt content from the underlying SKILL.md definition.
+   * Used by admin UI to display/edit prompt content.
+   */
+  getPromptContent(): string {
+    return this.definition.content;
+  }
+
+  /**
+   * Get the underlying SKILL.md definition metadata.
+   * Used by admin UI to display frontmatter.
+   */
+  getDefinitionMetadata(): SkillMdDefinition["metadata"] {
+    return this.definition.metadata;
+  }
+
   constructor(
     private readonly definition: SkillMdDefinition,
     private readonly facade: ChatFacade,

@@ -1762,6 +1762,13 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 获取 Skill 完整 prompt 内容 + 版本历史
+   *
+   * 三级内容源（按优先级）：
+   * 1. DB promptContent（最高优先，支持 UI 编辑）
+   * 2. SkillLoaderService 内存缓存（从 SKILL.md 文件加载）
+   * 3. SkillRegistry 中的 PromptSkillAdapter（运行时注册的 prompt 技能）
+   *
+   * 如果从 fallback 源获取到内容，会 fire-and-forget 回写 DB 以便下次直接命中。
    */
   async getSkillPromptContent(skillId: string) {
     const definition =
@@ -1770,18 +1777,69 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException(`Skill not found: ${skillId}`);
     }
 
-    // Fallback: if promptContent is null in DB, load from in-memory SKILL.md
+    // Fallback 1: SkillLoaderService (in-memory loaded from SKILL.md files)
     if (!definition.promptContent) {
-      const loaded = this.skillLoaderService
-        .getAllLoadedSkills()
-        .find((s) => s.metadata.id === skillId);
+      const allLoaded = this.skillLoaderService.getAllLoadedSkills();
+      this.logger.debug(
+        `[getSkillPromptContent] DB content null for "${skillId}", loader has ${allLoaded.length} skills`,
+      );
+      // Try exact match, then suffix match (handles prefixed IDs like "slides-transition-checker")
+      const loaded =
+        allLoaded.find((s) => s.metadata.id === skillId) ??
+        allLoaded.find((s) => skillId.endsWith(s.metadata.id));
       if (loaded) {
         definition.promptContent = loaded.content;
         definition.frontmatter = loaded.metadata as unknown as Record<
           string,
           unknown
         >;
+        this.logger.log(
+          `[getSkillPromptContent] Loaded "${skillId}" from SkillLoaderService (matched: ${loaded.metadata.id})`,
+        );
       }
+    }
+
+    // Fallback 2: SkillRegistry (PromptSkillAdapter has the definition content)
+    if (!definition.promptContent) {
+      const registeredSkill = this.skillRegistry.tryGet(skillId);
+      if (
+        registeredSkill &&
+        (registeredSkill as { isPromptSkillAdapter?: boolean })
+          .isPromptSkillAdapter
+      ) {
+        const adapter = registeredSkill as unknown as {
+          getPromptContent: () => string;
+          getDefinitionMetadata: () => Record<string, unknown>;
+        };
+        const content = adapter.getPromptContent();
+        if (content) {
+          definition.promptContent = content;
+          definition.frontmatter =
+            adapter.getDefinitionMetadata() as unknown as Record<
+              string,
+              unknown
+            >;
+          this.logger.log(
+            `[getSkillPromptContent] Loaded "${skillId}" from SkillRegistry (PromptSkillAdapter)`,
+          );
+        }
+      }
+    }
+
+    // On-demand DB sync: persist fallback content so future fetches hit DB directly
+    if (definition.promptContent && definition.source !== "db") {
+      void this.skillContentService
+        .savePromptContent(
+          skillId,
+          definition.promptContent,
+          definition.frontmatter,
+          "Auto-synced from filesystem on first access",
+        )
+        .catch((err: Error) => {
+          this.logger.debug(
+            `[getSkillPromptContent] On-demand sync failed for "${skillId}": ${err.message}`,
+          );
+        });
     }
 
     const versions = await this.skillContentService.getVersionHistory(
