@@ -52,7 +52,7 @@ const mockExtractJson = extractJsonFromAIResponse as jest.MockedFunction<
 
 function createMockAiFacade() {
   return {
-    chat: jest.fn(),
+    chatWithSkills: jest.fn(),
   } as unknown as jest.Mocked<ChatFacade>;
 }
 
@@ -109,7 +109,7 @@ describe("SpecializedAgentCoordinatorService", () => {
 
   describe("runCollaboration", () => {
     function setupSuccessfulAgentAnalysis() {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: '{"valid": "json"}',
       } as never);
       mockExtractJson.mockReturnValue({
@@ -146,7 +146,7 @@ describe("SpecializedAgentCoordinatorService", () => {
       await service.runCollaboration(request);
 
       // 3 roles + 1 synthesis = 4 calls
-      expect(mockAiFacade.chat).toHaveBeenCalledTimes(4);
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledTimes(4);
     });
 
     it("should use default roles when none specified", async () => {
@@ -163,7 +163,9 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should handle AI extraction failure gracefully (return null for role)", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "invalid" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: "invalid",
+      } as never);
       mockExtractJson
         .mockReturnValueOnce({ success: false, data: null } as never) // domain_expert
         .mockReturnValueOnce({ success: false, data: null } as never) // fact_checker
@@ -179,7 +181,7 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should handle chat error for individual role gracefully", async () => {
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockRejectedValueOnce(new Error("API error")) // domain_expert fails
         .mockResolvedValue({ content: "{}" } as never); // others succeed
 
@@ -202,7 +204,7 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should populate suggestedActions in role results", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "{}" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "{}" } as never);
       mockExtractJson.mockReturnValue({
         success: true,
         data: {
@@ -231,7 +233,7 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should include previous role results in subsequent role prompts", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "{}" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "{}" } as never);
       mockExtractJson.mockReturnValue({
         success: true,
         data: {
@@ -247,7 +249,7 @@ describe("SpecializedAgentCoordinatorService", () => {
       await service.runCollaboration(request);
 
       // After first role completes, subsequent roles should have context
-      const calls = mockAiFacade.chat.mock.calls;
+      const calls = mockAiFacade.chatWithSkills.mock.calls;
       // The third call (synthesizer) should include previous results context
       if (calls.length > 2) {
         const thirdCallMessages = calls[2][0].messages;
@@ -257,7 +259,7 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should calculate correct confidence bounds", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "{}" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "{}" } as never);
       mockExtractJson.mockReturnValue({
         success: true,
         data: {
@@ -281,7 +283,7 @@ describe("SpecializedAgentCoordinatorService", () => {
 
   describe("runDebate", () => {
     function setupSuccessfulDebate() {
-      mockAiFacade.chat.mockResolvedValue({ content: "{}" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "{}" } as never);
 
       // Mock for pro argument
       const proArgResponse = {
@@ -366,7 +368,7 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should stop early when judge reaches clear verdict", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "{}" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "{}" } as never);
 
       const earlyStopJudge = {
         success: true,
@@ -425,7 +427,9 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should handle failed AI extraction in debate arguments", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "invalid" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: "invalid",
+      } as never);
       mockExtractJson.mockReturnValue({ success: false, data: null } as never);
 
       const request = createDebateRequest();
@@ -437,7 +441,7 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should parse leaning values correctly", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "{}" } as never);
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "{}" } as never);
 
       const judgeWithConLeaning = {
         success: true,
@@ -485,7 +489,9 @@ describe("SpecializedAgentCoordinatorService", () => {
     });
 
     it("should handle chat errors in debate gracefully", async () => {
-      mockAiFacade.chat.mockRejectedValue(new Error("API unavailable"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(
+        new Error("API unavailable"),
+      );
       mockExtractJson.mockReturnValue({ success: false, data: null } as never);
 
       const request = createDebateRequest();
@@ -503,7 +509,7 @@ describe("SpecializedAgentCoordinatorService", () => {
       await service.runDebate(request);
 
       // The second round calls should reference previous rounds
-      const allCalls = mockAiFacade.chat.mock.calls;
+      const allCalls = mockAiFacade.chatWithSkills.mock.calls;
       // Round 2 pro arg is call 4 (0-indexed: 3)
       if (allCalls.length > 3) {
         const round2ProPrompt = allCalls[3][0].messages[0].content;

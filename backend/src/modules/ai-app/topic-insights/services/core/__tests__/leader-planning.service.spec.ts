@@ -18,24 +18,22 @@ function buildMocks() {
   };
 
   const mockAiFacade = {
-    getAvailableModelsExtended: jest
-      .fn()
-      .mockResolvedValue([
-        {
-          id: "gpt-4o",
-          name: "GPT-4o",
-          provider: "openai",
-          isReasoning: false,
-          isAvailable: true,
-        },
-      ]),
+    getAvailableModelsExtended: jest.fn().mockResolvedValue([
+      {
+        id: "gpt-4o",
+        name: "GPT-4o",
+        provider: "openai",
+        isReasoning: false,
+        isAvailable: true,
+      },
+    ]),
     getReasoningModel: jest.fn().mockResolvedValue({
       id: "gpt-4o",
       name: "GPT-4o",
       provider: "openai",
       isReasoning: false,
     }),
-    chat: jest.fn(),
+    chatWithSkills: jest.fn(),
   };
 
   const mockResearchMemory = {
@@ -161,7 +159,7 @@ describe("LeaderPlanningService", () => {
 
     it("should return leader plan on successful AI response", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(mockLeaderPlanResponse),
         isError: false,
       });
@@ -176,7 +174,10 @@ describe("LeaderPlanningService", () => {
 
     it("should throw error when AI returns empty response", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chat.mockResolvedValue({ content: "", isError: false });
+      aiFacade.chatWithSkills.mockResolvedValue({
+        content: "",
+        isError: false,
+      });
 
       await expect(service.planResearch("topic-1")).rejects.toThrow(
         "AI 返回空响应",
@@ -185,7 +186,7 @@ describe("LeaderPlanningService", () => {
 
     it("should throw error when AI call fails", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chat.mockRejectedValue(new Error("API timeout"));
+      aiFacade.chatWithSkills.mockRejectedValue(new Error("API timeout"));
 
       await expect(service.planResearch("topic-1")).rejects.toThrow(
         "AI 调用失败",
@@ -223,7 +224,7 @@ describe("LeaderPlanningService", () => {
       };
 
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(planWithNoSkills),
         isError: false,
       });
@@ -248,7 +249,7 @@ describe("LeaderPlanningService", () => {
     };
 
     it("should throw when all retries fail", async () => {
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: "invalid json",
         isError: false,
       });
@@ -299,7 +300,7 @@ describe("LeaderPlanningService", () => {
         ],
       };
 
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(mockOutline),
         isError: false,
       });
@@ -334,7 +335,7 @@ describe("LeaderPlanningService", () => {
     };
 
     it("should throw when all retries fail", async () => {
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: "no json here",
         isError: false,
       });
@@ -370,7 +371,7 @@ describe("LeaderPlanningService", () => {
         executionPlan: { parallelGroups: [["s-1"]], estimatedTotalWords: 800 },
       };
 
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(mockOutline),
         isError: false,
       });

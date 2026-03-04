@@ -111,7 +111,7 @@ export class ReportGeneratorService {
       .join("\n---\n");
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           { role: "system", content: CONSISTENCY_CHECK_SYSTEM_PROMPT },
           {
@@ -122,7 +122,8 @@ export class ReportGeneratorService {
             ).replace("{dimensionSummaries}", dimensionSummaries),
           },
         ],
-        modelType: AIModelType.CHAT, // 使用标准聊天模型
+        additionalSkills: ["consistency-check"],
+        modelType: AIModelType.CHAT,
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
@@ -272,11 +273,12 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // 调用 AI 生成报告（带 input-complexity-check 容错）
     let response;
     try {
-      response = await this.chatFacade.chat({
+      response = await this.chatFacade.chatWithSkills({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        additionalSkills: ["report-synthesis"],
         modelType: AIModelType.CHAT,
         taskProfile: {
           creativity: "medium",
@@ -314,11 +316,12 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
             "（证据列表已省略以减少输入量，请基于维度摘要中的信息生成报告）",
           ) + feedbackNotice;
 
-        response = await this.chatFacade.chat({
+        response = await this.chatFacade.chatWithSkills({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: reducedUserPrompt },
           ],
+          additionalSkills: ["report-synthesis"],
           modelType: AIModelType.CHAT,
           taskProfile: {
             creativity: "medium",

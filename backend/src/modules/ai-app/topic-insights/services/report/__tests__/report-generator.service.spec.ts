@@ -127,10 +127,10 @@ const VALID_REPORT_JSON = JSON.stringify({
 
 describe("ReportGeneratorService", () => {
   let service: ReportGeneratorService;
-  let mockFacade: { chat: jest.Mock };
+  let mockFacade: { chatWithSkills: jest.Mock };
 
   beforeEach(async () => {
-    mockFacade = { chat: jest.fn() };
+    mockFacade = { chatWithSkills: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -154,7 +154,7 @@ describe("ReportGeneratorService", () => {
         buildDimensionInput(),
       ]);
 
-      expect(mockFacade.chat).not.toHaveBeenCalled();
+      expect(mockFacade.chatWithSkills).not.toHaveBeenCalled();
       expect(result.overallConsistency).toBe("high");
       expect(result.conflicts).toHaveLength(0);
       expect(result.summary).toBe("单维度研究，无需跨维度一致性检查");
@@ -166,12 +166,12 @@ describe("ReportGeneratorService", () => {
         [],
       );
 
-      expect(mockFacade.chat).not.toHaveBeenCalled();
+      expect(mockFacade.chatWithSkills).not.toHaveBeenCalled();
       expect(result.overallConsistency).toBe("high");
     });
 
     it("should call AI and return parsed consistency result for multiple dimensions", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           overallConsistency: "medium",
           conflicts: [
@@ -200,14 +200,16 @@ describe("ReportGeneratorService", () => {
         dims,
       );
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(1);
       expect(result.overallConsistency).toBe("medium");
       expect(result.conflicts).toHaveLength(1);
       expect(result.conflicts[0].type).toBe("data_conflict");
     });
 
     it("should return default high consistency when AI call fails", async () => {
-      mockFacade.chat.mockRejectedValue(new Error("AI service unavailable"));
+      mockFacade.chatWithSkills.mockRejectedValue(
+        new Error("AI service unavailable"),
+      );
 
       const dims = [
         buildDimensionInput(),
@@ -224,7 +226,9 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should return default high consistency when AI response cannot be parsed", async () => {
-      mockFacade.chat.mockResolvedValue({ content: "This is not JSON" });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: "This is not JSON",
+      });
 
       const dims = [
         buildDimensionInput(),
@@ -240,7 +244,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should handle critical conflicts in response", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           overallConsistency: "low",
           conflicts: [
@@ -286,7 +290,9 @@ describe("ReportGeneratorService", () => {
 
   describe("generateComprehensiveReport", () => {
     it("should generate a comprehensive report on happy path", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       const result = await service.generateComprehensiveReport(
         mockTopic,
@@ -294,7 +300,7 @@ describe("ReportGeneratorService", () => {
         [buildEvidenceInput()],
       );
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(1);
       expect(result.executiveSummary).toBe(
         "量子计算进入新纪元，商业化路径逐渐清晰。",
       );
@@ -303,7 +309,9 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should include conflict notice in prompt when consistency check has conflicts", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       const consistencyCheck = {
         overallConsistency: "low" as const,
@@ -326,14 +334,16 @@ describe("ReportGeneratorService", () => {
         consistencyCheck,
       );
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       const userPrompt = chatCall.messages[1].content;
       expect(userPrompt).toContain("数据一致性修正指令");
       expect(userPrompt).toContain("数据矛盾");
     });
 
     it("should include userFeedback in prompt when provided", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       await service.generateComprehensiveReport(
         mockTopic,
@@ -343,13 +353,13 @@ describe("ReportGeneratorService", () => {
         "请重点分析商业化前景",
       );
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       const userPrompt = chatCall.messages[1].content;
       expect(userPrompt).toContain("请重点分析商业化前景");
     });
 
     it("should fall back to reduced prompt on context_length error", async () => {
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockRejectedValueOnce(new Error("context_length exceeded"))
         .mockResolvedValueOnce({ content: VALID_REPORT_JSON });
 
@@ -359,12 +369,12 @@ describe("ReportGeneratorService", () => {
         [buildEvidenceInput()],
       );
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(2);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(2);
       expect(result.executiveSummary).toBeDefined();
     });
 
     it("should fall back to reduced prompt on input-complexity-check error", async () => {
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockRejectedValueOnce(new Error("input-complexity-check failed"))
         .mockResolvedValueOnce({ content: VALID_REPORT_JSON });
 
@@ -374,15 +384,17 @@ describe("ReportGeneratorService", () => {
         [],
       );
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(2);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(2);
       // Second call should omit detailed evidence
-      const secondCall = mockFacade.chat.mock.calls[1][0];
+      const secondCall = mockFacade.chatWithSkills.mock.calls[1][0];
       const userPrompt = secondCall.messages[1].content;
       expect(userPrompt).toContain("证据列表已省略");
     });
 
     it("should rethrow non-complexity errors without fallback", async () => {
-      mockFacade.chat.mockRejectedValue(new Error("Authentication failed"));
+      mockFacade.chatWithSkills.mockRejectedValue(
+        new Error("Authentication failed"),
+      );
 
       await expect(
         service.generateComprehensiveReport(
@@ -392,11 +404,13 @@ describe("ReportGeneratorService", () => {
         ),
       ).rejects.toThrow("Authentication failed");
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(1);
     });
 
     it("should scale maxTokens based on dimension count", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       const manyDimensions = Array.from({ length: 20 }, (_, i) =>
         buildDimensionInput({
@@ -407,13 +421,15 @@ describe("ReportGeneratorService", () => {
 
       await service.generateComprehensiveReport(mockTopic, manyDimensions, []);
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       // With 20 dimensions: base(16000) + 20*2500 = 66000, capped at 64000
       expect(chatCall.maxTokens).toBe(64000);
     });
 
     it("should use correct modelType (CHAT) for report synthesis", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       await service.generateComprehensiveReport(
         mockTopic,
@@ -421,12 +437,12 @@ describe("ReportGeneratorService", () => {
         [],
       );
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       expect(chatCall.modelType).toBe("CHAT");
     });
 
     it("should handle English language topic with correct labels", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: "Executive summary here",
           preface: "Preface content",
@@ -447,7 +463,9 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should handle malformed AI response gracefully", async () => {
-      mockFacade.chat.mockResolvedValue({ content: "Not valid JSON at all." });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: "Not valid JSON at all.",
+      });
 
       const result = await service.generateComprehensiveReport(
         mockTopic,
@@ -467,7 +485,9 @@ describe("ReportGeneratorService", () => {
 
   describe("generateExecutiveSummary", () => {
     it("should return only the executive summary from a comprehensive report", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       const summary = await service.generateExecutiveSummary(mockTopic, [
         buildDimensionInput(),
@@ -477,13 +497,15 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should call AI once and delegate to generateComprehensiveReport", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       await service.generateExecutiveSummary(mockTopic, [
         buildDimensionInput(),
       ]);
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -707,7 +729,7 @@ describe("ReportGeneratorService", () => {
 
   describe("normalizeExecutiveSummary via generateComprehensiveReport", () => {
     it("should handle executiveSummary as structured object with fullText", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: {
             fullText: "来自 fullText 的摘要",
@@ -730,7 +752,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should assemble executiveSummary from structured fields when fullText absent", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: {
             coreConclusions: ["量子计算超越经典算法", "商业应用加速落地"],
@@ -766,7 +788,7 @@ describe("ReportGeneratorService", () => {
         fullText: "完整摘要文本",
       });
 
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: esJson,
           preface: "",
@@ -786,7 +808,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should handle executiveSummary as plain JSON string that fails to parse", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: "{invalid json",
           preface: "",
@@ -806,7 +828,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should return empty string for null/undefined executiveSummary", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: null,
           preface: "",
@@ -832,7 +854,7 @@ describe("ReportGeneratorService", () => {
 
   describe("normalizeReportResponse — supplementary content fields", () => {
     it("should use crossDimensionAnalysis.fullText when present", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: "摘要",
           crossDimensionAnalysis: { fullText: "跨维度完整文本" },
@@ -853,7 +875,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should generate crossDimensionAnalysis from causalChains and keyLinkages when fullText absent", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: "摘要",
           crossDimensionAnalysis: {
@@ -889,7 +911,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should generate riskAssessment from riskMatrix when fullText absent", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: "摘要",
           riskAssessment: {
@@ -921,7 +943,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should generate strategicRecommendations from forEnterprise/forInvestors when fullText absent", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: "摘要",
           strategicRecommendations: {
@@ -954,7 +976,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should use English labels when language is en", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           executiveSummary: "Summary",
           crossDimensionAnalysis: {
@@ -987,7 +1009,9 @@ describe("ReportGeneratorService", () => {
     it("should extract viewpoints from numbered list in fallback", async () => {
       const contentWithPoints =
         "分析结果\n\n1. 量子计算市场规模快速增长。\n2. 技术突破持续推进。";
-      mockFacade.chat.mockResolvedValue({ content: contentWithPoints });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: contentWithPoints,
+      });
 
       const result = await service.generateComprehensiveReport(
         mockTopic,
@@ -1002,7 +1026,9 @@ describe("ReportGeneratorService", () => {
     it("should extract viewpoints from key-phrase patterns in fallback", async () => {
       const contentWithKeyPhrases =
         "研究内容\n\n关键：量子计算将在五年内实现商业化突破。核心：错误纠正率成关键指标。";
-      mockFacade.chat.mockResolvedValue({ content: contentWithKeyPhrases });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: contentWithKeyPhrases,
+      });
 
       const result = await service.generateComprehensiveReport(
         mockTopic,
@@ -1015,7 +1041,9 @@ describe("ReportGeneratorService", () => {
 
     it("should use first sentence as executiveSummary in fallback", async () => {
       const contentWithSentence = "量子计算市场规模超过百亿美元。后续内容...";
-      mockFacade.chat.mockResolvedValue({ content: contentWithSentence });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: contentWithSentence,
+      });
 
       const result = await service.generateComprehensiveReport(
         mockTopic,
@@ -1027,7 +1055,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should use English label for fallback section when language is en", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: "Research content without valid JSON.",
       });
 
@@ -1048,7 +1076,9 @@ describe("ReportGeneratorService", () => {
 
   describe("generateComprehensiveReport — conflict notice branches", () => {
     it("should include both critical and warning conflict notices", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       const consistencyCheck = {
         overallConsistency: "low" as const,
@@ -1078,14 +1108,16 @@ describe("ReportGeneratorService", () => {
         consistencyCheck,
       );
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       const userPrompt = chatCall.messages[1].content;
       expect(userPrompt).toContain("关键冲突");
       expect(userPrompt).toContain("次要差异");
     });
 
     it("should not include conflict notice when conflicts array is empty", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       const consistencyCheck = {
         overallConsistency: "high" as const,
@@ -1100,13 +1132,13 @@ describe("ReportGeneratorService", () => {
         consistencyCheck,
       );
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       const userPrompt = chatCall.messages[1].content;
       expect(userPrompt).not.toContain("数据一致性修正指令");
     });
 
     it("should handle max_tokens error in fallback chain", async () => {
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockRejectedValueOnce(new Error("max_tokens exceeded limit"))
         .mockResolvedValueOnce({ content: VALID_REPORT_JSON });
 
@@ -1116,12 +1148,14 @@ describe("ReportGeneratorService", () => {
         [buildEvidenceInput()],
       );
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(2);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(2);
       expect(result).toBeDefined();
     });
 
     it("should calculate small maxTokens for 1 dimension", async () => {
-      mockFacade.chat.mockResolvedValue({ content: VALID_REPORT_JSON });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: VALID_REPORT_JSON,
+      });
 
       await service.generateComprehensiveReport(
         mockTopic,
@@ -1129,7 +1163,7 @@ describe("ReportGeneratorService", () => {
         [],
       );
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       // 1 dim: base(16000) + 1*2500 = 18500
       expect(chatCall.maxTokens).toBe(18500);
     });
@@ -1141,7 +1175,7 @@ describe("ReportGeneratorService", () => {
 
   describe("checkCrossDimensionConsistency — additional branches", () => {
     it("should include keyFindings and trends in dimension summaries sent to AI", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           overallConsistency: "high",
           conflicts: [],
@@ -1185,7 +1219,7 @@ describe("ReportGeneratorService", () => {
 
       await service.checkCrossDimensionConsistency(mockTopic, [dimA, dimB]);
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
+      const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages[1].content;
       // First 3 key findings
       expect(userMsg).toContain("发现A1");
@@ -1196,7 +1230,7 @@ describe("ReportGeneratorService", () => {
     });
 
     it("should handle dimension with no keyFindings or trends", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           overallConsistency: "high",
           conflicts: [],
@@ -1607,7 +1641,7 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportWithToc });
+      mockFacade.chatWithSkills.mockResolvedValue({ content: reportWithToc });
 
       const dim = buildDimensionInput();
       const result = await service.generateComprehensiveReport(
@@ -1636,7 +1670,9 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportWithSections });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: reportWithSections,
+      });
 
       const dim = buildDimensionInput();
       const result = await service.generateComprehensiveReport(
@@ -1671,7 +1707,9 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportWithFigures });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: reportWithFigures,
+      });
 
       const dim = buildDimensionInput();
       const result = await service.generateComprehensiveReport(
@@ -1707,7 +1745,9 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportWithInlineCharts });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: reportWithInlineCharts,
+      });
 
       const dim = buildDimensionInput();
       const result = await service.generateComprehensiveReport(
@@ -1731,7 +1771,9 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportWithAppendices });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: reportWithAppendices,
+      });
 
       const dim = buildDimensionInput();
       const result = await service.generateComprehensiveReport(
@@ -1760,7 +1802,9 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportWithReferences });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: reportWithReferences,
+      });
 
       const dim = buildDimensionInput();
       const result = await service.generateComprehensiveReport(
@@ -1783,7 +1827,9 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportWithJsonEs });
+      mockFacade.chatWithSkills.mockResolvedValue({
+        content: reportWithJsonEs,
+      });
 
       const dim = buildDimensionInput();
       const result = await service.generateComprehensiveReport(
@@ -1813,7 +1859,7 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportJson });
+      mockFacade.chatWithSkills.mockResolvedValue({ content: reportJson });
 
       const result = service.buildFullReportFromDimensions(
         mockTopic,
@@ -1846,7 +1892,7 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportJson });
+      mockFacade.chatWithSkills.mockResolvedValue({ content: reportJson });
 
       const result = service.buildFullReportFromDimensions(
         mockTopic,
@@ -1878,7 +1924,7 @@ describe("ReportGeneratorService", () => {
         charts: [],
       });
 
-      mockFacade.chat.mockResolvedValue({ content: reportJson });
+      mockFacade.chatWithSkills.mockResolvedValue({ content: reportJson });
 
       const result = service.buildFullReportFromDimensions(
         mockTopic,

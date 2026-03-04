@@ -77,25 +77,12 @@ ${content}
   ]
 }
 
-## 分类说明
-- factual: 可通过查证确认的事实（如"苹果公司成立于1976年"）
-- statistical: 包含具体数据或统计（如"市场份额达到35%"）
-- causal: 声称因果关系（如"由于...导致..."）
-- comparative: 比较性陈述（如"A比B更..."）
-- predictive: 预测未来（如"预计将..."）
-- definitional: 定义性陈述（如"X是指..."）
-- opinion: 纯主观观点（不需要验证）
-
-## 优先级说明
-- high: 核心论点、关键数据、可能影响结论的声明
-- medium: 支持性事实、次要数据
-- low: 背景信息、常识性陈述
-
 只输出 JSON，不要其他内容。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["claim-extraction"],
         taskProfile: { creativity: "deterministic", outputLength: "long" },
       });
 
@@ -302,17 +289,12 @@ ${evidenceContent.substring(0, 3000)}
   "factualAlignment": 0.9
 }
 
-## 判定标准
-- supports: 证据明确支持该声明
-- refutes: 证据明确反驳该声明
-- neutral: 证据相关但不明确支持或反驳
-- insufficient: 证据不足以判断
-
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["fact-verification"],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 

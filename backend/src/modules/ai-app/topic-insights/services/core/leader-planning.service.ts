@@ -207,7 +207,7 @@ export class LeaderPlanningService {
     const startTime = Date.now();
     let response;
     try {
-      response = await this.chatFacade.chat({
+      response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "system",
@@ -215,6 +215,7 @@ export class LeaderPlanningService {
           },
           { role: "user", content: prompt },
         ],
+        additionalSkills: ["research-planning"],
         model: leaderModel.modelId,
         taskProfile: {
           creativity: "medium",
@@ -558,7 +559,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         );
 
         const startTime = Date.now();
-        const response = await this.chatFacade.chat({
+        const response = await this.chatFacade.chatWithSkills({
           messages: [
             {
               role: "system",
@@ -567,6 +568,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             },
             { role: "user", content: prompt },
           ],
+          additionalSkills: ["research-planning"],
           model: leaderModel.modelId,
           taskProfile: {
             creativity: "medium",
@@ -779,7 +781,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         );
 
         const startTime = Date.now();
-        const response = await this.chatFacade.chat({
+        const response = await this.chatFacade.chatWithSkills({
           messages: [
             {
               role: "system",
@@ -788,6 +790,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             },
             { role: "user", content: finalPrompt },
           ],
+          additionalSkills: ["research-planning"],
           model: leaderModel.modelId,
           taskProfile: {
             creativity: "medium",

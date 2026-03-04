@@ -17,7 +17,7 @@ import { ChatFacade } from "@/modules/ai-engine/facade";
 // ──────────────────────────────────────────────────────────────────────────────
 
 const mockFacade = {
-  chat: jest.fn(),
+  chatWithSkills: jest.fn(),
 };
 
 const makeDimensionInput = (id: string, name: string, content = "") => ({
@@ -67,11 +67,11 @@ describe("ReportEditorService", () => {
       expect(result.dimensions).toHaveLength(1);
       expect(result.deduplicationStats.duplicateClaims).toBe(0);
       expect(result.transitions).toHaveLength(0);
-      expect(mockFacade.chat).not.toHaveBeenCalled();
+      expect(mockFacade.chatWithSkills).not.toHaveBeenCalled();
     });
 
     it("should process multiple dimensions and generate transitions", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: '```json\n{"duplicates": [], "suggestions": []}\n```',
         tokensUsed: 100,
       });
@@ -92,7 +92,7 @@ describe("ReportEditorService", () => {
       const duplicateParagraph =
         "The global AI chip market reached $50 billion in 2024, growing rapidly.";
 
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           duplicates: [
             {
@@ -127,7 +127,9 @@ describe("ReportEditorService", () => {
     });
 
     it("should handle AI failure gracefully (non-fatal)", async () => {
-      mockFacade.chat.mockRejectedValue(new Error("AI service unavailable"));
+      mockFacade.chatWithSkills.mockRejectedValue(
+        new Error("AI service unavailable"),
+      );
 
       const inputs = [
         makeDimensionInput("dim-001", "Market Size"),
@@ -142,7 +144,7 @@ describe("ReportEditorService", () => {
     });
 
     it("should handle malformed AI JSON response gracefully", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: "This is not valid JSON response",
         tokensUsed: 50,
       });
@@ -162,7 +164,7 @@ describe("ReportEditorService", () => {
 
   describe("transition hints generation", () => {
     it("should generate transitions mentioning both dimension names", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: '{"duplicates": [], "suggestions": []}',
         tokensUsed: 100,
       });
@@ -184,7 +186,7 @@ describe("ReportEditorService", () => {
     });
 
     it("should generate N-1 transitions for N dimensions", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: '{"duplicates": [], "suggestions": []}',
         tokensUsed: 100,
       });
@@ -203,7 +205,7 @@ describe("ReportEditorService", () => {
 
   describe("V5 enhanced deduplication", () => {
     it("should pass through terminologyIssues from AI response", async () => {
-      mockFacade.chat.mockResolvedValue({
+      mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           duplicates: [],
           suggestions: [],

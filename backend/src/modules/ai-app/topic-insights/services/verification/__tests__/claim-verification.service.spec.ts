@@ -7,6 +7,7 @@ import type { EnrichedEvidenceData } from "../../../types/research.types";
 
 const mockAiFacade = {
   chat: jest.fn(),
+  chatWithSkills: jest.fn(),
 };
 
 const makeClaim = (
@@ -68,7 +69,7 @@ describe("ClaimVerificationService", () => {
 
   describe("extractClaims", () => {
     it("should extract verifiable claims from section content", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           claims: [
             {
@@ -108,7 +109,7 @@ describe("ClaimVerificationService", () => {
     });
 
     it("should filter out opinion type claims", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           claims: [
             {
@@ -136,7 +137,7 @@ describe("ClaimVerificationService", () => {
     });
 
     it("should filter claims by verification priority", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           claims: [
             {
@@ -164,7 +165,7 @@ describe("ClaimVerificationService", () => {
     });
 
     it("should return empty array when AI call fails", async () => {
-      mockAiFacade.chat.mockRejectedValue(new Error("LLM error"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("LLM error"));
 
       const claims = await service.extractClaims("s1", "content");
 
@@ -172,7 +173,9 @@ describe("ClaimVerificationService", () => {
     });
 
     it("should return empty when AI response has no valid claims structure", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "No JSON here" });
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: "No JSON here",
+      });
 
       const claims = await service.extractClaims("s1", "content");
 
@@ -187,7 +190,7 @@ describe("ClaimVerificationService", () => {
         verificationPriority: "medium",
       }));
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({ claims: manyClaims }),
       });
 
@@ -215,7 +218,7 @@ describe("ClaimVerificationService", () => {
 
     it("should verify claim against provided evidence and return verdict", async () => {
       // Mock finding relevant evidences (short list -> returns as-is)
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           verdict: "supports",
           confidence: 0.9,
@@ -239,7 +242,7 @@ describe("ClaimVerificationService", () => {
 
     it("should return contradicted verdict when multiple sources refute the claim", async () => {
       // All sources refute
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           verdict: "refutes",
           confidence: 0.85,
@@ -269,7 +272,9 @@ describe("ClaimVerificationService", () => {
   describe("verifySection", () => {
     it("should return empty report when no claims extracted", async () => {
       // extractClaims returns []
-      mockAiFacade.chat.mockResolvedValue({ content: "invalid json" });
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: "invalid json",
+      });
 
       const report = await service.verifySection(
         "s1",
@@ -288,7 +293,7 @@ describe("ClaimVerificationService", () => {
       // First call: extractClaims
       // Second call: findRelevantEvidences (only when evidences > 3)
       // Third+ calls: verifyAgainstSource
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             claims: [
@@ -336,7 +341,7 @@ describe("ClaimVerificationService", () => {
   describe("verifyDimension", () => {
     it("should aggregate metrics across sections", async () => {
       // Mock empty sections (no claims extracted)
-      mockAiFacade.chat.mockResolvedValue({ content: "no json" });
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "no json" });
 
       const report = await service.verifyDimension(
         "dim1",
@@ -355,7 +360,7 @@ describe("ClaimVerificationService", () => {
     });
 
     it("should generate recommendations when credibility is low", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "no json" });
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: "no json" });
 
       const report = await service.verifyDimension("dim1", "Tech", [], []);
 
@@ -371,7 +376,7 @@ describe("ClaimVerificationService", () => {
 
   describe("verdict aggregation logic", () => {
     it("should return verified when 2+ sources support with factScore >= 0.7", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           verdict: "supports",
           confidence: 0.85,
@@ -394,7 +399,7 @@ describe("ClaimVerificationService", () => {
     });
 
     it("should return unverified when no supporting sources", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           verdict: "insufficient",
           confidence: 0.3,
@@ -413,7 +418,7 @@ describe("ClaimVerificationService", () => {
     });
 
     it("should have positive factors when agreement rate is high", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           verdict: "supports",
           confidence: 0.9,

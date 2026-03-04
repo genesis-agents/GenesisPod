@@ -49,7 +49,7 @@ describe("ReportEditorService", () => {
       expect(result.deduplicationStats.removedParagraphs).toBe(0);
       expect(result.deduplicationStats.affectedDimensions).toEqual([]);
       expect(result.transitions).toEqual([]);
-      expect(mockAiFacade.chat).not.toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).not.toHaveBeenCalled();
     });
 
     it("should return unchanged for single dimension (no dedup needed)", async () => {
@@ -81,7 +81,7 @@ describe("ReportEditorService", () => {
       expect(result.deduplicationStats.duplicateClaims).toBe(0);
       expect(result.deduplicationStats.removedParagraphs).toBe(0);
       expect(result.transitions).toEqual([]);
-      expect(mockAiFacade.chat).not.toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).not.toHaveBeenCalled();
     });
 
     it("should call AI and apply dedup for 2+ dimensions", async () => {
@@ -130,7 +130,7 @@ describe("ReportEditorService", () => {
         suggestions: ["Keep market size data in Market Analysis only"],
       };
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(dedupResponse),
         usage: { promptTokens: 500, completionTokens: 200, totalTokens: 700 },
       });
@@ -142,7 +142,7 @@ describe("ReportEditorService", () => {
       );
 
       // Assert
-      expect(mockAiFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledTimes(1);
       expect(result.deduplicationStats.duplicateClaims).toBe(1);
       expect(result.deduplicationStats.removedParagraphs).toBe(1);
       expect(result.deduplicationStats.affectedDimensions).toContain(
@@ -203,7 +203,7 @@ describe("ReportEditorService", () => {
         suggestions: [],
       };
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(dedupResponse),
         usage: { promptTokens: 300, completionTokens: 100, totalTokens: 400 },
       });
@@ -265,7 +265,7 @@ describe("ReportEditorService", () => {
         suggestions: [],
       };
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(dedupResponse),
         usage: { promptTokens: 300, completionTokens: 100, totalTokens: 400 },
       });
@@ -315,7 +315,7 @@ describe("ReportEditorService", () => {
         },
       ];
 
-      mockAiFacade.chat.mockRejectedValue(new Error("API timeout"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("API timeout"));
 
       // Act
       const result = await service.editDimensionInputs(
@@ -359,7 +359,7 @@ describe("ReportEditorService", () => {
       ];
 
       // Return invalid JSON
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: "This is not JSON",
         usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       });
@@ -421,7 +421,7 @@ describe("ReportEditorService", () => {
         },
       ];
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({ duplicates: [], suggestions: [] }),
         usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       });
@@ -496,7 +496,7 @@ describe("ReportEditorService", () => {
         },
       ];
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({ duplicates: [], suggestions: [] }),
         usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       });

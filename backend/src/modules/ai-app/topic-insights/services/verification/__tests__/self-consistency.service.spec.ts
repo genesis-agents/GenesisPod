@@ -5,7 +5,7 @@ import { DEFAULT_SELF_CONSISTENCY_CONFIG } from "../../../types/quality-enhancem
 import type { SelfConsistencyRequest } from "../self-consistency.service";
 
 const mockAiFacade = {
-  chat: jest.fn(),
+  chatWithSkills: jest.fn(),
 };
 
 const makeRequest = (
@@ -81,7 +81,7 @@ describe("SelfConsistencyService", () => {
       });
 
       // First N calls are path generation, last call is analysis
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
@@ -97,7 +97,9 @@ describe("SelfConsistencyService", () => {
     });
 
     it("should return empty result when all path generations fail", async () => {
-      mockAiFacade.chat.mockRejectedValue(new Error("LLM unavailable"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(
+        new Error("LLM unavailable"),
+      );
 
       const result = await service.checkConsistency(makeRequest());
 
@@ -131,7 +133,7 @@ describe("SelfConsistencyService", () => {
         reviewReasons: [],
       });
 
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: analysisResponse });
@@ -177,7 +179,7 @@ describe("SelfConsistencyService", () => {
       });
 
       // Some paths succeed, some fail
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: goodResponse })
         .mockRejectedValueOnce(new Error("Rate limit"))
         .mockResolvedValueOnce({ content: goodResponse })
@@ -217,14 +219,18 @@ describe("SelfConsistencyService", () => {
         reviewReasons: [],
       });
 
-      mockAiFacade.chat.mockResolvedValue({ content: pathResponse });
+      mockAiFacade.chatWithSkills.mockResolvedValue({ content: pathResponse });
 
       // Override to return analysis on last call
       const callCount = DEFAULT_SELF_CONSISTENCY_CONFIG.numPaths;
       for (let i = 0; i < callCount - 1; i++) {
-        mockAiFacade.chat.mockResolvedValueOnce({ content: pathResponse });
+        mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+          content: pathResponse,
+        });
       }
-      mockAiFacade.chat.mockResolvedValueOnce({ content: analysisResponse });
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: analysisResponse,
+      });
 
       const result = await service.checkConsistency(makeRequest());
 
@@ -249,7 +255,7 @@ describe("SelfConsistencyService", () => {
         evidenceUsed: ["e1"],
       });
 
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: pathResponse }) // path 1 succeeds
         .mockRejectedValue(new Error("all others fail")); // all others fail
 
@@ -283,7 +289,7 @@ describe("SelfConsistencyService", () => {
         evidenceUsed: ["e1"],
       });
 
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
@@ -338,7 +344,7 @@ describe("SelfConsistencyService", () => {
         reviewReasons: [],
       });
 
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
@@ -389,7 +395,7 @@ describe("SelfConsistencyService", () => {
         reviewReasons: ["Low agreement rate"],
       });
 
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })
         .mockResolvedValueOnce({ content: pathResponse })

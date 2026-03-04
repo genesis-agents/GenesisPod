@@ -174,6 +174,17 @@ export function createMockAiEngineFacade() {
       },
     }),
 
+    chatWithSkills: jest
+      .fn<() => Promise<MockChatResponse>>()
+      .mockResolvedValue({
+        content: JSON.stringify(MOCK_LEADER_PLAN),
+        usage: {
+          promptTokens: 1000,
+          completionTokens: 500,
+          totalTokens: 1500,
+        },
+      }),
+
     streamingChat: jest.fn().mockImplementation(async function* () {
       yield { content: "Analyzing ", done: false };
       yield { content: "the research ", done: false };

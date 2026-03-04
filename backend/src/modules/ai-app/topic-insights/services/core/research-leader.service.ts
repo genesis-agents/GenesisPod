@@ -2614,7 +2614,7 @@ ${fullContent.substring(0, 8000)}
 \`\`\`
 要求：summary 200-300字，keyFindings 5-8条，每条50-100字。`;
 
-      const metaResponse = await this.chatFacade.chat({
+      const metaResponse = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "system",
@@ -2624,6 +2624,7 @@ ${fullContent.substring(0, 8000)}
           },
           { role: "user", content: metaPrompt },
         ],
+        additionalSkills: ["dimension-synthesizer"],
         model: leaderModel.modelId,
         taskProfile: { creativity: "low", outputLength: "medium" },
       });

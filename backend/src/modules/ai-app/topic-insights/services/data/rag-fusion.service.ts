@@ -52,12 +52,6 @@ export class RAGFusionService {
     );
 
     // 构建提示词
-    const enabledTypes = config.enabledVariantTypes.filter(
-      (t) => t !== QueryVariantType.ORIGINAL,
-    );
-
-    const typeDescriptions = this.getVariantTypeDescriptions(enabledTypes);
-
     const prompt = `你是一个专业的信息检索专家。请为以下搜索查询生成多个变体，以提高检索的全面性和召回率。
 
 ## 原始查询
@@ -70,9 +64,7 @@ ${request.originalQuery}
 ${request.context.researchFocus ? `- 研究重点：${request.context.researchFocus.join("、")}` : ""}
 
 ## 任务
-生成 ${Math.min(config.maxVariants - 1, 5)} 个查询变体，类型包括：
-
-${typeDescriptions}
+生成 ${Math.min(config.maxVariants - 1, 5)} 个查询变体。
 
 ## 输出格式（JSON）
 {
@@ -97,8 +89,9 @@ ${typeDescriptions}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["rag-fusion-query"],
         taskProfile: { creativity: "medium", outputLength: "medium" },
       });
 
@@ -165,34 +158,6 @@ ${typeDescriptions}
         rationale: "变体生成失败，使用原始查询",
       };
     }
-  }
-
-  /**
-   * 获取变体类型描述
-   */
-  private getVariantTypeDescriptions(types: QueryVariantType[]): string {
-    const descriptions: Record<QueryVariantType, string> = {
-      [QueryVariantType.ORIGINAL]: "",
-      [QueryVariantType.PARAPHRASED]:
-        "**同义改写** (paraphrased): 用不同的词汇表达相同的意思，扩大词汇覆盖",
-      [QueryVariantType.DECOMPOSED]:
-        "**子问题分解** (decomposed): 将复杂查询分解为更具体的子问题",
-      [QueryVariantType.EXPANDED]:
-        "**上下文扩展** (expanded): 添加相关的上下文词汇和背景信息",
-      [QueryVariantType.CONTRASTIVE]:
-        "**对比查询** (contrastive): 寻找反面观点或反驳证据，平衡视角",
-      [QueryVariantType.TEMPORAL]:
-        '**时间限定** (temporal): 添加时间范围限定（如"2024年"、"最新"）',
-      [QueryVariantType.DOMAIN_SPECIFIC]:
-        "**领域术语** (domain_specific): 使用专业术语或行业术语",
-      [QueryVariantType.ASPECT_FOCUSED]:
-        "**方面聚焦** (aspect_focused): 针对特定方面或角度的查询",
-    };
-
-    return types
-      .filter((t) => descriptions[t])
-      .map((t) => `- ${descriptions[t]}`)
-      .join("\n");
   }
 
   /**

@@ -28,7 +28,7 @@ function buildMocks() {
   };
 
   const mockAiFacade = {
-    chat: jest.fn().mockResolvedValue({
+    chatWithSkills: jest.fn().mockResolvedValue({
       content: JSON.stringify({
         taskId: "task-1",
         dimensionName: "Market Analysis",
@@ -167,7 +167,7 @@ describe("AdaptivePlanningService", () => {
 
     it("should return evaluation with AI response parsed correctly", async () => {
       prisma.researchTask.findUnique.mockResolvedValue(mockTask);
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           taskId: "task-1",
           dimensionName: "Market Analysis",
@@ -190,7 +190,7 @@ describe("AdaptivePlanningService", () => {
 
     it("should return default evaluation when AI fails", async () => {
       prisma.researchTask.findUnique.mockResolvedValue(mockTask);
-      aiFacade.chat.mockRejectedValue(new Error("AI service error"));
+      aiFacade.chatWithSkills.mockRejectedValue(new Error("AI service error"));
 
       const result = await service.evaluateTaskCompletion(
         "mission-1",
@@ -203,7 +203,7 @@ describe("AdaptivePlanningService", () => {
 
     it("should return default evaluation when AI returns invalid JSON", async () => {
       prisma.researchTask.findUnique.mockResolvedValue(mockTask);
-      aiFacade.chat.mockResolvedValue({ content: "not valid json" });
+      aiFacade.chatWithSkills.mockResolvedValue({ content: "not valid json" });
 
       const result = await service.evaluateTaskCompletion(
         "mission-1",
@@ -223,7 +223,7 @@ describe("AdaptivePlanningService", () => {
         leaderPlan: null,
         tasks: [],
       });
-      aiFacade.chat.mockRejectedValue(new Error("API error"));
+      aiFacade.chatWithSkills.mockRejectedValue(new Error("API error"));
 
       const result = await service.generatePlanAdjustments(
         "mission-1",
@@ -267,7 +267,7 @@ describe("AdaptivePlanningService", () => {
         leaderPlan: null,
         tasks: [],
       });
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(mockAdjustments),
       });
 

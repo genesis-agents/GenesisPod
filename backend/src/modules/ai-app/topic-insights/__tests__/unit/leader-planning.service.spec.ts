@@ -162,7 +162,7 @@ describe("LeaderPlanningService", () => {
         },
       ]);
 
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(MOCK_LEADER_PLAN),
         usage: { promptTokens: 1000, completionTokens: 500, totalTokens: 1500 },
       });
@@ -181,7 +181,7 @@ describe("LeaderPlanningService", () => {
         where: { id: topicId },
         include: { dimensions: true },
       });
-      expect(aiFacade.chat).toHaveBeenCalledWith(
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           model: "deepseek-r1",
           taskProfile: expect.objectContaining({
@@ -243,7 +243,7 @@ describe("LeaderPlanningService", () => {
           isAvailable: true,
         },
       ]);
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(incompletePlan),
         usage: { promptTokens: 1000, completionTokens: 500, totalTokens: 1500 },
       });
@@ -289,7 +289,7 @@ describe("LeaderPlanningService", () => {
           isAvailable: true,
         },
       ]);
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(planWithDisplayNames),
         usage: { promptTokens: 1000, completionTokens: 500, totalTokens: 1500 },
       });
@@ -311,7 +311,7 @@ describe("LeaderPlanningService", () => {
         isReasoning: true,
       });
       aiFacade.getAvailableModelsExtended.mockResolvedValue([]);
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: "",
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       });
@@ -332,7 +332,9 @@ describe("LeaderPlanningService", () => {
         isReasoning: true,
       });
       aiFacade.getAvailableModelsExtended.mockResolvedValue([]);
-      aiFacade.chat.mockRejectedValue(new Error("API rate limit exceeded"));
+      aiFacade.chatWithSkills.mockRejectedValue(
+        new Error("API rate limit exceeded"),
+      );
 
       // Act & Assert
       await expect(service.planResearch("topic-123")).rejects.toThrow(
@@ -438,7 +440,7 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(mockGlobalOutline),
         isError: false,
       });
@@ -454,7 +456,7 @@ describe("LeaderPlanningService", () => {
       expect(result.dimensions).toHaveLength(2);
       expect(result.dimensions[0].dimensionName).toBe("Market Overview");
       expect(result.dimensions[0].outline.sections).toHaveLength(1);
-      expect(aiFacade.chat).toHaveBeenCalledWith(
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           model: "deepseek-r1",
           taskProfile: expect.objectContaining({
@@ -515,7 +517,7 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(incompleteOutline),
         isError: false,
       });
@@ -565,7 +567,7 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat
+      aiFacade.chatWithSkills
         .mockResolvedValueOnce({ content: "Error 429", isError: true }) // First attempt fails
         .mockResolvedValueOnce({
           content: JSON.stringify(validOutline),
@@ -581,7 +583,7 @@ describe("LeaderPlanningService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.dimensions).toHaveLength(1);
-      expect(aiFacade.chat).toHaveBeenCalledTimes(2);
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledTimes(2);
     });
 
     it("should throw error after max retries", async () => {
@@ -602,13 +604,16 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat.mockResolvedValue({ content: "Error 500", isError: true });
+      aiFacade.chatWithSkills.mockResolvedValue({
+        content: "Error 500",
+        isError: true,
+      });
 
       // Act & Assert
       await expect(
         service.planGlobalOutline(topic, dimensionSearchResults),
       ).rejects.toThrow("Failed to parse global outline after 3 attempts");
-      expect(aiFacade.chat).toHaveBeenCalledTimes(3);
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledTimes(3);
     }, 10000); // Increase timeout to 10s for retry delays
   });
 
@@ -655,7 +660,7 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(mockOutline),
         isError: false,
       });
@@ -671,7 +676,7 @@ describe("LeaderPlanningService", () => {
       expect(result).toBeDefined();
       expect(result.sections).toHaveLength(1);
       expect(result.sections[0].title).toBe("Current Market Size");
-      expect(aiFacade.chat).toHaveBeenCalledWith(
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           model: "deepseek-r1",
           taskProfile: expect.objectContaining({
@@ -704,7 +709,7 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(mockOutline),
         isError: false,
       });
@@ -720,7 +725,7 @@ describe("LeaderPlanningService", () => {
 
       // Assert
       expect(result).toBeDefined();
-      expect(aiFacade.chat).toHaveBeenCalledWith(
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -749,7 +754,7 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat
+      aiFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: "<!DOCTYPE html><html>Error</html>",
           isError: false,
@@ -769,7 +774,7 @@ describe("LeaderPlanningService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.sections).toHaveLength(1);
-      expect(aiFacade.chat).toHaveBeenCalledTimes(2);
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledTimes(2);
     });
 
     it("should throw error after all retries fail", async () => {
@@ -784,7 +789,7 @@ describe("LeaderPlanningService", () => {
         provider: "deepseek",
         isReasoning: true,
       });
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: "Invalid JSON",
         isError: false,
       });
@@ -793,7 +798,7 @@ describe("LeaderPlanningService", () => {
       await expect(
         service.planDimensionOutline(topic, dimension, evidenceSummary),
       ).rejects.toThrow("Failed to parse dimension outline after 3 attempts");
-      expect(aiFacade.chat).toHaveBeenCalledTimes(3);
+      expect(aiFacade.chatWithSkills).toHaveBeenCalledTimes(3);
     }, 10000); // Increase timeout to 10s for retry delays
   });
 });

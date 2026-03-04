@@ -156,10 +156,6 @@ export class CritiqueRefineService {
     context: CritiqueRefineRequest["context"],
     config: CritiqueRefineConfig,
   ): Promise<CritiqueResult> {
-    const categoryDescriptions = config.enabledCategories
-      .map((cat) => `- ${cat}: ${this.getCategoryDescription(cat)}`)
-      .join("\n");
-
     const prompt = `你是一个严格的内容质量审核专家。请对以下研究内容进行多维度批评。
 
 ## 研究背景
@@ -170,15 +166,6 @@ export class CritiqueRefineService {
 
 ## 待审核内容
 ${content}
-
-## 评审维度
-${categoryDescriptions}
-
-## 严重程度说明
-- critical: 必须修正的严重问题
-- major: 应该修正的重要问题
-- minor: 建议修正的小问题
-- suggestion: 可选的改进建议
 
 ## 输出格式（JSON）
 {
@@ -212,8 +199,9 @@ ${categoryDescriptions}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["content-critique"],
         taskProfile: { creativity: "low", outputLength: "long" },
       });
 
@@ -367,12 +355,6 @@ ${content}
 ## 需要修正的问题
 ${issuesText}
 
-## 要求
-1. 针对每个问题进行修正
-2. 保持内容的整体结构和风格
-3. 不要添加不必要的内容
-4. 确保修改后的内容逻辑连贯
-
 ## 输出格式（JSON）
 {
   "refinedContent": "修改后的完整内容",
@@ -392,8 +374,9 @@ ${issuesText}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["content-refine"],
         taskProfile: { creativity: "low", outputLength: "long" },
       });
 
@@ -567,23 +550,6 @@ ${issuesText}
       }
     }
     return "max_iterations";
-  }
-
-  /**
-   * 获取类别描述
-   */
-  private getCategoryDescription(category: CritiqueCategory): string {
-    const descriptions: Record<CritiqueCategory, string> = {
-      [CritiqueCategory.FACTUAL]: "事实准确性 - 数据、引用、声明是否有依据",
-      [CritiqueCategory.LOGICAL]: "逻辑严谨性 - 论证是否合理、结论是否成立",
-      [CritiqueCategory.COVERAGE]: "覆盖完整性 - 是否遗漏重要方面",
-      [CritiqueCategory.CLARITY]: "表达清晰度 - 语言是否清晰易懂",
-      [CritiqueCategory.STYLE]: "风格一致性 - 术语、格式是否统一",
-      [CritiqueCategory.DEPTH]: "分析深度 - 分析是否深入透彻",
-      [CritiqueCategory.RELEVANCE]: "相关性 - 内容是否紧扣主题",
-      [CritiqueCategory.CITATION]: "引用规范 - 来源标注是否完整",
-    };
-    return descriptions[category];
   }
 
   /**

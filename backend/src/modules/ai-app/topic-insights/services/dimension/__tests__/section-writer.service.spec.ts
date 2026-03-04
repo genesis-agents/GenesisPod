@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
-import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 // ============================================================
@@ -57,6 +57,8 @@ const makeEvidenceData = (overrides: Record<string, unknown> = {}) => ({
 
 const mockAiFacade = {
   chat: jest.fn(),
+  chatWithSkills: jest.fn(),
+  selectModel: jest.fn(),
 };
 
 // ============================================================
@@ -73,7 +75,6 @@ describe("SectionWriterService", () => {
       providers: [
         SectionWriterService,
         { provide: ChatFacade, useValue: mockAiFacade },
-        { provide: TeamFacade, useValue: mockAiFacade },
       ],
     }).compile();
 
@@ -92,7 +93,7 @@ describe("SectionWriterService", () => {
     const validContent = "# AI历史\n\n" + "A".repeat(500); // 500+ chars, well above minimum
 
     it("should write a section successfully", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -111,7 +112,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should call aiFacade.chat with CHAT model type", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -123,7 +124,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           modelType: AIModelType.CHAT,
         }),
@@ -131,7 +132,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should use specified modelId when provided", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "claude-3-sonnet",
         isError: false,
@@ -144,7 +145,7 @@ describe("SectionWriterService", () => {
         modelId: "claude-3-sonnet",
       });
 
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           model: "claude-3-sonnet",
         }),
@@ -152,7 +153,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should throw error when API returns error status", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: "Error: Rate limit exceeded",
         model: "gpt-4o",
         isError: true,
@@ -168,7 +169,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should throw error when content is too short", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: "Too short", // Only 9 chars, way below minimum
         model: "gpt-4o",
         isError: false,
@@ -184,7 +185,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should include temporal context in prompts when provided", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -202,7 +203,7 @@ describe("SectionWriterService", () => {
         temporalContext,
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -210,7 +211,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should include previous sections context when provided", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -227,7 +228,7 @@ describe("SectionWriterService", () => {
         previousSections,
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -235,7 +236,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should inject validation context when provided", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -248,7 +249,7 @@ describe("SectionWriterService", () => {
         validationContext: "V5 VALIDATION: Ensure accuracy of all claims",
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -256,7 +257,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should record the actual model used in the result", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "claude-3-opus",
         isError: false,
@@ -272,7 +273,7 @@ describe("SectionWriterService", () => {
     });
 
     it('should use "long" outputLength task profile for section writing', async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -284,7 +285,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           taskProfile: expect.objectContaining({ outputLength: "long" }),
         }),
@@ -292,7 +293,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should use English language instruction when topicLanguage is en", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -305,7 +306,7 @@ describe("SectionWriterService", () => {
         topicLanguage: "en",
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const sysMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "system",
       );
@@ -501,7 +502,7 @@ describe("SectionWriterService", () => {
     const validContent = "# AI历史\n\n" + "A".repeat(500);
 
     it("should return results in the same order as inputs", async () => {
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: validContent,
           model: "gpt-4o",
@@ -552,7 +553,7 @@ describe("SectionWriterService", () => {
         .fn()
         .mockResolvedValue({ id: "gpt-3.5-turbo" });
       // First write fails, retry succeeds
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockRejectedValueOnce(new Error("Primary model failed"))
         .mockResolvedValueOnce({
           content: validContent,
@@ -575,7 +576,7 @@ describe("SectionWriterService", () => {
 
     it("should create failed placeholder when no fallback model available", async () => {
       (mockAiFacade as any).selectModel = jest.fn().mockResolvedValue(null);
-      mockAiFacade.chat.mockRejectedValue(new Error("All failed"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("All failed"));
 
       const inputs = [
         { section: makeSection({ id: "sf2" }), evidenceData: [] },
@@ -591,7 +592,7 @@ describe("SectionWriterService", () => {
       (mockAiFacade as any).selectModel = jest
         .fn()
         .mockResolvedValue({ id: "gpt-4o" });
-      mockAiFacade.chat.mockRejectedValue(new Error("Failed"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("Failed"));
 
       const inputs = [
         {
@@ -610,7 +611,9 @@ describe("SectionWriterService", () => {
       (mockAiFacade as any).selectModel = jest
         .fn()
         .mockResolvedValue({ id: "claude-3" });
-      mockAiFacade.chat.mockRejectedValue(new Error("Everything failed"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(
+        new Error("Everything failed"),
+      );
 
       const inputs = [
         {
@@ -628,7 +631,7 @@ describe("SectionWriterService", () => {
 
     it("should handle mix of success and failure across multiple sections", async () => {
       (mockAiFacade as any).selectModel = jest.fn().mockResolvedValue(null);
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: validContent,
           model: "gpt-4o",
@@ -676,7 +679,7 @@ describe("SectionWriterService", () => {
         figureReferences: [],
       });
 
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n---CHARTS---\n" + chartJson,
         model: "gpt-4o",
         isError: false,
@@ -705,7 +708,7 @@ describe("SectionWriterService", () => {
         ],
       });
 
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n---CHARTS---\n" + chartJson,
         model: "gpt-4o",
         isError: false,
@@ -721,7 +724,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should return empty charts when CHARTS json is invalid", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n---CHARTS---\n{not valid json",
         model: "gpt-4o",
         isError: false,
@@ -737,7 +740,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should handle CHARTS with non-object JSON (e.g., array)", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n---CHARTS---\n[1, 2, 3]",
         model: "gpt-4o",
         isError: false,
@@ -757,7 +760,7 @@ describe("SectionWriterService", () => {
         figureReferences: [],
       });
 
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n```json\n" + chartJson + "\n```",
         model: "gpt-4o",
         isError: false,
@@ -778,7 +781,7 @@ describe("SectionWriterService", () => {
         figureReferences: [],
       });
 
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n" + chartJson,
         model: "gpt-4o",
         isError: false,
@@ -800,7 +803,7 @@ describe("SectionWriterService", () => {
         figureReferences: [],
       });
 
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n---CHARTS---\n" + chartJson,
         model: "gpt-4o",
         isError: false,
@@ -822,7 +825,7 @@ describe("SectionWriterService", () => {
           figureReferences: [],
         });
 
-        mockAiFacade.chat.mockResolvedValueOnce({
+        mockAiFacade.chatWithSkills.mockResolvedValueOnce({
           content: baseContent + "\n---CHARTS---\n" + chartJson,
           model: "gpt-4o",
           isError: false,
@@ -838,7 +841,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should strip ```markdown code fence from response", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: "```markdown\n" + baseContent + "\n```",
         model: "gpt-4o",
         isError: false,
@@ -854,7 +857,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should strip plain ``` code fence from response", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: "```\n" + baseContent + "\n```",
         model: "gpt-4o",
         isError: false,
@@ -882,7 +885,7 @@ describe("SectionWriterService", () => {
         ],
       });
 
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n---CHARTS---\n" + chartJson,
         model: "gpt-4o",
         isError: false,
@@ -923,7 +926,7 @@ describe("SectionWriterService", () => {
         ],
       });
 
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: baseContent + "\n---CHARTS---\n" + chartJson,
         model: "gpt-4o",
         isError: false,
@@ -957,7 +960,7 @@ describe("SectionWriterService", () => {
     const validContent = "# AI历史\n\n" + "A".repeat(500);
 
     it("should use allocatedFigures when provided", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -977,7 +980,7 @@ describe("SectionWriterService", () => {
         ],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -985,7 +988,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should show all evidence figures when no allocatedFigures", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1010,7 +1013,7 @@ describe("SectionWriterService", () => {
         evidenceData: evidenceWithFigures as any,
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1018,7 +1021,7 @@ describe("SectionWriterService", () => {
     });
 
     it('should show "无可用图片资源" when no figures in evidence', async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1029,7 +1032,7 @@ describe("SectionWriterService", () => {
         evidenceData: [makeEvidenceData() as any],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1045,7 +1048,7 @@ describe("SectionWriterService", () => {
     const validContent = "# AI历史\n\n" + "A".repeat(500);
 
     it('should return "无特殊指导" when agentConfig is null', async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1056,15 +1059,17 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
       expect(userMsg?.content).toContain("无特殊指导");
+      // No skills passed when agentConfig is null
+      expect(chatCall.additionalSkills).toEqual([]);
     });
 
-    it('should return "无特殊指导" when agentConfig has no relevant fields', async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+    it("should pass empty additionalSkills when agentConfig has no skills", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1075,72 +1080,35 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const userMsg = chatCall.messages.find(
-        (m: { role: string }) => m.role === "user",
-      );
-      expect(userMsg?.content).toContain("无特殊指导");
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      expect(chatCall.additionalSkills).toEqual([]);
     });
 
-    it("should use loaded skill content when skill exists in skillLoaderGetAll", async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([
-        {
-          metadata: { id: "trend-analysis", name: "Trend Analysis" },
-          content: "Use time-series to identify trends...",
-        },
+    it("should pass mapped kebab-case skill IDs to additionalSkills", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+      });
+
+      await service.writeSection({
+        section: makeSection({
+          agentConfig: {
+            skills: ["trend_analysis", "swot_analysis"],
+          },
+        }),
+        evidenceData: [],
+      });
+
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      expect(chatCall.additionalSkills).toEqual([
+        "trend-analysis",
+        "swot-analysis",
       ]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
-        content: validContent,
-        model: "gpt-4o",
-        isError: false,
-      });
-
-      await service.writeSection({
-        section: makeSection({
-          agentConfig: {
-            skills: ["trend_analysis"],
-          },
-        }),
-        evidenceData: [],
-      });
-
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const userMsg = chatCall.messages.find(
-        (m: { role: string }) => m.role === "user",
-      );
-      expect(userMsg?.content).toContain("Use time-series");
-    });
-
-    it("should use fallback description when skill not in skillLoaderGetAll", async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
-        content: validContent,
-        model: "gpt-4o",
-        isError: false,
-      });
-
-      await service.writeSection({
-        section: makeSection({
-          agentConfig: {
-            skills: ["swot_analysis"],
-          },
-        }),
-        evidenceData: [],
-      });
-
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
-      const userMsg = chatCall.messages.find(
-        (m: { role: string }) => m.role === "user",
-      );
-      expect(userMsg?.content).toContain("SWOT分析");
     });
 
     it("should handle unknown skill id by converting underscore to hyphen", async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1155,14 +1123,12 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      // Should not throw, just use fallback
-      expect(mockAiFacade.chat).toHaveBeenCalled();
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      expect(chatCall.additionalSkills).toEqual(["custom-analysis-skill"]);
     });
 
     it("should include analysisGuidance in prompt", async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1177,7 +1143,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1185,9 +1151,7 @@ describe("SectionWriterService", () => {
     });
 
     it('should include outputStyle "narrative" description', async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1200,7 +1164,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1208,9 +1172,7 @@ describe("SectionWriterService", () => {
     });
 
     it('should include outputStyle "concise" description', async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1223,7 +1185,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1231,9 +1193,7 @@ describe("SectionWriterService", () => {
     });
 
     it('should include outputStyle "detailed" description', async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1246,7 +1206,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1254,9 +1214,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should include preferredDataSources in prompt", async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1271,7 +1229,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1279,9 +1237,7 @@ describe("SectionWriterService", () => {
       expect(userMsg?.content).toContain("Gartner");
     });
 
-    it("should handle all predefined skill IDs with fallback descriptions", async () => {
-      (mockAiFacade as any).skillLoaderGetAll = jest.fn().mockReturnValue([]);
-
+    it("should map all predefined skill IDs to kebab-case for additionalSkills", async () => {
       const allSkillIds = [
         "trend_analysis",
         "swot_analysis",
@@ -1295,22 +1251,79 @@ describe("SectionWriterService", () => {
         "comparison",
       ];
 
-      for (const skillId of allSkillIds) {
+      const expectedKebab = [
+        "trend-analysis",
+        "swot-analysis",
+        "competitive-analysis",
+        "deep-dive",
+        "data-interpretation",
+        "synthesis",
+        "critical-thinking",
+        "future-projection",
+        "cause-effect",
+        "comparison",
+      ];
+
+      for (let i = 0; i < allSkillIds.length; i++) {
         jest.clearAllMocks();
-        mockAiFacade.chat.mockResolvedValueOnce({
+        mockAiFacade.chatWithSkills.mockResolvedValueOnce({
           content: validContent,
           model: "gpt-4o",
           isError: false,
         });
 
         await service.writeSection({
-          section: makeSection({ agentConfig: { skills: [skillId] } }),
+          section: makeSection({ agentConfig: { skills: [allSkillIds[i]] } }),
           evidenceData: [],
         });
 
-        // Should not throw
-        expect(mockAiFacade.chat).toHaveBeenCalled();
+        const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+        expect(chatCall.additionalSkills).toEqual([expectedKebab[i]]);
       }
+    });
+
+    it("should use fallback guidance text when only skills are provided", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+      });
+
+      await service.writeSection({
+        section: makeSection({
+          agentConfig: {
+            skills: ["trend_analysis"],
+          },
+        }),
+        evidenceData: [],
+      });
+
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      const userMsg = chatCall.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
+      // Skills are no longer injected into user prompt; fallback guidance directs LLM to system message
+      expect(userMsg?.content).toContain("请参考系统提示中的分析技能指导");
+    });
+
+    it("should not pass domain to chatWithSkills (only additionalSkills)", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+      });
+
+      await service.writeSection({
+        section: makeSection({
+          agentConfig: {
+            skills: ["trend_analysis"],
+          },
+        }),
+        evidenceData: [],
+      });
+
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      expect(chatCall.domain).toBeUndefined();
     });
   });
 
@@ -1322,7 +1335,7 @@ describe("SectionWriterService", () => {
     const validContent = "# AI历史\n\n" + "A".repeat(500);
 
     it("should truncate at sentence boundary when content > 800 chars and last sentence end > 600", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1337,7 +1350,7 @@ describe("SectionWriterService", () => {
         previousSections: [{ title: "Chapter 1", content: longContent }],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1346,7 +1359,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should truncate at English period boundary", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1360,11 +1373,11 @@ describe("SectionWriterService", () => {
         previousSections: [{ title: "Chapter 2", content: longContent }],
       });
 
-      expect(mockAiFacade.chat).toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalled();
     });
 
     it("should NOT truncate at sentence boundary when last sentence end <= 600", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1379,11 +1392,11 @@ describe("SectionWriterService", () => {
         previousSections: [{ title: "Chapter 3", content: longContent }],
       });
 
-      expect(mockAiFacade.chat).toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalled();
     });
 
     it("should stop adding sections when MAX_PREVIOUS_TOTAL (6000) is exceeded", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
         isError: false,
@@ -1402,7 +1415,7 @@ describe("SectionWriterService", () => {
       });
 
       // Should not throw; just verify AI was called
-      expect(mockAiFacade.chat).toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalled();
     });
   });
 });

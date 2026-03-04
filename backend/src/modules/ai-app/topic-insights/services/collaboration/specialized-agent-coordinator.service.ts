@@ -282,8 +282,9 @@ ${opposingContext}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["debate-argument-generator"],
         taskProfile: { creativity: "medium", outputLength: "medium" },
       });
 
@@ -355,8 +356,9 @@ ${conArgument.argument}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["debate-judge-assessor"],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 
@@ -436,8 +438,9 @@ ${roundsSummary}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["debate-verdict-synthesizer"],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 
@@ -545,8 +548,9 @@ ${previousContext}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["specialized-role-analysis"],
         taskProfile: role.taskProfile,
       });
 
@@ -635,8 +639,9 @@ ${viewsText}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["multi-view-synthesizer"],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 

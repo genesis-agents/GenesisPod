@@ -17,16 +17,14 @@ function buildMocks() {
   };
 
   const mockAiFacade = {
-    getAvailableModelsExtended: jest
-      .fn()
-      .mockResolvedValue([
-        {
-          id: "gpt-4o",
-          name: "GPT-4o",
-          provider: "openai",
-          isReasoning: false,
-        },
-      ]),
+    getAvailableModelsExtended: jest.fn().mockResolvedValue([
+      {
+        id: "gpt-4o",
+        name: "GPT-4o",
+        provider: "openai",
+        isReasoning: false,
+      },
+    ]),
     getReasoningModel: jest.fn().mockResolvedValue({
       id: "gpt-4o",
       name: "GPT-4o",
@@ -34,6 +32,7 @@ function buildMocks() {
       isReasoning: false,
     }),
     chat: jest.fn(),
+    chatWithSkills: jest.fn(),
   };
 
   return { mockPrisma, mockAiFacade };
@@ -168,7 +167,7 @@ describe("LeaderReviewService", () => {
     });
 
     it("should return approved decision on good section", async () => {
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           approved: true,
           score: 85,
@@ -185,7 +184,7 @@ describe("LeaderReviewService", () => {
     });
 
     it("should force approval after max revisions", async () => {
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           approved: false,
           score: 55,
@@ -205,7 +204,7 @@ describe("LeaderReviewService", () => {
     });
 
     it("should return rejection with instructions when review fails", async () => {
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           approved: false,
           score: 40,
@@ -224,7 +223,7 @@ describe("LeaderReviewService", () => {
     });
 
     it("should default to approved when AI response parsing fails", async () => {
-      aiFacade.chat.mockResolvedValue({ content: "not json" });
+      aiFacade.chatWithSkills.mockResolvedValue({ content: "not json" });
 
       const result = await service.reviewSectionOutput(mockSection, "Content");
       expect(result.approved).toBe(true);
@@ -242,11 +241,11 @@ describe("LeaderReviewService", () => {
 
       expect(result.content).toContain("Market Analysis");
       expect(result.content).toContain("Market is growing");
-      expect(aiFacade.chat).not.toHaveBeenCalled();
+      expect(aiFacade.chatWithSkills).not.toHaveBeenCalled();
     });
 
     it("should integrate multiple sections using AI for metadata", async () => {
-      aiFacade.chat.mockResolvedValue({
+      aiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           summary: "Comprehensive market analysis",
           keyFindings: ["Finding 1", "Finding 2"],

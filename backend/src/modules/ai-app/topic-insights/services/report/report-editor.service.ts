@@ -302,7 +302,7 @@ export class ReportEditorService {
       .join("\n\n---\n\n");
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "system",
@@ -316,6 +316,7 @@ export class ReportEditorService {
             ),
           },
         ],
+        additionalSkills: ["dedup-checker"],
         modelType: AIModelType.CHAT,
         taskProfile: {
           creativity: "low",

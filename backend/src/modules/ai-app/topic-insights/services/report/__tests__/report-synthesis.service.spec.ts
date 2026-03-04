@@ -129,7 +129,7 @@ function buildMocks() {
   };
 
   const mockFacade = {
-    chat: jest.fn(),
+    chatWithSkills: jest.fn(),
     sanitizeReport: jest.fn().mockImplementation((content: string) => content),
   };
 
@@ -563,7 +563,7 @@ describe("ReportSynthesisService", () => {
       ]);
 
       // AI facade chat: consistency check returns valid JSON
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             overallConsistency: "high",
@@ -654,7 +654,7 @@ describe("ReportSynthesisService", () => {
     it("should pass userFeedback into the synthesis prompt", async () => {
       // With 1 dimension, consistency check is skipped (no AI call for it).
       // Only 1 AI call is made for the main report generation.
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "AI 芯片市场由英伟达主导。",
           preface: "本报告分析了 AI 芯片市场现状。",
@@ -709,9 +709,9 @@ describe("ReportSynthesisService", () => {
       );
 
       // With 1 dimension, only main report AI call happens
-      expect(mockFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(1);
       // userFeedback should be included in the chat call
-      expect(mockFacade.chat).toHaveBeenCalledWith(
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -775,7 +775,7 @@ describe("ReportSynthesisService", () => {
       mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
 
       // Consistency check AI fails, main synthesis succeeds
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockRejectedValueOnce(new Error("AI timeout"))
         .mockResolvedValueOnce({
           content: JSON.stringify({
@@ -796,7 +796,7 @@ describe("ReportSynthesisService", () => {
         topicConfig: { enableFigures: false },
       } as unknown as ResearchTopic;
 
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             overallConsistency: "high",
@@ -856,7 +856,7 @@ describe("ReportSynthesisService", () => {
     });
 
     it("should build references section from evidence with citationIndex", async () => {
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             overallConsistency: "high",
@@ -943,7 +943,7 @@ describe("ReportSynthesisService", () => {
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
 
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "Single dimension",
           highlights: [],
@@ -978,7 +978,7 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       // Only one AI call (main synthesis), no consistency check
-      expect(mockFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(1);
     });
 
     it("should call AI for consistency check when multiple dimensions", async () => {
@@ -999,7 +999,7 @@ describe("ReportSynthesisService", () => {
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
 
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             overallConsistency: "medium",
@@ -1037,7 +1037,7 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       // Two AI calls: consistency check + main synthesis
-      expect(mockFacade.chat).toHaveBeenCalledTimes(2);
+      expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(2);
     });
 
     it("should include critical conflict notice in AI prompt when conflicts found", async () => {
@@ -1059,7 +1059,7 @@ describe("ReportSynthesisService", () => {
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
 
       // Consistency check returns critical conflict
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             overallConsistency: "low",
@@ -1097,7 +1097,7 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       // The main synthesis call should include conflict notice
-      const mainSynthesisCall = mockFacade.chat.mock.calls[1][0];
+      const mainSynthesisCall = mockFacade.chatWithSkills.mock.calls[1][0];
       const userMsg = mainSynthesisCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -1115,7 +1115,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: executiveSummaryValue,
           highlights: [],
@@ -1223,7 +1223,7 @@ describe("ReportSynthesisService", () => {
     } as unknown as typeof mockTopic;
 
     it("should use English labels in report when topic.language is 'en'", async () => {
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "English executive summary",
           highlights: [],
@@ -1301,7 +1301,7 @@ describe("ReportSynthesisService", () => {
         },
       };
 
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -1352,7 +1352,7 @@ describe("ReportSynthesisService", () => {
     });
 
     it("should filter out reference charts with external imageUrl but no data", async () => {
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -1427,7 +1427,7 @@ describe("ReportSynthesisService", () => {
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
 
       // AI returns plain text, not JSON
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: "This is plain text without any JSON structure.",
       });
 
@@ -1554,7 +1554,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -1607,7 +1607,7 @@ describe("ReportSynthesisService", () => {
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
 
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             overallConsistency: "high",
@@ -1646,7 +1646,7 @@ describe("ReportSynthesisService", () => {
 
   describe("synthesizeReport - orphan chart placeholder cleanup", () => {
     it("should strip orphan chart placeholders from report", async () => {
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -1692,7 +1692,7 @@ describe("ReportSynthesisService", () => {
     });
 
     it("should warn about charts in array but not referenced in report", async () => {
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -1746,7 +1746,7 @@ describe("ReportSynthesisService", () => {
 
   describe("synthesizeReport - references section edge cases", () => {
     it("should skip evidence without citationIndex in references section", async () => {
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -1808,7 +1808,7 @@ describe("ReportSynthesisService", () => {
     });
 
     it("should build empty references section when all evidence has no citationIndex", async () => {
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -1871,7 +1871,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "执行摘要",
           preface: "前言内容",
@@ -1966,7 +1966,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -2015,7 +2015,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -2080,7 +2080,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "English summary",
           preface: "English preface",
@@ -2125,7 +2125,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -2170,7 +2170,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -2210,8 +2210,8 @@ describe("ReportSynthesisService", () => {
     it("should include conclusion section in report", async () => {
       setupWithConclusionSections("");
       // Override to have a direct conclusion field (not cross-dim)
-      mockFacade.chat.mockReset();
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockReset();
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "执行摘要",
           preface: "前言",
@@ -2246,7 +2246,7 @@ describe("ReportSynthesisService", () => {
         analysisWithCharts,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -2430,7 +2430,9 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({ content: contentWithCrossDim });
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
+        content: contentWithCrossDim,
+      });
       mockReportEditor.editDimensionInputs.mockResolvedValue({
         dimensions: [
           {
@@ -2470,7 +2472,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify(responseData),
       });
       mockReportEditor.editDimensionInputs.mockResolvedValue({
@@ -2551,7 +2553,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: esValue,
           highlights: [],
@@ -2633,7 +2635,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify(responseData),
       });
       mockReportEditor.editDimensionInputs.mockResolvedValue({
@@ -2765,7 +2767,9 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({ content: truncatedContent });
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
+        content: truncatedContent,
+      });
       mockReportEditor.editDimensionInputs.mockResolvedValue({
         dimensions: [
           {
@@ -2802,7 +2806,9 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({ content: plainTextContent });
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
+        content: plainTextContent,
+      });
       mockReportEditor.editDimensionInputs.mockResolvedValue({
         dimensions: [
           {
@@ -2846,7 +2852,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -2975,7 +2981,7 @@ describe("ReportSynthesisService", () => {
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
       // AI response with sections that have coreViewpoints
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           sections: [
@@ -3031,7 +3037,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           sections: [
@@ -3096,7 +3102,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           sections: [
@@ -3151,7 +3157,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           sections: [
@@ -3363,7 +3369,7 @@ describe("ReportSynthesisService", () => {
         },
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           // AI also returns a chart not referenced anywhere
@@ -3441,7 +3447,7 @@ describe("ReportSynthesisService", () => {
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
 
-      mockFacade.chat
+      mockFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             overallConsistency: "high",
@@ -3512,7 +3518,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: esValue,
           highlights: [],
@@ -3579,7 +3585,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           // crossDimensionAnalysis with empty causalChains and keyLinkages
@@ -3632,7 +3638,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({ content });
+      mockFacade.chatWithSkills.mockResolvedValueOnce({ content });
       mockReportEditor.editDimensionInputs.mockResolvedValue({
         dimensions: [
           {
@@ -3719,7 +3725,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: plainTextWithKeyPhrases,
       });
       mockReportEditor.editDimensionInputs.mockResolvedValue({
@@ -3762,7 +3768,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -3812,7 +3818,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           highlights: [],
@@ -3869,7 +3875,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           sections: [
@@ -3962,7 +3968,7 @@ describe("ReportSynthesisService", () => {
         mockDimensionAnalysis,
       ]);
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
-      mockFacade.chat.mockResolvedValueOnce({
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
         content: JSON.stringify({
           executiveSummary: "摘要",
           preface: "前言",

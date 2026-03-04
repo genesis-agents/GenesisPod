@@ -627,7 +627,7 @@ export class ReportSynthesisService {
       .join("\n---\n");
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           { role: "system", content: CONSISTENCY_CHECK_SYSTEM_PROMPT },
           {
@@ -638,7 +638,8 @@ export class ReportSynthesisService {
             ).replace("{dimensionSummaries}", dimensionSummaries),
           },
         ],
-        modelType: AIModelType.CHAT, // 使用标准聊天模型
+        additionalSkills: ["consistency-check"],
+        modelType: AIModelType.CHAT,
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
@@ -1267,17 +1268,17 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     );
 
     // 调用 AI 生成报告
-    const response = await this.chatFacade.chat({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      modelType: AIModelType.CHAT, // 使用标准聊天模型进行深度分析
+      additionalSkills: ["report-synthesis"],
+      modelType: AIModelType.CHAT,
       taskProfile: {
         creativity: "medium",
-        outputLength: "extended", // 基础配置
+        outputLength: "extended",
       },
-      // ★ 直接指定 maxTokens 覆盖 taskProfile 的值（用于大型报告）
       maxTokens: estimatedTokens,
     });
 

@@ -9,6 +9,7 @@ import type { DimensionAnalysisResult } from "../../../types/research.types";
 
 const mockFacade = {
   chat: jest.fn(),
+  chatWithSkills: jest.fn(),
 };
 
 const mockTopic = {
@@ -97,7 +98,7 @@ describe("ResearchReviewerService", () => {
 
   describe("reviewDimension", () => {
     it("should return GOOD quality level for score 80", async () => {
-      facade.chat.mockResolvedValue({
+      facade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify(goodAiResponse),
         tokensUsed: 200,
         model: "gpt-4",
@@ -117,7 +118,7 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should return EXCELLENT quality level for score >= 90", async () => {
-      facade.chat.mockResolvedValue({
+      facade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           ...goodAiResponse,
           overallScore: 95,
@@ -138,7 +139,7 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should force needsReresearch when overallScore < 60", async () => {
-      facade.chat.mockResolvedValue({
+      facade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           ...goodAiResponse,
           overallScore: 50,
@@ -160,7 +161,7 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should detect refusal keywords and flag as NEEDS_REVISION", async () => {
-      facade.chat.mockResolvedValue({
+      facade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           ...goodAiResponse,
           overallScore: 80,
@@ -187,7 +188,7 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should return failed review result when AI throws error", async () => {
-      facade.chat.mockRejectedValue(new Error("Network error"));
+      facade.chatWithSkills.mockRejectedValue(new Error("Network error"));
 
       const result = await service.reviewDimension(
         mockTopic as never,
@@ -203,7 +204,7 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should handle AI response wrapped in markdown code blocks", async () => {
-      facade.chat.mockResolvedValue({
+      facade.chatWithSkills.mockResolvedValue({
         content: `\`\`\`json\n${JSON.stringify(goodAiResponse)}\n\`\`\``,
         tokensUsed: 200,
         model: "gpt-4",

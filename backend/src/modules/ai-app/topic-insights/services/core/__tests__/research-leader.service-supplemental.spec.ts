@@ -61,6 +61,7 @@ function buildMocks() {
     getAvailableModelsExtended: jest.fn().mockResolvedValue([]),
     getReasoningModel: jest.fn(),
     chat: jest.fn(),
+    chatWithSkills: jest.fn(),
     intentDetector: {
       detectIntent: jest
         .fn()
@@ -819,7 +820,7 @@ describe("ResearchLeaderService (supplemental)", () => {
       expect(result.content).toContain("技术现状");
       expect(result.content).toContain("技术内容分析文字");
       // No AI call for single section
-      expect(mocks.mockFacade.chat).not.toHaveBeenCalled();
+      expect(mocks.mockFacade.chatWithSkills).not.toHaveBeenCalled();
     });
 
     it("should use simple concatenation when no reasoning model available", async () => {
@@ -850,7 +851,7 @@ describe("ResearchLeaderService (supplemental)", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mocks.mockFacade.chat.mockResolvedValue({
+      mocks.mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           summary: "AI 生成的摘要文字",
           keyFindings: ["关键发现1", "关键发现2"],
@@ -880,7 +881,9 @@ describe("ResearchLeaderService (supplemental)", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mocks.mockFacade.chat.mockRejectedValue(new Error("AI API error"));
+      mocks.mockFacade.chatWithSkills.mockRejectedValue(
+        new Error("AI API error"),
+      );
 
       const sections = [
         { title: "部分一", content: "技术内容一" },
@@ -905,7 +908,7 @@ describe("ResearchLeaderService (supplemental)", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mocks.mockFacade.chat.mockResolvedValue({
+      mocks.mockFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           summary: "English summary here",
           keyFindings: ["Finding 1", "Finding 2"],
@@ -920,7 +923,7 @@ describe("ResearchLeaderService (supplemental)", () => {
 
       await service.integrateDimensionResults(dimension, sections, "en");
 
-      expect(mocks.mockFacade.chat).toHaveBeenCalledWith(
+      expect(mocks.mockFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({

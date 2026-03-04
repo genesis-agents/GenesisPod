@@ -110,12 +110,6 @@ ${request.question}
 ## 可用证据
 ${evidenceContext}
 
-## 要求
-1. 仔细分析每条证据
-2. 展示你的推理过程
-3. 得出明确的结论
-4. 评估你的置信度
-
 ## 输出格式（JSON）
 {
   "reasoning": "详细的推理过程（200-500字）",
@@ -141,8 +135,9 @@ ${evidenceContext}
                 ? ("medium" as const)
                 : ("high" as const);
 
-        const response = await this.chatFacade.chat({
+        const response = await this.chatFacade.chatWithSkills({
           messages: [{ role: "user", content: prompt }],
+          additionalSkills: ["multi-path-reasoning"],
           taskProfile: { creativity: creativityLevel, outputLength: "medium" },
         });
 
@@ -222,12 +217,6 @@ ${question}
 ## 各路径结论
 ${conclusionsText}
 
-## 任务
-1. 判断各结论是否一致
-2. 识别多数观点
-3. 识别异议观点
-4. 综合所有观点形成最终结论
-
 ## 输出格式（JSON）
 {
   "agreementRate": 0.8,
@@ -248,8 +237,9 @@ ${conclusionsText}
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
+        additionalSkills: ["multi-path-reasoning"],
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 

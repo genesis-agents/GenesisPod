@@ -227,7 +227,7 @@ export class LeaderReviewService {
       prompt += `\n\n## 章节图表数据\n\`\`\`json\n${JSON.stringify(charts, null, 2)}\n\`\`\``;
     }
 
-    const response = await this.chatFacade.chat({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         {
           role: "system",
@@ -235,6 +235,7 @@ export class LeaderReviewService {
         },
         { role: "user", content: prompt },
       ],
+      additionalSkills: ["section-review"],
       model: leaderModel.modelId,
       taskProfile: {
         creativity: "low",
@@ -362,11 +363,12 @@ ${fullContent.substring(0, 8000)}
 \`\`\`
 要求：summary 200-300字，keyFindings 5-8条，每条50-100字。`;
 
-      const metaResponse = await this.chatFacade.chat({
+      const metaResponse = await this.chatFacade.chatWithSkills({
         messages: [
           { role: "system", content: "你是研究报告整合专家，请输出JSON。" },
           { role: "user", content: metaPrompt },
         ],
+        additionalSkills: ["dimension-synthesizer"],
         model: leaderModel.modelId,
         taskProfile: { creativity: "low", outputLength: "medium" },
       });

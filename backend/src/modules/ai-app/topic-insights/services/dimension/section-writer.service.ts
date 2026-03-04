@@ -10,7 +10,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research-leader.service";
 import {
@@ -97,10 +97,7 @@ export interface SectionRevisionInput {
 export class SectionWriterService {
   private readonly logger = new Logger(SectionWriterService.name);
 
-  constructor(
-    private readonly chatFacade: ChatFacade,
-    private readonly teamFacade: TeamFacade,
-  ) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 撰写单个章节
@@ -170,8 +167,8 @@ export class SectionWriterService {
       previousContent = parts.reverse().join("\n\n");
     }
 
-    // 格式化 Agent 配置指导
-    const agentGuidance = this.formatAgentGuidance(section);
+    // 格式化 Agent 配置指导（拆分为 leader 指导 + skill IDs）
+    const { leaderGuidance, skillIds } = this.formatAgentGuidance(section);
 
     // 准备提示词变量（包含时间上下文）
     const promptVariables = {
@@ -182,7 +179,7 @@ export class SectionWriterService {
       keyPoints: keyPointsFormatted,
       evidenceList: evidenceFormatted,
       previousContent,
-      agentGuidance,
+      agentGuidance: leaderGuidance,
       // ★ 时间上下文
       currentDate: temporalContext?.currentDate || this.getCurrentDate(),
       freshnessRequirement:
@@ -216,11 +213,15 @@ export class SectionWriterService {
     });
 
     const startTime = Date.now();
-    const response = await this.chatFacade.chat({
+    // ★ 使用 chatWithSkills 自动注入 skill 内容到 system message，并记录 analytics
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: finalUserPrompt },
       ],
+      // 不传 domain（避免加载全部 11 个 research skills）
+      // 只传 additionalSkills：精确加载 Leader 分配的 skill
+      additionalSkills: skillIds,
       modelType: AIModelType.CHAT,
       model: modelId, // ★ 使用指定模型（如果提供）
       taskProfile: {
@@ -579,87 +580,41 @@ export class SectionWriterService {
 
   /**
    * 格式化 Agent 配置为指导文本
-   * 将 Leader 的 agentConfig 转换为 Agent 可理解的指导
-   * ★ 增强：真正加载 skill.md 文件内容
+   * 将 Leader 的 agentConfig 拆分为：
+   * - skillIds: 需要加载的 skill ID 列表（kebab-case，给 chatWithSkills 的 additionalSkills 用）
+   * - leaderGuidance: Leader 指导文本（analysisGuidance + outputStyle + preferredDataSources）
    */
-  private formatAgentGuidance(section: SectionPlan): string {
+  private formatAgentGuidance(section: SectionPlan): {
+    leaderGuidance: string;
+    skillIds: string[];
+  } {
     const config = section.agentConfig;
     if (!config) {
-      return "无特殊指导";
+      return { leaderGuidance: "无特殊指导", skillIds: [] };
     }
 
     const parts: string[] = [];
+    let skillIds: string[] = [];
 
-    // ★ 真正加载分析技能（从 skill.md 文件）
+    // 技能 ID 到文件 ID 的映射（下划线转换为连字符）
+    const skillIdMapping: Record<string, string> = {
+      trend_analysis: "trend-analysis",
+      swot_analysis: "swot-analysis",
+      competitive_analysis: "competitive-analysis",
+      deep_dive: "deep-dive",
+      data_interpretation: "data-interpretation",
+      synthesis: "synthesis",
+      critical_thinking: "critical-thinking",
+      future_projection: "future-projection",
+      cause_effect: "cause-effect",
+      comparison: "comparison",
+    };
+
+    // 将 skill IDs 映射为 kebab-case（供 chatWithSkills 的 additionalSkills 使用）
     if (config.skills && config.skills.length > 0) {
-      const loadedSkillContents: string[] = [];
-      const fallbackDescriptions: string[] = [];
-
-      // 技能 ID 到文件 ID 的映射（下划线转换为连字符）
-      const skillIdMapping: Record<string, string> = {
-        trend_analysis: "trend-analysis",
-        swot_analysis: "swot-analysis",
-        competitive_analysis: "competitive-analysis",
-        deep_dive: "deep-dive",
-        data_interpretation: "data-interpretation",
-        synthesis: "synthesis",
-        critical_thinking: "critical-thinking",
-        future_projection: "future-projection",
-        cause_effect: "cause-effect",
-        comparison: "comparison",
-      };
-
-      // 备用描述（当技能文件不存在时使用）
-      const fallbackSkillDescriptions: Record<string, string> = {
-        trend_analysis: "趋势分析 - 识别发展趋势、变化方向、未来走向",
-        swot_analysis: "SWOT分析 - 分析优势、劣势、机会、威胁",
-        competitive_analysis: "竞争分析 - 分析竞争格局、主要玩家、策略对比",
-        deep_dive: "深度调研 - 深入挖掘细节、探究根因、全面分析",
-        data_interpretation: "数据解读 - 解读数字、统计数据、量化指标",
-        synthesis: "综合归纳 - 整合多源信息、提炼核心观点",
-        critical_thinking: "批判思维 - 质疑验证、多角度分析、辨别真伪",
-        future_projection: "未来预测 - 基于现状预测发展、推演可能场景",
-        cause_effect: "因果分析 - 分析原因和结果、追溯根源",
-        comparison: "对比分析 - 比较不同方案、事物、路径",
-      };
-
-      for (const skillId of config.skills) {
-        const fileId = skillIdMapping[skillId] || skillId.replace(/_/g, "-");
-        // 同步获取技能（skillLoader 已在启动时预加载所有技能）
-        const skill = this.teamFacade
-          .skillLoaderGetAll()
-          .find((s) => s.metadata.id === fileId);
-
-        if (skill) {
-          // ★ 使用技能文件的完整内容
-          loadedSkillContents.push(
-            `### ${skill.metadata.name}\n\n${skill.content}`,
-          );
-          this.logger.debug(
-            `[formatAgentGuidance] Loaded skill: ${fileId} (${skill.content.length} chars)`,
-          );
-        } else {
-          // 技能文件不存在，使用备用描述
-          fallbackDescriptions.push(
-            `- ${fallbackSkillDescriptions[skillId] || skillId}`,
-          );
-          this.logger.debug(
-            `[formatAgentGuidance] Skill not found, using fallback: ${skillId}`,
-          );
-        }
-      }
-
-      // 组合已加载的技能内容
-      if (loadedSkillContents.length > 0) {
-        parts.push(
-          `## 分析技能指导\n\n${loadedSkillContents.join("\n\n---\n\n")}`,
-        );
-      }
-
-      // 添加备用描述（如果有未找到的技能）
-      if (fallbackDescriptions.length > 0) {
-        parts.push(`**其他分析方法**:\n${fallbackDescriptions.join("\n")}`);
-      }
+      skillIds = config.skills.map(
+        (id: string) => skillIdMapping[id] || id.replace(/_/g, "-"),
+      );
     }
 
     // 分析指导
@@ -685,7 +640,10 @@ export class SectionWriterService {
       parts.push(`**优先数据源**: ${config.preferredDataSources.join("、")}`);
     }
 
-    return parts.length > 0 ? parts.join("\n\n") : "无特殊指导";
+    const leaderGuidance =
+      parts.length > 0 ? parts.join("\n\n") : "请参考系统提示中的分析技能指导";
+
+    return { leaderGuidance, skillIds };
   }
 
   /**

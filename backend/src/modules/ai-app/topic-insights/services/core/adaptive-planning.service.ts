@@ -284,7 +284,7 @@ ${findingsText || "无"}
 }`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "system",
@@ -292,6 +292,7 @@ ${findingsText || "无"}
           },
           { role: "user", content: prompt },
         ],
+        additionalSkills: ["task-quality-evaluator"],
         taskProfile: {
           creativity: "low", // 确定性分析
           outputLength: "medium",
@@ -466,7 +467,7 @@ ${completedTasks.map((t) => `- ${t.title} (${t.dimensionName || "通用"})`).joi
 - 优先级：1=最高，越大越低`;
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "system",
@@ -474,6 +475,7 @@ ${completedTasks.map((t) => `- ${t.title} (${t.dimensionName || "通用"})`).joi
           },
           { role: "user", content: prompt },
         ],
+        additionalSkills: ["plan-adjuster"],
         taskProfile: {
           creativity: "low", // 确定性分析
           outputLength: "medium",

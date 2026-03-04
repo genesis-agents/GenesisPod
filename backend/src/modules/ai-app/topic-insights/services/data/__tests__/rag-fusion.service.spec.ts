@@ -10,7 +10,7 @@ import { DataSourceType } from "../../../types/data-source.types";
 import type { DataSourceResult } from "../../../types/data-source.types";
 
 const mockAiFacade = {
-  chat: jest.fn(),
+  chatWithSkills: jest.fn(),
 };
 
 const makeDataSourceResult = (
@@ -69,7 +69,7 @@ describe("RAGFusionService", () => {
 
   describe("generateQueryVariants", () => {
     it("should always include the original query as first variant", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           variants: [
             { query: "latest AI trends", type: "temporal", weight: 0.8 },
@@ -88,7 +88,7 @@ describe("RAGFusionService", () => {
     });
 
     it("should include AI-generated variants", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           variants: [
             {
@@ -114,7 +114,7 @@ describe("RAGFusionService", () => {
     });
 
     it("should return only original query on AI error", async () => {
-      mockAiFacade.chat.mockRejectedValue(new Error("LLM error"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("LLM error"));
 
       const result = await service.generateQueryVariants({
         originalQuery: "AI trends",
@@ -127,7 +127,7 @@ describe("RAGFusionService", () => {
     });
 
     it("should clamp variant weights to 0.5-1.0 range", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           variants: [
             { query: "test query 1", type: "expanded", weight: 0.1 }, // below min
@@ -152,7 +152,7 @@ describe("RAGFusionService", () => {
     });
 
     it("should include generationTimeMs in result", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({ variants: [], overallRationale: "test" }),
       });
 
@@ -330,7 +330,7 @@ describe("RAGFusionService", () => {
 
   describe("fusionSearch", () => {
     it("should run end-to-end fusion search", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           variants: [
             { query: "AI latest research", type: "temporal", weight: 0.8 },
@@ -356,7 +356,7 @@ describe("RAGFusionService", () => {
     });
 
     it("should handle search function failures gracefully", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           variants: [
             { query: "AI research latest", type: "temporal", weight: 0.8 },
