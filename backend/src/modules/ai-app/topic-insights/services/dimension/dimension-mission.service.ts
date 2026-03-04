@@ -73,7 +73,7 @@ import {
   type EstablishedFact,
   TokenBudgetService,
 } from "@/modules/ai-engine/facade";
-import { CostAttributionService } from "@/modules/ai-kernel/facade";
+import { MissionObservabilityService } from "../core/mission-observability.service";
 
 /**
  * 维度 Mission 执行结果
@@ -146,8 +146,8 @@ export class DimensionMissionService {
     private readonly agentActivity: AgentActivityService,
     private readonly dataEnrichment: DataEnrichmentService,
     private readonly leaderTool: LeaderToolService,
-    // ★ Phase 2: 维度级别成本追踪
-    @Optional() private readonly costAttribution?: CostAttributionService,
+    // ★ Phase 2: 维度级别成本追踪（via observability）
+    private readonly observability: MissionObservabilityService,
     // ★ Phase 5: 长研究上下文压缩
     @Optional() private readonly contextCompression?: ContextCompressionService,
     // ★ Batch 2: 跨维度事实提取
@@ -489,6 +489,10 @@ export class DimensionMissionService {
         );
         // fallback: 保持原始文本
       }
+    } else if (!this.contextCompression && evidenceSummary.length > 8000) {
+      this.logger.debug(
+        "[Degraded] ContextCompressionService unavailable, skipping evidence compression",
+      );
     }
 
     // ★ Batch 3: TokenBudgetService — 当 ContextCompression 不可用时的后备截断
@@ -504,6 +508,10 @@ export class DimensionMissionService {
       } catch (e) {
         this.logger.debug(`TokenBudgetService truncation failed: ${e}`);
       }
+    } else if (!this.tokenBudgetService && evidenceSummary.length > 8000) {
+      this.logger.debug(
+        "[Degraded] TokenBudgetService unavailable, evidence summary may exceed token budget",
+      );
     }
 
     const figuresSummary = this.buildFiguresSummary(evidenceData);
@@ -1095,23 +1103,15 @@ export class DimensionMissionService {
         .pop();
 
       // ★ Phase 2: CostAttribution — 维度级别成本追踪
-      if (this.costAttribution) {
-        try {
-          this.costAttribution.recordCost({
-            userId: topic.userId,
-            moduleType: `research:${dimension.name}`,
-            model: lastActualModel || modelId || "",
-            provider: "",
-            inputTokens: 0,
-            outputTokens: 0,
-            estimatedCost: 0,
-          });
-        } catch (err) {
-          this.logger.warn(
-            `[CostAttribution] Failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
+      this.observability.recordResearchCost(
+        topic.userId,
+        dimension.name,
+        lastActualModel || modelId || "",
+        "",
+        0,
+        0,
+        0,
+      );
 
       // ★ Batch 2: 从维度研究结果中提取跨维度事实
       let extractedFacts: EstablishedFact[] | undefined;
@@ -1149,6 +1149,10 @@ export class DimensionMissionService {
             `${logPrefix} Fact extraction failed (non-fatal): ${err instanceof Error ? err.message : err}`,
           );
         }
+      } else if (!this.contextEvolution || !this.chatFacade) {
+        this.logger.debug(
+          `[Degraded] ${!this.contextEvolution ? "ContextEvolutionService" : "ChatFacade"} unavailable, skipping cross-dimension fact extraction`,
+        );
       }
 
       return {

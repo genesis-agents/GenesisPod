@@ -333,15 +333,28 @@ export class ReportSynthesisService {
     if (crossDimensionFacts?.length && this.contextEvolution) {
       factsContext =
         this.contextEvolution.buildFactsPromptSection(crossDimensionFacts);
+    } else if (crossDimensionFacts?.length && !this.contextEvolution) {
+      this.logger.debug(
+        "[Degraded] ContextEvolutionService unavailable, skipping cross-dimension facts injection",
+      );
     }
 
     // ★ Batch 3: TokenBudgetService — 截断过长的维度分析，防止超出模型上下文
     const truncatedDimensionInputs = dimensionInputs.map((d) => {
       const maxLen = 8000;
       if (d.detailedContent && d.detailedContent.length > maxLen) {
-        const truncated = this.tokenBudgetService
-          ? this.tokenBudgetService.smartTruncate(d.detailedContent, 6000)
-          : d.detailedContent.slice(0, maxLen);
+        let truncated: string;
+        if (this.tokenBudgetService) {
+          truncated = this.tokenBudgetService.smartTruncate(
+            d.detailedContent,
+            6000,
+          );
+        } else {
+          this.logger.debug(
+            "[Degraded] TokenBudgetService unavailable, using simple slice for truncation",
+          );
+          truncated = d.detailedContent.slice(0, maxLen);
+        }
         this.logger.debug(
           `[synthesizeReport] Truncated dimension "${d.dimensionName}" content: ${d.detailedContent.length} → ${truncated.length}`,
         );
@@ -518,6 +531,10 @@ export class ReportSynthesisService {
           `[synthesizeReport] Quality review failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
         );
       }
+    } else if (!this.outputReviewer) {
+      this.logger.debug(
+        "[Degraded] OutputReviewerService unavailable, skipping report quality review",
+      );
     }
 
     // 11. 更新报告

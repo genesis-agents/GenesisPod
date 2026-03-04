@@ -52,6 +52,10 @@ import {
   FigureExtractorService,
   ReportValidationService,
   ReportEditorService,
+  // ★ Mission sub-services (God Service decomposition)
+  MissionObservabilityService,
+  MissionKernelBridgeService,
+  MissionNotificationService,
   // ★ Leader sub-services
   LeaderPlanningService,
   LeaderReviewService,
@@ -106,6 +110,10 @@ const services = [
   MissionQueryService,
   MissionLifecycleService,
   MissionExecutionService,
+  // ★ Mission sub-services (God Service decomposition)
+  MissionObservabilityService,
+  MissionKernelBridgeService,
+  MissionNotificationService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
   DimensionMissionService,

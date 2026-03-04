@@ -17,6 +17,9 @@ import { ResearchEventEmitterService } from "../../services/core/research-event-
 import { TopicCollaboratorService } from "../../services/collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../../services/monitoring/agent-activity.service";
 import { ResearchReviewerService } from "../../services/collaboration/research-reviewer.service";
+import { MissionObservabilityService } from "../../services/core/mission-observability.service";
+import { MissionKernelBridgeService } from "../../services/core/mission-kernel-bridge.service";
+import { MissionNotificationService } from "../../services/core/mission-notification.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
@@ -112,6 +115,39 @@ describe("ResearchMissionService", () => {
               accuracyScore: 100,
               issues: [],
             }),
+          },
+        },
+        {
+          provide: MissionObservabilityService,
+          useValue: {
+            recordResearchCost: jest.fn(),
+            emitKernelEvent: jest.fn(),
+            logError: jest.fn(),
+            recordMissionMetrics: jest.fn(),
+          },
+        },
+        {
+          provide: MissionKernelBridgeService,
+          useValue: {
+            getProcessId: jest.fn(),
+            initMission: jest.fn().mockResolvedValue(undefined),
+            startPhase: jest.fn(),
+            completePhase: jest.fn(),
+            failTracking: jest.fn(),
+            completeTracking: jest.fn(),
+            recordKernelEvent: jest.fn(),
+            completeKernelProcess: jest.fn(),
+            failKernelProcess: jest.fn(),
+            checkBudget: jest.fn().mockResolvedValue({ canProceed: true }),
+            consumeResources: jest.fn(),
+            writeMemory: jest.fn(),
+          },
+        },
+        {
+          provide: MissionNotificationService,
+          useValue: {
+            notifyCompletion: jest.fn(),
+            getAiSettings: jest.fn().mockResolvedValue({}),
           },
         },
       ],

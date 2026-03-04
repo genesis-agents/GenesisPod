@@ -16,6 +16,7 @@ import { ResearchEventEmitterService } from "../../core/research-event-emitter.s
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
+import { MissionObservabilityService } from "../../core/mission-observability.service";
 import { DimensionStatus } from "@prisma/client";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 
@@ -93,8 +94,20 @@ const mockSectionResult = {
 const mockOutline = {
   dimensionName: "市场竞争格局",
   sections: [
-    { id: "section-001", title: "市场概况", description: "概述市场规模", keyPoints: [], allocatedFigures: [] },
-    { id: "section-002", title: "竞争对手分析", description: "主要厂商分析", keyPoints: [], allocatedFigures: [] },
+    {
+      id: "section-001",
+      title: "市场概况",
+      description: "概述市场规模",
+      keyPoints: [],
+      allocatedFigures: [],
+    },
+    {
+      id: "section-002",
+      title: "竞争对手分析",
+      description: "主要厂商分析",
+      keyPoints: [],
+      allocatedFigures: [],
+    },
   ],
   researchObjective: "分析市场竞争格局",
   keyThemes: ["市场份额", "竞争优势"],
@@ -125,19 +138,23 @@ function buildMocks() {
 
   const mockPrisma = {
     topicDimension: {
-      update: jest.fn().mockResolvedValue({ id: "dim-001", status: "RESEARCHING" }),
+      update: jest
+        .fn()
+        .mockResolvedValue({ id: "dim-001", status: "RESEARCHING" }),
       findMany: jest.fn().mockResolvedValue([]),
     },
     researchMission: {
       update: jest.fn().mockResolvedValue({}),
     },
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => {
-      const tx = {
-        topicEvidence: mockTopicEvidenceTx,
-        researchMission: mockResearchMissionTx,
-      };
-      return fn(tx);
-    }),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => unknown) => {
+        const tx = {
+          topicEvidence: mockTopicEvidenceTx,
+          researchMission: mockResearchMissionTx,
+        };
+        return fn(tx);
+      }),
   };
 
   const mockLeaderService = {
@@ -214,7 +231,9 @@ describe("DimensionMissionService", () => {
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockLeaderService: ReturnType<typeof buildMocks>["mockLeaderService"];
   let mockSectionWriter: ReturnType<typeof buildMocks>["mockSectionWriter"];
-  let mockDataSourceRouter: ReturnType<typeof buildMocks>["mockDataSourceRouter"];
+  let mockDataSourceRouter: ReturnType<
+    typeof buildMocks
+  >["mockDataSourceRouter"];
   let mockEventEmitter: ReturnType<typeof buildMocks>["mockEventEmitter"];
   let mockAgentActivity: ReturnType<typeof buildMocks>["mockAgentActivity"];
   let mockDataEnrichment: ReturnType<typeof buildMocks>["mockDataEnrichment"];
@@ -242,6 +261,15 @@ describe("DimensionMissionService", () => {
         { provide: AgentActivityService, useValue: mockAgentActivity },
         { provide: DataEnrichmentService, useValue: mockDataEnrichment },
         { provide: LeaderToolService, useValue: mockLeaderTool },
+        {
+          provide: MissionObservabilityService,
+          useValue: {
+            recordResearchCost: jest.fn(),
+            emitKernelEvent: jest.fn(),
+            logError: jest.fn(),
+            recordMissionMetrics: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -262,7 +290,9 @@ describe("DimensionMissionService", () => {
         metadata: { searchQuery: "semiconductor market share 2024" },
       });
 
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([mockEnrichedResult]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        mockEnrichedResult,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
         total: 1,
         fetched: 1,
@@ -328,7 +358,9 @@ describe("DimensionMissionService", () => {
         evidenceData: expect.any(Array),
         evidenceSummary: expect.any(String),
         searchResultsRecord: expect.objectContaining({ total: 1, filtered: 1 }),
-        temporalContext: expect.objectContaining({ currentDate: expect.any(String) }),
+        temporalContext: expect.objectContaining({
+          currentDate: expect.any(String),
+        }),
       });
     });
 
@@ -395,7 +427,11 @@ describe("DimensionMissionService", () => {
       });
       mockDataEnrichment.enrichSearchResults.mockResolvedValue([]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 0, fetched: 0, avgContentLength: 0, invalidUrls: 0, validUrls: 0,
+        total: 0,
+        fetched: 0,
+        avgContentLength: 0,
+        invalidUrls: 0,
+        validUrls: 0,
       });
       mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
         contextSummary: "",
@@ -422,7 +458,11 @@ describe("DimensionMissionService", () => {
       });
       mockDataEnrichment.enrichSearchResults.mockResolvedValue([]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 0, fetched: 0, avgContentLength: 0, invalidUrls: 0, validUrls: 0,
+        total: 0,
+        fetched: 0,
+        avgContentLength: 0,
+        invalidUrls: 0,
+        validUrls: 0,
       });
       mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
         contextSummary: "",
@@ -449,9 +489,15 @@ describe("DimensionMissionService", () => {
         sources: ["web"],
         metadata: { searchQuery: "semiconductor market" },
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([mockEnrichedResult]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        mockEnrichedResult,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 500, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 500,
+        invalidUrls: 0,
+        validUrls: 1,
       });
       mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
         contextSummary: "",
@@ -485,7 +531,10 @@ describe("DimensionMissionService", () => {
         new Error("Search service unavailable"),
       );
 
-      const result = await service.executeDimensionMission(mockTopic, mockDimension);
+      const result = await service.executeDimensionMission(
+        mockTopic,
+        mockDimension,
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("Search service unavailable");
@@ -538,13 +587,13 @@ describe("DimensionMissionService", () => {
       await service.executeDimensionMission(
         mockTopic,
         mockDimension,
-        undefined,  // reportId
-        undefined,  // missionId
-        undefined,  // modelId
-        undefined,  // taskId
-        undefined,  // assignedTools
-        undefined,  // assignedSkills
-        2,          // maxRevisionRounds = 2 triggers literature scan
+        undefined, // reportId
+        undefined, // missionId
+        undefined, // modelId
+        undefined, // taskId
+        undefined, // assignedTools
+        undefined, // assignedSkills
+        2, // maxRevisionRounds = 2 triggers literature scan
       );
 
       expect(mockDataSourceRouter.scanLiteratureBaseline).toHaveBeenCalledWith(
@@ -560,16 +609,18 @@ describe("DimensionMissionService", () => {
       await service.executeDimensionMission(
         mockTopic,
         mockDimension,
-        undefined,  // reportId
-        undefined,  // missionId
-        undefined,  // modelId
-        undefined,  // taskId
-        undefined,  // assignedTools
-        undefined,  // assignedSkills
-        0,          // maxRevisionRounds = 0, skip scan
+        undefined, // reportId
+        undefined, // missionId
+        undefined, // modelId
+        undefined, // taskId
+        undefined, // assignedTools
+        undefined, // assignedSkills
+        0, // maxRevisionRounds = 0, skip scan
       );
 
-      expect(mockDataSourceRouter.scanLiteratureBaseline).not.toHaveBeenCalled();
+      expect(
+        mockDataSourceRouter.scanLiteratureBaseline,
+      ).not.toHaveBeenCalled();
     });
 
     it("should continue mission even if literature scan fails", async () => {
@@ -583,13 +634,13 @@ describe("DimensionMissionService", () => {
       const result = await service.executeDimensionMission(
         mockTopic,
         mockDimension,
-        undefined,  // reportId
-        undefined,  // missionId
-        undefined,  // modelId
-        undefined,  // taskId
-        undefined,  // assignedTools
-        undefined,  // assignedSkills
-        2,          // maxRevisionRounds triggers scan attempt
+        undefined, // reportId
+        undefined, // missionId
+        undefined, // modelId
+        undefined, // taskId
+        undefined, // assignedTools
+        undefined, // assignedSkills
+        2, // maxRevisionRounds triggers scan attempt
       );
 
       // Should still succeed despite literature scan failure
@@ -623,7 +674,11 @@ describe("DimensionMissionService", () => {
           { ...mockSectionResult, sectionId: "section-001", title: "市场概况" },
         ])
         .mockResolvedValueOnce([
-          { ...mockSectionResult, sectionId: "section-002", title: "竞争对手分析" },
+          {
+            ...mockSectionResult,
+            sectionId: "section-002",
+            title: "竞争对手分析",
+          },
         ]);
 
       await service.executeDimensionMission(mockTopic, mockDimension);
@@ -663,11 +718,15 @@ describe("DimensionMissionService", () => {
       const mockTopicEvidenceTx = {
         aggregate: jest.fn().mockResolvedValue({ _max: { citationIndex: 0 } }),
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findMany: jest.fn().mockResolvedValue([{ id: "ev-saved-1", citationIndex: 1 }]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: "ev-saved-1", citationIndex: 1 }]),
       };
-      mockPrisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => {
-        return fn({ topicEvidence: mockTopicEvidenceTx });
-      });
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => unknown) => {
+          return fn({ topicEvidence: mockTopicEvidenceTx });
+        },
+      );
 
       const result = await service.executeDimensionMission(
         mockTopic,
@@ -681,9 +740,14 @@ describe("DimensionMissionService", () => {
     it("should handle claim extraction failure gracefully (non-fatal)", async () => {
       setupFullMission();
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-      mockLeaderService.extractClaims.mockRejectedValue(new Error("Claim extraction failed"));
+      mockLeaderService.extractClaims.mockRejectedValue(
+        new Error("Claim extraction failed"),
+      );
 
-      const result = await service.executeDimensionMission(mockTopic, mockDimension);
+      const result = await service.executeDimensionMission(
+        mockTopic,
+        mockDimension,
+      );
 
       expect(result.success).toBe(true);
       expect(result.extractedClaims).toEqual([]);
@@ -709,14 +773,34 @@ describe("DimensionMissionService", () => {
 
       // Reject first, approve second
       mockLeaderService.reviewSectionOutput
-        .mockResolvedValueOnce({ approved: false, score: 50, feedback: "Needs work", revisionInstructions: "Expand coverage" })
-        .mockResolvedValueOnce({ approved: true, score: 85, feedback: "Good", revisionInstructions: null })
-        .mockResolvedValueOnce({ approved: true, score: 88, feedback: "Good", revisionInstructions: null });
+        .mockResolvedValueOnce({
+          approved: false,
+          score: 50,
+          feedback: "Needs work",
+          revisionInstructions: "Expand coverage",
+        })
+        .mockResolvedValueOnce({
+          approved: true,
+          score: 85,
+          feedback: "Good",
+          revisionInstructions: null,
+        })
+        .mockResolvedValueOnce({
+          approved: true,
+          score: 88,
+          feedback: "Good",
+          revisionInstructions: null,
+        });
 
       // Use the injected mockSectionWriter (from test scope)
-      mockSectionWriter.reviseSection = jest.fn().mockResolvedValue(mockSectionResult);
+      mockSectionWriter.reviseSection = jest
+        .fn()
+        .mockResolvedValue(mockSectionResult);
 
-      const result = await service.executeDimensionMission(mockTopic, mockDimension);
+      const result = await service.executeDimensionMission(
+        mockTopic,
+        mockDimension,
+      );
 
       expect(result.success).toBe(true);
       expect(mockSectionWriter.reviseSection).toHaveBeenCalled();
@@ -762,9 +846,14 @@ describe("DimensionMissionService", () => {
         feedback: "Poor",
         revisionInstructions: "Redo everything",
       });
-      mockSectionWriter.reviseSection = jest.fn().mockRejectedValue(new Error("Revision failed"));
+      mockSectionWriter.reviseSection = jest
+        .fn()
+        .mockRejectedValue(new Error("Revision failed"));
 
-      const result = await service.executeDimensionMission(mockTopic, mockDimension);
+      const result = await service.executeDimensionMission(
+        mockTopic,
+        mockDimension,
+      );
 
       // Should still succeed despite revision failure
       expect(result.success).toBe(true);
@@ -802,7 +891,9 @@ describe("DimensionMissionService", () => {
         metadata: { searchQuery: "semiconductor market share 2024" },
       });
 
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([mockEnrichedResult]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        mockEnrichedResult,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
         total: 1,
         fetched: 1,
@@ -822,7 +913,9 @@ describe("DimensionMissionService", () => {
         sources: ["web"],
         metadata: { searchQuery: "semiconductor" },
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([mockEnrichedResult]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        mockEnrichedResult,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
         total: 1,
         fetched: 1,
@@ -830,7 +923,9 @@ describe("DimensionMissionService", () => {
         invalidUrls: 2, // > 0 triggers warn
         validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -838,17 +933,28 @@ describe("DimensionMissionService", () => {
     });
 
     it("should generate freshnessInfo when enriched results have publishedAt dates", async () => {
-      const enrichedWithDate = { ...mockEnrichedResult, publishedAt: new Date("2024-01-15") };
+      const enrichedWithDate = {
+        ...mockEnrichedResult,
+        publishedAt: new Date("2024-01-15"),
+      };
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
         items: [enrichedWithDate],
         sources: ["web"],
         metadata: { searchQuery: "semiconductor" },
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([enrichedWithDate]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        enrichedWithDate,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 500, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 500,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -856,17 +962,28 @@ describe("DimensionMissionService", () => {
     });
 
     it("should handle publishedAt as Date object", async () => {
-      const enrichedWithDateObj = { ...mockEnrichedResult, publishedAt: new Date("2024-06-01") };
+      const enrichedWithDateObj = {
+        ...mockEnrichedResult,
+        publishedAt: new Date("2024-06-01"),
+      };
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
         items: [enrichedWithDateObj],
         sources: ["web"],
         metadata: {},
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([enrichedWithDateObj]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        enrichedWithDateObj,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 300, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 300,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -874,17 +991,28 @@ describe("DimensionMissionService", () => {
     });
 
     it("should handle publishedAt as invalid date string", async () => {
-      const enrichedWithBadDate = { ...mockEnrichedResult, publishedAt: "not-a-date" };
+      const enrichedWithBadDate = {
+        ...mockEnrichedResult,
+        publishedAt: "not-a-date",
+      };
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
         items: [enrichedWithBadDate],
         sources: ["web"],
         metadata: {},
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([enrichedWithBadDate]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        enrichedWithBadDate,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 300, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 300,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -901,7 +1029,9 @@ describe("DimensionMissionService", () => {
 
     it("should NOT include leaderContextSummary section when empty", async () => {
       setupSearchPhase();
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -912,7 +1042,12 @@ describe("DimensionMissionService", () => {
       const enrichedWithFigures = {
         ...mockEnrichedResult,
         extractedFigures: [
-          { type: "image", imageUrl: "https://img.com/fig.png", caption: "Market Share Chart", alt: "chart" },
+          {
+            type: "image",
+            imageUrl: "https://img.com/fig.png",
+            caption: "Market Share Chart",
+            alt: "chart",
+          },
         ],
         publishedAt: null,
       };
@@ -921,11 +1056,19 @@ describe("DimensionMissionService", () => {
         sources: ["web"],
         metadata: {},
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([enrichedWithFigures]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        enrichedWithFigures,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 300, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 300,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -949,11 +1092,19 @@ describe("DimensionMissionService", () => {
         sources: ["web"],
         metadata: {},
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([enrichedWith25Figs]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        enrichedWith25Figs,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 300, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 300,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -981,7 +1132,11 @@ describe("DimensionMissionService", () => {
       const localResult = {
         ...mockEnrichedResult,
         sourceType: "local",
-        metadata: { knowledgeBaseSource: true, similarity: 0.92, documentId: "doc-001" },
+        metadata: {
+          knowledgeBaseSource: true,
+          similarity: 0.92,
+          documentId: "doc-001",
+        },
       };
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
         items: [localResult],
@@ -990,11 +1145,20 @@ describe("DimensionMissionService", () => {
       });
       mockDataEnrichment.enrichSearchResults.mockResolvedValue([localResult]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 300, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 300,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
-      const result = await service.executeSearchPhase(topicWithKBConfig, mockDimension);
+      const result = await service.executeSearchPhase(
+        topicWithKBConfig,
+        mockDimension,
+      );
 
       expect(result.searchResultsRecord.knowledgeBaseInfo?.enabled).toBe(true);
     });
@@ -1006,15 +1170,26 @@ describe("DimensionMissionService", () => {
       } as unknown as typeof mockTopic;
 
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
-        items: [], sources: [], metadata: {},
+        items: [],
+        sources: [],
+        metadata: {},
       });
       mockDataEnrichment.enrichSearchResults.mockResolvedValue([]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 0, fetched: 0, avgContentLength: 0, invalidUrls: 0, validUrls: 0,
+        total: 0,
+        fetched: 0,
+        avgContentLength: 0,
+        invalidUrls: 0,
+        validUrls: 0,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
-      const result = await service.executeSearchPhase(topicWithTimeRange, mockDimension);
+      const result = await service.executeSearchPhase(
+        topicWithTimeRange,
+        mockDimension,
+      );
 
       expect(result.temporalContext.currentDate).toBeDefined();
     });
@@ -1032,13 +1207,21 @@ describe("DimensionMissionService", () => {
       });
       mockDataEnrichment.enrichSearchResults.mockResolvedValue(enrichedMixed);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 2, fetched: 2, avgContentLength: 300, invalidUrls: 0, validUrls: 2,
+        total: 2,
+        fetched: 2,
+        avgContentLength: 300,
+        invalidUrls: 0,
+        validUrls: 2,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
-      expect(result.searchResultsRecord.sources?.length).toBeGreaterThanOrEqual(1);
+      expect(result.searchResultsRecord.sources?.length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
 
     it("should include knowledgeBase metadata in sources (isKnowledgeBase=true)", async () => {
@@ -1052,13 +1235,21 @@ describe("DimensionMissionService", () => {
         },
       };
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
-        items: [localResult], sources: ["local"], metadata: {},
+        items: [localResult],
+        sources: ["local"],
+        metadata: {},
       });
       mockDataEnrichment.enrichSearchResults.mockResolvedValue([localResult]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 300, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 300,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
@@ -1088,9 +1279,13 @@ describe("DimensionMissionService", () => {
   describe("executeWritingPhase (standalone call)", () => {
     function setupForWritingPhase() {
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-      mockSectionWriter.writeSectionsParallel.mockResolvedValue([mockSectionResult]);
+      mockSectionWriter.writeSectionsParallel.mockResolvedValue([
+        mockSectionResult,
+      ]);
       mockLeaderService.reviewSectionOutput.mockResolvedValue({
-        approved: true, feedback: "Good", score: 85,
+        approved: true,
+        feedback: "Good",
+        score: 85,
       });
       mockLeaderService.integrateDimensionResults.mockResolvedValue({
         content: "## 市场竞争格局\n\n综合分析内容...",
@@ -1109,7 +1304,10 @@ describe("DimensionMissionService", () => {
       evidenceData: [],
       evidenceSummary: "No evidence",
       searchResultsRecord: {},
-      temporalContext: { currentDate: "2025年1月19日", freshnessRequirement: "" },
+      temporalContext: {
+        currentDate: "2025年1月19日",
+        freshnessRequirement: "",
+      },
       figuresSummary: "",
       leaderContextSummary: "",
     };
@@ -1130,9 +1328,17 @@ describe("DimensionMissionService", () => {
 
     it("should update dimension status to FAILED when writing phase throws", async () => {
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-      mockSectionWriter.writeSectionsParallel.mockResolvedValue([mockSectionResult]);
-      mockLeaderService.reviewSectionOutput.mockResolvedValue({ approved: true, feedback: "OK", score: 80 });
-      mockLeaderService.integrateDimensionResults.mockRejectedValue(new Error("Integrate failed"));
+      mockSectionWriter.writeSectionsParallel.mockResolvedValue([
+        mockSectionResult,
+      ]);
+      mockLeaderService.reviewSectionOutput.mockResolvedValue({
+        approved: true,
+        feedback: "OK",
+        score: 80,
+      });
+      mockLeaderService.integrateDimensionResults.mockRejectedValue(
+        new Error("Integrate failed"),
+      );
 
       const result = await service.executeWritingPhase(
         mockTopic,
@@ -1165,16 +1371,23 @@ describe("DimensionMissionService", () => {
         },
       ];
 
-      const searchResultWithEvidence = { ...mockSearchPhaseResult, evidenceData };
+      const searchResultWithEvidence = {
+        ...mockSearchPhaseResult,
+        evidenceData,
+      };
 
       const mockTopicEvidenceTx = {
         aggregate: jest.fn().mockResolvedValue({ _max: { citationIndex: 0 } }),
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findMany: jest.fn().mockResolvedValue([{ id: "saved-ev-001", citationIndex: 1 }]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: "saved-ev-001", citationIndex: 1 }]),
       };
-      mockPrisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => {
-        return fn({ topicEvidence: mockTopicEvidenceTx });
-      });
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => unknown) => {
+          return fn({ topicEvidence: mockTopicEvidenceTx });
+        },
+      );
 
       const result = await service.executeWritingPhase(
         mockTopic,
@@ -1201,7 +1414,11 @@ describe("DimensionMissionService", () => {
           sourceType: "web",
           publishedAt: null,
           extractedFigures: [
-            { imageUrl: "http://img.com/fig.png", caption: "Chart 1", alt: "alt" },
+            {
+              imageUrl: "http://img.com/fig.png",
+              caption: "Chart 1",
+              alt: "alt",
+            },
           ],
         },
       ];
@@ -1209,7 +1426,12 @@ describe("DimensionMissionService", () => {
       const sectionWithFigures = {
         ...mockOutline.sections[0],
         allocatedFigures: [
-          { evidenceIndex: 1, figureIndex: 0, imageUrl: "http://img.com/fig.png", caption: "Chart 1" },
+          {
+            evidenceIndex: 1,
+            figureIndex: 0,
+            imageUrl: "http://img.com/fig.png",
+            caption: "Chart 1",
+          },
         ],
       };
       const outlineWithFigures = {
@@ -1217,7 +1439,10 @@ describe("DimensionMissionService", () => {
         sections: [sectionWithFigures, mockOutline.sections[1]],
       };
 
-      const searchResultWithEvidence = { ...mockSearchPhaseResult, evidenceData };
+      const searchResultWithEvidence = {
+        ...mockSearchPhaseResult,
+        evidenceData,
+      };
 
       const result = await service.executeWritingPhase(
         mockTopic,
@@ -1232,8 +1457,12 @@ describe("DimensionMissionService", () => {
     it("should extract actual model ID from last section result", async () => {
       setupForWritingPhase();
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, actualModelId: "gpt-4-turbo" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, actualModelId: "claude-3-opus" }]);
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, actualModelId: "gpt-4-turbo" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, actualModelId: "claude-3-opus" },
+        ]);
 
       const result = await service.executeWritingPhase(
         mockTopic,
@@ -1275,11 +1504,19 @@ describe("DimensionMissionService", () => {
         sources: ["web"],
         metadata: { searchQuery: "semiconductor" },
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([mockEnrichedResult]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        mockEnrichedResult,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 500, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 500,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
     }
 
     it("should attempt mission heartbeat update when missionId provided", async () => {
@@ -1346,7 +1583,10 @@ describe("DimensionMissionService", () => {
       evidenceData: [],
       evidenceSummary: "No evidence",
       searchResultsRecord: {},
-      temporalContext: { currentDate: "2025年1月19日", freshnessRequirement: "" },
+      temporalContext: {
+        currentDate: "2025年1月19日",
+        freshnessRequirement: "",
+      },
       figuresSummary: "",
       leaderContextSummary: "",
     };
@@ -1354,7 +1594,9 @@ describe("DimensionMissionService", () => {
     beforeEach(() => {
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
       mockLeaderService.reviewSectionOutput.mockResolvedValue({
-        approved: true, feedback: "Good", score: 85,
+        approved: true,
+        feedback: "Good",
+        score: 85,
       });
       mockLeaderService.integrateDimensionResults.mockResolvedValue({
         content: "## Analysis\n\nContent here.",
@@ -1368,24 +1610,28 @@ describe("DimensionMissionService", () => {
 
     it("should deduplicate generated charts with same title", async () => {
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{
-          ...mockSectionResult,
-          sectionId: "section-001",
-          title: "市场概况",
-          generatedCharts: [
-            { title: "Revenue Trend", type: "bar", data: [] },
-            { title: "Revenue Trend", type: "bar", data: [] }, // duplicate
-            { title: null, type: "line", data: [] }, // null title - kept
-          ],
-          figureReferences: [],
-        }])
-        .mockResolvedValueOnce([{
-          ...mockSectionResult,
-          sectionId: "section-002",
-          title: "竞争对手分析",
-          generatedCharts: [],
-          figureReferences: [],
-        }]);
+        .mockResolvedValueOnce([
+          {
+            ...mockSectionResult,
+            sectionId: "section-001",
+            title: "市场概况",
+            generatedCharts: [
+              { title: "Revenue Trend", type: "bar", data: [] },
+              { title: "Revenue Trend", type: "bar", data: [] }, // duplicate
+              { title: null, type: "line", data: [] }, // null title - kept
+            ],
+            figureReferences: [],
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            ...mockSectionResult,
+            sectionId: "section-002",
+            title: "竞争对手分析",
+            generatedCharts: [],
+            figureReferences: [],
+          },
+        ]);
 
       const result = await service.executeWritingPhase(
         mockTopic,
@@ -1399,25 +1645,38 @@ describe("DimensionMissionService", () => {
 
     it("should deduplicate figureReferences by imageUrl and filter null imageUrl", async () => {
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{
-          ...mockSectionResult,
-          sectionId: "section-001",
-          title: "市场概况",
-          generatedCharts: [],
-          figureReferences: [
-            { imageUrl: "https://img.example.com/chart1.png", evidenceCitationIndex: 1 },
-            { imageUrl: "https://img.example.com/chart1.png", evidenceCitationIndex: 1 }, // duplicate
-            { imageUrl: null, evidenceCitationIndex: 2 }, // null - filtered
-            { imageUrl: "https://img.example.com/chart2.png", evidenceCitationIndex: 3 },
-          ],
-        }])
-        .mockResolvedValueOnce([{
-          ...mockSectionResult,
-          sectionId: "section-002",
-          title: "竞争对手分析",
-          generatedCharts: [],
-          figureReferences: [],
-        }]);
+        .mockResolvedValueOnce([
+          {
+            ...mockSectionResult,
+            sectionId: "section-001",
+            title: "市场概况",
+            generatedCharts: [],
+            figureReferences: [
+              {
+                imageUrl: "https://img.example.com/chart1.png",
+                evidenceCitationIndex: 1,
+              },
+              {
+                imageUrl: "https://img.example.com/chart1.png",
+                evidenceCitationIndex: 1,
+              }, // duplicate
+              { imageUrl: null, evidenceCitationIndex: 2 }, // null - filtered
+              {
+                imageUrl: "https://img.example.com/chart2.png",
+                evidenceCitationIndex: 3,
+              },
+            ],
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            ...mockSectionResult,
+            sectionId: "section-002",
+            title: "竞争对手分析",
+            generatedCharts: [],
+            figureReferences: [],
+          },
+        ]);
 
       const result = await service.executeWritingPhase(
         mockTopic,
@@ -1431,38 +1690,60 @@ describe("DimensionMissionService", () => {
 
     it("should update figureReferences evidenceCitationIndex when indexMapping non-empty", async () => {
       const evidenceData = [
-        { id: "ev-001", title: "Evidence 1", url: "http://test.com", domain: "test.com", snippet: "snippet", sourceType: "web", publishedAt: null },
+        {
+          id: "ev-001",
+          title: "Evidence 1",
+          url: "http://test.com",
+          domain: "test.com",
+          snippet: "snippet",
+          sourceType: "web",
+          publishedAt: null,
+        },
       ];
-      const searchResultWithEvidence = { ...mockSearchPhaseResult, evidenceData };
+      const searchResultWithEvidence = {
+        ...mockSearchPhaseResult,
+        evidenceData,
+      };
 
       // Section with a figure reference
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{
-          ...mockSectionResult,
-          sectionId: "section-001",
-          title: "市场概况",
-          generatedCharts: [],
-          figureReferences: [
-            { imageUrl: "https://img.example.com/fig.png", evidenceCitationIndex: 1 },
-          ],
-        }])
-        .mockResolvedValueOnce([{
-          ...mockSectionResult,
-          sectionId: "section-002",
-          title: "竞争对手分析",
-          generatedCharts: [],
-          figureReferences: [],
-        }]);
+        .mockResolvedValueOnce([
+          {
+            ...mockSectionResult,
+            sectionId: "section-001",
+            title: "市场概况",
+            generatedCharts: [],
+            figureReferences: [
+              {
+                imageUrl: "https://img.example.com/fig.png",
+                evidenceCitationIndex: 1,
+              },
+            ],
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            ...mockSectionResult,
+            sectionId: "section-002",
+            title: "竞争对手分析",
+            generatedCharts: [],
+            figureReferences: [],
+          },
+        ]);
 
       // Transaction returns citationIndex=5 (triggers indexMapping)
       const mockTopicEvidenceTx = {
         aggregate: jest.fn().mockResolvedValue({ _max: { citationIndex: 4 } }),
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findMany: jest.fn().mockResolvedValue([{ id: "saved-ev-001", citationIndex: 5 }]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: "saved-ev-001", citationIndex: 5 }]),
       };
-      mockPrisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => {
-        return fn({ topicEvidence: mockTopicEvidenceTx });
-      });
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => unknown) => {
+          return fn({ topicEvidence: mockTopicEvidenceTx });
+        },
+      );
 
       mockLeaderService.integrateDimensionResults.mockResolvedValue({
         content: "Analysis [1] content here.",
@@ -1498,7 +1779,10 @@ describe("DimensionMissionService", () => {
       evidenceData,
       evidenceSummary: "Evidence summary",
       searchResultsRecord: {},
-      temporalContext: { currentDate: "2025年1月19日", freshnessRequirement: "" },
+      temporalContext: {
+        currentDate: "2025年1月19日",
+        freshnessRequirement: "",
+      },
       figuresSummary: "",
       leaderContextSummary: "",
     });
@@ -1506,7 +1790,9 @@ describe("DimensionMissionService", () => {
     beforeEach(() => {
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
       mockLeaderService.reviewSectionOutput.mockResolvedValue({
-        approved: true, feedback: "Good", score: 85,
+        approved: true,
+        feedback: "Good",
+        score: 85,
       });
       mockLeaderService.integrateDimensionResults.mockResolvedValue({
         content: "Analysis content.",
@@ -1522,8 +1808,12 @@ describe("DimensionMissionService", () => {
       // 8 evidence items with some matching section keywords
       const evidenceData = Array.from({ length: 8 }, (_, i) => ({
         id: `ev-${i}`,
-        title: i < 6 ? `semiconductor market analysis ${i}` : `cooking recipe ${i}`,
-        snippet: i < 6 ? `semiconductor market share analysis report ${i}` : `food recipe ${i}`,
+        title:
+          i < 6 ? `semiconductor market analysis ${i}` : `cooking recipe ${i}`,
+        snippet:
+          i < 6
+            ? `semiconductor market share analysis report ${i}`
+            : `food recipe ${i}`,
         url: `http://e${i}.com`,
         domain: `e${i}.com`,
         sourceType: "web",
@@ -1531,15 +1821,29 @@ describe("DimensionMissionService", () => {
       }));
 
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-001" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-002" }]);
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-001" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-002" },
+        ]);
 
       const searchResult = makeSearchPhaseResultWithEvidence(evidenceData);
       const outlineWithKeywords = {
         ...mockOutline,
         sections: [
-          { ...mockOutline.sections[0], title: "semiconductor market", keyPoints: ["analysis"], description: null },
-          { ...mockOutline.sections[1], title: "竞争对手", keyPoints: [], description: null },
+          {
+            ...mockOutline.sections[0],
+            title: "semiconductor market",
+            keyPoints: ["analysis"],
+            description: null,
+          },
+          {
+            ...mockOutline.sections[1],
+            title: "竞争对手",
+            keyPoints: [],
+            description: null,
+          },
         ],
       };
 
@@ -1565,16 +1869,30 @@ describe("DimensionMissionService", () => {
       }));
 
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-001" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-002" }]);
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-001" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-002" },
+        ]);
 
       const searchResult = makeSearchPhaseResultWithEvidence(evidenceData);
       // Section with only stop words -> keywords.length === 0 path
       const outlineNoKeywords = {
         ...mockOutline,
         sections: [
-          { ...mockOutline.sections[0], title: "the an is", keyPoints: [], description: null },
-          { ...mockOutline.sections[1], title: "or but and", keyPoints: [], description: null },
+          {
+            ...mockOutline.sections[0],
+            title: "the an is",
+            keyPoints: [],
+            description: null,
+          },
+          {
+            ...mockOutline.sections[1],
+            title: "or but and",
+            keyPoints: [],
+            description: null,
+          },
         ],
       };
 
@@ -1592,8 +1910,12 @@ describe("DimensionMissionService", () => {
       // 10 items where 6 strongly match
       const evidenceData = Array.from({ length: 10 }, (_, i) => ({
         id: `ev-${i}`,
-        title: i < 6 ? `semiconductor nvidia analysis ${i}` : `unrelated topic ${i}`,
-        snippet: i < 6 ? `nvidia semiconductor chip market share analysis report ${i}` : `other content ${i}`,
+        title:
+          i < 6 ? `semiconductor nvidia analysis ${i}` : `unrelated topic ${i}`,
+        snippet:
+          i < 6
+            ? `nvidia semiconductor chip market share analysis report ${i}`
+            : `other content ${i}`,
         url: `http://e${i}.com`,
         domain: `e${i}.com`,
         sourceType: "web",
@@ -1601,15 +1923,29 @@ describe("DimensionMissionService", () => {
       }));
 
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-001" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-002" }]);
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-001" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-002" },
+        ]);
 
       const searchResult = makeSearchPhaseResultWithEvidence(evidenceData);
       const outlineRelevant = {
         ...mockOutline,
         sections: [
-          { ...mockOutline.sections[0], title: "nvidia semiconductor", keyPoints: ["market", "analysis"], description: null },
-          { ...mockOutline.sections[1], title: "市场份额", keyPoints: [], description: null },
+          {
+            ...mockOutline.sections[0],
+            title: "nvidia semiconductor",
+            keyPoints: ["market", "analysis"],
+            description: null,
+          },
+          {
+            ...mockOutline.sections[1],
+            title: "市场份额",
+            keyPoints: [],
+            description: null,
+          },
         ],
       };
 
@@ -1636,7 +1972,10 @@ describe("DimensionMissionService", () => {
       evidenceData: [],
       evidenceSummary: "No evidence",
       searchResultsRecord: {},
-      temporalContext: { currentDate: "2025年1月19日", freshnessRequirement: "" },
+      temporalContext: {
+        currentDate: "2025年1月19日",
+        freshnessRequirement: "",
+      },
       figuresSummary: "",
       leaderContextSummary: "",
     };
@@ -1644,10 +1983,16 @@ describe("DimensionMissionService", () => {
     beforeEach(() => {
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-001" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-002" }]);
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-001" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-002" },
+        ]);
       mockLeaderService.reviewSectionOutput.mockResolvedValue({
-        approved: true, feedback: "Good", score: 85,
+        approved: true,
+        feedback: "Good",
+        score: 85,
       });
     });
 
@@ -1661,7 +2006,12 @@ describe("DimensionMissionService", () => {
         ].join("\n"),
         metadata: {
           summary: "AI发展趋势分析",
-          keyFindings: ["大模型崛起", "AI芯片需求旺盛", "云边协同", "数据治理挑战"],
+          keyFindings: [
+            "大模型崛起",
+            "AI芯片需求旺盛",
+            "云边协同",
+            "数据治理挑战",
+          ],
           confidenceLevel: 0.85,
         },
       });
@@ -1730,7 +2080,14 @@ describe("DimensionMissionService", () => {
         content: "Plain content without structured lists.",
         metadata: {
           summary: "Summary",
-          keyFindings: ["High-1", "High-2", "Medium-3", "Medium-4", "Low-5", "Low-6"],
+          keyFindings: [
+            "High-1",
+            "High-2",
+            "Medium-3",
+            "Medium-4",
+            "Low-5",
+            "Low-6",
+          ],
           confidenceLevel: 0.9,
         },
       });
@@ -1824,24 +2181,49 @@ describe("DimensionMissionService", () => {
     it("should sort multiple publishedAt dates descending (line 270)", async () => {
       // Two items with different dates so the sort comparator is exercised
       const enrichedMultiple = [
-        { ...mockEnrichedResult, id: "r1", publishedAt: new Date("2023-06-01") },
-        { ...mockEnrichedResult, id: "r2", publishedAt: new Date("2024-03-15") },
-        { ...mockEnrichedResult, id: "r3", publishedAt: new Date("2022-11-20") },
+        {
+          ...mockEnrichedResult,
+          id: "r1",
+          publishedAt: new Date("2023-06-01"),
+        },
+        {
+          ...mockEnrichedResult,
+          id: "r2",
+          publishedAt: new Date("2024-03-15"),
+        },
+        {
+          ...mockEnrichedResult,
+          id: "r3",
+          publishedAt: new Date("2022-11-20"),
+        },
       ];
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
-        items: enrichedMultiple, sources: ["web"], metadata: {},
+        items: enrichedMultiple,
+        sources: ["web"],
+        metadata: {},
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue(enrichedMultiple);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue(
+        enrichedMultiple,
+      );
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 3, fetched: 3, avgContentLength: 500, invalidUrls: 0, validUrls: 3,
+        total: 3,
+        fetched: 3,
+        avgContentLength: 500,
+        invalidUrls: 0,
+        validUrls: 3,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
 
       // freshnessInfo should show newest date as 2024-03-15
       expect(result.searchResultsRecord.freshnessInfo).toBeDefined();
-      expect((result.searchResultsRecord.freshnessInfo as { newestDate: string }).newestDate).toContain("2024");
+      expect(
+        (result.searchResultsRecord.freshnessInfo as { newestDate: string })
+          .newestDate,
+      ).toContain("2024");
     });
 
     it("should trigger extractDomainFromUrl when item has no domain (invalid URL path)", async () => {
@@ -1853,13 +2235,21 @@ describe("DimensionMissionService", () => {
         publishedAt: null,
       };
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
-        items: [itemNoDomain], sources: ["web"], metadata: {},
+        items: [itemNoDomain],
+        sources: ["web"],
+        metadata: {},
       });
       mockDataEnrichment.enrichSearchResults.mockResolvedValue([itemNoDomain]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 200, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 200,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       // Should complete without error
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
@@ -1874,13 +2264,23 @@ describe("DimensionMissionService", () => {
         publishedAt: null,
       };
       mockDataSourceRouter.fetchDataForDimension.mockResolvedValue({
-        items: [itemNoDomainValidUrl], sources: ["web"], metadata: {},
+        items: [itemNoDomainValidUrl],
+        sources: ["web"],
+        metadata: {},
       });
-      mockDataEnrichment.enrichSearchResults.mockResolvedValue([itemNoDomainValidUrl]);
+      mockDataEnrichment.enrichSearchResults.mockResolvedValue([
+        itemNoDomainValidUrl,
+      ]);
       mockDataEnrichment.getEnrichmentStats.mockReturnValue({
-        total: 1, fetched: 1, avgContentLength: 200, invalidUrls: 0, validUrls: 1,
+        total: 1,
+        fetched: 1,
+        avgContentLength: 200,
+        invalidUrls: 0,
+        validUrls: 1,
       });
-      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({ contextSummary: "" });
+      mockLeaderTool.generateEnhancedPlanningContext.mockResolvedValue({
+        contextSummary: "",
+      });
 
       const result = await service.executeSearchPhase(mockTopic, mockDimension);
       expect(result).toBeDefined();
@@ -1897,8 +2297,21 @@ describe("DimensionMissionService", () => {
       const outlineWithDeps = {
         ...mockOutline,
         sections: [
-          { id: "section-001", title: "Intro", description: "Intro section", keyPoints: [], allocatedFigures: [] },
-          { id: "section-002", title: "Analysis", description: "Analysis section", keyPoints: [], allocatedFigures: [], dependsOn: ["section-001"] },
+          {
+            id: "section-001",
+            title: "Intro",
+            description: "Intro section",
+            keyPoints: [],
+            allocatedFigures: [],
+          },
+          {
+            id: "section-002",
+            title: "Analysis",
+            description: "Analysis section",
+            keyPoints: [],
+            allocatedFigures: [],
+            dependsOn: ["section-001"],
+          },
         ],
         executionPlan: {
           parallelGroups: [["section-001"], ["section-002"]],
@@ -1907,12 +2320,24 @@ describe("DimensionMissionService", () => {
 
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-001", title: "Intro" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-002", title: "Analysis" }]);
-      mockLeaderService.reviewSectionOutput.mockResolvedValue({ approved: true, feedback: "Good", score: 90 });
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-001", title: "Intro" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-002", title: "Analysis" },
+        ]);
+      mockLeaderService.reviewSectionOutput.mockResolvedValue({
+        approved: true,
+        feedback: "Good",
+        score: 90,
+      });
       mockLeaderService.integrateDimensionResults.mockResolvedValue({
         content: "Integrated content.",
-        metadata: { summary: "Summary", keyFindings: ["F1"], confidenceLevel: 0.8 },
+        metadata: {
+          summary: "Summary",
+          keyFindings: ["F1"],
+          confidenceLevel: 0.8,
+        },
       });
 
       const mockSearchPhaseResult = {
@@ -1922,7 +2347,10 @@ describe("DimensionMissionService", () => {
         evidenceData: [],
         evidenceSummary: "No evidence",
         searchResultsRecord: {},
-        temporalContext: { currentDate: "2025年1月19日", freshnessRequirement: "" },
+        temporalContext: {
+          currentDate: "2025年1月19日",
+          freshnessRequirement: "",
+        },
         figuresSummary: "",
         leaderContextSummary: "",
       };
@@ -1954,7 +2382,10 @@ describe("DimensionMissionService", () => {
       evidenceData: [] as unknown[],
       evidenceSummary: "No evidence",
       searchResultsRecord: {},
-      temporalContext: { currentDate: "2025年1月19日", freshnessRequirement: "" },
+      temporalContext: {
+        currentDate: "2025年1月19日",
+        freshnessRequirement: "",
+      },
       figuresSummary: "",
       leaderContextSummary: "",
     };
@@ -1962,9 +2393,17 @@ describe("DimensionMissionService", () => {
     beforeEach(() => {
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-001" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-002" }]);
-      mockLeaderService.reviewSectionOutput.mockResolvedValue({ approved: true, feedback: "Good", score: 85 });
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-001" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-002" },
+        ]);
+      mockLeaderService.reviewSectionOutput.mockResolvedValue({
+        approved: true,
+        feedback: "Good",
+        score: 85,
+      });
       mockLeaderService.integrateDimensionResults.mockResolvedValue({
         content: "Content.",
         metadata: { summary: "S", keyFindings: ["F1"], confidenceLevel: 0.8 },
@@ -1974,14 +2413,29 @@ describe("DimensionMissionService", () => {
     it("should skip figure with out-of-range evidenceIndex (line 1616-1619)", async () => {
       // evidenceData has 1 item, but figure references evidenceIndex 5 (out of range)
       const evidenceData = [
-        { id: "ev-1", title: "E1", url: "http://e1.com", domain: "e1.com", snippet: "s", sourceType: "web", publishedAt: null },
+        {
+          id: "ev-1",
+          title: "E1",
+          url: "http://e1.com",
+          domain: "e1.com",
+          snippet: "s",
+          sourceType: "web",
+          publishedAt: null,
+        },
       ];
       const outlineOutOfRange = {
         ...mockOutline,
         sections: [
           {
             ...mockOutline.sections[0],
-            allocatedFigures: [{ evidenceIndex: 5, figureIndex: 0, imageUrl: "http://img.com/fig.png", caption: "Fig" }],
+            allocatedFigures: [
+              {
+                evidenceIndex: 5,
+                figureIndex: 0,
+                imageUrl: "http://img.com/fig.png",
+                caption: "Fig",
+              },
+            ],
           },
           mockOutline.sections[1],
         ],
@@ -1990,7 +2444,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         outlineOutOfRange,
       );
 
@@ -2002,9 +2458,20 @@ describe("DimensionMissionService", () => {
     it("should recover imageUrl from extractedFigures when imageUrl is null (line 1624-1629)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "E1", url: "http://e1.com", domain: "e1.com",
-          snippet: "s", sourceType: "web", publishedAt: null,
-          extractedFigures: [{ imageUrl: "http://img.com/recovered.png", caption: "Recovered", alt: "alt" }],
+          id: "ev-1",
+          title: "E1",
+          url: "http://e1.com",
+          domain: "e1.com",
+          snippet: "s",
+          sourceType: "web",
+          publishedAt: null,
+          extractedFigures: [
+            {
+              imageUrl: "http://img.com/recovered.png",
+              caption: "Recovered",
+              alt: "alt",
+            },
+          ],
         },
       ];
       const outlineNullImageUrl = {
@@ -2024,20 +2491,29 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         outlineNullImageUrl,
       );
 
       expect(result.success).toBe(true);
       // imageUrl should be recovered
-      expect(outlineNullImageUrl.sections[0].allocatedFigures[0].imageUrl).toBe("http://img.com/recovered.png");
+      expect(outlineNullImageUrl.sections[0].allocatedFigures[0].imageUrl).toBe(
+        "http://img.com/recovered.png",
+      );
     });
 
     it("should skip figure when imageUrl null and no recovery available (line 1631-1634)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "E1", url: "http://e1.com", domain: "e1.com",
-          snippet: "s", sourceType: "web", publishedAt: null,
+          id: "ev-1",
+          title: "E1",
+          url: "http://e1.com",
+          domain: "e1.com",
+          snippet: "s",
+          sourceType: "web",
+          publishedAt: null,
           extractedFigures: [], // no figures to recover from
         },
       ];
@@ -2047,7 +2523,12 @@ describe("DimensionMissionService", () => {
           {
             ...mockOutline.sections[0],
             allocatedFigures: [
-              { evidenceIndex: 1, figureIndex: 0, imageUrl: "", caption: "No recovery" },
+              {
+                evidenceIndex: 1,
+                figureIndex: 0,
+                imageUrl: "",
+                caption: "No recovery",
+              },
             ],
           },
           mockOutline.sections[1],
@@ -2057,7 +2538,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         outlineNoRecovery,
       );
 
@@ -2068,9 +2551,16 @@ describe("DimensionMissionService", () => {
     it("should skip duplicate figures across sections (line 1640-1643)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "E1", url: "http://e1.com", domain: "e1.com",
-          snippet: "s", sourceType: "web", publishedAt: null,
-          extractedFigures: [{ imageUrl: "http://img.com/fig.png", caption: "Fig", alt: "alt" }],
+          id: "ev-1",
+          title: "E1",
+          url: "http://e1.com",
+          domain: "e1.com",
+          snippet: "s",
+          sourceType: "web",
+          publishedAt: null,
+          extractedFigures: [
+            { imageUrl: "http://img.com/fig.png", caption: "Fig", alt: "alt" },
+          ],
         },
       ];
       // Both sections reference the same figure 1:0
@@ -2079,11 +2569,25 @@ describe("DimensionMissionService", () => {
         sections: [
           {
             ...mockOutline.sections[0],
-            allocatedFigures: [{ evidenceIndex: 1, figureIndex: 0, imageUrl: "http://img.com/fig.png", caption: "Fig" }],
+            allocatedFigures: [
+              {
+                evidenceIndex: 1,
+                figureIndex: 0,
+                imageUrl: "http://img.com/fig.png",
+                caption: "Fig",
+              },
+            ],
           },
           {
             ...mockOutline.sections[1],
-            allocatedFigures: [{ evidenceIndex: 1, figureIndex: 0, imageUrl: "http://img.com/fig.png", caption: "Fig duplicate" }],
+            allocatedFigures: [
+              {
+                evidenceIndex: 1,
+                figureIndex: 0,
+                imageUrl: "http://img.com/fig.png",
+                caption: "Fig duplicate",
+              },
+            ],
           },
         ],
       };
@@ -2091,7 +2595,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         outlineDuplicateFigs,
       );
 
@@ -2114,7 +2620,10 @@ describe("DimensionMissionService", () => {
       evidenceData: [] as unknown[],
       evidenceSummary: "No evidence",
       searchResultsRecord: {},
-      temporalContext: { currentDate: "2025年1月19日", freshnessRequirement: "" },
+      temporalContext: {
+        currentDate: "2025年1月19日",
+        freshnessRequirement: "",
+      },
       figuresSummary: "",
       leaderContextSummary: "",
     };
@@ -2122,9 +2631,17 @@ describe("DimensionMissionService", () => {
     beforeEach(() => {
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
       mockSectionWriter.writeSectionsParallel
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-001" }])
-        .mockResolvedValueOnce([{ ...mockSectionResult, sectionId: "section-002" }]);
-      mockLeaderService.reviewSectionOutput.mockResolvedValue({ approved: true, feedback: "Good", score: 85 });
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-001" },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockSectionResult, sectionId: "section-002" },
+        ]);
+      mockLeaderService.reviewSectionOutput.mockResolvedValue({
+        approved: true,
+        feedback: "Good",
+        score: 85,
+      });
       mockLeaderService.integrateDimensionResults.mockResolvedValue({
         content: "Content with [1] ref.",
         metadata: { summary: "S", keyFindings: ["F1"], confidenceLevel: 0.8 },
@@ -2136,7 +2653,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData: [] } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData: [] } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2149,8 +2668,11 @@ describe("DimensionMissionService", () => {
     it("should call assessCredibility with top-authority domain (score += 40)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "Gov Report", url: "https://data.gov/report",
-          domain: "data.gov", snippet: "a".repeat(600), // >500 chars for depth score
+          id: "ev-1",
+          title: "Gov Report",
+          url: "https://data.gov/report",
+          domain: "data.gov",
+          snippet: "a".repeat(600), // >500 chars for depth score
           sourceType: "official",
           publishedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago (<=30)
         },
@@ -2159,7 +2681,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2171,8 +2695,11 @@ describe("DimensionMissionService", () => {
     it("should call assessCredibility with high-authority domain (bloomberg.com, score += 30)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "Bloomberg", url: "https://bloomberg.com/markets",
-          domain: "bloomberg.com", snippet: "b".repeat(300), // 200-500 chars
+          id: "ev-1",
+          title: "Bloomberg",
+          url: "https://bloomberg.com/markets",
+          domain: "bloomberg.com",
+          snippet: "b".repeat(300), // 200-500 chars
           sourceType: "news",
           publishedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago (<=180)
         },
@@ -2181,7 +2708,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2192,8 +2721,11 @@ describe("DimensionMissionService", () => {
     it("should call assessCredibility with medium-authority domain (techcrunch.com, score += 20)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "TechCrunch", url: "https://techcrunch.com/ai",
-          domain: "techcrunch.com", snippet: "c".repeat(100), // 50-200 chars
+          id: "ev-1",
+          title: "TechCrunch",
+          url: "https://techcrunch.com/ai",
+          domain: "techcrunch.com",
+          snippet: "c".repeat(100), // 50-200 chars
           sourceType: "report",
           publishedAt: new Date(Date.now() - 250 * 24 * 60 * 60 * 1000), // ~8 months (<=365)
         },
@@ -2202,7 +2734,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2213,8 +2747,11 @@ describe("DimensionMissionService", () => {
     it("should call assessCredibility with null domain (score += 15)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "Unknown Source", url: "http://unknown.test",
-          domain: null, snippet: "d".repeat(30), // <50 chars (no snippet depth score)
+          id: "ev-1",
+          title: "Unknown Source",
+          url: "http://unknown.test",
+          domain: null,
+          snippet: "d".repeat(30), // <50 chars (no snippet depth score)
           sourceType: "web",
           publishedAt: new Date(Date.now() - 500 * 24 * 60 * 60 * 1000), // ~16 months (<=730)
         },
@@ -2223,7 +2760,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2234,8 +2773,11 @@ describe("DimensionMissionService", () => {
     it("should call assessCredibility with academic sourceType and old publishedAt (>730 days)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "Old Academic", url: "https://arxiv.org/paper",
-          domain: "arxiv.org", snippet: null, // null snippet
+          id: "ev-1",
+          title: "Old Academic",
+          url: "https://arxiv.org/paper",
+          domain: "arxiv.org",
+          snippet: null, // null snippet
           sourceType: "academic",
           publishedAt: new Date(Date.now() - 800 * 24 * 60 * 60 * 1000), // >730 days
         },
@@ -2244,7 +2786,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2255,8 +2799,11 @@ describe("DimensionMissionService", () => {
     it("should call assessCredibility with null publishedAt (no freshness score)", async () => {
       const evidenceData = [
         {
-          id: "ev-1", title: "No Date Source", url: "https://statista.com/data",
-          domain: "statista.com", snippet: "e".repeat(400),
+          id: "ev-1",
+          title: "No Date Source",
+          url: "https://statista.com/data",
+          domain: "statista.com",
+          snippet: "e".repeat(400),
           sourceType: "report",
           publishedAt: null, // no date
         },
@@ -2265,7 +2812,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2277,8 +2826,11 @@ describe("DimensionMissionService", () => {
       // sourceType = "blog" doesn't match any explicit case → default branch
       const evidenceData = [
         {
-          id: "ev-1", title: "Blog Post", url: "https://some-blog.com/post",
-          domain: "some-blog.com", snippet: "f".repeat(200),
+          id: "ev-1",
+          title: "Blog Post",
+          url: "https://some-blog.com/post",
+          domain: "some-blog.com",
+          snippet: "f".repeat(200),
           sourceType: "blog", // unknown type → default branch
           publishedAt: null,
         },
@@ -2287,7 +2839,9 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2300,14 +2854,20 @@ describe("DimensionMissionService", () => {
       // Also use an invalid publishedAt string to trigger validateDate returning null (line 1779)
       const evidenceData = [
         {
-          id: "ev-1", title: "Source 1", url: "https://reuters.com/a",
-          domain: "reuters.com", snippet: "g".repeat(300),
+          id: "ev-1",
+          title: "Source 1",
+          url: "https://reuters.com/a",
+          domain: "reuters.com",
+          snippet: "g".repeat(300),
           sourceType: "news",
           publishedAt: "not-a-valid-date", // invalid date string → validateDate returns null (line 1779)
         },
         {
-          id: "ev-2", title: "Source 2", url: "https://wsj.com/b",
-          domain: "wsj.com", snippet: "h".repeat(300),
+          id: "ev-2",
+          title: "Source 2",
+          url: "https://wsj.com/b",
+          domain: "wsj.com",
+          snippet: "h".repeat(300),
           sourceType: "news",
           publishedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
         },
@@ -2328,14 +2888,18 @@ describe("DimensionMissionService", () => {
           { id: "saved-2", citationIndex: 7 },
         ]),
       };
-      mockPrisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => {
-        return fn({ topicEvidence: mockTopicEvidenceTx2 });
-      });
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => unknown) => {
+          return fn({ topicEvidence: mockTopicEvidenceTx2 });
+        },
+      );
 
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<typeof service.executeWritingPhase>[2],
+        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
         mockOutline,
         "report-001",
       );
@@ -2344,5 +2908,4 @@ describe("DimensionMissionService", () => {
       expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
   });
-
 });

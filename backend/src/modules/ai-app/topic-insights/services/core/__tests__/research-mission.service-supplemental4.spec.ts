@@ -105,12 +105,11 @@ import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { TopicCollaboratorService } from "../../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
-import { ChatFacade, ProgressTrackerService } from "@/modules/ai-engine/facade";
-import {
-  MissionExecutorService,
-  EventJournalService,
-} from "@/modules/ai-kernel/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
+import { MissionObservabilityService } from "../mission-observability.service";
+import { MissionKernelBridgeService } from "../mission-kernel-bridge.service";
+import { MissionNotificationService } from "../mission-notification.service";
 import {
   NotFoundException,
   ForbiddenException,
@@ -262,26 +261,31 @@ function buildMocks() {
     factCheckReport: jest.fn(),
   };
 
-  const mockMissionExecutor = {
-    execute: jest.fn().mockResolvedValue({ processId: "proc-s4-001" }),
-    complete: jest.fn().mockResolvedValue(undefined),
-    fail: jest.fn().mockResolvedValue(undefined),
+  const mockObservability = {
+    recordResearchCost: jest.fn(),
+    emitKernelEvent: jest.fn(),
+    logError: jest.fn(),
+    recordMissionMetrics: jest.fn(),
   };
 
-  const mockKernelJournal = {
-    record: jest.fn().mockResolvedValue(undefined),
-  };
-
-  const mockProgressTracker = {
-    create: jest.fn(),
-    start: jest.fn(),
+  const mockKernelBridge = {
+    initMission: jest.fn().mockResolvedValue(undefined),
     startPhase: jest.fn(),
     completePhase: jest.fn(),
-    failPhase: jest.fn(),
-    fail: jest.fn(),
-    complete: jest.fn(),
-    update: jest.fn(),
-    getTask: jest.fn().mockReturnValue(null),
+    failTracking: jest.fn(),
+    completeTracking: jest.fn(),
+    recordKernelEvent: jest.fn(),
+    completeKernelProcess: jest.fn(),
+    failKernelProcess: jest.fn(),
+    checkBudget: jest.fn().mockResolvedValue(null),
+    consumeResources: jest.fn(),
+    writeMemory: jest.fn(),
+    getProcessId: jest.fn().mockReturnValue(undefined),
+  };
+
+  const mockNotification = {
+    notifyCompletion: jest.fn(),
+    getAiSettings: jest.fn().mockResolvedValue({}),
   };
 
   return {
@@ -295,9 +299,9 @@ function buildMocks() {
     mockAgentActivity,
     mockFacade,
     mockReviewerService,
-    mockMissionExecutor,
-    mockKernelJournal,
-    mockProgressTracker,
+    mockObservability,
+    mockKernelBridge,
+    mockNotification,
   };
 }
 
@@ -305,60 +309,50 @@ function buildMocks() {
 // Service builder
 // ──────────────────────────────────────────────────────────────────────────────
 
-type BuildServiceOpts = {
-  withKernel?: boolean;
-  withProgressTracker?: boolean;
-};
-
 async function buildService(
   mocks: ReturnType<typeof buildMocks>,
-  opts: BuildServiceOpts = {},
 ): Promise<ResearchMissionService> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const providers: any[] = [
-    ResearchMissionService,
-    { provide: PrismaService, useValue: mocks.mockPrisma },
-    { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
-    { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
-    {
-      provide: DimensionMissionService,
-      useValue: mocks.mockDimensionMissionService,
-    },
-    {
-      provide: ReportSynthesisService,
-      useValue: mocks.mockReportSynthesisService,
-    },
-    {
-      provide: ResearchEventEmitterService,
-      useValue: mocks.mockResearchEventEmitter,
-    },
-    {
-      provide: TopicCollaboratorService,
-      useValue: mocks.mockCollaboratorService,
-    },
-    { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-    { provide: ChatFacade, useValue: mocks.mockFacade },
-    {
-      provide: ResearchReviewerService,
-      useValue: mocks.mockReviewerService,
-    },
-  ];
-
-  if (opts.withKernel) {
-    providers.push(
-      { provide: MissionExecutorService, useValue: mocks.mockMissionExecutor },
-      { provide: EventJournalService, useValue: mocks.mockKernelJournal },
-    );
-  }
-  if (opts.withProgressTracker) {
-    providers.push({
-      provide: ProgressTrackerService,
-      useValue: mocks.mockProgressTracker,
-    });
-  }
-
   const module: TestingModule = await Test.createTestingModule({
-    providers,
+    providers: [
+      ResearchMissionService,
+      { provide: PrismaService, useValue: mocks.mockPrisma },
+      { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
+      { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
+      {
+        provide: DimensionMissionService,
+        useValue: mocks.mockDimensionMissionService,
+      },
+      {
+        provide: ReportSynthesisService,
+        useValue: mocks.mockReportSynthesisService,
+      },
+      {
+        provide: ResearchEventEmitterService,
+        useValue: mocks.mockResearchEventEmitter,
+      },
+      {
+        provide: TopicCollaboratorService,
+        useValue: mocks.mockCollaboratorService,
+      },
+      { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
+      { provide: ChatFacade, useValue: mocks.mockFacade },
+      {
+        provide: ResearchReviewerService,
+        useValue: mocks.mockReviewerService,
+      },
+      {
+        provide: MissionObservabilityService,
+        useValue: mocks.mockObservability,
+      },
+      {
+        provide: MissionKernelBridgeService,
+        useValue: mocks.mockKernelBridge,
+      },
+      {
+        provide: MissionNotificationService,
+        useValue: mocks.mockNotification,
+      },
+    ],
   }).compile();
   return module.get<ResearchMissionService>(ResearchMissionService);
 }
@@ -650,8 +644,7 @@ describe("ResearchMissionService (supplemental4)", () => {
       expect(updateCall.data.completedTasks).toBe(1);
     });
 
-    it("should call completeKernelProcess when mission COMPLETED with kernel", async () => {
-      const serviceWithKernel = await buildService(mocks, { withKernel: true });
+    it("should delegate kernel process completion when mission COMPLETED", async () => {
       const tasks = [
         {
           id: "task-001",
@@ -668,13 +661,7 @@ describe("ResearchMissionService (supplemental4)", () => {
         status: ResearchMissionStatus.COMPLETED,
       });
 
-      // The mission executor complete is called internally
-      mocks.mockMissionExecutor.complete.mockResolvedValue(undefined);
-
-      await serviceWithKernel.updateTaskStatus(
-        "task-001",
-        ResearchTaskStatus.COMPLETED,
-      );
+      await service.updateTaskStatus("task-001", ResearchTaskStatus.COMPLETED);
 
       expect(mocks.mockPrisma.researchMission.update).toHaveBeenCalled();
     });

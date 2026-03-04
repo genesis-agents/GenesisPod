@@ -39,6 +39,7 @@ import {
   dataSourceToToolId,
   convertToolsToDataSources,
 } from "../../config/data-source-mapping.config";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * 数据获取选项
@@ -105,13 +106,9 @@ export class DataSourceRouterService {
   ) {}
 
   /**
-   * ★ Major Fix: 使用 LRU-style 缓存，防止内存泄漏
-   * 缓存 AI 规划结果，避免同一维度重复规划
-   * 最多缓存 100 条，超出时删除最早的条目
+   * ★ AI 规划缓存（LruMap 自动淘汰，防止内存泄漏）
    */
-  private static readonly PLAN_CACHE_MAX_SIZE = 100;
-  private planCache = new Map<string, DataSourcePlan>();
-  private planCacheOrder: string[] = [];
+  private readonly planCache = new LruMap<string, DataSourcePlan>(100);
 
   /**
    * 为指定维度获取数据
@@ -244,6 +241,10 @@ export class DataSourceRouterService {
           `[CapabilityGuard] Check failed (non-blocking): ${err instanceof Error ? err.message : err}`,
         );
       }
+    } else if (!this.capabilityGuard && options?.processId) {
+      this.logger.debug(
+        "[Degraded] CapabilityGuardService unavailable, skipping data source access check",
+      );
     }
 
     // 3. 并行调用所有数据源
@@ -669,6 +670,10 @@ export class DataSourceRouterService {
       // ★ CircuitBreaker: 记录成功
       if (this.circuitBreaker) {
         this.circuitBreaker.recordSuccess(entityId, Date.now() - startTime);
+      } else {
+        this.logger.debug(
+          "[Degraded] CircuitBreakerService unavailable, skipping success recording",
+        );
       }
 
       this.logger.debug(`${source} returned ${results.length} results`);
@@ -682,6 +687,10 @@ export class DataSourceRouterService {
           ? TaskCompletionType.TIMEOUT
           : TaskCompletionType.API_ERROR;
         this.circuitBreaker.recordFailure(entityId, errorType, errorMsg);
+      } else {
+        this.logger.debug(
+          "[Degraded] CircuitBreakerService unavailable, skipping failure recording",
+        );
       }
 
       this.logger.error(
@@ -2039,17 +2048,12 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
     const cacheKey = `${topic.id}:${dimension.id}`;
 
     // 检查缓存
-    if (this.planCache.has(cacheKey)) {
+    const cached = this.planCache.get(cacheKey);
+    if (cached) {
       this.logger.debug(
         `[getAIPlanForDimension] Using cached plan for ${cacheKey}`,
       );
-      // LRU: 移动到队列末尾
-      const idx = this.planCacheOrder.indexOf(cacheKey);
-      if (idx > -1) {
-        this.planCacheOrder.splice(idx, 1);
-        this.planCacheOrder.push(cacheKey);
-      }
-      return this.planCache.get(cacheKey)!;
+      return cached;
     }
 
     // 获取可用的数据源类型
@@ -2065,20 +2069,8 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       availableDataSources,
     });
 
-    // ★ LRU 缓存: 超出容量时删除最早的条目
-    if (this.planCache.size >= DataSourceRouterService.PLAN_CACHE_MAX_SIZE) {
-      const oldestKey = this.planCacheOrder.shift();
-      if (oldestKey) {
-        this.planCache.delete(oldestKey);
-        this.logger.debug(
-          `[getAIPlanForDimension] Cache evicted: ${oldestKey}`,
-        );
-      }
-    }
-
-    // 缓存结果
+    // 缓存结果（LruMap 自动淘汰最早条目）
     this.planCache.set(cacheKey, plan);
-    this.planCacheOrder.push(cacheKey);
 
     return plan;
   }

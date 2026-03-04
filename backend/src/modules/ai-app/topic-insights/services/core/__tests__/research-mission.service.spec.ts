@@ -19,6 +19,9 @@ import { TopicCollaboratorService } from "../../collaboration/topic-collaborator
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
+import { MissionObservabilityService } from "../mission-observability.service";
+import { MissionKernelBridgeService } from "../mission-kernel-bridge.service";
+import { MissionNotificationService } from "../mission-notification.service";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import {
   ResearchMissionStatus,
@@ -134,6 +137,33 @@ function buildMocks() {
     submitReview: jest.fn(),
   };
 
+  const mockObservability = {
+    recordResearchCost: jest.fn(),
+    emitKernelEvent: jest.fn(),
+    logError: jest.fn(),
+    recordMissionMetrics: jest.fn(),
+  };
+
+  const mockKernelBridge = {
+    getProcessId: jest.fn(),
+    initMission: jest.fn().mockResolvedValue(undefined),
+    startPhase: jest.fn(),
+    completePhase: jest.fn(),
+    failTracking: jest.fn(),
+    completeTracking: jest.fn(),
+    recordKernelEvent: jest.fn(),
+    completeKernelProcess: jest.fn(),
+    failKernelProcess: jest.fn(),
+    checkBudget: jest.fn().mockResolvedValue({ canProceed: true }),
+    consumeResources: jest.fn(),
+    writeMemory: jest.fn(),
+  };
+
+  const mockNotification = {
+    notifyCompletion: jest.fn(),
+    getAiSettings: jest.fn().mockResolvedValue({}),
+  };
+
   return {
     mockPrisma,
     mockEventEmitter,
@@ -145,6 +175,9 @@ function buildMocks() {
     mockAgentActivity,
     mockFacade,
     mockReviewerService,
+    mockObservability,
+    mockKernelBridge,
+    mockNotification,
   };
 }
 
@@ -248,6 +281,18 @@ describe("ResearchMissionService", () => {
         {
           provide: ResearchReviewerService,
           useValue: mocks.mockReviewerService,
+        },
+        {
+          provide: MissionObservabilityService,
+          useValue: mocks.mockObservability,
+        },
+        {
+          provide: MissionKernelBridgeService,
+          useValue: mocks.mockKernelBridge,
+        },
+        {
+          provide: MissionNotificationService,
+          useValue: mocks.mockNotification,
         },
       ],
     }).compile();
@@ -1175,6 +1220,18 @@ describe("ResearchMissionService", () => {
             provide: ResearchReviewerService,
             useValue: mocks2.mockReviewerService,
           },
+          {
+            provide: MissionObservabilityService,
+            useValue: mocks2.mockObservability,
+          },
+          {
+            provide: MissionKernelBridgeService,
+            useValue: mocks2.mockKernelBridge,
+          },
+          {
+            provide: MissionNotificationService,
+            useValue: mocks2.mockNotification,
+          },
         ],
       }).compile();
 
@@ -1222,6 +1279,18 @@ describe("ResearchMissionService", () => {
             provide: ResearchReviewerService,
             useValue: mocks2.mockReviewerService,
           },
+          {
+            provide: MissionObservabilityService,
+            useValue: mocks2.mockObservability,
+          },
+          {
+            provide: MissionKernelBridgeService,
+            useValue: mocks2.mockKernelBridge,
+          },
+          {
+            provide: MissionNotificationService,
+            useValue: mocks2.mockNotification,
+          },
         ],
       }).compile();
 
@@ -1267,6 +1336,18 @@ describe("ResearchMissionService", () => {
           {
             provide: ResearchReviewerService,
             useValue: mocks2.mockReviewerService,
+          },
+          {
+            provide: MissionObservabilityService,
+            useValue: mocks2.mockObservability,
+          },
+          {
+            provide: MissionKernelBridgeService,
+            useValue: mocks2.mockKernelBridge,
+          },
+          {
+            provide: MissionNotificationService,
+            useValue: mocks2.mockNotification,
           },
         ],
       }).compile();
@@ -1524,6 +1605,18 @@ describe("ResearchMissionService", () => {
           {
             provide: ResearchReviewerService,
             useValue: customMocks.mockReviewerService,
+          },
+          {
+            provide: MissionObservabilityService,
+            useValue: customMocks.mockObservability,
+          },
+          {
+            provide: MissionKernelBridgeService,
+            useValue: customMocks.mockKernelBridge,
+          },
+          {
+            provide: MissionNotificationService,
+            useValue: customMocks.mockNotification,
           },
         ],
       }).compile();

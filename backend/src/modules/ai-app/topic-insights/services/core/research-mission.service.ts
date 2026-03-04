@@ -47,28 +47,16 @@ import { AgentActivityService } from "../monitoring/agent-activity.service";
 import { CollaboratorRole } from "../../dto/collaborator.dto";
 import {
   ChatFacade,
-  ProgressTrackerService,
-  type EngineEvent,
+  GuardrailsPipelineService,
 } from "@/modules/ai-engine/facade";
 import {
-  MissionExecutorService,
-  EventJournalService,
   KernelContext,
-  KernelMemoryManagerService,
-  CostAttributionService,
-  EventBusService,
-  ResourceManagerService,
   MessageBusService,
-  KernelSchedulerService,
   type A2AMessageType,
 } from "@/modules/ai-kernel/facade";
-import { GuardrailsPipelineService } from "@/modules/ai-engine/facade";
-import {
-  ErrorTrackingService,
-  AIMetricsService,
-  SettingsService,
-  EmailService,
-} from "@/modules/ai-infra/facade";
+import { MissionObservabilityService } from "./mission-observability.service";
+import { MissionKernelBridgeService } from "./mission-kernel-bridge.service";
+import { MissionNotificationService } from "./mission-notification.service";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import type { ResearchDepth } from "../../types/v5-research.types";
@@ -116,7 +104,6 @@ interface TaskResultJson {
 import { resolveResearchDepthConfig } from "../../types/v5-research.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import { LruMap } from "@/common/utils/lru-map";
 import {
   TASK_PRIORITY,
   type CreateMissionInput,
@@ -137,7 +124,6 @@ type ResearchTopicWithDimensions = ResearchTopic & {
 @Injectable()
 export class ResearchMissionService {
   private readonly logger = new Logger(ResearchMissionService.name);
-  private readonly kernelProcessIds = new LruMap<string, string>(500);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -151,26 +137,14 @@ export class ResearchMissionService {
     private readonly agentActivity: AgentActivityService,
     private readonly chatFacade: ChatFacade,
     private readonly reviewerService: ResearchReviewerService,
-    @Optional() private readonly missionExecutor?: MissionExecutorService,
-    @Optional() private readonly kernelJournal?: EventJournalService,
-    @Optional() private readonly progressTracker?: ProgressTrackerService,
-    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
-    // ★ Phase 2: 按维度成本追踪
-    @Optional() private readonly costAttribution?: CostAttributionService,
-    // ★ Phase 3: 跨模块研究可观测性
-    @Optional() private readonly kernelEventBus?: EventBusService,
+    // ★ God Service decomposition: 3 sub-services
+    private readonly observability: MissionObservabilityService,
+    private readonly kernelBridge: MissionKernelBridgeService,
+    private readonly notification: MissionNotificationService,
     // ★ Batch 2: 输入输出安全验证
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
-    // ★ Batch 2: 错误追踪和 AI 指标
-    @Optional() private readonly errorTracking?: ErrorTrackingService,
-    @Optional() private readonly aiMetrics?: AIMetricsService,
-    // ★ Batch 3: AI 设置和邮件通知
-    @Optional() private readonly settingsService?: SettingsService,
-    @Optional() private readonly emailService?: EmailService,
-    // ★ Batch 3: 内核资源管理、消息总线、调度器
-    @Optional() private readonly resourceManager?: ResourceManagerService,
+    // ★ Batch 3: 消息总线
     @Optional() private readonly messageBus?: MessageBusService,
-    @Optional() private readonly kernelScheduler?: KernelSchedulerService,
   ) {}
 
   /**
@@ -391,64 +365,20 @@ export class ResearchMissionService {
       },
     });
 
-    // ★ AI Kernel: 创建进程记录
-    if (this.missionExecutor) {
-      try {
-        const kernelResult = await this.missionExecutor.execute({
-          userId: topic.userId,
-          agentId: "research-leader",
-          teamSessionId: mission.id,
-          input: { topicId, mode, researchDepth, title: topic.name },
-        });
-        this.kernelProcessIds.set(mission.id, kernelResult.processId);
-        this.logger.log(
-          `[Kernel] Process ${kernelResult.processId} spawned for research mission ${mission.id}`,
-        );
-        this.recordKernelEvent(mission.id, "mission.started", {
-          topicId,
-          mode,
-          researchDepth,
-        });
-      } catch (err) {
-        this.logger.warn(
-          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-
-    // ★ AI Kernel: 创建进度追踪
-    if (this.progressTracker) {
-      this.progressTracker.create({
-        id: mission.id,
-        type: "research",
-        name: `Research: ${topic.name}`,
-        roomConfig: {
-          roomId: `mission:${mission.id}`,
-          roomType: "mission",
-          entityId: mission.id,
-        },
-        phases: [
-          { id: "planning", name: "Research Planning", weight: 1 },
-          { id: "execution", name: "Dimension Research", weight: 3 },
-          { id: "synthesis", name: "Report Synthesis", weight: 2 },
-        ],
+    // ★ AI Kernel: 创建进程记录 + 进度追踪 + 调度器统计（非关键，失败不阻塞）
+    try {
+      await this.kernelBridge.initMission({
+        missionId: mission.id,
+        userId: topic.userId,
+        topicId,
+        topicName: topic.name,
+        mode,
+        researchDepth,
       });
-      this.progressTracker.start(mission.id);
-    }
-
-    // ★ Batch 3: KernelScheduler — 记录调度器状态用于可观测性
-    if (this.kernelScheduler) {
-      void (async () => {
-        try {
-          const stats = await this.kernelScheduler!.getStats();
-          this.logger.log(
-            `[KernelScheduler] Stats at mission start: running=${stats.running}, ` +
-              `ready=${stats.ready}, maxConcurrent=${stats.maxConcurrent}`,
-          );
-        } catch (e) {
-          this.logger.debug(`KernelScheduler getStats failed: ${e}`);
-        }
-      })();
+    } catch (err) {
+      this.logger.warn(
+        `[KernelBridge] initMission failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // ★ 启动进度追踪（必须在发送其他事件之前）
@@ -475,7 +405,7 @@ export class ResearchMissionService {
     // ★ 关键修复：立即返回 mission，异步执行规划
     // 原因：AI 推理可能需要 2-5 分钟，而 Next.js rewrite 代理默认 30 秒超时
     // 前端会通过轮询 getMission 和 WebSocket 获取规划进度
-    const missionProcessId = this.kernelProcessIds.get(mission.id);
+    const missionProcessId = this.kernelBridge.getProcessId(mission.id);
     const userId = topic.userId;
     const runPlanning = () =>
       this.executePlanningAsync(
@@ -503,7 +433,7 @@ export class ResearchMissionService {
     );
 
     // ★ Phase 3: Kernel event — mission created
-    this.emitKernelEvent(
+    this.observability.emitKernelEvent(
       "research.mission.created",
       { missionId: mission.id, topicId, mode },
       mission.id,
@@ -538,9 +468,7 @@ export class ResearchMissionService {
       progress: 10,
     });
 
-    if (this.progressTracker) {
-      this.progressTracker.startPhase(missionId, "planning");
-    }
+    this.kernelBridge.startPhase(missionId, "planning");
 
     try {
       // ★ 发送 Leader 思考事件：分析
@@ -662,19 +590,15 @@ export class ResearchMissionService {
       const errorMsg =
         error instanceof Error ? error.message : "规划失败：未知错误";
 
-      // ★ Batch 2: ErrorTracking — 记录规划失败
-      if (this.errorTracking) {
-        void this.errorTracking
-          .logError({
-            errorCode: "RESEARCH_PLANNING_FAILED",
-            errorType: "ResearchMissionError",
-            message: errorMsg,
-            severity: "error",
-            component: "topic-insights",
-            metadata: { topicId, missionId },
-          })
-          .catch((e) => this.logger.debug(`ErrorTracking failed: ${e}`));
-      }
+      // ★ ErrorTracking — 记录规划失败
+      this.observability.logError({
+        errorCode: "RESEARCH_PLANNING_FAILED",
+        errorType: "ResearchMissionError",
+        message: errorMsg,
+        severity: "error",
+        component: "topic-insights",
+        metadata: { topicId, missionId },
+      });
 
       // 规划失败，更新状态
       // ★ 使用 try-catch 包裹更新操作，避免 mission 已被删除时报错
@@ -704,18 +628,7 @@ export class ResearchMissionService {
       }
 
       // ★ 发送失败事件，让前端知道规划失败
-      // 使用 emitMissionFailed 发送正确的 mission:failed 事件
-      if (this.progressTracker) {
-        const task = this.progressTracker.getTask(missionId);
-        if (task) {
-          for (const phase of task.phases) {
-            if (phase.status === "in_progress") {
-              this.progressTracker.failPhase(missionId, phase.id, errorMsg);
-            }
-          }
-        }
-        this.progressTracker.fail(missionId, errorMsg);
-      }
+      this.kernelBridge.failTracking(missionId, errorMsg);
 
       await this.researchEventEmitter.emitMissionFailed(
         topicId,
@@ -723,7 +636,7 @@ export class ResearchMissionService {
         errorMsg,
       );
 
-      this.failKernelProcess(
+      this.kernelBridge.failKernelProcess(
         missionId,
         `Planning failed: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -785,17 +698,15 @@ export class ResearchMissionService {
       totalTasks: tasks.length,
     });
 
-    if (this.progressTracker) {
-      this.progressTracker.completePhase(missionId, "planning");
-      this.progressTracker.startPhase(missionId, "execution");
-    }
+    this.kernelBridge.completePhase(missionId, "planning");
+    this.kernelBridge.startPhase(missionId, "execution");
 
     this.logger.log(
       `[approvePlanAndExecute] Mission ${missionId} approved, starting execution with ${tasks.length} tasks`,
     );
 
     // ★ Phase 3: Kernel event — mission started
-    this.emitKernelEvent(
+    this.observability.emitKernelEvent(
       "research.mission.started",
       { missionId, topicId, totalTasks: tasks.length },
       missionId,
@@ -1302,13 +1213,13 @@ export class ResearchMissionService {
 
     // ★ AI Kernel: 标记进程完成/失败
     if (status === ResearchMissionStatus.COMPLETED) {
-      this.completeKernelProcess(missionId, {
+      this.kernelBridge.completeKernelProcess(missionId, {
         completedTasks,
         totalTasks,
         progressPercent,
       });
     } else if (status === ResearchMissionStatus.FAILED) {
-      this.failKernelProcess(
+      this.kernelBridge.failKernelProcess(
         missionId,
         `Research mission failed: ${failedTasks} of ${totalTasks} tasks failed`,
       );
@@ -2171,24 +2082,17 @@ export class ResearchMissionService {
         ? currentTask.tools
         : agentAssignment?.tools || [];
 
-    // ★ Batch 3: ResourceManager — 执行前预算检查
-    const processId = this.kernelProcessIds.get(missionId);
-    if (processId && this.resourceManager) {
-      try {
-        const budget = await this.resourceManager.checkBudget(processId);
-        if (!budget.canProceed) {
-          this.logger.warn(
-            `[executeTask] Budget exceeded for mission ${missionId}: ${budget.reason}`,
-          );
-          await this.updateTaskStatus(task.id, ResearchTaskStatus.FAILED, {
-            result: { error: `Budget exceeded: ${budget.reason}` },
-            resultSummary: `预算超限: ${budget.reason}`,
-          });
-          return;
-        }
-      } catch (e) {
-        this.logger.debug(`ResourceManager checkBudget failed: ${e}`);
-      }
+    // ★ ResourceManager — 执行前预算检查
+    const budget = await this.kernelBridge.checkBudget(missionId);
+    if (!budget.canProceed) {
+      this.logger.warn(
+        `[executeTask] Budget exceeded for mission ${missionId}: ${budget.reason}`,
+      );
+      await this.updateTaskStatus(task.id, ResearchTaskStatus.FAILED, {
+        result: { error: `Budget exceeded: ${budget.reason}` },
+        resultSummary: `预算超限: ${budget.reason}`,
+      });
+      return;
     }
 
     // ★ Batch 3: MessageBus — 获取已完成维度的上下文（跨维度感知）
@@ -2336,7 +2240,7 @@ export class ResearchMissionService {
             );
 
             // ★ Phase 3: Kernel event — dimension completed
-            this.emitKernelEvent(
+            this.observability.emitKernelEvent(
               "research.dimension.completed",
               {
                 missionId,
@@ -2367,7 +2271,7 @@ export class ResearchMissionService {
             );
 
             // ★ Phase 3: Kernel event — dimension completed
-            this.emitKernelEvent(
+            this.observability.emitKernelEvent(
               "research.dimension.completed",
               {
                 missionId,
@@ -2711,10 +2615,8 @@ export class ResearchMissionService {
             missionId,
           );
 
-          if (this.progressTracker) {
-            this.progressTracker.completePhase(missionId, "execution");
-            this.progressTracker.startPhase(missionId, "synthesis");
-          }
+          this.kernelBridge.completePhase(missionId, "execution");
+          this.kernelBridge.startPhase(missionId, "synthesis");
 
           // ★ 复用 startExecution 中创建的草稿报告，避免重复创建
           // reportId 已在 startExecution 中创建并传递到此处
@@ -2807,13 +2709,11 @@ export class ResearchMissionService {
             missionId,
           );
 
-          if (this.progressTracker) {
-            this.progressTracker.completePhase(missionId, "synthesis");
-            this.progressTracker.complete(missionId);
-          }
+          this.kernelBridge.completePhase(missionId, "synthesis");
+          this.kernelBridge.completeTracking(missionId);
 
           // ★ Phase 3: Kernel event — report generated
-          this.emitKernelEvent(
+          this.observability.emitKernelEvent(
             "research.report.generated",
             { missionId, topicId: topic.id, reportId },
             missionId,
@@ -2842,22 +2742,15 @@ export class ResearchMissionService {
           };
 
           // Store synthesis report in Kernel PERSISTENT memory (long-lived result)
-          if (this.kernelMemory) {
-            const processId = this.kernelProcessIds.get(missionId);
-            if (processId) {
-              void this.kernelMemory
-                .write({
-                  processId,
-                  layer: MemoryLayer.PERSISTENT,
-                  key: "synthesis-report",
-                  value: {
-                    reportId,
-                    summary: (result as Record<string, unknown>)?.summary || "",
-                  },
-                })
-                .catch((err) => this.logger.debug("Memory write failed", err));
-            }
-          }
+          this.kernelBridge.writeMemory({
+            missionId,
+            layer: MemoryLayer.PERSISTENT,
+            key: "synthesis-report",
+            value: {
+              reportId,
+              summary: (result as Record<string, unknown>)?.summary || "",
+            },
+          });
 
           break;
         }
@@ -2956,13 +2849,12 @@ export class ResearchMissionService {
         actualModelId,
       });
 
-      // ★ Phase 2: CostAttribution — 记录任务级别成本
-      if (this.costAttribution && task.taskType === "dimension_research") {
+      // ★ CostAttribution — 记录任务级别成本
+      if (task.taskType === "dimension_research") {
         const dimensionName = task.dimensionName || task.title;
         const model = actualModelId || assignedModelId || "";
-        // 从 result 提取 token 信息（如有）
         const tokens = result as Record<string, unknown>;
-        this.recordResearchCost(
+        this.observability.recordResearchCost(
           topic.userId,
           dimensionName,
           model,
@@ -2997,42 +2889,28 @@ export class ResearchMissionService {
           .catch((e) => this.logger.debug(`MessageBus publish failed: ${e}`));
       }
 
-      // ★ Batch 3: ResourceManager — 记录任务资源消耗
-      if (
-        processId &&
-        this.resourceManager &&
-        task.taskType === "dimension_research"
-      ) {
+      // ★ ResourceManager — 记录任务资源消耗
+      if (task.taskType === "dimension_research") {
         const tokens = result as Record<string, unknown>;
         const tokensUsed =
           ((tokens?.inputTokens as number) || 0) +
           ((tokens?.outputTokens as number) || 0);
-        if (tokensUsed > 0) {
-          void this.resourceManager
-            .consume(processId, {
-              tokensUsed,
-              costUsed: (tokens?.estimatedCost as number) || 0,
-            })
-            .catch((e) =>
-              this.logger.debug(`ResourceManager consume failed: ${e}`),
-            );
-        }
+        this.kernelBridge.consumeResources(
+          missionId,
+          tokensUsed,
+          (tokens?.estimatedCost as number) || 0,
+        );
       }
 
       // Store intermediate dimension research findings in Kernel WORKING memory
-      if (this.kernelMemory && task.taskType === "dimension_research") {
-        const processId = this.kernelProcessIds.get(missionId);
-        if (processId) {
-          void this.kernelMemory
-            .write({
-              processId,
-              layer: MemoryLayer.WORKING,
-              key: `task-result-${task.id}`,
-              value: result,
-              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            })
-            .catch((err) => this.logger.debug("Memory write failed", err));
-        }
+      if (task.taskType === "dimension_research") {
+        this.kernelBridge.writeMemory({
+          missionId,
+          layer: MemoryLayer.WORKING,
+          key: `task-result-${task.id}`,
+          value: result,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        });
       }
 
       // ★ 当实际模型与分配模型不同时，更新该 agent 所有活动记录的 agentName
@@ -3151,22 +3029,9 @@ export class ResearchMissionService {
     const MAX_CONCURRENCY = 10;
 
     try {
-      // ★ Batch 3: SettingsService — 使用 AI 设置的速率限制作为并发度参考
-      let settingsHint: number | undefined;
-      if (this.settingsService) {
-        try {
-          const aiSettings = await this.settingsService.getAiSettings();
-          if (aiSettings.rateLimitPerMinute > 0) {
-            // 速率限制的 1/3 作为并发上限参考（每个任务约执行 3+ 次 LLM 调用）
-            settingsHint = Math.floor(aiSettings.rateLimitPerMinute / 3);
-            this.logger.debug(
-              `[calculateDynamicConcurrency] AI settings rateLimitPerMinute=${aiSettings.rateLimitPerMinute} → hint=${settingsHint}`,
-            );
-          }
-        } catch (e) {
-          this.logger.debug(`SettingsService failed: ${e}`);
-        }
-      }
+      // ★ SettingsService — 使用 AI 设置的速率限制作为并发度参考
+      const { rateLimitHint: settingsHint } =
+        await this.notification.getAiSettings();
 
       // 获取所有启用的 CHAT 模型
       const models = await this.chatFacade.getAvailableModels(AIModelType.CHAT);
@@ -3254,52 +3119,24 @@ export class ResearchMissionService {
       },
     });
 
-    // ★ Batch 2: AIMetrics — 记录 Mission 执行指标
-    if (this.aiMetrics) {
-      void this.aiMetrics
-        .recordMetric({
-          metricType: "mission_execution",
-          operationId: missionId,
-          success: finalStatus === ResearchMissionStatus.COMPLETED,
-          metadata: {
-            module: "topic-insights",
-            topicId,
-            completedTasks: completedTasks.length,
-            failedTasks: failedTasks.length,
-            totalTasks: tasks.length,
-          },
-        })
-        .catch((e) => this.logger.debug(`AIMetrics failed: ${e}`));
-    }
+    // ★ AIMetrics — 记录 Mission 执行指标
+    this.observability.recordMissionMetrics({
+      missionId,
+      topicId,
+      success: finalStatus === ResearchMissionStatus.COMPLETED,
+      completedTasks: completedTasks.length,
+      failedTasks: failedTasks.length,
+      totalTasks: tasks.length,
+    });
 
-    // ★ Batch 3: EmailService — 研究完成时发送邮件通知
-    if (this.emailService && finalStatus === ResearchMissionStatus.COMPLETED) {
-      void (async () => {
-        try {
-          const topic = await this.prisma.researchTopic.findUnique({
-            where: { id: topicId },
-            select: { userId: true, name: true },
-          });
-          if (topic?.userId) {
-            const user = await this.prisma.user.findUnique({
-              where: { id: topic.userId },
-              select: { email: true },
-            });
-            if (user?.email) {
-              await this.emailService!.sendMissionCompletionNotification({
-                to: user.email,
-                missionId,
-                missionTitle: topic.name,
-                reportUrl: `/topics/${topicId}/reports`,
-                summary: `${completedTasks.length}/${tasks.length} dimensions completed`,
-                completedAt: new Date(),
-              });
-            }
-          }
-        } catch (e) {
-          this.logger.debug(`EmailService notification failed: ${e}`);
-        }
-      })();
+    // ★ EmailService — 研究完成时发送邮件通知
+    if (finalStatus === ResearchMissionStatus.COMPLETED) {
+      this.notification.notifyCompletion({
+        missionId,
+        topicId,
+        completedTasks: completedTasks.length,
+        totalTasks: tasks.length,
+      });
     }
 
     // ★ Batch 3: MessageBus — 清理 Mission 会话消息
@@ -3377,7 +3214,7 @@ export class ResearchMissionService {
 
     // ★ Phase 3: Kernel events — mission completed/failed
     if (finalStatus === ResearchMissionStatus.COMPLETED) {
-      this.emitKernelEvent(
+      this.observability.emitKernelEvent(
         "research.mission.completed",
         {
           missionId,
@@ -3388,7 +3225,7 @@ export class ResearchMissionService {
         missionId,
       );
     } else {
-      this.emitKernelEvent(
+      this.observability.emitKernelEvent(
         "research.mission.failed",
         {
           missionId,
@@ -3875,113 +3712,6 @@ export class ResearchMissionService {
         `[addAgentToLeaderPlan] Failed to update leaderPlan: ${error}`,
       );
       // 不抛出异常，避免影响主流程
-    }
-  }
-
-  private recordKernelEvent(
-    missionId: string,
-    type: string,
-    payload?: Record<string, unknown>,
-  ): void {
-    const processId = this.kernelProcessIds.get(missionId);
-    if (!processId || !this.kernelJournal) return;
-    void this.kernelJournal
-      .record(processId, type, payload)
-      .catch((err: unknown) =>
-        this.logger.warn(
-          `[Kernel] Failed to record event ${type}: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
-  }
-
-  private completeKernelProcess(
-    missionId: string,
-    output?: Record<string, unknown>,
-  ): void {
-    const processId = this.kernelProcessIds.get(missionId);
-    if (!processId || !this.missionExecutor) return;
-    void this.missionExecutor
-      .complete(processId, output)
-      .catch((err: unknown) =>
-        this.logger.warn(
-          `[Kernel] Failed to complete process: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
-    this.kernelProcessIds.delete(missionId);
-  }
-
-  private failKernelProcess(missionId: string, error: string): void {
-    const processId = this.kernelProcessIds.get(missionId);
-    if (!processId || !this.missionExecutor) return;
-    void this.missionExecutor
-      .fail(processId, error)
-      .catch((err: unknown) =>
-        this.logger.warn(
-          `[Kernel] Failed to mark process as failed: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
-    this.kernelProcessIds.delete(missionId);
-  }
-
-  // ==================== Phase 2: CostAttribution ====================
-
-  /**
-   * ★ 记录研究任务成本（fire-and-forget）
-   */
-  private recordResearchCost(
-    userId: string,
-    dimensionName: string,
-    model: string,
-    provider: string,
-    inputTokens: number,
-    outputTokens: number,
-    estimatedCost: number,
-  ): void {
-    if (!this.costAttribution) return;
-    try {
-      this.costAttribution.recordCost({
-        userId,
-        moduleType: `research:${dimensionName}`,
-        model,
-        provider,
-        inputTokens,
-        outputTokens,
-        estimatedCost,
-      });
-    } catch (err) {
-      this.logger.warn(
-        `[CostAttribution] Failed to record cost: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  // ==================== Phase 3: EventBus ====================
-
-  /**
-   * ★ 发送 Kernel 级研究生命周期事件（fire-and-forget）
-   * 补充 kernel 级事件，不替换现有 EventEmitter2
-   */
-  private emitKernelEvent(
-    type: string,
-    payload: Record<string, unknown>,
-    correlationId?: string,
-  ): void {
-    if (!this.kernelEventBus) return;
-    const event: EngineEvent<Record<string, unknown>> = {
-      type,
-      payload,
-      metadata: {
-        timestamp: new Date(),
-        source: "topic-insights",
-        correlationId,
-      },
-    };
-    try {
-      this.kernelEventBus.emit(event);
-    } catch (err) {
-      this.logger.warn(
-        `[KernelEventBus] Failed to emit ${type}: ${err instanceof Error ? err.message : String(err)}`,
-      );
     }
   }
 }

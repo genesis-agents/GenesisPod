@@ -24,6 +24,11 @@ export { InteractiveResearchService } from "./core/interactive-research.service"
 // ★ P1: 研究模板
 export { ResearchTemplateService } from "./core/research-template.service";
 
+// ★ Mission sub-services (God Service decomposition)
+export { MissionObservabilityService } from "./core/mission-observability.service";
+export { MissionKernelBridgeService } from "./core/mission-kernel-bridge.service";
+export { MissionNotificationService } from "./core/mission-notification.service";
+
 // ★ Leader sub-services
 export { LeaderPlanningService } from "./core/leader-planning.service";
 export { LeaderReviewService } from "./core/leader-review.service";

@@ -8,6 +8,11 @@ export {
 export type { ResumeMissionExecutionPayload } from "./research-event-emitter.service";
 export { ResearchStrategyService } from "./research-strategy.service";
 
+// ★ Mission sub-services (God Service decomposition)
+export { MissionObservabilityService } from "./mission-observability.service";
+export { MissionKernelBridgeService } from "./mission-kernel-bridge.service";
+export { MissionNotificationService } from "./mission-notification.service";
+
 // ★ New sub-services (Facade pattern)
 export { TopicCrudService } from "./topic-crud.service";
 export { TopicDimensionService } from "./topic-dimension.service";

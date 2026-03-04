@@ -86,12 +86,11 @@ import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { TopicCollaboratorService } from "../../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
-import { ChatFacade, ProgressTrackerService } from "@/modules/ai-engine/facade";
-import {
-  MissionExecutorService,
-  EventJournalService,
-} from "@/modules/ai-kernel/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
+import { MissionObservabilityService } from "../mission-observability.service";
+import { MissionKernelBridgeService } from "../mission-kernel-bridge.service";
+import { MissionNotificationService } from "../mission-notification.service";
 import { NotFoundException } from "@nestjs/common";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
@@ -111,13 +110,11 @@ function buildMocks() {
       findUniqueOrThrow: jest.fn(),
     },
     researchTask: {
-      create: jest
-        .fn()
-        .mockResolvedValue({
-          id: "task-created",
-          missionId: "mission-s2",
-          status: "PENDING",
-        }),
+      create: jest.fn().mockResolvedValue({
+        id: "task-created",
+        missionId: "mission-s2",
+        status: "PENDING",
+      }),
       createMany: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
@@ -234,6 +231,33 @@ function buildMocks() {
     getTask: jest.fn().mockReturnValue(null),
   };
 
+  const mockObservability = {
+    recordResearchCost: jest.fn(),
+    emitKernelEvent: jest.fn(),
+    logError: jest.fn(),
+    recordMissionMetrics: jest.fn(),
+  };
+
+  const mockKernelBridge = {
+    getProcessId: jest.fn(),
+    initMission: jest.fn().mockResolvedValue(undefined),
+    startPhase: jest.fn(),
+    completePhase: jest.fn(),
+    failTracking: jest.fn(),
+    completeTracking: jest.fn(),
+    recordKernelEvent: jest.fn(),
+    completeKernelProcess: jest.fn(),
+    failKernelProcess: jest.fn(),
+    checkBudget: jest.fn().mockResolvedValue({ canProceed: true }),
+    consumeResources: jest.fn(),
+    writeMemory: jest.fn(),
+  };
+
+  const mockNotification = {
+    notifyCompletion: jest.fn(),
+    getAiSettings: jest.fn().mockResolvedValue({}),
+  };
+
   return {
     mockPrisma,
     mockEventEmitter,
@@ -248,6 +272,9 @@ function buildMocks() {
     mockMissionExecutor,
     mockKernelJournal,
     mockProgressTracker,
+    mockObservability,
+    mockKernelBridge,
+    mockNotification,
   };
 }
 
@@ -283,8 +310,6 @@ const mockMission = {
 
 async function buildServiceWithOptionalDeps(
   mocks: ReturnType<typeof buildMocks>,
-  includeKernel = false,
-  includeProgressTracker = false,
 ) {
   const providers = [
     ResearchMissionService,
@@ -310,21 +335,19 @@ async function buildServiceWithOptionalDeps(
     { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
     { provide: ChatFacade, useValue: mocks.mockFacade },
     { provide: ResearchReviewerService, useValue: mocks.mockReviewerService },
+    {
+      provide: MissionObservabilityService,
+      useValue: mocks.mockObservability,
+    },
+    {
+      provide: MissionKernelBridgeService,
+      useValue: mocks.mockKernelBridge,
+    },
+    {
+      provide: MissionNotificationService,
+      useValue: mocks.mockNotification,
+    },
   ];
-
-  if (includeKernel) {
-    providers.push(
-      { provide: MissionExecutorService, useValue: mocks.mockMissionExecutor },
-      { provide: EventJournalService, useValue: mocks.mockKernelJournal },
-    );
-  }
-
-  if (includeProgressTracker) {
-    providers.push({
-      provide: ProgressTrackerService,
-      useValue: mocks.mockProgressTracker,
-    });
-  }
 
   const module: TestingModule = await Test.createTestingModule({
     providers,
@@ -430,13 +453,9 @@ describe("ResearchMissionService (supplemental2)", () => {
   // createMission - with kernel executor
   // ============================================================
 
-  describe("createMission - with kernel executor", () => {
-    it("should create kernel process when missionExecutor is available", async () => {
-      const serviceWithKernel = await buildServiceWithOptionalDeps(
-        mocks,
-        true,
-        false,
-      );
+  describe("createMission - kernel bridge delegation", () => {
+    it("should delegate to kernelBridge.initMission on createMission", async () => {
+      const svc = await buildServiceWithOptionalDeps(mocks);
 
       mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(null);
@@ -453,27 +472,28 @@ describe("ResearchMissionService (supplemental2)", () => {
       mocks.mockPrisma.leaderDecision.create.mockResolvedValue({ id: "ld-1" });
       mocks.mockPrisma.researchTask.createMany.mockResolvedValue({ count: 0 });
 
-      const result = await serviceWithKernel.createMission({
+      const result = await svc.createMission({
         topicId: "topic-s2",
         userPrompt: "Test",
       });
 
       expect(result.id).toBe("mission-s2");
-      expect(mocks.mockMissionExecutor.execute).toHaveBeenCalled();
+      expect(mocks.mockKernelBridge.initMission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: "mission-s2",
+          topicId: "topic-s2",
+        }),
+      );
     });
 
-    it("should handle kernel executor failure gracefully", async () => {
-      const serviceWithKernel = await buildServiceWithOptionalDeps(
-        mocks,
-        true,
-        false,
-      );
+    it("should handle kernelBridge.initMission failure gracefully", async () => {
+      const svc = await buildServiceWithOptionalDeps(mocks);
 
       mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(null);
       mocks.mockPrisma.researchMission.create.mockResolvedValue(mockMission);
       mocks.mockPrisma.researchMission.update.mockResolvedValue(mockMission);
-      mocks.mockMissionExecutor.execute.mockRejectedValue(
+      mocks.mockKernelBridge.initMission.mockRejectedValue(
         new Error("Kernel unavailable"),
       );
 
@@ -488,7 +508,7 @@ describe("ResearchMissionService (supplemental2)", () => {
       mocks.mockPrisma.researchTask.createMany.mockResolvedValue({ count: 0 });
 
       // Should NOT throw - kernel failure is gracefully handled
-      const result = await serviceWithKernel.createMission({
+      const result = await svc.createMission({
         topicId: "topic-s2",
         userPrompt: "Test",
       });
@@ -501,13 +521,9 @@ describe("ResearchMissionService (supplemental2)", () => {
   // createMission - with progressTracker
   // ============================================================
 
-  describe("createMission - with progressTracker", () => {
-    it("should initialize progressTracker when available", async () => {
-      const serviceWithTracker = await buildServiceWithOptionalDeps(
-        mocks,
-        false,
-        true,
-      );
+  describe("createMission - progress tracking via kernelBridge", () => {
+    it("should delegate progress tracking to kernelBridge.initMission", async () => {
+      const svc = await buildServiceWithOptionalDeps(mocks);
 
       mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(null);
@@ -524,13 +540,18 @@ describe("ResearchMissionService (supplemental2)", () => {
       mocks.mockPrisma.leaderDecision.create.mockResolvedValue({ id: "ld-1" });
       mocks.mockPrisma.researchTask.createMany.mockResolvedValue({ count: 0 });
 
-      await serviceWithTracker.createMission({
+      await svc.createMission({
         topicId: "topic-s2",
         userPrompt: "Test",
       });
 
-      expect(mocks.mockProgressTracker.create).toHaveBeenCalled();
-      expect(mocks.mockProgressTracker.start).toHaveBeenCalled();
+      // Progress tracking is now delegated to kernelBridge.initMission
+      expect(mocks.mockKernelBridge.initMission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: "mission-s2",
+          topicName: "AI Research",
+        }),
+      );
     });
   });
 

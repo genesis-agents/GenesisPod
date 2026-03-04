@@ -108,6 +108,9 @@ import {
   EventJournalService,
 } from "@/modules/ai-kernel/facade";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
+import { MissionObservabilityService } from "../mission-observability.service";
+import { MissionKernelBridgeService } from "../mission-kernel-bridge.service";
+import { MissionNotificationService } from "../mission-notification.service";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
   ResearchMissionStatus,
@@ -272,6 +275,33 @@ function buildMocks() {
     getTask: jest.fn().mockReturnValue(null),
   };
 
+  const mockObservability = {
+    recordResearchCost: jest.fn(),
+    emitKernelEvent: jest.fn(),
+    logError: jest.fn(),
+    recordMissionMetrics: jest.fn(),
+  };
+
+  const mockKernelBridge = {
+    getProcessId: jest.fn(),
+    initMission: jest.fn().mockResolvedValue(undefined),
+    startPhase: jest.fn(),
+    completePhase: jest.fn(),
+    failTracking: jest.fn(),
+    completeTracking: jest.fn(),
+    recordKernelEvent: jest.fn(),
+    completeKernelProcess: jest.fn(),
+    failKernelProcess: jest.fn(),
+    checkBudget: jest.fn().mockResolvedValue({ canProceed: true }),
+    consumeResources: jest.fn(),
+    writeMemory: jest.fn(),
+  };
+
+  const mockNotification = {
+    notifyCompletion: jest.fn(),
+    getAiSettings: jest.fn().mockResolvedValue({}),
+  };
+
   return {
     mockPrisma,
     mockEventEmitter,
@@ -286,6 +316,9 @@ function buildMocks() {
     mockMissionExecutor,
     mockKernelJournal,
     mockProgressTracker,
+    mockObservability,
+    mockKernelBridge,
+    mockNotification,
   };
 }
 
@@ -325,6 +358,18 @@ async function buildService(
     { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
     { provide: ChatFacade, useValue: mocks.mockFacade },
     { provide: ResearchReviewerService, useValue: mocks.mockReviewerService },
+    {
+      provide: MissionObservabilityService,
+      useValue: mocks.mockObservability,
+    },
+    {
+      provide: MissionKernelBridgeService,
+      useValue: mocks.mockKernelBridge,
+    },
+    {
+      provide: MissionNotificationService,
+      useValue: mocks.mockNotification,
+    },
   ];
 
   if (opts.includeKernel) {
