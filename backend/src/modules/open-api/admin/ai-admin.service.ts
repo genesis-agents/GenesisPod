@@ -1770,6 +1770,20 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException(`Skill not found: ${skillId}`);
     }
 
+    // Fallback: if promptContent is null in DB, load from in-memory SKILL.md
+    if (!definition.promptContent) {
+      const loaded = this.skillLoaderService
+        .getAllLoadedSkills()
+        .find((s) => s.metadata.id === skillId);
+      if (loaded) {
+        definition.promptContent = loaded.content;
+        definition.frontmatter = loaded.metadata as unknown as Record<
+          string,
+          unknown
+        >;
+      }
+    }
+
     const versions = await this.skillContentService.getVersionHistory(
       skillId,
       20,
