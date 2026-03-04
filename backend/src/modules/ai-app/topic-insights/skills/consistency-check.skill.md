@@ -51,6 +51,14 @@ tags:
 | 同指标多来源差异 | 同一数据点引用不同来源但数值差异大 | Warning  |
 | 无来源结论       | 关键结论缺乏证据支撑               | Info     |
 
+### 4. 内容重复 (Content Duplication)
+
+| 检查项              | 说明                               | 严重程度 |
+| ------------------- | ---------------------------------- | -------- |
+| 重复论点            | 相同核心论点在不同维度重复出现     | Warning  |
+| 重复数据引用        | 同一统计数据被多个维度重复引用     | Warning  |
+| suggestedResolution | 应具体说明哪些内容应保留在哪个维度 | -        |
+
 ## 输出格式
 
 ```json
@@ -58,7 +66,7 @@ tags:
   "overallConsistency": "high | medium | low",
   "conflicts": [
     {
-      "type": "data_conflict | logic_conflict | source_conflict",
+      "type": "data_conflict | logic_conflict | source_conflict | content_duplication",
       "severity": "critical | warning | info",
       "dimensions": ["维度A", "维度B"],
       "description": "冲突描述（包含具体数值或说法对比，如：维度A引用Gartner数据为500亿，维度B引用IDC数据为800亿，差异60%）",

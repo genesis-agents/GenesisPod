@@ -56,7 +56,6 @@ const makeEvidenceData = (overrides: Record<string, unknown> = {}) => ({
 // ============================================================
 
 const mockAiFacade = {
-  chat: jest.fn(),
   chatWithSkills: jest.fn(),
   selectModel: jest.fn(),
 };
@@ -111,7 +110,7 @@ describe("SectionWriterService", () => {
       expect(result.wordCount).toBeGreaterThan(0);
     });
 
-    it("should call aiFacade.chat with CHAT model type", async () => {
+    it("should call aiFacade.chatWithSkills with CHAT model type", async () => {
       mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validContent,
         model: "gpt-4o",
@@ -322,7 +321,7 @@ describe("SectionWriterService", () => {
     const validRevisedContent = "# Revised AI History\n\n" + "B".repeat(500);
 
     it("should revise a section based on feedback", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validRevisedContent,
         model: "gpt-4o",
         isError: false,
@@ -339,11 +338,11 @@ describe("SectionWriterService", () => {
 
       expect(result.sectionId).toBe("section-1");
       expect(result.content).not.toBe("Original content here");
-      expect(mockAiFacade.chat).toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalled();
     });
 
     it("should throw error when revised content is too short", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: "Too short revised",
         model: "gpt-4o",
         isError: false,
@@ -362,7 +361,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should use specified modelId for revision", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validRevisedContent,
         model: "gemini-pro",
         isError: false,
@@ -378,7 +377,7 @@ describe("SectionWriterService", () => {
         modelId: "gemini-pro",
       });
 
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           model: "gemini-pro",
         }),
@@ -386,7 +385,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should include original content and feedback in revision prompt", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validRevisedContent,
         model: "gpt-4o",
         isError: false,
@@ -401,7 +400,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -410,7 +409,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should throw API error when reviseSection gets isError response", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: "Server error",
         model: "gpt-4o",
         isError: true,
@@ -429,7 +428,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should use default revisionInstructions when empty string provided", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validRevisedContent,
         model: "gpt-4o",
         isError: false,
@@ -444,7 +443,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      const chatCall = mockAiFacade.chat.mock.calls[0][0];
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       const userMsg = chatCall.messages.find(
         (m: { role: string }) => m.role === "user",
       );
@@ -452,7 +451,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should use low creativity profile for revision", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validRevisedContent,
         model: "gpt-4o",
         isError: false,
@@ -467,7 +466,7 @@ describe("SectionWriterService", () => {
         evidenceData: [],
       });
 
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledWith(
         expect.objectContaining({
           taskProfile: expect.objectContaining({ creativity: "low" }),
         }),
@@ -475,7 +474,7 @@ describe("SectionWriterService", () => {
     });
 
     it("should record actualModelId in reviseSection result", async () => {
-      mockAiFacade.chat.mockResolvedValueOnce({
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
         content: validRevisedContent,
         model: "claude-revision-model",
         isError: false,

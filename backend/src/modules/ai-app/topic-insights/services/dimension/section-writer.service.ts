@@ -340,12 +340,16 @@ export class SectionWriterService {
       { languageInstruction: revisionLanguageInstruction },
     );
 
+    // ★ 提取 Leader 分配的 skill（与 writeSection 保持一致）
+    const { skillIds } = this.formatAgentGuidance(section);
+
     const startTime = Date.now();
-    const response = await this.chatFacade.chat({
+    const response = await this.chatFacade.chatWithSkills({
       messages: [
         { role: "system", content: revisionSystemPrompt },
         { role: "user", content: userPrompt },
       ],
+      additionalSkills: skillIds,
       modelType: AIModelType.CHAT,
       model: modelId, // ★ 使用指定模型（如果提供）
       taskProfile: {
