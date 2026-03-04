@@ -314,6 +314,12 @@ export { inferIsReasoning, getKnownModelLimit } from "../llm/types/model-utils";
 export { SearchService } from "../knowledge/search/search.service";
 export { MCPManager } from "../mcp/manager/mcp-manager";
 export { SkillLoaderService } from "../skills/loader/skill-loader.service";
+export { SkillContentService } from "../skills/content/skill-content.service";
+export type {
+  SkillVersionRecord,
+  FullSkillDefinition,
+} from "../skills/content/skill-content.service";
+export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
 export { AgentConfigService } from "../agents/config/agent-config.service";
 export { MCPExternalAdminController } from "../mcp/admin/mcp-external-admin.controller";
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";

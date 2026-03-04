@@ -8,9 +8,10 @@ import { PromptSkillBridge } from "../prompt-skill-bridge.service";
 import { SkillRegistry } from "../../registry/skill-registry";
 import { SkillLoaderService } from "../../loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../builder/skill-prompt-builder.service";
+import { SkillContentService } from "../../content/skill-content.service";
 import { PromptSkillAdapter } from "../prompt-skill-adapter";
 import { SkillMdDefinition } from "../../types/skill-md.types";
-import { ISkill } from "../../abstractions/skill.interface";
+import { ISkill, SkillContext } from "../../abstractions/skill.interface";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,6 +41,15 @@ function makeDefinition(
   };
 }
 
+function makeContext(overrides: Partial<SkillContext> = {}): SkillContext {
+  return {
+    executionId: "exec-001",
+    skillId: "test-skill",
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
 function makeCodeSkill(id: string): ISkill {
   return {
     id,
@@ -60,6 +70,8 @@ describe("PromptSkillBridge", () => {
   let mockRegistry: jest.Mocked<Pick<SkillRegistry, "register" | "tryGet">>;
   let mockLoader: jest.Mocked<Pick<SkillLoaderService, "loadLocalSkills">>;
   let mockBuilder: jest.Mocked<Pick<SkillPromptBuilder, "buildSystemPrompt">>;
+  let mockPrisma: { aIUsageLog: { create: jest.Mock } };
+  let mockContentService: { recordUsage: jest.Mock };
   const mockFacade = {
     chat: jest.fn().mockResolvedValue({ content: "{}", tokensUsed: 10 }),
   };
@@ -80,11 +92,21 @@ describe("PromptSkillBridge", () => {
         .mockReturnValue({ prompt: "System prompt", tokensUsed: 50 }),
     };
 
+    mockPrisma = {
+      aIUsageLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+
+    mockContentService = {
+      recordUsage: jest.fn().mockResolvedValue(undefined),
+    };
+
     // Use manual instantiation to bypass forwardRef DI complexity
     bridge = new PromptSkillBridge(
       mockRegistry as unknown as SkillRegistry,
       mockLoader as unknown as SkillLoaderService,
       mockBuilder as unknown as SkillPromptBuilder,
+      mockPrisma as any,
+      mockContentService as unknown as SkillContentService,
       mockFacade as any,
     );
   });
@@ -127,7 +149,8 @@ describe("PromptSkillBridge", () => {
 
       bridge.registerDefinitions([makeDefinition("test-skill")]);
 
-      const registerCall = (mockRegistry.register as jest.Mock).mock.calls[0][0];
+      const registerCall = (mockRegistry.register as jest.Mock).mock
+        .calls[0][0];
       expect(registerCall).toBeInstanceOf(PromptSkillAdapter);
       expect(registerCall.isPromptSkillAdapter).toBe(true);
     });
@@ -286,6 +309,88 @@ describe("PromptSkillBridge", () => {
       expect(Array.isArray(result.registered)).toBe(true);
       expect(Array.isArray(result.skipped)).toBe(true);
       expect(Array.isArray(result.errors)).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Execution callback
+  // -------------------------------------------------------------------------
+
+  describe("execution callback", () => {
+    it("passes executionCallback to PromptSkillAdapter during registration", () => {
+      mockRegistry.tryGet.mockReturnValue(undefined);
+
+      bridge.registerDefinitions([makeDefinition("callback-skill")]);
+
+      const registerCall = (mockRegistry.register as jest.Mock).mock
+        .calls[0][0] as PromptSkillAdapter;
+      expect(registerCall).toBeInstanceOf(PromptSkillAdapter);
+      // The adapter should have the callback wired — verify by executing
+      // (indirect test: the adapter is created with 4 args including callback)
+    });
+
+    it("logs to AIUsageLog when adapter executes", async () => {
+      mockRegistry.tryGet.mockReturnValue(undefined);
+
+      bridge.registerDefinitions([makeDefinition("log-skill")]);
+
+      const adapter = (mockRegistry.register as jest.Mock).mock
+        .calls[0][0] as PromptSkillAdapter;
+
+      // Execute the adapter to trigger the callback
+      await adapter.execute(
+        { topic: "test" },
+        makeContext({ skillId: "log-skill" }),
+      );
+
+      // Wait for fire-and-forget to settle
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(mockPrisma.aIUsageLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          capabilityType: "skill",
+          capabilityId: "log-skill",
+          success: true,
+        }),
+      });
+    });
+
+    it("calls recordUsage when adapter executes", async () => {
+      mockRegistry.tryGet.mockReturnValue(undefined);
+
+      bridge.registerDefinitions([makeDefinition("usage-skill")]);
+
+      const adapter = (mockRegistry.register as jest.Mock).mock
+        .calls[0][0] as PromptSkillAdapter;
+      await adapter.execute(
+        { topic: "test" },
+        makeContext({ skillId: "usage-skill" }),
+      );
+
+      // Wait for fire-and-forget
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(mockContentService.recordUsage).toHaveBeenCalledWith(
+        "usage-skill",
+      );
+    });
+
+    it("does not crash when AIUsageLog create fails", async () => {
+      mockPrisma.aIUsageLog.create.mockRejectedValue(
+        new Error("DB write failed"),
+      );
+      mockRegistry.tryGet.mockReturnValue(undefined);
+
+      bridge.registerDefinitions([makeDefinition("fail-log-skill")]);
+
+      const adapter = (mockRegistry.register as jest.Mock).mock
+        .calls[0][0] as PromptSkillAdapter;
+      // Should not throw
+      const result = await adapter.execute(
+        { topic: "test" },
+        makeContext({ skillId: "fail-log-skill" }),
+      );
+      expect(result.success).toBe(true);
     });
   });
 });

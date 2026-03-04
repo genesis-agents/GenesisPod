@@ -19,6 +19,22 @@ import { SkillMdDefinition, SkillInputBinding } from "../types/skill-md.types";
 import type { ChatFacade } from "../../facade/domain/chat.facade";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 
+/** Callback for recording execution metrics after each run */
+export interface PromptSkillExecutionCallback {
+  (params: {
+    skillId: string;
+    success: boolean;
+    duration: number;
+    errorCode?: string;
+    modelUsed?: string;
+    skillVersion?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    domain?: string;
+    userId?: string;
+  }): void;
+}
+
 export class PromptSkillAdapter implements ISkill<unknown, unknown> {
   private readonly logger: Logger;
 
@@ -51,16 +67,17 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
     private readonly definition: SkillMdDefinition,
     private readonly facade: ChatFacade,
     private readonly promptBuilder: SkillPromptBuilder,
+    private readonly onExecutionComplete?: PromptSkillExecutionCallback,
   ) {
     const fm = definition.metadata;
     this.id = fm.id;
     this.name = fm.name;
     this.description = fm.description;
-    this.layer = fm.layer || "content";
+    this.layer = fm.layer ?? "content";
     this.domain = fm.domain;
     this.tags = fm.tags;
     this.version = fm.version;
-    this.outputKey = fm.outputKey || fm.id;
+    this.outputKey = fm.outputKey ?? fm.id;
     this.requiredSkills = fm.requiredSkills;
     this.requiredTools = fm.requiredTools;
     this.inputSchema = fm.inputSchema as JsonSchema | undefined;
@@ -81,7 +98,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
         [this.definition],
         {
           context: input as Record<string, unknown>,
-          maxTokens: fm.tokenBudget || 4000,
+          maxTokens: fm.tokenBudget ?? 4000,
         },
       );
 
@@ -90,7 +107,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
         typeof input === "string" ? input : JSON.stringify(input, null, 2);
 
       // 3. Call LLM via AIEngineFacade
-      const taskProfile = fm.taskProfile || {
+      const taskProfile = fm.taskProfile ?? {
         creativity: "medium",
         outputLength: "medium",
       };
@@ -107,6 +124,21 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
       // if no valid JSON is found, so this is safe for text-based skills too.
       const data = this.extractJson(response.content);
 
+      const duration = Date.now() - startTime;
+
+      // 5. Fire-and-forget execution metrics callback
+      if (this.onExecutionComplete) {
+        this.onExecutionComplete({
+          skillId: this.id,
+          success: true,
+          duration,
+          modelUsed: response.model || undefined,
+          skillVersion: fm.version,
+          domain: fm.domain,
+          userId: context.userId,
+        });
+      }
+
       return {
         success: true,
         data,
@@ -114,12 +146,27 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
           executionId: context.executionId,
           startTime: new Date(startTime),
           endTime: new Date(),
-          duration: Date.now() - startTime,
+          duration,
           tokensUsed: response.tokensUsed,
         },
       };
     } catch (error) {
+      const duration = Date.now() - startTime;
       this.logger.error(`Execution failed: ${(error as Error).message}`);
+
+      // Fire-and-forget execution metrics callback
+      if (this.onExecutionComplete) {
+        this.onExecutionComplete({
+          skillId: this.id,
+          success: false,
+          duration,
+          errorCode: "PROMPT_SKILL_FAILED",
+          skillVersion: fm.version,
+          domain: fm.domain,
+          userId: context.userId,
+        });
+      }
+
       return {
         success: false,
         error: {
@@ -131,7 +178,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
           executionId: context.executionId,
           startTime: new Date(startTime),
           endTime: new Date(),
-          duration: Date.now() - startTime,
+          duration,
         },
       };
     }
@@ -181,15 +228,15 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
   /**
    * Repair truncated JSON by completing missing brackets
    */
-  private repairTruncatedJson(content: string): unknown | null {
+  private repairTruncatedJson(content: string): unknown {
     const jsonStart = content.indexOf("{");
     if (jsonStart === -1) return null;
 
     let jsonStr = content.slice(jsonStart);
-    const openBraces = (jsonStr.match(/{/g) || []).length;
-    const closeBraces = (jsonStr.match(/}/g) || []).length;
-    const openBrackets = (jsonStr.match(/\[/g) || []).length;
-    const closeBrackets = (jsonStr.match(/]/g) || []).length;
+    const openBraces = (jsonStr.match(/{/g) ?? []).length;
+    const closeBraces = (jsonStr.match(/}/g) ?? []).length;
+    const openBrackets = (jsonStr.match(/\[/g) ?? []).length;
+    const closeBrackets = (jsonStr.match(/]/g) ?? []).length;
 
     jsonStr += "]".repeat(Math.max(0, openBrackets - closeBrackets));
     jsonStr += "}".repeat(Math.max(0, openBraces - closeBraces));

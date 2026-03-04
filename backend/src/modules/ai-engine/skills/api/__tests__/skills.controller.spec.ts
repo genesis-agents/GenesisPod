@@ -6,6 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { SkillsController } from "../skills.controller";
 import { SkillsApiService } from "../skills-api.service";
+import { SkillAnalyticsService } from "../../analytics/skill-analytics.service";
 import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../../common/guards/admin.guard";
 import { SetDomainOverrideDto } from "../dto/set-domain-override.dto";
@@ -26,6 +27,16 @@ const mockSkillsApiService = {
   syncFromSkillsMP: jest.fn(),
 } as unknown as jest.Mocked<SkillsApiService>;
 
+const mockAnalyticsService = {
+  getDashboardMetrics: jest.fn(),
+  getSkillMetrics: jest.fn(),
+  getHealthScores: jest.fn(),
+  getUnusedSkills: jest.fn(),
+  getTopSkills: jest.fn(),
+  getCostAnalysis: jest.fn(),
+  getDomainBreakdown: jest.fn(),
+} as unknown as jest.Mocked<SkillAnalyticsService>;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -41,6 +52,7 @@ describe("SkillsController", () => {
       controllers: [SkillsController],
       providers: [
         { provide: SkillsApiService, useValue: mockSkillsApiService },
+        { provide: SkillAnalyticsService, useValue: mockAnalyticsService },
       ],
     })
       // 覆盖 Guard，在测试中直接放行
@@ -128,7 +140,13 @@ describe("SkillsController", () => {
       };
       service.searchSkills.mockResolvedValue(mockResult);
 
-      const result = await controller.searchSkills("test", "tools", "stars", "10", "0");
+      const result = await controller.searchSkills(
+        "test",
+        "tools",
+        "stars",
+        "10",
+        "0",
+      );
 
       expect(result).toEqual(mockResult);
       expect(service.searchSkills).toHaveBeenCalledWith({
@@ -167,7 +185,13 @@ describe("SkillsController", () => {
     it("limit 和 offset 被转换为整数", async () => {
       service.searchSkills.mockResolvedValue({ skills: [], total: 0 });
 
-      await controller.searchSkills(undefined, undefined, undefined, "25", "100");
+      await controller.searchSkills(
+        undefined,
+        undefined,
+        undefined,
+        "25",
+        "100",
+      );
 
       expect(service.searchSkills).toHaveBeenCalledWith(
         expect.objectContaining({ limit: 25, offset: 100 }),
@@ -310,7 +334,11 @@ describe("SkillsController", () => {
       service.setSkillDomainOverride.mockResolvedValue(undefined);
 
       const body: SetDomainOverrideDto = { enabled: false };
-      const result = await controller.setSkillDomainOverride("my-skill", "writing", body);
+      const result = await controller.setSkillDomainOverride(
+        "my-skill",
+        "writing",
+        body,
+      );
 
       expect(result).toEqual({ success: true });
       expect(service.setSkillDomainOverride).toHaveBeenCalledWith(
@@ -334,13 +362,200 @@ describe("SkillsController", () => {
     });
 
     it("透传服务层错误", async () => {
-      service.setSkillDomainOverride.mockRejectedValue(new Error("Update failed"));
+      service.setSkillDomainOverride.mockRejectedValue(
+        new Error("Update failed"),
+      );
 
       const body: SetDomainOverrideDto = { enabled: true };
 
       await expect(
         controller.setSkillDomainOverride("error-skill", "writing", body),
       ).rejects.toThrow("Update failed");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Analytics endpoints
+  // -------------------------------------------------------------------------
+
+  describe("getAnalyticsDashboard", () => {
+    it("returns dashboard metrics with default range", async () => {
+      const mockMetrics = {
+        totalExecutions: 100,
+        successRate: 0.95,
+        avgDuration: 1200,
+        totalTokens: 50000,
+        timeline: [],
+      };
+      mockAnalyticsService.getDashboardMetrics.mockResolvedValue(mockMetrics);
+
+      const result = await controller.getAnalyticsDashboard();
+
+      expect(result).toEqual(mockMetrics);
+      expect(mockAnalyticsService.getDashboardMetrics).toHaveBeenCalledWith(
+        "7d",
+      );
+    });
+
+    it("passes valid range parameter", async () => {
+      mockAnalyticsService.getDashboardMetrics.mockResolvedValue({
+        totalExecutions: 0,
+        successRate: 0,
+        avgDuration: 0,
+        totalTokens: 0,
+        timeline: [],
+      });
+
+      await controller.getAnalyticsDashboard("24h");
+
+      expect(mockAnalyticsService.getDashboardMetrics).toHaveBeenCalledWith(
+        "24h",
+      );
+    });
+
+    it("falls back to 7d for invalid range", async () => {
+      mockAnalyticsService.getDashboardMetrics.mockResolvedValue({
+        totalExecutions: 0,
+        successRate: 0,
+        avgDuration: 0,
+        totalTokens: 0,
+        timeline: [],
+      });
+
+      await controller.getAnalyticsDashboard("invalid");
+
+      expect(mockAnalyticsService.getDashboardMetrics).toHaveBeenCalledWith(
+        "7d",
+      );
+    });
+  });
+
+  describe("getSkillAnalytics", () => {
+    it("returns per-skill metrics", async () => {
+      const mockResult = {
+        totalCalls: 50,
+        successRate: 0.9,
+        avgDuration: 2000,
+        totalTokens: 25000,
+        errorDistribution: {},
+        latencyPercentiles: { p50: 1000, p95: 3000, p99: 5000 },
+      };
+      mockAnalyticsService.getSkillMetrics.mockResolvedValue(mockResult);
+
+      const result = await controller.getSkillAnalytics("test-skill", "30d");
+
+      expect(result).toEqual(mockResult);
+      expect(mockAnalyticsService.getSkillMetrics).toHaveBeenCalledWith(
+        "test-skill",
+        "30d",
+      );
+    });
+  });
+
+  describe("getHealthScores", () => {
+    it("returns health scores", async () => {
+      const mockScores = [
+        {
+          skillId: "s1",
+          name: "Skill 1",
+          score: 90,
+          status: "healthy" as const,
+          successRate: 0.95,
+          avgDuration: 1000,
+          lastUsedAt: new Date(),
+          totalCalls: 100,
+        },
+      ];
+      mockAnalyticsService.getHealthScores.mockResolvedValue(mockScores);
+
+      const result = await controller.getHealthScores();
+
+      expect(result).toEqual(mockScores);
+    });
+  });
+
+  describe("getUnusedSkills", () => {
+    it("uses default 30 days when no param", async () => {
+      mockAnalyticsService.getUnusedSkills.mockResolvedValue([]);
+
+      await controller.getUnusedSkills();
+
+      expect(mockAnalyticsService.getUnusedSkills).toHaveBeenCalledWith(30);
+    });
+
+    it("parses custom days parameter", async () => {
+      mockAnalyticsService.getUnusedSkills.mockResolvedValue([]);
+
+      await controller.getUnusedSkills("60");
+
+      expect(mockAnalyticsService.getUnusedSkills).toHaveBeenCalledWith(60);
+    });
+  });
+
+  describe("getTopSkills", () => {
+    it("uses default metric and limit", async () => {
+      mockAnalyticsService.getTopSkills.mockResolvedValue([]);
+
+      await controller.getTopSkills();
+
+      expect(mockAnalyticsService.getTopSkills).toHaveBeenCalledWith(
+        "usage",
+        10,
+      );
+    });
+
+    it("passes valid metric and limit", async () => {
+      mockAnalyticsService.getTopSkills.mockResolvedValue([]);
+
+      await controller.getTopSkills("failure", "5");
+
+      expect(mockAnalyticsService.getTopSkills).toHaveBeenCalledWith(
+        "failure",
+        5,
+      );
+    });
+
+    it("falls back to 'usage' for invalid metric", async () => {
+      mockAnalyticsService.getTopSkills.mockResolvedValue([]);
+
+      await controller.getTopSkills("invalid");
+
+      expect(mockAnalyticsService.getTopSkills).toHaveBeenCalledWith(
+        "usage",
+        10,
+      );
+    });
+  });
+
+  describe("getCostAnalysis", () => {
+    it("defaults to 30d range", async () => {
+      mockAnalyticsService.getCostAnalysis.mockResolvedValue([]);
+
+      await controller.getCostAnalysis();
+
+      expect(mockAnalyticsService.getCostAnalysis).toHaveBeenCalledWith("30d");
+    });
+  });
+
+  describe("getDomainBreakdown", () => {
+    it("defaults to 7d range", async () => {
+      mockAnalyticsService.getDomainBreakdown.mockResolvedValue([]);
+
+      await controller.getDomainBreakdown();
+
+      expect(mockAnalyticsService.getDomainBreakdown).toHaveBeenCalledWith(
+        "7d",
+      );
+    });
+
+    it("passes valid range", async () => {
+      mockAnalyticsService.getDomainBreakdown.mockResolvedValue([]);
+
+      await controller.getDomainBreakdown("24h");
+
+      expect(mockAnalyticsService.getDomainBreakdown).toHaveBeenCalledWith(
+        "24h",
+      );
     });
   });
 

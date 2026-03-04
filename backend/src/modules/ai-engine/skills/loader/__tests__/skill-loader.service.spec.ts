@@ -8,6 +8,7 @@ import * as path from "path";
 import { SkillLoaderService } from "../skill-loader.service";
 import { SkillCacheService } from "../skill-cache.service";
 import { SkillsMPClientService } from "../../ecosystem/skillsmp-client.service";
+import { SkillContentService } from "../../content/skill-content.service";
 import { SkillMdDefinition } from "../../types/skill-md.types";
 
 // ---------------------------------------------------------------------------
@@ -106,11 +107,18 @@ describe("SkillLoaderService", () => {
       installSkill: jest.fn().mockResolvedValue(true),
     } as unknown as jest.Mocked<SkillsMPClientService>;
 
+    const mockSkillContentService = {
+      syncFilesystemToDb: jest
+        .fn()
+        .mockResolvedValue({ synced: 0, skipped: 0 }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SkillLoaderService,
         { provide: SkillCacheService, useValue: mockCacheService },
         { provide: SkillsMPClientService, useValue: mockSkillsMPClient },
+        { provide: SkillContentService, useValue: mockSkillContentService },
       ],
     })
       .setLogger(new Logger())

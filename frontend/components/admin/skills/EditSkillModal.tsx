@@ -2,8 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { Save, X, Loader2 } from 'lucide-react';
+import {
+  Save,
+  X,
+  Loader2,
+  FileText,
+  History,
+  Clock,
+  Hash,
+  Play,
+} from 'lucide-react';
 import { SKILL_LAYERS } from './skill-layers';
+import { SkillPromptEditor } from './SkillPromptEditor';
+import { SkillVersionHistory } from './SkillVersionHistory';
+import { SkillTestPanel } from './SkillTestPanel';
+import { useSkillContent } from '@/hooks/domain/useSkillContent';
 import type { SkillConfig } from './types';
 
 interface EditSkillModalProps {
@@ -26,20 +39,69 @@ export function EditSkillModal({
   const [skillsInput, setSkillsInput] = useState(
     skill.requiredSkills.join(', ')
   );
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showTestPanel, setShowTestPanel] = useState(false);
+
+  const {
+    content: skillContent,
+    versions,
+    saving: contentSaving,
+    restoring,
+    fetchContent,
+    saveContent,
+    restoreVersion,
+  } = useSkillContent();
 
   const layerInfo =
     SKILL_LAYERS.find((l) => l.id === skill.layer) || SKILL_LAYERS[0];
 
-  // Keyboard support - Escape to close
+  const handleOpenPromptEditor = async () => {
+    try {
+      await fetchContent(skill.skillId);
+      setShowPromptEditor(true);
+    } catch {
+      // Error already logged by hook
+    }
+  };
+
+  const handleOpenVersionHistory = async () => {
+    try {
+      await fetchContent(skill.skillId);
+      setShowVersionHistory(true);
+    } catch {
+      // Error already logged by hook
+    }
+  };
+
+  const handleSavePrompt = async (
+    content: string,
+    frontmatter: Record<string, unknown> | null,
+    changeNote: string
+  ) => {
+    await saveContent(skill.skillId, content, frontmatter, changeNote);
+    setShowPromptEditor(false);
+  };
+
+  const handleRestoreVersion = async (versionId: string) => {
+    await restoreVersion(skill.skillId, versionId);
+  };
+
+  // Keyboard support - Escape to close (only when no child panels are open)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (
+        e.key === 'Escape' &&
+        !showPromptEditor &&
+        !showVersionHistory &&
+        !showTestPanel
+      ) {
         onClose();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, showPromptEditor, showVersionHistory, showTestPanel]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,6 +321,58 @@ export function EditSkillModal({
               />
             </div>
 
+            {/* Source & Usage Info */}
+            {(skill.source || skill.lastUsedAt || skill.usageCount) && (
+              <div className="flex flex-wrap gap-3 rounded-lg bg-gray-50 p-3">
+                {skill.source && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                    {skill.source}
+                  </span>
+                )}
+                {skill.lastUsedAt && (
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                    <Clock className="h-3 w-3" />
+                    Last used: {new Date(skill.lastUsedAt).toLocaleDateString()}
+                  </span>
+                )}
+                {typeof skill.usageCount === 'number' &&
+                  skill.usageCount > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                      <Hash className="h-3 w-3" />
+                      {skill.usageCount} calls
+                    </span>
+                  )}
+              </div>
+            )}
+
+            {/* Prompt Editor, Version History & Test Buttons */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => void handleOpenPromptEditor()}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <FileText className="h-4 w-4" />
+                Edit Prompt
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleOpenVersionHistory()}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <History className="h-4 w-4" />
+                Versions
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTestPanel(true)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-purple-300 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100"
+              >
+                <Play className="h-4 w-4" />
+                Test
+              </button>
+            </div>
+
             {/* Enabled Toggle */}
             <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
               <div>
@@ -313,6 +427,36 @@ export function EditSkillModal({
           </div>
         </form>
       </div>
+      {/* Prompt Editor Modal */}
+      {showPromptEditor && skillContent && (
+        <SkillPromptEditor
+          skillId={skill.skillId}
+          initialContent={skillContent.promptContent || ''}
+          initialFrontmatter={skillContent.frontmatter}
+          onSave={handleSavePrompt}
+          onClose={() => setShowPromptEditor(false)}
+          saving={contentSaving}
+        />
+      )}
+
+      {/* Version History Panel */}
+      {showVersionHistory && (
+        <SkillVersionHistory
+          versions={versions}
+          currentContent={skillContent?.promptContent || null}
+          onRestore={handleRestoreVersion}
+          onClose={() => setShowVersionHistory(false)}
+          restoring={restoring}
+        />
+      )}
+
+      {/* Test Panel */}
+      {showTestPanel && (
+        <SkillTestPanel
+          skillId={skill.skillId}
+          onClose={() => setShowTestPanel(false)}
+        />
+      )}
     </div>
   );
 }

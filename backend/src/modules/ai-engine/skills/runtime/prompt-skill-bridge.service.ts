@@ -11,10 +11,15 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { SkillRegistry } from "../registry/skill-registry";
 import { SkillLoaderService } from "../loader/skill-loader.service";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
+import { SkillContentService } from "../content/skill-content.service";
 import type { ChatFacade } from "../../facade/domain/chat.facade";
 import { SkillMdDefinition } from "../types/skill-md.types";
-import { PromptSkillAdapter } from "./prompt-skill-adapter";
+import {
+  PromptSkillAdapter,
+  PromptSkillExecutionCallback,
+} from "./prompt-skill-adapter";
 import { ISkill } from "../abstractions/skill.interface";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 export interface BridgeRegistrationResult {
   registered: string[];
@@ -26,16 +31,51 @@ export interface BridgeRegistrationResult {
 export class PromptSkillBridge {
   private readonly logger = new Logger(PromptSkillBridge.name);
 
+  /** Execution metrics callback shared by all adapters */
+  private executionCallback: PromptSkillExecutionCallback;
+
   constructor(
     private readonly skillRegistry: SkillRegistry,
     private readonly skillLoader: SkillLoaderService,
     private readonly promptBuilder: SkillPromptBuilder,
+    private readonly prisma: PrismaService,
+    private readonly skillContentService: SkillContentService,
     // forwardRef breaks the circular import: PromptSkillBridge ↔ ChatFacade
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-member-access
     @Inject(
       forwardRef(() => require("../../facade/domain/chat.facade").ChatFacade),
     )
     private readonly facade: ChatFacade,
-  ) {}
+  ) {
+    // Create a shared callback that logs execution to AIUsageLog + updates usage count
+    this.executionCallback = (params) => {
+      // Fire-and-forget: log to AIUsageLog
+      void this.prisma.aIUsageLog
+        .create({
+          data: {
+            capabilityType: "skill",
+            capabilityId: params.skillId,
+            success: params.success,
+            duration: params.duration,
+            errorCode: params.errorCode ?? null,
+            modelUsed: params.modelUsed ?? null,
+            skillVersion: params.skillVersion ?? null,
+            inputTokens: params.inputTokens ?? null,
+            outputTokens: params.outputTokens ?? null,
+            domain: params.domain ?? null,
+            userId: params.userId ?? null,
+            tokensUsed:
+              (params.inputTokens ?? 0) + (params.outputTokens ?? 0) || null,
+          },
+        })
+        .catch((err: Error) =>
+          this.logger.debug(`AIUsageLog write failed: ${err.message}`),
+        );
+
+      // Fire-and-forget: update usage count
+      void this.skillContentService.recordUsage(params.skillId);
+    };
+  }
 
   /**
    * 注册指定域的所有 SKILL.md 为 PromptSkillAdapter
@@ -87,6 +127,7 @@ export class PromptSkillBridge {
           def,
           this.facade,
           this.promptBuilder,
+          this.executionCallback,
         );
         this.skillRegistry.register(adapter);
         result.registered.push(skillId);

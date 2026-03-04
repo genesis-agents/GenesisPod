@@ -6276,13 +6276,44 @@ model SkillConfig {
   domain String?
   tags   String[] @default([])
 
+  // ★ Skills 系统升级 — Prompt 内容管理
+  promptContent   String?  @map("prompt_content") @db.Text // SKILL.md 完整 prompt 正文
+  frontmatter     Json?                                     // 解析后的 YAML frontmatter
+  contentHash     String?  @map("content_hash")             // MD5 内容指纹（变更检测）
+  version         String?  @default("1.0.0")                // 语义版本号
+  source          String?  @default("local")                // "local" | "db" | "marketplace"
+  filePath        String?  @map("file_path")                // 原始 .skill.md 路径（DB-only 为 null）
+  taskProfileJson Json?    @map("task_profile_json")        // TaskProfile 覆盖配置
+  inputSchemaJson Json?    @map("input_schema_json")        // 输入 JSON Schema
+  outputSchemaJson Json?   @map("output_schema_json")       // 输出 JSON Schema
+  lastUsedAt      DateTime? @map("last_used_at")            // 最后使用时间
+  usageCount      Int      @default(0) @map("usage_count")  // 反规范化计数器
+
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([enabled])
   @@index([domain])
+  @@index([source])
   @@map("skill_configs")
+}
+
+/// Skill 版本历史（每次 prompt 变更自动快照）
+model SkillVersion {
+  id            String   @id @default(uuid())
+  skillId       String   @map("skill_id")
+  version       String
+  promptContent String   @map("prompt_content") @db.Text
+  frontmatter   Json?
+  contentHash   String   @map("content_hash")
+  changeNote    String?  @map("change_note")
+  changedBy     String?  @map("changed_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([skillId, createdAt])
+  @@index([skillId, version])
+  @@map("skill_versions")
 }
 
 /// MCP 服务器配置
@@ -6340,11 +6371,20 @@ model AIUsageLog {
   tokensUsed Int?    @map("tokens_used")
   errorCode  String? @map("error_code")
 
+  // ★ Skills 系统升级 — 增强执行日志
+  modelUsed    String? @map("model_used")    // 实际使用的 LLM 模型
+  skillVersion String? @map("skill_version") // 执行时的 Skill 版本
+  inputTokens  Int?    @map("input_tokens")  // 提示词 tokens
+  outputTokens Int?    @map("output_tokens") // 补全 tokens
+  domain       String?                       // 域上下文
+
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([capabilityType, capabilityId])
   @@index([createdAt])
+  @@index([capabilityType, capabilityId, createdAt])
+  @@index([capabilityType, createdAt])
   @@map("ai_usage_logs")
 }
 

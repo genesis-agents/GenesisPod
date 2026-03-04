@@ -22,6 +22,7 @@ import {
 import { parseSkillMd, estimateTokens } from "./skill-parser";
 import { SkillCacheService } from "./skill-cache.service";
 import { SkillsMPClientService } from "../ecosystem/skillsmp-client.service";
+import { SkillContentService } from "../content/skill-content.service";
 
 /**
  * Skill 目录配置
@@ -57,6 +58,7 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly cacheService: SkillCacheService,
     private readonly skillsMPClient: SkillsMPClientService,
+    private readonly skillContentService: SkillContentService,
   ) {
     // 基于当前模块位置计算 Skills 目录
     // __dirname = .../ai-engine/skills/loader/ → need 3 levels up to reach modules/
@@ -96,7 +98,10 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
     // 2. 预热已安装的 Marketplace Skills（从磁盘加载到内存）
     await this.warmupInstalledSkills();
 
-    // 3. 启动 SkillsMP 自动更新检查
+    // 3. 同步文件系统 Skills 到数据库（prompt 内容持久化）
+    await this.syncToDatabase();
+
+    // 4. 启动 SkillsMP 自动更新检查
     this.startUpdateChecker();
   }
 
@@ -262,6 +267,24 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.warn(
         `[Skills] Failed to warmup installed skills: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * 同步文件系统 Skills 到数据库
+   */
+  private async syncToDatabase(): Promise<void> {
+    try {
+      const allSkills = this.getAllLoadedSkills();
+      const result =
+        await this.skillContentService.syncFilesystemToDb(allSkills);
+      this.logger.log(
+        `[Skills] DB sync: ${result.synced} synced, ${result.skipped} skipped`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[Skills] DB sync failed (non-fatal): ${(error as Error).message}`,
       );
     }
   }

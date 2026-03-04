@@ -6,6 +6,7 @@ import {
   Patch,
   Delete,
   Param,
+  Query,
   Body,
   UseGuards,
   UseInterceptors,
@@ -24,7 +25,10 @@ import {
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { AIAdminService } from "./ai-admin.service";
-import { GuardrailsPipelineService } from "../../ai-engine/facade";
+import {
+  GuardrailsPipelineService,
+  SkillSandboxService,
+} from "../../ai-engine/facade";
 
 /**
  * AI 能力管理控制器
@@ -40,6 +44,7 @@ export class AIAdminController {
   constructor(
     private readonly aiAdminService: AIAdminService,
     private readonly guardrailsPipeline: GuardrailsPipelineService,
+    private readonly skillSandboxService: SkillSandboxService,
   ) {}
 
   // ==================== Batch Operations ====================
@@ -156,12 +161,12 @@ export class AIAdminController {
         .toLowerCase()
         .slice(file.originalname.lastIndexOf("."));
       if (ext === ".json") {
-        skillData = JSON.parse(content);
+        skillData = JSON.parse(content) as Record<string, unknown>;
       } else {
         // YAML parsing - use simple JSON-like structure for now
         // For full YAML support, you'd need to add a YAML parser dependency
         try {
-          skillData = JSON.parse(content);
+          skillData = JSON.parse(content) as Record<string, unknown>;
         } catch {
           throw new BadRequestException(
             "YAML parsing not yet supported. Please use JSON format.",
@@ -180,7 +185,7 @@ export class AIAdminController {
       const result = await this.aiAdminService.uploadSkill(skillData);
 
       return {
-        message: `Successfully uploaded skill: ${result.displayName || result.skillId}`,
+        message: `Successfully uploaded skill: ${result.displayName ?? result.skillId}`,
         skill: result,
       };
     } catch (error: unknown) {
@@ -434,6 +439,152 @@ export class AIAdminController {
   ) {
     this.logger.log(`Admin: Updating skill ${skillId}`);
     return this.aiAdminService.updateSkillConfig(skillId, body);
+  }
+
+  // ==================== Skill Content & Versions ====================
+
+  @Get("skills/:skillId/content")
+  @ApiOperation({ summary: "获取 Skill 完整 prompt 内容" })
+  @ApiParam({ name: "skillId", description: "技能 ID" })
+  @ApiResponse({ status: 200, description: "返回 prompt 内容 + 版本历史" })
+  async getSkillContent(@Param("skillId") skillId: string) {
+    this.logger.log(`Admin: Fetching skill content for ${skillId}`);
+    return this.aiAdminService.getSkillPromptContent(skillId);
+  }
+
+  @Put("skills/:skillId/content")
+  @ApiOperation({ summary: "更新 Skill prompt 内容（自动版本快照）" })
+  @ApiParam({ name: "skillId", description: "技能 ID" })
+  @ApiResponse({ status: 200, description: "返回新版本号" })
+  async updateSkillContent(
+    @Param("skillId") skillId: string,
+    @Body()
+    body: {
+      content: string;
+      frontmatter?: Record<string, unknown>;
+      changeNote?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Updating skill content for ${skillId}`);
+    return this.aiAdminService.updateSkillPromptContent(
+      skillId,
+      body.content,
+      body.frontmatter ?? null,
+      body.changeNote,
+    );
+  }
+
+  @Get("skills/:skillId/versions")
+  @ApiOperation({ summary: "获取 Skill 版本历史" })
+  @ApiParam({ name: "skillId", description: "技能 ID" })
+  @ApiResponse({ status: 200, description: "返回版本历史列表" })
+  async getSkillVersions(
+    @Param("skillId") skillId: string,
+    @Query("limit") limit?: string,
+  ) {
+    this.logger.log(`Admin: Fetching skill versions for ${skillId}`);
+    return this.aiAdminService.getSkillVersionHistory(
+      skillId,
+      limit ? parseInt(limit, 10) : 20,
+    );
+  }
+
+  @Post("skills/:skillId/versions/:versionId/restore")
+  @ApiOperation({ summary: "恢复到指定版本" })
+  @ApiParam({ name: "skillId", description: "技能 ID" })
+  @ApiParam({ name: "versionId", description: "版本 ID" })
+  @ApiResponse({ status: 200, description: "返回恢复后的新版本号" })
+  async restoreSkillVersion(
+    @Param("skillId") skillId: string,
+    @Param("versionId") versionId: string,
+  ) {
+    this.logger.log(
+      `Admin: Restoring skill ${skillId} to version ${versionId}`,
+    );
+    return this.aiAdminService.restoreSkillVersion(skillId, versionId);
+  }
+
+  @Post("skills")
+  @ApiOperation({ summary: "从 UI 创建新 Skill" })
+  @ApiResponse({ status: 201, description: "创建成功" })
+  async createSkill(
+    @Body()
+    body: {
+      skillId: string;
+      displayName: string;
+      description: string;
+      promptContent: string;
+      frontmatter?: Record<string, unknown>;
+      layer?: string;
+      domain?: string;
+      tags?: string[];
+      taskProfileJson?: Record<string, unknown>;
+      inputSchemaJson?: Record<string, unknown>;
+      outputSchemaJson?: Record<string, unknown>;
+    },
+  ) {
+    this.logger.log(`Admin: Creating skill from UI: ${body.skillId}`);
+    return this.aiAdminService.createSkillFromUI(body);
+  }
+
+  // ==================== Skill Sandbox ====================
+
+  @Post("skills/:skillId/test")
+  @ApiOperation({ summary: "在沙箱中测试 Skill" })
+  @ApiParam({ name: "skillId", description: "技能 ID" })
+  @ApiResponse({ status: 200, description: "返回测试执行结果" })
+  async testSkill(
+    @Param("skillId") skillId: string,
+    @Body()
+    body: {
+      input: unknown;
+      model?: string;
+      taskProfile?: { creativity?: string; outputLength?: string };
+    },
+  ) {
+    this.logger.log(`Admin: Testing skill in sandbox: ${skillId}`);
+    return this.skillSandboxService.testExecution(skillId, body.input, {
+      model: body.model,
+      taskProfile: body.taskProfile as {
+        creativity?: "deterministic" | "low" | "medium" | "high";
+        outputLength?:
+          | "minimal"
+          | "short"
+          | "medium"
+          | "standard"
+          | "long"
+          | "extended";
+      },
+    });
+  }
+
+  @Post("skills/validate")
+  @ApiOperation({ summary: "校验 Skill 内容" })
+  @ApiResponse({ status: 200, description: "返回校验结果" })
+  validateSkill(
+    @Body()
+    body: {
+      content: string;
+      frontmatter?: Record<string, unknown>;
+    },
+  ) {
+    this.logger.log("Admin: Validating skill content");
+    return this.skillSandboxService.validateSkillContent(
+      body.content,
+      body.frontmatter,
+    );
+  }
+
+  @Post("skills/:skillId/dry-run")
+  @ApiOperation({ summary: "Dry run: 构建 prompt 预览，不调 LLM" })
+  @ApiParam({ name: "skillId", description: "技能 ID" })
+  @ApiResponse({ status: 200, description: "返回 prompt 预览" })
+  async dryRunSkill(
+    @Param("skillId") skillId: string,
+    @Body() body: { input: unknown },
+  ) {
+    this.logger.log(`Admin: Dry run for skill: ${skillId}`);
+    return this.skillSandboxService.dryRun(skillId, body.input);
   }
 
   // ==================== Usage Statistics ====================

@@ -27,6 +27,52 @@ export interface SkillConfig {
     externalApis?: string[];
     dataScopes?: string[];
   };
+  // Skills system upgrade fields
+  promptContent?: string | null;
+  frontmatter?: Record<string, unknown> | null;
+  contentHash?: string | null;
+  source?: string | null;
+  lastUsedAt?: string | null;
+  usageCount?: number;
+  taskProfile?: {
+    creativity?: string;
+    outputLength?: string;
+  };
+}
+
+export interface SkillVersion {
+  id: string;
+  skillId: string;
+  version: string;
+  promptContent: string;
+  frontmatter: Record<string, unknown> | null;
+  contentHash: string;
+  changeNote: string | null;
+  changedBy: string | null;
+  createdAt: string;
+}
+
+export interface SkillContentResponse {
+  id: string;
+  skillId: string;
+  displayName: string | null;
+  description: string | null;
+  enabled: boolean;
+  layer: string | null;
+  domain: string | null;
+  tags: string[];
+  version: string | null;
+  source: string | null;
+  promptContent: string | null;
+  frontmatter: Record<string, unknown> | null;
+  contentHash: string | null;
+  filePath: string | null;
+  taskProfileJson: Record<string, unknown> | null;
+  inputSchemaJson: Record<string, unknown> | null;
+  outputSchemaJson: Record<string, unknown> | null;
+  lastUsedAt: string | null;
+  usageCount: number;
+  versions: SkillVersion[];
 }
 
 export interface MarketplaceSkill {

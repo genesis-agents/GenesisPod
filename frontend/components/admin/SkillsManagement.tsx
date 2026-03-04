@@ -12,14 +12,18 @@ import {
   AlertTriangle,
   Package,
   ShoppingCart,
+  Plus,
 } from 'lucide-react';
 import { LocalSkillsTab } from '@/components/admin/skills/LocalSkillsTab';
 import { SkillsMarketplaceTab } from '@/components/admin/skills/SkillsMarketplaceTab';
+import { SkillsDashboard } from '@/components/admin/skills/SkillsDashboard';
+import { SkillPromptEditor } from '@/components/admin/skills/SkillPromptEditor';
+import { useSkillContent } from '@/hooks/domain/useSkillContent';
 import type { SkillConfig } from '@/components/admin/skills/types';
 
 const logger = createLogger('SkillsManagement');
 
-type TabType = 'local' | 'marketplace';
+type TabType = 'local' | 'marketplace' | 'analytics';
 
 export default function SkillsManagement() {
   const { t } = useTranslation();
@@ -28,10 +32,13 @@ export default function SkillsManagement() {
   const [skills, setSkills] = useState<SkillConfig[]>([]);
   const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<TabType>('local');
+  const [showCreateEditor, setShowCreateEditor] = useState(false);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+
+  const { createSkill, saving: creatingSaving } = useSkillContent();
 
   // Load local skills
   const loadSkills = useCallback(async () => {
@@ -194,6 +201,39 @@ export default function SkillsManagement() {
     }
   };
 
+  // Create new skill from UI
+  const handleCreateSkill = async (
+    content: string,
+    frontmatter: Record<string, unknown> | null,
+    _changeNote: string
+  ) => {
+    const skillId =
+      (frontmatter?.id as string) ||
+      (frontmatter?.name as string) ||
+      `custom-skill-${Date.now()}`;
+    const displayName =
+      (frontmatter?.name as string) ||
+      (frontmatter?.displayName as string) ||
+      skillId;
+    const description = (frontmatter?.description as string) || '';
+
+    await createSkill({
+      skillId,
+      displayName,
+      description,
+      promptContent: content,
+      frontmatter: frontmatter || undefined,
+      layer: (frontmatter?.layer as string) || 'content',
+      domain: (frontmatter?.domain as string) || 'general',
+      tags: (frontmatter?.tags as string[]) || [],
+    });
+
+    setShowCreateEditor(false);
+    setMessage({ type: 'success', text: 'Skill created successfully' });
+    setTimeout(() => setMessage(null), 3000);
+    await loadSkills();
+  };
+
   // Install skill from marketplace
   const handleInstallSkill = async (skillId: string) => {
     try {
@@ -264,14 +304,23 @@ export default function SkillsManagement() {
             </span>
           </div>
         </div>
-        <button
-          onClick={loadSkills}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          {t('admin.skills.refresh')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateEditor(true)}
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700"
+          >
+            <Plus className="h-4 w-4" />
+            New Skill
+          </button>
+          <button
+            onClick={loadSkills}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            {t('admin.skills.refresh')}
+          </button>
+        </div>
       </div>
 
       {/* Message */}
@@ -323,11 +372,22 @@ export default function SkillsManagement() {
             <ShoppingCart className="h-4 w-4" />
             {t('admin.skills.tabs.marketplace')}
           </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'analytics'
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+            Analytics
+          </button>
         </div>
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'local' ? (
+      {activeTab === 'local' && (
         <LocalSkillsTab
           skills={skills}
           onToggle={handleToggle}
@@ -336,10 +396,24 @@ export default function SkillsManagement() {
           saving={saving}
           usageCounts={usageCounts}
         />
-      ) : (
+      )}
+      {activeTab === 'marketplace' && (
         <SkillsMarketplaceTab
           installedSkills={skills}
           onInstall={handleInstallSkill}
+        />
+      )}
+      {activeTab === 'analytics' && <SkillsDashboard />}
+
+      {/* Create New Skill Editor */}
+      {showCreateEditor && (
+        <SkillPromptEditor
+          skillId="new-skill"
+          initialContent=""
+          initialFrontmatter={null}
+          onSave={handleCreateSkill}
+          onClose={() => setShowCreateEditor(false)}
+          saving={creatingSaving}
         />
       )}
     </div>

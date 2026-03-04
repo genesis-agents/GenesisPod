@@ -20,6 +20,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { SkillsApiService } from "./skills-api.service";
+import { SkillAnalyticsService } from "../analytics/skill-analytics.service";
 import { SetDomainOverrideDto } from "./dto/set-domain-override.dto";
 
 @ApiTags("Skills")
@@ -28,7 +29,10 @@ import { SetDomainOverrideDto } from "./dto/set-domain-override.dto";
 export class SkillsController {
   private readonly logger = new Logger(SkillsController.name);
 
-  constructor(private readonly skillsApiService: SkillsApiService) {}
+  constructor(
+    private readonly skillsApiService: SkillsApiService,
+    private readonly analyticsService: SkillAnalyticsService,
+  ) {}
 
   /**
    * 获取 Skills 统计数据
@@ -147,5 +151,103 @@ export class SkillsController {
   async syncSkills() {
     this.logger.log("Triggering skills sync");
     return this.skillsApiService.syncFromSkillsMP();
+  }
+
+  // ==================== Analytics ====================
+
+  /**
+   * Dashboard overview metrics
+   * GET /api/v1/skills/analytics/dashboard?range=7d
+   */
+  @Get("analytics/dashboard")
+  @UseGuards(AdminGuard)
+  async getAnalyticsDashboard(@Query("range") range?: string) {
+    const validRange = (
+      ["24h", "7d", "30d"].includes(range ?? "") ? range : "7d"
+    ) as "24h" | "7d" | "30d";
+    return this.analyticsService.getDashboardMetrics(validRange);
+  }
+
+  /**
+   * Per-skill metrics
+   * GET /api/v1/skills/analytics/:skillId/metrics?range=7d
+   */
+  @Get("analytics/:skillId/metrics")
+  @UseGuards(AdminGuard)
+  async getSkillAnalytics(
+    @Param("skillId") skillId: string,
+    @Query("range") range?: string,
+  ) {
+    const validRange = (
+      ["24h", "7d", "30d"].includes(range ?? "") ? range : "7d"
+    ) as "24h" | "7d" | "30d";
+    return this.analyticsService.getSkillMetrics(skillId, validRange);
+  }
+
+  /**
+   * Health scores for all skills
+   * GET /api/v1/skills/analytics/health
+   */
+  @Get("analytics/health")
+  @UseGuards(AdminGuard)
+  async getHealthScores() {
+    return this.analyticsService.getHealthScores();
+  }
+
+  /**
+   * Unused skills
+   * GET /api/v1/skills/analytics/unused?days=30
+   */
+  @Get("analytics/unused")
+  @UseGuards(AdminGuard)
+  async getUnusedSkills(@Query("days") days?: string) {
+    return this.analyticsService.getUnusedSkills(
+      days ? parseInt(days, 10) : 30,
+    );
+  }
+
+  /**
+   * Top skills by metric
+   * GET /api/v1/skills/analytics/top?metric=usage&limit=10
+   */
+  @Get("analytics/top")
+  @UseGuards(AdminGuard)
+  async getTopSkills(
+    @Query("metric") metric?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const validMetric = (
+      ["usage", "success", "failure"].includes(metric ?? "") ? metric : "usage"
+    ) as "usage" | "success" | "failure";
+    return this.analyticsService.getTopSkills(
+      validMetric,
+      limit ? parseInt(limit, 10) : 10,
+    );
+  }
+
+  /**
+   * Cost analysis
+   * GET /api/v1/skills/analytics/cost?range=30d
+   */
+  @Get("analytics/cost")
+  @UseGuards(AdminGuard)
+  async getCostAnalysis(@Query("range") range?: string) {
+    const validRange = (
+      ["24h", "7d", "30d"].includes(range ?? "") ? range : "30d"
+    ) as "24h" | "7d" | "30d";
+    return this.analyticsService.getCostAnalysis(validRange);
+  }
+
+  /**
+   * Domain breakdown
+   * GET /api/v1/skills/analytics/domains?range=7d
+   */
+  @Get("analytics/domains")
+  @UseGuards(AdminGuard)
+  async getDomainBreakdown(@Query("range") range?: string) {
+    const validRange = (
+      ["24h", "7d", "30d"].includes(range ?? "") ? range : "7d"
+    ) as "24h" | "7d" | "30d";
+    return this.analyticsService.getDomainBreakdown(validRange);
   }
 }

@@ -33,5 +33,14 @@ export * from "./loader";
 // Builder - System Prompt 组装
 export * from "./builder";
 
+// Content - Prompt 内容和版本管理
+export * from "./content";
+
+// Analytics - 执行监控和分析
+export * from "./analytics";
+
+// Sandbox - 测试执行
+export * from "./sandbox";
+
 // Ecosystem - SkillsMP 集成
 export * from "./ecosystem";

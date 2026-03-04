@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  NotFoundException,
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
@@ -204,6 +205,7 @@ import {
   ToolRegistry,
   SkillRegistry,
   SkillLoaderService,
+  SkillContentService,
   MCPManager,
   SearchService,
   MultiKeyRegistry,
@@ -251,6 +253,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     private readonly toolRegistry: ToolRegistry,
     private readonly skillRegistry: SkillRegistry,
     private readonly skillLoaderService: SkillLoaderService,
+    private readonly skillContentService: SkillContentService,
     private readonly mcpManager: MCPManager,
     private readonly secretsService: SecretsService,
     private readonly searchService: SearchService,
@@ -1575,7 +1578,12 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       requiredSkills: string[];
       implemented: boolean;
       config: unknown;
-      source: "local" | "marketplace";
+      source: string;
+      version: string | null;
+      promptContent: string | null;
+      lastUsedAt: Date | null;
+      usageCount: number;
+      contentHash: string | null;
     }> = skillDefinitions.map((skill) => {
       const dbConfig = configMap.get(skill.id);
       const registeredSkill = this.skillRegistry.tryGet(skill.id);
@@ -1596,14 +1604,18 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
         requiredSkills: skill.requiredSkills || [],
         implemented: isImplemented,
         config: dbConfig?.config || null,
-        source: "local",
+        source: dbConfig?.source || "local",
+        version: dbConfig?.version || null,
+        promptContent: dbConfig?.promptContent || null,
+        lastUsedAt: dbConfig?.lastUsedAt || null,
+        usageCount: dbConfig?.usageCount || 0,
+        contentHash: dbConfig?.contentHash || null,
       };
     });
 
-    // 2. Add marketplace-installed skills (only in database, not in definitions)
+    // 2. Add marketplace-installed or DB-only skills (only in database, not in definitions)
     for (const dbConfig of dbConfigs) {
       if (!skillDefinitionIds.has(dbConfig.skillId)) {
-        // This is a marketplace-installed skill
         skills.push({
           id: dbConfig.id,
           skillId: dbConfig.skillId,
@@ -1616,9 +1628,14 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
           tags: dbConfig.tags || [],
           requiredTools: [],
           requiredSkills: [],
-          implemented: false, // Marketplace skills may not have local implementation
+          implemented: false,
           config: dbConfig.config || null,
-          source: "marketplace",
+          source: dbConfig.source || "marketplace",
+          version: dbConfig.version || null,
+          promptContent: dbConfig.promptContent || null,
+          lastUsedAt: dbConfig.lastUsedAt || null,
+          usageCount: dbConfig.usageCount || 0,
+          contentHash: dbConfig.contentHash || null,
         });
       }
     }
@@ -1737,6 +1754,102 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     this.invalidateSkillDefinitionsCache();
 
     this.logger.log(`Uploaded skill: ${skillId}`);
+
+    return result;
+  }
+
+  // ==================== Skill Content & Versions ====================
+
+  /**
+   * 获取 Skill 完整 prompt 内容 + 版本历史
+   */
+  async getSkillPromptContent(skillId: string) {
+    const definition =
+      await this.skillContentService.getFullSkillDefinition(skillId);
+    if (!definition) {
+      throw new NotFoundException(`Skill not found: ${skillId}`);
+    }
+
+    const versions = await this.skillContentService.getVersionHistory(
+      skillId,
+      20,
+    );
+
+    return {
+      ...definition,
+      versions,
+    };
+  }
+
+  /**
+   * 更新 Skill prompt 内容（自动版本快照）
+   */
+  async updateSkillPromptContent(
+    skillId: string,
+    content: string,
+    frontmatter: Record<string, unknown> | null,
+    changeNote?: string,
+  ) {
+    const result = await this.skillContentService.savePromptContent(
+      skillId,
+      content,
+      frontmatter,
+      changeNote,
+    );
+
+    this.invalidateSkillDefinitionsCache();
+
+    this.logger.log(
+      `Updated skill prompt: ${skillId}, new version: ${result.version}`,
+    );
+
+    return result;
+  }
+
+  /**
+   * 获取 Skill 版本历史
+   */
+  async getSkillVersionHistory(skillId: string, limit = 20) {
+    return this.skillContentService.getVersionHistory(skillId, limit);
+  }
+
+  /**
+   * 恢复到指定版本
+   */
+  async restoreSkillVersion(skillId: string, versionId: string) {
+    const result = await this.skillContentService.restoreVersion(
+      skillId,
+      versionId,
+    );
+
+    this.invalidateSkillDefinitionsCache();
+
+    this.logger.log(`Restored skill ${skillId} to version ${result.version}`);
+
+    return result;
+  }
+
+  /**
+   * 从 UI 创建新 Skill（纯 DB 创建）
+   */
+  async createSkillFromUI(data: {
+    skillId: string;
+    displayName: string;
+    description: string;
+    promptContent: string;
+    frontmatter?: Record<string, unknown>;
+    layer?: string;
+    domain?: string;
+    tags?: string[];
+    taskProfileJson?: Record<string, unknown>;
+    inputSchemaJson?: Record<string, unknown>;
+    outputSchemaJson?: Record<string, unknown>;
+  }) {
+    const result = await this.skillContentService.createSkillFromUI(data);
+
+    this.invalidateSkillDefinitionsCache();
+
+    this.logger.log(`Created skill from UI: ${data.skillId}`);
 
     return result;
   }

@@ -10,6 +10,7 @@ export { LocalSkillsTab } from './LocalSkillsTab';
 export { SkillsMarketplaceTab } from './SkillsMarketplaceTab';
 export { SkillRow } from './SkillRow';
 export { EditSkillModal } from './EditSkillModal';
+export { SkillVersionHistory } from './SkillVersionHistory';
 export { SKILL_LAYERS } from './skill-layers';
 export type { SkillLayer } from './skill-layers';
-export type { SkillConfig, MarketplaceSkill } from './types';
+export type { SkillConfig, MarketplaceSkill, SkillVersion } from './types';

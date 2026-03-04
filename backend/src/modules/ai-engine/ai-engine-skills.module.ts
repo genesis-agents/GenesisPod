@@ -9,24 +9,33 @@
  * - SkillsMP Client
  */
 
-import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
+import { Module } from "@nestjs/common";
+import { HttpModule } from "@nestjs/axios";
 
 // Registry
-import { SkillRegistry } from './skills/registry/skill-registry';
+import { SkillRegistry } from "./skills/registry/skill-registry";
 
 // Loader & Cache
-import { SkillLoaderService } from './skills/loader/skill-loader.service';
-import { SkillCacheService } from './skills/loader/skill-cache.service';
+import { SkillLoaderService } from "./skills/loader/skill-loader.service";
+import { SkillCacheService } from "./skills/loader/skill-cache.service";
+
+// Content - Prompt 内容和版本管理
+import { SkillContentService } from "./skills/content/skill-content.service";
+
+// Analytics - 执行监控和分析
+import { SkillAnalyticsService } from "./skills/analytics/skill-analytics.service";
+
+// Sandbox - 测试执行
+import { SkillSandboxService } from "./skills/sandbox/skill-sandbox.service";
 
 // Builder
-import { SkillPromptBuilder } from './skills/builder/skill-prompt-builder.service';
+import { SkillPromptBuilder } from "./skills/builder/skill-prompt-builder.service";
 
 // Ecosystem
-import { SkillsMPClientService } from './skills/ecosystem/skillsmp-client.service';
+import { SkillsMPClientService } from "./skills/ecosystem/skillsmp-client.service";
 
 // Public API
-import { SkillsController, SkillsApiService } from './skills/api';
+import { SkillsController, SkillsApiService } from "./skills/api";
 
 @Module({
   imports: [HttpModule],
@@ -39,11 +48,20 @@ import { SkillsController, SkillsApiService } from './skills/api';
     SkillLoaderService,
     SkillCacheService,
 
+    // Content
+    SkillContentService,
+
     // Builder
     SkillPromptBuilder,
 
     // Ecosystem
     SkillsMPClientService,
+
+    // Analytics
+    SkillAnalyticsService,
+
+    // Sandbox
+    SkillSandboxService,
 
     // API Service
     SkillsApiService,
@@ -52,6 +70,9 @@ import { SkillsController, SkillsApiService } from './skills/api';
     SkillRegistry,
     SkillLoaderService,
     SkillCacheService,
+    SkillContentService,
+    SkillAnalyticsService,
+    SkillSandboxService,
     SkillPromptBuilder,
     SkillsMPClientService,
   ],
