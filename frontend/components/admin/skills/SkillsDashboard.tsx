@@ -147,7 +147,7 @@ function OverviewCard({
   }[accent];
 
   return (
-    <div className="rounded-xl border border-slate-700/60 bg-slate-800/50 p-4">
+    <div className="rounded-xl border border-slate-600/50 bg-slate-800/60 p-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
           {label}
@@ -173,9 +173,9 @@ interface HealthGridProps {
 
 const HEALTH_STATUS_COLORS: Record<SkillHealth['status'], string> = {
   healthy: 'bg-emerald-500/80 hover:bg-emerald-500',
-  degraded: 'bg-amber-400/80 hover:bg-amber-400',
+  degraded: 'bg-amber-500/80 hover:bg-amber-500',
   critical: 'bg-red-500/80 hover:bg-red-500',
-  unused: 'bg-slate-600/60 hover:bg-slate-600',
+  unused: 'bg-slate-400/30 hover:bg-slate-400/50 ring-1 ring-slate-500/40',
 };
 
 const HEALTH_STATUS_TEXT: Record<SkillHealth['status'], string> = {
@@ -404,7 +404,7 @@ function UnusedSkillsList({
       {items.map((skill) => (
         <li
           key={skill.skillId}
-          className="flex items-center justify-between gap-3 rounded-lg border border-slate-700/50 bg-slate-800/40 px-3 py-2.5"
+          className="flex items-center justify-between gap-3 rounded-lg border border-slate-600/40 bg-slate-700/40 px-3 py-2.5"
         >
           <div className="min-w-0">
             <p className="truncate text-sm text-slate-200">{skill.name}</p>
@@ -439,8 +439,8 @@ interface SectionProps {
 
 function Section({ title, children }: SectionProps) {
   return (
-    <div className="rounded-xl border border-slate-700/60 bg-slate-800/30 p-5">
-      <h3 className="mb-4 text-sm font-semibold text-slate-300">{title}</h3>
+    <div className="rounded-xl border border-slate-600/50 bg-slate-800/60 p-5">
+      <h3 className="mb-4 text-sm font-semibold text-slate-200">{title}</h3>
       {children}
     </div>
   );
