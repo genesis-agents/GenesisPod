@@ -99,8 +99,8 @@ function formatRelativeDate(iso: string | null): string {
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center py-16">
-      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-      <span className="ml-2 text-sm text-slate-500">Loading dashboard...</span>
+      <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+      <span className="ml-2 text-sm text-gray-500">Loading dashboard...</span>
     </div>
   );
 }
@@ -113,11 +113,11 @@ interface ErrorStateProps {
 function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16">
-      <AlertTriangle className="h-8 w-8 text-red-400" />
-      <p className="text-sm text-slate-500">{message}</p>
+      <AlertTriangle className="h-8 w-8 text-red-500" />
+      <p className="text-sm text-gray-600">{message}</p>
       <button
         onClick={onRetry}
-        className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-sm text-slate-200 transition-colors hover:bg-slate-700"
+        className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
       >
         <RefreshCw className="h-3.5 w-3.5" />
         Retry
@@ -140,19 +140,19 @@ function OverviewCard({
   accent = 'default',
 }: OverviewCardProps) {
   const accentClass = {
-    green: 'text-emerald-400',
-    yellow: 'text-amber-400',
-    red: 'text-red-400',
-    default: 'text-slate-300',
+    green: 'text-emerald-600',
+    yellow: 'text-amber-600',
+    red: 'text-red-600',
+    default: 'text-gray-900',
   }[accent];
 
   return (
-    <div className="rounded-xl border border-slate-600/50 bg-slate-800/60 p-4">
+    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
           {label}
         </span>
-        <span className="text-slate-500">{icon}</span>
+        <span className="text-gray-400">{icon}</span>
       </div>
       <p className={`text-2xl font-semibold ${accentClass}`}>{value}</p>
     </div>
@@ -172,10 +172,10 @@ interface HealthGridProps {
 }
 
 const HEALTH_STATUS_COLORS: Record<SkillHealth['status'], string> = {
-  healthy: 'bg-emerald-500/80 hover:bg-emerald-500',
-  degraded: 'bg-amber-500/80 hover:bg-amber-500',
-  critical: 'bg-red-500/80 hover:bg-red-500',
-  unused: 'bg-slate-400/30 hover:bg-slate-400/50 ring-1 ring-slate-500/40',
+  healthy: 'bg-emerald-500 hover:bg-emerald-600',
+  degraded: 'bg-amber-400 hover:bg-amber-500',
+  critical: 'bg-red-500 hover:bg-red-600',
+  unused: 'bg-gray-200 hover:bg-gray-300',
 };
 
 const HEALTH_STATUS_TEXT: Record<SkillHealth['status'], string> = {
@@ -185,12 +185,19 @@ const HEALTH_STATUS_TEXT: Record<SkillHealth['status'], string> = {
   unused: 'Unused',
 };
 
+const HEALTH_LEGEND_DOT: Record<SkillHealth['status'], string> = {
+  healthy: 'bg-emerald-500',
+  degraded: 'bg-amber-400',
+  critical: 'bg-red-500',
+  unused: 'bg-gray-300',
+};
+
 function HealthGrid({ items }: HealthGridProps) {
   const [selected, setSelected] = useState<SkillHealth | null>(null);
 
   if (items.length === 0) {
     return (
-      <p className="py-4 text-center text-sm text-slate-500">
+      <p className="py-4 text-center text-sm text-gray-400">
         No health data available.
       </p>
     );
@@ -198,7 +205,7 @@ function HealthGrid({ items }: HealthGridProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {items.map((skill) => (
           <button
             key={skill.skillId}
@@ -206,9 +213,9 @@ function HealthGrid({ items }: HealthGridProps) {
             onClick={() =>
               setSelected(selected?.skillId === skill.skillId ? null : skill)
             }
-            className={`h-8 w-8 rounded-md transition-all ${HEALTH_STATUS_COLORS[skill.status]} ${
+            className={`h-7 w-7 rounded transition-all ${HEALTH_STATUS_COLORS[skill.status]} ${
               selected?.skillId === skill.skillId
-                ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900'
+                ? 'ring-2 ring-purple-500 ring-offset-1'
                 : ''
             }`}
           />
@@ -221,10 +228,10 @@ function HealthGrid({ items }: HealthGridProps) {
           (status) => (
             <span
               key={status}
-              className="flex items-center gap-1.5 text-xs text-slate-400"
+              className="flex items-center gap-1.5 text-xs text-gray-500"
             >
               <span
-                className={`inline-block h-2.5 w-2.5 rounded-sm ${HEALTH_STATUS_COLORS[status]}`}
+                className={`inline-block h-2.5 w-2.5 rounded-sm ${HEALTH_LEGEND_DOT[status]}`}
               />
               {HEALTH_STATUS_TEXT[status]}
             </span>
@@ -234,25 +241,25 @@ function HealthGrid({ items }: HealthGridProps) {
 
       {/* Detail panel */}
       {selected && (
-        <div className="space-y-1.5 rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm">
-          <p className="font-medium text-slate-200">{selected.name}</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-400">
+        <div className="space-y-1.5 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+          <p className="font-medium text-gray-900">{selected.name}</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500">
             <span>Status</span>
-            <span className="text-slate-200">
+            <span className="text-gray-900">
               {HEALTH_STATUS_TEXT[selected.status]}
             </span>
             <span>Health Score</span>
-            <span className="text-slate-200">{selected.score}</span>
+            <span className="text-gray-900">{selected.score}</span>
             <span>Success Rate</span>
-            <span className="text-slate-200">
+            <span className="text-gray-900">
               {formatPercent(selected.successRate)}
             </span>
             <span>Avg Duration</span>
-            <span className="text-slate-200">
+            <span className="text-gray-900">
               {formatDuration(selected.avgDuration)}
             </span>
             <span>Last Used</span>
-            <span className="text-slate-200">
+            <span className="text-gray-900">
               {formatRelativeDate(selected.lastUsedAt)}
             </span>
           </div>
@@ -288,8 +295,8 @@ function TopSkillsTable({
             onClick={() => onMetricChange(m)}
             className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
               metric === m
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-700/60 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
             }`}
           >
             {METRIC_LABELS[m]}
@@ -298,20 +305,20 @@ function TopSkillsTable({
       </div>
 
       {items.length === 0 ? (
-        <p className="py-4 text-center text-sm text-slate-500">
+        <p className="py-4 text-center text-sm text-gray-400">
           No data available.
         </p>
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-700/60">
-              <th className="w-8 pb-2 text-left text-xs font-medium text-slate-500">
+            <tr className="border-b border-gray-200">
+              <th className="w-8 pb-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 #
               </th>
-              <th className="pb-2 text-left text-xs font-medium text-slate-500">
+              <th className="pb-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Skill Name
               </th>
-              <th className="pb-2 text-right text-xs font-medium text-slate-500">
+              <th className="pb-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 {METRIC_LABELS[metric]}
               </th>
             </tr>
@@ -320,13 +327,13 @@ function TopSkillsTable({
             {items.map((skill, i) => (
               <tr
                 key={skill.skillId}
-                className="border-b border-slate-700/30 transition-colors hover:bg-slate-700/20"
+                className="border-b border-gray-100 transition-colors hover:bg-gray-50"
               >
-                <td className="py-2 text-xs text-slate-500">{i + 1}</td>
-                <td className="max-w-[160px] truncate py-2 text-slate-200">
+                <td className="py-2 text-xs text-gray-400">{i + 1}</td>
+                <td className="max-w-[160px] truncate py-2 text-gray-900">
                   {skill.name}
                 </td>
-                <td className="py-2 text-right tabular-nums text-slate-300">
+                <td className="py-2 text-right tabular-nums text-gray-700">
                   {formatNumber(skill.value)}
                 </td>
               </tr>
@@ -347,7 +354,7 @@ interface DomainBarChartProps {
 function DomainBarChart({ items }: DomainBarChartProps) {
   if (items.length === 0) {
     return (
-      <p className="py-4 text-center text-sm text-slate-500">
+      <p className="py-4 text-center text-sm text-gray-400">
         No domain data available.
       </p>
     );
@@ -360,16 +367,16 @@ function DomainBarChart({ items }: DomainBarChartProps) {
           key={d.domain}
           className="grid grid-cols-[120px_1fr_48px] items-center gap-2 text-sm"
         >
-          <span className="truncate text-xs text-slate-400" title={d.domain}>
+          <span className="truncate text-xs text-gray-600" title={d.domain}>
             {d.domain}
           </span>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-700/60">
+          <div className="h-2 overflow-hidden rounded-full bg-gray-100">
             <div
-              className="h-full rounded-full bg-indigo-500/70"
+              className="h-full rounded-full bg-purple-500"
               style={{ width: `${Math.min(d.percentage, 100)}%` }}
             />
           </div>
-          <span className="text-right text-xs tabular-nums text-slate-400">
+          <span className="text-right text-xs tabular-nums text-gray-500">
             {formatNumber(d.count)}
           </span>
         </div>
@@ -393,7 +400,7 @@ function UnusedSkillsList({
 }: UnusedSkillsListProps) {
   if (items.length === 0) {
     return (
-      <p className="py-4 text-center text-sm text-slate-500">
+      <p className="py-4 text-center text-sm text-gray-400">
         No unused skills in the last 30 days.
       </p>
     );
@@ -404,11 +411,13 @@ function UnusedSkillsList({
       {items.map((skill) => (
         <li
           key={skill.skillId}
-          className="flex items-center justify-between gap-3 rounded-lg border border-slate-600/40 bg-slate-700/40 px-3 py-2.5"
+          className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2.5"
         >
           <div className="min-w-0">
-            <p className="truncate text-sm text-slate-200">{skill.name}</p>
-            <p className="text-xs text-slate-500">
+            <p className="truncate text-sm font-medium text-gray-900">
+              {skill.name}
+            </p>
+            <p className="text-xs text-gray-500">
               Last used: {formatRelativeDate(skill.lastUsedAt)} &middot;{' '}
               {formatNumber(skill.usageCount)} total calls
             </p>
@@ -416,7 +425,7 @@ function UnusedSkillsList({
           <button
             onClick={() => onDisable(skill.skillId)}
             disabled={disabling.has(skill.skillId)}
-            className="shrink-0 rounded-md border border-slate-600 bg-slate-700/60 px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-red-500/60 hover:bg-red-900/30 hover:text-red-300 disabled:opacity-40"
+            className="shrink-0 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
           >
             {disabling.has(skill.skillId) ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -439,8 +448,8 @@ interface SectionProps {
 
 function Section({ title, children }: SectionProps) {
   return (
-    <div className="rounded-xl border border-slate-600/50 bg-slate-800/60 p-5">
-      <h3 className="mb-4 text-sm font-semibold text-slate-200">{title}</h3>
+    <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 text-sm font-semibold text-gray-900">{title}</h3>
       {children}
     </div>
   );
@@ -545,15 +554,15 @@ export function SkillsDashboard() {
     <div className="space-y-5">
       {/* Header row: time range selector */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-1 rounded-lg border border-slate-700/60 bg-slate-800/50 p-1">
+        <div className="flex gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
           {(['24h', '7d', '30d'] as TimeRange[]).map((r) => (
             <button
               key={r}
               onClick={() => setTimeRange(r)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 timeRange === r
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:bg-slate-700/60 hover:text-slate-200'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
               {r}
@@ -563,7 +572,7 @@ export function SkillsDashboard() {
 
         <button
           onClick={fetchAll}
-          className="flex items-center gap-1.5 rounded-md border border-slate-700/60 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:bg-slate-700/60 hover:text-slate-200"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-900"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
