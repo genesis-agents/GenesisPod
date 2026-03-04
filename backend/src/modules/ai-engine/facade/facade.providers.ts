@@ -5,7 +5,7 @@
  * 将多个服务分组为 Feature 模块，简化 Facade 的构造函数
  */
 
-import { Provider } from "@nestjs/common";
+import { Logger, Provider } from "@nestjs/common";
 import { WorkingMemoryStore as ShortTermMemoryService } from "../../ai-kernel/facade";
 import { LongTermMemoryService } from "../knowledge/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
@@ -30,6 +30,8 @@ import { ContextEvolutionService } from "../orchestration/services/context-evolu
 // ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../llm/adapters/ai-chat-llm-adapter";
 import { InputBindingResolver } from "../skills/runtime/input-binding-resolver";
+import { SkillContentService } from "../skills/content/skill-content.service";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖
 import { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";
 // ★ Teams Feature 依赖
@@ -101,6 +103,17 @@ export interface OrchestrationFeature {
   contextEvolution?: ContextEvolutionService;
 }
 
+/** Parameters for fire-and-forget skill usage logging */
+export interface SkillUsageLogParams {
+  skillIds: string[];
+  success: boolean;
+  duration: number;
+  tokensUsed?: number;
+  model?: string;
+  domain?: string;
+  userId?: string;
+}
+
 /**
  * 技能特性（扩展：含 LLM 适配器和输入绑定解析器）
  */
@@ -109,6 +122,8 @@ export interface SkillFeature {
   promptBuilder: SkillPromptBuilder;
   llmAdapter?: AiChatLLMAdapter;
   inputBindingResolver?: InputBindingResolver;
+  /** Fire-and-forget log skill usage for analytics dashboard */
+  logUsage?: (params: SkillUsageLogParams) => void;
 }
 
 // ============================================================================
@@ -317,15 +332,66 @@ export const skillFeatureProvider: Provider = {
     promptBuilder?: SkillPromptBuilder,
     llmAdapter?: AiChatLLMAdapter,
     inputBindingResolver?: InputBindingResolver,
+    prisma?: PrismaService,
+    skillContentService?: SkillContentService,
   ): SkillFeature | undefined => {
     if (!loader || !promptBuilder) return undefined;
-    return { loader, promptBuilder, llmAdapter, inputBindingResolver };
+
+    // Create fire-and-forget skill usage logger for analytics
+    const skillLogger = new Logger("SkillUsageLogger");
+    const logUsage = prisma
+      ? (params: SkillUsageLogParams): void => {
+          const skillCount = params.skillIds.length;
+          if (skillCount === 0) return;
+
+          for (const skillId of params.skillIds) {
+            // Distribute tokens evenly across used skills
+            const tokensPerSkill = params.tokensUsed
+              ? Math.ceil(params.tokensUsed / skillCount)
+              : null;
+
+            void prisma.aIUsageLog
+              .create({
+                data: {
+                  capabilityType: "skill",
+                  capabilityId: skillId,
+                  success: params.success,
+                  duration: params.duration,
+                  tokensUsed: tokensPerSkill,
+                  modelUsed: params.model ?? null,
+                  domain: params.domain ?? null,
+                  userId: params.userId ?? null,
+                },
+              })
+              .catch((err: Error) =>
+                skillLogger.debug(
+                  `Skill usage log failed for "${skillId}": ${err.message}`,
+                ),
+              );
+
+            // Update SkillConfig counter (lastUsedAt + usageCount)
+            if (skillContentService) {
+              void skillContentService.recordUsage(skillId);
+            }
+          }
+        }
+      : undefined;
+
+    return {
+      loader,
+      promptBuilder,
+      llmAdapter,
+      inputBindingResolver,
+      logUsage,
+    };
   },
   inject: [
     { token: SkillLoaderService, optional: true },
     { token: SkillPromptBuilder, optional: true },
     { token: AiChatLLMAdapter, optional: true },
     { token: InputBindingResolver, optional: true },
+    { token: PrismaService, optional: true },
+    { token: SkillContentService, optional: true },
   ],
 };
 

@@ -150,6 +150,12 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
           duration,
           modelUsed: response.model || undefined,
           skillVersion: fm.version,
+          inputTokens: response.tokensUsed
+            ? Math.ceil(response.tokensUsed * 0.7)
+            : undefined,
+          outputTokens: response.tokensUsed
+            ? Math.ceil(response.tokensUsed * 0.3)
+            : undefined,
           domain: fm.domain,
           userId: context.userId,
         });

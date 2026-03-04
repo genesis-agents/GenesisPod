@@ -411,6 +411,8 @@ export class ChatFacade {
   async chatWithSkills(
     request: ChatWithSkillsRequest,
   ): Promise<ChatWithSkillsResponse> {
+    const startTime = Date.now();
+
     // Auto-extract query from last user message if not provided
     const query =
       request.query || this.extractQueryFromMessages(request.messages);
@@ -473,9 +475,24 @@ export class ChatFacade {
       strictMode: request.strictMode,
     });
 
+    const duration = Date.now() - startTime;
+
     this.logger.log(
-      `[Skills] chatWithSkills COMPLETE: ${buildResult.usedSkills.length} skills, ${buildResult.estimatedTokens} skill tokens`,
+      `[Skills] chatWithSkills COMPLETE: ${buildResult.usedSkills.length} skills, ${buildResult.estimatedTokens} skill tokens, ${duration}ms`,
     );
+
+    // Fire-and-forget: log each used skill to AIUsageLog for analytics
+    if (this.skills.logUsage && buildResult.usedSkills.length > 0) {
+      this.skills.logUsage({
+        skillIds: buildResult.usedSkills,
+        success: !result.isError,
+        duration,
+        tokensUsed: result.tokensUsed || undefined,
+        model: result.model || undefined,
+        domain: request.domain,
+        userId: RequestContext.getUserId() ?? undefined,
+      });
+    }
 
     return {
       content: result.content,
