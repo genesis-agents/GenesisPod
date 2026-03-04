@@ -40,6 +40,7 @@ import {
   ToolRegistry,
   SkillRegistry,
   SkillLoaderService,
+  SkillContentService,
   MCPManager,
   SearchService,
   MultiKeyRegistry,
@@ -108,6 +109,19 @@ function makeMockSkillLoaderService() {
   };
 }
 
+function makeMockSkillContentService() {
+  return {
+    getEffectiveContent: jest.fn(),
+    savePromptContent: jest.fn(),
+    getVersionHistory: jest.fn(),
+    restoreVersion: jest.fn(),
+    getFullSkillDefinition: jest.fn(),
+    createSkillFromUI: jest.fn(),
+    syncFilesystemToDb: jest.fn(),
+    recordUsage: jest.fn(),
+  };
+}
+
 function makeMockMCPManager() {
   return {
     registerServer: jest.fn(),
@@ -143,6 +157,7 @@ describe("AIAdminService (supplemental2)", () => {
   let mockMCPManager: ReturnType<typeof makeMockMCPManager>;
   let mockSecretsService: ReturnType<typeof makeMockSecretsService>;
   let mockSearchService: ReturnType<typeof makeMockSearchService>;
+  let mockSkillContentService: ReturnType<typeof makeMockSkillContentService>;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -155,6 +170,7 @@ describe("AIAdminService (supplemental2)", () => {
     mockMCPManager = makeMockMCPManager();
     mockSecretsService = makeMockSecretsService();
     mockSearchService = makeMockSearchService();
+    mockSkillContentService = makeMockSkillContentService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -163,6 +179,7 @@ describe("AIAdminService (supplemental2)", () => {
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: SkillRegistry, useValue: mockSkillRegistry },
         { provide: SkillLoaderService, useValue: mockSkillLoaderService },
+        { provide: SkillContentService, useValue: mockSkillContentService },
         { provide: MCPManager, useValue: mockMCPManager },
         { provide: SecretsService, useValue: mockSecretsService },
         { provide: SearchService, useValue: mockSearchService },

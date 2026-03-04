@@ -21,6 +21,7 @@ import {
   ToolRegistry,
   SkillRegistry,
   SkillLoaderService,
+  SkillContentService,
   MCPManager,
   SearchService,
   MultiKeyRegistry,
@@ -104,6 +105,17 @@ describe("AIAdminService (supplemental)", () => {
     getStatus: jest.fn().mockReturnValue([]),
   };
 
+  const mockSkillContentService = {
+    getEffectiveContent: jest.fn(),
+    savePromptContent: jest.fn(),
+    getVersionHistory: jest.fn(),
+    restoreVersion: jest.fn(),
+    getFullSkillDefinition: jest.fn(),
+    createSkillFromUI: jest.fn(),
+    syncFilesystemToDb: jest.fn(),
+    recordUsage: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -123,6 +135,7 @@ describe("AIAdminService (supplemental)", () => {
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: SkillRegistry, useValue: mockSkillRegistry },
         { provide: SkillLoaderService, useValue: mockSkillLoaderService },
+        { provide: SkillContentService, useValue: mockSkillContentService },
         { provide: MCPManager, useValue: mockMCPManager },
         { provide: SecretsService, useValue: mockSecretsService },
         { provide: SearchService, useValue: mockSearchService },

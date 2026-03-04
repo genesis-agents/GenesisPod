@@ -2,7 +2,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { AIAdminController } from "../ai-admin.controller";
 import { AIAdminService } from "../ai-admin.service";
-import { GuardrailsPipelineService } from "../../../ai-engine/facade";
+import {
+  GuardrailsPipelineService,
+  SkillSandboxService,
+} from "../../../ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 
@@ -58,6 +61,12 @@ const mockGuardrailsPipeline = {
   }),
 };
 
+const mockSkillSandboxService = {
+  testExecution: jest.fn(),
+  validateSkillContent: jest.fn(),
+  dryRun: jest.fn(),
+};
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -74,6 +83,10 @@ describe("AIAdminController", () => {
         {
           provide: GuardrailsPipelineService,
           useValue: mockGuardrailsPipeline,
+        },
+        {
+          provide: SkillSandboxService,
+          useValue: mockSkillSandboxService,
         },
       ],
     })
