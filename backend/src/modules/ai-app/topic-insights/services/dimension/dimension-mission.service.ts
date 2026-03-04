@@ -16,7 +16,13 @@
  * - 支持多轮质量审核
  */
 
-import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  forwardRef,
+  Inject,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DimensionStatus,
@@ -58,7 +64,11 @@ import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
 } from "../../prompts/dimension-research.prompt";
-import type { AICapabilityContext } from "@/modules/ai-engine/facade";
+import {
+  ContextCompressionService,
+  type AICapabilityContext,
+} from "@/modules/ai-engine/facade";
+import { CostAttributionService } from "@/modules/ai-kernel/facade";
 
 /**
  * 维度 Mission 执行结果
@@ -129,6 +139,10 @@ export class DimensionMissionService {
     private readonly agentActivity: AgentActivityService,
     private readonly dataEnrichment: DataEnrichmentService,
     private readonly leaderTool: LeaderToolService,
+    // ★ Phase 2: 维度级别成本追踪
+    @Optional() private readonly costAttribution?: CostAttributionService,
+    // ★ Phase 5: 长研究上下文压缩
+    @Optional() private readonly contextCompression?: ContextCompressionService,
   ) {}
 
   /**
@@ -180,7 +194,7 @@ export class DimensionMissionService {
     void researcherAgentName;
 
     // 1. 获取搜索结果
-    this.emitProgress(
+    void this.emitProgress(
       topic.id,
       dimension.name,
       {
@@ -439,9 +453,31 @@ export class DimensionMissionService {
 
     // 6. 准备证据数据
     const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
-    const evidenceSummary =
+    let evidenceSummary =
       this.createEvidenceSummary(evidenceData) +
       (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
+
+    // ★ Phase 5: 长上下文压缩 — 超过 8000 字符时智能摘要
+    if (this.contextCompression && evidenceSummary.length > 8000) {
+      try {
+        this.logger.log(
+          `${logPrefix} Evidence summary too long (${evidenceSummary.length} chars), compressing to ~4000`,
+        );
+        const compressed = await this.contextCompression.compress(
+          evidenceSummary,
+          { targetSize: 4000, summaryStyle: "detailed" },
+        );
+        evidenceSummary = compressed.compressedContext;
+        this.logger.log(
+          `${logPrefix} Compressed evidence summary: ${compressed.stats.originalLength} → ${compressed.stats.compressedLength} chars`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `${logPrefix} Context compression failed (non-fatal), using original: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        // fallback: 保持原始文本
+      }
+    }
 
     const figuresSummary = this.buildFiguresSummary(evidenceData);
     if (figuresSummary) {
@@ -550,7 +586,7 @@ export class DimensionMissionService {
         progress: 10,
       });
 
-      this.emitProgress(
+      void this.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -639,7 +675,7 @@ export class DimensionMissionService {
         data: { status: DimensionStatus.FAILED },
       });
 
-      this.emitProgress(
+      void this.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -753,7 +789,7 @@ export class DimensionMissionService {
       });
 
       // 2. Agent 写作各章节
-      this.emitProgress(
+      void this.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -847,7 +883,7 @@ export class DimensionMissionService {
       }
 
       // 3. Leader 整合结果
-      this.emitProgress(
+      void this.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -989,7 +1025,7 @@ export class DimensionMissionService {
       this.logger.log(`${logPrefix} Status updated to COMPLETED`);
 
       // 8. 完成
-      this.emitProgress(
+      void this.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -1031,6 +1067,25 @@ export class DimensionMissionService {
         .filter(Boolean)
         .pop();
 
+      // ★ Phase 2: CostAttribution — 维度级别成本追踪
+      if (this.costAttribution) {
+        try {
+          this.costAttribution.recordCost({
+            userId: topic.userId,
+            moduleType: `research:${dimension.name}`,
+            model: lastActualModel || modelId || "",
+            provider: "",
+            inputTokens: 0,
+            outputTokens: 0,
+            estimatedCost: 0,
+          });
+        } catch (err) {
+          this.logger.warn(
+            `[CostAttribution] Failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+
       return {
         success: true,
         dimensionId: dimension.id,
@@ -1056,7 +1111,7 @@ export class DimensionMissionService {
         data: { status: DimensionStatus.FAILED },
       });
 
-      this.emitProgress(
+      void this.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -1277,7 +1332,7 @@ export class DimensionMissionService {
         sectionResults.push(result);
 
         // 发送进度
-        this.emitProgress(
+        void this.emitProgress(
           topicId,
           dimension.name,
           {
@@ -2152,7 +2207,7 @@ export class DimensionMissionService {
     }
 
     // 使用维度研究进度事件（前端通过 WebSocket 接收实时进度）
-    this.eventEmitter.emitDimensionResearchProgress(
+    void this.eventEmitter.emitDimensionResearchProgress(
       topicId,
       dimensionName,
       calculatedProgress,

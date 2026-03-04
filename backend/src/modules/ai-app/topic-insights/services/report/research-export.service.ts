@@ -12,10 +12,11 @@
  * 5. HTML（直接渲染）
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CitationFormatterService } from "./citation-formatter.service";
 import { CitationStyle } from "../../types/citation.types";
+import { R2StorageService } from "@/modules/ai-infra/facade";
 
 /**
  * 导出格式
@@ -72,6 +73,8 @@ export interface ExportResult {
   size: number;
   /** 错误信息 */
   error?: string;
+  /** ★ Phase 6: 云存储 URL（可选） */
+  cloudUrl?: string;
 }
 
 @Injectable()
@@ -81,6 +84,8 @@ export class ResearchExportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly citationFormatter: CitationFormatterService,
+    // ★ Phase 6: 报告云存储
+    @Optional() private readonly r2Storage?: R2StorageService,
   ) {}
 
   /**
@@ -168,6 +173,36 @@ export class ResearchExportService {
         error: String(error),
       };
     }
+  }
+
+  /**
+   * ★ Phase 6: 可选上传导出结果到 R2 云存储
+   * 上传失败不阻塞导出
+   */
+  async uploadToCloud(result: ExportResult): Promise<ExportResult> {
+    if (!this.r2Storage || !result.success) return result;
+
+    try {
+      const buffer = Buffer.from(result.content, "utf-8");
+      const uploadResult = await this.r2Storage.uploadBuffer(
+        buffer,
+        "research-exports",
+        result.filename,
+        result.mimeType,
+      );
+      if (uploadResult.success && uploadResult.url) {
+        this.logger.log(
+          `[uploadToCloud] Uploaded ${result.filename} to cloud storage`,
+        );
+        return { ...result, cloudUrl: uploadResult.url };
+      }
+      this.logger.warn(`[uploadToCloud] Upload failed: ${uploadResult.error}`);
+    } catch (err) {
+      this.logger.warn(
+        `[uploadToCloud] Upload failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    return result;
   }
 
   /**

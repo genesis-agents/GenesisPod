@@ -18,6 +18,10 @@ export type {
   ConstraintViolation,
   OutputValidationResult,
   AiCallerFn,
+  ReviewRequest,
+  ReviewResult,
+  ReviewCriteria,
+  TeamMemberInfo,
 } from "../../orchestration/services/interfaces";
 export { ConstraintEnforcementService } from "../../../ai-kernel/facade";
 export { TokenBudgetService } from "../../orchestration/services";

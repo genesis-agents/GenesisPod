@@ -45,12 +45,18 @@ import {
 import { TopicCollaboratorService } from "../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../monitoring/agent-activity.service";
 import { CollaboratorRole } from "../../dto/collaborator.dto";
-import { ChatFacade, ProgressTrackerService } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  ProgressTrackerService,
+  type EngineEvent,
+} from "@/modules/ai-engine/facade";
 import {
   MissionExecutorService,
   EventJournalService,
   KernelContext,
   KernelMemoryManagerService,
+  CostAttributionService,
+  EventBusService,
 } from "@/modules/ai-kernel/facade";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
@@ -138,6 +144,10 @@ export class ResearchMissionService {
     @Optional() private readonly kernelJournal?: EventJournalService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
     @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
+    // ★ Phase 2: 按维度成本追踪
+    @Optional() private readonly costAttribution?: CostAttributionService,
+    // ★ Phase 3: 跨模块研究可观测性
+    @Optional() private readonly kernelEventBus?: EventBusService,
   ) {}
 
   /**
@@ -430,6 +440,13 @@ export class ResearchMissionService {
       `[createMission] Mission ${mission.id} created, planning started asynchronously`,
     );
 
+    // ★ Phase 3: Kernel event — mission created
+    this.emitKernelEvent(
+      "research.mission.created",
+      { missionId: mission.id, topicId, mode },
+      mission.id,
+    );
+
     return mission;
   }
 
@@ -699,6 +716,13 @@ export class ResearchMissionService {
 
     this.logger.log(
       `[approvePlanAndExecute] Mission ${missionId} approved, starting execution with ${tasks.length} tasks`,
+    );
+
+    // ★ Phase 3: Kernel event — mission started
+    this.emitKernelEvent(
+      "research.mission.started",
+      { missionId, topicId, totalTasks: tasks.length },
+      missionId,
     );
 
     // 启动异步任务执行
@@ -2185,6 +2209,18 @@ export class ResearchMissionService {
               result.detailedContent?.length || 0,
               missionId,
             );
+
+            // ★ Phase 3: Kernel event — dimension completed
+            this.emitKernelEvent(
+              "research.dimension.completed",
+              {
+                missionId,
+                topicId: topic.id,
+                dimensionName,
+                keyFindings: result.keyFindings?.length || 0,
+              },
+              missionId,
+            );
           } else {
             // 如果没有找到维度，创建新维度进行研究
             this.logger.warn(
@@ -2202,6 +2238,18 @@ export class ResearchMissionService {
               dimensionName,
               result.keyFindings?.length || 0,
               result.detailedContent?.length || 0,
+              missionId,
+            );
+
+            // ★ Phase 3: Kernel event — dimension completed
+            this.emitKernelEvent(
+              "research.dimension.completed",
+              {
+                missionId,
+                topicId: topic.id,
+                dimensionName,
+                keyFindings: result.keyFindings?.length || 0,
+              },
               missionId,
             );
           }
@@ -2639,6 +2687,13 @@ export class ResearchMissionService {
             this.progressTracker.complete(missionId);
           }
 
+          // ★ Phase 3: Kernel event — report generated
+          this.emitKernelEvent(
+            "research.report.generated",
+            { missionId, topicId: topic.id, reportId },
+            missionId,
+          );
+
           // ★ 将 TopicReport 转换为前端 TodoResult 兼容格式
           const reportResult = result as Record<string, unknown>;
           const fullReportText = (reportResult?.fullReport as string) || "";
@@ -2775,6 +2830,23 @@ export class ResearchMissionService {
         resultSummary: summary,
         actualModelId,
       });
+
+      // ★ Phase 2: CostAttribution — 记录任务级别成本
+      if (this.costAttribution && task.taskType === "dimension_research") {
+        const dimensionName = task.dimensionName || task.title;
+        const model = actualModelId || assignedModelId || "";
+        // 从 result 提取 token 信息（如有）
+        const tokens = result as Record<string, unknown>;
+        this.recordResearchCost(
+          topic.userId,
+          dimensionName,
+          model,
+          "", // provider 由下游解析
+          (tokens?.inputTokens as number) || 0,
+          (tokens?.outputTokens as number) || 0,
+          (tokens?.estimatedCost as number) || 0,
+        );
+      }
 
       // Store intermediate dimension research findings in Kernel WORKING memory
       if (this.kernelMemory && task.taskType === "dimension_research") {
@@ -3051,6 +3123,32 @@ export class ResearchMissionService {
         topicId,
         missionId,
         statusMessage,
+      );
+    }
+
+    // ★ Phase 3: Kernel events — mission completed/failed
+    if (finalStatus === ResearchMissionStatus.COMPLETED) {
+      this.emitKernelEvent(
+        "research.mission.completed",
+        {
+          missionId,
+          topicId,
+          completedTasks: completedTasks.length,
+          totalTasks: tasks.length,
+        },
+        missionId,
+      );
+    } else {
+      this.emitKernelEvent(
+        "research.mission.failed",
+        {
+          missionId,
+          topicId,
+          failedTasks: failedTasks.length,
+          totalTasks: tasks.length,
+          message: statusMessage,
+        },
+        missionId,
       );
     }
 
@@ -3574,5 +3672,67 @@ export class ResearchMissionService {
         ),
       );
     this.kernelProcessIds.delete(missionId);
+  }
+
+  // ==================== Phase 2: CostAttribution ====================
+
+  /**
+   * ★ 记录研究任务成本（fire-and-forget）
+   */
+  private recordResearchCost(
+    userId: string,
+    dimensionName: string,
+    model: string,
+    provider: string,
+    inputTokens: number,
+    outputTokens: number,
+    estimatedCost: number,
+  ): void {
+    if (!this.costAttribution) return;
+    try {
+      this.costAttribution.recordCost({
+        userId,
+        moduleType: `research:${dimensionName}`,
+        model,
+        provider,
+        inputTokens,
+        outputTokens,
+        estimatedCost,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[CostAttribution] Failed to record cost: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  // ==================== Phase 3: EventBus ====================
+
+  /**
+   * ★ 发送 Kernel 级研究生命周期事件（fire-and-forget）
+   * 补充 kernel 级事件，不替换现有 EventEmitter2
+   */
+  private emitKernelEvent(
+    type: string,
+    payload: Record<string, unknown>,
+    correlationId?: string,
+  ): void {
+    if (!this.kernelEventBus) return;
+    const event: EngineEvent<Record<string, unknown>> = {
+      type,
+      payload,
+      metadata: {
+        timestamp: new Date(),
+        source: "topic-insights",
+        correlationId,
+      },
+    };
+    try {
+      this.kernelEventBus.emit(event);
+    } catch (err) {
+      this.logger.warn(
+        `[KernelEventBus] Failed to emit ${type}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 }

@@ -91,6 +91,9 @@ export type {
   ConstraintViolation,
   OutputValidationResult,
   AiCallerFn,
+  ReviewRequest,
+  ReviewResult,
+  ReviewCriteria,
 } from "../orchestration/services/interfaces";
 export { TokenBudgetService } from "../orchestration/services";
 export type {

@@ -1,6 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  TeamFacade,
+  OutputReviewerService,
+} from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
@@ -65,6 +69,8 @@ export class ReportSynthesisService {
     private readonly chatFacade: ChatFacade,
     private readonly teamFacade: TeamFacade,
     private readonly reportEditor: ReportEditorService,
+    // ★ Phase 4: 报告质量关卡
+    @Optional() private readonly outputReviewer?: OutputReviewerService,
   ) {}
 
   /**
@@ -444,7 +450,46 @@ export class ReportSynthesisService {
       }
     }
 
-    // 10. 更新报告
+    // 10. ★ Phase 4: OutputReviewer — 报告质量评审（非阻塞）
+    let reportQualityScore: number | undefined;
+    if (this.outputReviewer && cleanedReport.length > 0) {
+      try {
+        const reviewResult = await this.outputReviewer.reviewOutput({
+          missionId: reportId,
+          task: {
+            id: reportId,
+            title: `Research Report: ${topic.name}`,
+            description: "Synthesized research report quality review",
+          },
+          content: cleanedReport.substring(0, 5000), // 截取前 5000 字符供审核
+          leader: {
+            id: "system-reviewer",
+            agentName: "OutputReviewer",
+            displayName: "Quality Reviewer",
+            aiModel: "",
+            isLeader: true,
+          },
+          criteria: {
+            completenessWeight: 0.3,
+            accuracyWeight: 0.3,
+            logicWeight: 0.2,
+            professionalismWeight: 0.2,
+            passThreshold: 6.5,
+            maxRevisions: 1,
+          },
+        });
+        reportQualityScore = reviewResult.score;
+        this.logger.log(
+          `[synthesizeReport] Quality review: score=${reviewResult.score}, passed=${reviewResult.passed}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `[synthesizeReport] Quality review failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // 11. 更新报告
     const generationTimeMs = Date.now() - startTime;
 
     // ★ 将参考文献追加到报告末尾
@@ -467,7 +512,10 @@ export class ReportSynthesisService {
     });
 
     this.logger.log(
-      `Synthesized comprehensive report ${reportId} in ${generationTimeMs}ms with ${totalSources} sources`,
+      `Synthesized comprehensive report ${reportId} in ${generationTimeMs}ms with ${totalSources} sources` +
+        (reportQualityScore !== undefined
+          ? `, quality=${reportQualityScore}`
+          : ""),
     );
 
     return updatedReport;

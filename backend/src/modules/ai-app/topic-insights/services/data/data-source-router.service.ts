@@ -22,6 +22,10 @@ import {
 } from "@/modules/ai-engine/facade";
 
 import {
+  CircuitBreakerService,
+  TaskCompletionType,
+} from "@/modules/ai-kernel/facade";
+import {
   DataSourceType,
   DataSourceResult,
   AggregatedSearchResult,
@@ -89,6 +93,9 @@ export class DataSourceRouterService {
     // ★ P0: 数据源连接器注册中心（可选，向后兼容）
     @Optional()
     private readonly connectorRegistry?: DataSourceConnectorRegistry,
+    // ★ CircuitBreaker: 数据源容错（可选，Kernel 不可用时降级）
+    @Optional()
+    private readonly circuitBreaker?: CircuitBreakerService,
   ) {}
 
   /**
@@ -589,8 +596,19 @@ export class DataSourceRouterService {
   ): Promise<DataSourceResult[]> {
     const timeout = options.timeout || 30000; // 默认30秒超时
     const maxResults = options.maxResults || 10;
+    const entityId = `datasource:${source}`;
 
     this.logger.debug(`Searching ${source} with query: "${query}"`);
+
+    // ★ CircuitBreaker: 检查数据源熔断状态
+    if (this.circuitBreaker && !this.circuitBreaker.canExecute(entityId)) {
+      this.logger.warn(
+        `[searchSource] Circuit breaker OPEN for ${entityId}, skipping`,
+      );
+      return [];
+    }
+
+    const startTime = Date.now();
 
     try {
       // 使用 Promise.race 实现超时控制
@@ -610,10 +628,24 @@ export class DataSourceRouterService {
 
       const results = await Promise.race([searchPromise, timeoutPromise]);
 
+      // ★ CircuitBreaker: 记录成功
+      if (this.circuitBreaker) {
+        this.circuitBreaker.recordSuccess(entityId, Date.now() - startTime);
+      }
+
       this.logger.debug(`${source} returned ${results.length} results`);
 
       return results;
     } catch (error) {
+      // ★ CircuitBreaker: 记录失败
+      if (this.circuitBreaker) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorType = errorMsg.includes("timeout")
+          ? TaskCompletionType.TIMEOUT
+          : TaskCompletionType.API_ERROR;
+        this.circuitBreaker.recordFailure(entityId, errorType, errorMsg);
+      }
+
       this.logger.error(
         `Failed to search ${source}: ${error instanceof Error ? error.message : String(error)}`,
       );

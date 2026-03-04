@@ -8,6 +8,7 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PromptSkillBridge } from "../../ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
@@ -172,6 +173,7 @@ const services = [
     ExportModule,
     ConfigModule,
     SecretsModule,
+    StorageModule, // ★ Phase 6: R2 报告云存储
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
