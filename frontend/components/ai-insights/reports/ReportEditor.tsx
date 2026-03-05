@@ -1126,8 +1126,11 @@ function ReportEditorInner({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+      {/* Toolbar - excluded from export */}
+      <div
+        className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2"
+        data-export-exclude
+      >
         {/* View mode toggle */}
         <ViewModeToggle
           modes={[
@@ -1221,8 +1224,8 @@ function ReportEditorInner({
             ref={previewRef}
             className="relative h-full overflow-y-auto overflow-x-hidden p-6"
           >
-            {/* Mode indicator */}
-            <div className="absolute right-6 top-6 z-10">
+            {/* Mode indicator - excluded from export */}
+            <div className="absolute right-6 top-6 z-10" data-export-exclude>
               <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
                 <PreviewIcon className="h-3 w-3" />
                 {t('topicResearch.reportEditor.previewMode')}

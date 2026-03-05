@@ -122,33 +122,45 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     },
     p: ({
       children,
+      node: _node,
       ...props
     }: React.HTMLAttributes<HTMLParagraphElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => <p {...props}>{processChildren(children, processText)}</p>,
     li: ({
       children,
+      node: _node,
       ...props
     }: React.LiHTMLAttributes<HTMLLIElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => <li {...props}>{processChildren(children, processText)}</li>,
     strong: ({
       children,
+      node: _node,
       ...props
-    }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) => (
+    }: React.HTMLAttributes<HTMLElement> & {
+      children?: React.ReactNode;
+      node?: unknown;
+    }) => (
       <strong {...props}>{processChildrenSimple(children, processText)}</strong>
     ),
     em: ({
       children,
+      node: _node,
       ...props
-    }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) => (
-      <em {...props}>{processChildrenSimple(children, processText)}</em>
-    ),
+    }: React.HTMLAttributes<HTMLElement> & {
+      children?: React.ReactNode;
+      node?: unknown;
+    }) => <em {...props}>{processChildrenSimple(children, processText)}</em>,
     table: ({
       children,
+      node: _node,
       ...props
     }: React.TableHTMLAttributes<HTMLTableElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => {
       // Extract text from children to detect risk matrix table
       function extractText(node: React.ReactNode): string {
@@ -178,9 +190,11 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     },
     td: ({
       children,
+      node: _node,
       ...props
     }: React.TdHTMLAttributes<HTMLTableCellElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => {
       // Extract text from children to detect risk level
       function extractText(node: React.ReactNode): string {
@@ -223,15 +237,19 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     },
     th: ({
       children,
+      node: _node,
       ...props
     }: React.ThHTMLAttributes<HTMLTableCellElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => <th {...props}>{processChildren(children, processText)}</th>,
     h1: ({
       children,
+      node: _node,
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => (
       <h1 id={headingSlug(children)} {...props}>
         {processChildrenSimple(children, processText)}
@@ -239,9 +257,11 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     ),
     h2: ({
       children,
+      node: _node,
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => (
       <h2 id={headingSlug(children)} {...props}>
         {processChildrenSimple(children, processText)}
@@ -249,9 +269,11 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     ),
     h3: ({
       children,
+      node: _node,
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => (
       <h3 id={headingSlug(children)} {...props}>
         {processChildrenSimple(children, processText)}
@@ -259,9 +281,11 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     ),
     h4: ({
       children,
+      node: _node,
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => (
       <h4 id={headingSlug(children)} {...props}>
         {processChildrenSimple(children, processText)}
@@ -269,9 +293,11 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     ),
     blockquote: ({
       children,
+      node: _node,
       ...props
     }: React.BlockquoteHTMLAttributes<HTMLQuoteElement> & {
       children?: React.ReactNode;
+      node?: unknown;
     }) => (
       <blockquote {...props}>
         {processChildrenSimple(children, processText)}

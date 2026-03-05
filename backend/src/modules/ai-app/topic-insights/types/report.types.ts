@@ -242,7 +242,17 @@ export interface AIReportSynthesisResponse {
       relationship: string;
       impact: string;
     }>;
+    /** 反馈回路：自我强化或自我抑制的循环效应 */
+    feedbackLoops?: string[];
+    /** 系统性效应：多维度联动可能触发的涌现效应 */
+    systemicEffects?: string[];
     fullText?: string;
+  };
+  /** v3.0: 情景展望 */
+  scenarioOutlook?: {
+    baseline?: string;
+    optimistic?: string;
+    pessimistic?: string;
   };
   /** v3.0: 风险评估 */
   riskAssessment?: {
@@ -292,6 +302,8 @@ export interface AIReportSynthesisResponse {
  * 执行摘要对象格式
  */
 export interface ExecutiveSummaryObject {
+  /** 核心论断：一句话概括本报告最重要的发现/判断 */
+  thesisStatement?: string;
   coreConclusions?: string[];
   keyMetrics?: Array<{ metric: string; value: string; source: string }>;
   riskAlerts?: string[];

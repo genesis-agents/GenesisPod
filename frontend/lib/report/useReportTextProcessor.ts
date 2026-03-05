@@ -17,6 +17,34 @@ interface EvidenceItem {
 }
 
 /**
+ * Remove consecutive duplicate citations (e.g. [27][27] → [27]).
+ * LLM output sometimes repeats the same citation index back-to-back.
+ */
+function deduplicateConsecutiveCitations(
+  parts: React.ReactNode[]
+): React.ReactNode[] {
+  const result: React.ReactNode[] = [];
+  let lastCitationIndex: number | null = null;
+
+  for (const part of parts) {
+    if (React.isValidElement(part) && part.type === CitationBadge) {
+      const props = part.props as { index: number };
+      if (props.index === lastCitationIndex) {
+        // Skip duplicate consecutive citation
+        continue;
+      }
+      lastCitationIndex = props.index;
+    } else if (typeof part === 'string' && part.trim() !== '') {
+      // Non-empty text resets duplicate tracking
+      lastCitationIndex = null;
+    }
+    result.push(part);
+  }
+
+  return result;
+}
+
+/**
  * Detect runs of 3+ consecutive CitationBadge elements and replace with CitationGroup.
  * A "consecutive" run means CitationBadge elements with only empty/whitespace strings between them.
  */
@@ -207,8 +235,10 @@ export function useReportTextProcessor({
         parts.push(text.slice(lastIndex));
       }
 
+      // ★ Deduplicate consecutive identical citations (e.g. [27][27] → [27])
+      const deduped = deduplicateConsecutiveCitations(parts);
       // ★ Post-process: fold consecutive 3+ citations into CitationGroup
-      const folded = foldConsecutiveCitations(parts);
+      const folded = foldConsecutiveCitations(deduped);
       return folded.length === 1 ? folded[0] : folded;
     },
     [evidence]

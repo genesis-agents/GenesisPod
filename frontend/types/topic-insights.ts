@@ -158,6 +158,12 @@ export interface TopicReport {
   riskAssessment?: RiskAssessment;
   /** 战略建议 */
   strategicRecommendations?: StrategicRecommendations;
+  /** 情景展望 */
+  scenarioOutlook?: {
+    baseline?: string;
+    optimistic?: string;
+    pessimistic?: string;
+  };
   /** 数据来源说明 */
   dataSourceNotes?: string;
   /** 图表数据 */
@@ -168,6 +174,8 @@ export interface TopicReport {
  * v2.0 结构化执行摘要
  */
 export interface ExecutiveSummaryV2 {
+  /** 核心论断：一句话概括本报告最重要的发现/判断 */
+  thesisStatement?: string;
   /** 核心结论（3-5条一句话结论） */
   coreConclusions: string[];
   /** 关键数据点 */
@@ -201,6 +209,10 @@ export interface CrossDimensionAnalysis {
     relationship: string;
     impact: string;
   }>;
+  /** 反馈回路：自我强化或自我抑制的循环效应 */
+  feedbackLoops?: string[];
+  /** 系统性效应：多维度联动可能触发的涌现效应 */
+  systemicEffects?: string[];
   fullText: string;
 }
 

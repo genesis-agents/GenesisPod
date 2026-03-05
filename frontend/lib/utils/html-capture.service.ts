@@ -75,8 +75,12 @@ export class HtmlCaptureService {
       HtmlCaptureService.inlineCriticalStyles(container as HTMLElement, clone);
     }
 
-    // 移除交互元素的事件处理
+    // 移除导出排除元素和交互元素
+    HtmlCaptureService.removeExportExcluded(clone);
     HtmlCaptureService.removeInteractivity(clone);
+
+    // 使 sr-only 数据表格在导出中可见（图表的无障碍回退）
+    HtmlCaptureService.revealSrOnlyTables(clone);
 
     // 提取 CSS (filtered by selectors used in container)
     const css = HtmlCaptureService.extractStyles(container as HTMLElement);
@@ -262,6 +266,15 @@ export class HtmlCaptureService {
       // 克隆 SVG
       const svgClone = origSvg.cloneNode(true) as SVGElement;
 
+      // ★ 确保 SVG 有明确的宽高（Recharts 使用 ResponsiveContainer 动态计算尺寸）
+      const svgRect = origSvg.getBoundingClientRect();
+      if (svgRect.width > 0 && svgRect.height > 0) {
+        svgClone.setAttribute('width', `${svgRect.width}`);
+        svgClone.setAttribute('height', `${svgRect.height}`);
+        svgClone.style.width = `${svgRect.width}px`;
+        svgClone.style.height = `${svgRect.height}px`;
+      }
+
       // 移除 Recharts 特有的交互层
       const interactiveElements = svgClone.querySelectorAll(
         '.recharts-tooltip-wrapper, .recharts-active-dot, [class*="cursor"]'
@@ -443,6 +456,41 @@ export class HtmlCaptureService {
             ? `${existing}; ${inlineStyles.join('; ')}`
             : inlineStyles.join('; ')
         );
+      }
+    }
+  }
+
+  /**
+   * 移除标记为 data-export-exclude 的元素（工具栏、模式指示器等 UI 控件）
+   */
+  private static removeExportExcluded(clone: HTMLElement): void {
+    const excluded = clone.querySelectorAll('[data-export-exclude]');
+    for (const el of Array.from(excluded)) {
+      el.remove();
+    }
+  }
+
+  /**
+   * 使 sr-only 数据表格在导出中可见（图表的无障碍回退）
+   * 在 HTML/PDF 导出中，Recharts SVG 可能无法正确渲染，
+   * 将隐藏的数据表格显示出来作为内容补充
+   */
+  private static revealSrOnlyTables(clone: HTMLElement): void {
+    const srOnlyTables = clone.querySelectorAll('table.sr-only');
+    for (const table of Array.from(srOnlyTables)) {
+      (table as HTMLElement).classList.remove('sr-only');
+      (table as HTMLElement).style.cssText =
+        'width: 100%; border-collapse: collapse; margin: 0.5em 0; font-size: 0.85em;';
+      // Style cells
+      const cells = table.querySelectorAll('th, td');
+      for (const cell of Array.from(cells)) {
+        (cell as HTMLElement).style.cssText =
+          'border: 1px solid #d1d5db; padding: 0.4em 0.6em; text-align: left;';
+      }
+      const headers = table.querySelectorAll('th');
+      for (const th of Array.from(headers)) {
+        (th as HTMLElement).style.backgroundColor = '#f3f4f6';
+        (th as HTMLElement).style.fontWeight = '600';
       }
     }
   }

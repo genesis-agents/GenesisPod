@@ -760,8 +760,11 @@ function ChapterizedReportViewInner({
           </span>
         </div>
 
-        {/* Toolbar: view mode + actions */}
-        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+        {/* Toolbar: view mode + actions - excluded from export */}
+        <div
+          className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2"
+          data-export-exclude
+        >
           <ViewModeToggle
             modes={[
               {
