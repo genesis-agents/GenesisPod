@@ -593,10 +593,12 @@ describe('HtmlCaptureService - freezeCharts interaction removal', () => {
       <div class="recharts-wrapper">
         <svg width="400" height="300">
           <g class="recharts-cartesian-grid"></g>
-          <g class="recharts-tooltip-wrapper"><div>tooltip</div></g>
+          <g class="recharts-layer recharts-bar"></g>
+          <g class="recharts-layer recharts-xAxis"></g>
           <circle class="recharts-active-dot" r="4" />
           <rect class="recharts-cursor" />
         </svg>
+        <div class="recharts-tooltip-wrapper" style="visibility:visible">tooltip</div>
       </div>
     `);
 
