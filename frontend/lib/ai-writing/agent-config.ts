@@ -326,7 +326,13 @@ export function getAgentDetails(agentId: string): {
   tools: string[];
 } {
   const baseId = agentId.replace(/-\d+$/, '');
-  const config = WRITING_AGENT_REGISTRY[baseId];
+  // Alias mapping for IDs that don't match registry keys directly
+  const ALIAS: Record<string, string> = {
+    checker: 'consistency-checker',
+    architect: 'story-architect',
+    keeper: 'bible-keeper',
+  };
+  const config = WRITING_AGENT_REGISTRY[ALIAS[baseId] || baseId];
 
   if (!config) {
     return {

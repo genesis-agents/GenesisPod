@@ -12,7 +12,7 @@
  * Follows PlanTeamPanel pattern but uses Lucide icons via foreignObject
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Crown,
   Search,
@@ -29,6 +29,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import {
+  TeamTopologyCanvas,
+  type TeamTopologyNode,
+  type TeamTopologyConnection,
+  type TeamTopologyLegendItem,
+} from '@/components/common/team-topology';
 import type {
   DiscussionMessage,
   DiscussionPhase,
@@ -73,23 +79,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   info: Info,
 };
 
-/** Hex colors for SVG fills */
-const ROLE_HEX_COLORS: Record<DiscussionRole, string> = {
-  director: '#8B5CF6',
-  researcher: '#3B82F6',
-  analyst: '#10B981',
-  writer: '#F59E0B',
-  reviewer: '#F43F5E',
-};
-
-const ROLE_GLOW_COLORS: Record<DiscussionRole, string> = {
-  director: '#C4B5FD',
-  researcher: '#93C5FD',
-  analyst: '#6EE7B7',
-  writer: '#FCD34D',
-  reviewer: '#FDA4AF',
-};
-
 const ROLE_TAILWIND_BG: Record<DiscussionRole, string> = {
   director: 'bg-purple-500',
   researcher: 'bg-blue-500',
@@ -113,18 +102,6 @@ const ROLE_DESCRIPTIONS: Record<DiscussionRole, string> = {
   writer: '撰写研究报告和摘要',
   reviewer: '质量审核和建议改进',
 };
-
-// Node positions (viewBox 320x210): center + 6-ring layout
-// Index 0: director in center; 1-6: ring members
-const NODE_POSITIONS = [
-  { x: 160, y: 105 }, // center: director
-  { x: 160, y: 32 }, // top: researcher A
-  { x: 248, y: 68 }, // top-right: researcher B
-  { x: 248, y: 142 }, // bottom-right: researcher C
-  { x: 160, y: 178 }, // bottom: analyst
-  { x: 72, y: 142 }, // bottom-left: writer
-  { x: 72, y: 68 }, // top-left: reviewer
-];
 
 type AgentStatus = 'idle' | 'speaking' | 'searching' | 'writing';
 
@@ -238,52 +215,26 @@ export function AgentPanel({
   messages,
   typingAgent,
   directions,
-  currentPhase,
+  currentPhase: _currentPhase,
   isActive = false,
   hasSession = false,
   onStart,
   onContinue,
   onStop,
 }: AgentPanelProps) {
-  const [hoveredAgent, setHoveredAgent] = useState<number | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
   const [directionsExpanded, setDirectionsExpanded] = useState(true);
 
   const agents = extractAgentNodes(messages, typingAgent);
-  const canvasSize = { width: 320, height: 210 };
   const hasAgents = messages.length > 0;
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Status Legend */}
-      <div className="flex flex-shrink-0 items-center gap-3 border-b border-gray-100 px-4 py-2 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-purple-500" />
-          总监
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-          工作中
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-gray-300" />
-          待命
-        </span>
-      </div>
-
       {/* SVG Canvas */}
       <div className="relative flex-shrink-0 border-b border-gray-100">
         {hasAgents ? (
-          <TeamCanvas
-            agents={agents}
-            canvasSize={canvasSize}
-            hoveredAgent={hoveredAgent}
-            onHover={setHoveredAgent}
-            selectedAgent={selectedAgent}
-            onSelect={setSelectedAgent}
-          />
+          <AgentTeamCanvasView agents={agents} />
         ) : (
-          <div className="flex h-[210px] flex-col items-center justify-center text-gray-400">
+          <div className="flex h-[200px] flex-col items-center justify-center text-gray-400">
             <Crown className="mb-2 h-8 w-8 text-purple-300" />
             <p className="text-sm">等待研究开始</p>
             <p className="mt-1 text-xs">团队将在研究启动后显示</p>
@@ -433,390 +384,189 @@ export function AgentPanel({
   );
 }
 
-// ---- SVG Team Canvas ----
+// ---- SVG Team Canvas - Uses shared TeamTopologyCanvas ----
 
-function TeamCanvas({
-  agents,
-  canvasSize,
-  hoveredAgent,
-  onHover,
-  selectedAgent,
-  onSelect,
-}: {
-  agents: AgentNode[];
-  canvasSize: { width: number; height: number };
-  hoveredAgent: number | null;
-  onHover: (index: number | null) => void;
-  selectedAgent: number | null;
-  onSelect: (index: number | null) => void;
-}) {
-  const positions = NODE_POSITIONS;
+/** Map role → colorKey for the shared component */
+const ROLE_COLOR_KEYS: Record<DiscussionRole, string> = {
+  director: 'purple',
+  researcher: 'blue',
+  analyst: 'emerald',
+  writer: 'amber',
+  reviewer: 'rose',
+};
 
-  // Render connections: center → ring nodes + ring edges
-  const renderConnections = () => {
-    const connections: JSX.Element[] = [];
-    if (agents.length === 0) return connections;
-
-    const centerPos = positions[0]; // Director at center
-
-    // Center -> each ring member (straight lines to center)
-    for (let i = 1; i < Math.min(agents.length, positions.length); i++) {
-      const mPos = positions[i];
-      const isActive =
-        agents[0]?.status !== 'idle' || agents[i]?.status !== 'idle';
-
-      connections.push(
-        <line
-          key={`center-${i}`}
-          x1={centerPos.x}
-          y1={centerPos.y}
-          x2={mPos.x}
-          y2={mPos.y}
-          className={cn(
-            'transition-all duration-300',
-            isActive
-              ? 'stroke-blue-400 stroke-[1.5]'
-              : 'stroke-gray-200 stroke-[1]'
-          )}
-          strokeDasharray={isActive ? 'none' : '3 3'}
-          opacity={isActive ? 0.6 : 0.3}
-        />
-      );
-    }
-
-    // Ring edges (connecting adjacent ring nodes)
-    const ringCount = Math.min(agents.length, positions.length) - 1;
-    for (let i = 1; i <= ringCount; i++) {
-      const next = i === ringCount ? 1 : i + 1;
-      const p1 = positions[i];
-      const p2 = positions[next];
-
-      connections.push(
-        <line
-          key={`ring-${i}-${next}`}
-          x1={p1.x}
-          y1={p1.y}
-          x2={p2.x}
-          y2={p2.y}
-          className="stroke-gray-200 stroke-[0.5]"
-          strokeDasharray="3 3"
-          opacity={0.25}
-        />
-      );
-    }
-
-    return connections;
-  };
-
-  // Render nodes
-  const renderNodes = () => {
-    return agents.map((agent, index) => {
-      const pos = positions[index];
-      if (!pos) return null;
-
-      const isLeader = index === 0;
-      const isActive = agent.status !== 'idle';
-      const isHovered = hoveredAgent === index;
-      const nodeRadius = isLeader ? 18 : 15;
-      const color = ROLE_HEX_COLORS[agent.role];
-      const glowColor = ROLE_GLOW_COLORS[agent.role];
+function AgentTeamCanvasView({ agents }: { agents: AgentNode[] }) {
+  const { nodes, rows, connections, legendItems } = useMemo(() => {
+    const topoNodes: TeamTopologyNode[] = agents.map((agent, index) => {
       const Icon = ICON_MAP[agent.icon] || ROLE_ICONS[agent.role] || Info;
-
-      return (
-        <g
-          key={`${agent.role}_${agent.name}_${index}`}
-          transform={`translate(${pos.x}, ${pos.y})`}
-          onMouseEnter={() => onHover(index)}
-          onMouseLeave={() => onHover(null)}
-          onClick={() => onSelect(index)}
-          style={{ cursor: 'pointer' }}
-        >
-          {/* Layer 1: Working glow */}
-          {isActive && (
-            <circle
-              r={nodeRadius + 6}
-              fill="none"
-              stroke={glowColor}
-              strokeWidth={2}
-              opacity={0.4}
-            >
-              <animate
-                attributeName="r"
-                from={nodeRadius + 4}
-                to={nodeRadius + 12}
-                dur="1.5s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="opacity"
-                from="0.4"
-                to="0"
-                dur="1.5s"
-                repeatCount="indefinite"
-              />
-            </circle>
-          )}
-
-          {/* Layer 2: White ring */}
-          <circle
-            r={nodeRadius + 3}
-            fill="white"
-            opacity={isHovered ? 1 : 0.9}
-            style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.1))' }}
-          />
-
-          {/* Layer 3: Main colored circle */}
-          <circle
-            r={nodeRadius}
-            fill={color}
-            stroke="white"
-            strokeWidth={2}
-            style={{
-              filter: isActive
-                ? `drop-shadow(0 0 6px ${glowColor})`
-                : isLeader
-                  ? `drop-shadow(0 0 4px ${glowColor})`
-                  : '',
-              transform: isHovered ? 'scale(1.1)' : 'scale(1)',
-              transformOrigin: 'center',
-              transition: 'transform 0.2s ease',
-            }}
-          />
-
-          {/* Layer 4: Lucide icon */}
-          <foreignObject
-            x={-(isLeader ? 8 : 7)}
-            y={-(isLeader ? 8 : 7)}
-            width={isLeader ? 16 : 14}
-            height={isLeader ? 16 : 14}
-          >
-            <div className="flex h-full w-full items-center justify-center text-white">
-              <Icon
-                className={isLeader ? 'h-4 w-4' : 'h-3.5 w-3.5'}
-                strokeWidth={2.5}
-              />
-            </div>
-          </foreignObject>
-
-          {/* Layer 5: Name label */}
-          <text
-            textAnchor="middle"
-            y={nodeRadius + 12}
-            className="fill-gray-600 font-medium"
-            style={{ fontSize: '9px' }}
-          >
-            {agent.name.length > 6 ? agent.name.slice(0, 6) : agent.name}
-          </text>
-
-          {/* Layer 6: Working status */}
-          {isActive && (
-            <text
-              textAnchor="middle"
-              y={nodeRadius + 22}
-              className="fill-blue-600 font-medium"
-              style={{ fontSize: '8px' }}
-            >
-              <animate
-                attributeName="opacity"
-                values="1;0.5;1"
-                dur="1.5s"
-                repeatCount="indefinite"
-              />
-              {getStatusLabel(agent.status)}
-            </text>
-          )}
-        </g>
-      );
+      const isActive = agent.status !== 'idle';
+      return {
+        id: `${agent.role}_${agent.name}_${index}`,
+        name: agent.name.length > 6 ? agent.name.slice(0, 6) : agent.name,
+        role: agent.role,
+        icon: Icon, // Lucide component → will use foreignObject
+        status: isActive ? ('working' as const) : ('idle' as const),
+        statusLabel: isActive ? getStatusLabel(agent.status) : undefined,
+        colorKey: ROLE_COLOR_KEYS[agent.role] || 'gray',
+        isLeader: agent.role === 'director',
+      };
     });
-  };
+
+    // Build rows: director → researchers → [analyst, writer, reviewer]
+    const director = topoNodes.find((n) => n.role === 'director');
+    const researchers = topoNodes.filter((n) => n.role === 'researcher');
+    const others = topoNodes.filter(
+      (n) => n.role !== 'director' && n.role !== 'researcher'
+    );
+
+    const rowIds: string[][] = [];
+    if (director) rowIds.push([director.id]);
+    if (researchers.length > 0) rowIds.push(researchers.map((n) => n.id));
+    if (others.length > 0) rowIds.push(others.map((n) => n.id));
+
+    // Connect director → all others
+    const conns: TeamTopologyConnection[] = [];
+    if (director) {
+      [...researchers, ...others].forEach((n) =>
+        conns.push({ from: director.id, to: n.id })
+      );
+    }
+
+    const legend: TeamTopologyLegendItem[] = [
+      { color: 'bg-purple-500', label: '总监' },
+      { color: 'bg-blue-500', label: '工作中', animated: true },
+      { color: 'bg-gray-400', label: '待命' },
+    ];
+
+    return {
+      nodes: topoNodes,
+      rows: rowIds,
+      connections: conns,
+      legendItems: legend,
+    };
+  }, [agents]);
 
   return (
-    <div className="relative">
-      <svg
-        viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`}
-        className="h-[210px] w-full"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* Background grid */}
-        <defs>
-          <pattern
-            id="discussion-grid"
-            width="20"
-            height="20"
-            patternUnits="userSpaceOnUse"
-          >
-            <circle cx="10" cy="10" r="0.5" fill="#E5E7EB" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#discussion-grid)" />
-
-        {/* Connections */}
-        {renderConnections()}
-
-        {/* Nodes */}
-        {renderNodes()}
-      </svg>
-
-      {/* Hover tooltip */}
-      {hoveredAgent !== null &&
-        selectedAgent === null &&
-        agents[hoveredAgent] && (
-          <HoverTooltip
-            agent={agents[hoveredAgent]}
-            posIndex={hoveredAgent}
-            canvasSize={canvasSize}
-          />
-        )}
-
-      {/* Selected agent detail card */}
-      {selectedAgent !== null && agents[selectedAgent] && (
-        <AgentDetailCard
-          agent={agents[selectedAgent]}
-          onClose={() => onSelect(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ---- Hover Tooltip ----
-
-function HoverTooltip({
-  agent,
-  posIndex,
-  canvasSize,
-}: {
-  agent: AgentNode;
-  posIndex: number;
-  canvasSize: { width: number; height: number };
-}) {
-  const pos = NODE_POSITIONS[posIndex];
-  if (!pos) return null;
-
-  const tooltipX = (pos.x / canvasSize.width) * 100;
-  const tooltipY = (pos.y / canvasSize.height) * 100;
-  const showAbove = tooltipY > 50;
-
-  const Icon = ICON_MAP[agent.icon] || ROLE_ICONS[agent.role] || Info;
-
-  return (
-    <div
-      className="pointer-events-none absolute z-10 rounded-lg border border-gray-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur"
-      style={{
-        left: `${Math.min(Math.max(tooltipX, 20), 80)}%`,
-        top: showAbove ? `${tooltipY - 18}%` : `${tooltipY + 20}%`,
-        transform: 'translateX(-50%)',
+    <TeamTopologyCanvas
+      nodes={nodes}
+      rows={rows}
+      connections={connections}
+      patternId="discussion"
+      legendItems={legendItems}
+      renderTooltip={(node) => {
+        const agent = agents.find((a) =>
+          node.id.startsWith(`${a.role}_${a.name}`)
+        );
+        if (!agent) return null;
+        const Icon = ICON_MAP[agent.icon] || ROLE_ICONS[agent.role] || Info;
+        return (
+          <div className="text-xs">
+            <div className="flex items-center gap-1.5 font-semibold text-gray-800">
+              <Icon className={cn('h-3 w-3', ROLE_TAILWIND_TEXT[agent.role])} />
+              {agent.name}
+            </div>
+            <div className="mt-0.5 text-gray-500">
+              {ROLE_DESCRIPTIONS[agent.role]}
+            </div>
+          </div>
+        );
       }}
-    >
-      <div className="text-xs">
-        <div className="flex items-center gap-1.5 font-semibold text-gray-800">
-          <Icon className={cn('h-3 w-3', ROLE_TAILWIND_TEXT[agent.role])} />
-          {agent.name}
-        </div>
-        <div className="mt-0.5 text-gray-500">
-          {ROLE_DESCRIPTIONS[agent.role]}
-        </div>
-      </div>
-    </div>
-  );
-}
+      renderDetail={(node, onClose) => {
+        const agent = agents.find((a) =>
+          node.id.startsWith(`${a.role}_${a.name}`)
+        );
+        if (!agent) return null;
 
-// ---- Agent Detail Card ----
+        const Icon = ICON_MAP[agent.icon] || ROLE_ICONS[agent.role] || Info;
+        const statusLabel = getStatusLabel(agent.status);
+        const isActive = agent.status !== 'idle';
 
-function AgentDetailCard({
-  agent,
-  onClose,
-}: {
-  agent: AgentNode;
-  onClose: () => void;
-}) {
-  const Icon = ICON_MAP[agent.icon] || ROLE_ICONS[agent.role] || Info;
-  const statusLabel = getStatusLabel(agent.status);
-  const isActive = agent.status !== 'idle';
+        const bgColorMap: Record<DiscussionRole, string> = {
+          director: 'bg-purple-50',
+          researcher: 'bg-blue-50',
+          analyst: 'bg-emerald-50',
+          writer: 'bg-amber-50',
+          reviewer: 'bg-rose-50',
+        };
 
-  const bgColorMap: Record<DiscussionRole, string> = {
-    director: 'bg-purple-50',
-    researcher: 'bg-blue-50',
-    analyst: 'bg-emerald-50',
-    writer: 'bg-amber-50',
-    reviewer: 'bg-rose-50',
-  };
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 z-20 bg-black/10 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      {/* Card */}
-      <div className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
-        {/* Header */}
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        return (
+          <>
             <div
-              className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-full',
-                bgColorMap[agent.role]
-              )}
-            >
-              <Icon className={cn('h-5 w-5', ROLE_TAILWIND_TEXT[agent.role])} />
+              className="absolute inset-0 z-20 bg-black/10 backdrop-blur-sm"
+              onClick={onClose}
+            />
+            <div className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      'flex h-10 w-10 items-center justify-center rounded-full',
+                      bgColorMap[agent.role]
+                    )}
+                  >
+                    <Icon
+                      className={cn('h-5 w-5', ROLE_TAILWIND_TEXT[agent.role])}
+                    />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-800">
+                      {agent.name}
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {ROLE_DESCRIPTIONS[agent.role]}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-xs text-gray-500">当前状态</span>
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-xs',
+                    isActive
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-600'
+                  )}
+                >
+                  {statusLabel}
+                </span>
+              </div>
+
+              <div className="mb-3">
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  角色职责
+                </div>
+                <p className="text-sm text-gray-700">
+                  {ROLE_DESCRIPTIONS[agent.role]}
+                </p>
+              </div>
+
+              <div>
+                <div className="mb-1.5 text-xs font-medium text-gray-500">
+                  能力标签
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {getRoleCapabilities(agent.role).map((cap) => (
+                    <span
+                      key={cap}
+                      className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
+                    >
+                      {cap}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="font-semibold text-gray-800">{agent.name}</div>
-              <span className="text-xs text-gray-500">
-                {ROLE_DESCRIPTIONS[agent.role]}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Status */}
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-xs text-gray-500">当前状态</span>
-          <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-xs',
-              isActive
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-600'
-            )}
-          >
-            {statusLabel}
-          </span>
-        </div>
-
-        {/* Role */}
-        <div className="mb-3">
-          <div className="mb-1 text-xs font-medium text-gray-500">角色职责</div>
-          <p className="text-sm text-gray-700">
-            {ROLE_DESCRIPTIONS[agent.role]}
-          </p>
-        </div>
-
-        {/* Capabilities */}
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-gray-500">
-            能力标签
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {getRoleCapabilities(agent.role).map((cap) => (
-              <span
-                key={cap}
-                className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
-              >
-                {cap}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </>
+          </>
+        );
+      }}
+    />
   );
 }

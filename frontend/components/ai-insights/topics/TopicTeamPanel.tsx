@@ -9,10 +9,16 @@
  * - 简洁进度统计 + 底部状态栏
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { CheckCircle2, XCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
+import {
+  TeamTopologyCanvas,
+  type TeamTopologyNode,
+  type TeamTopologyConnection,
+  type TeamTopologyLegendItem,
+} from '@/components/common/team-topology';
 import type {
   MissionStatus,
   TaskStatus,
@@ -206,8 +212,6 @@ export function TopicTeamPanel({
   const phaseDisplay = useMemo(() => getPhaseDisplay(t), [t]);
   const getAgentDisplay = useMemo(() => getAgentDisplayFactory(t), [t]);
   const getAgentRoleInfo = useMemo(() => getAgentRoleInfoFactory(t), [t]);
-  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   // ★ 判断任务是否正在进行中 - 同时检查 isRefreshing 和 missionStatus
   // 这修复了一个 bug：当 isRefreshing 因为某种原因没有正确同步时，
@@ -535,14 +539,8 @@ export function TopicTeamPanel({
 
       {/* SVG Team Visualization */}
       <div className="relative border-b border-gray-100">
-        <TeamCanvasView
+        <TopicTeamCanvasView
           agents={agents}
-          currentPhase={currentPhase}
-          isRefreshing={isRefreshing}
-          hoveredAgent={hoveredAgent}
-          onHover={setHoveredAgent}
-          selectedAgent={selectedAgent}
-          onSelect={setSelectedAgent}
           teamInfo={teamInfo}
           missionStatus={missionStatus}
           getAgentDisplay={getAgentDisplay}
@@ -791,28 +789,16 @@ export function TopicTeamPanel({
 }
 
 // ============================================
-// SVG Team Canvas View - 参照 WritingCanvasView
+// SVG Team Canvas View - Uses shared TeamTopologyCanvas
 // ============================================
-function TeamCanvasView({
+function TopicTeamCanvasView({
   agents,
-  currentPhase,
-  isRefreshing,
-  hoveredAgent,
-  onHover,
-  selectedAgent,
-  onSelect,
   teamInfo,
   missionStatus,
   getAgentDisplay,
   getAgentRoleInfo,
 }: {
   agents: ResearchAgent[];
-  currentPhase: string;
-  isRefreshing: boolean;
-  hoveredAgent: string | null;
-  onHover: (id: string | null) => void;
-  selectedAgent: string | null;
-  onSelect: (id: string | null) => void;
   teamInfo?: TeamInfo | null;
   missionStatus?: MissionStatus | null;
   getAgentDisplay: (role: string) => {
@@ -827,651 +813,392 @@ function TeamCanvasView({
   };
 }) {
   const { t } = useTranslation();
-  const canvasSize = { width: 320, height: 200 };
 
-  // 计算节点位置
-  const nodePositions = useMemo(() => {
-    const positions = new Map<string, { x: number; y: number }>();
-    const centerX = canvasSize.width / 2;
-
+  // Map ResearchAgent[] → TeamTopologyNode[]
+  const { nodes, rows, connections, legendItems } = useMemo(() => {
     const leader = agents.find((a) => a.role === 'leader');
     const researchers = agents.filter((a) => a.role === 'researcher');
     const reviewer = agents.find((a) => a.role === 'reviewer');
     const synthesizer = agents.find((a) => a.role === 'synthesizer');
 
-    // 布局：Leader -> Researchers -> Reviewer/Synthesizer
-    const row1Y = 40; // Leader
-    const row2Y = 100; // Researchers
-    const row3Y = 160; // Reviewer & Synthesizer
+    const colorMap: Record<string, string> = {
+      purple: 'purple',
+      blue: 'blue',
+      green: 'green',
+      orange: 'orange',
+      gray: 'gray',
+    };
 
-    if (leader) {
-      positions.set(leader.id, { x: centerX, y: row1Y });
-    }
-
-    // Researchers 水平分布
-    const spacing = Math.min(
-      70,
-      (canvasSize.width - 80) / (researchers.length + 1)
-    );
-    researchers.forEach((r, i) => {
-      const totalWidth = (researchers.length - 1) * spacing;
-      const startX = centerX - totalWidth / 2;
-      positions.set(r.id, { x: startX + i * spacing, y: row2Y });
-    });
-
-    // Reviewer 和 Synthesizer
-    if (reviewer && synthesizer) {
-      positions.set(reviewer.id, { x: centerX - 50, y: row3Y });
-      positions.set(synthesizer.id, { x: centerX + 50, y: row3Y });
-    } else if (reviewer) {
-      positions.set(reviewer.id, { x: centerX, y: row3Y });
-    } else if (synthesizer) {
-      positions.set(synthesizer.id, { x: centerX, y: row3Y });
-    }
-
-    return positions;
-  }, [agents, canvasSize]);
-
-  // 渲染连线
-  const renderConnections = () => {
-    const connections: JSX.Element[] = [];
-    const leader = agents.find((a) => a.role === 'leader');
-    const researchers = agents.filter((a) => a.role === 'researcher');
-    const reviewer = agents.find((a) => a.role === 'reviewer');
-    const synthesizer = agents.find((a) => a.role === 'synthesizer');
-
-    if (!leader) return connections;
-    const leaderPos = nodePositions.get(leader.id);
-    if (!leaderPos) return connections;
-
-    // Leader -> Researchers
-    researchers.forEach((r, i) => {
-      const rPos = nodePositions.get(r.id);
-      if (!rPos) return;
-
-      const isActive = currentPhase === 'researching' && r.status === 'working';
-      connections.push(
-        <path
-          key={`leader-${r.id}`}
-          d={`M ${leaderPos.x} ${leaderPos.y + 18} Q ${(leaderPos.x + rPos.x) / 2} ${(leaderPos.y + rPos.y) / 2 - 10} ${rPos.x} ${rPos.y - 18}`}
-          className={`fill-none transition-all duration-300 ${
-            isActive
-              ? 'animate-pulse stroke-blue-400 stroke-[2]'
-              : r.status === 'completed'
-                ? 'stroke-green-400 stroke-[1.5]'
-                : 'stroke-gray-200 stroke-[1]'
-          }`}
-          strokeDasharray={r.status === 'idle' ? '3 3' : 'none'}
-        />
-      );
-    });
-
-    // Researchers -> Reviewer/Synthesizer
-    const bottomAgents = [reviewer, synthesizer].filter(
-      Boolean
-    ) as ResearchAgent[];
-    researchers.forEach((r) => {
-      const rPos = nodePositions.get(r.id);
-      if (!rPos) return;
-
-      bottomAgents.forEach((b) => {
-        const bPos = nodePositions.get(b.id);
-        if (!bPos) return;
-
-        const isActive =
-          (currentPhase === 'reviewing' && b.role === 'reviewer') ||
-          (currentPhase === 'synthesizing' && b.role === 'synthesizer');
-        connections.push(
-          <path
-            key={`${r.id}-${b.id}`}
-            d={`M ${rPos.x} ${rPos.y + 18} Q ${(rPos.x + bPos.x) / 2} ${(rPos.y + bPos.y) / 2} ${bPos.x} ${bPos.y - 18}`}
-            className={`fill-none transition-all duration-300 ${
-              isActive
-                ? 'animate-pulse stroke-blue-400 stroke-[2]'
-                : b.status === 'completed'
-                  ? 'stroke-green-400 stroke-[1.5]'
-                  : 'stroke-gray-200 stroke-[1]'
-            }`}
-            strokeDasharray={b.status === 'idle' ? '3 3' : 'none'}
-          />
-        );
-      });
-    });
-
-    return connections;
-  };
-
-  // 渲染节点
-  const renderNodes = () => {
-    return agents.map((agent) => {
-      const pos = nodePositions.get(agent.id);
-      if (!pos) return null;
-
+    const topoNodes: TeamTopologyNode[] = agents.map((agent) => {
       const display = getAgentDisplay(agent.role);
-      const isLeader = agent.role === 'leader';
-      const isWorking = agent.status === 'working';
-      const isHovered = hoveredAgent === agent.id;
-      const nodeRadius = isLeader ? 18 : 15;
-
-      // 颜色
-      const fillColor = isWorking
-        ? 'fill-blue-500'
-        : agent.status === 'completed'
-          ? 'fill-green-500'
-          : agent.status === 'error'
-            ? 'fill-red-500'
-            : isLeader
-              ? 'fill-purple-500'
-              : 'fill-gray-400';
-
-      return (
-        <g
-          key={agent.id}
-          transform={`translate(${pos.x}, ${pos.y})`}
-          onMouseEnter={() => onHover(agent.id)}
-          onMouseLeave={() => onHover(null)}
-          onClick={() => onSelect(agent.id)}
-          style={{ cursor: 'pointer' }}
-        >
-          {/* 工作中光晕 */}
-          {isWorking && (
-            <circle
-              r={nodeRadius + 6}
-              className="animate-ping fill-blue-400 opacity-30"
-            />
-          )}
-
-          {/* 外圈 */}
-          <circle
-            r={nodeRadius + 3}
-            className={`fill-white ${isHovered ? 'opacity-100' : 'opacity-90'}`}
-            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
-          />
-
-          {/* 主圈 */}
-          <circle
-            r={nodeRadius}
-            className={`${fillColor} stroke-white stroke-2 transition-all duration-200 ${
-              isHovered ? 'scale-110' : ''
-            }`}
-            style={{
-              transformOrigin: 'center',
-              filter: isWorking
-                ? 'drop-shadow(0 0 6px rgba(59,130,246,0.5))'
-                : isLeader
-                  ? 'drop-shadow(0 0 4px rgba(168,85,247,0.4))'
-                  : '',
-            }}
-          />
-
-          {/* 图标 */}
-          <text
-            textAnchor="middle"
-            dy="0.35em"
-            style={{ fontSize: isLeader ? '14px' : '12px' }}
-          >
-            {display.icon}
-          </text>
-
-          {/* 名称 */}
-          <text
-            textAnchor="middle"
-            y={nodeRadius + 12}
-            className="fill-gray-700 font-medium"
-            style={{ fontSize: '9px' }}
-          >
-            {display.name}
-          </text>
-
-          {/* ★ 工作状态标签 */}
-          {agent.workingStatus && (
-            <text
-              textAnchor="middle"
-              y={nodeRadius + 22}
-              className="animate-pulse fill-blue-600 font-medium"
-              style={{ fontSize: '8px' }}
-            >
-              {agent.workingStatus}
-            </text>
-          )}
-
-          {/* 任务计数 */}
-          {agent.taskCount > 0 && (
-            <g transform={`translate(${nodeRadius - 2}, ${-nodeRadius + 2})`}>
-              <circle
-                r="8"
-                className="fill-white"
-                style={{
-                  stroke:
-                    agent.completedCount === agent.taskCount
-                      ? '#22c55e'
-                      : agent.status === 'working'
-                        ? '#3b82f6'
-                        : '#d1d5db',
-                  strokeWidth: 1.5,
-                }}
-              />
-              <text
-                textAnchor="middle"
-                dy="0.35em"
-                className={`font-bold ${
-                  agent.completedCount === agent.taskCount
-                    ? 'fill-green-600'
-                    : agent.status === 'working'
-                      ? 'fill-blue-600'
-                      : 'fill-gray-500'
-                }`}
-                style={{ fontSize: '7px' }}
-              >
-                {agent.completedCount}/{agent.taskCount}
-              </text>
-            </g>
-          )}
-        </g>
-      );
+      return {
+        id: agent.id,
+        name: display.name,
+        role: agent.role,
+        icon: display.icon,
+        status: agent.status,
+        statusLabel: agent.workingStatus,
+        colorKey:
+          agent.role === 'leader'
+            ? 'purple'
+            : colorMap[display.color] || 'gray',
+        isLeader: agent.role === 'leader',
+        taskProgress:
+          agent.taskCount > 0
+            ? { completed: agent.completedCount, total: agent.taskCount }
+            : undefined,
+      };
     });
-  };
+
+    // Build rows: [leader] → [researchers] → [reviewer, synthesizer]
+    const rowIds: string[][] = [];
+    if (leader) rowIds.push([leader.id]);
+    if (researchers.length > 0) rowIds.push(researchers.map((r) => r.id));
+    const bottomRow: string[] = [];
+    if (reviewer) bottomRow.push(reviewer.id);
+    if (synthesizer) bottomRow.push(synthesizer.id);
+    if (bottomRow.length > 0) rowIds.push(bottomRow);
+
+    // Build connections: leader→researchers, researchers→bottom
+    const conns: TeamTopologyConnection[] = [];
+    if (leader) {
+      researchers.forEach((r) => conns.push({ from: leader.id, to: r.id }));
+      [reviewer, synthesizer].forEach((b) => {
+        if (b) {
+          researchers.forEach((r) => conns.push({ from: r.id, to: b.id }));
+        }
+      });
+    }
+
+    const legend: TeamTopologyLegendItem[] = [
+      { color: 'bg-purple-500', label: 'Leader' },
+      {
+        color: 'bg-blue-500',
+        label: t('topicResearch.common.working'),
+        animated: true,
+      },
+      { color: 'bg-green-500', label: t('topicResearch.status.completed') },
+      { color: 'bg-gray-400', label: t('topicResearch.status.idle') },
+    ];
+
+    return {
+      nodes: topoNodes,
+      rows: rowIds,
+      connections: conns,
+      legendItems: legend,
+    };
+  }, [agents, getAgentDisplay, t]);
 
   return (
-    <div className="relative">
-      <svg
-        viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`}
-        className="h-[200px] w-full"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* 背景网格 */}
-        <defs>
-          <pattern
-            id="research-grid"
-            width="20"
-            height="20"
-            patternUnits="userSpaceOnUse"
-          >
-            <path
-              d="M 20 0 L 0 0 0 20"
-              fill="none"
-              stroke="#f5f5f5"
-              strokeWidth="0.5"
-            />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#research-grid)" />
+    <TeamTopologyCanvas
+      nodes={nodes}
+      rows={rows}
+      connections={connections}
+      patternId="topic-research"
+      legendItems={legendItems}
+      renderTooltip={(node) => {
+        const agent = agents.find((a) => a.id === node.id);
+        if (!agent) return null;
+        const display = getAgentDisplay(agent.role);
+        return (
+          <div className="text-xs">
+            <div className="font-semibold text-gray-800">
+              {display.icon} {agent.name}
+            </div>
+            <div className="mt-0.5 text-gray-500">
+              {agent.taskCount > 0
+                ? t('topicResearch.common.taskProgress', {
+                    completed: agent.completedCount,
+                    total: agent.taskCount,
+                  })
+                : t('topicResearch.common.noTasks')}
+            </div>
+            {agent.status === 'working' && (
+              <div className="mt-0.5 text-blue-600">
+                {t('topicResearch.common.executing')}
+              </div>
+            )}
+          </div>
+        );
+      }}
+      renderDetail={(node, onClose) => {
+        const agent = agents.find((a) => a.id === node.id);
+        if (!agent) return null;
 
-        {/* 连线 */}
-        {renderConnections()}
+        const display = getAgentDisplay(agent.role);
+        const roleInfo = getAgentRoleInfo(agent.role);
 
-        {/* 节点 */}
-        {renderNodes()}
-      </svg>
-
-      {/* 图例 */}
-      <div className="flex items-center justify-center gap-4 border-t border-gray-50 px-3 py-1.5 text-[10px] text-gray-500">
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded-full bg-purple-500"></div>
-          <span>Leader</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></div>
-          <span>{t('topicResearch.common.working')}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-          <span>{t('topicResearch.status.completed')}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-          <span>{t('topicResearch.status.idle')}</span>
-        </div>
-      </div>
-
-      {/* 悬停提示 */}
-      {hoveredAgent &&
-        (() => {
-          const agent = agents.find((a) => a.id === hoveredAgent);
-          const pos = nodePositions.get(hoveredAgent);
-          if (!agent || !pos) return null;
-
-          const display = getAgentDisplay(agent.role);
-          const tooltipX = (pos.x / canvasSize.width) * 100;
-          const tooltipY = (pos.y / canvasSize.height) * 100;
-          const showAbove = tooltipY > 50;
-
-          return (
-            <div
-              className="pointer-events-none absolute z-10 rounded-lg bg-white/95 px-3 py-2 shadow-lg backdrop-blur"
-              style={{
-                left: `${Math.min(Math.max(tooltipX, 20), 80)}%`,
-                top: showAbove ? `${tooltipY - 20}%` : `${tooltipY + 25}%`,
-                transform: 'translateX(-50%)',
-              }}
-            >
-              <div className="text-xs">
-                <div className="font-semibold text-gray-800">
-                  {display.icon} {agent.name}
+        return (
+          <>
+            {/* 点击外部关闭 - 透明遮罩 */}
+            <div className="absolute inset-0 z-20" onClick={onClose} />
+            {/* 详情卡片 */}
+            <div className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+              {/* 头部 - 名称 */}
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
+                    <span className="text-xl">{display.icon}</span>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-800">
+                      {agent.name}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        {display.name}
+                      </span>
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          agent.status === 'working'
+                            ? 'bg-blue-100 text-blue-700'
+                            : agent.status === 'completed'
+                              ? 'bg-green-100 text-green-700'
+                              : agent.status === 'error'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {agent.status === 'working'
+                          ? t('topicResearch.common.working')
+                          : agent.status === 'completed'
+                            ? t('topicResearch.status.completed')
+                            : agent.status === 'error'
+                              ? t('common.error')
+                              : t('topicResearch.status.idle')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-0.5 text-gray-500">
-                  {agent.taskCount > 0
-                    ? t('topicResearch.common.taskProgress', {
+                <button
+                  onClick={onClose}
+                  className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Task Progress */}
+              {agent.taskCount > 0 && (
+                <div className="mb-3 rounded-lg bg-gray-50 px-3 py-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">
+                      {t('topicResearch.common.taskProgressLabel')}
+                    </span>
+                    <span className="font-medium text-gray-700">
+                      {t('topicResearch.common.taskProgressValue', {
                         completed: agent.completedCount,
                         total: agent.taskCount,
-                      })
-                    : t('topicResearch.common.noTasks')}
-                </div>
-                {agent.status === 'working' && (
-                  <div className="mt-0.5 text-blue-600">
-                    {t('topicResearch.common.executing')}
+                      })}
+                    </span>
                   </div>
-                )}
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className={`h-full transition-all ${
+                        agent.completedCount === agent.taskCount
+                          ? 'bg-green-500'
+                          : 'bg-blue-500'
+                      }`}
+                      style={{
+                        width: `${(agent.completedCount / agent.taskCount) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 职责描述 */}
+              <div className="mb-3">
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  {'\u{1F4CB}'} {t('topicResearch.common.responsibilities')}
+                </div>
+                <p className="text-sm text-gray-700">{roleInfo.description}</p>
               </div>
-            </div>
-          );
-        })()}
 
-      {/* Agent 详情弹窗 */}
-      {selectedAgent &&
-        (() => {
-          const agent = agents.find((a) => a.id === selectedAgent);
-          if (!agent) return null;
+              {/* ★ v8.0: 技能 - 优先显示 Leader 分配的真实技能 */}
+              {(() => {
+                const teamAgent = teamInfo?.agents?.find(
+                  (ta) => ta.id === agent.id || ta.id.includes(agent.id)
+                );
+                const realSkills = isValidStringArray(teamAgent?.skills)
+                  ? teamAgent.skills
+                  : undefined;
+                const realTools = isValidStringArray(teamAgent?.tools)
+                  ? teamAgent.tools
+                  : undefined;
+                const hasRealData = !!realSkills || !!realTools;
 
-          const display = getAgentDisplay(agent.role);
-          const roleInfo = getAgentRoleInfo(agent.role);
-
-          return (
-            <>
-              {/* 点击外部关闭 - 透明遮罩 */}
-              <div
-                className="absolute inset-0 z-20"
-                onClick={() => onSelect(null)}
-              />
-              {/* 详情卡片 */}
-              <div className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
-                {/* 头部 - 名称 */}
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
-                      <span className="text-xl">{display.icon}</span>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">
-                        {agent.name}
+                return (
+                  <>
+                    <div className="mb-3">
+                      <div className="mb-1.5 text-xs font-medium text-gray-500">
+                        {'\u{1F3AF}'}{' '}
+                        {hasRealData
+                          ? t('topicResearch.common.assignedSkills')
+                          : t('topicResearch.common.capabilityRange')}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">
-                          {display.name}
-                        </span>
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                            agent.status === 'working'
-                              ? 'bg-blue-100 text-blue-700'
-                              : agent.status === 'completed'
-                                ? 'bg-green-100 text-green-700'
-                                : agent.status === 'error'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {agent.status === 'working'
-                            ? t('topicResearch.common.working')
-                            : agent.status === 'completed'
-                              ? t('topicResearch.status.completed')
-                              : agent.status === 'error'
-                                ? t('common.error')
-                                : t('topicResearch.status.idle')}
-                        </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {realSkills ? (
+                          realSkills.map((skill: string, i: number) => (
+                            <span
+                              key={i}
+                              className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
+                            >
+                              {skill}
+                            </span>
+                          ))
+                        ) : roleInfo.capabilities &&
+                          roleInfo.capabilities.length > 0 ? (
+                          roleInfo.capabilities.map(
+                            (cap: string, i: number) => (
+                              <span
+                                key={i}
+                                className="rounded-full bg-gray-50 px-2.5 py-1 text-xs text-gray-600"
+                              >
+                                {cap}
+                              </span>
+                            )
+                          )
+                        ) : (
+                          <span className="italic text-gray-400">
+                            {t('topicResearch.common.pendingAssignment')}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => onSelect(null)}
-                    className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
 
-                {/* Task Progress */}
-                {agent.taskCount > 0 && (
-                  <div className="mb-3 rounded-lg bg-gray-50 px-3 py-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">
-                        {t('topicResearch.common.taskProgressLabel')}
-                      </span>
-                      <span className="font-medium text-gray-700">
-                        {t('topicResearch.common.taskProgressValue', {
-                          completed: agent.completedCount,
-                          total: agent.taskCount,
-                        })}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className={`h-full transition-all ${
-                          agent.completedCount === agent.taskCount
-                            ? 'bg-green-500'
-                            : 'bg-blue-500'
-                        }`}
-                        style={{
-                          width: `${(agent.completedCount / agent.taskCount) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 职责描述 */}
-                <div className="mb-3">
-                  <div className="mb-1 text-xs font-medium text-gray-500">
-                    📋 {t('topicResearch.common.responsibilities')}
-                  </div>
-                  <p className="text-sm text-gray-700">
-                    {roleInfo.description}
-                  </p>
-                </div>
-
-                {/* ★ v8.0: 技能 - 优先显示 Leader 分配的真实技能 */}
-                {(() => {
-                  // 从 teamInfo 获取匹配的 Agent 信息
-                  const teamAgent = teamInfo?.agents?.find(
-                    (ta) => ta.id === agent.id || ta.id.includes(agent.id)
-                  );
-                  // ★ 使用类型守卫验证数据有效性
-                  const realSkills = isValidStringArray(teamAgent?.skills)
-                    ? teamAgent.skills
-                    : undefined;
-                  const realTools = isValidStringArray(teamAgent?.tools)
-                    ? teamAgent.tools
-                    : undefined;
-                  const hasRealData = !!realSkills || !!realTools;
-
-                  return (
-                    <>
-                      {/* 技能 */}
+                    {hasRealData && realTools && realTools.length > 0 && (
                       <div className="mb-3">
                         <div className="mb-1.5 text-xs font-medium text-gray-500">
-                          🎯{' '}
-                          {hasRealData
-                            ? t('topicResearch.common.assignedSkills')
-                            : t('topicResearch.common.capabilityRange')}
+                          {'\u{1F527}'}{' '}
+                          {t('topicResearch.common.assignedTools')}
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {realSkills ? (
-                            realSkills.map((skill: string, i: number) => (
-                              <span
-                                key={i}
-                                className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
-                              >
-                                {skill}
-                              </span>
-                            ))
-                          ) : roleInfo.capabilities &&
-                            roleInfo.capabilities.length > 0 ? (
-                            roleInfo.capabilities.map(
-                              (cap: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className="rounded-full bg-gray-50 px-2.5 py-1 text-xs text-gray-600"
-                                >
-                                  {cap}
-                                </span>
-                              )
-                            )
-                          ) : (
-                            <span className="italic text-gray-400">
-                              {t('topicResearch.common.pendingAssignment')}
+                          {realTools.map((tool: string, i: number) => (
+                            <span
+                              key={i}
+                              className="rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700"
+                            >
+                              {tool}
                             </span>
-                          )}
+                          ))}
                         </div>
                       </div>
-
-                      {/* 工具 - 仅当有真实数据时显示 */}
-                      {hasRealData && realTools && realTools.length > 0 && (
-                        <div className="mb-3">
-                          <div className="mb-1.5 text-xs font-medium text-gray-500">
-                            🔧 {t('topicResearch.common.assignedTools')}
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {realTools.map((tool: string, i: number) => (
-                              <span
-                                key={i}
-                                className="rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700"
-                              >
-                                {tool}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 配置说明 - 仅当没有真实数据时显示 */}
-                      {!hasRealData && (
-                        <div className="mb-3">
-                          <div className="mb-1.5 text-xs font-medium text-gray-500">
-                            ⚙️ {t('topicResearch.common.configMethod')}
-                          </div>
-                          <p className="text-xs italic text-gray-600">
-                            {roleInfo.note}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-
-                {/* ★ AI 模型 - 显示 Agent 实际使用的模型 */}
-                <div>
-                  <div className="mb-1.5 text-xs font-medium text-gray-500">
-                    🤖 {t('topicResearch.common.aiModel')}
-                  </div>
-                  <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-2">
-                    {agent.role === 'leader' ? (
-                      <span className="font-mono text-sm font-medium text-indigo-700">
-                        {teamInfo?.leaderModel ||
-                          missionStatus?.leaderModelId ||
-                          missionStatus?.leaderModelName ||
-                          t('topicResearch.common.notSpecified')}
-                      </span>
-                    ) : (
-                      (() => {
-                        // ★ 直接通过 assignedAgent 匹配任务，获取该 Agent 使用的模型
-                        const tasks = missionStatus?.tasks || [];
-                        let assignedTasks: TaskStatus[];
-                        if (agent.role === 'researcher') {
-                          assignedTasks = tasks.filter(
-                            (t: TaskStatus) =>
-                              t.assignedAgent === agent.id &&
-                              t.taskType === 'dimension_research'
-                          );
-                        } else if (agent.role === 'reviewer') {
-                          assignedTasks = tasks.filter(
-                            (t: TaskStatus) => t.taskType === 'quality_review'
-                          );
-                        } else if (agent.role === 'synthesizer') {
-                          assignedTasks = tasks.filter(
-                            (t: TaskStatus) => t.taskType === 'report_synthesis'
-                          );
-                        } else {
-                          assignedTasks = [];
-                        }
-
-                        // 收集唯一的模型（displayName 优先，fallback 到 modelId）
-                        const modelEntries = new Map<
-                          string,
-                          { id: string; displayName?: string }
-                        >();
-                        for (const task of assignedTasks) {
-                          if (task.modelId && !modelEntries.has(task.modelId)) {
-                            modelEntries.set(task.modelId, {
-                              id: task.modelId,
-                              displayName: task.modelDisplayName,
-                            });
-                          }
-                        }
-                        const models = [...modelEntries.values()];
-
-                        if (models.length === 0) {
-                          return (
-                            <span className="font-mono text-sm text-gray-400">
-                              {t('topicResearch.common.notSpecified')}
-                            </span>
-                          );
-                        }
-
-                        return (
-                          <div className="flex flex-wrap gap-1">
-                            {models.map((model, idx: number) => (
-                              <span key={model.id}>
-                                <ModelBadge
-                                  modelId={model.id}
-                                  displayName={model.displayName}
-                                  variant="compact"
-                                />
-                                {idx < models.length - 1 && ', '}
-                              </span>
-                            ))}
-                          </div>
-                        );
-                      })()
                     )}
-                  </div>
+
+                    {!hasRealData && (
+                      <div className="mb-3">
+                        <div className="mb-1.5 text-xs font-medium text-gray-500">
+                          {'\u2699\uFE0F'}{' '}
+                          {t('topicResearch.common.configMethod')}
+                        </div>
+                        <p className="text-xs italic text-gray-600">
+                          {roleInfo.note}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* ★ AI 模型 */}
+              <div>
+                <div className="mb-1.5 text-xs font-medium text-gray-500">
+                  {'\u{1F916}'} {t('topicResearch.common.aiModel')}
+                </div>
+                <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-2">
+                  {agent.role === 'leader' ? (
+                    <span className="font-mono text-sm font-medium text-indigo-700">
+                      {teamInfo?.leaderModel ||
+                        missionStatus?.leaderModelId ||
+                        missionStatus?.leaderModelName ||
+                        t('topicResearch.common.notSpecified')}
+                    </span>
+                  ) : (
+                    (() => {
+                      const tasks = missionStatus?.tasks || [];
+                      let assignedTasks: TaskStatus[];
+                      if (agent.role === 'researcher') {
+                        assignedTasks = tasks.filter(
+                          (tk: TaskStatus) =>
+                            tk.assignedAgent === agent.id &&
+                            tk.taskType === 'dimension_research'
+                        );
+                      } else if (agent.role === 'reviewer') {
+                        assignedTasks = tasks.filter(
+                          (tk: TaskStatus) => tk.taskType === 'quality_review'
+                        );
+                      } else if (agent.role === 'synthesizer') {
+                        assignedTasks = tasks.filter(
+                          (tk: TaskStatus) => tk.taskType === 'report_synthesis'
+                        );
+                      } else {
+                        assignedTasks = [];
+                      }
+
+                      const modelEntries = new Map<
+                        string,
+                        { id: string; displayName?: string }
+                      >();
+                      for (const task of assignedTasks) {
+                        if (task.modelId && !modelEntries.has(task.modelId)) {
+                          modelEntries.set(task.modelId, {
+                            id: task.modelId,
+                            displayName: task.modelDisplayName,
+                          });
+                        }
+                      }
+                      const models = [...modelEntries.values()];
+
+                      if (models.length === 0) {
+                        return (
+                          <span className="font-mono text-sm text-gray-400">
+                            {t('topicResearch.common.notSpecified')}
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div className="flex flex-wrap gap-1">
+                          {models.map((model, idx: number) => (
+                            <span key={model.id}>
+                              <ModelBadge
+                                modelId={model.id}
+                                displayName={model.displayName}
+                                variant="compact"
+                              />
+                              {idx < models.length - 1 && ', '}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  )}
                 </div>
               </div>
-            </>
-          );
-        })()}
-    </div>
+            </div>
+          </>
+        );
+      }}
+    />
   );
 }
 
 // ============================================
 // Task Item - 简洁单行显示
 // ============================================
-
-/**
- * 根据进度百分比返回当前阶段描述
- * 进度阶段（匹配后端 dimension-mission.service.ts 的进度计算）：
- * - 0-10%: 收集中 (搜索资料)
- * - 10-30%: 规划中 (Leader 规划大纲)
- * - 30-80%: 研究中 (研究员撰写章节)
- * - 80-100%: 整合中 (Leader 整合报告)
- */
-function getProgressStage(progress: number): string {
-  if (progress < 10) return '收集中';
-  if (progress < 30) return '规划中';
-  if (progress < 80) return '研究中';
-  return '整合中';
-}
 
 function TaskItem({ task }: { task: TaskStatus }) {
   const { t } = useTranslation();

@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,12 +14,8 @@ import {
 } from '@/hooks/useWritingWebSocket';
 import type { Chapter, MissionLogItem } from '@/lib/api/ai-writing';
 import { getMissionLogs, getProjectMissions } from '@/lib/api/ai-writing';
-import {
-  generateDisplayAgentList,
-  matchAgentByName,
-  getAgentDetails,
-  type WritingAgentConfig,
-} from '@/lib/ai-writing/agent-config';
+import { matchAgentByName } from '@/lib/ai-writing/agent-config';
+import { WritingTeamPanel } from '@/components/ai-writing/WritingTeamPanel';
 import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelationshipGraph';
 import ChapterEditPanel from '@/components/ai-writing/ChapterEditPanel';
 import ChapterImportModal from '@/components/ai-writing/ChapterImportModal';
@@ -51,21 +46,6 @@ import { ExportDialog } from '@/components/common/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
 
 import { logger } from '@/lib/utils/logger';
-// Dynamic import for Canvas component
-const WritingCanvas = dynamic(
-  () => import('@/components/ai-writing/WritingCanvas'),
-  { ssr: false }
-);
-
-// 使用统一配置生成 Agent 列表（默认3个作家）
-const WRITING_AGENTS = generateDisplayAgentList(3).map((agent) => ({
-  id: agent.instanceId,
-  name: agent.nameCn,
-  icon: agent.icon,
-  color: agent.color,
-  gradient: agent.gradient,
-  desc: agent.descCn,
-}));
 
 // 根据后端返回的 agentName 匹配到前端配置（使用统一的匹配函数）
 function getAgentConfig(agentName: string | undefined) {
@@ -365,7 +345,6 @@ export default function WritingProjectPage() {
     | 'analysis'
     | 'summaries'
   >('chapters');
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   // Task details messages for showing generation process
   const [taskMessages, setTaskMessages] = useState<
@@ -405,43 +384,6 @@ export default function WritingProjectPage() {
   const taskMessagesEndRef = useRef<HTMLDivElement>(null);
   const lastMissionMessageRef = useRef<string>('');
   const hasLoadedLogsRef = useRef<boolean>(false);
-
-  // Agent 详情数据（使用统一配置动态生成）
-  const agentDetails = useMemo(() => {
-    const details: Record<
-      string,
-      {
-        name: string;
-        role: string;
-        description: string;
-        skills: string[];
-        tools: string[];
-      }
-    > = {};
-
-    // 为所有 Agent 生成详情
-    const agentIds = [
-      'story-architect',
-      'bible-keeper',
-      'writer',
-      'writer-1',
-      'writer-2',
-      'writer-3',
-      'consistency-checker',
-      'editor',
-      // 兼容旧的 ID
-      'architect',
-      'keeper',
-      'checker-1',
-      'checker-2',
-    ];
-
-    for (const id of agentIds) {
-      details[id] = getAgentDetails(id);
-    }
-
-    return details;
-  }, []);
 
   // 处理输入变化，检测 @Leader 提及
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -2076,462 +2018,17 @@ export default function WritingProjectPage() {
 
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
-          {/* Left: AI Team Panel - Compact and Professional */}
-          <div className="flex max-h-full w-80 shrink-0 flex-col rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50/50 shadow-sm">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-gray-100/80 bg-white/60 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-gray-800">
-                  AI 写作团队
-                </h2>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    isMissionRunning
-                      ? 'bg-green-100 text-green-700'
-                      : missionCompleted
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {isMissionRunning
-                    ? '进行中'
-                    : missionCompleted
-                      ? '已完成'
-                      : '待开始'}
-                </span>
-              </div>
-            </div>
-
-            {/* Agent Tree Section */}
-            <div className="px-4 py-5">
-              {/* Status Message */}
-              <div className="mb-4 text-center">
-                <p className="line-clamp-1 text-xs text-slate-500">
-                  {missionMessage || '等待任务开始...'}
-                </p>
-              </div>
-
-              {/* Agent Hierarchy - Professional Grid Layout */}
-              <div className="relative">
-                {/* SVG Connection Lines - Star Topology (all agents connect to Leader) */}
-                <svg
-                  className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-                  viewBox="0 0 272 200"
-                  preserveAspectRatio="xMidYMid meet"
-                  style={{ zIndex: 0 }}
-                >
-                  {/* Leader (center: 136, y: 55) connects to ALL agents */}
-                  {/* Row 1 agents: keeper(30), writer-1(100), writer-2(172), writer-3(242) at y=95 */}
-                  {[30, 100, 172, 242].map((x, i) => (
-                    <path
-                      key={`l2r1-${i}`}
-                      d={`M 136 55 Q ${136 + (x - 136) / 2} 75 ${x} 95`}
-                      fill="none"
-                      stroke={
-                        missionCompleted || isMissionRunning
-                          ? '#10B981'
-                          : '#CBD5E1'
-                      }
-                      strokeWidth="1.5"
-                      strokeDasharray={
-                        missionCompleted || isMissionRunning ? '0' : '4 3'
-                      }
-                    />
-                  ))}
-                  {/* Row 2 agents: checker-1(68), checker-2(136), editor(204) at y=175 */}
-                  {/* All connect directly to Leader (star topology) */}
-                  {[68, 136, 204].map((x, i) => (
-                    <path
-                      key={`l2r2-${i}`}
-                      d={`M 136 55 Q ${136 + (x - 136) / 3} 115 ${x} 175`}
-                      fill="none"
-                      stroke={
-                        missionCompleted || isMissionRunning
-                          ? '#10B981'
-                          : '#CBD5E1'
-                      }
-                      strokeWidth="1.5"
-                      strokeDasharray={
-                        missionCompleted || isMissionRunning ? '0' : '4 3'
-                      }
-                    />
-                  ))}
-                </svg>
-
-                {/* Row 0: Leader */}
-                <div className="relative z-10 mb-5 flex justify-center">
-                  {(() => {
-                    const msg = missionMessage || '';
-                    const isActive =
-                      isMissionRunning &&
-                      ['架构', '规划', '结构', '大纲'].some((kw) =>
-                        msg.includes(kw)
-                      );
-                    return (
-                      <div
-                        className="flex cursor-pointer flex-col items-center"
-                        onClick={() => setSelectedAgent('architect')}
-                      >
-                        <div
-                          className={`mb-1 text-base transition-transform duration-300 ${isActive ? 'scale-110' : ''}`}
-                        >
-                          👑
-                        </div>
-                        <div className="relative">
-                          {/* Pulsing glow ring for active agent */}
-                          {isActive && (
-                            <div className="absolute -inset-1 animate-ping rounded-full bg-violet-400 opacity-75" />
-                          )}
-                          {isActive && (
-                            <div className="absolute -inset-0.5 animate-pulse rounded-full bg-gradient-to-r from-violet-400 to-violet-600 opacity-75 blur-sm" />
-                          )}
-                          <div
-                            className={`relative flex h-12 w-12 items-center justify-center rounded-full text-lg transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
-                              isActive
-                                ? 'scale-110 bg-gradient-to-br from-violet-400 to-violet-600 shadow-lg shadow-violet-200'
-                                : missionCompleted
-                                  ? 'bg-violet-500 shadow-md ring-2 ring-green-300'
-                                  : 'bg-violet-500 shadow-md'
-                            }`}
-                          >
-                            <span className="text-white drop-shadow-md">
-                              📐
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          className={`mt-1 text-xs font-medium ${isActive ? 'text-violet-600' : 'text-slate-700'}`}
-                        >
-                          架构师
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Row 1: 4 Agents */}
-                <div className="relative z-10 mb-5 flex justify-between">
-                  {[
-                    {
-                      id: 'keeper',
-                      icon: '📚',
-                      name: '守护者',
-                      bg: 'bg-indigo-500',
-                      gradient: 'from-indigo-400 to-indigo-600',
-                      text: 'text-indigo-600',
-                      glow: 'shadow-indigo-200',
-                      keywords: ['世界观', '设定', '守护'],
-                    },
-                    {
-                      id: 'writer-1',
-                      icon: '✍️',
-                      name: '作家①',
-                      bg: 'bg-amber-500',
-                      gradient: 'from-amber-400 to-amber-600',
-                      text: 'text-amber-600',
-                      glow: 'shadow-amber-200',
-                      keywords: ['作家', '写作', '创作', '章节', '撰写'],
-                    },
-                    {
-                      id: 'writer-2',
-                      icon: '✍️',
-                      name: '作家②',
-                      bg: 'bg-orange-500',
-                      gradient: 'from-orange-400 to-orange-600',
-                      text: 'text-orange-600',
-                      glow: 'shadow-orange-200',
-                      keywords: ['作家', '写作', '创作', '章节', '撰写'],
-                    },
-                    {
-                      id: 'writer-3',
-                      icon: '✍️',
-                      name: '作家③',
-                      bg: 'bg-yellow-500',
-                      gradient: 'from-yellow-400 to-yellow-600',
-                      text: 'text-yellow-600',
-                      glow: 'shadow-yellow-200',
-                      keywords: ['作家', '写作', '创作', '章节', '撰写'],
-                    },
-                  ].map((agent) => {
-                    const msg = missionMessage || '';
-                    const isActive =
-                      isMissionRunning &&
-                      agent.keywords.some((kw) => msg.includes(kw));
-                    return (
-                      <div
-                        key={agent.id}
-                        className="flex cursor-pointer flex-col items-center"
-                        onClick={() => setSelectedAgent(agent.id)}
-                      >
-                        <div className="relative">
-                          {/* Pulsing glow for active agent */}
-                          {isActive && (
-                            <div
-                              className={`absolute -inset-1 animate-ping rounded-full ${agent.bg} opacity-75`}
-                            />
-                          )}
-                          {isActive && (
-                            <div
-                              className={`absolute -inset-0.5 animate-pulse rounded-full bg-gradient-to-r ${agent.gradient} opacity-75 blur-sm`}
-                            />
-                          )}
-                          <div
-                            className={`relative flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
-                              isActive
-                                ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
-                                : missionCompleted
-                                  ? `${agent.bg} shadow-md ring-2 ring-green-300`
-                                  : `${agent.bg} shadow-md`
-                            }`}
-                          >
-                            <span className="text-white drop-shadow">
-                              {agent.icon}
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          className={`mt-1 text-[10px] ${isActive ? `font-semibold ${agent.text}` : 'text-slate-600'}`}
-                        >
-                          {agent.name}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Row 2: 3 Agents */}
-                <div className="relative z-10 flex justify-between px-8">
-                  {[
-                    {
-                      id: 'checker-1',
-                      icon: '🔍',
-                      name: '检查①',
-                      bg: 'bg-green-500',
-                      gradient: 'from-green-400 to-green-600',
-                      text: 'text-green-600',
-                      glow: 'shadow-green-200',
-                      keywords: ['检查', '校验', '一致性', '审核', '检查员'],
-                    },
-                    {
-                      id: 'checker-2',
-                      icon: '🔍',
-                      name: '检查②',
-                      bg: 'bg-emerald-500',
-                      gradient: 'from-emerald-400 to-emerald-600',
-                      text: 'text-emerald-600',
-                      glow: 'shadow-emerald-200',
-                      keywords: ['检查', '校验', '一致性', '审核', '检查员'],
-                    },
-                    {
-                      id: 'editor',
-                      icon: '📝',
-                      name: '编辑',
-                      bg: 'bg-pink-500',
-                      gradient: 'from-pink-400 to-pink-600',
-                      text: 'text-pink-600',
-                      glow: 'shadow-pink-200',
-                      keywords: ['编辑', '润色', '打磨', '优化'],
-                    },
-                  ].map((agent) => {
-                    const msg = missionMessage || '';
-                    const isActive =
-                      isMissionRunning &&
-                      agent.keywords.some((kw) => msg.includes(kw));
-                    return (
-                      <div
-                        key={agent.id}
-                        className="flex cursor-pointer flex-col items-center"
-                        onClick={() => setSelectedAgent(agent.id)}
-                      >
-                        <div className="relative">
-                          {/* Pulsing glow for active agent */}
-                          {isActive && (
-                            <div
-                              className={`absolute -inset-1 animate-ping rounded-full ${agent.bg} opacity-75`}
-                            />
-                          )}
-                          {isActive && (
-                            <div
-                              className={`absolute -inset-0.5 animate-pulse rounded-full bg-gradient-to-r ${agent.gradient} opacity-75 blur-sm`}
-                            />
-                          )}
-                          <div
-                            className={`relative flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
-                              isActive
-                                ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
-                                : missionCompleted
-                                  ? `${agent.bg} shadow-md ring-2 ring-green-300`
-                                  : `${agent.bg} shadow-md`
-                            }`}
-                          >
-                            <span className="text-white drop-shadow">
-                              {agent.icon}
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          className={`mt-1 text-[10px] ${isActive ? `font-semibold ${agent.text}` : 'text-slate-600'}`}
-                        >
-                          {agent.name}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Steps Section */}
-            <div className="mx-4 mb-4 rounded-xl bg-slate-50/80 p-4">
-              <div className="space-y-2.5">
-                {[
-                  {
-                    id: 'keeper',
-                    label: '建立世界观设定',
-                    icon: '📚',
-                    keywords: ['世界观', '设定', '守护'],
-                  },
-                  {
-                    id: 'architect',
-                    label: '规划故事结构',
-                    icon: '👑',
-                    keywords: ['架构', '规划', '结构', '大纲'],
-                  },
-                  {
-                    id: 'writer',
-                    label: '创作故事内容',
-                    icon: '✍️',
-                    keywords: ['作家', '写作', '创作', '章节', '撰写'],
-                  },
-                  {
-                    id: 'checker',
-                    label: '校验内容一致性',
-                    icon: '🔍',
-                    keywords: ['检查', '校验', '一致性', '审核', '检查员'],
-                  },
-                  {
-                    id: 'editor',
-                    label: '润色文字表达',
-                    icon: '🎨',
-                    keywords: ['编辑', '润色', '打磨', '优化'],
-                  },
-                ].map((step, idx) => {
-                  const msg = missionMessage || '';
-                  const isStepActive =
-                    isMissionRunning &&
-                    step.keywords.some((kw) => msg.includes(kw));
-                  const stepThreshold = (idx + 1) * 20;
-                  const isDone =
-                    missionProgress >= stepThreshold && !isStepActive;
-                  return (
-                    <div key={step.id} className="flex items-center gap-3">
-                      <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs transition-all ${
-                          isStepActive
-                            ? 'animate-pulse bg-amber-500 text-white ring-2 ring-amber-200'
-                            : isDone
-                              ? 'bg-green-500 text-white'
-                              : 'bg-gray-200 text-gray-400'
-                        }`}
-                      >
-                        {isDone ? '✓' : step.icon}
-                      </div>
-                      <span
-                        className={`text-sm ${
-                          isStepActive
-                            ? 'font-medium text-amber-700'
-                            : isDone
-                              ? 'text-green-700'
-                              : 'text-gray-400'
-                        }`}
-                      >
-                        {step.label}
-                        {isStepActive && (
-                          <span className="ml-1 text-amber-500">...</span>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Progress Bar */}
-              <div className="mt-4 border-t border-slate-200/80 pt-3">
-                <div className="mb-1.5 flex justify-between text-xs">
-                  <span className="text-slate-500">整体进度</span>
-                  <span className="font-semibold text-amber-600">
-                    {Math.round(missionProgress)}%
-                  </span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      missionCompleted
-                        ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                        : 'bg-gradient-to-r from-amber-400 to-orange-500'
-                    }`}
-                    style={{ width: `${missionProgress}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Stuck Mission Warning - 带强制取消按钮 */}
-              {isStuckMission && (
-                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
-                  <div className="flex items-start gap-2">
-                    <svg
-                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-red-800">
-                        任务已卡住
-                      </p>
-                      <p className="mt-0.5 text-xs text-red-600">
-                        后台任务状态异常，请点击下方按钮强制取消后重新开始。
-                      </p>
-                      <button
-                        onClick={handleCancelMission}
-                        className="mt-2 rounded bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
-                      >
-                        🛑 强制取消任务
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Action Buttons - 始终显示，确保用户可以操作 */}
-            <div className="sticky bottom-0 z-10 flex items-center justify-center gap-2 border-t border-gray-100/80 bg-white px-4 py-3 shadow-lg">
-              {/* 主按钮：开始/继续创作 */}
-              <button
-                onClick={handleContinueWriting}
-                className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
-              >
-                <span>{(allChapters?.length || 0) === 0 ? '✨' : '📝'}</span>
-                {(allChapters?.length || 0) === 0 ? '开始创作' : '继续创作'}
-              </button>
-
-              {/* 取消按钮：始终显示，方便用户取消卡住的任务 */}
-              <button
-                onClick={handleCancelMission}
-                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-              >
-                <span>⏹</span>
-                取消任务
-              </button>
-            </div>
-          </div>
+          {/* Left: AI Team Panel */}
+          <WritingTeamPanel
+            isMissionRunning={isMissionRunning}
+            missionCompleted={missionCompleted}
+            missionMessage={missionMessage}
+            missionProgress={missionProgress}
+            isStuckMission={isStuckMission}
+            chaptersCount={allChapters?.length || 0}
+            onContinueWriting={handleContinueWriting}
+            onCancelMission={handleCancelMission}
+          />
 
           {/* Right: Content Area */}
           <div className="flex min-w-0 flex-1 flex-col">
@@ -3282,36 +2779,27 @@ export default function WritingProjectPage() {
                                                                     name,
                                                                     rel,
                                                                   ]) => {
+                                                                    const relObj =
+                                                                      typeof rel ===
+                                                                        'object' &&
+                                                                      rel !==
+                                                                        null
+                                                                        ? (rel as Record<
+                                                                            string,
+                                                                            unknown
+                                                                          >)
+                                                                        : null;
                                                                     const relStr =
                                                                       typeof rel ===
                                                                       'string'
                                                                         ? rel
-                                                                        : typeof rel ===
-                                                                              'object' &&
-                                                                            rel !==
-                                                                              null
-                                                                          ? (
-                                                                              rel as Record<
-                                                                                string,
-                                                                                unknown
-                                                                              >
+                                                                        : relObj
+                                                                          ? String(
+                                                                              relObj.type ||
+                                                                                relObj.relation ||
+                                                                                relObj.description ||
+                                                                                ''
                                                                             )
-                                                                              .type ||
-                                                                            (
-                                                                              rel as Record<
-                                                                                string,
-                                                                                unknown
-                                                                              >
-                                                                            )
-                                                                              .relation ||
-                                                                            (
-                                                                              rel as Record<
-                                                                                string,
-                                                                                unknown
-                                                                              >
-                                                                            )
-                                                                              .description ||
-                                                                            ''
                                                                           : String(
                                                                               rel
                                                                             );
@@ -4303,110 +3791,6 @@ export default function WritingProjectPage() {
                 setIsEditingChapter(false);
               }}
             />
-          </div>
-        )}
-
-        {/* Agent Details Modal */}
-        {selectedAgent && agentDetails[selectedAgent] && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => setSelectedAgent(null)}
-          >
-            <div
-              className="relative mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-xl text-white shadow-md">
-                    {selectedAgent === 'architect' && '📐'}
-                    {selectedAgent === 'keeper' && '📚'}
-                    {selectedAgent.startsWith('writer') && '✍️'}
-                    {selectedAgent.startsWith('checker') && '🔍'}
-                    {selectedAgent === 'editor' && '📝'}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {agentDetails[selectedAgent].name}
-                    </h3>
-                    <span className="text-sm text-gray-500">
-                      {agentDetails[selectedAgent].role}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedAgent(null)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="px-6 py-4">
-                {/* Description */}
-                <p className="text-sm leading-relaxed text-gray-600">
-                  {agentDetails[selectedAgent].description}
-                </p>
-
-                {/* Skills */}
-                <div className="mt-4">
-                  <h4 className="mb-2 text-sm font-semibold text-gray-800">
-                    技能
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {agentDetails[selectedAgent].skills.map((skill) => (
-                      <span
-                        key={skill}
-                        className="rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tools */}
-                <div className="mt-4">
-                  <h4 className="mb-2 text-sm font-semibold text-gray-800">
-                    工具
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {agentDetails[selectedAgent].tools.map((tool) => (
-                      <span
-                        key={tool}
-                        className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700"
-                      >
-                        {tool}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex items-center justify-end border-t border-gray-100 px-6 py-4">
-                <button
-                  onClick={() => setSelectedAgent(null)}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  关闭
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
