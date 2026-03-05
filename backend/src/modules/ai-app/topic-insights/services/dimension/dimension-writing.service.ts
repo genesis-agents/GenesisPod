@@ -577,6 +577,7 @@ export class DimensionWritingService {
         temporalContext,
         allocatedFigures: section.allocatedFigures,
         validationContext,
+        topicLanguage: topic?.language, // ★ 传递语言设置
         assignedSkills, // ★ Leader 分配的任务级技能
       }));
 
@@ -701,6 +702,7 @@ export class DimensionWritingService {
               revisionInstructions: review.revisionInstructions || "",
               evidenceData,
               modelId,
+              topicLanguage: topic?.language, // ★ 传递语言设置
               assignedSkills, // ★ Leader 分配的任务级技能
             });
           } catch (revisionError) {
