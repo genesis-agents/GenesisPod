@@ -72,6 +72,12 @@ const DEFAULT_RULES = [
     baseCredits: 50,
     name: "AI编辑报告",
   },
+  {
+    moduleType: "topic-insights",
+    operationType: "research",
+    baseCredits: 500,
+    name: "专题研究执行",
+  },
 
   // ============================================
   // Notebook Research (笔记本研究)

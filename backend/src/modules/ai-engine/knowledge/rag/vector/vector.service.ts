@@ -6,7 +6,7 @@
  * 支持 HNSW 索引，百万级向量毫秒响应
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
@@ -45,10 +45,30 @@ export interface VectorSearchResult {
 }
 
 @Injectable()
-export class VectorService {
+export class VectorService implements OnModuleInit {
   private readonly logger = new Logger(VectorService.name);
+  private pgvectorAvailable = false;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    try {
+      await this.prisma.$executeRawUnsafe(
+        "CREATE EXTENSION IF NOT EXISTS vector",
+      );
+      this.pgvectorAvailable = true;
+      this.logger.log("[onModuleInit] pgvector extension is ready");
+    } catch (error) {
+      this.pgvectorAvailable = false;
+      this.logger.warn(
+        `[onModuleInit] pgvector not available, vector search disabled: ${error}`,
+      );
+    }
+  }
+
+  isPgvectorAvailable(): boolean {
+    return this.pgvectorAvailable;
+  }
 
   /**
    * 相似度搜索（使用 pgvector <=> 余弦距离运算符）

@@ -83,6 +83,7 @@ const OPERATION_NAMES: Record<string, string> = {
   // Topic Research
   refresh: 'Refresh',
   create: 'Create',
+  research: 'Research',
   // AI Teams
   'ai-reply': 'AI Reply',
   debate: 'Debate',

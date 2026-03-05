@@ -186,15 +186,24 @@ Focus on being specific and informative.`;
   ): Promise<SearchResult[]> {
     const { queryEmbedding, queryText, knowledgeBaseIds, topK, alpha } = params;
 
-    // Get vector search results using VectorService
-    const vectorResults = await this.vectorService.similaritySearch(
-      queryEmbedding,
-      {
-        knowledgeBaseIds,
-        limit: topK * 2, // Get more for fusion
-        threshold: 0.2,
-      },
-    );
+    // Get vector search results using VectorService (graceful degradation)
+    let vectorResults: Awaited<
+      ReturnType<typeof this.vectorService.similaritySearch>
+    > = [];
+    try {
+      vectorResults = await this.vectorService.similaritySearch(
+        queryEmbedding,
+        {
+          knowledgeBaseIds,
+          limit: topK * 2, // Get more for fusion
+          threshold: 0.2,
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[hybridSearch] Vector search failed, using keyword-only: ${error}`,
+      );
+    }
 
     this.logger.log(
       `[hybridSearch] Vector search returned ${vectorResults.length} results, top similarity: ${vectorResults[0]?.similarity?.toFixed(4) || "N/A"}`,
@@ -374,21 +383,29 @@ Focus on being specific and informative.`;
     knowledgeBaseIds: string[],
     topK: number,
   ): Promise<SearchResult[]> {
-    const results = await this.vectorService.similaritySearch(queryEmbedding, {
-      knowledgeBaseIds,
-      limit: topK,
-      threshold: 0.2,
-    });
+    try {
+      const results = await this.vectorService.similaritySearch(
+        queryEmbedding,
+        {
+          knowledgeBaseIds,
+          limit: topK,
+          threshold: 0.2,
+        },
+      );
 
-    return results.map((r) => ({
-      childChunkId: r.childChunkId,
-      parentChunkId: r.parentChunkId,
-      documentId: r.documentId,
-      content: r.content,
-      parentContent: r.parentContent,
-      score: r.similarity,
-      vectorScore: r.similarity,
-    }));
+      return results.map((r) => ({
+        childChunkId: r.childChunkId,
+        parentChunkId: r.parentChunkId,
+        documentId: r.documentId,
+        content: r.content,
+        parentContent: r.parentContent,
+        score: r.similarity,
+        vectorScore: r.similarity,
+      }));
+    } catch (error) {
+      this.logger.warn(`[vectorSearch] Vector search failed: ${error}`);
+      return [];
+    }
   }
 
   /**
