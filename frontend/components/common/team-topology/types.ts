@@ -34,6 +34,8 @@ export interface TeamTopologyNode {
   colorKey: string;
   /** true → larger node radius (18 vs 15) */
   isLeader?: boolean;
+  /** When set, renders a cartoon avatar instead of circle+icon. Value maps to ROLE_AVATAR_MAP key. */
+  avatarRole?: string;
   /** Task progress badge (top-right corner) */
   taskProgress?: { completed: number; total: number };
 }

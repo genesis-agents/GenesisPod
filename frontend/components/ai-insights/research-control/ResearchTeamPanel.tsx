@@ -19,6 +19,7 @@ import { Award } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
   TeamTopologyCanvas,
+  AVATAR_ROW_Y,
   type TeamTopologyNode,
   type TeamTopologyConnection,
   type TeamTopologyLegendItem,
@@ -173,6 +174,7 @@ export function ResearchTeamPanel({
         status: isRefreshing ? 'working' : 'idle',
         colorKey: 'purple',
         isLeader: true,
+        avatarRole: 'leader',
       });
       infoMap.set(leaderId, {
         id: leaderId,
@@ -211,6 +213,7 @@ export function ResearchTeamPanel({
           icon: agentIcons.dimension_researcher,
           status: researcher?.status || 'idle',
           colorKey: 'blue',
+          avatarRole: 'dimension_researcher',
         });
         infoMap.set(id, {
           id,
@@ -248,6 +251,7 @@ export function ResearchTeamPanel({
         icon: agentIcons.quality_reviewer,
         status: reviewer?.status || 'idle',
         colorKey: 'green',
+        avatarRole: 'quality_reviewer',
       });
       infoMap.set(reviewerId, {
         id: reviewerId,
@@ -278,6 +282,7 @@ export function ResearchTeamPanel({
         icon: agentIcons.report_writer,
         status: writer?.status || 'idle',
         colorKey: 'orange',
+        avatarRole: 'report_writer',
       });
       infoMap.set(writerId, {
         id: writerId,
@@ -359,6 +364,9 @@ export function ResearchTeamPanel({
           nodes={topoNodes}
           rows={rows}
           connections={connections}
+          heightClass="h-[280px]"
+          viewBoxHeight={280}
+          rowYPositions={[...AVATAR_ROW_Y]}
           patternId="research-star"
           legendItems={legendItems}
           renderTooltip={(node) => {

@@ -20,12 +20,16 @@ import { cn } from '@/lib/utils/common';
 import type { TeamTopologyCanvasProps, TeamTopologyNode } from './types';
 import {
   TEAM_NODE_FILL_COLORS,
+  TEAM_NODE_TEXT_COLORS,
   TEAM_STATUS_FILL,
+  TEAM_STATUS_TEXT,
   NODE_RADIUS,
+  AVATAR_SIZE,
   DEFAULT_VIEWBOX,
   DEFAULT_ROW_Y,
   DEFAULT_LEGEND_ITEMS,
 } from './constants';
+import { ROLE_AVATAR_MAP } from './avatars';
 
 export function TeamTopologyCanvas({
   nodes,
@@ -96,11 +100,19 @@ export function TeamTopologyCanvas({
       const midX = (fromPos.x + toPos.x) / 2;
       const midY = (fromPos.y + toPos.y) / 2 - 10;
 
-      // Offset by node radius to avoid overlapping circles
-      const fromR = fromNode?.isLeader
-        ? NODE_RADIUS.leader
-        : NODE_RADIUS.member;
-      const toR = toNode?.isLeader ? NODE_RADIUS.leader : NODE_RADIUS.member;
+      // Offset: use avatar half-height for avatar nodes, radius for circle nodes
+      const fromR =
+        fromNode?.avatarRole && ROLE_AVATAR_MAP[fromNode.avatarRole]
+          ? (fromNode.isLeader ? AVATAR_SIZE.leader : AVATAR_SIZE.member) / 2
+          : fromNode?.isLeader
+            ? NODE_RADIUS.leader
+            : NODE_RADIUS.member;
+      const toR =
+        toNode?.avatarRole && ROLE_AVATAR_MAP[toNode.avatarRole]
+          ? (toNode.isLeader ? AVATAR_SIZE.leader : AVATAR_SIZE.member) / 2
+          : toNode?.isLeader
+            ? NODE_RADIUS.leader
+            : NODE_RADIUS.member;
 
       return (
         <path
@@ -129,7 +141,16 @@ export function TeamTopologyCanvas({
     return TEAM_NODE_FILL_COLORS[node.colorKey] || 'fill-gray-400';
   };
 
-  // Render nodes (6-layer rendering)
+  // Get text accent color class for avatar mode (currentColor driver)
+  const getAccentTextClass = (node: TeamTopologyNode): string => {
+    if (node.status === 'working') return TEAM_STATUS_TEXT.working;
+    if (node.status === 'completed') return TEAM_STATUS_TEXT.completed;
+    if (node.status === 'error' || node.status === 'failed')
+      return TEAM_STATUS_TEXT.error;
+    return TEAM_NODE_TEXT_COLORS[node.colorKey] || 'text-gray-400';
+  };
+
+  // Render nodes (6-layer rendering + avatar branch)
   const renderNodes = () => {
     return nodes.map((node) => {
       const pos = nodePositions.get(node.id);
@@ -137,6 +158,171 @@ export function TeamTopologyCanvas({
 
       const isHovered = hoveredNodeId === node.id;
       const isWorking = node.status === 'working';
+      const isCompleted = node.status === 'completed';
+      const isError = node.status === 'error' || node.status === 'failed';
+
+      // Avatar path: resolve avatarRole → component
+      const AvatarComponent = node.avatarRole
+        ? ROLE_AVATAR_MAP[node.avatarRole]
+        : undefined;
+
+      if (AvatarComponent) {
+        // ── Avatar rendering branch ──
+        const avatarH = node.isLeader ? AVATAR_SIZE.leader : AVATAR_SIZE.member;
+        const avatarW = avatarH * 0.6;
+        const textClass = getAccentTextClass(node);
+
+        return (
+          <g
+            key={node.id}
+            transform={`translate(${pos.x}, ${pos.y})`}
+            onMouseEnter={() => setHoveredNodeId(node.id)}
+            onMouseLeave={() => setHoveredNodeId(null)}
+            onClick={() => setSelectedNodeId(node.id)}
+            style={{ cursor: 'pointer' }}
+          >
+            {/* Working glow (ellipse under feet) */}
+            {isWorking && (
+              <ellipse
+                cx={0}
+                cy={avatarH / 2 + 2}
+                rx={avatarW / 2 + 4}
+                ry={3}
+                className="animate-ping fill-blue-400 opacity-25"
+              />
+            )}
+
+            {/* Avatar via foreignObject (carries currentColor) */}
+            <foreignObject
+              x={-avatarW / 2}
+              y={-avatarH / 2}
+              width={avatarW}
+              height={avatarH}
+            >
+              <div
+                className={cn(
+                  'flex h-full w-full items-center justify-center transition-transform duration-200',
+                  textClass,
+                  isHovered && 'scale-110'
+                )}
+                style={{ transformOrigin: 'center bottom' }}
+              >
+                <AvatarComponent
+                  size={avatarH}
+                  status={node.status}
+                  isLeader={node.isLeader}
+                />
+              </div>
+            </foreignObject>
+
+            {/* Status badge (top-right): completed ✓ or error ✗ — skip when taskProgress is present to avoid overlap */}
+            {(isCompleted || isError) &&
+              !(node.taskProgress && node.taskProgress.total > 0) && (
+                <>
+                  <circle
+                    cx={avatarW / 2 - 2}
+                    cy={-avatarH / 2 + 4}
+                    r="5"
+                    className={isCompleted ? 'fill-green-500' : 'fill-red-500'}
+                  />
+                  {isCompleted && (
+                    <path
+                      d={`M ${avatarW / 2 - 5} ${-avatarH / 2 + 4} l 2 2 l 3 -3`}
+                      stroke="#FFF"
+                      strokeWidth="1.2"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  )}
+                  {isError && (
+                    <g
+                      transform={`translate(${avatarW / 2 - 2}, ${-avatarH / 2 + 4})`}
+                    >
+                      <line
+                        x1="-2"
+                        y1="-2"
+                        x2="2"
+                        y2="2"
+                        stroke="#FFF"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="2"
+                        y1="-2"
+                        x2="-2"
+                        y2="2"
+                        stroke="#FFF"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  )}
+                </>
+              )}
+
+            {/* Name label (below avatar) */}
+            <text
+              textAnchor="middle"
+              y={avatarH / 2 + 12}
+              className="fill-gray-700 font-medium"
+              style={{ fontSize: '9px' }}
+            >
+              {node.name.length > 6 ? node.name.slice(0, 6) : node.name}
+            </text>
+
+            {/* Working status label */}
+            {node.statusLabel && (
+              <text
+                textAnchor="middle"
+                y={avatarH / 2 + 22}
+                className="animate-pulse fill-blue-600 font-medium"
+                style={{ fontSize: '8px' }}
+              >
+                {node.statusLabel}
+              </text>
+            )}
+
+            {/* Task progress badge */}
+            {node.taskProgress && node.taskProgress.total > 0 && (
+              <g
+                transform={`translate(${avatarW / 2 + 2}, ${-avatarH / 2 + 2})`}
+              >
+                <circle
+                  r="8"
+                  className="fill-white"
+                  style={{
+                    stroke:
+                      node.taskProgress.completed === node.taskProgress.total
+                        ? '#22c55e'
+                        : isWorking
+                          ? '#3b82f6'
+                          : '#d1d5db',
+                    strokeWidth: 1.5,
+                  }}
+                />
+                <text
+                  textAnchor="middle"
+                  dy="0.35em"
+                  className={`font-bold ${
+                    node.taskProgress.completed === node.taskProgress.total
+                      ? 'fill-green-600'
+                      : isWorking
+                        ? 'fill-blue-600'
+                        : 'fill-gray-500'
+                  }`}
+                  style={{ fontSize: '7px' }}
+                >
+                  {node.taskProgress.completed}/{node.taskProgress.total}
+                </text>
+              </g>
+            )}
+          </g>
+        );
+      }
+
+      // ── Circle rendering (original) ──
       const nodeRadius = node.isLeader
         ? NODE_RADIUS.leader
         : NODE_RADIUS.member;

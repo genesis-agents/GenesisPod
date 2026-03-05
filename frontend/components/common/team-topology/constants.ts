@@ -60,6 +60,39 @@ export const DEFAULT_VIEWBOX = {
 /** Default row Y positions */
 export const DEFAULT_ROW_Y = [40, 100, 160] as const;
 
+/** Avatar sizes (height in SVG units) */
+export const AVATAR_SIZE = {
+  leader: 50,
+  member: 42,
+} as const;
+
+/** Row Y positions for avatar mode (taller canvas) */
+export const AVATAR_ROW_Y = [55, 145, 235] as const;
+
+/** Text color by colorKey (for currentColor-driven avatars) */
+export const TEAM_NODE_TEXT_COLORS: Record<string, string> = {
+  purple: 'text-purple-500',
+  blue: 'text-blue-500',
+  green: 'text-green-500',
+  amber: 'text-amber-500',
+  orange: 'text-orange-500',
+  red: 'text-red-500',
+  rose: 'text-rose-500',
+  indigo: 'text-indigo-500',
+  emerald: 'text-emerald-500',
+  pink: 'text-pink-500',
+  yellow: 'text-yellow-500',
+  gray: 'text-gray-400',
+};
+
+/** Status-based text color overrides (for avatar mode) */
+export const TEAM_STATUS_TEXT: Record<string, string> = {
+  working: 'text-blue-500',
+  completed: 'text-green-500',
+  error: 'text-red-500',
+  failed: 'text-red-500',
+};
+
 /** Default legend items */
 export const DEFAULT_LEGEND_ITEMS = [
   { color: 'bg-purple-500', label: 'Leader', animated: false },

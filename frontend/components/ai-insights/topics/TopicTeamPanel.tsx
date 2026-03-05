@@ -15,6 +15,7 @@ import { useTranslation } from '@/lib/i18n';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import {
   TeamTopologyCanvas,
+  AVATAR_ROW_Y,
   type TeamTopologyNode,
   type TeamTopologyConnection,
   type TeamTopologyLegendItem,
@@ -843,6 +844,7 @@ function TopicTeamCanvasView({
             ? 'purple'
             : colorMap[display.color] || 'gray',
         isLeader: agent.role === 'leader',
+        avatarRole: agent.role,
         taskProgress:
           agent.taskCount > 0
             ? { completed: agent.completedCount, total: agent.taskCount }
@@ -894,6 +896,9 @@ function TopicTeamCanvasView({
       nodes={nodes}
       rows={rows}
       connections={connections}
+      heightClass="h-[280px]"
+      viewBoxHeight={280}
+      rowYPositions={[...AVATAR_ROW_Y]}
       patternId="topic-research"
       legendItems={legendItems}
       renderTooltip={(node) => {

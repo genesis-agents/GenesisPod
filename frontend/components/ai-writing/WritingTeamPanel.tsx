@@ -15,6 +15,7 @@
 import { useMemo } from 'react';
 import {
   TeamTopologyCanvas,
+  AVATAR_ROW_Y,
   type TeamTopologyNode,
   type TeamTopologyConnection,
   type TeamTopologyLegendItem,
@@ -112,6 +113,7 @@ export function WritingTeamPanel({
         statusLabel: isActive ? '工作中' : undefined,
         colorKey: agent.colorKey,
         isLeader: 'isLeader' in agent ? agent.isLeader : undefined,
+        avatarRole: agent.id,
       };
     });
 
@@ -167,6 +169,9 @@ export function WritingTeamPanel({
           nodes={nodes}
           rows={WRITING_ROWS}
           connections={connections}
+          heightClass="h-[280px]"
+          viewBoxHeight={280}
+          rowYPositions={[...AVATAR_ROW_Y]}
           patternId="writing"
           legendItems={legendItems}
           renderDetail={(node, onClose) => {

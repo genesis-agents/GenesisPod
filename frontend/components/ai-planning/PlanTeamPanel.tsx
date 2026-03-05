@@ -18,6 +18,7 @@ import ReplanModal from '@/components/ai-planning/ReplanModal';
 import {
   TeamTopologyCanvas,
   TEAM_DETAIL_BG_COLORS,
+  AVATAR_ROW_Y,
   type TeamTopologyNode,
   type TeamTopologyConnection,
   type TeamTopologyLegendItem,
@@ -440,6 +441,7 @@ function PlanTeamCanvasView({
             : undefined,
           colorKey: role.color,
           isLeader: index === 0,
+          avatarRole: role.key,
         };
       }
     );
@@ -471,6 +473,9 @@ function PlanTeamCanvasView({
       nodes={nodes}
       rows={PLAN_ROWS}
       connections={connections}
+      heightClass="h-[280px]"
+      viewBoxHeight={280}
+      rowYPositions={[...AVATAR_ROW_Y]}
       patternId="plan"
       legendItems={legendItems}
       renderTooltip={(node) => {
