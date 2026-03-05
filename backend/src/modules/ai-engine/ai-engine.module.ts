@@ -306,6 +306,21 @@ export class AiEngineModule implements OnModuleInit {
         this.logger.warn(
           `  → These configs will be ignored. Consider removing them from the database.`,
         );
+
+        // ★ 自动清理孤立配置
+        try {
+          const orphanedIds = orphanedConfigs.map((c) => c.toolId);
+          await this.prisma.toolConfig.deleteMany({
+            where: { toolId: { in: orphanedIds } },
+          });
+          this.logger.log(
+            `[T4] Auto-cleaned ${orphanedIds.length} orphaned ToolConfig entries`,
+          );
+        } catch (cleanupError) {
+          this.logger.error(
+            `[T4] Failed to cleanup orphaned ToolConfigs: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+          );
+        }
       }
 
       // 统计：有多少注册的工具在数据库中有配置

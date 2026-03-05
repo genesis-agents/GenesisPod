@@ -143,18 +143,23 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
           continue; // Skip this tenant, they're at capacity
         }
 
-        // Transition to RUNNING
+        // Transition to RUNNING (updateMany avoids P2025 on race condition)
         try {
-          await this.prisma.agentProcess.update({
+          const { count } = await this.prisma.agentProcess.updateMany({
             where: { id: process.id, state: "READY" },
             data: { state: "RUNNING", startedAt: new Date() },
           });
-          scheduledIds.push(process.id);
-          tenantRunningCounts.set(process.user_id, tenantRunning + 1);
+          if (count > 0) {
+            scheduledIds.push(process.id);
+            tenantRunningCounts.set(process.user_id, tenantRunning + 1);
+          } else {
+            this.logger.debug(
+              `Process ${process.id} already scheduled by another instance`,
+            );
+          }
         } catch {
-          // Race condition: process was already picked up by another scheduler
           this.logger.debug(
-            `Process ${process.id} already scheduled by another instance`,
+            `Process ${process.id} scheduling failed unexpectedly`,
           );
         }
       }

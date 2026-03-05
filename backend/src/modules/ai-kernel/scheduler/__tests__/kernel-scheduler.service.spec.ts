@@ -20,7 +20,7 @@ function makeMockPrisma() {
   return {
     agentProcess: {
       count: jest.fn(),
-      update: jest.fn(),
+      updateMany: jest.fn(),
       groupBy: jest.fn(),
     },
     $queryRaw: jest.fn(),
@@ -64,10 +64,7 @@ describe("KernelSchedulerService", () => {
     // scheduleNext uses $queryRawUnsafe for FOR UPDATE SKIP LOCKED
     mockPrisma.$queryRawUnsafe.mockResolvedValue([]);
     mockPrisma.agentProcess.groupBy.mockResolvedValue([]);
-    mockPrisma.agentProcess.update.mockResolvedValue({
-      id: "proc-1",
-      state: "RUNNING",
-    });
+    mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -110,16 +107,13 @@ describe("KernelSchedulerService", () => {
         { id: "proc-B", user_id: "user-2" },
       ]);
       mockPrisma.agentProcess.groupBy.mockResolvedValue([]);
-      mockPrisma.agentProcess.update.mockResolvedValue({
-        id: "proc-A",
-        state: "RUNNING",
-      });
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
 
       const scheduled = await service.scheduleNext();
 
       expect(scheduled).toContain("proc-A");
       expect(scheduled).toContain("proc-B");
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledTimes(2);
     });
 
     it("should respect the global maxConcurrent limit and return empty when at capacity", async () => {
@@ -143,10 +137,7 @@ describe("KernelSchedulerService", () => {
         { id: "proc-C", user_id: "user-3" },
       ]);
       mockPrisma.agentProcess.groupBy.mockResolvedValue([]);
-      mockPrisma.agentProcess.update.mockResolvedValue({
-        id: "proc-A",
-        state: "RUNNING",
-      });
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
 
       await service.scheduleNext();
 
@@ -167,18 +158,15 @@ describe("KernelSchedulerService", () => {
       mockPrisma.agentProcess.groupBy.mockResolvedValue([
         { userId: "user-1", _count: 10 }, // user-1 is maxed out
       ]);
-      mockPrisma.agentProcess.update.mockResolvedValue({
-        id: "proc-B",
-        state: "RUNNING",
-      });
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
 
       const scheduled = await service.scheduleNext();
 
       expect(scheduled).not.toContain("proc-A");
       expect(scheduled).toContain("proc-B");
       // Only proc-B should be updated
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith(
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "proc-B", state: "READY" } }),
       );
     });
@@ -190,7 +178,7 @@ describe("KernelSchedulerService", () => {
       const scheduled = await service.scheduleNext();
 
       expect(scheduled).toEqual([]);
-      expect(mockPrisma.agentProcess.update).not.toHaveBeenCalled();
+      expect(mockPrisma.agentProcess.updateMany).not.toHaveBeenCalled();
     });
 
     it("should handle race conditions gracefully — skipping processes that fail to update", async () => {
@@ -201,11 +189,11 @@ describe("KernelSchedulerService", () => {
       ]);
       mockPrisma.agentProcess.groupBy.mockResolvedValue([]);
 
-      // proc-A update fails (race: already picked by another scheduler)
-      // proc-B update succeeds
-      mockPrisma.agentProcess.update
-        .mockRejectedValueOnce(new Error("Record not found"))
-        .mockResolvedValueOnce({ id: "proc-B", state: "RUNNING" });
+      // proc-A: updateMany returns count=0 (race: already picked by another scheduler)
+      // proc-B: updateMany returns count=1 (success)
+      mockPrisma.agentProcess.updateMany
+        .mockResolvedValueOnce({ count: 0 })
+        .mockResolvedValueOnce({ count: 1 });
 
       const scheduled = await service.scheduleNext();
 
@@ -229,14 +217,11 @@ describe("KernelSchedulerService", () => {
         { id: "proc-X", user_id: "user-5" },
       ]);
       mockPrisma.agentProcess.groupBy.mockResolvedValue([]);
-      mockPrisma.agentProcess.update.mockResolvedValue({
-        id: "proc-X",
-        state: "RUNNING",
-      });
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
 
       await service.scheduleNext();
 
-      expect(mockPrisma.agentProcess.update).toHaveBeenCalledWith({
+      expect(mockPrisma.agentProcess.updateMany).toHaveBeenCalledWith({
         where: { id: "proc-X", state: "READY" },
         data: { state: "RUNNING", startedAt: expect.any(Date) },
       });
@@ -252,10 +237,7 @@ describe("KernelSchedulerService", () => {
       mockPrisma.agentProcess.groupBy.mockResolvedValue([
         { userId: "user-1", _count: 9 },
       ]);
-      mockPrisma.agentProcess.update.mockResolvedValue({
-        id: "proc-A",
-        state: "RUNNING",
-      });
+      mockPrisma.agentProcess.updateMany.mockResolvedValue({ count: 1 });
 
       const scheduled = await service.scheduleNext();
 

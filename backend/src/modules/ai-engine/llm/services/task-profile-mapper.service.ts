@@ -115,14 +115,17 @@ export class TaskProfileMapperService {
           );
           effectiveMaxTokens = modelMaxTokens;
         } else {
-          // 模型的 maxTokens 低于推理模型最小值
-          // 使用模型最大值，但警告用户更新配置
-          this.logger.warn(
-            `[mapToParameters] ⚠️ Reasoning model config issue: ` +
-              `Model max (${modelMaxTokens}) is below recommended minimum (${REASONING_MODEL_MIN_TOKENS}). ` +
-              `Using model max to prevent API errors. ` +
-              `Consider updating model config in database for better reasoning output.`,
-          );
+          // 模型的 maxTokens 低于推理模型最小值 — 去重警告
+          const warnKey = `reasoning-low:${modelConfig?.modelId ?? ""}`;
+          if (!this.warnedHardCaps.has(warnKey)) {
+            this.logger.warn(
+              `[mapToParameters] ⚠️ Reasoning model config issue: ` +
+                `Model max (${modelMaxTokens}) is below recommended minimum (${REASONING_MODEL_MIN_TOKENS}). ` +
+                `Using model max to prevent API errors. ` +
+                `Consider updating model config in database for better reasoning output.`,
+            );
+            this.warnedHardCaps.add(warnKey);
+          }
           effectiveMaxTokens = modelMaxTokens;
         }
       } else {

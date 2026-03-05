@@ -241,17 +241,33 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 所有 Key 都在冷却期，返回最早失败的
+    // 所有 Key 都在冷却期
+    // ★ 区分配额耗尽 vs 临时错误：
+    // - 如果全部是配额耗尽（400/401），直接返回 null，触发 Provider 级降级
+    // - 如果有临时错误（429/5xx），返回最早失败的 key 重试
+    let allQuotaExhausted = true;
     let fallbackKey: string | null = null;
     let oldestFailedAt = Infinity;
 
     for (const key of validKeys) {
       const healthKey = this.getKeyHash(provider, key);
       const health = this.keyHealthMap.get(healthKey);
-      if (health && health.failedAt < oldestFailedAt) {
-        oldestFailedAt = health.failedAt;
-        fallbackKey = key;
+      if (health) {
+        if (!isQuotaExhaustedError(health.errorCode)) {
+          allQuotaExhausted = false;
+        }
+        if (health.failedAt < oldestFailedAt) {
+          oldestFailedAt = health.failedAt;
+          fallbackKey = key;
+        }
       }
+    }
+
+    if (allQuotaExhausted) {
+      this.logger.warn(
+        `[Search] All ${provider} keys quota exhausted (24h cooldown), skipping provider`,
+      );
+      return null; // ★ 触发立即 failover，不浪费请求
     }
 
     if (fallbackKey) {
