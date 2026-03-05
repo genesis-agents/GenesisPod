@@ -61,7 +61,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 - 中文内容/国内市场：优先选择 DeepSeek、Qwen、GLM 等
 - **关键要求**：尽量让研究员使用不同的模型，避免所有人都用同一个
 
-## 可用分析技能（根据任务动态选择）
+## 可用分析技能（只能从以下列表中选择，禁止自创技能名）
 - trend_analysis（趋势分析）: 识别和预测发展趋势
 - swot_analysis（SWOT分析）: 分析优势、劣势、机会、威胁
 - competitive_analysis（竞争分析）: 分析竞争格局和策略
@@ -72,9 +72,13 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 - future_projection（未来预测）: 基于现状预测发展
 - cause_effect（因果分析）: 分析原因和影响
 - comparison（对比分析）: 比较不同方案或事物
-- policy_analysis（政策分析）: 分析政策内容和影响
-- regulatory_impact（监管影响评估）: 评估法规对行业的影响
-- legislative_tracking（立法追踪）: 追踪法案进程
+- claim_extraction（论点提取）: 从文本中提取核心论点
+- fact_verification（事实核查）: 验证信息真伪
+- multi_path_reasoning（多路径推理）: 从多个角度分析问题
+- multi_view_synthesizer（多视角综合）: 综合不同立场的观点
+- specialized_role_analysis（专业角色分析）: 以特定专业角色视角分析
+- content_critique（内容批评）: 评估内容质量和可信度
+- consistency_check（一致性检查）: 检查论述的逻辑一致性
 
 ## 可用研究工具（根据任务动态选择）
 - web-search（网络搜索）: 获取最新信息
@@ -98,10 +102,12 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 请分析用户的研究需求，输出 JSON 格式的研究规划。
 
 **skills 和 tools 选择原则**：
+- ⚠️ **skills 只能从上面"可用分析技能"列表中选择**，不要自创技能名称
 - 根据每个研究员负责的维度内容，从上面的可用列表中动态选择最合适的技能和工具
-- 政策法规类研究：选择 policy_analysis、legislative_tracking、federal-register 等
-- 市场分析类研究：选择 trend_analysis、competitive_analysis、data_interpretation 等
-- 技术研究类：选择 deep_dive、comparison、academic-search 等
+- 政策法规类研究：选择 critical_thinking、fact_verification、consistency_check + 工具 federal-register、congress-gov 等
+- 市场分析类研究：选择 trend_analysis、competitive_analysis、data_interpretation、swot_analysis 等
+- 技术研究类：选择 deep_dive、comparison、multi_path_reasoning + 工具 academic-search 等
+- 综合评估类：选择 synthesis、content_critique、multi_view_synthesizer 等
 - 每个研究员的 skills 选 2-4 个，tools 选 1-3 个
 
 \`\`\`json
@@ -175,7 +181,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 ## 注意事项
 1. ⚠️ **维度必须匹配类型**（最重要）：MACRO 广覆盖；TECHNOLOGY 聚焦技术生命周期；COMPANY 聚焦企业经营分析
 2. 维度数量：MACRO 6-10 个，TECHNOLOGY 5-8 个，COMPANY 5-8 个。宁可多一个视角也不要遗漏重要维度。
-3. 搜索词要具体、可执行
+3. ⚠️ **搜索词必须中英文混合**：每个维度的 searchQueries 必须同时包含中文和英文搜索词（各至少 1-2 条），确保搜索结果覆盖中英文高质量资源。例如：["AI Agent 架构趋势 2026", "AI Agent architecture trends 2026", "multi-agent systems latest research"]
 4. 数据源选择要与维度内容匹配
 5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式
 6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度

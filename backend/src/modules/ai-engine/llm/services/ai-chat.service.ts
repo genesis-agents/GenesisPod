@@ -496,6 +496,16 @@ export class AiChatService {
     const tokenParamName =
       config.tokenParamName ||
       (isReasoning ? "max_completion_tokens" : "max_tokens");
+
+    // ★ Safety clamp: 如果模型配置了 maxTokens 限制，确保请求不超出
+    const configLimit = config.maxTokens;
+    if (configLimit > 0 && maxTokens > configLimit) {
+      this.logger.warn(
+        `[callAPIWithConfig] Clamping maxTokens from ${maxTokens} to model limit ${configLimit} for ${modelId}`,
+      );
+      maxTokens = configLimit;
+    }
+
     const timeout =
       config.defaultTimeoutMs || this.getTimeoutForModel(modelId, maxTokens);
 

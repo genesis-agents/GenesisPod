@@ -49,6 +49,7 @@ import {
   ChatFacade,
   GuardrailsPipelineService,
 } from "@/modules/ai-engine/facade";
+import { BillingContext } from "@/modules/ai-infra/facade";
 import {
   KernelContext,
   MessageBusService,
@@ -408,12 +409,21 @@ export class ResearchMissionService {
     const missionProcessId = this.kernelBridge.getProcessId(mission.id);
     const userId = topic.userId;
     const runPlanning = () =>
-      this.executePlanningAsync(
-        mission.id,
-        topicId,
-        topic.name,
-        userPrompt,
-        completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
+      BillingContext.run(
+        {
+          userId,
+          moduleType: "topic-insights",
+          operationType: "research",
+          referenceId: topicId,
+        },
+        () =>
+          this.executePlanningAsync(
+            mission.id,
+            topicId,
+            topic.name,
+            userPrompt,
+            completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
+          ),
       );
     void (
       missionProcessId
@@ -699,7 +709,7 @@ export class ResearchMissionService {
     });
 
     this.kernelBridge.completePhase(missionId, "planning");
-    this.kernelBridge.startPhase(missionId, "execution");
+    this.kernelBridge.startPhase(missionId, "researching");
 
     this.logger.log(
       `[approvePlanAndExecute] Mission ${missionId} approved, starting execution with ${tasks.length} tasks`,
@@ -712,8 +722,31 @@ export class ResearchMissionService {
       missionId,
     );
 
-    // 启动异步任务执行
-    this.startExecution(missionId, topicId).catch((err) => {
+    // 启动异步任务执行（确保 BillingContext 传播到 fire-and-forget 链）
+    const existingCtx = BillingContext.get();
+    const startFn = () => this.startExecution(missionId, topicId);
+    const wrappedStart = existingCtx
+      ? () => BillingContext.run(existingCtx, startFn)
+      : async () => {
+          // 当从 controller 直接调用 approvePlanAndExecute 时，需要查询 userId
+          const topic = await this.prisma.researchTopic.findUnique({
+            where: { id: topicId },
+            select: { userId: true },
+          });
+          if (topic?.userId) {
+            return BillingContext.run(
+              {
+                userId: topic.userId,
+                moduleType: "topic-insights",
+                operationType: "research",
+                referenceId: topicId,
+              },
+              startFn,
+            );
+          }
+          return startFn();
+        };
+    wrappedStart().catch((err) => {
       this.logger.error(`[approvePlanAndExecute] Execution failed: ${err}`);
     });
   }
@@ -2615,8 +2648,8 @@ export class ResearchMissionService {
             missionId,
           );
 
-          this.kernelBridge.completePhase(missionId, "execution");
-          this.kernelBridge.startPhase(missionId, "synthesis");
+          this.kernelBridge.completePhase(missionId, "researching");
+          this.kernelBridge.startPhase(missionId, "synthesizing");
 
           // ★ 复用 startExecution 中创建的草稿报告，避免重复创建
           // reportId 已在 startExecution 中创建并传递到此处
@@ -2709,7 +2742,7 @@ export class ResearchMissionService {
             missionId,
           );
 
-          this.kernelBridge.completePhase(missionId, "synthesis");
+          this.kernelBridge.completePhase(missionId, "synthesizing");
           this.kernelBridge.completeTracking(missionId);
 
           // ★ Phase 3: Kernel event — report generated

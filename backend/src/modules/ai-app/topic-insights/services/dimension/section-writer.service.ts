@@ -861,7 +861,18 @@ export class SectionWriterService {
     // 补全缺失的 imageUrl
     for (const ref of figureRefs) {
       const key = `${ref.evidenceCitationIndex}:${ref.figureIndex}`;
-      const allocated = allocatedMap.get(key);
+      let allocated = allocatedMap.get(key);
+
+      // ★ Fuzzy fallback: 如果精确匹配失败，按 figureIndex 模糊查找
+      if (!allocated && !ref.imageUrl) {
+        for (const fig of allocatedFigures) {
+          if (fig.figureIndex === ref.figureIndex && fig.imageUrl) {
+            allocated = fig;
+            break;
+          }
+        }
+      }
+
       if (allocated) {
         if (!ref.imageUrl) {
           ref.imageUrl = allocated.imageUrl;
@@ -872,7 +883,8 @@ export class SectionWriterService {
       }
     }
 
-    return figureRefs;
+    // ★ 过滤掉仍然没有 imageUrl 的引用（无法渲染）
+    return figureRefs.filter((ref) => ref.imageUrl);
   }
 
   /**

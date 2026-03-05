@@ -95,9 +95,10 @@ export class MissionKernelBridgeService {
           entityId: missionId,
         },
         phases: [
-          { id: "planning", name: "Research Planning", weight: 1 },
-          { id: "execution", name: "Dimension Research", weight: 3 },
-          { id: "synthesis", name: "Report Synthesis", weight: 2 },
+          { id: "planning", name: "Research Planning", weight: 0.1 },
+          { id: "researching", name: "Dimension Research", weight: 0.6 },
+          { id: "reviewing", name: "Quality Review", weight: 0.15 },
+          { id: "synthesizing", name: "Report Synthesis", weight: 0.15 },
         ],
       });
       this.progressTracker.start(missionId);

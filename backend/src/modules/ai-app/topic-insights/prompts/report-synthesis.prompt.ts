@@ -73,6 +73,11 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
 
 ⚠️ **最重要的提醒**：crossDimensionAnalysis.fullText、riskAssessment.fullText、strategicRecommendations.fullText 三个字段必须包含完整的 Markdown 文本内容。不要只返回结构化子字段而遗漏 fullText。
 
+## 格式规范
+- **编号格式统一**：全文统一使用阿拉伯数字编号（1. 2. 3.），禁止混用中文数字（一、二、三）和阿拉伯数字（1、2、3）
+- 有序列表统一使用 \`1. 2. 3.\` 格式，无序列表统一使用 \`- \` 格式
+- 标题使用 Markdown 层级（##, ###），不要在标题中使用编号
+
 {{languageInstruction}}`;
 
 /**
