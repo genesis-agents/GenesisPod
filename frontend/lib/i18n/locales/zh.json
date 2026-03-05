@@ -3900,8 +3900,8 @@
       "layers": {
         "agentOs": "第六层：Agent意图网关",
         "agentOsDesc": "统一入口、意图解析、请求分发、调用链追踪",
-        "openApi": "第五层：外部Agent开放",
-        "openApiDesc": "面向外部Agent和第三方的开放接口",
+        "openApi": "第五层：外部Agent访问",
+        "openApiDesc": "面向外部Agent和第三方的访问接口",
         "aiApps": "第四层：Agent应用",
         "aiAppsDesc": "Agent应用（只读，通过左侧菜单访问）",
         "aiKernel": "第三层：Agent运行时",

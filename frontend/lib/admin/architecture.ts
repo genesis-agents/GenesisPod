@@ -116,7 +116,7 @@ const agentOsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 5: External Agent Access (Open Interfaces)
+// Layer 5: External Agent Access
 const openApiLayer: ArchitectureLayer = {
   id: 'openApi',
   titleKey: 'admin.architecture.layers.openApi',
