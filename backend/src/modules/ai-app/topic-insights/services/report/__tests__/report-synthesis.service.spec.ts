@@ -1959,9 +1959,9 @@ describe("ReportSynthesisService", () => {
       expect(report).toContain("目录");
     });
 
-    it("should demote h1 and h2 headings in dimension content to h3 (lines 799-801)", async () => {
-      // This test exercises the heading demotion callback at lines 799-801.
-      // The regex /^(#{1,2})\s+/gm replaces # and ## headings with ### in dimension content.
+    it("should demote h1 and h2 headings in dimension content to h3 (safety net)", async () => {
+      // This test exercises the heading safety net: # and ## are downgraded to ###.
+      // ### and #### are preserved and get hierarchical numbering (e.g., ### 1.1. Title).
       mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([
         mockDimensionAnalysis,
       ]);
@@ -1983,7 +1983,7 @@ describe("ReportSynthesisService", () => {
             trends: [],
             challenges: [],
             opportunities: [],
-            // Content with h2 and h3+ headings — h2 should be demoted to h3
+            // Content with h2 and h3+ headings — h2 demoted to ###, h3 gets numbered
             detailedContent:
               "## 二级标题\n\n内容2。\n\n### 三级标题\n\n内容3。",
             sourcesUsed: 0,
@@ -2002,11 +2002,11 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
-      // The content should be processed (demotion code runs)
-      // After stripLeadingHeading removes the leading ## heading,
-      // the remaining content should have ### 三级标题 preserved
+      // The content should be processed (safety net + numbering runs)
+      // stripLeadingHeading removes "## 二级标题" (first heading)
+      // ### 三级标题 → ### 1.1. 三级标题 (numbering applied, first h3 in dimension 1)
       expect(updateCall.data.fullReport).toBeDefined();
-      expect(updateCall.data.fullReport).toContain("### 三级标题");
+      expect(updateCall.data.fullReport).toContain("### 1.1. 三级标题");
     });
 
     it("should use fallback cross-dimension analysis when all supplementary content is empty", async () => {

@@ -5,6 +5,12 @@ import {
   sanitizeMarkdownContent,
   stripLeadingHeading,
 } from "@/common/utils/sanitize-content.utils";
+import {
+  sanitizeHeadingLevels,
+  numberSubHeadings,
+  deduplicateParagraphs,
+  deduplicateHeadings,
+} from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type { ResearchTopic } from "@prisma/client";
 import type {
@@ -503,7 +509,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
       );
     }
-    parts.push("\n---\n");
+    parts.push("\n\n");
 
     // 5. 各维度章节（直接使用 detailedContent，但限制长度）
     const MAX_DIMENSION_CHARS = 24000; // 约 8000 中文字（每字约 3 chars）
@@ -519,55 +525,14 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       content = stripChartJsonFromContent(content);
       // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
       content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
-      // ★ 降级维度内容中的标题层级：全量 +2（维度章节本身是 ##）
-      // # → ###, ## → ####, ### → #####, #### → ######
-      content = content.replace(/^(#{1,6})\s+/gm, (_match, hashes: string) => {
-        const newLevel = Math.min(hashes.length + 2, 6);
-        return "#".repeat(newLevel) + " ";
-      });
+      // ★ 标题层级安全网：将 AI 异常输出的 #/## 降级为 ###，保留 ###/#### 不变
+      content = sanitizeHeadingLevels(content);
       // ★ 去除重复的标题（AI 有时生成 "### N. Xxx" 后又生成 "### Xxx"）
-      {
-        const lines = content.split("\n");
-        const seenHeadings = new Set<string>();
-        content = lines
-          .filter((line) => {
-            const m = line.match(/^#{3,6}\s+(.+)/);
-            if (!m) return true;
-            const normalized = m[1]
-              .replace(/^[\d.]+\s*/, "")
-              .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
-              .trim();
-            if (seenHeadings.has(normalized)) return false;
-            seenHeadings.add(normalized);
-            return true;
-          })
-          .join("\n");
-      }
+      content = deduplicateHeadings(content);
       // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
-      content = this.numberSubHeadings(content, idx + 1);
-      // ★ 跨维度段落去重：首 DEDUP_KEY_LENGTH 字相同的段落只保留首次出现
-      {
-        const DEDUP_MIN_LENGTH = 60; // 短于此长度的段落不参与去重
-        const DEDUP_KEY_LENGTH = 120; // 用前 N 字符作为去重 key
-        const paragraphs = content.split("\n\n");
-        content = paragraphs
-          .filter((p) => {
-            const trimmed = p.trim();
-            if (trimmed.length < DEDUP_MIN_LENGTH) return true;
-            // 豁免标题、注释、列表项、引用块
-            if (/^(#|<!--|[-*>|])/.test(trimmed)) return true;
-            const key = trimmed.substring(0, DEDUP_KEY_LENGTH);
-            if (globalSeenParagraphs.has(key)) {
-              this.logger.debug(
-                `[buildReport] Removing duplicate paragraph: "${key.substring(0, 40)}..."`,
-              );
-              return false;
-            }
-            globalSeenParagraphs.add(key);
-            return true;
-          })
-          .join("\n\n");
-      }
+      content = numberSubHeadings(content, idx + 1);
+      // ★ 跨维度段落去重：首 120 字相同的段落只保留首次出现
+      content = deduplicateParagraphs(content, globalSeenParagraphs);
       if (content.length > MAX_DIMENSION_CHARS) {
         this.logger.warn(
           `[buildReport] Dimension "${dim.dimensionName}" content too long (${content.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
@@ -593,7 +558,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       content = this.stripLLMMetaNotes(content);
 
       parts.push(content);
-      parts.push("\n---\n");
+      parts.push("\n\n");
     });
 
     // ★ 收集已有 H2 标题，用于后续去重守卫
@@ -627,7 +592,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       if (fallbackCross) {
         parts.push(`## ${labels.crossDimension}\n`);
         parts.push(fallbackCross);
-        parts.push("\n---\n");
+        parts.push("\n\n");
       }
 
       // 自动拼接风险提示
@@ -639,7 +604,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       if (fallbackRisks) {
         parts.push(`## ${labels.riskAssessment}\n`);
         parts.push(fallbackRisks);
-        parts.push("\n---\n");
+        parts.push("\n\n");
       }
 
       // 自动拼接建议
@@ -652,7 +617,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       if (fallbackRecs) {
         parts.push(`## ${labels.strategicRec}\n`);
         parts.push(fallbackRecs);
-        parts.push("\n---\n");
+        parts.push("\n\n");
       }
     }
 
@@ -663,7 +628,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     ) {
       parts.push(`## ${labels.crossDimension}\n`);
       parts.push(stripLeadingHeading(sanitized.crossDimensionAnalysis));
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 7. 风险评估（AI 生成）
@@ -673,7 +638,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     ) {
       parts.push(`## ${labels.riskAssessment}\n`);
       parts.push(stripLeadingHeading(sanitized.riskAssessment));
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 8. 战略建议（AI 生成）
@@ -683,7 +648,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     ) {
       parts.push(`## ${labels.strategicRec}\n`);
       parts.push(stripLeadingHeading(sanitized.strategicRecommendations));
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 9. 结语（AI 生成）
@@ -1209,7 +1174,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         }
       }
 
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 4. 结束语
@@ -1240,40 +1205,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     return sanitizeMarkdownContent(parts.join("\n"));
   }
 
-  /**
-   * Give dimension sub-headings hierarchical numbering.
-   * ### Title → ### N.M. Title   (sub-dimension, from original #)
-   * #### Title → #### N.M.K. Title (section, from original ##)
-   * Strips Arabic ("1. "), Chinese ordinal ("一、"), and parenthesized ("（一）") prefixes.
-   */
-  private numberSubHeadings(content: string, dimIndex: number): string {
-    let h3Count = 0;
-    let h4Count = 0;
-
-    return content.replace(
-      /^(#{3,4})\s+(.+)$/gm,
-      (_match, hashes: string, title: string) => {
-        // Strip any existing numbering prefix
-        const cleanTitle = title
-          .replace(/^[\d.]+\s*/, "") // Arabic: "1. ", "1.2. ", "1.2.3. "
-          .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "") // Chinese: "一、", "十二．"
-          .replace(/^（[一二三四五六七八九十百\d]+）\s*/, "") // Parenthesized: "（一）", "（1）"
-          .trim();
-
-        if (hashes === "###") {
-          h3Count++;
-          h4Count = 0;
-          return `### ${dimIndex}.${h3Count}. ${cleanTitle}`;
-        }
-        if (hashes === "####") {
-          if (h3Count === 0) h3Count = 1; // implicit parent when h4 appears before any h3
-          h4Count++;
-          return `#### ${dimIndex}.${h3Count}.${h4Count}. ${cleanTitle}`;
-        }
-        return `${hashes} ${title}`;
-      },
-    );
-  }
+  // numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
+  // → moved to utils/report-formatting.utils.ts (shared with report-synthesis.service.ts)
 
   /** Strip LLM-leaked meta-notes (word counts, editing instructions). */
   private stripLLMMetaNotes(content: string): string {

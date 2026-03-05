@@ -261,7 +261,16 @@ export class HtmlCaptureService {
 
       // 从原始获取渲染后的 SVG（包含正确的尺寸和位置）
       const origSvg = origChart.querySelector('svg');
-      if (!origSvg) continue;
+      if (!origSvg || origSvg.children.length < 3) {
+        // ★ Empty SVG fallback: if container was not visible (hidden tab/panel),
+        // the SVG may be empty. Show the sr-only data table instead.
+        const srTable = cloneChart.querySelector('.sr-only');
+        if (srTable) {
+          (srTable as HTMLElement).classList.remove('sr-only');
+          (srTable as HTMLElement).style.display = 'block';
+        }
+        continue;
+      }
 
       // 克隆 SVG
       const svgClone = origSvg.cloneNode(true) as SVGElement;

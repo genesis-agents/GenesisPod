@@ -14,6 +14,13 @@ import {
   sanitizeAllStrings,
   stripLeadingHeading,
 } from "@/common/utils/sanitize-content.utils";
+import {
+  sanitizeHeadingLevels,
+  numberSubHeadings,
+  deduplicateParagraphs,
+  deduplicateHeadings,
+  getMinDataPoints,
+} from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type {
   ResearchTopic,
@@ -872,7 +879,7 @@ export class ReportSynthesisService {
         `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
       );
     }
-    parts.push("\n---\n");
+    parts.push("\n\n");
 
     // 5. 各维度章节（直接使用 detailedContent，但限制长度）
     const MAX_DIMENSION_CHARS = 24000; // 约 8000 中文字（每字约 3 chars）
@@ -898,55 +905,14 @@ export class ReportSynthesisService {
       content = stripChartJsonFromContent(content);
       // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
       content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
-      // ★ 降级维度内容中的标题层级：全量 +2（维度章节本身是 ##）
-      // # → ###, ## → ####, ### → #####, #### → ######
-      content = content.replace(/^(#{1,6})\s+/gm, (_match, hashes: string) => {
-        const newLevel = Math.min(hashes.length + 2, 6);
-        return "#".repeat(newLevel) + " ";
-      });
+      // ★ 标题层级安全网：将 AI 异常输出的 #/## 降级为 ###，保留 ###/#### 不变
+      content = sanitizeHeadingLevels(content);
       // ★ 去除重复的标题（AI 有时生成 "### N. Xxx" 后又生成 "### Xxx"）
-      {
-        const lines = content.split("\n");
-        const seenHeadings = new Set<string>();
-        content = lines
-          .filter((line) => {
-            const m = line.match(/^#{3,6}\s+(.+)/);
-            if (!m) return true;
-            const normalized = m[1]
-              .replace(/^[\d.]+\s*/, "")
-              .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
-              .trim();
-            if (seenHeadings.has(normalized)) return false;
-            seenHeadings.add(normalized);
-            return true;
-          })
-          .join("\n");
-      }
+      content = deduplicateHeadings(content);
       // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
-      content = this.numberSubHeadings(content, idx + 1);
-      // ★ 跨维度段落去重：首 DEDUP_KEY_LENGTH 字相同的段落只保留首次出现
-      {
-        const DEDUP_MIN_LENGTH = 60; // 短于此长度的段落不参与去重
-        const DEDUP_KEY_LENGTH = 120; // 用前 N 字符作为去重 key
-        const paragraphs = content.split("\n\n");
-        content = paragraphs
-          .filter((p) => {
-            const trimmed = p.trim();
-            if (trimmed.length < DEDUP_MIN_LENGTH) return true;
-            // 豁免标题、注释、列表项、引用块
-            if (/^(#|<!--|[-*>|])/.test(trimmed)) return true;
-            const key = trimmed.substring(0, DEDUP_KEY_LENGTH);
-            if (globalSeenParagraphs.has(key)) {
-              this.logger.debug(
-                `[buildReport] Removing duplicate paragraph: "${key.substring(0, 40)}..."`,
-              );
-              return false;
-            }
-            globalSeenParagraphs.add(key);
-            return true;
-          })
-          .join("\n\n");
-      }
+      content = numberSubHeadings(content, idx + 1);
+      // ★ 跨维度段落去重：首 120 字相同的段落只保留首次出现
+      content = deduplicateParagraphs(content, globalSeenParagraphs);
       if (content.length > MAX_DIMENSION_CHARS) {
         this.logger.warn(
           `[buildReport] Dimension "${dim.dimensionName}" content too long (${content.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
@@ -972,7 +938,7 @@ export class ReportSynthesisService {
       content = this.stripLLMMetaNotes(content);
 
       parts.push(content);
-      parts.push("\n---\n");
+      parts.push("\n\n");
     });
 
     // ★ 收集已有 H2 标题，用于后续去重守卫
@@ -1006,7 +972,7 @@ export class ReportSynthesisService {
       if (fallbackCross) {
         parts.push(`## ${labels.crossDimension}\n`);
         parts.push(fallbackCross);
-        parts.push("\n---\n");
+        parts.push("\n\n");
       }
 
       // 自动拼接风险提示
@@ -1018,7 +984,7 @@ export class ReportSynthesisService {
       if (fallbackRisks) {
         parts.push(`## ${labels.riskAssessment}\n`);
         parts.push(fallbackRisks);
-        parts.push("\n---\n");
+        parts.push("\n\n");
       }
 
       // 自动拼接建议
@@ -1031,7 +997,7 @@ export class ReportSynthesisService {
       if (fallbackRecs) {
         parts.push(`## ${labels.strategicRec}\n`);
         parts.push(fallbackRecs);
-        parts.push("\n---\n");
+        parts.push("\n\n");
       }
     }
 
@@ -1042,14 +1008,14 @@ export class ReportSynthesisService {
     ) {
       parts.push(`## ${labels.crossDimension}\n`);
       parts.push(stripLeadingHeading(sc.crossDimensionAnalysis));
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 7. 风险评估（AI 生成）
     if (sc.riskAssessment && !existingH2Titles.has(labels.riskAssessment)) {
       parts.push(`## ${labels.riskAssessment}\n`);
       parts.push(stripLeadingHeading(sc.riskAssessment));
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 8. 战略建议（AI 生成）
@@ -1059,7 +1025,7 @@ export class ReportSynthesisService {
     ) {
       parts.push(`## ${labels.strategicRec}\n`);
       parts.push(stripLeadingHeading(sc.strategicRecommendations));
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 9. 结语（AI 生成）
@@ -1069,7 +1035,9 @@ export class ReportSynthesisService {
       parts.push("\n");
     }
 
-    return this.teamFacade.sanitizeReport(parts.join("\n"));
+    const rawReport = this.teamFacade.sanitizeReport(parts.join("\n"));
+    const { content: processedReport } = this.postProcessReport(rawReport);
+    return processedReport;
   }
 
   /**
@@ -1162,6 +1130,18 @@ export class ReportSynthesisService {
         });
       }
     });
+
+    // ★ Warn about charts with insufficient data points (do NOT skip — avoid placeholder residue)
+    for (const chart of charts) {
+      if (chart.data && chart.chartType === "generated") {
+        const minPoints = getMinDataPoints(chart.type || "bar");
+        if (chart.data.length < minPoints) {
+          this.logger.warn(
+            `Chart "${chart.title}" has only ${chart.data.length} data points (min: ${minPoints} for ${chart.type})`,
+          );
+        }
+      }
+    }
 
     this.logger.log(
       `Collected ${charts.length} charts (${charts.filter((c) => c.chartType === "reference").length} references, ${charts.filter((c) => c.chartType === "generated").length} generated) [deduped by imageUrl+title, max ${MAX_CHARTS_PER_DIMENSION}/dim]`,
@@ -2030,7 +2010,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         }
       }
 
-      parts.push("\n---\n");
+      parts.push("\n\n");
     }
 
     // 4. 结束语
@@ -2058,7 +2038,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     }
 
     // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
-    return this.teamFacade.sanitizeReport(parts.join("\n"));
+    const rawReport = this.teamFacade.sanitizeReport(parts.join("\n"));
+    const { content: processedReport } = this.postProcessReport(rawReport);
+    return processedReport;
   }
 
   /** Strip LLM-leaked meta-notes (word counts, editing instructions). */
@@ -2071,38 +2053,51 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       .replace(/\n{3,}/g, "\n\n");
   }
 
+  // numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
+  // → moved to utils/report-formatting.utils.ts (shared with report-generator.service.ts)
+
   /**
-   * Give dimension sub-headings hierarchical numbering.
-   * ### Title → ### N.M. Title   (sub-dimension, from original #)
-   * #### Title → #### N.M.K. Title (section, from original ##)
-   * Strips Arabic ("1. "), Chinese ordinal ("一、"), and parenthesized ("（一）") prefixes.
+   * Post-process report markdown: detect quality issues and emit warnings.
+   * Phase 1: warning-only mode (no automatic content modification except --- removal).
    */
-  private numberSubHeadings(content: string, dimIndex: number): string {
-    let h3Count = 0;
-    let h4Count = 0;
+  private postProcessReport(markdown: string): {
+    content: string;
+    warnings: string[];
+  } {
+    const warnings: string[] = [];
 
-    return content.replace(
-      /^(#{3,4})\s+(.+)$/gm,
-      (_match, hashes: string, title: string) => {
-        const cleanTitle = title
-          .replace(/^[\d.]+\s*/, "")
-          .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
-          .replace(/^（[一二三四五六七八九十百\d]+）\s*/, "")
-          .trim();
+    const boldCount = (markdown.match(/\*\*[^*]+\*\*/g) || []).length;
+    if (boldCount > 80)
+      warnings.push(`Bold count ${boldCount} exceeds limit 80`);
 
-        if (hashes === "###") {
-          h3Count++;
-          h4Count = 0;
-          return `### ${dimIndex}.${h3Count}. ${cleanTitle}`;
-        }
-        if (hashes === "####") {
-          if (h3Count === 0) h3Count = 1; // implicit parent when h4 appears before any h3
-          h4Count++;
-          return `#### ${dimIndex}.${h3Count}.${h4Count}. ${cleanTitle}`;
-        }
-        return `${hashes} ${title}`;
-      },
-    );
+    const blockquoteCount = (markdown.match(/^>/gm) || []).length;
+    if (blockquoteCount > 15)
+      warnings.push(`Blockquote count ${blockquoteCount} exceeds limit 15`);
+
+    const weThinkCount = (markdown.match(/我们(认为|判断|看到)/g) || []).length;
+    if (weThinkCount > 10)
+      warnings.push(`"我们认为" count ${weThinkCount} exceeds limit 10`);
+
+    const arrowCount = (markdown.match(/→/g) || []).length;
+    if (arrowCount > 5)
+      warnings.push(`Arrow chain count ${arrowCount} exceeds limit 5`);
+
+    const deepHeadingCount = (markdown.match(/^#{5,6}\s+/gm) || []).length;
+    if (deepHeadingCount > 0)
+      warnings.push(
+        `Deep headings (h5/h6) count ${deepHeadingCount}, should be 0`,
+      );
+
+    // Safe operation: strip stray --- separators that AI may have generated
+    const content = markdown.replace(/\n---\n/g, "\n\n");
+
+    if (warnings.length > 0) {
+      this.logger.warn(
+        `[postProcess] Quality warnings:\n${warnings.join("\n")}`,
+      );
+    }
+
+    return { content, warnings };
   }
 
   /**
