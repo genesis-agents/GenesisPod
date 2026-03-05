@@ -317,8 +317,8 @@ export class CollectionTaskService {
 
           if (isYouTubeRssUrl) {
             // 如果数据源配置了 minDurationSeconds 就用配置值；
-            // 否则对所有 YouTube RSS 应用 5 分钟兜底最小时长，避免采集 Shorts 和极短视频
-            const DEFAULT_YOUTUBE_MIN_DURATION = 5 * 60; // 300s
+            // 否则对所有 YouTube RSS 应用 15 分钟兜底最小时长，只采集有深度的长视频
+            const DEFAULT_YOUTUBE_MIN_DURATION = 15 * 60; // 900s
             filterOptions.minDurationSeconds =
               configuredMinDuration ?? DEFAULT_YOUTUBE_MIN_DURATION;
             // 无法获取时长时默认跳过（避免无法验证的视频漏网）

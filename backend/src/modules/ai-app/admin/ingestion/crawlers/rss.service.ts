@@ -349,9 +349,11 @@ export class RssService {
             `Checking deduplication for: ${item.title?.substring(0, 50)}... URL: ${normalizedUrl}`,
           );
 
-          // 1. 首先检查 Resource 表 URL 精确匹配
+          // 1. 首先检查 Resource 表 URL 精确匹配（同时检查原始URL和规范化URL）
           const existingByUrl = await this.prisma.resource.findFirst({
-            where: { sourceUrl: normalizedUrl },
+            where: {
+              OR: [{ sourceUrl: normalizedUrl }, { sourceUrl: item.link }],
+            },
             select: { id: true, title: true },
           });
 
@@ -364,17 +366,17 @@ export class RssService {
           }
 
           // 2. 检查标题相似度（防止不同URL但相同内容的重复）
-          // 只检查最近7天内的资源，避免性能问题
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          // 检查最近90天内的资源（覆盖大多数重复场景，7天远远不够）
+          const ninetyDaysAgo = new Date();
+          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
           const recentResources = await this.prisma.resource.findMany({
             where: {
               type: category as ResourceType,
-              createdAt: { gte: sevenDaysAgo },
+              createdAt: { gte: ninetyDaysAgo },
             },
             select: { id: true, title: true },
-            take: 500,
+            take: 1000,
           });
 
           let titleDuplicate = false;
@@ -571,10 +573,11 @@ export class RssService {
     // 提取标签（从categories）
     const tags = item.categories?.slice(0, 10) || [];
 
+    // 规范化 sourceUrl 以保证去重一致性
     // 检测是否为 arXiv 论文并提取 PDF URL
     // arXiv URL 格式: https://arxiv.org/abs/2512.02080 -> PDF: https://arxiv.org/pdf/2512.02080
     let pdfUrl: string | null = null;
-    const sourceUrl = item.link!;
+    const sourceUrl = this.deduplication.normalizeUrl(item.link!);
 
     if (sourceUrl.includes("arxiv.org/abs/")) {
       pdfUrl = sourceUrl.replace("/abs/", "/pdf/");
