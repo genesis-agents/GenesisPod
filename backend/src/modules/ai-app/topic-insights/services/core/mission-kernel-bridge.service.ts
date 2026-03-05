@@ -13,7 +13,9 @@ import {
   KernelMemoryManagerService,
   ResourceManagerService,
   KernelSchedulerService,
+  ConstraintEnforcementService,
 } from "@/modules/ai-kernel/facade";
+import type { ExtractedConstraint } from "@/modules/ai-engine/facade";
 import { ProgressTrackerService } from "@/modules/ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
@@ -29,6 +31,8 @@ export class MissionKernelBridgeService {
     @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
     @Optional() private readonly resourceManager?: ResourceManagerService,
     @Optional() private readonly kernelScheduler?: KernelSchedulerService,
+    @Optional()
+    private readonly constraintEnforcement?: ConstraintEnforcementService,
   ) {}
 
   /**
@@ -342,5 +346,62 @@ export class MissionKernelBridgeService {
     void this.kernelMemory
       .write({ processId, layer, key, value, expiresAt })
       .catch((err) => this.logger.debug("Memory write failed", err));
+  }
+
+  // ────────────────────────── Constraint Enforcement ──────────────────────────
+
+  /**
+   * 从主题描述提取研究约束
+   */
+  extractResearchConstraints(topicDescription: string): ExtractedConstraint[] {
+    if (!this.constraintEnforcement) {
+      this.logger.debug(
+        "[Degraded] ConstraintEnforcementService unavailable, skipping constraint extraction",
+      );
+      return [];
+    }
+    return this.constraintEnforcement.extractConstraints(topicDescription);
+  }
+
+  /**
+   * 验证研究输出是否违反约束
+   */
+  async validateResearchOutput(
+    output: string,
+    constraints: ExtractedConstraint[],
+  ): Promise<{ isValid: boolean; violations: string[]; report?: string }> {
+    if (!this.constraintEnforcement || constraints.length === 0) {
+      return { isValid: true, violations: [] };
+    }
+    try {
+      const result = await this.constraintEnforcement.validateOutput(
+        output,
+        constraints,
+      );
+      const report = result.isValid
+        ? undefined
+        : this.constraintEnforcement.generateViolationReport(result.violations);
+      return {
+        isValid: result.isValid,
+        violations: result.violations.map(
+          (v) => v.rule || `[${v.constraintId}]`,
+        ),
+        report,
+      };
+    } catch (e) {
+      this.logger.debug(`Constraint validation failed: ${e}`);
+      return { isValid: true, violations: [] };
+    }
+  }
+
+  /**
+   * 格式化约束用于注入到 Prompt
+   */
+  formatConstraintsForPrompt(constraints: ExtractedConstraint[]): string {
+    if (!this.constraintEnforcement || constraints.length === 0) return "";
+    return this.constraintEnforcement.formatConstraintsForPrompt(
+      constraints,
+      "MUST",
+    );
   }
 }

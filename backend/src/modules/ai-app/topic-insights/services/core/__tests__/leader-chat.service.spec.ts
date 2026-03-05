@@ -53,6 +53,7 @@ function buildMocks() {
     getAvailableModelsExtended: jest.fn(),
     getReasoningModel: jest.fn(),
     chat: jest.fn(),
+    chatStructured: jest.fn(),
     getAvailableTools: jest.fn().mockReturnValue([]),
     intentDetector: {
       detectIntent: jest.fn(),
@@ -246,7 +247,7 @@ describe("LeaderChatService", () => {
       );
 
       // Should not call AI model for quick intent
-      expect(mockFacade.chat).not.toHaveBeenCalled();
+      expect(mockFacade.chatStructured).not.toHaveBeenCalled();
       expect(result.response).toBeDefined();
       expect(result.response.length).toBeGreaterThan(0);
     });
@@ -258,12 +259,16 @@ describe("LeaderChatService", () => {
         confidence: 0.5, // below 0.75 threshold
       });
 
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           understanding: "用户希望了解研究进展",
           actions: [],
           response: "研究正在顺利进行，技术现状维度已完成。",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.handleUserMessage(
@@ -272,7 +277,7 @@ describe("LeaderChatService", () => {
         "请给我一个详细的研究状态分析",
       );
 
-      expect(mockFacade.chat).toHaveBeenCalledTimes(1);
+      expect(mockFacade.chatStructured).toHaveBeenCalledTimes(1);
       expect(result.response).toBe("研究正在顺利进行，技术现状维度已完成。");
     });
 
@@ -283,7 +288,13 @@ describe("LeaderChatService", () => {
         confidence: 0.3,
       });
 
-      mockFacade.chat.mockResolvedValue({ content: "Not valid JSON at all" });
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {},
+        rawContent: "Not valid JSON at all",
+        model: "o3",
+        tokensUsed: 50,
+        retriedParse: true,
+      });
 
       const result = await service.handleUserMessage(
         "topic-001",
@@ -318,11 +329,15 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [],
           response: "已收到您的指示，将调整研究方向。",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.handleUserMessage(
@@ -399,8 +414,8 @@ describe("LeaderChatService", () => {
         intent: "create_dimension",
         confidence: 0.4,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [
             {
               type: LeaderActionType.CREATE_DIMENSION,
@@ -408,7 +423,11 @@ describe("LeaderChatService", () => {
             },
           ],
           response: "好的，我将为您创建竞争格局维度。",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       mockLeaderToolService.createDimension.mockResolvedValue({
@@ -441,8 +460,8 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.4,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [
             {
               type: LeaderActionType.DELETE_DIMENSION,
@@ -450,7 +469,11 @@ describe("LeaderChatService", () => {
             },
           ],
           response: "已删除技术现状维度。",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       mockLeaderToolService.deleteDimension.mockResolvedValue({
@@ -478,8 +501,8 @@ describe("LeaderChatService", () => {
         intent: UserIntent.GENERAL_CHAT,
         confidence: 0.4,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [
             {
               type: LeaderActionType.CREATE_DIMENSION,
@@ -487,7 +510,11 @@ describe("LeaderChatService", () => {
             },
           ],
           response: "尝试创建新维度。",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       // Create dimension fails
@@ -512,8 +539,8 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [
             {
               type: LeaderActionType.CANCEL_TASK,
@@ -521,7 +548,11 @@ describe("LeaderChatService", () => {
             },
           ],
           response: "已停止任务",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
       mockLeaderToolService.cancelTask.mockResolvedValue({
         success: true,
@@ -547,8 +578,8 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [
             {
               type: LeaderActionType.UPDATE_DIMENSION,
@@ -560,7 +591,11 @@ describe("LeaderChatService", () => {
             },
           ],
           response: "已更新维度",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
       mockLeaderToolService.updateDimension.mockResolvedValue({
         success: true,
@@ -588,8 +623,8 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [
             {
               type: LeaderActionType.MERGE_DIMENSIONS,
@@ -600,7 +635,11 @@ describe("LeaderChatService", () => {
             },
           ],
           response: "已合并维度",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
       mockLeaderToolService.mergeDimensions.mockResolvedValue({
         success: true,
@@ -623,11 +662,15 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [{ type: LeaderActionType.NO_ACTION, params: {} }],
           response: "无需操作",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.handleUserMessage(
@@ -646,11 +689,15 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [{ type: "TOTALLY_UNKNOWN_ACTION", params: {} }],
           response: "尝试执行",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.handleUserMessage(
@@ -669,11 +716,15 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [],
           response: "好的",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
       mockLeaderToolService.deleteDimension.mockResolvedValue({
         success: true,
@@ -696,11 +747,15 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [],
           response: "已处理",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       await service.handleUserMessage(
@@ -718,8 +773,8 @@ describe("LeaderChatService", () => {
         intent: "unknown",
         confidence: 0.3,
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           actions: [
             {
               type: LeaderActionType.CREATE_DIMENSION,
@@ -727,7 +782,11 @@ describe("LeaderChatService", () => {
             },
           ],
           response: "维度已创建",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
       mockLeaderToolService.createDimension.mockResolvedValue({
         success: true,
@@ -828,18 +887,22 @@ describe("LeaderChatService", () => {
     });
 
     it("should skip quick decode for project config questions", async () => {
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           decisionType: "DIRECT_ANSWER",
           understanding: "查询配置",
           response: "当前配置如下：...",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.decodeUserInput("topic-001", "你有哪些工具");
 
       // Should call AI because of config keyword
-      expect(mockFacade.chat).toHaveBeenCalled();
+      expect(mockFacade.chatStructured).toHaveBeenCalled();
       expect(result.decisionType).toBe("DIRECT_ANSWER");
     });
 
@@ -853,7 +916,13 @@ describe("LeaderChatService", () => {
     });
 
     it("should return ACKNOWLEDGE fallback when AI response cannot be parsed", async () => {
-      mockFacade.chat.mockResolvedValue({ content: "bad json" });
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {},
+        rawContent: "bad json",
+        model: "o3",
+        tokensUsed: 50,
+        retriedParse: true,
+      });
 
       const result = await service.decodeUserInput("topic-001", "复杂分析问题");
 
@@ -861,12 +930,16 @@ describe("LeaderChatService", () => {
     });
 
     it("should default invalid decisionType to ACKNOWLEDGE", async () => {
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           decisionType: "INVALID_TYPE",
           understanding: "test",
           response: "test response",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.decodeUserInput("topic-001", "复杂问题");
@@ -875,14 +948,18 @@ describe("LeaderChatService", () => {
     });
 
     it("should return CREATE_TODO decision type when AI returns it", async () => {
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           decisionType: "CREATE_TODO",
           understanding: "用户要创建任务",
           response: "好的，我会为您创建任务",
           todoTitle: "研究AI教育应用",
           todoDescription: "深度研究AI在教育领域的应用",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.decodeUserInput(
@@ -919,12 +996,16 @@ describe("LeaderChatService", () => {
           },
         ],
       });
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      mockFacade.chatStructured.mockResolvedValue({
+        data: {
           decisionType: "DIRECT_ANSWER",
           understanding: "查询进度",
           response: "研究进度33%",
-        }),
+        },
+        rawContent: "{}",
+        model: "o3",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.decodeUserInput(

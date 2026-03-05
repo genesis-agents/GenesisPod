@@ -4,6 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderReviewService } from "../leader-review.service";
+import { MissionKernelBridgeService } from "../mission-kernel-bridge.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
@@ -33,9 +34,18 @@ function buildMocks() {
     }),
     chat: jest.fn(),
     chatWithSkills: jest.fn(),
+    chatStructured: jest.fn(),
   };
 
-  return { mockPrisma, mockAiFacade };
+  const mockKernelBridge = {
+    extractResearchConstraints: jest.fn().mockReturnValue([]),
+    validateResearchOutput: jest
+      .fn()
+      .mockResolvedValue({ isValid: true, violations: [] }),
+    formatConstraintsForPrompt: jest.fn().mockReturnValue(""),
+  };
+
+  return { mockPrisma, mockAiFacade, mockKernelBridge };
 }
 
 const mockSection = {
@@ -64,6 +74,10 @@ describe("LeaderReviewService", () => {
         LeaderReviewService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
         { provide: ChatFacade, useValue: mocks.mockAiFacade },
+        {
+          provide: MissionKernelBridgeService,
+          useValue: mocks.mockKernelBridge,
+        },
       ],
     }).compile();
 
@@ -101,12 +115,16 @@ describe("LeaderReviewService", () => {
     });
 
     it("should return approved decision on successful AI review", async () => {
-      aiFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      aiFacade.chatStructured.mockResolvedValue({
+        data: {
           status: "approved",
           feedback: "Good research",
           suggestions: [],
-        }),
+        },
+        rawContent: "{}",
+        model: "gpt-4o",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.reviewTaskResult(
@@ -121,7 +139,13 @@ describe("LeaderReviewService", () => {
     });
 
     it("should default to approved when AI response cannot be parsed", async () => {
-      aiFacade.chat.mockResolvedValue({ content: "invalid json" });
+      aiFacade.chatStructured.mockResolvedValue({
+        data: {},
+        rawContent: "invalid json",
+        model: "gpt-4o",
+        tokensUsed: 50,
+        retriedParse: true,
+      });
 
       const result = await service.reviewTaskResult(
         "mission-1",
@@ -133,12 +157,16 @@ describe("LeaderReviewService", () => {
     });
 
     it("should return needs_revision when AI says revision needed", async () => {
-      aiFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      aiFacade.chatStructured.mockResolvedValue({
+        data: {
           status: "needs_revision",
           feedback: "Missing data",
           revisionInstructions: "Add more evidence",
-        }),
+        },
+        rawContent: "{}",
+        model: "gpt-4o",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.reviewTaskResult(
@@ -285,15 +313,15 @@ describe("LeaderReviewService", () => {
 
   describe("extractClaims", () => {
     it("should return empty array when AI fails", async () => {
-      aiFacade.chat.mockRejectedValue(new Error("API error"));
+      aiFacade.chatStructured.mockRejectedValue(new Error("API error"));
 
       const result = await service.extractClaims("section-1", "Some content");
       expect(result).toEqual([]);
     });
 
     it("should return claims when AI succeeds", async () => {
-      aiFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      aiFacade.chatStructured.mockResolvedValue({
+        data: {
           claims: [
             {
               id: "c-1",
@@ -303,7 +331,11 @@ describe("LeaderReviewService", () => {
               sectionId: "section-1",
             },
           ],
-        }),
+        },
+        rawContent: "{}",
+        model: "gpt-4o",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const result = await service.extractClaims(
@@ -320,11 +352,11 @@ describe("LeaderReviewService", () => {
     it("should return empty array for empty hypotheses input", async () => {
       const result = await service.verifyHypotheses([], "some evidence");
       expect(result).toEqual([]);
-      expect(aiFacade.chat).not.toHaveBeenCalled();
+      expect(aiFacade.chatStructured).not.toHaveBeenCalled();
     });
 
     it("should return empty array when AI fails", async () => {
-      aiFacade.chat.mockRejectedValue(new Error("API error"));
+      aiFacade.chatStructured.mockRejectedValue(new Error("API error"));
 
       const hypotheses = [
         {
@@ -342,8 +374,8 @@ describe("LeaderReviewService", () => {
     });
 
     it("should return verification results when AI succeeds", async () => {
-      aiFacade.chat.mockResolvedValue({
-        content: JSON.stringify({
+      aiFacade.chatStructured.mockResolvedValue({
+        data: {
           results: [
             {
               hypothesisId: "h-1",
@@ -352,7 +384,11 @@ describe("LeaderReviewService", () => {
               evidence: "Supporting data",
             },
           ],
-        }),
+        },
+        rawContent: "{}",
+        model: "gpt-4o",
+        tokensUsed: 100,
+        retriedParse: false,
       });
 
       const hypotheses = [

@@ -15,6 +15,7 @@ import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType, LeaderDecisionType } from "@prisma/client";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
+import { MissionKernelBridgeService } from "./mission-kernel-bridge.service";
 import {
   LEADER_REVIEW_PROMPT,
   SECTION_REVIEW_PROMPT,
@@ -39,6 +40,7 @@ export class LeaderReviewService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatFacade: ChatFacade,
+    private readonly kernelBridge: MissionKernelBridgeService,
   ) {}
 
   /**
@@ -88,6 +90,7 @@ export class LeaderReviewService {
     taskId: string,
     result: string | Record<string, unknown>,
     dimensionName?: string,
+    topicDescription?: string,
   ): Promise<ReviewDecision> {
     this.logger.log(`[reviewTaskResult] Reviewing task ${taskId}`);
 
@@ -97,42 +100,73 @@ export class LeaderReviewService {
       throw new Error("No reasoning model available for Leader");
     }
 
+    // ★ 约束验证：从主题描述中提取约束并校验输出
+    const resultStr =
+      typeof result === "string" ? result : JSON.stringify(result, null, 2);
+    const constraints = topicDescription
+      ? this.kernelBridge.extractResearchConstraints(topicDescription)
+      : [];
+
+    let constraintSection = "";
+    if (constraints.length > 0) {
+      const validation = await this.kernelBridge.validateResearchOutput(
+        resultStr,
+        constraints,
+      );
+      if (!validation.isValid) {
+        this.logger.warn(
+          `[reviewTaskResult] Constraint violations: ${validation.violations.join("; ")}`,
+        );
+        constraintSection = `\n\n## 约束违规报告\n${validation.report}\n请在审核时考虑以上违规情况。`;
+      }
+
+      const promptConstraints =
+        this.kernelBridge.formatConstraintsForPrompt(constraints);
+      if (promptConstraints) {
+        constraintSection =
+          `\n\n## 研究约束\n${promptConstraints}` + constraintSection;
+      }
+    }
+
     // 构建 prompt
     const prompt = LEADER_REVIEW_PROMPT.replace(
       "{taskType}",
       "dimension_research",
     )
       .replace("{dimensionName}", dimensionName || "未知")
-      .replace("{result}", JSON.stringify(result, null, 2));
+      .replace("{result}", resultStr);
 
-    // 调用 AI 审核
+    // 调用 AI 审核（chatStructured 自动 JSON 解析 + 重试）
     const startTime = Date.now();
-    const response = await this.chatFacade.chat({
-      messages: [
-        {
-          role: "system",
-          content: "你是研究质量审核专家，请输出 JSON 格式的审核决策。",
-        },
-        { role: "user", content: prompt },
-      ],
-      model: leaderModel.modelId,
-      taskProfile: {
-        creativity: "low",
-        outputLength: "medium",
-      },
-    });
-    const latencyMs = Date.now() - startTime;
-
-    // 解析审核结果
-    const review = this.extractJsonFromResponse<{
+    const { data: review } = await this.chatFacade.chatStructured<{
       status: "approved" | "needs_revision" | "rejected";
       feedback?: string;
       suggestions?: string[];
       revisionInstructions?: string;
-      revisionNeeded?: boolean;
-    }>(response.content, "status"); // requiredKey for validation
+    }>({
+      messages: [{ role: "user", content: prompt + constraintSection }],
+      systemPrompt: "你是研究质量审核专家，请输出 JSON 格式的审核决策。",
+      model: leaderModel.modelId,
+      taskProfile: { creativity: "low", outputLength: "medium" },
+      schema: {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            description: "approved | needs_revision | rejected",
+          },
+          feedback: { type: "string" },
+          suggestions: { type: "array", items: { type: "string" } },
+          revisionInstructions: { type: "string" },
+        },
+        required: ["status"],
+      },
+      maxRetries: 1,
+      throwOnParseError: false,
+    });
+    const latencyMs = Date.now() - startTime;
 
-    if (!review) {
+    if (!review.status) {
       this.logger.warn(
         "[reviewTaskResult] Failed to parse review, defaulting to approved",
       );
@@ -422,31 +456,41 @@ ${fullContent.substring(0, 8000)}
     ).replace("{sectionId}", sectionId);
 
     try {
-      const response = await this.chatFacade.chat({
-        messages: [
-          {
-            role: "system",
-            content:
-              "你是事实核查专家，精确提取可验证的事实断言。请输出 JSON 格式。",
-          },
-          { role: "user", content: prompt },
-        ],
+      const { data } = await this.chatFacade.chatStructured<{
+        claims: import("../../types/v5-research.types").ExtractedClaim[];
+      }>({
+        messages: [{ role: "user", content: prompt }],
+        systemPrompt:
+          "你是事实核查专家，精确提取可验证的事实断言。请输出 JSON 格式。",
         modelType: AIModelType.CHAT_FAST,
-        taskProfile: {
-          creativity: "deterministic",
-          outputLength: "medium",
+        taskProfile: { creativity: "deterministic", outputLength: "medium" },
+        schema: {
+          type: "object",
+          properties: {
+            claims: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  text: { type: "string" },
+                  source: { type: "string" },
+                  confidence: { type: "number" },
+                },
+                required: ["text"],
+              },
+            },
+          },
+          required: ["claims"],
         },
+        maxRetries: 1,
+        throwOnParseError: false,
       });
 
-      const result = extractJsonFromAIResponse<{
-        claims: import("../../types/v5-research.types").ExtractedClaim[];
-      }>(response.content, { requiredKey: "claims" });
-
-      if (result.success && result.data?.claims) {
+      if (data?.claims?.length) {
         this.logger.log(
-          `[extractClaims] Extracted ${result.data.claims.length} claims from section ${sectionId}`,
+          `[extractClaims] Extracted ${data.claims.length} claims from section ${sectionId}`,
         );
-        return result.data.claims;
+        return data.claims;
       }
 
       this.logger.warn(
@@ -483,30 +527,43 @@ ${fullContent.substring(0, 8000)}
     ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
 
     try {
-      const response = await this.chatFacade.chat({
-        messages: [
-          {
-            role: "system",
-            content: "你是研究方法论专家，严谨验证研究假设。请输出 JSON 格式。",
-          },
-          { role: "user", content: prompt },
-        ],
+      const { data } = await this.chatFacade.chatStructured<{
+        results: import("../../types/v5-research.types").HypothesisVerificationResult[];
+      }>({
+        messages: [{ role: "user", content: prompt }],
+        systemPrompt:
+          "你是研究方法论专家，严谨验证研究假设。请输出 JSON 格式。",
         modelType: AIModelType.CHAT_FAST,
-        taskProfile: {
-          creativity: "low",
-          outputLength: "medium",
+        taskProfile: { creativity: "low", outputLength: "medium" },
+        schema: {
+          type: "object",
+          properties: {
+            results: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  status: {
+                    type: "string",
+                    description: "supported | contradicted | inconclusive",
+                  },
+                  evidence: { type: "string" },
+                },
+                required: ["status"],
+              },
+            },
+          },
+          required: ["results"],
         },
+        maxRetries: 1,
+        throwOnParseError: false,
       });
 
-      const result = extractJsonFromAIResponse<{
-        results: import("../../types/v5-research.types").HypothesisVerificationResult[];
-      }>(response.content, { requiredKey: "results" });
-
-      if (result.success && result.data?.results) {
+      if (data?.results?.length) {
         this.logger.log(
-          `[verifyHypotheses] Verified ${result.data.results.length} hypotheses`,
+          `[verifyHypotheses] Verified ${data.results.length} hypotheses`,
         );
-        return result.data.results;
+        return data.results;
       }
 
       this.logger.warn(

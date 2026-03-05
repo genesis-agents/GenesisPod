@@ -20,7 +20,6 @@ import { LeaderDecisionType, ResearchTaskStatus } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { sanitize } from "../../utils/prompt-sanitizer";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   LeaderToolService,
   LeaderActionType,
@@ -219,27 +218,9 @@ export class LeaderChatService {
       .replace("{dimensionList}", dimensionList)
       .replace("{userMessage}", sanitizedMessage);
 
-    // 7. 调用 AI
+    // 7. 调用 AI（chatStructured 自动 JSON 解析 + 重试）
     const startTime = Date.now();
-    const response = await this.chatFacade.chat({
-      messages: [
-        {
-          role: "system",
-          content:
-            "你是研究协调专家 Leader，请回应用户的指令并输出 JSON 格式的响应。",
-        },
-        { role: "user", content: prompt },
-      ],
-      model: leaderModel.modelId,
-      taskProfile: {
-        creativity: "medium",
-        outputLength: "medium",
-      },
-    });
-    const latencyMs = Date.now() - startTime;
-
-    // 8. 解析响应
-    const result = this.extractJsonFromResponse<{
+    const { data: result } = await this.chatFacade.chatStructured<{
       understanding?: string;
       actions?: Array<{
         type: string;
@@ -247,9 +228,38 @@ export class LeaderChatService {
       }>;
       response: string;
       planAdjustments?: unknown;
-    }>(response.content, "response"); // requiredKey for validation
+    }>({
+      messages: [{ role: "user", content: prompt }],
+      systemPrompt:
+        "你是研究协调专家 Leader，请回应用户的指令并输出 JSON 格式的响应。",
+      model: leaderModel.modelId,
+      taskProfile: { creativity: "medium", outputLength: "medium" },
+      schema: {
+        type: "object",
+        properties: {
+          understanding: { type: "string" },
+          actions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string" },
+                params: { type: "object" },
+              },
+              required: ["type"],
+            },
+          },
+          response: { type: "string" },
+          planAdjustments: { type: "object" },
+        },
+        required: ["response"],
+      },
+      maxRetries: 1,
+      throwOnParseError: false,
+    });
+    const latencyMs = Date.now() - startTime;
 
-    if (!result) {
+    if (!result.response) {
       const fallbackResponse = "收到您的指令，我会继续推进研究工作。";
       // ★ 发射 WebSocket 事件到团队互动区
       await this.eventEmitter.emitLeaderResponse(
@@ -709,22 +719,11 @@ export class LeaderChatService {
     // 添加当前用户消息（包含完整上下文的 prompt）
     messages.push({ role: "user", content: prompt });
 
-    const response = await this.chatFacade.chat({
-      messages,
-      model: leaderModel.modelId,
-      taskProfile: {
-        creativity: "low", // 解码任务需要准确性
-        outputLength: "short",
-      },
-    });
-    const latencyMs = Date.now() - startTime;
+    // 将系统消息从 messages 中分离，使用 systemPrompt 字段（chatStructured 会追加 schema 指令）
+    const systemContent = messages.find((m) => m.role === "system")?.content;
+    const nonSystemMessages = messages.filter((m) => m.role !== "system");
 
-    this.logger.log(
-      `[decodeUserInput] AI response in ${latencyMs}ms (with ${conversationHistory.length} history messages)`,
-    );
-
-    // 7. 解析响应
-    const result = this.extractJsonFromResponse<{
+    const { data: result } = await this.chatFacade.chatStructured<{
       decisionType: string;
       understanding: string;
       response: string;
@@ -732,9 +731,37 @@ export class LeaderChatService {
       todoDescription?: string;
       clarifyQuestion?: string;
       clarifyOptions?: string[];
-    }>(response.content, "decisionType"); // requiredKey for validation
+    }>({
+      messages: nonSystemMessages,
+      systemPrompt: systemContent,
+      model: leaderModel.modelId,
+      taskProfile: { creativity: "low", outputLength: "short" },
+      schema: {
+        type: "object",
+        properties: {
+          decisionType: {
+            type: "string",
+            description: "DIRECT_ANSWER | CREATE_TODO | CLARIFY | ACKNOWLEDGE",
+          },
+          understanding: { type: "string" },
+          response: { type: "string" },
+          todoTitle: { type: "string" },
+          todoDescription: { type: "string" },
+          clarifyQuestion: { type: "string" },
+          clarifyOptions: { type: "array", items: { type: "string" } },
+        },
+        required: ["decisionType", "understanding", "response"],
+      },
+      maxRetries: 1,
+      throwOnParseError: false,
+    });
+    const latencyMs = Date.now() - startTime;
 
-    if (!result) {
+    this.logger.log(
+      `[decodeUserInput] AI response in ${latencyMs}ms (with ${conversationHistory.length} history messages)`,
+    );
+
+    if (!result.decisionType) {
       // 解析失败时的降级处理
       return {
         decisionType: "ACKNOWLEDGE",
@@ -1362,35 +1389,6 @@ ${teamMembersText}`;
     }
 
     return { skills, tools };
-  }
-
-  /**
-   * 从 AI 响应中提取 JSON
-   * 使用增强的 extractJsonFromAIResponse 工具，支持截断响应修复
-   */
-  private extractJsonFromResponse<T>(
-    response: string,
-    requiredKey?: string,
-  ): T | null {
-    // 处理空响应
-    if (!response || response.trim().length === 0) {
-      this.logger.warn("[extractJsonFromResponse] Empty response received");
-      return null;
-    }
-
-    const result = extractJsonFromAIResponse<T>(response, { requiredKey });
-
-    if (result.success && result.data) {
-      this.logger.debug(
-        `[extractJsonFromResponse] Extracted via method: ${result.method}`,
-      );
-      return result.data;
-    }
-
-    this.logger.error(
-      `[extractJsonFromResponse] Could not extract JSON: ${result.error || "unknown error"}`,
-    );
-    return null;
   }
 
   /**
