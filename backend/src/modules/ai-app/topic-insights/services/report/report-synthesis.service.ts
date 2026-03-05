@@ -807,6 +807,13 @@ export class ReportSynthesisService {
       ]),
     ) as typeof supplementaryContent;
 
+    // ★ 清理所有补充内容中的 LLM 元注释（字数统计等）
+    for (const key of Object.keys(sc) as (keyof typeof sc)[]) {
+      if (sc[key]) {
+        (sc as Record<string, string>)[key] = this.stripLLMMetaNotes(sc[key]);
+      }
+    }
+
     const parts: string[] = [];
 
     // Sort dimensions by priority (lower number = higher priority = earlier in report)
@@ -891,27 +898,32 @@ export class ReportSynthesisService {
       content = stripChartJsonFromContent(content);
       // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
       content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
-      // ★ 降级维度内容中的标题层级：# → ###, ## → ###（维度章节本身是 ##）
-      content = content.replace(/^(#{1,2})\s+/gm, (match, hashes) => {
-        if (hashes === "#") return "### ";
-        if (hashes === "##") return "### ";
-        return match;
+      // ★ 降级维度内容中的标题层级：全量 +2（维度章节本身是 ##）
+      // # → ###, ## → ####, ### → #####, #### → ######
+      content = content.replace(/^(#{1,6})\s+/gm, (_match, hashes: string) => {
+        const newLevel = Math.min(hashes.length + 2, 6);
+        return "#".repeat(newLevel) + " ";
       });
-      // ★ 去除重复的 ### 标题（AI 有时生成 "### N. Xxx" 后又生成 "### Xxx"）
+      // ★ 去除重复的标题（AI 有时生成 "### N. Xxx" 后又生成 "### Xxx"）
       {
         const lines = content.split("\n");
-        const seenH3 = new Set<string>();
+        const seenHeadings = new Set<string>();
         content = lines
           .filter((line) => {
-            const m = line.match(/^###\s+(.+)/);
+            const m = line.match(/^#{3,6}\s+(.+)/);
             if (!m) return true;
-            const normalized = m[1].replace(/^\d+\.\s*/, "").trim();
-            if (seenH3.has(normalized)) return false;
-            seenH3.add(normalized);
+            const normalized = m[1]
+              .replace(/^[\d.]+\s*/, "")
+              .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
+              .trim();
+            if (seenHeadings.has(normalized)) return false;
+            seenHeadings.add(normalized);
             return true;
           })
           .join("\n");
       }
+      // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
+      content = this.numberSubHeadings(content, idx + 1);
       // ★ 跨维度段落去重：首 DEDUP_KEY_LENGTH 字相同的段落只保留首次出现
       {
         const DEDUP_MIN_LENGTH = 60; // 短于此长度的段落不参与去重
@@ -957,12 +969,7 @@ export class ReportSynthesisService {
       );
 
       // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
-      content = content
-        .replace(/（精简字数[^）]*）/g, "")
-        .replace(/（原\d+[^）]*）/g, "")
-        .replace(/（[约共]\d+字）/g, "")
-        .replace(/（\d+字）/g, "")
-        .replace(/\n{3,}/g, "\n\n");
+      content = this.stripLLMMetaNotes(content);
 
       parts.push(content);
       parts.push("\n---\n");
@@ -1577,16 +1584,18 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
   ): string {
     if (!conclusion) return "";
 
-    // 移除跨维度分析、风险评估、战略建议章节
-    let result = conclusion;
     const isEn = language === "en";
     const sectionsToRemove = isEn
       ? [
           "Cross-Dimension Analysis",
           "Risk Assessment",
           "Strategic Recommendations",
+          "Conclusion",
         ]
-      : ["跨维度关联分析", "风险评估", "战略建议"];
+      : ["跨维度关联分析", "风险评估", "战略建议", "结语"];
+
+    // 移除跨维度分析、风险评估、战略建议、以及内嵌的结语章节
+    let result = conclusion;
 
     for (const section of sectionsToRemove) {
       const pattern = new RegExp(
@@ -1595,6 +1604,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       );
       result = result.replace(pattern, "");
     }
+
+    // 剥离顶层 # 结论 / # Conclusion 标题
+    result = result.replace(/^#\s+(结论|Conclusion)\s*\n+/im, "");
 
     return result.trim();
   }
@@ -2048,6 +2060,49 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
     return this.teamFacade.sanitizeReport(parts.join("\n"));
+  }
+
+  /** Strip LLM-leaked meta-notes (word counts, editing instructions). */
+  private stripLLMMetaNotes(content: string): string {
+    return content
+      .replace(/（精简字数[^）]*）/g, "")
+      .replace(/（原\d+[^）]*）/g, "")
+      .replace(/（[约共]\d+字）/g, "")
+      .replace(/（\d+字）/g, "")
+      .replace(/\n{3,}/g, "\n\n");
+  }
+
+  /**
+   * Give dimension sub-headings hierarchical numbering.
+   * ### Title → ### N.M. Title   (sub-dimension, from original #)
+   * #### Title → #### N.M.K. Title (section, from original ##)
+   * Strips Arabic ("1. "), Chinese ordinal ("一、"), and parenthesized ("（一）") prefixes.
+   */
+  private numberSubHeadings(content: string, dimIndex: number): string {
+    let h3Count = 0;
+    let h4Count = 0;
+
+    return content.replace(
+      /^(#{3,4})\s+(.+)$/gm,
+      (_match, hashes: string, title: string) => {
+        const cleanTitle = title
+          .replace(/^[\d.]+\s*/, "")
+          .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
+          .replace(/^（[一二三四五六七八九十百\d]+）\s*/, "")
+          .trim();
+
+        if (hashes === "###") {
+          h3Count++;
+          h4Count = 0;
+          return `### ${dimIndex}.${h3Count}. ${cleanTitle}`;
+        }
+        if (hashes === "####") {
+          h4Count++;
+          return `#### ${dimIndex}.${h3Count}.${h4Count}. ${cleanTitle}`;
+        }
+        return `${hashes} ${title}`;
+      },
+    );
   }
 
   /**
