@@ -1831,8 +1831,42 @@ ${teamMembersText}`;
 
     // 战略/综合类
     if (isStrategyRelated) {
-      skills.push("future_projection", "cause_effect", "synthesis");
+      skills.push(
+        "future_projection",
+        "cause_effect",
+        "synthesis",
+        "swot_analysis",
+      );
       tools.push("web-search", "news");
+    }
+
+    // 评估/审核类关键词
+    const evaluationKeywords = [
+      "评估",
+      "审查",
+      "评价",
+      "利弊",
+      "优劣",
+      "风险",
+      "挑战",
+      "问题",
+      "evaluate",
+      "assess",
+      "review",
+      "risk",
+      "challenge",
+      "opportunity",
+      "swot",
+      "优势",
+      "劣势",
+      "机遇",
+      "威胁",
+    ];
+    const isEvaluationRelated = evaluationKeywords.some((kw) =>
+      content.includes(kw),
+    );
+    if (isEvaluationRelated) {
+      skills.push("critical_thinking", "swot_analysis");
     }
 
     // 去重
@@ -1847,9 +1881,9 @@ ${teamMembersText}`;
       tools = ["web-search"];
     }
 
-    // 限制数量：skills 2-4 个，tools 1-3 个
-    if (skills.length > 4) {
-      skills = skills.slice(0, 4);
+    // 限制数量：skills 2-5 个，tools 1-3 个
+    if (skills.length > 5) {
+      skills = skills.slice(0, 5);
     }
     if (tools.length > 3) {
       tools = tools.slice(0, 3);

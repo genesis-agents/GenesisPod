@@ -233,8 +233,51 @@ describe("LeaderPlanningService", () => {
       const researcher = result.agentAssignments.find(
         (a) => a.agentType === "dimension_researcher",
       );
+      // ★ 基于维度内容智能选择：dim-1 "Market Analysis" → 包含 "趋势" 相关关键词
       expect(researcher?.skills).toContain("deep_dive");
+      expect(researcher?.skills).toContain("synthesis");
       expect(researcher?.tools).toContain("web-search");
+    });
+
+    it("should select dimension-aware skills based on dimension content", async () => {
+      const planWithTrendDimension = {
+        ...mockLeaderPlanResponse,
+        dimensions: [
+          {
+            id: "dim-trend",
+            name: "市场趋势分析",
+            description: "分析市场增长趋势和竞争格局",
+            priority: 1,
+            searchQueries: ["market trends"],
+            dataSources: ["web"],
+          },
+        ],
+        agentAssignments: [
+          {
+            agentId: "researcher-1",
+            agentName: "Researcher",
+            agentType: "dimension_researcher",
+            modelId: "gpt-4o",
+            assignedDimensions: ["dim-trend"],
+            skills: [],
+            tools: [],
+          },
+        ],
+      };
+
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      aiFacade.chatWithSkills.mockResolvedValue({
+        content: JSON.stringify(planWithTrendDimension),
+        isError: false,
+      });
+
+      const result = await service.planResearch("topic-1");
+      const researcher = result.agentAssignments.find(
+        (a) => a.agentType === "dimension_researcher",
+      );
+      // 维度名包含 "趋势" 和 "竞争" → 应选择 trend_analysis 和 competitive_analysis
+      expect(researcher?.skills).toContain("trend_analysis");
+      expect(researcher?.skills).toContain("competitive_analysis");
     });
   });
 

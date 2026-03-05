@@ -352,16 +352,15 @@ export class LeaderPlanningService {
           modelIndex++;
         }
 
-        // 2. 为研究员确保有 skills（若 AI 未返回则使用默认值）
+        // 2. 为研究员确保有 skills（若 AI 未返回则根据维度内容智能选择）
         if (assignment.agentType === "dimension_researcher") {
           if (!assignment.skills || assignment.skills.length === 0) {
-            assignment.skills = [
-              "deep_dive",
-              "synthesis",
-              "data_interpretation",
-            ];
+            assignment.skills = this.selectDefaultSkillsForDimension(
+              assignment,
+              plan.dimensions,
+            );
             this.logger.debug(
-              `[planResearch] Auto-assigned default skills to ${assignment.agentName || assignment.agentId}`,
+              `[planResearch] Auto-assigned skills [${assignment.skills.join(", ")}] to ${assignment.agentName || assignment.agentId}`,
             );
           }
           if (!assignment.tools || assignment.tools.length === 0) {
@@ -874,6 +873,136 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     throw new Error(
       `Failed to parse dimension outline after ${MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
     );
+  }
+
+  /**
+   * 根据维度内容智能选择默认技能
+   * 当 AI 未返回 skills 时，基于维度名称和描述选择合适的技能
+   */
+  private selectDefaultSkillsForDimension(
+    assignment: { assignedDimensions?: string[] },
+    dimensions: Array<{ id: string; name: string; description?: string }>,
+  ): string[] {
+    // 基础技能（始终包含）
+    const skills = new Set(["deep_dive", "synthesis"]);
+
+    // 收集该 Agent 负责的维度名称和描述
+    const dimTexts = (assignment.assignedDimensions || [])
+      .map((dimId) => {
+        const dim = dimensions.find((d) => d.id === dimId);
+        return dim ? `${dim.name} ${dim.description || ""}` : "";
+      })
+      .join(" ")
+      .toLowerCase();
+
+    // 无维度信息时使用通用默认
+    if (!dimTexts) {
+      skills.add("data_interpretation");
+      return [...skills];
+    }
+
+    // 关键词 → 技能映射
+    const keywordSkillMap: Array<{
+      keywords: string[];
+      skill: string;
+    }> = [
+      {
+        keywords: ["趋势", "走势", "变化", "增长", "下降", "trend", "growth"],
+        skill: "trend_analysis",
+      },
+      {
+        keywords: [
+          "竞争",
+          "竞品",
+          "对手",
+          "格局",
+          "market share",
+          "competitor",
+          "competition",
+        ],
+        skill: "competitive_analysis",
+      },
+      {
+        keywords: [
+          "对比",
+          "比较",
+          "差异",
+          "versus",
+          "vs",
+          "compare",
+          "comparison",
+        ],
+        skill: "comparison",
+      },
+      {
+        keywords: [
+          "数据",
+          "指标",
+          "统计",
+          "data",
+          "metric",
+          "statistics",
+          "分析",
+        ],
+        skill: "data_interpretation",
+      },
+      {
+        keywords: ["未来", "预测", "展望", "forecast", "outlook", "projection"],
+        skill: "future_projection",
+      },
+      {
+        keywords: [
+          "原因",
+          "影响",
+          "因果",
+          "驱动",
+          "cause",
+          "effect",
+          "impact",
+          "driver",
+        ],
+        skill: "cause_effect",
+      },
+      {
+        keywords: [
+          "评估",
+          "优劣",
+          "利弊",
+          "风险",
+          "swot",
+          "strength",
+          "weakness",
+          "优势",
+          "劣势",
+          "机遇",
+          "威胁",
+        ],
+        skill: "swot_analysis",
+      },
+      {
+        keywords: [
+          "审视",
+          "批判",
+          "反思",
+          "质疑",
+          "critical",
+          "evaluate",
+          "问题",
+          "挑战",
+        ],
+        skill: "critical_thinking",
+      },
+    ];
+
+    for (const { keywords, skill } of keywordSkillMap) {
+      if (keywords.some((kw) => dimTexts.includes(kw))) {
+        skills.add(skill);
+      }
+    }
+
+    // 限制最多 5 个技能（避免 prompt 膨胀）
+    const result = [...skills];
+    return result.length > 5 ? result.slice(0, 5) : result;
   }
 
   /**

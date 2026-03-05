@@ -765,7 +765,7 @@ export class DimensionMissionService {
     modelId?: string,
     taskId?: string,
     _assignedTools?: string[], // Prefixed with _ to indicate intentionally unused
-    _assignedSkills?: string[], // Prefixed with _ to indicate intentionally unused
+    assignedSkills?: string[], // ★ Leader 分配的技能（传递到 chatWithSkills）
     validationContext?: string, // V5: 验证上下文
     maxRevisionRounds?: number, // V5: 最大修订轮次（来自 depthConfig）
   ): Promise<DimensionMissionResult> {
@@ -773,7 +773,7 @@ export class DimensionMissionService {
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
     this.logger.log(
-      `${logPrefix} Starting writing phase with global outline (${outline.sections.length} sections)`,
+      `${logPrefix} Starting writing phase with global outline (${outline.sections.length} sections)${assignedSkills?.length ? `, skills: [${assignedSkills.join(", ")}]` : ""}`,
     );
 
     const leaderAgentId = "leader-" + dimId;
@@ -867,6 +867,7 @@ export class DimensionMissionService {
         validationContext, // V5
         maxRevisionRounds, // V5
         topic.language, // Language setting
+        assignedSkills, // ★ Leader 分配的技能
       );
 
       // 记录写作完成
@@ -1224,6 +1225,7 @@ export class DimensionMissionService {
     validationContext?: string, // V5: 验证上下文
     maxRevisionRounds?: number, // V5: 最大修订轮次
     topicLanguage?: string | null, // Language setting for review
+    assignedSkills?: string[], // ★ Leader 分配的技能（注入到 chatWithSkills）
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -1257,6 +1259,7 @@ export class DimensionMissionService {
         allocatedFigures: section.allocatedFigures, // ★ 传递 Leader 预分配的图表
         validationContext, // V5: inject validation context
         topicLanguage, // ★ 传递语言设置
+        assignedSkills, // ★ Leader 分配的任务级技能
       }));
 
       // ★ 发送研究员开始写作事件
@@ -1381,6 +1384,7 @@ export class DimensionMissionService {
               evidenceData,
               modelId, // ★ 修订时使用同一模型
               topicLanguage, // ★ 传递语言设置
+              assignedSkills, // ★ Leader 分配的任务级技能
             });
           } catch (revisionError) {
             const errorMsg =

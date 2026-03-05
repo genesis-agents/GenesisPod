@@ -76,6 +76,8 @@ export interface SectionWriteInput {
   validationContext?: string;
   /** 研究语言设置 (zh/en) */
   topicLanguage?: string | null;
+  /** ★ Leader 分配的任务级技能（与 section.agentConfig.skills 合并后注入 chatWithSkills） */
+  assignedSkills?: string[];
 }
 
 /**
@@ -91,6 +93,8 @@ export interface SectionRevisionInput {
   modelId?: string;
   /** 研究语言设置 (zh/en) */
   topicLanguage?: string | null;
+  /** ★ Leader 分配的任务级技能（与 section.agentConfig.skills 合并后注入 chatWithSkills） */
+  assignedSkills?: string[];
 }
 
 @Injectable()
@@ -168,7 +172,11 @@ export class SectionWriterService {
     }
 
     // 格式化 Agent 配置指导（拆分为 leader 指导 + skill IDs）
-    const { leaderGuidance, skillIds } = this.formatAgentGuidance(section);
+    // ★ 合并 section-level 和 mission-level assignedSkills
+    const { leaderGuidance, skillIds } = this.formatAgentGuidance(
+      section,
+      input.assignedSkills,
+    );
 
     // 准备提示词变量（包含时间上下文）
     const promptVariables = {
@@ -341,7 +349,11 @@ export class SectionWriterService {
     );
 
     // ★ 提取 Leader 分配的 skill（与 writeSection 保持一致）
-    const { skillIds } = this.formatAgentGuidance(section);
+    // ★ 合并 section-level 和 mission-level assignedSkills
+    const { skillIds } = this.formatAgentGuidance(
+      section,
+      input.assignedSkills,
+    );
 
     const startTime = Date.now();
     const response = await this.chatFacade.chatWithSkills({
@@ -588,14 +600,14 @@ export class SectionWriterService {
    * - skillIds: 需要加载的 skill ID 列表（kebab-case，给 chatWithSkills 的 additionalSkills 用）
    * - leaderGuidance: Leader 指导文本（analysisGuidance + outputStyle + preferredDataSources）
    */
-  private formatAgentGuidance(section: SectionPlan): {
+  private formatAgentGuidance(
+    section: SectionPlan,
+    assignedSkills?: string[],
+  ): {
     leaderGuidance: string;
     skillIds: string[];
   } {
     const config = section.agentConfig;
-    if (!config) {
-      return { leaderGuidance: "无特殊指导", skillIds: [] };
-    }
 
     const parts: string[] = [];
     let skillIds: string[] = [];
@@ -614,11 +626,28 @@ export class SectionWriterService {
       comparison: "comparison",
     };
 
-    // 将 skill IDs 映射为 kebab-case（供 chatWithSkills 的 additionalSkills 使用）
-    if (config.skills && config.skills.length > 0) {
+    // 将 section-level skill IDs 映射为 kebab-case
+    if (config?.skills && config.skills.length > 0) {
       skillIds = config.skills.map(
         (id: string) => skillIdMapping[id] || id.replace(/_/g, "-"),
       );
+    }
+
+    // ★ 合并 mission-level assignedSkills（Leader 分配的任务级技能）
+    if (assignedSkills && assignedSkills.length > 0) {
+      const mappedAssigned = assignedSkills.map(
+        (id) => skillIdMapping[id] || id.replace(/_/g, "-"),
+      );
+      skillIds = [...new Set([...skillIds, ...mappedAssigned])];
+    }
+
+    if (!config) {
+      return {
+        leaderGuidance: assignedSkills?.length
+          ? "请参考系统提示中的分析技能指导"
+          : "无特殊指导",
+        skillIds,
+      };
     }
 
     // 分析指导

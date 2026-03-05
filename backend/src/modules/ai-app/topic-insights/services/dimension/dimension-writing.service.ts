@@ -108,7 +108,7 @@ export class DimensionWritingService {
     modelId?: string,
     taskId?: string,
     _assignedTools?: string[],
-    _assignedSkills?: string[],
+    assignedSkills?: string[],
     validationContext?: string,
     maxRevisionRounds?: number,
     emitProgressFn?: (
@@ -225,6 +225,7 @@ export class DimensionWritingService {
         validationContext,
         maxRevisionRounds,
         emitProgressFn,
+        assignedSkills,
       );
 
       // 记录写作完成
@@ -538,6 +539,7 @@ export class DimensionWritingService {
       stageProgress?: number,
       taskId?: string,
     ) => Promise<void>,
+    assignedSkills?: string[], // ★ Leader 分配的技能（注入到 chatWithSkills）
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -575,6 +577,7 @@ export class DimensionWritingService {
         temporalContext,
         allocatedFigures: section.allocatedFigures,
         validationContext,
+        assignedSkills, // ★ Leader 分配的任务级技能
       }));
 
       // 发送研究员开始写作事件
@@ -698,6 +701,7 @@ export class DimensionWritingService {
               revisionInstructions: review.revisionInstructions || "",
               evidenceData,
               modelId,
+              assignedSkills, // ★ Leader 分配的任务级技能
             });
           } catch (revisionError) {
             const errorMsg =

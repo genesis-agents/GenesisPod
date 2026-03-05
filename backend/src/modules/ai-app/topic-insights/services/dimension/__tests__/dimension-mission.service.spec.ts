@@ -1495,6 +1495,30 @@ describe("DimensionMissionService", () => {
         expect.any(String),
       );
     });
+
+    it("should pass assignedSkills to section writer via writeInputs", async () => {
+      setupForWritingPhase();
+
+      const assignedSkills = ["deep_dive", "synthesis"];
+
+      await service.executeWritingPhase(
+        mockTopic,
+        mockDimension,
+        mockSearchPhaseResult,
+        mockOutline,
+        undefined, // reportId
+        undefined, // missionId
+        undefined, // modelId
+        undefined, // taskId
+        undefined, // assignedTools
+        assignedSkills,
+      );
+
+      // writeSectionsParallel should have been called with inputs that include assignedSkills
+      expect(mockSectionWriter.writeSectionsParallel).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.objectContaining({ assignedSkills })]),
+      );
+    });
   });
 
   // ============================================================

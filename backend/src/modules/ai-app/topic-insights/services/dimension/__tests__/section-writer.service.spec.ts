@@ -1324,6 +1324,76 @@ describe("SectionWriterService", () => {
       const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
       expect(chatCall.domain).toBeUndefined();
     });
+
+    it("should merge assignedSkills with section.agentConfig.skills", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+      });
+
+      await service.writeSection({
+        section: makeSection({
+          agentConfig: {
+            skills: ["trend_analysis"],
+          },
+        }),
+        evidenceData: [],
+        assignedSkills: ["deep_dive", "synthesis"],
+      });
+
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      // section-level skill + mission-level skills, all mapped to kebab-case
+      expect(chatCall.additionalSkills).toContain("trend-analysis");
+      expect(chatCall.additionalSkills).toContain("deep-dive");
+      expect(chatCall.additionalSkills).toContain("synthesis");
+    });
+
+    it("should use only assignedSkills when section has no agentConfig", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+      });
+
+      await service.writeSection({
+        section: makeSection({ agentConfig: null }),
+        evidenceData: [],
+        assignedSkills: ["critical_thinking", "comparison"],
+      });
+
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      expect(chatCall.additionalSkills).toEqual([
+        "critical-thinking",
+        "comparison",
+      ]);
+    });
+
+    it("should deduplicate merged skills when section and assignedSkills overlap", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+      });
+
+      await service.writeSection({
+        section: makeSection({
+          agentConfig: {
+            skills: ["trend_analysis", "synthesis"],
+          },
+        }),
+        evidenceData: [],
+        assignedSkills: ["synthesis", "deep_dive"], // "synthesis" overlaps
+      });
+
+      const chatCall = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      // "synthesis" should appear only once
+      expect(
+        chatCall.additionalSkills.filter((s: string) => s === "synthesis"),
+      ).toHaveLength(1);
+      expect(chatCall.additionalSkills).toContain("trend-analysis");
+      expect(chatCall.additionalSkills).toContain("deep-dive");
+    });
   });
 
   // ============================================================
