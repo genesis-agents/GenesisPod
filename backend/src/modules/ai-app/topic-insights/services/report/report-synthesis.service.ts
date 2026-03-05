@@ -1590,11 +1590,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           "Cross-Dimension Analysis",
           "Risk Assessment",
           "Strategic Recommendations",
-          "Conclusion",
         ]
-      : ["跨维度关联分析", "风险评估", "战略建议", "结语"];
+      : ["跨维度关联分析", "风险评估", "战略建议"];
 
-    // 移除跨维度分析、风险评估、战略建议、以及内嵌的结语章节
+    // 移除跨维度分析、风险评估、战略建议章节（它们已作为独立 ## 渲染，避免重复）
     let result = conclusion;
 
     for (const section of sectionsToRemove) {
@@ -1605,8 +1604,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       result = result.replace(pattern, "");
     }
 
-    // 剥离顶层 # 结论 / # Conclusion 标题
-    result = result.replace(/^#\s+(结论|Conclusion)\s*\n+/im, "");
+    // 剥离结论/结语标题（仅标题，保留内容；buildFullReportFromDimensions 会添加自己的 ## 结语）
+    result = result.replace(/^#{1,2}\s+(结论|结语|Conclusion)\s*\n+/gim, "");
 
     return result.trim();
   }
