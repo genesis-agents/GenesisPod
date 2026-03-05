@@ -1266,6 +1266,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           return `### ${dimIndex}.${h3Count}. ${cleanTitle}`;
         }
         if (hashes === "####") {
+          if (h3Count === 0) h3Count = 1; // implicit parent when h4 appears before any h3
           h4Count++;
           return `#### ${dimIndex}.${h3Count}.${h4Count}. ${cleanTitle}`;
         }
