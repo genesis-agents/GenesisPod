@@ -1236,7 +1236,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
   }
 
   /**
-   * Resolves chart placeholders in dimension content:
    * Give dimension sub-headings hierarchical numbering.
    * ### Title → ### N.M. Title
    * #### Title → #### N.M.K. Title
@@ -1267,6 +1266,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
   }
 
   /**
+   * Resolves chart placeholders in dimension content:
    * 1. Converts <!-- figure:N:M --> to <!-- chart:dX-id --> using figureReferences
    * 2. Injects generated chart placeholders based on position
    * 3. Deduplicates chart placeholders by chartId
