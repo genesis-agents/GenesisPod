@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { IntentGatewayService } from "../intent-gateway.service";
-import { IntentRouterService } from "../../../ai-engine/facade";
+import { IntentRouterService } from "../../ai-engine/facade";
 
 describe("IntentGatewayService", () => {
   let service: IntentGatewayService;

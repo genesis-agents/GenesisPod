@@ -1,14 +1,14 @@
 /**
- * IntentGatewayService — L6 Agent OS Intent Gateway
+ * IntentGatewayService — L6 意图网关
  *
  * Thin wrapper over L2 IntentRouterService that adds L6 concerns:
  * - Session-scoped intent routing
  * - Module capability listing for external consumers
  * - Rate limiting hooks (future)
  *
- * Architecture: L6 Agent OS → L2 AI Engine (via facade)
+ * Architecture: L6 Intent Gateway → L2 AI Engine (via facade)
  *
- * IntentRouterService is injected as @Optional so that the Agent OS
+ * IntentRouterService is injected as @Optional so that the Intent Gateway
  * module can bootstrap independently of the AI Engine module in test
  * and edge-deployment scenarios.
  */
@@ -17,7 +17,7 @@ import {
   IntentRouterService,
   type IntentAgentContext,
   type RouteResult,
-} from "../../ai-engine/facade";
+} from "../ai-engine/facade";
 
 @Injectable()
 export class IntentGatewayService {
