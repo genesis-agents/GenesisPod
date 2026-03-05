@@ -2,12 +2,12 @@
  * Admin Architecture Diagram Configuration
  *
  * Six-layer architecture visualization:
- * Layer 6: Gateway Layer (Smart Gateway — Entry, Intent Routing, Traces)
- * Layer 5: Open API Layer (External Interfaces)
- * Layer 4: AI Apps Layer (Business Applications - Read-only)
- * Layer 3: AI Kernel Layer (OS Kernel - Process, Memory, IPC, Resources)
- * Layer 2: AI Engine Layer (Core Capabilities)
- * Layer 1: Infrastructure Layer (Foundation)
+ * Layer 6: Agent Intent Gateway (Entry, Intent Routing, Traces)
+ * Layer 5: External Agent Access (Open Interfaces)
+ * Layer 4: Agent Apps (Business Applications - Read-only)
+ * Layer 3: Agent Runtime (Process, Memory, IPC, Resources)
+ * Layer 2: Agent Engine (Core Capabilities)
+ * Layer 1: Infrastructure (Foundation)
  */
 
 import {
@@ -81,7 +81,7 @@ export interface ArchitectureLayer {
   groups?: CardGroup[]; // For grouped cards (AI Apps layer)
 }
 
-// Layer 6: Gateway Layer (Smart Gateway — Entry, Intent Routing, Traces)
+// Layer 6: Agent Intent Gateway (Entry, Intent Routing, Traces)
 const agentOsLayer: ArchitectureLayer = {
   id: 'agentOs',
   titleKey: 'admin.architecture.layers.agentOs',
@@ -116,7 +116,7 @@ const agentOsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 5: Open API Layer (External Interfaces)
+// Layer 5: External Agent Access (Open Interfaces)
 const openApiLayer: ArchitectureLayer = {
   id: 'openApi',
   titleKey: 'admin.architecture.layers.openApi',
@@ -143,7 +143,7 @@ const openApiLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 4: AI Apps Layer (Business Applications - Read-only from main sidebar)
+// Layer 4: Agent Apps (Business Applications - Read-only from main sidebar)
 const aiAppsLayer: ArchitectureLayer = {
   id: 'aiApps',
   titleKey: 'admin.architecture.layers.aiApps',
@@ -288,7 +288,7 @@ const aiAppsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 3: AI Kernel Layer (OS Kernel - Durable Execution, Memory, IPC, Resources)
+// Layer 3: Agent Runtime (Process, Memory, IPC, Resources)
 const aiKernelLayer: ArchitectureLayer = {
   id: 'aiKernel',
   titleKey: 'admin.architecture.layers.aiKernel',
@@ -370,7 +370,7 @@ const aiKernelLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 2: AI Engine Layer (Core Capabilities)
+// Layer 2: Agent Engine (Core Capabilities)
 const aiEngineLayer: ArchitectureLayer = {
   id: 'aiEngine',
   titleKey: 'admin.architecture.layers.aiEngine',
@@ -590,7 +590,7 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
 // Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
   6: {
-    // Gateway - Indigo/Cyan theme (top layer)
+    // Agent Intent Gateway - Cyan theme (top layer)
     badge: 'bg-cyan-100 text-cyan-700',
     border: 'border-cyan-200',
     accent: 'text-cyan-600',
@@ -600,7 +600,7 @@ export const LAYER_STYLES = {
     hoverBorder: 'hover:border-cyan-300',
   },
   5: {
-    // Open API - Orange theme
+    // External Agent Access - Orange theme
     badge: 'bg-orange-100 text-orange-700',
     border: 'border-orange-200',
     accent: 'text-orange-600',
@@ -610,7 +610,7 @@ export const LAYER_STYLES = {
     hoverBorder: 'hover:border-orange-300',
   },
   4: {
-    // AI Apps - Purple theme
+    // Agent Apps - Purple theme
     badge: 'bg-violet-100 text-violet-700',
     border: 'border-violet-200',
     accent: 'text-violet-600',
@@ -620,7 +620,7 @@ export const LAYER_STYLES = {
     hoverBorder: 'hover:border-violet-300',
   },
   3: {
-    // AI Kernel - Teal/Slate theme (OS Kernel layer)
+    // Agent Runtime - Teal theme
     badge: 'bg-teal-100 text-teal-700',
     border: 'border-teal-200',
     accent: 'text-teal-600',
@@ -630,7 +630,7 @@ export const LAYER_STYLES = {
     hoverBorder: 'hover:border-teal-300',
   },
   2: {
-    // AI Engine - Blue theme
+    // Agent Engine - Blue theme
     badge: 'bg-blue-100 text-blue-700',
     border: 'border-blue-200',
     accent: 'text-blue-600',

@@ -40,10 +40,10 @@ describe('ARCHITECTURE_LAYERS', () => {
 });
 
 // ============================================================================
-// Gateway layer (level 6)
+// Agent Intent Gateway layer (level 6)
 // ============================================================================
 
-describe('gateway layer (level 6)', () => {
+describe('Agent Intent Gateway layer (level 6)', () => {
   let agentOsLayer: ArchitectureLayer;
 
   beforeEach(() => {
@@ -77,10 +77,10 @@ describe('gateway layer (level 6)', () => {
 });
 
 // ============================================================================
-// Open API layer (level 5)
+// External Agent Access layer (level 5)
 // ============================================================================
 
-describe('openApi layer (level 5)', () => {
+describe('External Agent Access layer (level 5)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
@@ -103,10 +103,10 @@ describe('openApi layer (level 5)', () => {
 });
 
 // ============================================================================
-// AI Apps layer (level 4)
+// Agent Apps layer (level 4)
 // ============================================================================
 
-describe('aiApps layer (level 4)', () => {
+describe('Agent Apps layer (level 4)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
@@ -153,10 +153,10 @@ describe('aiApps layer (level 4)', () => {
 });
 
 // ============================================================================
-// AI Kernel layer (level 3)
+// Agent Runtime layer (level 3)
 // ============================================================================
 
-describe('aiKernel layer (level 3)', () => {
+describe('Agent Runtime layer (level 3)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
@@ -213,10 +213,10 @@ describe('aiKernel layer (level 3)', () => {
 });
 
 // ============================================================================
-// AI Engine layer (level 2)
+// Agent Engine layer (level 2)
 // ============================================================================
 
-describe('aiEngine layer (level 2)', () => {
+describe('Agent Engine layer (level 2)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
