@@ -122,6 +122,10 @@ describe("ResearchMissionService", () => {
           useValue: {
             recordResearchCost: jest.fn(),
             emitKernelEvent: jest.fn(),
+            startMissionTrace: jest.fn().mockReturnValue(null),
+            addPhaseSpan: jest.fn().mockReturnValue(null),
+            endPhaseSpan: jest.fn(),
+            endMissionTrace: jest.fn(),
             logError: jest.fn(),
             recordMissionMetrics: jest.fn(),
           },

@@ -280,6 +280,10 @@ function buildMocks() {
     emitKernelEvent: jest.fn(),
     logError: jest.fn(),
     recordMissionMetrics: jest.fn(),
+    startMissionTrace: jest.fn().mockReturnValue(null),
+    addPhaseSpan: jest.fn().mockReturnValue(null),
+    endPhaseSpan: jest.fn(),
+    endMissionTrace: jest.fn(),
   };
 
   const mockKernelBridge = {

@@ -15,6 +15,8 @@ import {
   EventBusService,
 } from "@/modules/ai-kernel/facade";
 import type { EngineEvent } from "@/modules/ai-engine/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/facade";
+import type { SpanType } from "@/modules/ai-engine/facade";
 
 @Injectable()
 export class MissionObservabilityService {
@@ -25,6 +27,7 @@ export class MissionObservabilityService {
     @Optional() private readonly aiMetrics?: AIMetricsService,
     @Optional() private readonly costAttribution?: CostAttributionService,
     @Optional() private readonly kernelEventBus?: EventBusService,
+    @Optional() private readonly traceCollector?: TraceCollectorService,
   ) {}
 
   /**
@@ -148,5 +151,105 @@ export class MissionObservabilityService {
         },
       })
       .catch((e) => this.logger.debug(`AIMetrics failed: ${e}`));
+  }
+
+  // ==================== Gap 4: Trace Lifecycle ====================
+
+  /**
+   * 启动 Mission 级别的 Trace
+   * @returns traceId (null if unavailable)
+   */
+  startMissionTrace(missionId: string, topicName: string): string | null {
+    if (!this.traceCollector) return null;
+    try {
+      return this.traceCollector.startTrace({
+        name: `research-mission:${topicName}`,
+        type: "research_mission",
+        metadata: { missionId, topicName, module: "topic-insights" },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[Trace] Failed to start: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 为 Mission 的某个阶段添加 Span
+   * @returns spanId (null if unavailable)
+   */
+  addPhaseSpan(
+    traceId: string,
+    phase: string,
+    metadata?: Record<string, unknown>,
+  ): string | null {
+    if (!this.traceCollector || !traceId) return null;
+    try {
+      return this.traceCollector.addSpan(traceId, {
+        name: phase,
+        type: this.mapPhaseToSpanType(phase),
+        metadata: { ...metadata, module: "topic-insights" },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[Trace] Failed to add span: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 结束阶段 Span
+   */
+  endPhaseSpan(
+    spanId: string,
+    success: boolean,
+    metadata?: Record<string, unknown>,
+  ): void {
+    if (!this.traceCollector || !spanId) return;
+    try {
+      this.traceCollector.endSpan(spanId, {
+        status: success ? "success" : "error",
+        output: metadata,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[Trace] Failed to end span: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * 结束 Mission Trace
+   */
+  endMissionTrace(
+    traceId: string,
+    success: boolean,
+    _metadata?: Record<string, unknown>,
+  ): void {
+    if (!this.traceCollector || !traceId) return;
+    try {
+      this.traceCollector.endTrace(traceId, {
+        status: success ? "success" : "error",
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[Trace] Failed to end trace: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * 将研究阶段名映射到 SpanType
+   */
+  private mapPhaseToSpanType(phase: string): SpanType {
+    const mapping: Record<string, SpanType> = {
+      planning: "planning",
+      researching: "analysis",
+      reviewing: "review",
+      synthesizing: "synthesis",
+    };
+    return mapping[phase] || "phase";
   }
 }

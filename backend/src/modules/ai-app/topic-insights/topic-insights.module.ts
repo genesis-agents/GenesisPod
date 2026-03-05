@@ -1,15 +1,21 @@
-import { Module, OnModuleInit, Logger } from "@nestjs/common";
+import { Module, OnModuleInit, Logger, Optional } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { PromptSkillBridge } from "../../ai-engine/facade";
+import {
+  PromptSkillBridge,
+  AgentRegistry,
+  TeamRegistry,
+} from "../../ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
+import { TopicInsightsAgent } from "./agents";
+import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./teams";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule
@@ -170,6 +176,8 @@ const services = [
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
+  // ★ Gap 1: Agent 注册
+  TopicInsightsAgent,
 ];
 
 @Module({
@@ -213,6 +221,9 @@ export class TopicInsightsModule implements OnModuleInit {
     private readonly pubMedConnector: PubMedConnector,
     private readonly financeApiConnector: FinanceApiConnector,
     private readonly weatherApiConnector: WeatherApiConnector,
+    private readonly topicInsightsAgent: TopicInsightsAgent,
+    @Optional() private readonly agentRegistry?: AgentRegistry,
+    @Optional() private readonly teamRegistry?: TeamRegistry,
   ) {}
 
   async onModuleInit() {
@@ -232,5 +243,15 @@ export class TopicInsightsModule implements OnModuleInit {
     this.logger.log(
       `Data source connectors registered: ${this.connectorRegistry.getCount()}`,
     );
+
+    // ★ Gap 1: Agent/Team 注册 → IntentRouter 可发现
+    if (this.agentRegistry) {
+      this.agentRegistry.register(this.topicInsightsAgent);
+      this.logger.log("Registered TopicInsightsAgent");
+    }
+    if (this.teamRegistry) {
+      this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
+      this.logger.log("Registered TOPIC_INSIGHTS team config");
+    }
   }
 }

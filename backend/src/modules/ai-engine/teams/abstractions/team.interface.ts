@@ -23,6 +23,7 @@ export const BUILTIN_TEAMS = {
   DEBATE: "debate",
   DESIGN: "design",
   SLIDES: "slides",
+  TOPIC_INSIGHTS: "topic-insights",
 } as const;
 
 export type BuiltinTeamId = (typeof BUILTIN_TEAMS)[keyof typeof BUILTIN_TEAMS];

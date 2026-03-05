@@ -33,6 +33,7 @@ export const BUILTIN_AGENTS = {
   SIMULATOR: "simulator",
   IMAGE_DESIGNER: "image-designer",
   TEAM_COLLABORATION: "team-collaboration",
+  TOPIC_INSIGHTS: "topic-insights",
 } as const;
 
 export type BuiltinAgentId =
@@ -432,6 +433,21 @@ export const AGENT_CONFIGS: Record<BuiltinAgentId, AgentConfig> = {
       "智能任务分配",
       "共识投票决策",
       "任务编排执行",
+    ],
+    templates: [],
+  },
+  [BUILTIN_AGENTS.TOPIC_INSIGHTS]: {
+    id: BUILTIN_AGENTS.TOPIC_INSIGHTS,
+    name: "Topic Insights Researcher",
+    description: "多维度深度研究与专业报告生成",
+    icon: "💡",
+    color: "#8B5CF6",
+    capabilities: [
+      "多维度深度研究",
+      "自动化报告生成",
+      "事实核查",
+      "多Agent辩论分析",
+      "跨维度关联分析",
     ],
     templates: [],
   },

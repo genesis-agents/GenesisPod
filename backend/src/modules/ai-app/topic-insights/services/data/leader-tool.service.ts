@@ -616,6 +616,70 @@ export class LeaderToolService {
     }
   }
 
+  // ==================== Function Calling (Gap 2) ====================
+
+  /**
+   * ★ Gap 2: Leader 自主搜索（Function Calling 模式）
+   * LLM 根据研究主题自主决定调用哪些工具，而非手动编排工具调用。
+   *
+   * 降级：如果 ToolFacade 不可用，回退到现有 searchLatestData()
+   */
+  async leaderAgenticSearch(params: {
+    topicName: string;
+    topicType: string;
+    researchQuestion: string;
+    maxToolCalls?: number;
+  }): Promise<{ content: string; toolsUsed: string[]; tokensUsed: number }> {
+    if (!this.toolFacade.isToolExecutionAvailable()) {
+      this.logger.debug(
+        "[leaderAgenticSearch] Tool execution unavailable, falling back to searchLatestData",
+      );
+      const results = await this.searchLatestData({
+        topicName: params.topicName,
+        dimensionName: params.researchQuestion,
+      });
+      const summary = results
+        .flatMap((r) => r.results.map((item) => item.snippet))
+        .join("\n");
+      return { content: summary, toolsUsed: [], tokensUsed: 0 };
+    }
+
+    const context: AICapabilityContext = {
+      agentId: "topic-insights-leader",
+      userId: "system",
+      domain: "research",
+    };
+
+    try {
+      const result = await this.toolFacade.chatWithTools({
+        messages: [
+          {
+            role: "system",
+            content:
+              `你是一位专业研究助手。请使用可用工具搜索和分析关于「${params.topicName}」（${params.topicType}）的最新信息。` +
+              `研究问题：${params.researchQuestion}`,
+          },
+          { role: "user", content: params.researchQuestion },
+        ],
+        context,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "low", outputLength: "medium" },
+        maxToolCalls: params.maxToolCalls ?? 5,
+      });
+
+      return {
+        content: result.content || "",
+        toolsUsed: result.toolCalls?.map((tc) => tc.toolId) || [],
+        tokensUsed: result.tokensUsed || 0,
+      };
+    } catch (error) {
+      this.logger.warn(`[leaderAgenticSearch] Failed: ${error}`);
+      return { content: "", toolsUsed: [], tokensUsed: 0 };
+    }
+  }
+
+  // ==================== Existing Search Tools ====================
+
   /**
    * Leader 主动搜索获取最新数据
    * ★ 通过 ToolRegistry 调用 web-search 工具，不再直接调用 SearchService

@@ -126,6 +126,12 @@ type ResearchTopicWithDimensions = ResearchTopic & {
 export class ResearchMissionService {
   private readonly logger = new Logger(ResearchMissionService.name);
 
+  /** ★ Gap 4: Trace state per mission */
+  private readonly missionTraces = new Map<
+    string,
+    { traceId: string; currentSpanId?: string }
+  >();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
@@ -480,6 +486,19 @@ export class ResearchMissionService {
 
     this.kernelBridge.startPhase(missionId, "planning");
 
+    // ★ Gap 4: Start trace + planning span
+    const traceId = this.observability.startMissionTrace(missionId, topicName);
+    if (traceId) {
+      const spanId = this.observability.addPhaseSpan(traceId, "planning", {
+        missionId,
+        topicId,
+      });
+      this.missionTraces.set(missionId, {
+        traceId,
+        currentSpanId: spanId || undefined,
+      });
+    }
+
     try {
       // ★ 发送 Leader 思考事件：分析
       await this.researchEventEmitter.emitLeaderThinking(topicId, {
@@ -651,6 +670,19 @@ export class ResearchMissionService {
         `Planning failed: ${error instanceof Error ? error.message : String(error)}`,
       );
 
+      // ★ Gap 4: End trace on planning failure
+      const trace = this.missionTraces.get(missionId);
+      if (trace) {
+        if (trace.currentSpanId)
+          this.observability.endPhaseSpan(trace.currentSpanId, false, {
+            error: errorMsg,
+          });
+        this.observability.endMissionTrace(trace.traceId, false, {
+          error: errorMsg,
+        });
+        this.missionTraces.delete(missionId);
+      }
+
       this.logger.error(`[executePlanningAsync] Planning failed: ${errorMsg}`);
     }
   }
@@ -710,6 +742,18 @@ export class ResearchMissionService {
 
     this.kernelBridge.completePhase(missionId, "planning");
     this.kernelBridge.startPhase(missionId, "researching");
+
+    // ★ Gap 4: Transition trace from planning → researching
+    const trace = this.missionTraces.get(missionId);
+    if (trace) {
+      if (trace.currentSpanId)
+        this.observability.endPhaseSpan(trace.currentSpanId, true);
+      trace.currentSpanId =
+        this.observability.addPhaseSpan(trace.traceId, "researching", {
+          missionId,
+          totalTasks: tasks.length,
+        }) || undefined;
+    }
 
     this.logger.log(
       `[approvePlanAndExecute] Mission ${missionId} approved, starting execution with ${tasks.length} tasks`,
@@ -2651,6 +2695,19 @@ export class ResearchMissionService {
           this.kernelBridge.completePhase(missionId, "researching");
           this.kernelBridge.startPhase(missionId, "synthesizing");
 
+          // ★ Gap 4: Transition trace from researching → synthesizing
+          {
+            const trace = this.missionTraces.get(missionId);
+            if (trace) {
+              if (trace.currentSpanId)
+                this.observability.endPhaseSpan(trace.currentSpanId, true);
+              trace.currentSpanId =
+                this.observability.addPhaseSpan(trace.traceId, "synthesizing", {
+                  missionId,
+                }) || undefined;
+            }
+          }
+
           // ★ 复用 startExecution 中创建的草稿报告，避免重复创建
           // reportId 已在 startExecution 中创建并传递到此处
           this.logger.log(
@@ -3269,6 +3326,25 @@ export class ResearchMissionService {
         },
         missionId,
       );
+    }
+
+    // ★ Gap 4: End trace on mission finalization
+    const trace = this.missionTraces.get(missionId);
+    if (trace) {
+      if (trace.currentSpanId)
+        this.observability.endPhaseSpan(
+          trace.currentSpanId,
+          finalStatus === ResearchMissionStatus.COMPLETED,
+        );
+      this.observability.endMissionTrace(
+        trace.traceId,
+        finalStatus === ResearchMissionStatus.COMPLETED,
+        {
+          completedTasks: completedTasks.length,
+          totalTasks: tasks.length,
+        },
+      );
+      this.missionTraces.delete(missionId);
     }
 
     this.logger.log(
