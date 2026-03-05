@@ -40,6 +40,7 @@ import {
   ResearchCheckpointService,
 } from "../services";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import { BillingContext } from "../../../ai-infra/facade";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -219,110 +220,126 @@ export class MissionController {
       throw new UnauthorizedException("User not authenticated");
     }
 
-    // 1. 获取当前 Mission（如果有）
-    let missionId = dto.missionId;
-    if (!missionId) {
-      const mission = await this.missionService.getMissionByTopicId(topicId);
-      missionId = mission?.id;
-    }
-
-    // 2. Leader 解码用户输入
-    const decodeResult = await this.leaderService.decodeUserInput(
-      topicId,
-      dto.message,
-      missionId,
-    );
-
-    // 3. 如果决定创建 TODO，则创建并加入任务队列（不立即执行）
-    let createdTodo = null;
-    if (
-      decodeResult.decisionType === "CREATE_TODO" &&
-      decodeResult.todoTitle &&
-      missionId
-    ) {
-      try {
-        // ★ v7.2: Leader 先选择合适的 Agent，再创建 TODO
-        const agentAssignment = await this.leaderService.selectAgentForTask(
-          topicId,
-          missionId,
-          decodeResult.todoTitle,
-          decodeResult.todoDescription,
-        );
-
-        // ★ v8.2: 确保 Leader 创建的任务标题以 "研究:" 开头
-        // 这样 executeTodo 才能正确识别为研究任务并执行实际研究
-        let taskTitle = decodeResult.todoTitle;
-        if (!taskTitle.startsWith("研究:") && !taskTitle.startsWith("研究：")) {
-          taskTitle = `研究: ${taskTitle}`;
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "topic-insights",
+        operationType: "research",
+        referenceId: topicId,
+      },
+      async () => {
+        // 1. 获取当前 Mission（如果有）
+        let missionId = dto.missionId;
+        if (!missionId) {
+          const mission =
+            await this.missionService.getMissionByTopicId(topicId);
+          missionId = mission?.id;
         }
 
-        const todo = await this.todoService.createTodo({
+        // 2. Leader 解码用户输入
+        const decodeResult = await this.leaderService.decodeUserInput(
           topicId,
+          dto.message,
           missionId,
-          type: "USER_REQUEST",
-          title: taskTitle,
-          description: decodeResult.todoDescription,
-          // ★ 使用 Leader 分配的 Agent 信息
-          agentId: agentAssignment.agentId,
-          agentName: agentAssignment.agentName,
-          agentRole: agentAssignment.role,
-          modelId: agentAssignment.modelId,
-        });
-        createdTodo = {
-          id: todo.id,
-          title: todo.title,
-          assignedAgent: agentAssignment.agentName,
-        };
+        );
 
-        // ★ v8.1: 将新 Agent 的 skills 和 tools 添加到 leaderPlan 中
-        // 这样前端能够正确显示 Agent 的能力配置
-        await this.missionService.addAgentToLeaderPlan(missionId, {
-          agentId: agentAssignment.agentId,
-          agentName: agentAssignment.agentName,
-          agentType: agentAssignment.agentType,
-          role: agentAssignment.role,
-          modelId: agentAssignment.modelId,
-          skills: agentAssignment.skills,
-          tools: agentAssignment.tools,
-        });
+        // 3. 如果决定创建 TODO，则创建并加入任务队列（不立即执行）
+        let createdTodo = null;
+        if (
+          decodeResult.decisionType === "CREATE_TODO" &&
+          decodeResult.todoTitle &&
+          missionId
+        ) {
+          try {
+            // ★ v7.2: Leader 先选择合适的 Agent，再创建 TODO
+            const agentAssignment = await this.leaderService.selectAgentForTask(
+              topicId,
+              missionId,
+              decodeResult.todoTitle,
+              decodeResult.todoDescription,
+            );
 
-        // ★ v7.2: 不再立即执行，而是将任务加入队列
-        // 任务将通过 Mission 的调度器统一处理
-        // 异步调度新创建的 TODO（不阻塞响应）
-        this.todoService.scheduleTodo(topicId, todo.id).catch((err: Error) => {
-          this.logger.error(
-            `[leaderChat] Schedule TODO failed: ${err.message}`,
+            // ★ v8.2: 确保 Leader 创建的任务标题以 "研究:" 开头
+            // 这样 executeTodo 才能正确识别为研究任务并执行实际研究
+            let taskTitle = decodeResult.todoTitle;
+            if (
+              !taskTitle.startsWith("研究:") &&
+              !taskTitle.startsWith("研究：")
+            ) {
+              taskTitle = `研究: ${taskTitle}`;
+            }
+
+            const todo = await this.todoService.createTodo({
+              topicId,
+              missionId,
+              type: "USER_REQUEST",
+              title: taskTitle,
+              description: decodeResult.todoDescription,
+              // ★ 使用 Leader 分配的 Agent 信息
+              agentId: agentAssignment.agentId,
+              agentName: agentAssignment.agentName,
+              agentRole: agentAssignment.role,
+              modelId: agentAssignment.modelId,
+            });
+            createdTodo = {
+              id: todo.id,
+              title: todo.title,
+              assignedAgent: agentAssignment.agentName,
+            };
+
+            // ★ v8.1: 将新 Agent 的 skills 和 tools 添加到 leaderPlan 中
+            // 这样前端能够正确显示 Agent 的能力配置
+            await this.missionService.addAgentToLeaderPlan(missionId, {
+              agentId: agentAssignment.agentId,
+              agentName: agentAssignment.agentName,
+              agentType: agentAssignment.agentType,
+              role: agentAssignment.role,
+              modelId: agentAssignment.modelId,
+              skills: agentAssignment.skills,
+              tools: agentAssignment.tools,
+            });
+
+            // ★ v7.2: 不再立即执行，而是将任务加入队列
+            // 任务将通过 Mission 的调度器统一处理
+            // 异步调度新创建的 TODO（不阻塞响应）
+            this.todoService
+              .scheduleTodo(topicId, todo.id)
+              .catch((err: Error) => {
+                this.logger.error(
+                  `[leaderChat] Schedule TODO failed: ${err.message}`,
+                );
+              });
+          } catch (error) {
+            // 继续返回响应，但标记 TODO 创建失败
+            this.logger.error(`Failed to create TODO: ${error}`);
+          }
+        }
+
+        // 4. 保存用户消息和 Leader 响应到数据库（用于对话历史）
+        if (missionId) {
+          await this.eventEmitterService.saveUserMessage(
+            topicId,
+            missionId,
+            dto.message,
           );
-        });
-      } catch (error) {
-        // 继续返回响应，但标记 TODO 创建失败
-        this.logger.error(`Failed to create TODO: ${error}`);
-      }
-    }
+          await this.eventEmitterService.emitLeaderResponse(
+            topicId,
+            missionId,
+            decodeResult.response,
+          );
+        }
 
-    // 4. 保存用户消息和 Leader 响应到数据库（用于对话历史）
-    if (missionId) {
-      await this.eventEmitterService.saveUserMessage(
-        topicId,
-        missionId,
-        dto.message,
-      );
-      await this.eventEmitterService.emitLeaderResponse(
-        topicId,
-        missionId,
-        decodeResult.response,
-      );
-    }
-
-    // 5. 返回结果
-    return {
-      decisionType: decodeResult.decisionType,
-      understanding: decodeResult.understanding,
-      response: decodeResult.response,
-      todo: createdTodo,
-      clarifyQuestion: decodeResult.clarifyQuestion,
-      clarifyOptions: decodeResult.clarifyOptions,
-    };
+        // 5. 返回结果
+        return {
+          decisionType: decodeResult.decisionType,
+          understanding: decodeResult.understanding,
+          response: decodeResult.response,
+          todo: createdTodo,
+          clarifyQuestion: decodeResult.clarifyQuestion,
+          clarifyOptions: decodeResult.clarifyOptions,
+        };
+      }, // end BillingContext.run callback
+    ); // end BillingContext.run
   }
 
   /**

@@ -102,6 +102,12 @@ export class ChatFacade {
   // ==================== Core Chat ====================
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    // Step 0: Pre-check credits (avoid executing LLM call when user has no credits)
+    const creditCheckResult = await this.preCheckCredits(request);
+    if (creditCheckResult !== null) {
+      return creditCheckResult;
+    }
+
     // Step 1: Skill proxy
     const skillResult = await this.handleSkillProxy(request);
     if (skillResult !== null) {
@@ -730,6 +736,38 @@ export class ChatFacade {
   }
 
   // ==================== Billing ====================
+
+  /**
+   * Pre-check: reject early when user has zero credits (avoid wasting LLM calls)
+   * Only blocks when balance <= 0; low-balance users can still proceed.
+   */
+  private async preCheckCredits(
+    request: ChatRequest,
+  ): Promise<ChatResponse | null> {
+    if (!this.creditsService) return null;
+
+    const billing = request.billing ?? this.resolveBillingFromContext();
+    if (!billing) return null;
+
+    try {
+      const { balance } = await this.creditsService.getBalance(billing.userId);
+      if (balance <= 0) {
+        this.logger.warn(
+          `[chat] Blocked: user ${billing.userId} has no credits (balance=${balance})`,
+        );
+        return {
+          content:
+            "Insufficient credits. Please top up your account to continue.",
+          model: "",
+          tokensUsed: 0,
+          isError: true,
+        };
+      }
+    } catch {
+      // If balance check fails, allow the request through (fail-open)
+    }
+    return null;
+  }
 
   private resolveBillingFromContext(): CreditBillingInfo | undefined {
     const ctx = BillingContext.get();

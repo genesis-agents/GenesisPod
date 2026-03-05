@@ -2,8 +2,11 @@
  * AI Engine - Vector Service
  * 向量存储与相似度搜索服务
  *
- * 使用 pgvector 存储向量，数据库级余弦相似度搜索
- * 支持 HNSW 索引，百万级向量毫秒响应
+ * 双模式运行：
+ * - pgvector 可用时：数据库级余弦距离（<=> 运算符 + HNSW 索引）
+ * - pgvector 不可用时：JSONB 存储 + 应用层余弦相似度计算
+ *
+ * Railway PostgreSQL 不支持 pgvector 扩展，自动降级为 JSONB 模式
  */
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
@@ -58,10 +61,10 @@ export class VectorService implements OnModuleInit {
       );
       this.pgvectorAvailable = true;
       this.logger.log("[onModuleInit] pgvector extension is ready");
-    } catch (error) {
+    } catch {
       this.pgvectorAvailable = false;
-      this.logger.warn(
-        `[onModuleInit] pgvector not available, vector search disabled: ${error}`,
+      this.logger.log(
+        "[onModuleInit] pgvector not available, using JSONB fallback with app-level cosine similarity",
       );
     }
   }
@@ -71,7 +74,23 @@ export class VectorService implements OnModuleInit {
   }
 
   /**
-   * 相似度搜索（使用 pgvector <=> 余弦距离运算符）
+   * 余弦相似度计算（应用层）
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    let dot = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom === 0 ? 0 : dot / denom;
+  }
+
+  /**
+   * 相似度搜索
    *
    * @param queryEmbedding 查询向量
    * @param options 搜索选项
@@ -84,7 +103,7 @@ export class VectorService implements OnModuleInit {
     const { limit = 10, threshold = 0.3, knowledgeBaseIds } = options;
 
     this.logger.debug(
-      `Starting pgvector similarity search: limit=${limit}, threshold=${threshold}, kbIds=${knowledgeBaseIds?.length || "all"}`,
+      `Starting similarity search: limit=${limit}, threshold=${threshold}, kbIds=${knowledgeBaseIds?.length || "all"}, mode=${this.pgvectorAvailable ? "pgvector" : "jsonb"}`,
     );
 
     // Pre-filter: resolve knowledgeBaseIds → documentIds via ORM (indexed column)
@@ -104,6 +123,31 @@ export class VectorService implements OnModuleInit {
       }
     }
 
+    if (this.pgvectorAvailable) {
+      return this.similaritySearchPgvector(
+        queryEmbedding,
+        limit,
+        threshold,
+        documentIds,
+      );
+    }
+    return this.similaritySearchJsonb(
+      queryEmbedding,
+      limit,
+      threshold,
+      documentIds,
+    );
+  }
+
+  /**
+   * pgvector 模式：数据库级余弦距离搜索
+   */
+  private async similaritySearchPgvector(
+    queryEmbedding: number[],
+    limit: number,
+    threshold: number,
+    documentIds?: string[],
+  ): Promise<SimilarityResult[]> {
     const vectorStr = `[${queryEmbedding.join(",")}]`;
 
     interface RawResult {
@@ -115,8 +159,6 @@ export class VectorService implements OnModuleInit {
       score: unknown;
     }
 
-    // 子查询模式：让 HNSW 索引通过 ORDER BY ... LIMIT 找到最近邻，
-    // 再在外层过滤阈值，避免 WHERE 子句中重复计算距离影响索引选择
     const docFilter = documentIds?.length
       ? Prisma.sql`AND cc.document_id = ANY(ARRAY[${Prisma.join(documentIds)}]::text[])`
       : Prisma.sql``;
@@ -154,6 +196,60 @@ export class VectorService implements OnModuleInit {
   }
 
   /**
+   * JSONB 降级模式：获取全部嵌入，应用层计算余弦相似度
+   */
+  private async similaritySearchJsonb(
+    queryEmbedding: number[],
+    limit: number,
+    threshold: number,
+    documentIds?: string[],
+  ): Promise<SimilarityResult[]> {
+    interface RawJsonbResult {
+      child_chunk_id: string;
+      parent_chunk_id: string;
+      document_id: string;
+      content: string;
+      parent_content: string;
+      embedding: number[];
+    }
+
+    const docFilter = documentIds?.length
+      ? Prisma.sql`AND cc.document_id = ANY(ARRAY[${Prisma.join(documentIds)}]::text[])`
+      : Prisma.sql``;
+
+    const rows = await this.prisma.$queryRaw<RawJsonbResult[]>(Prisma.sql`
+      SELECT
+        ce.child_chunk_id,
+        cc.parent_chunk_id,
+        cc.document_id,
+        cc.content,
+        pc.content AS parent_content,
+        ce.embedding
+      FROM child_embeddings ce
+      JOIN child_chunks cc ON ce.child_chunk_id = cc.id
+      JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
+      WHERE ce.embedding IS NOT NULL ${docFilter}
+    `);
+
+    this.logger.debug(
+      `JSONB fallback: fetched ${rows.length} embeddings, computing cosine similarity`,
+    );
+
+    return rows
+      .map((r) => ({
+        childChunkId: r.child_chunk_id,
+        parentChunkId: r.parent_chunk_id,
+        documentId: r.document_id,
+        content: r.content,
+        parentContent: r.parent_content,
+        similarity: this.cosineSimilarity(queryEmbedding, r.embedding),
+      }))
+      .filter((r) => r.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+  }
+
+  /**
    * 简单向量搜索（不展开父块）
    *
    * @param queryEmbedding 查询向量
@@ -182,6 +278,31 @@ export class VectorService implements OnModuleInit {
       }
     }
 
+    if (this.pgvectorAvailable) {
+      return this.vectorSearchPgvector(
+        queryEmbedding,
+        limit,
+        threshold,
+        documentIds,
+      );
+    }
+    return this.vectorSearchJsonb(
+      queryEmbedding,
+      limit,
+      threshold,
+      documentIds,
+    );
+  }
+
+  /**
+   * pgvector 模式简单搜索
+   */
+  private async vectorSearchPgvector(
+    queryEmbedding: number[],
+    limit: number,
+    threshold: number,
+    documentIds?: string[],
+  ): Promise<VectorSearchResult[]> {
     const vectorStr = `[${queryEmbedding.join(",")}]`;
 
     interface RawSimpleResult {
@@ -218,7 +339,47 @@ export class VectorService implements OnModuleInit {
   }
 
   /**
-   * 存储嵌入（使用 pgvector 格式）
+   * JSONB 降级模式简单搜索
+   */
+  private async vectorSearchJsonb(
+    queryEmbedding: number[],
+    limit: number,
+    threshold: number,
+    documentIds?: string[],
+  ): Promise<VectorSearchResult[]> {
+    interface RawJsonbSimple {
+      child_chunk_id: string;
+      content: string;
+      embedding: number[];
+    }
+
+    const docFilter = documentIds?.length
+      ? Prisma.sql`AND cc.document_id = ANY(ARRAY[${Prisma.join(documentIds)}]::text[])`
+      : Prisma.sql``;
+
+    const rows = await this.prisma.$queryRaw<RawJsonbSimple[]>(Prisma.sql`
+      SELECT
+        ce.child_chunk_id,
+        cc.content,
+        ce.embedding
+      FROM child_embeddings ce
+      JOIN child_chunks cc ON ce.child_chunk_id = cc.id
+      WHERE ce.embedding IS NOT NULL ${docFilter}
+    `);
+
+    return rows
+      .map((r) => ({
+        chunkId: r.child_chunk_id,
+        content: r.content,
+        similarity: this.cosineSimilarity(queryEmbedding, r.embedding),
+      }))
+      .filter((r) => r.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+  }
+
+  /**
+   * 存储嵌入
    *
    * @param childChunkId 子块 ID
    * @param embedding 向量数据
@@ -229,21 +390,34 @@ export class VectorService implements OnModuleInit {
     embedding: number[],
     model: string = "text-embedding-3-small",
   ): Promise<void> {
-    const vectorStr = `[${embedding.join(",")}]`;
     const dimensions = embedding.length;
 
-    await this.prisma.$executeRaw(Prisma.sql`
-      INSERT INTO child_embeddings (id, child_chunk_id, embedding, model, dimensions, created_at, updated_at)
-      VALUES (gen_random_uuid(), ${childChunkId}, ${vectorStr}::vector, ${model}, ${dimensions}, NOW(), NOW())
-      ON CONFLICT (child_chunk_id) DO UPDATE SET
-        embedding = EXCLUDED.embedding,
-        model = EXCLUDED.model,
-        dimensions = EXCLUDED.dimensions,
-        updated_at = NOW()
-    `);
+    if (this.pgvectorAvailable) {
+      const vectorStr = `[${embedding.join(",")}]`;
+      await this.prisma.$executeRaw(Prisma.sql`
+        INSERT INTO child_embeddings (id, child_chunk_id, embedding, model, dimensions, created_at, updated_at)
+        VALUES (gen_random_uuid(), ${childChunkId}, ${vectorStr}::vector, ${model}, ${dimensions}, NOW(), NOW())
+        ON CONFLICT (child_chunk_id) DO UPDATE SET
+          embedding = EXCLUDED.embedding,
+          model = EXCLUDED.model,
+          dimensions = EXCLUDED.dimensions,
+          updated_at = NOW()
+      `);
+    } else {
+      const jsonStr = JSON.stringify(embedding);
+      await this.prisma.$executeRaw(Prisma.sql`
+        INSERT INTO child_embeddings (id, child_chunk_id, embedding, model, dimensions, created_at, updated_at)
+        VALUES (gen_random_uuid(), ${childChunkId}, ${jsonStr}::jsonb, ${model}, ${dimensions}, NOW(), NOW())
+        ON CONFLICT (child_chunk_id) DO UPDATE SET
+          embedding = EXCLUDED.embedding,
+          model = EXCLUDED.model,
+          dimensions = EXCLUDED.dimensions,
+          updated_at = NOW()
+      `);
+    }
 
     this.logger.debug(
-      `Stored pgvector embedding for chunk ${childChunkId}: ${dimensions} dimensions`,
+      `Stored embedding for chunk ${childChunkId}: ${dimensions} dimensions (${this.pgvectorAvailable ? "pgvector" : "jsonb"})`,
     );
   }
 

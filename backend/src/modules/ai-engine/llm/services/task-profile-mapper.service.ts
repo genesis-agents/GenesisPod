@@ -5,7 +5,7 @@ import {
   OutputLengthLevel,
   CREATIVITY_TO_TEMPERATURE,
   OUTPUT_LENGTH_TO_TOKENS,
-  REASONING_MODEL_MIN_TOKENS,
+  getReasoningMinTokens,
   JSON_OUTPUT_MAX_TEMPERATURE,
   getKnownModelLimit,
 } from "../types";
@@ -75,19 +75,27 @@ export class TaskProfileMapperService {
     // ★ 推理模型需要大量额外 tokens 用于内部 Chain of Thought
     // 实际输出可能只占 completion_tokens 的 10-20%
     const isReasoning = modelConfig?.isReasoning ?? false;
+    const modelMaxTokens = modelConfig?.maxTokens;
     let effectiveMaxTokens = baseMaxTokens;
 
     if (isReasoning) {
       const originalTokens = effectiveMaxTokens;
 
-      // ★ 推理模型的基础最小值（25000）
-      effectiveMaxTokens = Math.max(baseMaxTokens, REASONING_MODEL_MIN_TOKENS);
+      // ★ 根据模型实际限制动态计算推理模型最小值
+      // 不同模型差异很大：Grok 4 = 16384, Claude 4 = 16384, o1/o3 = 65536+
+      const reasoningMin = getReasoningMinTokens(modelMaxTokens);
+      effectiveMaxTokens = Math.max(baseMaxTokens, reasoningMin);
 
-      // 对于 extended 输出，推理模型需要更多空间（32000+）
-      if (profile.outputLength === "extended") {
+      // 对于 extended/long 输出，如果模型有足够空间才提升
+      if (
+        profile.outputLength === "extended" &&
+        (!modelMaxTokens || modelMaxTokens >= 32000)
+      ) {
         effectiveMaxTokens = Math.max(effectiveMaxTokens, 32000);
-      } else if (profile.outputLength === "long") {
-        // long 输出也需要更多（28000+）
+      } else if (
+        profile.outputLength === "long" &&
+        (!modelMaxTokens || modelMaxTokens >= 28000)
+      ) {
         effectiveMaxTokens = Math.max(effectiveMaxTokens, 28000);
       }
 
@@ -95,47 +103,18 @@ export class TaskProfileMapperService {
         this.logger.log(
           `[mapToParameters] ★ Reasoning model token boost: ` +
             `${originalTokens} → ${effectiveMaxTokens} tokens ` +
-            `(outputLength=${profile.outputLength || "default"})`,
+            `(outputLength=${profile.outputLength || "default"}, modelMax=${modelMaxTokens ?? "unknown"})`,
         );
       }
     }
 
-    // 3. 处理模型配置的最大值
-    const modelMaxTokens = modelConfig?.maxTokens;
+    // 3. 处理模型配置的最大值（推理/非推理统一逻辑）
     if (modelMaxTokens && effectiveMaxTokens > modelMaxTokens) {
-      if (isReasoning) {
-        // ★ 推理模型：检查是否需要降低到模型实际限制
-        // 推理模型需要更多 tokens，但不能超过模型的实际最大值
-        // 如果数据库配置的 maxTokens 太低，使用模型最大值并警告
-        if (modelMaxTokens >= REASONING_MODEL_MIN_TOKENS) {
-          // 模型支持足够的 tokens，使用模型最大值
-          this.logger.debug(
-            `[mapToParameters] Reasoning model: capping at model max: ` +
-              `${effectiveMaxTokens} → ${modelMaxTokens}`,
-          );
-          effectiveMaxTokens = modelMaxTokens;
-        } else {
-          // 模型的 maxTokens 低于推理模型最小值 — 去重警告
-          const warnKey = `reasoning-low:${modelConfig?.modelId ?? ""}`;
-          if (!this.warnedHardCaps.has(warnKey)) {
-            this.logger.warn(
-              `[mapToParameters] ⚠️ Reasoning model config issue: ` +
-                `Model max (${modelMaxTokens}) is below recommended minimum (${REASONING_MODEL_MIN_TOKENS}). ` +
-                `Using model max to prevent API errors. ` +
-                `Consider updating model config in database for better reasoning output.`,
-            );
-            this.warnedHardCaps.add(warnKey);
-          }
-          effectiveMaxTokens = modelMaxTokens;
-        }
-      } else {
-        // 非推理模型：正常限制
-        this.logger.debug(
-          `[mapToParameters] Capping tokens at model max: ` +
-            `${effectiveMaxTokens} → ${modelMaxTokens}`,
-        );
-        effectiveMaxTokens = modelMaxTokens;
-      }
+      this.logger.debug(
+        `[mapToParameters] Capping tokens at model max: ` +
+          `${effectiveMaxTokens} → ${modelMaxTokens} (${modelConfig?.modelId})`,
+      );
+      effectiveMaxTokens = modelMaxTokens;
     }
 
     // 4. 硬限制兜底：基于已知模型的实际 API 限制

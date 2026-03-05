@@ -152,7 +152,7 @@ export const OUTPUT_LENGTH_TO_TOKENS: Record<OutputLengthLevel, number> = {
 };
 
 /**
- * 推理模型的最小 token 数
+ * 推理模型的默认最小 token 数
  *
  * ★ 重要：推理模型（如 o1, o3, GPT-5.x）会将大部分 completion tokens
  * 用于内部推理（Chain of Thought），实际输出内容可能只占 10-20%。
@@ -160,9 +160,30 @@ export const OUTPUT_LENGTH_TO_TOKENS: Record<OutputLengthLevel, number> = {
  * 例如：如果 max_completion_tokens=12000，模型可能用 12000 全部用于推理，
  * 导致 content="" 空输出。
  *
- * 建议：推理模型至少需要 25000+ tokens 才能有足够空间输出内容。
+ * 不同模型系列的实际 max output tokens 差异很大：
+ * - OpenAI o1/o3/o4: 65536-100000（可以放心设高）
+ * - Anthropic Claude 4: 16384（硬限制）
+ * - xAI Grok 4: 16384（硬限制）
+ * - Google Gemini 2.5/3: 65536（可以设高）
+ * - DeepSeek R1: 65536（可以设高）
+ *
+ * 因此不能一刀切 25000，需要根据模型实际限制动态计算。
  */
 export const REASONING_MODEL_MIN_TOKENS = 25000;
+
+/**
+ * 根据模型实际 max tokens 计算推理模型的最小请求 tokens
+ *
+ * 策略：取模型最大值的 100%（即直接用满），因为推理模型需要尽可能多的空间，
+ * 但不能超过模型的硬限制。对于高容量模型（>= 25000），使用 25000 作为下限。
+ */
+export function getReasoningMinTokens(
+  modelMaxTokens: number | undefined,
+): number {
+  if (!modelMaxTokens) return REASONING_MODEL_MIN_TOKENS;
+  // 模型最大值本身就是硬限制，直接使用
+  return Math.min(modelMaxTokens, REASONING_MODEL_MIN_TOKENS);
+}
 
 /**
  * JSON 输出格式的最大 temperature

@@ -132,13 +132,13 @@ export class TopicContextRetrievalService {
         return false;
       }
 
-      // 存储嵌入（embedding 字段为 pgvector Unsupported 类型，必须使用 $executeRaw）
-      const vectorStr = `[${embeddingResult.embedding.join(",")}]`;
+      // 存储嵌入（JSONB 格式，Railway PostgreSQL 不支持 pgvector）
+      const jsonStr = JSON.stringify(embeddingResult.embedding);
       const embeddingModel = await this.ragFacade.embeddingGetModel();
       const contentSummary = this.generateSummary(message.content);
       await this.prisma.$executeRaw(Prisma.sql`
         INSERT INTO topic_message_embeddings (id, message_id, embedding, model, dimensions, content_summary, token_count, created_at, updated_at)
-        VALUES (gen_random_uuid(), ${message.id}, ${vectorStr}::vector, ${embeddingModel}, ${embeddingResult.embedding.length}, ${contentSummary}, ${embeddingResult.tokenCount ?? null}, now(), now())
+        VALUES (gen_random_uuid(), ${message.id}, ${jsonStr}::jsonb, ${embeddingModel}, ${embeddingResult.embedding.length}, ${contentSummary}, ${embeddingResult.tokenCount ?? null}, now(), now())
         ON CONFLICT (message_id) DO NOTHING
       `);
 
@@ -219,8 +219,6 @@ export class TopicContextRetrievalService {
         );
         return [];
       }
-      const vectorStr = `[${queryEmbedding.embedding.join(",")}]`;
-
       // 可选的排除消息 ID 过滤片段
       const excludeFilter =
         excludeMessageIds.length > 0
@@ -233,7 +231,7 @@ export class TopicContextRetrievalService {
           ? Prisma.sql`AND LENGTH(tm.content) >= ${minContentLength}`
           : Prisma.sql``;
 
-      // 使用 pgvector <=> 余弦距离运算符，DB 层完成相似度计算
+      // JSONB 模式：获取全部嵌入，应用层计算余弦相似度
       interface RawRow {
         message_id: string;
         content_summary: string | null;
@@ -242,35 +240,28 @@ export class TopicContextRetrievalService {
         sender_full_name: string | null;
         sender_username: string | null;
         ai_member_display_name: string | null;
-        similarity: number;
+        embedding: number[];
       }
 
-      // 子查询模式：ORDER BY ... LIMIT 供 HNSW 索引使用，外层过滤阈值
       const rows = await this.prisma.$queryRaw<RawRow[]>(Prisma.sql`
-        SELECT message_id, content_summary, msg_content, msg_created_at,
-               sender_full_name, sender_username, ai_member_display_name, similarity
-        FROM (
-          SELECT
-            tme.message_id,
-            tme.content_summary,
-            tm.content AS msg_content,
-            tm.created_at AS msg_created_at,
-            u.full_name AS sender_full_name,
-            u.username AS sender_username,
-            am.display_name AS ai_member_display_name,
-            1 - (tme.embedding <=> ${vectorStr}::vector) AS similarity
-          FROM topic_message_embeddings tme
-          JOIN topic_messages tm ON tme.message_id = tm.id
-          LEFT JOIN users u ON tm.sender_id = u.id
-          LEFT JOIN topic_ai_members am ON tm.ai_member_id = am.id
-          WHERE tm.topic_id = ${topicId}
-            AND tm.deleted_at IS NULL
-            ${excludeFilter}
-            ${lengthFilter}
-          ORDER BY tme.embedding <=> ${vectorStr}::vector
-          LIMIT ${limit}
-        ) sub
-        WHERE similarity >= ${threshold}
+        SELECT
+          tme.message_id,
+          tme.content_summary,
+          tm.content AS msg_content,
+          tm.created_at AS msg_created_at,
+          u.full_name AS sender_full_name,
+          u.username AS sender_username,
+          am.display_name AS ai_member_display_name,
+          tme.embedding
+        FROM topic_message_embeddings tme
+        JOIN topic_messages tm ON tme.message_id = tm.id
+        LEFT JOIN users u ON tm.sender_id = u.id
+        LEFT JOIN topic_ai_members am ON tm.ai_member_id = am.id
+        WHERE tm.topic_id = ${topicId}
+          AND tm.deleted_at IS NULL
+          AND tme.embedding IS NOT NULL
+          ${excludeFilter}
+          ${lengthFilter}
       `);
 
       if (rows.length === 0) {
@@ -278,21 +269,27 @@ export class TopicContextRetrievalService {
         return [];
       }
 
-      const results: RetrievedContext[] = rows.map((row) => ({
-        messageId: row.message_id,
-        content: row.msg_content,
-        contentSummary: row.content_summary,
-        similarity: Number(row.similarity),
-        senderName:
-          row.sender_full_name ||
-          row.sender_username ||
-          row.ai_member_display_name ||
-          "Unknown",
-        createdAt: row.msg_created_at,
-      }));
+      // 应用层计算余弦相似度
+      const queryVec = queryEmbedding.embedding;
+      const results: RetrievedContext[] = rows
+        .map((row) => ({
+          messageId: row.message_id,
+          content: row.msg_content,
+          contentSummary: row.content_summary,
+          similarity: this.cosineSimilarity(queryVec, row.embedding),
+          senderName:
+            row.sender_full_name ||
+            row.sender_username ||
+            row.ai_member_display_name ||
+            "Unknown",
+          createdAt: row.msg_created_at,
+        }))
+        .filter((r) => r.similarity >= threshold)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
 
       this.logger.log(
-        `Retrieved ${results.length} contexts for topic ${topicId} (pgvector <=> query)`,
+        `Retrieved ${results.length} contexts for topic ${topicId} (JSONB cosine, ${rows.length} candidates)`,
       );
 
       return results;
@@ -336,6 +333,22 @@ export class TopicContextRetrievalService {
     });
 
     return `\n\n## 相关历史上下文（通过语义检索）\n${contextParts.join("\n")}`;
+  }
+
+  /**
+   * 余弦相似度计算
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    let dot = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom === 0 ? 0 : dot / denom;
   }
 
   /**

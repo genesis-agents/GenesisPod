@@ -240,8 +240,9 @@ describe("TopicContextRetrievalService", () => {
     });
 
     it("should map raw DB rows to RetrievedContext objects", async () => {
+      const queryEmb = [0.1, 0.2];
       (mockFacade.embeddingGenerate as jest.Mock).mockResolvedValue({
-        embedding: [0.1, 0.2],
+        embedding: queryEmb,
         tokenCount: 5,
       });
 
@@ -255,7 +256,7 @@ describe("TopicContextRetrievalService", () => {
           sender_full_name: "Alice",
           sender_username: "alice",
           ai_member_display_name: null,
-          similarity: 0.85,
+          embedding: queryEmb, // identical → cosine similarity = 1.0
         },
       ];
       (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue(rawRows);
@@ -268,13 +269,14 @@ describe("TopicContextRetrievalService", () => {
       expect(ctx.contentSummary).toBe("A summary");
       expect(ctx.content).toBe("Full message content");
       expect(ctx.senderName).toBe("Alice");
-      expect(ctx.similarity).toBeCloseTo(0.85);
+      expect(ctx.similarity).toBeCloseTo(1.0);
       expect(ctx.createdAt).toEqual(now);
     });
 
     it("should fall back to username when full_name is absent", async () => {
+      const queryEmb = [0.1];
       (mockFacade.embeddingGenerate as jest.Mock).mockResolvedValue({
-        embedding: [0.1],
+        embedding: queryEmb,
         tokenCount: 2,
       });
       (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
@@ -286,7 +288,7 @@ describe("TopicContextRetrievalService", () => {
           sender_full_name: null,
           sender_username: "bob",
           ai_member_display_name: null,
-          similarity: 0.7,
+          embedding: queryEmb,
         },
       ]);
 
@@ -296,8 +298,9 @@ describe("TopicContextRetrievalService", () => {
     });
 
     it("should fall back to ai_member_display_name when user fields are absent", async () => {
+      const queryEmb = [0.1];
       (mockFacade.embeddingGenerate as jest.Mock).mockResolvedValue({
-        embedding: [0.1],
+        embedding: queryEmb,
         tokenCount: 2,
       });
       (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
@@ -309,7 +312,7 @@ describe("TopicContextRetrievalService", () => {
           sender_full_name: null,
           sender_username: null,
           ai_member_display_name: "Research Agent",
-          similarity: 0.9,
+          embedding: queryEmb,
         },
       ]);
 
@@ -319,8 +322,9 @@ describe("TopicContextRetrievalService", () => {
     });
 
     it("should use Unknown when all sender fields are absent", async () => {
+      const queryEmb = [0.1];
       (mockFacade.embeddingGenerate as jest.Mock).mockResolvedValue({
-        embedding: [0.1],
+        embedding: queryEmb,
         tokenCount: 2,
       });
       (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
@@ -332,7 +336,7 @@ describe("TopicContextRetrievalService", () => {
           sender_full_name: null,
           sender_username: null,
           ai_member_display_name: null,
-          similarity: 0.6,
+          embedding: queryEmb,
         },
       ]);
 
@@ -389,12 +393,13 @@ describe("TopicContextRetrievalService", () => {
     });
 
     it("should return formatted context string when results are found", async () => {
+      const queryEmb = [0.1, 0.2];
       // embedTopicMessages step: no messages to embed
       (mockPrisma.topicMessage.findMany as jest.Mock).mockResolvedValue([]);
 
       // retrieveContext step
       (mockFacade.embeddingGenerate as jest.Mock).mockResolvedValue({
-        embedding: [0.1, 0.2],
+        embedding: queryEmb,
         tokenCount: 5,
       });
       (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
@@ -406,7 +411,7 @@ describe("TopicContextRetrievalService", () => {
           sender_full_name: "Carol",
           sender_username: "carol",
           ai_member_display_name: null,
-          similarity: 0.82,
+          embedding: queryEmb, // identical → cosine = 1.0
         },
       ]);
 
@@ -417,13 +422,14 @@ describe("TopicContextRetrievalService", () => {
       expect(ctx).toContain("相关历史上下文");
       expect(ctx).toContain("Carol");
       expect(ctx).toContain("The summary text");
-      expect(ctx).toContain("82.0%");
+      expect(ctx).toContain("100.0%"); // cosine similarity = 1.0
     });
 
     it("should use content prefix when contentSummary is null", async () => {
+      const queryEmb = [0.1];
       (mockPrisma.topicMessage.findMany as jest.Mock).mockResolvedValue([]);
       (mockFacade.embeddingGenerate as jest.Mock).mockResolvedValue({
-        embedding: [0.1],
+        embedding: queryEmb,
         tokenCount: 2,
       });
       (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
@@ -435,7 +441,7 @@ describe("TopicContextRetrievalService", () => {
           sender_full_name: "Dave",
           sender_username: "dave",
           ai_member_display_name: null,
-          similarity: 0.6,
+          embedding: queryEmb,
         },
       ]);
 

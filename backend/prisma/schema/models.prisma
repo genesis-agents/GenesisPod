@@ -1705,8 +1705,9 @@ model TopicMessageEmbedding {
   messageId String       @unique @map("message_id")
   message   TopicMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
-  // 向量数据 - 使用 pgvector 存储，支持 <=> 余弦距离运算符和 HNSW 索引
-  embedding  Unsupported("vector(1536)")
+  // 向量数据 - JSONB 存储（Railway PostgreSQL 不支持 pgvector 扩展）
+  // 相似度搜索在应用层计算余弦距离
+  embedding  Json
   model      String @default("text-embedding-3-small") @db.VarChar(100)
   dimensions Int    @default(1536)
 
@@ -4045,8 +4046,9 @@ model ChildEmbedding {
   childChunkId String     @unique @map("child_chunk_id")
   childChunk   ChildChunk @relation(fields: [childChunkId], references: [id], onDelete: Cascade)
 
-  // 向量数据 - 使用 pgvector 存储，支持 <=> 余弦距离运算符和 HNSW 索引
-  embedding  Unsupported("vector(1536)")
+  // 向量数据 - JSONB 存储（Railway PostgreSQL 不支持 pgvector 扩展）
+  // 相似度搜索在应用层计算余弦距离
+  embedding  Json
   model      String @default("text-embedding-3-small")
   dimensions Int    @default(1536)
 
