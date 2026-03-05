@@ -1630,7 +1630,12 @@ export function TopicContentPanel({
         )}
 
         {/* Tab Content */}
-        <div data-export-content="insights" className="flex-1 overflow-hidden">
+        <div
+          {...(activeTab === 'report'
+            ? { 'data-export-content': 'insights' }
+            : {})}
+          className="flex-1 overflow-hidden"
+        >
           {activeTab === 'report' && reportViewMode === 'continuous' && (
             <ReportEditPanel
               report={report}
@@ -1929,6 +1934,17 @@ export function TopicContentPanel({
             </div>
           )}
         </div>
+
+        {/* Hidden export content: always rendered when report exists but tab is not active.
+            This ensures document.querySelector('[data-export-content="insights"]') always
+            finds the element for WYSIWYG HTML capture regardless of which tab is active. */}
+        {activeTab !== 'report' && report?.fullReport && (
+          <div className="hidden">
+            <div data-export-content="insights">
+              <ReactMarkdown>{report.fullReport}</ReactMarkdown>
+            </div>
+          </div>
+        )}
 
         {/* Toast 提示 */}
         {toast && (

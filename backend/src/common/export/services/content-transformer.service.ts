@@ -812,7 +812,7 @@ export class ContentTransformerService {
         const jsonStartPattern =
           /[\r\n]\s*\{[\s\r\n]*"(?:executiveSummary|fullText|preface|tableOfContents)"/;
         const match = jsonStartPattern.exec(result);
-        if (match && match.index !== undefined) {
+        if (match?.index !== undefined) {
           const bracePos = result.indexOf("{", match.index);
           if (bracePos !== -1) {
             const afterBrace = result.slice(bracePos);
@@ -888,7 +888,7 @@ export class ContentTransformerService {
     const bareJsonPattern =
       /\n\s*\{\s*"(?:generatedCharts|figureReferences)"[\s\S]*$/;
     const bareMatch = result.match(bareJsonPattern);
-    if (bareMatch && bareMatch.index !== undefined) {
+    if (bareMatch?.index !== undefined) {
       const before = result.substring(0, bareMatch.index).trim();
       if (before.length > 100) result = before;
     }
@@ -937,8 +937,15 @@ export class ContentTransformerService {
     // Parse the fullReport markdown into sections
     const sections: ContentSection[] = [];
 
-    // Add executive summary as first section if available
-    if (report.executiveSummary) {
+    // Parse the full report (apply same preprocessing as frontend ReportEditor)
+    // fullReport already includes executive summary, so skip standalone executiveSummary
+    if (report.fullReport) {
+      const cleanedReport = this.preprocessTopicReportMarkdown(
+        report.fullReport,
+      );
+      sections.push(...this.parseMarkdown(cleanedReport));
+    } else if (report.executiveSummary) {
+      // Fallback: no fullReport, use standalone executive summary
       sections.push({
         id: "executive-summary",
         type: "heading",
@@ -946,14 +953,6 @@ export class ContentTransformerService {
         level: 1,
       });
       sections.push(...this.parseMarkdown(report.executiveSummary));
-    }
-
-    // Parse the full report (apply same preprocessing as frontend ReportEditor)
-    if (report.fullReport) {
-      const cleanedReport = this.preprocessTopicReportMarkdown(
-        report.fullReport,
-      );
-      sections.push(...this.parseMarkdown(cleanedReport));
     }
 
     // Map evidences to references

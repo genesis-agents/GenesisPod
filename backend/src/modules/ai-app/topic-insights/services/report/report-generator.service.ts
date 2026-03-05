@@ -533,6 +533,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           })
           .join("\n");
       }
+      // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
+      content = this.numberSubHeadings(content, idx + 1);
       // ★ 跨维度段落去重：首 DEDUP_KEY_LENGTH 字相同的段落只保留首次出现
       {
         const DEDUP_MIN_LENGTH = 60; // 短于此长度的段落不参与去重
@@ -1235,6 +1237,36 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
   /**
    * Resolves chart placeholders in dimension content:
+   * Give dimension sub-headings hierarchical numbering.
+   * ### Title → ### N.M. Title
+   * #### Title → #### N.M.K. Title
+   * Existing numeric prefixes (e.g. "1. Title" or "1.2. Title") are stripped first.
+   */
+  private numberSubHeadings(content: string, dimIndex: number): string {
+    let h3Count = 0;
+    let h4Count = 0;
+
+    return content.replace(
+      /^(#{3,4})\s+(.+)$/gm,
+      (_match, hashes: string, title: string) => {
+        // Strip any existing numeric prefix (e.g. "1. ", "1.2. ", "1.2.3. ")
+        const cleanTitle = title.replace(/^[\d.]+\s*/, "");
+
+        if (hashes === "###") {
+          h3Count++;
+          h4Count = 0;
+          return `### ${dimIndex}.${h3Count}. ${cleanTitle}`;
+        }
+        if (hashes === "####") {
+          h4Count++;
+          return `#### ${dimIndex}.${h3Count}.${h4Count}. ${cleanTitle}`;
+        }
+        return `${hashes} ${title}`;
+      },
+    );
+  }
+
+  /**
    * 1. Converts <!-- figure:N:M --> to <!-- chart:dX-id --> using figureReferences
    * 2. Injects generated chart placeholders based on position
    * 3. Deduplicates chart placeholders by chartId
