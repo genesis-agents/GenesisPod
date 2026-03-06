@@ -351,7 +351,43 @@ export class ReportQualityGateService {
       });
     }
 
-    // 7. 引用集中度检查：单个引用在正文某节出现 >8 次
+    // 7. 低权威来源占比检查（#19）
+    // Citation numbers in body → count how many unique sources exist
+    // We cannot access DB credibility scores here, but we can warn when
+    // the reference section contains too few entries relative to citations used.
+    // This is a proxy for source diversity.
+    if (bodyCitationSet.size > 0 && refEntrySet.size > 0) {
+      const coverageRatio = refEntrySet.size / bodyCitationSet.size;
+      if (coverageRatio < 0.5) {
+        violations.push({
+          rule: "low_source_diversity",
+          severity: "warning",
+          message: `正文引用了 ${bodyCitationSet.size} 个编号，但参考文献仅 ${refEntrySet.size} 条，来源多样性不足`,
+          currentValue: refEntrySet.size,
+          threshold: bodyCitationSet.size,
+        });
+      }
+    }
+
+    // 8. 单源声明检测（#49）
+    // Detect bold claims (bold text) that cite only a single source
+    const singleSourceClaims: string[] = [];
+    const boldClaimPattern = /\*\*([^*]{15,})\*\*\s*\[(\d+)\](?!\s*\[)/g;
+    let claimMatch: RegExpExecArray | null;
+    while ((claimMatch = boldClaimPattern.exec(bodyText)) !== null) {
+      singleSourceClaims.push(claimMatch[1].substring(0, 60));
+    }
+    if (singleSourceClaims.length > 5) {
+      violations.push({
+        rule: "single_source_claims",
+        severity: "warning",
+        message: `检测到 ${singleSourceClaims.length} 个重要论断仅引用单一来源，建议多源交叉验证`,
+        currentValue: singleSourceClaims.length,
+        threshold: 5,
+      });
+    }
+
+    // 9. 引用集中度检查：单个引用在正文某节出现 >8 次
     const fullCitations = fixedContent.match(/\[(\d+)\](?![\s]*[:(\[])/g) ?? [];
     const fullCitationCounts = new Map<string, number>();
     for (const c of fullCitations) {

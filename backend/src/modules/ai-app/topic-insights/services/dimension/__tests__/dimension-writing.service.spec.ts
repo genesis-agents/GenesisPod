@@ -1919,4 +1919,88 @@ describe("DimensionWritingService", () => {
       expect(result.success).toBe(true);
     });
   });
+
+  // ============================================================
+  // replaceEvidenceIds (#33)
+  // ============================================================
+
+  describe("replaceEvidenceIds", () => {
+    it("should replace basic citation references using index mapping", () => {
+      const mapping = new Map<number, number>([
+        [1, 11],
+        [2, 12],
+      ]);
+      const content = "See [1] and also [2] for details.";
+
+      const result = (service as any).replaceEvidenceIds(content, mapping);
+
+      expect(result).toBe("See [11] and also [12] for details.");
+    });
+
+    it("should replace figure placeholders using index mapping", () => {
+      const mapping = new Map<number, number>([[1, 11]]);
+      const content = "<!-- figure:1:2 -->";
+
+      const result = (service as any).replaceEvidenceIds(content, mapping);
+
+      expect(result).toBe("<!-- figure:11:2 -->");
+    });
+
+    it("should process in descending order to avoid [1] interfering with [10] or [11]", () => {
+      const mapping = new Map<number, number>([
+        [1, 100],
+        [10, 200],
+        [11, 300],
+      ]);
+      // Content has [1], [10], [11] — if [1] is replaced first it would corrupt [10] and [11]
+      const content = "[1] references [10] and [11] in the text.";
+
+      const result = (service as any).replaceEvidenceIds(content, mapping);
+
+      // [11] → [300], [10] → [200], [1] → [100] (processed largest first)
+      expect(result).toBe("[100] references [200] and [300] in the text.");
+    });
+
+    it("should not replace when promptIndex equals actualCitationIndex", () => {
+      const mapping = new Map<number, number>([
+        [1, 1], // same — no-op
+        [2, 12], // different — should replace
+      ]);
+      const content = "See [1] and [2].";
+
+      const result = (service as any).replaceEvidenceIds(content, mapping);
+
+      expect(result).toBe("See [1] and [12].");
+    });
+
+    it("should return content unchanged when mapping is empty", () => {
+      const mapping = new Map<number, number>();
+      const content = "Content with [1] citation stays unchanged.";
+
+      const result = (service as any).replaceEvidenceIds(content, mapping);
+
+      expect(result).toBe("Content with [1] citation stays unchanged.");
+    });
+
+    it("should replace all occurrences of the same citation in content", () => {
+      const mapping = new Map<number, number>([[3, 30]]);
+      const content = "[3] is mentioned here and again [3] and once more [3].";
+
+      const result = (service as any).replaceEvidenceIds(content, mapping);
+
+      expect(result).toBe(
+        "[30] is mentioned here and again [30] and once more [30].",
+      );
+    });
+
+    it("should replace figure placeholders with spaces around colon correctly", () => {
+      const mapping = new Map<number, number>([[2, 22]]);
+      // The regex allows optional whitespace around figure: prefix
+      const content = "<!--  figure:2:0 -->";
+
+      const result = (service as any).replaceEvidenceIds(content, mapping);
+
+      expect(result).toBe("<!--  figure:22:0 -->");
+    });
+  });
 });

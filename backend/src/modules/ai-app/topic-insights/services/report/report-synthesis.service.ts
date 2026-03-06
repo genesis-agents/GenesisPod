@@ -28,6 +28,7 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
+  repairOrderedListContinuity,
 } from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type {
@@ -2181,6 +2182,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // ★ v4.1: 全文级 LLM meta-notes 清理（统一实现在 report-formatting.utils.ts）
     content = stripLLMMetaNotes(content);
+
+    // ★ v4.2: 修复 OL 列表连续性（LLM 常在中间段落后重新从 1. 开始）
+    content = repairOrderedListContinuity(content);
 
     // 额外 warn-only 检查（不在 QualityGateService 中的报告级特定规则）
     const arrowCount = (content.match(/→/g) || []).length;

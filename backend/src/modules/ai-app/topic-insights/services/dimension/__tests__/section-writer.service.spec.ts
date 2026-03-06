@@ -1487,4 +1487,173 @@ describe("SectionWriterService", () => {
       expect(mockAiFacade.chatWithSkills).toHaveBeenCalled();
     });
   });
+
+  // ============================================================
+  // backfillFigureUrls (#35)
+  // ============================================================
+
+  describe("backfillFigureUrls", () => {
+    const makeFigureRef = (
+      overrides: Partial<{
+        id: string;
+        evidenceCitationIndex: number;
+        figureIndex: number;
+        imageUrl: string | undefined;
+        caption: string;
+        position: string;
+      }> = {},
+    ) => ({
+      id: "fig-1",
+      evidenceCitationIndex: 1,
+      figureIndex: 0,
+      imageUrl: undefined as string | undefined,
+      caption: "",
+      position: "after_paragraph_1",
+      ...overrides,
+    });
+
+    const makeAllocatedFigure = (
+      overrides: Partial<{
+        evidenceIndex: number;
+        figureIndex: number;
+        imageUrl: string;
+        caption: string;
+        relevanceReason: string;
+      }> = {},
+    ) => ({
+      evidenceIndex: 1,
+      figureIndex: 0,
+      imageUrl: "https://example.com/chart.png",
+      caption: "Market Share Chart",
+      relevanceReason: "Supports main finding",
+      ...overrides,
+    });
+
+    it("should return figureRefs unchanged when allocatedFigures is undefined", () => {
+      const refs = [
+        makeFigureRef({ imageUrl: "https://existing.com/img.png" }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, undefined);
+
+      expect(result).toEqual(refs);
+    });
+
+    it("should return figureRefs unchanged when allocatedFigures is empty", () => {
+      const refs = [
+        makeFigureRef({ imageUrl: "https://existing.com/img.png" }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, []);
+
+      expect(result).toEqual(refs);
+    });
+
+    it("should fill missing imageUrl from matching allocated figure", () => {
+      const refs = [makeFigureRef({ imageUrl: undefined })];
+      const allocated = [
+        makeAllocatedFigure({ imageUrl: "https://example.com/chart.png" }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, allocated);
+
+      expect(result[0].imageUrl).toBe("https://example.com/chart.png");
+    });
+
+    it("should fill missing caption from matching allocated figure", () => {
+      const refs = [makeFigureRef({ imageUrl: undefined, caption: "" })];
+      const allocated = [
+        makeAllocatedFigure({
+          imageUrl: "https://example.com/chart.png",
+          caption: "Revenue Trend 2024",
+        }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, allocated);
+
+      expect(result[0].caption).toBe("Revenue Trend 2024");
+    });
+
+    it("should filter out refs still missing imageUrl after backfill (key behavior)", () => {
+      // Ref has no imageUrl and no matching allocated figure (key mismatch)
+      const refs = [
+        makeFigureRef({
+          evidenceCitationIndex: 5,
+          figureIndex: 0,
+          imageUrl: undefined,
+        }),
+      ];
+      const allocated = [
+        makeAllocatedFigure({
+          evidenceIndex: 99, // does not match evidenceCitationIndex 5
+          figureIndex: 0,
+          imageUrl: "https://example.com/other.png",
+        }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, allocated);
+
+      // No match found => imageUrl still undefined => filtered out
+      expect(result).toHaveLength(0);
+    });
+
+    it("should NOT overwrite existing imageUrl", () => {
+      const originalUrl = "https://existing.com/original.png";
+      const refs = [makeFigureRef({ imageUrl: originalUrl })];
+      const allocated = [
+        makeAllocatedFigure({ imageUrl: "https://example.com/new.png" }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, allocated);
+
+      expect(result[0].imageUrl).toBe(originalUrl);
+    });
+
+    it("should NOT overwrite existing caption", () => {
+      const originalCaption = "Original caption";
+      const refs = [
+        makeFigureRef({
+          imageUrl: "https://existing.com/img.png",
+          caption: originalCaption,
+        }),
+      ];
+      const allocated = [
+        makeAllocatedFigure({ caption: "Replacement caption" }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, allocated);
+
+      expect(result[0].caption).toBe(originalCaption);
+    });
+
+    it("should keep refs that have imageUrl after backfill and drop refs without", () => {
+      const refs = [
+        makeFigureRef({
+          id: "fig-1",
+          evidenceCitationIndex: 1,
+          figureIndex: 0,
+          imageUrl: undefined,
+        }),
+        makeFigureRef({
+          id: "fig-2",
+          evidenceCitationIndex: 2,
+          figureIndex: 0,
+          imageUrl: undefined,
+        }),
+      ];
+      const allocated = [
+        makeAllocatedFigure({
+          evidenceIndex: 1,
+          figureIndex: 0,
+          imageUrl: "https://example.com/chart1.png",
+        }),
+        // No allocation for evidenceIndex 2
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, allocated);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("fig-1");
+    });
+  });
 });

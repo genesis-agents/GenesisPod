@@ -20,6 +20,7 @@ import {
   remapCitationIndices,
   limitBoldFormatting,
   removeHorizontalRules,
+  repairOrderedListContinuity,
 } from "../../utils/report-formatting.utils";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { AIModelType } from "@prisma/client";
@@ -1264,6 +1265,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     );
     // ★ 全文级 LLM meta-notes 清理（统一实现）
     finalContent = stripLLMMetaNotes(finalContent);
+    // ★ 修复 OL 列表连续性
+    finalContent = repairOrderedListContinuity(finalContent);
     return finalContent;
   }
 

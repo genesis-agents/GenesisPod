@@ -368,9 +368,32 @@ export function simplifyLatexNotation(content: string): string {
 
   // Bare LaTeX commands outside of delimiters (e.g. \text{model}, \frac{a}{b})
   result = result.replace(/\\text\{([^}]+)\}/g, "$1");
+  result = result.replace(/\\textbf\{([^}]+)\}/g, "**$1**");
+  result = result.replace(/\\textit\{([^}]+)\}/g, "*$1*");
   result = result.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1/$2");
   result = result.replace(/\\sqrt\{([^}]+)\}/g, "√$1");
   result = result.replace(/\\mathbb\{R\}/g, "ℝ");
+  result = result.replace(/\\mathbb\{N\}/g, "ℕ");
+  result = result.replace(/\\mathbb\{Z\}/g, "ℤ");
+  // Common Greek letters not in cleanLatexContent
+  result = result.replace(/\\alpha(?![a-zA-Z])/g, "α");
+  result = result.replace(/\\beta(?![a-zA-Z])/g, "β");
+  result = result.replace(/\\gamma(?![a-zA-Z])/g, "γ");
+  result = result.replace(/\\delta(?![a-zA-Z])/g, "δ");
+  result = result.replace(/\\epsilon(?![a-zA-Z])/g, "ε");
+  result = result.replace(/\\lambda(?![a-zA-Z])/g, "λ");
+  result = result.replace(/\\mu(?![a-zA-Z])/g, "μ");
+  result = result.replace(/\\sigma(?![a-zA-Z])/g, "σ");
+  result = result.replace(/\\pi(?![a-zA-Z])/g, "π");
+  result = result.replace(/\\omega(?![a-zA-Z])/g, "ω");
+  result = result.replace(/\\times(?![a-zA-Z])/g, "×");
+  result = result.replace(/\\neq(?![a-zA-Z])/g, "≠");
+  result = result.replace(/\\pm(?![a-zA-Z])/g, "±");
+  // Dollar-sign delimited inline math: $formula$ → cleaned content
+  result = result.replace(/\$([^$]{2,80})\$/g, (_match, inner: string) => {
+    if (!/[\\^_]/.test(inner)) return inner; // Not LaTeX, keep as-is
+    return cleanLatexContent(inner);
+  });
 
   return result;
 }
@@ -689,6 +712,71 @@ function extractDomainFromUrl(url: string): string {
     const match = url.match(/\/\/([^/?#]+)/);
     return match ? match[1].replace(/^www\./, "") : "";
   }
+}
+
+/**
+ * Repair broken ordered list continuity in markdown.
+ *
+ * LLMs often restart list numbering after interruptions (paragraphs, blockquotes,
+ * code blocks between list items). This function re-numbers ordered list items
+ * so they form continuous sequences within each section.
+ *
+ * Example:
+ *   1. First item
+ *   Some paragraph text
+ *   1. Second item (should be 2.)
+ *   1. Third item  (should be 3.)
+ *
+ * Resets counter at each ### heading boundary.
+ */
+export function repairOrderedListContinuity(content: string): string {
+  const lines = content.split("\n");
+  let lastListNum = 0; // last seen list item number
+  let gapLines = 0; // non-list lines since last list item
+
+  return lines
+    .map((line) => {
+      // Reset at heading boundaries
+      if (/^#{2,4}\s+/.test(line)) {
+        lastListNum = 0;
+        gapLines = 0;
+        return line;
+      }
+
+      // Match simple ordered list item: "N. text" (not hierarchical "N.M.K. text")
+      const listMatch = line.match(/^(\s*)(\d+)\.\s+(?!\d+\.)(.+)/);
+      if (listMatch) {
+        const currentNum = Number(listMatch[2]);
+
+        // Only fix if this looks like a restart (current ≤ last) within a
+        // recent list context (gap < 3 non-empty lines). This avoids
+        // merging two intentionally separate lists.
+        if (lastListNum > 0 && currentNum <= lastListNum && gapLines < 3) {
+          lastListNum++;
+          gapLines = 0;
+          return `${listMatch[1]}${lastListNum}. ${listMatch[3]}`;
+        }
+
+        // Otherwise accept the number as-is (new list or correct continuation)
+        lastListNum = currentNum;
+        gapLines = 0;
+        return line;
+      }
+
+      // Track gap between list items (only non-empty lines count)
+      if (line.trim() !== "" && lastListNum > 0) {
+        gapLines++;
+      }
+
+      // Large gap or structural break → reset list tracking
+      if (gapLines >= 3 || /^\s*[-*]\s/.test(line) || /^>\s/.test(line)) {
+        lastListNum = 0;
+        gapLines = 0;
+      }
+
+      return line;
+    })
+    .join("\n");
 }
 
 /**
