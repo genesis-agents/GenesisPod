@@ -16,6 +16,8 @@
 import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -1051,7 +1053,8 @@ function ReportEditorInner({
     (content: string, key: string) => (
       <ReactMarkdown
         key={key}
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={createMarkdownComponents(processText)}
       >
         {content}
@@ -1363,7 +1366,8 @@ function ReportEditorInner({
             <div className="max-h-[calc(80vh-48px)] overflow-auto p-4">
               <article className="prose prose-gray prose-sm max-w-none">
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
                   components={{
                     a: ({ href, children }) => (
                       <a

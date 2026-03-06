@@ -1,4 +1,29 @@
 import React from 'react';
+import dynamic from 'next/dynamic';
+
+const MermaidDiagram = dynamic(() => import('@/components/ui/MermaidDiagram'), {
+  ssr: false,
+});
+
+const MERMAID_KEYWORDS = [
+  'graph',
+  'flowchart',
+  'sequenceDiagram',
+  'classDiagram',
+  'stateDiagram',
+  'erDiagram',
+  'gantt',
+  'pie',
+  'mindmap',
+  'gitGraph',
+  'journey',
+];
+
+function isMermaidDiagram(code: string, language?: string): boolean {
+  if (language === 'mermaid') return true;
+  const trimmed = code.trim();
+  return MERMAID_KEYWORDS.some((kw) => trimmed.startsWith(kw));
+}
 
 type ProcessTextFn = (text: string) => React.ReactNode;
 
@@ -303,5 +328,42 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
         {processChildrenSimple(children, processText)}
       </blockquote>
     ),
+    code: ({
+      className,
+      children,
+      node: _node,
+      ...props
+    }: React.HTMLAttributes<HTMLElement> & {
+      children?: React.ReactNode;
+      node?: unknown;
+    }) => {
+      const match = /language-(\w+)/.exec(className || '');
+      const language = match ? match[1] : '';
+      const codeString = String(children).replace(/\n$/, '');
+      const hasLanguage = !!match;
+      const hasNewlines = codeString.includes('\n');
+      const isInline = !hasLanguage && !hasNewlines;
+
+      if (!isInline && isMermaidDiagram(codeString, language)) {
+        return <MermaidDiagram chart={codeString} className="my-4" />;
+      }
+
+      if (isInline) {
+        return (
+          <code
+            className="font-mono rounded bg-gray-100 px-1.5 py-0.5 text-sm text-red-600"
+            {...props}
+          >
+            {children}
+          </code>
+        );
+      }
+
+      return (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      );
+    },
   };
 }

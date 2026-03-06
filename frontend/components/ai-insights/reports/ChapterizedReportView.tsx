@@ -14,6 +14,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -859,7 +861,8 @@ function ChapterizedReportViewInner({
 
               <article className="prose prose-gray max-w-none">
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
                   components={createMarkdownComponents(processText)}
                 >
                   {selectedChapter.content ||
@@ -949,7 +952,12 @@ function ChapterizedReportViewInner({
                   {/* Content Preview with annotation highlights */}
                   {chapter.content && (
                     <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-gray-500">
-                      {processText(chapter.content.slice(0, 200))}
+                      {processText(
+                        chapter.content
+                          .replace(/^#{1,6}\s+/gm, '')
+                          .replace(/\*\*([^*]+)\*\*/g, '$1')
+                          .slice(0, 200)
+                      )}
                       {chapter.content.length > 200 ? '...' : ''}
                     </div>
                   )}
