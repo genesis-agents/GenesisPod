@@ -108,6 +108,7 @@ import { ResearchLeaderService } from "../research-leader.service";
 import { ResearchCheckpointService } from "../../monitoring/research-checkpoint.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
 import { ResearchTodoService } from "../../collaboration/research-todo.service";
+import { CritiqueRefineService } from "../../quality/critique-refine.service";
 import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -370,6 +371,10 @@ async function buildModule(
       { provide: ResearchCheckpointService, useValue: checkpointSvc },
       { provide: DataSourceRouterService, useValue: dataSvc },
       { provide: ResearchTodoService, useValue: todoSvc },
+      {
+        provide: CritiqueRefineService,
+        useValue: { critiqueAndRefine: jest.fn() },
+      },
       { provide: AgentFacade, useValue: facade },
     ],
   }).compile();
