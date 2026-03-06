@@ -202,6 +202,23 @@ const mockAgentActivity = {
   recordReviewActivity: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockQualityGate = {
+  validateDimensionContent: jest.fn().mockReturnValue({
+    passed: true,
+    wasAutoFixed: false,
+    fixedContent: "",
+    violations: [],
+    rewriteGuidance: [],
+  }),
+  validateFullReport: jest.fn().mockReturnValue({
+    passed: true,
+    wasAutoFixed: false,
+    fixedContent: "",
+    violations: [],
+    rewriteGuidance: [],
+  }),
+};
+
 // ============================================================
 // Test suite
 // ============================================================
@@ -248,22 +265,7 @@ describe("DimensionWritingService", () => {
         { provide: AgentActivityService, useValue: mockAgentActivity },
         {
           provide: ReportQualityGateService,
-          useValue: {
-            validateDimensionContent: jest.fn().mockReturnValue({
-              passed: true,
-              wasAutoFixed: false,
-              fixedContent: "",
-              violations: [],
-              rewriteGuidance: [],
-            }),
-            validateFullReport: jest.fn().mockReturnValue({
-              passed: true,
-              wasAutoFixed: false,
-              fixedContent: "",
-              violations: [],
-              rewriteGuidance: [],
-            }),
-          },
+          useValue: mockQualityGate,
         },
       ],
     }).compile();
@@ -321,7 +323,7 @@ describe("DimensionWritingService", () => {
       expect(mockSectionWriter.writeSectionsParallel).toHaveBeenCalledTimes(1);
     });
 
-    it("should call leaderService.reviewSectionOutput for each written section", async () => {
+    it("should use quality gate instead of LLM review loop (v4)", async () => {
       const topic = makeResearchTopic();
       const dimension = makeTopicDimension();
       const searchResult = makeSearchPhaseResult();
@@ -334,7 +336,9 @@ describe("DimensionWritingService", () => {
         outline,
       );
 
-      expect(mockLeaderService.reviewSectionOutput).toHaveBeenCalled();
+      // v4: quality gate replaces LLM review loop
+      expect(mockLeaderService.reviewSectionOutput).not.toHaveBeenCalled();
+      expect(mockQualityGate.validateDimensionContent).toHaveBeenCalled();
     });
 
     it("should call leaderService.integrateDimensionResults after all sections are written", async () => {
@@ -369,30 +373,38 @@ describe("DimensionWritingService", () => {
       expect(mockAgentActivity.endThinkingPhase).toHaveBeenCalled();
     });
 
-    it("should trigger section revision when leader rejects content", async () => {
+    it("should trigger AI rewrite when quality gate fails with rewriteGuidance (v4)", async () => {
       const topic = makeResearchTopic();
       const dimension = makeTopicDimension();
       const searchResult = makeSearchPhaseResult();
       const outline = makeOutline([makeSectionPlan()]);
 
-      // First review: reject; second review: approve
-      mockLeaderService.reviewSectionOutput
-        .mockResolvedValueOnce({
-          approved: false,
-          score: 60,
-          feedback: "Need more depth",
-          revisionInstructions: "Add more academic references",
+      // Quality gate fails with rewriteGuidance on first call, passes on second
+      mockQualityGate.validateDimensionContent
+        .mockReturnValueOnce({
+          passed: false,
+          violations: [
+            {
+              rule: "language_consistency",
+              severity: "error",
+              message: "外语内容过多",
+            },
+          ],
+          fixedContent: "auto-fixed content",
+          wasAutoFixed: true,
+          rewriteGuidance: ["语言一致性不合格：请将所有外语段落翻译为中文"],
         })
-        .mockResolvedValueOnce({
-          approved: true,
-          score: 90,
-          feedback: "Now looks good",
-          revisionInstructions: null,
+        .mockReturnValue({
+          passed: true,
+          violations: [],
+          fixedContent: "",
+          wasAutoFixed: false,
+          rewriteGuidance: [],
         });
 
       mockSectionWriter.reviseSection.mockResolvedValueOnce(
         makeSectionWriteResult({
-          content: "# Revised Content\n\n" + "B".repeat(600),
+          content: "# 修改后的内容\n\n" + "修".repeat(600),
         }),
       );
 
@@ -1229,94 +1241,43 @@ describe("DimensionWritingService", () => {
   // ============================================================
 
   describe("revision rounds", () => {
-    it("should go through multiple revision rounds up to maxRevisionRounds", async () => {
+    it("v4: quality gate replaces LLM review — at most 1 AI rewrite per section", async () => {
       const topic = makeResearchTopic();
       const dimension = makeTopicDimension();
       const searchResult = makeSearchPhaseResult();
       const outline = makeOutline([makeSectionPlan()]);
 
-      // Reject twice, approve on 3rd
-      mockLeaderService.reviewSectionOutput
-        .mockResolvedValueOnce({
-          approved: false,
-          score: 40,
-          feedback: "Too short",
-          revisionInstructions: "Expand",
-        })
-        .mockResolvedValueOnce({
-          approved: false,
-          score: 60,
-          feedback: "Still short",
-          revisionInstructions: "Add more",
-        })
-        .mockResolvedValueOnce({
-          approved: true,
-          score: 85,
-          feedback: "Good now",
-          revisionInstructions: null,
-        });
+      // Quality gate always fails with rewriteGuidance
+      mockQualityGate.validateDimensionContent.mockReturnValue({
+        passed: false,
+        violations: [
+          {
+            rule: "min_content_length",
+            severity: "error",
+            message: "内容过短",
+          },
+        ],
+        fixedContent: "auto-fixed",
+        wasAutoFixed: true,
+        rewriteGuidance: ["内容过短：请增加更多证据支持的分析内容"],
+      });
 
-      mockSectionWriter.reviseSection
-        .mockResolvedValueOnce(
-          makeSectionWriteResult({ content: "Revised once" }),
-        )
-        .mockResolvedValueOnce(
-          makeSectionWriteResult({ content: "Revised twice" }),
-        );
+      mockSectionWriter.reviseSection.mockResolvedValue(
+        makeSectionWriteResult({ content: "Revised" }),
+      );
 
       const result = await service.executeWritingPhase(
         topic,
         dimension,
         searchResult,
         outline,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        3, // maxRevisionRounds = 3
       );
 
       expect(result.success).toBe(true);
-      expect(mockSectionWriter.reviseSection).toHaveBeenCalledTimes(2);
-    });
-
-    it("should stop revisions when maxRevisionRounds is reached (exhausted)", async () => {
-      const topic = makeResearchTopic();
-      const dimension = makeTopicDimension();
-      const searchResult = makeSearchPhaseResult();
-      const outline = makeOutline([makeSectionPlan()]);
-
-      // Always reject
-      mockLeaderService.reviewSectionOutput.mockResolvedValue({
-        approved: false,
-        score: 30,
-        feedback: "Always rejects",
-        revisionInstructions: "Try again",
-      });
-      mockSectionWriter.reviseSection.mockResolvedValue(
-        makeSectionWriteResult({ content: "Revised" }),
-      );
-
-      await service.executeWritingPhase(
-        topic,
-        dimension,
-        searchResult,
-        outline,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        2, // maxRevisionRounds = 2
-      );
-
-      // Should have called reviseSection exactly 2 times
-      expect(mockSectionWriter.reviseSection).toHaveBeenCalledTimes(2);
+      // v4: at most 1 AI rewrite per section (not multiple rounds)
+      expect(mockSectionWriter.reviseSection).toHaveBeenCalledTimes(1);
+      // No LLM review
+      expect(mockLeaderService.reviewSectionOutput).not.toHaveBeenCalled();
     });
   });
 

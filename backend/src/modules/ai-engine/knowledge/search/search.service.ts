@@ -904,8 +904,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       // Title match (high weight)
       if (titleLower.includes(term)) {
         score += 20;
-        // Exact word match bonus
-        if (new RegExp(`\\b${term}\\b`).test(titleLower)) {
+        // Exact word match bonus — 转义元字符防止 ReDoS
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (new RegExp(`\\b${escaped}\\b`).test(titleLower)) {
           score += 10;
         }
       }
@@ -1286,6 +1287,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     success: boolean;
     title?: string;
     content?: string;
+    html?: string;
     error?: string;
   }> {
     try {
@@ -1357,11 +1359,20 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         content = content.substring(0, 3000) + "...";
       }
 
+      // ★ 保留去除 script/style 但保留 HTML 标签的版本，用于图片提取
+      // 截断到 200KB 防止内存压力（图片标签通常在页面前半部分）
+      const MAX_HTML_FOR_FIGURES = 200 * 1024;
+      const htmlForFigures = html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+        .replace(/<!--[\s\S]*?-->/g, "")
+        .substring(0, MAX_HTML_FOR_FIGURES);
+
       this.logger.debug(
         `Fetched URL content: ${title} (${content.length} chars)`,
       );
 
-      return { success: true, title, content };
+      return { success: true, title, content, html: htmlForFigures };
     } catch (error: unknown) {
       const err = error as {
         response?: { status?: number; statusText?: string };

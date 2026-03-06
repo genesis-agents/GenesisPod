@@ -17,8 +17,9 @@ import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
 import { MissionObservabilityService } from "../../core/mission-observability.service";
+import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { DimensionStatus } from "@prisma/client";
-import type { ResearchTopic, TopicDimension } from "@prisma/client";
+import { ResearchTopic, TopicDimension } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -261,6 +262,25 @@ describe("DimensionMissionService", () => {
         { provide: AgentActivityService, useValue: mockAgentActivity },
         { provide: DataEnrichmentService, useValue: mockDataEnrichment },
         { provide: LeaderToolService, useValue: mockLeaderTool },
+        {
+          provide: ReportQualityGateService,
+          useValue: {
+            validateDimensionContent: jest.fn().mockReturnValue({
+              passed: true,
+              violations: [],
+              fixedContent: "",
+              wasAutoFixed: false,
+              rewriteGuidance: [],
+            }),
+            validateFullReport: jest.fn().mockReturnValue({
+              passed: true,
+              violations: [],
+              fixedContent: "",
+              wasAutoFixed: false,
+              rewriteGuidance: [],
+            }),
+          },
+        },
         {
           provide: MissionObservabilityService,
           useValue: {
@@ -771,35 +791,9 @@ describe("DimensionMissionService", () => {
       );
     });
 
-    it("should handle section review rejection and revision (revisionCount++)", async () => {
+    it("should use quality gate instead of LLM review loop (v4)", async () => {
       setupFullMission();
       mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-
-      // Reject first, approve second
-      mockLeaderService.reviewSectionOutput
-        .mockResolvedValueOnce({
-          approved: false,
-          score: 50,
-          feedback: "Needs work",
-          revisionInstructions: "Expand coverage",
-        })
-        .mockResolvedValueOnce({
-          approved: true,
-          score: 85,
-          feedback: "Good",
-          revisionInstructions: null,
-        })
-        .mockResolvedValueOnce({
-          approved: true,
-          score: 88,
-          feedback: "Good",
-          revisionInstructions: null,
-        });
-
-      // Use the injected mockSectionWriter (from test scope)
-      mockSectionWriter.reviseSection = jest
-        .fn()
-        .mockResolvedValue(mockSectionResult);
 
       const result = await service.executeDimensionMission(
         mockTopic,
@@ -807,7 +801,8 @@ describe("DimensionMissionService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(mockSectionWriter.reviseSection).toHaveBeenCalled();
+      // v4: LLM review loop removed, quality gate used instead
+      expect(mockLeaderService.reviewSectionOutput).not.toHaveBeenCalled();
     });
 
     it("should pass missionId to emitProgress (emitDimensionResearchProgress)", async () => {

@@ -41,9 +41,14 @@ export interface WebScraperOutput {
   title: string;
 
   /**
-   * 提取的内容
+   * 提取的内容（纯文本）
    */
   content: string;
+
+  /**
+   * 清理后的 HTML（去除 script/style，保留结构标签，用于图片提取）
+   */
+  html?: string;
 
   /**
    * 原始 URL
@@ -181,6 +186,7 @@ export class WebScraperTool extends BaseTool<
       return {
         title: result.title || "",
         content,
+        html: result.html,
         url,
         contentLength: content.length,
         success: true,

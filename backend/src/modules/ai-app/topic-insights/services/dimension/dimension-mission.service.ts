@@ -74,6 +74,7 @@ import {
   TokenBudgetService,
 } from "@/modules/ai-engine/facade";
 import { MissionObservabilityService } from "../core/mission-observability.service";
+import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 
 /**
  * 维度 Mission 执行结果
@@ -148,6 +149,8 @@ export class DimensionMissionService {
     private readonly leaderTool: LeaderToolService,
     // ★ Phase 2: 维度级别成本追踪（via observability）
     private readonly observability: MissionObservabilityService,
+    // ★ v4: 质量门控
+    private readonly qualityGate: ReportQualityGateService,
     // ★ Phase 5: 长研究上下文压缩
     @Optional() private readonly contextCompression?: ContextCompressionService,
     // ★ Batch 2: 跨维度事实提取
@@ -253,15 +256,76 @@ export class DimensionMissionService {
       },
     );
 
+    // 2. 数据增强
+    const topicConfig = topic.topicConfig as Record<string, unknown> | null;
+
+    // ★ v4: 二轮迭代搜索 — 从第一轮结果提取关键术语，构造补充搜索
+    // quick 模式跳过二轮搜索，standard/thorough 默认启用
+    const depthMode = (topicConfig?.depthMode as string) || "standard";
+    const enableSecondRound =
+      topicConfig?.enableSecondRoundSearch !== false && depthMode !== "quick";
+    if (enableSecondRound && searchResult.items.length > 0) {
+      try {
+        // 从第一轮结果提取关键实体/术语
+        const extractedTerms = this.extractKeyTermsFromResults(
+          searchResult.items.slice(0, 10),
+          dimension.name,
+        );
+
+        if (extractedTerms.length > 0) {
+          this.logger.log(
+            `${logPrefix} [v4] Second-round search: extracted ${extractedTerms.length} key terms: ${extractedTerms.slice(0, 5).join(", ")}`,
+          );
+
+          // 构造补充搜索查询
+          const supplementaryQueries = extractedTerms
+            .slice(0, 3)
+            .map((term) => `${dimension.name} ${term}`);
+
+          // 执行第二轮搜索
+          const secondRoundResult =
+            await this.dataSourceRouter.fetchDataForDimension(
+              {
+                ...dimension,
+                searchQueries: supplementaryQueries,
+              } as typeof dimension,
+              topic,
+              { assignedTools, assignedSkills },
+            );
+
+          // 合并去重
+          const existingUrls = new Set(
+            searchResult.items.map((item) => item.url).filter(Boolean),
+          );
+          const newItems = secondRoundResult.items.filter(
+            (item) => item.url && !existingUrls.has(item.url),
+          );
+
+          if (newItems.length > 0) {
+            searchResult.items.push(...newItems);
+            this.logger.log(
+              `${logPrefix} [v4] Second-round added ${newItems.length} new sources (total: ${searchResult.items.length})`,
+            );
+          } else {
+            this.logger.log(
+              `${logPrefix} [v4] Second-round found no new sources`,
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `${logPrefix} [v4] Second-round search failed (non-fatal): ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     this.logger.log(
       `${logPrefix} Search completed: ${searchResult.items.length} sources found`,
     );
 
-    // 2. 数据增强
-    const topicConfig = topic.topicConfig as Record<string, unknown> | null;
-    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 10;
+    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 12;
     const enrichmentMaxLength =
-      (topicConfig?.enrichmentMaxLength as number) || 5000;
+      (topicConfig?.enrichmentMaxLength as number) || 6000;
     const enableFigures = topicConfig?.enableFigures !== false;
 
     this.logger.log(
@@ -1230,7 +1294,7 @@ export class DimensionMissionService {
     temporalContext?: TemporalContext, // ★ 时间上下文
     taskId?: string, // ★ 研究任务ID（用于前端精确匹配进度更新）
     validationContext?: string, // V5: 验证上下文
-    maxRevisionRounds?: number, // V5: 最大修订轮次
+    _maxRevisionRounds?: number, // V5: 最大修订轮次（v4 已替换为质量门控，保留参数向上兼容）
     topicLanguage?: string | null, // Language setting for review
     assignedSkills?: string[], // ★ Leader 分配的技能（注入到 chatWithSkills）
   ): Promise<SectionWriteResult[]> {
@@ -1315,56 +1379,38 @@ export class DimensionMissionService {
           missionId,
         );
 
-        // 审核循环（V5: 修订轮次由 depthConfig 控制，默认 3）
-        const effectiveMaxRevisions = maxRevisionRounds ?? 3;
-        let revisionCount = 0;
-        while (revisionCount < effectiveMaxRevisions) {
-          const review = await this.leaderService.reviewSectionOutput(
-            section,
-            result.content,
-            revisionCount,
-            {
-              generatedCharts: result.generatedCharts,
-              figureReferences: result.figureReferences,
-            },
-            sectionResults.map((r) => ({
-              title: r.title,
-              content: r.content,
-            })),
-            topicLanguage,
-          );
+        // ★ v4: 质量门控替代 LLM 审阅循环
+        const qc = this.qualityGate.validateDimensionContent(
+          result.content,
+          topicLanguage || "zh",
+        );
 
-          if (review.approved) {
-            this.logger.log(
-              `${logPrefix} Section "${section.title}" approved (score: ${review.score})`,
-            );
-            // ★ 记录审核通过到 Activity
-            await this.agentActivity.recordReviewActivity(
-              topicId,
-              missionId || dimension.id,
-              dimension.id,
-              dimension.name,
-              `章节「${section.title}」审核通过 (评分: ${review.score}/100)`,
-              true,
-            );
-            break;
-          }
-
-          // 需要修订
+        if (qc.wasAutoFixed) {
+          result = { ...result, content: qc.fixedContent };
           this.logger.log(
-            `${logPrefix} Section "${section.title}" revision needed (score: ${review.score})`,
+            `${logPrefix} [QualityGate] Auto-fixed section "${section.title}": ${qc.violations.map((v) => v.rule).join(", ")}`,
           );
-          // ★ 记录审核不通过到 Activity
-          await this.agentActivity.recordReviewActivity(
-            topicId,
-            missionId || dimension.id,
-            dimension.id,
-            dimension.name,
-            `章节「${section.title}」需要修订 (评分: ${review.score}/100)：${review.feedback}`,
-            false,
+        }
+
+        // ★ 记录质量门控结果到 Activity
+        await this.agentActivity.recordReviewActivity(
+          topicId,
+          missionId || dimension.id,
+          dimension.id,
+          dimension.name,
+          qc.passed
+            ? `章节「${section.title}」质量门控通过`
+            : `章节「${section.title}」质量门控：${qc.violations.map((v) => `${v.rule}(${v.severity})`).join(", ")}`,
+          qc.passed,
+        );
+
+        // 如果有需要 AI 重写的问题（如语言混杂、内容过短），发送 1 次修订请求
+        if (!qc.passed && qc.rewriteGuidance.length > 0) {
+          this.logger.log(
+            `${logPrefix} [QualityGate] Section "${section.title}" needs AI rewrite: ${qc.rewriteGuidance.join("; ")}`,
           );
 
-          // ★ 发送研究员修订事件
+          // ★ 发送修订进度事件（通知前端）
           await this.eventEmitter.emitAgentWorking(
             topicId,
             {
@@ -1372,7 +1418,7 @@ export class DimensionMissionService {
               agentName: "研究员",
               agentRole: "researcher",
               status: "working",
-              taskDescription: `正在修订章节「${section.title}」（第 ${revisionCount + 1} 次修订，评分: ${review.score}/100）`,
+              taskDescription: `章节「${section.title}」质量门控未通过，正在修订：${qc.violations.map((v) => v.rule).join(", ")}`,
               dimensionId: dimension.id,
               dimensionName: dimension.name,
               progress: progressPercent + 5,
@@ -1381,31 +1427,39 @@ export class DimensionMissionService {
             missionId,
           );
 
-          // ★ 修订时添加异常处理，失败时保持原内容并退出修订循环
           try {
-            result = await this.sectionWriter.reviseSection({
+            const rewrittenResult = await this.sectionWriter.reviseSection({
               section,
               originalContent: result.content,
-              reviewFeedback: review.feedback,
-              revisionInstructions: review.revisionInstructions || "",
+              reviewFeedback: qc.rewriteGuidance.join("\n"),
+              revisionInstructions:
+                "请根据以上质量问题修改内容。这是最后一次修改机会，请认真处理所有问题。",
               evidenceData,
-              modelId, // ★ 修订时使用同一模型
-              topicLanguage, // ★ 传递语言设置
-              assignedSkills, // ★ Leader 分配的任务级技能
+              modelId,
+              topicLanguage,
+              assignedSkills,
             });
-          } catch (revisionError) {
-            const errorMsg =
-              revisionError instanceof Error
-                ? revisionError.message
-                : String(revisionError);
-            this.logger.error(
-              `${logPrefix} Section "${section.title}" revision failed: ${errorMsg}, keeping current content`,
-            );
-            // 修订失败，保持当前内容并退出修订循环，避免阻塞其他章节
-            break;
-          }
 
-          revisionCount++;
+            // 对修改后的内容再次运行质量门控（仅自动修复，不再重写）
+            const qc2 = this.qualityGate.validateDimensionContent(
+              rewrittenResult.content,
+              topicLanguage || "zh",
+            );
+            result = {
+              ...rewrittenResult,
+              content: qc2.wasAutoFixed
+                ? qc2.fixedContent
+                : rewrittenResult.content,
+            };
+
+            this.logger.log(
+              `${logPrefix} [QualityGate] Section "${section.title}" rewritten, passed=${qc2.passed}`,
+            );
+          } catch (rewriteError) {
+            this.logger.warn(
+              `${logPrefix} [QualityGate] Rewrite failed for "${section.title}", keeping auto-fixed content: ${rewriteError instanceof Error ? rewriteError.message : String(rewriteError)}`,
+            );
+          }
         }
 
         // 保存结果
@@ -1477,6 +1531,61 @@ export class DimensionMissionService {
 
     // 不足 5 条时，补充前 N 条（按原始顺序）
     return scored.slice(0, Math.max(5, relevant.length)).map((s) => s.evidence);
+  }
+
+  /**
+   * ★ v4: 从搜索结果中提取关键术语（用于二轮迭代搜索）
+   * 使用简单文本分析，不需要 LLM 调用
+   */
+  private extractKeyTermsFromResults(
+    items: Array<{ title?: string; snippet?: string; url?: string }>,
+    dimensionName: string,
+  ): string[] {
+    const termFrequency = new Map<string, number>();
+    const dimensionWords = new Set(
+      dimensionName
+        .toLowerCase()
+        .split(/[\s,，、]+/)
+        .filter((w) => w.length > 1),
+    );
+
+    for (const item of items) {
+      const text = `${item.title || ""} ${item.snippet || ""}`;
+
+      // 提取英文多词术语（2-3 个词的短语）
+      const englishTerms =
+        text.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}/g) || [];
+      for (const term of englishTerms) {
+        const lower = term.toLowerCase();
+        if (!dimensionWords.has(lower) && lower.length > 3) {
+          termFrequency.set(lower, (termFrequency.get(lower) || 0) + 1);
+        }
+      }
+
+      // 提取中文关键词（2-4 字的高频词）
+      const chineseTerms = text.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+      for (const term of chineseTerms) {
+        if (!dimensionWords.has(term) && term.length >= 2) {
+          termFrequency.set(term, (termFrequency.get(term) || 0) + 1);
+        }
+      }
+
+      // 提取全大写缩写词（如 GPU, LLM, API）
+      const acronyms = text.match(/\b[A-Z]{2,6}\b/g) || [];
+      for (const acr of acronyms) {
+        const lower = acr.toLowerCase();
+        if (!dimensionWords.has(lower)) {
+          termFrequency.set(acr, (termFrequency.get(acr) || 0) + 1);
+        }
+      }
+    }
+
+    // 按频率排序，取出现 >= 2 次的术语
+    return [...termFrequency.entries()]
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([term]) => term);
   }
 
   /**

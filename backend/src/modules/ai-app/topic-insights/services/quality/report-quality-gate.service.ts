@@ -65,7 +65,7 @@ export class ReportQualityGateService {
   ): QualityCheckResult {
     const violations: QualityViolation[] = [];
     const rewriteGuidance: string[] = [];
-    let fixedContent = content;
+    let fixedContent = content ?? "";
     let wasAutoFixed = false;
 
     // ========== 可自动修复的规则 ==========
@@ -222,7 +222,7 @@ export class ReportQualityGateService {
   ): QualityCheckResult {
     const violations: QualityViolation[] = [];
     const rewriteGuidance: string[] = [];
-    let fixedContent = content;
+    let fixedContent = content ?? "";
     let wasAutoFixed = false;
 
     // 1. 分割线移除

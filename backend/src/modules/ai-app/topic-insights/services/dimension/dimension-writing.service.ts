@@ -526,7 +526,7 @@ export class DimensionWritingService {
     temporalContext?: TemporalContext,
     taskId?: string,
     validationContext?: string,
-    maxRevisionRounds?: number,
+    _maxRevisionRounds?: number, // v4 已替换为质量门控，保留参数向上兼容
     emitProgressFn?: (
       topicId: string,
       dimensionName: string,
@@ -629,56 +629,38 @@ export class DimensionWritingService {
           missionId,
         );
 
-        // 审核循环（V5: 修订轮次由 depthConfig 控制，默认 3）
-        const effectiveMaxRevisions = maxRevisionRounds ?? 3;
-        let revisionCount = 0;
-        while (revisionCount < effectiveMaxRevisions) {
-          const review = await this.leaderService.reviewSectionOutput(
-            section,
-            result.content,
-            revisionCount,
-            {
-              generatedCharts: result.generatedCharts,
-              figureReferences: result.figureReferences,
-            },
-            sectionResults.map((r) => ({
-              title: r.title,
-              content: r.content,
-            })),
-            topic?.language,
-          );
+        // ★ v4: 质量门控替代 LLM 审阅循环
+        const qc = this.qualityGate.validateDimensionContent(
+          result.content,
+          topic?.language || "zh",
+        );
 
-          if (review.approved) {
-            this.logger.log(
-              `${logPrefix} Section "${section.title}" approved (score: ${review.score})`,
-            );
-            // 记录审核通过到 Activity
-            await this.agentActivity.recordReviewActivity(
-              topicId,
-              missionId || dimension.id,
-              dimension.id,
-              dimension.name,
-              `章节「${section.title}」审核通过 (评分: ${review.score}/100)`,
-              true,
-            );
-            break;
-          }
-
-          // 需要修订
+        if (qc.wasAutoFixed) {
+          result = { ...result, content: qc.fixedContent };
           this.logger.log(
-            `${logPrefix} Section "${section.title}" revision needed (score: ${review.score})`,
+            `${logPrefix} [QualityGate] Auto-fixed section "${section.title}": ${qc.violations.map((v) => v.rule).join(", ")}`,
           );
-          // 记录审核不通过到 Activity
-          await this.agentActivity.recordReviewActivity(
-            topicId,
-            missionId || dimension.id,
-            dimension.id,
-            dimension.name,
-            `章节「${section.title}」需要修订 (评分: ${review.score}/100)：${review.feedback}`,
-            false,
+        }
+
+        // 记录质量门控结果到 Activity
+        await this.agentActivity.recordReviewActivity(
+          topicId,
+          missionId || dimension.id,
+          dimension.id,
+          dimension.name,
+          qc.passed
+            ? `章节「${section.title}」质量门控通过`
+            : `章节「${section.title}」质量门控：${qc.violations.map((v) => `${v.rule}(${v.severity})`).join(", ")}`,
+          qc.passed,
+        );
+
+        // 如果有需要 AI 重写的问题（如语言混杂、内容过短），发送 1 次修订请求
+        if (!qc.passed && qc.rewriteGuidance.length > 0) {
+          this.logger.log(
+            `${logPrefix} [QualityGate] Section "${section.title}" needs AI rewrite: ${qc.rewriteGuidance.join("; ")}`,
           );
 
-          // 发送研究员修订事件
+          // ★ 发送修订进度事件（通知前端）
           await this.eventEmitter.emitAgentWorking(
             topicId,
             {
@@ -686,7 +668,7 @@ export class DimensionWritingService {
               agentName: "研究员",
               agentRole: "researcher",
               status: "working",
-              taskDescription: `正在修订章节「${section.title}」（第 ${revisionCount + 1} 次修订，评分: ${review.score}/100）`,
+              taskDescription: `章节「${section.title}」质量门控未通过，正在修订：${qc.violations.map((v) => v.rule).join(", ")}`,
               dimensionId: dimension.id,
               dimensionName: dimension.name,
               progress: progressPercent + 5,
@@ -695,31 +677,39 @@ export class DimensionWritingService {
             missionId,
           );
 
-          // 修订时添加异常处理，失败时保持原内容并退出修订循环
           try {
-            result = await this.sectionWriter.reviseSection({
+            const rewrittenResult = await this.sectionWriter.reviseSection({
               section,
               originalContent: result.content,
-              reviewFeedback: review.feedback,
-              revisionInstructions: review.revisionInstructions || "",
+              reviewFeedback: qc.rewriteGuidance.join("\n"),
+              revisionInstructions:
+                "请根据以上质量问题修改内容。这是最后一次修改机会，请认真处理所有问题。",
               evidenceData,
               modelId,
-              topicLanguage: topic?.language, // ★ 传递语言设置
-              assignedSkills, // ★ Leader 分配的任务级技能
+              topicLanguage: topic?.language,
+              assignedSkills,
             });
-          } catch (revisionError) {
-            const errorMsg =
-              revisionError instanceof Error
-                ? revisionError.message
-                : String(revisionError);
-            this.logger.error(
-              `${logPrefix} Section "${section.title}" revision failed: ${errorMsg}, keeping current content`,
-            );
-            // 修订失败，保持当前内容并退出修订循环，避免阻塞其他章节
-            break;
-          }
 
-          revisionCount++;
+            // 对修改后的内容再次运行质量门控（仅自动修复，不再重写）
+            const qc2 = this.qualityGate.validateDimensionContent(
+              rewrittenResult.content,
+              topic?.language || "zh",
+            );
+            result = {
+              ...rewrittenResult,
+              content: qc2.wasAutoFixed
+                ? qc2.fixedContent
+                : rewrittenResult.content,
+            };
+
+            this.logger.log(
+              `${logPrefix} [QualityGate] Section "${section.title}" rewritten, passed=${qc2.passed}`,
+            );
+          } catch (rewriteError) {
+            this.logger.warn(
+              `${logPrefix} [QualityGate] Rewrite failed for "${section.title}", keeping auto-fixed content: ${rewriteError instanceof Error ? rewriteError.message : String(rewriteError)}`,
+            );
+          }
         }
 
         // 保存结果
@@ -732,7 +722,7 @@ export class DimensionWritingService {
             topicId,
             dimension.name,
             {
-              stage: "reviewing",
+              stage: "writing",
               sectionsTotal: outline.sections.length,
               sectionsCompleted: sectionResults.length,
               currentSection: section.title,
@@ -743,33 +733,6 @@ export class DimensionWritingService {
             taskId,
           );
         }
-      }
-    }
-
-    // ★ v4: 质量门控后处理 — 自动修复格式问题
-    const topicLanguage = topic?.language || "zh";
-    for (const sectionResult of sectionResults) {
-      if (!sectionResult.content) continue;
-
-      const qc = this.qualityGate.validateDimensionContent(
-        sectionResult.content,
-        topicLanguage,
-      );
-
-      if (qc.wasAutoFixed) {
-        sectionResult.content = qc.fixedContent;
-        this.logger.log(
-          `[QualityGate] Auto-fixed section "${sectionResult.title}": ${qc.violations
-            .filter((v) => v.severity === "warning")
-            .map((v) => v.rule)
-            .join(", ")}`,
-        );
-      }
-
-      if (qc.violations.length > 0) {
-        this.logger.log(
-          `[QualityGate] Section "${sectionResult.title}" violations: ${qc.violations.map((v) => `${v.rule}(${v.severity})`).join(", ")}`,
-        );
       }
     }
 
