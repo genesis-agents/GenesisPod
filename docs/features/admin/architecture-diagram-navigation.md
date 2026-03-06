@@ -254,5 +254,5 @@ cd frontend && npm run build
 
 ## 相关文档
 
-- [Admin 系统重设计 PRD](../../prd/infra/core/admin-system-redesign-v1.0.md)
+- [Admin 系统重设计 PRD](../../prd/infra/core/admin-system-redesign.md)
 - [项目开发规范](../../.claude/CLAUDE.md)

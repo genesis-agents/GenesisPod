@@ -2,22 +2,19 @@
 
 **Base URL**: `http://localhost:4000/api/v1`
 **认证**: 开发环境无需认证，生产环境将使用 JWT
-**最后更新**: 2025-11-15
+**最后更新**: 2026-03-05
 
 ---
 
 ## 📍 服务地址
 
-| 服务           | 地址                            | 说明           |
-| -------------- | ------------------------------- | -------------- |
-| **前端**       | http://localhost:3000           | Next.js应用    |
-| **后端 API**   | http://localhost:4000/api/v1    | NestJS API     |
-| **AI 服务**    | http://localhost:5000/api/v1/ai | FastAPI AI服务 |
-| **PostgreSQL** | localhost:5432                  | 主数据库       |
-| **MongoDB**    | localhost:27017                 | 原始数据存储   |
-| **Neo4j**      | http://localhost:7474           | 知识图谱       |
-| **Redis**      | localhost:6379                  | 缓存           |
-| **Qdrant**     | http://localhost:6333           | 向量数据库     |
+| 服务           | 地址                            | 说明                       |
+| -------------- | ------------------------------- | -------------------------- |
+| **前端**       | http://localhost:3000           | Next.js应用                |
+| **后端 API**   | http://localhost:4000/api/v1    | NestJS API                 |
+| **AI 服务**    | http://localhost:5000/api/v1/ai | FastAPI AI服务             |
+| **PostgreSQL** | localhost:5432                  | 主数据库（结构化 + JSONB） |
+| **Redis**      | localhost:6379                  | 缓存与会话管理             |
 
 ---
 
@@ -185,7 +182,7 @@ curl "http://localhost:4000/api/v1/resources?take=10"
 
 **端点**: `GET /resources/:id`
 
-**响应**: 包含PostgreSQL资源数据 + MongoDB原始数据
+**响应**: 包含完整的PostgreSQL资源数据
 
 **示例**:
 
@@ -517,11 +514,11 @@ curl -X POST "http://localhost:4000/api/v1/crawler/hackernews/top" \
 
 自动分析笔记内容，提取关键洞察
 
-#### 连接到知识图谱
+#### 提取结构化关联
 
 **端点**: `POST /notes/:id/connect-graph`
 
-将笔记内容提取为知识图谱节点
+将笔记内容提取为结构化关联数据，存储于PostgreSQL
 
 ---
 
@@ -597,7 +594,7 @@ curl "http://localhost:4000/api/v1/feed/search?q=AI"
 # 5. 查看热门资源
 curl "http://localhost:4000/api/v1/feed/trending?take=5"
 
-# 6. 查看资源详情（含MongoDB原始数据）
+# 6. 查看资源详情
 curl "http://localhost:4000/api/v1/resources/[resource-id]"
 
 # 7. 手动触发AI增强
@@ -637,7 +634,7 @@ curl "http://localhost:4000/api/v1/resources/stats/summary"
   "viewCount": 0,
   "upvoteCount": 42,
   "commentCount": 15,
-  "rawDataId": "mongodb-object-id",
+  "rawDataId": "uuid",
   "createdAt": "2025-11-08T00:00:00.000Z",
   "updatedAt": "2025-11-08T00:00:00.000Z"
 }
@@ -700,5 +697,5 @@ curl "http://localhost:4000/api/v1/resources/stats/summary"
 ---
 
 **维护者**: DeepDive Team
-**最后更新**: 2025-11-15
+**最后更新**: 2026-03-05
 **API版本**: v1

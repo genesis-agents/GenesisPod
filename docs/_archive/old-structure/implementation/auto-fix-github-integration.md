@@ -32,7 +32,7 @@
 当 `auto_fix` 决策产生时，自动创建 GitHub Issue：
 
 ```typescript
-// backend/src/modules/core/feedback/github/github-issue.service.ts
+// backend/src/modules/ai-infra/feedback/github/github-issue.service.ts
 @Injectable()
 export class GitHubIssueService {
   async createAutoFixIssue(
@@ -137,7 +137,7 @@ jobs:
 ### Phase 3: 后端集成
 
 ```typescript
-// backend/src/modules/core/feedback/auto-fix/auto-fix.service.ts
+// backend/src/modules/ai-infra/feedback/auto-fix/auto-fix.service.ts
 @Injectable()
 export class AutoFixService {
   constructor(

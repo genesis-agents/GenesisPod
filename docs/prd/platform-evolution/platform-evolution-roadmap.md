@@ -21,7 +21,7 @@ Genesis.ai already possesses a mature platform with comprehensive Admin manageme
 | Capability               | Implementation                                                               | Location                                                        |
 | ------------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | MCP Server Management UI | MCPMarketplaceTab (41.9KB), 15+ preset servers, env vars, connect/disconnect | `frontend/components/admin/tools/MCPMarketplaceTab.tsx`         |
-| MCP Admin API            | Full CRUD + diagnose at `/admin/ai/mcp-servers`                              | `backend/src/modules/core/admin/ai-admin.controller.ts`         |
+| MCP Admin API            | Full CRUD + diagnose at `/admin/ai/mcp-servers`                              | `backend/src/modules/ai-infra/admin/ai-admin.controller.ts`     |
 | MCP Client (stdio)       | StdioMCPClient + MCPManager + MCPToolAdapter                                 | `backend/src/modules/ai-engine/mcp/`                            |
 | Skills Management UI     | LocalSkillsTab + SkillsMarketplaceTab + upload (JSON/YAML)                   | `frontend/components/admin/SkillsManagement.tsx`                |
 | Skills Admin API         | Batch, upload, list, update at `/admin/ai/skills`                            | `ai-admin.controller.ts`                                        |

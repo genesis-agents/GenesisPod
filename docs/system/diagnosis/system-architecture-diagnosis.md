@@ -142,7 +142,7 @@ graph TB
 
 #### 3.1.1 Secrets 管理
 
-**文件位置:** `backend/src/modules/core/secrets/`
+**文件位置:** `backend/src/modules/ai-infra/secrets/`
 
 | 文件                     | 职责               | 状态                    |
 | ------------------------ | ------------------ | ----------------------- |
@@ -175,7 +175,7 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
 
 #### 3.1.2 Admin 配置
 
-**文件位置:** `backend/src/modules/core/admin/ai-admin.service.ts`
+**文件位置:** `backend/src/modules/ai-infra/admin/ai-admin.service.ts`
 
 **核心功能:**
 
@@ -667,9 +667,9 @@ Genesis.ai 的系统架构设计良好，具有以下优点：
 
 | 模块               | 关键文件                                                                                    |
 | ------------------ | ------------------------------------------------------------------------------------------- |
-| Secret 管理        | `backend/src/modules/core/secrets/secret-name-mapping.ts`                                   |
-| Secret 服务        | `backend/src/modules/core/secrets/secrets.service.ts`                                       |
-| Admin 服务         | `backend/src/modules/core/admin/ai-admin.service.ts`                                        |
+| Secret 管理        | `backend/src/modules/ai-infra/secrets/secret-name-mapping.ts`                               |
+| Secret 服务        | `backend/src/modules/ai-infra/secrets/secrets.service.ts`                                   |
+| Admin 服务         | `backend/src/modules/ai-infra/admin/ai-admin.service.ts`                                    |
 | Tool Registry      | `backend/src/modules/ai-engine/tools/registry/tool-registry.ts`                             |
 | Tool Provider      | `backend/src/modules/ai-engine/tools/tools.provider.ts`                                     |
 | Search Service     | `backend/src/modules/ai-engine/search/search.service.ts`                                    |

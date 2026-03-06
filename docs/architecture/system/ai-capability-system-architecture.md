@@ -317,7 +317,7 @@ type ExecutionEvent =
 
 ### 4.1 密钥管理架构
 
-**位置**: `backend/src/modules/core/secrets/secrets.service.ts`
+**位置**: `backend/src/modules/ai-infra/secrets/secrets.service.ts`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

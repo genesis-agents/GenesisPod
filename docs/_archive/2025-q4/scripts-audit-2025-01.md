@@ -212,7 +212,7 @@ mv scripts/setup-git-hooks.sh scripts/utils/
 
 已实现的组件：
 
-- ✅ `backend/src/modules/core/release/` - Release 模块
+- ✅ `backend/src/modules/ai-infra/release/` - Release 模块
 - ✅ `backend/scripts/send-release-notification.ts` - CLI 脚本
 - ✅ `scripts/release-notification/` - Shell 脚本和文档
 - ✅ `.github/workflows/release-notification.yml` - CI 自动触发

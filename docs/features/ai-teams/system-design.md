@@ -802,7 +802,7 @@ frontend/
 
 ## 十一、相关文档
 
-- [AI Group PRD v1.0](../../../prd/ai-group-prd-v1.0.md)
-- [AI Group Spec v2.0](../../../prd/ai-group-spec-v2.0.md)
-- [AI Group Team Collaboration](../../../prd/ai-group-team-collaboration-v1.0.md)
-- [AI Group Content Parsing](../../../prd/ai-group-content-parsing-v1.0.md)
+- [AI Group PRD v1.0](../../../prd/ai-group-prd.md)
+- [AI Group Spec v2.0](../../../prd/ai-group-spec.md)
+- [AI Group Team Collaboration](../../../prd/ai-group-team-collaboration.md)
+- [AI Group Content Parsing](../../../prd/ai-group-content-parsing.md)

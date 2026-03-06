@@ -118,7 +118,7 @@ ai-image.service.spec.ts
 #### 3.1.3 认证授权测试补充
 
 ```typescript
-// backend/src/modules/core/auth/__tests__/
+// backend/src/modules/ai-infra/auth/__tests__/
 
 jwt-auth.guard.spec.ts
 ├── describe('canActivate')

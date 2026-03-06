@@ -1202,12 +1202,12 @@ export class DocumentProcessorService {
 
 ## 6. 文档归档
 
-| 文档      | 路径                                                      | 描述                |
-| --------- | --------------------------------------------------------- | ------------------- |
-| PRD v2.0  | `docs/prd/google-drive-rag-knowledge-base-v2.0.md`        | 产品需求 (最佳实践) |
-| 架构 v2.0 | `docs/architecture/google-drive-rag-architecture-v2.0.md` | 本文档              |
-| PRD v1.0  | `docs/prd/google-drive-rag-knowledge-base-v1.0.md`        | 初版 (已废弃)       |
-| 架构 v1.0 | `docs/architecture/google-drive-rag-architecture.md`      | 初版 (已废弃)       |
+| 文档      | 路径                                                 | 描述                |
+| --------- | ---------------------------------------------------- | ------------------- |
+| PRD v2.0  | `docs/prd/google-drive-rag-knowledge-base.md`        | 产品需求 (最佳实践) |
+| 架构 v2.0 | `docs/architecture/google-drive-rag-architecture.md` | 本文档              |
+| PRD v1.0  | `docs/prd/google-drive-rag-knowledge-base-v1.0.md`   | 初版 (已废弃)       |
+| 架构 v1.0 | `docs/architecture/google-drive-rag-architecture.md` | 初版 (已废弃)       |
 
 ---
 

@@ -171,7 +171,7 @@ All 12 ai-app modules with Agent/Team/Tool definitions implement `OnModuleInit` 
 
 - `backend/src/modules/ai-app/planning/dto/replan.dto.ts` — missing validators
 - `backend/src/modules/ai-engine/agents/api/dto/agent-config.dto.ts` — missing validators
-- `backend/src/modules/core/table-management/dto/table-info.dto.ts` — missing validators
+- `backend/src/modules/ai-infra/table-management/dto/table-info.dto.ts` — missing validators
 
 Response DTOs (cancel-response, execute-response, task-response, status-response, auth-response, user-response, collection-response, resource-response, upvote-response) correctly omit validators — this is expected.
 

@@ -1108,7 +1108,7 @@ GOOGLE_DRIVE_API_KEY=your-api-key
 
 ### 12.2 Related Internal Documents
 
-- Notion Integration PRD: `docs/prd/notes-notion-integration-v1.0.md`
+- Notion Integration PRD: `docs/prd/notes-notion-integration.md`
 - Library Page Implementation: `frontend/app/library/page.tsx`
 - Profile Page Implementation: `frontend/app/profile/page.tsx`
 

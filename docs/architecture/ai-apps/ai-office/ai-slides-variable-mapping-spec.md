@@ -5,7 +5,7 @@
 > **作者**: PM Agent
 > **创建日期**: 2025-12-31
 > **状态**: 待评审
-> **关联PRD**: `ai-slides-v3.1-visual-upgrade.md`
+> **关联PRD**: `ai-slides-visual-upgrade.md`
 
 ---
 

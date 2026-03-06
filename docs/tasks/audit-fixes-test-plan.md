@@ -28,7 +28,7 @@
 
 ### 1.2 SQL Injection Prevention
 
-**File**: `backend/src/modules/core/table-management/table-management.service.ts`
+**File**: `backend/src/modules/ai-infra/table-management/table-management.service.ts`
 
 | #   | Test Case             | Input                       | Expected          |
 | --- | --------------------- | --------------------------- | ----------------- |

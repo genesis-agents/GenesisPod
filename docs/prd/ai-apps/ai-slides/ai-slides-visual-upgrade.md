@@ -777,7 +777,7 @@ UNSPLASH_ACCESS_KEY=xxx  # 配图服务（可选）
 ### B. 参考资料
 
 1. `ai-slides-v3-optimization-plan.md` - 完整8周优化方案
-2. `ai-office-slides-upgrade-v1.0.md` - Genspark对标分析
+2. `ai-office-slides-upgrade.md` - Genspark对标分析
 3. `themes.ts` - 主题系统源码（682行）
 4. `decorations.ts` - 装饰系统源码（666行）
 

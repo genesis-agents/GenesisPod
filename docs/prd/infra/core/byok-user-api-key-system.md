@@ -350,7 +350,7 @@ npx prisma generate
 
 ### 5.2 新模块: `user-api-keys`
 
-路径: `backend/src/modules/core/user-api-keys/`
+路径: `backend/src/modules/ai-infra/user-api-keys/`
 
 #### 文件结构
 
@@ -623,29 +623,29 @@ interface UseUserApiKeysReturn {
 
 ## 八、实施步骤
 
-| 阶段                | 步骤 | 内容                                 | 涉及文件                                  |
-| ------------------- | ---- | ------------------------------------ | ----------------------------------------- |
-| **1. 数据库**       | 1.1  | Prisma schema: UserApiKey 表         | `backend/prisma/schema/models.prisma`     |
-|                     | 1.2  | SecretCategory 枚举增加 USER_DONATED | 同上                                      |
-|                     | 1.3  | User model 增加 apiKeys 关系         | 同上                                      |
-|                     | 1.4  | 运行 prisma migrate                  | -                                         |
-| **2. 后端 CRUD**    | 2.1  | 实现 UserApiKeysService              | `backend/src/modules/core/user-api-keys/` |
-|                     | 2.2  | 实现 UserApiKeysController           | 同上                                      |
-|                     | 2.3  | 注册 UserApiKeysModule               | 同上                                      |
-| **3. 核心接入**     | 3.1  | 修改 getApiKeyForModel()             | `ai-model-config.service.ts`              |
-|                     | 3.2  | chat() options 增加 userId           | `ai-chat.service.ts`                      |
-|                     | 3.3  | 各 Controller 传入 req.user.id       | 各业务 controller                         |
-| **4. 积分联动**     | 4.1  | chat() 根据 source 决定扣积分        | `ai-chat.service.ts`                      |
-|                     | 4.2  | 捐赠时授予积分                       | `user-api-keys.service.ts`                |
-|                     | 4.3  | 捐赠者持续奖励                       | 同上                                      |
-| **5. 前端 Profile** | 5.1  | useUserApiKeys hook                  | `frontend/hooks/features/`                |
-|                     | 5.2  | UserApiKeysTab 组件                  | `frontend/components/profile/`            |
-|                     | 5.3  | ProviderKeyCard 组件                 | 同上                                      |
-|                     | 5.4  | KeyConfigPanel 组件                  | 同上                                      |
-|                     | 5.5  | Profile 页面增加 Tab                 | `frontend/app/profile/page.tsx`           |
-| **6. 前端 AI 功能** | 6.1  | 模型选择器增强                       | `AIModelSelector.tsx`                     |
-|                     | 6.2  | 积分不足引导组件                     | `InsufficientCreditsGuide.tsx`            |
-| **7. 后台管理**     | 7.1  | 密钥管理增加用户捐赠分类             | `AIModelSettings.tsx`                     |
+| 阶段                | 步骤 | 内容                                 | 涉及文件                                      |
+| ------------------- | ---- | ------------------------------------ | --------------------------------------------- |
+| **1. 数据库**       | 1.1  | Prisma schema: UserApiKey 表         | `backend/prisma/schema/models.prisma`         |
+|                     | 1.2  | SecretCategory 枚举增加 USER_DONATED | 同上                                          |
+|                     | 1.3  | User model 增加 apiKeys 关系         | 同上                                          |
+|                     | 1.4  | 运行 prisma migrate                  | -                                             |
+| **2. 后端 CRUD**    | 2.1  | 实现 UserApiKeysService              | `backend/src/modules/ai-infra/user-api-keys/` |
+|                     | 2.2  | 实现 UserApiKeysController           | 同上                                          |
+|                     | 2.3  | 注册 UserApiKeysModule               | 同上                                          |
+| **3. 核心接入**     | 3.1  | 修改 getApiKeyForModel()             | `ai-model-config.service.ts`                  |
+|                     | 3.2  | chat() options 增加 userId           | `ai-chat.service.ts`                          |
+|                     | 3.3  | 各 Controller 传入 req.user.id       | 各业务 controller                             |
+| **4. 积分联动**     | 4.1  | chat() 根据 source 决定扣积分        | `ai-chat.service.ts`                          |
+|                     | 4.2  | 捐赠时授予积分                       | `user-api-keys.service.ts`                    |
+|                     | 4.3  | 捐赠者持续奖励                       | 同上                                          |
+| **5. 前端 Profile** | 5.1  | useUserApiKeys hook                  | `frontend/hooks/features/`                    |
+|                     | 5.2  | UserApiKeysTab 组件                  | `frontend/components/profile/`                |
+|                     | 5.3  | ProviderKeyCard 组件                 | 同上                                          |
+|                     | 5.4  | KeyConfigPanel 组件                  | 同上                                          |
+|                     | 5.5  | Profile 页面增加 Tab                 | `frontend/app/profile/page.tsx`               |
+| **6. 前端 AI 功能** | 6.1  | 模型选择器增强                       | `AIModelSelector.tsx`                         |
+|                     | 6.2  | 积分不足引导组件                     | `InsufficientCreditsGuide.tsx`                |
+| **7. 后台管理**     | 7.1  | 密钥管理增加用户捐赠分类             | `AIModelSettings.tsx`                         |
 
 ---
 

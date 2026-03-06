@@ -1,7 +1,8 @@
 # Genesis.ai - 技术架构设计
 
-> **版本**: v1.0
+> **版本**: v2.0
 > **创建日期**: 2025-11-07
+> **最后更新**: 2026-03-05
 > **架构师**: Genesis Team
 
 ---
@@ -19,18 +20,17 @@
 
 ## 1. 系统架构概览
 
-### 1.1 整体架构
+### 1.1 整体架构（6层模型）
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                        客户端层                               │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
-│  │  Web App   │  │ Mobile App │  │  Browser   │            │
-│  │ (Next.js)  │  │   (React   │  │  Extension │            │
-│  │            │  │   Native)  │  │            │            │
-│  └──────┬─────┘  └──────┬─────┘  └──────┬─────┘            │
-└─────────┼────────────────┼────────────────┼──────────────────┘
-          │                │                │
+┌──────────────────────────────────────────────────────────────────┐
+│                          客户端层                                  │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐                  │
+│  │  Web App   │  │ Mobile App │  │  Browser   │                  │
+│  │ (Next.js)  │  │   (React   │  │  Extension │                  │
+│  │            │  │   Native)  │  │            │                  │
+│  └──────┬─────┘  └──────┬─────┘  └──────┬─────┘                  │
+└─────────┼────────────────┼────────────────┼────────────────────────┘
           └────────────────┴────────────────┘
                            │
                     ┌──────┴──────┐
@@ -38,49 +38,44 @@
                     │   Nginx     │
                     └──────┬──────┘
                            │
-          ┌────────────────┴────────────────┐
-          │                                 │
-┌─────────┴─────────┐           ┌──────────┴──────────┐
-│   API Gateway     │           │   Static Assets     │
-│   (GraphQL/REST)  │           │   (Images, JS, CSS) │
-└─────────┬─────────┘           └─────────────────────┘
-          │
-    ┌─────┴─────┐
-    │           │
-┌───┴───┐   ┌───┴───┐
-│ Auth  │   │Content│
-│Service│   │Service│
-└───┬───┘   └───┬───┘
-    │           │
-    │   ┌───────┴───────┬───────────┬──────────┐
-    │   │               │           │          │
-┌───┴───┴───┐  ┌────────┴────┐ ┌───┴──────┐  │
-│Recommend  │  │ Knowledge   │ │Learning  │  │
-│  Service  │  │Graph Service│ │Path Svc  │  │
-└─────┬─────┘  └──────┬──────┘ └────┬─────┘  │
-      │               │               │        │
-      └───────────────┴───────────────┴────────┘
-                      │
-              ┌───────┴───────┐
-              │               │
-      ┌───────┴──────┐  ┌────┴────────┐
-      │  AI Service  │  │   Crawler   │
-      │ (Grok/GPT-4) │  │   Service   │
-      └───────┬──────┘  └────┬────────┘
-              │               │
-      ┌───────┴───────────────┴───────┐
-      │                               │
-┌─────┴──────┐  ┌──────────┐  ┌─────┴─────┐
-│PostgreSQL  │  │  Neo4j   │  │  Qdrant   │
-│ (主数据)   │  │ (图谱)   │  │  (向量)   │
-└────────────┘  └──────────┘  └───────────┘
-                │
-        ┌───────┴───────┐
-        │               │
-    ┌───┴───┐       ┌───┴────┐
-    │ Redis │       │MongoDB │
-    │(缓存) │       │(原始)  │
-    └───────┘       └────────┘
+┌──────────────────────────┴──────────────────────────────────────┐
+│  L6 Intent Gateway（智能编排层）                                    │
+│  用户入口 / 意图路由 / 追踪          modules/intent-gateway/       │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────────┐
+│  L5 Open API（开放接口层）                                         │
+│  MCP Server / Public API / Webhooks  modules/open-api/           │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────────┐
+│  L4 AI Apps（业务应用层）                                          │
+│  Research / Teams / Writing / Office  modules/ai-app/            │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────────┐
+│  L3 AI Kernel（内核层）                                            │
+│  进程管理 / IPC / 记忆 / 资源调度    modules/ai-kernel/            │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────────┐
+│  L2 AI Engine（核心能力层）                                        │
+│  LLM / Agents / Tools / RAG          modules/ai-engine/          │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────────┐
+│  L1 Infrastructure（基础设施层）                                   │
+│  Auth / Credits / Storage            modules/ai-infra/           │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+     ┌────────┴────────┐      ┌────────┴────────┐
+     │  PostgreSQL 16  │      │    Redis 7       │
+     │  (主数据库)      │      │  (缓存/会话)     │
+     │  结构化 + JSONB  │      │                 │
+     │  + 图关系        │      │                 │
+     └─────────────────┘      └─────────────────┘
 ```
 
 ### 1.2 技术栈
@@ -89,42 +84,38 @@
 
 - **框架**: Next.js 14+ (App Router)
 - **UI**: React 18+ + TypeScript
-- **样式**: TailwindCSS (参考AlphaXiv)
+- **样式**: TailwindCSS
 - **状态管理**: Zustand
 - **数据获取**: TanStack Query (React Query)
-- **图表**: D3.js (知识图谱可视化)
 - **表单**: React Hook Form + Zod
 
 **后端**:
 
 - **框架**: NestJS 10+
 - **运行时**: Node.js 20 LTS
-- **API**: GraphQL (Apollo) + REST
+- **API**: REST (NestJS Controllers)
 - **ORM**: Prisma
 - **验证**: class-validator
 - **认证**: JWT + Passport.js
 
 **AI服务**:
 
-- **首选**: Grok API (x.AI)
-- **备用**: OpenAI API (GPT-4)
-- **Embedding**: sentence-transformers (Python)
-- **服务框架**: FastAPI (Python)
+- **LLM调用**: LiteLLM（统一路由 OpenAI / Claude / Grok 等）
+- **调用方式**: `AiChatService.chat()` + `TaskProfile` + `modelType`
+- **Embedding**: 应用层余弦相似度（JSONB存储向量）
 
 **数据库**:
 
-- **主数据库**: PostgreSQL 16+
-- **知识图谱**: Neo4j 5+
-- **向量数据库**: Qdrant 1.7+
-- **缓存**: Redis 7+
-- **原始数据**: MongoDB 7+
+- **主数据库**: PostgreSQL 16（唯一数据库，结构化 + JSONB + 图关系）
+- **缓存/会话**: Redis 7
 
 **基础设施**:
 
 - **容器**: Docker + Docker Compose
-- **反向代理**: Nginx
+- **部署**: Railway
+- **进程管理**: PM2
 - **消息队列**: BullMQ (Redis-based)
-- **日志**: Winston
+- **日志**: Winston / NestJS Logger
 - **监控**: Prometheus + Grafana
 
 ---
@@ -261,8 +252,8 @@ model Resource {
   // 元数据（type特有字段）
   metadata        Json?        @default("{}")
 
-  // 向量引用
-  embeddingId     String?      @map("embedding_id")
+  // 向量（JSONB存储，应用层计算余弦相似度）
+  embedding       Json?        @map("embedding")
 
   // 时间戳
   createdAt       DateTime     @default(now()) @map("created_at")
@@ -407,170 +398,7 @@ model LearningPathStep {
 
 ---
 
-### 2.2 Neo4j知识图谱设计
-
-#### 节点类型
-
-```cypher
-// 概念节点
-CREATE (:Concept {
-  id: 'concept-uuid',
-  name: 'Transformer',
-  type: 'architecture',  // architecture, method, algorithm, task, domain
-  description: 'Neural network architecture based on self-attention',
-  difficulty: 7,  // 1-10
-  first_seen: timestamp,
-  popularity: 95  // 1-100
-})
-
-// 论文节点
-CREATE (:Paper {
-  id: 'paper-uuid',
-  resource_id: 'resource-uuid',  // 关联PostgreSQL的resources表
-  title: 'Attention Is All You Need',
-  year: 2017
-})
-
-// 项目节点
-CREATE (:Project {
-  id: 'project-uuid',
-  resource_id: 'resource-uuid',
-  name: 'transformers',
-  github_url: 'https://github.com/huggingface/transformers',
-  stars: 120000
-})
-
-// 人物节点
-CREATE (:Author {
-  id: 'author-uuid',
-  name: 'Ashish Vaswani',
-  affiliation: 'Google Brain',
-  h_index: 50
-})
-
-// 技术节点
-CREATE (:Technology {
-  id: 'tech-uuid',
-  name: 'PyTorch',
-  type: 'framework'
-})
-```
-
-#### 关系类型
-
-```cypher
-// 论文提出概念
-CREATE (p:Paper)-[:PROPOSES {
-  importance: 1.0
-}]->(c:Concept)
-
-// 概念基于另一个概念
-CREATE (c1:Concept)-[:BASED_ON {
-  similarity: 0.8
-}]->(c2:Concept)
-
-// 概念改进另一个概念
-CREATE (c1:Concept)-[:IMPROVES {
-  improvement_degree: 0.6
-}]->(c2:Concept)
-
-// 项目实现概念
-CREATE (proj:Project)-[:IMPLEMENTS]->(c:Concept)
-
-// 作者撰写论文
-CREATE (a:Author)-[:AUTHORS]->(p:Paper)
-
-// 概念应用于领域
-CREATE (c:Concept)-[:APPLIES_TO]->(domain:Concept)
-
-// 用户掌握概念
-CREATE (u:User {
-  id: 'user-uuid'
-})-[:MASTERS {
-  level: 4,  // 1-5: 接触/了解/熟悉/精通/专家
-  confidence: 0.85,
-  learned_at: timestamp
-}]->(c:Concept)
-```
-
-#### 常用查询
-
-```cypher
-// 1. 查找用户的认知边界
-MATCH (u:User {id: 'user-123'})-[m:MASTERS]->(c:Concept)
-WHERE m.level >= 3  // 已熟悉的概念
-MATCH (c)-[r]->(neighbor:Concept)
-WHERE NOT (u)-[:MASTERS]->(neighbor)  // 未掌握的邻居概念
-RETURN DISTINCT neighbor, type(r), count(r) as connections
-ORDER BY connections DESC
-LIMIT 20
-
-// 2. 生成学习路径
-MATCH path = shortestPath(
-  (start:Concept {id: 'known-concept'})-[*]-(target:Concept {id: 'target-concept'})
-)
-WHERE ALL(r IN relationships(path) WHERE type(r) IN ['BASED_ON', 'IMPROVES'])
-RETURN path
-
-// 3. 查找相关资源
-MATCH (c:Concept {name: 'Transformer'})<-[:PROPOSES]-(p:Paper)
-MATCH (c)<-[:IMPLEMENTS]-(proj:Project)
-RETURN p, proj
-LIMIT 10
-```
-
----
-
-### 2.3 Qdrant向量数据库
-
-#### Collection Schema
-
-```python
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
-
-client = QdrantClient(url="http://localhost:6333")
-
-# 创建collection
-client.create_collection(
-    collection_name="resources",
-    vectors_config=VectorParams(
-        size=768,  # sentence-transformers embedding维度
-        distance=Distance.COSINE
-    )
-)
-
-# 插入向量
-client.upsert(
-    collection_name="resources",
-    points=[
-        {
-            "id": "resource-uuid",
-            "vector": [0.1, 0.2, ...],  # 768维
-            "payload": {
-                "resource_id": "resource-uuid",
-                "title": "Attention Is All You Need",
-                "type": "paper",
-                "abstract": "...",
-                "tags": ["transformer", "nlp"],
-                "created_at": "2025-11-07"
-            }
-        }
-    ]
-)
-
-# 相似度搜索
-results = client.search(
-    collection_name="resources",
-    query_vector=[0.1, 0.2, ...],
-    limit=10,
-    score_threshold=0.7
-)
-```
-
----
-
-### 2.4 Redis缓存策略
+### 2.2 Redis缓存策略
 
 ```typescript
 // 缓存键设计规范
@@ -656,7 +484,6 @@ enum SubscriptionTier {
 type UserStats {
   totalSaves: Int!
   totalReads: Int!
-  knowledgeGraphNodes: Int!
   learningPathsCompleted: Int!
 }
 
@@ -730,9 +557,6 @@ type Query {
     timeRange: TimeRange = WEEK
     limit: Int = 20
   ): [Resource!]!
-
-  # 知识图谱
-  knowledgeGraph(userId: ID!, depth: Int = 2): KnowledgeGraph!
 
   # 学习路径
   learningPath(id: ID!): LearningPath!
@@ -863,10 +687,6 @@ DELETE /api/v1/collections/:id        # 删除
 POST   /api/v1/collections/:id/items  # 添加item
 DELETE /api/v1/collections/:id/items/:itemId  # 移除
 
-# 知识图谱
-GET    /api/v1/knowledge-graph        # 用户知识图谱
-GET    /api/v1/knowledge-graph/concepts/:id  # 概念详情
-
 # 学习路径
 GET    /api/v1/learning-paths         # 我的学习路径
 POST   /api/v1/learning-paths         # 创建
@@ -887,60 +707,34 @@ POST   /api/v1/ai/research-gaps       # 研究空白
 
 ### 4.1 AI服务设计
 
-```python
-# ai-service/main.py
+AI能力通过 `AiChatService.chat()` 统一调用，经 LiteLLM 路由至实际模型（OpenAI / Claude / Grok 等）。
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from services.grok_client import GrokClient
-from services.openai_client import OpenAIClient
-from services.ai_service import AIService
-from config import settings
-
-app = FastAPI(title="Genesis AI Service")
-
-# 初始化AI客户端
-grok = GrokClient(api_key=settings.GROK_API_KEY)
-openai = OpenAIClient(api_key=settings.OPENAI_API_KEY)
-ai_service = AIService(grok=grok, openai=openai)
-
-class SummaryRequest(BaseModel):
-    text: str
-    force_openai: bool = False
-
-class SummaryResponse(BaseModel):
-    summary: str
-    provider: str  # 'grok' | 'openai'
-
-@app.post("/summarize", response_model=SummaryResponse)
-async def summarize(request: SummaryRequest):
-    try:
-        summary = await ai_service.generate_summary(
-            text=request.text,
-            force_openai=request.force_openai
-        )
-        return SummaryResponse(
-            summary=summary,
-            provider='openai' if request.force_openai else 'grok'
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/extract-concepts")
-async def extract_concepts(request: dict):
-    """提取关键概念"""
-    pass
-
-@app.post("/generate-learning-path")
-async def generate_learning_path(request: dict):
-    """生成学习路径"""
-    pass
-
-@app.post("/trend-analysis")
-async def trend_analysis(request: dict):
-    """趋势分析"""
-    pass
+```typescript
+// 所有LLM调用必须通过AiChatService + TaskProfile
+const response = await this.aiChatService.chat({
+  messages: [{ role: "system", content: prompt }],
+  modelType: AIModelType.CHAT,
+  taskProfile: { creativity: "medium", outputLength: "medium" },
+});
 ```
+
+**TaskProfile 参考**:
+
+| creativity    | temperature | 场景             |
+| ------------- | ----------- | ---------------- |
+| deterministic | 0.1         | 分类、提取、JSON |
+| low           | 0.3         | 分析、总结       |
+| medium        | 0.7         | 对话、研究       |
+| high          | 0.9         | 创意写作         |
+
+| outputLength | maxTokens | 场景       |
+| ------------ | --------- | ---------- |
+| minimal      | 500       | 分类标签   |
+| short        | 1500      | 摘要       |
+| medium       | 4000      | 标准分析   |
+| long         | 8000      | 报告、章节 |
+
+禁止硬编码模型名（如 `model: "gpt-4o"`）或温度值（如 `temperature: 0.7`）。
 
 ---
 
@@ -966,17 +760,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Neo4j
-  neo4j:
-    image: neo4j:5-community
-    environment:
-      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
-    ports:
-      - "7474:7474" # HTTP
-      - "7687:7687" # Bolt
-    volumes:
-      - neo4j_data:/data
-
   # Redis
   redis:
     image: redis:7-alpine
@@ -985,55 +768,35 @@ services:
     volumes:
       - redis_data:/data
 
-  # Qdrant
-  qdrant:
-    image: qdrant/qdrant:v1.7.0
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
-
-  # MongoDB
-  mongo:
-    image: mongo:7
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: genesis
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
 volumes:
   postgres_data:
-  neo4j_data:
   redis_data:
-  qdrant_data:
-  mongo_data:
 ```
 
-### 5.2 生产环境架构（待实施）
+### 5.2 生产环境架构（Railway）
 
 ```
 Internet
-    ↓
+    |
 CloudFlare CDN
-    ↓
-Load Balancer (AWS ELB)
-    ↓
-┌───────────────────────────────┐
-│ Application Servers (ECS)     │
-│ ┌──────┐  ┌──────┐  ┌──────┐ │
-│ │Next│  │Nest│  │AI Svc│ │
-│ └──────┘  └──────┘  └──────┘ │
-└───────────────────────────────┘
-    ↓
-┌───────────────────────────────┐
-│ Database Layer (RDS/EC2)      │
-│ ┌────┐ ┌────┐ ┌────┐ ┌────┐ │
-│ │PG│ │Neo4j│Qdrant│Redis│ │
-│ └────┘ └────┘ └────┘ └────┘ │
-└───────────────────────────────┘
+    |
+Railway Proxy (Fastly)
+    |
+┌──────────────────────────────────┐
+│ Application Services (Railway)   │
+│ ┌──────────┐  ┌────────────────┐ │
+│ │ Next.js  │  │  NestJS API    │ │
+│ │ Frontend │  │  (6-layer)     │ │
+│ └──────────┘  └────────────────┘ │
+└──────────────────────────────────┘
+    |
+┌──────────────────────────────────┐
+│ Data Layer (Railway)             │
+│ ┌──────────────────┐  ┌────────┐ │
+│ │  PostgreSQL 16   │  │Redis 7 │ │
+│ │  (唯一数据库)    │  │        │ │
+│ └──────────────────┘  └────────┘ │
+└──────────────────────────────────┘
 ```
 
 ---
@@ -1106,6 +869,5 @@ async function getResource(id: string): Promise<Resource> {
 
 ---
 
-**文档版本**: v1.0
-**最后更新**: 2025-11-07
-**下一步**: 开始项目初始化
+**文档版本**: v2.0
+**最后更新**: 2026-03-05

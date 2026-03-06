@@ -1034,8 +1034,8 @@ Week 5: Sprint 3 - 版本管理与收尾
 ### A. 相关文档
 
 - [现有 AI Office 架构](../features/ai-agents/ai-modules-integration-guide.md)
-- [AI Office PRD v2.0](./ai-office-prd-v2.0.md)
-- [AI Office 5.0 重新设计方案](./ai-office-redesign-v5.0.md)
+- [AI Office PRD v2.0](./ai-office-prd.md)
+- [AI Office 5.0 重新设计方案](./ai-office-redesign.md)
 - [Banana-Slides 项目分析](https://github.com/banana-slides)
 
 ### B. 术语表

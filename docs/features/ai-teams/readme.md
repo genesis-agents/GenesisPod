@@ -8,11 +8,11 @@
 
 ### 架构设计
 
-| 文档                                                                          | 说明                                   | 状态   |
-| ----------------------------------------------------------------------------- | -------------------------------------- | ------ |
-| [核心概念](../../architecture/ai-teams/core-concepts.md)                      | Mission/Team/Role/Member/Workflow 定义 | Active |
-| [Mission 生命周期](../../architecture/ai-teams/mission-lifecycle.md)          | Mission 从创建到完成的详细流程         | Active |
-| [长文本处理](../../architecture/ai-teams/ai-teams-long-content-e2e-design.md) | 长文本处理端到端设计                   | Active |
+| 文档                                                                                  | 说明                                   | 状态   |
+| ------------------------------------------------------------------------------------- | -------------------------------------- | ------ |
+| [核心概念](../../architecture/ai-apps/ai-teams/core-concepts.md)                      | Mission/Team/Role/Member/Workflow 定义 | Active |
+| [Mission 生命周期](../../architecture/ai-apps/ai-teams/mission-lifecycle.md)          | Mission 从创建到完成的详细流程         | Active |
+| [长文本处理](../../architecture/ai-apps/ai-teams/ai-teams-long-content-e2e-design.md) | 长文本处理端到端设计                   | Active |
 
 ### 功能说明
 
@@ -258,7 +258,7 @@ Deliver (生成交付物)
 
 欢迎贡献！请遵循以下流程：
 
-1. 阅读 [核心概念](../../architecture/ai-teams/core-concepts.md) 理解架构
+1. 阅读 [核心概念](../../architecture/ai-apps/ai-teams/core-concepts.md) 理解架构
 2. 选择要贡献的领域：
    - 新增 Skill → 参考 [Skills 开发指南](../../guides/skills-development.md)
    - 新增 Tool → 参考 [Tools 开发指南](../../guides/tools-development.md)

@@ -43,7 +43,7 @@ docs/
 │   │   ├── ai-studio/
 │   │   │   └── plans/
 │   │   └── ...
-│   └── infra/                    # 基础设施架构
+│   └── ai-infra/                 # 基础设施架构
 │       └── plans/
 │
 ├── guides/                        # 开发指南
@@ -72,7 +72,7 @@ docs/
 >   │
 >   ├── architecture/ # 架构设计
 >   │ ├── system/ # 系统架构
->   │ ├── infra/ # 基础设施
+>   │ ├── ai-infra/ # 基础设施
 >   │ │ ├── plans/ # 基础设施改进计划
 >   │ │ ├── frontend/
 >   │ │ ├── backend/
@@ -158,7 +158,7 @@ docs/
 - [系统架构](architecture/system/)
 - [AI Engine](architecture/ai-engine/)
 - [AI Apps](architecture/ai-apps/)
-- [基础设施](architecture/infra/)
+- [基础设施](architecture/ai-infra/)
 
 ### 决策
 

@@ -216,7 +216,7 @@ Guardrails are **configurable via Admin settings** and can be enabled/disabled p
 
 ## Related Documents
 
-- [Platform Evolution Roadmap](../../prd/current/platform-evolution/platform-evolution-roadmap-v1.0.md)
+- [Platform Evolution Roadmap](../../prd/current/platform-evolution/platform-evolution-roadmap.md)
 - [ADR-001: MCP Transport Extension](../../decisions/001-mcp-transport-extension.md)
 - [ADR-002: Genesis as MCP Server](../../decisions/002-genesis-as-mcp-server.md)
 - [ADR-003: A2A Protocol Adoption](../../decisions/003-a2a-protocol-adoption.md)

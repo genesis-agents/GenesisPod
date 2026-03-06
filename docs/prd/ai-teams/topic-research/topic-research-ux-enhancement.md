@@ -1045,9 +1045,9 @@ Claude Code 的 TODO 机制核心特点：
 
 ### C. 相关文档
 
-- [专题研究 PRD v1.0](./topic-research-prd-v1.0.md)
+- [专题研究 PRD v1.0](./topic-research-prd.md)
 - [@Leader 交互功能 PRD](../topic-research-leader-interaction.md)
-- [AI Teams 产品愿景](../../ai-group/ai-group-team-collaboration-v1.0.md)
+- [AI Teams 产品愿景](../../ai-group/ai-group-team-collaboration.md)
 
 ---
 

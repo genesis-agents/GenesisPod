@@ -69,7 +69,7 @@
 4. **更新**: docs/architecture/ai-apps/ai-writing/ai-writing-architecture.md
    - 补充 DOME/SCORE 架构
 
-5. **新建**: docs/architecture/infra/monitoring/monitoring-architecture.md
+5. **新建**: docs/architecture/ai-infra/monitoring/monitoring-architecture.md
    - 描述监控模块架构
 
 ### 中优先级 (P2)
@@ -82,20 +82,20 @@
 
 ## 三、文档与代码映射表（更新版）
 
-| 文档路径                              | 代码路径                                 | 状态   |
-| ------------------------------------- | ---------------------------------------- | ------ |
-| `architecture/ai-engine/`             | `backend/src/modules/ai-engine/`         | 需更新 |
-| `architecture/ai-apps/ai-office/`     | `backend/src/modules/ai-app/office/`     | OK     |
-| `architecture/ai-apps/ai-studio/`     | `backend/src/modules/ai-app/research/`   | 需更新 |
-| `architecture/ai-apps/ai-teams/`      | `backend/src/modules/ai-app/teams/`      | OK     |
-| `architecture/ai-apps/ai-writing/`    | `backend/src/modules/ai-app/writing/`    | 需更新 |
-| `architecture/ai-apps/ai-social/`     | `backend/src/modules/ai-app/social/`     | OK     |
-| `architecture/ai-apps/ai-image/`      | `backend/src/modules/ai-app/image/`      | OK     |
-| `architecture/ai-apps/ai-simulation/` | `backend/src/modules/ai-app/simulation/` | OK     |
-| **缺失**                              | `backend/src/modules/ai-app/rag/`        | 需创建 |
-| **缺失**                              | `backend/src/modules/core/monitoring/`   | 需创建 |
-| `architecture/infra/`                 | `backend/src/modules/ingestion/`         | OK     |
-| `architecture/infra/`                 | `backend/src/modules/integrations/`      | OK     |
+| 文档路径                              | 代码路径                                   | 状态   |
+| ------------------------------------- | ------------------------------------------ | ------ |
+| `architecture/ai-engine/`             | `backend/src/modules/ai-engine/`           | 需更新 |
+| `architecture/ai-apps/ai-office/`     | `backend/src/modules/ai-app/office/`       | OK     |
+| `architecture/ai-apps/ai-studio/`     | `backend/src/modules/ai-app/research/`     | 需更新 |
+| `architecture/ai-apps/ai-teams/`      | `backend/src/modules/ai-app/teams/`        | OK     |
+| `architecture/ai-apps/ai-writing/`    | `backend/src/modules/ai-app/writing/`      | 需更新 |
+| `architecture/ai-apps/ai-social/`     | `backend/src/modules/ai-app/social/`       | OK     |
+| `architecture/ai-apps/ai-image/`      | `backend/src/modules/ai-app/image/`        | OK     |
+| `architecture/ai-apps/ai-simulation/` | `backend/src/modules/ai-app/simulation/`   | OK     |
+| **缺失**                              | `backend/src/modules/ai-app/rag/`          | 需创建 |
+| **缺失**                              | `backend/src/modules/ai-infra/monitoring/` | 需创建 |
+| `architecture/ai-infra/`              | `backend/src/modules/ingestion/`           | OK     |
+| `architecture/ai-infra/`              | `backend/src/modules/integrations/`        | OK     |
 
 ---
 
@@ -110,7 +110,7 @@
 
 3. 创建 `ai-apps/ai-research/research-modes.md`
 4. 更新 `ai-apps/ai-writing/ai-writing-architecture.md`
-5. 创建 `infra/monitoring/monitoring-architecture.md`
+5. 创建 `ai-infra/monitoring/monitoring-architecture.md`
 
 ### Phase 3: 完善细节 (下周)
 

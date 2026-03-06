@@ -274,7 +274,7 @@ interface NodeMemoryStats {
 #### 4.1.3 后端实现
 
 ```typescript
-// backend/src/modules/core/storage/storage.service.ts
+// backend/src/modules/ai-infra/storage/storage.service.ts
 
 async getNodeMemoryStats(): Promise<NodeMemoryStats> {
   const memUsage = process.memoryUsage();
@@ -312,7 +312,7 @@ async getNodeMemoryStats(): Promise<NodeMemoryStats> {
 #### 4.1.4 API 端点
 
 ```typescript
-// backend/src/modules/core/storage/storage.controller.ts
+// backend/src/modules/ai-infra/storage/storage.controller.ts
 
 @Get('node-memory')
 async getNodeMemoryStats(@Query('key') key: string): Promise<NodeMemoryStats> {
@@ -831,8 +831,8 @@ const executeAction = async (issue: DiagnosisIssue) => {
 ### C. 参考文件
 
 - `frontend/app/admin/storage/page.tsx` (1069行)
-- `backend/src/modules/core/storage/storage.service.ts` (1657行)
-- `backend/src/modules/core/storage/storage.controller.ts` (305行)
+- `backend/src/modules/ai-infra/storage/storage.service.ts` (1657行)
+- `backend/src/modules/ai-infra/storage/storage.controller.ts` (305行)
 
 ---
 

@@ -73,12 +73,12 @@ prd/
 
 #### AI Office (智能报告生成)
 
-- [AI Office PRD v2.0](./current/ai-apps/ai-office/ai-office-prd-v2.0.md) - Multi-Agent 报告生成系统
-- [UI/UX 重新设计 v5.0](./current/ai-apps/ai-office/ai-office-redesign-v5.0.md)
+- [AI Office PRD v2.0](./current/ai-apps/ai-office/ai-office-prd.md) - Multi-Agent 报告生成系统
+- [UI/UX 重新设计 v5.0](./current/ai-apps/ai-office/ai-office-redesign.md)
 
 #### AI Slides (智能幻灯片)
 
-- [视觉升级方案 v3.1](./current/ai-apps/ai-slides/ai-slides-v3.1-visual-upgrade.md)
+- [视觉升级方案 v3.1](./current/ai-apps/ai-slides/ai-slides-visual-upgrade.md)
 - [竞品差距分析](./current/ai-apps/ai-slides/slides-gap-analysis.md)
 - [质量问题清单](./current/ai-apps/ai-slides/slides-quality-issues-v1.md)
 
@@ -90,7 +90,7 @@ prd/
 
 #### AI Ask (智能问答)
 
-- [会话管理功能 v1.0](./current/ai-apps/ai-ask/ask-ai-session-management-v1.0.md)
+- [会话管理功能 v1.0](./current/ai-apps/ai-ask/ask-ai-session-management.md)
 
 #### AI Writing (智能写作)
 
@@ -100,16 +100,16 @@ prd/
 
 #### 核心功能
 
-- [AI Teams PRD v1.0](./current/ai-teams/ai-group-prd-v1.0.md) - 核心产品需求 (原 AI Group)
-- [AI 交互规范 v2.0](./current/ai-teams/ai-group-spec-v2.0.md)
-- [团队协作功能 v1.0](./current/ai-teams/ai-group-team-collaboration-v1.0.md)
-- [内容解析功能 v1.0](./current/ai-teams/ai-group-content-parsing-v1.0.md)
-- [优化方案 v1.1](./current/ai-teams/ai-group-optimization-v1.1.md)
+- [AI Teams PRD v1.0](./current/ai-teams/ai-group-prd.md) - 核心产品需求 (原 AI Group)
+- [AI 交互规范 v2.0](./current/ai-teams/ai-group-spec.md)
+- [团队协作功能 v1.0](./current/ai-teams/ai-group-team-collaboration.md)
+- [内容解析功能 v1.0](./current/ai-teams/ai-group-content-parsing.md)
+- [优化方案 v1.1](./current/ai-teams/ai-group-optimization.md)
 
 #### Topic Research (专题研究)
 
-- [专题洞察完整 PRD v1.0](./current/ai-teams/topic-research/topic-research-prd-v1.0.md)
-- [UX 增强方案 v1.0](./current/ai-teams/topic-research/topic-research-ux-enhancement-v1.0.md)
+- [专题洞察完整 PRD v1.0](./current/ai-teams/topic-research/topic-research-prd.md)
+- [UX 增强方案 v1.0](./current/ai-teams/topic-research/topic-research-ux-enhancement.md)
 - [UI 优化](./current/ai-teams/topic-research/ui-optimization.md)
 - [报告编辑功能](./current/ai-teams/topic-research/report-editing.md)
 - [Leader 交互设计](./current/ai-teams/topic-research/leader-interaction.md)
@@ -119,10 +119,10 @@ prd/
 #### Core (核心系统)
 
 - [Genesis.ai 核心 PRD v2.0](./current/infra/core/genesis-ai-prd-v2.0.md)
-- [积分系统 PRD v1.0](./current/infra/core/credits-system-prd-v1.0.md) - AI 功能计费管控
+- [积分系统 PRD v1.0](./current/infra/core/credits-system-prd.md) - AI 功能计费管控
 - [管理后台存储增强](./current/infra/core/admin-storage-enhancement.md)
-- [自动反馈处理系统 v1.0](./current/infra/core/auto-feedback-resolution-v1.0.md)
-- [YouTube 字幕导出功能 v1.0](./current/infra/core/youtube-subtitle-prd-v1.0.md)
+- [自动反馈处理系统 v1.0](./current/infra/core/auto-feedback-resolution.md)
+- [YouTube 字幕导出功能 v1.0](./current/infra/core/youtube-subtitle-prd.md)
 - [AI 战略模拟 PRD](./current/infra/core/ai-strategic-simulation-prd.md)
 
 #### Knowledge Base (知识库系统)
@@ -138,14 +138,14 @@ prd/
 
 #### Integrations (第三方集成)
 
-- [Google Drive RAG 知识库 v2.0](./current/infra/integrations/google-drive-rag-knowledge-base-v2.0.md)
-- [Notes 与 Notion 集成系统 v1.0](./current/infra/integrations/notes-notion-integration-v1.0.md)
-- [Google Drive 集成 v1.0](./current/infra/integrations/google-drive-integration-v1.0.md)
+- [Google Drive RAG 知识库 v2.0](./current/infra/integrations/google-drive-rag-knowledge-base.md)
+- [Notes 与 Notion 集成系统 v1.0](./current/infra/integrations/notes-notion-integration.md)
+- [Google Drive 集成 v1.0](./current/infra/integrations/google-drive-integration.md)
 
 #### Data Collection (数据采集)
 
-- [数据采集系统 PRD v3.0](./current/infra/data-collection/data-collection-prd-v3.0.md)
-- [批量采集监控设计 v1.0](./current/infra/data-collection/data-collection-monitor-design-v1.0.md)
+- [数据采集系统 PRD v3.0](./current/infra/data-collection/data-collection-prd.md)
+- [批量采集监控设计 v1.0](./current/infra/data-collection/data-collection-monitor-design.md)
 
 ---
 

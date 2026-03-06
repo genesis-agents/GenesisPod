@@ -558,7 +558,7 @@ interface FeedbackTimeline {
 ### 4.1 新增文件结构
 
 ```
-backend/src/modules/core/feedback/
+backend/src/modules/ai-infra/feedback/
 ├── feedback.module.ts              # 更新
 ├── feedback.service.ts             # 更新
 ├── feedback.controller.ts          # 更新

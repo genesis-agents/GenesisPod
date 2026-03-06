@@ -1039,7 +1039,7 @@ const PRESET_MCP_SERVERS = [
 | `backend/src/modules/ai-engine/tools/`  | Tools 系统  |
 | `backend/src/modules/ai-engine/skills/` | Skills 系统 |
 | `backend/src/modules/ai-engine/mcp/`    | MCP 系统    |
-| `backend/src/modules/core/admin/`       | Admin 服务  |
+| `backend/src/modules/ai-infra/admin/`   | Admin 服务  |
 | `frontend/components/admin/`            | Admin UI    |
 
 ### 8.2 参考资源

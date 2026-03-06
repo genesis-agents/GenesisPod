@@ -450,7 +450,7 @@ interface RefreshQuotasResponse {
 ### 6.1 后端 API 端点
 
 ```typescript
-// backend/src/modules/core/admin/admin.controller.ts 新增端点
+// backend/src/modules/ai-infra/admin/admin.controller.ts 新增端点
 
 /**
  * 获取所有 Provider 配额信息
@@ -691,7 +691,7 @@ export function useProviderQuotas() {
 ### 10.1 后端架构
 
 ```
-backend/src/modules/core/admin/
+backend/src/modules/ai-infra/admin/
   quota/
     quota.service.ts           // 配额聚合服务
     quota.controller.ts        // API 端点（或集成到 admin.controller.ts）

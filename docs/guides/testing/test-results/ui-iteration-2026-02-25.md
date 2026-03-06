@@ -274,7 +274,7 @@ All 20 responsive tests **PASS** — no horizontal overflow, all pages authentic
 | Description   | `POST /auth/login` used `@Body("email") email: string` directly instead of `@Body() dto: LoginDto`, bypassing class-validator decorators. An object payload `{"email": {"$gt": ""}}` passed through to Prisma, causing a 500 error with internal error details exposed. |
 | Root Cause    | Controller used individual `@Body("field")` extraction instead of full DTO binding                                                                                                                                                                                      |
 | Fix           | Changed `login()` and `register()` handlers to use `@Body() loginDto: LoginDto` and `@Body() registerDto: RegisterDto` respectively                                                                                                                                     |
-| Files Changed | `backend/src/modules/core/auth/auth.controller.ts`                                                                                                                                                                                                                      |
+| Files Changed | `backend/src/modules/ai-infra/auth/auth.controller.ts`                                                                                                                                                                                                                  |
 | Verification  | `tsc --noEmit` passes; fix ensures ValidationPipe's `@IsEmail()` and `@IsString()` run before service layer                                                                                                                                                             |
 
 ### ISSUE-002: P1 — Next.js DoS Vulnerabilities (Open)
@@ -311,9 +311,9 @@ All 20 responsive tests **PASS** — no horizontal overflow, all pages authentic
 
 ## Code Changes Summary
 
-| File                                               | Change                                                               | Reason                                   |
-| -------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------- |
-| `backend/src/modules/core/auth/auth.controller.ts` | Use `@Body() dto` instead of `@Body("field")` for login and register | P0 security fix — enables DTO validation |
+| File                                                   | Change                                                               | Reason                                   |
+| ------------------------------------------------------ | -------------------------------------------------------------------- | ---------------------------------------- |
+| `backend/src/modules/ai-infra/auth/auth.controller.ts` | Use `@Body() dto` instead of `@Body("field")` for login and register | P0 security fix — enables DTO validation |
 
 ---
 

@@ -480,15 +480,15 @@ All changes verified via per-file `git diff` review. No module/entry files touch
 
 **Session 1 (Backend LLM services):**
 
-| File                                            | Change                                                                         | Lines   | Reason                                          | Agent    |
-| ----------------------------------------------- | ------------------------------------------------------------------------------ | ------- | ----------------------------------------------- | -------- |
-| `backend/.../ai-direct-key.service.ts`          | Removed orphaned `/**` at line 998; injected `AiChatRetryService`              | -57+2   | Fix ISSUE-001 + DI refactor                     | Main     |
-| `backend/.../ai-chat.service.ts`                | Removed private `withRetry` + `errorClassifier`; injected `AiChatRetryService` | -57+5   | Extract retry to dedicated service (DI pattern) | B1-agent |
-| `backend/.../ai-chat-retry.service.ts`          | Added `withExponentialBackoff<T>()` method                                     | +46     | Unified retry with exponential backoff + jitter | B1-agent |
-| `backend/.../ai-chat-prompt.service.ts`         | Sequential URL fetch → `Promise.all` parallel                                  | +16/-14 | Performance: parallel URL fetching              | B1-agent |
-| `backend/.../ai-model-config.service.ts`        | Added `refreshPromise` stampede prevention                                     | +11     | Reliability: prevent cache thundering herd      | B1-agent |
-| `backend/src/modules/core/auth/auth.module.ts`  | Removed hardcoded `JWT_SECRET` fallback; fail-fast on missing secret           | +8/-3   | Fix ISSUE-006 (P1 security)                     | Main     |
-| `backend/.../__tests__/ai-chat.service.spec.ts` | Added `mockRetryService` to manual constructor calls                           | +16     | Fix spec type errors (TS2554)                   | B1-agent |
+| File                                               | Change                                                                         | Lines   | Reason                                          | Agent    |
+| -------------------------------------------------- | ------------------------------------------------------------------------------ | ------- | ----------------------------------------------- | -------- |
+| `backend/.../ai-direct-key.service.ts`             | Removed orphaned `/**` at line 998; injected `AiChatRetryService`              | -57+2   | Fix ISSUE-001 + DI refactor                     | Main     |
+| `backend/.../ai-chat.service.ts`                   | Removed private `withRetry` + `errorClassifier`; injected `AiChatRetryService` | -57+5   | Extract retry to dedicated service (DI pattern) | B1-agent |
+| `backend/.../ai-chat-retry.service.ts`             | Added `withExponentialBackoff<T>()` method                                     | +46     | Unified retry with exponential backoff + jitter | B1-agent |
+| `backend/.../ai-chat-prompt.service.ts`            | Sequential URL fetch → `Promise.all` parallel                                  | +16/-14 | Performance: parallel URL fetching              | B1-agent |
+| `backend/.../ai-model-config.service.ts`           | Added `refreshPromise` stampede prevention                                     | +11     | Reliability: prevent cache thundering herd      | B1-agent |
+| `backend/src/modules/ai-infra/auth/auth.module.ts` | Removed hardcoded `JWT_SECRET` fallback; fail-fast on missing secret           | +8/-3   | Fix ISSUE-006 (P1 security)                     | Main     |
+| `backend/.../__tests__/ai-chat.service.spec.ts`    | Added `mockRetryService` to manual constructor calls                           | +16     | Fix spec type errors (TS2554)                   | B1-agent |
 
 **Session 2 (CVE remediation + alert() fixes):**
 

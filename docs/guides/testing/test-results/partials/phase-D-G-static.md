@@ -344,7 +344,7 @@ Files with literal `temperature: 0.X` in production code (excluding comments):
 **Actual**: HTTP 500 exposing `prisma.user.findUnique()` invocation and schema structure
 **Root cause**: `LoginDto.email` with `@IsEmail()` / `@IsString()` does not reject object-typed inputs before the service layer in this code path. The `class-validator` `ValidationPipe` should catch this.
 **Fix**: Ensure `ValidationPipe` with `transform: true` and `whitelist: true` is active globally; add explicit `@IsString()` before `@IsEmail()` on `LoginDto.email`; add global exception filter to sanitize 500 responses.
-**File**: `backend/src/modules/core/auth/dto/login.dto.ts`
+**File**: `backend/src/modules/ai-infra/auth/dto/login.dto.ts`
 
 ### BUG-D-002: Next.js Production DoS Vulnerability (High)
 

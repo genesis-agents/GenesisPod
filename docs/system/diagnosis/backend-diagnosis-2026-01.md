@@ -161,7 +161,7 @@ God Service
 ### 5. 类型检查错误
 
 ```typescript
-// backend/src/modules/core/admin/admin.service.ts
+// backend/src/modules/ai-infra/admin/admin.service.ts
 // 行 65-67: 声明但未使用的属性
 private userManagementService: UserManagementService,      // unused
 private resourceManagementService: ResourceManagementService, // unused
