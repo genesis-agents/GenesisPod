@@ -31,25 +31,33 @@ echo ""
 
 # 3. 构建检查
 echo "🔨 [3/4] 构建检查..."
-npm run build:backend > /dev/null 2>&1 || {
+BUILD_LOG=$(mktemp)
+npm run build:backend > "$BUILD_LOG" 2>&1 || {
     echo ""
     echo "❌ 构建失败！"
-    echo "💡 运行 'npm run build:backend' 查看详细错误"
+    echo "── 最后 20 行输出 ──"
+    tail -20 "$BUILD_LOG"
     echo ""
+    rm -f "$BUILD_LOG"
     exit 1
 }
+rm -f "$BUILD_LOG"
 echo "✓ 构建检查通过"
 echo ""
 
 # 4. 快速测试
 echo "🧪 [4/4] 快速测试..."
-npm run test:quick > /dev/null 2>&1 || {
+TEST_LOG=$(mktemp)
+npm run test:quick > "$TEST_LOG" 2>&1 || {
     echo ""
     echo "❌ 测试失败！push 已阻止"
-    echo "💡 运行 'npm run test:quick' 查看详细"
+    echo "── 最后 30 行输出 ──"
+    tail -30 "$TEST_LOG"
     echo ""
+    rm -f "$TEST_LOG"
     exit 1
 }
+rm -f "$TEST_LOG"
 echo "✓ 测试完成"
 echo ""
 

@@ -404,8 +404,8 @@ describe("SearchService (supplemental)", () => {
     it("omits days param when days=0 (since is now)", async () => {
       httpService.post.mockReturnValue(makeAxiosResponse({ results: [] }));
 
-      // Pass a since date that is exactly now → Math.ceil(0) = 0 → days=0 → not included
-      const since = new Date(); // right now
+      // Use a date slightly in the future to guarantee diffMs <= 0 → days=0 → not included
+      const since = new Date(Date.now() + 1000);
       await service.search("news", 5, since);
 
       const call = httpService.post.mock.calls[0];
