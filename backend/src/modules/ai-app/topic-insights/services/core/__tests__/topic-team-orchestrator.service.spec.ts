@@ -13,6 +13,7 @@ import { ResearchLeaderService } from "../research-leader.service";
 import { ResearchCheckpointService } from "../../monitoring/research-checkpoint.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
 import { ResearchTodoService } from "../../collaboration/research-todo.service";
+import { CritiqueRefineService } from "../../quality/critique-refine.service";
 import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 const mockPrisma = {
@@ -85,6 +86,10 @@ const mockResearchTodoService = {
   getTodoSummary: jest.fn(),
 };
 
+const mockCritiqueRefineService = {
+  critiqueAndRefine: jest.fn(),
+};
+
 const mockFacade = {
   chat: jest.fn(),
   startTrace: jest.fn().mockReturnValue("trace-123"),
@@ -151,6 +156,7 @@ describe("TopicTeamOrchestratorService", () => {
           useValue: mockDataSourceRouterService,
         },
         { provide: ResearchTodoService, useValue: mockResearchTodoService },
+        { provide: CritiqueRefineService, useValue: mockCritiqueRefineService },
         { provide: AgentFacade, useValue: mockFacade },
       ],
     }).compile();
