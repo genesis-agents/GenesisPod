@@ -20,6 +20,7 @@ import { ResearchLeaderService } from "../../core/research-leader.service";
 import { SectionWriterService } from "../section-writer.service";
 import { ResearchEventEmitterService } from "../../core/research-event-emitter.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
+import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { DimensionStatus } from "@prisma/client";
 
 // ============================================================
@@ -245,6 +246,25 @@ describe("DimensionWritingService", () => {
         { provide: SectionWriterService, useValue: mockSectionWriter },
         { provide: ResearchEventEmitterService, useValue: mockEventEmitter },
         { provide: AgentActivityService, useValue: mockAgentActivity },
+        {
+          provide: ReportQualityGateService,
+          useValue: {
+            validateDimensionContent: jest.fn().mockReturnValue({
+              passed: true,
+              wasAutoFixed: false,
+              fixedContent: "",
+              violations: [],
+              rewriteGuidance: [],
+            }),
+            validateFullReport: jest.fn().mockReturnValue({
+              passed: true,
+              wasAutoFixed: false,
+              fixedContent: "",
+              violations: [],
+              rewriteGuidance: [],
+            }),
+          },
+        },
       ],
     }).compile();
 

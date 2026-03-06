@@ -38,8 +38,9 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
   return content.replace(
     /^(#{3,4})\s+(.+)$/gm,
     (_match, hashes: string, title: string) => {
+      // Strip existing numbering prefixes but preserve 4-digit years (e.g. "2026年")
       const cleanTitle = title
-        .replace(/^[\d.]+\s*/, "")
+        .replace(/^(?!\d{4}[年-])[\d.]+\s*/, "")
         .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
         .replace(/^（[一二三四五六七八九十百\d]+）\s*/, "")
         .trim();
@@ -107,6 +108,166 @@ export function deduplicateHeadings(content: string): string {
       return true;
     })
     .join("\n");
+}
+
+// ============ v4: Language Consistency Detection ============
+
+/**
+ * Foreign language block detected in content
+ */
+export interface ForeignLanguageBlock {
+  /** Start character offset */
+  start: number;
+  /** End character offset */
+  end: number;
+  /** The foreign text */
+  text: string;
+}
+
+/**
+ * Result of language consistency check
+ */
+export interface LanguageConsistencyResult {
+  /** Ratio of foreign language content (0-1) */
+  foreignRatio: number;
+  /** Foreign language blocks found */
+  blocks: ForeignLanguageBlock[];
+  /** Whether the content passes the threshold */
+  passed: boolean;
+}
+
+/**
+ * Detect foreign language blocks in content relative to target language.
+ *
+ * For Chinese target: detects continuous Latin-script passages (>= 80 chars)
+ * For English target: detects continuous CJK passages (>= 40 chars)
+ *
+ * Excludes:
+ * - Code blocks (```...```)
+ * - Inline code (`...`)
+ * - URLs (http://, https://)
+ * - Citation markers ([1], [2])
+ * - Chart/figure comments (<!-- ... -->)
+ * - Known technical terms and proper nouns (short runs)
+ *
+ * @param content The report content (Markdown)
+ * @param targetLanguage Target language code ("zh" or "en")
+ * @param threshold Maximum allowed foreign ratio (default 0.05 = 5%)
+ */
+export function detectForeignLanguageBlocks(
+  content: string,
+  targetLanguage: string = "zh",
+  threshold: number = 0.05,
+): LanguageConsistencyResult {
+  // Strip code blocks and inline code first
+  const stripped = content
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`[^`]+`/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/https?:\/\/[^\s)]+/g, "")
+    .replace(/\[[\d,\s]+\]/g, ""); // citation markers like [1], [1,2]
+
+  const blocks: ForeignLanguageBlock[] = [];
+  const totalChars = stripped.replace(/\s/g, "").length;
+
+  if (totalChars === 0) {
+    return { foreignRatio: 0, blocks: [], passed: true };
+  }
+
+  if (
+    targetLanguage === "zh" ||
+    targetLanguage === "zh-CN" ||
+    targetLanguage === "zh-TW"
+  ) {
+    // For Chinese target: find long Latin-script runs
+    // Match continuous ASCII letter sequences (with spaces/punctuation) >= 80 chars
+    const latinPattern = /[A-Za-z][A-Za-z\s,.:;'"!?()\-]{79,}/g;
+    let match: RegExpExecArray | null;
+    while ((match = latinPattern.exec(stripped)) !== null) {
+      const text = match[0].trim();
+      // Skip if it's mostly short technical terms (average word length < 10 and < 5 words)
+      const words = text.split(/\s+/);
+      if (words.length < 5) continue;
+
+      blocks.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: text.length > 200 ? text.substring(0, 200) + "..." : text,
+      });
+    }
+  } else if (targetLanguage === "en") {
+    // For English target: find long CJK runs
+    const cjkPattern = /[\u4e00-\u9fff\u3400-\u4dbf]{40,}/g;
+    let match: RegExpExecArray | null;
+    while ((match = cjkPattern.exec(stripped)) !== null) {
+      blocks.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text:
+          match[0].length > 200 ? match[0].substring(0, 200) + "..." : match[0],
+      });
+    }
+  }
+
+  const foreignChars = blocks.reduce((sum, b) => sum + (b.end - b.start), 0);
+  const foreignRatio = foreignChars / totalChars;
+
+  return {
+    foreignRatio,
+    blocks,
+    passed: foreignRatio <= threshold,
+  };
+}
+
+/**
+ * Remove excessive bold formatting.
+ * If bold count exceeds maxPerSection per section, strip extra bolds.
+ */
+export function limitBoldFormatting(
+  content: string,
+  maxPerSection: number = 3,
+): string {
+  // Split by ### headings (sections)
+  const sections = content.split(/(?=^###\s)/m);
+
+  return sections
+    .map((section) => {
+      let boldCount = 0;
+      return section.replace(/\*\*([^*]+)\*\*/g, (match, inner) => {
+        boldCount++;
+        if (boldCount > maxPerSection) {
+          return inner; // Strip bold, keep text
+        }
+        return match;
+      });
+    })
+    .join("");
+}
+
+/**
+ * Remove blockquote lines that exceed the limit.
+ * Keeps the first `maxCount` blockquotes, converts excess to regular paragraphs.
+ */
+export function limitBlockquotes(
+  content: string,
+  maxCount: number = 15,
+): string {
+  let count = 0;
+  return content.replace(/^>\s*(.+)$/gm, (match, inner) => {
+    count++;
+    if (count > maxCount) {
+      return inner; // Convert to regular paragraph
+    }
+    return match;
+  });
+}
+
+/**
+ * Remove all horizontal rules (---, ***) from content.
+ * These are unprofessional in formal reports.
+ */
+export function removeHorizontalRules(content: string): string {
+  return content.replace(/^\s*[-*]{3,}\s*$/gm, "");
 }
 
 /**

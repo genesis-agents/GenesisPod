@@ -14,6 +14,7 @@ import { ReportSynthesisService } from "../report-synthesis.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
 import { ReportEditorService } from "../report-editor.service";
+import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import type { ResearchTopic } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -170,6 +171,25 @@ describe("ReportSynthesisService", () => {
         { provide: ChatFacade, useValue: mockFacade },
         { provide: TeamFacade, useValue: mockFacade },
         { provide: ReportEditorService, useValue: mockReportEditor },
+        {
+          provide: ReportQualityGateService,
+          useValue: {
+            validateFullReport: jest.fn().mockReturnValue({
+              passed: true,
+              wasAutoFixed: false,
+              fixedContent: "",
+              violations: [],
+              rewriteGuidance: [],
+            }),
+            validateDimensionContent: jest.fn().mockReturnValue({
+              passed: true,
+              wasAutoFixed: false,
+              fixedContent: "",
+              violations: [],
+              rewriteGuidance: [],
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -2344,14 +2364,14 @@ describe("ReportSynthesisService", () => {
       expect(updateCall.data.charts).toBeDefined();
     });
 
-    it("should deduplicate generated charts by title key", async () => {
+    it("should skip generated charts (v4: only reference figures allowed)", async () => {
       setupChartCollectionFromPrisma({
         trends: [],
         challenges: [],
         opportunities: [],
         detailedContent: "",
         figureReferences: [],
-        // Two charts with same title (normalized) — second should be skipped
+        // v4: generatedCharts are no longer collected
         generatedCharts: [
           {
             id: "gen-001",
@@ -2376,13 +2396,13 @@ describe("ReportSynthesisService", () => {
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
       const charts = updateCall.data.charts as Array<{ id: string }>;
-      // Only first chart with that title should be collected
+      // v4: generated charts are skipped entirely
       const genCharts = charts.filter(
         (c) =>
           (c as { title?: string; chartType?: string }).chartType ===
           "generated",
       );
-      expect(genCharts.length).toBe(1);
+      expect(genCharts.length).toBe(0);
     });
 
     it("should limit to MAX_CHARTS_PER_DIMENSION (5) per dimension", async () => {

@@ -212,6 +212,7 @@ function makeDimensionMissionService() {
     executeSearchPhase: jest.fn().mockResolvedValue(makeSearchPhaseResult()),
     executeWritingPhase: jest.fn().mockResolvedValue(makeWritingResult()),
     executeAnalysisPhase: jest.fn(),
+    clearEvidenceCache: jest.fn(),
   };
 }
 

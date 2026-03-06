@@ -158,6 +158,13 @@ export class DimensionMissionService {
   ) {}
 
   /**
+   * ★ v4: 清空全局 URL 抓取缓存（每次报告生成前调用）
+   */
+  clearEvidenceCache(): void {
+    this.dataEnrichment.clearFetchCache();
+  }
+
+  /**
    * 执行搜索阶段（Phase 1）
    *
    * 职责：
@@ -252,9 +259,9 @@ export class DimensionMissionService {
 
     // 2. 数据增强
     const topicConfig = topic.topicConfig as Record<string, unknown> | null;
-    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 5;
+    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 10;
     const enrichmentMaxLength =
-      (topicConfig?.enrichmentMaxLength as number) || 3000;
+      (topicConfig?.enrichmentMaxLength as number) || 5000;
     const enableFigures = topicConfig?.enableFigures !== false;
 
     this.logger.log(

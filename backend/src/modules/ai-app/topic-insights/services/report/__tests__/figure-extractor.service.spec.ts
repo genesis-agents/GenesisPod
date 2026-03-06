@@ -125,14 +125,14 @@ describe("FigureExtractorService", () => {
       }
     });
 
-    it("should limit to MAX_FIGURES_PER_URL (3) per call", () => {
+    it("should limit to MAX_FIGURES_PER_URL (5) per call", () => {
       const imgs = Array.from(
         { length: 10 },
         (_, i) =>
           `<figure><img src="https://example.com/chart-${i}.png" alt="chart ${i}"><figcaption>Annual growth chart showing trends ${i} and data statistics analysis</figcaption></figure>`,
       ).join("\n");
       const result = service.extractFigures("https://example.com", imgs);
-      expect(result.length).toBeLessThanOrEqual(3);
+      expect(result.length).toBeLessThanOrEqual(5);
     });
 
     it("should classify table type correctly", () => {

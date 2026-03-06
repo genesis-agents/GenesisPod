@@ -53,6 +53,7 @@ const mockDimensionMissionService = {
   researchDimension: jest.fn(),
   executeSearchPhase: jest.fn(),
   executeAnalysisPhase: jest.fn(),
+  clearEvidenceCache: jest.fn(),
 };
 
 const mockReportSynthesisService = {

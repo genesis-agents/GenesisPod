@@ -12,6 +12,9 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import {
   Shield,
   Maximize2,
@@ -1941,7 +1944,12 @@ export function TopicContentPanel({
         {activeTab !== 'report' && report?.fullReport && (
           <div className="hidden">
             <div data-export-content="insights">
-              <ReactMarkdown>{report.fullReport}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {report.fullReport}
+              </ReactMarkdown>
             </div>
           </div>
         )}
@@ -2447,6 +2455,8 @@ function ReportTabContent({
           <div className="mx-auto max-w-3xl px-6 py-6">
             <article className="prose prose-sm prose-blue max-w-none">
               <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={{
                   // 自定义段落渲染，支持内联引用
                   p: ({ children }) => (

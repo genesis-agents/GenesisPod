@@ -70,6 +70,7 @@ function createMockServices() {
       evidenceIds: ["e1"],
       extractedClaims: [],
     }),
+    clearEvidenceCache: fn(),
   };
 
   const reportSynthesisService = {

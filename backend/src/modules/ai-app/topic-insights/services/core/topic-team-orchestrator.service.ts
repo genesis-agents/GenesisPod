@@ -154,6 +154,9 @@ export class TopicTeamOrchestratorService {
       },
     });
 
+    // ★ v4: 清空全局 URL 抓取缓存，确保每次报告生成从干净状态开始
+    this.dimensionMissionService.clearEvidenceCache();
+
     // ★ Hoist missionId so it's accessible in catch block for cleanup
     let missionId: string | undefined;
     // ★ TraceCollector: hoist traceId so it's accessible in catch block

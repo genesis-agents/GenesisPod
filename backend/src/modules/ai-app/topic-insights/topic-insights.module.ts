@@ -98,6 +98,7 @@ import {
   MultiLanguageResearchService,
   // ★ P1: 新增增强能力
   CritiqueRefineService,
+  ReportQualityGateService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
@@ -175,6 +176,8 @@ const services = [
   MultiLanguageResearchService,
   // ★ P1: 新增增强能力
   CritiqueRefineService,
+  // ★ v4: 代码强制质量门控
+  ReportQualityGateService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,

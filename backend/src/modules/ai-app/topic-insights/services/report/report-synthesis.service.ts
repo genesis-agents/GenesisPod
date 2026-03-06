@@ -55,6 +55,7 @@ import {
   CONSISTENCY_CHECK_USER_PROMPT,
 } from "../../prompts/consistency-check.prompt";
 import { ReportEditorService } from "./report-editor.service";
+import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import {
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
@@ -79,6 +80,8 @@ export class ReportSynthesisService {
     private readonly chatFacade: ChatFacade,
     private readonly teamFacade: TeamFacade,
     private readonly reportEditor: ReportEditorService,
+    // ★ v4: 报告级质量门控
+    private readonly qualityGate: ReportQualityGateService,
     // ★ Phase 4: 报告质量关卡
     @Optional() private readonly outputReviewer?: OutputReviewerService,
     // ★ Batch 2: 跨维度事实一致性
@@ -1036,7 +1039,10 @@ export class ReportSynthesisService {
     }
 
     const rawReport = this.teamFacade.sanitizeReport(parts.join("\n"));
-    const { content: processedReport } = this.postProcessReport(rawReport);
+    const { content: processedReport } = this.postProcessReport(
+      rawReport,
+      topic.language || "zh",
+    );
     return processedReport;
   }
 
@@ -1052,7 +1058,7 @@ export class ReportSynthesisService {
     // ★ 跨维度去重：同一张图片只保留首次出现
     const seenImageUrls = new Set<string>();
     // ★ 增强去重：生成图表按标题关键词去重（去除标点、空格后比较）
-    const seenTitleKeys = new Set<string>();
+    // seenTitleKeys removed: generatedCharts disabled in v4, title dedup no longer needed
 
     // ★ 限制每个维度最多收集的图表数量
     const MAX_CHARTS_PER_DIMENSION = 5;
@@ -1095,39 +1101,12 @@ export class ReportSynthesisService {
         });
       }
 
-      // 收集生成图表
+      // ★ v4: 禁用 AI 生成图表（generatedCharts）— 仅保留真实参考图片
+      // 原因：AI 编造的图表数据无法追溯到证据来源，降低报告可信度
       if (dim.generatedCharts && dim.generatedCharts.length > 0) {
-        dim.generatedCharts.forEach((chart) => {
-          if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
-          const genChartId = `${dimPrefix}${chart.id}`;
-          // ★ 按 ID 去重
-          if (seenIds.has(genChartId)) return;
-          // ★ 增强去重：规范化标题后比较（去除标点、空格、大小写）
-          const titleKey = chart.title
-            ?.trim()
-            .toLowerCase()
-            .replace(/[\s\-_:：，。、（）()【】\[\]]/g, "");
-          if (titleKey && seenTitleKeys.has(titleKey)) {
-            return;
-          }
-          if (titleKey) {
-            seenTitleKeys.add(titleKey);
-          }
-          seenIds.add(genChartId);
-          charts.push({
-            id: genChartId,
-            chartType: "generated",
-            type: chart.type,
-            title: chart.title,
-            position: chart.position,
-            sectionId,
-            data: chart.data,
-            source: chart.source,
-            dimensionId: dim.dimensionId,
-            dimensionName: dim.dimensionName,
-          });
-          dimChartCount++;
-        });
+        this.logger.log(
+          `[Charts] Skipping ${dim.generatedCharts.length} generated charts for dimension "${dim.dimensionName}" (v4: only reference figures allowed)`,
+        );
       }
     });
 
@@ -1276,7 +1255,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     );
 
     // 构建完整的 Markdown 报告
-    const fullReport = this.buildFullReport(structuredReport);
+    const fullReport = this.buildFullReport(
+      structuredReport,
+      topic.language || "zh",
+    );
 
     // 提取亮点
     const highlights = this.extractHighlights(
@@ -1947,7 +1929,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 构建完整的 Markdown 报告
    * ★ v3.0: 支持根据 inlineCharts 的 position 插入图表占位符
    */
-  private buildFullReport(report: ComprehensiveReport): string {
+  private buildFullReport(
+    report: ComprehensiveReport,
+    targetLanguage: string = "zh",
+  ): string {
     const parts: string[] = [];
 
     // 1. 前言
@@ -2039,7 +2024,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
     const rawReport = this.teamFacade.sanitizeReport(parts.join("\n"));
-    const { content: processedReport } = this.postProcessReport(rawReport);
+    const { content: processedReport } = this.postProcessReport(
+      rawReport,
+      targetLanguage,
+    );
     return processedReport;
   }
 
@@ -2060,40 +2048,36 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * Post-process report markdown: detect quality issues and emit warnings.
    * Phase 1: warning-only mode (no automatic content modification except --- removal).
    */
-  private postProcessReport(markdown: string): {
+  private postProcessReport(
+    markdown: string,
+    targetLanguage: string = "zh",
+  ): {
     content: string;
     warnings: string[];
   } {
-    const warnings: string[] = [];
+    // ★ v4: 委托给 ReportQualityGateService 统一质量门控
+    const qc = this.qualityGate.validateFullReport(markdown, targetLanguage);
 
-    const boldCount = (markdown.match(/\*\*[^*]+\*\*/g) || []).length;
-    if (boldCount > 80)
-      warnings.push(`Bold count ${boldCount} exceeds limit 80`);
+    const warnings = qc.violations.map((v) => v.message);
+    let content = qc.wasAutoFixed ? qc.fixedContent : markdown;
 
-    const blockquoteCount = (markdown.match(/^>/gm) || []).length;
-    if (blockquoteCount > 15)
-      warnings.push(`Blockquote count ${blockquoteCount} exceeds limit 15`);
+    // 额外清理：strip stray --- separators in flow text (not caught by HR regex)
+    content = content.replace(/\n---\n/g, "\n\n");
 
-    const weThinkCount = (markdown.match(/我们(认为|判断|看到)/g) || []).length;
-    if (weThinkCount > 10)
-      warnings.push(`"我们认为" count ${weThinkCount} exceeds limit 10`);
-
-    const arrowCount = (markdown.match(/→/g) || []).length;
+    // 额外 warn-only 检查（不在 QualityGateService 中的报告级特定规则）
+    const arrowCount = (content.match(/→/g) || []).length;
     if (arrowCount > 5)
       warnings.push(`Arrow chain count ${arrowCount} exceeds limit 5`);
 
-    const deepHeadingCount = (markdown.match(/^#{5,6}\s+/gm) || []).length;
+    const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) || []).length;
     if (deepHeadingCount > 0)
       warnings.push(
         `Deep headings (h5/h6) count ${deepHeadingCount}, should be 0`,
       );
 
-    // Safe operation: strip stray --- separators that AI may have generated
-    const content = markdown.replace(/\n---\n/g, "\n\n");
-
     if (warnings.length > 0) {
       this.logger.warn(
-        `[postProcess] Quality warnings:\n${warnings.join("\n")}`,
+        `[postProcess] Quality fixes/warnings:\n${warnings.join("\n")}`,
       );
     }
 
@@ -2110,7 +2094,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     content: string,
     dimIndex: number,
     figureReferences: FigureReference[] | undefined,
-    generatedCharts: GeneratedChart[] | undefined,
+    _generatedCharts: GeneratedChart[] | undefined,
   ): string {
     let result = content;
     const dimPrefix = `d${dimIndex}-`;
@@ -2130,16 +2114,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       );
     }
 
-    // 2. Inject generatedCharts placeholders (based on position)
-    if (generatedCharts && generatedCharts.length > 0) {
-      result = this.injectChartPlaceholders(
-        result,
-        generatedCharts.map((c) => ({
-          id: `${dimPrefix}${c.id}`,
-          position: c.position,
-        })),
-      );
-    }
+    // 2. ★ v4: Skip generatedCharts injection (AI-fabricated charts disabled)
+    // generatedCharts placeholders are no longer injected into content
 
     // 3. Deduplicate chart placeholders: same chartId only appears once
     const seenChartIds = new Set<string>();

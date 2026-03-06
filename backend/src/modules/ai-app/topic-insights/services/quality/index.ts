@@ -5,3 +5,4 @@
  */
 
 export * from "./critique-refine.service";
+export * from "./report-quality-gate.service";

@@ -152,13 +152,19 @@ export class FigureExtractorService {
     const newImgs = imgElements.filter((img) => !figureUrls.has(img.imageUrl));
     figures.push(...newImgs);
 
-    // 3. 过滤非图表图片
+    // 3. 过滤非内容图片（logo、icon、tracking pixel 等）
     const filteredFigures = figures.filter((fig) =>
-      this.isLikelyChart(fig.imageUrl, fig.caption, fig.alt),
+      this.isLikelyChart(
+        fig.imageUrl,
+        fig.caption,
+        fig.alt,
+        fig.width,
+        fig.height,
+      ),
     );
 
     // 4. 限制每个 URL 最多提取的图表数量，避免低质量图片泛滥
-    const MAX_FIGURES_PER_URL = 3;
+    const MAX_FIGURES_PER_URL = 5;
     const limitedFigures = filteredFigures.slice(0, MAX_FIGURES_PER_URL);
 
     this.logger.debug(
@@ -211,14 +217,15 @@ export class FigureExtractorService {
   ): ExtractedFigure[] {
     const figures: ExtractedFigure[] = [];
 
-    // 匹配 <img> 标签
+    // 匹配 <img> 标签（包含 lazy-load 属性 data-src / data-original）
     const imgRegex =
-      /<img[^>]+src=["']([^"']+)["'][^>]*(?:alt=["']([^"']*)["'])?[^>]*>/gi;
+      /<img[^>]+(?:src|data-src|data-original)=["']([^"']+)["'][^>]*>/gi;
 
     let match;
     while ((match = imgRegex.exec(htmlContent)) !== null) {
-      const imgSrc = match[1];
-      const alt = match[2] || this.extractAltFromFullMatch(match[0]);
+      // Prefer data-src/data-original (lazy-load real URL) over src (placeholder)
+      const imgSrc = this.extractBestSrc(match[0]) || match[1];
+      const alt = this.extractAltFromFullMatch(match[0]);
 
       const resolvedUrl = this.resolveUrl(baseUrl, imgSrc);
       if (resolvedUrl) {
@@ -238,6 +245,20 @@ export class FigureExtractorService {
     }
 
     return figures;
+  }
+
+  /**
+   * 从 img 标签中提取最佳 src（优先 lazy-load 属性）
+   */
+  private extractBestSrc(imgTag: string): string | null {
+    // Prefer lazy-load attributes which contain the real high-res URL
+    for (const attr of ["data-src", "data-original", "data-lazy-src"]) {
+      const match = imgTag.match(new RegExp(`${attr}=["']([^"']+)["']`, "i"));
+      if (match && !match[1].startsWith("data:")) {
+        return match[1];
+      }
+    }
+    return null;
   }
 
   /**
@@ -298,13 +319,28 @@ export class FigureExtractorService {
   }
 
   /**
-   * 判断图片是否可能是图表
+   * 判断图片是否可能是有意义的内容图片（图表、插图、研究图等）
    */
-  private isLikelyChart(url: string, caption: string, alt?: string): boolean {
+  private isLikelyChart(
+    url: string,
+    caption: string,
+    alt?: string,
+    width?: number,
+    height?: number,
+  ): boolean {
+    // Skip tiny images (tracking pixels, spacers)
+    if (width && height && (width < 50 || height < 50)) {
+      return false;
+    }
+    // Skip 1x1 tracking pixels by URL pattern
+    if (/[?&](w|width|h|height)=1\b/.test(url)) {
+      return false;
+    }
+
     const combinedText =
       `${url || ""} ${caption || ""} ${alt || ""}`.toLowerCase();
 
-    // 排除模式：明显不是图表的图片
+    // 排除模式：明显不是内容图片
     const excludePatterns = [
       /logo/i,
       /icon/i,
@@ -332,13 +368,16 @@ export class FigureExtractorService {
       /badge/i,
       /rating/i,
       /star/i,
+      /pixel/i,
+      /tracking/i,
+      /spacer/i,
     ];
 
     if (excludePatterns.some((pattern) => pattern.test(combinedText))) {
       return false;
     }
 
-    // 包含模式：可能是图表的关键词
+    // 包含模式：图表、研究图、内容插图等
     const includePatterns = [
       /chart/i,
       /graph/i,
@@ -358,6 +397,26 @@ export class FigureExtractorService {
       /report/i,
       /survey/i,
       /infographic/i,
+      /illustration/i,
+      /research/i,
+      /study/i,
+      /result/i,
+      /finding/i,
+      /evidence/i,
+      /experiment/i,
+      /model/i,
+      /framework/i,
+      /architecture/i,
+      /overview/i,
+      /screenshot/i,
+      /image/i,
+      /photo/i,
+      /picture/i,
+      /map/i,
+      /timeline/i,
+      /workflow/i,
+      /process/i,
+      /pipeline/i,
       /图/i,
       /表/i,
       /趋势/i,
@@ -368,9 +427,15 @@ export class FigureExtractorService {
       /对比/i,
       /增长/i,
       /市场/i,
+      /研究/i,
+      /示意/i,
+      /流程/i,
+      /框架/i,
+      /结果/i,
+      /截图/i,
     ];
 
-    // 如果包含图表关键词，保留
+    // 如果包含内容关键词，保留
     if (includePatterns.some((pattern) => pattern.test(combinedText))) {
       return true;
     }

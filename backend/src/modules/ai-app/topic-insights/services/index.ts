@@ -88,6 +88,7 @@ export { ResearchReflectionService } from "./collaboration/research-reflection.s
 
 // ==================== Quality ====================
 export { CritiqueRefineService } from "./quality/critique-refine.service";
+export { ReportQualityGateService } from "./quality/report-quality-gate.service";
 
 // ==================== Monitoring ====================
 export { AgentActivityService } from "./monitoring/agent-activity.service";

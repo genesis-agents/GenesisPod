@@ -43,6 +43,7 @@ import type {
 } from "../../types/research.types";
 import { AgentActivityType } from "@prisma/client";
 import type { SearchPhaseResult } from "./dimension-search.service";
+import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 
 /**
  * 维度写作阶段执行结果
@@ -71,6 +72,7 @@ export class DimensionWritingService {
     private readonly sectionWriter: SectionWriterService,
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly agentActivity: AgentActivityService,
+    private readonly qualityGate: ReportQualityGateService,
   ) {}
 
   /**
@@ -741,6 +743,33 @@ export class DimensionWritingService {
             taskId,
           );
         }
+      }
+    }
+
+    // ★ v4: 质量门控后处理 — 自动修复格式问题
+    const topicLanguage = topic?.language || "zh";
+    for (const sectionResult of sectionResults) {
+      if (!sectionResult.content) continue;
+
+      const qc = this.qualityGate.validateDimensionContent(
+        sectionResult.content,
+        topicLanguage,
+      );
+
+      if (qc.wasAutoFixed) {
+        sectionResult.content = qc.fixedContent;
+        this.logger.log(
+          `[QualityGate] Auto-fixed section "${sectionResult.title}": ${qc.violations
+            .filter((v) => v.severity === "warning")
+            .map((v) => v.rule)
+            .join(", ")}`,
+        );
+      }
+
+      if (qc.violations.length > 0) {
+        this.logger.log(
+          `[QualityGate] Section "${sectionResult.title}" violations: ${qc.violations.map((v) => `${v.rule}(${v.severity})`).join(", ")}`,
+        );
       }
     }
 

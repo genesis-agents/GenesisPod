@@ -23,6 +23,7 @@ import type {
   ExtractedFigure,
 } from "../../types/research.types";
 import { FigureExtractorService } from "../report/figure-extractor.service";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * URL 验证结果
@@ -52,15 +53,82 @@ export interface DataEnrichmentOptions {
   enableFigures?: boolean;
 }
 
+/**
+ * Cached fetch result for cross-dimension URL deduplication
+ */
+interface CachedFetchResult {
+  fullContent: string | null;
+  contentSource: "fetched" | "snippet";
+  urlValid: boolean;
+  extractedFigures: ExtractedFigure[];
+}
+
 @Injectable()
 export class DataEnrichmentService {
   private readonly logger = new Logger(DataEnrichmentService.name);
+
+  /**
+   * ★ v4: 全局证据池 — 跨维度 URL 去重缓存
+   * Key: normalized URL, Value: fetched content + figures
+   * 同一报告生成过程中，同一 URL 只抓取一次
+   * 通过 clearFetchCache() 在报告生成开始时清空
+   * 使用 LruMap 防止异常路径下内存无限增长
+   */
+  private readonly fetchCache = new LruMap<string, CachedFetchResult>(500);
 
   // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
   constructor(
     private readonly toolRegistry: ToolRegistry,
     private readonly figureExtractor: FigureExtractorService,
   ) {}
+
+  /**
+   * ★ v4: 清空 URL 抓取缓存（每次报告生成前调用）
+   */
+  clearFetchCache(): void {
+    const size = this.fetchCache.size;
+    this.fetchCache.clear();
+    if (size > 0) {
+      this.logger.log(
+        `[GlobalEvidencePool] Cleared fetch cache (${size} entries)`,
+      );
+    }
+  }
+
+  /**
+   * ★ v4: 获取缓存统计
+   */
+  getFetchCacheStats(): { size: number; urls: string[] } {
+    return {
+      size: this.fetchCache.size,
+      urls: [...this.fetchCache.keys()],
+    };
+  }
+
+  /**
+   * ★ v4: URL 规范化（用于缓存 key）
+   */
+  private normalizeUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      // Remove trailing slash, fragment, common tracking params
+      parsed.hash = "";
+      for (const param of [
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "ref",
+        "source",
+      ]) {
+        parsed.searchParams.delete(param);
+      }
+      return parsed.toString().replace(/\/+$/, "");
+    } catch {
+      return url.trim().replace(/\/+$/, "");
+    }
+  }
 
   /**
    * 创建工具执行上下文
@@ -201,6 +269,22 @@ export class DataEnrichmentService {
     fetchTimeout: number,
     enableFigures: boolean = true,
   ): Promise<EnrichedResult> {
+    // ★ v4: 检查全局缓存（跨维度 URL 去重）
+    const cacheKey = this.normalizeUrl(result.url);
+    const cached = this.fetchCache.get(cacheKey);
+    if (cached) {
+      this.logger.debug(
+        `[GlobalEvidencePool] Cache hit for ${result.domain || result.url} (${cached.fullContent?.length || 0} chars, ${cached.extractedFigures.length} figures)`,
+      );
+      return {
+        ...result,
+        fullContent: cached.fullContent,
+        contentSource: cached.contentSource,
+        urlValid: cached.urlValid,
+        extractedFigures: cached.extractedFigures,
+      };
+    }
+
     // ★ 通过 ToolRegistry 获取 web-scraper 工具
     const webScraperTool = this.toolRegistry.tryGet("web-scraper");
     if (!webScraperTool) {
@@ -281,6 +365,14 @@ export class DataEnrichmentService {
             `Fetched ${truncatedContent.length} chars from ${result.domain || result.url}, valid: ${isValid}, figures: ${extractedFigures.length}`,
           );
 
+          // ★ v4: 写入全局缓存
+          this.fetchCache.set(cacheKey, {
+            fullContent: truncatedContent,
+            contentSource: "fetched",
+            urlValid: isValid,
+            extractedFigures,
+          });
+
           return {
             ...result,
             fullContent: truncatedContent,
@@ -295,6 +387,14 @@ export class DataEnrichmentService {
       this.logger.debug(
         `Failed to fetch ${result.url}: ${toolResult.error?.message || "unknown error"}, falling back to snippet`,
       );
+
+      // ★ v4: 缓存失败结果，避免其他维度重复尝试同一 URL
+      this.fetchCache.set(cacheKey, {
+        fullContent: result.snippet || null,
+        contentSource: "snippet",
+        urlValid: false,
+        extractedFigures: [],
+      });
 
       return {
         ...result,
