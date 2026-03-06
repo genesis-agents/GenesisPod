@@ -369,18 +369,28 @@ export class DataSourceRouterService {
 
   /**
    * V5: 构造学术导向搜索查询
+   * ★ 增强：中文关键词自动提取英文术语用于英文学术站搜索
    */
   private buildAcademicQueries(
     topicName: string,
     dimensionName: string,
     dimensionDescription: string,
   ): string[] {
-    // Extract key terms from topic and dimension
     const keywords = `${topicName} ${dimensionName}`.trim();
 
+    // 从 description 中提取英文术语用于英文学术站
+    const englishTerms =
+      dimensionDescription.match(/[a-zA-Z][\w-]*(?:\s+[a-zA-Z][\w-]*)*/g) || [];
+    const bestEnglishTerm = englishTerms
+      .filter((t) => t.length >= 3)
+      .sort((a, b) => b.length - a.length)[0];
+
+    // 英文学术站用英文术语搜索（如果有），否则用原始关键词
+    const academicKeywords = bestEnglishTerm || keywords;
+
     return [
-      `${keywords} research report 2024 2025 site:mckinsey.com OR site:bcg.com OR site:hbr.org`,
-      `${keywords} analysis whitepaper site:gartner.com OR site:forrester.com OR site:deloitte.com`,
+      `${academicKeywords} research report 2024 2025 site:mckinsey.com OR site:bcg.com OR site:hbr.org`,
+      `${academicKeywords} analysis whitepaper site:gartner.com OR site:forrester.com OR site:deloitte.com`,
       `${keywords} ${dimensionDescription.split(/\s+/).slice(0, 5).join(" ")} academic paper`,
     ];
   }
@@ -507,8 +517,15 @@ export class DataSourceRouterService {
   }
 
   /**
+   * 检测文本是否包含中文字符
+   */
+  private containsChinese(text: string): boolean {
+    return /[\u4e00-\u9fff]/.test(text);
+  }
+
+  /**
    * 构建搜索查询列表
-   * ★ 增强：使用所有 searchQueries（最多 3 个），而非仅第一个
+   * ★ 增强：双语查询 — 中文 topic 自动生成英文搜索变体，确保英文文献覆盖
    */
   private buildSearchQueries(
     topic: ResearchTopic,
@@ -535,10 +552,26 @@ export class DataSourceRouterService {
       baseQueries.push(defaultQuery);
     }
 
-    // 去重并增强时间戳
+    // ★ 双语增强：如果预定义查询全是中文，补充英文 searchQueries
+    const englishQueries = (dimension.searchQueries as string[] | null)?.filter(
+      (q) => !this.containsChinese(q),
+    );
+    const hasEnglishQuery =
+      baseQueries.some((q) => !this.containsChinese(q)) ||
+      (englishQueries && englishQueries.length > 0);
+
+    if (!hasEnglishQuery && this.containsChinese(topicName)) {
+      // 所有查询都是中文，补充英文变体以覆盖英文文献
+      const englishKeywords = this.extractEnglishKeywords(dimension);
+      if (englishKeywords) {
+        baseQueries.push(englishKeywords);
+      }
+    }
+
+    // 去重并增强时间戳（最多 5 个以容纳双语查询）
     const enhanced = baseQueries
       .filter((q, i, arr) => arr.indexOf(q) === i)
-      .slice(0, 3)
+      .slice(0, 5)
       .map((q) => this.enhanceQueryWithTimestamp(q, dimension));
 
     this.logger.debug(
@@ -546,6 +579,24 @@ export class DataSourceRouterService {
     );
 
     return enhanced;
+  }
+
+  /**
+   * 从维度配置中提取英文关键词用于跨语言搜索
+   * ★ 优先使用维度 description 中的英文部分，回退到通用英文研究查询
+   */
+  private extractEnglishKeywords(dimension: TopicDimension): string | null {
+    const desc = dimension.description || "";
+    // 如果 description 包含英文词汇（如技术术语），提取它们
+    const englishWords = desc.match(/[a-zA-Z][\w-]*(?:\s+[a-zA-Z][\w-]*)*/g);
+    if (englishWords && englishWords.length > 0) {
+      // 取最长的英文短语作为搜索关键词
+      const longestPhrase = englishWords.sort((a, b) => b.length - a.length)[0];
+      if (longestPhrase.length >= 3) {
+        return `${longestPhrase} research analysis`;
+      }
+    }
+    return null;
   }
 
   /**

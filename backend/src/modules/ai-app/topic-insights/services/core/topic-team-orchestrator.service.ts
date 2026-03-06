@@ -37,6 +37,10 @@ import {
 import { type AgentAssignment } from "../../types/leader.types";
 import { ResearchCheckpointService } from "../monitoring/research-checkpoint.service";
 import { ResearchTodoService } from "../collaboration/research-todo.service";
+import {
+  CritiqueRefineService,
+  type CritiqueRefineRequest,
+} from "../quality/critique-refine.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import {
   type ResearchDepth,
@@ -113,6 +117,7 @@ export class TopicTeamOrchestratorService {
     private readonly researchCheckpointService: ResearchCheckpointService,
     private readonly dataSourceRouterService: DataSourceRouterService,
     private readonly researchTodoService: ResearchTodoService,
+    private readonly critiqueRefineService: CritiqueRefineService,
     @Optional() private readonly agentFacade?: AgentFacade,
     // ★ Batch 2: 自动化质量评估
     @Optional() private readonly evalPipeline?: EvalPipelineService,
@@ -829,6 +834,21 @@ export class TopicTeamOrchestratorService {
             `Research quality below threshold: ${reviewResult.qualityLevel}. ` +
               `Recommendations: ${reviewResult.recommendations.join("; ")}`,
           );
+
+          // ★ 质量修订：对需要修订的维度执行批评-改进循环
+          if (
+            reviewResult.needsReresearch &&
+            reviewResult.dimensionsToReresearch.length > 0
+          ) {
+            await this.reviseFailedDimensions(
+              topic,
+              dimensions,
+              analysisResults,
+              reviewResult,
+              topicId,
+              report.id,
+            );
+          }
         }
       } catch (reviewError) {
         if (reviewSpanId) {
@@ -1606,6 +1626,116 @@ export class TopicTeamOrchestratorService {
   /**
    * 执行研究质量审核
    */
+  /**
+   * ★ 对质量审核未通过的维度执行批评-改进循环
+   * 最多修订一轮，避免无限循环和过高成本
+   */
+  private async reviseFailedDimensions(
+    topic: ResearchTopic,
+    dimensions: TopicDimension[],
+    analysisResults: PromiseSettledResult<{
+      dimensionId: string;
+      analysisResult: DimensionAnalysisResult;
+      evidenceIds: string[];
+    }>[],
+    reviewResult: OverallReviewResult,
+    topicId: string,
+    reportId: string,
+  ): Promise<void> {
+    const dimensionIds = new Set(reviewResult.dimensionsToReresearch);
+    this.logger.log(
+      `[reviseFailedDimensions] Revising ${dimensionIds.size} dimensions: ${[...dimensionIds].join(", ")}`,
+    );
+
+    this.emitProgress({
+      topicId,
+      reportId,
+      phase: "reviewing",
+      progress: 78,
+      completedDimensions: 0,
+      totalDimensions: dimensionIds.size,
+      message: `正在修订 ${dimensionIds.size} 个未达标维度...`,
+    });
+
+    let revisedCount = 0;
+
+    for (const result of analysisResults) {
+      if (result.status !== "fulfilled") continue;
+      if (!dimensionIds.has(result.value.dimensionId)) continue;
+
+      const { dimensionId, analysisResult } = result.value;
+      const dimension = dimensions.find((d) => d.id === dimensionId);
+      if (!dimension || !analysisResult.detailedContent) continue;
+
+      // 找到该维度的审核反馈
+      const dimReview = reviewResult.dimensionReviews.find(
+        (r) => r.dimensionId === dimensionId,
+      );
+      const qualityFeedback = dimReview
+        ? `质量评分: ${dimReview.overallScore}/100. 问题: ${dimReview.issues.map((i) => i.description).join("; ")}. 建议: ${dimReview.suggestions.join("; ")}`
+        : reviewResult.recommendations.join("; ");
+
+      try {
+        this.logger.log(
+          `[reviseFailedDimensions] Revising dimension: ${dimension.name}`,
+        );
+
+        const critiqueRequest: CritiqueRefineRequest = {
+          content: analysisResult.detailedContent,
+          context: {
+            topicName: topic.name,
+            dimensionName: dimension.name,
+            qualityExpectation: qualityFeedback,
+          },
+          config: { maxIterations: 1 },
+        };
+
+        const refineResult =
+          await this.critiqueRefineService.runCritiqueRefineLoop(
+            critiqueRequest,
+          );
+
+        if (refineResult.finalContent !== analysisResult.detailedContent) {
+          // 更新内存中的分析结果（供后续 synthesis 使用）
+          analysisResult.detailedContent = refineResult.finalContent;
+
+          // 同步更新数据库中的 DimensionAnalysis.dataPoints
+          const existingAnalysis =
+            await this.prisma.dimensionAnalysis.findFirst({
+              where: { dimensionId, reportId },
+              orderBy: { createdAt: "desc" },
+            });
+          if (existingAnalysis) {
+            const dataPoints =
+              (existingAnalysis.dataPoints as Record<string, unknown>) || {};
+            dataPoints.detailedContent = refineResult.finalContent;
+            await this.prisma.dimensionAnalysis.update({
+              where: { id: existingAnalysis.id },
+              data: {
+                dataPoints:
+                  dataPoints as import("@prisma/client").Prisma.InputJsonValue,
+              },
+            });
+          }
+
+          revisedCount++;
+          this.logger.log(
+            `[reviseFailedDimensions] ✓ Revised ${dimension.name} (${refineResult.totalChanges} changes in ${refineResult.iterations.length} iteration(s))`,
+          );
+        }
+      } catch (revisionError) {
+        this.logger.warn(
+          `[reviseFailedDimensions] Failed to revise ${dimension.name}: ${revisionError}`,
+        );
+        // 非致命错误，继续处理其他维度
+      }
+    }
+
+    this.logger.log(
+      `[reviseFailedDimensions] Completed: ${revisedCount}/${dimensionIds.size} dimensions revised`,
+    );
+  }
+
   private async reviewResearchQuality(
     topic: ResearchTopic,
     dimensions: TopicDimension[],

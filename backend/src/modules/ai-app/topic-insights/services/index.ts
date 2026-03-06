@@ -86,6 +86,9 @@ export { ResearchTodoService } from "./collaboration/research-todo.service";
 export { ResearchReviewerService } from "./collaboration/research-reviewer.service";
 export { ResearchReflectionService } from "./collaboration/research-reflection.service";
 
+// ==================== Quality ====================
+export { CritiqueRefineService } from "./quality/critique-refine.service";
+
 // ==================== Monitoring ====================
 export { AgentActivityService } from "./monitoring/agent-activity.service";
 export { ResearchMissionHealthService } from "./monitoring/research-mission-health.service";

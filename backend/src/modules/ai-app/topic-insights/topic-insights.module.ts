@@ -97,6 +97,7 @@ import {
   KnowledgeGraphService,
   MultiLanguageResearchService,
   // ★ P1: 新增增强能力
+  CritiqueRefineService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
@@ -173,6 +174,7 @@ const services = [
   KnowledgeGraphService,
   MultiLanguageResearchService,
   // ★ P1: 新增增强能力
+  CritiqueRefineService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
