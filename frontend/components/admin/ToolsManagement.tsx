@@ -560,7 +560,8 @@ export default function ToolsManagement() {
   };
 
   const handleTestExternalTool = async (tool: ExternalTool) => {
-    if (!tool.hasApiKey) return;
+    // Allow free tools (noKeyRequired) to be tested without API key
+    if (!tool.hasApiKey && !tool.noKeyRequired) return;
 
     setTestingTool(tool.id);
     setTestResults((prev) => ({
@@ -586,6 +587,15 @@ export default function ToolsManagement() {
           break;
         case 'external-skills':
           endpoint = `/admin/skillsmp-config/test`;
+          break;
+        case 'policy-research':
+          endpoint = `/admin/policy-config/test`;
+          break;
+        case 'external-finance':
+          endpoint = `/admin/finance-config/test`;
+          break;
+        case 'external-devtools':
+          endpoint = `/admin/devtools-config/test`;
           break;
         default:
           setTestResults((prev) => ({

@@ -765,14 +765,6 @@ export class AdminController {
         apiKey = secretValue.trim();
       }
 
-      if (!apiKey) {
-        return {
-          success: false,
-          message:
-            "No API key provided. Please configure an API key or select a secret.",
-        };
-      }
-
       const { HttpService } = await import("@nestjs/axios");
 
       // Create a temporary test instance
@@ -782,7 +774,36 @@ export class AdminController {
       const testQuery = "AI technology news";
       let response;
 
-      if (body.provider === "perplexity") {
+      // Require API key for non-free providers
+      if (body.provider !== "duckduckgo" && !apiKey) {
+        return {
+          success: false,
+          message:
+            "No API key provided. Please configure an API key or select a secret.",
+        };
+      }
+
+      if (body.provider === "duckduckgo") {
+        // DuckDuckGo is free, no key needed
+        const { firstValueFrom } = await import("rxjs");
+        response = await firstValueFrom(
+          httpService.get(
+            `https://html.duckduckgo.com/html/?q=${encodeURIComponent(testQuery)}`,
+            {
+              timeout: 10000,
+              headers: {
+                "User-Agent":
+                  "Mozilla/5.0 (compatible; GenesisAI/1.0; +https://genesis-ai.com)",
+              },
+            },
+          ),
+        );
+
+        return {
+          success: response.status === 200,
+          message: "DuckDuckGo search endpoint reachable",
+        };
+      } else if (body.provider === "perplexity") {
         const { firstValueFrom } = await import("rxjs");
         response = await firstValueFrom(
           httpService.post(
@@ -872,6 +893,250 @@ export class AdminController {
         success: false,
         message,
       };
+    }
+  }
+
+  // ============ Policy Research API Test ============
+
+  /**
+   * 测试政策研究API连接
+   * POST /api/v1/admin/policy-config/test
+   */
+  @Post("policy-config/test")
+  async testPolicyConnection(
+    @Body()
+    body: {
+      provider: string;
+      secretKey?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Testing policy API for ${body.provider}`);
+
+    try {
+      const { HttpService } = await import("@nestjs/axios");
+      const { firstValueFrom } = await import("rxjs");
+      const httpService = new HttpService();
+
+      if (body.provider === "federal-register") {
+        // Federal Register API is free, no key needed
+        const response = await firstValueFrom(
+          httpService.get(
+            "https://www.federalregister.gov/api/v1/documents.json?per_page=1&order=newest",
+            { timeout: 10000 },
+          ),
+        );
+
+        return {
+          success: true,
+          message: "Federal Register API connection successful",
+          resultsCount: response.data.count || 0,
+        };
+      } else if (body.provider === "congress-gov") {
+        let apiKey = "";
+        if (body.secretKey) {
+          const secretValue = await this.secretsService.getValue(
+            body.secretKey,
+          );
+          if (!secretValue) {
+            return {
+              success: false,
+              message: `Secret '${body.secretKey}' not found or has no value`,
+            };
+          }
+          apiKey = secretValue.trim();
+        }
+
+        if (!apiKey) {
+          return {
+            success: false,
+            message:
+              "No API key configured. Get a free key at https://api.congress.gov/sign-up/",
+          };
+        }
+
+        const response = await firstValueFrom(
+          httpService.get(
+            `https://api.congress.gov/v3/bill?limit=1&api_key=${apiKey}`,
+            { timeout: 10000 },
+          ),
+        );
+
+        return {
+          success: true,
+          message: "Congress.gov API connection successful",
+          resultsCount: response.data.bills?.length || 0,
+        };
+      } else if (body.provider === "whitehouse-news") {
+        // White House News scraping, no key needed
+        const response = await firstValueFrom(
+          httpService.get("https://www.whitehouse.gov/news/", {
+            timeout: 10000,
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (compatible; GenesisAI/1.0; +https://genesis-ai.com)",
+            },
+          }),
+        );
+
+        return {
+          success: response.status === 200,
+          message:
+            response.status === 200
+              ? "White House News endpoint reachable"
+              : `Unexpected status: ${response.status}`,
+        };
+      }
+
+      return {
+        success: false,
+        message: `Unknown policy provider: ${body.provider}`,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Policy API test failed: ${message}`);
+      return { success: false, message };
+    }
+  }
+
+  // ============ Finance API Test ============
+
+  /**
+   * 测试金融数据API连接
+   * POST /api/v1/admin/finance-config/test
+   */
+  @Post("finance-config/test")
+  async testFinanceConnection(
+    @Body()
+    body: {
+      provider: string;
+      secretKey?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Testing finance API for ${body.provider}`);
+
+    try {
+      if (body.provider === "alpha-vantage") {
+        let apiKey = "";
+        if (body.secretKey) {
+          const secretValue = await this.secretsService.getValue(
+            body.secretKey,
+          );
+          if (!secretValue) {
+            return {
+              success: false,
+              message: `Secret '${body.secretKey}' not found or has no value`,
+            };
+          }
+          apiKey = secretValue.trim();
+        }
+
+        if (!apiKey) {
+          return {
+            success: false,
+            message:
+              "No API key configured. Get a free key at https://www.alphavantage.co/support/#api-key",
+          };
+        }
+
+        const { HttpService } = await import("@nestjs/axios");
+        const { firstValueFrom } = await import("rxjs");
+        const httpService = new HttpService();
+
+        const response = await firstValueFrom(
+          httpService.get(
+            `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${apiKey}`,
+            { timeout: 10000 },
+          ),
+        );
+
+        // Alpha Vantage returns error in body, not HTTP status
+        if (response.data["Error Message"] || response.data["Note"]) {
+          return {
+            success: false,
+            message:
+              response.data["Error Message"] ||
+              response.data["Note"] ||
+              "API key invalid or rate limited",
+          };
+        }
+
+        return {
+          success: true,
+          message: "Alpha Vantage API connection successful",
+        };
+      }
+
+      return {
+        success: false,
+        message: `Unknown finance provider: ${body.provider}`,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Finance API test failed: ${message}`);
+      return { success: false, message };
+    }
+  }
+
+  // ============ DevTools API Test ============
+
+  /**
+   * 测试开发工具API连接
+   * POST /api/v1/admin/devtools-config/test
+   */
+  @Post("devtools-config/test")
+  async testDevtoolsConnection(
+    @Body()
+    body: {
+      provider: string;
+      secretKey?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Testing devtools API for ${body.provider}`);
+
+    try {
+      if (body.provider === "github-search") {
+        const { HttpService } = await import("@nestjs/axios");
+        const { firstValueFrom } = await import("rxjs");
+        const httpService = new HttpService();
+
+        const headers: Record<string, string> = {
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "GenesisAI",
+        };
+
+        // GitHub works without a key (lower rate limit)
+        if (body.secretKey) {
+          const secretValue = await this.secretsService.getValue(
+            body.secretKey,
+          );
+          if (secretValue) {
+            headers["Authorization"] = `Bearer ${secretValue.trim()}`;
+          }
+        }
+
+        const response = await firstValueFrom(
+          httpService.get(
+            "https://api.github.com/search/repositories?q=test&per_page=1",
+            { timeout: 10000, headers },
+          ),
+        );
+
+        const rateLimit = response.headers["x-ratelimit-remaining"];
+        return {
+          success: true,
+          message: `GitHub API connection successful (rate limit remaining: ${rateLimit || "unknown"})`,
+          resultsCount: response.data.total_count || 0,
+        };
+      }
+
+      return {
+        success: false,
+        message: `Unknown devtools provider: ${body.provider}`,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`DevTools API test failed: ${message}`);
+      return { success: false, message };
     }
   }
 
