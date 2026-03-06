@@ -17,9 +17,11 @@ import {
 import {
   sanitizeHeadingLevels,
   numberSubHeadings,
+  hierarchicalNumberBoldListItems,
   deduplicateParagraphs,
   deduplicateHeadings,
   getMinDataPoints,
+  simplifyLatexNotation,
 } from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type {
@@ -436,14 +438,22 @@ export class ReportSynthesisService {
     );
 
     // 8. ★ 合并图表：收集的图表 + AI 生成的图表
-    // 过滤掉仅有外部 imageUrl 的引用图表（AI 虚构的外部 URL 始终 404）
+    // 只过滤 AI synthesis 虚构的引用图表（外部 URL 始终 404）；
+    // collectedCharts 来自真实 FigureExtractorService，始终保留
     const allCharts = [
       ...collectedCharts,
       ...(synthesisResult.charts || []),
     ].filter((chart) => {
-      if (chart.chartType === "reference" && chart.imageUrl && !chart.data) {
+      // Only filter reference charts from AI synthesis (not from figure extraction pipeline)
+      // collectedCharts come from real FigureExtractorService — always keep them
+      if (
+        chart.chartType === "reference" &&
+        chart.imageUrl &&
+        !chart.data &&
+        !collectedCharts.some((c) => c.id === chart.id)
+      ) {
         this.logger.warn(
-          `[synthesizeReport] Removing reference chart with external URL: ${chart.id}`,
+          `[synthesizeReport] Removing AI-synthesized reference chart with external URL: ${chart.id}`,
         );
         return false;
       }
@@ -914,6 +924,8 @@ export class ReportSynthesisService {
       content = deduplicateHeadings(content);
       // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
       content = numberSubHeadings(content, idx + 1);
+      // ★ 结构化列表项层级编号：N. **粗体** → N.M.K. **粗体**（跟随父节编号）
+      content = hierarchicalNumberBoldListItems(content);
       // ★ 跨维度段落去重：首 120 字相同的段落只保留首次出现
       content = deduplicateParagraphs(content, globalSeenParagraphs);
       if (content.length > MAX_DIMENSION_CHARS) {
@@ -1031,11 +1043,26 @@ export class ReportSynthesisService {
       parts.push("\n\n");
     }
 
-    // 9. 结语（AI 生成）
+    // 9. 结语（AI 生成）— 去重守卫：如果结语内容与跨维度分析高度重复则跳过
     if (sc.conclusion) {
-      parts.push(`## ${labels.conclusion}\n`);
-      parts.push(stripLeadingHeading(sc.conclusion));
-      parts.push("\n");
+      const conclusionText = stripLeadingHeading(sc.conclusion).trim();
+      const crossText = (sc.crossDimensionAnalysis || "").trim();
+      // 检查结语前 200 字符是否与跨维度分析前 200 字符相同（去重）
+      const conclusionKey = conclusionText.substring(0, 200).replace(/\s/g, "");
+      const crossKey = crossText.substring(0, 200).replace(/\s/g, "");
+      if (
+        conclusionKey.length > 50 &&
+        crossKey.length > 50 &&
+        conclusionKey === crossKey
+      ) {
+        this.logger.warn(
+          "[buildFullReport] Conclusion is duplicate of crossDimensionAnalysis, skipping to avoid repetition",
+        );
+      } else if (conclusionText.length > 0) {
+        parts.push(`## ${labels.conclusion}\n`);
+        parts.push(conclusionText);
+        parts.push("\n");
+      }
     }
 
     const rawReport = this.teamFacade.sanitizeReport(parts.join("\n"));
@@ -1550,24 +1577,58 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     const sectionsToRemove = isEn
       ? [
           "Cross-Dimension Analysis",
+          "Cross-Dimensional Analysis",
           "Risk Assessment",
           "Strategic Recommendations",
+          "Risk Matrix",
         ]
-      : ["跨维度关联分析", "风险评估", "战略建议"];
+      : [
+          "跨维度关联分析",
+          "跨维度分析",
+          "风险评估",
+          "风险矩阵",
+          "战略建议",
+          "企业决策者",
+          "投资者",
+          "政策研究者",
+        ];
 
-    // 移除跨维度分析、风险评估、战略建议章节（它们已作为独立 ## 渲染，避免重复）
     let result = conclusion;
 
+    // 移除已作为独立 ## 渲染的章节（避免结语中重复）
+    // 使用更宽松的匹配：支持 0-3 个换行，匹配到下一个 ## 或 # 或文末
     for (const section of sectionsToRemove) {
-      const pattern = new RegExp(
-        `## ${section}\\n\\n[\\s\\S]*?(?=## |$)`,
-        "gi",
-      );
-      result = result.replace(pattern, "");
+      // Escape regex special chars in section title
+      const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const patterns = [
+        // ## 标题 + 内容（到下一个 ## 或文末）
+        new RegExp(
+          `#{1,3}\\s*${escaped}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
+          "gi",
+        ),
+        // 纯标题行（不带#）+ 内容
+        new RegExp(
+          `(?:^|\\n)${escaped}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
+          "gi",
+        ),
+      ];
+      for (const pattern of patterns) {
+        result = result.replace(pattern, "\n");
+      }
+    }
+
+    // Safety: if section removal stripped everything, return original (minus section headers only)
+    if (!result.trim()) {
+      return conclusion
+        .replace(/^#{1,3}\s+(结论|结语|Conclusion)\s*\n+/gim, "")
+        .trim();
     }
 
     // 剥离结论/结语标题（仅标题，保留内容；buildFullReportFromDimensions 会添加自己的 ## 结语）
-    result = result.replace(/^#{1,2}\s+(结论|结语|Conclusion)\s*\n+/gim, "");
+    result = result.replace(/^#{1,3}\s+(结论|结语|Conclusion)\s*\n+/gim, "");
+
+    // 清理多余空行
+    result = result.replace(/\n{3,}/g, "\n\n");
 
     return result.trim();
   }
@@ -2033,12 +2094,39 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
   /** Strip LLM-leaked meta-notes (word counts, editing instructions). */
   private stripLLMMetaNotes(content: string): string {
-    return content
-      .replace(/（精简字数[^）]*）/g, "")
-      .replace(/（原\d+[^）]*）/g, "")
-      .replace(/（[约共]\d+字）/g, "")
-      .replace(/（\d+字）/g, "")
-      .replace(/\n{3,}/g, "\n\n");
+    return (
+      content
+        // 字数统计（各种变体）
+        .replace(/（精简字数[^）]*）/g, "")
+        .replace(/（原\d+[^）]*）/g, "")
+        .replace(/（[约共]\d+字）/g, "")
+        .replace(/（\d+字）/g, "")
+        .replace(/[（(]字数[：:]?\s*[约共]?\d+[字词][)）]/g, "")
+        .replace(/[（(]当前字数[：:]?\s*\d+[)）]/g, "")
+        .replace(/\[当前字数[：:]\s*\d+\]/g, "")
+        // Broad catch-all: any (字数...) or （字数...） variant
+        .replace(/\(字数[^)]{0,30}\)/g, "")
+        .replace(/（字数[^）]{0,30}）/g, "")
+        // English variants for en reports
+        .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
+        .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")
+        // 内部角色名泄露（Leader, Agent 等多 Agent 流程术语）
+        .replace(/Leader\s*分配的/g, "")
+        .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成)的/g, "")
+        // 内部术语泄露
+        .replace(/独立洞察[：:]/g, "")
+        .replace(/需补充\d{4}\s*Q\d\s*企业报告验证/g, "")
+        .replace(/(?:需|应)补充.*?(?:验证|数据|报告)/g, "")
+        // 数据支撑总结块（内部标注）
+        .replace(/^数据支撑总结[：:].+$/gm, "")
+        // 教材/课程类源语言泄露
+        .replace(/从学习路线图可见[，,]?/g, "")
+        .replace(/(?:多模态)?课程常将/g, "研究表明")
+        .replace(/数据与课程实践表明/g, "数据与实践表明")
+        .replace(/在安全与对齐学习路线中/g, "在安全与对齐研究中")
+        // 清理多余空行
+        .replace(/\n{3,}/g, "\n\n")
+    );
   }
 
   // numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
@@ -2063,6 +2151,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // 额外清理：strip stray --- separators in flow text (not caught by HR regex)
     content = content.replace(/\n---\n/g, "\n\n");
+
+    // ★ v4.1: LaTeX 简化 — 将原始 LaTeX 转为可读文本
+    content = simplifyLatexNotation(content);
+
+    // ★ v4.1: 清理残留的 figure 占位符（HTML 转义形式也要处理）
+    content = content.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
+    content = content.replace(/&lt;!--\s*figure:\d+:\d+\s*--&gt;/g, "");
+
+    // ★ v4.1: 全文级 LLM meta-notes 清理
+    content = this.stripLLMMetaNotes(content);
 
     // 额外 warn-only 检查（不在 QualityGateService 中的报告级特定规则）
     const arrowCount = (content.match(/→/g) || []).length;
@@ -2117,7 +2215,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // 2. ★ v4: Skip generatedCharts injection (AI-fabricated charts disabled)
     // generatedCharts placeholders are no longer injected into content
 
-    // 3. Deduplicate chart placeholders: same chartId only appears once
+    // 3. Strip unresolved figure placeholders (no matching figureReference found)
+    result = result.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
+
+    // 4. Deduplicate chart placeholders: same chartId only appears once
     const seenChartIds = new Set<string>();
     result = result.replace(/<!-- chart:([^\s]+?) -->/g, (match, chartId) => {
       if (seenChartIds.has(chartId)) return "";

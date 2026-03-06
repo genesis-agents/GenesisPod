@@ -1666,7 +1666,7 @@ describe("DimensionMissionService", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should deduplicate figureReferences by imageUrl and filter null imageUrl", async () => {
+    it("should deduplicate figureReferences by composite key and filter null imageUrl", async () => {
       mockSectionWriter.writeSectionsParallel
         .mockResolvedValueOnce([
           {
@@ -1676,17 +1676,28 @@ describe("DimensionMissionService", () => {
             generatedCharts: [],
             figureReferences: [
               {
+                id: "fig-1",
                 imageUrl: "https://img.example.com/chart1.png",
                 evidenceCitationIndex: 1,
+                figureIndex: 0,
               },
               {
+                id: "fig-1-dup",
                 imageUrl: "https://img.example.com/chart1.png",
                 evidenceCitationIndex: 1,
-              }, // duplicate
-              { imageUrl: null, evidenceCitationIndex: 2 }, // null - filtered
+                figureIndex: 0,
+              }, // duplicate by composite key
               {
+                id: "fig-2",
+                imageUrl: null,
+                evidenceCitationIndex: 2,
+                figureIndex: 0,
+              }, // null - filtered
+              {
+                id: "fig-3",
                 imageUrl: "https://img.example.com/chart2.png",
                 evidenceCitationIndex: 3,
+                figureIndex: 0,
               },
             ],
           },
@@ -1738,8 +1749,10 @@ describe("DimensionMissionService", () => {
             generatedCharts: [],
             figureReferences: [
               {
+                id: "fig-1",
                 imageUrl: "https://img.example.com/fig.png",
                 evidenceCitationIndex: 1,
+                figureIndex: 0,
               },
             ],
           },

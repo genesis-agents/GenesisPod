@@ -726,7 +726,7 @@ describe("DimensionWritingService", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should deduplicate figure references by imageUrl", async () => {
+    it("should deduplicate figure references by composite key and filter null imageUrl", async () => {
       const topic = makeResearchTopic();
       const dimension = makeTopicDimension();
       const searchResult = makeSearchPhaseResult();
@@ -736,17 +736,28 @@ describe("DimensionWritingService", () => {
         makeSectionWriteResult({
           figureReferences: [
             {
+              id: "fig-1",
               imageUrl: "https://img.example.com/fig1.png",
               evidenceCitationIndex: 1,
+              figureIndex: 0,
             },
             {
+              id: "fig-1-dup",
               imageUrl: "https://img.example.com/fig1.png",
               evidenceCitationIndex: 1,
-            }, // duplicate
-            { imageUrl: null, evidenceCitationIndex: 3 }, // null imageUrl - filtered
+              figureIndex: 0,
+            }, // duplicate by composite key
             {
+              id: "fig-3",
+              imageUrl: null,
+              evidenceCitationIndex: 3,
+              figureIndex: 0,
+            }, // null imageUrl - filtered
+            {
+              id: "fig-2",
               imageUrl: "https://img.example.com/fig2.png",
               evidenceCitationIndex: 2,
+              figureIndex: 0,
             },
           ],
         }),
@@ -1021,8 +1032,10 @@ describe("DimensionWritingService", () => {
         makeSectionWriteResult({
           figureReferences: [
             {
+              id: "fig-1",
               imageUrl: "https://img.example.com/fig.png",
               evidenceCitationIndex: 1,
+              figureIndex: 0,
             },
           ],
         }),

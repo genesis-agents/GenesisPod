@@ -8,8 +8,10 @@ import {
 import {
   sanitizeHeadingLevels,
   numberSubHeadings,
+  hierarchicalNumberBoldListItems,
   deduplicateParagraphs,
   deduplicateHeadings,
+  simplifyLatexNotation,
 } from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type { ResearchTopic } from "@prisma/client";
@@ -531,6 +533,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       content = deduplicateHeadings(content);
       // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
       content = numberSubHeadings(content, idx + 1);
+      content = hierarchicalNumberBoldListItems(content);
       // ★ 跨维度段落去重：首 120 字相同的段落只保留首次出现
       content = deduplicateParagraphs(content, globalSeenParagraphs);
       if (content.length > MAX_DIMENSION_CHARS) {
@@ -1202,7 +1205,15 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     }
 
     // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线 [1]___）
-    return sanitizeMarkdownContent(parts.join("\n"));
+    // ★ Post-process: LaTeX simplification + figure placeholder cleanup
+    let finalContent = sanitizeMarkdownContent(parts.join("\n"));
+    finalContent = simplifyLatexNotation(finalContent);
+    finalContent = finalContent.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
+    finalContent = finalContent.replace(
+      /&lt;!--\s*figure:\d+:\d+\s*--&gt;/g,
+      "",
+    );
+    return finalContent;
   }
 
   // numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
@@ -1210,12 +1221,35 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
   /** Strip LLM-leaked meta-notes (word counts, editing instructions). */
   private stripLLMMetaNotes(content: string): string {
-    return content
-      .replace(/（精简字数[^）]*）/g, "")
-      .replace(/（原\d+[^）]*）/g, "")
-      .replace(/（[约共]\d+字）/g, "")
-      .replace(/（\d+字）/g, "")
-      .replace(/\n{3,}/g, "\n\n");
+    return (
+      content
+        // 字数统计（各种变体）
+        .replace(/（精简字数[^）]*）/g, "")
+        .replace(/（原\d+[^）]*）/g, "")
+        .replace(/（[约共]\d+字）/g, "")
+        .replace(/（\d+字）/g, "")
+        .replace(/[（(]字数[：:]?\s*[约共]?\d+[字词][)）]/g, "")
+        .replace(/[（(]当前字数[：:]?\s*\d+[)）]/g, "")
+        .replace(/\[当前字数[：:]\s*\d+\]/g, "")
+        // Broad catch-all: any (字数...) or （字数...） variant
+        .replace(/\(字数[^)]{0,30}\)/g, "")
+        .replace(/（字数[^）]{0,30}）/g, "")
+        // English variants for en reports
+        .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
+        .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")
+        // 内部角色名泄露（Leader, Agent 等多 Agent 流程术语）
+        .replace(/Leader\s*分配的/g, "")
+        .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成)的/g, "")
+        // 数据支撑总结块（内部标注）
+        .replace(/^数据支撑总结[：:].+$/gm, "")
+        // 教材/课程类源语言泄露
+        .replace(/从学习路线图可见[，,]?/g, "")
+        .replace(/(?:多模态)?课程常将/g, "研究表明")
+        .replace(/数据与课程实践表明/g, "数据与实践表明")
+        .replace(/在安全与对齐学习路线中/g, "在安全与对齐研究中")
+        // 清理多余空行
+        .replace(/\n{3,}/g, "\n\n")
+    );
   }
 
   /**
@@ -1259,7 +1293,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       );
     }
 
-    // 3. Deduplicate chart placeholders: same chartId only appears once
+    // 3. Strip unresolved figure placeholders (no matching figureReference found)
+    result = result.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
+
+    // 4. Deduplicate chart placeholders: same chartId only appears once
     const seenChartIds = new Set<string>();
     result = result.replace(/<!-- chart:([^\s]+?) -->/g, (match, chartId) => {
       if (seenChartIds.has(chartId)) return "";

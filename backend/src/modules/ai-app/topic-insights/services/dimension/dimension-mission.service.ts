@@ -1054,14 +1054,23 @@ export class DimensionMissionService {
         return true;
       });
 
-      const allFigureReferencesRaw = sectionResults.flatMap(
-        (r) => r.figureReferences || [],
+      const allFigureReferencesRaw = sectionResults.flatMap((r, sectionIdx) =>
+        (r.figureReferences || []).map((fig) => ({
+          ...fig,
+          // ★ Prefix id with section index to avoid cross-section id collisions (e.g., both "fig-0")
+          id:
+            fig.id && fig.id.startsWith(`s${sectionIdx}-`)
+              ? fig.id
+              : `s${sectionIdx}-${fig.id || "fig"}`,
+        })),
       );
-      const seenImageUrls = new Set<string>();
+      // ★ Dedup by evidenceCitationIndex:figureIndex (not imageUrl) to preserve one ref per placeholder
+      const seenFigKeys = new Set<string>();
       const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
         if (!fig.imageUrl) return false;
-        if (seenImageUrls.has(fig.imageUrl)) return false;
-        seenImageUrls.add(fig.imageUrl);
+        const key = `${fig.evidenceCitationIndex}:${fig.figureIndex}`;
+        if (seenFigKeys.has(key)) return false;
+        seenFigKeys.add(key);
         return true;
       });
       this.logger.log(
@@ -2002,8 +2011,15 @@ export class DimensionMissionService {
     for (const [promptIndex, actualCitationIndex] of sortedEntries) {
       // 只有当 promptIndex 和 actualCitationIndex 不同时才需要替换
       if (promptIndex !== actualCitationIndex) {
+        // Replace citation references [N]
         const pattern = new RegExp(`\\[${promptIndex}\\]`, "g");
         result = result.replace(pattern, `[${actualCitationIndex}]`);
+        // Replace figure placeholders <!-- figure:N:M -->
+        const figPattern = new RegExp(
+          `(<!--\\s*figure:)${promptIndex}(:)`,
+          "g",
+        );
+        result = result.replace(figPattern, `$1${actualCitationIndex}$2`);
       }
     }
     return result;

@@ -344,14 +344,21 @@ export class DimensionWritingService {
         return true;
       });
 
-      const allFigureReferencesRaw = sectionResults.flatMap(
-        (r) => r.figureReferences || [],
+      const allFigureReferencesRaw = sectionResults.flatMap((r, sectionIdx) =>
+        (r.figureReferences || []).map((fig) => ({
+          ...fig,
+          id:
+            fig.id && fig.id.startsWith(`s${sectionIdx}-`)
+              ? fig.id
+              : `s${sectionIdx}-${fig.id || "fig"}`,
+        })),
       );
-      const seenImageUrls = new Set<string>();
+      const seenFigKeys = new Set<string>();
       const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
         if (!fig.imageUrl) return false;
-        if (seenImageUrls.has(fig.imageUrl)) return false;
-        seenImageUrls.add(fig.imageUrl);
+        const key = `${fig.evidenceCitationIndex}:${fig.figureIndex}`;
+        if (seenFigKeys.has(key)) return false;
+        seenFigKeys.add(key);
         return true;
       });
       this.logger.log(
@@ -1105,8 +1112,15 @@ export class DimensionWritingService {
     );
     for (const [promptIndex, actualCitationIndex] of sortedEntries) {
       if (promptIndex !== actualCitationIndex) {
+        // Replace citation references [N]
         const pattern = new RegExp(`\\[${promptIndex}\\]`, "g");
         result = result.replace(pattern, `[${actualCitationIndex}]`);
+        // Replace figure placeholders <!-- figure:N:M -->
+        const figPattern = new RegExp(
+          `(<!--\\s*figure:)${promptIndex}(:)`,
+          "g",
+        );
+        result = result.replace(figPattern, `$1${actualCitationIndex}$2`);
       }
     }
     return result;

@@ -64,7 +64,7 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
     "forInvestors": { "opportunities": ["机会1"], "risks": ["风险1"] },
     "forPolicymakers": { "keyObservations": ["观察点1"] }
   },
-  "conclusion": "结束语（Markdown格式，300-500字，纯段落文本，不使用子标题。总结全文核心判断，展望研究主题的未来走向。禁止包含情景展望（已在 scenarioOutlook 中）和行动建议（已在 strategicRecommendations 中）。禁止与其他字段内容重复。）",
+  "conclusion": "结束语（Markdown格式，300-500字，纯段落文本，不使用子标题。总结全文核心判断，展望研究主题的未来走向。严格禁止：(1)复制跨维度分析内容 (2)复制风险评估内容 (3)复制战略建议内容 (4)包含风险矩阵表格。结语必须是独立的总结性段落，不要重复其他字段已有的内容。）",
   "scenarioOutlook": {
     "baseline": "基准情景描述（含概率评估和触发条件）",
     "optimistic": "乐观情景描述（含概率评估和触发条件）",
@@ -79,6 +79,7 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
 - **编号格式统一**：全文统一使用阿拉伯数字编号（1. 2. 3.），禁止混用中文数字（一、二、三）和阿拉伯数字（1、2、3）
 - 有序列表统一使用 \`1. 2. 3.\` 格式，无序列表统一使用 \`- \` 格式
 - 标题使用 Markdown 层级（##, ###），不要在标题中使用编号
+- **禁止输出字数统计**：不要在任何位置输出"（字数：约XXX字）"或类似字数标注
 
 {{languageInstruction}}`;
 

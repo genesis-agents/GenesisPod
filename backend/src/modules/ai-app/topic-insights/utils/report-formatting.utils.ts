@@ -61,6 +61,51 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
 }
 
 /**
+ * Renumber bold ordered list items within numbered ### sections
+ * to follow hierarchical numbering.
+ *
+ * Under "### N.M. Title":
+ *   "1. **Item**" → "N.M.1. **Item**"
+ *   "2. **Item**" → "N.M.2. **Item**"
+ *
+ * Only affects list items starting with bold text (structural sub-items).
+ * Regular list items (no bold) are left unchanged.
+ *
+ * Must be called AFTER numberSubHeadings (which creates the N.M. prefix).
+ */
+export function hierarchicalNumberBoldListItems(content: string): string {
+  const lines = content.split("\n");
+  let currentPrefix = ""; // e.g., "5.14"
+  let listCounter = 0;
+
+  return lines
+    .map((line) => {
+      // Track ### N.M. headings (output of numberSubHeadings)
+      const h3Match = line.match(/^###\s+(\d+\.\d+)\.\s+/);
+      if (h3Match) {
+        currentPrefix = h3Match[1];
+        listCounter = 0;
+        return line;
+      }
+
+      // Track #### headings — they already have proper N.M.K. numbering
+      if (/^#{4,}\s+/.test(line)) {
+        listCounter = 0;
+        return line;
+      }
+
+      // Match "N. **bold text**" pattern — structural sub-item
+      if (currentPrefix && /^\d+\.\s+\*\*/.test(line)) {
+        listCounter++;
+        return line.replace(/^\d+\./, `${currentPrefix}.${listCounter}.`);
+      }
+
+      return line;
+    })
+    .join("\n");
+}
+
+/**
  * Cross-dimension paragraph deduplication.
  * Paragraphs sharing the first DEDUP_KEY_LENGTH characters are removed (keep first occurrence).
  * Headings, comments, list items, and blockquotes are exempt.
@@ -78,7 +123,7 @@ export function deduplicateParagraphs(
       const trimmed = p.trim();
       if (trimmed.length < DEDUP_MIN_LENGTH) return true;
       // Exempt headings, comments, list items, blockquotes
-      if (/^(#|<!--|[-*>|])/.test(trimmed)) return true;
+      if (/^(#|<!--|[-*>|]|\d+\.)/.test(trimmed)) return true;
       const key = trimmed.substring(0, DEDUP_KEY_LENGTH);
       if (globalSeenParagraphs.has(key)) return false;
       globalSeenParagraphs.add(key);
@@ -100,7 +145,7 @@ export function deduplicateHeadings(content: string): string {
       const m = line.match(/^#{3,6}\s+(.+)/);
       if (!m) return true;
       const normalized = m[1]
-        .replace(/^[\d.]+\s*/, "")
+        .replace(/^(?:\d+\.)+\s*/, "")
         .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
         .trim();
       if (seenHeadings.has(normalized)) return false;
@@ -268,6 +313,129 @@ export function limitBlockquotes(
  */
 export function removeHorizontalRules(content: string): string {
   return content.replace(/^\s*[-*]{3,}\s*$/gm, "");
+}
+
+/**
+ * Convert raw LaTeX notation in markdown to readable text.
+ *
+ * LLMs sometimes output LaTeX math like `(O(n^2))` or `[\text{Attention}(...)]`
+ * which renders as raw text in non-LaTeX-aware viewers.
+ *
+ * Strategy: simplify common patterns to readable Unicode/plain text.
+ * For complex formulas, strip the LaTeX wrapper and keep the raw content.
+ */
+export function simplifyLatexNotation(content: string): string {
+  let result = content;
+
+  // Display math blocks: [formula] on its own line → strip brackets, keep content
+  result = result.replace(
+    /^\[\s*\n([\s\S]*?)\n\]\s*$/gm,
+    (_match, inner: string) => {
+      // Clean up LaTeX commands for readability
+      return cleanLatexContent(inner);
+    },
+  );
+
+  // Inline display math: [...] within a paragraph
+  // Negative lookahead (?!\() prevents matching Markdown links [text](url)
+  // Only process content that actually contains LaTeX-like syntax (backslashes, ^, _)
+  result = result.replace(
+    /\[([^\]]{10,})\](?!\()/g,
+    (_match, inner: string) => {
+      // Skip citation markers like [1], [236 等3项]
+      if (/^\d/.test(inner.trim())) return _match;
+      // Only clean if content contains LaTeX commands or math syntax
+      if (!/[\\^_]/.test(inner)) return _match;
+      return cleanLatexContent(inner);
+    },
+  );
+
+  // Inline math: (formula) — only match LaTeX-like content with backslashes or ^/_
+  result = result.replace(
+    /\(([^)]*\\[^)]+)\)/g,
+    (_match, inner: string) => `(${cleanLatexContent(inner)})`,
+  );
+
+  // Bare LaTeX commands outside of delimiters (e.g. \text{model}, \frac{a}{b})
+  result = result.replace(/\\text\{([^}]+)\}/g, "$1");
+  result = result.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1/$2");
+  result = result.replace(/\\sqrt\{([^}]+)\}/g, "√$1");
+  result = result.replace(/\\mathbb\{R\}/g, "ℝ");
+
+  return result;
+}
+
+function cleanLatexContent(latex: string): string {
+  return (
+    latex
+      // \text{xxx} → xxx
+      .replace(/\\text\{([^}]+)\}/g, "$1")
+      // \mathbb{R} → ℝ
+      .replace(/\\mathbb\{R\}/g, "ℝ")
+      // \frac{a}{b} → a/b
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1/$2")
+      // \sqrt{x} → √x
+      .replace(/\\sqrt\{([^}]+)\}/g, "√$1")
+      // \left( \right) → ( )
+      .replace(/\\left\(/g, "(")
+      .replace(/\\left\[/g, "[")
+      .replace(/\\left\{/g, "{")
+      .replace(/\\right\)/g, ")")
+      .replace(/\\right]/g, "]")
+      .replace(/\\right\}/g, "}")
+      // \quad → space
+      .replace(/\\quad/g, " ")
+      // ^{n} → ^n, _{n} → _n (superscript/subscript)
+      .replace(/\^\{([^}]+)\}/g, "^$1")
+      .replace(/_\{([^}]+)\}/g, "_$1")
+      // \top → ᵀ
+      .replace(/\\top/g, "ᵀ")
+      // \cdot → ·
+      .replace(/\\cdot/g, "·")
+      // \dots → ...
+      .replace(/\\dots/g, "...")
+      // \langle \rangle → < >
+      .replace(/\\langle/g, "⟨")
+      .replace(/\\rangle/g, "⟩")
+      // \approx → ≈
+      .replace(/\\approx/g, "≈")
+      // \leq \geq → ≤ ≥
+      .replace(/\\leq/g, "≤")
+      .replace(/\\geq/g, "≥")
+      // \infty → ∞ (must be before \in to avoid \in matching first)
+      .replace(/\\infty/g, "∞")
+      // \int → ∫ (must be before \in)
+      .replace(/\\int(?![a-zA-Z])/g, "∫")
+      // \in → ∈ (word boundary: not followed by letters)
+      .replace(/\\in(?![a-zA-Z])/g, "∈")
+      // \sum → Σ
+      .replace(/\\sum/g, "Σ")
+      // \leftarrow → ←
+      .replace(/\\leftarrow/g, "←")
+      // \eta → η, \tau → τ, \Phi → Φ
+      .replace(/\\eta/g, "η")
+      .replace(/\\tau/g, "τ")
+      .replace(/\\Phi/g, "Φ")
+      .replace(/\\phi/g, "φ")
+      .replace(/\\nabla/g, "∇")
+      .replace(/\\theta/g, "θ")
+      // Remove remaining backslash commands
+      .replace(/\\[a-zA-Z]+/g, "")
+      // Clean up extra spaces and braces
+      .replace(/\{([^}]*)\}/g, "$1")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+  );
+}
+
+/**
+ * Strip raw markdown bold syntax (**text**) that wasn't converted to HTML.
+ * Some LLM outputs contain mixed markdown + plain text where **bold** markers
+ * leak through to the final rendered output.
+ */
+export function stripRawMarkdownInContent(content: string): string {
+  // Only strip ** markers, keep the text inside
+  return content.replace(/\*\*([^*]+)\*\*/g, "$1");
 }
 
 /**

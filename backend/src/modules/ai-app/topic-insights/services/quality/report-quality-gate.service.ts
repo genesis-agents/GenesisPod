@@ -159,7 +159,7 @@ export class ReportQualityGateService {
     }
 
     // 7. 引用覆盖检查
-    const citations = fixedContent.match(/\[\d+\]/g) || [];
+    const citations = fixedContent.match(/\[\d+\](?![:(\[])/g) || [];
     const uniqueCitations = new Set(citations.map((c) => c));
     if (uniqueCitations.size < 2) {
       violations.push({
@@ -239,15 +239,15 @@ export class ReportQualityGateService {
 
     // 2. 全文加粗密度
     const boldCount = (fixedContent.match(/\*\*[^*]+\*\*/g) || []).length;
-    if (boldCount > 80) {
+    if (boldCount > 120) {
       violations.push({
         rule: "bold_density_report",
         severity: "warning",
-        message: `全文加粗 ${boldCount} 处超过阈值 80`,
+        message: `全文加粗 ${boldCount} 处超过阈值 120`,
         currentValue: boldCount,
-        threshold: 80,
+        threshold: 120,
       });
-      fixedContent = limitBoldFormatting(fixedContent, 3);
+      fixedContent = limitBoldFormatting(fixedContent, 5);
       wasAutoFixed = true;
     }
 

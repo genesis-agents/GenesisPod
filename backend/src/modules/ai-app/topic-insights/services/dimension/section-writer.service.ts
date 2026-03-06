@@ -890,17 +890,11 @@ export class SectionWriterService {
     // 补全缺失的 imageUrl
     for (const ref of figureRefs) {
       const key = `${ref.evidenceCitationIndex}:${ref.figureIndex}`;
-      let allocated = allocatedMap.get(key);
+      const allocated = allocatedMap.get(key);
 
-      // ★ Fuzzy fallback: 如果精确匹配失败，按 figureIndex 模糊查找
-      if (!allocated && !ref.imageUrl) {
-        for (const fig of allocatedFigures) {
-          if (fig.figureIndex === ref.figureIndex && fig.imageUrl) {
-            allocated = fig;
-            break;
-          }
-        }
-      }
+      // Fuzzy fallback removed: matching by figureIndex alone causes wrong
+      // figure assignment when multiple evidences share the same figureIndex.
+      // Only exact "evidenceIndex:figureIndex" matches are safe.
 
       if (allocated) {
         if (!ref.imageUrl) {
