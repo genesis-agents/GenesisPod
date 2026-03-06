@@ -1624,9 +1624,6 @@ export class TopicTeamOrchestratorService {
   }
 
   /**
-   * 执行研究质量审核
-   */
-  /**
    * ★ 对质量审核未通过的维度执行批评-改进循环
    * 最多修订一轮，避免无限循环和过高成本
    */
@@ -1736,6 +1733,9 @@ export class TopicTeamOrchestratorService {
     );
   }
 
+  /**
+   * 执行研究质量审核
+   */
   private async reviewResearchQuality(
     topic: ResearchTopic,
     dimensions: TopicDimension[],
