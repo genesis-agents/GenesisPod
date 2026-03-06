@@ -76,8 +76,7 @@ export class ReportDataService {
         // 检查是否是唯一约束冲突（并发创建导致）
         const e = error as { code?: string; message?: string };
         const isUniqueConstraintError =
-          e.code === "P2002" ||
-          e.message?.includes("Unique constraint");
+          e.code === "P2002" || e.message?.includes("Unique constraint");
 
         if (isUniqueConstraintError && attempt < maxRetries) {
           this.logger.warn(
@@ -304,12 +303,14 @@ export class ReportDataService {
           const chartId = `${dimPrefix}${fig.id}`;
           // ★ 按 ID 去重，防止同维度内重复 ID
           if (seenIds.has(chartId)) return;
-          // ★ 按 imageUrl 去重，防止同一张图在不同维度重复出现
-          if (fig.imageUrl && seenImageUrls.has(fig.imageUrl)) {
+          // ★ 按 dimensionIndex+imageUrl 去重，防止同维度内同图重复
+          // 但允许不同维度引用同一来源图片（它们在不同上下文中使用）
+          const imageKey = fig.imageUrl ? `${dimIndex}:${fig.imageUrl}` : null;
+          if (imageKey && seenImageUrls.has(imageKey)) {
             return;
           }
-          if (fig.imageUrl) {
-            seenImageUrls.add(fig.imageUrl);
+          if (imageKey) {
+            seenImageUrls.add(imageKey);
           }
           seenIds.add(chartId);
           charts.push({

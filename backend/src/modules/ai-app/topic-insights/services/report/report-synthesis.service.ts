@@ -22,6 +22,12 @@ import {
   deduplicateHeadings,
   getMinDataPoints,
   simplifyLatexNotation,
+  stripLLMMetaNotes,
+  filterJunkReferences,
+  deduplicateReferencesByUrl,
+  upgradeHttpToHttps,
+  decodeUrlEntities,
+  remapCitationIndices,
 } from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type {
@@ -494,18 +500,43 @@ export class ReportSynthesisService {
     const referencesLabel = isEn ? "References" : "参考文献";
     const accessDateLabel = isEn ? "Accessed" : "访问日期";
     let referencesSection = "";
+    // ★ Citation index remap (populated by reference cleanup pipeline)
+    let citationIndexMapping = new Map<number, number>();
     if (allEvidences.length > 0) {
-      const refLines = allEvidences
-        .filter((e) => e.citationIndex) // 只包含有 citationIndex 的证据
+      // ★ Reference cleanup pipeline: filter junk → decode entities → upgrade HTTP → dedup URLs
+      let refEntries = allEvidences
+        .filter((e) => e.citationIndex)
         .sort((a, b) => (a.citationIndex || 0) - (b.citationIndex || 0))
-        .map((e) => {
-          const accessDate = e.accessedAt
-            ? new Date(e.accessedAt).toLocaleDateString(
-                isEn ? "en-US" : "zh-CN",
-              )
-            : new Date().toLocaleDateString(isEn ? "en-US" : "zh-CN");
-          return `[${e.citationIndex}] ${e.title}. ${e.domain || ""}. ${e.url}. ${accessDateLabel}: ${accessDate}`;
-        });
+        .map((e) => ({
+          index: e.citationIndex || 0,
+          title: e.title,
+          url: e.url,
+          domain: e.domain,
+          accessedAt: e.accessedAt,
+        }));
+
+      const beforeCount = refEntries.length;
+      refEntries = filterJunkReferences(refEntries);
+      refEntries = decodeUrlEntities(refEntries);
+      refEntries = upgradeHttpToHttps(refEntries);
+
+      const { deduplicated, indexMapping } =
+        deduplicateReferencesByUrl(refEntries);
+      refEntries = deduplicated;
+      citationIndexMapping = indexMapping;
+
+      if (refEntries.length < beforeCount) {
+        this.logger.log(
+          `[synthesizeReport] Reference cleanup: ${beforeCount} → ${refEntries.length} (removed ${beforeCount - refEntries.length} junk/duplicate references)`,
+        );
+      }
+
+      const refLines = refEntries.map((e) => {
+        const accessDate = e.accessedAt
+          ? new Date(e.accessedAt).toLocaleDateString(isEn ? "en-US" : "zh-CN")
+          : new Date().toLocaleDateString(isEn ? "en-US" : "zh-CN");
+        return `[${e.index}] ${e.title}. ${e.domain || ""}. ${e.url}. ${accessDateLabel}: ${accessDate}`;
+      });
       if (refLines.length > 0) {
         referencesSection = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;
         this.logger.log(
@@ -561,7 +592,12 @@ export class ReportSynthesisService {
     const generationTimeMs = Date.now() - startTime;
 
     // ★ 将参考文献追加到报告末尾
-    const finalReport = cleanedReport + referencesSection;
+    // ★ Apply citation index remapping if references were deduplicated
+    const remappedReport =
+      citationIndexMapping.size > 0
+        ? remapCitationIndices(cleanedReport, citationIndexMapping)
+        : cleanedReport;
+    const finalReport = remappedReport + referencesSection;
 
     const updatedReport = await this.prisma.topicReport.update({
       where: { id: reportId },
@@ -830,7 +866,7 @@ export class ReportSynthesisService {
     // ★ 清理所有补充内容中的 LLM 元注释（字数统计等）
     for (const key of Object.keys(sc) as (keyof typeof sc)[]) {
       if (sc[key]) {
-        (sc as Record<string, string>)[key] = this.stripLLMMetaNotes(sc[key]);
+        (sc as Record<string, string>)[key] = stripLLMMetaNotes(sc[key]);
       }
     }
 
@@ -950,7 +986,7 @@ export class ReportSynthesisService {
       );
 
       // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
-      content = this.stripLLMMetaNotes(content);
+      content = stripLLMMetaNotes(content);
 
       parts.push(content);
       parts.push("\n\n");
@@ -1047,16 +1083,35 @@ export class ReportSynthesisService {
     if (sc.conclusion) {
       const conclusionText = stripLeadingHeading(sc.conclusion).trim();
       const crossText = (sc.crossDimensionAnalysis || "").trim();
-      // 检查结语前 200 字符是否与跨维度分析前 200 字符相同（去重）
-      const conclusionKey = conclusionText.substring(0, 200).replace(/\s/g, "");
-      const crossKey = crossText.substring(0, 200).replace(/\s/g, "");
-      if (
+
+      // Check 1: first 500 chars exact match
+      const conclusionKey = conclusionText.substring(0, 500).replace(/\s/g, "");
+      const crossKey = crossText.substring(0, 500).replace(/\s/g, "");
+      const isExactDuplicate =
         conclusionKey.length > 50 &&
         crossKey.length > 50 &&
-        conclusionKey === crossKey
-      ) {
+        conclusionKey === crossKey;
+
+      // Check 2: h3 heading overlap (>50% match indicates structural duplication)
+      const extractH3 = (t: string) =>
+        (t.match(/^###\s+(.+)$/gm) || []).map((h) =>
+          h
+            .replace(/^###\s+/, "")
+            .replace(/^[\d.]+\s*/, "")
+            .trim(),
+        );
+      const conclusionH3 = extractH3(conclusionText);
+      const crossH3 = extractH3(crossText);
+      const h3Overlap =
+        crossH3.length > 0 && conclusionH3.length > 0
+          ? conclusionH3.filter((h) => crossH3.includes(h)).length /
+            conclusionH3.length
+          : 0;
+      const isStructuralDuplicate = h3Overlap > 0.5;
+
+      if (isExactDuplicate || isStructuralDuplicate) {
         this.logger.warn(
-          "[buildFullReport] Conclusion is duplicate of crossDimensionAnalysis, skipping to avoid repetition",
+          `[buildFullReport] Conclusion is duplicate of crossDimensionAnalysis (exact=${isExactDuplicate}, h3Overlap=${(h3Overlap * 100).toFixed(0)}%), skipping`,
         );
       } else if (conclusionText.length > 0) {
         parts.push(`## ${labels.conclusion}\n`);
@@ -1104,12 +1159,14 @@ export class ReportSynthesisService {
           const chartId = `${dimPrefix}${fig.id}`;
           // ★ 按 ID 去重，防止同维度内重复 ID
           if (seenIds.has(chartId)) return;
-          // ★ 按 imageUrl 去重，防止同一张图在不同维度重复出现
-          if (fig.imageUrl && seenImageUrls.has(fig.imageUrl)) {
+          // ★ 按 dimensionIndex+imageUrl 去重，防止同维度内同图重复
+          // 但允许不同维度引用同一来源图片（它们在不同上下文中使用）
+          const imageKey = fig.imageUrl ? `${dimIndex}:${fig.imageUrl}` : null;
+          if (imageKey && seenImageUrls.has(imageKey)) {
             return;
           }
-          if (fig.imageUrl) {
-            seenImageUrls.add(fig.imageUrl);
+          if (imageKey) {
+            seenImageUrls.add(imageKey);
           }
           seenIds.add(chartId);
           charts.push({
@@ -2092,44 +2149,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     return processedReport;
   }
 
-  /** Strip LLM-leaked meta-notes (word counts, editing instructions). */
-  private stripLLMMetaNotes(content: string): string {
-    return (
-      content
-        // 字数统计（各种变体）
-        .replace(/（精简字数[^）]*）/g, "")
-        .replace(/（原\d+[^）]*）/g, "")
-        .replace(/（[约共]\d+字）/g, "")
-        .replace(/（\d+字）/g, "")
-        .replace(/[（(]字数[：:]?\s*[约共]?\d+[字词][)）]/g, "")
-        .replace(/[（(]当前字数[：:]?\s*\d+[)）]/g, "")
-        .replace(/\[当前字数[：:]\s*\d+\]/g, "")
-        // Broad catch-all: any (字数...) or （字数...） variant
-        .replace(/\(字数[^)]{0,30}\)/g, "")
-        .replace(/（字数[^）]{0,30}）/g, "")
-        // English variants for en reports
-        .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
-        .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")
-        // 内部角色名泄露（Leader, Agent 等多 Agent 流程术语）
-        .replace(/Leader\s*分配的/g, "")
-        .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成)的/g, "")
-        // 内部术语泄露
-        .replace(/独立洞察[：:]/g, "")
-        .replace(/需补充\d{4}\s*Q\d\s*企业报告验证/g, "")
-        .replace(/(?:需|应)补充.*?(?:验证|数据|报告)/g, "")
-        // 数据支撑总结块（内部标注）
-        .replace(/^数据支撑总结[：:].+$/gm, "")
-        // 教材/课程类源语言泄露
-        .replace(/从学习路线图可见[，,]?/g, "")
-        .replace(/(?:多模态)?课程常将/g, "研究表明")
-        .replace(/数据与课程实践表明/g, "数据与实践表明")
-        .replace(/在安全与对齐学习路线中/g, "在安全与对齐研究中")
-        // 清理多余空行
-        .replace(/\n{3,}/g, "\n\n")
-    );
-  }
-
-  // numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
+  // stripLLMMetaNotes, numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
   // → moved to utils/report-formatting.utils.ts (shared with report-generator.service.ts)
 
   /**
@@ -2159,8 +2179,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     content = content.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
     content = content.replace(/&lt;!--\s*figure:\d+:\d+\s*--&gt;/g, "");
 
-    // ★ v4.1: 全文级 LLM meta-notes 清理
-    content = this.stripLLMMetaNotes(content);
+    // ★ v4.1: 全文级 LLM meta-notes 清理（统一实现在 report-formatting.utils.ts）
+    content = stripLLMMetaNotes(content);
 
     // 额外 warn-only 检查（不在 QualityGateService 中的报告级特定规则）
     const arrowCount = (content.match(/→/g) || []).length;

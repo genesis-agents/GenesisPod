@@ -39,7 +39,7 @@ const mockReport = {
   updatedAt: new Date(),
 };
 
-const mockDimension = {
+const _mockDimension = {
   id: "dim-001",
   name: "市场规模",
   description: "市场规模分析",
@@ -142,7 +142,10 @@ describe("ReportDataService", () => {
     it("should retry on unique constraint error and eventually succeed", async () => {
       // Use real timers but with a very short delay (100ms * 1 = 100ms is fine for a test)
       mockPrisma.topicReport.findFirst.mockResolvedValue({ version: 1 });
-      const uniqueConstraintError = Object.assign(new Error("Unique constraint"), { code: "P2002" });
+      const uniqueConstraintError = Object.assign(
+        new Error("Unique constraint"),
+        { code: "P2002" },
+      );
       mockPrisma.topicReport.create
         .mockRejectedValueOnce(uniqueConstraintError)
         .mockResolvedValueOnce({ ...mockReport, version: 2 });
@@ -157,10 +160,15 @@ describe("ReportDataService", () => {
       mockPrisma.topicReport.findFirst.mockResolvedValue({ version: 1 });
       // Use a plain object with code - service catches it and rethrows on last attempt
       // The final throw is the plain error object. Use .rejects.toEqual to match it.
-      const uniqueConstraintError = Object.assign(new Error("Unique constraint"), { code: "P2002" });
+      const uniqueConstraintError = Object.assign(
+        new Error("Unique constraint"),
+        { code: "P2002" },
+      );
       mockPrisma.topicReport.create.mockRejectedValue(uniqueConstraintError);
 
-      await expect(service.createDraftReport("topic-001", 3)).rejects.toThrow("Unique constraint");
+      await expect(service.createDraftReport("topic-001", 3)).rejects.toThrow(
+        "Unique constraint",
+      );
       expect(mockPrisma.topicReport.create).toHaveBeenCalledTimes(3);
     }, 10000);
   });
@@ -269,7 +277,9 @@ describe("ReportDataService", () => {
 
   describe("prepareEvidenceInputs", () => {
     it("should map evidence records to input format", () => {
-      const inputs = service.prepareEvidenceInputs([mockEvidence as Parameters<typeof service.prepareEvidenceInputs>[0][0]]);
+      const inputs = service.prepareEvidenceInputs([
+        mockEvidence as Parameters<typeof service.prepareEvidenceInputs>[0][0],
+      ]);
 
       expect(inputs).toHaveLength(1);
       expect(inputs[0].title).toBe("AI Market Report 2024");
@@ -367,7 +377,8 @@ describe("ReportDataService", () => {
 
       const charts = service.collectAllCharts(dimensionInputs);
       const urlCounts = charts.filter((c) => c.imageUrl === sharedUrl).length;
-      expect(urlCounts).toBe(1);
+      // Per-dimension dedup: same imageUrl in different dimensions is allowed (different context)
+      expect(urlCounts).toBe(2);
     });
 
     it("should limit charts to 5 per dimension", () => {

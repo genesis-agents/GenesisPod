@@ -27,26 +27,36 @@ function isMermaidDiagram(code: string, language?: string): boolean {
 
 type ProcessTextFn = (text: string) => React.ReactNode;
 
-/** Generate GitHub-flavored heading slug (matches remark-slug / rehype-slug behavior) */
-function headingSlug(children: React.ReactNode): string {
-  // Extract plain text from children
-  function extractText(node: React.ReactNode): string {
-    if (typeof node === 'string') return node;
-    if (typeof node === 'number') return String(node);
-    if (Array.isArray(node)) return node.map(extractText).join('');
-    if (React.isValidElement(node) && node.props?.children) {
-      return extractText(node.props.children as React.ReactNode);
-    }
-    return '';
+/** Extract plain text from React children */
+function extractText(node: React.ReactNode): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join('');
+  if (React.isValidElement(node) && node.props?.children) {
+    return extractText(node.props.children as React.ReactNode);
   }
+  return '';
+}
+
+/** Generate GitHub-flavored heading slug with dedup suffix */
+function headingSlug(
+  children: React.ReactNode,
+  slugCounts?: Map<string, number>
+): string {
   const text = extractText(children);
-  return text
+  const base = text
     .toLowerCase()
     .trim()
     .replace(/[#*`~^|\\[\]{}<>&=+!@$%;"'?,]/g, '') // strip markdown/special ASCII symbols
     .replace(/\./g, '-') // dots → dashes
     .replace(/\s/g, '-') // spaces → dashes
     .replace(/^-|-$/g, ''); // trim leading/trailing dashes
+
+  if (!slugCounts) return base;
+
+  const count = slugCounts.get(base) ?? 0;
+  slugCounts.set(base, count + 1);
+  return count === 0 ? base : `${base}-${count}`;
 }
 
 function processChildren(
@@ -96,6 +106,9 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
 }
 
 export function createMarkdownComponents(processText: ProcessTextFn) {
+  // Track heading slug counts for dedup (reset per render)
+  const slugCounts = new Map<string, number>();
+
   return {
     img: ({ src, alt }: { src?: string; alt?: string }) => (
       <MarkdownImage src={src} alt={alt} />
@@ -276,7 +289,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       children?: React.ReactNode;
       node?: unknown;
     }) => (
-      <h1 id={headingSlug(children)} {...props}>
+      <h1 id={headingSlug(children, slugCounts)} {...props}>
         {processChildrenSimple(children, processText)}
       </h1>
     ),
@@ -288,7 +301,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       children?: React.ReactNode;
       node?: unknown;
     }) => (
-      <h2 id={headingSlug(children)} {...props}>
+      <h2 id={headingSlug(children, slugCounts)} {...props}>
         {processChildrenSimple(children, processText)}
       </h2>
     ),
@@ -300,7 +313,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       children?: React.ReactNode;
       node?: unknown;
     }) => (
-      <h3 id={headingSlug(children)} {...props}>
+      <h3 id={headingSlug(children, slugCounts)} {...props}>
         {processChildrenSimple(children, processText)}
       </h3>
     ),
@@ -312,7 +325,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       children?: React.ReactNode;
       node?: unknown;
     }) => (
-      <h4 id={headingSlug(children)} {...props}>
+      <h4 id={headingSlug(children, slugCounts)} {...props}>
         {processChildrenSimple(children, processText)}
       </h4>
     ),

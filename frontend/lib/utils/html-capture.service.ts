@@ -353,6 +353,27 @@ export class HtmlCaptureService {
         } catch {
           // Keep original src; export degrades gracefully
         }
+
+        // If cloneImg src is still a tiny placeholder, try canvas-based capture
+        if (
+          cloneImg.src.startsWith('data:') &&
+          cloneImg.src.length < 3000 &&
+          liveImg?.naturalWidth > 100
+        ) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = liveImg.naturalWidth;
+            canvas.height = liveImg.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(liveImg, 0, 0);
+              cloneImg.src = canvas.toDataURL('image/png');
+              cloneImg.removeAttribute('srcset');
+            }
+          } catch {
+            // CORS or tainted canvas — keep placeholder
+          }
+        }
       })
     );
   }
@@ -532,6 +553,41 @@ export class HtmlCaptureService {
       if (style.display === 'none' || style.visibility === 'hidden') {
         el.remove();
       }
+    }
+
+    // ★ Fix opacity-0 on images: Next.js Image component uses opacity-0 + JS onLoad
+    // to fade in images. In static export, images stay invisible. Force opacity:1.
+    const opaqueImgs = clone.querySelectorAll(
+      'img.opacity-0, img[class*="opacity-0"]'
+    );
+    for (const img of Array.from(opaqueImgs)) {
+      (img as HTMLElement).classList.remove('opacity-0');
+      (img as HTMLElement).style.opacity = '1';
+      // Also remove transition-opacity since there's no JS to trigger it
+      (img as HTMLElement).classList.remove('transition-opacity');
+    }
+
+    // ★ Remove loading spinners: they show forever in static HTML
+    // Spinner pattern: div.absolute.inset-0 containing svg.animate-spin
+    const spinnerOverlays = clone.querySelectorAll('.animate-spin');
+    for (const spinner of Array.from(spinnerOverlays)) {
+      // Remove the entire overlay container (parent with absolute positioning)
+      const overlay = spinner.closest(
+        '.absolute.inset-0, [class*="absolute"][class*="inset-0"]'
+      );
+      if (overlay) {
+        overlay.remove();
+      } else {
+        spinner.remove();
+      }
+    }
+
+    // ★ Remove interactive ARIA attributes that don't work in static HTML
+    const interactiveEls = clone.querySelectorAll('[role="button"][tabindex]');
+    for (const el of Array.from(interactiveEls)) {
+      el.removeAttribute('role');
+      el.removeAttribute('tabindex');
+      el.removeAttribute('aria-label');
     }
   }
 }

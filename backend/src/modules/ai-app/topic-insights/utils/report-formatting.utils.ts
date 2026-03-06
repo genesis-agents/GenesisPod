@@ -40,7 +40,7 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
     (_match, hashes: string, title: string) => {
       // Strip existing numbering prefixes but preserve 4-digit years (e.g. "2026年")
       const cleanTitle = title
-        .replace(/^(?!\d{4}[年-])[\d.]+\s*/, "")
+        .replace(/^(?!\d{4}[年\-–—/至])[\d.]+\s*/, "")
         .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
         .replace(/^（[一二三四五六七八九十百\d]+）\s*/, "")
         .trim();
@@ -267,21 +267,31 @@ export function detectForeignLanguageBlocks(
 /**
  * Remove excessive bold formatting.
  * If bold count exceeds maxPerSection per section, strip extra bolds.
+ *
+ * Bold markers on hierarchical numbered list items (e.g. "1.2.3. **Title**")
+ * are structural and are never stripped regardless of the count.
  */
 export function limitBoldFormatting(
   content: string,
   maxPerSection: number = 3,
 ): string {
-  // Split by ### headings (sections)
   const sections = content.split(/(?=^###\s)/m);
 
   return sections
     .map((section) => {
       let boldCount = 0;
-      return section.replace(/\*\*([^*]+)\*\*/g, (match, inner) => {
+      return section.replace(/\*\*([^*]+)\*\*/g, (match, inner, offset) => {
+        // Preserve bold on hierarchical numbered list items (e.g. "1.2.3. **Title**")
+        const beforeMatch = section.substring(
+          Math.max(0, section.lastIndexOf("\n", offset) + 1),
+          offset,
+        );
+        if (/^\d+(\.\d+)*\.\s*$/.test(beforeMatch.trim())) {
+          return match;
+        }
         boldCount++;
         if (boldCount > maxPerSection) {
-          return inner; // Strip bold, keep text
+          return inner;
         }
         return match;
       });
@@ -436,6 +446,249 @@ function cleanLatexContent(latex: string): string {
 export function stripRawMarkdownInContent(content: string): string {
   // Only strip ** markers, keep the text inside
   return content.replace(/\*\*([^*]+)\*\*/g, "$1");
+}
+
+/**
+ * Strip LLM-leaked meta-notes, internal markers, and broken HTML escapes.
+ *
+ * Unified implementation shared by report-synthesis and report-generator.
+ * Rules must be GENERIC — they must work for any report topic/language.
+ */
+export function stripLLMMetaNotes(content: string): string {
+  return (
+    content
+      // ── 字数统计（各种变体） ──
+      .replace(/（精简字数[^）]*）/g, "")
+      .replace(/（原\d+[^）]*）/g, "")
+      .replace(/（[约共]\d+字）/g, "")
+      .replace(/（\d+字）/g, "")
+      .replace(/[（(]字数[：:]?\s*[约共]?\d+[字词][)）]/g, "")
+      .replace(/[（(]当前字数[：:]?\s*\d+[)）]/g, "")
+      .replace(/\[当前字数[：:]\s*\d+\]/g, "")
+      .replace(/\(字数[^)]{0,30}\)/g, "")
+      .replace(/（字数[^）]{0,30}）/g, "")
+      // English variants
+      .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
+      .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")
+      // ── 内部角色名泄露（Leader, Agent 等多 Agent 流程术语） ──
+      .replace(/Leader\s*分配的/g, "")
+      .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成)的/g, "")
+      // ── 内部术语泄露 ──
+      .replace(/独立洞察[：:]/g, "")
+      .replace(/需补充\d{4}\s*Q\d\s*企业报告验证/g, "")
+      .replace(/(?:需|应)补充.*?(?:验证|数据|报告)/g, "")
+      // ── 数据支撑总结块（内部标注） ──
+      .replace(/^数据支撑总结[：:].+$/gm, "")
+      // ── 教材/课程类源语言泄露 ──
+      .replace(/从学习路线图可见[，,]?/g, "")
+      .replace(/(?:多模态)?课程常将/g, "研究表明")
+      .replace(/数据与课程实践表明/g, "数据与实践表明")
+      .replace(/在安全与对齐学习路线中/g, "在安全与对齐研究中")
+      // ── LLM 元分析标记（**分析判断：** 等）──
+      // These appear as raw markdown in rendered HTML and should be stripped.
+      // Remove the bold marker and label, keep the analysis text.
+      .replace(/\*{2}分析判断[：:]\*{2}\s*/g, "")
+      .replace(/\*{2}总结[：:]\*{2}\s*/g, "")
+      .replace(/\*{2}小结[：:]\*{2}\s*/g, "")
+      .replace(/\*{2}结论[：:]\*{2}\s*/g, "")
+      .replace(/\*{2}综合分析[：:]\*{2}\s*/g, "")
+      .replace(/\*{2}综合判断[：:]\*{2}\s*/g, "")
+      .replace(/\*{2}综上所述[：:]\*{2}\s*/g, "")
+      .replace(/\*{2}要点[：:]\*{2}\s*/g, "")
+      // Also handle HTML <strong> wrapped variants (post markdown→HTML conversion)
+      .replace(
+        /<strong>(?:分析判断|总结|小结|结论|综合分析|综合判断|综上所述|要点)[：:]<\/strong>\s*/g,
+        "",
+      )
+      // ── 内部交叉引用占位符 ──
+      // LLM generates [前文], [上文], [前述] as cross-references that are never resolved
+      .replace(/\[前文\]/g, "")
+      .replace(/\[上文\]/g, "")
+      .replace(/\[前述\]/g, "")
+      .replace(/\[详见前文\]/g, "")
+      .replace(/\[见前文\]/g, "")
+      // ── 转义 HTML 标签修复 ──
+      // LLM sometimes outputs <\span>, <\strong> etc. instead of </span>, </strong>
+      .replace(/<\\\/?(span|strong|em|p|div|li|ul|ol|a|h[1-6])>/gi, (m) =>
+        m.replace(/\\/g, ""),
+      )
+      // ── LLM 过渡短语冗余（高频模板句式） ──
+      // Remove only when they appear as sentence starters followed by comma/colon
+      .replace(
+        /(?:^|\n)\s*(?:综合来看|总体来看|综上所述|值得注意的是|值得警惕的是|需要指出的是|不可忽视的是|毋庸置疑)[，,：:]\s*/g,
+        (m) => (m.startsWith("\n") ? "\n" : ""),
+      )
+      // ── 清理多余空行 ──
+      .replace(/\n{3,}/g, "\n\n")
+  );
+}
+
+// ============ Reference Cleanup Utilities ============
+
+/**
+ * Domains known to be irrelevant to research reports.
+ * Entries are matched against the reference domain field.
+ */
+const JUNK_REFERENCE_DOMAINS: ReadonlySet<string> = new Set([
+  "dollskill.com",
+  "shein.com",
+  "temu.com",
+  "aliexpress.com",
+  "amazon.com",
+  "ebay.com",
+  "etsy.com",
+  "wish.com",
+  "taobao.com",
+  "jd.com",
+  "pinduoduo.com",
+  "pinterest.com",
+  "instagram.com",
+  "tiktok.com",
+  "facebook.com",
+  "twitter.com",
+  "x.com",
+  "reddit.com",
+  "youtube.com",
+  "bilibili.com",
+  "douyin.com",
+  "weibo.com",
+  "zhihu.com",
+]);
+
+/**
+ * Filter out junk references whose domain matches known irrelevant sites.
+ * Generic: works for any topic by checking against a domain blacklist.
+ */
+export function filterJunkReferences<
+  T extends { domain?: string | null; url?: string },
+>(references: T[]): T[] {
+  return references.filter((ref) => {
+    const domain = (
+      ref.domain || extractDomainFromUrl(ref.url || "")
+    )?.toLowerCase();
+    if (!domain) return true;
+    // Check exact match or subdomain match (e.g. "www.dollskill.com" matches "dollskill.com")
+    for (const junk of JUNK_REFERENCE_DOMAINS) {
+      if (domain === junk || domain.endsWith(`.${junk}`)) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+/**
+ * Deduplicate references by normalized URL.
+ * When multiple references share the same URL, keep only the first occurrence.
+ * Returns the filtered references and a mapping from old indices to new indices.
+ */
+export function deduplicateReferencesByUrl<
+  T extends { url?: string; index?: number },
+>(references: T[]): { deduplicated: T[]; indexMapping: Map<number, number> } {
+  const seen = new Map<string, number>(); // normalizedUrl → first ref's NEW index
+  const deduplicated: T[] = [];
+  const indexMapping = new Map<number, number>(); // oldIndex → newIndex
+
+  for (const ref of references) {
+    const normalizedUrl = normalizeUrl(ref.url || "");
+    const existingNewIndex = seen.get(normalizedUrl);
+    if (existingNewIndex !== undefined) {
+      // Map old index to the existing reference's new index
+      if (ref.index !== undefined) {
+        indexMapping.set(ref.index, existingNewIndex);
+      }
+    } else {
+      const newIndex = deduplicated.length + 1;
+      seen.set(normalizedUrl, newIndex);
+      if (ref.index !== undefined) {
+        indexMapping.set(ref.index, newIndex);
+      }
+      deduplicated.push({ ...ref, index: newIndex });
+    }
+  }
+
+  return { deduplicated, indexMapping };
+}
+
+/**
+ * Upgrade HTTP URLs to HTTPS where possible.
+ * Skips localhost and IP addresses.
+ */
+export function upgradeHttpToHttps<T extends { url?: string }>(
+  references: T[],
+): T[] {
+  return references.map((ref) => {
+    if (!ref.url) return ref;
+    const url = ref.url.trim();
+    // Only upgrade http:// to https:// (skip localhost/IP)
+    if (
+      url.startsWith("http://") &&
+      !url.startsWith("http://localhost") &&
+      !url.startsWith("http://127.") &&
+      !url.startsWith("http://192.168.") &&
+      !url.startsWith("http://10.")
+    ) {
+      return { ...ref, url: url.replace(/^http:\/\//, "https://") };
+    }
+    return ref;
+  });
+}
+
+/**
+ * Decode HTML entities in URLs (e.g. &amp; → &).
+ */
+export function decodeUrlEntities<T extends { url?: string }>(
+  references: T[],
+): T[] {
+  return references.map((ref) => {
+    if (!ref.url) return ref;
+    const decoded = ref.url
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+    return decoded !== ref.url ? { ...ref, url: decoded } : ref;
+  });
+}
+
+/**
+ * Remap citation indices in report body text after reference deduplication.
+ */
+export function remapCitationIndices(
+  content: string,
+  indexMapping: Map<number, number>,
+): string {
+  if (indexMapping.size === 0) return content;
+  return content.replace(/\[(\d+)\]/g, (match, numStr) => {
+    const oldIndex = Number(numStr);
+    const newIndex = indexMapping.get(oldIndex);
+    return newIndex !== undefined ? `[${newIndex}]` : match;
+  });
+}
+
+function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url.replace(/&amp;/g, "&"));
+    // Normalize: lowercase host, remove trailing slash, remove www prefix
+    let normalized = `${u.protocol}//${u.host.replace(/^www\./, "")}${u.pathname.replace(/\/$/, "")}`;
+    if (u.search) normalized += u.search;
+    return normalized.toLowerCase();
+  } catch {
+    return url
+      .toLowerCase()
+      .replace(/\/+$/, "")
+      .replace(/^https?:\/\/www\./, "");
+  }
+}
+
+function extractDomainFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    const match = url.match(/\/\/([^/?#]+)/);
+    return match ? match[1].replace(/^www\./, "") : "";
+  }
 }
 
 /**

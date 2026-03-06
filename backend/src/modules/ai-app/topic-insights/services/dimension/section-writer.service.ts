@@ -781,8 +781,8 @@ export class SectionWriterService {
     }
     return refs.map((ref, idx) => ({
       id: ref.id || `fig-${idx}`,
-      evidenceCitationIndex: ref.evidenceCitationIndex || 0,
-      figureIndex: ref.figureIndex || 0,
+      evidenceCitationIndex: ref.evidenceCitationIndex ?? 0,
+      figureIndex: ref.figureIndex ?? 0,
       imageUrl: ref.imageUrl,
       caption: ref.caption || "",
       position: ref.position || `after_paragraph_${idx + 1}`,

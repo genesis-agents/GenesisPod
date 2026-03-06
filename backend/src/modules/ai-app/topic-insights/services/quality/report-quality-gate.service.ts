@@ -131,7 +131,7 @@ export class ReportQualityGateService {
       const pct = (langCheck.foreignRatio * 100).toFixed(1);
       violations.push({
         rule: "language_consistency",
-        severity: "error",
+        severity: "warning",
         message: `外语内容占比 ${pct}% 超过 5% 阈值，检测到 ${langCheck.blocks.length} 个外语段落`,
         currentValue: langCheck.foreignRatio,
         threshold: 0.05,
@@ -191,6 +191,23 @@ export class ReportQualityGateService {
         currentValue: subjectiveCount,
         threshold: 3,
       });
+    }
+
+    // 9. 引用集中度检查（单个引用出现 >8 次）
+    const citationCounts = new Map<string, number>();
+    for (const c of citations) {
+      citationCounts.set(c, (citationCounts.get(c) ?? 0) + 1);
+    }
+    for (const [cite, count] of citationCounts) {
+      if (count > 8) {
+        violations.push({
+          rule: "citation_concentration",
+          severity: "warning",
+          message: `引用 ${cite} 在维度内出现 ${count} 次，超过阈值 8 次，建议分散引用来源`,
+          currentValue: count,
+          threshold: 8,
+        });
+      }
     }
 
     // ========== 汇总 ==========
@@ -293,6 +310,75 @@ export class ReportQualityGateService {
         currentValue: subjectiveCount,
         threshold: 10,
       });
+    }
+
+    // 6. 引用孤儿检查：正文中引用了但参考文献区没有对应条目
+    // 参考文献区通常以 "## 参考文献" / "## References" / "## 参考资料" 开头
+    const refSectionMatch = fixedContent.match(
+      /^#{1,3}\s*(?:参考文献|参考资料|References|Bibliography)\s*$/im,
+    );
+    const bodyText = refSectionMatch
+      ? fixedContent.substring(0, fixedContent.indexOf(refSectionMatch[0]))
+      : fixedContent;
+    const refText = refSectionMatch
+      ? fixedContent.substring(fixedContent.indexOf(refSectionMatch[0]))
+      : "";
+
+    // Citation markers in body: [N] not followed by : or [ (exclude reference entries)
+    const bodyCitations =
+      bodyText
+        .match(/\[(\d+)\](?![\s]*[:(\[])/g)
+        ?.map((m) => m.match(/\d+/)?.[0] ?? "") ?? [];
+    const bodyCitationSet = new Set(bodyCitations.filter(Boolean));
+
+    // Reference entries: lines starting with [N] followed by title text
+    const refEntries =
+      refText
+        .match(/^\[(\d+)\]\s+\S/gm)
+        ?.map((m) => m.match(/\d+/)?.[0] ?? "") ?? [];
+    const refEntrySet = new Set(refEntries.filter(Boolean));
+
+    const orphanCitations = [...bodyCitationSet].filter(
+      (n) => !refEntrySet.has(n),
+    );
+    if (orphanCitations.length > 0) {
+      violations.push({
+        rule: "citation_orphans",
+        severity: "warning",
+        message: `正文引用 [${orphanCitations.join("], [")}] 在参考文献区无对应条目`,
+        currentValue: orphanCitations.length,
+        threshold: 0,
+      });
+    }
+
+    // 7. 引用集中度检查：单个引用在正文某节出现 >8 次
+    const fullCitations = fixedContent.match(/\[(\d+)\](?![\s]*[:(\[])/g) ?? [];
+    const fullCitationCounts = new Map<string, number>();
+    for (const c of fullCitations) {
+      const n = c.match(/\d+/)?.[0] ?? "";
+      if (n) fullCitationCounts.set(n, (fullCitationCounts.get(n) ?? 0) + 1);
+    }
+    // Check per-section concentration by splitting on ## headings
+    const reportSections = fixedContent.split(/^#{2,3}\s+/m);
+    for (const sec of reportSections) {
+      const secCitations = sec.match(/\[(\d+)\](?![\s]*[:(\[])/g) ?? [];
+      const secCounts = new Map<string, number>();
+      for (const c of secCitations) {
+        const n = c.match(/\d+/)?.[0] ?? "";
+        if (n) secCounts.set(n, (secCounts.get(n) ?? 0) + 1);
+      }
+      for (const [cite, count] of secCounts) {
+        if (count > 8) {
+          violations.push({
+            rule: "citation_concentration",
+            severity: "warning",
+            message: `引用 [${cite}] 在某节内出现 ${count} 次，超过阈值 8 次，建议分散引用来源`,
+            currentValue: count,
+            threshold: 8,
+          });
+          break; // one violation per section is enough
+        }
+      }
     }
 
     const hasErrors = violations.some((v) => v.severity === "error");

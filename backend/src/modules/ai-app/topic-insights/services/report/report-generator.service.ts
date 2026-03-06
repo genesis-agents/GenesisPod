@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
@@ -12,7 +12,16 @@ import {
   deduplicateParagraphs,
   deduplicateHeadings,
   simplifyLatexNotation,
+  stripLLMMetaNotes,
+  filterJunkReferences,
+  deduplicateReferencesByUrl,
+  upgradeHttpToHttps,
+  decodeUrlEntities,
+  remapCitationIndices,
+  limitBoldFormatting,
+  removeHorizontalRules,
 } from "../../utils/report-formatting.utils";
+import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { AIModelType } from "@prisma/client";
 import type { ResearchTopic } from "@prisma/client";
 import type {
@@ -59,7 +68,10 @@ import {
 export class ReportGeneratorService {
   private readonly logger = new Logger(ReportGeneratorService.name);
 
-  constructor(private readonly chatFacade: ChatFacade) {}
+  constructor(
+    private readonly chatFacade: ChatFacade,
+    @Optional() private readonly qualityGate?: ReportQualityGateService,
+  ) {}
 
   /**
    * ★ 跨维度一致性检查 Skill
@@ -449,7 +461,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // ★ 清理所有补充内容中的 LLM 元注释（字数统计等）
     for (const key of Object.keys(sanitized) as (keyof typeof sanitized)[]) {
       if (sanitized[key]) {
-        sanitized[key] = this.stripLLMMetaNotes(sanitized[key]);
+        sanitized[key] = stripLLMMetaNotes(sanitized[key]);
       }
     }
 
@@ -558,7 +570,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       );
 
       // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
-      content = this.stripLLMMetaNotes(content);
+      content = stripLLMMetaNotes(content);
 
       parts.push(content);
       parts.push("\n\n");
@@ -1194,63 +1206,69 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       });
     }
 
-    // 6. 参考文献
+    // 6. 参考文献 — ★ Apply reference cleanup pipeline
     if (report.references && report.references.length > 0) {
+      let refEntries = report.references.map((ref) => ({ ...ref }));
+      refEntries = filterJunkReferences(refEntries);
+      refEntries = decodeUrlEntities(refEntries);
+      refEntries = upgradeHttpToHttps(refEntries);
+      const { deduplicated, indexMapping } = deduplicateReferencesByUrl(
+        refEntries.map((r) => ({ ...r, url: r.url || "" })),
+      );
+
       parts.push(`\n# ${labels.references}\n`);
-      report.references.forEach((ref) => {
+      deduplicated.forEach((ref) => {
         parts.push(
-          `[${ref.index}] ${ref.title}. ${ref.domain || ""}. ${ref.url}. ${labels.accessDate}: ${ref.accessDate}`,
+          `[${ref.index}] ${ref.title}. ${(ref as { domain?: string }).domain || ""}. ${ref.url}. ${labels.accessDate}: ${(ref as { accessDate?: string }).accessDate || ""}`,
         );
       });
+
+      // Remap citation indices in preceding content
+      if (indexMapping.size > 0) {
+        const bodyContent = parts.slice(0, -deduplicated.length - 1).join("\n");
+        const refContent = parts.slice(-deduplicated.length - 1).join("\n");
+        const remapped = remapCitationIndices(bodyContent, indexMapping);
+        parts.length = 0;
+        parts.push(remapped, refContent);
+      }
     }
 
-    // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线 [1]___）
-    // ★ Post-process: LaTeX simplification + figure placeholder cleanup
+    // ★ Post-process: quality gate + LaTeX simplification + figure placeholder cleanup + LLM meta-notes
     let finalContent = sanitizeMarkdownContent(parts.join("\n"));
+
+    // Quality gate (if available)
+    if (this.qualityGate) {
+      const qc = this.qualityGate.validateFullReport(finalContent, language);
+      if (qc.wasAutoFixed) {
+        finalContent = qc.fixedContent;
+      }
+      if (qc.violations.length > 0) {
+        this.logger.log(
+          `[generateFullReport] Quality gate: ${qc.violations.length} violations (${qc.violations.map((v) => v.rule).join(", ")})`,
+        );
+      }
+    } else {
+      // Fallback: apply critical auto-fixes directly
+      finalContent = removeHorizontalRules(finalContent);
+      const boldCount = (finalContent.match(/\*\*[^*]+\*\*/g) || []).length;
+      if (boldCount > 120) {
+        finalContent = limitBoldFormatting(finalContent, 5);
+      }
+    }
+
     finalContent = simplifyLatexNotation(finalContent);
     finalContent = finalContent.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
     finalContent = finalContent.replace(
       /&lt;!--\s*figure:\d+:\d+\s*--&gt;/g,
       "",
     );
+    // ★ 全文级 LLM meta-notes 清理（统一实现）
+    finalContent = stripLLMMetaNotes(finalContent);
     return finalContent;
   }
 
-  // numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
+  // stripLLMMetaNotes, numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
   // → moved to utils/report-formatting.utils.ts (shared with report-synthesis.service.ts)
-
-  /** Strip LLM-leaked meta-notes (word counts, editing instructions). */
-  private stripLLMMetaNotes(content: string): string {
-    return (
-      content
-        // 字数统计（各种变体）
-        .replace(/（精简字数[^）]*）/g, "")
-        .replace(/（原\d+[^）]*）/g, "")
-        .replace(/（[约共]\d+字）/g, "")
-        .replace(/（\d+字）/g, "")
-        .replace(/[（(]字数[：:]?\s*[约共]?\d+[字词][)）]/g, "")
-        .replace(/[（(]当前字数[：:]?\s*\d+[)）]/g, "")
-        .replace(/\[当前字数[：:]\s*\d+\]/g, "")
-        // Broad catch-all: any (字数...) or （字数...） variant
-        .replace(/\(字数[^)]{0,30}\)/g, "")
-        .replace(/（字数[^）]{0,30}）/g, "")
-        // English variants for en reports
-        .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
-        .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")
-        // 内部角色名泄露（Leader, Agent 等多 Agent 流程术语）
-        .replace(/Leader\s*分配的/g, "")
-        .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成)的/g, "")
-        // 数据支撑总结块（内部标注）
-        .replace(/^数据支撑总结[：:].+$/gm, "")
-        // 教材/课程类源语言泄露
-        .replace(/从学习路线图可见[，,]?/g, "")
-        .replace(/(?:多模态)?课程常将/g, "研究表明")
-        .replace(/数据与课程实践表明/g, "数据与实践表明")
-        .replace(/在安全与对齐学习路线中/g, "在安全与对齐研究中")
-        // 清理多余空行
-        .replace(/\n{3,}/g, "\n\n")
-    );
-  }
 
   /**
    * Resolves chart placeholders in dimension content:
