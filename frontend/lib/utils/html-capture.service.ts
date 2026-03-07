@@ -640,21 +640,34 @@ export class HtmlCaptureService {
 
   /**
    * ★ v4.3: CSS 去重 — 移除重复的 CSS 规则以减少导出文件体积
+   * 嵌套感知：正确处理 @media / @keyframes 等包含 {} 的 at-rules
    */
   private static deduplicateCss(css: string): string {
     const seen = new Set<string>();
     const rules: string[] = [];
 
-    // 简单按规则级别去重（不解析嵌套 at-rules）
-    // 按 } 分割，逐条去重
-    const parts = css.split('}');
-    for (const part of parts) {
-      const trimmed = part.trim();
-      if (!trimmed) continue;
-      const rule = trimmed + '}';
-      if (!seen.has(rule)) {
-        seen.add(rule);
-        rules.push(rule);
+    // 按大括号深度追踪，提取完整的顶层规则
+    let depth = 0;
+    let current = '';
+
+    for (let i = 0; i < css.length; i++) {
+      const ch = css[i];
+      current += ch;
+
+      if (ch === '{') {
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth <= 0) {
+          // 顶层规则结束
+          depth = 0;
+          const rule = current.trim();
+          if (rule && !seen.has(rule)) {
+            seen.add(rule);
+            rules.push(rule);
+          }
+          current = '';
+        }
       }
     }
 
