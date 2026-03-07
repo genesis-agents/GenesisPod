@@ -331,6 +331,8 @@ export interface ReportChart {
   imageUrl?: string;
   /** ★ 引用图表特有：证据引用索引 */
   evidenceCitationIndex?: number;
+  /** ★ SOTA: 全文顺序编号（图 1, 图 2, ...） */
+  figureNumber?: number;
 }
 
 /**

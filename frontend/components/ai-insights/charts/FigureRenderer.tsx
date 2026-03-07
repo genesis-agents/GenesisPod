@@ -190,29 +190,7 @@ function ReferenceFigureRenderer({
           )}
         </div>
 
-        {/* 图表标题和来源 */}
-        <div className="mt-3">
-          <h5 className="text-sm font-medium text-gray-900">{chart.title}</h5>
-          {chart.description && (
-            <p className="mt-1 text-xs text-gray-500">{chart.description}</p>
-          )}
-          {showSource && (
-            <div className="mt-2 flex items-center gap-2">
-              {chart.evidenceCitationIndex && (
-                <button
-                  onClick={handleCitationClick}
-                  className="inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                  aria-label={`${t('topicResearch.charts.viewCitationSource')} ${chart.evidenceCitationIndex}`}
-                >
-                  [{chart.evidenceCitationIndex}]
-                </button>
-              )}
-              {chart.source && (
-                <span className="text-xs text-gray-400">{chart.source}</span>
-              )}
-            </div>
-          )}
-        </div>
+        {/* 标题和来源已由外层 FigureRenderer 统一渲染 */}
       </div>
 
       {/* 放大查看模态框 */}
@@ -330,7 +308,22 @@ function UnknownChartPlaceholder({ chart }: { chart: ReportChart }) {
 }
 
 /**
+ * 生成学术规范的图表编号标签
+ * APA/IEEE 格式: "图 N." / "Figure N."
+ */
+function getFigureLabel(figureNumber: number | undefined): string | null {
+  if (!figureNumber) return null;
+  return `图 ${figureNumber}.`;
+}
+
+/**
  * 主渲染组件
+ *
+ * SOTA 图表呈现规范（对标 APA/IEEE/McKinsey/BCG）：
+ * - 编号: 全文顺序编号 "图 N."
+ * - 标题: 编号 + 描述性标题
+ * - 说明: caption 在图表下方
+ * - 来源: 数据出处，关联引用编号
  */
 export function FigureRenderer({
   chart,
@@ -355,10 +348,28 @@ export function FigureRenderer({
   const hasValidGeneratedData =
     isGeneratedChart && isValidGeneratedChart(chart);
 
+  const figureLabel = getFigureLabel(chart.figureNumber);
+
   return (
-    <div
+    <figure
       className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm ${className}`}
+      role="figure"
+      aria-label={figureLabel ? `${figureLabel} ${chart.title}` : chart.title}
     >
+      {/* ★ SOTA: 图表编号 + 标题（图表上方，加粗编号 + 描述性标题） */}
+      {(figureLabel || chart.title) && (
+        <div className="mb-3 border-b border-gray-100 pb-2">
+          <h5 className="text-sm font-semibold text-gray-900">
+            {figureLabel && (
+              <span className="mr-1 font-bold text-blue-700">
+                {figureLabel}
+              </span>
+            )}
+            {chart.title}
+          </h5>
+        </div>
+      )}
+
       <ChartErrorBoundary chartTitle={chart.title} onRetry={onRetry}>
         {isReferenceChart ? (
           <ReferenceFigureRenderer
@@ -377,7 +388,34 @@ export function FigureRenderer({
           <UnknownChartPlaceholder chart={chart} />
         )}
       </ChartErrorBoundary>
-    </div>
+
+      {/* ★ SOTA: 图表说明 + 来源标注（图表下方 caption） */}
+      {(chart.description ||
+        (showSource && (chart.evidenceCitationIndex || chart.source))) && (
+        <figcaption className="mt-3 border-t border-gray-100 pt-2">
+          {chart.description && (
+            <p className="text-xs leading-relaxed text-gray-500">
+              {chart.description}
+            </p>
+          )}
+          {showSource && (chart.evidenceCitationIndex || chart.source) && (
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+              <span>{'来源:'}</span>
+              {chart.evidenceCitationIndex && onCitationClick && (
+                <button
+                  onClick={() => onCitationClick(chart.evidenceCitationIndex!)}
+                  className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                  aria-label={`[${chart.evidenceCitationIndex}]`}
+                >
+                  [{chart.evidenceCitationIndex}]
+                </button>
+              )}
+              {chart.source && <span>{chart.source}</span>}
+            </div>
+          )}
+        </figcaption>
+      )}
+    </figure>
   );
 }
 

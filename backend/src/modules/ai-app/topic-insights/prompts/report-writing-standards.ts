@@ -128,7 +128,13 @@ export const CITATION_STANDARDS = `## 引用规范
  */
 export const CHART_STANDARDS = `## 图表规范
 
-对标来源：McKinsey 1 展示项/1.5-2 页，Nature max 5-6 展示项/篇
+对标来源：McKinsey 1 展示项/1.5-2 页，Nature max 5-6 展示项/篇，APA/IEEE 图表就近原则
+
+### 位置规范（最重要）
+- **紧跟首次提及**：图表必须放在讨论该数据的段落之后（after_paragraph_N），禁止集中在章节末尾
+- **图文对应**：在引用图表的段落中，必须用自然语言引述图表内容，如"从数据可以看出..."、"上述图表揭示了..."
+- **禁止集中堆放**：禁止在章节末尾或报告末尾集中放置所有图表
+- position 字段首选 after_paragraph_N（N 为与图表最相关的段落序号），其次 after_heading_N
 
 ### 数据点要求（按图表类型区分）
 - 柱状图（bar）：最少 3 个数据点

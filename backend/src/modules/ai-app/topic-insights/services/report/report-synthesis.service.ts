@@ -493,6 +493,32 @@ export class ReportSynthesisService {
       );
     }
 
+    // 8.7 ★ SOTA: 按出现顺序给图表分配全文顺序编号（图 1, 图 2, ...）
+    let figureCounter = 0;
+    const chartPlaceholderOrder = cleanedReport.match(
+      /<!-- chart:([^\s]+?) -->/g,
+    );
+    if (chartPlaceholderOrder) {
+      const chartIdToNumber = new Map<string, number>();
+      for (const placeholder of chartPlaceholderOrder) {
+        const chartId = placeholder.match(/<!-- chart:([^\s]+?) -->/)?.[1];
+        if (chartId && !chartIdToNumber.has(chartId)) {
+          figureCounter++;
+          chartIdToNumber.set(chartId, figureCounter);
+        }
+      }
+      // Assign figureNumber to each chart in the array
+      for (const chart of allCharts) {
+        const num = chartIdToNumber.get(chart.id);
+        if (num) {
+          chart.figureNumber = num;
+        }
+      }
+      this.logger.log(
+        `[synthesizeReport] Assigned figure numbers to ${figureCounter} charts`,
+      );
+    }
+
     // 9. 计算统计数据
     const totalSources = allEvidences.length;
 
@@ -2260,7 +2286,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * position 格式:
    * - "after_paragraph_N": 在第 N 段落之后
    * - "after_heading_N": 在第 N 个小标题之后
-   * - "end_of_section": 在章节末尾（由 buildFullReport 处理）
+   * - "end_of_section": 在章节末尾（追加到维度内容最后一个段落之后）
    */
   private injectChartPlaceholders(
     content: string,
@@ -2274,10 +2300,21 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       return content;
     }
 
-    // 过滤出需要在内容中插入的图表（排除 end_of_section）
+    // 分离 end_of_section 图表 和 位置定位图表
     const chartsToInject = inlineCharts.filter(
       (c) => c.position && c.position !== "end_of_section",
     );
+    const endOfSectionCharts = inlineCharts.filter(
+      (c) => !c.position || c.position === "end_of_section",
+    );
+
+    // end_of_section 图表：追加到维度内容最后一个段落之后（仍在维度正文内）
+    if (endOfSectionCharts.length > 0) {
+      const eosPlaceholders = endOfSectionCharts
+        .map((c) => `<!-- chart:${c.id} -->`)
+        .join("\n\n");
+      content = content.trimEnd() + "\n\n" + eosPlaceholders;
+    }
 
     if (chartsToInject.length === 0) {
       return content;

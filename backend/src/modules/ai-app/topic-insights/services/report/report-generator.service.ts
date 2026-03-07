@@ -1335,7 +1335,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * position 格式:
    * - "after_paragraph_N": 在第 N 段落之后
    * - "after_heading_N": 在第 N 个小标题之后
-   * - "end_of_section": 在章节末尾（由 buildFullReport 处理）
+   * - "end_of_section": 在章节末尾（追加到维度内容最后一个段落之后）
    */
   private injectChartPlaceholders(
     content: string,
@@ -1349,10 +1349,21 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       return content;
     }
 
-    // 过滤出需要在内容中插入的图表（排除 end_of_section）
+    // 分离 end_of_section 图表 和 位置定位图表
     const chartsToInject = inlineCharts.filter(
       (c) => c.position && c.position !== "end_of_section",
     );
+    const endOfSectionCharts = inlineCharts.filter(
+      (c) => !c.position || c.position === "end_of_section",
+    );
+
+    // end_of_section 图表：追加到维度内容最后一个段落之后（仍在维度正文内）
+    if (endOfSectionCharts.length > 0) {
+      const eosPlaceholders = endOfSectionCharts
+        .map((c) => `<!-- chart:${c.id} -->`)
+        .join("\n\n");
+      content = content.trimEnd() + "\n\n" + eosPlaceholders;
+    }
 
     if (chartsToInject.length === 0) {
       return content;
