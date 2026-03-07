@@ -27,6 +27,7 @@ import { SkillRegistry, PromptSkillBridge } from "@/modules/ai-engine/facade";
 import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
 import { AIModelService } from "../../core/ai-model.service";
 import { PrismaModule } from "@/common/prisma/prisma.module";
+import { BrowserModule } from "@/common/browser/browser.module";
 
 // Code-based skills (NestJS Providers with DI dependencies)
 import { PagePipelineSkill } from "./page-pipeline.skill";
@@ -102,7 +103,12 @@ const SLIDES_CODE_SKILL_PROVIDERS = [
 
 @Module({
   // 使用 forwardRef 打破循环: AiEngineModule → AiImageModule → AiOfficeModule → SlidesSkillsModule → AiEngineModule
-  imports: [forwardRef(() => AiEngineModule), HttpModule, PrismaModule],
+  imports: [
+    forwardRef(() => AiEngineModule),
+    HttpModule,
+    PrismaModule,
+    BrowserModule,
+  ],
   providers: [AIModelService, ...SLIDES_CODE_SKILL_PROVIDERS],
   exports: [AIModelService, ...SLIDES_CODE_SKILL_PROVIDERS],
 })
