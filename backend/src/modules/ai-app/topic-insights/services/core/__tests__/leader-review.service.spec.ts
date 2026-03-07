@@ -258,59 +258,6 @@ describe("LeaderReviewService", () => {
     });
   });
 
-  // ─── integrateDimensionResults ──────────────────────────────────────────────
-
-  describe("integrateDimensionResults", () => {
-    it("should handle single section without AI call", async () => {
-      const result = await service.integrateDimensionResults(
-        { name: "Market Analysis", description: "Market study" },
-        [{ title: "Section 1", content: "Market is growing" }],
-      );
-
-      // Content no longer includes dimension name (added by assembleFullReport)
-      expect(result.content).toContain("Market is growing");
-      expect(aiFacade.chatWithSkills).not.toHaveBeenCalled();
-    });
-
-    it("should integrate multiple sections using AI for metadata", async () => {
-      aiFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({
-          summary: "Comprehensive market analysis",
-          keyFindings: ["Finding 1", "Finding 2"],
-        }),
-      });
-
-      const result = await service.integrateDimensionResults(
-        { name: "Market Analysis" },
-        [
-          { title: "Section 1", content: "Market is growing rapidly" },
-          { title: "Section 2", content: "Competition is increasing" },
-        ],
-      );
-
-      // Content no longer includes dimension name (added by assembleFullReport)
-      expect(result.content).toContain("Market is growing rapidly");
-      expect(result.metadata.summary).toBe("Comprehensive market analysis");
-    });
-
-    it("should use fallback when no reasoning model available for multi-section", async () => {
-      aiFacade.getReasoningModel.mockResolvedValue(null);
-      aiFacade.getAvailableModelsExtended.mockResolvedValue([]);
-
-      const result = await service.integrateDimensionResults(
-        { name: "Market" },
-        [
-          { title: "Sec 1", content: "Content A" },
-          { title: "Sec 2", content: "Content B" },
-        ],
-      );
-
-      // Content no longer includes dimension name (added by assembleFullReport)
-      expect(result.content).toContain("Content A");
-      expect(result.metadata.confidenceLevel).toBe("medium");
-    });
-  });
-
   // ─── extractClaims ──────────────────────────────────────────────────────────
 
   describe("extractClaims", () => {

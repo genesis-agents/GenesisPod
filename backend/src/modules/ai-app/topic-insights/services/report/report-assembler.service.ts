@@ -19,6 +19,9 @@ import {
   removeHorizontalRules,
   repairOrderedListContinuity,
   stripInternalFigureNotation,
+  wrapBareLatex,
+  linkifyCitations,
+  anchorReferences,
 } from "../../utils/report-formatting.utils";
 import {
   stripChartJsonFromContent,
@@ -534,6 +537,15 @@ export class ReportAssemblerService {
     // Repair ordered list continuity (LLM often restarts from 1 mid-section)
     content = repairOrderedListContinuity(content);
 
+    // Wrap bare LaTeX commands in $...$ delimiters for proper rendering
+    content = wrapBareLatex(content);
+
+    // Add anchor IDs to reference entries (idempotent — skips already-anchored lines)
+    content = anchorReferences(content);
+
+    // Convert [N] citation markers to clickable links targeting reference anchors
+    content = linkifyCitations(content);
+
     // Warn-only checks
     const arrowCount = (content.match(/→/g) ?? []).length;
     if (arrowCount > 5) {
@@ -554,6 +566,22 @@ export class ReportAssemblerService {
     }
 
     return { content, warnings };
+  }
+
+  /**
+   * Apply citation-related post-processing to a complete report
+   * (body + references section already concatenated).
+   *
+   * Use this when references are appended AFTER postProcessFinalReport
+   * (e.g. in synthesizeReport where references are built separately).
+   *
+   * Steps: wrapBareLatex → anchorReferences → linkifyCitations
+   */
+  finalizeReportWithCitations(content: string): string {
+    let result = wrapBareLatex(content);
+    result = anchorReferences(result);
+    result = linkifyCitations(result);
+    return result;
   }
 
   // ==================== Private Methods ====================
@@ -668,6 +696,9 @@ export class ReportAssemblerService {
     if (indexMapping.size > 0) {
       section = remapCitationIndices(section, indexMapping);
     }
+
+    // Add anchor IDs to each reference entry for citation link targets
+    section = anchorReferences(section);
 
     return section;
   }

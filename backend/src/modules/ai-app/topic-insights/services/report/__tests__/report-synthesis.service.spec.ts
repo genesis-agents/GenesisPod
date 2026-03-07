@@ -196,6 +196,9 @@ describe("ReportSynthesisService", () => {
             processDimensionContent: jest
               .fn()
               .mockImplementation((content: string) => content),
+            finalizeReportWithCitations: jest
+              .fn()
+              .mockImplementation((content: string) => content),
           },
         },
         {

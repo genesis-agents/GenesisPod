@@ -862,6 +862,125 @@ export function stripInternalFigureNotation(content: string): string {
 }
 
 /**
+ * Wrap bare LaTeX commands that appear outside of `$...$` delimiters.
+ *
+ * Detects common LaTeX patterns (e.g. \frac{}{}, 10^{18}, \approx, \sum)
+ * that are NOT already inside `$...$` and wraps them in `$...$`.
+ *
+ * Must run BEFORE simplifyLatexNotation (if used) and BEFORE citation linking.
+ * Skips code blocks (``` and inline `).
+ */
+export function wrapBareLatex(content: string): string {
+  // First, protect code blocks and inline code from modification
+  const codeBlocks: string[] = [];
+  let protected_ = content.replace(/```[\s\S]*?```/g, (m) => {
+    codeBlocks.push(m);
+    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+  });
+  const inlineCodes: string[] = [];
+  protected_ = protected_.replace(/`[^`]+`/g, (m) => {
+    inlineCodes.push(m);
+    return `__INLINE_CODE_${inlineCodes.length - 1}__`;
+  });
+
+  // Protect existing $...$ math delimiters
+  const mathBlocks: string[] = [];
+  protected_ = protected_.replace(/\$[^$]+\$/g, (m) => {
+    mathBlocks.push(m);
+    return `__MATH_${mathBlocks.length - 1}__`;
+  });
+
+  // Now wrap bare LaTeX patterns
+
+  // Pattern 1: \command{...} sequences (e.g. \frac{a}{b}, \text{x}, \sqrt{x})
+  protected_ = protected_.replace(
+    /\\(?:frac|text|textbf|textit|sqrt|mathbb|mathcal|sum|prod|int|lim)\{[^}]*\}(?:\{[^}]*\})?/g,
+    (m) => `$${m}$`,
+  );
+
+  // Pattern 2: expressions with ^{...} or _{...} (e.g. 10^{18}, x_{i})
+  // Match a word/number followed by ^{} or _{}
+  protected_ = protected_.replace(
+    /(?<![$\\])(\b[\w.]+)\s*(\^|_)\{([^}]+)\}/g,
+    (_m, base, op, exp) => `$${base}${op}{${exp}}$`,
+  );
+
+  // Pattern 3: standalone \command (e.g. \approx, \times, \infty, \alpha)
+  // Only match when not already inside $ and followed by word boundary
+  protected_ = protected_.replace(
+    /(?<!\$)\\(approx|times|infty|neq|leq|geq|pm|cdot|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|pi|omega|theta|eta|tau|phi|nabla|in|sum|prod|int|leftarrow|rightarrow)(?![a-zA-Z])/g,
+    (m) => `$${m}$`,
+  );
+
+  // Restore protected sections in reverse order
+  protected_ = protected_.replace(/__MATH_(\d+)__/g, (_, i) => mathBlocks[i]);
+  protected_ = protected_.replace(
+    /__INLINE_CODE_(\d+)__/g,
+    (_, i) => inlineCodes[i],
+  );
+  protected_ = protected_.replace(
+    /__CODE_BLOCK_(\d+)__/g,
+    (_, i) => codeBlocks[i],
+  );
+
+  return protected_;
+}
+
+/**
+ * Convert citation markers `[N]` in report body to clickable markdown links.
+ *
+ * Transforms `[N]` → `[\[N\]](#ref-N)` so they link to anchored references.
+ * Also handles comma-separated multi-citations: `[1,2,3]` → individual links.
+ *
+ * Safety:
+ * - Only processes the body (before the references section)
+ * - Skips `[N]` already part of a markdown link (`[N](url)`)
+ * - Skips `[N]` inside code blocks
+ */
+export function linkifyCitations(content: string): string {
+  // Split at references section to only process body
+  // Support both "---\n\n# References" and plain "# References" (different builders use different formats)
+  const refSectionPattern = /\n(?:---\n\n)?#\s*(?:参考文献|References)\s*\n/;
+  const refMatch = content.match(refSectionPattern);
+  if (refMatch?.index === undefined) return content;
+
+  const body = content.substring(0, refMatch.index);
+  const refSection = content.substring(refMatch.index);
+
+  // Process single citations: [N] → [\[N\]](#ref-N)
+  // Negative lookahead (?!\() ensures we don't touch existing markdown links [text](url)
+  // Negative lookbehind (?<!\[) ensures we don't touch nested brackets [[N]]
+  let linked = body.replace(
+    /(?<!\[)\[(\d+)\](?!\()/g,
+    (_match, num) => `[\\[${num}\\]](#ref-${num})`,
+  );
+
+  // Process multi-citations: [1,2,3] → [\[1\]](#ref-1)[\[2\]](#ref-2)[\[3\]](#ref-3)
+  linked = linked.replace(/\[((\d+),(\d[\d,]*))\](?!\()/g, (_match, _full) => {
+    // Extract all numbers from the comma-separated list
+    const nums = _full.split(",").map((s: string) => s.trim());
+    return nums.map((n: string) => `[\\[${n}\\]](#ref-${n})`).join("");
+  });
+
+  return linked + refSection;
+}
+
+/**
+ * Add anchor IDs to reference entries so citation links can target them.
+ *
+ * Converts:
+ *   [1] Title. domain. url. 访问日期: date
+ * To:
+ *   <a id="ref-1"></a>[1] Title. domain. url. 访问日期: date
+ */
+export function anchorReferences(content: string): string {
+  return content.replace(
+    /^\[(\d+)\]\s/gm,
+    (match, num) => `<a id="ref-${num}"></a>${match}`,
+  );
+}
+
+/**
  * Minimum data points required per chart type.
  */
 export function getMinDataPoints(chartType: string): number {

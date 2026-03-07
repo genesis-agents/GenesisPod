@@ -614,7 +614,10 @@ export class ReportSynthesisService {
       citationIndexMapping.size > 0
         ? remapCitationIndices(cleanedReport, citationIndexMapping)
         : cleanedReport;
-    const finalReport = remappedReport + referencesSection;
+    // ★ Finalize: wrap bare LaTeX, add reference anchors, linkify citations
+    const finalReport = this.assembler.finalizeReportWithCitations(
+      remappedReport + referencesSection,
+    );
 
     const updatedReport = await this.prisma.topicReport.update({
       where: { id: reportId },
