@@ -6,9 +6,10 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SlideVisualValidatorSkill } from "../slide-visual-validator.skill";
+import { PuppeteerPoolService } from "../../../../../../common/browser/puppeteer-pool.service";
 
 // ---------------------------------------------------------------------------
-// Puppeteer mock setup (must be before any import that uses it)
+// Puppeteer mock setup
 // ---------------------------------------------------------------------------
 
 const mockPage = {
@@ -20,12 +21,11 @@ const mockPage = {
 
 const mockBrowser = {
   newPage: jest.fn().mockResolvedValue(mockPage),
-  close: jest.fn().mockResolvedValue(undefined),
 };
 
-jest.mock("puppeteer", () => ({
-  launch: jest.fn().mockResolvedValue(mockBrowser),
-}));
+const mockPuppeteerPool = {
+  getBrowser: jest.fn().mockResolvedValue(mockBrowser),
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,7 +73,7 @@ const setupEvaluateMocks = (...evaluateResults: unknown[]) => {
   mockPage.setContent.mockResolvedValue(undefined);
   mockPage.close.mockResolvedValue(undefined);
   mockBrowser.newPage.mockResolvedValue(mockPage);
-  mockBrowser.close.mockResolvedValue(undefined);
+  mockPuppeteerPool.getBrowser.mockResolvedValue(mockBrowser);
 
   let chain = mockPage.evaluate.mockReset();
   for (const result of evaluateResults) {
@@ -102,7 +102,10 @@ describe("SlideVisualValidatorSkill", () => {
     setupEvaluateMocks(true, makeMetrics());
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SlideVisualValidatorSkill],
+      providers: [
+        SlideVisualValidatorSkill,
+        { provide: PuppeteerPoolService, useValue: mockPuppeteerPool },
+      ],
     }).compile();
 
     skill = module.get<SlideVisualValidatorSkill>(SlideVisualValidatorSkill);
@@ -135,10 +138,9 @@ describe("SlideVisualValidatorSkill", () => {
     });
 
     it("should not launch puppeteer for empty HTML", async () => {
-      const puppeteer = await import("puppeteer");
       await skill.execute({ html: "" }, buildSkillContext());
 
-      expect(puppeteer.launch).not.toHaveBeenCalled();
+      expect(mockPuppeteerPool.getBrowser).not.toHaveBeenCalled();
     });
 
     it("should return blankRatio=1 and textDensity=0 for empty HTML", async () => {
@@ -182,10 +184,10 @@ describe("SlideVisualValidatorSkill", () => {
       expect(Array.isArray(metrics.accentColors)).toBe(true);
     });
 
-    it("should always call browser.close() after successful validation", async () => {
+    it("should always call page.close() after successful validation", async () => {
       await skill.execute({ html: VALID_HTML }, buildSkillContext());
 
-      expect(mockBrowser.close).toHaveBeenCalledTimes(1);
+      expect(mockPage.close).toHaveBeenCalledTimes(1);
     });
 
     it("should call page.setViewport with 1280x720", async () => {
@@ -355,7 +357,7 @@ describe("SlideVisualValidatorSkill", () => {
   // --------------------------------------------------------------------------
 
   describe("browser cleanup", () => {
-    it("should call browser.close() even when page.evaluate throws", async () => {
+    it("should return error result when page.evaluate throws", async () => {
       jest.clearAllMocks();
       // fonts.ready resolves, then main evaluate throws
       setupEvaluateMocks(true, new Error("DOM evaluation failed"));
@@ -366,10 +368,10 @@ describe("SlideVisualValidatorSkill", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(mockBrowser.close).toHaveBeenCalledTimes(1);
+      expect(result.error?.message).toContain("DOM evaluation failed");
     });
 
-    it("should call browser.close() even when browser.newPage throws", async () => {
+    it("should return error result when browser.newPage throws", async () => {
       jest.clearAllMocks();
       setupEvaluateMocks(true, makeMetrics());
       mockBrowser.newPage.mockRejectedValueOnce(
@@ -382,7 +384,7 @@ describe("SlideVisualValidatorSkill", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(mockBrowser.close).toHaveBeenCalledTimes(1);
+      expect(result.error?.message).toContain("Failed to create new page");
     });
   });
 

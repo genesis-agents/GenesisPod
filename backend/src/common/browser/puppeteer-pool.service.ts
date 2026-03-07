@@ -16,6 +16,8 @@ const DEFAULT_LAUNCH_ARGS = [
   "--disable-dev-shm-usage",
   "--disable-gpu",
   "--font-render-hinting=none",
+  // Anti-detection: prevent websites from detecting headless automation
+  "--disable-blink-features=AutomationControlled",
 ];
 
 @Injectable()
