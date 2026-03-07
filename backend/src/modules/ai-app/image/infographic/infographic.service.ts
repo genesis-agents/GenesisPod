@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import * as puppeteer from "puppeteer";
+import { PuppeteerPoolService } from "../../../../common/browser/puppeteer-pool.service";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import { BrandLogoService } from "../../../../common/config/brand-logo.service";
 
@@ -220,48 +220,11 @@ const DEFAULT_ICON = ICONS.star;
 @Injectable()
 export class InfographicTemplateService {
   private readonly logger = new Logger(InfographicTemplateService.name);
-  private browser: puppeteer.Browser | null = null;
 
-  constructor(private readonly brandLogoService: BrandLogoService) {}
-
-  /**
-   * 初始化 Puppeteer 浏览器实例
-   * 支持通过环境变量 PUPPETEER_EXECUTABLE_PATH 指定 Chrome/Chromium 路径
-   */
-  private async getBrowser(): Promise<puppeteer.Browser> {
-    if (!this.browser) {
-      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-
-      this.logger.log(
-        `Launching Puppeteer with executable: ${executablePath || "bundled chromium"}`,
-      );
-
-      this.browser = await puppeteer.launch({
-        headless: true,
-        executablePath: executablePath || undefined,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--font-render-hinting=none",
-          "--disable-software-rasterizer",
-          "--single-process", // 更好的容器兼容性
-        ],
-      });
-    }
-    return this.browser;
-  }
-
-  /**
-   * 清理浏览器实例
-   */
-  async cleanup(): Promise<void> {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-    }
-  }
+  constructor(
+    private readonly brandLogoService: BrandLogoService,
+    private readonly browserPool: PuppeteerPoolService,
+  ) {}
 
   /**
    * 获取图标 SVG
@@ -1045,7 +1008,7 @@ export class InfographicTemplateService {
     width: number = 1200,
     height: number = 800,
   ): Promise<string> {
-    const browser = await this.getBrowser();
+    const browser = await this.browserPool.getBrowser();
     const page = await browser.newPage();
 
     this.logger.log(

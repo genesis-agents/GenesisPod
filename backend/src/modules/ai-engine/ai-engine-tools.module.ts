@@ -12,6 +12,7 @@ import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { ExportModule } from "../../common/export/export.module";
+import { BrowserModule } from "../../common/browser/browser.module";
 import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 
 // Registry
@@ -60,6 +61,7 @@ const toolExecutorFactory = {
   imports: [
     PrismaModule,
     HttpModule,
+    BrowserModule,
     ExportModule, // FileConversionTool needs ExportOrchestratorService
     SecretsModule,
   ],

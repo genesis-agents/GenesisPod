@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import * as puppeteer from "puppeteer";
+import { PuppeteerPoolService } from "../../../common/browser/puppeteer-pool.service";
 import { TranscriptSegment } from "./youtube.service";
 import { Readable } from "stream";
 
@@ -29,6 +29,8 @@ export interface BilingualTranscript {
 @Injectable()
 export class PdfGeneratorService {
   private readonly logger = new Logger(PdfGeneratorService.name);
+
+  constructor(private readonly browserPool: PuppeteerPoolService) {}
 
   /**
    * Generate PDF from subtitles using Puppeteer
@@ -407,19 +409,10 @@ export class PdfGeneratorService {
    * Render HTML to PDF using Puppeteer
    */
   private async renderPdfFromHtml(html: string): Promise<Buffer> {
-    let browser: puppeteer.Browser | null = null;
+    const browser = await this.browserPool.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-        ],
-      });
-
-      const page = await browser.newPage();
       await page.setContent(html, { waitUntil: "networkidle0" });
 
       const pdfBuffer = await page.pdf({
@@ -428,12 +421,9 @@ export class PdfGeneratorService {
         printBackground: true,
       });
 
-      await page.close();
       return Buffer.from(pdfBuffer);
     } finally {
-      if (browser) {
-        await browser.close();
-      }
+      await page.close();
     }
   }
 

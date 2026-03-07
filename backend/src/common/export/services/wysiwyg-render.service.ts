@@ -3,8 +3,9 @@
  * 使用 Puppeteer 将前端捕获的 HTML+CSS 渲染为各种导出格式
  */
 
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
-import puppeteer, { Browser } from "puppeteer";
+import { Injectable, Logger } from "@nestjs/common";
+import { Browser } from "puppeteer";
+import { PuppeteerPoolService } from "../../browser/puppeteer-pool.service";
 import { ExportOptions } from "../types/export-options";
 
 export interface WysiwygOptions {
@@ -26,25 +27,10 @@ export interface ScreenshotOptions extends WysiwygOptions {
 }
 
 @Injectable()
-export class WysiwygRenderService implements OnModuleDestroy {
+export class WysiwygRenderService {
   private readonly logger = new Logger(WysiwygRenderService.name);
-  private browserPromise: Promise<Browser> | null = null;
 
-  private readonly launchOptions = {
-    headless: true as const,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--font-render-hinting=none",
-    ],
-  };
-
-  async onModuleDestroy(): Promise<void> {
-    await this.closeBrowser();
-  }
+  constructor(private readonly browserPool: PuppeteerPoolService) {}
 
   /**
    * 根据格式分发渲染
@@ -372,45 +358,11 @@ export class WysiwygRenderService implements OnModuleDestroy {
   }
 
   /**
-   * 获取或创建 Puppeteer 浏览器实例（Promise 缓存模式避免并发启动泄漏）
+   * 获取共享 Puppeteer 浏览器实例
    * Public so PdfRenderer can reuse the shared browser instead of launching its own.
    */
   async getBrowser(): Promise<Browser> {
-    if (!this.browserPromise) {
-      this.browserPromise = puppeteer
-        .launch(this.launchOptions)
-        .catch((err) => {
-          this.browserPromise = null;
-          throw err;
-        });
-    }
-
-    const browser = await this.browserPromise;
-    if (!browser.connected) {
-      this.browserPromise = puppeteer
-        .launch(this.launchOptions)
-        .catch((err) => {
-          this.browserPromise = null;
-          throw err;
-        });
-      return this.browserPromise;
-    }
-    return browser;
-  }
-
-  /**
-   * 关闭浏览器
-   */
-  private async closeBrowser(): Promise<void> {
-    if (this.browserPromise) {
-      try {
-        const browser = await this.browserPromise;
-        await browser.close();
-      } catch {
-        // Ignore close errors
-      }
-      this.browserPromise = null;
-    }
+    return this.browserPool.getBrowser();
   }
 
   /**

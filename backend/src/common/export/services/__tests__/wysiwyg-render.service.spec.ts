@@ -16,6 +16,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { WysiwygRenderService } from "../wysiwyg-render.service";
 import { ExportOptions } from "../../types/export-options";
+import { PuppeteerPoolService } from "../../../browser/puppeteer-pool.service";
 
 // ─── Puppeteer mock ──────────────────────────────────────────────────────────
 // jest.mock is hoisted before variable declarations, so we can't reference
@@ -80,6 +81,7 @@ const defaultOptions: ExportOptions = {
 
 describe("WysiwygRenderService", () => {
   let service: WysiwygRenderService;
+  let browserPool: PuppeteerPoolService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -98,10 +100,11 @@ describe("WysiwygRenderService", () => {
     mockScreenshot.mockResolvedValue(Buffer.from("screenshot"));
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [WysiwygRenderService],
+      providers: [WysiwygRenderService, PuppeteerPoolService],
     }).compile();
 
     service = module.get<WysiwygRenderService>(WysiwygRenderService);
+    browserPool = module.get<PuppeteerPoolService>(PuppeteerPoolService);
 
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
@@ -434,17 +437,17 @@ describe("WysiwygRenderService", () => {
   describe("onModuleDestroy", () => {
     it("closes the browser on module destroy", async () => {
       await service.getBrowser();
-      await service.onModuleDestroy();
+      await browserPool.onModuleDestroy();
       expect(mockBrowserClose).toHaveBeenCalled();
     });
 
     it("does not throw when no browser was created", async () => {
       const freshModule: TestingModule = await Test.createTestingModule({
-        providers: [WysiwygRenderService],
+        providers: [WysiwygRenderService, PuppeteerPoolService],
       }).compile();
-      const freshService =
-        freshModule.get<WysiwygRenderService>(WysiwygRenderService);
-      await expect(freshService.onModuleDestroy()).resolves.toBeUndefined();
+      const freshPool =
+        freshModule.get<PuppeteerPoolService>(PuppeteerPoolService);
+      await expect(freshPool.onModuleDestroy()).resolves.toBeUndefined();
     });
   });
 });

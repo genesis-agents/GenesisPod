@@ -18,7 +18,7 @@
 import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import * as puppeteer from "puppeteer";
+import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 import { APP_CONFIG } from "../../../../../common/config/app.config";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PptxGenJS = require("pptxgenjs");
@@ -107,6 +107,7 @@ export class SlidesExportService {
     private readonly parameterizedRenderer: ParameterizedRendererService,
     @Inject(forwardRef(() => LayoutOptimizerSkill))
     private readonly layoutOptimizer: LayoutOptimizerSkill,
+    private readonly browserPool: PuppeteerPoolService,
   ) {
     this.logger.debug(`[SlidesExport] Service initialized`);
   }
@@ -369,13 +370,10 @@ export class SlidesExportService {
     pptx: PptxInstance,
     htmlSlides: string[],
   ): Promise<void> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    const browser = await this.browserPool.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
       await page.setViewport({
         width: 1280,
         height: 720,
@@ -409,7 +407,7 @@ export class SlidesExportService {
         };
       }
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 
@@ -421,14 +419,10 @@ export class SlidesExportService {
     pptx: PptxInstance,
     document: PPTDocument,
   ): Promise<void> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    const browser = await this.browserPool.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
-
       // 设置页面大小为 16:9 比例 (1280x720)
       await page.setViewport({
         width: 1280,
@@ -481,7 +475,7 @@ export class SlidesExportService {
         }
       }
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 
@@ -501,15 +495,11 @@ export class SlidesExportService {
     // 检查是否有 HTML (同源导出)
     const hasV3Html = document.slides.some((slide) => slide.html);
 
-    // 使用 Puppeteer 渲染 PDF
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    // 使用共享浏览器渲染 PDF
+    const browser = await this.browserPool.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
-
       // 设置页面大小为 16:9 比例
       await page.setViewport({
         width: 1280,
@@ -565,7 +555,7 @@ export class SlidesExportService {
         fileSize: buffer.length,
       };
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 
@@ -728,15 +718,11 @@ export class SlidesExportService {
       this.logger.log(`[exportToPNG] Using HTML for same-source export`);
     }
 
-    // 使用 Puppeteer 渲染每页幻灯片
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    // 使用共享浏览器渲染每页幻灯片
+    const browser = await this.browserPool.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
-
       // 设置页面大小为 16:9 比例 (1280x720 与预览一致)
       await page.setViewport({
         width: 1280,
@@ -803,7 +789,7 @@ export class SlidesExportService {
         fileSize: buffer.length,
       };
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 

@@ -13,6 +13,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 import {
   ISkill,
   SkillContext,
@@ -32,6 +33,8 @@ export class SlideVisualValidatorSkill implements ISkill<
   SlideVisualValidatorOutput
 > {
   private readonly logger = new Logger(SlideVisualValidatorSkill.name);
+
+  constructor(private readonly browserPool: PuppeteerPoolService) {}
 
   readonly id = "slides-visual-validator";
   readonly name = "Slide Visual Validator";
@@ -79,22 +82,8 @@ export class SlideVisualValidatorSkill implements ISkill<
       };
     }
 
-    let browser: import("puppeteer").Browser | null = null;
-
     try {
-      // Dynamic import to avoid hard dependency when puppeteer is not needed
-      const puppeteer = await import("puppeteer");
-
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-        ],
-      });
-
+      const browser = await this.browserPool.getBrowser();
       const page = await browser.newPage();
       await page.setViewport({
         width: 1280,
@@ -314,14 +303,6 @@ export class SlideVisualValidatorSkill implements ISkill<
           duration: Date.now() - startTime.getTime(),
         },
       };
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch {
-          // Ignore close errors
-        }
-      }
     }
   }
 }

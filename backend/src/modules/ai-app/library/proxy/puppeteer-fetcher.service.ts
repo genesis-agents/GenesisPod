@@ -5,6 +5,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import * as puppeteer from "puppeteer";
+import { PuppeteerPoolService } from "../../../../common/browser/puppeteer-pool.service";
 
 export interface PuppeteerFetchResult {
   success: boolean;
@@ -18,60 +19,7 @@ export interface PuppeteerFetchResult {
 export class PuppeteerFetcherService {
   private readonly logger = new Logger(PuppeteerFetcherService.name);
 
-  // 浏览器实例池（可复用）
-  private browser: puppeteer.Browser | null = null;
-  private browserLaunchPromise: Promise<puppeteer.Browser> | null = null;
-  private idleTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly IDLE_TIMEOUT = 5 * 60 * 1000; // 5 分钟无活动关闭浏览器
-
-  /**
-   * 获取或创建浏览器实例
-   */
-  private async getBrowser(): Promise<puppeteer.Browser> {
-    // 如果已有浏览器实例且未关闭，直接返回
-    if (this.browser && this.browser.connected) {
-      return this.browser;
-    }
-
-    // 如果正在启动中，等待启动完成
-    if (this.browserLaunchPromise) {
-      return this.browserLaunchPromise;
-    }
-
-    // 启动新浏览器
-    this.browserLaunchPromise = puppeteer.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--disable-gpu",
-        "--window-size=1920,1080",
-        // 增加反检测能力
-        "--disable-blink-features=AutomationControlled",
-        // 内存优化: 限制 renderer 进程内存
-        "--js-flags=--max-old-space-size=128",
-        "--disable-extensions",
-        "--disable-background-networking",
-        "--disable-default-apps",
-        "--disable-translate",
-        "--single-process",
-      ],
-    });
-
-    this.browser = await this.browserLaunchPromise;
-    this.browserLaunchPromise = null;
-
-    // 监听断开事件
-    this.browser.on("disconnected", () => {
-      this.browser = null;
-      this.clearIdleTimer();
-    });
-
-    this.resetIdleTimer();
-    return this.browser;
-  }
+  constructor(private readonly browserPool: PuppeteerPoolService) {}
 
   /**
    * 使用 Puppeteer 获取网页内容
@@ -103,7 +51,7 @@ export class PuppeteerFetcherService {
     try {
       this.logger.log(`Fetching page with Puppeteer: ${url}`);
 
-      const browser = await this.getBrowser();
+      const browser = await this.browserPool.getBrowser();
       page = await browser.newPage();
 
       // 设置 viewport 和 user agent
@@ -235,8 +183,6 @@ export class PuppeteerFetcherService {
             this.logger.debug(`Page close failed: ${err?.message}`),
           );
       }
-      // 重置空闲关闭定时器
-      this.resetIdleTimer();
     }
   }
 
@@ -305,44 +251,5 @@ export class PuppeteerFetcherService {
     return { passed: false };
   }
 
-  /**
-   * 重置空闲关闭定时器
-   */
-  private resetIdleTimer(): void {
-    this.clearIdleTimer();
-    this.idleTimer = setTimeout(async () => {
-      if (this.browser && this.browser.connected) {
-        this.logger.log("Closing idle Puppeteer browser to free memory");
-        await this.closeBrowser();
-      }
-    }, this.IDLE_TIMEOUT);
-  }
-
-  /**
-   * 清除空闲定时器
-   */
-  private clearIdleTimer(): void {
-    if (this.idleTimer) {
-      clearTimeout(this.idleTimer);
-      this.idleTimer = null;
-    }
-  }
-
-  /**
-   * 关闭浏览器（用于清理）
-   */
-  async closeBrowser(): Promise<void> {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-    }
-  }
-
-  /**
-   * 服务销毁时清理资源
-   */
-  async onModuleDestroy(): Promise<void> {
-    this.clearIdleTimer();
-    await this.closeBrowser();
-  }
+  // Browser lifecycle managed by PuppeteerPoolService
 }

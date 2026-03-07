@@ -25,16 +25,18 @@ interface ExportFile {
   mimeType: string;
 }
 
-// Mock puppeteer for htmlToPDF tests
-jest.mock("puppeteer", () => ({
-  launch: jest.fn().mockResolvedValue({
-    newPage: jest.fn().mockResolvedValue({
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from("fake-pdf")),
-    }),
-    close: jest.fn().mockResolvedValue(undefined),
-  }),
-}));
+// Mock PuppeteerPoolService for htmlToPDF tests
+const mockPage = {
+  setContent: jest.fn().mockResolvedValue(undefined),
+  pdf: jest.fn().mockResolvedValue(Buffer.from("fake-pdf")),
+  close: jest.fn().mockResolvedValue(undefined),
+};
+const mockBrowser = {
+  newPage: jest.fn().mockResolvedValue(mockPage),
+};
+const mockPuppeteerPool = {
+  getBrowser: jest.fn().mockResolvedValue(mockBrowser),
+};
 
 // Mock turndown for htmlToDOCX tests
 jest.mock("turndown", () => {
@@ -47,7 +49,7 @@ jest.mock("turndown", () => {
 
 // Mock cheerio for htmlToJSON tests
 jest.mock("cheerio", () => ({
-  load: jest.fn().mockImplementation((html: string) => {
+  load: jest.fn().mockImplementation((_html: string) => {
     const $ = (selector: string) => {
       if (selector === "table") {
         return {
@@ -99,6 +101,7 @@ describe("FileConversionTool", () => {
     jest.clearAllMocks();
     tool = new FileConversionTool(
       mockExportOrchestrator as unknown as ExportOrchestratorService,
+      mockPuppeteerPool as any,
     );
   });
 
@@ -670,7 +673,8 @@ describe("FileConversionTool", () => {
       mockExportOrchestrator.getExportFile.mockResolvedValueOnce({
         buffer: Buffer.from("docx-bytes"),
         fileName: "doc.docx",
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
       const input: FileConversionInput = {
@@ -700,7 +704,8 @@ describe("FileConversionTool", () => {
       mockExportOrchestrator.getExportFile.mockResolvedValueOnce({
         buffer: Buffer.from("content"),
         fileName: "doc.docx",
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
       const input: FileConversionInput = {

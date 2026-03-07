@@ -28,9 +28,10 @@ import { HtmlRenderer } from "./renderers/html.renderer";
 
 // Common
 import { PrismaModule } from "../../common/prisma/prisma.module";
+import { BrowserModule } from "../../common/browser/browser.module";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, BrowserModule],
   controllers: [ExportController, TemplateController],
   providers: [
     // Services

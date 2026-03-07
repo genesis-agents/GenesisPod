@@ -4,6 +4,7 @@ import { MulterModule } from "@nestjs/platform-express";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { BrowserModule } from "../../../common/browser/browser.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 // ★ 依赖反转: 导入 token 用于提供 ImageGenerationService 实现
@@ -42,6 +43,7 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
   imports: [
     PrismaModule,
     HttpModule,
+    BrowserModule,
     StorageModule,
     SecretsModule,
     MulterModule.register({

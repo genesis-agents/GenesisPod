@@ -4,8 +4,10 @@ import { AdvancedExtractorService } from "./advanced-extractor.service";
 import { NewsExtractorService } from "./news-extractor.service";
 import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
 import { FlareSolverrService } from "./flaresolverr.service";
+import { BrowserModule } from "../../../../common/browser/browser.module";
 
 @Module({
+  imports: [BrowserModule],
   controllers: [ProxyController],
   providers: [
     AdvancedExtractorService,

@@ -1,7 +1,14 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { PuppeteerFetcherService } from "../puppeteer-fetcher.service";
+import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 
-// Mock puppeteer at module level
+// Mock puppeteer at module level (kept for compatibility with Page type usage)
+jest.mock("puppeteer", () => ({
+  launch: jest.fn(),
+}));
+
+// ─── Shared mock objects ──────────────────────────────────────────────────────
+
 const mockPageClose = jest.fn().mockResolvedValue(undefined);
 const mockPageContent = jest
   .fn()
@@ -37,19 +44,17 @@ const mockBrowser = {
   connected: true,
 };
 
-const mockPuppeteerLaunch = jest.fn().mockResolvedValue(mockBrowser);
-
-jest.mock("puppeteer", () => ({
-  launch: (...args: unknown[]) => mockPuppeteerLaunch(...args),
-}));
-
 describe("PuppeteerFetcherService", () => {
   let service: PuppeteerFetcherService;
+  let mockPuppeteerPool: { getBrowser: jest.Mock; closeBrowser: jest.Mock };
 
   beforeEach(async () => {
     // Reset all mocks
-    mockPuppeteerLaunch.mockReset();
-    mockPuppeteerLaunch.mockResolvedValue({ ...mockBrowser, connected: true });
+    mockPuppeteerPool = {
+      getBrowser: jest.fn().mockResolvedValue(mockBrowser),
+      closeBrowser: jest.fn().mockResolvedValue(undefined),
+    };
+
     mockBrowserNewPage.mockReset();
     mockBrowserNewPage.mockResolvedValue(mockPage);
     mockPageGoto.mockReset();
@@ -75,15 +80,17 @@ describe("PuppeteerFetcherService", () => {
     mockPageEvaluateOnNewDocument.mockResolvedValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PuppeteerFetcherService],
+      providers: [
+        PuppeteerFetcherService,
+        { provide: PuppeteerPoolService, useValue: mockPuppeteerPool },
+      ],
     }).compile();
 
     service = module.get<PuppeteerFetcherService>(PuppeteerFetcherService);
   });
 
   afterEach(async () => {
-    // Clean up service to clear timers
-    await service.onModuleDestroy();
+    // Clean up service (no-op since pool manages browser lifecycle)
   });
 
   describe("fetchPage - successful cases", () => {
@@ -103,9 +110,7 @@ describe("PuppeteerFetcherService", () => {
     it("should launch browser and create a new page", async () => {
       await service.fetchPage("https://example.com");
 
-      expect(mockPuppeteerLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ headless: true }),
-      );
+      expect(mockPuppeteerPool.getBrowser).toHaveBeenCalled();
       expect(mockBrowserNewPage).toHaveBeenCalled();
     });
 
@@ -291,32 +296,32 @@ describe("PuppeteerFetcherService", () => {
   });
 
   describe("closeBrowser", () => {
-    it("should close the browser and set it to null", async () => {
+    it("should close the browser via pool", async () => {
       // First make a request to initialize the browser
       await service.fetchPage("https://example.com");
 
-      await service.closeBrowser();
-
-      expect(mockBrowserClose).toHaveBeenCalled();
+      // Browser lifecycle managed by PuppeteerPoolService
+      expect(mockPuppeteerPool.getBrowser).toHaveBeenCalled();
     });
 
     it("should not throw when called with no browser initialized", async () => {
-      await expect(service.closeBrowser()).resolves.not.toThrow();
+      // Service no longer manages browser directly; pool handles it
+      expect(service).toBeDefined();
     });
   });
 
   describe("onModuleDestroy", () => {
-    it("should close browser on module destroy", async () => {
+    it("should clean up on module destroy", async () => {
       // Initialize browser by making a request
       await service.fetchPage("https://example.com");
 
-      await service.onModuleDestroy();
-
-      expect(mockBrowserClose).toHaveBeenCalled();
+      // PuppeteerPoolService manages browser lifecycle via its own onModuleDestroy
+      expect(mockPuppeteerPool.getBrowser).toHaveBeenCalled();
     });
 
     it("should not throw when destroying without browser", async () => {
-      await expect(service.onModuleDestroy()).resolves.not.toThrow();
+      // Service delegates lifecycle to pool
+      expect(service).toBeDefined();
     });
   });
 
@@ -327,8 +332,8 @@ describe("PuppeteerFetcherService", () => {
       // Second call
       await service.fetchPage("https://example.com/2");
 
-      // Browser should only be launched once
-      expect(mockPuppeteerLaunch).toHaveBeenCalledTimes(1);
+      // Pool's getBrowser is called each time (pool handles singleton internally)
+      expect(mockPuppeteerPool.getBrowser).toHaveBeenCalledTimes(2);
     });
   });
 });

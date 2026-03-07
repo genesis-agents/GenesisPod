@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -181,7 +182,7 @@ export class ExportImageTool extends BaseTool<
     },
   };
 
-  constructor() {
+  constructor(private readonly browserPool: PuppeteerPoolService) {
     super();
     // defaultTimeout set in class property // 30 秒超时
   }
@@ -341,15 +342,10 @@ export class ExportImageTool extends BaseTool<
   ): Promise<Buffer> {
     this.logger.log(`[convertHTMLToImage] Converting HTML to ${format}`);
 
-    const puppeteer = await import("puppeteer");
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    const browser = await this.browserPool.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
-
       // 设置视口
       if (width && height) {
         await page.setViewport({ width, height });
@@ -378,7 +374,7 @@ export class ExportImageTool extends BaseTool<
 
       return Buffer.from(screenshot);
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 

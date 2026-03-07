@@ -8,13 +8,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ExportService } from "../export.service";
 import { R2StorageService } from "../../../../ai-infra/storage/r2-storage.service";
-
-// Mock puppeteer at the module level
-jest.mock("puppeteer", () => ({
-  launch: jest.fn(),
-}));
-
-import * as puppeteer from "puppeteer";
+import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 
 describe("ExportService", () => {
   let service: ExportService;
@@ -36,8 +30,13 @@ describe("ExportService", () => {
     close: jest.fn().mockResolvedValue(undefined),
   };
 
+  let mockPuppeteerPool: { getBrowser: jest.Mock; closeBrowser: jest.Mock };
+
   beforeEach(async () => {
-    (puppeteer.launch as jest.Mock).mockResolvedValue(mockBrowser);
+    mockPuppeteerPool = {
+      getBrowser: jest.fn().mockResolvedValue(mockBrowser),
+      closeBrowser: jest.fn().mockResolvedValue(undefined),
+    };
 
     const mockR2StorageService = {
       isEnabled: jest.fn().mockReturnValue(false),
@@ -55,6 +54,7 @@ describe("ExportService", () => {
       providers: [
         ExportService,
         { provide: R2StorageService, useValue: mockR2StorageService },
+        { provide: PuppeteerPoolService, useValue: mockPuppeteerPool },
       ],
     }).compile();
 
@@ -63,7 +63,7 @@ describe("ExportService", () => {
 
     // Reset mocks between tests
     jest.clearAllMocks();
-    (puppeteer.launch as jest.Mock).mockResolvedValue(mockBrowser);
+    mockPuppeteerPool.getBrowser.mockResolvedValue(mockBrowser);
     mockBrowser.newPage.mockResolvedValue(mockPage);
     mockPage.setViewport.mockResolvedValue(undefined);
     mockPage.setContent.mockResolvedValue(undefined);
@@ -163,11 +163,9 @@ describe("ExportService", () => {
     });
 
     it("should return failure when puppeteer throws", async () => {
-      (puppeteer.launch as jest.Mock).mockRejectedValue(
+      mockPuppeteerPool.getBrowser.mockRejectedValue(
         new Error("Puppeteer failed"),
       );
-      // Force re-creation of browser by setting it to null
-      (service as unknown as { browser: null }).browser = null;
 
       const result = await service.exportToPNG("<div>Test</div>", 800, 600);
 
@@ -315,9 +313,8 @@ describe("ExportService", () => {
       (r2Storage.isEnabled as jest.Mock).mockReturnValue(false);
       await service.exportToPNG("<div>Test</div>", 100, 100);
 
-      await service.onModuleDestroy();
-
-      expect(mockBrowser.close).toHaveBeenCalled();
+      // Browser lifecycle is now managed by PuppeteerPoolService
+      expect(mockPuppeteerPool.getBrowser).toHaveBeenCalled();
     });
   });
 });

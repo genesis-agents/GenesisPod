@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import * as puppeteer from "puppeteer";
+import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 
 /**
  * Puppeteer 渲染服务
@@ -8,45 +8,11 @@ import * as puppeteer from "puppeteer";
 @Injectable()
 export class InfographicRenderService {
   private readonly logger = new Logger(InfographicRenderService.name);
-  private browser: puppeteer.Browser | null = null;
 
-  /**
-   * 初始化 Puppeteer 浏览器实例
-   * 支持通过环境变量 PUPPETEER_EXECUTABLE_PATH 指定 Chrome/Chromium 路径
-   */
-  private async getBrowser(): Promise<puppeteer.Browser> {
-    if (!this.browser) {
-      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  constructor(private readonly browserPool: PuppeteerPoolService) {}
 
-      this.logger.log(
-        `Launching Puppeteer with executable: ${executablePath || "bundled chromium"}`,
-      );
-
-      this.browser = await puppeteer.launch({
-        headless: true,
-        executablePath: executablePath || undefined,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--font-render-hinting=none",
-          "--disable-software-rasterizer",
-          "--single-process", // 更好的容器兼容性
-        ],
-      });
-    }
-    return this.browser;
-  }
-
-  /**
-   * 清理浏览器实例
-   */
   async cleanup(): Promise<void> {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-    }
+    // Browser lifecycle managed by PuppeteerPoolService
   }
 
   /**
@@ -58,7 +24,7 @@ export class InfographicRenderService {
     width: number = 1200,
     height: number = 800,
   ): Promise<string> {
-    const browser = await this.getBrowser();
+    const browser = await this.browserPool.getBrowser();
     const page = await browser.newPage();
 
     this.logger.log(

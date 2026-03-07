@@ -7,6 +7,7 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
+import { BrowserModule } from "../../../common/browser/browser.module";
 
 // Core (AIModelService 作为 Skills 后备，待迁移到 AI Engine)
 import { AIModelController, AIModelService } from "./core";
@@ -62,6 +63,7 @@ import { AiWritingModule } from "../writing/ai-writing.module";
     HttpModule,
     ConfigModule,
     PrismaModule,
+    BrowserModule,
     forwardRef(() => AiEngineModule),
     StorageModule,
     CreditsModule,

@@ -40,17 +40,19 @@ jest.mock("sharp", () => {
 // Mock puppeteer — used for HTML content path
 // ============================================================================
 
-jest.mock("puppeteer", () => ({
-  launch: jest.fn().mockResolvedValue({
-    newPage: jest.fn().mockResolvedValue({
-      setViewport: jest.fn().mockResolvedValue(undefined),
-      setContent: jest.fn().mockResolvedValue(undefined),
-      screenshot: jest.fn().mockResolvedValue(Buffer.from("screenshot-data")),
-      close: jest.fn().mockResolvedValue(undefined),
-    }),
-    close: jest.fn().mockResolvedValue(undefined),
-  }),
-}));
+// Mock PuppeteerPoolService
+const mockPage = {
+  setViewport: jest.fn().mockResolvedValue(undefined),
+  setContent: jest.fn().mockResolvedValue(undefined),
+  screenshot: jest.fn().mockResolvedValue(Buffer.from("screenshot-data")),
+  close: jest.fn().mockResolvedValue(undefined),
+};
+const mockBrowser = {
+  newPage: jest.fn().mockResolvedValue(mockPage),
+};
+const mockPuppeteerPool = {
+  getBrowser: jest.fn().mockResolvedValue(mockBrowser),
+};
 
 // ============================================================================
 // Helpers
@@ -86,7 +88,7 @@ describe("ExportImageTool", () => {
     };
 
     // Reset the toBuffer mock on the instance to return fresh buffer
-    const toBuffer = sharpMock._instance.toBuffer as jest.Mock;
+    const toBuffer = sharpMock._instance.toBuffer;
     toBuffer.mockResolvedValue(Buffer.from("fake-image-data"));
     sharpMock._instance.png.mockReturnValue({ toBuffer });
     sharpMock._instance.jpeg.mockReturnValue({ toBuffer });
@@ -99,7 +101,7 @@ describe("ExportImageTool", () => {
     // Keep default in sync
     sharpMock.default = sharpMock;
 
-    tool = new ExportImageTool();
+    tool = new ExportImageTool(mockPuppeteerPool as any);
   });
 
   // --------------------------------------------------------------------------
@@ -301,43 +303,26 @@ describe("ExportImageTool", () => {
   // --------------------------------------------------------------------------
 
   describe("HTML conversion", () => {
-    it("should detect HTML content and use puppeteer", async () => {
-      const puppeteer = await import("puppeteer");
-
+    it("should detect HTML content and use puppeteer pool", async () => {
       const result = await tool.execute(
         { content: SAMPLE_HTML },
         createMockContext(),
       );
 
-      expect(puppeteer.launch).toHaveBeenCalled();
+      expect(mockPuppeteerPool.getBrowser).toHaveBeenCalled();
       expect(result.data?.success).toBe(true);
     });
 
     it("should set viewport when width and height are provided for HTML", async () => {
-      const puppeteer = await import("puppeteer");
-      const browser = await (puppeteer.launch as jest.Mock).mock.results[0]
-        ?.value;
-
       await tool.execute(
         { content: SAMPLE_HTML, width: 1024, height: 768 },
         createMockContext(),
       );
 
-      // Re-fetch the page mock after this call
-      const launchMock = puppeteer.launch as jest.Mock;
-      const lastBrowser =
-        await launchMock.mock.results[launchMock.mock.results.length - 1]
-          ?.value;
-      if (lastBrowser) {
-        const page = await lastBrowser.newPage();
-        expect(page.setViewport).toHaveBeenCalledWith({
-          width: 1024,
-          height: 768,
-        });
-      }
-      // Just verify launch was called
-      expect(launchMock).toHaveBeenCalled();
-      void browser; // suppress unused warning
+      expect(mockPage.setViewport).toHaveBeenCalledWith({
+        width: 1024,
+        height: 768,
+      });
     });
   });
 

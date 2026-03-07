@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -206,7 +207,10 @@ export class FileConversionTool extends BaseTool<
     },
   };
 
-  constructor(private readonly exportOrchestrator: ExportOrchestratorService) {
+  constructor(
+    private readonly exportOrchestrator: ExportOrchestratorService,
+    private readonly browserPool: PuppeteerPoolService,
+  ) {
     super();
     // defaultTimeout set in class property // 60 秒超时
   }
@@ -491,15 +495,11 @@ export class FileConversionTool extends BaseTool<
   ): Promise<FileConversionOutput> {
     const title = options?.title || "Document";
 
-    // 使用 Puppeteer 生成 PDF
-    const puppeteer = await import("puppeteer");
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    // 使用共享浏览器池生成 PDF
+    const browser = await this.browserPool.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
       await page.setContent(html, { waitUntil: "networkidle0" });
 
       const pdfBuffer = await page.pdf({
@@ -522,7 +522,7 @@ export class FileConversionTool extends BaseTool<
         success: true,
       };
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 
@@ -780,7 +780,8 @@ export class FileConversionTool extends BaseTool<
         }
         if (currentSection.type !== "list") {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).content = (currentSection as any).content || [];
+          (currentSection as any).content =
+            (currentSection as any).content || [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
           (currentSection as any).content.push({
             type: "list_item",
@@ -801,7 +802,8 @@ export class FileConversionTool extends BaseTool<
           currentSection = { type: "paragraph", text: trimmed };
         } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).content = (currentSection as any).content || [];
+          (currentSection as any).content =
+            (currentSection as any).content || [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
           (currentSection as any).content.push({ type: "text", text: trimmed });
         }
@@ -850,7 +852,10 @@ export class FileConversionTool extends BaseTool<
       const keys = Object.keys(data);
       const rows = [keys.join(delimiter)];
       const values = keys.map((key) =>
-        this.escapeCSVValue(String((data as Record<string, unknown>)[key] ?? ""), delimiter),
+        this.escapeCSVValue(
+          String((data as Record<string, unknown>)[key] ?? ""),
+          delimiter,
+        ),
       );
       rows.push(values.join(delimiter));
       return rows.join("\n");

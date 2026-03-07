@@ -6,22 +6,8 @@ import {
   VideoMetadata,
   SubtitleExportOptions,
 } from "../pdf-generator.service";
+import { PuppeteerPoolService } from "../../../../common/browser/puppeteer-pool.service";
 import { Readable } from "stream";
-
-// Mock puppeteer before importing the service
-jest.mock("puppeteer", () => ({
-  launch: jest.fn().mockResolvedValue({
-    newPage: jest.fn().mockResolvedValue({
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from("fake-pdf-content")),
-      close: jest.fn().mockResolvedValue(undefined),
-    }),
-    close: jest.fn().mockResolvedValue(undefined),
-  }),
-}));
-
-import * as puppeteer from "puppeteer";
-const mockPuppeteer = puppeteer as jest.Mocked<typeof puppeteer>;
 
 describe("PdfGeneratorService", () => {
   let service: PdfGeneratorService;
@@ -55,21 +41,47 @@ describe("PdfGeneratorService", () => {
     includeMetadata: true,
   };
 
+  // ─── Mock page factory ─────────────────────────────────────────────────────
+  function makeMockPage(
+    overrides: Partial<{
+      setContent: jest.Mock;
+      pdf: jest.Mock;
+      close: jest.Mock;
+    }> = {},
+  ) {
+    return {
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from("fake-pdf-content")),
+      close: jest.fn().mockResolvedValue(undefined),
+      ...overrides,
+    };
+  }
+
+  let mockPuppeteerPool: { getBrowser: jest.Mock; closeBrowser: jest.Mock };
+  let mockBrowserNewPage: jest.Mock;
+  let mockBrowserClose: jest.Mock;
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    // Reset puppeteer mock with fresh mock page
-    (mockPuppeteer.launch as jest.Mock).mockResolvedValue({
-      newPage: jest.fn().mockResolvedValue({
-        setContent: jest.fn().mockResolvedValue(undefined),
-        pdf: jest.fn().mockResolvedValue(Buffer.from("fake-pdf-content")),
-        close: jest.fn().mockResolvedValue(undefined),
-      }),
-      close: jest.fn().mockResolvedValue(undefined),
-    });
+    mockBrowserClose = jest.fn().mockResolvedValue(undefined);
+    mockBrowserNewPage = jest.fn().mockResolvedValue(makeMockPage());
+
+    const mockBrowser = {
+      newPage: mockBrowserNewPage,
+      close: mockBrowserClose,
+    };
+
+    mockPuppeteerPool = {
+      getBrowser: jest.fn().mockResolvedValue(mockBrowser),
+      closeBrowser: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PdfGeneratorService],
+      providers: [
+        PdfGeneratorService,
+        { provide: PuppeteerPoolService, useValue: mockPuppeteerPool },
+      ],
     }).compile();
 
     service = module.get<PdfGeneratorService>(PdfGeneratorService);
@@ -100,49 +112,35 @@ describe("PdfGeneratorService", () => {
       expect(content).toBe("fake-pdf-content");
     });
 
-    it("launches puppeteer with correct headless args", async () => {
+    it("launches puppeteer via pool for PDF generation", async () => {
       await service.generatePdf(mockBilingual, mockMetadata, defaultOptions);
 
-      expect(mockPuppeteer.launch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          headless: true,
-          args: expect.arrayContaining(["--no-sandbox"]),
-        }),
-      );
+      expect(mockPuppeteerPool.getBrowser).toHaveBeenCalled();
     });
 
     it("closes browser even when pdf() throws", async () => {
-      const mockBrowser = {
-        newPage: jest.fn().mockResolvedValue({
-          setContent: jest.fn(),
-          pdf: jest.fn().mockRejectedValue(new Error("PDF render failed")),
-          close: jest.fn(),
-        }),
+      const mockPageWithError = makeMockPage({
+        pdf: jest.fn().mockRejectedValue(new Error("PDF render failed")),
         close: jest.fn().mockResolvedValue(undefined),
-      };
-      (mockPuppeteer.launch as jest.Mock).mockResolvedValue(mockBrowser);
+      });
+      mockBrowserNewPage.mockResolvedValue(mockPageWithError);
 
       await expect(
         service.generatePdf(mockBilingual, mockMetadata, defaultOptions),
       ).rejects.toThrow("PDF render failed");
 
-      expect(mockBrowser.close).toHaveBeenCalledTimes(1);
+      expect(mockPageWithError.close).toHaveBeenCalledTimes(1);
     });
 
     it("sets page content with generated HTML before calling pdf()", async () => {
       let capturedHtml = "";
-      const mockPage = {
+      const mockPage = makeMockPage({
         setContent: jest.fn().mockImplementation((html) => {
           capturedHtml = html as string;
           return Promise.resolve();
         }),
-        pdf: jest.fn().mockResolvedValue(Buffer.from("pdf")),
-        close: jest.fn().mockResolvedValue(undefined),
-      };
-      (mockPuppeteer.launch as jest.Mock).mockResolvedValue({
-        newPage: jest.fn().mockResolvedValue(mockPage),
-        close: jest.fn(),
       });
+      mockBrowserNewPage.mockResolvedValue(mockPage);
 
       await service.generatePdf(mockBilingual, mockMetadata, defaultOptions);
 
@@ -236,18 +234,13 @@ describe("PdfGeneratorService", () => {
       opts: SubtitleExportOptions,
     ): Promise<string> => {
       let capturedHtml = "";
-      const mockPage = {
+      const mockPage = makeMockPage({
         setContent: jest.fn().mockImplementation((html: string) => {
           capturedHtml = html;
           return Promise.resolve();
         }),
-        pdf: jest.fn().mockResolvedValue(Buffer.from("pdf")),
-        close: jest.fn().mockResolvedValue(undefined),
-      };
-      (mockPuppeteer.launch as jest.Mock).mockResolvedValue({
-        newPage: jest.fn().mockResolvedValue(mockPage),
-        close: jest.fn(),
       });
+      mockBrowserNewPage.mockResolvedValue(mockPage);
       await service.generatePdf(mockBilingual, mockMetadata, opts);
       return capturedHtml;
     };
@@ -346,18 +339,13 @@ describe("PdfGeneratorService", () => {
         chinese: [],
       };
       let capturedHtml = "";
-      const mockPage = {
+      const mockPage = makeMockPage({
         setContent: jest.fn().mockImplementation((html: string) => {
           capturedHtml = html;
           return Promise.resolve();
         }),
-        pdf: jest.fn().mockResolvedValue(Buffer.from("pdf")),
-        close: jest.fn().mockResolvedValue(undefined),
-      };
-      (mockPuppeteer.launch as jest.Mock).mockResolvedValue({
-        newPage: jest.fn().mockResolvedValue(mockPage),
-        close: jest.fn(),
       });
+      mockBrowserNewPage.mockResolvedValue(mockPage);
 
       await service.generatePdf(specialBilingual, mockMetadata, {
         format: "english-only",
@@ -381,18 +369,13 @@ describe("PdfGeneratorService", () => {
         chinese: [],
       };
       let capturedHtml = "";
-      const mockPage = {
+      const mockPage = makeMockPage({
         setContent: jest.fn().mockImplementation((html: string) => {
           capturedHtml = html;
           return Promise.resolve();
         }),
-        pdf: jest.fn().mockResolvedValue(Buffer.from("pdf")),
-        close: jest.fn().mockResolvedValue(undefined),
-      };
-      (mockPuppeteer.launch as jest.Mock).mockResolvedValue({
-        newPage: jest.fn().mockResolvedValue(mockPage),
-        close: jest.fn(),
       });
+      mockBrowserNewPage.mockResolvedValue(mockPage);
 
       await service.generatePdf(transcript, mockMetadata, {
         format: "english-only",
@@ -410,18 +393,13 @@ describe("PdfGeneratorService", () => {
         chinese: [],
       };
       let capturedHtml = "";
-      const mockPage = {
+      const mockPage = makeMockPage({
         setContent: jest.fn().mockImplementation((html: string) => {
           capturedHtml = html;
           return Promise.resolve();
         }),
-        pdf: jest.fn().mockResolvedValue(Buffer.from("pdf")),
-        close: jest.fn().mockResolvedValue(undefined),
-      };
-      (mockPuppeteer.launch as jest.Mock).mockResolvedValue({
-        newPage: jest.fn().mockResolvedValue(mockPage),
-        close: jest.fn(),
       });
+      mockBrowserNewPage.mockResolvedValue(mockPage);
 
       await service.generatePdf(transcript, mockMetadata, {
         format: "english-only",

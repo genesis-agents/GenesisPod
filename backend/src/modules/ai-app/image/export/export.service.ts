@@ -5,7 +5,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import * as puppeteer from "puppeteer";
+import { PuppeteerPoolService } from "../../../../common/browser/puppeteer-pool.service";
 import { R2StorageService } from "../../../ai-infra/facade";
 import {
   ExportOptions,
@@ -37,28 +37,11 @@ interface PptxGenJSConstructor {
 @Injectable()
 export class ExportService {
   private readonly logger = new Logger(ExportService.name);
-  private browser: puppeteer.Browser | null = null;
 
-  constructor(private readonly r2Storage: R2StorageService) {}
-
-  /**
-   * 获取或创建浏览器实例
-   */
-  private async getBrowser(): Promise<puppeteer.Browser> {
-    if (!this.browser || !this.browser.connected) {
-      this.browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--font-render-hinting=none",
-        ],
-      });
-    }
-    return this.browser;
-  }
+  constructor(
+    private readonly r2Storage: R2StorageService,
+    private readonly browserPool: PuppeteerPoolService,
+  ) {}
 
   /**
    * 导出为 PNG
@@ -70,7 +53,7 @@ export class ExportService {
     options: ExportOptions = { format: "png" },
   ): Promise<ExportResult> {
     try {
-      const browser = await this.getBrowser();
+      const browser = await this.browserPool.getBrowser();
       const page = await browser.newPage();
 
       const scale = options.scale || 2;
@@ -198,7 +181,7 @@ export class ExportService {
     options: ExportOptions = { format: "pdf" },
   ): Promise<ExportResult> {
     try {
-      const browser = await this.getBrowser();
+      const browser = await this.browserPool.getBrowser();
       const page = await browser.newPage();
 
       await page.setContent(html, {
@@ -412,12 +395,5 @@ export class ExportService {
     }
   }
 
-  /**
-   * 关闭浏览器
-   */
-  async onModuleDestroy() {
-    if (this.browser) {
-      await this.browser.close();
-    }
-  }
+  // Browser lifecycle managed by PuppeteerPoolService
 }
