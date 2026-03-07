@@ -506,9 +506,9 @@ describe('HtmlCaptureService - extractStyles CSS coverage', () => {
     document.head.removeChild(style);
   });
 
-  it('includes :root selector always in CSS output', async () => {
+  it('excludes :root/html/body rules to prevent app background leaking into export', async () => {
     const style = document.createElement('style');
-    style.textContent = ':root { --primary: blue; }';
+    style.textContent = ':root { --primary: blue; } body { background: gray; }';
     document.head.appendChild(style);
 
     makeContainer('<p>content</p>');
@@ -520,7 +520,8 @@ describe('HtmlCaptureService - extractStyles CSS coverage', () => {
       inlineImages: false,
     });
 
-    expect(result.css).toContain('--primary');
+    expect(result.css).not.toContain('--primary');
+    expect(result.css).not.toContain('background: gray');
     document.head.removeChild(style);
   });
 

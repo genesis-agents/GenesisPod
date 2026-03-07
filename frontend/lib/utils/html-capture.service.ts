@@ -210,14 +210,20 @@ export class HtmlCaptureService {
     usedTags: Set<string>,
     usedIds: Set<string>
   ): boolean {
-    // 通配符和全局选择器总是包含
+    // Universal selector: always include (e.g. * { box-sizing: border-box })
+    if (selector === '*') {
+      return true;
+    }
+
+    // Skip html/body/:root rules — they pollute export with app-level gradients
+    // (e.g. globals.css body { background: linear-gradient(...) }).
+    // The export wrapper provides its own clean white background.
     if (
-      selector === '*' ||
       selector.startsWith(':root') ||
       selector.startsWith('html') ||
       selector.startsWith('body')
     ) {
-      return true;
+      return false;
     }
 
     // 检查类名匹配

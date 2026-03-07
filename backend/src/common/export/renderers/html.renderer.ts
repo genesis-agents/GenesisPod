@@ -847,6 +847,11 @@ export class HtmlRenderer implements ExportRenderer {
   <title>${this.escapeHtml(title)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
   <style>${capturedCss}</style>
+  <style>
+    /* Override app background styles captured from the live DOM */
+    html, body { background: #ffffff !important; background-image: none !important; }
+    body { max-width: 900px; margin: 0 auto; padding: 2rem; color: #333; font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif; line-height: 1.6; }
+  </style>
 </head>
 <body>
   ${capturedHtml}
