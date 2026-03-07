@@ -27,6 +27,7 @@ import {
   TopicDimensionService,
   TopicExportService,
   TopicScheduleService,
+  ReportQualityTraceService,
 } from "../services";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
@@ -153,6 +154,11 @@ function buildMocks() {
     updateSchedule: jest.fn(),
   };
 
+  const mockQualityTraceService = {
+    getQualityTrace: jest.fn(),
+    getQualitySummary: jest.fn(),
+  };
+
   return {
     mockPrisma,
     mockEventEmitter,
@@ -169,6 +175,7 @@ function buildMocks() {
     mockDimensionService,
     mockExportService,
     mockScheduleService,
+    mockQualityTraceService,
   };
 }
 
@@ -242,6 +249,10 @@ describe("TopicInsightsService", () => {
         { provide: TopicDimensionService, useValue: mockDimensionService },
         { provide: TopicExportService, useValue: mockExportService },
         { provide: TopicScheduleService, useValue: mocks.mockScheduleService },
+        {
+          provide: ReportQualityTraceService,
+          useValue: mocks.mockQualityTraceService,
+        },
       ],
     }).compile();
 
