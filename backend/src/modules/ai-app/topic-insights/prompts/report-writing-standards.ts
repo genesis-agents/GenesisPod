@@ -307,7 +307,7 @@ export const EXECUTIVE_SUMMARY_FORMAT_EN = `## Executive Summary (McKinsey SCR F
  * @param language "zh" | "en" (default "zh")
  */
 export function getWritingStandards(language: string = "zh"): string {
-  if (language === "en") {
+  if (language.startsWith("en")) {
     return [
       HEADING_HIERARCHY_EN,
       PROFESSIONAL_TONE_EN,
@@ -327,5 +327,5 @@ export function getWritingStandards(language: string = "zh"): string {
  * Language-aware executive summary format.
  */
 export function getExecutiveSummaryFormat(language: string = "zh"): string {
-  return language === "en" ? EXECUTIVE_SUMMARY_FORMAT_EN : EXECUTIVE_SUMMARY_FORMAT;
+  return language.startsWith("en") ? EXECUTIVE_SUMMARY_FORMAT_EN : EXECUTIVE_SUMMARY_FORMAT;
 }
