@@ -703,6 +703,7 @@ describe("SectionWriterService", () => {
             figureIndex: 0,
             caption: "Market share",
             position: "after_para_1",
+            imageUrl: "https://example.com/chart.png",
           },
         ],
       });

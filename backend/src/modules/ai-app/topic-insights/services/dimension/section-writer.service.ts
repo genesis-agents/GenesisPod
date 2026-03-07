@@ -276,10 +276,11 @@ export class SectionWriterService {
     const wordCount = content.length;
     const referencesUsed = this.extractReferences(content);
 
-    // ★ 用 allocatedFigures 补全 figureReferences 中缺失的 imageUrl
+    // ★ 用 allocatedFigures + evidenceData 补全 figureReferences 中缺失的 imageUrl
     const finalFigureRefs = this.backfillFigureUrls(
       charts.figureReferences,
       input.allocatedFigures,
+      evidenceData,
     );
 
     this.logger.log(
@@ -874,47 +875,119 @@ export class SectionWriterService {
   }
 
   /**
-   * 用 Leader 预分配的 allocatedFigures 补全 Writer 输出的 figureReferences
-   * LLM 输出 figureReferences 时经常省略 imageUrl，需要从 allocatedFigures 回填
+   * 用 Leader 预分配的 allocatedFigures + evidenceData 补全 Writer 输出的 figureReferences
+   *
+   * LLM 输出 figureReferences 时经常省略 imageUrl，需要多级回填：
+   * 1. 精确匹配 allocatedFigures (evidenceIndex:figureIndex)
+   * 2. 从 evidenceData.extractedFigures 直接查找原始 URL
+   * 3. 仍无 URL 的引用被过滤（无法渲染）
    */
   private backfillFigureUrls(
     figureRefs: FigureReference[],
     allocatedFigures?: import("../core/research-leader.service").AllocatedFigure[],
+    evidenceData?: EvidenceData[],
   ): FigureReference[] {
-    if (!allocatedFigures || allocatedFigures.length === 0) {
+    if (figureRefs.length === 0) {
       return figureRefs;
     }
 
-    // 构建 "evidenceIndex:figureIndex" -> allocatedFigure 映射
+    // Level 1: 构建 "evidenceIndex:figureIndex" -> allocatedFigure 映射
     const allocatedMap = new Map<
       string,
       import("../core/research-leader.service").AllocatedFigure
     >();
-    for (const fig of allocatedFigures) {
-      allocatedMap.set(`${fig.evidenceIndex}:${fig.figureIndex}`, fig);
+    if (allocatedFigures) {
+      for (const fig of allocatedFigures) {
+        allocatedMap.set(`${fig.evidenceIndex}:${fig.figureIndex}`, fig);
+      }
     }
+
+    // Level 2: 构建 "evidenceIndex:figureIndex" -> extractedFigure 映射（从原始证据）
+    const evidenceFigureMap = new Map<string, ExtractedFigure>();
+    if (evidenceData) {
+      for (let i = 0; i < evidenceData.length; i++) {
+        const ev = evidenceData[i] as EvidenceData & {
+          extractedFigures?: ExtractedFigure[];
+        };
+        if (ev.extractedFigures) {
+          for (let j = 0; j < ev.extractedFigures.length; j++) {
+            evidenceFigureMap.set(`${i + 1}:${j}`, ev.extractedFigures[j]);
+          }
+        }
+      }
+    }
+
+    let backfilled = 0;
 
     // 补全缺失的 imageUrl
     for (const ref of figureRefs) {
       const key = `${ref.evidenceCitationIndex}:${ref.figureIndex}`;
+
+      // Level 1: 从 allocatedFigures 回填
       const allocated = allocatedMap.get(key);
-
-      // Fuzzy fallback removed: matching by figureIndex alone causes wrong
-      // figure assignment when multiple evidences share the same figureIndex.
-      // Only exact "evidenceIndex:figureIndex" matches are safe.
-
       if (allocated) {
         if (!ref.imageUrl) {
           ref.imageUrl = allocated.imageUrl;
+          backfilled++;
         }
         if (!ref.caption) {
           ref.caption = allocated.caption;
         }
       }
+
+      // Level 2: 从原始 evidenceData.extractedFigures 回填（当 allocated 没匹配到时）
+      if (!ref.imageUrl) {
+        const extracted = evidenceFigureMap.get(key);
+        if (extracted?.imageUrl) {
+          ref.imageUrl = extracted.imageUrl;
+          if (!ref.caption) {
+            ref.caption = extracted.caption || extracted.alt || "";
+          }
+          backfilled++;
+        }
+      }
+
+      // 清理 caption：去除原始网页标题格式（如 "Title | by Author | Platform"）
+      if (ref.caption) {
+        ref.caption = this.cleanFigureCaption(ref.caption);
+      }
     }
 
-    // ★ 过滤掉仍然没有 imageUrl 的引用（无法渲染）
-    return figureRefs.filter((ref) => ref.imageUrl);
+    if (backfilled > 0) {
+      this.logger.log(
+        `[backfillFigureUrls] Backfilled ${backfilled}/${figureRefs.length} figure URLs`,
+      );
+    }
+
+    // 过滤掉仍然没有 imageUrl 的引用（无法渲染）
+    const result = figureRefs.filter((ref) => ref.imageUrl);
+    if (result.length < figureRefs.length) {
+      this.logger.warn(
+        `[backfillFigureUrls] Dropped ${figureRefs.length - result.length} figure refs without imageUrl`,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * 清理 figure caption：去除原始网页标题中的平台/作者信息
+   *
+   * 例如: "Understanding LLM Inference | by Saiii | Medium" → "Understanding LLM Inference"
+   */
+  private cleanFigureCaption(caption: string): string {
+    // Remove "| by Author | Platform" suffixes (Medium, Substack, etc.)
+    let cleaned = caption.replace(/\s*\|\s*by\s+[^|]+\|\s*\w+\s*$/i, "");
+    // Remove trailing "| Platform" (e.g., "Title | Medium")
+    cleaned = cleaned.replace(
+      /\s*\|\s*(?:Medium|Substack|Dev\.to|Towards Data Science|HackerNoon|Analytics Vidhya)\s*$/i,
+      "",
+    );
+    // Remove trailing "- Platform" (e.g., "Title - arXiv")
+    cleaned = cleaned.replace(
+      /\s*[-–—]\s*(?:arXiv|Medium|Substack|Wikipedia|YouTube|GitHub)\s*$/i,
+      "",
+    );
+    return cleaned.trim();
   }
 
   /**
