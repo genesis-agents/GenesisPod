@@ -13,9 +13,15 @@
 import {
   SYNTHESIS_FORMATTING,
   PROFESSIONAL_TONE,
+  PROFESSIONAL_TONE_EN,
   HEADING_HIERARCHY,
-  EXECUTIVE_SUMMARY_FORMAT,
+  HEADING_HIERARCHY_EN,
+  getExecutiveSummaryFormat,
 } from "./report-writing-standards";
+import {
+  renderPromptTemplate,
+  getLanguageInstruction,
+} from "./dimension-research.prompt";
 
 /**
  * 报告合成系统提示词
@@ -90,11 +96,11 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
 - **禁止 HTML 实体**：不要输出 &gt; &lt; &amp; 等 HTML 实体，直接使用 > < & 符号
 - **禁止箭头链**：不要使用 → 符号串联因果，用"这导致..."、"进而引发..."等自然语言表达
 
-${HEADING_HIERARCHY}
+{{headingHierarchy}}
 
-${PROFESSIONAL_TONE}
+{{professionalTone}}
 
-${EXECUTIVE_SUMMARY_FORMAT}
+{{executiveSummaryFormat}}
 
 {{languageInstruction}}`;
 
@@ -410,4 +416,20 @@ export function renderReportSynthesisPrompt(
   }
 
   return result;
+}
+
+/**
+ * 渲染报告合成系统提示词（语言感知）
+ *
+ * 根据语言动态注入写作标准和执行摘要格式，
+ * 替代手动 .replace("{{languageInstruction}}", ...) 调用
+ */
+export function renderSynthesisSystemPrompt(language: string): string {
+  const isEn = language.startsWith("en");
+  return renderPromptTemplate(REPORT_SYNTHESIS_SYSTEM_PROMPT, {
+    languageInstruction: getLanguageInstruction(language),
+    headingHierarchy: isEn ? HEADING_HIERARCHY_EN : HEADING_HIERARCHY,
+    professionalTone: isEn ? PROFESSIONAL_TONE_EN : PROFESSIONAL_TONE,
+    executiveSummaryFormat: getExecutiveSummaryFormat(language),
+  });
 }

@@ -1329,6 +1329,55 @@ export function fixArrowChains(content: string): string {
 }
 
 /**
+ * Repair Markdown tables that render as plain text.
+ *
+ * Fixes:
+ * 1. Missing blank lines before/after tables (ReactMarkdown requires them)
+ * 2. Missing or malformed separator rows (| --- | --- |)
+ * 3. Inconsistent column counts between header, separator, and data rows
+ */
+export function repairMarkdownTables(content: string): string {
+  // Match table blocks: consecutive lines starting with |
+  return content.replace(
+    /(^|\n)((?:\|[^\n]+\|\s*\n){2,})/g,
+    (_match, prefix: string, tableBlock: string) => {
+      const lines = tableBlock.trimEnd().split("\n");
+      if (lines.length < 2) return _match;
+
+      // Count columns from first row
+      const headerCols = (lines[0].match(/\|/g) || []).length - 1;
+      if (headerCols < 1) return _match;
+
+      // Check if second line is a valid separator
+      const isSeparator = (line: string) =>
+        /^\|(\s*:?-{2,}:?\s*\|)+\s*$/.test(line.trim());
+
+      let result: string[];
+      if (!isSeparator(lines[1])) {
+        // Insert separator row after header
+        const sep =
+          "| " + Array(headerCols).fill("---").join(" | ") + " |";
+        result = [lines[0], sep, ...lines.slice(1)];
+      } else {
+        // Validate existing separator has correct column count
+        const sepCols = (lines[1].match(/\|/g) || []).length - 1;
+        if (sepCols !== headerCols) {
+          const sep =
+            "| " + Array(headerCols).fill("---").join(" | ") + " |";
+          result = [lines[0], sep, ...lines.slice(2)];
+        } else {
+          result = lines;
+        }
+      }
+
+      // Ensure blank line before and after table
+      const before = prefix.endsWith("\n\n") || prefix === "" ? prefix : prefix + "\n";
+      return before + result.join("\n") + "\n";
+    },
+  );
+}
+
+/**
  * Minimum data points required per chart type.
  */
 export function getMinDataPoints(chartType: string): number {

@@ -201,3 +201,131 @@ export const SYNTHESIS_FORMATTING = `## 格式要求
 - 加粗仅用于核心判断句（每节最多 2 处）
 - 禁止在补充内容中使用 > 引用块（引用块预算留给维度章节）
 - 禁止使用 --- 分割线`;
+
+// ============ English Variants ============
+
+export const HEADING_HIERARCHY_EN = `## Heading Hierarchy Rules
+
+Your content is embedded under \`## DimensionName\`, so:
+- Use \`###\` for sub-sections (e.g. ### Background, ### Current Analysis)
+- Use \`####\` for sub-sub-sections (e.g. #### Competitive Landscape)
+- Do NOT use \`#\` or \`##\` (reserved for report framework)
+- Do NOT use \`#####\` or deeper levels
+
+Rule: Maximum 2 levels (### and ####). Structure through content, not heading depth.`;
+
+export const PROFESSIONAL_TONE_EN = `## Writing Style Standards
+
+### Analytical Tone (third-person primary, first-person secondary)
+- Present data in third person: "Data indicates...", "Evidence suggests...", "Research shows..."
+- Use restrained first person for judgments: max 1 "our analysis shows" per sub-section
+- Total first-person expressions ("we believe/observe/find") max 10 across entire document
+- Benchmarked: McKinsey uses "Our analysis shows" (sparingly), Stanford HAI uses third person
+
+### Prohibited
+- Colloquial expressions
+- Cliché openings: "In today's rapidly evolving...", "As we navigate..."
+- Arrow chains: Do NOT use → to chain causality. Use "this leads to...", "which in turn causes...", "resulting in..."
+
+### Terminology Consistency
+- First occurrence of each term: include original term in parentheses if non-English
+- Use consistent English terminology throughout
+- Do not switch between equivalent terms
+
+### Absolutely Prohibited Internal Information
+- **No word counts**: Never output "(word count: ~XXX)", "(current count: XXX)" or similar
+- **No role names**: Never output "Leader", "Agent", "Research Agent" or similar internal multi-agent role names
+- **No textbook references**: Do not use "as the curriculum shows", "the learning roadmap indicates"
+- **No internal annotations**: Never output "data support summary", "independent insight", "needs verification"
+
+### Math Formulas
+- **Use standard LaTeX syntax**: Rendered by frontend KaTeX
+- Inline formulas: \`$...$\` (e.g. \`$O(n^2)$\`, \`$\\frac{a}{b}$\`)
+- Display formulas: \`$$...$$\`
+- Simple expressions can use Unicode: O(n²), √n
+- **Completeness**: One math expression must be in a single \`$...$\` pair. Never split like \`$A$ $\\in$ $B$\``;
+
+export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
+
+### Bold (**bold**)
+- Max 2 bold items per sub-section (### heading)
+- Only bold core judgment statements
+- Do NOT bold: standalone numbers/percentages, entire sentences (>30 words)
+- Bold text should form a "scan layer": reader gets core points from bold alone
+
+### Blockquotes (> blockquote)
+- Max 10-15 blockquotes across entire report
+- Max 2 blockquotes per dimension
+- Each blockquote max 150 words
+- Only for: 1 core judgment + 1 key data finding per dimension
+
+### Horizontal Rules (---)
+- Do NOT use --- in detailedContent
+- Section separation is handled by heading hierarchy
+
+### Lists
+- Ordered lists: 1. 2. 3. (Arabic numerals only)
+- Unordered lists: - (dash only)
+- Max 2 nesting levels`;
+
+export const CHAPTER_HIGHLIGHTS_EN = `## Chapter Highlights (required at start of each dimension's detailedContent)
+
+At the very beginning of detailedContent, before the first ### heading, insert a blockquote:
+
+> **Chapter Highlights**
+> - Point 1: One-sentence core finding (with key data)
+> - Point 2: One-sentence core finding
+> - Point 3: One-sentence core finding
+
+Constraints:
+- 3-5 points, each max 30 words
+- This is the only "opening blockquote" allowed for each dimension
+- Benchmarked: Stanford HAI Chapter Highlights pattern`;
+
+export const EXECUTIVE_SUMMARY_FORMAT_EN = `## Executive Summary (McKinsey SCR Framework)
+
+### Structure (strict order)
+1. **Thesis Statement** (1 sentence, max 30 words, bold): The single most important conclusion
+2. **Context** (2-3 sentences): Research scope and time window
+3. **Core Findings** (3-5 items, numbered): Each 1-2 sentences, bold the judgment sentence
+4. **Key Metrics** (table): Metric | Value | Source
+5. **Risk Alerts** (2-3 items, numbered): Each 1 sentence
+6. **Action Items** (3 items, by audience): Each 1 sentence
+
+### Constraints
+- Total length 400-600 words
+- Core findings: bold first sentence (judgment), second sentence plain (data support)
+- Must be independently readable: core information without reading full report
+- Do NOT use blockquotes`;
+
+/**
+ * Language-aware writing standards resolver.
+ *
+ * Returns the complete set of writing standards as a single string block
+ * in the appropriate language. Used by prompts that need runtime language switching.
+ *
+ * @param language "zh" | "en" (default "zh")
+ */
+export function getWritingStandards(language: string = "zh"): string {
+  if (language === "en") {
+    return [
+      HEADING_HIERARCHY_EN,
+      PROFESSIONAL_TONE_EN,
+      FORMATTING_LIMITS_EN,
+      CHAPTER_HIGHLIGHTS_EN,
+    ].join("\n\n");
+  }
+  return [
+    HEADING_HIERARCHY,
+    PROFESSIONAL_TONE,
+    FORMATTING_LIMITS,
+    CHAPTER_HIGHLIGHTS,
+  ].join("\n\n");
+}
+
+/**
+ * Language-aware executive summary format.
+ */
+export function getExecutiveSummaryFormat(language: string = "zh"): string {
+  return language === "en" ? EXECUTIVE_SUMMARY_FORMAT_EN : EXECUTIVE_SUMMARY_FORMAT;
+}

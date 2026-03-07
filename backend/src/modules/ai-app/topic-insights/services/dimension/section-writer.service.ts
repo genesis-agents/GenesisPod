@@ -21,6 +21,7 @@ import {
   renderPromptTemplate,
   getLanguageInstruction,
 } from "../../prompts/dimension-research.prompt";
+import { getWritingStandards } from "../../prompts/report-writing-standards";
 import type {
   EvidenceData,
   GeneratedChart,
@@ -218,6 +219,7 @@ export class SectionWriterService {
     );
     const systemPrompt = renderPromptTemplate(SECTION_WRITING_SYSTEM_PROMPT, {
       languageInstruction,
+      writingStandards: getWritingStandards(input.topicLanguage || "zh"),
     });
 
     const startTime = Date.now();

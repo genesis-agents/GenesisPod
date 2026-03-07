@@ -28,6 +28,7 @@ import {
   clearBrokenMediaAndEmptyBlocks,
   fixDoubleSourceLabels,
   splitWallOfText,
+  repairMarkdownTables,
 } from "../../utils/report-formatting.utils";
 import {
   stripChartJsonFromContent,
@@ -193,6 +194,9 @@ export class ReportAssemblerService {
 
     // Clear empty blockquotes and broken image placeholders
     processed = clearBrokenMediaAndEmptyBlocks(processed);
+
+    // Repair Markdown tables (missing separator rows, blank lines)
+    processed = repairMarkdownTables(processed);
 
     // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
     processed = splitWallOfText(processed);
@@ -637,6 +641,9 @@ export class ReportAssemblerService {
 
     // Clear empty blockquotes and broken image placeholders
     content = clearBrokenMediaAndEmptyBlocks(content);
+
+    // Repair Markdown tables (missing separator rows, blank lines)
+    content = repairMarkdownTables(content);
 
     // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
     content = splitWallOfText(content);
