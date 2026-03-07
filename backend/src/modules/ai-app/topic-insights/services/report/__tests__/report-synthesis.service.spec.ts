@@ -16,6 +16,7 @@ import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
 import { ReportEditorService } from "../report-editor.service";
 import { ReportAssemblerService } from "../report-assembler.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
+import { ReportQualityTraceService } from "../../quality/report-quality-trace.service";
 import type { ResearchTopic } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -199,6 +200,26 @@ describe("ReportSynthesisService", () => {
             finalizeReportWithCitations: jest
               .fn()
               .mockImplementation((content: string) => content),
+          },
+        },
+        {
+          provide: ReportQualityTraceService,
+          useValue: {
+            createTrace: jest.fn().mockReturnValue({}),
+            recordEvidenceQuality: jest.fn(),
+            scanDimensionOutput: jest.fn(),
+            recordDimensionQualityGate: jest.fn(),
+            recordPostProcessing: jest.fn(),
+            recordSynthesisOutput: jest.fn(),
+            computeFinalAssessment: jest.fn(),
+            finalizeTrace: jest.fn().mockReturnValue({
+              finalAssessment: {
+                grade: "B",
+                overallScore: 75,
+                dimensions: {},
+              },
+            }),
+            persistTrace: jest.fn(),
           },
         },
         {
