@@ -421,13 +421,10 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
   private async checkTablesExist(): Promise<boolean> {
     if (this.tablesExistCache !== null) return this.tablesExistCache;
     try {
-      await this.prisma.$queryRawUnsafe(
-        `SELECT 1 FROM information_schema.tables WHERE table_name = 'chunks' LIMIT 1`,
+      const rows = await this.prisma.$queryRawUnsafe<{ cnt: bigint }[]>(
+        `SELECT COUNT(*)::bigint AS cnt FROM information_schema.tables WHERE table_name IN ('chunks', 'embeddings')`,
       );
-      await this.prisma.$queryRawUnsafe(
-        `SELECT 1 FROM information_schema.tables WHERE table_name = 'embeddings' LIMIT 1`,
-      );
-      this.tablesExistCache = true;
+      this.tablesExistCache = rows.length > 0 && Number(rows[0].cnt) === 2;
     } catch {
       this.tablesExistCache = false;
     }
