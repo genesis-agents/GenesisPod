@@ -82,8 +82,14 @@ export class HtmlCaptureService {
     // 使 sr-only 数据表格在导出中可见（图表的无障碍回退）
     HtmlCaptureService.revealSrOnlyTables(clone);
 
+    // ★ v4.3: 为标题添加 ID 锚点（支持 TOC 跳转）
+    HtmlCaptureService.addHeadingAnchors(clone);
+
     // 提取 CSS (filtered by selectors used in container)
-    const css = HtmlCaptureService.extractStyles(container as HTMLElement);
+    let css = HtmlCaptureService.extractStyles(container as HTMLElement);
+
+    // ★ v4.3: 去重 CSS 规则，减少导出文件体积
+    css = HtmlCaptureService.deduplicateCss(css);
 
     return {
       html: clone.outerHTML,
@@ -595,5 +601,63 @@ export class HtmlCaptureService {
       el.removeAttribute('tabindex');
       el.removeAttribute('aria-label');
     }
+  }
+
+  /**
+   * ★ v4.3: 为标题元素添加 ID 锚点，支持 TOC 内链跳转
+   */
+  private static addHeadingAnchors(clone: HTMLElement): void {
+    const headings = clone.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    const usedIds = new Set<string>();
+
+    for (const heading of Array.from(headings)) {
+      if (heading.id) {
+        usedIds.add(heading.id);
+        continue;
+      }
+
+      // 从标题文本生成 slug ID
+      const text = heading.textContent?.trim() || '';
+      if (!text) continue;
+
+      const slug = text
+        .toLowerCase()
+        .replace(/[^\w\u4e00-\u9fff\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60);
+
+      // 去重
+      let finalSlug = slug;
+      let counter = 1;
+      while (usedIds.has(finalSlug)) {
+        finalSlug = `${slug}-${counter++}`;
+      }
+      usedIds.add(finalSlug);
+      heading.id = finalSlug;
+    }
+  }
+
+  /**
+   * ★ v4.3: CSS 去重 — 移除重复的 CSS 规则以减少导出文件体积
+   */
+  private static deduplicateCss(css: string): string {
+    const seen = new Set<string>();
+    const rules: string[] = [];
+
+    // 简单按规则级别去重（不解析嵌套 at-rules）
+    // 按 } 分割，逐条去重
+    const parts = css.split('}');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      const rule = trimmed + '}';
+      if (!seen.has(rule)) {
+        seen.add(rule);
+        rules.push(rule);
+      }
+    }
+
+    return rules.join('\n');
   }
 }

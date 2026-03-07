@@ -273,7 +273,7 @@ export default function DataSourcesTab({
 
         if (gdResponse.ok) {
           const gdData = await gdResponse.json();
-          const connection = gdData.connection;
+          const connection = gdData.data?.connection ?? gdData.connection;
           const isActive = connection && connection.status === 'ACTIVE';
           const needsReauth = connection && !isActive;
           statuses['GOOGLE_DRIVE'] = {
@@ -309,12 +309,13 @@ export default function DataSourcesTab({
 
         if (notionResponse.ok) {
           const notionData = await notionResponse.json();
-          const hasConnections =
-            notionData.connections && notionData.connections.length > 0;
+          const connections =
+            notionData.data?.connections ?? notionData.connections;
+          const hasConnections = connections && connections.length > 0;
           statuses['NOTION'] = {
             type: 'NOTION',
             isConnected: hasConnections,
-            itemCount: notionData.connections?.length || 0,
+            itemCount: connections?.length || 0,
           };
         } else {
           statuses['NOTION'] = {
@@ -325,6 +326,36 @@ export default function DataSourcesTab({
       } catch {
         statuses['NOTION'] = {
           type: 'NOTION',
+          isConnected: false,
+        };
+      }
+
+      // Fetch Feishu connection status
+      try {
+        const feishuResponse = await fetch(
+          `${config.apiUrl}/feishu-data-source/status`,
+          {
+            headers: { ...getAuthHeader() },
+          }
+        );
+
+        if (feishuResponse.ok) {
+          const feishuData = await feishuResponse.json();
+          const feishuPayload = feishuData.data ?? feishuData;
+          statuses['FEISHU'] = {
+            type: 'FEISHU',
+            isConnected: feishuPayload.isConnected === true,
+            itemCount: feishuPayload.stats?.totalItems || 0,
+          };
+        } else {
+          statuses['FEISHU'] = {
+            type: 'FEISHU',
+            isConnected: false,
+          };
+        }
+      } catch {
+        statuses['FEISHU'] = {
+          type: 'FEISHU',
           isConnected: false,
         };
       }

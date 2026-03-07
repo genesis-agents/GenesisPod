@@ -348,6 +348,12 @@ export class WysiwygRenderService {
     /* ProseMirror / TipTap editor content */
     .ProseMirror { outline: none !important; height: auto !important; }
     [contenteditable] { height: auto !important; min-height: 0 !important; }
+    /* Force white background on captured content — override app theme classes */
+    [data-export-content], [data-export-content] * {
+      background-color: transparent !important;
+      background-image: none !important;
+    }
+    body > * { background-color: #ffffff !important; }
   </style>
 </head>
 <body>
