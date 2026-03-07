@@ -251,6 +251,53 @@ export class ReportSynthesisService {
   }
 
   /**
+   * Re-process an existing report's fullReport through the latest formatting pipeline.
+   * No LLM call — only applies post-processing fixes to stored Markdown.
+   *
+   * Use this to fix reports generated with older pipeline versions.
+   */
+  async reprocessExistingReport(reportId: string): Promise<TopicReport> {
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      include: { topic: true },
+    });
+
+    if (!report?.fullReport) {
+      throw new Error(`Report ${reportId} not found or has no content`);
+    }
+
+    const targetLanguage =
+      (report.topic as { language?: string })?.language || "zh";
+
+    this.logger.log(
+      `[reprocessExistingReport] Re-processing report ${reportId} (${report.fullReport.length} chars)`,
+    );
+
+    const { content, warnings } = this.assembler.reprocessStoredReport(
+      report.fullReport,
+      targetLanguage,
+    );
+
+    if (warnings.length > 0) {
+      this.logger.warn(
+        `[reprocessExistingReport] Fixes applied:\n${warnings.join("\n")}`,
+      );
+    }
+
+    // Update stored report
+    const updated = await this.prisma.topicReport.update({
+      where: { id: reportId },
+      data: { fullReport: content },
+    });
+
+    this.logger.log(
+      `[reprocessExistingReport] Report ${reportId} reprocessed: ${report.fullReport.length} → ${content.length} chars, ${warnings.length} fixes`,
+    );
+
+    return updated;
+  }
+
+  /**
    * 合成最终报告
    */
   async synthesizeReport(

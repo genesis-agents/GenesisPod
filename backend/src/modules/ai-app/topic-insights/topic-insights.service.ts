@@ -483,6 +483,31 @@ export class TopicInsightsService {
   }
 
   /**
+   * ★ 轻量级报告重新处理（不调用 LLM）
+   * 只对已存储的 fullReport 重新跑最新的后处理管道
+   */
+  async reprocessReportFormatting(userId: string, reportId: string) {
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      include: { topic: true },
+    });
+
+    if (!report || report.topic.userId !== userId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    const updated = await this.reportService.reprocessExistingReport(reportId);
+
+    this.eventEmitter.emit("topic-insights.report.refreshed", {
+      topicId: report.topic.id,
+      reportId,
+      refreshedAt: new Date(),
+    });
+
+    return { success: true, report: updated };
+  }
+
+  /**
    * ★ 重新计算证据可信度评分
    */
   async recalculateEvidenceCredibility(reportId: string) {

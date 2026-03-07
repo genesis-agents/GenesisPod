@@ -482,6 +482,31 @@ export class ReportController {
    * ★ 重新合成报告内容
    */
   @Post("topics/:topicId/reports/:reportId/regenerate")
+  @Post("topics/:topicId/reports/:reportId/reprocess")
+  @ApiOperation({
+    summary: "重新处理报告格式",
+    description:
+      "对已存储的报告重新跑最新的后处理管道（不调用 LLM），修复格式问题",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "处理完成" })
+  async reprocessReportFormatting(
+    @Request() req: RequestWithUser,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.reprocessReportFormatting(
+      userId,
+      reportId,
+    );
+  }
+
+  @Post("topics/:topicId/reports/:reportId/regenerate")
   @ApiOperation({
     summary: "重新合成报告内容",
     description: "重新合成报告的 Markdown 内容，用于修复格式问题",

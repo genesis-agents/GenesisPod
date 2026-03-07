@@ -733,6 +733,23 @@ export class ReportAssemblerService {
   }
 
   /**
+   * Re-process an already-stored fullReport through the latest post-processing pipeline.
+   *
+   * This is a lightweight operation (no LLM call) that applies all formatting fixes
+   * to an existing report. Use this to fix reports generated with older pipeline versions.
+   *
+   * @param storedMarkdown  The fullReport field from TopicReport
+   * @param targetLanguage  Target language (default "zh")
+   * @returns Updated markdown with all fixes applied
+   */
+  reprocessStoredReport(
+    storedMarkdown: string,
+    targetLanguage: string = "zh",
+  ): PostProcessResult {
+    return this.postProcessFinalReport(storedMarkdown, targetLanguage);
+  }
+
+  /**
    * Apply citation-related post-processing to a complete report
    * (body + references section already concatenated).
    *
