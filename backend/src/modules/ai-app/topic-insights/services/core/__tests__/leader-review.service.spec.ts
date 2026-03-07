@@ -267,7 +267,7 @@ describe("LeaderReviewService", () => {
         [{ title: "Section 1", content: "Market is growing" }],
       );
 
-      expect(result.content).toContain("Market Analysis");
+      // Content no longer includes dimension name (added by assembleFullReport)
       expect(result.content).toContain("Market is growing");
       expect(aiFacade.chatWithSkills).not.toHaveBeenCalled();
     });
@@ -288,7 +288,8 @@ describe("LeaderReviewService", () => {
         ],
       );
 
-      expect(result.content).toContain("Market Analysis");
+      // Content no longer includes dimension name (added by assembleFullReport)
+      expect(result.content).toContain("Market is growing rapidly");
       expect(result.metadata.summary).toBe("Comprehensive market analysis");
     });
 
@@ -304,7 +305,8 @@ describe("LeaderReviewService", () => {
         ],
       );
 
-      expect(result.content).toContain("Market");
+      // Content no longer includes dimension name (added by assembleFullReport)
+      expect(result.content).toContain("Content A");
       expect(result.metadata.confidenceLevel).toBe("medium");
     });
   });

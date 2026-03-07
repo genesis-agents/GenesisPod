@@ -817,7 +817,7 @@ describe("ResearchLeaderService (supplemental)", () => {
         singleSection,
       );
 
-      expect(result.content).toContain("技术现状");
+      // Content no longer includes dimension name (added by assembleFullReport)
       expect(result.content).toContain("技术内容分析文字");
       // No AI call for single section
       expect(mocks.mockFacade.chatWithSkills).not.toHaveBeenCalled();
@@ -837,7 +837,7 @@ describe("ResearchLeaderService (supplemental)", () => {
         sections,
       );
 
-      expect(result.content).toContain("技术现状");
+      // Content no longer includes dimension name (added by assembleFullReport)
       expect(result.content).toContain("部分一内容");
       expect(result.content).toContain("部分二内容");
       expect(result.metadata.confidenceLevel).toBe("medium");
@@ -896,7 +896,8 @@ describe("ResearchLeaderService (supplemental)", () => {
         sections,
       );
 
-      expect(result.content).toContain("技术现状");
+      // Content no longer includes dimension name (added by assembleFullReport)
+      expect(result.content).toContain("技术内容一");
       expect(result.metadata.confidenceLevel).toBe("medium");
     });
 

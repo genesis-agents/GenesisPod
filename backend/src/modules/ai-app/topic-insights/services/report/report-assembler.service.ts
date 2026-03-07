@@ -261,9 +261,9 @@ export class ReportAssemblerService {
     sortedDimensions.forEach((dim, idx) => {
       const dimName = dim.dimensionName || `${labels.dimension}${idx + 1}`;
       tocIndex = idx + 1;
-      parts.push(
-        `${tocIndex}. [${dimName}](#${tocIndex}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
-      );
+      // Anchor matches CommonMark slug for "## N. DimName" → "#n-dimname"
+      const anchor = `${tocIndex}-${dimName.toLowerCase().replace(/\s+/g, "-")}`;
+      parts.push(`${tocIndex}. [${dimName}](#${anchor})`);
     });
     // Only add TOC entries for non-empty supplementary sections
     if (sc.crossDimensionAnalysis) {

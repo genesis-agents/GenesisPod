@@ -2570,7 +2570,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
       const content = sectionResults[0].content;
       const keyFindings = this.extractKeyFindingsFromContent(content);
       return {
-        content: `# ${dimension.name}\n\n${content}`,
+        content,
         metadata: {
           summary: content.substring(0, 200),
           keyFindings,
@@ -2583,29 +2583,28 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
 
     const leaderModel = await this.getReasoningModel();
 
-    // 构建章节内容
+    // 构建章节内容（不添加编号和分割线——编号由 numberSubHeadings 统一处理）
     const sectionsContent = sectionResults
-      .map((s, i) => `### ${i + 1}. ${s.title}\n\n${s.content}`)
-      .join("\n\n---\n\n");
+      .map((s) => `### ${s.title}\n\n${s.content}`)
+      .join("\n\n");
 
     // 如果没有推理模型，使用简单拼接（但仍提取关键发现）
     if (!leaderModel) {
-      const content = `# ${dimension.name}\n\n${sectionsContent}`;
-      const keyFindings = this.extractKeyFindingsFromContent(content);
+      const keyFindings = this.extractKeyFindingsFromContent(sectionsContent);
       return {
-        content,
+        content: sectionsContent,
         metadata: {
           summary: `关于"${dimension.name}"的分析报告。`,
           keyFindings,
           confidenceLevel: "medium",
         },
-        evidenceUsed: this.extractEvidenceIds(content),
-        totalWords: content.length,
+        evidenceUsed: this.extractEvidenceIds(sectionsContent),
+        totalWords: sectionsContent.length,
       };
     }
 
     // ★ 保留完整章节内容（不压缩），仅用AI提取摘要和关键发现
-    const fullContent = `# ${dimension.name}\n\n${sectionsContent}`;
+    const fullContent = sectionsContent;
     const totalWords = fullContent.length;
 
     // 用AI提取摘要和关键发现（但不重写正文）
