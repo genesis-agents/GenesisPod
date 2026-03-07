@@ -19,7 +19,7 @@ import {
   removeHorizontalRules,
   repairOrderedListContinuity,
   stripInternalFigureNotation,
-  wrapBareLatex,
+  mergeAdjacentMathBlocks,
   linkifyCitations,
   anchorReferences,
 } from "../../utils/report-formatting.utils";
@@ -537,8 +537,8 @@ export class ReportAssemblerService {
     // Repair ordered list continuity (LLM often restarts from 1 mid-section)
     content = repairOrderedListContinuity(content);
 
-    // Wrap bare LaTeX commands in $...$ delimiters for proper rendering
-    content = wrapBareLatex(content);
+    // Merge fragmented adjacent $...$ math blocks into single blocks
+    content = mergeAdjacentMathBlocks(content);
 
     // Add anchor IDs to reference entries (idempotent — skips already-anchored lines)
     content = anchorReferences(content);
@@ -575,10 +575,10 @@ export class ReportAssemblerService {
    * Use this when references are appended AFTER postProcessFinalReport
    * (e.g. in synthesizeReport where references are built separately).
    *
-   * Steps: wrapBareLatex → anchorReferences → linkifyCitations
+   * Steps: mergeAdjacentMathBlocks → anchorReferences → linkifyCitations
    */
   finalizeReportWithCitations(content: string): string {
-    let result = wrapBareLatex(content);
+    let result = mergeAdjacentMathBlocks(content);
     result = anchorReferences(result);
     result = linkifyCitations(result);
     return result;

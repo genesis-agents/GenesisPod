@@ -862,68 +862,47 @@ export function stripInternalFigureNotation(content: string): string {
 }
 
 /**
- * Wrap bare LaTeX commands that appear outside of `$...$` delimiters.
+ * Merge adjacent inline math blocks that the LLM fragmented.
  *
- * Detects common LaTeX patterns (e.g. \frac{}{}, 10^{18}, \approx, \sum)
- * that are NOT already inside `$...$` and wraps them in `$...$`.
+ * LLMs sometimes split a single math expression across multiple `$...$` blocks,
+ * e.g. `$W_Q$ $\in$ $\mathbb{R}^{d}$` instead of `$W_Q \in \mathbb{R}^{d}$`.
+ * KaTeX renders each fragment independently, which often breaks because
+ * individual fragments like `\left(` or `\frac{` are incomplete.
  *
- * Must run BEFORE simplifyLatexNotation (if used) and BEFORE citation linking.
- * Skips code blocks (``` and inline `).
+ * This function merges adjacent `$...$` blocks separated only by whitespace
+ * into a single block, and also cleans up double-dollar `$$..$$` artifacts.
+ *
+ * Skips code blocks (``` and inline `). Does NOT touch `$$...$$` display math.
  */
-export function wrapBareLatex(content: string): string {
-  // First, protect code blocks and inline code from modification
+export function mergeAdjacentMathBlocks(content: string): string {
+  // Protect code blocks and inline code
   const codeBlocks: string[] = [];
-  let protected_ = content.replace(/```[\s\S]*?```/g, (m) => {
+  let result = content.replace(/```[\s\S]*?```/g, (m) => {
     codeBlocks.push(m);
     return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
   });
   const inlineCodes: string[] = [];
-  protected_ = protected_.replace(/`[^`]+`/g, (m) => {
+  result = result.replace(/`[^`]+`/g, (m) => {
     inlineCodes.push(m);
     return `__INLINE_CODE_${inlineCodes.length - 1}__`;
   });
 
-  // Protect existing $...$ math delimiters
-  const mathBlocks: string[] = [];
-  protected_ = protected_.replace(/\$[^$]+\$/g, (m) => {
-    mathBlocks.push(m);
-    return `__MATH_${mathBlocks.length - 1}__`;
-  });
+  // Merge adjacent $...$ blocks: $A$ $B$ → $A B$  (also handles $A$$B$)
+  // Repeat until stable (merging 3+ consecutive blocks)
+  let prev = "";
+  while (prev !== result) {
+    prev = result;
+    result = result.replace(
+      /\$([^$]+)\$\s*\$([^$]+)\$/g,
+      (_, a, b) => `$${a} ${b}$`,
+    );
+  }
 
-  // Now wrap bare LaTeX patterns
+  // Restore protected sections
+  result = result.replace(/__INLINE_CODE_(\d+)__/g, (_, i) => inlineCodes[i]);
+  result = result.replace(/__CODE_BLOCK_(\d+)__/g, (_, i) => codeBlocks[i]);
 
-  // Pattern 1: \command{...} sequences (e.g. \frac{a}{b}, \text{x}, \sqrt{x})
-  protected_ = protected_.replace(
-    /\\(?:frac|text|textbf|textit|sqrt|mathbb|mathcal|sum|prod|int|lim)\{[^}]*\}(?:\{[^}]*\})?/g,
-    (m) => `$${m}$`,
-  );
-
-  // Pattern 2: expressions with ^{...} or _{...} (e.g. 10^{18}, x_{i})
-  // Match a word/number followed by ^{} or _{}
-  protected_ = protected_.replace(
-    /(?<![$\\])(\b[\w.]+)\s*(\^|_)\{([^}]+)\}/g,
-    (_m, base, op, exp) => `$${base}${op}{${exp}}$`,
-  );
-
-  // Pattern 3: standalone \command (e.g. \approx, \times, \infty, \alpha)
-  // Only match when not already inside $ and followed by word boundary
-  protected_ = protected_.replace(
-    /(?<!\$)\\(approx|times|infty|neq|leq|geq|pm|cdot|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|pi|omega|theta|eta|tau|phi|nabla|in|sum|prod|int|leftarrow|rightarrow)(?![a-zA-Z])/g,
-    (m) => `$${m}$`,
-  );
-
-  // Restore protected sections in reverse order
-  protected_ = protected_.replace(/__MATH_(\d+)__/g, (_, i) => mathBlocks[i]);
-  protected_ = protected_.replace(
-    /__INLINE_CODE_(\d+)__/g,
-    (_, i) => inlineCodes[i],
-  );
-  protected_ = protected_.replace(
-    /__CODE_BLOCK_(\d+)__/g,
-    (_, i) => codeBlocks[i],
-  );
-
-  return protected_;
+  return result;
 }
 
 /**
