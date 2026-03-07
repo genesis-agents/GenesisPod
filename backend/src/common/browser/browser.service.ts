@@ -98,7 +98,21 @@ export class BrowserService implements OnModuleDestroy {
     }
 
     const page = pages[0];
-    const cookies = await context.cookies();
+    const rawCookies = await context.cookies();
+    const cookies = rawCookies.map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      expires: c.expires,
+      httpOnly: c.httpOnly,
+      secure: c.secure,
+      sameSite: (["Strict", "Lax", "None"] as const).includes(
+        c.sameSite as "Strict" | "Lax" | "None",
+      )
+        ? (c.sameSite as "Strict" | "Lax" | "None")
+        : undefined,
+    }));
 
     // Get storage data
     const localStorage = await page.evaluate(() => {
