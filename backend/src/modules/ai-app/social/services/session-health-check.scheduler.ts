@@ -10,7 +10,7 @@ import {
   NotificationService,
   NotificationTypeDto,
 } from "../../../ai-infra/facade";
-import { PlaywrightService } from "./playwright.service";
+import { SocialBrowserService } from "./social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import { SocialPlatformType } from "../types";
 import { decryptSession } from "../utils/session-crypto";
@@ -35,7 +35,7 @@ export class SessionHealthCheckScheduler
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
-    private readonly playwright: PlaywrightService,
+    private readonly playwright: SocialBrowserService,
     private readonly xhsMcpAdapter: XhsMcpAdapter,
   ) {}
 

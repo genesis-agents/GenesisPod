@@ -84,10 +84,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Puppeteer and Playwright to use system Chromium with --no-sandbox for non-root
+# Set Puppeteer to use system Chromium with --no-sandbox for non-root
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 ENV CHROMIUM_FLAGS="--no-sandbox --disable-setuid-sandbox"
 # 生产环境标识 - 控制日志级别为 error/warn
 ENV NODE_ENV=production

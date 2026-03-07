@@ -2,10 +2,9 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { YoutubeService } from "../../modules/ai-app/explore/youtube.service";
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { MinerUService } from "./mineru.service";
+import { AdvancedExtractorService } from "./advanced-extractor.service";
 import { APP_CONFIG } from "../config/app.config";
 
 /**
@@ -64,6 +63,7 @@ export class ContentExtractorService {
   constructor(
     private readonly httpService: HttpService,
     private readonly youtubeService: YoutubeService,
+    private readonly advancedExtractor: AdvancedExtractorService,
     @Optional() private readonly minerUService?: MinerUService,
   ) {}
 
@@ -123,7 +123,7 @@ export class ContentExtractorService {
 
     // HTML 文件
     if (mimeType === "text/html" || filename.endsWith(".html")) {
-      return this.extractHtmlContent(buffer.toString("utf-8"), filename);
+      return await this.extractHtmlContent(buffer.toString("utf-8"), filename);
     }
 
     // PDF 文件 - 简单文本提取
@@ -397,7 +397,7 @@ export class ContentExtractorService {
 
       // Handle HTML content
       const html = Buffer.from(response.data).toString("utf-8");
-      return this.extractHtmlContent(html, url);
+      return await this.extractHtmlContent(html, url);
     } catch (error) {
       this.logger.warn(`Failed to fetch URL content: ${url}`, error);
       return `[Unable to fetch content from: ${url}]`;
@@ -405,30 +405,23 @@ export class ContentExtractorService {
   }
 
   /**
-   * 从 HTML 内容中提取正文（使用 Readability）
+   * 从 HTML 内容中提取正文
+   * 委托给 AdvancedExtractorService（4 层容错：Readability → DOM → Regex → Fallback）
    */
-  private extractHtmlContent(html: string, sourceUrl: string): string {
+  private async extractHtmlContent(
+    html: string,
+    sourceUrl: string,
+  ): Promise<string> {
     try {
-      const dom = new JSDOM(html, {
-        url: sourceUrl.startsWith("http") ? sourceUrl : "http://localhost",
-      });
-      const reader = new Readability(dom.window.document);
-      const article = reader.parse();
-
-      if (article) {
-        let result = `Title: ${article.title}\n`;
-        if (article.byline) result += `Author: ${article.byline}\n`;
-        if (article.siteName) result += `Site: ${article.siteName}\n`;
-        result += `\nContent:\n${article.textContent}`;
-
-        // 限制长度，但保留足够多的内容
-        return result.slice(0, 15000);
+      const result = await this.advancedExtractor.extract(html, sourceUrl);
+      if (result.success && result.textContent) {
+        let text = "";
+        if (result.title) text += `Title: ${result.title}\n`;
+        if (result.byline) text += `Author: ${result.byline}\n`;
+        if (result.siteName) text += `Site: ${result.siteName}\n`;
+        text += `\nContent:\n${result.textContent}`;
+        return text.slice(0, 15000);
       }
-
-      // Readability 失败，回退到简单的 HTML 标签移除
-      this.logger.warn(
-        `Readability failed to parse content from ${sourceUrl}, falling back to simple stripping`,
-      );
       return this.stripHtmlTags(html).slice(0, 10000);
     } catch (error) {
       this.logger.error(`Failed to parse HTML from ${sourceUrl}:`, error);

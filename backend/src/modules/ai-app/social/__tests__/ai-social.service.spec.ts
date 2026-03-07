@@ -19,7 +19,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
 import { PublishExecutorService } from "../services/publish-executor.service";
-import { PlaywrightService } from "../services/playwright.service";
+import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
   SocialPlatformType,
@@ -137,7 +137,7 @@ describe("AiSocialService", () => {
       }),
     };
 
-    // Mock PlaywrightService
+    // Mock SocialBrowserService
     mockPlaywright = {
       startLoginSession: jest.fn().mockResolvedValue({
         sessionKey: "session-key-123",
@@ -172,7 +172,7 @@ describe("AiSocialService", () => {
         { provide: CacheService, useValue: mockCache },
         { provide: ContentCheckerService, useValue: mockContentChecker },
         { provide: PublishExecutorService, useValue: mockPublishExecutor },
-        { provide: PlaywrightService, useValue: mockPlaywright },
+        { provide: SocialBrowserService, useValue: mockPlaywright },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
       ],
     }).compile();
@@ -975,7 +975,9 @@ describe("AiSocialService", () => {
         return callback(mockTx);
       });
 
-      mockPublishExecutor.execute.mockRejectedValue(new Error("Publish failed"));
+      mockPublishExecutor.execute.mockRejectedValue(
+        new Error("Publish failed"),
+      );
 
       const result = await service.batchPublishContents(
         userId,
@@ -1015,16 +1017,14 @@ describe("AiSocialService", () => {
         loggedIn: true,
         nickname: "XHSUser",
       });
-      mockPrisma.socialPlatformConnection.create = jest
-        .fn()
-        .mockResolvedValue({
-          id: "xhs-conn-id",
-          userId,
-          platformType: SocialPlatformType.XIAOHONGSHU,
-          accountName: "XHSUser",
-          sessionData: "mcp-managed",
-          isActive: true,
-        });
+      mockPrisma.socialPlatformConnection.create = jest.fn().mockResolvedValue({
+        id: "xhs-conn-id",
+        userId,
+        platformType: SocialPlatformType.XIAOHONGSHU,
+        accountName: "XHSUser",
+        sessionData: "mcp-managed",
+        isActive: true,
+      });
 
       const result = (await service.initConnection(
         userId,
@@ -1187,9 +1187,7 @@ describe("AiSocialService", () => {
       );
 
       // Mock decryptSession behavior
-      const { decryptSession } = jest.requireMock(
-        "../utils/session-crypto",
-      ) as any;
+      const { decryptSession } = jest.requireMock("../utils/session-crypto");
       if (decryptSession) {
         decryptSession.mockReturnValue({
           cookies: [{ name: "test", value: "val" }],
@@ -1357,9 +1355,7 @@ describe("AiSocialService", () => {
 
   describe("getResearchSources", () => {
     it("should return user research topics", async () => {
-      const mockTopics = [
-        { id: "t1", name: "Topic 1", status: "ACTIVE" },
-      ];
+      const mockTopics = [{ id: "t1", name: "Topic 1", status: "ACTIVE" }];
       mockPrisma.researchTopic.findMany.mockResolvedValue(mockTopics);
 
       const result = await service.getResearchSources(userId);

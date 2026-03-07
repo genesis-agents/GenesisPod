@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { PlaywrightService } from "../services/playwright.service";
+import { SocialBrowserService } from "../services/social-browser.service";
 import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
@@ -10,7 +10,7 @@ export class WechatAdapter {
   private readonly logger = new Logger(WechatAdapter.name);
   private readonly MP_URL = "https://mp.weixin.qq.com";
 
-  constructor(private readonly playwright: PlaywrightService) {}
+  constructor(private readonly playwright: SocialBrowserService) {}
 
   /**
    * 发布内容到微信公众号
@@ -588,7 +588,7 @@ export class WechatAdapter {
       return false;
     }
 
-    const pages = context.pages();
+    const pages = await context.pages();
     if (pages.length === 0) {
       return false;
     }

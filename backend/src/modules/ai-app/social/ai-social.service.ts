@@ -14,7 +14,7 @@ import {
 } from "../../../common/cache/cache.service";
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
-import { PlaywrightService } from "./services/playwright.service";
+import { SocialBrowserService } from "./services/social-browser.service";
 
 interface BrowserPage {
   goto(url: string, options?: { timeout?: number }): Promise<unknown>;
@@ -54,7 +54,7 @@ export class AiSocialService {
     private readonly cache: CacheService,
     private readonly contentChecker: ContentCheckerService,
     private readonly publishExecutor: PublishExecutorService,
-    private readonly playwright: PlaywrightService,
+    private readonly playwright: SocialBrowserService,
     private readonly xhsMcpAdapter: XhsMcpAdapter,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}

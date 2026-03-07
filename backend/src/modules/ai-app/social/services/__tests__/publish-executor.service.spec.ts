@@ -12,7 +12,7 @@ jest.mock("../../utils/session-crypto", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { PublishExecutorService } from "../publish-executor.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { PlaywrightService } from "../playwright.service";
+import { SocialBrowserService } from "../social-browser.service";
 import { ContentVersionService } from "../content-version.service";
 import { WechatAdapter } from "../../adapters/wechat.adapter";
 import { XhsMcpAdapter } from "../../adapters/xiaohongshu.adapter";
@@ -44,7 +44,7 @@ const mockPrisma = {
   },
 };
 
-const mockPlaywrightService = {};
+const mockSocialBrowserService = {};
 
 const mockContentVersionService = {
   getVersionForPublish: jest.fn(),
@@ -107,7 +107,7 @@ describe("PublishExecutorService", () => {
       providers: [
         PublishExecutorService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: PlaywrightService, useValue: mockPlaywrightService },
+        { provide: SocialBrowserService, useValue: mockSocialBrowserService },
         { provide: ContentVersionService, useValue: mockContentVersionService },
         { provide: WechatAdapter, useValue: mockWechatAdapter },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
@@ -122,8 +122,8 @@ describe("PublishExecutorService", () => {
   // =========================================================================
 
   describe("getPlaywright", () => {
-    it("should return the PlaywrightService instance", () => {
-      expect(service.getPlaywright()).toBe(mockPlaywrightService);
+    it("should return the SocialBrowserService instance", () => {
+      expect(service.getPlaywright()).toBe(mockSocialBrowserService);
     });
   });
 

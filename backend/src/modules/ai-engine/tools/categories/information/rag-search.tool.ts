@@ -168,21 +168,15 @@ export interface RAGSearchOutput {
 /**
  * RAG 向量检索工具
  *
- * 功能：
+ * 状态：NOT_READY — 依赖 pgvector 扩展及 chunks/embeddings 表，
+ * 当前 Railway PostgreSQL 不支持 pgvector，相关表未创建。
+ * 工具已注册（writing/research 按 toolId 引用），但执行时会返回空结果。
+ *
+ * 功能（pgvector 就绪后可用）：
  * - 使用 OpenAI text-embedding-3-small 生成查询向量
  * - 基于 pgvector 进行向量相似度搜索
  * - 支持多种过滤条件
  * - 返回语义相关的文本块
- *
- * 使用场景：
- * - Agent 需要从知识库中检索相关信息
- * - 基于用户问题查找相关文档片段
- * - 语义搜索和问答系统
- *
- * 注意：
- * - 需要预先对文档进行分块和向量化
- * - 需要数据库支持 pgvector 扩展
- * - 需要创建 Chunk 和 Embedding 相关表
  */
 @Injectable()
 export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
@@ -368,6 +362,19 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
       filters,
     } = input;
 
+    // Guard: pgvector + chunks/embeddings tables not available yet
+    const tablesExist = await this.checkTablesExist();
+    if (!tablesExist) {
+      this.logger.warn(
+        "RAG search skipped: chunks/embeddings tables do not exist (pgvector not available)",
+      );
+      return {
+        results: [],
+        success: false,
+        totalResults: 0,
+      };
+    }
+
     this.logger.log(`RAG search query: "${query.substring(0, 100)}..."`);
 
     try {
@@ -407,6 +414,24 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
       );
       throw error;
     }
+  }
+
+  private tablesExistCache: boolean | null = null;
+
+  private async checkTablesExist(): Promise<boolean> {
+    if (this.tablesExistCache !== null) return this.tablesExistCache;
+    try {
+      await this.prisma.$queryRawUnsafe(
+        `SELECT 1 FROM information_schema.tables WHERE table_name = 'chunks' LIMIT 1`,
+      );
+      await this.prisma.$queryRawUnsafe(
+        `SELECT 1 FROM information_schema.tables WHERE table_name = 'embeddings' LIMIT 1`,
+      );
+      this.tablesExistCache = true;
+    } catch {
+      this.tablesExistCache = false;
+    }
+    return this.tablesExistCache;
   }
 
   /**

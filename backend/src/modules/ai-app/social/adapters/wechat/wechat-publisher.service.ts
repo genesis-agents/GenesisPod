@@ -18,7 +18,7 @@ import {
 } from "../../types/platform.types";
 import { SocialContent } from "../../types";
 
-// Use Page type from Playwright (available via PlaywrightService)
+// Use Page type from Playwright (available via SocialBrowserService)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page type alias for browser automation
 type Page = any;
 

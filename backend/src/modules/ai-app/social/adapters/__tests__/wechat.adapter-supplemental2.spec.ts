@@ -33,7 +33,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WechatAdapter } from "../wechat.adapter";
-import { PlaywrightService } from "../../services/playwright.service";
+import { SocialBrowserService } from "../../services/social-browser.service";
 import {
   SocialContent,
   SocialPlatformConnection,
@@ -220,7 +220,7 @@ describe("WechatAdapter (supplemental2)", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WechatAdapter,
-        { provide: PlaywrightService, useValue: mockPlaywright },
+        { provide: SocialBrowserService, useValue: mockPlaywright },
       ],
     }).compile();
     return module.get<WechatAdapter>(WechatAdapter);

@@ -6,7 +6,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpException, HttpStatus } from "@nestjs/common";
 import { ProxyController } from "../proxy.controller";
-import { AdvancedExtractorService } from "../advanced-extractor.service";
+import { AdvancedExtractorService } from "../../../../../common/content-processing/advanced-extractor.service";
 import { NewsExtractorService } from "../news-extractor.service";
 import { PuppeteerFetcherService } from "../puppeteer-fetcher.service";
 import { FlareSolverrService } from "../flaresolverr.service";

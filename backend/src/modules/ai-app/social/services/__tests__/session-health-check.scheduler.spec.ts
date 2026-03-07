@@ -2,7 +2,7 @@ import { SessionHealthCheckScheduler } from "../session-health-check.scheduler";
 import type { ConfigService } from "@nestjs/config";
 import type { PrismaService } from "../../../../../common/prisma/prisma.service";
 import type { NotificationService } from "../../../../ai-infra/notifications/notification.service";
-import type { PlaywrightService } from "../playwright.service";
+import type { SocialBrowserService } from "../social-browser.service";
 import type { XhsMcpAdapter } from "../../adapters/xiaohongshu.adapter";
 import { SocialPlatformType } from "../../types";
 
@@ -45,7 +45,7 @@ function createMockPlaywright() {
       $: jest.fn().mockResolvedValue(null),
     }),
     closeContext: jest.fn().mockResolvedValue(undefined),
-  } as unknown as jest.Mocked<PlaywrightService>;
+  } as unknown as jest.Mocked<SocialBrowserService>;
 }
 
 function createMockXhsAdapter() {
@@ -58,14 +58,14 @@ function createScheduler(
   mockConfig: jest.Mocked<ConfigService>,
   mockPrisma: jest.Mocked<PrismaService>,
   mockNotification: jest.Mocked<NotificationService>,
-  mockPlaywright: jest.Mocked<PlaywrightService>,
+  mockPlaywright: jest.Mocked<SocialBrowserService>,
   mockXhsAdapter: jest.Mocked<XhsMcpAdapter>,
 ) {
   return new SessionHealthCheckScheduler(
     mockConfig,
     mockPrisma as unknown as PrismaService,
     mockNotification as unknown as NotificationService,
-    mockPlaywright as unknown as PlaywrightService,
+    mockPlaywright as unknown as SocialBrowserService,
     mockXhsAdapter as unknown as XhsMcpAdapter,
   );
 }
@@ -74,7 +74,7 @@ describe("SessionHealthCheckScheduler", () => {
   let mockConfig: jest.Mocked<ConfigService>;
   let mockPrisma: jest.Mocked<PrismaService>;
   let mockNotification: jest.Mocked<NotificationService>;
-  let mockPlaywright: jest.Mocked<PlaywrightService>;
+  let mockPlaywright: jest.Mocked<SocialBrowserService>;
   let mockXhsAdapter: jest.Mocked<XhsMcpAdapter>;
 
   beforeEach(() => {

@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { PublishExecutorService } from "../services/publish-executor.service";
-import { PlaywrightService } from "../services/playwright.service";
+import { SocialBrowserService } from "../services/social-browser.service";
 import { ContentVersionService } from "../services/content-version.service";
 import { WechatAdapter } from "../adapters/wechat.adapter";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
@@ -78,7 +78,7 @@ describe("PublishExecutorService", () => {
       providers: [
         PublishExecutorService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: PlaywrightService, useValue: mockPlaywright },
+        { provide: SocialBrowserService, useValue: mockPlaywright },
         { provide: ContentVersionService, useValue: mockContentVersionService },
         { provide: WechatAdapter, useValue: mockWechatAdapter },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },

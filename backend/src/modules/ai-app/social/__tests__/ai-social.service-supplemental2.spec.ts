@@ -54,7 +54,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
 import { PublishExecutorService } from "../services/publish-executor.service";
-import { PlaywrightService } from "../services/playwright.service";
+import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
   SocialPlatformType,
@@ -181,7 +181,7 @@ function buildModule(
       { provide: CacheService, useValue: cache },
       { provide: ContentCheckerService, useValue: contentChecker },
       { provide: PublishExecutorService, useValue: publishExecutor },
-      { provide: PlaywrightService, useValue: playwright },
+      { provide: SocialBrowserService, useValue: playwright },
       { provide: XhsMcpAdapter, useValue: xhsMcpAdapter },
     ],
   }).compile();

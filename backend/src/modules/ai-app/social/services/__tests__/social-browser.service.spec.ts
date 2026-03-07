@@ -1,11 +1,11 @@
 /**
- * Unit tests for PlaywrightService
+ * Unit tests for SocialBrowserService
  *
  * All browser/Playwright interactions are mocked — no real browser is launched.
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { PlaywrightService } from "../playwright.service";
+import { SocialBrowserService } from "../social-browser.service";
 import { BrowserService } from "../../../../../common/browser/browser.service";
 
 // ---------------------------------------------------------------------------
@@ -77,8 +77,8 @@ function makeMockBrowserService(
 // Test suite
 // ---------------------------------------------------------------------------
 
-describe("PlaywrightService", () => {
-  let service: PlaywrightService;
+describe("SocialBrowserService", () => {
+  let service: SocialBrowserService;
   let browserServiceMock: BrowserService;
   let mockPage: Record<string, jest.Mock>;
   let mockContext: Record<string, jest.Mock>;
@@ -95,12 +95,12 @@ describe("PlaywrightService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        PlaywrightService,
+        SocialBrowserService,
         { provide: BrowserService, useValue: browserServiceMock },
       ],
     }).compile();
 
-    service = module.get<PlaywrightService>(PlaywrightService);
+    service = module.get<SocialBrowserService>(SocialBrowserService);
   });
 
   afterEach(async () => {
@@ -417,22 +417,26 @@ describe("PlaywrightService", () => {
       });
 
       it("retries saveSession when no cookies on first save", async () => {
+        jest.useFakeTimers();
         mockPage.$.mockResolvedValue({ textContent: "" });
         mockPage.$eval.mockResolvedValue("");
         mockPage.url.mockReturnValue(
           "https://mp.weixin.qq.com/cgi-bin/home?token=111",
         );
-        mockPage.waitForTimeout.mockResolvedValue(undefined);
         (browserServiceMock.saveSession as jest.Mock)
           .mockResolvedValueOnce({ cookies: [] }) // first call: no cookies
           .mockResolvedValueOnce({
             cookies: [{ name: "slave_user", value: "x" }],
           }); // retry
 
-        const result = await service.checkLoginStatus(SESSION_KEY);
+        const resultPromise = service.checkLoginStatus(SESSION_KEY);
+        // Advance past the setTimeout delays (2s + 3s)
+        await jest.advanceTimersByTimeAsync(6000);
+        const result = await resultPromise;
 
         expect(result.loggedIn).toBe(true);
         expect(browserServiceMock.saveSession).toHaveBeenCalledTimes(2);
+        jest.useRealTimers();
       });
 
       it("returns loggedIn=false with screenshot when not logged in", async () => {

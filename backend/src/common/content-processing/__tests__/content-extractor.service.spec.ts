@@ -15,6 +15,7 @@ import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { AxiosHeaders, AxiosResponse } from "axios";
 import { ContentExtractorService } from "../content-extractor.service";
+import { AdvancedExtractorService } from "../advanced-extractor.service";
 import { YoutubeService } from "../../../modules/ai-app/explore/youtube.service";
 import { MinerUService } from "../mineru.service";
 
@@ -62,6 +63,23 @@ describe("ContentExtractorService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContentExtractorService,
+        {
+          provide: AdvancedExtractorService,
+          useValue: {
+            extract: jest.fn().mockResolvedValue({
+              success: true,
+              title: "Test",
+              textContent: "Extracted content",
+              content: "<p>Extracted content</p>",
+              excerpt: "",
+              byline: "",
+              siteName: "",
+              length: 17,
+              plan: "readability",
+              confidence: 80,
+            }),
+          },
+        },
         { provide: HttpService, useValue: mockHttpService },
         { provide: YoutubeService, useValue: mockYoutubeService },
         { provide: MinerUService, useValue: mockMinerUService },

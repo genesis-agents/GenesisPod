@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { PlaywrightService } from "./playwright.service";
+import { SocialBrowserService } from "./social-browser.service";
 import { ContentVersionService } from "./content-version.service";
 import { WechatAdapter } from "../adapters/wechat.adapter";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
@@ -26,14 +26,14 @@ export class PublishExecutorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly playwrightService: PlaywrightService,
+    private readonly playwrightService: SocialBrowserService,
     private readonly contentVersionService: ContentVersionService,
     private readonly wechatAdapter: WechatAdapter,
     private readonly xhsMcpAdapter: XhsMcpAdapter,
   ) {}
 
   // Expose playwright for adapters that may need direct access
-  getPlaywright(): PlaywrightService {
+  getPlaywright(): SocialBrowserService {
     return this.playwrightService;
   }
 

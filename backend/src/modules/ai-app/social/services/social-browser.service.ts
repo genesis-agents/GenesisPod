@@ -11,8 +11,7 @@ import { BrowserService } from "../../../../common/browser/browser.service";
 // Re-export SessionData for backward compatibility
 export { SessionData };
 
-// Playwright types - will be properly typed when playwright-core is installed
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page type alias; playwright-core not installed as direct dep
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Social module pages use Puppeteer but need loose typing for Playwright-style API usage in adapters
 type Page = any;
 
 // Platform login configuration
@@ -56,8 +55,8 @@ const PLATFORM_CONFIGS: Record<string, PlatformLoginConfig> = {
 export { PLATFORM_CONFIGS };
 
 @Injectable()
-export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
-  private readonly logger = new Logger(PlaywrightService.name);
+export class SocialBrowserService implements OnModuleDestroy, OnModuleInit {
+  private readonly logger = new Logger(SocialBrowserService.name);
   private pendingLogins: Map<string, PendingLoginSession> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
 
@@ -144,10 +143,10 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       const page = await this.browserService.createPage(sessionKey);
 
       // 导航到登录页
-      await page.goto(config.loginUrl, { waitUntil: "networkidle" });
+      await page.goto(config.loginUrl, { waitUntil: "networkidle0" });
 
       // 等待页面加载
-      await page.waitForTimeout(2000);
+      await new Promise((r) => setTimeout(r, 2000));
 
       // 如果需要先点击登录按钮
       if (config.needClickLogin && config.loginButtonSelector) {
@@ -155,15 +154,14 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
           // 先尝试关闭任何现有的遮罩层
           const mask = await page.$(".reds-mask, [class*='mask']");
           if (mask) {
-            await mask.click({ force: true });
-            await page.waitForTimeout(500);
+            await mask.click();
+            await new Promise((r) => setTimeout(r, 500));
           }
 
           const loginBtn = await page.$(config.loginButtonSelector);
           if (loginBtn) {
-            // 使用 force: true 绕过遮罩层
-            await loginBtn.click({ force: true, timeout: 5000 });
-            await page.waitForTimeout(2000); // 等待登录弹窗出现
+            await loginBtn.click();
+            await new Promise((r) => setTimeout(r, 2000)); // 等待登录弹窗出现
             this.logger.log(`Clicked login button for ${platformType}`);
           }
         } catch (e) {
@@ -172,35 +170,35 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       }
 
       // 截取二维码区域（如果有配置选择器）
-      let screenshotBuffer: Buffer;
+      let screenshotData: Uint8Array;
       if (config.qrCodeSelector) {
         try {
           // 等待二维码元素出现
           await page.waitForSelector(config.qrCodeSelector, { timeout: 10000 });
           const qrElement = await page.$(config.qrCodeSelector);
           if (qrElement) {
-            screenshotBuffer = await qrElement.screenshot({ type: "png" });
+            screenshotData = await qrElement.screenshot({ type: "png" });
             this.logger.log(
               `QR code element screenshot taken for ${platformType}`,
             );
           } else {
             // 降级到全页截图
-            screenshotBuffer = await page.screenshot({ type: "png" });
+            screenshotData = await page.screenshot({ type: "png" });
             this.logger.warn(
               `QR code element not found, using full page screenshot`,
             );
           }
         } catch {
           // 降级到全页截图
-          screenshotBuffer = await page.screenshot({ type: "png" });
+          screenshotData = await page.screenshot({ type: "png" });
           this.logger.warn(
             `Failed to screenshot QR code element, using full page`,
           );
         }
       } else {
-        screenshotBuffer = await page.screenshot({ type: "png" });
+        screenshotData = await page.screenshot({ type: "png" });
       }
-      const screenshotBase64 = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
+      const screenshotBase64 = `data:image/png;base64,${Buffer.from(screenshotData).toString("base64")}`;
 
       // 保存待验证的登录会话
       this.pendingLogins.set(sessionKey, {
@@ -422,9 +420,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         }
 
         // 等待一小段时间确保 cookies 完全设置
-        await page.waitForTimeout(2000).catch((err: Error) => {
-          this.logger.debug(`waitForTimeout(2000) interrupted: ${err.message}`);
-        });
+        await new Promise((r) => setTimeout(r, 2000));
 
         // 保存会话数据
         let sessionData = (await this.browserService.saveSession(
@@ -436,11 +432,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
           this.logger.warn(
             `Session saved with 0 cookies, waiting and retrying...`,
           );
-          await page.waitForTimeout(3000).catch((err: Error) => {
-            this.logger.debug(
-              `waitForTimeout(3000) interrupted: ${err.message}`,
-            );
-          });
+          await new Promise((r) => setTimeout(r, 3000));
           sessionData = (await this.browserService.saveSession(
             sessionKey,
           )) as SessionData | null;
@@ -499,29 +491,22 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       }
 
       // 未登录，返回新截图（优先截取二维码区域）
-      let screenshotBuffer: Buffer | null = null;
-      const screenshotTimeout = 30000; // 增加到30秒
+      let screenshotData: Uint8Array | null = null;
 
       try {
         if (config.qrCodeSelector) {
           try {
             const qrElement = await page.$(config.qrCodeSelector);
             if (qrElement) {
-              screenshotBuffer = await qrElement.screenshot({
-                type: "png",
-                timeout: screenshotTimeout,
-              });
+              screenshotData = await qrElement.screenshot({ type: "png" });
             }
           } catch {
             // QR元素截图失败，使用全页截图
           }
         }
 
-        if (!screenshotBuffer) {
-          screenshotBuffer = await page.screenshot({
-            type: "png",
-            timeout: screenshotTimeout,
-          });
+        if (!screenshotData) {
+          screenshotData = await page.screenshot({ type: "png" });
         }
       } catch (screenshotError) {
         this.logger.warn(
@@ -533,13 +518,13 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         };
       }
 
-      if (!screenshotBuffer) {
+      if (!screenshotData) {
         return {
           loggedIn: false,
         };
       }
 
-      const screenshot = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
+      const screenshot = `data:image/png;base64,${Buffer.from(screenshotData).toString("base64")}`;
 
       return {
         loggedIn: false,
@@ -566,31 +551,22 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
     const config = PLATFORM_CONFIGS[session.platformType];
     const { page } = session;
 
-    let screenshotBuffer: Buffer;
+    let screenshotData: Uint8Array;
     if (config?.qrCodeSelector) {
       try {
         const qrElement = await page.$(config.qrCodeSelector);
         if (qrElement) {
-          screenshotBuffer = await qrElement.screenshot({
-            type: "png",
-            timeout: 10000,
-          });
+          screenshotData = await qrElement.screenshot({ type: "png" });
         } else {
-          screenshotBuffer = await page.screenshot({
-            type: "png",
-            timeout: 10000,
-          });
+          screenshotData = await page.screenshot({ type: "png" });
         }
       } catch {
-        screenshotBuffer = await page.screenshot({
-          type: "png",
-          timeout: 10000,
-        });
+        screenshotData = await page.screenshot({ type: "png" });
       }
     } else {
-      screenshotBuffer = await page.screenshot({ type: "png", timeout: 10000 });
+      screenshotData = await page.screenshot({ type: "png" });
     }
-    return `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
+    return `data:image/png;base64,${Buffer.from(screenshotData).toString("base64")}`;
   }
 
   /**

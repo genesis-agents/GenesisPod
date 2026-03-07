@@ -18,7 +18,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
 import { PublishExecutorService } from "../services/publish-executor.service";
-import { PlaywrightService } from "../services/playwright.service";
+import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
   SocialPlatformType,
@@ -259,7 +259,7 @@ describe("AiSocialService (supplemental)", () => {
         { provide: CacheService, useValue: mockCache },
         { provide: ContentCheckerService, useValue: mockContentChecker },
         { provide: PublishExecutorService, useValue: mockPublishExecutor },
-        { provide: PlaywrightService, useValue: mockPlaywright },
+        { provide: SocialBrowserService, useValue: mockPlaywright },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
       ],
     }).compile();

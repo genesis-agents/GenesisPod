@@ -2,54 +2,46 @@
  * BrowserService unit tests
  *
  * Covers:
- * - getBrowser – lazy init, already initialised, playwright not installed, executable path checks
- * - createContext – default viewport/userAgent, custom options
+ * - createContext – creates incognito context via PuppeteerPoolService
  * - getContext – existing / missing context
- * - createPage – context exists / auto-creates context
+ * - createPage – context exists / auto-creates context, applies viewport & userAgent
  * - closeContext – existing / non-existing context
  * - saveSession – no context, no pages, with pages (localStorage/sessionStorage)
- * - restoreSession – creates context, adds cookies, skips empty cookies
+ * - restoreSession – creates context, sets cookies, skips empty cookies
  * - screenshot – delegates to page.screenshot
- * - cleanup – closes all contexts and browser; handles close errors
+ * - cleanup – closes all contexts; handles close errors
  * - onModuleDestroy – calls cleanup
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { BrowserService } from "../browser.service";
+import { PuppeteerPoolService } from "../puppeteer-pool.service";
 
-// ─── playwright-core mock ─────────────────────────────────────────────────────
+// ─── Puppeteer mocks ─────────────────────────────────────────────────────────
 
 const mockPage = {
   screenshot: jest.fn().mockResolvedValue(undefined),
   evaluate: jest.fn(),
+  setViewport: jest.fn().mockResolvedValue(undefined),
+  setUserAgent: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockContext = {
   newPage: jest.fn().mockResolvedValue(mockPage),
   close: jest.fn().mockResolvedValue(undefined),
   cookies: jest.fn().mockResolvedValue([]),
-  pages: jest.fn().mockReturnValue([]),
-  addCookies: jest.fn().mockResolvedValue(undefined),
+  pages: jest.fn().mockResolvedValue([]),
+  setCookie: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockBrowser = {
-  newContext: jest.fn().mockResolvedValue(mockContext),
-  close: jest.fn().mockResolvedValue(undefined),
+  createBrowserContext: jest.fn().mockResolvedValue(mockContext),
 };
 
-const mockChromium = {
-  launch: jest.fn().mockResolvedValue(mockBrowser),
+const mockPuppeteerPool = {
+  getBrowser: jest.fn().mockResolvedValue(mockBrowser),
 };
-
-// Mock playwright-core dynamic import
-jest.mock(
-  "playwright-core",
-  () => ({
-    chromium: mockChromium,
-  }),
-  { virtual: true },
-);
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
@@ -60,19 +52,23 @@ describe("BrowserService", () => {
     jest.clearAllMocks();
 
     // Reset all mock implementations to defaults
-    mockChromium.launch.mockResolvedValue(mockBrowser);
-    mockBrowser.newContext.mockResolvedValue(mockContext);
-    mockBrowser.close.mockResolvedValue(undefined);
+    mockBrowser.createBrowserContext.mockResolvedValue(mockContext);
     mockContext.newPage.mockResolvedValue(mockPage);
     mockContext.close.mockResolvedValue(undefined);
     mockContext.cookies.mockResolvedValue([]);
-    mockContext.pages.mockReturnValue([]);
-    mockContext.addCookies.mockResolvedValue(undefined);
+    mockContext.pages.mockResolvedValue([]);
+    mockContext.setCookie.mockResolvedValue(undefined);
     mockPage.screenshot.mockResolvedValue(undefined);
     mockPage.evaluate.mockResolvedValue({});
+    mockPage.setViewport.mockResolvedValue(undefined);
+    mockPage.setUserAgent.mockResolvedValue(undefined);
+    mockPuppeteerPool.getBrowser.mockResolvedValue(mockBrowser);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [BrowserService],
+      providers: [
+        BrowserService,
+        { provide: PuppeteerPoolService, useValue: mockPuppeteerPool },
+      ],
     }).compile();
 
     service = module.get<BrowserService>(BrowserService);
@@ -87,52 +83,6 @@ describe("BrowserService", () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // getBrowser
-  // ──────────────────────────────────────────────────────────────────────────
-
-  describe("getBrowser", () => {
-    it("launches browser on first call", async () => {
-      const browser = await service.getBrowser();
-
-      expect(browser).toBe(mockBrowser);
-      expect(mockChromium.launch).toHaveBeenCalledTimes(1);
-    });
-
-    it("returns cached browser on subsequent calls", async () => {
-      await service.getBrowser();
-      await service.getBrowser();
-
-      expect(mockChromium.launch).toHaveBeenCalledTimes(1);
-    });
-
-    it("launches with headless mode and required args", async () => {
-      await service.getBrowser();
-
-      const launchArgs = mockChromium.launch.mock.calls[0][0];
-      expect(launchArgs.headless).toBe(true);
-      expect(launchArgs.args).toContain("--no-sandbox");
-      expect(launchArgs.args).toContain("--disable-setuid-sandbox");
-    });
-
-    it("throws when playwright-core is not installed", async () => {
-      // Simulate playwright-core import failure by overriding the mock
-      mockChromium.launch.mockRejectedValueOnce(new Error("Module not found"));
-
-      await expect(service.getBrowser()).rejects.toThrow(
-        "playwright-core is not installed",
-      );
-    });
-
-    it("uses PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH when set", async () => {
-      // Test that the env variable path is passed to launch options
-      // We test this indirectly since we can't easily mock process.env mid-test
-      // The service reads it during getBrowser(), so we verify launch was called
-      await service.getBrowser();
-      expect(mockChromium.launch).toHaveBeenCalled();
-    });
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
   // createContext
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -141,43 +91,7 @@ describe("BrowserService", () => {
       const ctx = await service.createContext("ctx-1");
 
       expect(ctx).toBe(mockContext);
-      expect(mockBrowser.newContext).toHaveBeenCalled();
-    });
-
-    it("uses default viewport 1280x720 when no options", async () => {
-      await service.createContext("ctx-1");
-
-      const ctxArgs = mockBrowser.newContext.mock.calls[0][0];
-      expect(ctxArgs.viewport).toEqual({ width: 1280, height: 720 });
-    });
-
-    it("uses custom viewport when provided", async () => {
-      await service.createContext("ctx-1", {
-        viewport: { width: 1920, height: 1080 },
-      });
-
-      const ctxArgs = mockBrowser.newContext.mock.calls[0][0];
-      expect(ctxArgs.viewport).toEqual({ width: 1920, height: 1080 });
-    });
-
-    it("uses custom userAgent when provided", async () => {
-      await service.createContext("ctx-1", {
-        userAgent: "Custom/1.0",
-      });
-
-      const ctxArgs = mockBrowser.newContext.mock.calls[0][0];
-      expect(ctxArgs.userAgent).toBe("Custom/1.0");
-    });
-
-    it("passes locale and timezoneId when provided", async () => {
-      await service.createContext("ctx-1", {
-        locale: "zh-CN",
-        timezoneId: "Asia/Shanghai",
-      });
-
-      const ctxArgs = mockBrowser.newContext.mock.calls[0][0];
-      expect(ctxArgs.locale).toBe("zh-CN");
-      expect(ctxArgs.timezoneId).toBe("Asia/Shanghai");
+      expect(mockBrowser.createBrowserContext).toHaveBeenCalled();
     });
   });
 
@@ -212,14 +126,39 @@ describe("BrowserService", () => {
 
       expect(page).toBe(mockPage);
       expect(mockContext.newPage).toHaveBeenCalled();
-      expect(mockBrowser.newContext).not.toHaveBeenCalled();
+      expect(mockBrowser.createBrowserContext).not.toHaveBeenCalled();
     });
 
     it("auto-creates context when it does not exist", async () => {
       const page = await service.createPage("new-ctx");
 
       expect(page).toBe(mockPage);
-      expect(mockBrowser.newContext).toHaveBeenCalled();
+      expect(mockBrowser.createBrowserContext).toHaveBeenCalled();
+    });
+
+    it("applies default viewport 1280x720 and userAgent", async () => {
+      await service.createPage("ctx-1");
+
+      expect(mockPage.setViewport).toHaveBeenCalledWith({
+        width: 1280,
+        height: 720,
+      });
+      expect(mockPage.setUserAgent).toHaveBeenCalledWith(
+        expect.stringContaining("Mozilla/5.0"),
+      );
+    });
+
+    it("applies custom viewport and userAgent when provided", async () => {
+      await service.createPage("ctx-1", {
+        viewport: { width: 1920, height: 1080 },
+        userAgent: "Custom/1.0",
+      });
+
+      expect(mockPage.setViewport).toHaveBeenCalledWith({
+        width: 1920,
+        height: 1080,
+      });
+      expect(mockPage.setUserAgent).toHaveBeenCalledWith("Custom/1.0");
     });
   });
 
@@ -257,7 +196,7 @@ describe("BrowserService", () => {
 
     it("returns null when context has no pages", async () => {
       await service.createContext("ctx-1");
-      mockContext.pages.mockReturnValue([]);
+      mockContext.pages.mockResolvedValue([]);
 
       const result = await service.saveSession("ctx-1");
       expect(result).toBeNull();
@@ -270,7 +209,7 @@ describe("BrowserService", () => {
       const localStorageData = { key1: "value1" };
       const sessionStorageData = { skey: "svalue" };
 
-      mockContext.pages.mockReturnValue([mockPage]);
+      mockContext.pages.mockResolvedValue([mockPage]);
       mockContext.cookies.mockResolvedValue(cookies);
       mockPage.evaluate
         .mockResolvedValueOnce(localStorageData)
@@ -301,7 +240,9 @@ describe("BrowserService", () => {
 
       await service.restoreSession("ctx-1", sessionData);
 
-      expect(mockContext.addCookies).toHaveBeenCalledWith(sessionData.cookies);
+      expect(mockContext.setCookie).toHaveBeenCalledWith(
+        ...sessionData.cookies,
+      );
     });
 
     it("creates context and restores cookies when context does not exist", async () => {
@@ -313,16 +254,16 @@ describe("BrowserService", () => {
 
       await service.restoreSession("new-ctx", sessionData);
 
-      expect(mockBrowser.newContext).toHaveBeenCalled();
-      expect(mockContext.addCookies).toHaveBeenCalled();
+      expect(mockBrowser.createBrowserContext).toHaveBeenCalled();
+      expect(mockContext.setCookie).toHaveBeenCalled();
     });
 
-    it("skips addCookies when cookies array is empty", async () => {
+    it("skips setCookie when cookies array is empty", async () => {
       await service.createContext("ctx-1");
 
       await service.restoreSession("ctx-1", { cookies: [] });
 
-      expect(mockContext.addCookies).not.toHaveBeenCalled();
+      expect(mockContext.setCookie).not.toHaveBeenCalled();
     });
   });
 
@@ -332,7 +273,7 @@ describe("BrowserService", () => {
 
   describe("screenshot", () => {
     it("calls page.screenshot with path and fullPage options", async () => {
-      await service.screenshot(mockPage, "/tmp/screenshot.png");
+      await service.screenshot(mockPage as any, "/tmp/screenshot.png");
 
       expect(mockPage.screenshot).toHaveBeenCalledWith({
         path: "/tmp/screenshot.png",
@@ -346,23 +287,13 @@ describe("BrowserService", () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe("cleanup", () => {
-    it("closes all contexts and the browser", async () => {
+    it("closes all contexts", async () => {
       await service.createContext("ctx-1");
       await service.createContext("ctx-2");
 
       await service.cleanup();
 
       expect(mockContext.close).toHaveBeenCalledTimes(2);
-      expect(mockBrowser.close).toHaveBeenCalledTimes(1);
-    });
-
-    it("sets browser to null after cleanup", async () => {
-      await service.getBrowser();
-      await service.cleanup();
-
-      // After cleanup, calling getBrowser again should launch a new browser
-      await service.getBrowser();
-      expect(mockChromium.launch).toHaveBeenCalledTimes(2);
     });
 
     it("handles context.close() error gracefully", async () => {
@@ -374,19 +305,10 @@ describe("BrowserService", () => {
       await expect(service.cleanup()).resolves.not.toThrow();
     });
 
-    it("handles browser.close() error gracefully", async () => {
-      await service.getBrowser();
-      mockBrowser.close.mockRejectedValueOnce(
-        new Error("Browser close failed"),
-      );
-
-      await expect(service.cleanup()).resolves.not.toThrow();
-    });
-
-    it("does nothing when no browser has been launched", async () => {
+    it("does nothing when no contexts exist", async () => {
       await service.cleanup();
 
-      expect(mockBrowser.close).not.toHaveBeenCalled();
+      expect(mockContext.close).not.toHaveBeenCalled();
     });
   });
 
@@ -396,7 +318,6 @@ describe("BrowserService", () => {
 
   describe("onModuleDestroy", () => {
     it("calls cleanup on module destroy", async () => {
-      await service.getBrowser();
       const cleanupSpy = jest.spyOn(service, "cleanup").mockResolvedValue();
 
       await service.onModuleDestroy();

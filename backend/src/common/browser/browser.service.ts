@@ -3,8 +3,8 @@
  * 通用浏览器生命周期管理（共享基础设施）
  *
  * 提供通用的浏览器操作能力：
- * - 浏览器懒初始化（动态导入 playwright-core）
- * - 浏览器上下文管理
+ * - 基于 PuppeteerPoolService 的浏览器复用
+ * - 浏览器上下文（incognito context）管理
  * - 页面管理
  * - 会话保存与恢复
  * - 截图
@@ -12,94 +12,30 @@
  */
 
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import { BrowserContext, Page } from "puppeteer";
 import { BrowserPageOptions, SessionData } from "./browser.types";
-
-// Playwright types - properly typed when playwright-core is installed
-type Browser = any;
-type BrowserContext = any;
-type Page = any;
+import { PuppeteerPoolService } from "./puppeteer-pool.service";
 
 @Injectable()
 export class BrowserService implements OnModuleDestroy {
   private readonly logger = new Logger(BrowserService.name);
-  private browser: Browser | null = null;
   private contexts: Map<string, BrowserContext> = new Map();
+
+  constructor(private readonly puppeteerPool: PuppeteerPoolService) {}
 
   async onModuleDestroy() {
     await this.cleanup();
   }
 
   /**
-   * 懒初始化浏览器实例（使用动态导入，playwright-core 为可选依赖）
-   */
-  async getBrowser(): Promise<Browser> {
-    if (this.browser) return this.browser;
-
-    try {
-      const { chromium } = await import("playwright-core");
-
-      // Use system Chromium if available (Docker environment)
-      // Falls back to bundled Chromium if not set
-      const executablePath =
-        process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-        process.env.PUPPETEER_EXECUTABLE_PATH ||
-        undefined;
-
-      this.logger.log(
-        `Attempting to launch Chromium${executablePath ? ` from: ${executablePath}` : " (using bundled)"}`,
-      );
-
-      // Check if executable exists when path is specified
-      if (executablePath) {
-        const fs = await import("fs");
-        if (!fs.existsSync(executablePath)) {
-          throw new Error(
-            `Chromium not found at: ${executablePath}. Please install Chromium or set correct path.`,
-          );
-        }
-      }
-
-      this.browser = await chromium.launch({
-        headless: true,
-        executablePath,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-        ],
-      });
-
-      this.logger.log(
-        `Playwright browser launched successfully${executablePath ? ` (using: ${executablePath})` : ""}`,
-      );
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to launch browser: ${errorMsg}`);
-      throw new Error(
-        "playwright-core is not installed. Install it with: npm install playwright-core",
-      );
-    }
-
-    return this.browser;
-  }
-
-  /**
-   * 创建浏览器上下文
+   * 创建浏览器上下文（Puppeteer incognito context）
    */
   async createContext(
     contextId: string,
-    options?: BrowserPageOptions,
+    _options?: BrowserPageOptions,
   ): Promise<BrowserContext> {
-    const browser = await this.getBrowser();
-    const context = await browser.newContext({
-      viewport: options?.viewport ?? { width: 1280, height: 720 },
-      userAgent:
-        options?.userAgent ??
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      locale: options?.locale,
-      timezoneId: options?.timezoneId,
-    });
+    const browser = await this.puppeteerPool.getBrowser();
+    const context = await browser.createBrowserContext();
     this.contexts.set(contextId, context);
     return context;
   }
@@ -114,12 +50,26 @@ export class BrowserService implements OnModuleDestroy {
   /**
    * 在指定上下文中创建新页面（上下文不存在时自动创建）
    */
-  async createPage(contextId: string): Promise<Page> {
+  async createPage(
+    contextId: string,
+    options?: BrowserPageOptions,
+  ): Promise<Page> {
     let context = this.contexts.get(contextId);
     if (!context) {
-      context = await this.createContext(contextId);
+      context = await this.createContext(contextId, options);
     }
-    return context.newPage();
+    const page = await context.newPage();
+
+    // Apply viewport and userAgent
+    const viewport = options?.viewport ?? { width: 1280, height: 720 };
+    await page.setViewport(viewport);
+
+    const userAgent =
+      options?.userAgent ??
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    await page.setUserAgent(userAgent);
+
+    return page;
   }
 
   /**
@@ -142,7 +92,7 @@ export class BrowserService implements OnModuleDestroy {
       return null;
     }
 
-    const pages = context.pages();
+    const pages = await context.pages();
     if (pages.length === 0) {
       return null;
     }
@@ -190,10 +140,8 @@ export class BrowserService implements OnModuleDestroy {
 
     // Restore cookies
     if (sessionData.cookies && sessionData.cookies.length > 0) {
-      await context.addCookies(sessionData.cookies);
+      await context.setCookie(...sessionData.cookies);
     }
-
-    // Storage will be restored when page navigates
   }
 
   /**
@@ -204,7 +152,7 @@ export class BrowserService implements OnModuleDestroy {
   }
 
   /**
-   * 清理所有上下文和浏览器实例
+   * 清理所有上下文（浏览器实例由 PuppeteerPoolService 管理）
    */
   async cleanup(): Promise<void> {
     for (const [id, context] of this.contexts) {
@@ -216,15 +164,6 @@ export class BrowserService implements OnModuleDestroy {
       this.contexts.delete(id);
     }
 
-    if (this.browser) {
-      try {
-        await this.browser.close();
-      } catch (error) {
-        this.logger.warn(`Failed to close browser: ${error}`);
-      }
-      this.browser = null;
-    }
-
-    this.logger.log("Browser cleanup completed");
+    this.logger.log("Browser contexts cleanup completed");
   }
 }

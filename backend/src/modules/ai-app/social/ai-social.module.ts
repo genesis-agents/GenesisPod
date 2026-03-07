@@ -9,7 +9,7 @@ import { ContentCheckerService } from "./services/content-checker.service";
 import { ContentVersionService } from "./services/content-version.service";
 import { ReviewService } from "./services/review.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
-import { PlaywrightService } from "./services/playwright.service";
+import { SocialBrowserService } from "./services/social-browser.service";
 import { SessionHealthCheckScheduler } from "./services/session-health-check.scheduler";
 import { WechatAdapter } from "./adapters/wechat.adapter";
 import { XhsMcpAdapter } from "./adapters/xiaohongshu.adapter";
@@ -48,7 +48,7 @@ import { initSessionCrypto } from "./utils/session-crypto";
     ContentVersionService,
     ReviewService,
     PublishExecutorService,
-    PlaywrightService,
+    SocialBrowserService,
     SessionHealthCheckScheduler,
     WechatAdapter,
     XhsMcpAdapter,

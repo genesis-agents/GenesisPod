@@ -17,6 +17,7 @@
 import { Module, Global } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
+import { AdvancedExtractorService } from "./advanced-extractor.service";
 import { ContentExtractorService } from "./content-extractor.service";
 import { DataFetchingService } from "./data-fetching.service";
 import { MinerUService } from "./mineru.service";
@@ -37,6 +38,7 @@ import { SystemSettingModule } from "../settings/system-setting.module";
     SystemSettingModule,
   ],
   providers: [
+    AdvancedExtractorService,
     ContentExtractorService,
     DataFetchingService,
     MinerUService,
@@ -44,6 +46,7 @@ import { SystemSettingModule } from "../settings/system-setting.module";
     UrlParserService,
   ],
   exports: [
+    AdvancedExtractorService,
     ContentExtractorService,
     DataFetchingService,
     MinerUService,

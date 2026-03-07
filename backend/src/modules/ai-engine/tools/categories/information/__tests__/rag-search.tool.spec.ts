@@ -104,6 +104,10 @@ describe("RAGSearchTool", () => {
         typeof RAGSearchTool
       >[1],
     );
+
+    // Pre-set cache so checkTablesExist() skips the DB query in most tests
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (tool as any).tablesExistCache = true;
   });
 
   afterEach(() => {
