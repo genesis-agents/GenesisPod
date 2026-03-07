@@ -21,6 +21,7 @@ import {
   limitBoldFormatting,
   removeHorizontalRules,
   repairOrderedListContinuity,
+  stripInternalFigureNotation,
 } from "../../utils/report-formatting.utils";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { AIModelType } from "@prisma/client";
@@ -570,6 +571,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         dim.generatedCharts,
       );
 
+      // ★ 清理泄露的内部图表/证据标注（[证据[N] 图M]、孤儿图引用等）
+      content = stripInternalFigureNotation(content);
       // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
       content = stripLLMMetaNotes(content);
 
@@ -1263,6 +1266,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       /&lt;!--\s*figure:\d+:\d+\s*--&gt;/g,
       "",
     );
+    // ★ 清理泄露的内部图表/证据标注（全文级兜底）
+    finalContent = stripInternalFigureNotation(finalContent);
     // ★ 全文级 LLM meta-notes 清理（统一实现）
     finalContent = stripLLMMetaNotes(finalContent);
     // ★ 修复 OL 列表连续性

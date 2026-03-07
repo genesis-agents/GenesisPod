@@ -29,6 +29,7 @@ import {
   decodeUrlEntities,
   remapCitationIndices,
   repairOrderedListContinuity,
+  stripInternalFigureNotation,
 } from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type {
@@ -1012,6 +1013,8 @@ export class ReportSynthesisService {
         dim.generatedCharts,
       );
 
+      // ★ 清理泄露的内部图表/证据标注（[证据[N] 图M]、孤儿图引用等）
+      content = stripInternalFigureNotation(content);
       // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
       content = stripLLMMetaNotes(content);
 
@@ -2205,6 +2208,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // ★ v4.1: 清理残留的 figure 占位符（HTML 转义形式也要处理）
     content = content.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
     content = content.replace(/&lt;!--\s*figure:\d+:\d+\s*--&gt;/g, "");
+
+    // ★ v4.1: 清理泄露的内部图表/证据标注（全文级兜底）
+    content = stripInternalFigureNotation(content);
 
     // ★ v4.1: 全文级 LLM meta-notes 清理（统一实现在 report-formatting.utils.ts）
     content = stripLLMMetaNotes(content);

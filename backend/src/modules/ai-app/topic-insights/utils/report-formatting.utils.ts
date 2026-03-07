@@ -494,8 +494,8 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
       .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")
       // ── 内部角色名泄露（Leader, Agent 等多 Agent 流程术语） ──
-      .replace(/Leader\s*分配的/g, "")
-      .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成)的/g, "")
+      .replace(/Leader\s*(?:分配|提供|生成|指派)的/g, "")
+      .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成|提供)的/g, "")
       // ── 内部术语泄露 ──
       .replace(/独立洞察[：:]/g, "")
       .replace(/需补充\d{4}\s*Q\d\s*企业报告验证/g, "")
@@ -777,6 +777,58 @@ export function repairOrderedListContinuity(content: string): string {
       return line;
     })
     .join("\n");
+}
+
+/**
+ * Strip leaked internal figure/evidence notation from report content.
+ *
+ * AI sometimes copies internal notation patterns into prose text:
+ * - [证据[N] 图M] — internal evidence+figure citation format
+ * - 证据[N] — bare evidence reference (not standard [N] citation)
+ * - Leader 提供的 — leaked multi-agent role name
+ * - Orphan figure refs (图N展示, 见图N, 如图N所示) without corresponding
+ *   <!-- chart:xxx --> placeholder nearby
+ *
+ * Must run AFTER resolveChartPlaceholders (which converts valid figure
+ * placeholders to chart placeholders) so we only strip truly orphaned refs.
+ */
+export function stripInternalFigureNotation(content: string): string {
+  return (
+    content
+      // ── [证据[N] 图M] full bracket notation ──
+      // e.g. "[证据[5] 图2]" → "" or "[证据[45] 图0]" → ""
+      .replace(/\[证据\s*\[[\d,\s]+\]\s*图\d+\]/g, "")
+
+      // ── 证据[N] bare notation (not inside standard citation brackets) ──
+      // Negative lookbehind: don't match if preceded by [ (which would be standard [N])
+      .replace(/(?<!\[)证据\s*\[[\d,\s]+\]/g, "")
+
+      // ── Leader/Agent role name leakage in prose ──
+      .replace(/Leader\s*提供的[""「]?/g, "")
+      .replace(/(?:研究员?|分析员?)\s*提供的[""「]?/g, "")
+
+      // ── Orphan figure references ──
+      // "图N展示了..." / "图N聚焦..." / "图N显示..." — full sentence opener with figure
+      .replace(
+        /(?:^|\n)\s*图\d+(?:展示了?|聚焦|显示了?|呈现了?|直观呈现)[^\n]*(?:\n|$)/g,
+        "\n",
+      )
+      // "（图N）" / "(图N)" — parenthesized figure refs
+      .replace(/[（(]图\d+[)）]/g, "")
+      // "见图N" / "如图N所示" / "参见图N" — inline orphan refs
+      .replace(
+        /(?:见|如|参见|详见)(?:下)?图\d+(?:所示|中|可知)?[，,。.；;]?\s*/g,
+        "",
+      )
+
+      // ── Clean up resulting artifacts ──
+      // Double punctuation from removed notation
+      .replace(/([，,。.；;])\s*\1/g, "$1")
+      // Multiple spaces collapsed
+      .replace(/ {2,}/g, " ")
+      // Triple+ newlines collapsed
+      .replace(/\n{3,}/g, "\n\n")
+  );
 }
 
 /**
