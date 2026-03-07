@@ -100,9 +100,9 @@ export class WysiwygRenderService implements OnModuleDestroy {
           url.includes("fonts.googleapis.com") ||
           url.includes("fonts.gstatic.com")
         ) {
-          request.continue();
+          void request.continue();
         } else {
-          request.abort("blockedbyclient");
+          void request.abort("blockedbyclient");
         }
       });
 
@@ -171,9 +171,9 @@ export class WysiwygRenderService implements OnModuleDestroy {
           url.includes("fonts.googleapis.com") ||
           url.includes("fonts.gstatic.com")
         ) {
-          request.continue();
+          void request.continue();
         } else {
-          request.abort("blockedbyclient");
+          void request.abort("blockedbyclient");
         }
       });
 
@@ -249,9 +249,9 @@ export class WysiwygRenderService implements OnModuleDestroy {
           url.includes("fonts.googleapis.com") ||
           url.includes("fonts.gstatic.com")
         ) {
-          request.continue();
+          void request.continue();
         } else {
-          request.abort("blockedbyclient");
+          void request.abort("blockedbyclient");
         }
       });
 
@@ -339,6 +339,7 @@ export class WysiwygRenderService implements OnModuleDestroy {
     body {
       margin: 0;
       padding: 20px;
+      background-color: #ffffff;
       font-family: 'Inter', 'Microsoft YaHei', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
