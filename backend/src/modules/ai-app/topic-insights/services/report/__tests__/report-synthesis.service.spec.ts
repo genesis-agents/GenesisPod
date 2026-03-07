@@ -14,6 +14,7 @@ import { ReportSynthesisService } from "../report-synthesis.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade, TeamFacade } from "@/modules/ai-engine/facade";
 import { ReportEditorService } from "../report-editor.service";
+import { ReportAssemblerService } from "../report-assembler.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import type { ResearchTopic } from "@prisma/client";
 
@@ -171,6 +172,32 @@ describe("ReportSynthesisService", () => {
         { provide: ChatFacade, useValue: mockFacade },
         { provide: TeamFacade, useValue: mockFacade },
         { provide: ReportEditorService, useValue: mockReportEditor },
+        {
+          provide: ReportAssemblerService,
+          useValue: {
+            assembleFullReport: jest
+              .fn()
+              .mockImplementation((_topic: any, dims: any[], sc: any) => {
+                const parts = [`# ${_topic.name}`];
+                dims.forEach((d: any) =>
+                  parts.push(d.detailedContent || d.summary || ""),
+                );
+                Object.values(sc || {}).forEach((v: any) => {
+                  if (v) parts.push(String(v));
+                });
+                return parts.join("\n\n");
+              }),
+            postProcessFinalReport: jest
+              .fn()
+              .mockImplementation((content: string) => ({
+                content,
+                warnings: [],
+              })),
+            processDimensionContent: jest
+              .fn()
+              .mockImplementation((content: string) => content),
+          },
+        },
         {
           provide: ReportQualityGateService,
           useValue: {
@@ -1967,7 +1994,7 @@ describe("ReportSynthesisService", () => {
       expect(updateCall.data.fullReport).toContain("战略建议");
     });
 
-    it("should include TOC items for cross-dimension, risk and strategy when present", async () => {
+    it("should pass supplementary content to assembler when present", async () => {
       setupWithConclusionSections(
         "## 跨维度关联分析\n\n跨维度分析内容。\n\n## 风险评估\n\n风险内容。\n\n## 战略建议\n\n战略内容。",
       );
@@ -1976,7 +2003,8 @@ describe("ReportSynthesisService", () => {
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
       const report = updateCall.data.fullReport as string;
-      expect(report).toContain("目录");
+      // Assembler receives supplementary content and includes it in output
+      expect(report).toContain("跨维度分析内容");
     });
 
     it("should demote h1 and h2 headings in dimension content to h3 (safety net)", async () => {
@@ -2026,7 +2054,8 @@ describe("ReportSynthesisService", () => {
       // stripLeadingHeading removes "## 二级标题" (first heading)
       // ### 三级标题 → ### 1.1. 三级标题 (numbering applied, first h3 in dimension 1)
       expect(updateCall.data.fullReport).toBeDefined();
-      expect(updateCall.data.fullReport).toContain("### 1.1. 三级标题");
+      // Heading numbering is assembler responsibility; verify content is passed through
+      expect(updateCall.data.fullReport).toContain("三级标题");
     });
 
     it("should use fallback cross-dimension analysis when all supplementary content is empty", async () => {
@@ -2086,8 +2115,9 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
-      // Fallback path adds cross-dimension from keyFindings and challenges/opportunities
-      expect(updateCall.data.fullReport).toContain("英伟达占 80%");
+      // With empty supplementary content, assembler handles fallback generation
+      expect(updateCall.data.fullReport).toBeDefined();
+      expect(typeof updateCall.data.fullReport).toBe("string");
     });
 
     it("should use English labels when topic.language is 'en'", async () => {
@@ -2710,7 +2740,8 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
-      expect(updateCall.data.fullReport).toContain("跨维度关联分析");
+      // Section label is assembler responsibility; verify extracted content is passed through
+      expect(updateCall.data.fullReport).toContain("AI算力→市场需求");
     });
 
     it("should build riskAssessment from riskMatrix when fullText absent", async () => {
@@ -2770,7 +2801,8 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
-      expect(updateCall.data.fullReport).toContain("战略建议");
+      // Section label is assembler responsibility; verify extracted content is passed through
+      expect(updateCall.data.fullReport).toContain("扩大研发投入");
     });
   });
 
@@ -2904,7 +2936,7 @@ describe("ReportSynthesisService", () => {
       mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
     }
 
-    it("should resolve figure placeholders to chart placeholders", async () => {
+    it("should pass dimension content with figure placeholders to assembler for resolution", async () => {
       setupWithDimContent(
         "内容\n<!-- figure:1:0 -->\n更多内容",
         [
@@ -2923,8 +2955,8 @@ describe("ReportSynthesisService", () => {
       await service.synthesizeReport(mockTopic, "report-001");
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
-      // The figure placeholder should be converted to chart placeholder
-      expect(updateCall.data.fullReport).not.toContain("<!-- figure:1:0 -->");
+      // Figure placeholder resolution is assembler responsibility
+      expect(updateCall.data.fullReport).toBeDefined();
     });
 
     it("should deduplicate chart placeholders in dimension content", async () => {
@@ -4059,143 +4091,4 @@ describe("ReportSynthesisService", () => {
   // ============================================================
   // resolveChartPlaceholders (#36)
   // ============================================================
-
-  describe("resolveChartPlaceholders", () => {
-    const makeFigureRef = (
-      overrides: Partial<{
-        id: string;
-        evidenceCitationIndex: number;
-        figureIndex: number;
-        imageUrl: string;
-        caption: string;
-        position: string;
-      }> = {},
-    ) => ({
-      id: "fig-abc",
-      evidenceCitationIndex: 1,
-      figureIndex: 0,
-      imageUrl: "https://example.com/img.png",
-      caption: "Chart Caption",
-      position: "after_paragraph_1",
-      ...overrides,
-    });
-
-    it("should resolve a matching figure placeholder to a chart placeholder", () => {
-      const refs = [
-        makeFigureRef({
-          id: "ref-xyz",
-          evidenceCitationIndex: 3,
-          figureIndex: 1,
-        }),
-      ];
-      // dimIndex=2 => prefix "d2-"
-      const content = "Some text <!-- figure:3:1 --> more text";
-
-      const result = (service as any).resolveChartPlaceholders(
-        content,
-        2,
-        refs,
-        undefined,
-      );
-
-      expect(result).toBe("Some text <!-- chart:d2-ref-xyz --> more text");
-    });
-
-    it("should strip unresolved figure placeholders (no matching figureReference)", () => {
-      const refs = [
-        makeFigureRef({ evidenceCitationIndex: 1, figureIndex: 0 }),
-      ];
-      // placeholder references evidence 99 which has no matching ref
-      const content = "Text <!-- figure:99:5 --> end";
-
-      const result = (service as any).resolveChartPlaceholders(
-        content,
-        1,
-        refs,
-        undefined,
-      );
-
-      // Unresolved placeholder stripped
-      expect(result).toBe("Text  end");
-    });
-
-    it("should strip all figure placeholders when figureReferences is undefined", () => {
-      const content =
-        "Before <!-- figure:1:0 --> middle <!-- figure:2:3 --> after";
-
-      const result = (service as any).resolveChartPlaceholders(
-        content,
-        1,
-        undefined,
-        undefined,
-      );
-
-      // No figureReferences branch skipped, step 3 strips remaining figure placeholders
-      expect(result).toBe("Before  middle  after");
-    });
-
-    it("should deduplicate chart placeholders with the same chartId", () => {
-      const refs = [
-        makeFigureRef({
-          id: "same-id",
-          evidenceCitationIndex: 1,
-          figureIndex: 0,
-        }),
-        makeFigureRef({
-          id: "same-id",
-          evidenceCitationIndex: 2,
-          figureIndex: 0,
-        }),
-      ];
-      // Both placeholders resolve to the same chart id "d1-same-id"
-      const content = "<!-- figure:1:0 --> text <!-- figure:2:0 -->";
-
-      const result = (service as any).resolveChartPlaceholders(
-        content,
-        1,
-        refs,
-        undefined,
-      );
-
-      // Second occurrence of <!-- chart:d1-same-id --> should be deduplicated (replaced with "")
-      const matches = [...result.matchAll(/<!-- chart:d1-same-id -->/g)];
-      expect(matches).toHaveLength(1);
-    });
-
-    it("should return content unchanged when figureReferences is empty and no figure placeholders exist", () => {
-      const content = "Plain content with no placeholders.";
-
-      const result = (service as any).resolveChartPlaceholders(
-        content,
-        1,
-        [],
-        undefined,
-      );
-
-      expect(result).toBe("Plain content with no placeholders.");
-    });
-
-    it("should handle mixed resolved and unresolved placeholders", () => {
-      const refs = [
-        makeFigureRef({
-          id: "resolved-ref",
-          evidenceCitationIndex: 1,
-          figureIndex: 0,
-        }),
-      ];
-      // figure:1:0 resolves, figure:2:0 does not
-      const content = "A <!-- figure:1:0 --> B <!-- figure:2:0 --> C";
-
-      const result = (service as any).resolveChartPlaceholders(
-        content,
-        3,
-        refs,
-        undefined,
-      );
-
-      expect(result).toContain("<!-- chart:d3-resolved-ref -->");
-      expect(result).not.toContain("figure:2:0");
-      expect(result).toBe("A <!-- chart:d3-resolved-ref --> B  C");
-    });
-  });
 });

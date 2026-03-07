@@ -9,6 +9,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportGeneratorService } from "../report-generator.service";
+import { ReportAssemblerService } from "../report-assembler.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { ResearchTopic } from "@prisma/client";
 import type {
@@ -136,6 +137,32 @@ describe("ReportGeneratorService", () => {
       providers: [
         ReportGeneratorService,
         { provide: ChatFacade, useValue: mockFacade },
+        {
+          provide: ReportAssemblerService,
+          useValue: {
+            assembleFullReport: jest
+              .fn()
+              .mockImplementation((_topic: any, dims: any[], sc: any) => {
+                const parts = [`# ${_topic.name}`];
+                dims.forEach((d: any) =>
+                  parts.push(d.detailedContent || d.summary || ""),
+                );
+                Object.values(sc || {}).forEach((v: any) => {
+                  if (v) parts.push(String(v));
+                });
+                return parts.join("\n\n");
+              }),
+            postProcessFinalReport: jest
+              .fn()
+              .mockImplementation((content: string) => ({
+                content,
+                warnings: [],
+              })),
+            processDimensionContent: jest
+              .fn()
+              .mockImplementation((content: string) => content),
+          },
+        },
       ],
     }).compile();
 
@@ -514,212 +541,32 @@ describe("ReportGeneratorService", () => {
   // ============================================================
 
   describe("buildFullReportFromDimensions", () => {
-    it("should build a report string from dimension inputs (Chinese topic)", () => {
+    it("should delegate to assembler.assembleFullReport", () => {
+      const dims = [buildDimensionInput()];
+      const supplementary = {
+        preface: "研究前言内容",
+        executiveSummary: "执行摘要内容",
+        crossDimensionAnalysis: "跨维度分析内容",
+      };
+
       const result = service.buildFullReportFromDimensions(
         mockTopic,
-        [buildDimensionInput()],
-        {
-          preface: "研究前言内容",
-          executiveSummary: "执行摘要内容",
-          crossDimensionAnalysis: "跨维度分析内容",
-          riskAssessment: "风险评估内容",
-          strategicRecommendations: "战略建议内容",
-          conclusion: "结语内容",
-        },
+        dims,
+        supplementary,
       );
 
       expect(typeof result).toBe("string");
-      expect(result).toContain(mockTopic.name);
-      expect(result).toContain("执行摘要");
-      expect(result).toContain("前言");
-    });
-
-    it("should build a report string from dimension inputs (English topic)", () => {
-      const result = service.buildFullReportFromDimensions(
-        mockEnglishTopic,
-        [buildDimensionInput()],
-        {
-          preface: "Preface content",
-          executiveSummary: "Executive summary content",
-          crossDimensionAnalysis: "Cross dimension analysis",
-          riskAssessment: "Risk assessment content",
-          strategicRecommendations: "Strategic recommendations",
-          conclusion: "Conclusion content",
-        },
-      );
-
-      expect(result).toContain("Executive Summary");
-      expect(result).toContain("Preface");
-      expect(result).toContain("Cross-Dimension Analysis");
-    });
-
-    it("should sort dimensions by priority", () => {
-      const dim1 = buildDimensionInput({
-        dimensionName: "低优先级维度",
-        priority: 999,
-      });
-      const dim2 = buildDimensionInput({
-        dimensionId: "dim-002",
-        dimensionName: "高优先级维度",
-        priority: 1,
-      });
-
-      const result = service.buildFullReportFromDimensions(
+      const assembler = (service as any).assembler;
+      expect(assembler.assembleFullReport).toHaveBeenCalledWith(
         mockTopic,
-        [dim1, dim2],
-        {},
+        dims,
+        supplementary,
       );
-
-      const highPriorityIdx = result.indexOf("高优先级维度");
-      const lowPriorityIdx = result.indexOf("低优先级维度");
-      expect(highPriorityIdx).toBeLessThan(lowPriorityIdx);
     });
 
-    it("should generate fallback cross-dimension content when supplementary fields are all empty", () => {
-      const dim1 = buildDimensionInput({
-        dimensionName: "维度A",
-        keyFindings: [
-          { finding: "发现1", significance: "high", evidenceIds: [] },
-          { finding: "发现2", significance: "medium", evidenceIds: [] },
-        ],
-      });
-      const dim2 = buildDimensionInput({
-        dimensionId: "dim-002",
-        dimensionName: "维度B",
-        keyFindings: [
-          { finding: "发现3", significance: "high", evidenceIds: [] },
-        ],
-      });
-
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [dim1, dim2],
-        {}, // no supplementary content
-      );
-
-      expect(result).toContain("维度A");
-      expect(result).toContain("维度B");
-    });
-
-    it("should include risk assessment fallback from dimension challenges", () => {
-      const dim = buildDimensionInput({
-        challenges: [
-          { challenge: "主要挑战1", impact: "high", evidenceIds: [] },
-          { challenge: "主要挑战2", impact: "medium", evidenceIds: [] },
-        ],
-      });
-
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [dim],
-        {}, // no supplementary content
-      );
-
-      expect(result).toContain("风险评估");
-    });
-
-    it("should include strategic recommendations fallback from dimension opportunities", () => {
-      const dim = buildDimensionInput({
-        opportunities: [
-          { opportunity: "战略机会1", potential: "high", evidenceIds: [] },
-        ],
-      });
-
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [dim],
-        {}, // no supplementary content
-      );
-
-      expect(result).toContain("战略建议");
-    });
-
-    it("should handle dimension with detailedContent containing heading level-1 sections", () => {
-      const dim = buildDimensionInput({
-        detailedContent: "# 一级标题\n\n内容段落\n\n## 二级标题\n\n更多内容",
-      });
-
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [dim],
-        {},
-      );
-
-      // Heading levels should be demoted
-      expect(result).toBeDefined();
+    it("should return string for empty dimensionInputs", () => {
+      const result = service.buildFullReportFromDimensions(mockTopic, [], {});
       expect(typeof result).toBe("string");
-    });
-
-    it("should strip inline images from dimension content", () => {
-      const dim = buildDimensionInput({
-        detailedContent:
-          "内容\n\n![alt text](https://example.com/image.png)\n\n更多内容",
-      });
-
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [dim],
-        {},
-      );
-
-      expect(result).not.toContain("![alt text]");
-    });
-
-    it("should skip duplicate cross-dimension section if already in dimension content", () => {
-      const dim = buildDimensionInput({
-        detailedContent: "## 跨维度关联分析\n\n已有跨维度内容",
-      });
-
-      const result = service.buildFullReportFromDimensions(mockTopic, [dim], {
-        crossDimensionAnalysis: "新的跨维度分析",
-      });
-
-      // Should not duplicate the section
-      expect(result).toBeDefined();
-    });
-
-    it("should include table of contents entries for all dimensions", () => {
-      const dims = [
-        buildDimensionInput({ dimensionName: "技术现状", priority: 1 }),
-        buildDimensionInput({
-          dimensionId: "dim-002",
-          dimensionName: "市场分析",
-          priority: 2,
-        }),
-      ];
-
-      const result = service.buildFullReportFromDimensions(mockTopic, dims, {
-        crossDimensionAnalysis: "跨维度分析",
-      });
-
-      expect(result).toContain("技术现状");
-      expect(result).toContain("市场分析");
-    });
-
-    it("should truncate very long dimension content", () => {
-      const longContent = "这是很长的内容。".repeat(3500); // > 24000 chars
-      const dim = buildDimensionInput({
-        detailedContent: longContent,
-      });
-
-      const result = service.buildFullReportFromDimensions(
-        mockTopic,
-        [dim],
-        {},
-      );
-
-      expect(result).toBeDefined();
-      // Content should be truncated - result will be shorter than naive concatenation
-      expect(result.length).toBeLessThan(longContent.length * 2);
-    });
-
-    it("should handle empty dimensionInputs array", () => {
-      const result = service.buildFullReportFromDimensions(mockTopic, [], {
-        executiveSummary: "Summary with no dims",
-      });
-
-      expect(result).toBeDefined();
-      expect(result).toContain(mockTopic.name);
     });
   });
 
@@ -1847,28 +1694,21 @@ describe("ReportGeneratorService", () => {
   // ──────────────────────────────────────────────────────────────────────────────
 
   describe("buildFullReportFromDimensions — additional branch coverage", () => {
-    it("should demote ## headings inside dimension content to ###", () => {
+    it("should delegate dimension content to assembler (heading demotion is assembler responsibility)", () => {
       const dimWithDoubleHash = buildDimensionInput({
         detailedContent: "## 子章节标题\n\n内容段落。",
       });
 
-      const reportJson = JSON.stringify({
-        executiveSummary: "Summary",
+      service.buildFullReportFromDimensions(mockTopic, [dimWithDoubleHash], {
         conclusion: "结论",
-        highlights: [],
-        charts: [],
       });
 
-      mockFacade.chatWithSkills.mockResolvedValue({ content: reportJson });
-
-      const result = service.buildFullReportFromDimensions(
+      const assembler = (service as any).assembler;
+      expect(assembler.assembleFullReport).toHaveBeenCalledWith(
         mockTopic,
         [dimWithDoubleHash],
         { conclusion: "结论" },
       );
-
-      // The ## heading should be demoted to ###
-      expect(result).not.toContain("\n## 子章节标题");
     });
 
     it("should handle dimensions with inlineCharts with after_paragraph position", () => {

@@ -56,6 +56,7 @@ export { CredibilityReportService } from "./report/credibility-report.service";
 export { FigureExtractorService } from "./report/figure-extractor.service";
 // ★ Report sub-services
 export { ReportGeneratorService } from "./report/report-generator.service";
+export { ReportAssemblerService } from "./report/report-assembler.service";
 export { ReportDataService } from "./report/report-data.service";
 // ★ P1: 引用格式化 + 多格式导出
 export { CitationFormatterService } from "./report/citation-formatter.service";

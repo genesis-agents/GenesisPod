@@ -10,26 +10,14 @@ import {
 } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
+import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
 import {
-  sanitizeAllStrings,
-  stripLeadingHeading,
-} from "@/common/utils/sanitize-content.utils";
-import {
-  sanitizeHeadingLevels,
-  numberSubHeadings,
-  hierarchicalNumberBoldListItems,
-  deduplicateParagraphs,
-  deduplicateHeadings,
   getMinDataPoints,
-  simplifyLatexNotation,
-  stripLLMMetaNotes,
   filterJunkReferences,
   deduplicateReferencesByUrl,
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-  repairOrderedListContinuity,
-  stripInternalFigureNotation,
 } from "../../utils/report-formatting.utils";
 import { AIModelType } from "@prisma/client";
 import type {
@@ -65,11 +53,11 @@ import {
   CONSISTENCY_CHECK_USER_PROMPT,
 } from "../../prompts/consistency-check.prompt";
 import { ReportEditorService } from "./report-editor.service";
-import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import {
-  stripChartJsonFromContent,
-  extractMarkdownFromJsonString,
-} from "../../utils/strip-chart-json.utils";
+  ReportAssemblerService,
+  type SupplementaryContent,
+} from "./report-assembler.service";
+import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 
 /**
  * Report Synthesis Service
@@ -90,6 +78,7 @@ export class ReportSynthesisService {
     private readonly chatFacade: ChatFacade,
     private readonly teamFacade: TeamFacade,
     private readonly reportEditor: ReportEditorService,
+    private readonly assembler: ReportAssemblerService,
     // ★ v4: 报告级质量门控
     private readonly qualityGate: ReportQualityGateService,
     // ★ Phase 4: 报告质量关卡
@@ -859,303 +848,20 @@ export class ReportSynthesisService {
   private buildFullReportFromDimensions(
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],
-    supplementaryContent: {
-      preface?: string;
-      executiveSummary?: string;
-      crossDimensionAnalysis?: string;
-      riskAssessment?: string;
-      strategicRecommendations?: string;
-      conclusion?: string;
-    },
+    supplementaryContent: SupplementaryContent,
   ): string {
-    // ★ Language-aware labels
-    const isEn = topic.language === "en";
-    const labels = {
-      generatedAt: isEn ? "Generated" : "生成时间",
-      preface: isEn ? "Preface" : "前言",
-      executiveSummary: isEn ? "Executive Summary" : "执行摘要",
-      toc: isEn ? "Table of Contents" : "目录",
-      dimension: isEn ? "Dimension" : "维度",
-      crossDimension: isEn ? "Cross-Dimension Analysis" : "跨维度关联分析",
-      riskAssessment: isEn ? "Risk Assessment" : "风险评估",
-      strategicRec: isEn ? "Strategic Recommendations" : "战略建议",
-      conclusion: isEn ? "Conclusion" : "结语",
-    };
-    const locale = isEn ? "en-US" : "zh-CN";
-
-    // ★ Safety net: sanitize all supplementary content
-    const sc = Object.fromEntries(
-      Object.entries(supplementaryContent).map(([k, v]) => [
-        k,
-        v ? extractMarkdownFromJsonString(v) : v,
-      ]),
-    ) as typeof supplementaryContent;
-
-    // ★ 清理所有补充内容中的 LLM 元注释（字数统计等）
-    for (const key of Object.keys(sc) as (keyof typeof sc)[]) {
-      if (sc[key]) {
-        (sc as Record<string, string>)[key] = stripLLMMetaNotes(sc[key]);
-      }
-    }
-
-    const parts: string[] = [];
-
-    // Sort dimensions by priority (lower number = higher priority = earlier in report)
-    const sortedDimensions = [...dimensionInputs].sort((a, b) => {
-      const pa = a.priority ?? 999;
-      const pb = b.priority ?? 999;
-      return pa - pb;
-    });
-
-    // 1. 报告标题
-    parts.push(`# ${topic.name}`);
-    parts.push(
-      `\n> ${labels.generatedAt}：${new Date().toLocaleDateString(locale)}\n`,
+    const assembled = this.assembler.assembleFullReport(
+      topic,
+      dimensionInputs,
+      supplementaryContent,
     );
-
-    // 2. 前言（AI 生成）
-    if (sc.preface) {
-      parts.push(`## ${labels.preface}\n`);
-      parts.push(stripLeadingHeading(sc.preface));
-      parts.push("\n");
-    }
-
-    // 3. 执行摘要（AI 生成）
-    if (sc.executiveSummary) {
-      parts.push(`## ${labels.executiveSummary}\n`);
-      parts.push(stripLeadingHeading(sc.executiveSummary));
-      parts.push("\n");
-    }
-
-    // 4. 目录
-    parts.push(`## ${labels.toc}\n`);
-    let tocIndex = 0;
-    sortedDimensions.forEach((dim, idx) => {
-      const dimName = dim.dimensionName || `${labels.dimension}${idx + 1}`;
-      tocIndex = idx + 1;
-      parts.push(
-        `${tocIndex}. [${dimName}](#${tocIndex}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    });
-    // ★ 只在对应 supplementaryContent 非空时添加目录项
-    if (sc.crossDimensionAnalysis) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.crossDimension}](#${labels.crossDimension.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    if (sc.riskAssessment) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.riskAssessment}](#${labels.riskAssessment.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    if (sc.strategicRecommendations) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    parts.push("\n\n");
-
-    // 5. 各维度章节（直接使用 detailedContent，但限制长度）
-    const MAX_DIMENSION_CHARS = 24000; // 约 8000 中文字（每字约 3 chars）
-    const globalSeenParagraphs = new Set<string>();
-
-    // ★ 诊断日志：记录每个维度的内容长度
-    const dimContentLengths = sortedDimensions.map(
-      (d) =>
-        `${d.dimensionName}:${(d.detailedContent || "").length}/${(d.summary || "").length}`,
-    );
-    this.logger.log(
-      `[buildFullReport] Dimension content lengths (detailed/summary): ${dimContentLengths.join(", ")}`,
-    );
-
-    sortedDimensions.forEach((dim, idx) => {
-      parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
-
-      // ★ 直接使用研究员生成的完整内容，但截断过长内容
-      let content = stripLeadingHeading(
-        dim.detailedContent || dim.summary || "暂无详细内容",
-      );
-      // ★ Safety net: 移除未被 parseChartOutput 正确分离的图表 JSON 残留
-      content = stripChartJsonFromContent(content);
-      // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
-      content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
-      // ★ 标题层级安全网：将 AI 异常输出的 #/## 降级为 ###，保留 ###/#### 不变
-      content = sanitizeHeadingLevels(content);
-      // ★ 去除重复的标题（AI 有时生成 "### N. Xxx" 后又生成 "### Xxx"）
-      content = deduplicateHeadings(content);
-      // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
-      content = numberSubHeadings(content, idx + 1);
-      // ★ 结构化列表项层级编号：N. **粗体** → N.M.K. **粗体**（跟随父节编号）
-      content = hierarchicalNumberBoldListItems(content);
-      // ★ 跨维度段落去重：首 120 字相同的段落只保留首次出现
-      content = deduplicateParagraphs(content, globalSeenParagraphs);
-      if (content.length > MAX_DIMENSION_CHARS) {
-        this.logger.warn(
-          `[buildReport] Dimension "${dim.dimensionName}" content too long (${content.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
-        );
-        // 在最近的段落边界截断
-        const truncated = content.substring(0, MAX_DIMENSION_CHARS);
-        const lastParagraph = truncated.lastIndexOf("\n\n");
-        content =
-          lastParagraph > MAX_DIMENSION_CHARS * 0.7
-            ? truncated.substring(0, lastParagraph)
-            : truncated;
-      }
-
-      // ★ Resolve chart placeholders (figure→chart conversion, injection, dedup)
-      content = this.resolveChartPlaceholders(
-        content,
-        idx,
-        dim.figureReferences,
-        dim.generatedCharts,
-      );
-
-      // ★ 清理泄露的内部图表/证据标注（[证据[N] 图M]、孤儿图引用等）
-      content = stripInternalFigureNotation(content);
-      // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
-      content = stripLLMMetaNotes(content);
-
-      parts.push(content);
-      parts.push("\n\n");
-    });
-
-    // ★ 收集已有 H2 标题，用于后续去重守卫
-    const existingH2Titles = new Set(
-      parts
-        .join("\n")
-        .match(/^## .+$/gm)
-        ?.map((h) => h.replace(/^## /, "").trim()) || [],
-    );
-
-    // ★ A4 Fallback: 如果三个 section 全为空，从维度数据自动拼接最简版
-    if (
-      !sc.crossDimensionAnalysis &&
-      !sc.riskAssessment &&
-      !sc.strategicRecommendations
-    ) {
-      this.logger.warn(
-        "[buildFullReport] crossDimensionAnalysis, riskAssessment, strategicRecommendations are all empty. Generating fallback from dimension data.",
-      );
-      // 自动拼接跨维度关联分析
-      const fallbackCross = sortedDimensions
-        .filter((d) => d.keyFindings?.length > 0)
-        .map(
-          (d) =>
-            `**${d.dimensionName}**：${d.keyFindings
-              .slice(0, 2)
-              .map((f) => f.finding)
-              .join("；")}`,
-        )
-        .join("\n\n");
-      if (fallbackCross) {
-        parts.push(`## ${labels.crossDimension}\n`);
-        parts.push(fallbackCross);
-        parts.push("\n\n");
-      }
-
-      // 自动拼接风险提示
-      const fallbackRisks = sortedDimensions
-        .flatMap(
-          (d) => d.challenges?.slice(0, 1).map((c) => `- ${c.challenge}`) || [],
-        )
-        .join("\n");
-      if (fallbackRisks) {
-        parts.push(`## ${labels.riskAssessment}\n`);
-        parts.push(fallbackRisks);
-        parts.push("\n\n");
-      }
-
-      // 自动拼接建议
-      const fallbackRecs = sortedDimensions
-        .flatMap(
-          (d) =>
-            d.opportunities?.slice(0, 1).map((o) => `- ${o.opportunity}`) || [],
-        )
-        .join("\n");
-      if (fallbackRecs) {
-        parts.push(`## ${labels.strategicRec}\n`);
-        parts.push(fallbackRecs);
-        parts.push("\n\n");
-      }
-    }
-
-    // 6. 跨维度关联分析（AI 生成） — 去重守卫：跳过已存在的同名章节
-    if (
-      sc.crossDimensionAnalysis &&
-      !existingH2Titles.has(labels.crossDimension)
-    ) {
-      parts.push(`## ${labels.crossDimension}\n`);
-      parts.push(stripLeadingHeading(sc.crossDimensionAnalysis));
-      parts.push("\n\n");
-    }
-
-    // 7. 风险评估（AI 生成）
-    if (sc.riskAssessment && !existingH2Titles.has(labels.riskAssessment)) {
-      parts.push(`## ${labels.riskAssessment}\n`);
-      parts.push(stripLeadingHeading(sc.riskAssessment));
-      parts.push("\n\n");
-    }
-
-    // 8. 战略建议（AI 生成）
-    if (
-      sc.strategicRecommendations &&
-      !existingH2Titles.has(labels.strategicRec)
-    ) {
-      parts.push(`## ${labels.strategicRec}\n`);
-      parts.push(stripLeadingHeading(sc.strategicRecommendations));
-      parts.push("\n\n");
-    }
-
-    // 9. 结语（AI 生成）— 去重守卫：如果结语内容与跨维度分析高度重复则跳过
-    if (sc.conclusion) {
-      const conclusionText = stripLeadingHeading(sc.conclusion).trim();
-      const crossText = (sc.crossDimensionAnalysis || "").trim();
-
-      // Check 1: first 500 chars exact match
-      const conclusionKey = conclusionText.substring(0, 500).replace(/\s/g, "");
-      const crossKey = crossText.substring(0, 500).replace(/\s/g, "");
-      const isExactDuplicate =
-        conclusionKey.length > 50 &&
-        crossKey.length > 50 &&
-        conclusionKey === crossKey;
-
-      // Check 2: h3 heading overlap (>50% match indicates structural duplication)
-      const extractH3 = (t: string) =>
-        (t.match(/^###\s+(.+)$/gm) || []).map((h) =>
-          h
-            .replace(/^###\s+/, "")
-            .replace(/^[\d.]+\s*/, "")
-            .trim(),
-        );
-      const conclusionH3 = extractH3(conclusionText);
-      const crossH3 = extractH3(crossText);
-      const h3Overlap =
-        crossH3.length > 0 && conclusionH3.length > 0
-          ? conclusionH3.filter((h) => crossH3.includes(h)).length /
-            conclusionH3.length
-          : 0;
-      const isStructuralDuplicate = h3Overlap > 0.5;
-
-      if (isExactDuplicate || isStructuralDuplicate) {
-        this.logger.warn(
-          `[buildFullReport] Conclusion is duplicate of crossDimensionAnalysis (exact=${isExactDuplicate}, h3Overlap=${(h3Overlap * 100).toFixed(0)}%), skipping`,
-        );
-      } else if (conclusionText.length > 0) {
-        parts.push(`## ${labels.conclusion}\n`);
-        parts.push(conclusionText);
-        parts.push("\n");
-      }
-    }
-
-    const rawReport = this.teamFacade.sanitizeReport(parts.join("\n"));
-    const { content: processedReport } = this.postProcessReport(
-      rawReport,
+    const sanitized = this.teamFacade.sanitizeReport(assembled);
+    const { content } = this.assembler.postProcessFinalReport(
+      sanitized,
       topic.language || "zh",
+      this.qualityGate,
     );
-    return processedReport;
+    return content;
   }
 
   /**
@@ -2106,13 +1812,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         parts.push("");
       }
 
-      // ★ v3.0: 处理章节内容，根据 inlineCharts 的 position 插入图表占位符
       if (section.content) {
-        const contentWithCharts = this.injectChartPlaceholders(
-          section.content,
-          section.inlineCharts || [],
-        );
-        parts.push(contentWithCharts);
+        parts.push(section.content);
       }
 
       // 关键数据
@@ -2179,227 +1880,15 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     return processedReport;
   }
 
-  // stripLLMMetaNotes, numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
-  // → moved to utils/report-formatting.utils.ts (shared with report-generator.service.ts)
-
-  /**
-   * Post-process report markdown: detect quality issues and emit warnings.
-   * Phase 1: warning-only mode (no automatic content modification except --- removal).
-   */
   private postProcessReport(
     markdown: string,
     targetLanguage: string = "zh",
-  ): {
-    content: string;
-    warnings: string[];
-  } {
-    // ★ v4: 委托给 ReportQualityGateService 统一质量门控
-    const qc = this.qualityGate.validateFullReport(markdown, targetLanguage);
-
-    const warnings = qc.violations.map((v) => v.message);
-    let content = qc.wasAutoFixed ? qc.fixedContent : markdown;
-
-    // 额外清理：strip stray --- separators in flow text (not caught by HR regex)
-    content = content.replace(/\n---\n/g, "\n\n");
-
-    // ★ v4.1: LaTeX 简化 — 将原始 LaTeX 转为可读文本
-    content = simplifyLatexNotation(content);
-
-    // ★ v4.1: 清理残留的 figure 占位符（HTML 转义形式也要处理）
-    content = content.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
-    content = content.replace(/&lt;!--\s*figure:\d+:\d+\s*--&gt;/g, "");
-
-    // ★ v4.1: 清理泄露的内部图表/证据标注（全文级兜底）
-    content = stripInternalFigureNotation(content);
-
-    // ★ v4.1: 全文级 LLM meta-notes 清理（统一实现在 report-formatting.utils.ts）
-    content = stripLLMMetaNotes(content);
-
-    // ★ v4.2: 修复 OL 列表连续性（LLM 常在中间段落后重新从 1. 开始）
-    content = repairOrderedListContinuity(content);
-
-    // 额外 warn-only 检查（不在 QualityGateService 中的报告级特定规则）
-    const arrowCount = (content.match(/→/g) || []).length;
-    if (arrowCount > 5)
-      warnings.push(`Arrow chain count ${arrowCount} exceeds limit 5`);
-
-    const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) || []).length;
-    if (deepHeadingCount > 0)
-      warnings.push(
-        `Deep headings (h5/h6) count ${deepHeadingCount}, should be 0`,
-      );
-
-    if (warnings.length > 0) {
-      this.logger.warn(
-        `[postProcess] Quality fixes/warnings:\n${warnings.join("\n")}`,
-      );
-    }
-
-    return { content, warnings };
-  }
-
-  /**
-   * Resolves chart placeholders in dimension content:
-   * 1. Converts <!-- figure:N:M --> to <!-- chart:dX-id --> using figureReferences
-   * 2. Injects generated chart placeholders based on position
-   * 3. Deduplicates chart placeholders by chartId
-   */
-  private resolveChartPlaceholders(
-    content: string,
-    dimIndex: number,
-    figureReferences: FigureReference[] | undefined,
-    _generatedCharts: GeneratedChart[] | undefined,
-  ): string {
-    let result = content;
-    const dimPrefix = `d${dimIndex}-`;
-
-    // 1. Convert <!-- figure:N:M --> placeholders to <!-- chart:chartId -->
-    if (figureReferences && figureReferences.length > 0) {
-      result = result.replace(
-        /<!--\s*figure:(\d+):(\d+)\s*-->/g,
-        (_match, evidenceIdx, figIdx) => {
-          const ref = figureReferences?.find(
-            (r) =>
-              r.evidenceCitationIndex === Number(evidenceIdx) &&
-              r.figureIndex === Number(figIdx),
-          );
-          return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
-        },
-      );
-    }
-
-    // 2. ★ v4: Skip generatedCharts injection (AI-fabricated charts disabled)
-    // generatedCharts placeholders are no longer injected into content
-
-    // 3. Strip unresolved figure placeholders (no matching figureReference found)
-    result = result.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
-
-    // 4. Deduplicate chart placeholders: same chartId only appears once
-    const seenChartIds = new Set<string>();
-    result = result.replace(/<!-- chart:([^\s]+?) -->/g, (match, chartId) => {
-      if (seenChartIds.has(chartId)) return "";
-      seenChartIds.add(chartId);
-      return match;
-    });
-
-    return result;
-  }
-
-  /**
-   * 根据 inlineCharts 的 position 在内容中插入图表占位符
-   * ★ v3.0 新增
-   *
-   * position 格式:
-   * - "after_paragraph_N": 在第 N 段落之后
-   * - "after_heading_N": 在第 N 个小标题之后
-   * - "end_of_section": 在章节末尾（追加到维度内容最后一个段落之后）
-   */
-  private injectChartPlaceholders(
-    content: string,
-    inlineCharts: Array<{
-      id: string;
-      position: string;
-      [key: string]: unknown;
-    }>,
-  ): string {
-    if (!inlineCharts || inlineCharts.length === 0) {
-      return content;
-    }
-
-    // 分离 end_of_section 图表 和 位置定位图表
-    const chartsToInject = inlineCharts.filter(
-      (c) => c.position && c.position !== "end_of_section",
+  ): { content: string; warnings: string[] } {
+    return this.assembler.postProcessFinalReport(
+      markdown,
+      targetLanguage,
+      this.qualityGate,
     );
-    const endOfSectionCharts = inlineCharts.filter(
-      (c) => !c.position || c.position === "end_of_section",
-    );
-
-    // end_of_section 图表：追加到维度内容最后一个段落之后（仍在维度正文内）
-    if (endOfSectionCharts.length > 0) {
-      const eosPlaceholders = endOfSectionCharts
-        .map((c) => `<!-- chart:${c.id} -->`)
-        .join("\n\n");
-      content = content.trimEnd() + "\n\n" + eosPlaceholders;
-    }
-
-    if (chartsToInject.length === 0) {
-      return content;
-    }
-
-    // 按段落分割内容
-    const paragraphs = content.split(/\n\n+/);
-    const result: string[] = [];
-
-    // 收集各位置需要插入的图表
-    const afterParagraph: Map<number, string[]> = new Map();
-    const afterHeading: Map<number, string[]> = new Map();
-
-    for (const chart of chartsToInject) {
-      const pos = chart.position;
-
-      // 解析 after_paragraph_N
-      const paragraphMatch = pos.match(/^after_paragraph_(\d+)$/);
-      if (paragraphMatch) {
-        const idx = parseInt(paragraphMatch[1], 10);
-        if (!afterParagraph.has(idx)) {
-          afterParagraph.set(idx, []);
-        }
-        afterParagraph.get(idx)!.push(chart.id);
-        continue;
-      }
-
-      // 解析 after_heading_N
-      const headingMatch = pos.match(/^after_heading_(\d+)$/);
-      if (headingMatch) {
-        const idx = parseInt(headingMatch[1], 10);
-        if (!afterHeading.has(idx)) {
-          afterHeading.set(idx, []);
-        }
-        afterHeading.get(idx)!.push(chart.id);
-        continue;
-      }
-    }
-
-    // 构建带占位符的内容
-    let paragraphCount = 0;
-    let headingCount = 0;
-
-    for (const para of paragraphs) {
-      const trimmedPara = para.trim();
-      if (!trimmedPara) {
-        result.push(para);
-        continue;
-      }
-
-      // 检查是否为标题（以 # 开头或全粗体）
-      const isHeading =
-        trimmedPara.startsWith("#") ||
-        (trimmedPara.startsWith("**") && trimmedPara.endsWith("**"));
-
-      if (isHeading) {
-        headingCount++;
-        result.push(para);
-
-        // 在标题后插入图表
-        if (afterHeading.has(headingCount)) {
-          for (const chartId of afterHeading.get(headingCount)!) {
-            result.push(`\n<!-- chart:${chartId} -->\n`);
-          }
-        }
-      } else {
-        paragraphCount++;
-        result.push(para);
-
-        // 在段落后插入图表
-        if (afterParagraph.has(paragraphCount)) {
-          for (const chartId of afterParagraph.get(paragraphCount)!) {
-            result.push(`\n<!-- chart:${chartId} -->\n`);
-          }
-        }
-      }
-    }
-
-    return result.join("\n\n");
   }
 
   /**

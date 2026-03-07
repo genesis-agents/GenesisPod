@@ -14,7 +14,11 @@ import {
   limitBlockquotes,
   removeHorizontalRules,
   sanitizeHeadingLevels,
+  deduplicateHeadings,
+  stripLLMMetaNotes,
+  stripInternalFigureNotation,
 } from "../../utils/report-formatting.utils";
+import { stripChartJsonFromContent } from "../../utils/strip-chart-json.utils";
 
 /**
  * 质量违规项
@@ -123,6 +127,68 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
+    // 4.5 LLM meta-notes 清理（字数统计、角色名泄露、内部标注等）
+    const beforeMetaNotes = fixedContent;
+    fixedContent = stripLLMMetaNotes(fixedContent);
+    if (fixedContent !== beforeMetaNotes) {
+      violations.push({
+        rule: "llm_meta_notes",
+        severity: "warning",
+        message:
+          "检测到 LLM 泄露的内部标注（字数统计/角色名/编辑指令），已自动清理",
+      });
+      wasAutoFixed = true;
+    }
+
+    // 4.6 内部图表/证据标注清理（[证据[N] 图M] 等）
+    const beforeFigNotation = fixedContent;
+    fixedContent = stripInternalFigureNotation(fixedContent);
+    if (fixedContent !== beforeFigNotation) {
+      violations.push({
+        rule: "internal_figure_notation",
+        severity: "warning",
+        message: "检测到泄露的内部图表/证据标注，已自动清理",
+      });
+      wasAutoFixed = true;
+    }
+
+    // 4.7 重复标题清理（AI 有时生成 "### 1. Title" 后又生成 "### Title"）
+    const beforeDedup = fixedContent;
+    fixedContent = deduplicateHeadings(fixedContent);
+    if (fixedContent !== beforeDedup) {
+      violations.push({
+        rule: "duplicate_headings",
+        severity: "warning",
+        message: "检测到重复标题，已自动去重",
+      });
+      wasAutoFixed = true;
+    }
+
+    // 4.8 图表 JSON 残留清理（parseChartOutput 未正确分离的残留）
+    const beforeChartJson = fixedContent;
+    fixedContent = stripChartJsonFromContent(fixedContent);
+    if (fixedContent !== beforeChartJson) {
+      violations.push({
+        rule: "chart_json_residue",
+        severity: "warning",
+        message: "检测到图表 JSON 残留数据，已自动清理",
+      });
+      wasAutoFixed = true;
+    }
+
+    // 4.9 内联 Markdown 图片清理（AI 生成的外部 URL 通常 404）
+    const beforeImages = fixedContent;
+    fixedContent = fixedContent.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
+    if (fixedContent !== beforeImages) {
+      violations.push({
+        rule: "inline_images",
+        severity: "warning",
+        message:
+          "检测到内联 Markdown 图片引用（AI 生成 URL 通常 404），已自动移除",
+      });
+      wasAutoFixed = true;
+    }
+
     // ========== 检测但不自动修复的规则（需要 AI 重写） ==========
 
     // 5. 语言一致性检查
@@ -156,6 +222,26 @@ export class ReportQualityGateService {
       rewriteGuidance.push(
         `内容过短：当前仅 ${charCount} 字符，需要至少 800 字符的深度分析。请增加更多证据支持的分析内容。`,
       );
+    }
+
+    // 6.5 ★ v4.3: 空小节检查 — 检测有标题但没有实际内容的小节
+    const sections = fixedContent.split(/^(#{2,4}\s+.+)$/gm);
+    for (let i = 1; i < sections.length; i += 2) {
+      const heading = sections[i]?.trim();
+      const body = sections[i + 1] || "";
+      const bodyText = body.replace(/\s/g, "");
+      if (heading && bodyText.length < 50) {
+        violations.push({
+          rule: "empty_section",
+          severity: "error",
+          message: `小节 "${heading.replace(/^#+\s*/, "")}" 内容为空或过短（${bodyText.length} 字符），需要补充`,
+          currentValue: bodyText.length,
+          threshold: 50,
+        });
+        rewriteGuidance.push(
+          `空小节：「${heading.replace(/^#+\s*/, "")}」仅有 ${bodyText.length} 字符，请补充至少 50 字符的实质内容。`,
+        );
+      }
     }
 
     // 7. 引用覆盖检查
@@ -193,7 +279,7 @@ export class ReportQualityGateService {
       });
     }
 
-    // 9. 引用集中度检查（单个引用出现 >8 次）
+    // 9. 引用集中度检查（单个引用出现 >5 次 warning，>8 次 error）
     const citationCounts = new Map<string, number>();
     for (const c of citations) {
       citationCounts.set(c, (citationCounts.get(c) ?? 0) + 1);
@@ -202,11 +288,40 @@ export class ReportQualityGateService {
       if (count > 8) {
         violations.push({
           rule: "citation_concentration",
-          severity: "warning",
-          message: `引用 ${cite} 在维度内出现 ${count} 次，超过阈值 8 次，建议分散引用来源`,
+          severity: "error",
+          message: `引用 ${cite} 在维度内出现 ${count} 次，严重超过阈值 8 次，必须分散引用来源`,
           currentValue: count,
           threshold: 8,
         });
+        rewriteGuidance.push(
+          `引用过度集中：${cite} 在本维度出现 ${count} 次。请减少对单一来源的依赖，用其他证据替换部分引用。`,
+        );
+      } else if (count > 5) {
+        violations.push({
+          rule: "citation_concentration",
+          severity: "warning",
+          message: `引用 ${cite} 在维度内出现 ${count} 次，超过建议阈值 5 次，建议分散引用来源`,
+          currentValue: count,
+          threshold: 5,
+        });
+      }
+    }
+
+    // 9.5 ★ v4.3: 来源多样性 — 维度内引用来源过少
+    if (uniqueCitations.size >= 3) {
+      const topCiteCount = Math.max(...citationCounts.values(), 0);
+      const topCiteRatio = topCiteCount / citations.length;
+      if (topCiteRatio > 0.4) {
+        violations.push({
+          rule: "source_diversity",
+          severity: "warning",
+          message: `最高频引用占全部引用的 ${(topCiteRatio * 100).toFixed(0)}%，超过 40% 阈值，来源多样性不足`,
+          currentValue: topCiteRatio,
+          threshold: 0.4,
+        });
+        rewriteGuidance.push(
+          `来源多样性不足：最高频引用占比 ${(topCiteRatio * 100).toFixed(0)}%。请确保各观点来自不同信息源，避免过度依赖单一来源。`,
+        );
       }
     }
 

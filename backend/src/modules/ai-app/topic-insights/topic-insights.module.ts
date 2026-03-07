@@ -82,6 +82,7 @@ import {
   DimensionWritingService,
   // ★ Report sub-services
   ReportGeneratorService,
+  ReportAssemblerService,
   ReportDataService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
@@ -159,6 +160,7 @@ const services = [
   DimensionWritingService,
   // ★ Report sub-services
   ReportGeneratorService,
+  ReportAssemblerService,
   ReportDataService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,

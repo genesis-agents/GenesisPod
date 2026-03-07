@@ -541,6 +541,10 @@ export function stripLLMMetaNotes(content: string): string {
         /(?:^|\n)\s*(?:综合来看|总体来看|综上所述|值得注意的是|值得警惕的是|需要指出的是|不可忽视的是|毋庸置疑)[，,：:]\s*/g,
         (m) => (m.startsWith("\n") ? "\n" : ""),
       )
+      // ── 残留图片 URL 片段（如 ".avif)" ".webp)" ".png)" 单独出现在行尾） ──
+      .replace(/^\s*\.(?:avif|webp|png|jpg|jpeg|gif|svg)\)\s*$/gm, "")
+      // ── 孤立的 fenced code block 标记（LLM 有时泄漏 ```json / ``` 而不包含代码内容）──
+      .replace(/^```(?:json|markdown|md|text|plain)?\s*$/gm, "")
       // ── 清理多余空行 ──
       .replace(/\n{3,}/g, "\n\n")
   );
@@ -733,13 +737,24 @@ export function repairOrderedListContinuity(content: string): string {
   const lines = content.split("\n");
   let lastListNum = 0; // last seen list item number
   let gapLines = 0; // non-list lines since last list item
+  let blankLinesSinceLastItem = 0; // blank lines since last list item
 
   return lines
     .map((line) => {
-      // Reset at heading boundaries
-      if (/^#{2,4}\s+/.test(line)) {
+      // Reset at heading boundaries (any level)
+      if (/^#{1,6}\s+/.test(line)) {
         lastListNum = 0;
         gapLines = 0;
+        blankLinesSinceLastItem = 0;
+        return line;
+      }
+
+      // Track blank lines — a paragraph break (2+ blank lines or blank + non-list content)
+      // indicates a new context, so treat as list boundary
+      if (line.trim() === "") {
+        if (lastListNum > 0) {
+          blankLinesSinceLastItem++;
+        }
         return line;
       }
 
@@ -748,30 +763,45 @@ export function repairOrderedListContinuity(content: string): string {
       if (listMatch) {
         const currentNum = Number(listMatch[2]);
 
-        // Only fix if this looks like a restart (current ≤ last) within a
-        // recent list context (gap < 3 non-empty lines). This avoids
-        // merging two intentionally separate lists.
-        if (lastListNum > 0 && currentNum <= lastListNum && gapLines < 3) {
+        // ★ v4.3: Improved boundary detection
+        // A paragraph (non-list content) between list items means separate lists.
+        // Only repair within truly contiguous list blocks (gap = 0 non-list lines,
+        // and at most 1 blank line separating items).
+        const isContinuation =
+          lastListNum > 0 &&
+          currentNum <= lastListNum &&
+          gapLines === 0 &&
+          blankLinesSinceLastItem <= 1;
+
+        if (isContinuation) {
           lastListNum++;
           gapLines = 0;
+          blankLinesSinceLastItem = 0;
           return `${listMatch[1]}${lastListNum}. ${listMatch[3]}`;
         }
 
         // Otherwise accept the number as-is (new list or correct continuation)
         lastListNum = currentNum;
         gapLines = 0;
+        blankLinesSinceLastItem = 0;
         return line;
       }
 
-      // Track gap between list items (only non-empty lines count)
-      if (line.trim() !== "" && lastListNum > 0) {
+      // Non-list, non-blank line — counts as paragraph gap
+      if (lastListNum > 0) {
         gapLines++;
       }
 
-      // Large gap or structural break → reset list tracking
-      if (gapLines >= 3 || /^\s*[-*]\s/.test(line) || /^>\s/.test(line)) {
+      // Any non-list content or structural break → reset list tracking
+      if (
+        gapLines >= 1 ||
+        /^\s*[-*]\s/.test(line) ||
+        /^>\s/.test(line) ||
+        /^---/.test(line)
+      ) {
         lastListNum = 0;
         gapLines = 0;
+        blankLinesSinceLastItem = 0;
       }
 
       return line;

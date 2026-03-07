@@ -371,6 +371,16 @@ export class FigureExtractorService {
       /pixel/i,
       /tracking/i,
       /spacer/i,
+      // ★ v4.3: 排除 stock photo 域名（这些图片与研究内容无关）
+      /unsplash\.com/i,
+      /pexels\.com/i,
+      /shutterstock\.com/i,
+      /istockphoto\.com/i,
+      /gettyimages\.com/i,
+      /stock/i,
+      /hero[-_]?image/i,
+      /cover[-_]?image/i,
+      /featured[-_]?image/i,
     ];
 
     if (excludePatterns.some((pattern) => pattern.test(combinedText))) {

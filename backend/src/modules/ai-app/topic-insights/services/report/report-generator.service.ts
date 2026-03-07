@@ -1,29 +1,19 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 import {
-  sanitizeMarkdownContent,
-  stripLeadingHeading,
-} from "@/common/utils/sanitize-content.utils";
-import {
-  sanitizeHeadingLevels,
-  numberSubHeadings,
-  hierarchicalNumberBoldListItems,
-  deduplicateParagraphs,
-  deduplicateHeadings,
-  simplifyLatexNotation,
-  stripLLMMetaNotes,
   filterJunkReferences,
   deduplicateReferencesByUrl,
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-  limitBoldFormatting,
-  removeHorizontalRules,
-  repairOrderedListContinuity,
-  stripInternalFigureNotation,
 } from "../../utils/report-formatting.utils";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
+import {
+  ReportAssemblerService,
+  type SupplementaryContent,
+} from "./report-assembler.service";
 import { AIModelType } from "@prisma/client";
 import type { ResearchTopic } from "@prisma/client";
 import type {
@@ -35,10 +25,6 @@ import type {
   EvidenceInput,
   ReportChart,
 } from "../../types/report.types";
-import type {
-  FigureReference,
-  GeneratedChart,
-} from "../../types/research.types";
 import {
   REPORT_SYNTHESIS_SYSTEM_PROMPT,
   formatDimensionOverview,
@@ -52,10 +38,6 @@ import {
   CONSISTENCY_CHECK_USER_PROMPT,
 } from "../../prompts/consistency-check.prompt";
 import { getLanguageInstruction } from "../../prompts";
-import {
-  stripChartJsonFromContent,
-  extractMarkdownFromJsonString,
-} from "../../utils/strip-chart-json.utils";
 
 /**
  * Report Generator Service
@@ -72,6 +54,7 @@ export class ReportGeneratorService {
 
   constructor(
     private readonly chatFacade: ChatFacade,
+    private readonly assembler: ReportAssemblerService,
     @Optional() private readonly qualityGate?: ReportQualityGateService,
   ) {}
 
@@ -402,282 +385,24 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
   /**
    * ★ 从维度分析直接构建完整报告（拼接而非重写）
    *
-   * 核心策略：
-   * 1. 直接使用各维度的 detailedContent（研究员生成的完整内容）
-   * 2. 只由 AI 生成补充内容（执行摘要、前言、跨维度分析、风险评估、战略建议、结语）
-   * 3. 保持报告的完整性和一致性
+   * Delegates to ReportAssemblerService for unified assembly pipeline.
    */
   buildFullReportFromDimensions(
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],
-    supplementaryContent: {
-      preface?: string;
-      executiveSummary?: string;
-      crossDimensionAnalysis?: string;
-      riskAssessment?: string;
-      strategicRecommendations?: string;
-      conclusion?: string;
-    },
+    supplementaryContent: SupplementaryContent,
   ): string {
-    // ★ Language-aware labels
-    const isEn = topic.language === "en";
-    const labels = {
-      generatedAt: isEn ? "Generated" : "生成时间",
-      preface: isEn ? "Preface" : "前言",
-      executiveSummary: isEn ? "Executive Summary" : "执行摘要",
-      toc: isEn ? "Table of Contents" : "目录",
-      dimension: isEn ? "Dimension" : "维度",
-      crossDimension: isEn ? "Cross-Dimension Analysis" : "跨维度关联分析",
-      riskAssessment: isEn ? "Risk Assessment" : "风险评估",
-      strategicRec: isEn ? "Strategic Recommendations" : "战略建议",
-      conclusion: isEn ? "Conclusion" : "结语",
-    };
-    const locale = isEn ? "en-US" : "zh-CN";
-
-    // ★ Safety net: sanitize all supplementary content to ensure no raw JSON in report
-    const sanitized = {
-      preface: supplementaryContent.preface
-        ? extractMarkdownFromJsonString(supplementaryContent.preface)
-        : supplementaryContent.preface,
-      executiveSummary: supplementaryContent.executiveSummary
-        ? extractMarkdownFromJsonString(supplementaryContent.executiveSummary)
-        : supplementaryContent.executiveSummary,
-      crossDimensionAnalysis: supplementaryContent.crossDimensionAnalysis
-        ? extractMarkdownFromJsonString(
-            supplementaryContent.crossDimensionAnalysis,
-          )
-        : supplementaryContent.crossDimensionAnalysis,
-      riskAssessment: supplementaryContent.riskAssessment
-        ? extractMarkdownFromJsonString(supplementaryContent.riskAssessment)
-        : supplementaryContent.riskAssessment,
-      strategicRecommendations: supplementaryContent.strategicRecommendations
-        ? extractMarkdownFromJsonString(
-            supplementaryContent.strategicRecommendations,
-          )
-        : supplementaryContent.strategicRecommendations,
-      conclusion: supplementaryContent.conclusion
-        ? extractMarkdownFromJsonString(supplementaryContent.conclusion)
-        : supplementaryContent.conclusion,
-    };
-
-    // ★ 清理所有补充内容中的 LLM 元注释（字数统计等）
-    for (const key of Object.keys(sanitized) as (keyof typeof sanitized)[]) {
-      if (sanitized[key]) {
-        sanitized[key] = stripLLMMetaNotes(sanitized[key]);
-      }
-    }
-
-    const parts: string[] = [];
-
-    // Sort dimensions by priority (lower number = higher priority = earlier in report)
-    const sortedDimensions = [...dimensionInputs].sort((a, b) => {
-      const pa = a.priority ?? 999;
-      const pb = b.priority ?? 999;
-      return pa - pb;
-    });
-
-    // 1. 报告标题
-    parts.push(`# ${topic.name}`);
-    parts.push(
-      `\n> ${labels.generatedAt}：${new Date().toLocaleDateString(locale)}\n`,
+    const assembled = this.assembler.assembleFullReport(
+      topic,
+      dimensionInputs,
+      supplementaryContent,
     );
-
-    // 2. 前言（AI 生成）
-    if (sanitized.preface) {
-      parts.push(`## ${labels.preface}\n`);
-      parts.push(stripLeadingHeading(sanitized.preface));
-      parts.push("\n");
-    }
-
-    // 3. 执行摘要（AI 生成）
-    if (sanitized.executiveSummary) {
-      parts.push(`## ${labels.executiveSummary}\n`);
-      parts.push(stripLeadingHeading(sanitized.executiveSummary));
-      parts.push("\n");
-    }
-
-    // 4. 目录
-    parts.push(`## ${labels.toc}\n`);
-    let tocIndex = 0;
-    sortedDimensions.forEach((dim, idx) => {
-      const dimName = dim.dimensionName || `${labels.dimension}${idx + 1}`;
-      tocIndex = idx + 1;
-      parts.push(
-        `${tocIndex}. [${dimName}](#${tocIndex}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    });
-    // ★ 只在对应 sanitized 非空时添加目录项
-    if (sanitized.crossDimensionAnalysis) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.crossDimension}](#${labels.crossDimension.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    if (sanitized.riskAssessment) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.riskAssessment}](#${labels.riskAssessment.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    if (sanitized.strategicRecommendations) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    parts.push("\n\n");
-
-    // 5. 各维度章节（直接使用 detailedContent，但限制长度）
-    const MAX_DIMENSION_CHARS = 24000; // 约 8000 中文字（每字约 3 chars）
-    const globalSeenParagraphs = new Set<string>();
-    sortedDimensions.forEach((dim, idx) => {
-      parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
-
-      // ★ 直接使用研究员生成的完整内容，但截断过长内容
-      let content = stripLeadingHeading(
-        dim.detailedContent || dim.summary || "暂无详细内容",
-      );
-      // ★ Safety net: 移除未被 parseChartOutput 正确分离的图表 JSON 残留
-      content = stripChartJsonFromContent(content);
-      // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
-      content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
-      // ★ 标题层级安全网：将 AI 异常输出的 #/## 降级为 ###，保留 ###/#### 不变
-      content = sanitizeHeadingLevels(content);
-      // ★ 去除重复的标题（AI 有时生成 "### N. Xxx" 后又生成 "### Xxx"）
-      content = deduplicateHeadings(content);
-      // ★ 统一子标题编号：### Title → ### N.M. Title, #### Title → #### N.M.K. Title
-      content = numberSubHeadings(content, idx + 1);
-      content = hierarchicalNumberBoldListItems(content);
-      // ★ 跨维度段落去重：首 120 字相同的段落只保留首次出现
-      content = deduplicateParagraphs(content, globalSeenParagraphs);
-      if (content.length > MAX_DIMENSION_CHARS) {
-        this.logger.warn(
-          `[buildReport] Dimension "${dim.dimensionName}" content too long (${content.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
-        );
-        // 在最近的段落边界截断
-        const truncated = content.substring(0, MAX_DIMENSION_CHARS);
-        const lastParagraph = truncated.lastIndexOf("\n\n");
-        content =
-          lastParagraph > MAX_DIMENSION_CHARS * 0.7
-            ? truncated.substring(0, lastParagraph)
-            : truncated;
-      }
-
-      // ★ Resolve chart placeholders (figure→chart conversion, injection, dedup)
-      content = this.resolveChartPlaceholders(
-        content,
-        idx,
-        dim.figureReferences,
-        dim.generatedCharts,
-      );
-
-      // ★ 清理泄露的内部图表/证据标注（[证据[N] 图M]、孤儿图引用等）
-      content = stripInternalFigureNotation(content);
-      // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
-      content = stripLLMMetaNotes(content);
-
-      parts.push(content);
-      parts.push("\n\n");
-    });
-
-    // ★ 收集已有 H2 标题，用于后续去重守卫
-    const existingH2Titles = new Set(
-      parts
-        .join("\n")
-        .match(/^## .+$/gm)
-        ?.map((h) => h.replace(/^## /, "").trim()) || [],
+    const { content } = this.assembler.postProcessFinalReport(
+      assembled,
+      topic.language || "zh",
+      this.qualityGate,
     );
-
-    // ★ A4 Fallback: 如果三个 section 全为空，从维度数据自动拼接最简版
-    if (
-      !sanitized.crossDimensionAnalysis &&
-      !sanitized.riskAssessment &&
-      !sanitized.strategicRecommendations
-    ) {
-      this.logger.warn(
-        "[buildFullReport] crossDimensionAnalysis, riskAssessment, strategicRecommendations are all empty. Generating fallback from dimension data.",
-      );
-      // 自动拼接跨维度关联分析
-      const fallbackCross = sortedDimensions
-        .filter((d) => d.keyFindings?.length > 0)
-        .map(
-          (d) =>
-            `**${d.dimensionName}**：${d.keyFindings
-              .slice(0, 2)
-              .map((f) => f.finding)
-              .join("；")}`,
-        )
-        .join("\n\n");
-      if (fallbackCross) {
-        parts.push(`## ${labels.crossDimension}\n`);
-        parts.push(fallbackCross);
-        parts.push("\n\n");
-      }
-
-      // 自动拼接风险提示
-      const fallbackRisks = sortedDimensions
-        .flatMap(
-          (d) => d.challenges?.slice(0, 1).map((c) => `- ${c.challenge}`) || [],
-        )
-        .join("\n");
-      if (fallbackRisks) {
-        parts.push(`## ${labels.riskAssessment}\n`);
-        parts.push(fallbackRisks);
-        parts.push("\n\n");
-      }
-
-      // 自动拼接建议
-      const fallbackRecs = sortedDimensions
-        .flatMap(
-          (d) =>
-            d.opportunities?.slice(0, 1).map((o) => `- ${o.opportunity}`) || [],
-        )
-        .join("\n");
-      if (fallbackRecs) {
-        parts.push(`## ${labels.strategicRec}\n`);
-        parts.push(fallbackRecs);
-        parts.push("\n\n");
-      }
-    }
-
-    // 6. 跨维度关联分析（AI 生成） — 去重守卫：跳过已存在的同名章节
-    if (
-      sanitized.crossDimensionAnalysis &&
-      !existingH2Titles.has(labels.crossDimension)
-    ) {
-      parts.push(`## ${labels.crossDimension}\n`);
-      parts.push(stripLeadingHeading(sanitized.crossDimensionAnalysis));
-      parts.push("\n\n");
-    }
-
-    // 7. 风险评估（AI 生成）
-    if (
-      sanitized.riskAssessment &&
-      !existingH2Titles.has(labels.riskAssessment)
-    ) {
-      parts.push(`## ${labels.riskAssessment}\n`);
-      parts.push(stripLeadingHeading(sanitized.riskAssessment));
-      parts.push("\n\n");
-    }
-
-    // 8. 战略建议（AI 生成）
-    if (
-      sanitized.strategicRecommendations &&
-      !existingH2Titles.has(labels.strategicRec)
-    ) {
-      parts.push(`## ${labels.strategicRec}\n`);
-      parts.push(stripLeadingHeading(sanitized.strategicRecommendations));
-      parts.push("\n\n");
-    }
-
-    // 9. 结语（AI 生成）
-    if (sanitized.conclusion) {
-      parts.push(`## ${labels.conclusion}\n`);
-      parts.push(stripLeadingHeading(sanitized.conclusion));
-      parts.push("\n");
-    }
-
-    return sanitizeMarkdownContent(parts.join("\n"));
+    return content;
   }
 
   /**
@@ -1237,100 +962,14 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       }
     }
 
-    // ★ Post-process: quality gate + LaTeX simplification + figure placeholder cleanup + LLM meta-notes
-    let finalContent = sanitizeMarkdownContent(parts.join("\n"));
-
-    // Quality gate (if available)
-    if (this.qualityGate) {
-      const qc = this.qualityGate.validateFullReport(finalContent, language);
-      if (qc.wasAutoFixed) {
-        finalContent = qc.fixedContent;
-      }
-      if (qc.violations.length > 0) {
-        this.logger.log(
-          `[generateFullReport] Quality gate: ${qc.violations.length} violations (${qc.violations.map((v) => v.rule).join(", ")})`,
-        );
-      }
-    } else {
-      // Fallback: apply critical auto-fixes directly
-      finalContent = removeHorizontalRules(finalContent);
-      const boldCount = (finalContent.match(/\*\*[^*]+\*\*/g) || []).length;
-      if (boldCount > 120) {
-        finalContent = limitBoldFormatting(finalContent, 5);
-      }
-    }
-
-    finalContent = simplifyLatexNotation(finalContent);
-    finalContent = finalContent.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
-    finalContent = finalContent.replace(
-      /&lt;!--\s*figure:\d+:\d+\s*--&gt;/g,
-      "",
+    // ★ Unified post-processing via assembler pipeline
+    const assembled = sanitizeMarkdownContent(parts.join("\n"));
+    const { content: finalContent } = this.assembler.postProcessFinalReport(
+      assembled,
+      language,
+      this.qualityGate,
     );
-    // ★ 清理泄露的内部图表/证据标注（全文级兜底）
-    finalContent = stripInternalFigureNotation(finalContent);
-    // ★ 全文级 LLM meta-notes 清理（统一实现）
-    finalContent = stripLLMMetaNotes(finalContent);
-    // ★ 修复 OL 列表连续性
-    finalContent = repairOrderedListContinuity(finalContent);
     return finalContent;
-  }
-
-  // stripLLMMetaNotes, numberSubHeadings, deduplicateHeadings, deduplicateParagraphs, sanitizeHeadingLevels
-  // → moved to utils/report-formatting.utils.ts (shared with report-synthesis.service.ts)
-
-  /**
-   * Resolves chart placeholders in dimension content:
-   * 1. Converts <!-- figure:N:M --> to <!-- chart:dX-id --> using figureReferences
-   * 2. Injects generated chart placeholders based on position
-   * 3. Deduplicates chart placeholders by chartId
-   */
-  private resolveChartPlaceholders(
-    content: string,
-    dimIndex: number,
-    figureReferences: FigureReference[] | undefined,
-    generatedCharts: GeneratedChart[] | undefined,
-  ): string {
-    let result = content;
-    const dimPrefix = `d${dimIndex}-`;
-
-    // 1. Convert <!-- figure:N:M --> placeholders to <!-- chart:chartId -->
-    if (figureReferences && figureReferences.length > 0) {
-      result = result.replace(
-        /<!--\s*figure:(\d+):(\d+)\s*-->/g,
-        (_match, evidenceIdx, figIdx) => {
-          const ref = figureReferences?.find(
-            (r) =>
-              r.evidenceCitationIndex === Number(evidenceIdx) &&
-              r.figureIndex === Number(figIdx),
-          );
-          return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
-        },
-      );
-    }
-
-    // 2. Inject generatedCharts placeholders (based on position)
-    if (generatedCharts && generatedCharts.length > 0) {
-      result = this.injectChartPlaceholders(
-        result,
-        generatedCharts.map((c) => ({
-          id: `${dimPrefix}${c.id}`,
-          position: c.position,
-        })),
-      );
-    }
-
-    // 3. Strip unresolved figure placeholders (no matching figureReference found)
-    result = result.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
-
-    // 4. Deduplicate chart placeholders: same chartId only appears once
-    const seenChartIds = new Set<string>();
-    result = result.replace(/<!-- chart:([^\s]+?) -->/g, (match, chartId) => {
-      if (seenChartIds.has(chartId)) return "";
-      seenChartIds.add(chartId);
-      return match;
-    });
-
-    return result;
   }
 
   /**
