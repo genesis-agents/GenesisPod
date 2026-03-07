@@ -65,6 +65,8 @@ import { CredibilityPanel } from '../panels/CredibilityPanel';
 import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborationPanel';
 // 研究历史组件 - 简化版，显示会话列表 + 对比功能
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
+// ★ v5: 质量探针面板
+import { QualityProbePanel } from '../collaboration/QualityProbePanel';
 // 相关研究 Tab - 显示关联的 AI Research 项目
 import { RelatedResearchTab } from './RelatedResearchTab';
 // 反馈API - 用于将批注提交为反馈（统一使用 Core Feedback）
@@ -1928,6 +1930,8 @@ export function TopicContentPanel({
               persistedMessages={persistedMessages}
               persistedActivities={persistedActivities}
               missionStatus={missionStatus}
+              topicId={topicId}
+              reportId={report?.id}
             />
           )}
           {activeTab === 'credibility' && (
@@ -3249,6 +3253,8 @@ function TeamInteractionTabContent({
   persistedMessages = [],
   persistedActivities = [],
   missionStatus,
+  topicId,
+  reportId,
 }: {
   events: ResearchEvent[];
   leaderPlan?: LeaderPlanDisplay | null;
@@ -3275,6 +3281,8 @@ function TeamInteractionTabContent({
     createdAt: string;
   }>;
   missionStatus?: MissionStatus | null;
+  topicId?: string;
+  reportId?: string;
 }) {
   const { t } = useI18n();
   // ★ 使用 Array.isArray 确保是数组
@@ -4156,6 +4164,13 @@ function TeamInteractionTabContent({
       <div className="shrink-0 border-b bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-2">
         <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
       </div>
+
+      {/* ★ v5: 质量探针面板 */}
+      {topicId && reportId && (
+        <div className="shrink-0 border-b px-4 py-2">
+          <QualityProbePanel topicId={topicId} reportId={reportId} />
+        </div>
+      )}
 
       {/* ★ 可滚动区域：时间线消息流 */}
       <div className="flex-1 overflow-y-auto">

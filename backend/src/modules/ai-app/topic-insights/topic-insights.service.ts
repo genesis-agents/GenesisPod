@@ -44,6 +44,7 @@ import {
   TopicDimensionService,
   TopicExportService,
   TopicScheduleService,
+  ReportQualityTraceService,
 } from "./services";
 import { ChatFacade } from "../../ai-engine/facade";
 import {
@@ -129,6 +130,7 @@ export class TopicInsightsService {
     private readonly dimensionService: TopicDimensionService,
     private readonly exportService: TopicExportService,
     private readonly scheduleService: TopicScheduleService,
+    private readonly qualityTraceService: ReportQualityTraceService,
   ) {}
 
   // ==================== Topics CRUD (delegated to TopicCrudService) ====================
@@ -505,6 +507,20 @@ export class TopicInsightsService {
     });
 
     return { success: true, report: updated };
+  }
+
+  /**
+   * ★ v5: 获取报告质量追踪数据
+   */
+  async getReportQualityTrace(reportId: string) {
+    return this.qualityTraceService.getQualityTrace(reportId);
+  }
+
+  /**
+   * ★ v5: 获取报告质量概览
+   */
+  async getReportQualitySummary(reportId: string) {
+    return this.qualityTraceService.getQualitySummary(reportId);
   }
 
   /**

@@ -915,6 +915,11 @@ export function stripInternalFigureNotation(content: string): string {
       .replace(/^\s*(?:图片没有|没有图片|图片缺失|无图片)[：:][^\n]*$/gm, "")
 
       // ── Orphan figure references ──
+      // "图N:M..." — leaked evidence:figure index notation in prose (e.g., "图8:2直观描绘...")
+      .replace(
+        /图\d+:\d+(?:直观|确认|展示了?|描绘了?|呈现了?|显示了?|聚焦|说明了?|对比了?|可[见知])/g,
+        "",
+      )
       // "图N展示了..." / "图N聚焦..." / "图N显示..." — full sentence opener with figure
       .replace(
         /(?:^|\n)\s*图\d+(?:展示了?|聚焦|显示了?|呈现了?|直观呈现)[^\n]*(?:\n|$)/g,
@@ -1535,17 +1540,28 @@ export function detectAndPromoteHeadings(content: string): string {
     const boldMatch = trimmed.match(/^\*\*([^*]{2,25})\*\*[：:]?\s*$/);
     if (boldMatch) {
       const text = boldMatch[1].trim();
+      // Only promote if text looks like a real heading (contains Chinese chars + action/noun)
+      // Skip generic short labels like "反馈回路", "维度对比", "系统性效应" etc.
+      const looksLikeHeading =
+        text.length >= 4 &&
+        /[\u4e00-\u9fff]{2,}/.test(text) &&
+        !/^[\u4e00-\u9fff]{2,4}$/.test(text); // skip 2-4 char generic labels
       // Only promote if next non-empty line exists and is content (not another heading/bold)
       const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
-      if (nextContent && !/^\*\*|^#/.test(nextContent.trim())) {
+      if (
+        looksLikeHeading &&
+        nextContent &&
+        !/^\*\*|^#/.test(nextContent.trim())
+      ) {
         result.push(`### ${text}`);
         continue;
       }
     }
 
     // Pattern 2: Short line ending with ：or : (Chinese heading pattern)
-    // Only if < 25 chars and followed by a content paragraph
+    // Only if 6-25 chars and followed by a content paragraph
     if (
+      trimmed.length >= 6 &&
       trimmed.length <= 25 &&
       /^[\u4e00-\u9fff\w].*[：:]$/.test(trimmed) &&
       !/[，。；！？、]/.test(trimmed.slice(0, -1))
@@ -1554,6 +1570,80 @@ export function detectAndPromoteHeadings(content: string): string {
       if (nextContent && !/^[#>|]/.test(nextContent.trim())) {
         const headingText = trimmed.replace(/[：:]$/, "");
         result.push(`### ${headingText}`);
+        continue;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Demote headings that contain pseudocode keywords or code fragments.
+ *
+ * LLM sometimes outputs headings like:
+ * - "### 1.2. 以下伪代码展示自注意力核心实现"
+ * - "### 1.3. if mask is not None"
+ * - "### 1.5. 伪代码对比凸显效率跃迁"
+ *
+ * These are not real section headings; they should be plain text or code comments.
+ */
+export function collapsePseudoCodeHeadings(content: string): string {
+  return content.replace(
+    /^(#{2,4})\s+(?:\d+\.\d+\.?\s*)?(.+)$/gm,
+    (match, _hashes, title: string) => {
+      const t = title.trim();
+      // Heading IS a code statement (e.g., "if mask is not None", "scores += mask")
+      if (/^(?:if|for|while|return|def|class|else|elif)\b/.test(t)) return t;
+      if (/^\w+\s*[+=]/.test(t) && !/[\u4e00-\u9fff]/.test(t)) return t;
+      // Heading title contains "伪代码" — demote to bold paragraph
+      if (/伪代码/.test(t)) return `\n**${t}**\n`;
+      // Heading title is descriptive intro like "以下伪代码展示..." or "以下代码展示..."
+      if (/^以下(?:伪)?代码/.test(t)) return `\n**${t}**\n`;
+      return match;
+    },
+  );
+}
+
+/**
+ * Collapse excess sub-headings when a dimension has too many ### sections.
+ *
+ * If a dimension section (## N. Title) has more than maxSubHeadings ### children,
+ * the excess ### headings are demoted to #### (h4) to reduce visual noise.
+ * The first maxSubHeadings ### headings are kept as-is.
+ */
+export function collapseExcessSubHeadings(
+  content: string,
+  maxSubHeadings: number = 10,
+): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let h3Count = 0;
+  let inDimension = false;
+
+  for (const line of lines) {
+    // New dimension section (## N. Title) resets counter
+    if (/^##\s+\d+\.?\s+/.test(line)) {
+      h3Count = 0;
+      inDimension = true;
+      result.push(line);
+      continue;
+    }
+    // Non-dimension ## heading (executive summary etc.) — stop tracking
+    if (/^##\s+/.test(line) && !/^##\s+\d+\.?\s+/.test(line)) {
+      inDimension = false;
+      h3Count = 0;
+      result.push(line);
+      continue;
+    }
+
+    if (inDimension && /^###\s+/.test(line) && !/^####/.test(line)) {
+      h3Count++;
+      if (h3Count > maxSubHeadings) {
+        // Demote to #### to reduce clutter
+        result.push(line.replace(/^###\s+/, "#### "));
         continue;
       }
     }
@@ -1768,6 +1858,35 @@ export function truncateAtSentenceBoundary(
   return lastParagraph > maxChars * 0.5
     ? content.substring(0, lastParagraph)
     : truncated;
+}
+
+/**
+ * Repair blockquote bullet points that were truncated mid-sentence
+ * (e.g., by token budget limits).
+ *
+ * If a `> -` line ends without terminal punctuation and is < 120 chars,
+ * it was likely cut off. Append "..." to signal truncation gracefully.
+ * If the line is extremely short (< 10 chars after the bullet marker),
+ * remove it entirely as it adds no value.
+ */
+export function repairTruncatedBlockquoteBullets(content: string): string {
+  return content.replace(
+    /^(>\s*-\s+)(.+)$/gm,
+    (_match, prefix: string, text: string) => {
+      const trimmed = text.trim();
+      // If ends with proper punctuation, keep as-is
+      if (/[。！？；.!?;）)」】]$/.test(trimmed)) return `${prefix}${trimmed}`;
+      // If extremely short fragment (< 10 chars), remove it
+      if (trimmed.length < 10) return "";
+      // Truncated mid-word — try to trim at last Chinese punctuation or space
+      const lastClean = trimmed.search(/[，,；;、]\s*[^\s]{0,5}$/);
+      if (lastClean > trimmed.length * 0.6) {
+        return `${prefix}${trimmed.substring(0, lastClean + 1)}...`;
+      }
+      // Just append ellipsis
+      return `${prefix}${trimmed}...`;
+    },
+  );
 }
 
 /**

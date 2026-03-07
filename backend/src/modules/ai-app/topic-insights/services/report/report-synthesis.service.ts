@@ -57,6 +57,7 @@ import {
   type SupplementaryContent,
 } from "./report-assembler.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
+import { ReportQualityTraceService } from "../quality/report-quality-trace.service";
 
 /**
  * Report Synthesis Service
@@ -80,6 +81,8 @@ export class ReportSynthesisService {
     private readonly assembler: ReportAssemblerService,
     // ★ v4: 报告级质量门控
     private readonly qualityGate: ReportQualityGateService,
+    // ★ v5: 全链路质量追踪
+    private readonly qualityTrace: ReportQualityTraceService,
     // ★ Phase 4: 报告质量关卡
     @Optional() private readonly outputReviewer?: OutputReviewerService,
     // ★ Batch 2: 跨维度事实一致性
@@ -334,11 +337,17 @@ export class ReportSynthesisService {
       orderBy: { citationIndex: "asc" },
     });
 
+    // ★ v5: 创建质量追踪上下文
+    const qualityCtx = this.qualityTrace.createTrace(reportId);
+
     // 3. 准备维度分析输入
     const dimensionInputs = this.prepareDimensionInputs(dimensionAnalyses);
 
     // 4. 准备证据输入
     const evidenceInputs = this.prepareEvidenceInputs(allEvidences);
+
+    // ★ Probe 1: 证据采集质量
+    this.qualityTrace.recordEvidenceQuality(qualityCtx, allEvidences);
 
     // 4.5 ★ 跨维度一致性检查
     const consistencyCheck = await this.checkCrossDimensionConsistency(
@@ -394,6 +403,31 @@ export class ReportSynthesisService {
       );
     }
 
+    // ★ Probe 2: 扫描每个维度 LLM 原始输出缺陷
+    for (const dim of dimensionInputs) {
+      if (dim.detailedContent) {
+        const citations = dim.detailedContent.match(/\[\d+\]/g) || [];
+        const uniqueSources = new Set(
+          citations.map((c) => c.replace(/[[\]]/g, "")),
+        );
+        this.qualityTrace.scanDimensionOutput(
+          qualityCtx,
+          dim.dimensionId || dim.dimensionName,
+          dim.dimensionName,
+          dim.detailedContent,
+          {
+            keyFindingsCount: dim.keyFindings?.length ?? 0,
+            citationsUsed: citations.length,
+            uniqueSourcesCited: uniqueSources.size,
+            figureRefsCount: dim.figureReferences?.length ?? 0,
+            jsonParsed: true,
+            usedFallback:
+              !dim.detailedContent || dim.detailedContent.length < 500,
+          },
+        );
+      }
+    }
+
     // ★ Batch 3: TokenBudgetService — 截断过长的维度分析，防止超出模型上下文
     const truncatedDimensionInputs = dimensionInputs.map((d) => {
       const maxLen = 8000;
@@ -427,6 +461,26 @@ export class ReportSynthesisService {
       userFeedback,
       factsContext,
     );
+
+    // ★ Probe 4: 合成 LLM 输出质量
+    {
+      const sr = synthesisResult.structuredReport;
+      this.qualityTrace.recordSynthesisOutput(
+        qualityCtx,
+        {
+          executiveSummary: synthesisResult.executiveSummary || "",
+          preface: sr?.preface || "",
+          crossDimensionAnalysis: sr?.conclusion || "",
+          riskAssessment: "",
+          strategicRecommendations: "",
+          conclusion: sr?.conclusion || "",
+        },
+        0, // fallbackLevel: 0 = normal
+        Date.now() - startTime,
+        0, // token count not tracked at this level
+        true,
+      );
+    }
 
     // 6.5 ★ 跨维度编辑层：去重 + 过渡
     const editResult = await this.reportEditor.editDimensionInputs(
@@ -671,6 +725,26 @@ export class ReportSynthesisService {
       remappedReport + referencesSection,
     );
 
+    // ★ Probe 3: 后处理修复统计（从 assembler 的 postProcessFinalReport 获取）
+    // 在 buildFullReportFromDimensions 中已经包含了 postProcess
+    // 使用简化统计：字数变化
+    this.qualityTrace.recordPostProcessing(
+      qualityCtx,
+      {}, // fix counts — will be populated by assembler integration in future
+      fullReportFromDimensions.length,
+      finalReport.length,
+      [],
+      0,
+      editResult.deduplicationStats.removedParagraphs,
+    );
+
+    // ★ Probe 5: 计算最终质量评分
+    const traceData = this.qualityTrace.finalizeTrace(qualityCtx);
+
+    this.logger.log(
+      `[QualityTrace] Report ${reportId}: grade=${traceData.finalAssessment.grade}, score=${traceData.finalAssessment.overallScore}`,
+    );
+
     const updatedReport = await this.prisma.topicReport.update({
       where: { id: reportId },
       data: {
@@ -684,6 +758,8 @@ export class ReportSynthesisService {
         generationTimeMs,
         // ★ 更新生成时间，前端通过对比 generatedAt 检测再生成完成
         generatedAt: new Date(),
+        // ★ v5: 质量追踪数据
+        qualityTrace: toPrismaJson(traceData),
       },
     });
 

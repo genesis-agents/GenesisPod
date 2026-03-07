@@ -419,6 +419,130 @@ export async function getReport(
 }
 
 /**
+ * ★ v5: 获取报告质量追踪数据
+ */
+export async function getReportQualityTrace(
+  topicId: string,
+  reportId: string
+): Promise<ReportQualityTrace | null> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/quality-trace`
+  );
+}
+
+/**
+ * ★ v5: 获取报告质量概览
+ */
+export async function getReportQualitySummary(
+  topicId: string,
+  reportId: string
+): Promise<ReportQualitySummary | null> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/quality-summary`
+  );
+}
+
+/** 报告质量追踪数据类型 */
+export interface ReportQualityTrace {
+  version: number;
+  generatedAt: string;
+  pipelineVersion: string;
+  evidenceQuality: {
+    totalEvidences: number;
+    credibilityDistribution: {
+      high: number;
+      medium: number;
+      low: number;
+      unscored: number;
+    };
+    uniqueDomains: number;
+    fullContentRatio: number;
+    evidencesWithFigures: number;
+    recentRatio: number;
+  };
+  dimensionOutputs: Array<{
+    dimensionId: string;
+    dimensionName: string;
+    rawOutput: {
+      contentLength: number;
+      keyFindingsCount: number;
+      citationsUsed: number;
+      uniqueSourcesCited: number;
+      figureRefsCount: number;
+      jsonParsed: boolean;
+      usedFallback: boolean;
+    };
+    defects: {
+      bareLatexCount: number;
+      brokenDollarNesting: number;
+      unwrappedEnvironments: number;
+      pseudoCodeLines: number;
+      leakedMetaNotes: number;
+      leakedFigureNotes: number;
+      longListItems: number;
+      trappedConclusions: number;
+      missingHeadings: number;
+      headingEchoes: number;
+      htmlEntities: number;
+      foreignContentRatio: number;
+    };
+    qualityGate?: {
+      passed: boolean;
+      errorCount: number;
+      warningCount: number;
+      autoFixCount: number;
+    };
+  }>;
+  postProcessing: {
+    fixesApplied: Record<string, number>;
+    totalFixes: number;
+    charsBefore: number;
+    charsAfter: number;
+    warnings: string[];
+  };
+  synthesisOutput: {
+    sectionLengths: Record<string, number>;
+    jsonParsed: boolean;
+    fallbackLevel: number;
+    generationTimeMs: number;
+  };
+  finalAssessment: {
+    overallScore: number;
+    scores: {
+      formatting: number;
+      completeness: number;
+      sourceQuality: number;
+      structure: number;
+      languageConsistency: number;
+    };
+    grade: string;
+    topIssues: Array<{
+      category: string;
+      description: string;
+      severity: string;
+      count: number;
+    }>;
+  };
+}
+
+/** 报告质量概览 */
+export interface ReportQualitySummary {
+  grade: string;
+  overallScore: number;
+  scores: Record<string, number>;
+  topIssues: Array<{
+    category: string;
+    description: string;
+    severity: string;
+    count: number;
+  }>;
+  postProcessingFixes: number;
+  pipelineVersion: string;
+  dimensionCount: number;
+  evidenceCount: number;
+}
+
+/**
  * 删除报告
  */
 export async function deleteReport(

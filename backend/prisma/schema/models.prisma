@@ -6752,6 +6752,9 @@ model TopicReport {
   isIncremental   Boolean @default(false) @map("is_incremental") // 是否增量刷新
   changesFromPrev Json?   @map("changes_from_prev") // 与上一版本的变化摘要
 
+  // ========== 质量追踪 ==========
+  qualityTrace Json? @map("quality_trace") // 全链路质量追踪 (ReportQualityTrace JSONB)
+
   // ========== 关系 ==========
   topic             ResearchTopic         @relation(fields: [topicId], references: [id], onDelete: Cascade)
   dimensionAnalyses DimensionAnalysis[]

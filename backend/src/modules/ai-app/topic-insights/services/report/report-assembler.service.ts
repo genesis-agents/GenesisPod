@@ -32,6 +32,9 @@ import {
   deduplicateHeadingEcho,
   detectAndPromoteHeadings,
   wrapPseudoCodeBlocks,
+  collapsePseudoCodeHeadings,
+  collapseExcessSubHeadings,
+  repairTruncatedBlockquoteBullets,
   truncateLongListItems,
   separateTrappedConclusions,
   enforceExecSummarySections,
@@ -160,6 +163,9 @@ export class ReportAssemblerService {
     // Remove plain text lines that echo the preceding heading
     processed = deduplicateHeadingEcho(processed);
 
+    // Demote headings that contain pseudocode (e.g., "### if mask is not None")
+    processed = collapsePseudoCodeHeadings(processed);
+
     // Unified sub-heading numbering: ### Title → ### N.M. Title
     processed = numberSubHeadings(processed, dimIndex + 1);
 
@@ -192,6 +198,9 @@ export class ReportAssemblerService {
     // Strip LLM meta-notes (word-count annotations, editorial instructions, etc.)
     processed = stripLLMMetaNotes(processed);
 
+    // Repair blockquote bullets truncated mid-sentence (from token budget limits)
+    processed = repairTruncatedBlockquoteBullets(processed);
+
     // Decode HTML entities (&gt; &lt; &amp;) leaked by LLM
     processed = decodeHtmlEntities(processed);
 
@@ -212,6 +221,9 @@ export class ReportAssemblerService {
 
     // Wrap pseudocode/code-like blocks in fenced code blocks
     processed = wrapPseudoCodeBlocks(processed);
+
+    // Collapse excess sub-headings (> 10 per dimension → demote to ####)
+    processed = collapseExcessSubHeadings(processed, 10);
 
     // Enforce max list item length (split long items at sentence boundaries)
     processed = truncateLongListItems(processed);
@@ -650,6 +662,9 @@ export class ReportAssemblerService {
     // Full-document pass: strip LLM meta-notes
     content = stripLLMMetaNotes(content);
 
+    // Repair blockquote bullets truncated mid-sentence
+    content = repairTruncatedBlockquoteBullets(content);
+
     // Decode HTML entities (&gt; &lt; &amp;) in body text
     content = decodeHtmlEntities(content);
 
@@ -677,8 +692,14 @@ export class ReportAssemblerService {
     // Repair ordered list continuity (LLM often restarts from 1 mid-section)
     content = repairOrderedListContinuity(content);
 
+    // Demote headings that contain pseudocode (e.g., "### if mask is not None")
+    content = collapsePseudoCodeHeadings(content);
+
     // Wrap pseudocode blocks in fenced code blocks
     content = wrapPseudoCodeBlocks(content);
+
+    // Collapse excess sub-headings (> 10 per dimension → demote to ####)
+    content = collapseExcessSubHeadings(content, 10);
 
     // Enforce max list item length
     content = truncateLongListItems(content);

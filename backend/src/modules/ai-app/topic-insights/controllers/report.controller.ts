@@ -479,9 +479,8 @@ export class ReportController {
   }
 
   /**
-   * ★ 重新合成报告内容
+   * ★ 重新处理报告格式（不调 LLM，只跑后处理管道）
    */
-  @Post("topics/:topicId/reports/:reportId/regenerate")
   @Post("topics/:topicId/reports/:reportId/reprocess")
   @ApiOperation({
     summary: "重新处理报告格式",
@@ -504,6 +503,36 @@ export class ReportController {
       userId,
       reportId,
     );
+  }
+
+  /**
+   * ★ v5: 获取报告质量追踪数据
+   */
+  @Get("topics/:topicId/reports/:reportId/quality-trace")
+  @ApiOperation({
+    summary: "获取报告质量追踪",
+    description: "返回报告生成全链路的质量探针数据",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "质量追踪数据" })
+  async getQualityTrace(@Param("reportId") reportId: string) {
+    return this.topicResearchService.getReportQualityTrace(reportId);
+  }
+
+  /**
+   * ★ v5: 获取报告质量概览
+   */
+  @Get("topics/:topicId/reports/:reportId/quality-summary")
+  @ApiOperation({
+    summary: "获取报告质量概览",
+    description: "返回简化的质量评分和主要问题",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "质量概览" })
+  async getQualitySummary(@Param("reportId") reportId: string) {
+    return this.topicResearchService.getReportQualitySummary(reportId);
   }
 
   @Post("topics/:topicId/reports/:reportId/regenerate")

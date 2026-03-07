@@ -100,6 +100,7 @@ import {
   // ★ P1: 新增增强能力
   CritiqueRefineService,
   ReportQualityGateService,
+  ReportQualityTraceService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
@@ -180,6 +181,8 @@ const services = [
   CritiqueRefineService,
   // ★ v4: 代码强制质量门控
   ReportQualityGateService,
+  // ★ v5: 全链路质量追踪
+  ReportQualityTraceService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
