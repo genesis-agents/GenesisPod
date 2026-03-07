@@ -18,9 +18,7 @@ import {
 } from "../../types/platform.types";
 import { SocialContent } from "../../types";
 
-// Use Page type from Playwright (available via SocialBrowserService)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page type alias for browser automation
-type Page = any;
+import type { Page } from "puppeteer";
 
 // 微信公众号选择器配置
 const WECHAT_SELECTORS = {
@@ -210,10 +208,10 @@ export class WechatPublisherService {
   private async checkLoginStatus(page: Page): Promise<boolean> {
     try {
       await page
-        .waitForLoadState("networkidle", { timeout: 10000 })
+        .waitForNetworkIdle({ idleTime: 500, timeout: 10000 })
         .catch((err: Error) => {
           this.logger.debug(
-            `waitForLoadState timed out (non-critical): ${err.message}`,
+            `waitForNetworkIdle timed out (non-critical): ${err.message}`,
           );
         });
 
@@ -309,20 +307,28 @@ export class WechatPublisherService {
     page: Page,
     token: string,
   ): Promise<Page | null> {
-    const context = page.context();
-
     // 尝试点击 Photo/图文 按钮
     for (const selector of WECHAT_SELECTORS.newCreation.photo) {
       try {
-        const menuContent = page.locator(selector);
-        const count = await menuContent.count();
-        if (count > 0) {
-          const [newPage] = await Promise.all([
-            context.waitForEvent("page", { timeout: 15000 }),
-            menuContent.first().click(),
-          ]);
-          await newPage.waitForLoadState("networkidle", { timeout: 30000 });
-          return newPage;
+        const menuContent = await page.$(selector);
+        if (menuContent) {
+          const newPagePromise = new Promise<Page | null>((resolve) => {
+            const timer = setTimeout(() => resolve(null), 15000);
+            page.browser().once("targetcreated", async (target) => {
+              clearTimeout(timer);
+              const p = await target.page();
+              resolve(p);
+            });
+          });
+          await menuContent.click();
+          const newPage = await newPagePromise;
+          if (newPage) {
+            await newPage.waitForNetworkIdle({
+              idleTime: 500,
+              timeout: 30000,
+            });
+            return newPage;
+          }
         }
       } catch {
         continue;
@@ -331,7 +337,7 @@ export class WechatPublisherService {
 
     // 直接导航到编辑器
     const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`;
-    await page.goto(editorUrl, { waitUntil: "networkidle", timeout: 30000 });
+    await page.goto(editorUrl, { waitUntil: "networkidle0", timeout: 30000 });
     return page;
   }
 
@@ -339,7 +345,9 @@ export class WechatPublisherService {
    * 填写内容
    */
   private async fillContent(page: Page, content: SocialContent): Promise<void> {
-    await page.waitForLoadState("networkidle");
+    await page.waitForNetworkIdle({ idleTime: 500 }).catch(() => {
+      this.logger.debug("waitForNetworkIdle timed out, continuing...");
+    });
     await humanDelay(1000, 2000);
 
     // 填写标题
@@ -350,12 +358,32 @@ export class WechatPublisherService {
         content.title,
       );
       if (!titleFilled) {
-        // 使用 getByRole 作为后备
+        // 使用 evaluateHandle 查找标题 textbox 作为后备
         try {
-          const titleTextbox = page.getByRole("textbox", {
-            name: /Input a title here|请在这里输入标题|标题/i,
+          const handle = await page.evaluateHandle(() => {
+            const re = /Input a title here|请在这里输入标题|标题/i;
+            const inputs = Array.from(
+              document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+                'input[type="text"], textarea, [role="textbox"]',
+              ),
+            );
+            return (
+              inputs.find(
+                (el) =>
+                  re.test(el.getAttribute("aria-label") || "") ||
+                  re.test(el.getAttribute("placeholder") || ""),
+              ) || null
+            );
           });
-          await titleTextbox.first().fill(content.title);
+          const el = handle.asElement();
+          if (el) {
+            await (el as import("puppeteer").ElementHandle<Element>).click({
+              clickCount: 3,
+            });
+            await page.keyboard.type(content.title);
+          } else {
+            throw new Error("找不到标题输入框");
+          }
         } catch {
           throw new Error("找不到标题输入框");
         }
@@ -411,7 +439,9 @@ export class WechatPublisherService {
 
         if (!filled) {
           // 键盘输入作为后备
-          await page.keyboard.press("Control+a");
+          await page.keyboard.down("Control");
+          await page.keyboard.press("a");
+          await page.keyboard.up("Control");
           await page.keyboard.press("Backspace");
           const lines = content.content.split("\n").filter((l) => l.trim());
           for (let i = 0; i < lines.length; i++) {
@@ -444,12 +474,23 @@ export class WechatPublisherService {
     // 点击保存按钮
     const clicked = await tryClick(page, WECHAT_SELECTORS.buttons.saveDraft);
     if (!clicked) {
-      // 使用 getByRole 作为后备
+      // 查找按钮并匹配文本作为后备
       try {
-        const saveButton = page.getByRole("button", {
-          name: /Save as draft|保存为草稿|保存/i,
-        });
-        await saveButton.first().click();
+        const buttons = await page.$$("button");
+        let found = false;
+        for (const btn of buttons) {
+          const text = await btn.evaluate(
+            (el: Element) => el.textContent?.trim() || "",
+          );
+          if (/Save as draft|保存为草稿|保存/i.test(text)) {
+            await btn.click();
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          return { success: false, error: "找不到保存按钮" };
+        }
       } catch {
         return { success: false, error: "找不到保存按钮" };
       }
@@ -527,7 +568,7 @@ export class WechatPublisherService {
       // 方式2: 导航到草稿管理页面
       const draftManageUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_list&type=10&action=list_card&token=${token}`;
       await page.goto(draftManageUrl, {
-        waitUntil: "networkidle",
+        waitUntil: "networkidle0",
         timeout: 30000,
       });
 
@@ -550,7 +591,18 @@ export class WechatPublisherService {
     // 处理定时发布（如果有 scheduledAt 则使用定时发布）
     if (options.scheduledAt) {
       // 查找定时发布选项
-      const scheduleOption = await page.$("text=定时群发");
+      // Find "定时群发" text element via evaluate
+      const scheduleOption = await page
+        .evaluateHandle(() => {
+          const els = Array.from(document.querySelectorAll("span, div"));
+          return (
+            els.find((el) => el.textContent?.trim() === "定时群发") || null
+          );
+        })
+        .then(
+          (h) =>
+            h.asElement() as import("puppeteer").ElementHandle<Element> | null,
+        );
       if (scheduleOption) {
         await scheduleOption.click();
 
@@ -562,14 +614,16 @@ export class WechatPublisherService {
           'input[type="date"], .date-picker input',
         );
         if (dateInput) {
-          await dateInput.fill(dateStr);
+          await dateInput.click({ clickCount: 3 });
+          await page.keyboard.type(dateStr);
         }
 
         const timeInput = await page.$(
           'input[type="time"], .time-picker input',
         );
         if (timeInput) {
-          await timeInput.fill(timeStr);
+          await timeInput.click({ clickCount: 3 });
+          await page.keyboard.type(timeStr);
         }
       }
     }
@@ -621,7 +675,9 @@ export class WechatPublisherService {
       // 检查页面上是否有成功提示
       const toast = await page.$(WECHAT_SELECTORS.toast);
       if (toast) {
-        const toastText = await toast.textContent();
+        const toastText = await toast.evaluate(
+          (el: Element) => el.textContent || "",
+        );
         if (toastText?.includes("成功") || toastText?.includes("success")) {
           return { success: true };
         }

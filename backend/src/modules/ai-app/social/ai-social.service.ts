@@ -18,10 +18,10 @@ import { SocialBrowserService } from "./services/social-browser.service";
 
 interface BrowserPage {
   goto(url: string, options?: { timeout?: number }): Promise<unknown>;
-  waitForLoadState(
-    state: string,
-    options?: { timeout?: number },
-  ): Promise<void>;
+  waitForNetworkIdle(options?: {
+    idleTime?: number;
+    timeout?: number;
+  }): Promise<void>;
   url(): string;
   $(selector: string): Promise<unknown>;
 }
@@ -397,10 +397,10 @@ export class AiSocialService {
         timeout: 30000,
       });
       await page
-        .waitForLoadState("networkidle", { timeout: 15000 })
+        .waitForNetworkIdle({ idleTime: 500, timeout: 15000 })
         .catch((err: Error) => {
           this.logger.debug(
-            `waitForLoadState timed out (non-critical): ${err.message}`,
+            `waitForNetworkIdle timed out (non-critical): ${err.message}`,
           );
         });
 

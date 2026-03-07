@@ -6,13 +6,14 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { SessionData } from "../types/platform.types";
+import { Page } from "puppeteer";
 import { BrowserService } from "../../../../common/browser/browser.service";
 
 // Re-export SessionData for backward compatibility
 export { SessionData };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Social module pages use Puppeteer but need loose typing for Playwright-style API usage in adapters
-type Page = any;
+// Re-export Puppeteer Page type for adapters
+export type { Page };
 
 // Platform login configuration
 export interface PlatformLoginConfig {

@@ -242,10 +242,10 @@ export class SessionHealthCheckScheduler
     try {
       const p = page as {
         goto: (url: string, options?: { timeout?: number }) => Promise<void>;
-        waitForLoadState: (
-          state: string,
-          options?: { timeout?: number },
-        ) => Promise<void>;
+        waitForNetworkIdle: (options?: {
+          idleTime?: number;
+          timeout?: number;
+        }) => Promise<void>;
         url: () => string;
         $: (selector: string) => Promise<unknown>;
       };
@@ -254,10 +254,10 @@ export class SessionHealthCheckScheduler
         timeout: 30000,
       });
       await p
-        .waitForLoadState("networkidle", { timeout: 15000 })
+        .waitForNetworkIdle({ idleTime: 500, timeout: 15000 })
         .catch((err: Error) => {
           this.logger.debug(
-            `waitForLoadState timed out (non-critical, URL check follows): ${err.message}`,
+            `waitForNetworkIdle timed out (non-critical, URL check follows): ${err.message}`,
           );
         });
 

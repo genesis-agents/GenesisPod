@@ -110,26 +110,17 @@ function makeMockPlaywright() {
       .fn()
       .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home?token=12345"),
     reload: jest.fn().mockResolvedValue(undefined),
-    waitForTimeout: jest.fn().mockResolvedValue(undefined),
-    waitForLoadState: jest.fn().mockResolvedValue(undefined),
+    waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
     waitForSelector: jest.fn().mockResolvedValue(null),
     evaluate: jest.fn().mockResolvedValue(""),
-    context: jest.fn().mockReturnValue({
-      cookies: jest
-        .fn()
-        .mockResolvedValue([
-          { name: "slave_user", value: "u1", domain: "mp.weixin.qq.com" },
-        ]),
-      waitForEvent: jest.fn().mockRejectedValue(new Error("timeout")),
-    }),
     $: jest.fn().mockResolvedValue(null),
+    $$: jest.fn().mockResolvedValue([]),
     $$eval: jest.fn().mockResolvedValue([]),
-    locator: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      filter: jest.fn().mockReturnThis(),
-      first: jest.fn().mockReturnThis(),
-      click: jest.fn().mockResolvedValue(undefined),
+    evaluateHandle: jest.fn().mockResolvedValue({
+      asElement: jest.fn().mockReturnValue(null),
     }),
+    cookies: jest.fn().mockResolvedValue([]),
+    browser: jest.fn().mockReturnValue({ once: jest.fn() }),
     waitForResponse: jest.fn().mockResolvedValue({
       url: () => "https://mp.weixin.qq.com/cgi-bin/operate_appmsg",
       json: jest.fn().mockResolvedValue({
@@ -140,21 +131,11 @@ function makeMockPlaywright() {
     keyboard: {
       type: jest.fn().mockResolvedValue(undefined),
       press: jest.fn().mockResolvedValue(undefined),
+      down: jest.fn().mockResolvedValue(undefined),
+      up: jest.fn().mockResolvedValue(undefined),
     },
     screenshot: jest.fn().mockResolvedValue(Buffer.from("")),
     title: jest.fn().mockResolvedValue("Editor"),
-    getByRole: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      first: jest.fn().mockReturnValue({
-        fill: jest.fn().mockResolvedValue(undefined),
-        click: jest.fn().mockResolvedValue(undefined),
-      }),
-    }),
-    getByText: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      first: jest.fn().mockReturnThis(),
-      click: jest.fn().mockResolvedValue(undefined),
-    }),
     frames: jest.fn().mockReturnValue([]),
   };
 
@@ -261,6 +242,7 @@ describe("WechatAdapter (supplemental)", () => {
 
   describe("login check failed after navigation", () => {
     it("returns error when page URL indicates login page", async () => {
+      jest.useFakeTimers();
       mockDecryptSession.mockReturnValue(makeSessionData());
 
       // Override page URL to simulate redirect to login page
@@ -272,8 +254,11 @@ describe("WechatAdapter (supplemental)", () => {
       const content = makeContent();
       const connection = makeConnection();
 
-      const result = await adapter.publish(content, connection);
+      const resultPromise = adapter.publish(content, connection);
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
 
+      jest.useRealTimers();
       expect(result.success).toBe(false);
       expect(result.errorMessage).toBeDefined();
     });
@@ -401,7 +386,7 @@ describe("WechatAdapter (supplemental)", () => {
   describe("getLoginQrCode()", () => {
     it("returns QR code src when element found", async () => {
       const mockQrElement = {
-        getAttribute: jest
+        evaluate: jest
           .fn()
           .mockResolvedValue("https://mp.weixin.qq.com/qrcode.jpg"),
       };
@@ -435,9 +420,9 @@ describe("WechatAdapter (supplemental)", () => {
       expect(result).toBeNull();
     });
 
-    it("returns null when getAttribute returns null", async () => {
+    it("returns null when evaluate returns null", async () => {
       const mockQrElement = {
-        getAttribute: jest.fn().mockResolvedValue(null),
+        evaluate: jest.fn().mockResolvedValue(null),
       };
       mockPlaywright.page.waitForSelector = jest
         .fn()
@@ -478,7 +463,7 @@ describe("WechatAdapter (supplemental)", () => {
           .mockReturnValue(
             "https://mp.weixin.qq.com/cgi-bin/bizlogin?action=login",
           ),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         $: jest.fn().mockResolvedValue(null),
         evaluate: jest.fn().mockResolvedValue(""),
       };
@@ -496,7 +481,7 @@ describe("WechatAdapter (supplemental)", () => {
         url: jest
           .fn()
           .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home?token=123"),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         $: jest.fn().mockResolvedValue(null),
         evaluate: jest.fn().mockResolvedValue(""),
       };
@@ -515,7 +500,7 @@ describe("WechatAdapter (supplemental)", () => {
         url: jest
           .fn()
           .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home?token=123"),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         $: jest.fn().mockResolvedValue(null),
         evaluate: jest.fn().mockResolvedValue(""),
       };
@@ -539,24 +524,19 @@ describe("WechatAdapter (supplemental)", () => {
 
   describe("checkLoginStatus via publish — URL-based detection", () => {
     it("treats /cgi-bin/frame URL as logged in", async () => {
+      jest.useFakeTimers();
       mockDecryptSession.mockReturnValue(makeSessionData());
 
-      // Make page URL indicate /cgi-bin/frame (logged in)
-      // But then after editor navigation, it goes to bizlogin → publish returns error
-      mockPlaywright.page.url
-        .mockReturnValueOnce("https://mp.weixin.qq.com/cgi-bin/frame?t=index") // root nav
-        .mockReturnValueOnce("https://mp.weixin.qq.com/cgi-bin/frame?t=index") // token check loop 1
-        .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/frame?t=index"); // rest
+      // URL is /cgi-bin/frame (no token= in URL → token loop will exhaust,
+      // but checkLoginStatus: /cgi-bin/frame is treated as logged in)
+      mockPlaywright.page.url.mockReturnValue(
+        "https://mp.weixin.qq.com/cgi-bin/frame?t=index",
+      );
 
-      mockPlaywright.page.context = jest.fn().mockReturnValue({
-        cookies: jest.fn().mockResolvedValue([]),
-        waitForEvent: jest.fn().mockRejectedValue(new Error("no new page")),
-      });
+      // cookies() returns empty
+      mockPlaywright.page.cookies.mockResolvedValue([]);
 
       // evaluate returns empty (no token from page JS)
-      mockPlaywright.page.evaluate.mockResolvedValue("");
-
-      // evaluate for page links returns empty
       mockPlaywright.page.evaluate.mockImplementation(() =>
         Promise.resolve(""),
       );
@@ -564,8 +544,12 @@ describe("WechatAdapter (supplemental)", () => {
       const content = makeContent();
       const connection = makeConnection();
 
+      const resultPromise = adapter.publish(content, connection);
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
+
+      jest.useRealTimers();
       // This just needs to not throw
-      const result = await adapter.publish(content, connection);
       expect(result).toBeDefined();
     });
   });
@@ -576,21 +560,22 @@ describe("WechatAdapter (supplemental)", () => {
     it("returns error when final URL contains bizlogin", async () => {
       mockDecryptSession.mockReturnValue(makeSessionData());
 
-      // First the page has token (to pass checkLoginStatus)
-      // then after navigation to editor it shows bizlogin
+      // First the page has token (to pass token-waiting loop and checkLoginStatus)
+      // then after navigation to editor it shows bizlogin.
+      // Calls: (1) after root nav, (2) currentUrl assignment, (3+) token loop i=0
+      // gives home+token → tokenInUrl=true. Then checkLoginStatus passes.
+      // After that, URL returns bizlogin → step 7 detects redirect to login.
       let urlCallCount = 0;
       mockPlaywright.page.url.mockImplementation(() => {
         urlCallCount++;
-        if (urlCallCount <= 2) {
+        // First 16 calls: home with token (covers root nav + token loop + login check + button flow)
+        if (urlCallCount <= 16) {
           return "https://mp.weixin.qq.com/cgi-bin/home?token=12345";
         }
         return "https://mp.weixin.qq.com/cgi-bin/bizlogin?action=login";
       });
 
-      mockPlaywright.page.context = jest.fn().mockReturnValue({
-        cookies: jest.fn().mockResolvedValue([]),
-        waitForEvent: jest.fn().mockRejectedValue(new Error("no new page")),
-      });
+      mockPlaywright.page.cookies.mockResolvedValue([]);
 
       mockPlaywright.page.evaluate.mockResolvedValue("");
       mockPlaywright.page.$.mockResolvedValue(null);
@@ -608,27 +593,29 @@ describe("WechatAdapter (supplemental)", () => {
 
   describe("publish — wechatToken from session used for direct navigation", () => {
     it("uses saved wechatToken when URL has no token", async () => {
+      jest.useFakeTimers();
       mockDecryptSession.mockReturnValue(
         makeSessionData([], { wechatToken: "saved-token-999" }),
       );
 
-      // URL never has token but checkLoginStatus passes via /cgi-bin/home
+      // URL never has token= so token loop waits 15s (fast-forwarded by fake timers)
+      // But /cgi-bin/home means checkLoginStatus passes
       mockPlaywright.page.url.mockReturnValue(
         "https://mp.weixin.qq.com/cgi-bin/home",
       );
 
-      mockPlaywright.page.context = jest.fn().mockReturnValue({
-        cookies: jest.fn().mockResolvedValue([]),
-        waitForEvent: jest.fn().mockRejectedValue(new Error("no new page")),
-      });
+      mockPlaywright.page.cookies.mockResolvedValue([]);
 
       mockPlaywright.page.evaluate.mockResolvedValue("");
 
       const content = makeContent();
       const connection = makeConnection();
 
-      const result = await adapter.publish(content, connection);
+      const resultPromise = adapter.publish(content, connection);
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
 
+      jest.useRealTimers();
       // Should have attempted direct navigation using wechatToken
       expect(mockPlaywright.page.goto).toHaveBeenCalled();
       expect(result).toBeDefined();
@@ -639,6 +626,7 @@ describe("WechatAdapter (supplemental)", () => {
 
   describe("publish — no token found in URL or page links", () => {
     it("returns error when no token and no links on page", async () => {
+      jest.useFakeTimers();
       mockDecryptSession.mockReturnValue(
         makeSessionData([], { wechatToken: "" }),
       );
@@ -649,23 +637,22 @@ describe("WechatAdapter (supplemental)", () => {
         "https://mp.weixin.qq.com/cgi-bin/home",
       );
 
-      mockPlaywright.page.context = jest.fn().mockReturnValue({
-        cookies: jest.fn().mockResolvedValue([]),
-        waitForEvent: jest.fn().mockRejectedValue(new Error("no new page")),
-      });
+      mockPlaywright.page.cookies.mockResolvedValue([]);
 
       // evaluate for token from page JS returns empty
       // evaluate for page links returns empty array
       mockPlaywright.page.evaluate
-        .mockResolvedValueOnce("") // page state in fillContent / initial navigate
-        .mockResolvedValueOnce("") // token from page JS
-        .mockResolvedValue([]); // page links
+        .mockResolvedValueOnce("") // token from page JS (after 15s token loop)
+        .mockResolvedValue([]); // page links (anchor tags search)
 
       const content = makeContent();
       const connection = makeConnection();
 
-      const result = await adapter.publish(content, connection);
+      const resultPromise = adapter.publish(content, connection);
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
 
+      jest.useRealTimers();
       expect(result).toBeDefined();
       expect(result.success).toBe(false);
     });

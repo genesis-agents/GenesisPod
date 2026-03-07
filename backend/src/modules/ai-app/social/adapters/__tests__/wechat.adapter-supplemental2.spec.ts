@@ -122,16 +122,9 @@ function makeContent(overrides: Partial<SocialContent> = {}): SocialContent {
 // Mock page factories
 // ---------------------------------------------------------------------------
 
-function makeMockContext(extraPages: unknown[] = []) {
-  return {
-    cookies: jest
-      .fn()
-      .mockResolvedValue([
-        { name: "slave_user", value: "u1", domain: "mp.weixin.qq.com" },
-      ]),
-    waitForEvent: jest.fn().mockRejectedValue(new Error("no new page opened")),
-    pages: jest.fn().mockReturnValue(extraPages),
-  };
+/** Default page state object returned by first evaluate() call inside fillContent */
+function makePageState(url = "https://mp.weixin.qq.com/cgi-bin/appmsg_edit") {
+  return { url, title: "Editor", bodyText: "" };
 }
 
 function makeMockPage(urlSequence?: string[]) {
@@ -146,26 +139,25 @@ function makeMockPage(urlSequence?: string[]) {
         .fn()
         .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home?token=99999");
 
-  const mockContext = makeMockContext();
+  const mockBrowser = {
+    once: jest.fn(),
+  };
 
   return {
     goto: jest.fn().mockResolvedValue(undefined),
     url: urlFn,
     reload: jest.fn().mockResolvedValue(undefined),
-    waitForTimeout: jest.fn().mockResolvedValue(undefined),
-    waitForLoadState: jest.fn().mockResolvedValue(undefined),
+    waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
     waitForSelector: jest.fn().mockResolvedValue(null),
     evaluate: jest.fn().mockResolvedValue(""),
-    context: jest.fn().mockReturnValue(mockContext),
     $: jest.fn().mockResolvedValue(null),
+    $$: jest.fn().mockResolvedValue([]),
     $$eval: jest.fn().mockResolvedValue([]),
-    locator: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      filter: jest.fn().mockReturnThis(),
-      first: jest.fn().mockReturnThis(),
-      click: jest.fn().mockResolvedValue(undefined),
-      hasText: jest.fn().mockReturnThis(),
+    evaluateHandle: jest.fn().mockResolvedValue({
+      asElement: jest.fn().mockReturnValue(null),
     }),
+    cookies: jest.fn().mockResolvedValue([]),
+    browser: jest.fn().mockReturnValue(mockBrowser),
     waitForResponse: jest.fn().mockResolvedValue({
       url: () => "https://mp.weixin.qq.com/cgi-bin/operate_appmsg",
       json: jest
@@ -175,23 +167,13 @@ function makeMockPage(urlSequence?: string[]) {
     keyboard: {
       type: jest.fn().mockResolvedValue(undefined),
       press: jest.fn().mockResolvedValue(undefined),
+      down: jest.fn().mockResolvedValue(undefined),
+      up: jest.fn().mockResolvedValue(undefined),
     },
     screenshot: jest.fn().mockResolvedValue(Buffer.from("")),
     title: jest.fn().mockResolvedValue("Editor"),
-    getByRole: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      first: jest.fn().mockReturnValue({
-        fill: jest.fn().mockResolvedValue(undefined),
-        click: jest.fn().mockResolvedValue(undefined),
-      }),
-    }),
-    getByText: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      first: jest.fn().mockReturnThis(),
-      click: jest.fn().mockResolvedValue(undefined),
-    }),
     frames: jest.fn().mockReturnValue([]),
-    _mockContext: mockContext,
+    _mockBrowser: mockBrowser,
   };
 }
 
@@ -230,10 +212,16 @@ describe("WechatAdapter (supplemental2)", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    // Ensure fake timers are always restored even if test throws
+    jest.useRealTimers();
+  });
+
   // ─── token extracted from URL after waiting loop ────────────────────────────
 
   describe("token detection loop", () => {
     it("finds token after several iterations (not immediately)", async () => {
+      jest.useFakeTimers();
       // URL returns no token first few times then returns token
       const urlSequence = [
         "https://mp.weixin.qq.com/", // after root goto
@@ -245,8 +233,6 @@ describe("WechatAdapter (supplemental2)", () => {
         "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=55555", // final editor
       ];
       const page = makeMockPage(urlSequence);
-      // checkLoginStatus: url has /cgi-bin/home => logged in (returns true)
-      // After editor navigation we need appmsg_edit in URL
       const pw = makePlaywright(page);
       mockDecryptSession.mockReturnValue(
         makeSessionData({ wechatToken: undefined }),
@@ -261,40 +247,48 @@ describe("WechatAdapter (supplemental2)", () => {
           .mockResolvedValue({ base_resp: { ret: 0 }, appMsgId: "55555" }),
       });
 
-      // Make title fill work
-      page.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-          click: jest.fn().mockResolvedValue(undefined),
-        }),
+      // Make title fill work via evaluateHandle (textbox role)
+      const mockTitleEl = {
+        click: jest.fn().mockResolvedValue(undefined),
+        evaluate: jest.fn().mockResolvedValue("title-input"),
+      };
+      page.evaluateHandle.mockResolvedValue({
+        asElement: jest.fn().mockReturnValue(mockTitleEl),
       });
 
-      // Make editor fill work
+      // fillContent: evaluate calls in order: pageState, allInputs, editor fill
+      page.evaluate
+        .mockResolvedValueOnce(
+          makePageState(
+            "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=55555",
+          ),
+        ) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue({
+          success: true,
+          selector: ".ProseMirror",
+          method: "execCommand",
+        }); // editor fill
+
       const mockEditor = {
         click: jest.fn().mockResolvedValue(undefined),
         evaluate: jest.fn().mockResolvedValue("ProseMirror"),
       };
       page.$.mockResolvedValue(mockEditor);
-      page.evaluate.mockResolvedValue({
-        success: true,
-        selector: ".ProseMirror",
-        method: "execCommand",
-      });
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result).toBeDefined();
       // Session was restored
       expect(pw.restoreSession).toHaveBeenCalled();
     });
 
     it("triggers page reload at iteration 5 when no token yet", async () => {
+      jest.useFakeTimers();
       // Token never appears — after 15 iterations, evaluates JS token
       const noTokenUrl = "https://mp.weixin.qq.com/";
       const page = makeMockPage(Array(20).fill(noTokenUrl));
-      // JS evaluate for token returns empty (no token found)
-      page.evaluate.mockResolvedValue("");
-      // evaluate for links returns empty array
       // Make page.evaluate return empty string for token, then [] for links
       let evalCount = 0;
       page.evaluate.mockImplementation(() => {
@@ -310,7 +304,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
       // Reload was called at i===5
       expect(page.reload).toHaveBeenCalled();
@@ -321,6 +317,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("JS token extraction from page", () => {
     it("uses token found via page.evaluate when URL has no token", async () => {
+      jest.useFakeTimers();
       const noTokenUrl = "https://mp.weixin.qq.com/";
       const page = makeMockPage(Array(20).fill(noTokenUrl));
 
@@ -350,7 +347,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result).toBeDefined();
       // Either navigated to editor or failed — the JS path was exercised
       expect(evalCount).toBeGreaterThan(0);
@@ -361,42 +360,50 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("token from page anchor links", () => {
     it("extracts token from page link and navigates to editor", async () => {
+      jest.useFakeTimers();
       const noTokenUrl = "https://mp.weixin.qq.com/";
       // After editor navigation with extracted token, URL includes appmsg_edit
+      const editorUrl =
+        "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=66666";
       const urlSequence = [
         ...Array(17).fill(noTokenUrl),
-        "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=66666", // after goto
-        "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=66666",
+        editorUrl, // after goto
+        editorUrl,
       ];
       const page = makeMockPage(urlSequence);
 
-      let evalCount = 0;
-      page.evaluate.mockImplementation(() => {
-        evalCount++;
-        if (evalCount === 1) return Promise.resolve(""); // JS token = empty
-        if (evalCount === 2)
-          return Promise.resolve([
-            "https://mp.weixin.qq.com/cgi-bin/home?token=66666",
-          ]); // links with token
-        return Promise.resolve({
-          url: noTokenUrl,
-          title: "test",
-          bodyText: "",
-        });
-      });
+      // Evaluate calls in order:
+      // 1. JS token check → ""
+      // 2. page links → [link with token]
+      // (checkLoginStatus: URL is appmsg_edit, falls through to selectors then evaluate)
+      // 3. checkLoginStatus page text → "" (no login timeout)
+      // 4. fillContent pageState → {url, title, bodyText}
+      // 5. fillContent allInputs → []
+      // 6+ editor fill → {success,...}
+      page.evaluate
+        .mockResolvedValueOnce("") // JS token check
+        .mockResolvedValueOnce([
+          "https://mp.weixin.qq.com/cgi-bin/home?token=66666",
+        ]) // page links
+        .mockResolvedValueOnce("") // checkLoginStatus page text
+        .mockResolvedValueOnce(makePageState(editorUrl)) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue({
+          success: true,
+          selector: ".ProseMirror",
+          method: "execCommand",
+        }); // editor fill
 
-      // checkLoginStatus returns true (home URL path)
-      page.$.mockImplementation((selector: string) => {
-        if (selector === ".main_bd") return Promise.resolve({ tagName: "DIV" });
-        return Promise.resolve(null);
-      });
+      // checkLoginStatus: selectors return null (login form not found)
+      page.$.mockResolvedValue(null);
 
-      // Make title fill work
-      page.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-        }),
+      // Make title fill work via evaluateHandle (textbox role)
+      const mockTitleEl = {
+        click: jest.fn().mockResolvedValue(undefined),
+        evaluate: jest.fn().mockResolvedValue("title-input"),
+      };
+      page.evaluateHandle.mockResolvedValue({
+        asElement: jest.fn().mockReturnValue(mockTitleEl),
       });
 
       // saveDraft mock
@@ -413,11 +420,14 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result).toBeDefined();
     });
 
     it("returns error when page links have token but match fails", async () => {
+      jest.useFakeTimers();
       const noTokenUrl = "https://mp.weixin.qq.com/";
       const page = makeMockPage(Array(20).fill(noTokenUrl));
 
@@ -438,12 +448,15 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
       expect(result.errorMessage).toBeDefined();
     });
 
     it("returns error when no links found on page at all", async () => {
+      jest.useFakeTimers();
       const noTokenUrl = "https://mp.weixin.qq.com/";
       const page = makeMockPage(Array(20).fill(noTokenUrl));
 
@@ -463,7 +476,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
       // Either login error or no-token error — flow depends on checkLoginStatus result
       expect(result.errorMessage).toBeDefined();
@@ -473,67 +488,38 @@ describe("WechatAdapter (supplemental2)", () => {
   // ─── menuContent click success ───────────────────────────────────────────────
 
   describe("menuContent click opens new editor page", () => {
-    it("uses new page from context.waitForEvent when menuContent click succeeds", async () => {
+    it("uses new page from browser.once targetcreated when menuContent click succeeds", async () => {
+      jest.useFakeTimers();
       const homeUrl = "https://mp.weixin.qq.com/cgi-bin/home?token=12345";
-      const editorUrl =
-        "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=12345";
       const page = makeMockPage();
 
-      let urlCallCount = 0;
-      page.url.mockImplementation(() => {
-        urlCallCount++;
-        if (urlCallCount <= 2) return homeUrl;
-        return homeUrl;
-      });
+      page.url.mockReturnValue(homeUrl);
 
-      // Create a new editor page mock
-      const editorPage = makeMockPage();
-      editorPage.url.mockReturnValue(editorUrl);
-      editorPage.waitForLoadState.mockResolvedValue(undefined);
-      editorPage.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-        }),
-      });
-      editorPage.$.mockResolvedValue({
-        click: jest.fn().mockResolvedValue(undefined),
-        evaluate: jest.fn().mockResolvedValue("ProseMirror"),
-      });
-      editorPage.evaluate.mockResolvedValue({
-        success: true,
-        selector: ".ProseMirror",
-        method: "execCommand",
-      });
-      editorPage.waitForResponse.mockResolvedValue({
-        url: () => "https://mp.weixin.qq.com/cgi-bin/operate_appmsg",
-        json: jest
-          .fn()
-          .mockResolvedValue({ base_resp: { ret: 0 }, appMsgId: "12345" }),
-      });
-
-      // Make menuContent locator find 1 element and click opens new page
-      const mockMenuContent = {
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnThis(),
+      // Make $$ find the menu button (won't open a new page since browser.once does nothing)
+      const mockMenuBtn = {
+        evaluate: jest.fn().mockResolvedValue("图文"),
         click: jest.fn().mockResolvedValue(undefined),
       };
-      page.locator.mockReturnValue(mockMenuContent);
+      page.$$.mockImplementation(async (sel: string) => {
+        if (sel === ".new-creation__menu-content") return [mockMenuBtn];
+        return [];
+      });
 
-      // context.waitForEvent returns editorPage
-      const mockCtx = {
-        cookies: jest
-          .fn()
-          .mockResolvedValue([
-            { name: "slave_user", value: "u1", domain: "mp.weixin.qq.com" },
-          ]),
-        waitForEvent: jest.fn().mockResolvedValue(editorPage),
-        pages: jest.fn().mockReturnValue([]),
-      };
-      page.context.mockReturnValue(mockCtx);
+      // browser().once() is already mocked to do nothing (no new page opens)
 
       // checkLoginStatus: home URL → logged in
       page.$.mockResolvedValue(null);
+
+      // fillContent: evaluate calls in order: pageState, allInputs, editor fill
+      // Note: checkLoginStatus returns true via URL (homeUrl has /cgi-bin/home), no evaluate called there
+      page.evaluate
+        .mockResolvedValueOnce(makePageState(homeUrl)) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue({
+          success: true,
+          selector: ".ProseMirror",
+          method: "execCommand",
+        }); // editor fill
 
       const pw = makePlaywright(page);
       mockDecryptSession.mockReturnValue(
@@ -541,7 +527,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result).toBeDefined();
       expect(pw.closeContext).toHaveBeenCalled();
     });
@@ -551,6 +539,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("redirected to bizlogin after editor navigation", () => {
     it("returns error when final editor URL contains bizlogin", async () => {
+      jest.useFakeTimers();
       // URL sequence: home with token, then bizlogin after direct nav
       const urlSequence = [
         "https://mp.weixin.qq.com/cgi-bin/home?token=12345",
@@ -572,7 +561,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
       expect(result.errorMessage).toContain("登录");
     });
@@ -582,6 +573,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("checkLoginStatus: logged-in selector found", () => {
     it("returns success after detecting logged-in element via $", async () => {
+      jest.useFakeTimers();
       // URL: not home, not bizlogin → falls through to selector check
       const ambiguousUrl = "https://mp.weixin.qq.com/cgi-bin/index";
       const editorUrl =
@@ -596,39 +588,36 @@ describe("WechatAdapter (supplemental2)", () => {
       const page = makeMockPage(urlSequence);
 
       // checkLoginStatus: URL is not bizlogin, not home/frame
-      // page.$ returns an element for one of the selectors
-      page.$.mockImplementation((selector: string) => {
-        if (selector === ".weui-desktop-account__nickname") {
-          return Promise.resolve({ tagName: "DIV" });
-        }
-        return Promise.resolve(null);
-      });
-
-      page.evaluate.mockResolvedValue("");
-
-      // Title fill
-      page.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-        }),
-      });
-
-      // Editor fill
+      // page.$ returns an element for one of the selectors → returns true immediately (no evaluate)
       const mockEditor = {
         click: jest.fn().mockResolvedValue(undefined),
         evaluate: jest.fn().mockResolvedValue("ProseMirror"),
       };
       page.$.mockImplementation((selector: string) => {
         if (selector === ".weui-desktop-account__nickname")
-          return Promise.resolve({ tagName: "DIV" });
+          return Promise.resolve({ tagName: "DIV" }); // login check passes
         if (selector === "#js_editor") return Promise.resolve(mockEditor);
         return Promise.resolve(null);
       });
-      page.evaluate.mockResolvedValue({
-        success: true,
-        selector: ".ProseMirror",
-        method: "execCommand",
+
+      // fillContent: evaluate calls in order (checkLoginStatus finds selector, returns true, no evaluate)
+      // pageState → allInputs → editor fill
+      page.evaluate
+        .mockResolvedValueOnce(makePageState(editorUrl)) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue({
+          success: true,
+          selector: ".ProseMirror",
+          method: "execCommand",
+        }); // editor fill
+
+      // Title fill via evaluateHandle (textbox role)
+      const mockTitleEl = {
+        click: jest.fn().mockResolvedValue(undefined),
+        evaluate: jest.fn().mockResolvedValue("title-input"),
+      };
+      page.evaluateHandle.mockResolvedValue({
+        asElement: jest.fn().mockReturnValue(mockTitleEl),
       });
 
       page.waitForResponse.mockResolvedValue({
@@ -644,7 +633,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result).toBeDefined();
     });
   });
@@ -653,6 +644,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("checkLoginStatus: login form present", () => {
     it("returns error when login QR form detected on page", async () => {
+      jest.useFakeTimers();
       const noLoginUrl = "https://mp.weixin.qq.com/cgi-bin/index"; // neither bizlogin nor home
       const urlSequence = Array(20).fill(noLoginUrl);
       const page = makeMockPage(urlSequence);
@@ -671,7 +663,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
       expect(result.errorMessage).toBeDefined();
     });
@@ -681,6 +675,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("checkLoginStatus: login timeout text in page body", () => {
     it("returns error when page body contains 'Login timeout'", async () => {
+      jest.useFakeTimers();
       const noLoginUrl = "https://mp.weixin.qq.com/cgi-bin/index";
       const urlSequence = Array(20).fill(noLoginUrl);
       const page = makeMockPage(urlSequence);
@@ -699,7 +694,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
     });
   });
@@ -708,6 +705,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("fillContent: HTML content detection", () => {
     it("passes HTML content as-is when content contains HTML tags", async () => {
+      jest.useFakeTimers();
       const homeUrl = "https://mp.weixin.qq.com/cgi-bin/home?token=11111";
       const editorUrl =
         "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=11111";
@@ -721,28 +719,32 @@ describe("WechatAdapter (supplemental2)", () => {
       const page = makeMockPage(urlSequence);
       page.$.mockResolvedValue(null);
 
-      // Title fill via getByRole
-      page.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-        }),
+      // Title fill via evaluateHandle (textbox role)
+      const mockTitleEl = {
+        click: jest.fn().mockResolvedValue(undefined),
+        evaluate: jest.fn().mockResolvedValue("title-input"),
+      };
+      page.evaluateHandle.mockResolvedValue({
+        asElement: jest.fn().mockReturnValue(mockTitleEl),
       });
 
-      // Editor fill
+      // Editor fill — first evaluate returns pageState
       const mockEditor = {
         click: jest.fn().mockResolvedValue(undefined),
         evaluate: jest.fn().mockResolvedValue("editor-class"),
       };
+      // fillContent: checkLoginStatus returns true via URL (homeUrl has /cgi-bin/home), no evaluate there
+      page.evaluate
+        .mockResolvedValueOnce(makePageState(editorUrl)) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue({
+          success: true,
+          selector: ".ProseMirror",
+          method: "execCommand",
+        }); // editor fill
       page.$.mockImplementation((sel: string) => {
         if (sel === "#js_editor") return Promise.resolve(mockEditor);
         return Promise.resolve(null);
-      });
-      // page.evaluate for fillResult
-      page.evaluate.mockResolvedValue({
-        success: true,
-        selector: ".ProseMirror",
-        method: "execCommand",
       });
 
       page.waitForResponse.mockResolvedValue({
@@ -763,7 +765,9 @@ describe("WechatAdapter (supplemental2)", () => {
         content: "<p>This is <strong>HTML</strong> content</p>",
       });
 
-      const result = await adapter.publish(htmlContent, makeConnection());
+      const resultPromise = adapter.publish(htmlContent, makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result).toBeDefined();
     });
   });
@@ -772,6 +776,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("fillContent: title input not found", () => {
     it("returns error when no title input element is found anywhere", async () => {
+      jest.useFakeTimers();
       const homeUrl = "https://mp.weixin.qq.com/cgi-bin/home?token=22222";
       const editorUrl =
         "https://mp.weixin.qq.com/cgi-bin/appmsg_edit?token=22222";
@@ -779,27 +784,19 @@ describe("WechatAdapter (supplemental2)", () => {
       const page = makeMockPage(urlSequence);
       page.$.mockResolvedValue(null);
 
-      // getByRole returns 0 matches
-      page.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(0),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-        }),
+      // evaluateHandle returns null element (textbox not found)
+      page.evaluateHandle.mockResolvedValue({
+        asElement: jest.fn().mockReturnValue(null),
       });
 
-      // page.evaluate for allInputs returns empty array and page state
-      let evalCount = 0;
-      page.evaluate.mockImplementation(() => {
-        evalCount++;
-        if (evalCount === 1)
-          return Promise.resolve({
-            url: editorUrl,
-            title: "Editor",
-            bodyText: "",
-          });
-        if (evalCount === 2) return Promise.resolve([]); // allInputs
-        return Promise.resolve("");
-      });
+      // page.$$ returns empty (no buttons match title input)
+      page.$$.mockResolvedValue([]);
+
+      // page.evaluate: checkLoginStatus returns true via URL (homeUrl has /cgi-bin/home), no evaluate there
+      page.evaluate
+        .mockResolvedValueOnce(makePageState(editorUrl)) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue(""); // fallback
 
       const pw = makePlaywright(page);
       mockDecryptSession.mockReturnValue(
@@ -807,7 +804,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
       expect(result.errorMessage).toBeDefined();
     });
@@ -817,6 +816,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("captureDebugInfo inner error", () => {
     it("continues gracefully when captureDebugInfo itself throws internally", async () => {
+      jest.useFakeTimers();
       // Trigger captureDebugInfo by making login check fail
       const noLoginUrl = "https://mp.weixin.qq.com/cgi-bin/index";
       const urlSequence = Array(20).fill(noLoginUrl);
@@ -836,7 +836,9 @@ describe("WechatAdapter (supplemental2)", () => {
       adapter = await createAdapter(pw);
 
       // Should still return a result (not throw)
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result.success).toBe(false);
     });
   });
@@ -845,6 +847,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("successful publish flow", () => {
     it("returns a result (success or failure) after full publish flow executes", async () => {
+      jest.useFakeTimers();
       // This test verifies the publish flow runs to completion and closeContext
       // is always called in the finally block, even if saveDraft fails.
       const homeUrl = "https://mp.weixin.qq.com/cgi-bin/home?token=33333";
@@ -859,15 +862,14 @@ describe("WechatAdapter (supplemental2)", () => {
         editorUrl,
       ];
       const page = makeMockPage(urlSequence);
-      page.$.mockResolvedValue(null);
 
-      // Title fill succeeds via getByRole
-      page.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-          click: jest.fn().mockResolvedValue(undefined),
-        }),
+      // Title fill via evaluateHandle (textbox role)
+      const mockTitleEl = {
+        click: jest.fn().mockResolvedValue(undefined),
+        evaluate: jest.fn().mockResolvedValue("title-input"),
+      };
+      page.evaluateHandle.mockResolvedValue({
+        asElement: jest.fn().mockReturnValue(mockTitleEl),
       });
 
       // Editor found and content filled via page.evaluate
@@ -875,19 +877,31 @@ describe("WechatAdapter (supplemental2)", () => {
         click: jest.fn().mockResolvedValue(undefined),
         evaluate: jest.fn().mockResolvedValue("editor-class"),
       };
+      // checkLoginStatus returns true via URL (homeUrl has /cgi-bin/home), no evaluate there
+      page.evaluate
+        .mockResolvedValueOnce(makePageState(editorUrl)) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue({
+          success: true,
+          selector: ".ProseMirror",
+          method: "execCommand",
+        }); // editor fill
       page.$.mockImplementation((sel: string) => {
         if (sel === ".login__type__qrcode") return Promise.resolve(null);
         if (sel === "#js_editor") return Promise.resolve(mockEditor);
         return Promise.resolve(null);
       });
-      page.evaluate.mockResolvedValue({
-        success: true,
-        selector: ".ProseMirror",
-        method: "execCommand",
+
+      // saveDraft: $$ for save button returns 1 element, click works
+      const mockSaveBtn = {
+        evaluate: jest.fn().mockResolvedValue("保存为草稿"),
+        click: jest.fn().mockResolvedValue(undefined),
+      };
+      page.$$.mockImplementation(async (sel: string) => {
+        if (sel === "button") return [mockSaveBtn];
+        return [];
       });
 
-      // saveDraft: getByRole for save button returns 1, click works
-      // waitForResponse with predicate — mock returns the save API response
       const mockSaveResponse = {
         url: jest
           .fn()
@@ -909,7 +923,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       // Whether success or not, the context should always be closed
       expect(pw.closeContext).toHaveBeenCalledWith("wechat-conn-1");
       expect(result).toBeDefined();
@@ -933,6 +949,7 @@ describe("WechatAdapter (supplemental2)", () => {
 
   describe("direct navigation via token when click approaches fail", () => {
     it("navigates directly to editor URL when token is available", async () => {
+      jest.useFakeTimers();
       const homeUrl = "https://mp.weixin.qq.com/cgi-bin/home?token=44444";
       // After direct navigation, URL becomes editor URL
       const editorUrl =
@@ -953,40 +970,34 @@ describe("WechatAdapter (supplemental2)", () => {
       );
 
       page.$.mockResolvedValue(null);
-      page.evaluate.mockResolvedValue("");
 
-      // locator returns 0 (no buttons found, so click approaches all fail)
-      page.locator.mockReturnValue({
-        count: jest.fn().mockResolvedValue(0),
-        filter: jest.fn().mockReturnThis(),
-        first: jest.fn().mockReturnThis(),
+      // $$ returns empty (no buttons found, so click approaches all fail)
+      page.$$.mockResolvedValue([]);
+
+      // Title fill via evaluateHandle (textbox role)
+      const mockTitleEl = {
         click: jest.fn().mockResolvedValue(undefined),
-      });
-      page.getByText.mockReturnValue({
-        count: jest.fn().mockResolvedValue(0),
-        first: jest.fn().mockReturnThis(),
-        click: jest.fn().mockResolvedValue(undefined),
-      });
-
-      // Title fill
-      page.getByRole.mockReturnValue({
-        count: jest.fn().mockResolvedValue(1),
-        first: jest.fn().mockReturnValue({
-          fill: jest.fn().mockResolvedValue(undefined),
-        }),
+        evaluate: jest.fn().mockResolvedValue("title-input"),
+      };
+      page.evaluateHandle.mockResolvedValue({
+        asElement: jest.fn().mockReturnValue(mockTitleEl),
       });
 
-      // Editor fill
+      // Editor fill: checkLoginStatus returns true via URL (homeUrl has /cgi-bin/home), no evaluate there
+      page.evaluate
+        .mockResolvedValueOnce(makePageState(editorUrl)) // fillContent pageState
+        .mockResolvedValueOnce([]) // fillContent allInputs
+        .mockResolvedValue({
+          success: true,
+          selector: ".ProseMirror",
+          method: "execCommand",
+        }); // editor fill
+
       const mockEditor = {
         click: jest.fn().mockResolvedValue(undefined),
         evaluate: jest.fn().mockResolvedValue("editor"),
       };
       page.$.mockImplementation(() => Promise.resolve(mockEditor));
-      page.evaluate.mockResolvedValue({
-        success: true,
-        selector: ".ProseMirror",
-        method: "execCommand",
-      });
 
       page.waitForResponse.mockResolvedValue({
         url: () => "https://mp.weixin.qq.com/cgi-bin/operate_appmsg",
@@ -1002,7 +1013,9 @@ describe("WechatAdapter (supplemental2)", () => {
       );
       adapter = await createAdapter(pw);
 
-      const result = await adapter.publish(makeContent(), makeConnection());
+      const resultPromise = adapter.publish(makeContent(), makeConnection());
+      await jest.runAllTimersAsync();
+      const result = await resultPromise;
       expect(result).toBeDefined();
       // Direct navigation was attempted (goto called more than once)
       expect(page.goto).toHaveBeenCalled();

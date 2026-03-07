@@ -4,9 +4,7 @@
  * 将选择器配置化，便于维护和快速修复 UI 变化
  */
 
-// Use any for Page type to avoid playwright dependency issues
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Page = any;
+import type { Page } from "puppeteer";
 
 // ==================== 微信公众号选择器 ====================
 
@@ -228,15 +226,17 @@ export const XHS_SELECTORS = {
 export async function trySelectors(
   page: Page,
   selectors: string[],
-  options: { timeout?: number; state?: "visible" | "attached" } = {},
+  options: { timeout?: number } = {},
 ): Promise<{ success: boolean; selector?: string; element?: unknown }> {
-  const { timeout = 5000, state = "visible" } = options;
+  const { timeout = 5000 } = options;
 
   for (const selector of selectors) {
     try {
-      const element = page.locator(selector);
-      await element.waitFor({ timeout, state });
-      if (await element.isVisible()) {
+      const element = await page.waitForSelector(selector, {
+        visible: true,
+        timeout,
+      });
+      if (element) {
         return { success: true, selector, element };
       }
     } catch {
@@ -254,13 +254,16 @@ export async function tryClick(
   selectors: string[],
   options: { timeout?: number; delay?: number } = {},
 ): Promise<boolean> {
-  const { timeout = 5000, delay = 100 } = options;
+  const { timeout = 5000, delay: clickDelay = 100 } = options;
 
   for (const selector of selectors) {
     try {
-      const element = page.locator(selector);
-      if (await element.isVisible({ timeout })) {
-        await element.click({ delay });
+      const element = await page.waitForSelector(selector, {
+        visible: true,
+        timeout,
+      });
+      if (element) {
+        await element.click({ delay: clickDelay });
         return true;
       }
     } catch {
@@ -283,12 +286,15 @@ export async function tryFill(
 
   for (const selector of selectors) {
     try {
-      const element = page.locator(selector);
-      if (await element.isVisible({ timeout })) {
+      const element = await page.waitForSelector(selector, {
+        visible: true,
+        timeout,
+      });
+      if (element) {
         if (clear) {
-          await element.clear();
+          await element.click({ clickCount: 3 });
         }
-        await element.fill(value);
+        await page.keyboard.type(value);
         return true;
       }
     } catch {
@@ -308,7 +314,7 @@ export async function waitForAny(
 ): Promise<{ found: boolean; selector?: string }> {
   const promises = selectors.map(async (selector) => {
     try {
-      await page.locator(selector).waitFor({ timeout, state: "visible" });
+      await page.waitForSelector(selector, { visible: true, timeout });
       return selector;
     } catch {
       return null;
@@ -323,8 +329,8 @@ export async function waitForAny(
  * 人性化延迟
  */
 export function humanDelay(min = 500, max = 1500): Promise<void> {
-  const delay = min + Math.random() * (max - min);
-  return new Promise((resolve) => setTimeout(resolve, delay));
+  const ms = min + Math.random() * (max - min);
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -338,8 +344,10 @@ export async function humanType(
 ): Promise<void> {
   const { minDelay = 30, maxDelay = 100 } = options;
 
-  const element = page.locator(selector);
-  await element.click();
+  const element = await page.$(selector);
+  if (element) {
+    await element.click();
+  }
   await humanDelay(200, 500);
 
   for (const char of text) {

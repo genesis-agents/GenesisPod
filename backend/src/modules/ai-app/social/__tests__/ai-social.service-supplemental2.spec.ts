@@ -245,7 +245,7 @@ function makePlaywright() {
     restoreSession: jest.fn().mockResolvedValue(undefined),
     createPage: jest.fn().mockResolvedValue({
       goto: jest.fn().mockResolvedValue(undefined),
-      waitForLoadState: jest.fn().mockResolvedValue(undefined),
+      waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
       url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
       $: jest.fn().mockResolvedValue(null),
     }),
@@ -525,7 +525,7 @@ describe("AiSocialService (supplemental2)", () => {
       playwright.restoreSession.mockResolvedValue(undefined);
       playwright.createPage.mockResolvedValue({
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest.fn().mockReturnValue("https://unknown.com"),
         $: jest.fn().mockResolvedValue(null),
       });
@@ -547,7 +547,7 @@ describe("AiSocialService (supplemental2)", () => {
       playwright.restoreSession.mockResolvedValue(undefined);
       playwright.createPage.mockResolvedValue({
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         $: jest.fn().mockResolvedValue(null),
       });
@@ -569,7 +569,7 @@ describe("AiSocialService (supplemental2)", () => {
       playwright.restoreSession.mockResolvedValue(undefined);
       playwright.createPage.mockResolvedValue({
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest
           .fn()
           .mockReturnValue(
@@ -595,7 +595,7 @@ describe("AiSocialService (supplemental2)", () => {
       playwright.restoreSession.mockResolvedValue(undefined);
       const mockPage = {
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/other"),
         $: jest
           .fn()

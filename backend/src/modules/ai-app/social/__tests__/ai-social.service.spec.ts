@@ -1197,7 +1197,7 @@ describe("AiSocialService", () => {
       mockPlaywright.restoreSession.mockResolvedValue(undefined);
       mockPlaywright.createPage.mockResolvedValue({
         goto: jest.fn(),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest.fn().mockReturnValue("https://example.com"),
         $: jest.fn().mockResolvedValue(null),
       });

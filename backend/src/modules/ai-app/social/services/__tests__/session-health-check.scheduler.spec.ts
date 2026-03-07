@@ -40,7 +40,7 @@ function createMockPlaywright() {
     restoreSession: jest.fn().mockResolvedValue(undefined),
     createPage: jest.fn().mockResolvedValue({
       goto: jest.fn().mockResolvedValue(undefined),
-      waitForLoadState: jest.fn().mockResolvedValue(undefined),
+      waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
       url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
       $: jest.fn().mockResolvedValue(null),
     }),
@@ -253,7 +253,7 @@ describe("SessionHealthCheckScheduler", () => {
       // Mock page that indicates login page (expired)
       const expiredPage = {
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest
           .fn()
           .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/bizlogin"),
@@ -293,7 +293,7 @@ describe("SessionHealthCheckScheduler", () => {
 
       const expiredPage = {
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest
           .fn()
           .mockReturnValue(
@@ -338,7 +338,7 @@ describe("SessionHealthCheckScheduler", () => {
       // Valid page (logged in)
       const validPage = {
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         $: jest.fn().mockResolvedValue(null),
       };
@@ -480,7 +480,7 @@ describe("SessionHealthCheckScheduler", () => {
         .mockRejectedValueOnce(new Error("Playwright crashed"))
         .mockResolvedValueOnce({
           goto: jest.fn().mockResolvedValue(undefined),
-          waitForLoadState: jest.fn().mockResolvedValue(undefined),
+          waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
           url: jest
             .fn()
             .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
@@ -535,7 +535,7 @@ describe("SessionHealthCheckScheduler", () => {
 
       const expiredPage = {
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest
           .fn()
           .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/bizlogin"),

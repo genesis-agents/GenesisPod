@@ -62,45 +62,38 @@ describe("selectors.config", () => {
   describe("trySelectors", () => {
     it("should return success false when no selector matches", async () => {
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          waitFor: jest.fn().mockRejectedValue(new Error("Not found")),
-          isVisible: jest.fn().mockResolvedValue(false),
-        }),
+        waitForSelector: jest.fn().mockRejectedValue(new Error("Not found")),
       };
 
-      const result = await trySelectors(mockPage, ["#nonexistent"], { timeout: 100 });
+      const result = await trySelectors(mockPage, ["#nonexistent"], {
+        timeout: 100,
+      });
       expect(result.success).toBe(false);
     });
 
     it("should return success true when a selector matches", async () => {
-      const mockElement = {
-        waitFor: jest.fn().mockResolvedValue(undefined),
-        isVisible: jest.fn().mockResolvedValue(true),
-      };
+      const mockElement = {};
       const mockPage = {
-        locator: jest.fn().mockReturnValue(mockElement),
+        waitForSelector: jest.fn().mockResolvedValue(mockElement),
       };
 
-      const result = await trySelectors(mockPage, ["#exists"], { timeout: 1000 });
+      const result = await trySelectors(mockPage, ["#exists"], {
+        timeout: 1000,
+      });
       expect(result.success).toBe(true);
       expect(result.selector).toBe("#exists");
     });
 
     it("should try all selectors and return first match", async () => {
       let callCount = 0;
+      const mockElement = {};
       const mockPage = {
-        locator: jest.fn().mockImplementation(() => {
+        waitForSelector: jest.fn().mockImplementation(() => {
           callCount++;
           if (callCount < 3) {
-            return {
-              waitFor: jest.fn().mockRejectedValue(new Error("Not found")),
-              isVisible: jest.fn().mockResolvedValue(false),
-            };
+            return Promise.reject(new Error("Not found"));
           }
-          return {
-            waitFor: jest.fn().mockResolvedValue(undefined),
-            isVisible: jest.fn().mockResolvedValue(true),
-          };
+          return Promise.resolve(mockElement);
         }),
       };
 
@@ -113,9 +106,7 @@ describe("selectors.config", () => {
   describe("tryClick", () => {
     it("should return false when no selector is visible", async () => {
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          isVisible: jest.fn().mockResolvedValue(false),
-        }),
+        waitForSelector: jest.fn().mockRejectedValue(new Error("Not found")),
       };
 
       const result = await tryClick(mockPage, ["#nonexistent"]);
@@ -124,11 +115,9 @@ describe("selectors.config", () => {
 
     it("should click the first visible element and return true", async () => {
       const clickMock = jest.fn().mockResolvedValue(undefined);
+      const mockElement = { click: clickMock };
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          isVisible: jest.fn().mockResolvedValue(true),
-          click: clickMock,
-        }),
+        waitForSelector: jest.fn().mockResolvedValue(mockElement),
       };
 
       const result = await tryClick(mockPage, ["#button"]);
@@ -138,9 +127,9 @@ describe("selectors.config", () => {
 
     it("should return false when click throws", async () => {
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          isVisible: jest.fn().mockRejectedValue(new Error("Element not found")),
-        }),
+        waitForSelector: jest
+          .fn()
+          .mockRejectedValue(new Error("Element not found")),
       };
 
       const result = await tryClick(mockPage, ["#button"]);
@@ -151,9 +140,8 @@ describe("selectors.config", () => {
   describe("tryFill", () => {
     it("should return false when element is not visible", async () => {
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          isVisible: jest.fn().mockResolvedValue(false),
-        }),
+        waitForSelector: jest.fn().mockRejectedValue(new Error("Not found")),
+        keyboard: { type: jest.fn().mockResolvedValue(undefined) },
       };
 
       const result = await tryFill(mockPage, ["#input"], "test value");
@@ -161,44 +149,38 @@ describe("selectors.config", () => {
     });
 
     it("should fill the input and return true", async () => {
-      const fillMock = jest.fn().mockResolvedValue(undefined);
-      const clearMock = jest.fn().mockResolvedValue(undefined);
+      const clickMock = jest.fn().mockResolvedValue(undefined);
+      const typeMock = jest.fn().mockResolvedValue(undefined);
+      const mockElement = { click: clickMock };
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          isVisible: jest.fn().mockResolvedValue(true),
-          clear: clearMock,
-          fill: fillMock,
-        }),
+        waitForSelector: jest.fn().mockResolvedValue(mockElement),
+        keyboard: { type: typeMock },
       };
 
       const result = await tryFill(mockPage, ["#input"], "test value");
       expect(result).toBe(true);
-      expect(clearMock).toHaveBeenCalled();
-      expect(fillMock).toHaveBeenCalledWith("test value");
+      expect(clickMock).toHaveBeenCalledWith({ clickCount: 3 });
+      expect(typeMock).toHaveBeenCalledWith("test value");
     });
 
     it("should not clear when clear option is false", async () => {
-      const fillMock = jest.fn().mockResolvedValue(undefined);
-      const clearMock = jest.fn().mockResolvedValue(undefined);
+      const clickMock = jest.fn().mockResolvedValue(undefined);
+      const typeMock = jest.fn().mockResolvedValue(undefined);
+      const mockElement = { click: clickMock };
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          isVisible: jest.fn().mockResolvedValue(true),
-          clear: clearMock,
-          fill: fillMock,
-        }),
+        waitForSelector: jest.fn().mockResolvedValue(mockElement),
+        keyboard: { type: typeMock },
       };
 
       await tryFill(mockPage, ["#input"], "test value", { clear: false });
-      expect(clearMock).not.toHaveBeenCalled();
+      expect(clickMock).not.toHaveBeenCalled();
     });
   });
 
   describe("waitForAny", () => {
     it("should return found false when no selector appears", async () => {
       const mockPage = {
-        locator: jest.fn().mockReturnValue({
-          waitFor: jest.fn().mockRejectedValue(new Error("Timeout")),
-        }),
+        waitForSelector: jest.fn().mockRejectedValue(new Error("Timeout")),
       };
 
       const result = await waitForAny(mockPage, ["#s1", "#s2"], 100);
@@ -212,13 +194,14 @@ describe("selectors.config", () => {
       // Promise.race returns the FIRST settled promise - may be null or the selector.
       // We need all non-matching selectors to reject or be slower.
       const mockPage = {
-        locator: jest.fn().mockImplementation((selector: string) => ({
-          waitFor: selector === "#found"
-            ? jest.fn().mockResolvedValue(undefined)
-            : jest.fn(() => new Promise((_resolve, reject) =>
-                setTimeout(() => reject(new Error("Timeout")), 500)
-              )),
-        })),
+        waitForSelector: jest.fn().mockImplementation((selector: string) => {
+          if (selector === "#found") {
+            return Promise.resolve({});
+          }
+          return new Promise((_resolve, reject) =>
+            setTimeout(() => reject(new Error("Timeout")), 500),
+          );
+        }),
       };
 
       const result = await waitForAny(mockPage, ["#found"], 1000);

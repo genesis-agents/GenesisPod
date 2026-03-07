@@ -1,9 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { Page } from "puppeteer";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
+
+/** Puppeteer-compatible delay helper (replaces Playwright's page.waitForTimeout) */
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 @Injectable()
 export class WechatAdapter {
@@ -34,8 +38,7 @@ export class WechatAdapter {
     );
 
     const contextId = `wechat-${connection.id}`;
-    let page: Awaited<ReturnType<typeof this.playwright.createPage>> | null =
-      null;
+    let page: Page | null = null;
 
     try {
       // Step 1: 检查 session 数据是否存在
@@ -138,7 +141,7 @@ export class WechatAdapter {
       // 先访问根路径，让 WeChat 自动重定向（包含 token）
       this.logger.log("Navigating to WeChat MP root for auto-redirect...");
       await page.goto(this.MP_URL, {
-        waitUntil: "networkidle",
+        waitUntil: "networkidle0",
         timeout: 30000,
       });
       this.logger.log(`After root navigation, URL: ${page.url()}`);
@@ -148,7 +151,7 @@ export class WechatAdapter {
       if (!currentUrl.includes("token=") || currentUrl.includes("token=&")) {
         this.logger.log("No token after root redirect, trying direct home...");
         await page.goto(`${this.MP_URL}/cgi-bin/home?t=home/index&lang=zh_CN`, {
-          waitUntil: "networkidle",
+          waitUntil: "networkidle0",
           timeout: 30000,
         });
         currentUrl = page.url();
@@ -167,12 +170,12 @@ export class WechatAdapter {
         // 尝试刷新页面触发重定向
         if (i === 5) {
           this.logger.log("Refreshing page to trigger redirect...");
-          await page.reload({ waitUntil: "networkidle" });
+          await page.reload({ waitUntil: "networkidle0" });
         }
         this.logger.log(
           `Waiting for token, attempt ${i + 1}/15, URL: ${currentUrl}`,
         );
-        await page.waitForTimeout(1000);
+        await delay(1000);
       }
 
       if (!tokenInUrl) {
@@ -194,8 +197,7 @@ export class WechatAdapter {
       }
 
       // 验证 cookies 是否被正确设置到浏览器上下文
-      const pageContext = page.context();
-      const browserCookies = await pageContext.cookies();
+      const browserCookies = await page.cookies();
       this.logger.log(
         `Browser context cookies after navigation: ${browserCookies.length}`,
       );
@@ -245,9 +247,7 @@ export class WechatAdapter {
         }
       }
 
-      // 获取 browser context 用于监听新页面
-      const context = page.context();
-      let editorPage = page; // 默认使用当前页面
+      let editorPage: Page = page; // 默认使用当前页面
       let clickSucceeded = false;
 
       // 尝试点击 图文/Photo 按钮进入编辑器
@@ -263,27 +263,45 @@ export class WechatAdapter {
         try {
           this.logger.log(`Looking for button with text: "${buttonText}"...`);
 
-          // 方法1: 使用正确的选择器 - .new-creation__menu-content 包含文本
-          // Playwright 实际使用: div:nth-child(N) > .new-creation__menu-content
-          const menuContent = page.locator(
-            `.new-creation__menu-content:has-text("${buttonText}")`,
-          );
-          const count = await menuContent.count();
+          // 方法1: 查找 .new-creation__menu-content 元素并匹配文本
+          const menuElements = await page.$$(".new-creation__menu-content");
+          let matchedMenu = null;
+          for (const el of menuElements) {
+            const text = await el.evaluate(
+              (node: Element) => node.textContent || "",
+            );
+            if (text.includes(buttonText)) {
+              matchedMenu = el;
+              break;
+            }
+          }
+          const count = matchedMenu ? 1 : 0;
           this.logger.log(
             `Found ${count} .new-creation__menu-content with text "${buttonText}"`,
           );
 
-          if (count > 0) {
+          if (matchedMenu) {
             this.logger.log(
               `Clicking .new-creation__menu-content for "${buttonText}"...`,
             );
-            const [newPage] = await Promise.all([
-              context.waitForEvent("page", { timeout: 15000 }),
-              menuContent.first().click(),
-            ]);
+            if (!page) throw new Error("Page not initialized");
+            const currentPage = page;
+            const newPagePromise = new Promise<Page>((resolve, reject) => {
+              const timer = setTimeout(
+                () => reject(new Error("Timeout waiting for new page")),
+                15000,
+              );
+              currentPage.browser().once("targetcreated", async (target) => {
+                clearTimeout(timer);
+                const p = await target.page();
+                resolve(p!);
+              });
+            });
+            await matchedMenu.click();
+            const newPage = await newPagePromise;
 
             this.logger.log("New tab opened, waiting for it to load...");
-            await newPage.waitForLoadState("networkidle", { timeout: 30000 });
+            await newPage.waitForNetworkIdle({ idleTime: 500, timeout: 30000 });
             editorPage = newPage;
             clickSucceeded = true;
             this.logger.log(`Editor page URL: ${editorPage.url()}`);
@@ -301,29 +319,39 @@ export class WechatAdapter {
           "Menu content click failed, trying New creation section...",
         );
         try {
-          // 查找 "New creation" 标题，然后找到其下的第三个或第四个按钮（Photo）
-          const newCreationSection = page.locator(
-            'text="New creation" >> xpath=../following-sibling::*',
-          );
-          const sectionCount = await newCreationSection.count();
-          this.logger.log(`Found ${sectionCount} elements after New creation`);
-
-          // 尝试点击包含 Photo 的元素
-          const photoInSection = page
-            .locator('[class*="new-creation"]')
-            .filter({ hasText: /Photo|图文/ });
-          const photoCount = await photoInSection.count();
+          // 查找包含 Photo/图文 的 new-creation 元素
+          const photoElements = await page.$$('[class*="new-creation"]');
+          let matchedElement = null;
+          for (const el of photoElements) {
+            const text = await el.evaluate(
+              (node: Element) => node.textContent || "",
+            );
+            if (/Photo|图文/.test(text)) {
+              matchedElement = el;
+              break;
+            }
+          }
+          const photoCount = matchedElement ? 1 : 0;
           this.logger.log(`Found ${photoCount} Photo elements in section`);
 
-          if (photoCount > 0) {
-            const [newPage] = await Promise.all([
-              context
-                .waitForEvent("page", { timeout: 15000 })
-                .catch(() => null),
-              photoInSection.first().click(),
-            ]);
+          if (matchedElement) {
+            if (!page) throw new Error("Page not initialized");
+            const currentPage2 = page;
+            const newPagePromise = new Promise<Page | null>((resolve) => {
+              const timer = setTimeout(() => resolve(null), 15000);
+              currentPage2.browser().once("targetcreated", async (target) => {
+                clearTimeout(timer);
+                const p = await target.page();
+                resolve(p);
+              });
+            });
+            await matchedElement.click();
+            const newPage = await newPagePromise;
             if (newPage) {
-              await newPage.waitForLoadState("networkidle", { timeout: 30000 });
+              await newPage.waitForNetworkIdle({
+                idleTime: 500,
+                timeout: 30000,
+              });
               editorPage = newPage;
               clickSucceeded = true;
               this.logger.log(`Editor page URL (section): ${editorPage.url()}`);
@@ -343,22 +371,39 @@ export class WechatAdapter {
           if (clickSucceeded) break;
 
           try {
-            const textLocator = page.getByText(buttonText, { exact: true });
-            const textCount = await textLocator.count();
-            this.logger.log(
-              `Direct text search found ${textCount} for "${buttonText}"`,
-            );
+            // Find elements matching exact text
+            const allElements = await page.$$("*");
+            let matchedEl = null;
+            for (const el of allElements) {
+              const text = await el
+                .evaluate((node: Element) => node.textContent?.trim() || "")
+                .catch(() => "");
+              if (text === buttonText) {
+                matchedEl = el;
+                break;
+              }
+            }
 
-            if (textCount > 0) {
-              const [newPage] = await Promise.all([
-                context
-                  .waitForEvent("page", { timeout: 15000 })
-                  .catch(() => null),
-                textLocator.first().click(),
-              ]);
+            if (matchedEl) {
+              this.logger.log(
+                `Direct text search found match for "${buttonText}"`,
+              );
+              if (!page) throw new Error("Page not initialized");
+              const currentPage3 = page;
+              const newPagePromise = new Promise<Page | null>((resolve) => {
+                const timer = setTimeout(() => resolve(null), 15000);
+                currentPage3.browser().once("targetcreated", async (target) => {
+                  clearTimeout(timer);
+                  const p = await target.page();
+                  resolve(p);
+                });
+              });
+              await matchedEl.click();
+              const newPage = await newPagePromise;
 
               if (newPage) {
-                await newPage.waitForLoadState("networkidle", {
+                await newPage.waitForNetworkIdle({
+                  idleTime: 500,
                   timeout: 30000,
                 });
                 editorPage = newPage;
@@ -385,7 +430,7 @@ export class WechatAdapter {
           const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=${articleType}&createType=8&token=${token}`;
           this.logger.log(`Direct navigation to: ${editorUrl}`);
           await editorPage.goto(editorUrl, {
-            waitUntil: "networkidle",
+            waitUntil: "networkidle0",
             timeout: 30000,
           });
         } else {
@@ -409,7 +454,7 @@ export class WechatAdapter {
                 `Found token from link, direct navigation to: ${editorUrl}`,
               );
               await editorPage.goto(editorUrl, {
-                waitUntil: "networkidle",
+                waitUntil: "networkidle0",
                 timeout: 30000,
               });
             } else {
@@ -501,10 +546,7 @@ export class WechatAdapter {
   /**
    * 捕获调试信息用于问题排查
    */
-  private async captureDebugInfo(
-    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
-    context: string,
-  ): Promise<void> {
+  private async captureDebugInfo(page: Page, context: string): Promise<void> {
     try {
       this.logger.error(`[${context}] Capturing debug info...`);
       this.logger.error(`[${context}] Current URL: ${page.url()}`);
@@ -515,7 +557,7 @@ export class WechatAdapter {
         .catch(() => null);
       if (screenshot) {
         this.logger.error(
-          `[${context}] Screenshot captured (base64 length: ${screenshot.toString("base64").length})`,
+          `[${context}] Screenshot captured (base64 length: ${Buffer.from(screenshot).toString("base64").length})`,
         );
       }
 
@@ -565,7 +607,9 @@ export class WechatAdapter {
       );
 
       if (qrCodeElement) {
-        const qrCodeSrc = await qrCodeElement.getAttribute("src");
+        const qrCodeSrc = await qrCodeElement.evaluate((el: Element) =>
+          el.getAttribute("src"),
+        );
         return qrCodeSrc;
       }
 
@@ -605,13 +649,11 @@ export class WechatAdapter {
     return false;
   }
 
-  private async checkLoginStatus(
-    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
-  ): Promise<boolean> {
+  private async checkLoginStatus(page: Page): Promise<boolean> {
     try {
       // 等待页面稳定
       await page
-        .waitForLoadState("networkidle", { timeout: 10000 })
+        .waitForNetworkIdle({ idleTime: 500, timeout: 10000 })
         .catch((err: Error) =>
           this.logger.debug(`Page load timeout: ${err?.message}`),
         );
@@ -683,14 +725,13 @@ export class WechatAdapter {
     }
   }
 
-  private async fillContent(
-    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
-    content: SocialContent,
-  ): Promise<void> {
+  private async fillContent(page: Page, content: SocialContent): Promise<void> {
     this.logger.log("Starting to fill content...");
 
     // 等待页面完全加载（包括动态内容）
-    await page.waitForLoadState("networkidle");
+    await page.waitForNetworkIdle({ idleTime: 500 }).catch(() => {
+      this.logger.debug("waitForNetworkIdle timed out, continuing...");
+    });
     this.logger.log(
       "Network idle reached, waiting for editor to initialize...",
     );
@@ -754,11 +795,11 @@ export class WechatAdapter {
       this.logger.warn(
         "Could not find editor with specific selectors, waiting 5 more seconds...",
       );
-      await page.waitForTimeout(5000);
+      await delay(5000);
     }
 
     // 额外等待确保 UI 完全渲染
-    await page.waitForTimeout(1000);
+    await delay(1000);
 
     // 详细诊断页面上的所有输入元素
     const allInputs = await page.evaluate(() => {
@@ -780,25 +821,43 @@ export class WechatAdapter {
 
     // 填写标题 - 基于 Playwright 1:1 模拟实际操作 (2026-01-22)
     if (content.title) {
-      this.logger.log("Looking for title input using getByRole...");
+      this.logger.log("Looking for title input...");
 
       let titleFilled = false;
 
-      // 方法1: 使用 getByRole - 这是 Playwright 实际使用的方式
-      // 优先中文界面，微信公众号默认中文
+      // 方法1: 查找 textbox 类型的 input/textarea 并匹配 aria-label 或 placeholder
       try {
-        const titleTextbox = page.getByRole("textbox", {
-          name: /请在这里输入标题|请输入标题|标题|Input a title here|title/i,
-        });
-        const count = await titleTextbox.count();
-        this.logger.log(`Found ${count} title textbox via getByRole`);
-        if (count > 0) {
-          await titleTextbox.first().fill(content.title);
+        const titlePattern =
+          /请在这里输入标题|请输入标题|标题|Input a title here|title/i;
+        const titleTextbox = await page.evaluateHandle((pattern: string) => {
+          const re = new RegExp(pattern, "i");
+          const inputs = Array.from(
+            document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+              'input[type="text"], textarea, [role="textbox"]',
+            ),
+          );
+          return (
+            inputs.find(
+              (el) =>
+                re.test(el.getAttribute("aria-label") || "") ||
+                re.test(el.getAttribute("placeholder") || ""),
+            ) || null
+          );
+        }, titlePattern.source);
+        const element = titleTextbox.asElement() as
+          | import("puppeteer").ElementHandle<Element>
+          | null;
+        if (element) {
+          // Clear and type (Puppeteer equivalent of Playwright's fill)
+          await element.click({ clickCount: 3 });
+          await page.keyboard.type(content.title);
           titleFilled = true;
-          this.logger.log("Title filled via getByRole");
+          this.logger.log("Title filled via aria-label/placeholder match");
         }
       } catch (roleError) {
-        this.logger.warn(`getByRole failed: ${(roleError as Error).message}`);
+        this.logger.warn(
+          `Title textbox search failed: ${(roleError as Error).message}`,
+        );
       }
 
       // 方法2: 使用 placeholder 选择器 - 中文优先
@@ -828,7 +887,8 @@ export class WechatAdapter {
             const titleInput = await page.$(selector);
             if (titleInput) {
               this.logger.log(`Found title input with selector: ${selector}`);
-              await titleInput.fill(content.title);
+              await titleInput.click({ count: 3 });
+              await page.keyboard.type(content.title);
               titleFilled = true;
               break;
             }
@@ -1021,7 +1081,7 @@ export class WechatAdapter {
           );
 
           // 验证内容是否被正确填入
-          await page.waitForTimeout(500);
+          await delay(500);
           const contentLength = await page.evaluate(() => {
             const pm = document.querySelector(".ProseMirror");
             return pm ? pm.textContent?.length || 0 : 0;
@@ -1035,9 +1095,11 @@ export class WechatAdapter {
             this.logger.warn(
               `Content may not have been properly inserted (${contentLength} < ${content.content.length * 0.5}), trying keyboard input...`,
             );
-            await page.keyboard.press("Control+a");
+            await page.keyboard.down("Control");
+            await page.keyboard.press("a");
+            await page.keyboard.up("Control");
             await page.keyboard.press("Backspace");
-            await page.waitForTimeout(200);
+            await delay(200);
 
             // 使用键盘逐段输入
             const lines = content.content.split("\n").filter((l) => l.trim());
@@ -1048,7 +1110,7 @@ export class WechatAdapter {
               }
               // 每隔一定行数等待一下
               if (i % 10 === 9) {
-                await page.waitForTimeout(100);
+                await delay(100);
               }
             }
             this.logger.log("Content filled via keyboard input");
@@ -1056,9 +1118,11 @@ export class WechatAdapter {
         } else {
           // 所有方法失败，使用纯键盘输入
           this.logger.warn("All fill methods failed, using keyboard input...");
-          await page.keyboard.press("Control+a");
+          await page.keyboard.down("Control");
+          await page.keyboard.press("a");
+          await page.keyboard.up("Control");
           await page.keyboard.press("Backspace");
-          await page.waitForTimeout(200);
+          await delay(200);
 
           const lines = content.content.split("\n").filter((l) => l.trim());
           for (let i = 0; i < lines.length; i++) {
@@ -1067,13 +1131,13 @@ export class WechatAdapter {
               await page.keyboard.press("Enter");
             }
             if (i % 10 === 9) {
-              await page.waitForTimeout(100);
+              await delay(100);
             }
           }
           this.logger.log("Content filled via keyboard input");
         }
 
-        await page.waitForTimeout(1000); // 等待内容渲染
+        await delay(1000); // 等待内容渲染
         this.logger.log("Content fill completed");
       } else {
         this.logger.warn(
@@ -1085,7 +1149,7 @@ export class WechatAdapter {
           const frameEditor = await frame.$('[contenteditable="true"]');
           if (frameEditor) {
             await frameEditor.click();
-            await frame.keyboard.type(content.content);
+            await page.keyboard.type(content.content);
             this.logger.log("Content filled via iframe");
             break;
           }
@@ -1116,7 +1180,8 @@ export class WechatAdapter {
             const digestInput = await page.$(selector);
             if (digestInput) {
               // 使用较短的超时，避免阻塞整个流程
-              await digestInput.fill(content.digest, { timeout: 5000 });
+              await digestInput.click({ count: 3 });
+              await page.keyboard.type(content.digest);
               this.logger.log("Digest filled successfully");
               break;
             }
@@ -1136,47 +1201,35 @@ export class WechatAdapter {
     }
   }
 
-  private async saveDraft(
-    page: Awaited<ReturnType<typeof this.playwright.createPage>>,
-  ): Promise<string> {
+  private async saveDraft(page: Page): Promise<string> {
     this.logger.log("Looking for save button...");
 
     let saveClicked = false;
 
-    // 方法1: 使用 getByRole - 中文优先
-    // 微信公众号默认中文界面
+    // 方法1: 查找按钮并匹配文本（Puppeteer 版本）
+    const savePattern = /保存为草稿|保存草稿|存为草稿|保存|Save as draft|Save/i;
     try {
-      const saveButton = page.getByRole("button", {
-        name: /保存为草稿|保存草稿|存为草稿|保存|Save as draft|Save/i,
-      });
-      const count = await saveButton.count();
-      this.logger.log(`Found ${count} save button via getByRole`);
-      if (count > 0) {
-        await saveButton.first().click();
-        saveClicked = true;
-        this.logger.log("Save button clicked via getByRole");
+      const buttons = await page.$$("button");
+      for (const btn of buttons) {
+        const text = await btn.evaluate(
+          (el: Element) => el.textContent?.trim() || "",
+        );
+        if (savePattern.test(text)) {
+          await btn.click();
+          saveClicked = true;
+          this.logger.log(`Save button clicked with text: "${text}"`);
+          break;
+        }
       }
     } catch (roleError) {
       this.logger.warn(
-        `getByRole for save button failed: ${(roleError as Error).message}`,
+        `Button text search failed: ${(roleError as Error).message}`,
       );
     }
 
-    // 方法2: 使用选择器 - 中文优先
+    // 方法2: 使用 CSS 选择器
     if (!saveClicked) {
-      const saveSelectors = [
-        // 中文界面
-        'button:has-text("保存为草稿")',
-        'button:has-text("保存草稿")',
-        'button:has-text("存草稿")',
-        'button:has-text("保存")',
-        // 英文界面
-        'button:has-text("Save as draft")',
-        'button:has-text("Save")',
-        // 通用
-        ".js_save",
-        '[class*="save"]',
-      ];
+      const saveSelectors = [".js_save", '[class*="save"]'];
 
       for (const selector of saveSelectors) {
         try {
@@ -1268,13 +1321,15 @@ export class WechatAdapter {
       this.logger.log("Checking save success via alternative methods...");
 
       // 等待一下让 UI 更新
-      await page.waitForTimeout(3000);
+      await delay(3000);
 
       // 方法1: 检查是否有成功提示
       try {
         const toast = await page.$(".weui-desktop-toast__content");
         if (toast) {
-          const toastText = await toast.textContent();
+          const toastText = await toast.evaluate(
+            (el: Element) => el.textContent || "",
+          );
           this.logger.log(`Found toast message: ${toastText}`);
           if (
             toastText?.includes("成功") ||

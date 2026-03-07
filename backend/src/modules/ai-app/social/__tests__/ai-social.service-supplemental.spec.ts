@@ -233,7 +233,7 @@ describe("AiSocialService (supplemental)", () => {
       restoreSession: jest.fn().mockResolvedValue(undefined),
       createPage: jest.fn().mockResolvedValue({
         goto: jest.fn().mockResolvedValue(undefined),
-        waitForLoadState: jest.fn().mockResolvedValue(undefined),
+        waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
         url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         $: jest.fn().mockResolvedValue(null),
       }),

@@ -24,21 +24,23 @@ const mockTrySelectors = trySelectors as jest.MockedFunction<
   typeof trySelectors
 >;
 
+function createMockBrowser() {
+  return {
+    once: jest.fn(),
+  };
+}
+
 function createMockPage(overrides: Record<string, unknown> = {}) {
   return {
-    waitForLoadState: jest.fn().mockResolvedValue(undefined),
+    waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
     url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
     $: jest.fn().mockResolvedValue(null),
+    $$: jest.fn().mockResolvedValue([]),
     evaluate: jest.fn().mockResolvedValue(""),
-    context: jest.fn().mockReturnValue({
-      waitForEvent: jest.fn().mockResolvedValue(createNewPage()),
+    evaluateHandle: jest.fn().mockResolvedValue({
+      asElement: jest.fn().mockReturnValue(null),
     }),
-    locator: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      first: jest.fn().mockReturnValue({
-        click: jest.fn().mockResolvedValue(undefined),
-      }),
-    }),
+    browser: jest.fn().mockReturnValue(createMockBrowser()),
     goto: jest.fn().mockResolvedValue(undefined),
     waitForResponse: jest.fn().mockResolvedValue({
       json: jest.fn().mockResolvedValue({
@@ -49,13 +51,9 @@ function createMockPage(overrides: Record<string, unknown> = {}) {
     keyboard: {
       press: jest.fn().mockResolvedValue(undefined),
       type: jest.fn().mockResolvedValue(undefined),
+      down: jest.fn().mockResolvedValue(undefined),
+      up: jest.fn().mockResolvedValue(undefined),
     },
-    getByRole: jest.fn().mockReturnValue({
-      first: jest.fn().mockReturnValue({
-        fill: jest.fn().mockResolvedValue(undefined),
-        click: jest.fn().mockResolvedValue(undefined),
-      }),
-    }),
     on: jest.fn(),
     ...overrides,
   };
@@ -63,10 +61,15 @@ function createMockPage(overrides: Record<string, unknown> = {}) {
 
 function createNewPage() {
   return {
-    waitForLoadState: jest.fn().mockResolvedValue(undefined),
+    waitForNetworkIdle: jest.fn().mockResolvedValue(undefined),
     url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/appmsg"),
     $: jest.fn().mockResolvedValue(null),
+    $$: jest.fn().mockResolvedValue([]),
     evaluate: jest.fn().mockResolvedValue(true),
+    evaluateHandle: jest.fn().mockResolvedValue({
+      asElement: jest.fn().mockReturnValue(null),
+    }),
+    browser: jest.fn().mockReturnValue(createMockBrowser()),
     waitForResponse: jest.fn().mockResolvedValue({
       json: jest.fn().mockResolvedValue({
         base_resp: { ret: 0 },
@@ -76,20 +79,10 @@ function createNewPage() {
     keyboard: {
       press: jest.fn().mockResolvedValue(undefined),
       type: jest.fn().mockResolvedValue(undefined),
+      down: jest.fn().mockResolvedValue(undefined),
+      up: jest.fn().mockResolvedValue(undefined),
     },
-    getByRole: jest.fn().mockReturnValue({
-      first: jest.fn().mockReturnValue({
-        fill: jest.fn().mockResolvedValue(undefined),
-        click: jest.fn().mockResolvedValue(undefined),
-      }),
-    }),
     goto: jest.fn().mockResolvedValue(undefined),
-    locator: jest.fn().mockReturnValue({
-      count: jest.fn().mockResolvedValue(0),
-      first: jest.fn().mockReturnValue({
-        click: jest.fn().mockResolvedValue(undefined),
-      }),
-    }),
   };
 }
 
@@ -163,12 +156,13 @@ describe("WechatPublisherService", () => {
 
     it("should return error if token cannot be extracted", async () => {
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         evaluate: jest.fn().mockResolvedValue(""),
       });
-      const sessionDataNoToken = { cookies: [], localStorage: {} } as SessionData;
+      const sessionDataNoToken = {
+        cookies: [],
+        localStorage: {},
+      } as SessionData;
 
       const result = await service.publishWithMassSend(
         page,
@@ -183,14 +177,10 @@ describe("WechatPublisherService", () => {
 
     it("should use saved wechatToken from sessionData", async () => {
       const newEditorPage = createNewPage();
+      void newEditorPage; // suppress unused variable warning
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
       });
 
       // navigateToEditor should use goto fallback when no menu found
@@ -199,12 +189,9 @@ describe("WechatPublisherService", () => {
         return undefined;
       });
 
-      const result = await service.publishWithMassSend(
-        page,
-        mockContent,
-        mockSessionData,
-        { mode: "draft" as PublishMode },
-      );
+      await service.publishWithMassSend(page, mockContent, mockSessionData, {
+        mode: "draft" as PublishMode,
+      });
 
       // With token available and login valid, should proceed further
       expect(mockSessionData.wechatToken).toBe("test-token-12345");
@@ -212,13 +199,8 @@ describe("WechatPublisherService", () => {
 
     it("should return draft result when mode is 'draft'", async () => {
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
         waitForResponse: jest.fn().mockResolvedValue({
           json: jest.fn().mockResolvedValue({
             base_resp: { ret: 0 },
@@ -244,12 +226,8 @@ describe("WechatPublisherService", () => {
 
     it("should handle error thrown during publish flow", async () => {
       const page = createMockPage({
-        waitForLoadState: jest
-          .fn()
-          .mockRejectedValue(new Error("Network timeout")),
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        goto: jest.fn().mockRejectedValue(new Error("Network timeout")),
       });
 
       const result = await service.publishWithMassSend(
@@ -265,13 +243,8 @@ describe("WechatPublisherService", () => {
 
     it("should return mass send result when mode is 'published'", async () => {
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
       });
 
       // Patch waitForResponse to return a response with mass send success
@@ -302,13 +275,14 @@ describe("WechatPublisherService", () => {
     });
 
     it("should extract token from URL when wechatToken is absent", async () => {
-      const sessionNoToken: SessionData = { cookies: [], localStorage: {} } as SessionData;
+      const sessionNoToken: SessionData = {
+        cookies: [],
+        localStorage: {},
+      } as SessionData;
       const page = createMockPage({
         url: jest
           .fn()
-          .mockReturnValue(
-            "https://mp.weixin.qq.com/cgi-bin/home?token=99999",
-          ),
+          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home?token=99999"),
       });
 
       // Just ensure it doesn't throw
@@ -325,13 +299,8 @@ describe("WechatPublisherService", () => {
 
     it("should handle saveDraft failure gracefully", async () => {
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
         waitForResponse: jest.fn().mockRejectedValue(new Error("timeout")),
       });
 
@@ -349,9 +318,7 @@ describe("WechatPublisherService", () => {
 
     it("should detect login via home URL", async () => {
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
       });
 
       const result = await service.publishWithMassSend(
@@ -387,13 +354,8 @@ describe("WechatPublisherService", () => {
 
     it("should return draft result with externalId when draft save succeeds", async () => {
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
         waitForResponse: jest.fn().mockResolvedValue({
           json: jest.fn().mockResolvedValue({
             ret: 0,
@@ -420,13 +382,8 @@ describe("WechatPublisherService", () => {
         content: "Content only, no title.",
       } as SocialContent;
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
       });
 
       const result = await service.publishWithMassSend(
@@ -443,13 +400,8 @@ describe("WechatPublisherService", () => {
       mockTryClick.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
         waitForResponse: jest.fn().mockResolvedValue({
           json: jest.fn().mockResolvedValue({
             base_resp: { ret: 0 },
@@ -470,13 +422,8 @@ describe("WechatPublisherService", () => {
 
     it("should handle scheduledAt option in mass send", async () => {
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
         $: jest.fn().mockImplementation((selector: string) => {
           if (selector === "text=定时群发") {
             return {
@@ -512,13 +459,8 @@ describe("WechatPublisherService", () => {
         .mockResolvedValueOnce(true); // confirmSend
 
       const page = createMockPage({
-        url: jest
-          .fn()
-          .mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
+        url: jest.fn().mockReturnValue("https://mp.weixin.qq.com/cgi-bin/home"),
         goto: jest.fn().mockResolvedValue(undefined),
-        locator: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
-        }),
         waitForResponse: jest
           .fn()
           .mockResolvedValueOnce({
