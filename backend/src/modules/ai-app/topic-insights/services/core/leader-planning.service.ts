@@ -759,7 +759,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
 
     // ★ 注入图表分配信息
     const figuresSection = figuresSummary
-      ? `\n\n## 可用图表资源\n${figuresSummary}\n\n**图表分配指令**：请为每个 section 分配 0-2 个最相关的图表。每张图只能分配给一个 section。在 sections 的每个条目中新增 "allocatedFigures" 字段。`
+      ? `\n\n## 可用图表资源\n${figuresSummary}\n\n**图表分配指令**：\n1. 为每个 section 分配 0-2 个**内容直接相关**的图表\n2. 每张图只能分配给一个 section\n3. 在 sections 的每个条目中新增 "allocatedFigures" 字段\n\n**相关性判断标准（严格遵守）**：\n- 图表的标题/描述中的**核心主题词**必须与 section 的标题或 keyPoints 直接相关\n- 例如："硬件演进"图表 → 只能分配给讨论硬件/算力的 section，不能分配给讨论注意力机制的 section\n- 例如："机器人基础模型"图表 → 只能分配给讨论机器人/具身智能的 section，不能分配给讨论 GPT 的 section\n- 如果没有直接相关的图表，该 section 的 allocatedFigures 留空数组 []\n- **宁缺勿滥**：不确定是否相关时，不分配\n\n**relevanceReason 必须具体说明**：图表中的哪个关键词/主题与 section 的哪个要点直接对应`
       : "";
     const finalPrompt = prompt + figuresSection;
 

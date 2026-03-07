@@ -2504,7 +2504,7 @@ describe("DimensionMissionService", () => {
           extractedFigures: [
             {
               imageUrl: "http://img.com/recovered.png",
-              caption: "Recovered",
+              caption: "市场概况图表",
               alt: "alt",
             },
           ],
@@ -2595,7 +2595,11 @@ describe("DimensionMissionService", () => {
           sourceType: "web",
           publishedAt: null,
           extractedFigures: [
-            { imageUrl: "http://img.com/fig.png", caption: "Fig", alt: "alt" },
+            {
+              imageUrl: "http://img.com/fig.png",
+              caption: "市场概况图表",
+              alt: "alt",
+            },
           ],
         },
       ];
@@ -2610,7 +2614,7 @@ describe("DimensionMissionService", () => {
                 evidenceIndex: 1,
                 figureIndex: 0,
                 imageUrl: "http://img.com/fig.png",
-                caption: "Fig",
+                caption: "市场概况图表",
               },
             ],
           },
@@ -2621,7 +2625,7 @@ describe("DimensionMissionService", () => {
                 evidenceIndex: 1,
                 figureIndex: 0,
                 imageUrl: "http://img.com/fig.png",
-                caption: "Fig duplicate",
+                caption: "竞争对手分析图",
               },
             ],
           },

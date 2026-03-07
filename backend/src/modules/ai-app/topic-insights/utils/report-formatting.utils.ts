@@ -898,6 +898,39 @@ export function mergeAdjacentMathBlocks(content: string): string {
     );
   }
 
+  // Absorb dangling ^{...} or _{...} after a closing $
+  // e.g. $\mathbb{R}$^{d_m} → $\mathbb{R}^{d_m}$
+  //      $\theta$_{p,k}   → $\theta_{p,k}$
+  result = result.replace(
+    /\$([^$]+)\$(\^|_)\{([^}]*)\}/g,
+    (_, inner, op, sub) => `$${inner}${op}{${sub}}$`,
+  );
+
+  // Absorb dangling bare text between $ blocks when it looks like LaTeX
+  // e.g. $Q_i = $XW_Q^{(i)} → merge if the bare part has LaTeX-like chars
+  // This is conservative: only merges when bare part has \ or ^ or _ or { or }
+  prev = "";
+  while (prev !== result) {
+    prev = result;
+    result = result.replace(
+      /\$([^$]+)\$([^$\n]{1,40})\$([^$]+)\$/g,
+      (match, a, between, b) => {
+        // Only merge if the between text contains LaTeX-like characters
+        if (/[\\^_{}]/.test(between)) {
+          return `$${a}${between}${b}$`;
+        }
+        return match;
+      },
+    );
+  }
+
+  // Absorb trailing LaTeX-like text after closing $ (e.g. $...$\right)V)
+  // Only when the trailing text starts with \ (LaTeX command)
+  result = result.replace(
+    /\$([^$]+)\$(\\(?:right|left|Big|big)[^$\s]*)/g,
+    (_, inner, trail) => `$${inner}${trail}$`,
+  );
+
   // Restore protected sections
   result = result.replace(/__INLINE_CODE_(\d+)__/g, (_, i) => inlineCodes[i]);
   result = result.replace(/__CODE_BLOCK_(\d+)__/g, (_, i) => codeBlocks[i]);

@@ -1013,8 +1013,44 @@ export class DimensionWritingService {
         valid.push(fig);
       }
 
-      section.allocatedFigures = valid;
-      totalAllocated += valid.length;
+      // ★ 关键词相关性过滤：图表 caption 必须与 section 标题/描述有交集
+      const relevant = valid.filter((fig) => {
+        const captionLower = (fig.caption || "").toLowerCase();
+        const sectionTitle = (section.title || "").toLowerCase();
+        const sectionDesc = (section.description || "").toLowerCase();
+        const sectionKeyPoints = (section.keyPoints || [])
+          .map((kp: string) => kp.toLowerCase())
+          .join(" ");
+        const sectionText = `${sectionTitle} ${sectionDesc} ${sectionKeyPoints}`;
+
+        // Extract Chinese bigrams and Latin words from caption for matching
+        const chineseChars = captionLower.replace(/[^\u4e00-\u9fff]/g, "");
+        const latinWords = captionLower
+          .replace(/[\u4e00-\u9fff]+/g, " ")
+          .split(/[\s\W]+/)
+          .filter((w) => w.length >= 3);
+
+        // Build bigrams from Chinese characters (sliding window of 2)
+        const bigrams: string[] = [];
+        for (let bi = 0; bi < chineseChars.length - 1; bi++) {
+          bigrams.push(chineseChars.substring(bi, bi + 2));
+        }
+        const allKeywords = [...bigrams, ...latinWords];
+
+        // Skip filter if caption has no extractable keywords (empty/generic caption)
+        if (allKeywords.length === 0) return true;
+
+        // At least one keyword must appear in section context
+        const hasOverlap = allKeywords.some((kw) => sectionText.includes(kw));
+        if (!hasOverlap) {
+          this.logger.warn(
+            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — no keyword overlap`,
+          );
+        }
+        return hasOverlap;
+      });
+      section.allocatedFigures = relevant;
+      totalAllocated += relevant.length;
     }
 
     this.logger.log(
