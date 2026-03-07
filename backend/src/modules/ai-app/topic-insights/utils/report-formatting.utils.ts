@@ -77,6 +77,21 @@ export function hierarchicalNumberBoldListItems(content: string): string {
   const lines = content.split("\n");
   let currentPrefix = ""; // e.g., "5.14"
   let listCounter = 0;
+  let sectionHasH4 = false; // Track if current section has #### headings
+
+  // Pre-scan: check if each ### section contains #### headings
+  // If so, skip bold list renumbering in that section to avoid conflicts
+  const h4Sections = new Set<string>();
+  let scanPrefix = "";
+  for (const line of lines) {
+    const h3Match = line.match(/^###\s+(\d+\.\d+)\.\s+/);
+    if (h3Match) {
+      scanPrefix = h3Match[1];
+    }
+    if (scanPrefix && /^####\s+/.test(line)) {
+      h4Sections.add(scanPrefix);
+    }
+  }
 
   return lines
     .map((line) => {
@@ -85,6 +100,7 @@ export function hierarchicalNumberBoldListItems(content: string): string {
       if (h3Match) {
         currentPrefix = h3Match[1];
         listCounter = 0;
+        sectionHasH4 = h4Sections.has(currentPrefix);
         return line;
       }
 
@@ -95,7 +111,8 @@ export function hierarchicalNumberBoldListItems(content: string): string {
       }
 
       // Match "N. **bold text**" pattern — structural sub-item
-      if (currentPrefix && /^\d+\.\s+\*\*/.test(line)) {
+      // Skip renumbering if the section already has #### headings (avoids conflict)
+      if (currentPrefix && !sectionHasH4 && /^\d+\.\s+\*\*/.test(line)) {
         listCounter++;
         return line.replace(/^\d+\./, `${currentPrefix}.${listCounter}.`);
       }
@@ -124,8 +141,22 @@ export function deduplicateParagraphs(
       if (trimmed.length < DEDUP_MIN_LENGTH) return true;
       // Exempt headings, comments, list items, blockquotes
       if (/^(#|<!--|[-*>|]|\d+\.)/.test(trimmed)) return true;
+
+      // Primary key: first 120 chars (exact match)
       const key = trimmed.substring(0, DEDUP_KEY_LENGTH);
       if (globalSeenParagraphs.has(key)) return false;
+
+      // Secondary key: normalized (no punctuation/spaces) first 80 chars
+      // Catches rephrased duplicates with minor wording changes
+      const normalized = trimmed
+        .replace(/[，。；：、""''（）\s]/g, "")
+        .substring(0, 80);
+      if (normalized.length >= 40) {
+        const normKey = `~${normalized}`;
+        if (globalSeenParagraphs.has(normKey)) return false;
+        globalSeenParagraphs.add(normKey);
+      }
+
       globalSeenParagraphs.add(key);
       return true;
     })
@@ -147,6 +178,9 @@ export function deduplicateHeadings(content: string): string {
       const normalized = m[1]
         .replace(/^(?:\d+\.)+\s*/, "")
         .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
+        // Normalize all whitespace (spaces, ideographic spaces) to single space
+        // so "OpenAI的GPT" and "OpenAI 的 GPT" are treated as the same heading
+        .replace(/\s+/g, "")
         .trim();
       if (seenHeadings.has(normalized)) return false;
       seenHeadings.add(normalized);
@@ -490,6 +524,12 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/\[当前字数[：:]\s*\d+\]/g, "")
       .replace(/\(字数[^)]{0,30}\)/g, "")
       .replace(/（字数[^）]{0,30}）/g, "")
+      // Bold-wrapped word count annotations: **字数约1350字（内部统计，不输出）**
+      .replace(/\*{2}字数[约共]?\d+字[^*]*\*{2}/g, "")
+      // Bare word count at line end: （当前字数: 1350）or [当前字数: 1350]
+      .replace(/[（(【\[]?\s*当前字数\s*[：:]\s*\d+\s*[)）】\]]?/g, "")
+      // Standalone word count line: 字数：约1350字
+      .replace(/^\s*字数[：:]\s*[约共]?\d+[字词]?\s*$/gm, "")
       // English variants
       .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
       .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")
@@ -541,6 +581,19 @@ export function stripLLMMetaNotes(content: string): string {
         /(?:^|\n)\s*(?:综合来看|总体来看|综上所述|值得注意的是|值得警惕的是|需要指出的是|不可忽视的是|毋庸置疑)[，,：:]\s*/g,
         (m) => (m.startsWith("\n") ? "\n" : ""),
       )
+      // ── 翻译伪影（中英拼接错误，如"代理ic layers"） ──
+      // Pattern: Chinese word + English suffix (indicates broken translation)
+      .replace(/代理ic\s*/g, "代理")
+      .replace(/模型el\s*/g, "模型")
+      .replace(/训练ing\s*/g, "训练")
+      .replace(/推理ence\s*/g, "推理")
+      .replace(/注意力tion\s*/g, "注意力")
+      .replace(/嵌入ding\s*/g, "嵌入")
+      // ── 教材/教程口吻残余 ──
+      .replace(/在学习路线中[，,]?/g, "")
+      .replace(/多模态课程[中内]?[，,]?/g, "")
+      .replace(/从教程中可以看到[，,]?/g, "")
+      .replace(/如教材所述[，,]?/g, "")
       // ── 残留图片 URL 片段（如 ".avif)" ".webp)" ".png)" 单独出现在行尾） ──
       .replace(/^\s*\.(?:avif|webp|png|jpg|jpeg|gif|svg)\)\s*$/gm, "")
       // ── 孤立的 fenced code block 标记（LLM 有时泄漏 ```json / ``` 而不包含代码内容）──
@@ -887,6 +940,69 @@ export function mergeAdjacentMathBlocks(content: string): string {
     return `__INLINE_CODE_${inlineCodes.length - 1}__`;
   });
 
+  // ── Phase 0: Wrap bare LaTeX expressions that lack $...$ delimiters ────
+  // Handles both standalone formula lines and inline bare LaTeX.
+
+  // 0a. Standalone formula lines: entire line is a LaTeX expression (e.g. \text{Attention}(Q,K,V) = ...)
+  // These lines start with \command or contain multiple \commands and no $ delimiters
+  result = result.replace(
+    /^(\\(?:text|frac|sqrt|left|mathbb|operatorname)\{[^}]*\}[^\n]*[=≈≤≥<>][^\n]*)$/gm,
+    (line) => {
+      // Skip if already has $ delimiters
+      if (/\$/.test(line)) return line;
+      return `$${line}$`;
+    },
+  );
+
+  // 0b. Standalone formula lines: Q = XW_Q,\quad K = XW_K,... pattern
+  result = result.replace(
+    /^([A-Z](?:_[A-Za-z])?\s*=\s*[A-Z][^\n]*\\(?:quad|,|;)[^\n]*)$/gm,
+    (line) => {
+      if (/\$/.test(line)) return line;
+      return `$${line}$`;
+    },
+  );
+
+  // 0c. Inline bare LaTeX: expressions containing \commands outside of $ delimiters
+  // Match sequences like: h^{(m)} \in \mathbb{R}^{d_m} or O_i = \phi(Q_i) S
+  // Strategy: find runs of LaTeX-like tokens not already inside $...$
+  result = result.replace(
+    /(?<!\$)(?:[A-Za-z_]\^?\{[^}]*\}|\\(?:text|frac|sqrt|left|right|mathbb|phi|in|approx|times|quad|cdot|top|sum|infty|operatorname|mathcal|log|exp|max|min|lim|sup|inf|neq|leq|geq|sim|propto|forall|exists|partial|nabla|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|pi|omega|theta|eta|tau|Phi|psi|rho|xi|zeta|kappa)\b[^$\n]*){2,}(?!\$)/g,
+    (match) => {
+      // Skip if it's inside a markdown link or heading marker
+      if (/^\[|^#/.test(match.trim())) return match;
+      // Skip if already wrapped
+      if (/^\$/.test(match.trim())) return match;
+      // Skip very short matches (likely false positives)
+      if (match.trim().length < 8) return match;
+      return `$${match}$`;
+    },
+  );
+
+  // 0d. Simple bare complexity notations: O(n^2), O(n\sqrt{n}), O(n d_k d_v)
+  result = result.replace(
+    /(?<!\$)\bO\(([^)]*[\\^_{}][^)]*)\)(?!\$)/g,
+    (_match, inner) => {
+      return `$O(${inner})$`;
+    },
+  );
+
+  // ── Phase 0e: Deduplicate consecutive identical math expressions ──
+  // LLM sometimes outputs the same formula as: raw text, $...$, $$...$$
+  // Normalize and keep only the first $-wrapped version.
+  result = result.replace(
+    /(\$\$?[^$]+\$\$?)\s*\n\s*(\$\$?[^$]+\$\$?)/g,
+    (match, first: string, second: string) => {
+      const norm = (s: string) =>
+        s.replace(/\$+/g, "").replace(/\s+/g, "").replace(/\\text\{([^}]+)\}/g, "$1");
+      if (norm(first) === norm(second)) {
+        // Keep the display math ($$) version if available, else keep first
+        return second.startsWith("$$") ? second : first;
+      }
+      return match;
+    },
+  );
+
   // Merge adjacent $...$ blocks: $A$ $B$ → $A B$  (also handles $A$$B$)
   // Repeat until stable (merging 3+ consecutive blocks)
   let prev = "";
@@ -989,6 +1105,226 @@ export function anchorReferences(content: string): string {
   return content.replace(
     /^\[(\d+)\]\s/gm,
     (match, num) => `<a id="ref-${num}"></a>${match}`,
+  );
+}
+
+// ============ Additional Post-Processing Utilities ============
+
+/**
+ * Decode HTML entities in report body text.
+ * LLMs sometimes output &gt; &lt; &amp; &quot; instead of > < & "
+ * which renders as literal entity text in the final report.
+ *
+ * Skips code blocks (``` and inline `).
+ * Task #30
+ */
+export function decodeHtmlEntities(content: string): string {
+  // Protect code blocks
+  const codeBlocks: string[] = [];
+  let result = content.replace(/```[\s\S]*?```/g, (m) => {
+    codeBlocks.push(m);
+    return `__HTML_CB_${codeBlocks.length - 1}__`;
+  });
+  const inlineCodes: string[] = [];
+  result = result.replace(/`[^`]+`/g, (m) => {
+    inlineCodes.push(m);
+    return `__HTML_IC_${inlineCodes.length - 1}__`;
+  });
+
+  result = result
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+
+  // Restore
+  result = result.replace(/__HTML_IC_(\d+)__/g, (_, i) => inlineCodes[i]);
+  result = result.replace(/__HTML_CB_(\d+)__/g, (_, i) => codeBlocks[i]);
+  return result;
+}
+
+/**
+ * Convert Chinese numeral headings to standard Markdown headings.
+ * LLMs sometimes output "一、标题" or "（一）标题" as section headers
+ * instead of proper ### headings.
+ *
+ * Converts:
+ *   一、标题名 → ### 标题名
+ *   （一）标题名 → ### 标题名
+ *   二．标题名 → ### 标题名
+ *
+ * Only converts when the line looks like a standalone heading
+ * (starts at line beginning, followed by heading-like text).
+ * Task #23
+ */
+export function convertChineseNumeralHeadings(content: string): string {
+  return content.replace(
+    /^([一二三四五六七八九十百]+)[、．.]\s*(.+)$/gm,
+    (_match, _num, title: string) => {
+      const trimmed = title.trim();
+      // Only convert if title looks like a heading (not a list item continuation)
+      if (trimmed.length < 2 || trimmed.length > 60) return _match;
+      return `### ${trimmed}`;
+    },
+  );
+}
+
+/**
+ * Repair broken list items where the bullet is on one line
+ * and the content is on the next line.
+ *
+ * Converts:
+ *   -\n  Content text  → - Content text
+ *   1.\n  Content text → 1. Content text
+ *
+ * Task #15
+ */
+export function repairBrokenListItems(content: string): string {
+  // Unordered: "- " or "* " alone on a line, content on next line
+  let result = content.replace(
+    /^(\s*[-*])\s*\n(\s+\S[^\n]*)$/gm,
+    (_match, bullet, text) => `${bullet} ${text.trim()}`,
+  );
+  // Ordered: "N." alone on a line, content on next line
+  result = result.replace(
+    /^(\s*\d+\.)\s*\n(\s+\S[^\n]*)$/gm,
+    (_match, bullet, text) => `${bullet} ${text.trim()}`,
+  );
+  return result;
+}
+
+/**
+ * Clear empty blockquotes, image load failure placeholders,
+ * and orphaned image markdown that won't render.
+ *
+ * Removes:
+ *   > (empty blockquote with nothing after >)
+ *   ![alt](broken-url) on its own line
+ *   ![]() empty image markdown
+ *   Image load failure text patterns
+ *
+ * Task #25
+ */
+export function clearBrokenMediaAndEmptyBlocks(content: string): string {
+  return (
+    content
+      // Empty blockquotes (> followed by only whitespace or nothing)
+      .replace(/^>\s*$/gm, "")
+      // Empty image markdown: ![...]() or ![]()
+      .replace(/^!\[[^\]]*\]\(\s*\)\s*$/gm, "")
+      // Image failure placeholders
+      .replace(/^\s*\[?图片加载失败\]?\s*$/gm, "")
+      .replace(/^\s*\[?Image (?:load|loading) (?:failed|error)\]?\s*$/gim, "")
+      // Orphaned image alt text without URL (just ![alt text] without (url))
+      .replace(/^!\[[^\]]+\]\s*$/gm, "")
+      // Clean up resulting empty lines
+      .replace(/\n{3,}/g, "\n\n")
+  );
+}
+
+/**
+ * Fix double source labels in references.
+ * LLM generates "来源：来源：" or "来源: 来源:" doubled prefixes.
+ *
+ * Also normalizes "来源：证据 [N]" → "证据 [N]"
+ * (the "来源：" prefix is redundant when followed by evidence citation).
+ *
+ * Task #3
+ */
+export function fixDoubleSourceLabels(content: string): string {
+  return (
+    content
+      // Double source label: 来源：来源：→ 来源：
+      .replace(/来源[：:]\s*来源[：:]/g, "来源：")
+      // Source label before evidence citation: 来源：证据 [N] → 证据 [N]
+      .replace(/来源[：:]\s*证据\s*/g, "证据 ")
+      // English double: Source: Source: → Source:
+      .replace(/Source:\s*Source:/gi, "Source:")
+  );
+}
+
+/**
+ * Detect and split wall-of-text paragraphs.
+ *
+ * Paragraphs longer than maxChars are split at the nearest sentence boundary
+ * (。！？；or .\s) near the midpoint. This prevents unreadable text blocks.
+ *
+ * Only splits plain text paragraphs (not headings, lists, blockquotes, tables).
+ * Task #8
+ */
+export function splitWallOfText(
+  content: string,
+  maxChars: number = 400,
+): string {
+  const paragraphs = content.split("\n\n");
+
+  return paragraphs
+    .map((p) => {
+      const trimmed = p.trim();
+      // Skip non-prose: headings, lists, blockquotes, tables, code, images
+      if (/^[#>|!\-*\d]|^```|^\|/.test(trimmed)) return p;
+      // Skip short paragraphs
+      if (trimmed.length <= maxChars) return p;
+
+      // Find sentence boundaries (Chinese and English)
+      const sentenceEnds: number[] = [];
+      const sentencePattern = /[。！？；]\s*|[.!?]\s+/g;
+      let m: RegExpExecArray | null;
+      while ((m = sentencePattern.exec(trimmed)) !== null) {
+        sentenceEnds.push(m.index + m[0].length);
+      }
+
+      if (sentenceEnds.length < 2) return p; // Can't split single sentence
+
+      // Find the split point nearest to midpoint
+      const midpoint = trimmed.length / 2;
+      let bestSplit = sentenceEnds[0];
+      let bestDist = Math.abs(bestSplit - midpoint);
+      for (const pos of sentenceEnds) {
+        const dist = Math.abs(pos - midpoint);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestSplit = pos;
+        }
+      }
+
+      // Don't create tiny fragments (< 80 chars)
+      if (bestSplit < 80 || trimmed.length - bestSplit < 80) return p;
+
+      return trimmed.substring(0, bestSplit).trim() + "\n\n" + trimmed.substring(bestSplit).trim();
+    })
+    .join("\n\n");
+}
+
+/**
+ * Fix arrow chains in text (→ used to express causality).
+ * Converts "A → B → C" patterns to natural language.
+ *
+ * Already called in report-assembler postProcessFinalReport,
+ * but exported here for reuse.
+ */
+export function fixArrowChains(content: string): string {
+  // Match lines with 2+ arrows: "A → B → C" or "A→B→C"
+  return content.replace(
+    /^(.+?)\s*→\s*(.+?)\s*→\s*(.+)$/gm,
+    (_match, a: string, b: string, c: string) => {
+      // Check if there are more arrows in c
+      const parts = c.split(/\s*→\s*/);
+      if (parts.length === 1) {
+        return `${a.trim()}，进而${b.trim()}，最终${c.trim()}`;
+      }
+      // Multiple remaining parts
+      const allParts = [a.trim(), b.trim(), ...parts.map((p: string) => p.trim())];
+      return allParts
+        .map((part: string, i: number) => {
+          if (i === 0) return part;
+          if (i === allParts.length - 1) return `最终${part}`;
+          return `进而${part}`;
+        })
+        .join("，");
+    },
   );
 }
 

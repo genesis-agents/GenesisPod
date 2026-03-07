@@ -22,6 +22,12 @@ import {
   mergeAdjacentMathBlocks,
   linkifyCitations,
   anchorReferences,
+  decodeHtmlEntities,
+  convertChineseNumeralHeadings,
+  repairBrokenListItems,
+  clearBrokenMediaAndEmptyBlocks,
+  fixDoubleSourceLabels,
+  splitWallOfText,
 } from "../../utils/report-formatting.utils";
 import {
   stripChartJsonFromContent,
@@ -131,6 +137,9 @@ export class ReportAssemblerService {
     // charts are managed via the <!-- chart --> placeholder mechanism)
     processed = processed.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
 
+    // Convert Chinese numeral headings (一、标题 → ### 标题) BEFORE heading normalization
+    processed = convertChineseNumeralHeadings(processed);
+
     // Heading level safety net: demote # / ## to ###; keep ### / #### unchanged
     processed = sanitizeHeadingLevels(processed);
 
@@ -172,6 +181,21 @@ export class ReportAssemblerService {
 
     // Strip LLM meta-notes (word-count annotations, editorial instructions, etc.)
     processed = stripLLMMetaNotes(processed);
+
+    // Decode HTML entities (&gt; &lt; &amp;) leaked by LLM
+    processed = decodeHtmlEntities(processed);
+
+    // Fix double source labels (来源：来源：→ 来源：)
+    processed = fixDoubleSourceLabels(processed);
+
+    // Repair broken list items (empty bullet + content on next line)
+    processed = repairBrokenListItems(processed);
+
+    // Clear empty blockquotes and broken image placeholders
+    processed = clearBrokenMediaAndEmptyBlocks(processed);
+
+    // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
+    processed = splitWallOfText(processed);
 
     return processed;
   }
@@ -306,7 +330,7 @@ export class ReportAssemblerService {
 
       const rawContent = dim.detailedContent || dim.summary || "暂无详细内容";
 
-      const processed = this.processDimensionContent(
+      let processed = this.processDimensionContent(
         rawContent,
         idx,
         globalSeenParagraphs,
@@ -314,6 +338,22 @@ export class ReportAssemblerService {
         dim.figureReferences as FigureReference[] | undefined,
         dim.generatedCharts as GeneratedChart[] | undefined,
       );
+
+      // Inject Chapter Highlights if LLM didn't generate one (#6)
+      const hasChapterHighlights = /^>\s*\*{0,2}本章要点/m.test(processed);
+      if (!hasChapterHighlights && dim.keyFindings?.length > 0) {
+        const highlightLabel = isEn ? "Chapter Highlights" : "本章要点";
+        const highlights = dim.keyFindings
+          .slice(0, 4)
+          .map((f) => {
+            // Truncate finding to ~30 chars for concise highlights
+            const text = (f.finding || "").substring(0, 60).trim();
+            return `> - ${text}`;
+          })
+          .join("\n");
+        const highlightBlock = `> **${highlightLabel}**\n${highlights}\n\n`;
+        processed = highlightBlock + processed;
+      }
 
       parts.push(processed);
       parts.push("\n\n");
@@ -408,20 +448,47 @@ export class ReportAssemblerService {
       parts.push("\n\n");
     }
 
-    // ── 9. Conclusion (AI-generated) — with duplication guard ─────────────
+    // ── 9. Conclusion (AI-generated) — with enhanced duplication guard ────
     if (sc.conclusion) {
-      const conclusionText = stripLeadingHeading(sc.conclusion).trim();
-      const crossText = (sc.crossDimensionAnalysis || "").trim();
+      let conclusionText = stripLeadingHeading(sc.conclusion).trim();
 
-      // Check 1: first 500 chars exact match (whitespace-normalized)
-      const conclusionKey = conclusionText.substring(0, 500).replace(/\s/g, "");
-      const crossKey = crossText.substring(0, 500).replace(/\s/g, "");
-      const isExactDuplicate =
-        conclusionKey.length > 50 &&
-        crossKey.length > 50 &&
-        conclusionKey === crossKey;
+      // Collect all supplementary sections to check against
+      const supplementarySections = [
+        sc.crossDimensionAnalysis,
+        sc.riskAssessment,
+        sc.strategicRecommendations,
+      ]
+        .filter(Boolean)
+        .map((s) => (s as string).trim());
 
-      // Check 2: H3 heading overlap > 50% indicates structural duplication
+      // Extract 120-char paragraph keys from supplementary sections
+      const supplementaryParagraphKeys = new Set<string>();
+      for (const section of supplementarySections) {
+        const paras = section.split("\n\n");
+        for (const p of paras) {
+          const trimmed = p.trim();
+          if (trimmed.length >= 60 && !/^[#>|!\-*\d]/.test(trimmed)) {
+            supplementaryParagraphKeys.add(
+              trimmed.substring(0, 120).replace(/\s/g, ""),
+            );
+          }
+        }
+      }
+
+      // Check 1: paragraph-level content overlap
+      const conclusionParas = conclusionText
+        .split("\n\n")
+        .filter((p) => p.trim().length >= 60);
+      const duplicateParas = conclusionParas.filter((p) => {
+        const key = p.trim().substring(0, 120).replace(/\s/g, "");
+        return supplementaryParagraphKeys.has(key);
+      });
+      const overlapRatio =
+        conclusionParas.length > 0
+          ? duplicateParas.length / conclusionParas.length
+          : 0;
+
+      // Check 2: H3 heading overlap with cross-dimension analysis
       const extractH3 = (t: string): string[] =>
         (t.match(/^###\s+(.+)$/gm) ?? []).map((h) =>
           h
@@ -430,18 +497,43 @@ export class ReportAssemblerService {
             .trim(),
         );
       const conclusionH3 = extractH3(conclusionText);
-      const crossH3 = extractH3(crossText);
+      const crossH3 = extractH3(
+        (sc.crossDimensionAnalysis || "") +
+          (sc.riskAssessment || "") +
+          (sc.strategicRecommendations || ""),
+      );
       const h3Overlap =
         crossH3.length > 0 && conclusionH3.length > 0
           ? conclusionH3.filter((h) => crossH3.includes(h)).length /
             conclusionH3.length
           : 0;
-      const isStructuralDuplicate = h3Overlap > 0.5;
 
-      if (isExactDuplicate || isStructuralDuplicate) {
-        this.logger.warn(
-          `[assembleFullReport] Conclusion is duplicate of crossDimensionAnalysis (exact=${isExactDuplicate}, h3Overlap=${(h3Overlap * 100).toFixed(0)}%), skipping`,
-        );
+      if (overlapRatio > 0.4 || h3Overlap > 0.5) {
+        // Strip duplicate paragraphs but keep unique content
+        if (overlapRatio < 1.0 && conclusionParas.length > duplicateParas.length) {
+          // Partial overlap: remove only duplicate paragraphs
+          const uniqueParas = conclusionText
+            .split("\n\n")
+            .filter((p) => {
+              const trimmed = p.trim();
+              if (trimmed.length < 60 || /^[#>|!\-*\d]/.test(trimmed)) return true;
+              const key = trimmed.substring(0, 120).replace(/\s/g, "");
+              return !supplementaryParagraphKeys.has(key);
+            });
+          conclusionText = uniqueParas.join("\n\n").trim();
+          this.logger.warn(
+            `[assembleFullReport] Conclusion had ${duplicateParas.length}/${conclusionParas.length} duplicate paragraphs, stripped duplicates`,
+          );
+          if (conclusionText.length > 50) {
+            parts.push(`## ${labels.conclusion}\n`);
+            parts.push(conclusionText);
+            parts.push("\n");
+          }
+        } else {
+          this.logger.warn(
+            `[assembleFullReport] Conclusion is fully duplicate (overlap=${(overlapRatio * 100).toFixed(0)}%, h3=${(h3Overlap * 100).toFixed(0)}%), skipping`,
+          );
+        }
       } else if (conclusionText.length > 0) {
         parts.push(`## ${labels.conclusion}\n`);
         parts.push(conclusionText);
@@ -534,6 +626,21 @@ export class ReportAssemblerService {
     // Full-document pass: strip LLM meta-notes
     content = stripLLMMetaNotes(content);
 
+    // Decode HTML entities (&gt; &lt; &amp;) in body text
+    content = decodeHtmlEntities(content);
+
+    // Fix double source labels (来源：来源：→ 来源：)
+    content = fixDoubleSourceLabels(content);
+
+    // Repair broken list items (empty bullet + content on next line)
+    content = repairBrokenListItems(content);
+
+    // Clear empty blockquotes and broken image placeholders
+    content = clearBrokenMediaAndEmptyBlocks(content);
+
+    // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
+    content = splitWallOfText(content);
+
     // Repair ordered list continuity (LLM often restarts from 1 mid-section)
     content = repairOrderedListContinuity(content);
 
@@ -546,10 +653,22 @@ export class ReportAssemblerService {
     // Convert [N] citation markers to clickable links targeting reference anchors
     content = linkifyCitations(content);
 
-    // Warn-only checks
+    // Arrow chains: replace "A → B → C" patterns with natural language
+    // Only fix chains (3+ items connected by →), preserve single → in headings/titles
+    content = content.replace(
+      /([^→\n]{2,50})(?:\s*→\s*([^→\n]{2,50})){2,}/g,
+      (match) => {
+        // Split on → and rejoin with natural connectors
+        const parts = match.split(/\s*→\s*/).map((p) => p.trim());
+        if (parts.length <= 2) return match;
+        return parts.join("，进而推动");
+      },
+    );
     const arrowCount = (content.match(/→/g) ?? []).length;
     if (arrowCount > 5) {
-      warnings.push(`Arrow chain count ${arrowCount} exceeds limit 5`);
+      warnings.push(
+        `Arrow chain count ${arrowCount} still exceeds limit 5 after auto-fix`,
+      );
     }
 
     const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) ?? []).length;

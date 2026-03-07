@@ -525,10 +525,8 @@ describe("filterJunkReferences", () => {
   });
 
   it("should keep reference when no domain and no URL", () => {
-    const refs = [{ domain: null, url: undefined }] as Array<{
-      domain: null;
-      url: undefined;
-    }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const refs = [{ domain: null, url: undefined }];
     expect(filterJunkReferences(refs)).toHaveLength(1);
   });
 
@@ -688,10 +686,8 @@ describe("upgradeHttpToHttps", () => {
   });
 
   it("should handle refs without url field", () => {
-    const refs = [{ title: "No URL" }] as Array<{
-      title: string;
-      url?: string;
-    }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const refs = [{ title: "No URL" }];
     const result = upgradeHttpToHttps(refs);
     expect(result[0]).toEqual({ title: "No URL" });
   });
@@ -749,10 +745,8 @@ describe("decodeUrlEntities", () => {
   });
 
   it("should handle refs without url field", () => {
-    const refs = [{ title: "No URL" }] as Array<{
-      title: string;
-      url?: string;
-    }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const refs = [{ title: "No URL" }];
     const result = decodeUrlEntities(refs);
     expect(result[0]).toEqual({ title: "No URL" });
   });
@@ -790,7 +784,7 @@ describe("remapCitationIndices", () => {
   });
 
   it("should return content unchanged when mapping is empty", () => {
-    const mapping = new Map<number, number>();
+    const mapping = new Map();
     const input = "来源[1][2][3]";
     expect(remapCitationIndices(input, mapping)).toBe(input);
   });

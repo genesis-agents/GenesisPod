@@ -918,7 +918,7 @@ export class ReportSynthesisService {
             dimensionName: dim.dimensionName,
             imageUrl: fig.imageUrl,
             evidenceCitationIndex: fig.evidenceCitationIndex,
-            source: fig.source || `来源：证据 [${fig.evidenceCitationIndex}]`,
+            source: fig.source || `证据 [${fig.evidenceCitationIndex}]`,
           });
           dimChartCount++;
         });
@@ -1392,25 +1392,60 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     let result = conclusion;
 
     // 移除已作为独立 ## 渲染的章节（避免结语中重复）
-    // 使用更宽松的匹配：支持 0-3 个换行，匹配到下一个 ## 或 # 或文末
+    // Strategy: normalize spaces in heading titles for robust matching
     for (const section of sectionsToRemove) {
-      // Escape regex special chars in section title
+      // Escape regex special chars, then allow flexible whitespace between chars
       const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // Allow optional spaces between CJK characters (LLM may insert/omit spaces)
+      const flexiblePattern = escaped.replace(/\s+/g, "\\s*");
       const patterns = [
         // ## 标题 + 内容（到下一个 ## 或文末）
         new RegExp(
-          `#{1,3}\\s*${escaped}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
+          `#{1,3}\\s*${flexiblePattern}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
           "gi",
         ),
         // 纯标题行（不带#）+ 内容
         new RegExp(
-          `(?:^|\\n)${escaped}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
+          `(?:^|\\n)${flexiblePattern}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
           "gi",
         ),
       ];
       for (const pattern of patterns) {
         result = result.replace(pattern, "\n");
       }
+    }
+
+    // Additional pass: remove ### sub-sections that clearly belong to supplementary chapters
+    // (e.g. "### 关键因果链", "### 维度成熟度对比", "### 反馈回路", "### 系统效应",
+    //  "### 风险矩阵", "### 企业决策者", "### 投资者/分析师", "### 技术从业者")
+    const supplementarySubSections = isEn
+      ? [
+          "Key Causal Chains",
+          "Dimension Maturity",
+          "Feedback Loops",
+          "System Effects",
+          "Risk Matrix",
+        ]
+      : [
+          "关键因果链",
+          "维度成熟度对比",
+          "反馈回路",
+          "系统效应",
+          "风险矩阵",
+          "企业决策者",
+          "投资者",
+          "政策研究者",
+          "技术从业者",
+        ];
+    for (const sub of supplementarySubSections) {
+      const subEscaped = sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      result = result.replace(
+        new RegExp(
+          `#{1,3}\\s*${subEscaped}[^\\n]*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
+          "gi",
+        ),
+        "\n",
+      );
     }
 
     // Safety: if section removal stripped everything, return original (minus section headers only)

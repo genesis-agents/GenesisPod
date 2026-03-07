@@ -323,7 +323,7 @@ export class ReportDataService {
             dimensionName: dim.dimensionName,
             imageUrl: fig.imageUrl,
             evidenceCitationIndex: fig.evidenceCitationIndex,
-            source: fig.source || `来源：证据 [${fig.evidenceCitationIndex}]`,
+            source: fig.source || `证据 [${fig.evidenceCitationIndex}]`,
           });
           dimChartCount++;
         });
