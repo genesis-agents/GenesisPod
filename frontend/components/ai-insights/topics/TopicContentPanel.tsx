@@ -1681,7 +1681,7 @@ export function TopicContentPanel({
           )}
           {activeTab === 'report' && reportViewMode === 'continuous' && (
             <div
-              className={isRegenerating ? 'pointer-events-none opacity-50' : ''}
+              className={`h-full ${isRegenerating ? 'pointer-events-none opacity-50' : ''}`}
             >
               <ReportEditPanel
                 report={report}

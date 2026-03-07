@@ -443,6 +443,8 @@ export class MissionController {
   /**
    * 获取团队互动消息
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/team-messages")
   @ApiOperation({
     summary: "获取团队互动消息",
@@ -475,6 +477,8 @@ export class MissionController {
   /**
    * 获取 Agent 活动记录
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/agent-activities")
   @ApiOperation({
     summary: "获取 Agent 活动记录",
@@ -563,7 +567,10 @@ export class MissionController {
 
   /**
    * 调整 Mission 执行策略
+   * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/mission/adjust")
   @ApiOperation({
     summary: "调整 Mission 执行策略",
