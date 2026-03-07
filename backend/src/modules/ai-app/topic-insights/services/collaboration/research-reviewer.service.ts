@@ -322,7 +322,7 @@ export class ResearchReviewerService {
       ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
 
       try {
-        const response = await this.chatFacade.chat({
+        const response = await this.chatFacade.chatWithSkills({
           messages: [
             {
               role: "system",
@@ -330,6 +330,7 @@ export class ResearchReviewerService {
             },
             { role: "user", content: prompt },
           ],
+          additionalSkills: ["fact-verification"],
           modelType: AIModelType.CHAT_FAST,
           taskProfile: {
             creativity: "deterministic",
@@ -424,7 +425,7 @@ export class ResearchReviewerService {
     ).replace("{originalEvidence}", evidenceText);
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "system",
@@ -432,6 +433,7 @@ export class ResearchReviewerService {
           },
           { role: "user", content: prompt },
         ],
+        additionalSkills: ["fact-check"],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: {
           creativity: "deterministic",

@@ -51,17 +51,19 @@ export class KnowledgeGraphService {
     );
 
     try {
-      const response = await this.chatFacade.chat({
+      const response = await this.chatFacade.chatWithSkills({
         messages: [
           {
             role: "system",
-            content: this.getExtractionSystemPrompt(),
+            content:
+              "You are a knowledge graph extraction specialist. Extract entities and relationships from research content. Return valid JSON only.",
           },
           {
             role: "user",
             content: `Extract entities and relationships from the following research content:\n\n${request.content.slice(0, 4000)}${request.contextHint ? `\n\nContext: ${request.contextHint}` : ""}`,
           },
         ],
+        additionalSkills: ["entity-extraction"],
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "deterministic", outputLength: "medium" },
       });
@@ -417,41 +419,6 @@ export class KnowledgeGraphService {
       this.logger.warn("[parseExtractionResult] Failed to parse AI response");
       return { entities: [], relations: [] };
     }
-  }
-
-  private getExtractionSystemPrompt(): string {
-    return `You are a knowledge graph extraction specialist. Extract entities and relationships from research content.
-
-Return JSON with this structure:
-{
-  "entities": [
-    {
-      "name": "Entity Name",
-      "type": "person|organization|technology|concept|event|product|location|regulation|metric|trend",
-      "description": "Brief description",
-      "confidence": 0.9,
-      "aliases": ["Alternative Name"],
-      "properties": { "key": "value" }
-    }
-  ],
-  "relations": [
-    {
-      "sourceName": "Entity A",
-      "targetName": "Entity B",
-      "type": "belongs_to|competes_with|collaborates_with|influences|depends_on|produces|uses|related_to|opposes|drives|derived_from|replaces",
-      "description": "Relationship description",
-      "strength": 0.8,
-      "confidence": 0.85
-    }
-  ]
-}
-
-Rules:
-- Extract 5-15 most important entities per passage
-- Focus on named entities, not generic concepts
-- Assign confidence based on how clearly the entity is mentioned
-- Identify 3-10 relationships between entities
-- Use the most specific relationship type available`;
   }
 
   private generateId(): string {

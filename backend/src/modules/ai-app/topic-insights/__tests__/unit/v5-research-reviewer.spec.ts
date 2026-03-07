@@ -21,7 +21,7 @@ describe("ResearchReviewerService - V5 Methods", () => {
         importance: "medium" as const,
       }));
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           results: [
             {
@@ -37,7 +37,7 @@ describe("ResearchReviewerService - V5 Methods", () => {
 
       await service.validateClaims(claims, "evidence");
       // 12 claims / 5 per batch = 3 calls
-      expect(mockAiFacade.chat).toHaveBeenCalledTimes(3);
+      expect(mockAiFacade.chatWithSkills).toHaveBeenCalledTimes(3);
     });
 
     it("should mark batch claims as unverified on failure", async () => {
@@ -50,7 +50,7 @@ describe("ResearchReviewerService - V5 Methods", () => {
       }));
 
       // First batch succeeds, second fails
-      mockAiFacade.chat
+      mockAiFacade.chatWithSkills
         .mockResolvedValueOnce({
           content: JSON.stringify({
             results: claims.slice(0, 5).map((c) => ({
@@ -76,7 +76,7 @@ describe("ResearchReviewerService - V5 Methods", () => {
       const result = await service.validateClaims([], "evidence");
       expect(result.results).toEqual([]);
       expect(result.stats.total).toBe(0);
-      expect(mockAiFacade.chat).not.toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).not.toHaveBeenCalled();
     });
 
     it("should compute stats correctly", async () => {
@@ -88,7 +88,7 @@ describe("ResearchReviewerService - V5 Methods", () => {
         importance: "medium" as const,
       }));
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           results: [
             {
@@ -135,7 +135,7 @@ describe("ResearchReviewerService - V5 Methods", () => {
         { id: "e2", title: "Financial Report", snippet: "Revenue doubled" },
       ];
 
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           citations: [
             {
@@ -163,14 +163,14 @@ describe("ResearchReviewerService - V5 Methods", () => {
       const result = await service.factCheckReport("No citations here.", []);
       expect(result.accuracyScore).toBe(100);
       expect(result.citations).toEqual([]);
-      expect(mockAiFacade.chat).not.toHaveBeenCalled();
+      expect(mockAiFacade.chatWithSkills).not.toHaveBeenCalled();
     });
 
     it("should return accuracyScore=0 on AI failure", async () => {
       const report = "Something [1] happened.";
       const evidence = [{ id: "e1", title: "Report", snippet: "data" }];
 
-      mockAiFacade.chat.mockRejectedValue(new Error("API error"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("API error"));
 
       const result = await service.factCheckReport(report, evidence);
       expect(result.accuracyScore).toBe(0);

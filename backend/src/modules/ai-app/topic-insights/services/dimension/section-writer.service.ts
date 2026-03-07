@@ -624,6 +624,11 @@ export class SectionWriterService {
       future_projection: "future-projection",
       cause_effect: "cause-effect",
       comparison: "comparison",
+      dimension_research: "dimension-research",
+      entity_extraction: "entity-extraction",
+      fact_check: "fact-check",
+      hypothesis_verification: "hypothesis-verification",
+      report_editing: "report-editing",
     };
 
     // 将 section-level skill IDs 映射为 kebab-case

@@ -10,6 +10,7 @@ import {
 
 const mockAiFacade = {
   chat: jest.fn(),
+  chatWithSkills: jest.fn(),
 };
 
 const makeEntity = (
@@ -313,7 +314,7 @@ describe("KnowledgeGraphService", () => {
 
   describe("extractEntities", () => {
     it("should extract entities from AI response and persist them", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           entities: [
             {
@@ -343,7 +344,7 @@ describe("KnowledgeGraphService", () => {
     });
 
     it("should return empty result on AI error", async () => {
-      mockAiFacade.chat.mockRejectedValue(new Error("LLM error"));
+      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("LLM error"));
 
       const result = await service.extractEntities({
         content: "Some content",
@@ -355,7 +356,9 @@ describe("KnowledgeGraphService", () => {
     });
 
     it("should return empty result when AI response has no JSON", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "No JSON here" });
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: "No JSON here",
+      });
 
       const result = await service.extractEntities({
         content: "Some content",
@@ -366,7 +369,7 @@ describe("KnowledgeGraphService", () => {
     });
 
     it("should extract relations and link entities", async () => {
-      mockAiFacade.chat.mockResolvedValue({
+      mockAiFacade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           entities: [
             {

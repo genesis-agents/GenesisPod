@@ -79,6 +79,11 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 - specialized_role_analysis（专业角色分析）: 以特定专业角色视角分析
 - content_critique（内容批评）: 评估内容质量和可信度
 - consistency_check（一致性检查）: 检查论述的逻辑一致性
+- dimension_research（维度深度研究）: 结构化维度分析，含核心发现、趋势、挑战、机会
+- entity_extraction（实体关系提取）: 从文本中提取知识图谱实体和语义关系
+- fact_check（引用事实核查）: 核对报告引用与原始证据的一致性
+- hypothesis_verification（假设验证）: 根据证据验证研究假设
+- report_editing（报告编辑）: 重写、润色、扩展、压缩和风格调整
 
 ## 可用研究工具（根据任务动态选择）
 - web-search（网络搜索）: 获取最新信息

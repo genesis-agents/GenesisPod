@@ -98,7 +98,12 @@ export type AnalysisSkill =
   | "critical_thinking" // 批判性思维：质疑和验证信息
   | "future_projection" // 未来预测：基于现状预测发展
   | "cause_effect" // 因果分析：分析原因和影响
-  | "comparison"; // 对比分析：比较不同方案或事物
+  | "comparison" // 对比分析：比较不同方案或事物
+  | "dimension_research" // 维度深度研究：结构化维度分析
+  | "entity_extraction" // 实体关系提取：知识图谱实体和语义关系
+  | "fact_check" // 引用事实核查：核对引用与证据一致性
+  | "hypothesis_verification" // 假设验证：根据证据验证研究假设
+  | "report_editing"; // 报告编辑：重写、润色、扩展、压缩
 
 /**
  * ★ v8.1: 分析技能定义（用于动态展示）
@@ -143,6 +148,31 @@ export const ANALYSIS_SKILL_DEFINITIONS: Array<{
   },
   { id: "cause_effect", name: "因果分析", description: "分析原因和影响" },
   { id: "comparison", name: "对比分析", description: "比较不同方案或事物" },
+  {
+    id: "dimension_research",
+    name: "维度深度研究",
+    description: "结构化维度分析，含核心发现、趋势、挑战、机会",
+  },
+  {
+    id: "entity_extraction",
+    name: "实体关系提取",
+    description: "从文本中提取知识图谱实体和语义关系",
+  },
+  {
+    id: "fact_check",
+    name: "引用事实核查",
+    description: "核对报告引用与原始证据的一致性",
+  },
+  {
+    id: "hypothesis_verification",
+    name: "假设验证",
+    description: "根据证据验证研究假设",
+  },
+  {
+    id: "report_editing",
+    name: "报告编辑",
+    description: "重写、润色、扩展、压缩和风格调整",
+  },
 ];
 
 /**

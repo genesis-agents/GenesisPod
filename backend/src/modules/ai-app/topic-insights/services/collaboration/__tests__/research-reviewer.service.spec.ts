@@ -340,7 +340,7 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should process claims in batches of 5", async () => {
-      facade.chat.mockResolvedValue({
+      facade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           results: [
             {
@@ -370,12 +370,12 @@ describe("ResearchReviewerService", () => {
 
       const result = await service.validateClaims(claims, "evidence");
 
-      expect(facade.chat).toHaveBeenCalledTimes(1);
+      expect(facade.chatWithSkills).toHaveBeenCalledTimes(1);
       expect(result.stats.total).toBe(2);
     });
 
     it("should mark claims as unverified when batch fails", async () => {
-      facade.chat.mockRejectedValue(new Error("API error"));
+      facade.chatWithSkills.mockRejectedValue(new Error("API error"));
 
       const claims = [
         { id: "c1", claim: "Claim 1", source: "ev-1", confidence: 0.9 },
@@ -397,7 +397,7 @@ describe("ResearchReviewerService", () => {
     });
 
     it("should call AI and return fact check results when citations exist", async () => {
-      facade.chat.mockResolvedValue({
+      facade.chatWithSkills.mockResolvedValue({
         content: JSON.stringify({
           citations: [
             { mark: "[1]", status: "accurate", explanation: "Verified" },
@@ -417,11 +417,11 @@ describe("ResearchReviewerService", () => {
       const result = await service.factCheckReport(reportContent, evidence);
 
       expect(result.accuracyScore).toBe(95);
-      expect(facade.chat).toHaveBeenCalledTimes(1);
+      expect(facade.chatWithSkills).toHaveBeenCalledTimes(1);
     });
 
     it("should return error result when AI throws", async () => {
-      facade.chat.mockRejectedValue(new Error("Timeout"));
+      facade.chatWithSkills.mockRejectedValue(new Error("Timeout"));
 
       const result = await service.factCheckReport("Growth was 50% [1].", []);
 

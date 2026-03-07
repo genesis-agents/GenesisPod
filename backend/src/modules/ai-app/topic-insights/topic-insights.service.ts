@@ -917,6 +917,7 @@ export class TopicInsightsService {
     }
 
     // 调用 AI 服务进行编辑（带自动积分扣除）
+    // NOTE: report-editing skill 已注册但此处需 billing 字段，chatWithSkills 不支持
     const aiResponse = await this.chatFacade.chat({
       messages: [
         {
