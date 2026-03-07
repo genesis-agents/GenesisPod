@@ -541,6 +541,8 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/（字数[^）]{0,30}）/g, "")
       // Bold-wrapped word count annotations: **字数约1350字（内部统计，不输出）**
       .replace(/\*{2}字数[约共]?\d+字[^*]*\*{2}/g, "")
+      // HTML bold word count: <strong>字数统计</strong>：约1120字 (appears in rendered output)
+      .replace(/\*{2}字数统计\*{2}[：:]\s*[约共]?\d+字\s*/g, "")
       // Bare word count at line end: （当前字数: 1350）or [当前字数: 1350]
       .replace(/[（(【\[]?\s*当前字数\s*[：:]\s*\d+\s*[)）】\]]?/g, "")
       // Standalone word count line: 字数：约1350字
@@ -1887,6 +1889,51 @@ export function repairTruncatedBlockquoteBullets(content: string): string {
       return `${prefix}${trimmed}...`;
     },
   );
+}
+
+/**
+ * Normalize arrow notation corruption.
+ *
+ * LLMs sometimes translate flow-diagram arrows (→, ->, -->) into Chinese
+ * prose "进而推动" (meaning "thereby driving"), creating unnatural text like:
+ *   "分词，进而推动构造token序列，进而推动自回归预测"
+ * This should read:
+ *   "分词 → 构造token序列 → 自回归预测"
+ *
+ * Also handles "，进而推动" → " → " and standalone "进而推动" in flow contexts.
+ */
+export function normalizeArrowNotation(content: string): string {
+  return (
+    content
+      // "X，进而推动Y" or "X, 进而推动Y" → "X → Y"
+      .replace(/[，,]\s*进而推动\s*/g, " → ")
+      // "X。进而推动Y" (sentence boundary) — less common but seen
+      .replace(/[。.]\s*进而推动\s*/g, "。")
+  );
+}
+
+/**
+ * Strip leaked HTML comments from markdown content.
+ *
+ * LLMs sometimes output HTML comments as internal authoring notes:
+ *   <!-- 在文本中自然提及图表：图4已在上文... -->
+ * These render as escaped text in some markdown renderers.
+ */
+export function stripLeakedHtmlComments(content: string): string {
+  return content.replace(/<!--[\s\S]*?-->/g, "");
+}
+
+/**
+ * Deduplicate adjacent identical citations.
+ *
+ * LLMs sometimes repeat the same citation reference consecutively:
+ *   "[5][5]" → "[5]"
+ *   "[107][107]" → "[107]"
+ *
+ * Only deduplicates when the same number appears consecutively.
+ */
+export function deduplicateAdjacentCitations(content: string): string {
+  return content.replace(/\[(\d+)\]\s*\[\1\]/g, "[$1]");
 }
 
 /**

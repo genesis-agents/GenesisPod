@@ -39,6 +39,9 @@ import {
   separateTrappedConclusions,
   enforceExecSummarySections,
   truncateAtSentenceBoundary,
+  normalizeArrowNotation,
+  stripLeakedHtmlComments,
+  deduplicateAdjacentCitations,
 } from "../../utils/report-formatting.utils";
 import {
   stripChartJsonFromContent,
@@ -197,6 +200,15 @@ export class ReportAssemblerService {
 
     // Strip LLM meta-notes (word-count annotations, editorial instructions, etc.)
     processed = stripLLMMetaNotes(processed);
+
+    // Strip leaked HTML comments (LLM authoring notes)
+    processed = stripLeakedHtmlComments(processed);
+
+    // Normalize arrow notation corruption (进而推动 → →)
+    processed = normalizeArrowNotation(processed);
+
+    // Deduplicate adjacent identical citations ([5][5] → [5])
+    processed = deduplicateAdjacentCitations(processed);
 
     // Repair blockquote bullets truncated mid-sentence (from token budget limits)
     processed = repairTruncatedBlockquoteBullets(processed);
@@ -719,23 +731,14 @@ export class ReportAssemblerService {
     // Convert [N] citation markers to clickable links targeting reference anchors
     content = linkifyCitations(content);
 
-    // Arrow chains: replace "A → B → C" patterns with natural language
-    // Only fix chains (3+ items connected by →), preserve single → in headings/titles
-    content = content.replace(
-      /([^→\n]{2,50})(?:\s*→\s*([^→\n]{2,50})){2,}/g,
-      (match) => {
-        // Split on → and rejoin with natural connectors
-        const parts = match.split(/\s*→\s*/).map((p) => p.trim());
-        if (parts.length <= 2) return match;
-        return parts.join("，进而推动");
-      },
-    );
-    const arrowCount = (content.match(/→/g) ?? []).length;
-    if (arrowCount > 5) {
-      warnings.push(
-        `Arrow chain count ${arrowCount} still exceeds limit 5 after auto-fix`,
-      );
-    }
+    // Normalize arrow notation: fix prior "进而推动" corruption back to →
+    content = normalizeArrowNotation(content);
+
+    // Strip leaked HTML comments (LLM internal authoring notes)
+    content = stripLeakedHtmlComments(content);
+
+    // Deduplicate adjacent identical citations ([5][5] → [5])
+    content = deduplicateAdjacentCitations(content);
 
     const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) ?? []).length;
     if (deepHeadingCount > 0) {
