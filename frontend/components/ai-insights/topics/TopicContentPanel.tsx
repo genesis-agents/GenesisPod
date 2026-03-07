@@ -25,6 +25,7 @@ import {
   FolderOpen,
   CheckCircle2,
   Search,
+  Loader2,
 } from 'lucide-react';
 import { QuickViewReport } from '../reports/QuickViewReport';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -1208,10 +1209,32 @@ export function TopicContentPanel({
             {/* 报告内容 - 居中显示 */}
             <div
               ref={reportContentRef}
-              className={`flex-1 overflow-auto ${sidePanelType ? 'border-r border-gray-200' : ''}`}
+              className={`relative flex-1 overflow-auto ${sidePanelType ? 'border-r border-gray-200' : ''}`}
             >
+              {/* ★ 重新生成报告遮罩 */}
+              {isRegenerating && (
+                <div className="sticky top-0 z-30 border-b border-blue-200 bg-blue-50 px-6 py-3">
+                  <div className="mx-auto flex max-w-4xl items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-800">
+                        {t(
+                          'topicResearch.contentPanel.regeneratingBanner.title'
+                        )}
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        {t(
+                          'topicResearch.contentPanel.regeneratingBanner.description'
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="mx-auto max-w-6xl px-8 py-6">
-                <div className="rounded-lg bg-white p-8 shadow-sm">
+                <div
+                  className={`rounded-lg bg-white p-8 shadow-sm ${isRegenerating ? 'pointer-events-none opacity-50' : ''}`}
+                >
                   {reportViewMode === 'continuous' && report && (
                     <ReportEditPanel
                       report={report}
@@ -1636,59 +1659,83 @@ export function TopicContentPanel({
           {...(activeTab === 'report'
             ? { 'data-export-content': 'insights' }
             : {})}
-          className="flex-1 overflow-hidden"
+          className="relative flex-1 overflow-hidden"
         >
+          {/* ★ 重新生成报告遮罩 */}
+          {activeTab === 'report' && isRegenerating && (
+            <div className="sticky top-0 z-30 border-b border-blue-200 bg-blue-50 px-6 py-3">
+              <div className="mx-auto flex max-w-4xl items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-800">
+                    {t('topicResearch.contentPanel.regeneratingBanner.title')}
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    {t(
+                      'topicResearch.contentPanel.regeneratingBanner.description'
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {activeTab === 'report' && reportViewMode === 'continuous' && (
-            <ReportEditPanel
-              report={report}
-              evidence={safeEvidence}
-              revisions={revisions}
-              annotations={annotations}
-              currentUserId={user?.id || 'anonymous'}
-              currentUserName={
-                user?.username ||
-                user?.email ||
-                t('topicResearch.contentPanel.anonymousUser')
-              }
-              isLoading={isLoadingReport}
-              hideToolbar={true}
-              sidePanelType={sidePanelType}
-              onSidePanelChange={setSidePanelType}
-              onSave={async (content: string) => {
-                // TODO: Implement save functionality
-                logger.debug('Save report:', content);
-              }}
-              onOpenAIEdit={aiEdit.handleOpenEdit}
-              onAIEdit={async (operation, selection) => {
-                if (!topicId || !report?.id) {
-                  logger.error('Cannot AI edit: missing topicId or reportId');
-                  return '';
+            <div
+              className={isRegenerating ? 'pointer-events-none opacity-50' : ''}
+            >
+              <ReportEditPanel
+                report={report}
+                evidence={safeEvidence}
+                revisions={revisions}
+                annotations={annotations}
+                currentUserId={user?.id || 'anonymous'}
+                currentUserName={
+                  user?.username ||
+                  user?.email ||
+                  t('topicResearch.contentPanel.anonymousUser')
                 }
-                try {
-                  const result = await aiEditReport(topicId, report.id, {
-                    operation: operation as AIEditOperationType,
-                    selectedText: selection?.text || undefined,
-                  });
-                  return result.editedContent || '';
-                } catch (error) {
-                  logger.error('AI edit failed:', error);
-                  return '';
-                }
-              }}
-              onRollback={async (revisionId: string) => {
-                // Use existing rollback handler
-                onRollbackVersion?.(revisionId);
-              }}
-              onAnnotationAdd={handleAnnotationAdd}
-              onAnnotationUpdate={handleAnnotationUpdate}
-              onAnnotationDelete={handleAnnotationDelete}
-              onAnnotationResolve={handleAnnotationResolve}
-              onAnnotationReply={handleAnnotationReply}
-              onSubmitFeedback={handleSubmitFeedback}
-            />
+                isLoading={isLoadingReport}
+                hideToolbar={true}
+                sidePanelType={sidePanelType}
+                onSidePanelChange={setSidePanelType}
+                onSave={async (content: string) => {
+                  // TODO: Implement save functionality
+                  logger.debug('Save report:', content);
+                }}
+                onOpenAIEdit={aiEdit.handleOpenEdit}
+                onAIEdit={async (operation, selection) => {
+                  if (!topicId || !report?.id) {
+                    logger.error('Cannot AI edit: missing topicId or reportId');
+                    return '';
+                  }
+                  try {
+                    const result = await aiEditReport(topicId, report.id, {
+                      operation: operation as AIEditOperationType,
+                      selectedText: selection?.text || undefined,
+                    });
+                    return result.editedContent || '';
+                  } catch (error) {
+                    logger.error('AI edit failed:', error);
+                    return '';
+                  }
+                }}
+                onRollback={async (revisionId: string) => {
+                  // Use existing rollback handler
+                  onRollbackVersion?.(revisionId);
+                }}
+                onAnnotationAdd={handleAnnotationAdd}
+                onAnnotationUpdate={handleAnnotationUpdate}
+                onAnnotationDelete={handleAnnotationDelete}
+                onAnnotationResolve={handleAnnotationResolve}
+                onAnnotationReply={handleAnnotationReply}
+                onSubmitFeedback={handleSubmitFeedback}
+              />
+            </div>
           )}
           {activeTab === 'report' && reportViewMode === 'chapter' && (
-            <div className="flex h-full flex-col">
+            <div
+              className={`flex h-full flex-col ${isRegenerating ? 'pointer-events-none opacity-50' : ''}`}
+            >
               {/* Main content area */}
               <div className="flex flex-1 overflow-hidden">
                 {/* Main chapter view */}

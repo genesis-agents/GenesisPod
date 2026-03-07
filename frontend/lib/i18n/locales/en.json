@@ -4853,6 +4853,10 @@
         "feedbackSubmitted": "Feedback submitted",
         "submitFeedbackFailed": "Failed to submit feedback, please try again later"
       },
+      "regeneratingBanner": {
+        "title": "Regenerating report...",
+        "description": "AI is re-analyzing data and writing the report. This usually takes 1-3 minutes. The page will refresh automatically when done."
+      },
       "user": "User",
       "anonymousUser": "Anonymous User",
       "unknownSource": "Unknown Source",
