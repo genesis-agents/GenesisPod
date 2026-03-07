@@ -88,7 +88,9 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 ### 列表
 - 有序列表统一 1. 2. 3.（阿拉伯数字），禁止中文数字
 - 无序列表统一 - （短横线）
-- 列表项不超过 2 层嵌套`;
+- 列表项不超过 2 层嵌套
+- **每条列表项不超过 100 字**：超长列表项应拆分为多条，或改用段落展开
+- 列表不是段落的替代品：每条列表项应是独立的点，不要把结论性段落放在列表末尾`;
 
 /**
  * Flexible analysis depth requirement (replaces rigid 4-layer framework).
@@ -200,7 +202,14 @@ export const SYNTHESIS_FORMATTING = `## 格式要求
 - 用表格呈现结构化数据（如风险矩阵、关键指标）
 - 加粗仅用于核心判断句（每节最多 2 处）
 - 禁止在补充内容中使用 > 引用块（引用块预算留给维度章节）
-- 禁止使用 --- 分割线`;
+- 禁止使用 --- 分割线
+
+### 补充内容标题层级
+- 跨维度关联分析、风险评估、战略建议等补充内容必须使用 ### 子标题组织结构
+- 例如跨维度分析下使用 "### 因果链分析"、"### 系统性风险"、"### 维度对比" 等子标题
+- 战略建议下按受众使用 "### 企业决策者"、"### 投资者"、"### 技术从业者" 等子标题
+- 禁止用纯加粗文本代替标题（如 **技术架构：** 应改为 ### 技术架构）
+- 每条列表项不超过 100 字，结论性内容用段落而非列表项表达`;
 
 // ============ English Variants ============
 
@@ -266,7 +275,9 @@ export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 ### Lists
 - Ordered lists: 1. 2. 3. (Arabic numerals only)
 - Unordered lists: - (dash only)
-- Max 2 nesting levels`;
+- Max 2 nesting levels
+- **Each list item max 100 characters**: Split long items into multiple items or use paragraphs
+- Lists are not paragraph substitutes: Do not put concluding paragraphs as list items`;
 
 export const CHAPTER_HIGHLIGHTS_EN = `## Chapter Highlights (required at start of each dimension's detailedContent)
 
@@ -327,5 +338,7 @@ export function getWritingStandards(language: string = "zh"): string {
  * Language-aware executive summary format.
  */
 export function getExecutiveSummaryFormat(language: string = "zh"): string {
-  return language.startsWith("en") ? EXECUTIVE_SUMMARY_FORMAT_EN : EXECUTIVE_SUMMARY_FORMAT;
+  return language.startsWith("en")
+    ? EXECUTIVE_SUMMARY_FORMAT_EN
+    : EXECUTIVE_SUMMARY_FORMAT;
 }

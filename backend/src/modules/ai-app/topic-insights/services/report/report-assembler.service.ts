@@ -29,6 +29,13 @@ import {
   fixDoubleSourceLabels,
   splitWallOfText,
   repairMarkdownTables,
+  deduplicateHeadingEcho,
+  detectAndPromoteHeadings,
+  wrapPseudoCodeBlocks,
+  truncateLongListItems,
+  separateTrappedConclusions,
+  enforceExecSummarySections,
+  truncateAtSentenceBoundary,
 } from "../../utils/report-formatting.utils";
 import {
   stripChartJsonFromContent,
@@ -141,11 +148,17 @@ export class ReportAssemblerService {
     // Convert Chinese numeral headings (一、标题 → ### 标题) BEFORE heading normalization
     processed = convertChineseNumeralHeadings(processed);
 
+    // Detect and promote heading-like plain text lines to ### headings
+    processed = detectAndPromoteHeadings(processed);
+
     // Heading level safety net: demote # / ## to ###; keep ### / #### unchanged
     processed = sanitizeHeadingLevels(processed);
 
     // Remove duplicate headings (AI sometimes emits "### N. Xxx" then "### Xxx")
     processed = deduplicateHeadings(processed);
+
+    // Remove plain text lines that echo the preceding heading
+    processed = deduplicateHeadingEcho(processed);
 
     // Unified sub-heading numbering: ### Title → ### N.M. Title
     processed = numberSubHeadings(processed, dimIndex + 1);
@@ -157,16 +170,12 @@ export class ReportAssemblerService {
     processed = deduplicateParagraphs(processed, globalSeenParagraphs);
 
     // Truncate content that exceeds the per-dimension character limit
+    // Uses sentence-safe truncation to avoid cutting mid-sentence
     if (processed.length > MAX_DIMENSION_CHARS) {
       this.logger.warn(
         `[ReportAssembler] Dimension "${dimensionName ?? `dim${dimIndex}`}" content too long (${processed.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
       );
-      const truncated = processed.substring(0, MAX_DIMENSION_CHARS);
-      const lastParagraph = truncated.lastIndexOf("\n\n");
-      processed =
-        lastParagraph > MAX_DIMENSION_CHARS * 0.7
-          ? truncated.substring(0, lastParagraph)
-          : truncated;
+      processed = truncateAtSentenceBoundary(processed, MAX_DIMENSION_CHARS);
     }
 
     // Resolve <!-- figure:N:M --> → <!-- chart:dX-id --> placeholders
@@ -200,6 +209,15 @@ export class ReportAssemblerService {
 
     // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
     processed = splitWallOfText(processed);
+
+    // Wrap pseudocode/code-like blocks in fenced code blocks
+    processed = wrapPseudoCodeBlocks(processed);
+
+    // Enforce max list item length (split long items at sentence boundaries)
+    processed = truncateLongListItems(processed);
+
+    // Separate conclusion paragraphs trapped in list structures
+    processed = separateTrappedConclusions(processed);
 
     return processed;
   }
@@ -514,16 +532,18 @@ export class ReportAssemblerService {
 
       if (overlapRatio > 0.4 || h3Overlap > 0.5) {
         // Strip duplicate paragraphs but keep unique content
-        if (overlapRatio < 1.0 && conclusionParas.length > duplicateParas.length) {
+        if (
+          overlapRatio < 1.0 &&
+          conclusionParas.length > duplicateParas.length
+        ) {
           // Partial overlap: remove only duplicate paragraphs
-          const uniqueParas = conclusionText
-            .split("\n\n")
-            .filter((p) => {
-              const trimmed = p.trim();
-              if (trimmed.length < 60 || /^[#>|!\-*\d]/.test(trimmed)) return true;
-              const key = trimmed.substring(0, 120).replace(/\s/g, "");
-              return !supplementaryParagraphKeys.has(key);
-            });
+          const uniqueParas = conclusionText.split("\n\n").filter((p) => {
+            const trimmed = p.trim();
+            if (trimmed.length < 60 || /^[#>|!\-*\d]/.test(trimmed))
+              return true;
+            const key = trimmed.substring(0, 120).replace(/\s/g, "");
+            return !supplementaryParagraphKeys.has(key);
+          });
           conclusionText = uniqueParas.join("\n\n").trim();
           this.logger.warn(
             `[assembleFullReport] Conclusion had ${duplicateParas.length}/${conclusionParas.length} duplicate paragraphs, stripped duplicates`,
@@ -648,8 +668,26 @@ export class ReportAssemblerService {
     // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
     content = splitWallOfText(content);
 
+    // Detect and promote heading-like plain text lines in supplementary sections
+    content = detectAndPromoteHeadings(content);
+
+    // Remove plain text echoes of headings
+    content = deduplicateHeadingEcho(content);
+
     // Repair ordered list continuity (LLM often restarts from 1 mid-section)
     content = repairOrderedListContinuity(content);
+
+    // Wrap pseudocode blocks in fenced code blocks
+    content = wrapPseudoCodeBlocks(content);
+
+    // Enforce max list item length
+    content = truncateLongListItems(content);
+
+    // Separate conclusion paragraphs trapped in list structures
+    content = separateTrappedConclusions(content);
+
+    // Enforce structural separators in executive summary
+    content = enforceExecSummarySections(content);
 
     // Merge fragmented adjacent $...$ math blocks into single blocks
     content = mergeAdjacentMathBlocks(content);

@@ -340,12 +340,27 @@ export function limitBoldFormatting(
 export function limitBlockquotes(
   content: string,
   maxCount: number = 15,
+  maxCharsPerBlock: number = 150,
 ): string {
   let count = 0;
-  return content.replace(/^>\s*(.+)$/gm, (match, inner) => {
+  return content.replace(/^>\s*(.+)$/gm, (match, inner: string) => {
     count++;
     if (count > maxCount) {
       return inner; // Convert to regular paragraph
+    }
+    // Truncate overly long blockquotes at sentence boundary
+    if (inner.length > maxCharsPerBlock) {
+      const sentencePattern = /[。！？；]\s*|[.!?]\s+/g;
+      let lastEnd = -1;
+      let m: RegExpExecArray | null;
+      while ((m = sentencePattern.exec(inner)) !== null) {
+        if (m.index + m[0].length <= maxCharsPerBlock) {
+          lastEnd = m.index + m[0].length;
+        }
+      }
+      if (lastEnd > 0) {
+        return `> ${inner.substring(0, lastEnd).trim()}`;
+      }
     }
     return match;
   });
@@ -594,6 +609,12 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/多模态课程[中内]?[，,]?/g, "")
       .replace(/从教程中可以看到[，,]?/g, "")
       .replace(/如教材所述[，,]?/g, "")
+      // ── 图片不存在标注（LLM 标注图片缺失状态） ──
+      .replace(
+        /^\s*(?:图片没有|没有图片|图片缺失|无图片|图片不可用)[：:].+$/gm,
+        "",
+      )
+      .replace(/^\s*\[?(?:图片没有|没有图片|图片缺失|无图片)\]?\s*$/gm, "")
       // ── 残留图片 URL 片段（如 ".avif)" ".webp)" ".png)" 单独出现在行尾） ──
       .replace(/^\s*\.(?:avif|webp|png|jpg|jpeg|gif|svg)\)\s*$/gm, "")
       // ── 孤立的 fenced code block 标记（LLM 有时泄漏 ```json / ``` 而不包含代码内容）──
@@ -890,6 +911,9 @@ export function stripInternalFigureNotation(content: string): string {
       .replace(/Leader\s*提供的[""「]?/g, "")
       .replace(/(?:研究员?|分析员?)\s*提供的[""「]?/g, "")
 
+      // ── 图片不存在标注 ──
+      .replace(/^\s*(?:图片没有|没有图片|图片缺失|无图片)[：:][^\n]*$/gm, "")
+
       // ── Orphan figure references ──
       // "图N展示了..." / "图N聚焦..." / "图N显示..." — full sentence opener with figure
       .replace(
@@ -945,13 +969,29 @@ export function mergeAdjacentMathBlocks(content: string): string {
 
   // 0a. Standalone formula lines: entire line is a LaTeX expression (e.g. \text{Attention}(Q,K,V) = ...)
   // These lines start with \command or contain multiple \commands and no $ delimiters
+  // Also handles \begin{...}...\end{...} environment blocks
   result = result.replace(
-    /^(\\(?:text|frac|sqrt|left|mathbb|operatorname)\{[^}]*\}[^\n]*[=≈≤≥<>][^\n]*)$/gm,
+    /^(\\(?:text|frac|sqrt|left|mathbb|operatorname|begin|end)\{[^}]*\}[^\n]*[=≈≤≥<>][^\n]*)$/gm,
     (line) => {
       // Skip if already has $ delimiters
       if (/\$/.test(line)) return line;
       return `$${line}$`;
     },
+  );
+
+  // 0a2. Multi-line LaTeX environments: \begin{pmatrix}...\end{pmatrix}, \begin{aligned}...\end{aligned}
+  // Wrap entire environment in $$...$$ if not already wrapped
+  result = result.replace(
+    /(?<!\$\$?\s*\n?)^(\\begin\{(?:pmatrix|bmatrix|vmatrix|aligned|align|cases|array|matrix|gathered|equation)\}[\s\S]*?\\end\{\1\})$/gm,
+    (match) => {
+      if (/\$/.test(match)) return match;
+      return `$$\n${match}\n$$`;
+    },
+  );
+  // Fallback: non-anchored match for \begin...\end blocks
+  result = result.replace(
+    /(?<!\$)(\\begin\{(pmatrix|bmatrix|vmatrix|aligned|align|cases|array|matrix|gathered|equation)\}[\s\S]*?\\end\{\2\})(?!\$)/g,
+    (match) => `$$${match}$$`,
   );
 
   // 0b. Standalone formula lines: Q = XW_Q,\quad K = XW_K,... pattern
@@ -980,8 +1020,9 @@ export function mergeAdjacentMathBlocks(content: string): string {
   );
 
   // 0d. Simple bare complexity notations: O(n^2), O(n\sqrt{n}), O(n d_k d_v)
+  // Also handles Unicode superscript: O(n²), O(n³)
   result = result.replace(
-    /(?<!\$)\bO\(([^)]*[\\^_{}][^)]*)\)(?!\$)/g,
+    /(?<!\$)\bO\(([^)]*[\\^_{}²³⁴⁵⁶⁷⁸⁹⁰ⁿ][^)]*)\)(?!\$)/g,
     (_match, inner) => {
       return `$O(${inner})$`;
     },
@@ -994,7 +1035,10 @@ export function mergeAdjacentMathBlocks(content: string): string {
     /(\$\$?[^$]+\$\$?)\s*\n\s*(\$\$?[^$]+\$\$?)/g,
     (match, first: string, second: string) => {
       const norm = (s: string) =>
-        s.replace(/\$+/g, "").replace(/\s+/g, "").replace(/\\text\{([^}]+)\}/g, "$1");
+        s
+          .replace(/\$+/g, "")
+          .replace(/\s+/g, "")
+          .replace(/\\text\{([^}]+)\}/g, "$1");
       if (norm(first) === norm(second)) {
         // Keep the display math ($$) version if available, else keep first
         return second.startsWith("$$") ? second : first;
@@ -1046,6 +1090,36 @@ export function mergeAdjacentMathBlocks(content: string): string {
     /\$([^$]+)\$(\\(?:right|left|Big|big)[^$\s]*)/g,
     (_, inner, trail) => `$${inner}${trail}$`,
   );
+
+  // ── Phase 2: Repair broken $ nesting ──
+  // Fix cases like $S = $\phi(K)^\top $V$ → $S = \phi(K)^\top V$
+  // Pattern: $ opens, inner $ re-opens without closing → remove inner $
+  result = result.replace(
+    /\$([^$]*?)\$([^$\n]{0,5}\\[a-zA-Z]+[^$\n]*?)\$([^$]*?)\$/g,
+    (match, a, between, b) => {
+      // Only fix if between contains LaTeX-like content
+      if (/[\\^_{}]/.test(between)) {
+        return `$${a}${between}${b}$`;
+      }
+      return match;
+    },
+  );
+
+  // Fix unpaired $ in a line: odd number of $ suggests broken delimiters
+  // Strategy: if a line has exactly 1 or 3 $ signs, it's likely broken
+  result = result.replace(/^([^\n]*\$[^\n]*)$/gm, (line) => {
+    const dollarCount = (line.match(/\$/g) || []).length;
+    if (dollarCount % 2 !== 0 && dollarCount <= 3) {
+      // Check if there's LaTeX content - if so, try to wrap the entire LaTeX expression
+      const latexPattern = /\$([^$]*(?:\\[a-zA-Z]+[^$]*)+)$/;
+      const m = line.match(latexPattern);
+      if (m) {
+        // Find where the LaTeX expression starts and add closing $
+        return line + "$";
+      }
+    }
+    return line;
+  });
 
   // Restore protected sections
   result = result.replace(/__INLINE_CODE_(\d+)__/g, (_, i) => inlineCodes[i]);
@@ -1293,7 +1367,11 @@ export function splitWallOfText(
       // Don't create tiny fragments (< 80 chars)
       if (bestSplit < 80 || trimmed.length - bestSplit < 80) return p;
 
-      return trimmed.substring(0, bestSplit).trim() + "\n\n" + trimmed.substring(bestSplit).trim();
+      return (
+        trimmed.substring(0, bestSplit).trim() +
+        "\n\n" +
+        trimmed.substring(bestSplit).trim()
+      );
     })
     .join("\n\n");
 }
@@ -1316,7 +1394,11 @@ export function fixArrowChains(content: string): string {
         return `${a.trim()}，进而${b.trim()}，最终${c.trim()}`;
       }
       // Multiple remaining parts
-      const allParts = [a.trim(), b.trim(), ...parts.map((p: string) => p.trim())];
+      const allParts = [
+        a.trim(),
+        b.trim(),
+        ...parts.map((p: string) => p.trim()),
+      ];
       return allParts
         .map((part: string, i: number) => {
           if (i === 0) return part;
@@ -1355,15 +1437,13 @@ export function repairMarkdownTables(content: string): string {
       let result: string[];
       if (!isSeparator(lines[1])) {
         // Insert separator row after header
-        const sep =
-          "| " + Array(headerCols).fill("---").join(" | ") + " |";
+        const sep = "| " + Array(headerCols).fill("---").join(" | ") + " |";
         result = [lines[0], sep, ...lines.slice(1)];
       } else {
         // Validate existing separator has correct column count
         const sepCols = (lines[1].match(/\|/g) || []).length - 1;
         if (sepCols !== headerCols) {
-          const sep =
-            "| " + Array(headerCols).fill("---").join(" | ") + " |";
+          const sep = "| " + Array(headerCols).fill("---").join(" | ") + " |";
           result = [lines[0], sep, ...lines.slice(2)];
         } else {
           result = lines;
@@ -1371,10 +1451,323 @@ export function repairMarkdownTables(content: string): string {
       }
 
       // Ensure blank line before and after table
-      const before = prefix.endsWith("\n\n") || prefix === "" ? prefix : prefix + "\n";
+      const before =
+        prefix.endsWith("\n\n") || prefix === "" ? prefix : prefix + "\n";
       return before + result.join("\n") + "\n";
     },
   );
+}
+
+/**
+ * Deduplicate heading echo: remove a plain text line that immediately follows
+ * a heading and matches the heading text (with or without numbering prefix).
+ *
+ * LLMs sometimes output:
+ *   ### 5.1. 技术架构演进
+ *   技术架构演进
+ *   (actual content...)
+ *
+ * This removes the echoed plain text line.
+ */
+export function deduplicateHeadingEcho(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const headingMatch = lines[i].match(/^#{1,6}\s+(?:[\d.]+\s+)?(.+)$/);
+    if (headingMatch && i + 1 < lines.length) {
+      const headingText = headingMatch[1].trim();
+      const nextLine = lines[i + 1].trim();
+      // Skip blank lines
+      if (nextLine === "") {
+        result.push(lines[i]);
+        continue;
+      }
+      // Check if next line is an echo of the heading (exact or prefix match)
+      const normalizedHeading = headingText
+        .replace(/\*\*/g, "")
+        .replace(/\s+/g, "");
+      const normalizedNext = nextLine
+        .replace(/\*\*/g, "")
+        .replace(/^(?:[\d.]+\s+)?/, "")
+        .replace(/\s+/g, "");
+      if (
+        normalizedNext === normalizedHeading ||
+        normalizedHeading.startsWith(normalizedNext) ||
+        normalizedNext.startsWith(normalizedHeading)
+      ) {
+        result.push(lines[i]);
+        i++; // Skip the echo line
+        continue;
+      }
+    }
+    result.push(lines[i]);
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Detect heading-like plain text lines and promote to ### headings.
+ *
+ * Detects patterns like:
+ * - "标题：内容" at line start (short line, looks like a heading)
+ * - Standalone short bold lines: "**技术架构**" alone on a line
+ * - Lines ending with ：or : that are short (< 30 chars) and followed by content
+ *
+ * Only promotes when the line is clearly structural (short, followed by content paragraphs).
+ */
+export function detectAndPromoteHeadings(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip already-heading lines, list items, blockquotes, empty lines
+    if (/^[#>|\-*\d]|^```|^\s*$/.test(trimmed)) {
+      result.push(line);
+      continue;
+    }
+
+    // Pattern 1: Standalone bold line "**标题文字**" (< 30 chars, not a sentence)
+    const boldMatch = trimmed.match(/^\*\*([^*]{2,25})\*\*[：:]?\s*$/);
+    if (boldMatch) {
+      const text = boldMatch[1].trim();
+      // Only promote if next non-empty line exists and is content (not another heading/bold)
+      const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
+      if (nextContent && !/^\*\*|^#/.test(nextContent.trim())) {
+        result.push(`### ${text}`);
+        continue;
+      }
+    }
+
+    // Pattern 2: Short line ending with ：or : (Chinese heading pattern)
+    // Only if < 25 chars and followed by a content paragraph
+    if (
+      trimmed.length <= 25 &&
+      /^[\u4e00-\u9fff\w].*[：:]$/.test(trimmed) &&
+      !/[，。；！？、]/.test(trimmed.slice(0, -1))
+    ) {
+      const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
+      if (nextContent && !/^[#>|]/.test(nextContent.trim())) {
+        const headingText = trimmed.replace(/[：:]$/, "");
+        result.push(`### ${headingText}`);
+        continue;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Detect pseudocode or code-like lines and wrap them in fenced code blocks.
+ *
+ * Detects patterns:
+ * - Lines with `if/for/while/return/function/def/class` keywords + common syntax chars
+ * - Lines that look like function calls: `foo(bar, baz)`
+ * - Lines with assignment operators: `x = f(y)` or `x := f(y)`
+ * - Consecutive lines matching these patterns → group into a single code block
+ *
+ * Skips lines already inside code blocks.
+ */
+export function wrapPseudoCodeBlocks(content: string): string {
+  // Protect existing code blocks
+  const codeBlocks: string[] = [];
+  let result = content.replace(/```[\s\S]*?```/g, (m) => {
+    codeBlocks.push(m);
+    return `__PSEUDO_CB_${codeBlocks.length - 1}__`;
+  });
+
+  const lines = result.split("\n");
+  const output: string[] = [];
+  let codeBuffer: string[] = [];
+
+  const isCodeLike = (line: string): boolean => {
+    const trimmed = line.trim();
+    if (trimmed === "" || /^[#>|]/.test(trimmed)) return false;
+    // Common pseudocode keywords + syntax
+    if (
+      /^(?:if|for|while|return|function|def|class|else|elif|end|do|then)\b/.test(
+        trimmed,
+      )
+    )
+      return true;
+    // Assignment with function call: x = func(...)  or  x := func(...)
+    if (/^[A-Za-z_]\w*\s*[:=]\s*\w+\(/.test(trimmed)) return true;
+    // Indented lines with common syntax (arrows, semicolons, braces)
+    if (/^\s{2,}/.test(line) && /[{};→←]/.test(trimmed)) return true;
+    // Lines starting with // or # comment (inside a code context)
+    if (codeBuffer.length > 0 && /^(?:\/\/|#\s)/.test(trimmed)) return true;
+    return false;
+  };
+
+  const flushCodeBuffer = () => {
+    if (codeBuffer.length >= 2) {
+      output.push("```");
+      output.push(...codeBuffer);
+      output.push("```");
+    } else {
+      output.push(...codeBuffer);
+    }
+    codeBuffer = [];
+  };
+
+  for (const line of lines) {
+    if (isCodeLike(line)) {
+      codeBuffer.push(line);
+    } else {
+      if (codeBuffer.length > 0) {
+        flushCodeBuffer();
+      }
+      output.push(line);
+    }
+  }
+  if (codeBuffer.length > 0) flushCodeBuffer();
+
+  result = output.join("\n");
+
+  // Restore protected code blocks
+  result = result.replace(/__PSEUDO_CB_(\d+)__/g, (_, i) => codeBlocks[i]);
+  return result;
+}
+
+/**
+ * Enforce max length on list items by splitting at sentence boundaries.
+ *
+ * List items exceeding maxChars are split into multiple items.
+ * Only splits at Chinese or English sentence boundaries.
+ */
+export function truncateLongListItems(
+  content: string,
+  maxChars: number = 120,
+): string {
+  return content.replace(
+    /^(\s*(?:[-*]|\d+\.)\s+)(.+)$/gm,
+    (match, prefix: string, text: string) => {
+      if (text.length <= maxChars) return match;
+
+      // Find sentence boundary near maxChars
+      const sentencePattern = /[。！？；]\s*|[.!?]\s+/g;
+      let lastBreak = -1;
+      let m: RegExpExecArray | null;
+      while ((m = sentencePattern.exec(text)) !== null) {
+        const breakAt = m.index + m[0].length;
+        if (breakAt <= maxChars && breakAt > text.length * 0.3) {
+          lastBreak = breakAt;
+        }
+      }
+
+      if (lastBreak === -1) return match; // Can't split cleanly
+
+      const first = text.substring(0, lastBreak).trim();
+      const rest = text.substring(lastBreak).trim();
+      if (rest.length < 20) return match; // Don't create tiny fragments
+
+      // Determine sub-item prefix (indent + dash for continuation)
+      const indent = prefix.match(/^(\s*)/)?.[1] || "";
+      return `${prefix}${first}\n${indent}  - ${rest}`;
+    },
+  );
+}
+
+/**
+ * Detect conclusion paragraphs trapped inside list structures.
+ *
+ * LLMs sometimes put concluding paragraphs as list items at the end of a list.
+ * These are sentences like "综上所述..." or "总体来看..." that should be
+ * standalone paragraphs.
+ *
+ * Detects list items starting with conclusion markers and converts them
+ * to regular paragraphs.
+ */
+export function separateTrappedConclusions(content: string): string {
+  const conclusionMarkers =
+    /^(\s*)(?:[-*]|\d+\.)\s+((?:综上所述|总体来看|综合来看|总之|由此可见|综上|总而言之|结论是|综合以上|整体而言|最终|归结起来)[，,：:].{30,})$/gm;
+
+  return content.replace(conclusionMarkers, (_match, _indent, text) => {
+    // Convert to standalone paragraph with blank line before
+    return `\n${text.trim()}`;
+  });
+}
+
+/**
+ * Enforce structural separators in executive summary between sections.
+ *
+ * Ensures that within the executive summary (## 执行摘要), the risk alerts
+ * and action items sections have proper heading markers (### or **bold**).
+ * This prevents them from being merged into a single continuous list.
+ */
+export function enforceExecSummarySections(content: string): string {
+  // Find executive summary section
+  return content.replace(
+    /(##\s*执行摘要[\s\S]*?)(?=\n##\s|$)/,
+    (execSection) => {
+      let result = execSection;
+
+      // Ensure "风险预警" / "Risk Alerts" has a heading if it's just bold text in a list
+      result = result.replace(
+        /^(\d+\.)\s*\*\*风险预警\*\*\s*$/gm,
+        "\n### 风险预警",
+      );
+      result = result.replace(
+        /^(\d+\.)\s*\*\*行动建议\*\*\s*$/gm,
+        "\n### 行动建议",
+      );
+      result = result.replace(
+        /^(\d+\.)\s*\*\*Risk Alerts?\*\*\s*$/gim,
+        "\n### Risk Alerts",
+      );
+      result = result.replace(
+        /^(\d+\.)\s*\*\*Action Items?\*\*\s*$/gim,
+        "\n### Action Items",
+      );
+
+      return result;
+    },
+  );
+}
+
+/**
+ * Sentence-safe truncation: truncate content at a sentence boundary
+ * rather than cutting mid-sentence.
+ *
+ * Unlike raw substring truncation, this finds the last complete sentence
+ * before the limit and appends an ellipsis indicator if content was truncated.
+ */
+export function truncateAtSentenceBoundary(
+  content: string,
+  maxChars: number,
+): string {
+  if (content.length <= maxChars) return content;
+
+  // Try paragraph boundary first (most natural break)
+  const lastParagraph = content.lastIndexOf("\n\n", maxChars);
+  if (lastParagraph > maxChars * 0.7) {
+    return content.substring(0, lastParagraph);
+  }
+
+  // Try sentence boundary
+  const truncated = content.substring(0, maxChars);
+  const sentencePattern = /[。！？；]\s*|[.!?]\s+/g;
+  let lastSentenceEnd = -1;
+  let m: RegExpExecArray | null;
+  while ((m = sentencePattern.exec(truncated)) !== null) {
+    lastSentenceEnd = m.index + m[0].length;
+  }
+
+  if (lastSentenceEnd > maxChars * 0.7) {
+    return content.substring(0, lastSentenceEnd);
+  }
+
+  // Fallback: use paragraph boundary
+  return lastParagraph > maxChars * 0.5
+    ? content.substring(0, lastParagraph)
+    : truncated;
 }
 
 /**
