@@ -152,6 +152,68 @@ export class TopicInsightsGateway
   afterInit() {
     this.logger.log("Topic Research WebSocket Gateway initialized");
 
+    // ★ Security: Socket.IO 中间件认证
+    // 在 connection 事件之前完成 JWT 验证和用户信息填充
+    // 确保所有 @SubscribeMessage 处理器执行时 client.data.user 已可用
+    this.server.use(async (socket: AuthenticatedSocket, next) => {
+      const clientIp = socket.handshake.address;
+      try {
+        const token =
+          socket.handshake.auth?.token ||
+          socket.handshake.headers?.authorization?.replace("Bearer ", "");
+
+        if (!token) {
+          this.securityLogger.logAuthEvent({
+            eventType: SecurityEventType.AUTH_FAILURE,
+            clientIp,
+            action: "WebSocket connection - no token",
+            outcome: "FAILURE",
+          });
+          return next(new Error("Authentication required"));
+        }
+
+        const payload = await this.verifyToken(token);
+        if (!payload) {
+          this.securityLogger.logAuthEvent({
+            eventType: SecurityEventType.TOKEN_INVALID,
+            clientIp,
+            action: "WebSocket connection - invalid token",
+            outcome: "FAILURE",
+          });
+          return next(new Error("Invalid token"));
+        }
+
+        const dbUser = await this.prisma.user.findUnique({
+          where: { id: payload.sub },
+          select: { id: true, email: true, username: true },
+        });
+
+        if (!dbUser?.email) {
+          this.securityLogger.logAuthEvent({
+            eventType: SecurityEventType.AUTH_FAILURE,
+            userId: payload.sub,
+            clientIp,
+            action: "WebSocket connection - user not found",
+            outcome: "FAILURE",
+          });
+          return next(new Error("User not found"));
+        }
+
+        // ★ 在中间件中设置用户信息，handleConnection 无需重复验证
+        socket.data.user = {
+          id: dbUser.id,
+          email: dbUser.email,
+          username: dbUser.username || dbUser.email,
+        };
+        next();
+      } catch (err) {
+        this.logger.warn(
+          `[middleware] Auth error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        next(new Error("Authentication failed"));
+      }
+    });
+
     // 注册事件发射处理器
     this.eventEmitter.registerEmitHandler(
       async (topicId: string, event: string, data: unknown) => {
@@ -161,75 +223,22 @@ export class TopicInsightsGateway
   }
 
   /**
-   * ★ Security: 验证连接时的 JWT token
-   *
-   * 客户端需要在 handshake.auth.token 中传递 JWT token
-   * 验证失败会断开连接
+   * ★ 连接后处理（认证已在中间件完成）
+   * 仅处理连接数限制和日志
    */
   async handleConnection(client: AuthenticatedSocket) {
     const clientIp = client.handshake.address;
 
     try {
-      // 1. 从 handshake 获取 token
-      const token =
-        client.handshake.auth?.token ||
-        client.handshake.headers?.authorization?.replace("Bearer ", "");
-
-      if (!token) {
-        this.logger.warn(`Client ${client.id} connected without token`);
-        this.securityLogger.logAuthEvent({
-          eventType: SecurityEventType.AUTH_FAILURE,
-          clientIp,
-          action: "WebSocket connection - no token",
-          outcome: "FAILURE",
-        });
-        client.emit("auth:error", { message: "Authentication required" });
+      // 用户信息已在中间件中设置到 client.data.user
+      const user = client.data.user;
+      if (!user) {
+        // 理论上不会到这里（中间件会拒绝），但作为防御性检查
         client.disconnect(true);
         return;
       }
 
-      // 2. 验证 JWT token
-      const payload = await this.verifyToken(token);
-      if (!payload) {
-        this.logger.warn(`Client ${client.id} provided invalid token`);
-        this.securityLogger.logAuthEvent({
-          eventType: SecurityEventType.TOKEN_INVALID,
-          clientIp,
-          action: "WebSocket connection - invalid token",
-          outcome: "FAILURE",
-        });
-        client.emit("auth:error", { message: "Invalid token" });
-        client.disconnect(true);
-        return;
-      }
-
-      // 3. 查询用户信息
-      const dbUser = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: { id: true, email: true, username: true },
-      });
-
-      if (!dbUser?.email) {
-        this.logger.warn(`Client ${client.id} token user not found`);
-        this.securityLogger.logAuthEvent({
-          eventType: SecurityEventType.AUTH_FAILURE,
-          userId: payload.sub,
-          clientIp,
-          action: "WebSocket connection - user not found",
-          outcome: "FAILURE",
-        });
-        client.emit("auth:error", { message: "User not found" });
-        client.disconnect(true);
-        return;
-      }
-
-      // 4. 存储用户信息到 socket
-      const user: AuthenticatedUser = {
-        id: dbUser.id,
-        email: dbUser.email,
-        username: dbUser.username || dbUser.email.split("@")[0],
-      };
-      client.data.user = user;
+      // 4. 存储用户信息到 socket（连接数限制逻辑）
       client.data.authenticatedAt = new Date();
 
       // ★ 修复：检查并限制用户连接数
@@ -269,15 +278,7 @@ export class TopicInsightsGateway
         outcome: "SUCCESS",
       });
     } catch (error) {
-      this.logger.error(`Authentication error for ${client.id}:`, error);
-      this.securityLogger.logAuthEvent({
-        eventType: SecurityEventType.AUTH_FAILURE,
-        clientIp,
-        action: "WebSocket connection - error",
-        outcome: "FAILURE",
-        details: { error: error instanceof Error ? error.message : "Unknown" },
-      });
-      client.emit("auth:error", { message: "Authentication failed" });
+      this.logger.error(`Connection setup error for ${client.id}:`, error);
       client.disconnect(true);
     }
   }

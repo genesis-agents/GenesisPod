@@ -565,6 +565,12 @@ export class ReportSynthesisService {
     let reportQualityScore: number | undefined;
     if (this.outputReviewer && cleanedReport.length > 0) {
       try {
+        // 解析审核用模型：优先从 ChatFacade 获取 CHAT 类型默认模型
+        const reviewModel = await this.chatFacade
+          .getDefaultModelByType(AIModelType.CHAT)
+          .then((m) => m?.modelId ?? "")
+          .catch(() => "");
+
         const reviewResult = await this.outputReviewer.reviewOutput({
           missionId: reportId,
           task: {
@@ -577,7 +583,7 @@ export class ReportSynthesisService {
             id: "system-reviewer",
             agentName: "OutputReviewer",
             displayName: "Quality Reviewer",
-            aiModel: "",
+            aiModel: reviewModel,
             isLeader: true,
           },
           criteria: {
@@ -1037,22 +1043,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // ★ 根据维度数量动态计算所需 tokens
     // 每个维度大约需要 2000-3000 tokens 的输出空间
-    const dimensionCount = dimensionInputs.length;
-    const baseTokens = 16000; // extended 的基础值
-    const tokensPerDimension = 2500;
-    const estimatedTokens = Math.min(
-      baseTokens + dimensionCount * tokensPerDimension,
-      64000, // 大多数模型的上限
-    );
-
     this.logger.log(
-      `[generateStructuredReport] Requesting ${estimatedTokens} tokens for ${dimensionCount} dimensions`,
+      `[generateStructuredReport] Generating report for ${dimensionInputs.length} dimensions`,
     );
 
     // 渲染系统提示词（语言感知）
     const systemPrompt = renderSynthesisSystemPrompt(topic.language || "zh");
 
     // 调用 AI 生成报告
+    // ★ 不传 explicit maxTokens — 由 TaskProfile mapper 根据模型实际限制自动计算
+    // 避免请求 36000+ tokens 后被 reasoning 模型（如 grok-4, 16384 limit）强制截断
     const response = await this.chatFacade.chatWithSkills({
       messages: [
         { role: "system", content: systemPrompt },
@@ -1064,7 +1064,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         creativity: "medium",
         outputLength: "extended",
       },
-      maxTokens: estimatedTokens,
     });
 
     // 解析 AI 响应

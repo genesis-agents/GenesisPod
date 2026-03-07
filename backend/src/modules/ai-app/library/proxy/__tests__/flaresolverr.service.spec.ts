@@ -64,13 +64,23 @@ describe("FlareSolverrService", () => {
   });
 
   describe("onModuleInit", () => {
-    it("should call checkHealth on initialization (via explicit call)", async () => {
-      // Reset mock to track fresh calls
+    it("should skip checkHealth when FLARESOLVERR_URL is not set", async () => {
+      // Ensure env var is not set
+      delete process.env.FLARESOLVERR_URL;
+      mockedAxios.post = jest.fn();
+
+      await service.onModuleInit();
+
+      // Should NOT call checkHealth when env var is not configured
+      expect(mockedAxios.post).not.toHaveBeenCalled();
+    });
+
+    it("should call checkHealth when FLARESOLVERR_URL is set", async () => {
+      process.env.FLARESOLVERR_URL = "http://flaresolverr:8191/v1";
       mockedAxios.post = jest.fn().mockResolvedValue({
         data: { status: "ok", sessions: [] },
       });
 
-      // Explicitly trigger onModuleInit to verify it calls checkHealth
       await service.onModuleInit();
 
       expect(mockedAxios.post).toHaveBeenCalledWith(
@@ -78,6 +88,9 @@ describe("FlareSolverrService", () => {
         { cmd: "sessions.list" },
         expect.objectContaining({ timeout: 5000 }),
       );
+
+      // Cleanup
+      delete process.env.FLARESOLVERR_URL;
     });
   });
 

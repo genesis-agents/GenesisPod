@@ -43,6 +43,7 @@ describe("TopicInsightsGateway", () => {
   let configService: ReturnType<typeof createMockConfigService>;
 
   // Mock Socket.IO server and client
+  let middlewareFn: ((socket: any, next: any) => Promise<void>) | null = null;
   const mockServer = {
     in: jest.fn().mockReturnValue({
       fetchSockets: jest.fn().mockResolvedValue([{ id: "socket-1" }]),
@@ -50,6 +51,10 @@ describe("TopicInsightsGateway", () => {
     to: jest.fn().mockReturnValue({
       emit: jest.fn(),
     }),
+    use: jest.fn((fn: any) => {
+      middlewareFn = fn;
+    }),
+    sockets: { sockets: new Map() },
   };
 
   // ★ Security: Updated mock client with auth data
@@ -423,12 +428,14 @@ describe("TopicInsightsGateway", () => {
   // ==================== Lifecycle Tests ====================
 
   describe("lifecycle", () => {
-    it("should register emit handler on afterInit", () => {
+    it("should register emit handler and auth middleware on afterInit", () => {
       // Act
       gateway.afterInit();
 
       // Assert
       expect(researchEventEmitter.registerEmitHandler).toHaveBeenCalled();
+      expect(mockServer.use).toHaveBeenCalled();
+      expect(middlewareFn).toBeInstanceOf(Function);
     });
 
     it("should handle client disconnection", () => {
@@ -439,16 +446,20 @@ describe("TopicInsightsGateway", () => {
 
   // ==================== ★ Security: Authentication Tests ====================
 
-  describe("handleConnection - JWT Authentication", () => {
-    it("should authenticate client with valid token", async () => {
+  describe("Socket.IO middleware - JWT Authentication", () => {
+    beforeEach(() => {
+      // Register middleware via afterInit
+      gateway.afterInit();
+    });
+
+    it("should authenticate client with valid token via middleware", async () => {
       // Arrange
-      const validTokenClient = {
+      const socket = {
         id: "client-456",
-        emit: jest.fn(),
-        disconnect: jest.fn(),
         handshake: {
           auth: { token: "valid-jwt-token" },
           headers: {},
+          address: "127.0.0.1",
         },
         data: {} as Record<string, unknown>,
       };
@@ -457,78 +468,70 @@ describe("TopicInsightsGateway", () => {
         email: "test@example.com",
         username: "testuser",
       });
+      const next = jest.fn();
 
       // Act
-      await gateway.handleConnection(validTokenClient as any);
+      await middlewareFn!(socket, next);
 
       // Assert
       expect(jwtService.verifyAsync).toHaveBeenCalledWith("valid-jwt-token", {
         secret: "test-jwt-secret-at-least-32-chars",
       });
-      expect((validTokenClient.data as any).user).toEqual({
+      expect((socket.data as any).user).toEqual({
         id: "user-123",
         email: "test@example.com",
         username: "testuser",
       });
-      expect(validTokenClient.disconnect).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith();
     });
 
-    it("should disconnect client without token", async () => {
+    it("should reject client without token", async () => {
       // Arrange
-      const noTokenClient = {
+      const socket = {
         id: "client-no-token",
-        emit: jest.fn(),
-        disconnect: jest.fn(),
-        handshake: {
-          auth: {},
-          headers: {},
-        },
+        handshake: { auth: {}, headers: {}, address: "127.0.0.1" },
         data: {},
       };
+      const next = jest.fn();
 
       // Act
-      await gateway.handleConnection(noTokenClient as any);
+      await middlewareFn!(socket, next);
 
       // Assert
-      expect(noTokenClient.emit).toHaveBeenCalledWith("auth:error", {
-        message: "Authentication required",
-      });
-      expect(noTokenClient.disconnect).toHaveBeenCalledWith(true);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(next.mock.calls[0][0].message).toBe("Authentication required");
     });
 
-    it("should disconnect client with invalid token", async () => {
+    it("should reject client with invalid token", async () => {
       // Arrange
-      const invalidTokenClient = {
+      const socket = {
         id: "client-invalid",
-        emit: jest.fn(),
-        disconnect: jest.fn(),
         handshake: {
           auth: { token: "invalid-token" },
           headers: {},
+          address: "127.0.0.1",
         },
         data: {},
       };
       jwtService.verifyAsync.mockRejectedValue(new Error("Invalid token"));
+      const next = jest.fn();
 
       // Act
-      await gateway.handleConnection(invalidTokenClient as any);
+      await middlewareFn!(socket, next);
 
       // Assert
-      expect(invalidTokenClient.emit).toHaveBeenCalledWith("auth:error", {
-        message: "Invalid token",
-      });
-      expect(invalidTokenClient.disconnect).toHaveBeenCalledWith(true);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(next.mock.calls[0][0].message).toBe("Invalid token");
     });
 
-    it("should disconnect client when user not found in database", async () => {
+    it("should reject client when user not found in database", async () => {
       // Arrange
-      const orphanTokenClient = {
+      const socket = {
         id: "client-orphan",
-        emit: jest.fn(),
-        disconnect: jest.fn(),
         handshake: {
           auth: { token: "valid-token" },
           headers: {},
+          address: "127.0.0.1",
         },
         data: {},
       };
@@ -537,43 +540,42 @@ describe("TopicInsightsGateway", () => {
         email: "deleted@example.com",
       });
       prisma.user.findUnique.mockResolvedValue(null);
+      const next = jest.fn();
 
       // Act
-      await gateway.handleConnection(orphanTokenClient as any);
+      await middlewareFn!(socket, next);
 
       // Assert
-      expect(orphanTokenClient.emit).toHaveBeenCalledWith("auth:error", {
-        message: "User not found",
-      });
-      expect(orphanTokenClient.disconnect).toHaveBeenCalledWith(true);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(next.mock.calls[0][0].message).toBe("User not found");
     });
 
     it("should accept token from Authorization header", async () => {
       // Arrange
-      const headerTokenClient = {
+      const socket = {
         id: "client-header",
-        emit: jest.fn(),
-        disconnect: jest.fn(),
         handshake: {
           auth: {},
           headers: { authorization: "Bearer header-jwt-token" },
+          address: "127.0.0.1",
         },
-        data: {},
+        data: {} as Record<string, unknown>,
       };
       prisma.user.findUnique.mockResolvedValue({
         id: "user-123",
         email: "test@example.com",
         username: "testuser",
       });
+      const next = jest.fn();
 
       // Act
-      await gateway.handleConnection(headerTokenClient as any);
+      await middlewareFn!(socket, next);
 
       // Assert
       expect(jwtService.verifyAsync).toHaveBeenCalledWith("header-jwt-token", {
         secret: "test-jwt-secret-at-least-32-chars",
       });
-      expect(headerTokenClient.disconnect).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith();
     });
   });
 

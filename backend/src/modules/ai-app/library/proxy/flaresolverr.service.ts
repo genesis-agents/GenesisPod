@@ -61,7 +61,14 @@ export class FlareSolverrService implements OnModuleInit {
   private isAvailable = false;
 
   async onModuleInit() {
-    // 启动时检查 FlareSolverr 是否可用
+    // 仅在显式配置 FLARESOLVERR_URL 时才检查健康状态
+    // 未配置时跳过，避免对 localhost:8191 发起无意义的连接尝试
+    if (!process.env.FLARESOLVERR_URL) {
+      this.logger.debug(
+        "FLARESOLVERR_URL not configured, skipping health check",
+      );
+      return;
+    }
     await this.checkHealth();
   }
 

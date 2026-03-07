@@ -434,7 +434,7 @@ describe("ReportGeneratorService", () => {
       expect(mockFacade.chatWithSkills).toHaveBeenCalledTimes(1);
     });
 
-    it("should scale maxTokens based on dimension count", async () => {
+    it("should not pass explicit maxTokens (delegated to TaskProfile mapper)", async () => {
       mockFacade.chatWithSkills.mockResolvedValue({
         content: VALID_REPORT_JSON,
       });
@@ -449,8 +449,12 @@ describe("ReportGeneratorService", () => {
       await service.generateComprehensiveReport(mockTopic, manyDimensions, []);
 
       const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
-      // With 20 dimensions: base(16000) + 20*2500 = 66000, capped at 64000
-      expect(chatCall.maxTokens).toBe(64000);
+      // maxTokens should NOT be passed — TaskProfile mapper handles model-specific limits
+      expect(chatCall.maxTokens).toBeUndefined();
+      expect(chatCall.taskProfile).toEqual({
+        creativity: "medium",
+        outputLength: "extended",
+      });
     });
 
     it("should use correct modelType (CHAT) for report synthesis", async () => {
@@ -999,7 +1003,7 @@ describe("ReportGeneratorService", () => {
       expect(result).toBeDefined();
     });
 
-    it("should calculate small maxTokens for 1 dimension", async () => {
+    it("should use TaskProfile extended outputLength for any dimension count", async () => {
       mockFacade.chatWithSkills.mockResolvedValue({
         content: VALID_REPORT_JSON,
       });
@@ -1011,8 +1015,9 @@ describe("ReportGeneratorService", () => {
       );
 
       const chatCall = mockFacade.chatWithSkills.mock.calls[0][0];
-      // 1 dim: base(16000) + 1*2500 = 18500
-      expect(chatCall.maxTokens).toBe(18500);
+      // maxTokens delegated to TaskProfile mapper, not computed per dimension count
+      expect(chatCall.maxTokens).toBeUndefined();
+      expect(chatCall.taskProfile.outputLength).toBe("extended");
     });
   });
 

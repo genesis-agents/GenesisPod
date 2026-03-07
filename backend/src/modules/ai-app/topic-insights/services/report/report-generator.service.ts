@@ -254,24 +254,15 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     this.logger.debug("Calling AI for comprehensive report synthesis");
 
-    // ★ 根据维度数量动态计算所需 tokens
-    // 每个维度大约需要 2000-3000 tokens 的输出空间
-    const dimensionCount = dimensionInputs.length;
-    const baseTokens = 16000; // extended 的基础值
-    const tokensPerDimension = 2500;
-    const estimatedTokens = Math.min(
-      baseTokens + dimensionCount * tokensPerDimension,
-      64000, // 大多数模型的上限
-    );
-
     this.logger.log(
-      `[generateStructuredReport] Requesting ${estimatedTokens} tokens for ${dimensionCount} dimensions`,
+      `[generateStructuredReport] Generating report for ${dimensionInputs.length} dimensions`,
     );
 
     // 渲染系统提示词（语言感知）
     const systemPrompt = renderSynthesisSystemPrompt(topic.language || "zh");
 
     // 调用 AI 生成报告（带 input-complexity-check 容错）
+    // ★ 不传 explicit maxTokens — 由 TaskProfile mapper 根据模型实际限制自动计算
     let response;
     try {
       response = await this.chatFacade.chatWithSkills({
@@ -285,7 +276,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           creativity: "medium",
           outputLength: "extended",
         },
-        maxTokens: estimatedTokens,
       });
     } catch (primaryError: unknown) {
       const errMsg =
@@ -328,7 +318,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
             creativity: "medium",
             outputLength: "extended",
           },
-          maxTokens: estimatedTokens,
         });
       } else {
         throw primaryError;
