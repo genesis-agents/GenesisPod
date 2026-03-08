@@ -1010,22 +1010,6 @@ function ReportEditorInner({
     [processText]
   );
 
-  // ★ Extract Key Takeaways from dimension analyses (consistent with ChapterizedReportView)
-  const keyTakeaways = useMemo(() => {
-    if (!report?.dimensionAnalyses) return [];
-    return report.dimensionAnalyses
-      .flatMap((analysis) =>
-        (analysis.keyFindings || [])
-          .filter((f) => f.finding && f.finding.trim().length > 3)
-          .slice(0, 3)
-          .map((f) => ({
-            finding: f.finding,
-            significance: f.significance || 'medium',
-          }))
-      )
-      .slice(0, 8); // Cap at 8 total findings across all dimensions
-  }, [report?.dimensionAnalyses]);
-
   // ★ ReactMarkdown content with React Controlled Highlighting and inline charts
   // Annotations are now rendered inline via processText → AnnotatedText component
   // This eliminates DOM manipulation conflicts that caused React error #310
@@ -1197,34 +1181,6 @@ function ReportEditorInner({
                 {t('topicResearch.reportEditor.previewMode')}
               </span>
             </div>
-
-            {/* ★ Key Takeaways card — consistent with ChapterizedReportView */}
-            {keyTakeaways.length > 0 && (
-              <div className="mb-5 rounded-xl border-l-4 border-blue-400 bg-blue-50/60 p-4">
-                <h4 className="mb-2 text-sm font-semibold text-blue-800">
-                  Key Takeaways
-                </h4>
-                <ul className="space-y-1.5">
-                  {keyTakeaways.map((kf, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 text-sm text-blue-900/80"
-                    >
-                      <span
-                        className={`mt-1 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
-                          kf.significance === 'high'
-                            ? 'bg-red-400'
-                            : kf.significance === 'medium'
-                              ? 'bg-amber-400'
-                              : 'bg-blue-400'
-                        }`}
-                      />
-                      <span>{processText(kf.finding)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
             {/* Markdown content with React Controlled annotation highlighting */}
             {memoizedMarkdownContent}

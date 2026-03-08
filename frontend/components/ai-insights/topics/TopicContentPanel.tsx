@@ -1936,14 +1936,19 @@ export function TopicContentPanel({
           )}
           {activeTab === 'credibility' && (
             <div className="h-full overflow-y-auto p-4">
-              {/* ★ 报告质量探针 - 从协作动态移至可信度 tab */}
-              {topicId && report?.id && (
-                <div className="mb-4">
-                  <QualityProbePanel topicId={topicId} reportId={report.id} />
-                </div>
-              )}
               {report ? (
-                <CredibilityPanel topicId={topicId} reportId={report.id} />
+                <>
+                  <CredibilityPanel topicId={topicId} reportId={report.id} />
+                  {/* ★ 报告质量探针 - 可信度评估之后、局限性说明之前 */}
+                  {topicId && report.id && (
+                    <div className="mt-4">
+                      <QualityProbePanel
+                        topicId={topicId}
+                        reportId={report.id}
+                      />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">

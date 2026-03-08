@@ -17,6 +17,33 @@ import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents'
 import type { TopicReport, TopicEvidence } from '@/types/topic-insights';
 import { useI18n } from '@/lib/i18n';
 
+/**
+ * Strip LaTeX math, raw LaTeX commands, and citation references from plain-text
+ * display contexts (quick view cards) where math rendering is not available.
+ */
+function cleanQuickViewText(text: string): string {
+  if (!text) return text;
+  // Remove display math $$...$$
+  let cleaned = text.replace(/\$\$[\s\S]*?\$\$/g, '');
+  // Remove inline math $...$ — keep the inner text stripped of commands
+  cleaned = cleaned.replace(/\$([^$\n]+)\$/g, (_match, inner: string) =>
+    inner
+      .replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, '')
+      .replace(/[_^{}\\]/g, '')
+      .trim()
+  );
+  // Remove remaining bare LaTeX commands (e.g. \alpha, \frac{a}{b})
+  cleaned = cleaned.replace(/\\[a-zA-Z]+\{[^}]*\}/g, '');
+  cleaned = cleaned.replace(/\\[a-zA-Z]+/g, '');
+  // Remove leftover LaTeX structural characters
+  cleaned = cleaned.replace(/[{}\\^_]/g, '');
+  // Remove citation references [N] and [N][M]
+  cleaned = cleaned.replace(/(?:\[\d+\])+/g, '');
+  // Collapse multiple spaces
+  cleaned = cleaned.replace(/\s{2,}/g, ' ');
+  return cleaned.trim();
+}
+
 interface QuickViewReportProps {
   report: TopicReport | null;
   evidence?: TopicEvidence[];
@@ -85,10 +112,16 @@ export function QuickViewReport({
     for (const da of report.dimensionAnalyses) {
       const name = da.dimension?.name || '未知维度';
       for (const c of (da.challenges || []).slice(0, 1)) {
-        challenges.push({ dimensionName: name, text: c.challenge });
+        challenges.push({
+          dimensionName: name,
+          text: cleanQuickViewText(c.challenge),
+        });
       }
       for (const o of (da.opportunities || []).slice(0, 1)) {
-        opportunities.push({ dimensionName: name, text: o.opportunity });
+        opportunities.push({
+          dimensionName: name,
+          text: cleanQuickViewText(o.opportunity),
+        });
       }
     }
     return { challenges, opportunities };

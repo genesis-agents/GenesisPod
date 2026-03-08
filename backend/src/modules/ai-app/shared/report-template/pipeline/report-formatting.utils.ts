@@ -1449,6 +1449,115 @@ export function wrapBareDisplayMath(content: string): string {
 }
 
 /**
+ * Wrap bare inline LaTeX commands that appear outside of `$...$` or `$$...$$`
+ * delimiters. LLMs occasionally emit LaTeX commands like `\alpha_{ij}` or
+ * `X \in \mathbb{R}^{n \times d}` without wrapping them in math delimiters,
+ * which causes remark-math / rehype-katex to ignore them and renders them as
+ * raw backslash text.
+ *
+ * Strategy (per line):
+ *   1. Skip code blocks, display-math lines ($$), headings, table rows.
+ *   2. Split the line by existing $...$ / $$...$$ regions.
+ *   3. In non-math segments: find contiguous spans that contain known LaTeX
+ *      commands and wrap each span in `$...$`.
+ *   4. Re-join and return the line.
+ *
+ * Only targets lines with NO existing `$` delimiter (simplest, lowest risk).
+ * Lines that already use `$` are left untouched to avoid double-wrapping.
+ */
+export function wrapBareInlineLatex(content: string): string {
+  const KNOWN_CMDS =
+    "mathbb|mathcal|mathrm|mathbf|mathit|frac|sqrt|text|sum|prod|int|lim|inf|sup|max|min|log|ln|exp|sin|cos|tan|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|left|right|times|cdot|leq|geq|neq|approx|equiv|subset|supset|subseteq|supseteq|cap|cup|forall|exists|in|notin|top|bot|nabla|partial|infty|dots|ldots|cdots|quad|qquad|mid|vert|Vert|hat|bar|vec|tilde|overline|underline|oplus|otimes|circ|bullet|dagger|ddagger|angle|perp|parallel|sim|simeq|cong|propto|asymp|ll|gg|prec|succ|vee|wedge|neg|not|pm|mp|div|ast|star|begin|end|operatorname|underbrace|overbrace|limits|nolimits";
+
+  // Regex to detect at least one known LaTeX command
+  const CMD_DETECT_RE = new RegExp(
+    `\\\\(?:${KNOWN_CMDS})(?:\\b|[{_^\\\\])`,
+    "",
+  );
+
+  // Regex to find the start of a LaTeX expression:
+  // Optional variable prefix (e.g. "X" or "d_k"), then a backslash + known command.
+  // We capture everything up to a Chinese char, sentence-ending punctuation, or EOL.
+  const LATEX_SPAN_RE = new RegExp(
+    `(?:[A-Za-z0-9_][A-Za-z0-9_]*\\s*)?(?:\\\\(?:${KNOWN_CMDS})(?:\\b|[{_^\\\\]))` +
+      `(?:[^\\u4e00-\\u9fff，。；：、！？\\n])*`,
+    "g",
+  );
+
+  return content
+    .split("\n")
+    .map((line) => {
+      // Skip display math, fenced code blocks, headings, table rows
+      const trimmed = line.trim();
+      if (
+        trimmed.startsWith("$$") ||
+        trimmed.startsWith("```") ||
+        /^#{1,6}\s/.test(trimmed) ||
+        trimmed.startsWith("|")
+      ) {
+        return line;
+      }
+
+      // Only process lines with no existing $ delimiter (avoids double-wrapping)
+      if (line.includes("$")) return line;
+
+      // Skip lines with no known LaTeX commands at all
+      if (!CMD_DETECT_RE.test(line)) return line;
+
+      // Find LaTeX spans and wrap each in $...$
+      return line.replace(LATEX_SPAN_RE, (match) => {
+        const inner = match.trim();
+        if (inner.length < 3) return match; // too short to be meaningful
+        // Only wrap if it actually contains a backslash (not a stray letter match)
+        if (!inner.includes("\\")) return match;
+        // Preserve leading/trailing whitespace from original match
+        const leading = match.slice(0, match.length - match.trimStart().length);
+        const trailing = match.slice(match.trimEnd().length);
+        return `${leading}$${inner}$${trailing}`;
+      });
+    })
+    .join("\n");
+}
+
+/**
+ * Convert plain numbered list items (1. 2. 3. ...) under ### headings to
+ * bullet points (- ...) in the chapter (pre-assembly) context.
+ *
+ * This is the counterpart of `convertDescriptiveListsToBullets` (which only
+ * targets #### headings). Here we target ### headings — which is where LLMs
+ * most often generate descriptive sub-items that should be bullets, not
+ * ordered items.
+ *
+ * Only non-bold items are converted. Bold items (`1. **Item**`) are structural
+ * (they receive hierarchical numbering later) and are left intact.
+ * Table rows and blockquotes are also left intact.
+ */
+export function convertPlainNumberedListsUnderH3ToBullets(
+  content: string,
+): string {
+  const lines = content.split("\n");
+  let underH3 = false;
+
+  return lines
+    .map((line) => {
+      if (/^###\s+/.test(line)) {
+        underH3 = true;
+        return line;
+      }
+      if (/^##\s+/.test(line)) {
+        underH3 = false;
+        return line;
+      }
+      // Under ###: convert non-bold ordered items to bullets
+      if (underH3 && /^\d+\.\s+[^*|>]/.test(line)) {
+        return line.replace(/^\d+\.\s+/, "- ");
+      }
+      return line;
+    })
+    .join("\n");
+}
+
+/**
  * Remove duplicate terminal sections (结语 repeating content from 跨维度关联分析).
  *
  * The report assembler sometimes produces:
@@ -2698,6 +2807,9 @@ export function preprocessDimensionContent(content: string): string {
   // Convert plain ordered lists under #### to bullets
   processed = convertDescriptiveListsToBullets(processed);
 
+  // Convert plain ordered lists under ### to bullets (chapter view context)
+  processed = convertPlainNumberedListsUnderH3ToBullets(processed);
+
   // Strip LLM meta-notes (word-count, editorial instructions)
   processed = stripLLMMetaNotes(processed);
 
@@ -2790,10 +2902,48 @@ export function preprocessDimensionContent(content: string): string {
   // Strip unresolved figure placeholders (<!-- figure:N:M -->)
   processed = stripFigureComments(processed);
 
+  // Wrap bare inline LaTeX commands (not inside $...$) so remark-math can render them
+  processed = wrapBareInlineLatex(processed);
+
   // Clean up triple+ newlines
   processed = processed.replace(/\n{3,}/g, "\n\n");
 
   return processed;
+}
+
+/**
+ * Strip ALL "本章要点" / "Chapter Highlights" blockquote blocks from content.
+ *
+ * In the continuous (full) report view, these per-dimension highlight boxes
+ * are redundant with the executive summary. Removing them produces a cleaner
+ * reading experience.
+ *
+ * Recognizes blocks that start with `> **本章要点**` (or `> **Chapter Highlights**`)
+ * and continue with `> - item` lines until the first non-blockquote line.
+ */
+export function stripChapterHighlights(content: string): string {
+  const HEADER_RE = /^>\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\s*$/i;
+
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    if (HEADER_RE.test(line)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      // Continue skipping blockquote continuation lines
+      if (/^>\s/.test(line) || line.trim() === ">" || line.trim() === "") {
+        continue;
+      }
+      skipping = false;
+    }
+    result.push(line);
+  }
+
+  return result.join("\n");
 }
 
 /**

@@ -55,6 +55,7 @@ import {
   stripCitationsFromHeadings,
   wrapBareDisplayMath,
   deduplicateTerminalSections,
+  stripChapterHighlights,
 } from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
@@ -929,6 +930,9 @@ export class ReportAssemblerService {
     // Strip residual figure placeholders (catch any missed by per-dimension pass)
     content = stripFigureComments(content);
 
+    // Strip 本章要点 blocks from continuous view (redundant with exec summary)
+    content = stripChapterHighlights(content);
+
     // Re-number headings to close gaps from removed/collapsed headings
     content = renumberHeadings(content);
 
@@ -1001,6 +1005,37 @@ export class ReportAssemblerService {
    *
    * Note: generatedCharts injection is disabled in v4 (AI-fabricated charts disabled).
    */
+  /**
+   * Returns true if the figure reference URL is a garbage/non-chart image
+   * (QR codes, logos, favicons, app icons scraped from web pages).
+   * These external reference images are unreliable and should be suppressed.
+   */
+  private isGarbageFigureUrl(url: string | undefined): boolean {
+    if (!url) return true;
+    const lower = url.toLowerCase();
+    // QR code and app-code images (common on Chinese tech sites)
+    if (lower.includes("appcode") || lower.includes("aicode")) return true;
+    if (
+      lower.includes("qrcode") ||
+      lower.includes("qr_code") ||
+      lower.includes("qr-code")
+    )
+      return true;
+    // Favicons, logos, and icon assets
+    if (lower.includes("favicon")) return true;
+    if (
+      /\/(?:logo|icon|sprite|badge|avatar|banner|ads?)[\-_]?\w*\.(?:png|jpg|gif|svg|webp)/i.test(
+        url,
+      )
+    )
+      return true;
+    // Tracking pixels and very small images (1x1, 2x2)
+    if (/[?&](?:w|width|h|height)=[12]\b/.test(url)) return true;
+    // Data URIs (bloated, not real chart images)
+    if (lower.startsWith("data:")) return true;
+    return false;
+  }
+
   private resolveChartPlaceholders(
     content: string,
     dimIndex: number,
@@ -1011,11 +1046,16 @@ export class ReportAssemblerService {
     const dimPrefix = `d${dimIndex}-`;
 
     // 1. Convert <!-- figure:N:M --> placeholders to <!-- chart:chartId -->
-    if (figureReferences && figureReferences.length > 0) {
+    // Filter out garbage figure URLs (QR codes, logos, icons) before resolving
+    const validFigureReferences = figureReferences?.filter(
+      (r) => !this.isGarbageFigureUrl(r.imageUrl),
+    );
+
+    if (validFigureReferences && validFigureReferences.length > 0) {
       result = result.replace(
         /<!--\s*figure:(\d+):(\d+)\s*-->/g,
         (_match, evidenceIdx, figIdx) => {
-          const ref = figureReferences.find(
+          const ref = validFigureReferences.find(
             (r) =>
               r.evidenceCitationIndex === Number(evidenceIdx) &&
               r.figureIndex === Number(figIdx),
