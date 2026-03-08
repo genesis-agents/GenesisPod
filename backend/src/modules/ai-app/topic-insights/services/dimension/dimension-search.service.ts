@@ -167,12 +167,21 @@ export class DimensionSearchService {
       thinkingContent: `搜索关键词: ${Array.isArray(dimension.searchQueries) ? dimension.searchQueries.join(", ") : dimension.name}`,
     });
 
+    // ★ RAG-Fusion: 当维度有多个搜索查询时自动启用多查询融合
+    const searchQueryCount = Array.isArray(dimension.searchQueries)
+      ? dimension.searchQueries.length
+      : 0;
+
     const searchResult = await this.dataSourceRouter.fetchDataForDimension(
       dimension,
       topic,
       {
         assignedTools,
         assignedSkills,
+        ragFusionConfig:
+          searchQueryCount >= 1
+            ? { enabled: true, maxVariants: Math.min(searchQueryCount + 2, 6) }
+            : undefined,
       },
     );
 

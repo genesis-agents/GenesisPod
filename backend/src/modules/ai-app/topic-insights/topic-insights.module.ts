@@ -104,6 +104,7 @@ import {
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
+  RAGFusionService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -156,6 +157,7 @@ const services = [
   // ★ Data sub-services
   DataSourceFetcherService,
   DataSourceStrategyService,
+  RAGFusionService,
   // ★ Dimension sub-services
   DimensionSearchService,
   DimensionWritingService,

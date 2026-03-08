@@ -247,12 +247,20 @@ export class DimensionMissionService {
       modelId,
     });
 
+    const searchQueryCount = Array.isArray(dimension.searchQueries)
+      ? dimension.searchQueries.length
+      : 0;
+
     const searchResult = await this.dataSourceRouter.fetchDataForDimension(
       dimension,
       topic,
       {
         assignedTools,
         assignedSkills,
+        ragFusionConfig:
+          searchQueryCount >= 1
+            ? { enabled: true, maxVariants: Math.min(searchQueryCount + 2, 6) }
+            : undefined,
       },
     );
 

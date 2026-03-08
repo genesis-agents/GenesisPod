@@ -40,6 +40,8 @@ import {
   convertToolsToDataSources,
 } from "../../config/data-source-mapping.config";
 import { LruMap } from "@/common/utils/lru-map";
+import { RAGFusionService } from "./rag-fusion.service";
+import type { RAGFusionConfig } from "../../types/rag-fusion.types";
 
 /**
  * 数据获取选项
@@ -57,6 +59,8 @@ export interface FetchDataOptions {
   assignedSkills?: string[];
   /** Kernel 进程 ID（用于能力检查） */
   processId?: string;
+  /** ★ RAG-Fusion 配置（启用时使用多查询融合检索） */
+  ragFusionConfig?: Partial<RAGFusionConfig> & { enabled?: boolean };
 }
 
 /**
@@ -103,6 +107,9 @@ export class DataSourceRouterService {
     // ★ Batch 2: 数据源访问能力检查
     @Optional()
     private readonly capabilityGuard?: CapabilityGuardService,
+    // ★ RAG-Fusion: 多查询融合检索（可选，standard/thorough 深度启用）
+    @Optional()
+    private readonly ragFusionService?: RAGFusionService,
   ) {}
 
   /**
@@ -248,35 +255,82 @@ export class DataSourceRouterService {
     }
 
     // 3. 并行调用所有数据源
-    // ★ 对每个查询 × 每个数据源执行搜索，按查询分配配额
-    const maxResultsPerQuery = Math.max(
-      5,
-      Math.ceil(25 / searchQueries.length),
-    );
-    const searchPromises: Promise<DataSourceResult[]>[] = [];
-    const searchSources: DataSourceType[] = [];
+    // ★ RAG-Fusion: 如果启用，使用多查询融合检索提升召回率
+    const ragFusionEnabled =
+      this.ragFusionService &&
+      options?.ragFusionConfig?.enabled &&
+      searchQueries.length > 0;
 
-    for (const source of sources) {
-      for (const query of searchQueries) {
-        searchPromises.push(
-          this.searchSource(
-            source,
-            query,
-            {
-              maxResults: maxResultsPerQuery,
-              since,
+    let aggregated: AggregatedSearchResult;
+
+    if (ragFusionEnabled) {
+      this.logger.log(
+        `[RAG-Fusion] Enabled for dimension: ${dimension.name}, primary query: "${searchQuery}"`,
+      );
+      try {
+        const fusedResult = await this.ragFusionService.fusionSearch(
+          {
+            originalQuery: searchQuery,
+            context: {
+              topicName: topic.name,
+              dimensionName: dimension.name,
             },
-            topic,
-          ),
+            config: options?.ragFusionConfig,
+          },
+          async (variantQuery: string) => {
+            // 对每个变体查询执行所有数据源搜索
+            const variantPromises: Promise<DataSourceResult[]>[] = [];
+            for (const source of sources) {
+              variantPromises.push(
+                this.searchSource(
+                  source,
+                  variantQuery,
+                  { maxResults: 5, since },
+                  topic,
+                ),
+              );
+            }
+            const variantResults = await Promise.allSettled(variantPromises);
+            return variantResults.flatMap((r) =>
+              r.status === "fulfilled" ? r.value : [],
+            );
+          },
+          options?.ragFusionConfig,
         );
-        searchSources.push(source);
+
+        const fusedItems =
+          this.ragFusionService.convertToDataSourceResults(fusedResult);
+        aggregated = {
+          items: fusedItems,
+          totalCount: fusedItems.length,
+          sources,
+        };
+
+        this.logger.log(
+          `[RAG-Fusion] Fused ${fusedResult.metadata.totalUniqueResults} unique results ` +
+            `from ${fusedResult.metadata.successfulVariants}/${fusedResult.metadata.totalVariants} variants ` +
+            `in ${fusedResult.metadata.executionTimeMs}ms`,
+        );
+      } catch (fusionError) {
+        this.logger.warn(
+          `[RAG-Fusion] Failed, falling back to standard search: ${fusionError instanceof Error ? fusionError.message : fusionError}`,
+        );
+        // 降级到标准搜索
+        aggregated = await this.standardSearch(
+          sources,
+          searchQueries,
+          since,
+          topic,
+        );
       }
+    } else {
+      aggregated = await this.standardSearch(
+        sources,
+        searchQueries,
+        since,
+        topic,
+      );
     }
-
-    const results = await Promise.allSettled(searchPromises);
-
-    // 4. 聚合结果
-    let aggregated = this.aggregateResults(results, searchSources);
 
     // ★ H4: 所有数据源都失败或无结果时，兜底使用 WEB 源
     if (aggregated.totalCount === 0 && !sources.includes(DataSourceType.WEB)) {
@@ -309,14 +363,59 @@ export class DataSourceRouterService {
       `Fetched ${aggregated.totalCount} results from ${sources.length} sources in ${executionTime}ms`,
     );
 
+    // Build sourceResults from aggregated items
+    const sourceResults = {} as Record<string, number>;
+    for (const item of aggregated.items) {
+      const src = item.sourceType ?? "unknown";
+      sourceResults[src] = (sourceResults[src] || 0) + 1;
+    }
+
     return {
       ...aggregated,
       metadata: {
         searchQuery,
         executionTimeMs: executionTime,
-        sourceResults: this.countResultsBySource(results, searchSources),
+        sourceResults: sourceResults as Record<DataSourceType, number>,
       },
     };
+  }
+
+  /**
+   * 标准搜索流程（非 RAG-Fusion 路径）
+   * 对每个查询 × 每个数据源执行搜索并聚合结果
+   */
+  private async standardSearch(
+    sources: DataSourceType[],
+    searchQueries: string[],
+    since: Date,
+    topic?: ResearchTopic,
+  ): Promise<AggregatedSearchResult> {
+    const maxResultsPerQuery = Math.max(
+      5,
+      Math.ceil(25 / searchQueries.length),
+    );
+    const searchPromises: Promise<DataSourceResult[]>[] = [];
+    const searchSources: DataSourceType[] = [];
+
+    for (const source of sources) {
+      for (const query of searchQueries) {
+        searchPromises.push(
+          this.searchSource(
+            source,
+            query,
+            {
+              maxResults: maxResultsPerQuery,
+              since,
+            },
+            topic,
+          ),
+        );
+        searchSources.push(source);
+      }
+    }
+
+    const results = await Promise.allSettled(searchPromises);
+    return this.aggregateResults(results, searchSources);
   }
 
   /**
@@ -2030,27 +2129,6 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
     if (contentLength >= 100) return 40;
 
     return 20;
-  }
-
-  /**
-   * 统计每个数据源的结果数
-   */
-  private countResultsBySource(
-    results: PromiseSettledResult<DataSourceResult[]>[],
-    sources: DataSourceType[],
-  ): Record<DataSourceType, number> {
-    const counts: Record<string, number> = {};
-
-    results.forEach((result, index) => {
-      const source = sources[index];
-      if (result.status === "fulfilled") {
-        counts[source] = result.value.length;
-      } else {
-        counts[source] = 0;
-      }
-    });
-
-    return counts as Record<DataSourceType, number>;
   }
 
   // ==================== Tool Capability Integration ====================
