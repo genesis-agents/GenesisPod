@@ -284,7 +284,9 @@ export class ReportQualityGateService {
       });
     }
 
-    // 9. 引用集中度检查（单个引用出现 >5 次 warning，>8 次 error）
+    // 9. 引用集中度检查（单个引用出现 >5 次 warning，>8 次 warning）
+    // NOTE: 降级为 warning 而非 error，因为引用集中度取决于证据池丰富程度，
+    // AI 重写无法改变证据池，error 级别会导致无限重写循环。
     const citationCounts = new Map<string, number>();
     for (const c of citations) {
       citationCounts.set(c, (citationCounts.get(c) ?? 0) + 1);
@@ -293,14 +295,11 @@ export class ReportQualityGateService {
       if (count > 8) {
         violations.push({
           rule: "citation_concentration",
-          severity: "error",
-          message: `引用 ${cite} 在维度内出现 ${count} 次，严重超过阈值 8 次，必须分散引用来源`,
+          severity: "warning",
+          message: `引用 ${cite} 在维度内出现 ${count} 次，超过阈值 8 次，建议分散引用来源`,
           currentValue: count,
           threshold: 8,
         });
-        rewriteGuidance.push(
-          `引用过度集中：${cite} 在本维度出现 ${count} 次。请减少对单一来源的依赖，用其他证据替换部分引用。`,
-        );
       } else if (count > 5) {
         violations.push({
           rule: "citation_concentration",
@@ -313,6 +312,7 @@ export class ReportQualityGateService {
     }
 
     // 9.5 ★ v4.3: 来源多样性 — 维度内引用来源过少
+    // NOTE: 仅记录 warning，不加入 rewriteGuidance（AI 无法改变证据池）
     if (uniqueCitations.size >= 3) {
       const topCiteCount = Math.max(...citationCounts.values(), 0);
       const topCiteRatio = topCiteCount / citations.length;
@@ -324,9 +324,6 @@ export class ReportQualityGateService {
           currentValue: topCiteRatio,
           threshold: 0.4,
         });
-        rewriteGuidance.push(
-          `来源多样性不足：最高频引用占比 ${(topCiteRatio * 100).toFixed(0)}%。请确保各观点来自不同信息源，避免过度依赖单一来源。`,
-        );
       }
     }
 
