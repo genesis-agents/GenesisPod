@@ -24,9 +24,12 @@
  *   DATABASE_URL — Prisma connection string (falls back to Railway URL)
  */
 
-const DB_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:kGEdCxDTJjobGluClMSkkAmImaXusiOI@tramway.proxy.rlwy.net:20087/railway";
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) {
+  console.error("ERROR: DATABASE_URL environment variable is required.");
+  console.error("  export DATABASE_URL=postgresql://...");
+  process.exit(1);
+}
 
 async function main() {
   const { PrismaClient } = require("@prisma/client");

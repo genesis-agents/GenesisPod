@@ -16,9 +16,12 @@
 
 const { PrismaClient } = require("@prisma/client");
 
-const DB_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:kGEdCxDTJjobGluClMSkkAmImaXusiOI@tramway.proxy.rlwy.net:20087/railway";
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) {
+  console.error("ERROR: DATABASE_URL environment variable is required.");
+  console.error("  export DATABASE_URL=postgresql://...");
+  process.exit(1);
+}
 
 const prisma = new PrismaClient({ datasources: { db: { url: DB_URL } } });
 
