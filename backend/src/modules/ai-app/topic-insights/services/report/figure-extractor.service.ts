@@ -176,6 +176,7 @@ export class FigureExtractorService {
 
   /**
    * 提取 <figure> 元素
+   * ★ 只提取有 <figcaption> 的 figure，没有图注的跳过
    */
   private extractFigureElements(
     baseUrl: string,
@@ -190,16 +191,17 @@ export class FigureExtractorService {
     let match;
     while ((match = figureRegex.exec(htmlContent)) !== null) {
       const imgSrc = match[1];
-      const figcaption = match[2]
-        ? this.cleanHtmlText(match[2])
-        : this.extractAltFromImg(match[0]);
+      // ★ 必须有 <figcaption>，否则跳过（不用 alt 兜底）
+      if (!match[2]) continue;
+      const figcaption = this.cleanHtmlText(match[2]);
+      if (!this.isMeaningfulCaption(figcaption)) continue;
 
       const resolvedUrl = this.resolveUrl(baseUrl, imgSrc);
       if (resolvedUrl) {
         figures.push({
           imageUrl: resolvedUrl,
-          caption: figcaption || "",
-          type: this.classifyFigureType(figcaption || ""),
+          caption: figcaption,
+          type: this.classifyFigureType(figcaption),
           alt: this.extractAltFromImg(match[0]),
         });
       }
@@ -210,6 +212,7 @@ export class FigureExtractorService {
 
   /**
    * 提取独立的 <img> 元素
+   * ★ 只提取有实质性 alt 文本的 img，无描述的跳过
    */
   private extractImgElements(
     baseUrl: string,
@@ -223,21 +226,22 @@ export class FigureExtractorService {
 
     let match;
     while ((match = imgRegex.exec(htmlContent)) !== null) {
+      const alt = this.extractAltFromFullMatch(match[0]);
+      // ★ 必须有实质性 alt 文本，否则跳过
+      if (!this.isMeaningfulCaption(alt)) continue;
+
       // Prefer data-src/data-original (lazy-load real URL) over src (placeholder)
       const imgSrc = this.extractBestSrc(match[0]) || match[1];
-      const alt = this.extractAltFromFullMatch(match[0]);
-
       const resolvedUrl = this.resolveUrl(baseUrl, imgSrc);
       if (resolvedUrl) {
-        // 提取宽高
         const width = this.extractDimension(match[0], "width");
         const height = this.extractDimension(match[0], "height");
 
         figures.push({
           imageUrl: resolvedUrl,
-          caption: alt || "",
-          type: this.classifyFigureType(alt || ""),
-          alt: alt,
+          caption: alt,
+          type: this.classifyFigureType(alt),
+          alt,
           width,
           height,
         });
@@ -450,13 +454,42 @@ export class FigureExtractorService {
       return true;
     }
 
-    // 如果有 caption 或 alt 文本，且长度足够，可能是有意义的图片
-    if ((caption && caption.length > 10) || (alt && alt.length > 10)) {
-      return true;
-    }
-
-    // 默认不包含
+    // ★ 不再有宽松兜底：没有匹配 include 关键词就拒绝
+    // 图片质量优先于数量，不为凑数而降低标准
     return false;
+  }
+
+  /**
+   * 判断 caption/alt 是否有实质性内容
+   * 排除空、纯数字、通用标签如 "image"、"figure 1"、"photo" 等
+   */
+  private isMeaningfulCaption(text: string | undefined): boolean {
+    if (!text) return false;
+    const trimmed = text.trim();
+    if (trimmed.length < 8) return false; // 至少 8 个字符才有描述价值
+
+    // 排除通用无意义 caption
+    const genericPatterns = [
+      /^figure\s*\d*$/i,
+      /^fig\.?\s*\d*$/i,
+      /^image\s*\d*$/i,
+      /^img\s*\d*$/i,
+      /^photo\s*\d*$/i,
+      /^picture\s*\d*$/i,
+      /^chart\s*\d*$/i,
+      /^graph\s*\d*$/i,
+      /^table\s*\d*$/i,
+      /^diagram\s*\d*$/i,
+      /^screenshot\s*\d*$/i,
+      /^illustration\s*\d*$/i,
+      /^图\s*\d*$/i,
+      /^表\s*\d*$/i,
+      /^图片\s*\d*$/i,
+      /^\d+$/,
+    ];
+    if (genericPatterns.some((p) => p.test(trimmed))) return false;
+
+    return true;
   }
 
   /**
