@@ -1320,6 +1320,208 @@ export function anchorReferences(content: string): string {
   );
 }
 
+/**
+ * Strip HTML citation links back to plain `[N]` markers.
+ *
+ * ReactMarkdown (without rehypeRaw) renders `<a href>` as literal text.
+ * This function reverses the effect of linkifyCitations / anchorReferences,
+ * converting:
+ *   `<a href="#ref-N" class="citation-link">[N]</a>` → `[N]`
+ *   `<a id="ref-N"></a>` → `` (empty — anchor targets for references)
+ *
+ * Safe to apply multiple times (idempotent).
+ */
+export function stripHtmlCitationLinks(content: string): string {
+  let result = content;
+  // Strip citation links: <a href="#ref-N" class="citation-link">[N]</a> → [N]
+  result = result.replace(
+    /<a\s+href="#ref-\d+"\s+class="citation-link">\[(\d+)\]<\/a>/g,
+    "[$1]",
+  );
+  // Strip reference anchor tags: <a id="ref-N"></a> → (nothing)
+  result = result.replace(/<a\s+id="ref-\d+"><\/a>/g, "");
+  return result;
+}
+
+/**
+ * Strip citation markers from heading lines.
+ *
+ * LLM sometimes includes citations in heading text:
+ *   #### 1.29. 演化路径包括三类[113][114]
+ * These should be removed — citations belong in body text, not headings.
+ */
+export function stripCitationsFromHeadings(content: string): string {
+  return content.replace(/^(#{2,6}\s+.+?)(?:\s*\[\d+\])+\s*$/gm, "$1");
+}
+
+/**
+ * Wrap standalone LaTeX display-math lines in $$ delimiters.
+ *
+ * LLM sometimes outputs bare LaTeX formulas on their own lines:
+ *   (blank line)
+ *   p(y_t \mid y{<t}, x) = \mathrm{Softmax}(W_o h^D_t)
+ *   (blank line)
+ *
+ * These need $$ wrapping for remark-math / rehype-katex to render them.
+ * Only wraps lines that:
+ *   - Contain at least one LaTeX command (\mathrm, \frac, \sum, etc.)
+ *   - Are surrounded by blank/whitespace-only lines
+ *   - Are NOT already inside $$ or code blocks
+ */
+export function wrapBareDisplayMath(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let inCodeBlock = false;
+  let inMathBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Track code blocks
+    if (trimmed.startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      result.push(line);
+      continue;
+    }
+    if (inCodeBlock) {
+      result.push(line);
+      continue;
+    }
+
+    // Track math blocks
+    if (trimmed === "$$") {
+      inMathBlock = !inMathBlock;
+      result.push(line);
+      continue;
+    }
+    if (inMathBlock) {
+      result.push(line);
+      continue;
+    }
+
+    // Check if this is a bare LaTeX line
+    const hasLatexCommand =
+      /\\(?:mathrm|frac|sum|prod|int|alpha|beta|gamma|delta|theta|phi|psi|sigma|omega|pi|lambda|mu|epsilon|log|exp|sqrt|mathbb|mathcal|text|left|right|quad|cdot|dots|ldots|cdots|operatorname|mid|leq|geq|neq|approx|infty|forall|exists|partial|nabla|times|begin|end)\b/.test(
+        trimmed,
+      );
+    const isAlreadyWrapped =
+      trimmed.startsWith("$") || trimmed.startsWith("$$");
+    const isHeading = trimmed.startsWith("#");
+    const isListOrBlockquote = /^[>|\-*\d]/.test(trimmed);
+    const isTableRow = trimmed.startsWith("|");
+
+    if (
+      hasLatexCommand &&
+      !isAlreadyWrapped &&
+      !isHeading &&
+      !isListOrBlockquote &&
+      !isTableRow
+    ) {
+      // Check surrounding lines are blank/whitespace
+      const prevBlank =
+        i === 0 || lines[i - 1].trim() === "" || lines[i - 1].trim() === "$$";
+      const nextBlank =
+        i === lines.length - 1 ||
+        lines[i + 1].trim() === "" ||
+        lines[i + 1].trim() === "$$";
+
+      // Also check: line should look like a formula, not prose with an inline command
+      // A formula line is mostly math symbols, not mostly CJK/prose text
+      const cjkChars = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+      const isFormula = cjkChars < 5; // Allow a few CJK chars but mostly math
+
+      if (prevBlank && nextBlank && isFormula) {
+        result.push(`$$${trimmed}$$`);
+        continue;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Remove duplicate terminal sections (结语 repeating content from 跨维度关联分析).
+ *
+ * The report assembler sometimes produces:
+ *   ## 跨维度关联分析
+ *   ### 维度对比 (table)
+ *   ### 系统性效应
+ *   ...
+ *   ## 结语
+ *   (text)
+ *   ### 维度对比 (duplicate table!)
+ *   ### 系统性效应 (duplicate!)
+ *
+ * This removes the duplicated ### sub-sections from ## 结语 that already
+ * appear under ## 跨维度关联分析.
+ */
+export function deduplicateTerminalSections(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+
+  // First pass: collect ### sub-section titles under ## 跨维度关联分析
+  const crossDimSubSections = new Set<string>();
+  let inCrossDim = false;
+  for (const line of lines) {
+    if (/^##\s+跨维度关联分析/.test(line)) {
+      inCrossDim = true;
+      continue;
+    }
+    if (/^##\s+[^#]/.test(line) && inCrossDim) {
+      inCrossDim = false;
+    }
+    if (inCrossDim) {
+      const h3Match = line.match(/^###\s+(.+)$/);
+      if (h3Match) crossDimSubSections.add(h3Match[1].trim());
+    }
+  }
+
+  if (crossDimSubSections.size === 0) return content;
+
+  // Second pass: remove duplicate sub-sections from ## 结语
+  let inConclusion = false;
+  let skipBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (/^##\s+结语/.test(line)) {
+      inConclusion = true;
+      result.push(line);
+      continue;
+    }
+    if (/^##\s+[^#]/.test(line) && inConclusion) {
+      inConclusion = false;
+      skipBlock = false;
+    }
+
+    if (inConclusion) {
+      const h3Match = line.match(/^###\s+(.+)$/);
+      if (h3Match && crossDimSubSections.has(h3Match[1].trim())) {
+        skipBlock = true; // Start skipping this duplicated sub-section
+        continue;
+      }
+      if (skipBlock) {
+        // Stop skipping when we hit the next heading or end
+        if (/^##/.test(line)) {
+          skipBlock = false;
+          // Fall through to push
+        } else {
+          continue; // Skip this line (part of duplicate block)
+        }
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
+}
+
 // ============ Additional Post-Processing Utilities ============
 
 /**

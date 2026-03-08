@@ -287,31 +287,117 @@ function repairBrokenBoldMarkers(input: string): string {
 }
 
 /**
+ * Strip HTML citation links back to plain [N] markers.
+ * ReactMarkdown (without rehypeRaw) renders <a href> as literal text.
+ *   <a href="#ref-N" class="citation-link">[N]</a>  →  [N]
+ *   <a id="ref-N"></a>  →  (removed)
+ */
+function stripHtmlCitationLinks(input: string): string {
+  let result = input;
+  result = result.replace(
+    /<a\s+href="#ref-\d+"\s+class="citation-link">\[(\d+)\]<\/a>/g,
+    '[$1]'
+  );
+  result = result.replace(/<a\s+id="ref-\d+"><\/a>/g, '');
+  return result;
+}
+
+/**
+ * Wrap standalone LaTeX display-math lines in $$ delimiters.
+ * Bare LaTeX on its own line (surrounded by blank lines) needs wrapping.
+ */
+function wrapBareDisplayMath(input: string): string {
+  const lines = input.split('\n');
+  const result: string[] = [];
+  let inCodeBlock = false;
+  let inMathBlock = false;
+
+  const LATEX_CMD =
+    /\\(?:mathrm|frac|sum|prod|int|alpha|beta|gamma|delta|theta|phi|psi|sigma|omega|pi|lambda|mu|epsilon|log|exp|sqrt|mathbb|mathcal|text|left|right|quad|cdot|dots|ldots|cdots|operatorname|mid|leq|geq|neq|approx|infty|forall|exists|partial|nabla|times|begin|end)\b/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+      result.push(line);
+      continue;
+    }
+    if (inCodeBlock) {
+      result.push(line);
+      continue;
+    }
+    if (trimmed === '$$') {
+      inMathBlock = !inMathBlock;
+      result.push(line);
+      continue;
+    }
+    if (inMathBlock) {
+      result.push(line);
+      continue;
+    }
+
+    const hasCmd = LATEX_CMD.test(trimmed);
+    const skip =
+      trimmed.startsWith('$') ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('|') ||
+      /^[>|\-*\d]/.test(trimmed);
+
+    if (hasCmd && !skip) {
+      const prevBlank =
+        i === 0 || lines[i - 1].trim() === '' || lines[i - 1].trim() === '$$';
+      const nextBlank =
+        i === lines.length - 1 ||
+        lines[i + 1].trim() === '' ||
+        lines[i + 1].trim() === '$$';
+      const cjkCount = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+
+      if (prevBlank && nextBlank && cjkCount < 5) {
+        result.push(`$$${trimmed}$$`);
+        continue;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join('\n');
+}
+
+/**
  * Preprocesses a markdown string to fix common rendering issues before
  * passing it to ReactMarkdown with remark-math / rehype-katex.
  */
 export function preprocessLatex(markdown: string): string {
   let result = markdown;
 
-  // Step 0: Strip unresolved figure placeholders
+  // Step 0: Strip HTML citation links (ReactMarkdown has no rehypeRaw)
+  result = stripHtmlCitationLinks(result);
+
+  // Step 1: Strip unresolved figure placeholders
   result = stripFigureComments(result);
 
-  // Step 1: Normalize 本章要点 to consistent blockquote format
+  // Step 2: Normalize 本章要点 to consistent blockquote format
   result = normalizeChapterHighlights(result);
 
-  // Step 2: Repair broken bold markers (**，text or ** [N])
+  // Step 3: Repair broken bold markers (**，text or ** [N])
   result = repairBrokenBoldMarkers(result);
 
-  // Step 3: Convert \[...\] display math to $$...$$
+  // Step 4: Convert \[...\] display math to $$...$$
   result = convertDisplayMath(result);
 
-  // Step 4: Fix missing subscript underscores
+  // Step 5: Wrap bare standalone LaTeX lines in $$
+  result = wrapBareDisplayMath(result);
+
+  // Step 6: Fix missing subscript underscores
   result = fixLatexSubscripts(result);
 
-  // Step 5: Remove spurious $ signs inside formulas
+  // Step 7: Remove spurious $ signs inside formulas
   result = fixSpuriousDollarSigns(result);
 
-  // Step 6: Wrap bare inline LaTeX in Chinese prose with $...$
+  // Step 8: Wrap bare inline LaTeX in Chinese prose with $...$
   result = wrapInlineLatex(result);
 
   return result;

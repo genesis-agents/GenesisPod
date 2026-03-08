@@ -485,6 +485,83 @@ function renumberHeadings(content) {
   return lines.join("\n");
 }
 
+function stripHtmlCitationLinks(content) {
+  let result = content;
+  result = result.replace(
+    /<a\s+href="#ref-\d+"\s+class="citation-link">\[(\d+)\]<\/a>/g,
+    "[$1]",
+  );
+  result = result.replace(/<a\s+id="ref-\d+"><\/a>/g, "");
+  return result;
+}
+
+function stripCitationsFromHeadings(content) {
+  return content.replace(/^(#{2,6}\s+.+?)(?:\s*\[\d+\])+\s*$/gm, "$1");
+}
+
+function wrapBareDisplayMath(content) {
+  const lines = content.split("\n");
+  const result = [];
+  let inCodeBlock = false;
+  let inMathBlock = false;
+  const LATEX_CMD =
+    /\\(?:mathrm|frac|sum|prod|int|alpha|beta|gamma|delta|theta|phi|psi|sigma|omega|pi|lambda|mu|epsilon|log|exp|sqrt|mathbb|mathcal|text|left|right|quad|cdot|dots|ldots|cdots|operatorname|mid|leq|geq|neq|approx|infty|forall|exists|partial|nabla|times|begin|end)\b/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (trimmed.startsWith("```")) { inCodeBlock = !inCodeBlock; result.push(line); continue; }
+    if (inCodeBlock) { result.push(line); continue; }
+    if (trimmed === "$$") { inMathBlock = !inMathBlock; result.push(line); continue; }
+    if (inMathBlock) { result.push(line); continue; }
+    const hasCmd = LATEX_CMD.test(trimmed);
+    const skip = trimmed.startsWith("$") || trimmed.startsWith("#") || trimmed.startsWith("|") || /^[>|\-*\d]/.test(trimmed);
+    if (hasCmd && !skip) {
+      const prevBlank = i === 0 || lines[i - 1].trim() === "" || lines[i - 1].trim() === "$$";
+      const nextBlank = i === lines.length - 1 || lines[i + 1].trim() === "" || lines[i + 1].trim() === "$$";
+      const cjkCount = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+      if (prevBlank && nextBlank && cjkCount < 5) {
+        result.push(`$$${trimmed}$$`);
+        continue;
+      }
+    }
+    result.push(line);
+  }
+  return result.join("\n");
+}
+
+function deduplicateTerminalSections(content) {
+  const lines = content.split("\n");
+  const result = [];
+  const crossDimSubSections = new Set();
+  let inCrossDim = false;
+  for (const line of lines) {
+    if (/^##\s+跨维度关联分析/.test(line)) { inCrossDim = true; continue; }
+    if (/^##\s+[^#]/.test(line) && inCrossDim) { inCrossDim = false; }
+    if (inCrossDim) {
+      const h3Match = line.match(/^###\s+(.+)$/);
+      if (h3Match) crossDimSubSections.add(h3Match[1].trim());
+    }
+  }
+  if (crossDimSubSections.size === 0) return content;
+  let inConclusion = false;
+  let skipBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^##\s+结语/.test(line)) { inConclusion = true; result.push(line); continue; }
+    if (/^##\s+[^#]/.test(line) && inConclusion) { inConclusion = false; skipBlock = false; }
+    if (inConclusion) {
+      const h3Match = line.match(/^###\s+(.+)$/);
+      if (h3Match && crossDimSubSections.has(h3Match[1].trim())) { skipBlock = true; continue; }
+      if (skipBlock) {
+        if (/^##/.test(line)) { skipBlock = false; } else { continue; }
+      }
+    }
+    result.push(line);
+  }
+  return result.join("\n");
+}
+
 function convertDescriptiveListsToBullets(content) {
   const lines = content.split("\n");
   let underH4 = false;
@@ -585,6 +662,10 @@ async function main() {
   content = convertDescriptiveListsToBullets(content);
   content = removeEmptyHeadings(content);
   content = renumberHeadings(content);
+  content = stripHtmlCitationLinks(content);
+  content = stripCitationsFromHeadings(content);
+  content = wrapBareDisplayMath(content);
+  content = deduplicateTerminalSections(content);
   content = content.replace(/\n{3,}/g, "\n\n");
 
   const diff = report.fullReport.length - content.length;

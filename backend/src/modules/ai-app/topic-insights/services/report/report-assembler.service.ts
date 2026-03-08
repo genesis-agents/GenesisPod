@@ -20,8 +20,6 @@ import {
   repairOrderedListContinuity,
   stripInternalFigureNotation,
   mergeAdjacentMathBlocks,
-  linkifyCitations,
-  anchorReferences,
   decodeHtmlEntities,
   convertChineseNumeralHeadings,
   repairBrokenListItems,
@@ -53,6 +51,10 @@ import {
   normalizeHighlightsInPlace,
   renumberHeadings,
   ensureBlankLineAfterTables,
+  stripHtmlCitationLinks,
+  stripCitationsFromHeadings,
+  wrapBareDisplayMath,
+  deduplicateTerminalSections,
 } from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
@@ -894,11 +896,11 @@ export class ReportAssemblerService {
     // Merge fragmented adjacent $...$ math blocks into single blocks
     content = mergeAdjacentMathBlocks(content);
 
-    // Add anchor IDs to reference entries (idempotent — skips already-anchored lines)
-    content = anchorReferences(content);
-
-    // Convert [N] citation markers to clickable links targeting reference anchors
-    content = linkifyCitations(content);
+    // NOTE: anchorReferences + linkifyCitations produce HTML <a> tags that
+    // ReactMarkdown (without rehypeRaw) renders as literal text. Skip them.
+    // Citations remain as plain [N] which is standard academic format.
+    // content = anchorReferences(content);
+    // content = linkifyCitations(content);
 
     // Normalize arrow notation: fix prior "进而推动" corruption back to →
     content = normalizeArrowNotation(content);
@@ -929,6 +931,18 @@ export class ReportAssemblerService {
 
     // Re-number headings to close gaps from removed/collapsed headings
     content = renumberHeadings(content);
+
+    // Strip HTML citation links from historical data or upstream transforms
+    content = stripHtmlCitationLinks(content);
+
+    // Strip citation markers from heading lines (belong in body, not titles)
+    content = stripCitationsFromHeadings(content);
+
+    // Wrap standalone LaTeX display-math lines in $$ delimiters
+    content = wrapBareDisplayMath(content);
+
+    // Remove duplicate terminal sections (结语 repeating 跨维度关联分析 sub-sections)
+    content = deduplicateTerminalSections(content);
 
     const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) ?? []).length;
     if (deepHeadingCount > 0) {
@@ -970,13 +984,11 @@ export class ReportAssemblerService {
    * Use this when references are appended AFTER postProcessFinalReport
    * (e.g. in synthesizeReport where references are built separately).
    *
-   * Steps: mergeAdjacentMathBlocks → anchorReferences → linkifyCitations
+   * Steps: mergeAdjacentMathBlocks (anchorReferences + linkifyCitations disabled —
+   * ReactMarkdown has no rehypeRaw, HTML <a> renders as literal text)
    */
   finalizeReportWithCitations(content: string): string {
-    let result = mergeAdjacentMathBlocks(content);
-    result = anchorReferences(result);
-    result = linkifyCitations(result);
-    return result;
+    return mergeAdjacentMathBlocks(content);
   }
 
   // ==================== Private Methods ====================
@@ -1095,8 +1107,9 @@ export class ReportAssemblerService {
       section = remapCitationIndices(section, indexMapping);
     }
 
-    // Add anchor IDs to each reference entry for citation link targets
-    section = anchorReferences(section);
+    // NOTE: anchorReferences disabled — produces HTML <a id> that ReactMarkdown
+    // renders as literal text (no rehypeRaw). stripHtmlCitationLinks cleans up.
+    // section = anchorReferences(section);
 
     return section;
   }
