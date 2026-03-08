@@ -1,8 +1,12 @@
 -- CreateEnum
-CREATE TYPE "UserApiKeyMode" AS ENUM ('PERSONAL', 'DONATED');
+DO $$
+BEGIN
+  CREATE TYPE "UserApiKeyMode" AS ENUM ('PERSONAL', 'DONATED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateTable
-CREATE TABLE "user_api_keys" (
+CREATE TABLE IF NOT EXISTS "user_api_keys" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "provider" VARCHAR(50) NOT NULL,
@@ -26,13 +30,18 @@ CREATE TABLE "user_api_keys" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "user_api_keys_user_id_provider_key" ON "user_api_keys"("user_id", "provider");
+CREATE UNIQUE INDEX IF NOT EXISTS "user_api_keys_user_id_provider_key" ON "user_api_keys"("user_id", "provider");
 
 -- CreateIndex
-CREATE INDEX "user_api_keys_provider_mode_is_active_idx" ON "user_api_keys"("provider", "mode", "is_active");
+CREATE INDEX IF NOT EXISTS "user_api_keys_provider_mode_is_active_idx" ON "user_api_keys"("provider", "mode", "is_active");
 
 -- CreateIndex
-CREATE INDEX "user_api_keys_mode_is_active_idx" ON "user_api_keys"("mode", "is_active");
+CREATE INDEX IF NOT EXISTS "user_api_keys_mode_is_active_idx" ON "user_api_keys"("mode", "is_active");
 
 -- AddForeignKey
-ALTER TABLE "user_api_keys" ADD CONSTRAINT "user_api_keys_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_api_keys_user_id_fkey') THEN
+    ALTER TABLE "user_api_keys" ADD CONSTRAINT "user_api_keys_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;

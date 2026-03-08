@@ -4,23 +4,33 @@
 -- ==================== Enums ====================
 
 -- 反馈来源
-CREATE TYPE "ResearchFeedbackSource" AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE "ResearchFeedbackSource" AS ENUM (
   'REPORT_ANNOTATION',  -- 来自报告批注
   'MANUAL',             -- 手动提交
   'SYSTEM'              -- 系统生成
 );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 反馈分类
-CREATE TYPE "ResearchFeedbackCategory" AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE "ResearchFeedbackCategory" AS ENUM (
   'QUALITY_ISSUE',      -- 质量问题（内容错误、逻辑不通）
   'FEATURE_REQUEST',    -- 功能建议
   'CONTENT_ERROR',      -- 内容错误（数据错误、引用错误）
   'IMPROVEMENT',        -- 改进建议（表述、结构）
   'POSITIVE'            -- 正面反馈
 );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 反馈处理状态
-CREATE TYPE "ResearchFeedbackItemStatus" AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE "ResearchFeedbackItemStatus" AS ENUM (
   'PENDING',            -- 待处理
   'ANALYZING',          -- AI 分析中
   'REVIEWING',          -- 人工审核中
@@ -29,19 +39,25 @@ CREATE TYPE "ResearchFeedbackItemStatus" AS ENUM (
   'APPLIED',            -- 已应用
   'CLOSED'              -- 已关闭
 );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 改进类型
-CREATE TYPE "ImprovementType" AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE "ImprovementType" AS ENUM (
   'PROMPT_UPDATE',      -- Prompt 模板更新
   'STRATEGY_CHANGE',    -- 研究策略调整
   'QUALITY_RULE',       -- 质量规则新增
   'DOCUMENTATION'       -- 文档更新
 );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ==================== Tables ====================
 
 -- 研究反馈处理记录
-CREATE TABLE "research_feedback_items" (
+CREATE TABLE IF NOT EXISTS "research_feedback_items" (
   "id" TEXT NOT NULL,
 
   -- 来源（多态关联）
@@ -85,7 +101,7 @@ CREATE TABLE "research_feedback_items" (
 );
 
 -- 研究反馈知识条目
-CREATE TABLE "research_feedback_knowledge" (
+CREATE TABLE IF NOT EXISTS "research_feedback_knowledge" (
   "id" TEXT NOT NULL,
   "feedback_item_id" TEXT NOT NULL,
 
@@ -119,15 +135,15 @@ ALTER TABLE "research_feedback_items"
 -- ==================== Indexes ====================
 
 -- ResearchFeedbackItem indexes
-CREATE INDEX "research_feedback_items_status_priority_idx" ON "research_feedback_items"("status", "priority");
-CREATE INDEX "research_feedback_items_category_idx" ON "research_feedback_items"("category");
-CREATE INDEX "research_feedback_items_topic_id_idx" ON "research_feedback_items"("topic_id");
-CREATE INDEX "research_feedback_items_report_id_idx" ON "research_feedback_items"("report_id");
-CREATE INDEX "research_feedback_items_user_id_idx" ON "research_feedback_items"("user_id");
-CREATE INDEX "research_feedback_items_source_idx" ON "research_feedback_items"("source_type", "source_id");
-CREATE INDEX "research_feedback_items_created_at_idx" ON "research_feedback_items"("created_at" DESC);
+CREATE INDEX IF NOT EXISTS "research_feedback_items_status_priority_idx" ON "research_feedback_items"("status", "priority");
+CREATE INDEX IF NOT EXISTS "research_feedback_items_category_idx" ON "research_feedback_items"("category");
+CREATE INDEX IF NOT EXISTS "research_feedback_items_topic_id_idx" ON "research_feedback_items"("topic_id");
+CREATE INDEX IF NOT EXISTS "research_feedback_items_report_id_idx" ON "research_feedback_items"("report_id");
+CREATE INDEX IF NOT EXISTS "research_feedback_items_user_id_idx" ON "research_feedback_items"("user_id");
+CREATE INDEX IF NOT EXISTS "research_feedback_items_source_idx" ON "research_feedback_items"("source_type", "source_id");
+CREATE INDEX IF NOT EXISTS "research_feedback_items_created_at_idx" ON "research_feedback_items"("created_at" DESC);
 
 -- ResearchFeedbackKnowledge indexes
-CREATE INDEX "research_feedback_knowledge_feedback_item_id_idx" ON "research_feedback_knowledge"("feedback_item_id");
-CREATE INDEX "research_feedback_knowledge_improvement_type_idx" ON "research_feedback_knowledge"("improvement_type");
-CREATE INDEX "research_feedback_knowledge_applied_at_idx" ON "research_feedback_knowledge"("applied_at");
+CREATE INDEX IF NOT EXISTS "research_feedback_knowledge_feedback_item_id_idx" ON "research_feedback_knowledge"("feedback_item_id");
+CREATE INDEX IF NOT EXISTS "research_feedback_knowledge_improvement_type_idx" ON "research_feedback_knowledge"("improvement_type");
+CREATE INDEX IF NOT EXISTS "research_feedback_knowledge_applied_at_idx" ON "research_feedback_knowledge"("applied_at");

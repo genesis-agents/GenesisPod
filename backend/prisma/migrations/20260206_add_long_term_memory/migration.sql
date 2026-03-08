@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "long_term_memories" (
+CREATE TABLE IF NOT EXISTS "long_term_memories" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
@@ -15,13 +15,13 @@ CREATE TABLE "long_term_memories" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "long_term_memories_user_id_key_key" ON "long_term_memories"("user_id", "key");
+CREATE UNIQUE INDEX IF NOT EXISTS "long_term_memories_user_id_key_key" ON "long_term_memories"("user_id", "key");
 
 -- CreateIndex
-CREATE INDEX "long_term_memories_user_id_idx" ON "long_term_memories"("user_id");
+CREATE INDEX IF NOT EXISTS "long_term_memories_user_id_idx" ON "long_term_memories"("user_id");
 
 -- CreateIndex
-CREATE INDEX "long_term_memories_type_idx" ON "long_term_memories"("type");
+CREATE INDEX IF NOT EXISTS "long_term_memories_type_idx" ON "long_term_memories"("type");
 
 -- CreateIndex
-CREATE INDEX "long_term_memories_expires_at_idx" ON "long_term_memories"("expires_at");
+CREATE INDEX IF NOT EXISTS "long_term_memories_expires_at_idx" ON "long_term_memories"("expires_at");

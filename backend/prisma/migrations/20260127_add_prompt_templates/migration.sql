@@ -1,7 +1,7 @@
 -- CreateTable: prompt_templates
 -- Prompt 模板管理表，支持版本控制和激活/回滚
 
-CREATE TABLE "prompt_templates" (
+CREATE TABLE IF NOT EXISTS "prompt_templates" (
     "id" TEXT NOT NULL,
     "taskType" VARCHAR(100) NOT NULL,
     "name" VARCHAR(200) NOT NULL,
@@ -18,10 +18,10 @@ CREATE TABLE "prompt_templates" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "prompt_templates_taskType_version_key" ON "prompt_templates"("taskType", "version");
+CREATE UNIQUE INDEX IF NOT EXISTS "prompt_templates_taskType_version_key" ON "prompt_templates"("taskType", "version");
 
 -- CreateIndex
-CREATE INDEX "prompt_templates_taskType_is_active_idx" ON "prompt_templates"("taskType", "is_active");
+CREATE INDEX IF NOT EXISTS "prompt_templates_taskType_is_active_idx" ON "prompt_templates"("taskType", "is_active");
 
 -- CreateIndex
-CREATE INDEX "prompt_templates_taskType_version_idx" ON "prompt_templates"("taskType", "version");
+CREATE INDEX IF NOT EXISTS "prompt_templates_taskType_version_idx" ON "prompt_templates"("taskType", "version");

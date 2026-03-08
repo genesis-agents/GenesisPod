@@ -20,6 +20,7 @@ module.exports = {
     ".eslintrc.js",
     "dist",
     "node_modules",
+    "scripts",
     "test/**/*.ts",
     "test/__mocks__/**/*.ts",
   ],
