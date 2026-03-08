@@ -394,28 +394,67 @@ export class DataSourceRouterService {
       5,
       Math.ceil(25 / searchQueries.length),
     );
-    const searchPromises: Promise<DataSourceResult[]>[] = [];
-    const searchSources: DataSourceType[] = [];
+
+    // ★ Rate-limit fix: run queries per-source sequentially, sources in parallel.
+    // Previously all source×query combinations fired at once via Promise.allSettled,
+    // causing rate-limited APIs (ArXiv: 3 req/s) to queue 16-24 requests simultaneously
+    // across 4-8 concurrent dimensions. By serialising queries within each source,
+    // each dimension only occupies one slot at a time per source.
+    const sourcePromises: Promise<{
+      results: PromiseSettledResult<DataSourceResult[]>[];
+      source: DataSourceType;
+    }>[] = [];
 
     for (const source of sources) {
-      for (const query of searchQueries) {
-        searchPromises.push(
-          this.searchSource(
-            source,
-            query,
-            {
-              maxResults: maxResultsPerQuery,
-              since,
-            },
-            topic,
-          ),
-        );
-        searchSources.push(source);
+      // Each source runs its queries sequentially, but all sources run in parallel
+      sourcePromises.push(
+        (async () => {
+          const results: PromiseSettledResult<DataSourceResult[]>[] = [];
+          for (const query of searchQueries) {
+            try {
+              const data = await this.searchSource(
+                source,
+                query,
+                { maxResults: maxResultsPerQuery, since },
+                topic,
+              );
+              results.push({ status: "fulfilled", value: data });
+            } catch (error) {
+              results.push({
+                status: "rejected",
+                reason: error,
+              });
+            }
+          }
+          return { results, source };
+        })(),
+      );
+    }
+
+    const sourceResults = await Promise.allSettled(sourcePromises);
+
+    // Flatten back to the format aggregateResults expects
+    const allResults: PromiseSettledResult<DataSourceResult[]>[] = [];
+    const searchSources: DataSourceType[] = [];
+
+    for (const sr of sourceResults) {
+      if (sr.status === "fulfilled") {
+        for (const r of sr.value.results) {
+          allResults.push(r);
+          searchSources.push(sr.value.source);
+        }
+      } else {
+        // Source-level failure: treat all queries for this source as rejected
+        for (const _query of searchQueries) {
+          allResults.push({ status: "rejected", reason: sr.reason });
+          // We don't know which source failed at this level, but it won't matter
+          // because aggregateResults only uses fulfilled results
+          searchSources.push(sources[0]);
+        }
       }
     }
 
-    const results = await Promise.allSettled(searchPromises);
-    return this.aggregateResults(results, searchSources);
+    return this.aggregateResults(allResults, searchSources);
   }
 
   /**
