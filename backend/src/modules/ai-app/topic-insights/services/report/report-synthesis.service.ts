@@ -18,6 +18,7 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
+  preprocessDimensionContent,
 } from "@/modules/ai-app/shared/report-template";
 import { AIModelType } from "@prisma/client";
 import type {
@@ -187,6 +188,13 @@ export class ReportSynthesisService {
       generatedCharts?: GeneratedChart[];
     },
   ): Promise<DimensionAnalysis> {
+    // ★ Preprocess detailedContent before storing — applies all context-free
+    // formatting pipeline steps so chapter view (which reads raw detailedContent)
+    // receives properly formatted content identical to what fullReport contains.
+    const processedContent = result.detailedContent
+      ? preprocessDimensionContent(result.detailedContent)
+      : "";
+
     const analysis = await this.prisma.dimensionAnalysis.create({
       data: {
         reportId,
@@ -198,8 +206,7 @@ export class ReportSynthesisService {
           challenges: result.challenges,
           opportunities: result.opportunities,
           confidenceLevel: result.confidenceLevel,
-          detailedContent: result.detailedContent || "",
-          // ★ 新增：保存图表引用和生成图表
+          detailedContent: processedContent,
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],
         }),

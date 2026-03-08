@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
+import { preprocessDimensionContent } from "@/modules/ai-app/shared/report-template";
 import type {
   TopicReport,
   DimensionAnalysis,
@@ -143,8 +144,9 @@ export class ReportDataService {
           challenges: result.challenges,
           opportunities: result.opportunities,
           confidenceLevel: result.confidenceLevel,
-          detailedContent: result.detailedContent || "",
-          // ★ 新增：保存图表引用和生成图表
+          detailedContent: result.detailedContent
+            ? preprocessDimensionContent(result.detailedContent)
+            : "",
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],
         }),

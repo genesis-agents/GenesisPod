@@ -254,6 +254,39 @@ function normalizeChapterHighlights(content: string): string {
 }
 
 /**
+ * Repair broken bold markers in report content.
+ *
+ * LLMs sometimes produce incomplete bold syntax:
+ *   **，值得警惕的是...  →  值得警惕的是...  (orphan opening **)
+ *   ** [104]。          →  [104]。           (orphan opening **)
+ */
+function repairBrokenBoldMarkers(input: string): string {
+  return input
+    .split('\n')
+    .map((line) => {
+      const boldCount = (line.match(/\*\*/g) || []).length;
+      if (boldCount === 0 || boldCount % 2 === 0) return line;
+
+      let repaired = line.replace(/^\*\*([，,。.；;：:\s\[])/g, '$1');
+      repaired = repaired.replace(/([。.！!？?\]）)])\*\*\s*$/g, '$1');
+
+      if ((repaired.match(/\*\*/g) || []).length % 2 !== 0) {
+        let firstRemoved = false;
+        repaired = repaired.replace(/\*\*/g, (match) => {
+          if (!firstRemoved) {
+            firstRemoved = true;
+            return '';
+          }
+          return match;
+        });
+      }
+
+      return repaired;
+    })
+    .join('\n');
+}
+
+/**
  * Preprocesses a markdown string to fix common rendering issues before
  * passing it to ReactMarkdown with remark-math / rehype-katex.
  */
@@ -266,16 +299,19 @@ export function preprocessLatex(markdown: string): string {
   // Step 1: Normalize 本章要点 to consistent blockquote format
   result = normalizeChapterHighlights(result);
 
-  // Step 2: Convert \[...\] display math to $$...$$
+  // Step 2: Repair broken bold markers (**，text or ** [N])
+  result = repairBrokenBoldMarkers(result);
+
+  // Step 3: Convert \[...\] display math to $$...$$
   result = convertDisplayMath(result);
 
-  // Step 3: Fix missing subscript underscores
+  // Step 4: Fix missing subscript underscores
   result = fixLatexSubscripts(result);
 
-  // Step 4: Remove spurious $ signs inside formulas
+  // Step 5: Remove spurious $ signs inside formulas
   result = fixSpuriousDollarSigns(result);
 
-  // Step 5: Wrap bare inline LaTeX in Chinese prose with $...$
+  // Step 6: Wrap bare inline LaTeX in Chinese prose with $...$
   result = wrapInlineLatex(result);
 
   return result;

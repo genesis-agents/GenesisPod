@@ -48,6 +48,8 @@ import {
   bulletifyBlockquoteItems,
   splitEnumerationToList,
   convertDescriptiveListsToBullets,
+  repairBrokenBoldMarkers,
+  stripFigureComments,
 } from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
@@ -909,6 +911,12 @@ export class ReportAssemblerService {
 
     // Bold summary prefix before Chinese colon (短语：→ **短语**：)
     content = boldSummaryPrefixes(content);
+
+    // Repair broken bold markers (**，text or ** [N])
+    content = repairBrokenBoldMarkers(content);
+
+    // Strip residual figure placeholders (catch any missed by per-dimension pass)
+    content = stripFigureComments(content);
 
     const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) ?? []).length;
     if (deepHeadingCount > 0) {

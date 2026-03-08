@@ -13,7 +13,6 @@
  */
 
 import {
-  simplifyLatexNotation,
   stripRawMarkdownInContent,
   numberSubHeadings,
   deduplicateHeadings,
@@ -25,84 +24,6 @@ import {
   detectForeignLanguageBlocks,
 } from "@/modules/ai-app/shared/report-template";
 import { ReportQualityGateService } from "../../services/quality/report-quality-gate.service";
-
-// ============================================================
-// 1. LaTeX 渲染问题防护
-// ============================================================
-
-describe("Report Quality: LaTeX Notation Cleanup", () => {
-  it("should simplify display math blocks [formula]", () => {
-    const input = `公式如下：
-[
-Q = X W_Q,\\quad K = X W_K,\\quad V = X W_V
-]
-其中 W 是参数矩阵。`;
-    const result = simplifyLatexNotation(input);
-    expect(result).not.toContain("\\quad");
-    expect(result).toContain("Q = X W_Q");
-  });
-
-  it("should simplify inline LaTeX with backslashes", () => {
-    const input = "复杂度为 (O(n^2))，使用 (\\sqrt{d_k}) 缩放。";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("√");
-  });
-
-  it("should convert \\text{model} to model", () => {
-    const input = "维度 d_{\\text{model}} 很重要";
-    const result = simplifyLatexNotation(input);
-    expect(result).not.toContain("\\text");
-    expect(result).toContain("model");
-  });
-
-  it("should convert \\frac{a}{b} to a/b", () => {
-    const input = "结果为 \\frac{QK^T}{\\sqrt{d_k}}";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("/");
-    expect(result).not.toContain("\\frac");
-  });
-
-  it("should preserve citation markers [1], [236 等3项]", () => {
-    const input = "根据研究 [1]，性能提升 [236 等3项]。";
-    const result = simplifyLatexNotation(input);
-    expect(result).toBe(input);
-  });
-
-  it("should handle broken LaTeX subscripts like d{text}", () => {
-    // AI sometimes outputs d{\text{model}} instead of d_{\text{model}}
-    const input = "参数 d{\\text{model}} 的维度";
-    const result = simplifyLatexNotation(input);
-    expect(result).not.toContain("\\text");
-  });
-
-  it("should convert Greek letters to Unicode", () => {
-    const input = "参数 (\\theta) 温度 (\\tau) 梯度 (\\nabla)";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("θ");
-    expect(result).toContain("τ");
-    expect(result).toContain("∇");
-  });
-
-  it("should handle \\sum and \\approx", () => {
-    const input = "(\\sum_{i=1}^N x_i \\approx \\Phi(Q))";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("Σ");
-    expect(result).toContain("≈");
-    expect(result).toContain("Φ");
-  });
-
-  it("should handle multiline display math", () => {
-    const input = `以下公式：
-[
-\\text{Attention}(Q, K, V) = \\text{softmax}\\left(\\frac{Q K^\\top}{\\sqrt{d_k}}\\right) V
-]
-说明注意力机制。`;
-    const result = simplifyLatexNotation(input);
-    expect(result).not.toContain("\\text{Attention}");
-    expect(result).toContain("Attention");
-    expect(result).toContain("softmax");
-  });
-});
 
 // ============================================================
 // 2. Markdown 残留问题防护
@@ -558,25 +479,6 @@ ${"这是填充内容。".repeat(60)}`;
     expect(result.fixedContent).not.toMatch(/^## /m);
     // HR should be removed
     expect(result.fixedContent).not.toMatch(/^---$/m);
-  });
-
-  it("should handle content with LaTeX that needs simplification", () => {
-    const content = `### Transformer原理
-
-自注意力的核心公式为 \\frac{Q K^\\top}{\\sqrt{d_k}}。
-
-参数维度为 d_{\\text{model}} = 512。
-
-${"分析内容。".repeat(100)}
-
-[1] [2] [3]`;
-
-    const simplified = simplifyLatexNotation(content);
-    expect(simplified).not.toContain("\\frac");
-    expect(simplified).not.toContain("\\text");
-    expect(simplified).toContain("√");
-    // Citations should be preserved
-    expect(simplified).toContain("[1]");
   });
 
   it("should process full report pipeline without errors", () => {

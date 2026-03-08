@@ -411,148 +411,6 @@ export function removeHorizontalRules(content: string): string {
 }
 
 /**
- * Convert raw LaTeX notation in markdown to readable text.
- *
- * LLMs sometimes output LaTeX math like `(O(n^2))` or `[\text{Attention}(...)]`
- * which renders as raw text in non-LaTeX-aware viewers.
- *
- * Strategy: simplify common patterns to readable Unicode/plain text.
- * For complex formulas, strip the LaTeX wrapper and keep the raw content.
- */
-export function simplifyLatexNotation(content: string): string {
-  let result = content;
-
-  // Display math blocks: [formula] on its own line → wrap in $$ for KaTeX rendering
-  result = result.replace(
-    /^\[\s*\n([\s\S]*?)\n\]\s*$/gm,
-    (_match, inner: string) => {
-      // If content contains LaTeX commands, wrap in $$ for KaTeX
-      if (/\\[a-zA-Z]/.test(inner)) {
-        return `$$\n${inner.trim()}\n$$`;
-      }
-      return cleanLatexContent(inner);
-    },
-  );
-
-  // Inline display math: [...] within a paragraph
-  // Negative lookahead (?!\() prevents matching Markdown links [text](url)
-  // Only process content that actually contains LaTeX-like syntax (backslashes, ^, _)
-  result = result.replace(
-    /\[([^\]]{10,})\](?!\()/g,
-    (_match, inner: string) => {
-      // Skip citation markers like [1], [236 等3项]
-      if (/^\d/.test(inner.trim())) return _match;
-      // If content contains LaTeX commands, wrap in $ for KaTeX instead of stripping
-      if (/\\[a-zA-Z]/.test(inner)) {
-        return `$${inner.trim()}$`;
-      }
-      if (!/[\\^_]/.test(inner)) return _match;
-      return cleanLatexContent(inner);
-    },
-  );
-
-  // Inline math: (formula) — only match LaTeX-like content with backslashes or ^/_
-  result = result.replace(
-    /\(([^)]*\\[^)]+)\)/g,
-    (_match, inner: string) => `(${cleanLatexContent(inner)})`,
-  );
-
-  // Bare LaTeX commands outside of delimiters (e.g. \text{model}, \frac{a}{b})
-  result = result.replace(/\\text\{([^}]+)\}/g, "$1");
-  result = result.replace(/\\textbf\{([^}]+)\}/g, "**$1**");
-  result = result.replace(/\\textit\{([^}]+)\}/g, "*$1*");
-  result = result.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1/$2");
-  result = result.replace(/\\sqrt\{([^}]+)\}/g, "√$1");
-  result = result.replace(/\\mathbb\{R\}/g, "ℝ");
-  result = result.replace(/\\mathbb\{N\}/g, "ℕ");
-  result = result.replace(/\\mathbb\{Z\}/g, "ℤ");
-  // Common Greek letters not in cleanLatexContent
-  result = result.replace(/\\alpha(?![a-zA-Z])/g, "α");
-  result = result.replace(/\\beta(?![a-zA-Z])/g, "β");
-  result = result.replace(/\\gamma(?![a-zA-Z])/g, "γ");
-  result = result.replace(/\\delta(?![a-zA-Z])/g, "δ");
-  result = result.replace(/\\epsilon(?![a-zA-Z])/g, "ε");
-  result = result.replace(/\\lambda(?![a-zA-Z])/g, "λ");
-  result = result.replace(/\\mu(?![a-zA-Z])/g, "μ");
-  result = result.replace(/\\sigma(?![a-zA-Z])/g, "σ");
-  result = result.replace(/\\pi(?![a-zA-Z])/g, "π");
-  result = result.replace(/\\omega(?![a-zA-Z])/g, "ω");
-  result = result.replace(/\\times(?![a-zA-Z])/g, "×");
-  result = result.replace(/\\neq(?![a-zA-Z])/g, "≠");
-  result = result.replace(/\\pm(?![a-zA-Z])/g, "±");
-  // Dollar-sign delimited inline math: $formula$ → cleaned content
-  result = result.replace(/\$([^$]{2,80})\$/g, (_match, inner: string) => {
-    if (!/[\\^_]/.test(inner)) return inner; // Not LaTeX, keep as-is
-    return cleanLatexContent(inner);
-  });
-
-  return result;
-}
-
-function cleanLatexContent(latex: string): string {
-  return (
-    latex
-      // \text{xxx} → xxx
-      .replace(/\\text\{([^}]+)\}/g, "$1")
-      // \mathbb{R} → ℝ
-      .replace(/\\mathbb\{R\}/g, "ℝ")
-      // \frac{a}{b} → a/b
-      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1/$2")
-      // \sqrt{x} → √x
-      .replace(/\\sqrt\{([^}]+)\}/g, "√$1")
-      // \left( \right) → ( )
-      .replace(/\\left\(/g, "(")
-      .replace(/\\left\[/g, "[")
-      .replace(/\\left\{/g, "{")
-      .replace(/\\right\)/g, ")")
-      .replace(/\\right]/g, "]")
-      .replace(/\\right\}/g, "}")
-      // \quad → space
-      .replace(/\\quad/g, " ")
-      // ^{n} → ^n, _{n} → _n (superscript/subscript)
-      .replace(/\^\{([^}]+)\}/g, "^$1")
-      .replace(/_\{([^}]+)\}/g, "_$1")
-      // \top → ᵀ
-      .replace(/\\top/g, "ᵀ")
-      // \cdot → ·
-      .replace(/\\cdot/g, "·")
-      // \dots → ...
-      .replace(/\\dots/g, "...")
-      // \langle \rangle → < >
-      .replace(/\\langle/g, "⟨")
-      .replace(/\\rangle/g, "⟩")
-      // \approx → ≈
-      .replace(/\\approx/g, "≈")
-      // \leq \geq → ≤ ≥
-      .replace(/\\leq/g, "≤")
-      .replace(/\\geq/g, "≥")
-      // \infty → ∞ (must be before \in to avoid \in matching first)
-      .replace(/\\infty/g, "∞")
-      // \int → ∫ (must be before \in)
-      .replace(/\\int(?![a-zA-Z])/g, "∫")
-      // \in → ∈ (word boundary: not followed by letters)
-      .replace(/\\in(?![a-zA-Z])/g, "∈")
-      // \sum → Σ
-      .replace(/\\sum/g, "Σ")
-      // \leftarrow → ←
-      .replace(/\\leftarrow/g, "←")
-      // \eta → η, \tau → τ, \Phi → Φ
-      .replace(/\\eta/g, "η")
-      .replace(/\\tau/g, "τ")
-      .replace(/\\Phi/g, "Φ")
-      .replace(/\\phi/g, "φ")
-      .replace(/\\nabla/g, "∇")
-      .replace(/\\theta/g, "θ")
-      // Remove remaining backslash commands
-      .replace(/\\[a-zA-Z]+/g, "")
-      // Clean up extra spaces and braces
-      .replace(/\{([^}]*)\}/g, "$1")
-      .replace(/\s{2,}/g, " ")
-      .trim()
-  );
-}
-
-/**
  * Strip raw markdown bold syntax (**text**) that wasn't converted to HTML.
  * Some LLM outputs contain mixed markdown + plain text where **bold** markers
  * leak through to the final rendered output.
@@ -2384,6 +2242,296 @@ export function splitEnumerationToList(content: string): string {
   }
 
   return result.join("\n\n");
+}
+
+/**
+ * Repair broken bold markers in report content.
+ *
+ * LLMs sometimes produce incomplete bold syntax:
+ *   **，值得警惕的是...  →  值得警惕的是...  (orphan opening **)
+ *   ** [104]。          →  [104]。           (orphan opening **)
+ *   内容**              →  内容              (orphan closing ** with no opener)
+ *
+ * Strategy: Remove orphan ** markers that don't have a matching pair.
+ */
+export function repairBrokenBoldMarkers(content: string): string {
+  // Process line by line to avoid cross-line matching issues
+  return content
+    .split("\n")
+    .map((line) => {
+      const boldCount = (line.match(/\*\*/g) || []).length;
+      if (boldCount === 0) return line;
+
+      // Valid bold: even number of ** markers
+      if (boldCount % 2 === 0) return line;
+
+      // Odd number of ** markers — repair
+      // Case 1: Line starts with ** followed by punctuation/space/citation
+      // e.g. "**，text" or "** [104]" — remove the orphan opening **
+      let repaired = line.replace(/^\*\*([，,。.；;：:\s\[])/g, "$1");
+
+      // Case 2: ** at end of line after punctuation/citation
+      // e.g. "text。**" — remove the orphan closing **
+      repaired = repaired.replace(/([。.！!？?\]）)])\*\*\s*$/g, "$1");
+
+      // Case 3: ** immediately before closing punctuation with no matching opener
+      // e.g. "，值得**。" where ** is stray
+      if ((repaired.match(/\*\*/g) || []).length % 2 !== 0) {
+        // Remove the first orphan ** if no matching pair exists
+        let firstRemoved = false;
+        repaired = repaired.replace(/\*\*/g, (match) => {
+          if (!firstRemoved) {
+            firstRemoved = true;
+            return "";
+          }
+          return match;
+        });
+      }
+
+      return repaired;
+    })
+    .join("\n");
+}
+
+/**
+ * Strip unresolved figure placeholders from content.
+ *
+ * Removes `<!-- figure:N:M -->` and HTML-escaped variants
+ * that were not mapped to chart IDs during report assembly.
+ */
+export function stripFigureComments(content: string): string {
+  let result = content;
+  result = result.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
+  result = result.replace(/&lt;!--\s*figure:\d+:\d+\s*--&gt;/g, "");
+  return result;
+}
+
+// ============ Dimension Content Preprocessing ============
+
+/**
+ * Context-free preprocessing pipeline for dimension `detailedContent`.
+ *
+ * Applies all transformations from `processDimensionContent` that do NOT
+ * depend on report-level context (dimIndex, globalSeenParagraphs, etc.).
+ *
+ * This function is called at DB-write time (in `saveDimensionAnalysis`)
+ * so that both chapter view (reads raw detailedContent) and continuous
+ * view (reads fullReport via assembleFullReport) see properly formatted
+ * content.
+ *
+ * Dimension-aware steps that remain in `processDimensionContent`:
+ *   - numberSubHeadings (needs dimIndex)
+ *   - hierarchicalNumberBoldListItems (depends on numberSubHeadings)
+ *   - deduplicateParagraphs (needs cross-dimension globalSeenParagraphs)
+ *   - truncateAtSentenceBoundary (report-level budget)
+ *   - resolveChartPlaceholders (needs dimIndex + figureReferences)
+ */
+export function preprocessDimensionContent(content: string): string {
+  let processed = content;
+
+  // ── Phase 1: Structure normalization ──────────────────────────────────
+  // Normalize chapter highlights (keep first block, remove duplicates)
+  processed = normalizeChapterHighlights(processed);
+
+  // Convert Chinese numeral headings (一、标题 → ### 标题)
+  processed = convertChineseNumeralHeadings(processed);
+
+  // Detect and promote heading-like plain text lines to ### headings
+  processed = detectAndPromoteHeadings(processed);
+
+  // Heading level safety net: demote # / ## to ###
+  processed = sanitizeHeadingLevels(processed);
+
+  // Remove duplicate headings
+  processed = deduplicateHeadings(processed);
+
+  // Remove plain text lines that echo the preceding heading
+  processed = deduplicateHeadingEcho(processed);
+
+  // Demote headings that contain pseudocode
+  processed = collapsePseudoCodeHeadings(processed);
+
+  // ── Phase 2: Content cleanup ─────────────────────────────────────────
+  // Convert plain ordered lists under #### to bullets
+  processed = convertDescriptiveListsToBullets(processed);
+
+  // Strip LLM meta-notes (word-count, editorial instructions)
+  processed = stripLLMMetaNotes(processed);
+
+  // Strip leaked HTML comments
+  processed = stripLeakedHtmlComments(processed);
+
+  // Strip leaked internal figure/evidence notation
+  processed = stripInternalFigureNotation(processed);
+
+  // Normalize arrow notation corruption
+  processed = normalizeArrowNotation(processed);
+
+  // Deduplicate adjacent identical citations ([5][5] → [5])
+  processed = deduplicateAdjacentCitations(processed);
+
+  // ── Phase 3: Formatting repair ───────────────────────────────────────
+  // Repair blockquote bullets truncated mid-sentence
+  processed = repairTruncatedBlockquoteBullets(processed);
+
+  // Decode HTML entities (&gt; &lt; &amp;)
+  processed = decodeHtmlEntities(processed);
+
+  // Fix double source labels (来源：来源：→ 来源：)
+  processed = fixDoubleSourceLabels(processed);
+
+  // Repair broken list items (empty bullet + content on next line)
+  processed = repairBrokenListItems(processed);
+
+  // Clear empty blockquotes and broken image placeholders
+  processed = clearBrokenMediaAndEmptyBlocks(processed);
+
+  // Repair Markdown tables (missing separator rows, blank lines)
+  processed = repairMarkdownTables(processed);
+
+  // Extract footnote rows from tables
+  processed = extractTableFootnotes(processed);
+
+  // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
+  processed = splitWallOfText(processed);
+
+  // Wrap pseudocode/code-like blocks in fenced code blocks
+  processed = wrapPseudoCodeBlocks(processed);
+
+  // Collapse excess sub-headings (> 8 per dimension → demote to ####)
+  processed = collapseExcessSubHeadings(processed, 8);
+
+  // Remove empty headings (heading → next heading with no content)
+  processed = removeEmptyHeadings(processed);
+
+  // Enforce max list item length
+  processed = truncateLongListItems(processed);
+
+  // Separate conclusion paragraphs trapped in list structures
+  processed = separateTrappedConclusions(processed);
+
+  // Add bullet markers to consecutive blockquote lines without them
+  processed = bulletifyBlockquoteItems(processed);
+
+  // Split enumeration patterns (一是/二是...) into bullet lists
+  processed = splitEnumerationToList(processed);
+
+  // Bold summary prefix before Chinese colon
+  processed = boldSummaryPrefixes(processed);
+
+  // Remove hallucinated markdown images
+  processed = processed.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    (_match, _alt: string, url: string) => {
+      const lower = url.toLowerCase();
+      if (lower.startsWith("data:")) return "";
+      if (
+        lower.includes("placeholder.com") ||
+        lower.includes("example.com") ||
+        lower.includes("via.placeholder")
+      )
+        return "";
+      if (lower.includes("image-not-found") || lower.includes("no-image"))
+        return "";
+      if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
+      return _match;
+    },
+  );
+
+  // Remove horizontal rules
+  processed = removeHorizontalRules(processed);
+
+  // Repair broken bold markers (**，text or ** [N])
+  processed = repairBrokenBoldMarkers(processed);
+
+  // Strip unresolved figure placeholders (<!-- figure:N:M -->)
+  processed = stripFigureComments(processed);
+
+  // Clean up triple+ newlines
+  processed = processed.replace(/\n{3,}/g, "\n\n");
+
+  return processed;
+}
+
+/**
+ * Normalizes chapter highlights: keep only the FIRST "本章要点" / "Chapter Highlights"
+ * block, remove ALL blocks from their original positions, and prepend the first
+ * block's content at the very beginning of the output.
+ */
+function normalizeChapterHighlights(content: string): string {
+  const CHAPTER_HIGHLIGHTS_RE =
+    /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\**\s*$/i;
+
+  const lines = content.split("\n");
+
+  let firstBlockLines: string[] | null = null;
+  let currentBlockLines: string[] = [];
+  let insideBlock = false;
+  const bodyLines: string[] = [];
+
+  const flushBlock = () => {
+    if (currentBlockLines.length > 0 && firstBlockLines === null) {
+      firstBlockLines = currentBlockLines;
+    }
+    currentBlockLines = [];
+    insideBlock = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (CHAPTER_HIGHLIGHTS_RE.test(line)) {
+      if (insideBlock) {
+        flushBlock();
+      }
+      insideBlock = true;
+      const isEn = /Chapter Highlights/i.test(line);
+      const label = isEn ? "Chapter Highlights" : "本章要点";
+      currentBlockLines = [`> **${label}**`];
+      continue;
+    }
+
+    if (insideBlock) {
+      const trimmed = line.replace(/^>\s*/, "").trim();
+
+      if (/^>\s*[-*]/.test(line) || /^\s*[-*]\s/.test(line)) {
+        const pointText = trimmed.replace(/^[-*]\s*/, "").trim();
+        if (pointText) {
+          currentBlockLines.push(`> - ${pointText}`);
+        }
+        continue;
+      }
+
+      if (line.trim() === "" || line.trim() === ">") {
+        flushBlock();
+        bodyLines.push(line);
+        continue;
+      }
+
+      if (!/^>/.test(line)) {
+        flushBlock();
+        bodyLines.push(line);
+        continue;
+      }
+
+      if (trimmed) {
+        currentBlockLines.push(`> - ${trimmed}`);
+        continue;
+      }
+    }
+
+    bodyLines.push(line);
+  }
+
+  flushBlock();
+
+  if (firstBlockLines === null) {
+    return content;
+  }
+
+  const blockText = (firstBlockLines as string[]).join("\n");
+  const bodyText = bodyLines.join("\n").replace(/^\n+/, "");
+  return `${blockText}\n\n${bodyText}`;
 }
 
 /**

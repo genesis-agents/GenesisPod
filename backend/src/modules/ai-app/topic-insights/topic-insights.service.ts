@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
+import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { RESEARCH_INTERNAL_EVENTS } from "./services/core/research-event-emitter.service";
 import { Observable, Subject, filter, map } from "rxjs";
@@ -839,7 +840,12 @@ export class TopicInsightsService {
           challenges: cleanedChallenges,
           opportunities: cleanedOpportunities,
           confidenceLevel: dataPoints?.confidenceLevel || null,
-          detailedContent: cleanedDetailedContent,
+          // ★ Apply preprocessing pipeline for historical data that was stored
+          // before the save-time preprocessing was added (Root Cause 1 fix).
+          // All transforms are idempotent so double-processing is safe.
+          detailedContent: cleanedDetailedContent
+            ? preprocessDimensionContent(cleanedDetailedContent)
+            : cleanedDetailedContent,
         };
       });
     }

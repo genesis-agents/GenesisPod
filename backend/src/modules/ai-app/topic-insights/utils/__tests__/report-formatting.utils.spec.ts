@@ -1,5 +1,4 @@
 import {
-  simplifyLatexNotation,
   stripRawMarkdownInContent,
   numberSubHeadings,
   hierarchicalNumberBoldListItems,
@@ -12,60 +11,6 @@ import {
   decodeUrlEntities,
   remapCitationIndices,
 } from "@/modules/ai-app/shared/report-template";
-
-describe("simplifyLatexNotation", () => {
-  it("should convert \\frac to slash notation", () => {
-    const input = "公式：\\frac{Q K^\\top}{\\sqrt{d_k}}";
-    const result = simplifyLatexNotation(input);
-    expect(result).not.toContain("\\frac");
-    expect(result).toContain("/");
-  });
-
-  it("should convert \\text{} to plain text", () => {
-    const input = "维度 \\text{model} 的值";
-    const result = simplifyLatexNotation(input);
-    expect(result).not.toContain("\\text");
-    expect(result).toContain("model");
-  });
-
-  it("should convert common Greek letters", () => {
-    const input = "参数 (\\theta) 和学习率 (\\eta)";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("θ");
-    expect(result).toContain("η");
-  });
-
-  it("should convert \\sqrt to √", () => {
-    const input = "除以 (\\sqrt{d_k})";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("√");
-  });
-
-  it("should not modify citation markers like [1]", () => {
-    const input = "证据 [1] 和 [236]";
-    const result = simplifyLatexNotation(input);
-    expect(result).toBe(input);
-  });
-
-  it("should handle display math blocks", () => {
-    const input = "公式：\n[\nQ = X W_Q\n]\n下文";
-    const result = simplifyLatexNotation(input);
-    expect(result).not.toContain("[");
-    expect(result).toContain("Q = X W_Q");
-  });
-
-  it("should convert \\sum to Σ", () => {
-    const input = "(\\sum_{i=1}^N x_i)";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("Σ");
-  });
-
-  it("should handle \\approx", () => {
-    const input = "(a \\approx b)";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("≈");
-  });
-});
 
 describe("stripRawMarkdownInContent", () => {
   it("should strip ** markers but keep text", () => {
@@ -184,34 +129,6 @@ describe("hierarchicalNumberBoldListItems", () => {
     const result = hierarchicalNumberBoldListItems(input);
     expect(result).toContain("6.1.1. **2010s初期（Word2Vec）**");
     expect(result).toContain("6.1.2. **2018-2020（BERT）**");
-  });
-});
-
-describe("simplifyLatexNotation - link safety", () => {
-  it("should not destroy Markdown links [text](url)", () => {
-    const input = "参见[人工智能技术发展综述](https://example.com)的分析";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("[人工智能技术发展综述](https://example.com)");
-  });
-
-  it("should handle \\infty without producing ∈fty", () => {
-    const input = "(x \\to \\infty)";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("∞");
-    expect(result).not.toContain("∈fty");
-  });
-
-  it("should handle \\int without producing ∈t", () => {
-    const input = "(\\int_0^1 f(x) dx)";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("∫");
-    expect(result).not.toContain("∈t");
-  });
-
-  it("should still convert standalone \\in to ∈", () => {
-    const input = "(x \\in S)";
-    const result = simplifyLatexNotation(input);
-    expect(result).toContain("∈");
   });
 });
 
