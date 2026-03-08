@@ -67,13 +67,24 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
  * numbered headings like ### 1.7 → ### 1.9 have gaps. This function re-assigns
  * sequential numbers within each ## dimension section.
  *
+ * Handles three heading patterns:
+ *   - ### N.M.  — standard sub-section headings
+ *   - #### N.M. — demoted from ### by collapseExcessSubHeadings (two-part)
+ *   - #### N.M.K. — original sub-sub-section headings (three-part)
+ *
+ * Also re-numbers bold list items (1. **text**) under #### N.M. headings,
+ * since hierarchicalNumberBoldListItems skips sections with #### headings
+ * and those items remain un-numbered after collapse.
+ *
  * Only affects headings that already have N.M. or N.M.K. numbering format.
  */
 export function renumberHeadings(content: string): string {
   const lines = content.split("\n");
   let currentDim = 0; // current ## N. dimension index
-  let h3Count = 0;
-  let h4Count = 0;
+  let h3Count = 0; // shared counter for ### N.M. and #### N.M. (demoted)
+  let h4Count = 0; // counter for #### N.M.K. (three-part sub-sections)
+  let boldListCounter = 0; // counter for bold list items under demoted headings
+  let inDemotedSection = false; // true when current section is #### N.M. (demoted)
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -84,6 +95,8 @@ export function renumberHeadings(content: string): string {
       currentDim = parseInt(dimMatch[1]);
       h3Count = 0;
       h4Count = 0;
+      boldListCounter = 0;
+      inDemotedSection = false;
       continue;
     }
 
@@ -94,23 +107,55 @@ export function renumberHeadings(content: string): string {
     if (h3Match) {
       h3Count++;
       h4Count = 0;
+      boldListCounter = 0;
+      inDemotedSection = false;
       lines[i] = `### ${currentDim}.${h3Count}. ${h3Match[1]}`;
       continue;
     }
 
-    // Re-number #### N.M.K. headings
-    const h4Match = line.match(/^####\s+\d+\.\d+\.\d+\.?\s+(.+)$/);
-    if (h4Match) {
+    // Re-number #### N.M.K. headings (three-part — check BEFORE two-part)
+    const h4ThreePartMatch = line.match(/^####\s+\d+\.\d+\.\d+\.?\s+(.+)$/);
+    if (h4ThreePartMatch) {
       h4Count++;
-      lines[i] = `#### ${currentDim}.${h3Count}.${h4Count}. ${h4Match[1]}`;
+      boldListCounter = 0;
+      inDemotedSection = false;
+      lines[i] =
+        `#### ${currentDim}.${h3Count}.${h4Count}. ${h4ThreePartMatch[1]}`;
       continue;
     }
 
-    // Non-numbered ## heading resets (跨维度关联分析, 风险评估, etc.)
-    if (/^##\s+[^#]/.test(line) && !dimMatch) {
-      currentDim = 0;
-      h3Count = 0;
+    // Re-number #### N.M. headings (two-part — demoted from ### by collapseExcessSubHeadings)
+    const h4TwoPartMatch = line.match(/^####\s+\d+\.\d+\.?\s+(.+)$/);
+    if (h4TwoPartMatch) {
+      h3Count++; // continues the same counter as ### headings
       h4Count = 0;
+      boldListCounter = 0;
+      inDemotedSection = true;
+      lines[i] = `#### ${currentDim}.${h3Count}. ${h4TwoPartMatch[1]}`;
+      continue;
+    }
+
+    // Re-number bold list items (1. **text**) under demoted #### N.M. headings
+    // These were skipped by hierarchicalNumberBoldListItems (sectionHasH4 = true)
+    if (inDemotedSection && /^\d+\.\s+\*\*/.test(line)) {
+      boldListCounter++;
+      lines[i] = line.replace(
+        /^\d+\./,
+        `${currentDim}.${h3Count}.${boldListCounter}.`,
+      );
+      continue;
+    }
+
+    // Any heading resets bold list tracking
+    if (/^#{2,6}\s+/.test(line)) {
+      boldListCounter = 0;
+      // Non-numbered ## heading resets everything (跨维度关联分析, 风险评估, etc.)
+      if (/^##\s+[^#]/.test(line)) {
+        currentDim = 0;
+        h3Count = 0;
+        h4Count = 0;
+        inDemotedSection = false;
+      }
     }
   }
 

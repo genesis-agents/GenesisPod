@@ -416,6 +416,8 @@ function renumberHeadings(content) {
   let currentDim = 0;
   let h3Count = 0;
   let h4Count = 0;
+  let boldListCounter = 0;
+  let inDemotedSection = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -424,26 +426,60 @@ function renumberHeadings(content) {
       currentDim = parseInt(dimMatch[1]);
       h3Count = 0;
       h4Count = 0;
+      boldListCounter = 0;
+      inDemotedSection = false;
       continue;
     }
     if (currentDim === 0) continue;
+
+    // ### N.M. headings
     const h3Match = line.match(/^###\s+\d+\.\d+\.?\s+(.+)$/);
     if (h3Match) {
       h3Count++;
       h4Count = 0;
+      boldListCounter = 0;
+      inDemotedSection = false;
       lines[i] = `### ${currentDim}.${h3Count}. ${h3Match[1]}`;
       continue;
     }
-    const h4Match = line.match(/^####\s+\d+\.\d+\.\d+\.?\s+(.+)$/);
-    if (h4Match) {
+
+    // #### N.M.K. (three-part — check BEFORE two-part)
+    const h4ThreePartMatch = line.match(/^####\s+\d+\.\d+\.\d+\.?\s+(.+)$/);
+    if (h4ThreePartMatch) {
       h4Count++;
-      lines[i] = `#### ${currentDim}.${h3Count}.${h4Count}. ${h4Match[1]}`;
+      boldListCounter = 0;
+      inDemotedSection = false;
+      lines[i] = `#### ${currentDim}.${h3Count}.${h4Count}. ${h4ThreePartMatch[1]}`;
       continue;
     }
-    if (/^##\s+[^#]/.test(line) && !dimMatch) {
-      currentDim = 0;
-      h3Count = 0;
+
+    // #### N.M. (two-part — demoted from ### by collapseExcessSubHeadings)
+    const h4TwoPartMatch = line.match(/^####\s+\d+\.\d+\.?\s+(.+)$/);
+    if (h4TwoPartMatch) {
+      h3Count++;
       h4Count = 0;
+      boldListCounter = 0;
+      inDemotedSection = true;
+      lines[i] = `#### ${currentDim}.${h3Count}. ${h4TwoPartMatch[1]}`;
+      continue;
+    }
+
+    // Bold list items under demoted #### N.M. headings
+    if (inDemotedSection && /^\d+\.\s+\*\*/.test(line)) {
+      boldListCounter++;
+      lines[i] = line.replace(/^\d+\./, `${currentDim}.${h3Count}.${boldListCounter}.`);
+      continue;
+    }
+
+    // Any heading resets bold list tracking
+    if (/^#{2,6}\s+/.test(line)) {
+      boldListCounter = 0;
+      if (/^##\s+[^#]/.test(line)) {
+        currentDim = 0;
+        h3Count = 0;
+        h4Count = 0;
+        inDemotedSection = false;
+      }
     }
   }
   return lines.join("\n");
