@@ -441,11 +441,190 @@ function promotePhaseListItems(input: string): string {
 }
 
 /**
+ * Strip orphaned LATEX slot markers that leaked from backend sanitization.
+ *
+ * Old data in DB used \x00-delimited slots; current code uses \uE000/\uE001.
+ * If restoration fails (corrupted data, edge cases), markers appear as literal
+ * text like "LATEX66", "\uE000LATEX3\uE001", etc.
+ */
+function stripOrphanedLatexSlots(input: string): string {
+  let result = input;
+  // New format: \uE000LATEX<N>\uE001
+  result = result.replace(/\uE000LATEX\d+\uE001/g, '');
+  // Old format: \x00LATEX<N>\x00 (null byte delimiters)
+  result = result.replace(/\x00LATEX\d+\x00/g, '');
+  // Bare orphaned markers: RLATEX80, LATEX66 etc. (word boundary)
+  result = result.replace(/(?<=\s|^)R?LATEX\d+(?=\s|$)/gm, '');
+  // Clean up any resulting double spaces
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+/**
+ * Wrap bare (undelimited) LaTeX commands in $...$ so remark-math can render them.
+ *
+ * Targets \command patterns that appear outside existing $...$ or $$...$$ blocks.
+ * Handles multi-argument commands (\frac{a}{b}) and decorators (_{x}^{y}).
+ */
+function wrapBareLatexExpressions(input: string): string {
+  // Step 1: Protect existing math blocks from being double-wrapped
+  const mathSlots: string[] = [];
+  let text = input;
+  // Protect code blocks first
+  text = text.replace(/```[\s\S]*?```/g, (m) => {
+    mathSlots.push(m);
+    return `\uE010M${mathSlots.length - 1}\uE011`;
+  });
+  text = text.replace(/`[^`\n]+`/g, (m) => {
+    mathSlots.push(m);
+    return `\uE010M${mathSlots.length - 1}\uE011`;
+  });
+  // Protect $$...$$ display math
+  text = text.replace(/\$\$[\s\S]*?\$\$/g, (m) => {
+    mathSlots.push(m);
+    return `\uE010M${mathSlots.length - 1}\uE011`;
+  });
+  // Protect $...$ inline math
+  text = text.replace(/\$(?!\$)(?:[^$\n]|\\\$)+\$/g, (m) => {
+    mathSlots.push(m);
+    return `\uE010M${mathSlots.length - 1}\uE011`;
+  });
+
+  // Step 2: Match \command with optional {arg} groups and ^/_ decorators
+  // Balanced brace group (1 level of nesting): {content_or_{nested}}
+  const BG = '\\{(?:[^{}]|\\{[^}]*\\})*\\}';
+  const CMD_NAMES = [
+    'frac',
+    'sqrt',
+    'sum',
+    'prod',
+    'int',
+    'log',
+    'exp',
+    'sin',
+    'cos',
+    'tan',
+    'lim',
+    'min',
+    'max',
+    'sup',
+    'inf',
+    'det',
+    'dim',
+    'ker',
+    'gcd',
+    'theta',
+    'phi',
+    'psi',
+    'alpha',
+    'beta',
+    'gamma',
+    'delta',
+    'epsilon',
+    'lambda',
+    'mu',
+    'sigma',
+    'omega',
+    'pi',
+    'rho',
+    'eta',
+    'kappa',
+    'nu',
+    'xi',
+    'zeta',
+    'mathbb',
+    'mathcal',
+    'mathrm',
+    'mathbf',
+    'mathit',
+    'operatorname',
+    'text',
+    'partial',
+    'nabla',
+    'times',
+    'div',
+    'pm',
+    'mp',
+    'cdot',
+    'dots',
+    'ldots',
+    'cdots',
+    'infty',
+    'forall',
+    'exists',
+    'in',
+    'subset',
+    'supset',
+    'cup',
+    'cap',
+    'leq',
+    'geq',
+    'neq',
+    'approx',
+    'sim',
+    'propto',
+    'll',
+    'gg',
+    'to',
+    'rightarrow',
+    'leftarrow',
+    'Rightarrow',
+    'Leftarrow',
+    'hat',
+    'bar',
+    'tilde',
+    'quad',
+    'mid',
+    'wedge',
+    'vee',
+    'oplus',
+    'otimes',
+  ].join('|');
+
+  // Match: \command (optionally followed by brace groups and sub/superscript decorators)
+  // The expression can chain: \frac{a}{b}_{i}^{n}
+  const exprPattern = new RegExp(
+    `\\\\(?:${CMD_NAMES})\\b` + // \command
+      `(?:${BG})*` + // optional brace groups {arg1}{arg2}...
+      `(?:[_^]${BG})*`, // optional sub/superscripts _{x}^{y}
+    'g'
+  );
+
+  text = text.replace(exprPattern, (match) => {
+    // Skip if the match is just a standalone operator symbol with no braces
+    // (like \in, \times) in English prose — only wrap if meaningful
+    // Always wrap: having braces is a strong LaTeX signal
+    // For bare commands (\theta, \alpha etc.), also wrap — they're always math
+    return `$${match}$`;
+  });
+
+  // Step 3: Merge adjacent $...$ that are separated by only spaces/operators
+  // e.g. $\mathbb{R}$ $\times$ $\mathbb{R}$ → $\mathbb{R} \times \mathbb{R}$
+  // This prevents visual fragmentation
+  for (let i = 0; i < 5; i++) {
+    const before = text;
+    text = text.replace(/\$([^$]+)\$\s*\$([^$]+)\$/g, '$$$1 $2$$');
+    if (text === before) break;
+  }
+
+  // Step 4: Restore protected math/code blocks
+  text = text.replace(
+    /\uE010M(\d+)\uE011/g,
+    (_, idx) => mathSlots[parseInt(idx, 10)] ?? _
+  );
+
+  return text;
+}
+
+/**
  * Preprocesses a markdown string to fix common rendering issues before
  * passing it to ReactMarkdown with remark-math / rehype-katex.
  */
 export function preprocessLatex(markdown: string): string {
   let result = markdown;
+
+  // Step -1: Strip orphaned LATEX slot markers from backend sanitization
+  result = stripOrphanedLatexSlots(result);
 
   // Step 0: Strip HTML citation links (ReactMarkdown has no rehypeRaw)
   result = stripHtmlCitationLinks(result);
@@ -487,6 +666,9 @@ export function preprocessLatex(markdown: string): string {
 
   // Step 8: Wrap bare inline LaTeX in Chinese prose with $...$
   result = wrapInlineLatex(result);
+
+  // Step 9: Wrap remaining bare \command{...} expressions not caught by CJK-boundary logic
+  result = wrapBareLatexExpressions(result);
 
   return result;
 }
