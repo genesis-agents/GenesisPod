@@ -13,7 +13,14 @@
  * 参考 PRD: docs/prd/topic-research-report-editing.md
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+  memo,
+} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -48,6 +55,16 @@ import {
   useScrollToAnnotation,
 } from '../annotations/AnnotatedText';
 import { formatDateSafe } from '@/lib/utils/date';
+import {
+  Eye,
+  Pencil,
+  Brain,
+  RefreshCw,
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Palette,
+} from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n';
@@ -244,61 +261,6 @@ function areReportEditorPropsEqual(
   // All data props are equal - skip re-render
   return true;
 }
-
-// Icons
-const PreviewIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-    />
-  </svg>
-);
-
-const RichTextIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-    />
-  </svg>
-);
-
-const AIIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-    />
-  </svg>
-);
 
 /**
  * Extract markdown from a fullReport field that may contain embedded JSON.
@@ -535,29 +497,34 @@ function ReportEditorInner({
   const richTextRef = useRef<HTMLDivElement>(null);
 
   // AI Edit buttons config with i18n
-  const aiEditButtons = [
+  const aiEditButtons: {
+    key: AIEditOperation;
+    label: string;
+    icon: React.ReactNode;
+    description: string;
+  }[] = [
     {
       key: 'rewrite' as AIEditOperation,
       label: t('topicResearch.reportEditor.aiEditOperations.rewrite'),
-      icon: '🔄',
+      icon: <RefreshCw className="h-3.5 w-3.5" />,
       description: t('topicResearch.reportEditor.aiEditOperations.rewriteDesc'),
     },
     {
       key: 'polish' as AIEditOperation,
       label: t('topicResearch.reportEditor.aiEditOperations.polish'),
-      icon: '✨',
+      icon: <Sparkles className="h-3.5 w-3.5" />,
       description: t('topicResearch.reportEditor.aiEditOperations.polishDesc'),
     },
     {
       key: 'expand' as AIEditOperation,
       label: t('topicResearch.reportEditor.aiEditOperations.expand'),
-      icon: '📈',
+      icon: <TrendingUp className="h-3.5 w-3.5" />,
       description: t('topicResearch.reportEditor.aiEditOperations.expandDesc'),
     },
     {
       key: 'compress' as AIEditOperation,
       label: t('topicResearch.reportEditor.aiEditOperations.compress'),
-      icon: '📉',
+      icon: <TrendingDown className="h-3.5 w-3.5" />,
       description: t(
         'topicResearch.reportEditor.aiEditOperations.compressDesc'
       ),
@@ -565,7 +532,7 @@ function ReportEditorInner({
     {
       key: 'style' as AIEditOperation,
       label: t('topicResearch.reportEditor.aiEditOperations.style'),
-      icon: '🎨',
+      icon: <Palette className="h-3.5 w-3.5" />,
       description: t('topicResearch.reportEditor.aiEditOperations.styleDesc'),
     },
   ];
@@ -1041,6 +1008,22 @@ function ReportEditorInner({
     [processText]
   );
 
+  // ★ Extract Key Takeaways from dimension analyses (consistent with ChapterizedReportView)
+  const keyTakeaways = useMemo(() => {
+    if (!report?.dimensionAnalyses) return [];
+    return report.dimensionAnalyses
+      .flatMap((analysis) =>
+        (analysis.keyFindings || [])
+          .filter((f) => f.finding && f.finding.trim().length > 3)
+          .slice(0, 3)
+          .map((f) => ({
+            finding: f.finding,
+            significance: f.significance || 'medium',
+          }))
+      )
+      .slice(0, 8); // Cap at 8 total findings across all dimensions
+  }, [report?.dimensionAnalyses]);
+
   // ★ ReactMarkdown content with React Controlled Highlighting and inline charts
   // Annotations are now rendered inline via processText → AnnotatedText component
   // This eliminates DOM manipulation conflicts that caused React error #310
@@ -1118,12 +1101,12 @@ function ReportEditorInner({
             {
               key: 'preview',
               label: t('topicResearch.reportEditor.preview'),
-              icon: <PreviewIcon className="h-4 w-4" />,
+              icon: <Eye className="h-4 w-4" />,
             },
             {
               key: 'edit',
               label: t('topicResearch.reportEditor.edit'),
-              icon: <RichTextIcon className="h-4 w-4" />,
+              icon: <Pencil className="h-4 w-4" />,
             },
           ]}
           activeMode={viewMode}
@@ -1149,7 +1132,7 @@ function ReportEditorInner({
                 className="rounded-lg p-1.5 text-gray-600 transition-colors hover:bg-gray-100"
                 title={t('topicResearch.reportEditor.preview')}
               >
-                <PreviewIcon className="h-4 w-4" />
+                <Eye className="h-4 w-4" />
               </button>
 
               <button
@@ -1161,7 +1144,7 @@ function ReportEditorInner({
                 }`}
                 title={t('topicResearch.reportEditor.aiEdit')}
               >
-                <AIIcon className="h-4 w-4" />
+                <Brain className="h-4 w-4" />
               </button>
 
               <button
@@ -1208,10 +1191,38 @@ function ReportEditorInner({
             {/* Mode indicator - excluded from export */}
             <div className="absolute right-6 top-6 z-10" data-export-exclude>
               <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
-                <PreviewIcon className="h-3 w-3" />
+                <Eye className="h-3 w-3" />
                 {t('topicResearch.reportEditor.previewMode')}
               </span>
             </div>
+
+            {/* ★ Key Takeaways card — consistent with ChapterizedReportView */}
+            {keyTakeaways.length > 0 && (
+              <div className="mb-5 rounded-xl border-l-4 border-blue-400 bg-blue-50/60 p-4">
+                <h4 className="mb-2 text-sm font-semibold text-blue-800">
+                  Key Takeaways
+                </h4>
+                <ul className="space-y-1.5">
+                  {keyTakeaways.map((kf, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-2 text-sm text-blue-900/80"
+                    >
+                      <span
+                        className={`mt-1 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
+                          kf.significance === 'high'
+                            ? 'bg-red-400'
+                            : kf.significance === 'medium'
+                              ? 'bg-amber-400'
+                              : 'bg-blue-400'
+                        }`}
+                      />
+                      <span>{processText(kf.finding)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Markdown content with React Controlled annotation highlighting */}
             {memoizedMarkdownContent}
@@ -1235,7 +1246,7 @@ function ReportEditorInner({
             {/* Mode indicator */}
             <div className="absolute right-6 top-6 z-10">
               <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">
-                <RichTextIcon className="h-3 w-3" />
+                <Pencil className="h-3 w-3" />
                 {t('topicResearch.reportEditor.editMode')}
               </span>
             </div>
@@ -1273,7 +1284,7 @@ function ReportEditorInner({
                 title={btn.description}
                 className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
               >
-                <span>{btn.icon}</span>
+                {btn.icon}
                 {btn.label}
               </button>
             ))}

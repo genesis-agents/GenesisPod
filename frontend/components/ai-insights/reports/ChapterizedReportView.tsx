@@ -20,6 +20,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
+import { ArrowLeft, Check, Eye, Pencil } from 'lucide-react';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
 import {
   splitTextIntoSegments,
@@ -194,112 +195,8 @@ function countWords(text: string): number {
   return chineseChars + englishWords;
 }
 
-// Icons
-const BackIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 19l-7-7m0 0l7-7m-7 7h18"
-    />
-  </svg>
-);
-
-const CheckIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 13l4 4L19 7"
-    />
-  </svg>
-);
-
-const CloseIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M6 18L18 6M6 6l12 12"
-    />
-  </svg>
-);
-
-const EditIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-    />
-  </svg>
-);
-
-const AIIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-    />
-  </svg>
-);
-
 // View mode type (consistent with continuous view)
 type ViewMode = 'preview' | 'edit';
-
-// Eye icon for preview mode
-const EyeIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-    />
-  </svg>
-);
 
 /**
  * Custom comparison function for React.memo
@@ -463,6 +360,31 @@ function ChapterizedReportViewInner({
     onAnnotationClick: handleAnnotationClick,
   });
 
+  // ★ Build evidence index map for citation formatting (consistent with ReportEditor)
+  const evidenceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (evidence && evidence.length > 0) {
+      evidence.forEach((ev, idx) => {
+        map.set(ev.id, idx + 1); // 1-based index for citations
+      });
+    }
+    return map;
+  }, [evidence]);
+
+  // Helper to format citation references like [1][2][3]
+  const formatCitations = useCallback(
+    (evidenceIds: string[] | undefined) => {
+      if (!evidenceIds || evidenceIds.length === 0) return '';
+      const citations = evidenceIds
+        .map((id) => evidenceMap.get(id))
+        .filter((idx): idx is number => idx !== undefined)
+        .map((idx) => `[${idx}]`)
+        .join('');
+      return citations ? ` ${citations}` : '';
+    },
+    [evidenceMap]
+  );
+
   // ★ v3.0: Create charts map by sectionId for quick lookup
   const chartsBySectionId = useMemo(() => {
     const map = new Map<string, ReportChart[]>();
@@ -503,72 +425,106 @@ function ChapterizedReportViewInner({
           status = 'in_progress';
         }
 
-        // Build chapter content
+        // ★ Build chapter content: prefer detailedContent (backend-processed with
+        // hierarchical numbering, citations, formatting) over manual construction
+        // from structured data. Fall back to structured data only when detailedContent
+        // is absent (e.g. old reports or reports still in progress).
         const parts: string[] = [];
 
-        if (analysis.summary && analysis.summary.trim().length > 5) {
-          parts.push(analysis.summary);
-        }
-
-        // Key findings
-        if (analysis.keyFindings && analysis.keyFindings.length > 0) {
-          const validFindings = analysis.keyFindings.filter(
-            (f) => f.finding && f.finding.trim().length > 3
-          );
-          if (validFindings.length > 0) {
-            parts.push(
-              `\n### ${t('topicResearch.reportEditor.keyFindings')}\n`
-            );
-            validFindings.forEach((f, fIdx) => {
-              parts.push(`${fIdx + 1}. **${f.finding}**`);
-            });
-          }
-        }
-
-        // Trends
-        if (analysis.trends && analysis.trends.length > 0) {
-          parts.push(
-            `\n### ${t('topicResearch.reportEditor.trendAnalysis')}\n`
-          );
-          analysis.trends.forEach((trend, tIdx) => {
-            const directionMap: Record<string, string> = {
-              increasing: t('topicResearch.reportEditor.directions.increasing'),
-              decreasing: t('topicResearch.reportEditor.directions.decreasing'),
-              stable: t('topicResearch.reportEditor.directions.stable'),
-              emerging: t('topicResearch.reportEditor.directions.emerging'),
-            };
-            const directionText =
-              directionMap[trend.direction] || trend.direction;
-            parts.push(
-              `${tIdx + 1}. **${directionText}**: ${trend.trend} (${trend.timeframe})`
-            );
-          });
-        }
-
-        // Challenges
-        if (analysis.challenges && analysis.challenges.length > 0) {
-          parts.push(`\n### ${t('topicResearch.reportEditor.challenges')}\n`);
-          analysis.challenges.forEach((c, cIdx) => {
-            parts.push(`${cIdx + 1}. **${c.challenge}** - ${c.impact}`);
-          });
-        }
-
-        // Opportunities
-        if (analysis.opportunities && analysis.opportunities.length > 0) {
-          parts.push(
-            `\n### ${t('topicResearch.reportEditor.opportunities')}\n`
-          );
-          analysis.opportunities.forEach((o, oIdx) => {
-            parts.push(`${oIdx + 1}. **${o.opportunity}** - ${o.potential}`);
-          });
-        }
-
-        // Detailed content (strip any leaked chart JSON blocks)
         if (
           analysis.detailedContent &&
-          analysis.detailedContent.trim().length > 5
+          analysis.detailedContent.trim().length > 100
         ) {
+          // detailedContent is available and substantial — use it directly.
+          // It already contains numbered headings (N.M.), citations, and
+          // all structured data (keyFindings, trends, challenges, etc.)
+          // processed by the backend assembler pipeline.
+          if (analysis.summary && analysis.summary.trim().length > 5) {
+            parts.push(analysis.summary);
+          }
           parts.push('\n' + stripChartJsonBlock(analysis.detailedContent));
+        } else {
+          // Fallback: build content from structured data (old reports)
+          if (analysis.summary && analysis.summary.trim().length > 5) {
+            parts.push(analysis.summary);
+          }
+
+          // Key findings
+          if (analysis.keyFindings && analysis.keyFindings.length > 0) {
+            const validFindings = analysis.keyFindings.filter(
+              (f) => f.finding && f.finding.trim().length > 3
+            );
+            if (validFindings.length > 0) {
+              parts.push(
+                `\n### ${t('topicResearch.reportEditor.keyFindings')}\n`
+              );
+              validFindings.forEach((f, fIdx) => {
+                const citations = formatCitations(f.evidenceIds);
+                parts.push(`${fIdx + 1}. **${f.finding}**${citations}`);
+              });
+            }
+          }
+
+          // Trends
+          if (analysis.trends && analysis.trends.length > 0) {
+            parts.push(
+              `\n### ${t('topicResearch.reportEditor.trendAnalysis')}\n`
+            );
+            analysis.trends.forEach((trend, tIdx) => {
+              const directionMap: Record<string, string> = {
+                increasing: t(
+                  'topicResearch.reportEditor.directions.increasing'
+                ),
+                decreasing: t(
+                  'topicResearch.reportEditor.directions.decreasing'
+                ),
+                stable: t('topicResearch.reportEditor.directions.stable'),
+                emerging: t('topicResearch.reportEditor.directions.emerging'),
+              };
+              const directionText =
+                directionMap[trend.direction] || trend.direction;
+              const citations = formatCitations(trend.evidenceIds);
+              parts.push(
+                `${tIdx + 1}. **${directionText}**: ${trend.trend} (${trend.timeframe})${citations}`
+              );
+            });
+          }
+
+          // Challenges
+          if (analysis.challenges && analysis.challenges.length > 0) {
+            parts.push(`\n### ${t('topicResearch.reportEditor.challenges')}\n`);
+            analysis.challenges.forEach((c, cIdx) => {
+              const citations = formatCitations(c.evidenceIds);
+              const impact =
+                c.impact && c.impact.trim() ? ` - ${c.impact}` : '';
+              parts.push(
+                `${cIdx + 1}. **${c.challenge}**${impact}${citations}`
+              );
+            });
+          }
+
+          // Opportunities
+          if (analysis.opportunities && analysis.opportunities.length > 0) {
+            parts.push(
+              `\n### ${t('topicResearch.reportEditor.opportunities')}\n`
+            );
+            analysis.opportunities.forEach((o, oIdx) => {
+              const citations = formatCitations(o.evidenceIds);
+              const potential =
+                o.potential && o.potential.trim() ? ` - ${o.potential}` : '';
+              parts.push(
+                `${oIdx + 1}. **${o.opportunity}**${potential}${citations}`
+              );
+            });
+          }
+
+          // Short detailedContent as supplement
+          if (
+            analysis.detailedContent &&
+            analysis.detailedContent.trim().length > 5
+          ) {
+            parts.push('\n' + stripChartJsonBlock(analysis.detailedContent));
+          }
         }
 
         // ★ Fix CommonMark bold+Chinese-quote: "word**"text"**" fails bold detection
@@ -612,7 +568,7 @@ function ChapterizedReportViewInner({
     }
 
     return result;
-  }, [report, dimensions, chartsBySectionId]);
+  }, [report, dimensions, chartsBySectionId, formatCitations]);
 
   // ★ Navigate to highlighted annotation when it changes
   // Auto-select the chapter containing the annotation and switch to preview mode
@@ -715,7 +671,7 @@ function ChapterizedReportViewInner({
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <span className="mb-4 text-4xl">📝</span>
+          <Pencil className="mb-4 h-10 w-10 text-gray-400" />
           <p className="mt-2 text-gray-500">
             {t('topicResearch.reportEditor.noReportContent')}
           </p>
@@ -738,7 +694,7 @@ function ChapterizedReportViewInner({
             className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             title={t('topicResearch.reportEditor.backToChapterList')}
           >
-            <BackIcon className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
           <span
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
@@ -748,7 +704,7 @@ function ChapterizedReportViewInner({
             }`}
           >
             {selectedChapter.status === 'completed' ? (
-              <CheckIcon className="h-3.5 w-3.5" />
+              <Check className="h-3.5 w-3.5" />
             ) : (
               selectedChapter.chapterNumber
             )}
@@ -772,12 +728,12 @@ function ChapterizedReportViewInner({
               {
                 key: 'preview',
                 label: t('topicResearch.reportEditor.preview'),
-                icon: <EyeIcon className="h-4 w-4" />,
+                icon: <Eye className="h-4 w-4" />,
               },
               {
                 key: 'edit',
                 label: t('topicResearch.reportEditor.edit'),
-                icon: <EditIcon className="h-4 w-4" />,
+                icon: <Pencil className="h-4 w-4" />,
               },
             ]}
             activeMode={viewMode}
@@ -872,26 +828,13 @@ function ChapterizedReportViewInner({
                     !rawContent.includes('<!-- chart:')
                   ) {
                     return (
-                      <>
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex]}
-                          components={createMarkdownComponents(processText)}
-                        >
-                          {rawContent}
-                        </ReactMarkdown>
-                        {/* Render charts at the end if no placeholders found */}
-                        {charts.length > 0 && (
-                          <div className="mt-6 space-y-4">
-                            {charts.map((chart, idx) => (
-                              <FigureRenderer
-                                key={chart.id || idx}
-                                chart={chart}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                        components={createMarkdownComponents(processText)}
+                      >
+                        {rawContent}
+                      </ReactMarkdown>
                     );
                   }
 
@@ -902,8 +845,6 @@ function ChapterizedReportViewInner({
                   );
                   // segments alternates: [text, chartId, text, chartId, text, ...]
 
-                  // Build a set of chart IDs that were placed inline
-                  const placedChartIds = new Set<string>();
                   const chartMap = new Map(charts.map((c) => [c.id, c]));
 
                   const elements: React.ReactNode[] = [];
@@ -928,7 +869,6 @@ function ChapterizedReportViewInner({
                       const chartId = segments[i];
                       const chart = chartMap.get(chartId);
                       if (chart) {
-                        placedChartIds.add(chartId);
                         elements.push(
                           <div key={`chart-${chartId}`} className="my-4">
                             <FigureRenderer chart={chart} />
@@ -936,20 +876,6 @@ function ChapterizedReportViewInner({
                         );
                       }
                     }
-                  }
-
-                  // Render any remaining charts that weren't placed inline
-                  const remainingCharts = charts.filter(
-                    (c) => !placedChartIds.has(c.id)
-                  );
-                  if (remainingCharts.length > 0) {
-                    elements.push(
-                      <div key="remaining-charts" className="mt-6 space-y-4">
-                        {remainingCharts.map((chart, idx) => (
-                          <FigureRenderer key={chart.id || idx} chart={chart} />
-                        ))}
-                      </div>
-                    );
                   }
 
                   return <>{elements}</>;
@@ -1006,7 +932,7 @@ function ChapterizedReportViewInner({
                   }`}
                 >
                   {chapter.status === 'completed' ? (
-                    <CheckIcon className="h-4 w-4" />
+                    <Check className="h-4 w-4" />
                   ) : (
                     chapter.chapterNumber
                   )}

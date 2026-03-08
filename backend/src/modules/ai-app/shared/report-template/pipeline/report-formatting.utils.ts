@@ -960,6 +960,51 @@ export function stripInternalFigureNotation(content: string): string {
 }
 
 /**
+ * Fix common LLM LaTeX subscript omissions.
+ *
+ * LLMs frequently drop the `_` before `{` in subscript expressions:
+ * - `\sum{i=1}` → `\sum_{i=1}`
+ * - `\prod{k}` → `\prod_{k}`
+ * - `\log p\theta(...)` → `\log p_\theta(...)`
+ * - `r\phi(x, y)` → `r_\phi(x, y)`
+ * - `\pi\theta(...)` → `\pi_\theta(...)`
+ *
+ * Also protects LaTeX `_` from being parsed as markdown italic by wrapping
+ * bare LaTeX blocks in $ delimiters (handled by mergeAdjacentMathBlocks).
+ */
+export function fixLatexSubscripts(content: string): string {
+  let result = content;
+
+  // Fix: \sum{, \prod{, \int{ → add _ when content looks like subscript bounds
+  // e.g. \sum{i=1} → \sum_{i=1}, \sum{k} → \sum_{k}, \sum{t \in T} → \sum_{t \in T}
+  // Skip when already has _ before { or content doesn't look like bounds
+  result = result.replace(
+    /\\(sum|prod|int|lim|sup|inf|bigcup|bigcap)\{([^}]{1,30})\}/g,
+    (match, op, inner) => {
+      // Only convert if inner looks like a subscript: variable, index, set notation
+      if (/^[a-z_\s=<>\\,\-+|∈0-9()]+$/i.test(inner)) {
+        return `\\${op}_{${inner}}`;
+      }
+      return match;
+    },
+  );
+
+  // Fix: \log p\theta → \log p_\theta (single letter before \command = subscript)
+  // Also handles: r\phi, y\hat, etc.
+  // ★ Negative lookbehind prevents matching last letter of \commands (e.g. \exp\theta)
+  result = result.replace(
+    /(?<![a-zA-Z\\])([a-zA-Z])\\(theta|phi|psi|hat|tilde|bar)\b/g,
+    "$1_\\$2",
+  );
+
+  // Fix: \pi\theta → \pi_\theta (command before \command as subscript parameter)
+  // Common in RL notation: \pi_\theta, \pi_{\theta_0}
+  result = result.replace(/\\(pi|mu|sigma)\\(theta|phi|psi)\b/g, "\\$1_\\$2");
+
+  return result;
+}
+
+/**
  * Merge adjacent inline math blocks that the LLM fragmented.
  *
  * LLMs sometimes split a single math expression across multiple `$...$` blocks,
@@ -984,6 +1029,22 @@ export function mergeAdjacentMathBlocks(content: string): string {
     inlineCodes.push(m);
     return `__INLINE_CODE_${inlineCodes.length - 1}__`;
   });
+
+  // ── Phase -1: Fix LLM subscript omissions BEFORE wrapping ──
+  result = fixLatexSubscripts(result);
+
+  // ── Phase -0.5: Convert bracket display math [formula] → $$formula$$ ──
+  // LLMs output display math as [ ... ] on separate lines
+  result = result.replace(
+    /^\[\s*\n([\s\S]*?)\n\s*\]\s*$/gm,
+    (_match, inner: string) => {
+      // Only convert if content contains LaTeX commands
+      if (/\\[a-zA-Z]/.test(inner)) {
+        return `$$\n${inner.trim()}\n$$`;
+      }
+      return _match;
+    },
+  );
 
   // ── Phase 0: Wrap bare LaTeX expressions that lack $...$ delimiters ────
   // Handles both standalone formula lines and inline bare LaTeX.
