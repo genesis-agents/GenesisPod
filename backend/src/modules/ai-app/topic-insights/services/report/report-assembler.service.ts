@@ -34,6 +34,7 @@ import {
   wrapPseudoCodeBlocks,
   collapsePseudoCodeHeadings,
   collapseExcessSubHeadings,
+  removeEmptyHeadings,
   repairTruncatedBlockquoteBullets,
   truncateLongListItems,
   separateTrappedConclusions,
@@ -95,6 +96,53 @@ export interface PostProcessResult {
 /** Maximum characters per dimension content block (~8000 Chinese characters) */
 const MAX_DIMENSION_CHARS = 24000;
 
+// ==================== Helpers ====================
+
+/**
+ * Normalize chapter highlights: keep only the FIRST "本章要点" / "Chapter Highlights"
+ * blockquote block, remove all subsequent duplicates anywhere in the content.
+ *
+ * Handles all LLM format variants:
+ *   > 本章要点
+ *   > **本章要点**
+ *   > **本章要点：**
+ *   > Chapter Highlights
+ */
+function normalizeChapterHighlights(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let foundFirst = false;
+  let skipping = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Detect start of a chapter highlights block
+    if (/^>\s*\**(?:本章要点|Chapter Highlights)/i.test(line)) {
+      if (!foundFirst) {
+        foundFirst = true;
+        result.push(line);
+      } else {
+        // Start skipping this duplicate block
+        skipping = true;
+      }
+      continue;
+    }
+
+    if (skipping) {
+      // Continue skipping blockquote continuation lines
+      if (/^>\s/.test(line)) continue;
+      // Skip trailing blank line immediately after the duplicate block
+      if (line.trim() === "") continue;
+      skipping = false;
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
+}
+
 // ==================== Service ====================
 
 /**
@@ -148,12 +196,38 @@ export class ReportAssemblerService {
   ): string {
     let processed = stripLeadingHeading(content);
 
+    // BUG-1/2 fix: Normalize chapter highlights — keep only the first block,
+    // remove all duplicates (LLM sometimes adds 本章要点 in sub-sections or at
+    // both the start and end of detailedContent)
+    processed = normalizeChapterHighlights(processed);
+
     // Safety net: remove chart JSON residue not separated by parseChartOutput
     processed = stripChartJsonFromContent(processed);
 
-    // Remove inline markdown images (AI-generated external URLs are often 404;
-    // charts are managed via the <!-- chart --> placeholder mechanism)
-    processed = processed.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
+    // Remove ONLY AI-hallucinated markdown images (fake URLs that return 404)
+    // Keep legitimate images from evidence sources
+    processed = processed.replace(
+      /!\[([^\]]*)\]\(([^)]+)\)/g,
+      (_match, _alt: string, url: string) => {
+        const lower = url.toLowerCase();
+        // Strip data URIs (bloated, not real images)
+        if (lower.startsWith("data:")) return "";
+        // Strip placeholder/example domains
+        if (
+          lower.includes("placeholder.com") ||
+          lower.includes("example.com") ||
+          lower.includes("via.placeholder")
+        )
+          return "";
+        // Strip obviously fake AI-generated URLs (common patterns)
+        if (lower.includes("image-not-found") || lower.includes("no-image"))
+          return "";
+        // Strip broken relative paths (no protocol, not starting with /)
+        if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
+        // Keep all other images (legitimate evidence source images)
+        return _match;
+      },
+    );
 
     // Convert Chinese numeral headings (一、标题 → ### 标题) BEFORE heading normalization
     processed = convertChineseNumeralHeadings(processed);
@@ -243,6 +317,9 @@ export class ReportAssemblerService {
 
     // Collapse excess sub-headings (> 8 per dimension → demote to ####)
     processed = collapseExcessSubHeadings(processed, 8);
+
+    // Remove empty headings (heading followed immediately by another heading with no content)
+    processed = removeEmptyHeadings(processed);
 
     // Enforce max list item length (split long items at sentence boundaries)
     processed = truncateLongListItems(processed);
@@ -413,15 +490,25 @@ export class ReportAssemblerService {
         dim.generatedCharts as GeneratedChart[] | undefined,
       );
 
-      // Inject Chapter Highlights if LLM didn't generate one (#6)
-      const hasChapterHighlights = /^>\s*\*{0,2}本章要点/m.test(processed);
+      // Inject Chapter Highlights if LLM didn't generate one
+      // Detection covers all format variants: with/without bold, with/without colon
+      const hasChapterHighlights =
+        /^>\s*\**(?:本章要点|Chapter Highlights)/im.test(processed);
       if (!hasChapterHighlights && dim.keyFindings?.length > 0) {
         const highlightLabel = isEn ? "Chapter Highlights" : "本章要点";
         const highlights = dim.keyFindings
           .slice(0, 4)
           .map((f) => {
-            // Truncate finding to ~30 chars for concise highlights
-            const text = (f.finding || "").substring(0, 60).trim();
+            // Truncate at a natural sentence boundary to avoid mid-sentence cuts
+            let text = (f.finding || "").trim();
+            if (text.length > 50) {
+              const cutPoint = text.substring(0, 50).search(/[。，；,.;]/);
+              if (cutPoint > 15) {
+                text = text.substring(0, cutPoint + 1);
+              } else {
+                text = text.substring(0, 50);
+              }
+            }
             return `> - ${text}`;
           })
           .join("\n");
@@ -743,6 +830,9 @@ export class ReportAssemblerService {
 
     // Collapse excess sub-headings (> 8 per dimension → demote to ####)
     content = collapseExcessSubHeadings(content, 8);
+
+    // Remove empty headings (heading → next heading with no content between)
+    content = removeEmptyHeadings(content);
 
     // Enforce max list item length
     content = truncateLongListItems(content);

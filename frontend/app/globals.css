@@ -532,6 +532,22 @@ body {
   color: #6d28d9;
 }
 
+/* Citation links - Superscript style inline reference markers */
+.prose .citation-link {
+  color: #7c3aed;
+  text-decoration: none;
+  font-size: 0.8em;
+  vertical-align: super;
+  line-height: 0;
+  padding: 0 1px;
+  font-weight: 500;
+}
+
+.prose .citation-link:hover {
+  color: #6d28d9;
+  text-decoration: underline;
+}
+
 /* Horizontal rules - Styled dividers */
 .prose hr {
   border: none;

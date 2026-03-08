@@ -386,11 +386,14 @@ export function removeHorizontalRules(content: string): string {
 export function simplifyLatexNotation(content: string): string {
   let result = content;
 
-  // Display math blocks: [formula] on its own line → strip brackets, keep content
+  // Display math blocks: [formula] on its own line → wrap in $$ for KaTeX rendering
   result = result.replace(
     /^\[\s*\n([\s\S]*?)\n\]\s*$/gm,
     (_match, inner: string) => {
-      // Clean up LaTeX commands for readability
+      // If content contains LaTeX commands, wrap in $$ for KaTeX
+      if (/\\[a-zA-Z]/.test(inner)) {
+        return `$$\n${inner.trim()}\n$$`;
+      }
       return cleanLatexContent(inner);
     },
   );
@@ -403,7 +406,10 @@ export function simplifyLatexNotation(content: string): string {
     (_match, inner: string) => {
       // Skip citation markers like [1], [236 等3项]
       if (/^\d/.test(inner.trim())) return _match;
-      // Only clean if content contains LaTeX commands or math syntax
+      // If content contains LaTeX commands, wrap in $ for KaTeX instead of stripping
+      if (/\\[a-zA-Z]/.test(inner)) {
+        return `$${inner.trim()}$`;
+      }
       if (!/[\\^_]/.test(inner)) return _match;
       return cleanLatexContent(inner);
     },
@@ -985,12 +991,30 @@ export function mergeAdjacentMathBlocks(content: string): string {
   // 0a. Standalone formula lines: entire line is a LaTeX expression (e.g. \text{Attention}(Q,K,V) = ...)
   // These lines start with \command or contain multiple \commands and no $ delimiters
   // Also handles \begin{...}...\end{...} environment blocks
+  // Covers all commonly used LaTeX commands from LLM output
   result = result.replace(
-    /^(\\(?:text|frac|sqrt|left|mathbb|operatorname|begin|end)\{[^}]*\}[^\n]*[=≈≤≥<>][^\n]*)$/gm,
+    /^(\\(?:text|frac|sqrt|left|right|mathbb|mathcal|mathbf|mathrm|mathit|operatorname|begin|end|sum|prod|int|ell|log|ln|exp|sin|cos|tan|min|max|arg|sup|inf|lim|hat|tilde|bar|vec|dot|ddot|overline|underline|overbrace|underbrace|partial|nabla|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|phi|psi|pi|rho|tau|chi|zeta|eta|kappa|nu|xi|subset|supset|cup|cap|in|notin|forall|exists|neg|wedge|vee|oplus|otimes|approx|equiv|sim|propto|leq|geq|neq|ll|gg|pm|mp|times|div|cdot|ldots|cdots|vdots|ddots)\b[^\n]*[=≈≤≥<>±∓×·∈∉⊂⊃∀∃∼∝≡≠≪≫\+\-][^\n]*)$/gm,
     (line) => {
       // Skip if already has $ delimiters
       if (/\$/.test(line)) return line;
-      return `$${line}$`;
+      return `$$${line}$$`;
+    },
+  );
+
+  // 0a2b. Lines containing LaTeX commands but not starting with backslash
+  // Handles lines like: "P \propto N^{\alpha}" or "Attention(Q,K,V) = softmax(\frac{QK^T}{\sqrt{d}})V"
+  result = result.replace(
+    /^([^\n$]*\\(?:text|frac|sqrt|left|right|mathbb|mathcal|mathbf|mathrm|operatorname|sum|prod|int|ell|log|hat|tilde|bar|vec|overline|partial|nabla|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|phi|psi|pi|rho|approx|equiv|sim|propto|leq|geq|neq|times|cdot|ldots|cdots)\b[^\n$]*)$/gm,
+    (line) => {
+      // Skip if already has $ delimiters
+      if (/\$/.test(line)) return line;
+      // Skip headings
+      if (/^#{1,6}\s/.test(line)) return line;
+      // Skip blockquotes
+      if (/^>\s/.test(line)) return line;
+      // Skip list items
+      if (/^[-*]\s|^\d+\.\s/.test(line)) return line;
+      return `$$${line}$$`;
     },
   );
 
@@ -1144,10 +1168,15 @@ export function mergeAdjacentMathBlocks(content: string): string {
 }
 
 /**
- * Convert citation markers `[N]` in report body to clickable markdown links.
+ * Convert citation markers `[N]` in report body to clickable HTML anchor links.
  *
- * Transforms `[N]` → `[\[N\]](#ref-N)` so they link to anchored references.
- * Also handles comma-separated multi-citations: `[1,2,3]` → individual links.
+ * Transforms `[N]` → `<a href="#ref-N" class="citation-link">[N]</a>` so they
+ * link to anchored references. Also handles comma-separated multi-citations:
+ * `[1,2,3]` → individual links.
+ *
+ * Uses HTML `<a>` tags instead of markdown link syntax `[\[N\]](#ref-N)` to
+ * avoid conflict with remark-math display math delimiters (`\[...\]`), which
+ * would cause citation links to render as raw text when math is present.
  *
  * Safety:
  * - Only processes the body (before the references section)
@@ -1164,19 +1193,24 @@ export function linkifyCitations(content: string): string {
   const body = content.substring(0, refMatch.index);
   const refSection = content.substring(refMatch.index);
 
-  // Process single citations: [N] → [\[N\]](#ref-N)
+  // Process single citations: [N] → <a href="#ref-N" class="citation-link">[N]</a>
+  // Uses HTML <a> tags to avoid conflict with remark-math \[...\] display math delimiters.
   // Negative lookahead (?!\() ensures we don't touch existing markdown links [text](url)
   // Negative lookbehind (?<!\[) ensures we don't touch nested brackets [[N]]
   let linked = body.replace(
     /(?<!\[)\[(\d+)\](?!\()/g,
-    (_match, num) => `[\\[${num}\\]](#ref-${num})`,
+    (_match, num) => `<a href="#ref-${num}" class="citation-link">[${num}]</a>`,
   );
 
-  // Process multi-citations: [1,2,3] → [\[1\]](#ref-1)[\[2\]](#ref-2)[\[3\]](#ref-3)
+  // Process multi-citations: [1,2,3] → <a>[1]</a><a>[2]</a><a>[3]</a>
   linked = linked.replace(/\[((\d+),(\d[\d,]*))\](?!\()/g, (_match, _full) => {
     // Extract all numbers from the comma-separated list
     const nums = _full.split(",").map((s: string) => s.trim());
-    return nums.map((n: string) => `[\\[${n}\\]](#ref-${n})`).join("");
+    return nums
+      .map(
+        (n: string) => `<a href="#ref-${n}" class="citation-link">[${n}]</a>`,
+      )
+      .join("");
   });
 
   return linked + refSection;
@@ -1695,6 +1729,42 @@ export function collapseExcessSubHeadings(
       if (h3Count > maxSubHeadings) {
         // Demote to #### to reduce clutter
         result.push(line.replace(/^###\s+/, "#### "));
+        continue;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Remove headings that have no content before the next heading or end of document.
+ * A heading is "empty" if between it and the next heading (or EOF) there are only
+ * blank lines, no substantive text.
+ */
+export function removeEmptyHeadings(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check if this line is a heading
+    if (/^#{1,6}\s+/.test(line)) {
+      // Look ahead to see if there's content before the next heading
+      let hasContent = false;
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j].trim();
+        if (nextLine === "") continue; // skip blank lines
+        if (/^#{1,6}\s+/.test(nextLine)) break; // hit next heading
+        hasContent = true; // found content
+        break;
+      }
+
+      if (!hasContent) {
+        // Empty heading - skip it (and any trailing blank lines)
         continue;
       }
     }

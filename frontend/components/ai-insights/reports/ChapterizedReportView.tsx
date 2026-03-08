@@ -860,24 +860,101 @@ function ChapterizedReportViewInner({
                 )}
 
               <article className="prose prose-gray max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                  components={createMarkdownComponents(processText)}
-                >
-                  {selectedChapter.content ||
-                    t('topicResearch.reportEditor.noContent')}
-                </ReactMarkdown>
-              </article>
+                {(() => {
+                  const rawContent =
+                    selectedChapter.content ||
+                    t('topicResearch.reportEditor.noContent');
+                  const charts = selectedChapter.charts || [];
 
-              {/* ★ v3.0: 章节内联图表 */}
-              {selectedChapter.charts && selectedChapter.charts.length > 0 && (
-                <div className="mt-6 space-y-4">
-                  {selectedChapter.charts.map((chart, idx) => (
-                    <FigureRenderer key={chart.id || idx} chart={chart} />
-                  ))}
-                </div>
-              )}
+                  // If no charts or no chart markers, render as-is
+                  if (
+                    charts.length === 0 ||
+                    !rawContent.includes('<!-- chart:')
+                  ) {
+                    return (
+                      <>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                          components={createMarkdownComponents(processText)}
+                        >
+                          {rawContent}
+                        </ReactMarkdown>
+                        {/* Render charts at the end if no placeholders found */}
+                        {charts.length > 0 && (
+                          <div className="mt-6 space-y-4">
+                            {charts.map((chart, idx) => (
+                              <FigureRenderer
+                                key={chart.id || idx}
+                                chart={chart}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  }
+
+                  // Split content at chart placeholder markers
+                  // Pattern: <!-- chart:chartId -->
+                  const segments = rawContent.split(
+                    /<!--\s*chart:([^\s]+?)\s*-->/
+                  );
+                  // segments alternates: [text, chartId, text, chartId, text, ...]
+
+                  // Build a set of chart IDs that were placed inline
+                  const placedChartIds = new Set<string>();
+                  const chartMap = new Map(charts.map((c) => [c.id, c]));
+
+                  const elements: React.ReactNode[] = [];
+                  for (let i = 0; i < segments.length; i++) {
+                    if (i % 2 === 0) {
+                      // Text segment
+                      const text = segments[i].trim();
+                      if (text) {
+                        elements.push(
+                          <ReactMarkdown
+                            key={`md-${i}`}
+                            remarkPlugins={[remarkGfm, remarkMath]}
+                            rehypePlugins={[rehypeKatex]}
+                            components={createMarkdownComponents(processText)}
+                          >
+                            {text}
+                          </ReactMarkdown>
+                        );
+                      }
+                    } else {
+                      // Chart ID segment
+                      const chartId = segments[i];
+                      const chart = chartMap.get(chartId);
+                      if (chart) {
+                        placedChartIds.add(chartId);
+                        elements.push(
+                          <div key={`chart-${chartId}`} className="my-4">
+                            <FigureRenderer chart={chart} />
+                          </div>
+                        );
+                      }
+                    }
+                  }
+
+                  // Render any remaining charts that weren't placed inline
+                  const remainingCharts = charts.filter(
+                    (c) => !placedChartIds.has(c.id)
+                  );
+                  if (remainingCharts.length > 0) {
+                    elements.push(
+                      <div key="remaining-charts" className="mt-6 space-y-4">
+                        {remainingCharts.map((chart, idx) => (
+                          <FigureRenderer key={chart.id || idx} chart={chart} />
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return <>{elements}</>;
+                })()}
+              </article>
 
               {/* ★ 右键菜单 - 与连续视图保持一致 */}
               <TextSelectionContextMenu
