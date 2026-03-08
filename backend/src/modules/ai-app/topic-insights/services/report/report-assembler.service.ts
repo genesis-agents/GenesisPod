@@ -25,6 +25,8 @@ import {
   repairBrokenListItems,
   clearBrokenMediaAndEmptyBlocks,
   fixDoubleSourceLabels,
+  fixDuplicateHeadings,
+  removeEmptySections,
   splitWallOfText,
   repairMarkdownTables,
   deduplicateHeadingEcho,
@@ -365,6 +367,12 @@ export class ReportAssemblerService {
 
     // Fix double source labels (来源：来源：→ 来源：)
     processed = fixDoubleSourceLabels(processed);
+
+    // Fix duplicate adjacent headings (## Title\n\nTitle → ## Title)
+    processed = fixDuplicateHeadings(processed);
+
+    // Remove empty sections (heading followed immediately by next heading with no content)
+    processed = removeEmptySections(processed);
 
     // Repair broken list items (empty bullet + content on next line)
     processed = repairBrokenListItems(processed);

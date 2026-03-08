@@ -399,29 +399,31 @@ export function FigureRenderer({
             </p>
           )}
           {showSource && (chart.evidenceCitationIndex || chart.source) && (
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
-              <span>{'来源:'}</span>
+            <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+              <span>Source:</span>
+              {chart.source && (
+                <span className="text-gray-500">{chart.source}</span>
+              )}
               {chart.evidenceCitationIndex &&
                 (onCitationClick ? (
                   <button
                     onClick={() =>
                       onCitationClick(chart.evidenceCitationIndex!)
                     }
-                    className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                    aria-label={`[${chart.evidenceCitationIndex}]`}
+                    className="inline-flex items-center rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
+                    title={`Reference [${chart.evidenceCitationIndex}]`}
                   >
                     [{chart.evidenceCitationIndex}]
                   </button>
                 ) : (
                   <a
                     href={`#ref-${chart.evidenceCitationIndex}`}
-                    className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                    aria-label={`[${chart.evidenceCitationIndex}]`}
+                    className="inline-flex items-center rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
+                    title={`Reference [${chart.evidenceCitationIndex}]`}
                   >
                     [{chart.evidenceCitationIndex}]
                   </a>
                 ))}
-              {chart.source && <span>{chart.source}</span>}
             </div>
           )}
         </figcaption>

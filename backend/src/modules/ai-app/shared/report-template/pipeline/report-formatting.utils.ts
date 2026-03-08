@@ -632,6 +632,14 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/^```(?:json|markdown|md|text|plain)?\s*$/gm, "")
       // ── 清理多余空行 ──
       .replace(/\n{3,}/g, "\n\n")
+      // ── LLM 章节元注释（引用分布统计等内部备注） ──
+      // Pattern: （注：本章约1650字，严格基于证据...引用分布：[1] x3、[2] x2...）
+      .replace(/[（(]\s*注[：:]\s*本[章节段][^）)]{0,200}[）)]/g, "")
+      // Simpler variant: （注：...）at end of paragraph
+      .replace(
+        /\s*[（(]\s*注[：:][^）)]{0,150}引用分布[^）)]{0,100}[）)]\s*/g,
+        "",
+      )
   );
 }
 
@@ -1770,7 +1778,38 @@ export function fixDoubleSourceLabels(content: string): string {
       .replace(/来源[：:]\s*证据\s*/g, "证据 ")
       // English double: Source: Source: → Source:
       .replace(/Source:\s*Source:/gi, "Source:")
+      // Figure source duplication: 来源: [N] 证据 [N] → [N]
+      // (used in inline figure source notation in markdown body)
+      .replace(/来源[：:]\s*\[(\d+)\]\s*证据\s*\[\1\]/g, "[$1]")
+      // Evidence label before citation: 证据 [N] → [N]
+      // (standalone usage in figure captions)
+      .replace(/证据\s+(\[\d+\])/g, "$1")
   );
+}
+
+/**
+ * Fix duplicate adjacent headings.
+ * LLM sometimes generates "## 执行摘要\n\n执行摘要" or
+ * "### 3.1. Title\n\nTitle" where the heading text is repeated
+ * as the first line of the paragraph.
+ */
+export function fixDuplicateHeadings(content: string): string {
+  // Pattern: heading line followed by blank line(s) then the same text as a paragraph
+  return content.replace(
+    /^(#{1,4}\s+(?:\d+\.?\s*)*)(.*?)\s*\n(\s*\n)+\2\s*$/gm,
+    "$1$2\n",
+  );
+}
+
+/**
+ * Remove empty sections (heading followed immediately by another heading of same or higher level).
+ * Example: "### 3.1. Title\n\n### 3.2. Next" → "### 3.2. Next"
+ */
+export function removeEmptySections(content: string): string {
+  // Remove a heading whose body is empty (only whitespace before the next heading).
+  // e.g. "### 3.1. Title\n\n### 3.2. Next" → "### 3.2. Next"
+  // Safe: only removes when zero content lines exist between two headings.
+  return content.replace(/^#{1,4}\s+[^\n]+\n(?:\s*\n)+(?=#{1,4}\s)/gm, "");
 }
 
 /**
