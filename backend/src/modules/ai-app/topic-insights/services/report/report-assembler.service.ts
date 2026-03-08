@@ -47,6 +47,7 @@ import {
   boldSummaryPrefixes,
   bulletifyBlockquoteItems,
   splitEnumerationToList,
+  convertDescriptiveListsToBullets,
 } from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
@@ -110,79 +111,94 @@ const CHAPTER_HIGHLIGHTS_RE =
 
 /**
  * Normalize chapter highlights: keep only the FIRST "本章要点" / "Chapter Highlights"
- * block, remove all subsequent duplicates, and fix formatting issues:
- * - Ensure header line is blockquote + bold: `> **本章要点**`
- * - Ensure bullet lines are blockquote: `> - point`
+ * block, remove ALL blocks from their original positions, and prepend the first
+ * block's content at the very beginning of the output.
+ *
+ * This handles LLMs that place the block mid-content (e.g. at sub-section 4.2).
+ *
+ * Formatting fixes applied to the kept block:
+ * - Header line normalized to: `> **本章要点**`
+ * - Bullet lines normalized to: `> - point`
  */
 function normalizeChapterHighlights(content: string): string {
   const lines = content.split("\n");
-  const result: string[] = [];
-  let foundFirst = false;
-  let skipping = false;
-  let fixingFormat = false; // whether we're inside the first block and need to fix format
+
+  // Pass 1: collect the first block's normalized lines and build the rest without any block
+  let firstBlockLines: string[] | null = null;
+  let currentBlockLines: string[] = [];
+  let insideBlock = false;
+  const bodyLines: string[] = [];
+
+  const flushBlock = () => {
+    if (currentBlockLines.length > 0 && firstBlockLines === null) {
+      firstBlockLines = currentBlockLines;
+    }
+    currentBlockLines = [];
+    insideBlock = false;
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Detect start of a chapter highlights block
     if (CHAPTER_HIGHLIGHTS_RE.test(line)) {
-      if (!foundFirst) {
-        foundFirst = true;
-        fixingFormat = true;
-        // ★ Normalize header to: > **本章要点**
-        const isEn = /Chapter Highlights/i.test(line);
-        const label = isEn ? "Chapter Highlights" : "本章要点";
-        result.push(`> **${label}**`);
-      } else {
-        // Start skipping this duplicate block
-        skipping = true;
+      if (insideBlock) {
+        // A new header while already inside — treat previous block as complete
+        flushBlock();
       }
+      insideBlock = true;
+      const isEn = /Chapter Highlights/i.test(line);
+      const label = isEn ? "Chapter Highlights" : "本章要点";
+      currentBlockLines = [`> **${label}**`];
       continue;
     }
 
-    if (skipping) {
-      // Continue skipping blockquote continuation lines or list items
-      if (/^>\s/.test(line) || /^\s*[-*]\s/.test(line)) continue;
-      // Skip trailing blank line immediately after the duplicate block
-      if (line.trim() === "") continue;
-      skipping = false;
-    }
-
-    if (fixingFormat) {
-      // Inside the first chapter highlights block — fix formatting
+    if (insideBlock) {
       const trimmed = line.replace(/^>\s*/, "").trim();
-      // Blockquote continuation: `> - point` or `> point`
+
+      // Blockquote bullet continuation
       if (/^>\s*[-*]/.test(line) || /^\s*[-*]\s/.test(line)) {
-        // Ensure blockquote prefix: > - point
         const pointText = trimmed.replace(/^[-*]\s*/, "").trim();
         if (pointText) {
-          result.push(`> - ${pointText}`);
+          currentBlockLines.push(`> - ${pointText}`);
         }
         continue;
       }
-      // Empty line ends the block
+
+      // Empty line or bare blockquote marker ends the block
       if (line.trim() === "" || line.trim() === ">") {
-        fixingFormat = false;
-        result.push(line);
+        flushBlock();
+        bodyLines.push(line);
         continue;
       }
-      // Non-blockquote line that isn't a list — block ended
+
+      // Non-blockquote, non-list line ends the block
       if (!/^>/.test(line)) {
-        fixingFormat = false;
-        result.push(line);
+        flushBlock();
+        bodyLines.push(line);
         continue;
       }
-      // Blockquote line without list marker — could be a continuation point
+
+      // Blockquote line without list marker — treat as continuation point
       if (trimmed) {
-        result.push(`> - ${trimmed}`);
+        currentBlockLines.push(`> - ${trimmed}`);
         continue;
       }
     }
 
-    result.push(line);
+    bodyLines.push(line);
   }
 
-  return result.join("\n");
+  // Flush any block still open at EOF
+  flushBlock();
+
+  if (firstBlockLines === null) {
+    return content;
+  }
+
+  // Prepend the first block at the very top, separated from body by a blank line
+  const blockText = (firstBlockLines as string[]).join("\n");
+  const bodyText = bodyLines.join("\n").replace(/^\n+/, ""); // strip leading blanks from body
+  return `${blockText}\n\n${bodyText}`;
 }
 
 // ==================== Service ====================
@@ -294,6 +310,9 @@ export class ReportAssemblerService {
 
     // Hierarchical bold list item numbering
     processed = hierarchicalNumberBoldListItems(processed);
+
+    // Convert plain ordered lists under #### to bullets (avoids numbering ambiguity)
+    processed = convertDescriptiveListsToBullets(processed);
 
     // Cross-dimension paragraph deduplication (first 120 chars key)
     processed = deduplicateParagraphs(processed, globalSeenParagraphs);

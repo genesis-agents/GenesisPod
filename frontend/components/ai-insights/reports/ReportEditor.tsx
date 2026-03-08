@@ -40,6 +40,7 @@ import { FigureRenderer } from '../charts';
 import type { AIEditOperation } from '../types';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
+import { preprocessLatex } from '@/lib/report/preprocessLatex';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
@@ -610,6 +611,7 @@ function ReportEditorInner({
         /([\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9])\*\*(["""])/g,
         '$1\u200B**$2'
       );
+      resolvedFullReport = preprocessLatex(resolvedFullReport);
     }
 
     // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)

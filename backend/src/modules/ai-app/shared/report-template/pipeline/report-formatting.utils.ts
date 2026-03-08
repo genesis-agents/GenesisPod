@@ -123,6 +123,42 @@ export function hierarchicalNumberBoldListItems(content: string): string {
 }
 
 /**
+ * Convert plain (non-bold) ordered list items under #### headings to unordered bullets.
+ *
+ * Under "#### N.M.K. Title", descriptive ordered lists like:
+ *   1. First item
+ *   2. Second item
+ * look like hierarchical sub-section numbers (N.M.K.1, N.M.K.2) after processing.
+ * Converting them to bullets avoids this ambiguity.
+ *
+ * Only converts non-bold items. Bold items (1. **Item**) are structural and stay numbered.
+ */
+export function convertDescriptiveListsToBullets(content: string): string {
+  const lines = content.split("\n");
+  let underH4 = false;
+
+  return lines
+    .map((line) => {
+      // Track #### headings
+      if (/^####\s+/.test(line)) {
+        underH4 = true;
+        return line;
+      }
+      // Track ### headings — reset since we're at a higher level
+      if (/^###\s+[^#]/.test(line)) {
+        underH4 = false;
+        return line;
+      }
+      // Under ####: convert non-bold ordered items to bullets
+      if (underH4 && /^\d+\.\s+[^*]/.test(line)) {
+        return line.replace(/^\d+\.\s+/, "- ");
+      }
+      return line;
+    })
+    .join("\n");
+}
+
+/**
  * Cross-dimension paragraph deduplication.
  * Paragraphs sharing the first DEDUP_KEY_LENGTH characters are removed (keep first occurrence).
  * Headings, comments, list items, and blockquotes are exempt.
@@ -991,7 +1027,7 @@ export function fixLatexSubscripts(content: string): string {
 
   // Fix: \log p\theta → \log p_\theta (single letter before \command = subscript)
   // Also handles: r\phi, y\hat, etc.
-  // ★ Negative lookbehind prevents matching last letter of \commands (e.g. \exp\theta)
+  // Negative lookbehind prevents matching last letter of \commands (e.g. \exp\theta)
   result = result.replace(
     /(?<![a-zA-Z\\])([a-zA-Z])\\(theta|phi|psi|hat|tilde|bar)\b/g,
     "$1_\\$2",
@@ -1000,6 +1036,18 @@ export function fixLatexSubscripts(content: string): string {
   // Fix: \pi\theta → \pi_\theta (command before \command as subscript parameter)
   // Common in RL notation: \pi_\theta, \pi_{\theta_0}
   result = result.replace(/\\(pi|mu|sigma)\\(theta|phi|psi)\b/g, "\\$1_\\$2");
+
+  // Fix: y{ik}, x{t}, z{0} → y_{ik}, x_{t}, z_{0}
+  // Single letter followed by { where inner content looks like a subscript
+  result = result.replace(
+    /(?<![a-zA-Z\\_{])([a-zA-Z])\{([a-z0-9,: ]{1,10})\}/g,
+    (match, letter, inner) => {
+      if (/^[a-z0-9,: _]+$/i.test(inner)) {
+        return `${letter}_{${inner}}`;
+      }
+      return match;
+    },
+  );
 
   return result;
 }
@@ -1033,10 +1081,11 @@ export function mergeAdjacentMathBlocks(content: string): string {
   // ── Phase -1: Fix LLM subscript omissions BEFORE wrapping ──
   result = fixLatexSubscripts(result);
 
-  // ── Phase -0.5: Convert bracket display math [formula] → $$formula$$ ──
-  // LLMs output display math as [ ... ] on separate lines
+  // ── Phase -0.5: Convert bracket display math \[...\] → $$...$$ ──
+  // LLMs output display math as \[ ... \] on separate lines (LaTeX standard)
+  // Multi-line variant: \[\n formula \n\]
   result = result.replace(
-    /^\[\s*\n([\s\S]*?)\n\s*\]\s*$/gm,
+    /^\\?\[\s*\n([\s\S]*?)\n\s*\\?\]\s*$/gm,
     (_match, inner: string) => {
       // Only convert if content contains LaTeX commands
       if (/\\[a-zA-Z]/.test(inner)) {
@@ -1045,6 +1094,15 @@ export function mergeAdjacentMathBlocks(content: string): string {
       return _match;
     },
   );
+
+  // Single-line variant: \[ formula \]
+  // Only convert when content contains LaTeX commands to avoid matching markdown links [text](url) or citations [1]
+  result = result.replace(/\\?\[\s*(.+?)\s*\\?\]/g, (_match, inner: string) => {
+    if (/\\[a-zA-Z]/.test(inner) && !/\]\s*\(/.test(_match)) {
+      return `$$${inner.trim()}$$`;
+    }
+    return _match;
+  });
 
   // ── Phase 0: Wrap bare LaTeX expressions that lack $...$ delimiters ────
   // Handles both standalone formula lines and inline bare LaTeX.
@@ -1822,6 +1880,13 @@ export function removeEmptyHeadings(content: string): string {
 
     // Check if this line is a heading
     if (/^#{1,6}\s+/.test(line)) {
+      // Never remove ## headings — these are dimension/chapter titles inserted by
+      // the assembler; they legitimately precede ### sub-headings with no body text.
+      if (/^##\s+[^#]/.test(line)) {
+        result.push(line);
+        continue;
+      }
+
       // Look ahead to see if there's content before the next heading
       let hasContent = false;
       for (let j = i + 1; j < lines.length; j++) {

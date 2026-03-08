@@ -41,6 +41,7 @@ import { FigureRenderer, FigureGallery } from '../charts';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
+import { preprocessLatex } from '@/lib/report/preprocessLatex';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
 import { useI18n } from '@/lib/i18n';
@@ -529,12 +530,14 @@ function ChapterizedReportViewInner({
 
         // ★ Fix CommonMark bold+Chinese-quote: "word**"text"**" fails bold detection
         // U+200B (zero-width space) before ** makes it a valid left-flanking delimiter
-        const content = parts
-          .join('\n')
-          .replace(
-            /([\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9])\*\*(["""])/g,
-            '$1\u200B**$2'
-          );
+        const content = preprocessLatex(
+          parts
+            .join('\n')
+            .replace(
+              /([\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9])\*\*(["""])/g,
+              '$1\u200B**$2'
+            )
+        );
         const outline = analysis.summary?.slice(0, 100) || dimName;
 
         // ★ v3.0: Get charts for this chapter by sectionNumber
