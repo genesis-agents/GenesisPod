@@ -447,6 +447,8 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/[（(【\[]?\s*当前字数\s*[：:]\s*\d+\s*[)）】\]]?/g, "")
       // Standalone word count line: 字数：约1350字
       .replace(/^\s*字数[：:]\s*[约共]?\d+[字词]?\s*$/gm, "")
+      // Inline word count before closing paren: ...风险[49]。字数：128） → ...风险[49]）
+      .replace(/[。.，,]?\s*字数[：:]\s*\d+(?=[)）])/g, "")
       // English variants
       .replace(/\(\s*word\s+count[:\s]*\d+\s*\)/gi, "")
       .replace(/\(\s*approximately\s+\d+\s+words?\s*\)/gi, "")

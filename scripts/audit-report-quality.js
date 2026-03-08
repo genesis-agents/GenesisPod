@@ -212,10 +212,10 @@ function auditMarkdown(content, scope) {
   if (scope === "fullReport") {
     const h3s = lines.filter((l) => /^###\s+[^#]/.test(l));
     const badH3 = h3s.filter((l) => !/^###\s+\d+\.\d+\.?\s+/.test(l));
-    // Exclude supplementary sections (跨维度, 风险, 战略, 结语, 前言, 执行摘要, 目录)
+    // Exclude supplementary sections (intro, summary, conclusion, etc.)
     const nonStructural = badH3.filter(
       (l) =>
-        !/跨维度|风险|战略|结语|前言|执行摘要|目录|参考|附录/.test(l)
+        !/跨维度|风险|战略|结语|前言|执行摘要|目录|参考|附录|研究范围|方法论|阅读指引|研究背景|报告概述|核心发现|关键发现|研究方法|总结|关键指标|行动建议|反馈回路|情景分析|政策建议|实施路径|维度对比|投资者|政策研究者|企业决策者|研究人员|技术从业者|普通读者/.test(l)
     );
     add("A4-h3-bad-numbering", "MEDIUM", nonStructural);
   }
@@ -337,7 +337,12 @@ function auditMarkdown(content, scope) {
   if (scope.startsWith("chapter") && hlCount === 0 && content.length > 500) {
     add("B3-highlights-missing", "MEDIUM", ["No 本章要点 found in chapter"]);
   }
-  if (hlCount > 1) {
+  if (scope === "fullReport" && hlCount > 12) {
+    // In full report, each chapter has 1 block (10 chapters = 10 expected)
+    add("B3-highlights-duplicate", "MEDIUM", [
+      `Found ${hlCount} 本章要点 blocks (expected ~10 for full report)`,
+    ]);
+  } else if (scope.startsWith("chapter") && hlCount > 1) {
     add("B3-highlights-duplicate", "MEDIUM", [
       `Found ${hlCount} 本章要点 blocks (expected 1)`,
     ]);
@@ -473,17 +478,26 @@ function auditMarkdown(content, scope) {
   add("E1-duplicate-paragraphs", "MEDIUM", dupParas);
 
   // E2. Foreign language blocks (long Latin runs in Chinese report)
+  // Strip references section and HTML links before checking for foreign language
   const stripped = content
+    .replace(/## 参考文献[\s\S]*$/m, "") // exclude references section
+    .replace(/<a[^>]*>.*?<\/a>/g, "") // exclude HTML links
     .replace(/```[\s\S]*?```/g, "")
     .replace(/`[^`]+`/g, "")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/https?:\/\/[^\s)]+/g, "")
-    .replace(/\[[\d,\s]+\]/g, "");
+    .replace(/\[[\d,\s]+\]/g, "")
+    .replace(/\[[^\]]*\]\([^)]*\)/g, ""); // exclude markdown links
   const foreignBlocks = stripped.match(/[A-Za-z][A-Za-z\s,.:;'"!?()\-]{79,}/g) || [];
   const realForeign = foreignBlocks.filter((b) => b.split(/\s+/).length >= 5);
   add("E2-foreign-language-blocks", "MEDIUM", realForeign);
 
   // E3. LLM meta notes (word counts, agent leaks)
+  // Strip table rows before checking to avoid false positives on "字数：128" in table cells
+  const nonTableContent = content
+    .split("\n")
+    .filter((l) => !/^\|/.test(l.trim()))
+    .join("\n");
   const metaPatterns = [
     /（[约共]?\d+字）/g,
     /\(word\s+count[:\s]*\d+\)/gi,
@@ -496,16 +510,20 @@ function auditMarkdown(content, scope) {
   ];
   const metaNotes = [];
   metaPatterns.forEach((pat) => {
-    const m = content.match(pat);
+    const m = nonTableContent.match(pat);
     if (m) metaNotes.push(...m);
   });
   add("E3-llm-meta-notes", "MEDIUM", metaNotes);
 
-  // E4. Wall-of-text paragraphs (> 400 chars without heading/list break)
+  // E4. Wall-of-text paragraphs (single long line > 400 chars, or multi-line > 600)
   const wallParas = paragraphs.filter((p) => {
     const t = p.trim();
     if (/^(#|>|\||[-*]\s|\d+\.)/.test(t)) return false;
-    return t.length > 400;
+    const lineCount = t.split("\n").length;
+    // Single-line paragraphs: flag at 400 chars
+    // Multi-line paragraphs: flag at 600 chars (natural line wraps are okay)
+    const threshold = lineCount === 1 ? 400 : 600;
+    return t.length > threshold;
   });
   add("E4-wall-of-text", "LOW", wallParas.map((p) => `(${p.length} chars) ${p.substring(0, 80)}...`));
 
@@ -558,8 +576,14 @@ function auditMarkdown(content, scope) {
     add("F1-excessive-bold", "LOW", excessBoldSections);
   }
 
-  // F2. Broken bold (unclosed **)
-  add("F2-broken-bold", "LOW", content.match(/\*\*[^*\n]{1,50}$/gm) || []);
+  // F2. Broken bold (unclosed **) — lines with odd number of ** markers
+  // Skip table rows (start with |) as they have complex ** patterns
+  const brokenBoldLines = lines.filter((l) => {
+    if (/^\|/.test(l.trim())) return false; // skip table rows
+    const count = (l.match(/\*\*/g) || []).length;
+    return count > 0 && count % 2 !== 0;
+  });
+  add("F2-broken-bold", "LOW", brokenBoldLines);
 
   // F3. Excessive blockquotes (> 8)
   const bqLines = lines.filter((l) => /^>\s/.test(l));
@@ -573,14 +597,20 @@ function auditMarkdown(content, scope) {
       inBq = false;
     }
   });
-  if (bqBlocks > 8) {
+  // In fullReport, 10+ chapters each have a highlights blockquote; threshold is higher
+  const bqLimit = scope === "fullReport" ? 15 : 8;
+  if (bqBlocks > bqLimit) {
     add("F3-excessive-blockquotes", "LOW", [
-      `${bqBlocks} blockquote blocks (limit 8)`,
+      `${bqBlocks} blockquote blocks (limit ${bqLimit})`,
     ]);
   }
 
-  // F4. Overlong blockquote items (> 120 chars)
-  const longBq = bqLines.filter((l) => l.replace(/^>\s*/, "").length > 120);
+  // F4. Overlong blockquote items (> 120 chars), exclude highlights bullets
+  const longBq = bqLines.filter((l) => {
+    const text = l.replace(/^>\s*/, "");
+    if (/^[-*]\s/.test(text)) return false; // highlights bullets are expected to be long
+    return text.length > 120;
+  });
   add("F4-overlong-blockquote", "LOW", longBq);
 
   // F5. Horizontal rules (not allowed in formal reports)
@@ -590,12 +620,23 @@ function auditMarkdown(content, scope) {
   add("F6-table-rows", "INFO", content.match(/^\|.+\|$/gm) || []);
 
   // F7. Tables missing separator row (| --- | --- |)
-  const tableBlocks = content.match(/^\|.+\|\n\|.+\|/gm) || [];
-  const badTables = tableBlocks.filter((block) => {
-    const secondLine = block.split("\n")[1];
-    return !/^\|[\s-:|]+\|$/.test(secondLine);
-  });
-  add("F7-table-missing-separator", "MEDIUM", badTables);
+  // Find table blocks: sequences of consecutive | rows. Check if second row is separator.
+  const tableStartBad = [];
+  {
+    const allLines = content.split("\n");
+    for (let ti = 0; ti < allLines.length; ti++) {
+      const cur = allLines[ti].trim();
+      if (!/^\|.+\|$/.test(cur)) continue;
+      // Check if previous line was also a table row (skip — not a header)
+      if (ti > 0 && /^\|.+\|$/.test(allLines[ti - 1].trim())) continue;
+      // This is the first row of a table block — check if next is separator
+      const next = allLines[ti + 1] ? allLines[ti + 1].trim() : "";
+      if (/^\|.+\|$/.test(next) && !/^\|[\s\-:|]+\|$/.test(next)) {
+        tableStartBad.push(cur + "\n" + next);
+      }
+    }
+  }
+  add("F7-table-missing-separator", "MEDIUM", tableStartBad);
 
   // F8. Ordered list items (informational + context check)
   const olItems = content.match(/^\d+\.\s/gm) || [];
