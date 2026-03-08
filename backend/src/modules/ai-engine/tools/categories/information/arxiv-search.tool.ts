@@ -113,10 +113,12 @@ export class ArxivSearchTool extends BaseTool<
 > {
   private readonly logger = new Logger(ArxivSearchTool.name);
   private static lastRequestTime = 0;
-  private static readonly MIN_REQUEST_INTERVAL = 500; // more conservative: 2 req/s
+  private static readonly MIN_REQUEST_INTERVAL = 1500; // conservative: ~0.7 req/s to avoid 429
   private static activeRequests = 0;
-  private static readonly MAX_CONCURRENT = 2;
+  private static readonly MAX_CONCURRENT = 1; // serialize all ArXiv requests
   private static readonly requestQueue: Array<() => void> = [];
+  /** Global 429 cooldown — all requests wait until this timestamp */
+  private static cooldownUntil = 0;
 
   readonly id = "arxiv-search";
   readonly name = "ArXiv Search";
@@ -215,6 +217,7 @@ export class ArxivSearchTool extends BaseTool<
       this.logger.debug(`[doExecute] API params: ${JSON.stringify(params)}`);
 
       // 带退避重试的请求，最多重试 3 次
+      // 关键：收到 429 时设置全局冷却，防止其他并发请求继续打 ArXiv
       const maxRetries = 3;
       let xmlData: string | undefined;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -224,20 +227,29 @@ export class ArxivSearchTool extends BaseTool<
             baseUrl,
             params,
           );
-          break; // 成功，退出循环
+          this.releaseSlot();
+          break; // 成功
         } catch (err) {
+          this.releaseSlot(); // 立即释放槽位
           const is429 = err instanceof Error && err.message.includes("429");
           if (is429 && attempt < maxRetries) {
             const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+            // 设置全局冷却：所有排队的请求也必须等到冷却结束
+            ArxivSearchTool.cooldownUntil = Date.now() + backoff;
             this.logger.warn(
-              `[doExecute] ArXiv 429 rate limited, retry ${attempt + 1}/${maxRetries} after ${backoff}ms`,
+              `[doExecute] ArXiv 429 rate limited, retry ${attempt + 1}/${maxRetries} after ${backoff}ms (global cooldown set)`,
             );
             await new Promise((resolve) => setTimeout(resolve, backoff));
             continue;
           }
+          if (is429) {
+            // 3 次 retry 全部失败，设置 30s 长冷却让后续请求有恢复窗口
+            ArxivSearchTool.cooldownUntil = Date.now() + 30_000;
+            this.logger.warn(
+              `[doExecute] ArXiv 429 exhausted all retries, setting 30s global cooldown for subsequent requests`,
+            );
+          }
           throw err;
-        } finally {
-          this.releaseSlot();
         }
       }
 
@@ -338,7 +350,8 @@ export class ArxivSearchTool extends BaseTool<
   }
 
   /**
-   * 获取并发槽位，并强制最小请求间隔
+   * 获取并发槽位，等待全局冷却 + 最小请求间隔
+   * 其他请求在冷却期间会暂停排队等待，不会放弃
    */
   private async acquireSlot(): Promise<void> {
     // 等待并发槽位
@@ -348,6 +361,15 @@ export class ArxivSearchTool extends BaseTool<
       });
     }
     ArxivSearchTool.activeRequests++;
+
+    // 等待全局 429 冷却结束（其他请求排队等待，不放弃）
+    const cooldownRemaining = ArxivSearchTool.cooldownUntil - Date.now();
+    if (cooldownRemaining > 0) {
+      this.logger.debug(
+        `[acquireSlot] Waiting ${cooldownRemaining}ms for global 429 cooldown`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, cooldownRemaining));
+    }
 
     // 强制最小请求间隔
     const now = Date.now();
