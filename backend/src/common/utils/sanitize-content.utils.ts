@@ -20,7 +20,45 @@
 export function sanitizeMarkdownContent(content: string): string {
   if (!content) return content;
 
-  let sanitized = content;
+  // ==================== 保护 LaTeX 块 ====================
+  // LaTeX 使用 _ 作为下标符号（如 d_{model}、PE_{(pos,2i)}）。
+  // 下面的下划线清理规则会误删 LaTeX 下标，因此先将
+  // $$...$$ (display) 和 $...$ (inline) 块替换为占位符，
+  // 处理完再还原。
+  const latexSlots: string[] = [];
+  const LATEX_SLOT = "\x00LATEX";
+
+  // $$...$$ display math (可能跨多行)
+  let sanitized = content.replace(/\$\$[\s\S]*?\$\$/g, (m) => {
+    latexSlots.push(m);
+    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+  });
+  // $...$ inline math (单行内)
+  sanitized = sanitized.replace(/\$(?!\$)(?:[^$\n]|\\\$)+\$/g, (m) => {
+    latexSlots.push(m);
+    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+  });
+  // \[...\] display math (backslash-bracket)
+  sanitized = sanitized.replace(/\\\[[\s\S]*?\\\]/g, (m) => {
+    latexSlots.push(m);
+    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+  });
+  // \(...\) inline math (backslash-paren)
+  sanitized = sanitized.replace(/\\\([\s\S]*?\\\)/g, (m) => {
+    latexSlots.push(m);
+    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+  });
+
+  // ==================== 保护行内 LaTeX 下标 ====================
+  // 即使未被 $...$ 包裹，LaTeX 下标模式（如 x_{ik}、\sum_{i=1}）也应保留。
+  // 将「字母/命令 + _{...}」替换为占位符以避免被下划线清理误删。
+  sanitized = sanitized.replace(
+    /(?:[a-zA-Z0-9]|\\[a-zA-Z]+)_\{[^}]{1,30}\}/g,
+    (m) => {
+      latexSlots.push(m);
+      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    },
+  );
 
   // ==================== 预处理：移除所有明显的问题下划线 ====================
 
@@ -90,6 +128,14 @@ export function sanitizeMarkdownContent(content: string): string {
 
   // 14. 清理可能产生的多余空格
   sanitized = sanitized.replace(/  +/g, " ");
+
+  // ==================== 还原 LaTeX 块 ====================
+  if (latexSlots.length > 0) {
+    sanitized = sanitized.replace(
+      /\x00LATEX(\d+)\x00/g,
+      (_m, idx) => latexSlots[parseInt(idx, 10)] ?? _m,
+    );
+  }
 
   return sanitized;
 }

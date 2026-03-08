@@ -23,7 +23,11 @@ import { AiChatService } from "../../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
 import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.service";
 import { TaskCompletionType } from "../../../ai-kernel/facade";
-import { CreditsService, BillingContext } from "../../../ai-infra/facade";
+import {
+  CreditsService,
+  BillingContext,
+  InsufficientCreditsException,
+} from "../../../ai-infra/facade";
 import { RequestContext } from "../../../../common/context/request-context";
 import { ModelSubFacade } from "../sub-facades/model.sub-facade";
 import type { ModelResolverService } from "../model-resolver.service";
@@ -816,7 +820,13 @@ export class ChatFacade {
         description: billing.description,
       });
     } catch (creditError) {
-      this.logger.warn(`[Billing] Failed to deduct credits: ${creditError}`);
+      if (creditError instanceof InsufficientCreditsException) {
+        this.logger.error(
+          `[Billing] Insufficient credits for user ${billing.userId}: ${creditError.message}`,
+        );
+      } else {
+        this.logger.warn(`[Billing] Failed to deduct credits: ${creditError}`);
+      }
     }
   }
 

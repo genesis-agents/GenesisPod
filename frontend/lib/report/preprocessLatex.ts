@@ -367,6 +367,26 @@ function wrapBareDisplayMath(input: string): string {
 }
 
 /**
+ * Strip stray single $ delimiters inside $$ display math blocks.
+ *
+ * LLMs sometimes produce:
+ *   $$
+ *   PE_{(pos,2i)} = $\sin\left(\frac{...}\right),$
+ *   $$
+ *
+ * The inner $ confuses remark-math/KaTeX. This function removes
+ * lone $ characters (not $$) from inside display math blocks.
+ */
+function stripInnerDollarsInDisplayMath(input: string): string {
+  return input.replace(/\$\$([\s\S]*?)\$\$/g, (_m, inner: string) => {
+    // Only act if the inner content actually has stray $
+    if (!inner.includes('$')) return _m;
+    const cleaned = inner.replace(/(?<!\$)\$(?!\$)/g, '');
+    return `$$${cleaned}$$`;
+  });
+}
+
+/**
  * Preprocesses a markdown string to fix common rendering issues before
  * passing it to ReactMarkdown with remark-math / rehype-katex.
  */
@@ -390,6 +410,11 @@ export function preprocessLatex(markdown: string): string {
 
   // Step 5: Wrap bare standalone LaTeX lines in $$
   result = wrapBareDisplayMath(result);
+
+  // Step 5.5: Strip stray $ delimiters inside $$ display math blocks.
+  // LLMs sometimes produce $$\n PE = $\sin...\right),$ \n$$ where the
+  // inner $...$ confuses KaTeX. Remove single $ inside $$ blocks.
+  result = stripInnerDollarsInDisplayMath(result);
 
   // Step 6: Fix missing subscript underscores
   result = fixLatexSubscripts(result);

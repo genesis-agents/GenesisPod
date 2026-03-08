@@ -390,7 +390,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     // Get search API configuration from system settings
     const searchConfig = await this.getSearchConfig();
 
-    this.logger.log(
+    this.logger.debug(
       `[Search] Config: provider=${searchConfig.provider}, enabled=${searchConfig.enabled}, ` +
         `tavilyKeys=${searchConfig.tavilyKeys.length}, serperKeys=${searchConfig.serperKeys.length}`,
     );
@@ -398,7 +398,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     // 构建降级链：配置的 Provider → 备用 Provider → DuckDuckGo
     const failoverChain = this.buildFailoverChain(searchConfig);
 
-    this.logger.log(`[Search] Failover chain: ${failoverChain.join(" → ")}`);
+    this.logger.debug(`[Search] Failover chain: ${failoverChain.join(" → ")}`);
 
     let lastError: unknown = null;
 

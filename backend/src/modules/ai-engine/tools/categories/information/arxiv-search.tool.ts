@@ -112,8 +112,11 @@ export class ArxivSearchTool extends BaseTool<
   ArxivSearchOutput
 > {
   private readonly logger = new Logger(ArxivSearchTool.name);
-  private lastRequestTime = 0;
-  private readonly MIN_REQUEST_INTERVAL = 350; // 3 req/s = ~333ms interval, use 350ms for safety
+  private static lastRequestTime = 0;
+  private static readonly MIN_REQUEST_INTERVAL = 500; // more conservative: 2 req/s
+  private static activeRequests = 0;
+  private static readonly MAX_CONCURRENT = 2;
+  private static readonly requestQueue: Array<() => void> = [];
 
   readonly id = "arxiv-search";
   readonly name = "ArXiv Search";
@@ -194,9 +197,6 @@ export class ArxivSearchTool extends BaseTool<
     );
 
     try {
-      // 实施限速
-      await this.enforceRateLimit();
-
       // 构建搜索查询
       let searchQuery = query;
       if (category) {
@@ -209,16 +209,47 @@ export class ArxivSearchTool extends BaseTool<
         search_query: searchQuery,
         max_results: Math.min(maxResults, 100),
         sortBy: sortBy,
-        sortOrder: sortBy === "relevance" ? "descending" : "descending",
+        sortOrder: "descending",
       };
 
       this.logger.debug(`[doExecute] API params: ${JSON.stringify(params)}`);
 
-      // 发送请求
-      const xmlData = await this.policyDataService.httpGet<string>(
-        baseUrl,
-        params,
-      );
+      // 带退避重试的请求，最多重试 3 次
+      const maxRetries = 3;
+      let xmlData: string | undefined;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        await this.acquireSlot();
+        try {
+          xmlData = await this.policyDataService.httpGet<string>(
+            baseUrl,
+            params,
+          );
+          break; // 成功，退出循环
+        } catch (err) {
+          const is429 = err instanceof Error && err.message.includes("429");
+          if (is429 && attempt < maxRetries) {
+            const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+            this.logger.warn(
+              `[doExecute] ArXiv 429 rate limited, retry ${attempt + 1}/${maxRetries} after ${backoff}ms`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoff));
+            continue;
+          }
+          throw err;
+        } finally {
+          this.releaseSlot();
+        }
+      }
+
+      if (!xmlData) {
+        return {
+          success: false,
+          papers: [],
+          totalResults: 0,
+          query,
+          error: "ArXiv 搜索失败: 重试耗尽",
+        };
+      }
 
       // 解析 XML
       const parser = new xml2js.Parser({
@@ -307,19 +338,36 @@ export class ArxivSearchTool extends BaseTool<
   }
 
   /**
-   * 实施 3 req/s 限速
+   * 获取并发槽位，并强制最小请求间隔
    */
-  private async enforceRateLimit(): Promise<void> {
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
+  private async acquireSlot(): Promise<void> {
+    // 等待并发槽位
+    while (ArxivSearchTool.activeRequests >= ArxivSearchTool.MAX_CONCURRENT) {
+      await new Promise<void>((resolve) => {
+        ArxivSearchTool.requestQueue.push(resolve);
+      });
+    }
+    ArxivSearchTool.activeRequests++;
 
-    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
-      const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
-      this.logger.debug(`[enforceRateLimit] Waiting ${waitTime}ms`);
+    // 强制最小请求间隔
+    const now = Date.now();
+    const timeSinceLastRequest = now - ArxivSearchTool.lastRequestTime;
+    if (timeSinceLastRequest < ArxivSearchTool.MIN_REQUEST_INTERVAL) {
+      const waitTime =
+        ArxivSearchTool.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      this.logger.debug(`[acquireSlot] Waiting ${waitTime}ms for rate limit`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
+    ArxivSearchTool.lastRequestTime = Date.now();
+  }
 
-    this.lastRequestTime = Date.now();
+  /**
+   * 释放并发槽位，并唤醒队列中下一个等待者
+   */
+  private releaseSlot(): void {
+    ArxivSearchTool.activeRequests--;
+    const next = ArxivSearchTool.requestQueue.shift();
+    if (next) next();
   }
 
   validateInput(input: ArxivSearchInput): boolean {

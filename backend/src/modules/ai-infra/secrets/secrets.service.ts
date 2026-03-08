@@ -226,7 +226,7 @@ export class SecretsService {
     });
 
     const decrypted = this.decrypt(secret.encryptedValue, secret.iv);
-    this.logger.log(
+    this.logger.debug(
       `[getValueInternal] Secret "${normalizedName}" decrypt: success=${!!decrypted}, length=${decrypted?.length ?? 0}`,
     );
     return decrypted;
