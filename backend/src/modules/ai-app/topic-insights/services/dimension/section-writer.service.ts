@@ -326,14 +326,48 @@ export class SectionWriterService {
       }
     }
 
-    const finalFigureRefs = this.backfillFigureUrls(
+    const backfilledRefs = this.backfillFigureUrls(
       figureRefsToBackfill,
       input.allocatedFigures,
       evidenceData,
     );
 
+    // ★ 最终相关性校验：无论 figureReferences 来自 LLM 还是 auto-inject，
+    //   都必须通过 caption-section 关键词匹配。防止 LLM 输出无关图片引用。
+    const sectionCtx = [
+      section.title,
+      ...section.keyPoints,
+      section.description || "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    const finalFigureRefs = backfilledRefs.filter((ref) => {
+      const refText =
+        `${ref.caption || ""} ${ref.relevance || ""}`.toLowerCase();
+      // Extract CJK bigrams + latin words for matching
+      const cjkChars = refText.replace(/[^\u4e00-\u9fff]/g, "");
+      const latinWords = refText
+        .replace(/[\u4e00-\u9fff]+/g, " ")
+        .split(/[\s\W]+/)
+        .filter((w) => w.length >= 3);
+      const bigrams: string[] = [];
+      for (let bi = 0; bi < cjkChars.length - 1; bi++) {
+        bigrams.push(cjkChars.substring(bi, bi + 2));
+      }
+      const keywords = [...bigrams, ...latinWords];
+      // No keywords → reject (empty/generic caption)
+      if (keywords.length === 0) return false;
+      const relevant = keywords.some((kw) => sectionCtx.includes(kw));
+      if (!relevant) {
+        this.logger.warn(
+          `[writeSection] Removing irrelevant figure "${ref.caption}" from section "${section.title}" — no keyword overlap`,
+        );
+      }
+      return relevant;
+    });
+
     this.logger.log(
-      `[writeSection] Completed ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${finalFigureRefs.length} figRefs, ${charts.generatedCharts.length} charts, ${latencyMs}ms`,
+      `[writeSection] Completed ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${finalFigureRefs.length} figRefs (${backfilledRefs.length - finalFigureRefs.length} filtered), ${charts.generatedCharts.length} charts, ${latencyMs}ms`,
     );
 
     return {

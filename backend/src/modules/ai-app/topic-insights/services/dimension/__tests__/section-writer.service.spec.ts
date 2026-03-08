@@ -701,7 +701,7 @@ describe("SectionWriterService", () => {
             id: "fig-1",
             evidenceCitationIndex: 1,
             figureIndex: 0,
-            caption: "Market share",
+            caption: "人工智能发展 timeline",
             position: "after_para_1",
             imageUrl: "https://example.com/chart.png",
           },
@@ -720,7 +720,9 @@ describe("SectionWriterService", () => {
       });
 
       expect(result.figureReferences?.length).toBe(1);
-      expect(result.figureReferences?.[0].caption).toBe("Market share");
+      expect(result.figureReferences?.[0].caption).toBe(
+        "人工智能发展 timeline",
+      );
     });
 
     it("should return empty charts when CHARTS json is invalid", async () => {
@@ -899,8 +901,8 @@ describe("SectionWriterService", () => {
             evidenceIndex: 1,
             figureIndex: 0,
             imageUrl: "https://img.test.com/fig.png",
-            caption: "Test Figure",
-            relevanceReason: "Relevant",
+            caption: "人工智能 deep learning 发展趋势",
+            relevanceReason: "Shows AI development trend",
           },
         ],
       });
@@ -908,7 +910,9 @@ describe("SectionWriterService", () => {
       expect(result.figureReferences?.[0].imageUrl).toBe(
         "https://img.test.com/fig.png",
       );
-      expect(result.figureReferences?.[0].caption).toBe("Test Figure");
+      expect(result.figureReferences?.[0].caption).toBe(
+        "人工智能 deep learning 发展趋势",
+      );
     });
 
     it("should not overwrite existing imageUrl from figureReference", async () => {
@@ -920,7 +924,7 @@ describe("SectionWriterService", () => {
             evidenceCitationIndex: 1,
             figureIndex: 0,
             imageUrl: "https://existing.url.com/fig.png",
-            caption: "Existing",
+            caption: "Machine learning revolution 发展历史",
             position: "after_para_1",
           },
         ],
@@ -940,8 +944,8 @@ describe("SectionWriterService", () => {
             evidenceIndex: 1,
             figureIndex: 0,
             imageUrl: "https://should-not-replace.com/fig.png",
-            caption: "Alt",
-            relevanceReason: "Relevant",
+            caption: "人工智能发展 alternative",
+            relevanceReason: "AI history",
           },
         ],
       });
