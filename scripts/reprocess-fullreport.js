@@ -393,6 +393,62 @@ function splitWallOfText(content) {
     .join("\n");
 }
 
+/**
+ * Ensure blank line after table blocks so following text isn't parsed as table rows.
+ */
+function ensureBlankLineAfterTables(content) {
+  const lines = content.split("\n");
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    result.push(lines[i]);
+    if (/^\|/.test(lines[i].trim())) {
+      const next = lines[i + 1];
+      if (next !== undefined && next.trim() !== "" && !/^\|/.test(next.trim())) {
+        result.push("");
+      }
+    }
+  }
+  return result.join("\n");
+}
+
+function renumberHeadings(content) {
+  const lines = content.split("\n");
+  let currentDim = 0;
+  let h3Count = 0;
+  let h4Count = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const dimMatch = line.match(/^##\s+(\d+)\.\s+/);
+    if (dimMatch) {
+      currentDim = parseInt(dimMatch[1]);
+      h3Count = 0;
+      h4Count = 0;
+      continue;
+    }
+    if (currentDim === 0) continue;
+    const h3Match = line.match(/^###\s+\d+\.\d+\.?\s+(.+)$/);
+    if (h3Match) {
+      h3Count++;
+      h4Count = 0;
+      lines[i] = `### ${currentDim}.${h3Count}. ${h3Match[1]}`;
+      continue;
+    }
+    const h4Match = line.match(/^####\s+\d+\.\d+\.\d+\.?\s+(.+)$/);
+    if (h4Match) {
+      h4Count++;
+      lines[i] = `#### ${currentDim}.${h3Count}.${h4Count}. ${h4Match[1]}`;
+      continue;
+    }
+    if (/^##\s+[^#]/.test(line) && !dimMatch) {
+      currentDim = 0;
+      h3Count = 0;
+      h4Count = 0;
+    }
+  }
+  return lines.join("\n");
+}
+
 function convertDescriptiveListsToBullets(content) {
   const lines = content.split("\n");
   let underH4 = false;
@@ -487,10 +543,12 @@ async function main() {
   content = repairBrokenBoldMarkers(content);
   content = stripFigureComments(content);
   content = repairMarkdownTables(content);
+  content = ensureBlankLineAfterTables(content);
   content = splitWallOfText(content);
   content = repairBrokenBoldMarkers(content); // fix bold markers broken by splitWallOfText
   content = convertDescriptiveListsToBullets(content);
   content = removeEmptyHeadings(content);
+  content = renumberHeadings(content);
   content = content.replace(/\n{3,}/g, "\n\n");
 
   const diff = report.fullReport.length - content.length;

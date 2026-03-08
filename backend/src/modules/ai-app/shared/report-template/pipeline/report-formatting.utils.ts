@@ -61,6 +61,63 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
 }
 
 /**
+ * Re-number ### and #### headings to close gaps after heading removal.
+ *
+ * After `removeEmptyHeadings` and `collapsePseudoCodeHeadings` remove headings,
+ * numbered headings like ### 1.7 → ### 1.9 have gaps. This function re-assigns
+ * sequential numbers within each ## dimension section.
+ *
+ * Only affects headings that already have N.M. or N.M.K. numbering format.
+ */
+export function renumberHeadings(content: string): string {
+  const lines = content.split("\n");
+  let currentDim = 0; // current ## N. dimension index
+  let h3Count = 0;
+  let h4Count = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Detect ## N. dimension heading to track current dimension index
+    const dimMatch = line.match(/^##\s+(\d+)\.\s+/);
+    if (dimMatch) {
+      currentDim = parseInt(dimMatch[1]);
+      h3Count = 0;
+      h4Count = 0;
+      continue;
+    }
+
+    if (currentDim === 0) continue; // before first numbered dimension
+
+    // Re-number ### N.M. headings
+    const h3Match = line.match(/^###\s+\d+\.\d+\.?\s+(.+)$/);
+    if (h3Match) {
+      h3Count++;
+      h4Count = 0;
+      lines[i] = `### ${currentDim}.${h3Count}. ${h3Match[1]}`;
+      continue;
+    }
+
+    // Re-number #### N.M.K. headings
+    const h4Match = line.match(/^####\s+\d+\.\d+\.\d+\.?\s+(.+)$/);
+    if (h4Match) {
+      h4Count++;
+      lines[i] = `#### ${currentDim}.${h3Count}.${h4Count}. ${h4Match[1]}`;
+      continue;
+    }
+
+    // Non-numbered ## heading resets (跨维度关联分析, 风险评估, etc.)
+    if (/^##\s+[^#]/.test(line) && !dimMatch) {
+      currentDim = 0;
+      h3Count = 0;
+      h4Count = 0;
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/**
  * Renumber bold ordered list items within numbered ### sections
  * to follow hierarchical numbering.
  *
@@ -1449,6 +1506,32 @@ export function fixArrowChains(content: string): string {
 }
 
 /**
+ * Ensure a blank line after every table block.
+ *
+ * Markdown requires a blank line between block-level elements. Without it,
+ * text immediately following a table row (e.g. a footnote like
+ * "w为窗口大小…") is rendered as part of the table.
+ */
+export function ensureBlankLineAfterTables(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    result.push(lines[i]);
+    if (/^\|/.test(lines[i].trim())) {
+      const next = lines[i + 1];
+      if (
+        next !== undefined &&
+        next.trim() !== "" &&
+        !/^\|/.test(next.trim())
+      ) {
+        result.push("");
+      }
+    }
+  }
+  return result.join("\n");
+}
+
+/**
  * Repair Markdown tables that render as plain text.
  *
  * Fixes:
@@ -1491,7 +1574,7 @@ export function repairMarkdownTables(content: string): string {
       // Ensure blank line before and after table
       const before =
         prefix.endsWith("\n\n") || prefix === "" ? prefix : prefix + "\n";
-      return before + result.join("\n") + "\n";
+      return before + result.join("\n") + "\n\n";
     },
   );
 }
@@ -2035,7 +2118,11 @@ export function normalizeArrowNotation(content: string): string {
  * These render as escaped text in some markdown renderers.
  */
 export function stripLeakedHtmlComments(content: string): string {
-  return content.replace(/<!--[\s\S]*?-->/g, "");
+  // Preserve <!-- chart:xxx --> placeholders used by frontend FigureRenderer
+  return content.replace(/<!--[\s\S]*?-->/g, (match) => {
+    if (/<!--\s*chart:/.test(match)) return match;
+    return "";
+  });
 }
 
 /**

@@ -51,6 +51,8 @@ import {
   repairBrokenBoldMarkers,
   stripFigureComments,
   normalizeHighlightsInPlace,
+  renumberHeadings,
+  ensureBlankLineAfterTables,
 } from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
@@ -850,6 +852,9 @@ export class ReportAssemblerService {
     // Repair Markdown tables (missing separator rows, blank lines)
     content = repairMarkdownTables(content);
 
+    // Ensure blank line after tables (prevents footnotes from becoming table rows)
+    content = ensureBlankLineAfterTables(content);
+
     // Extract footnote rows from tables (long explanatory text in last row)
     content = extractTableFootnotes(content);
 
@@ -921,6 +926,9 @@ export class ReportAssemblerService {
 
     // Strip residual figure placeholders (catch any missed by per-dimension pass)
     content = stripFigureComments(content);
+
+    // Re-number headings to close gaps from removed/collapsed headings
+    content = renumberHeadings(content);
 
     const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) ?? []).length;
     if (deepHeadingCount > 0) {
