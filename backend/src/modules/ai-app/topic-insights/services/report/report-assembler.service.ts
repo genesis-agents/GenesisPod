@@ -1052,17 +1052,37 @@ export class ReportAssemblerService {
     );
 
     if (validFigureReferences && validFigureReferences.length > 0) {
-      result = result.replace(
-        /<!--\s*figure:(\d+):(\d+)\s*-->/g,
-        (_match, evidenceIdx, figIdx) => {
-          const ref = validFigureReferences.find(
-            (r) =>
-              r.evidenceCitationIndex === Number(evidenceIdx) &&
-              r.figureIndex === Number(figIdx),
-          );
-          return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
-        },
-      );
+      const existingPlaceholders = (
+        result.match(/<!--\s*figure:\d+:\d+\s*-->/g) ?? []
+      ).length;
+
+      if (existingPlaceholders > 0) {
+        // Normal path: AI wrote <!-- figure:N:M --> placeholders — resolve them
+        result = result.replace(
+          /<!--\s*figure:(\d+):(\d+)\s*-->/g,
+          (_match, evidenceIdx, figIdx) => {
+            const ref = validFigureReferences.find(
+              (r) =>
+                r.evidenceCitationIndex === Number(evidenceIdx) &&
+                r.figureIndex === Number(figIdx),
+            );
+            return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
+          },
+        );
+      } else {
+        // Fallback path: AI did NOT write any <!-- figure:N:M --> placeholders.
+        // Inject <!-- chart:ID --> directly into the content based on the
+        // position hints stored in each figureReference.position ("after_paragraph_N").
+        this.logger.debug(
+          `[resolveChartPlaceholders] dim${dimIndex}: no figure placeholders found in content, ` +
+            `injecting ${validFigureReferences.length} chart(s) by position hint`,
+        );
+        result = this.injectChartsByPosition(
+          result,
+          validFigureReferences,
+          dimPrefix,
+        );
+      }
     }
 
     // 2. Skip generatedCharts injection (v4: AI-fabricated charts disabled)
@@ -1079,6 +1099,109 @@ export class ReportAssemblerService {
     });
 
     return result;
+  }
+
+  /**
+   * Injects <!-- chart:ID --> placeholders into content based on position hints.
+   *
+   * The `position` field from figureReferences follows the pattern "after_paragraph_N"
+   * (1-based). When no explicit position is given, figures are distributed evenly
+   * across the content paragraphs.
+   *
+   * A "paragraph boundary" is defined as the end of a non-empty line that is
+   * followed by a blank line (standard Markdown paragraph break). Headings, list
+   * items, blockquote lines, and table rows are also treated as valid insertion
+   * points to avoid injecting mid-block.
+   */
+  private injectChartsByPosition(
+    content: string,
+    refs: FigureReference[],
+    dimPrefix: string,
+  ): string {
+    // Split into lines so we can find paragraph boundaries
+    const lines = content.split("\n");
+
+    // Identify paragraph-end line indices: a line that is non-empty AND is
+    // followed by a blank line (or is the last line). Headings, table
+    // separator rows, and code fence lines are excluded as insertion points
+    // because injecting after them breaks structure.
+    const insertionPoints: number[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      // Skip blank lines themselves
+      if (!trimmed) continue;
+      // Skip code fence boundaries
+      if (trimmed.startsWith("```")) continue;
+      // Skip table separator rows (---|--- patterns)
+      if (/^[\|\s\-:]+$/.test(trimmed) && trimmed.includes("-")) continue;
+      // Line is a valid insertion point if the next line is blank or it is the last line
+      const nextLine = lines[i + 1];
+      if (nextLine === undefined || nextLine.trim() === "") {
+        insertionPoints.push(i);
+      }
+    }
+
+    if (insertionPoints.length === 0) {
+      // Edge case: no paragraph breaks found — append all charts at the end
+      const chartTags = refs
+        .map((r) => `<!-- chart:${dimPrefix}${r.id} -->`)
+        .join("\n\n");
+      return content + "\n\n" + chartTags;
+    }
+
+    // Build a map: insertion line index → chart tags to inject after it
+    const injectionMap = new Map<number, string[]>();
+
+    for (const ref of refs) {
+      // Parse "after_paragraph_N" (1-based). Fall back to evenly distributed index.
+      let paragraphHint: number | null = null;
+      const match = /after_paragraph_(\d+)/i.exec(ref.position ?? "");
+      if (match) {
+        paragraphHint = parseInt(match[1], 10); // 1-based paragraph number
+      }
+
+      let targetLineIdx: number;
+      if (
+        paragraphHint !== null &&
+        paragraphHint >= 1 &&
+        paragraphHint <= insertionPoints.length
+      ) {
+        // Map 1-based paragraph hint to the corresponding insertion point
+        targetLineIdx = insertionPoints[paragraphHint - 1];
+      } else {
+        // No valid hint: spread figures evenly across insertion points
+        const refIdx = refs.indexOf(ref);
+        const step = Math.max(
+          1,
+          Math.floor(insertionPoints.length / refs.length),
+        );
+        const pointIdx = Math.min(
+          (refIdx + 1) * step - 1,
+          insertionPoints.length - 1,
+        );
+        targetLineIdx = insertionPoints[pointIdx];
+      }
+
+      const tag = `<!-- chart:${dimPrefix}${ref.id} -->`;
+      const existing = injectionMap.get(targetLineIdx) ?? [];
+      existing.push(tag);
+      injectionMap.set(targetLineIdx, existing);
+    }
+
+    // Rebuild content by inserting chart tags after their target lines
+    const output: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      output.push(lines[i]);
+      if (injectionMap.has(i)) {
+        const tags = injectionMap.get(i)!;
+        // Blank line before and after each chart tag for Markdown separation
+        output.push("");
+        output.push(...tags.flatMap((t) => [t, ""]));
+      }
+    }
+
+    return output.join("\n");
   }
 
   /**

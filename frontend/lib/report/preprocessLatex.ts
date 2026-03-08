@@ -117,18 +117,28 @@ function fixSpuriousDollarSigns(input: string): string {
  */
 function wrapInlineLatex(input: string): string {
   const LATEX_COMMANDS =
-    /\\(?:dots|ldots|cdots|tilde|hat|bar|frac|sqrt|sum|prod|int|log|exp|theta|phi|psi|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|omega|pi|mathcal|text|mathbb|subset|in|mid|cdot|quad|left|right|leq|geq|neq|approx|infty|forall|exists|partial|nabla|times|div|pm|mp|cup|cap|vee|wedge|oplus|otimes|to|rightarrow|leftarrow|Rightarrow|Leftarrow|rho|eta|kappa|nu|xi|zeta)/;
+    /\\(?:dots|ldots|cdots|tilde|hat|bar|frac|sqrt|sum|prod|int|log|exp|theta|phi|psi|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|omega|pi|mathcal|text|mathbb|mathbf|mathit|mathrm|operatorname|subset|supset|in|mid|cdot|quad|left|right|leq|geq|neq|approx|infty|forall|exists|partial|nabla|times|div|pm|mp|cup|cap|vee|wedge|oplus|otimes|to|rightarrow|leftarrow|Rightarrow|Leftarrow|rho|eta|kappa|nu|xi|zeta|ll|gg|sim|propto|lim|min|max|sup|inf|det|dim|ker|gcd)/;
 
-  const CJK = '[\u4e00-\u9fff\u3400-\u4dbf\uff0c\u3002\u3001\uff1b\uff1a]';
+  // CJK characters + CJK punctuation = boundaries
+  const CJK_RANGE = '\u4e00-\u9fff\u3400-\u4dbf';
+  const CJK_PUNCT =
+    '\uff0c\u3002\u3001\uff1b\uff1a\uff01\uff1f\uff08\uff09\u300a\u300b\u201c\u201d\u2018\u2019\u3010\u3011';
+  const BOUNDARY = `[${CJK_RANGE}${CJK_PUNCT}]`;
+  // Capture group: anything that is NOT CJK, NOT $, NOT newline
+  const NON_CJK = `[^${CJK_RANGE}${CJK_PUNCT}$\\n]`;
+
   const pattern = new RegExp(
-    `(?<=${CJK})\\s*([^$\\n]*?${LATEX_COMMANDS.source}\\b[^$\\n]*?)(?=${CJK})`,
+    `(?<=${BOUNDARY})\\s*(${NON_CJK}*?${LATEX_COMMANDS.source}\\b${NON_CJK}*?)\\s*(?=${BOUNDARY})`,
     'g'
   );
 
   return input.replace(pattern, (_m, expr) => {
     const trimmed = expr.trim();
     if (!trimmed) return _m;
-    return ` $${trimmed}$ `;
+    // Strip trailing citation markers [N] that shouldn't be inside math
+    const cleaned = trimmed.replace(/\s*\[\d+(?:\s*,\s*\d+)*\]\s*$/, '');
+    if (!cleaned) return _m;
+    return ` $${cleaned}$ `;
   });
 }
 
@@ -387,6 +397,50 @@ function stripInnerDollarsInDisplayMath(input: string): string {
 }
 
 /**
+ * Strip redundant Unicode bullet characters from markdown list items.
+ * AI sometimes outputs `- • text` or `* • text`, causing double bullets
+ * when the markdown renderer also adds a bullet marker.
+ */
+function stripDuplicateBullets(input: string): string {
+  return input.replace(/^(\s*[-*]\s+)[•●·◦‣⁃]\s*/gm, '$1');
+}
+
+/**
+ * Normalize standalone Unicode bullet lines to markdown list syntax.
+ * Lines starting with • or ● followed by text → - text
+ */
+function normalizeUnicodeBullets(input: string): string {
+  return input.replace(/^(\s*)[•●]\s+/gm, '$1- ');
+}
+
+/**
+ * Promote "phase/stage" list items to bold paragraph labels.
+ *
+ * AI sometimes outputs phased content as flat lists:
+ *   - 阶段1（至2026）：
+ *   - content point 1
+ *   - 阶段2（2027-2028）：
+ *   - content point 1
+ *
+ * This looks wrong because phase headings are at the same level as content.
+ * This function promotes them to bold paragraphs:
+ *   **阶段1（至2026）：**
+ *   - content point 1
+ *
+ *   **阶段2（2027-2028）：**
+ *   - content point 1
+ */
+function promotePhaseListItems(input: string): string {
+  // Match list items that look like phase/stage headings:
+  // - 阶段N / 阶段 N / Phase N / 第N阶段 / Stage N / Step N
+  // followed by optional parenthetical content and a colon
+  return input.replace(
+    /^(\s*)[-*]\s+((?:阶段\s?\d+|第\d+阶段|Phase\s+\d+|Stage\s+\d+|Step\s+\d+)[^：:\n]*[：:])\s*$/gim,
+    '$1\n$1**$2**'
+  );
+}
+
+/**
  * Preprocesses a markdown string to fix common rendering issues before
  * passing it to ReactMarkdown with remark-math / rehype-katex.
  */
@@ -395,6 +449,15 @@ export function preprocessLatex(markdown: string): string {
 
   // Step 0: Strip HTML citation links (ReactMarkdown has no rehypeRaw)
   result = stripHtmlCitationLinks(result);
+
+  // Step 0.5: Strip duplicate bullet markers (AI outputs `- • text`)
+  result = stripDuplicateBullets(result);
+
+  // Step 0.6: Normalize standalone Unicode bullets to markdown list syntax
+  result = normalizeUnicodeBullets(result);
+
+  // Step 0.7: Promote phase/stage list items to bold paragraph labels
+  result = promotePhaseListItems(result);
 
   // Step 1: Strip unresolved figure placeholders
   result = stripFigureComments(result);

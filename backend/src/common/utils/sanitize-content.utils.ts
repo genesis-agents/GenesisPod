@@ -60,6 +60,38 @@ export function sanitizeMarkdownContent(content: string): string {
     },
   );
 
+  // ==================== 保护行内 LaTeX 上标 ====================
+  // 保护「字母/命令/右括号 + ^{...}」上标模式（如 R^{d_{out}}、e^{-x}、2^{n}）。
+  // 必须在下划线清理前完成，防止上标内的 _ 被误删。
+  sanitized = sanitized.replace(
+    /(?:[a-zA-Z0-9]|\\[a-zA-Z]+|\})\^\{[^}]{1,40}\}/g,
+    (m) => {
+      latexSlots.push(m);
+      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    },
+  );
+
+  // ==================== 保护完整 LaTeX 命令表达式 ====================
+  // 保护包含 \command{...} 的多部分数学表达式（如 \mathbb{R}^{d_{out}\times r}）。
+  // 这些表达式可能跨越下标和上标，必须整体保留。
+  sanitized = sanitized.replace(
+    /\\(?:mathbb|mathcal|mathrm|mathbf|mathit|operatorname|frac|sqrt|sum|prod|int|partial|nabla)\{[^}]*\}(?:\^?\{[^}]*\}|_?\{[^}]*\})*/g,
+    (m) => {
+      latexSlots.push(m);
+      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    },
+  );
+
+  // ==================== 保护独立 LaTeX 运算符 ====================
+  // 保护可能出现在下划线附近的独立 LaTeX 运算符（如 \times、\in、\leq）。
+  sanitized = sanitized.replace(
+    /\\(?:times|in|leq|geq|neq|approx|ll|gg|sim|propto|subset|supset|cup|cap|cdot|ldots|cdots|dots|infty|forall|exists|partial|nabla|pm|mp|div|wedge|vee|oplus|otimes)\b/g,
+    (m) => {
+      latexSlots.push(m);
+      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    },
+  );
+
   // ==================== 预处理：移除所有明显的问题下划线 ====================
 
   // 0. 直接移除 2 个以上连续的下划线（几乎不可能是合法的 markdown）
