@@ -1374,7 +1374,9 @@ export function splitWallOfText(
     .map((p) => {
       const trimmed = p.trim();
       // Skip non-prose: headings, lists, blockquotes, tables, code, images
-      if (/^[#>|!\-*\d]|^```|^\|/.test(trimmed)) return p;
+      // Note: [-*] requires trailing \s to avoid matching **bold** text
+      if (/^#{1,6}\s|^>|^\||^!\[|^[-*]\s|^\d+[.)]\s|^```/.test(trimmed))
+        return p;
       // Skip short paragraphs
       if (trimmed.length <= maxChars) return p;
 
@@ -2534,6 +2536,77 @@ function normalizeChapterHighlights(content: string): string {
   const blockText = (firstBlockLines as string[]).join("\n");
   const bodyText = bodyLines.join("\n").replace(/^\n+/, "");
   return `${blockText}\n\n${bodyText}`;
+}
+
+/**
+ * Normalize 本章要点 blocks IN-PLACE for fullReport context.
+ *
+ * Unlike `normalizeChapterHighlights` (which moves the block to top of each
+ * chapter), this function fixes formatting without repositioning — suitable
+ * for the assembled fullReport where each chapter already has its highlights
+ * in the correct location.
+ *
+ * Fixes:
+ *   > 本章要点        → > **本章要点**
+ *   **本章要点**      → > **本章要点**
+ *   - bullet          → > - bullet    (when following a highlights header)
+ */
+export function normalizeHighlightsInPlace(content: string): string {
+  const HEADER_RE =
+    /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\**\s*$/i;
+
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let insideBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (HEADER_RE.test(line)) {
+      insideBlock = true;
+      const isEn = /Chapter Highlights/i.test(line);
+      const label = isEn ? "Chapter Highlights" : "本章要点";
+      result.push(`> **${label}**`);
+      continue;
+    }
+
+    if (insideBlock) {
+      const trimmed = line.replace(/^>\s*/, "").trim();
+
+      // Blockquote bullet or plain bullet continuation
+      if (/^>\s*[-*]/.test(line) || /^\s*[-*]\s/.test(line)) {
+        const pointText = trimmed.replace(/^[-*]\s*/, "").trim();
+        if (pointText) {
+          result.push(`> - ${pointText}`);
+        }
+        continue;
+      }
+
+      // Empty line or bare blockquote marker ends the block
+      if (line.trim() === "" || line.trim() === ">") {
+        insideBlock = false;
+        result.push(line);
+        continue;
+      }
+
+      // Non-blockquote, non-list line ends the block
+      if (!/^>/.test(line)) {
+        insideBlock = false;
+        result.push(line);
+        continue;
+      }
+
+      // Blockquote line without list marker — treat as continuation point
+      if (trimmed) {
+        result.push(`> - ${trimmed}`);
+        continue;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
 }
 
 /**

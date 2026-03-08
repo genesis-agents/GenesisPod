@@ -368,14 +368,19 @@ function splitWallOfText(content) {
     .split("\n")
     .map((line) => {
       if (line.trim().length <= 400) return line;
-      if (/^\s*[-*>|#]/.test(line)) return line;
-      if (/^\s*\|/.test(line)) return line;
-      const parts = line.split(/(?<=[。！？])/);
+      // Skip list items (- item, * item), blockquotes (>), headings (#), tables (|)
+      // But NOT bold text (**text**) — those should be split
+      if (/^\s*[-*]\s/.test(line)) return line; // list marker + space
+      if (/^\s*[>|#]/.test(line)) return line;
+      // Skip reference entries
+      if (/^<a\s+id="ref-/.test(line.trim())) return line;
+      // Split on Chinese sentence boundaries (。！？) AND semicolons (；)
+      const parts = line.split(/(?<=[。！？；])/);
       if (parts.length <= 1) return line;
       const chunks = [];
       let current = "";
       for (const part of parts) {
-        if (current.length + part.length > 250 && current.length > 0) {
+        if (current.length + part.length > 200 && current.length > 0) {
           chunks.push(current);
           current = part;
         } else {
@@ -483,6 +488,7 @@ async function main() {
   content = stripFigureComments(content);
   content = repairMarkdownTables(content);
   content = splitWallOfText(content);
+  content = repairBrokenBoldMarkers(content); // fix bold markers broken by splitWallOfText
   content = convertDescriptiveListsToBullets(content);
   content = removeEmptyHeadings(content);
   content = content.replace(/\n{3,}/g, "\n\n");

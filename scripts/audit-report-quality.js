@@ -215,7 +215,7 @@ function auditMarkdown(content, scope) {
     // Exclude supplementary sections (intro, summary, conclusion, etc.)
     const nonStructural = badH3.filter(
       (l) =>
-        !/跨维度|风险|战略|结语|前言|执行摘要|目录|参考|附录|研究范围|方法论|阅读指引|研究背景|报告概述|核心发现|关键发现|研究方法|总结|关键指标|行动建议|反馈回路|情景分析|政策建议|实施路径|维度对比|投资者|政策研究者|企业决策者|研究人员|技术从业者|普通读者/.test(l)
+        !/跨维度|风险|战略|结语|前言|执行摘要|目录|参考|附录|研究范围|方法论|阅读指引|研究背景|报告概述|核心发现|关键发现|研究方法|总结|关键指标|行动建议|反馈回路|情景分析|政策建议|实施路径|维度对比|投资者|政策研究者|企业决策者|研究人员|技术从业者|普通读者|短期|中期|长期/.test(l)
     );
     add("A4-h3-bad-numbering", "MEDIUM", nonStructural);
   }
@@ -519,6 +519,8 @@ function auditMarkdown(content, scope) {
   const wallParas = paragraphs.filter((p) => {
     const t = p.trim();
     if (/^(#|>|\||[-*]\s|\d+\.)/.test(t)) return false;
+    // Exclude reference entries (long URLs)
+    if (/^<a\s+id="ref-/.test(t)) return false;
     const lineCount = t.split("\n").length;
     // Single-line paragraphs: flag at 400 chars
     // Multi-line paragraphs: flag at 600 chars (natural line wraps are okay)
