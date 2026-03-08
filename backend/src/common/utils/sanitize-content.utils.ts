@@ -26,27 +26,30 @@ export function sanitizeMarkdownContent(content: string): string {
   // $$...$$ (display) 和 $...$ (inline) 块替换为占位符，
   // 处理完再还原。
   const latexSlots: string[] = [];
-  const LATEX_SLOT = "\x00LATEX";
+  // Use Unicode Private Use Area characters as delimiters instead of \x00 (null byte).
+  // Null bytes can be stripped or corrupted during JSON serialization, DB storage, or
+  // HTTP transmission, causing slot restoration to fail and "LATEX77" to leak into output.
+  const LATEX_SLOT = "\uE000LATEX";
 
   // $$...$$ display math (可能跨多行)
   let sanitized = content.replace(/\$\$[\s\S]*?\$\$/g, (m) => {
     latexSlots.push(m);
-    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
   });
   // $...$ inline math (单行内)
   sanitized = sanitized.replace(/\$(?!\$)(?:[^$\n]|\\\$)+\$/g, (m) => {
     latexSlots.push(m);
-    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
   });
   // \[...\] display math (backslash-bracket)
   sanitized = sanitized.replace(/\\\[[\s\S]*?\\\]/g, (m) => {
     latexSlots.push(m);
-    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
   });
   // \(...\) inline math (backslash-paren)
   sanitized = sanitized.replace(/\\\([\s\S]*?\\\)/g, (m) => {
     latexSlots.push(m);
-    return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+    return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
   });
 
   // ==================== 保护行内 LaTeX 下标 ====================
@@ -56,7 +59,7 @@ export function sanitizeMarkdownContent(content: string): string {
     /(?:[a-zA-Z0-9]|\\[a-zA-Z]+)_\{[^}]{1,30}\}/g,
     (m) => {
       latexSlots.push(m);
-      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+      return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
     },
   );
 
@@ -67,7 +70,7 @@ export function sanitizeMarkdownContent(content: string): string {
     /(?:[a-zA-Z0-9]|\\[a-zA-Z]+|\})\^\{[^}]{1,40}\}/g,
     (m) => {
       latexSlots.push(m);
-      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+      return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
     },
   );
 
@@ -78,7 +81,7 @@ export function sanitizeMarkdownContent(content: string): string {
     /\\(?:mathbb|mathcal|mathrm|mathbf|mathit|operatorname|frac|sqrt|sum|prod|int|partial|nabla)\{[^}]*\}(?:\^?\{[^}]*\}|_?\{[^}]*\})*/g,
     (m) => {
       latexSlots.push(m);
-      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+      return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
     },
   );
 
@@ -88,7 +91,7 @@ export function sanitizeMarkdownContent(content: string): string {
     /\\(?:times|in|leq|geq|neq|approx|ll|gg|sim|propto|subset|supset|cup|cap|cdot|ldots|cdots|dots|infty|forall|exists|partial|nabla|pm|mp|div|wedge|vee|oplus|otimes)\b/g,
     (m) => {
       latexSlots.push(m);
-      return `${LATEX_SLOT}${latexSlots.length - 1}\x00`;
+      return `${LATEX_SLOT}${latexSlots.length - 1}\uE001`;
     },
   );
 
@@ -164,7 +167,7 @@ export function sanitizeMarkdownContent(content: string): string {
   // ==================== 还原 LaTeX 块 ====================
   if (latexSlots.length > 0) {
     sanitized = sanitized.replace(
-      /\x00LATEX(\d+)\x00/g,
+      /\uE000LATEX(\d+)\uE001/g,
       (_m, idx) => latexSlots[parseInt(idx, 10)] ?? _m,
     );
   }

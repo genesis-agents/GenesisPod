@@ -546,9 +546,7 @@ export class ReportAssemblerService {
     );
 
     sortedDimensions.forEach((dim, idx) => {
-      parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
-
-      const rawContent = dim.detailedContent || dim.summary || "暂无详细内容";
+      const rawContent = dim.detailedContent || dim.summary || "";
 
       const processed = this.processDimensionContent(
         rawContent,
@@ -558,6 +556,21 @@ export class ReportAssemblerService {
         dim.figureReferences as FigureReference[] | undefined,
         dim.generatedCharts as GeneratedChart[] | undefined,
       );
+
+      // ★ Skip empty dimensions: if processed content is blank after all pipeline
+      // steps (e.g. all sub-headings removed by removeEmptyHeadings), don't emit
+      // the ## heading at all — avoids consecutive empty section headers.
+      const contentBody = processed
+        .replace(/^\s*#{1,6}\s+[^\n]*\n?/gm, "")
+        .trim();
+      if (!contentBody) {
+        this.logger.warn(
+          `[assembleFullReport] Skipping empty dimension: ${dim.dimensionName}`,
+        );
+        return; // forEach continue
+      }
+
+      parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
       // ★ Chapter Highlights: LLM is instructed to generate "本章要点" in detailedContent.
       // Previously the assembler also injected one from keyFindings, causing duplication.

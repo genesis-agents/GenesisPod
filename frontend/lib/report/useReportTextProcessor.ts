@@ -173,6 +173,14 @@ export function useReportTextProcessor({
 
         if (match[1]) {
           const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+          // Skip numbers that are clearly not citation indices (e.g. years like [2026]).
+          // Real citations are 1-based and never exceed a few hundred.
+          const MAX_CITATION_INDEX = 500;
+          if (indices.some((n) => n > MAX_CITATION_INDEX)) {
+            parts.push(match[0]); // Render as plain text
+            lastIndex = match.index + match[0].length;
+            continue;
+          }
           indices.forEach((idx, i) => {
             // ★ Unified citation path: always render CitationBadge (purple)
             // Priority: citationIndex map → array position fallback

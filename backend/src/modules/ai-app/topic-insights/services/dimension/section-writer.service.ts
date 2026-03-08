@@ -280,15 +280,35 @@ export class SectionWriterService {
     let figureRefsToBackfill = charts.figureReferences;
 
     // ★ Auto-inject: if LLM didn't return figureReferences but Leader allocated figures,
-    // automatically construct figureReferences from allocatedFigures.
-    // This ensures extracted figures always appear in the report regardless of LLM behavior.
+    // construct figureReferences from allocatedFigures WITH relevance filtering.
+    // Previously all allocated figures were injected blindly, causing irrelevant images
+    // (e.g. "robot industry" image in a "transformer architecture" section).
     if (
       figureRefsToBackfill.length === 0 &&
       input.allocatedFigures &&
       input.allocatedFigures.length > 0
     ) {
+      // Build keywords from section title + keyPoints for relevance matching
+      const sectionKeywords = [
+        section.title,
+        ...section.keyPoints,
+        section.description || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
       figureRefsToBackfill = input.allocatedFigures
-        .filter((fig) => fig.imageUrl) // only include figures with actual URLs
+        .filter((fig) => {
+          if (!fig.imageUrl) return false;
+          // Relevance check: caption or relevanceReason must share keywords with section
+          const figText =
+            `${fig.caption || ""} ${fig.relevanceReason || ""}`.toLowerCase();
+          // At least one meaningful word (>= 2 chars) must appear in both
+          const figWords = figText
+            .split(/[\s,，。、：:；;（）()]+/)
+            .filter((w) => w.length >= 2);
+          return figWords.some((word) => sectionKeywords.includes(word));
+        })
         .map((fig, idx) => ({
           id: `auto-fig-${idx}`,
           evidenceCitationIndex: fig.evidenceIndex,
@@ -301,7 +321,7 @@ export class SectionWriterService {
         }));
       if (figureRefsToBackfill.length > 0) {
         this.logger.log(
-          `[writeSection] Auto-injected ${figureRefsToBackfill.length} figures from allocatedFigures (LLM did not output figureReferences)`,
+          `[writeSection] Auto-injected ${figureRefsToBackfill.length} figures from allocatedFigures after relevance filter (LLM did not output figureReferences)`,
         );
       }
     }
