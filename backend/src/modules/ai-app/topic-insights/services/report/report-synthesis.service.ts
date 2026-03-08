@@ -219,7 +219,9 @@ export class ReportSynthesisService {
     analysisId: string,
     evidenceIds: string[],
   ): Promise<void> {
-    // 更新证据的报告和分析关联
+    // ★ 只做关联，不重排 citationIndex
+    // citationIndex 已由 saveEvidence() 在事务中原子分配并 baked into 维度内容，
+    // 此处重排会导致内容中的 [N] 引用与数据库 citationIndex 不匹配 → 前端灰色引用
     await this.prisma.topicEvidence.updateMany({
       where: { id: { in: evidenceIds } },
       data: {
@@ -227,26 +229,6 @@ export class ReportSynthesisService {
         analysisId,
       },
     });
-
-    // 分配 citation index
-    const evidences = await this.prisma.topicEvidence.findMany({
-      where: { reportId },
-      orderBy: { accessedAt: "asc" },
-    });
-
-    // ★ 修复：分批事务更新 citation index（避免大事务超时）
-    const BATCH_SIZE = 20;
-    for (let i = 0; i < evidences.length; i += BATCH_SIZE) {
-      const batch = evidences.slice(i, i + BATCH_SIZE);
-      await this.prisma.$transaction(
-        batch.map((evidence, batchIndex) =>
-          this.prisma.topicEvidence.update({
-            where: { id: evidence.id },
-            data: { citationIndex: i + batchIndex + 1 },
-          }),
-        ),
-      );
-    }
 
     this.logger.log(
       `Linked ${evidenceIds.length} evidences to report ${reportId}`,
@@ -652,7 +634,9 @@ export class ReportSynthesisService {
         const accessDate = e.accessedAt
           ? new Date(e.accessedAt).toLocaleDateString(isEn ? "en-US" : "zh-CN")
           : new Date().toLocaleDateString(isEn ? "en-US" : "zh-CN");
-        return `[${e.index}] ${e.title}. ${e.domain || ""}. ${e.url}. ${accessDateLabel}: ${accessDate}`;
+        // Escape brackets in title to avoid breaking markdown link syntax
+        const safeTitle = e.title.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+        return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}. ${accessDateLabel}: ${accessDate}`;
       });
       if (refLines.length > 0) {
         referencesSection = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;

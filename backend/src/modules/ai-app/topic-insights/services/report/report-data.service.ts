@@ -164,7 +164,9 @@ export class ReportDataService {
     analysisId: string,
     evidenceIds: string[],
   ): Promise<void> {
-    // 更新证据的报告和分析关联
+    // ★ 只做关联，不重排 citationIndex
+    // citationIndex 已由 saveEvidence() 在事务中原子分配并 baked into 维度内容，
+    // 此处重排会导致内容中的 [N] 引用与数据库 citationIndex 不匹配 → 前端灰色引用
     await this.prisma.topicEvidence.updateMany({
       where: { id: { in: evidenceIds } },
       data: {
@@ -172,22 +174,6 @@ export class ReportDataService {
         analysisId,
       },
     });
-
-    // 分配 citation index
-    const evidences = await this.prisma.topicEvidence.findMany({
-      where: { reportId },
-      orderBy: { accessedAt: "asc" },
-    });
-
-    // 重新分配 citation index
-    await this.prisma.$transaction(
-      evidences.map((evidence, index) =>
-        this.prisma.topicEvidence.update({
-          where: { id: evidence.id },
-          data: { citationIndex: index + 1 },
-        }),
-      ),
-    );
 
     this.logger.log(
       `Linked ${evidenceIds.length} evidences to report ${reportId}`,

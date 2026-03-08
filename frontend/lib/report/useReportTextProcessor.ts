@@ -174,7 +174,8 @@ export function useReportTextProcessor({
         if (match[1]) {
           const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
           indices.forEach((idx, i) => {
-            // ★ First try citationIndex map (global indices), then fall back to array position
+            // ★ Unified citation path: always render CitationBadge (purple)
+            // Priority: citationIndex map → array position fallback
             const mappedPos = citationIndexMap.get(idx);
             const evidenceItem =
               mappedPos != null ? evidence[mappedPos] : evidence[idx - 1];
@@ -187,16 +188,19 @@ export function useReportTextProcessor({
                 })
               );
             } else {
+              // ★ Still render CitationBadge with minimal info (purple, consistent style)
+              // instead of gray <sup> fallback — maintains visual consistency
               parts.push(
-                React.createElement(
-                  'sup',
-                  {
-                    key: `cite-unknown-${match!.index}-${i}`,
-                    className:
-                      'rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500',
+                React.createElement(CitationBadge, {
+                  key: `cite-${match!.index}-${idx}-${i}`,
+                  index: idx,
+                  evidence: {
+                    id: `unknown-${idx}`,
+                    title: `Source ${idx}`,
+                    url: '',
+                    snippet: '',
                   },
-                  `[${idx}]`
-                )
+                })
               );
             }
           });

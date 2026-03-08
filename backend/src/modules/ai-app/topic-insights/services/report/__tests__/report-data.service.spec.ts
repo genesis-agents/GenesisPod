@@ -212,16 +212,8 @@ describe("ReportDataService", () => {
   // ─────────────────────── linkEvidenceToReport ─────────────────────────────
 
   describe("linkEvidenceToReport", () => {
-    it("should updateMany evidences and reassign citation indices", async () => {
+    it("should only associate evidences without reassigning citationIndex", async () => {
       mockPrisma.topicEvidence.updateMany.mockResolvedValue({ count: 2 });
-      mockPrisma.topicEvidence.findMany.mockResolvedValue([
-        { id: "ev-001", ...mockEvidence },
-        { id: "ev-002", ...mockEvidence },
-      ]);
-      mockPrisma.$transaction.mockImplementation(
-        async (ops: Array<Promise<unknown>>) => Promise.all(ops),
-      );
-      mockPrisma.topicEvidence.update.mockResolvedValue({});
 
       await service.linkEvidenceToReport("report-001", "analysis-001", [
         "ev-001",
@@ -232,6 +224,8 @@ describe("ReportDataService", () => {
         where: { id: { in: ["ev-001", "ev-002"] } },
         data: { reportId: "report-001", analysisId: "analysis-001" },
       });
+      // Must NOT reassign citationIndex — already assigned by saveEvidence()
+      expect(mockPrisma.topicEvidence.findMany).not.toHaveBeenCalled();
     });
   });
 

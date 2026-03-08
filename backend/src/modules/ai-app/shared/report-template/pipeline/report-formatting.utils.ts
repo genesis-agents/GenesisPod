@@ -1014,6 +1014,12 @@ export function mergeAdjacentMathBlocks(content: string): string {
       if (/^>\s/.test(line)) return line;
       // Skip list items
       if (/^[-*]\s|^\d+\.\s/.test(line)) return line;
+      // ★ Skip lines with significant natural language text (>50% non-LaTeX chars)
+      // These are prose paragraphs that happen to mention a formula — don't wrap entire line
+      const nonLatexChars = line
+        .replace(/\\[a-zA-Z]+|[{}^_=+\-*/\\()]/g, "")
+        .trim();
+      if (nonLatexChars.length > line.length * 0.5) return line;
       return `$$${line}$$`;
     },
   );
@@ -1024,7 +1030,7 @@ export function mergeAdjacentMathBlocks(content: string): string {
     /(?<!\$\$?\s*\n?)^(\\begin\{(?:pmatrix|bmatrix|vmatrix|aligned|align|cases|array|matrix|gathered|equation)\}[\s\S]*?\\end\{\1\})$/gm,
     (match) => {
       if (/\$/.test(match)) return match;
-      return `$$\n${match}\n$$`;
+      return `$$${match}$$`;
     },
   );
   // Fallback: non-anchored match for \begin...\end blocks
@@ -1034,11 +1040,13 @@ export function mergeAdjacentMathBlocks(content: string): string {
   );
 
   // 0b. Standalone formula lines: Q = XW_Q,\quad K = XW_K,... pattern
+  // ★ Use display math $$...$$ (not inline $...$) for standalone formula lines
+  //   to avoid KaTeX inline-mode limitations with \text{} and other commands
   result = result.replace(
     /^([A-Z](?:_[A-Za-z])?\s*=\s*[A-Z][^\n]*\\(?:quad|,|;)[^\n]*)$/gm,
     (line) => {
       if (/\$/.test(line)) return line;
-      return `$${line}$`;
+      return `$$${line}$$`;
     },
   );
 

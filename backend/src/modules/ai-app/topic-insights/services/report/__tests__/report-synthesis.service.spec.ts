@@ -533,13 +533,8 @@ describe("ReportSynthesisService", () => {
   // ============================================================
 
   describe("linkEvidenceToReport", () => {
-    it("should update evidence with reportId and analysisId", async () => {
+    it("should only associate evidences without reassigning citationIndex", async () => {
       mockPrisma.topicEvidence.updateMany.mockResolvedValue({ count: 2 });
-      mockPrisma.topicEvidence.findMany.mockResolvedValue([
-        { id: "ev-001", accessedAt: new Date("2024-01-01") },
-        { id: "ev-002", accessedAt: new Date("2024-01-02") },
-      ]);
-      mockPrisma.$transaction.mockResolvedValue([]);
 
       await service.linkEvidenceToReport("report-001", "analysis-001", [
         "ev-001",
@@ -550,55 +545,13 @@ describe("ReportSynthesisService", () => {
         where: { id: { in: ["ev-001", "ev-002"] } },
         data: { reportId: "report-001", analysisId: "analysis-001" },
       });
-    });
-
-    it("should assign citationIndex in batches of 20", async () => {
-      mockPrisma.topicEvidence.updateMany.mockResolvedValue({ count: 25 });
-
-      // Create 25 evidence items
-      const evidences = Array.from({ length: 25 }, (_, i) => ({
-        id: `ev-${i + 1}`,
-        accessedAt: new Date(`2024-01-${String(i + 1).padStart(2, "0")}`),
-      }));
-      mockPrisma.topicEvidence.findMany.mockResolvedValue(evidences);
-      mockPrisma.$transaction.mockResolvedValue([]);
-
-      await service.linkEvidenceToReport("report-001", "analysis-001", [
-        "ev-001",
-      ]);
-
-      // Should be called twice (batch 1: items 0-19, batch 2: items 20-24)
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
-    });
-
-    it("should assign sequential citationIndex starting from 1", async () => {
-      mockPrisma.topicEvidence.updateMany.mockResolvedValue({ count: 2 });
-
-      const evidences = [
-        { id: "ev-001", accessedAt: new Date("2024-01-01") },
-        { id: "ev-002", accessedAt: new Date("2024-01-02") },
-      ];
-      mockPrisma.topicEvidence.findMany.mockResolvedValue(evidences);
-
-      // Capture transaction calls to verify citationIndex values
-      const transactionCalls: unknown[] = [];
-      mockPrisma.$transaction.mockImplementation((ops: unknown) => {
-        transactionCalls.push(ops);
-        return Promise.resolve([]);
-      });
-
-      await service.linkEvidenceToReport("report-001", "analysis-001", [
-        "ev-001",
-        "ev-002",
-      ]);
-
-      // Verify update was called for citation index assignment
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      // Must NOT findMany or $transaction — citationIndex is assigned by saveEvidence()
+      expect(mockPrisma.topicEvidence.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("should handle empty evidenceIds gracefully", async () => {
       mockPrisma.topicEvidence.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
 
       await expect(
         service.linkEvidenceToReport("report-001", "analysis-001", []),

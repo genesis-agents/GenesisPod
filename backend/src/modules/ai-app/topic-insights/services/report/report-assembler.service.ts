@@ -99,29 +99,40 @@ const MAX_DIMENSION_CHARS = 24000;
 // ==================== Helpers ====================
 
 /**
+ * Detect chapter highlights header in a line.
+ * Matches all LLM format variants:
+ *   > 本章要点 / > **本章要点** / > - 本章要点 / > - **本章要点：**
+ *   本章要点（没有 blockquote 前缀）/ **本章要点** / - 本章要点
+ *   > Chapter Highlights / Chapter Highlights
+ */
+const CHAPTER_HIGHLIGHTS_RE =
+  /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\**\s*$/i;
+
+/**
  * Normalize chapter highlights: keep only the FIRST "本章要点" / "Chapter Highlights"
- * blockquote block, remove all subsequent duplicates anywhere in the content.
- *
- * Handles all LLM format variants:
- *   > 本章要点
- *   > **本章要点**
- *   > **本章要点：**
- *   > Chapter Highlights
+ * block, remove all subsequent duplicates, and fix formatting issues:
+ * - Ensure header line is blockquote + bold: `> **本章要点**`
+ * - Ensure bullet lines are blockquote: `> - point`
  */
 function normalizeChapterHighlights(content: string): string {
   const lines = content.split("\n");
   const result: string[] = [];
   let foundFirst = false;
   let skipping = false;
+  let fixingFormat = false; // whether we're inside the first block and need to fix format
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
     // Detect start of a chapter highlights block
-    if (/^>\s*\**(?:本章要点|Chapter Highlights)/i.test(line)) {
+    if (CHAPTER_HIGHLIGHTS_RE.test(line)) {
       if (!foundFirst) {
         foundFirst = true;
-        result.push(line);
+        fixingFormat = true;
+        // ★ Normalize header to: > **本章要点**
+        const isEn = /Chapter Highlights/i.test(line);
+        const label = isEn ? "Chapter Highlights" : "本章要点";
+        result.push(`> **${label}**`);
       } else {
         // Start skipping this duplicate block
         skipping = true;
@@ -130,11 +141,42 @@ function normalizeChapterHighlights(content: string): string {
     }
 
     if (skipping) {
-      // Continue skipping blockquote continuation lines
-      if (/^>\s/.test(line)) continue;
+      // Continue skipping blockquote continuation lines or list items
+      if (/^>\s/.test(line) || /^\s*[-*]\s/.test(line)) continue;
       // Skip trailing blank line immediately after the duplicate block
       if (line.trim() === "") continue;
       skipping = false;
+    }
+
+    if (fixingFormat) {
+      // Inside the first chapter highlights block — fix formatting
+      const trimmed = line.replace(/^>\s*/, "").trim();
+      // Blockquote continuation: `> - point` or `> point`
+      if (/^>\s*[-*]/.test(line) || /^\s*[-*]\s/.test(line)) {
+        // Ensure blockquote prefix: > - point
+        const pointText = trimmed.replace(/^[-*]\s*/, "").trim();
+        if (pointText) {
+          result.push(`> - ${pointText}`);
+        }
+        continue;
+      }
+      // Empty line ends the block
+      if (line.trim() === "" || line.trim() === ">") {
+        fixingFormat = false;
+        result.push(line);
+        continue;
+      }
+      // Non-blockquote line that isn't a list — block ended
+      if (!/^>/.test(line)) {
+        fixingFormat = false;
+        result.push(line);
+        continue;
+      }
+      // Blockquote line without list marker — could be a continuation point
+      if (trimmed) {
+        result.push(`> - ${trimmed}`);
+        continue;
+      }
     }
 
     result.push(line);
@@ -481,7 +523,7 @@ export class ReportAssemblerService {
 
       const rawContent = dim.detailedContent || dim.summary || "暂无详细内容";
 
-      let processed = this.processDimensionContent(
+      const processed = this.processDimensionContent(
         rawContent,
         idx,
         globalSeenParagraphs,
@@ -490,31 +532,10 @@ export class ReportAssemblerService {
         dim.generatedCharts as GeneratedChart[] | undefined,
       );
 
-      // Inject Chapter Highlights if LLM didn't generate one
-      // Detection covers all format variants: with/without bold, with/without colon
-      const hasChapterHighlights =
-        /^>\s*\**(?:本章要点|Chapter Highlights)/im.test(processed);
-      if (!hasChapterHighlights && dim.keyFindings?.length > 0) {
-        const highlightLabel = isEn ? "Chapter Highlights" : "本章要点";
-        const highlights = dim.keyFindings
-          .slice(0, 4)
-          .map((f) => {
-            // Truncate at a natural sentence boundary to avoid mid-sentence cuts
-            let text = (f.finding || "").trim();
-            if (text.length > 50) {
-              const cutPoint = text.substring(0, 50).search(/[。，；,.;]/);
-              if (cutPoint > 15) {
-                text = text.substring(0, cutPoint + 1);
-              } else {
-                text = text.substring(0, 50);
-              }
-            }
-            return `> - ${text}`;
-          })
-          .join("\n");
-        const highlightBlock = `> **${highlightLabel}**\n${highlights}\n\n`;
-        processed = highlightBlock + processed;
-      }
+      // ★ Chapter Highlights: LLM is instructed to generate "本章要点" in detailedContent.
+      // Previously the assembler also injected one from keyFindings, causing duplication.
+      // Now we only rely on LLM-generated highlights; normalizeChapterHighlights()
+      // handles dedup if the LLM accidentally produces multiple blocks.
 
       parts.push(processed);
       parts.push("\n\n");

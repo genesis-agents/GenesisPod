@@ -277,8 +277,37 @@ export class SectionWriterService {
     const referencesUsed = this.extractReferences(content);
 
     // ★ 用 allocatedFigures + evidenceData 补全 figureReferences 中缺失的 imageUrl
+    let figureRefsToBackfill = charts.figureReferences;
+
+    // ★ Auto-inject: if LLM didn't return figureReferences but Leader allocated figures,
+    // automatically construct figureReferences from allocatedFigures.
+    // This ensures extracted figures always appear in the report regardless of LLM behavior.
+    if (
+      figureRefsToBackfill.length === 0 &&
+      input.allocatedFigures &&
+      input.allocatedFigures.length > 0
+    ) {
+      figureRefsToBackfill = input.allocatedFigures
+        .filter((fig) => fig.imageUrl) // only include figures with actual URLs
+        .map((fig, idx) => ({
+          id: `auto-fig-${idx}`,
+          evidenceCitationIndex: fig.evidenceIndex,
+          figureIndex: fig.figureIndex,
+          imageUrl: fig.imageUrl,
+          caption: fig.caption || "",
+          position: "end_of_section",
+          source: `Source [${fig.evidenceIndex}]`,
+          relevance: fig.relevanceReason || "",
+        }));
+      if (figureRefsToBackfill.length > 0) {
+        this.logger.log(
+          `[writeSection] Auto-injected ${figureRefsToBackfill.length} figures from allocatedFigures (LLM did not output figureReferences)`,
+        );
+      }
+    }
+
     const finalFigureRefs = this.backfillFigureUrls(
-      charts.figureReferences,
+      figureRefsToBackfill,
       input.allocatedFigures,
       evidenceData,
     );
