@@ -254,19 +254,20 @@ export function QuickViewReport({
                   <h3 className="mb-2 text-base font-bold text-red-700">
                     {t('topicResearch.reportEditor.challenges')}
                   </h3>
-                  <ul className="space-y-2">
+                  <ol className="list-decimal space-y-2 pl-5">
                     {riskAndOpportunities.challenges.map((c, idx) => (
                       <li
                         key={idx}
                         className="text-sm leading-relaxed text-red-600/80"
                       >
-                        <span className="font-medium text-red-500">
-                          {c.dimensionName}:
-                        </span>{' '}
+                        <span className="font-bold text-red-600">
+                          {c.dimensionName}
+                        </span>
+                        {'：'}
                         {c.text}
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </div>
               )}
               {/* Opportunities */}
@@ -275,19 +276,20 @@ export function QuickViewReport({
                   <h3 className="mb-2 text-base font-bold text-green-700">
                     {t('topicResearch.reportEditor.opportunities')}
                   </h3>
-                  <ul className="space-y-2">
+                  <ol className="list-decimal space-y-2 pl-5">
                     {riskAndOpportunities.opportunities.map((o, idx) => (
                       <li
                         key={idx}
                         className="text-sm leading-relaxed text-green-600/80"
                       >
-                        <span className="font-medium text-green-500">
-                          {o.dimensionName}:
-                        </span>{' '}
+                        <span className="font-bold text-green-600">
+                          {o.dimensionName}
+                        </span>
+                        {'：'}
                         {o.text}
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </div>
               )}
             </div>
