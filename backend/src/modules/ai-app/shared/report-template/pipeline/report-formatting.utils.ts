@@ -83,8 +83,7 @@ export function renumberHeadings(content: string): string {
   let currentDim = 0; // current ## N. dimension index
   let h3Count = 0; // shared counter for ### N.M. and #### N.M. (demoted)
   let h4Count = 0; // counter for #### N.M.K. (three-part sub-sections)
-  let boldListCounter = 0; // counter for bold list items under demoted headings
-  let inDemotedSection = false; // true when current section is #### N.M. (demoted)
+  let boldListCounter = 0; // counter for bold list items under headings
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -96,7 +95,6 @@ export function renumberHeadings(content: string): string {
       h3Count = 0;
       h4Count = 0;
       boldListCounter = 0;
-      inDemotedSection = false;
       continue;
     }
 
@@ -108,7 +106,6 @@ export function renumberHeadings(content: string): string {
       h3Count++;
       h4Count = 0;
       boldListCounter = 0;
-      inDemotedSection = false;
       lines[i] = `### ${currentDim}.${h3Count}. ${h3Match[1]}`;
       continue;
     }
@@ -118,7 +115,6 @@ export function renumberHeadings(content: string): string {
     if (h4ThreePartMatch) {
       h4Count++;
       boldListCounter = 0;
-      inDemotedSection = false;
       lines[i] =
         `#### ${currentDim}.${h3Count}.${h4Count}. ${h4ThreePartMatch[1]}`;
       continue;
@@ -130,17 +126,19 @@ export function renumberHeadings(content: string): string {
       h3Count++; // continues the same counter as ### headings
       h4Count = 0;
       boldListCounter = 0;
-      inDemotedSection = true;
       lines[i] = `#### ${currentDim}.${h3Count}. ${h4TwoPartMatch[1]}`;
       continue;
     }
 
-    // Re-number bold list items (1. **text**) under demoted #### N.M. headings
-    // These were skipped by hierarchicalNumberBoldListItems (sectionHasH4 = true)
-    if (inDemotedSection && /^\d+\.\s+\*\*/.test(line)) {
+    // Re-number bold list items with hierarchical numbering (N.M.K. **text**).
+    // Phase 1 (hierarchicalNumberBoldListItems) assigns numbers like 8.22.1.,
+    // but Phase 2 heading renumbering may change 8.22 → 8.21. This pass
+    // re-aligns bold items to match their current parent heading number.
+    // Also handles plain "1. **text**" items that were never numbered.
+    if (currentDim > 0 && h3Count > 0 && /^(?:\d+\.)+\s+\*\*/.test(line)) {
       boldListCounter++;
       lines[i] = line.replace(
-        /^\d+\./,
+        /^(?:\d+\.)+/,
         `${currentDim}.${h3Count}.${boldListCounter}.`,
       );
       continue;
@@ -154,7 +152,6 @@ export function renumberHeadings(content: string): string {
         currentDim = 0;
         h3Count = 0;
         h4Count = 0;
-        inDemotedSection = false;
       }
     }
   }

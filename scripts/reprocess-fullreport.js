@@ -417,7 +417,6 @@ function renumberHeadings(content) {
   let h3Count = 0;
   let h4Count = 0;
   let boldListCounter = 0;
-  let inDemotedSection = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -427,7 +426,6 @@ function renumberHeadings(content) {
       h3Count = 0;
       h4Count = 0;
       boldListCounter = 0;
-      inDemotedSection = false;
       continue;
     }
     if (currentDim === 0) continue;
@@ -438,7 +436,6 @@ function renumberHeadings(content) {
       h3Count++;
       h4Count = 0;
       boldListCounter = 0;
-      inDemotedSection = false;
       lines[i] = `### ${currentDim}.${h3Count}. ${h3Match[1]}`;
       continue;
     }
@@ -448,7 +445,6 @@ function renumberHeadings(content) {
     if (h4ThreePartMatch) {
       h4Count++;
       boldListCounter = 0;
-      inDemotedSection = false;
       lines[i] = `#### ${currentDim}.${h3Count}.${h4Count}. ${h4ThreePartMatch[1]}`;
       continue;
     }
@@ -459,15 +455,15 @@ function renumberHeadings(content) {
       h3Count++;
       h4Count = 0;
       boldListCounter = 0;
-      inDemotedSection = true;
       lines[i] = `#### ${currentDim}.${h3Count}. ${h4TwoPartMatch[1]}`;
       continue;
     }
 
-    // Bold list items under demoted #### N.M. headings
-    if (inDemotedSection && /^\d+\.\s+\*\*/.test(line)) {
+    // Bold list items — re-align ALL to current parent heading number.
+    // Matches both plain "1. **text**" and already-numbered "N.M.K. **text**"
+    if (currentDim > 0 && h3Count > 0 && /^(?:\d+\.)+\s+\*\*/.test(line)) {
       boldListCounter++;
-      lines[i] = line.replace(/^\d+\./, `${currentDim}.${h3Count}.${boldListCounter}.`);
+      lines[i] = line.replace(/^(?:\d+\.)+/, `${currentDim}.${h3Count}.${boldListCounter}.`);
       continue;
     }
 
@@ -478,7 +474,6 @@ function renumberHeadings(content) {
         currentDim = 0;
         h3Count = 0;
         h4Count = 0;
-        inDemotedSection = false;
       }
     }
   }
