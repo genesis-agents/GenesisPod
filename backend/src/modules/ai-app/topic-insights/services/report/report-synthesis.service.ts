@@ -1530,16 +1530,22 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     const supplementarySubSections = isEn
       ? [
           "Key Causal Chains",
+          "Key Linkage Points",
           "Dimension Maturity",
+          "Dimension Comparison",
           "Feedback Loops",
           "System Effects",
+          "Systemic Effects",
           "Risk Matrix",
         ]
       : [
           "关键因果链",
+          "关键联动点",
           "维度成熟度对比",
+          "维度对比",
           "反馈回路",
           "系统效应",
+          "系统性效应",
           "风险矩阵",
           "企业决策者",
           "投资者",

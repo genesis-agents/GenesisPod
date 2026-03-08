@@ -40,6 +40,10 @@ export const PROFESSIONAL_TONE = `## 文风规范
 - 套话开头：禁止"随着...的发展"、"在当今..."
 - 箭头链：禁止使用 → 符号串联因果。用"这导致..."、"进而引发..."、"其结果是..."等自然语言表达
 
+### 标题规范
+- 标题中**禁止包含引用标记**：如 \`### 1.5. 演化路径[113][114]\` 是错误的，引用标记只能出现在正文段落中
+- 标题应简洁明了，不超过 30 字
+
 ### 术语一致性
 - 每个术语首次出现时标注英文原文，如：能力密度（Capability Density）
 - 后续全文统一使用中文形式
@@ -247,6 +251,10 @@ export const PROFESSIONAL_TONE_EN = `## Writing Style Standards
 - Colloquial expressions
 - Cliché openings: "In today's rapidly evolving...", "As we navigate..."
 - Arrow chains: Do NOT use → to chain causality. Use "this leads to...", "which in turn causes...", "resulting in..."
+
+### Heading Rules
+- **Never include citation markers in headings**: e.g. \`### 1.5. Evolution Paths[113][114]\` is wrong. Citations belong in body text only.
+- Keep headings concise (under 30 words)
 
 ### Terminology Consistency
 - First occurrence of each term: include original term in parentheses if non-English
