@@ -546,9 +546,11 @@ describe("CostController", () => {
       });
       expect(budget.periodStart.getHours()).toBe(0);
       expect(budget.periodStart.getMinutes()).toBe(0);
-      // Period end is always 24h after start
+      // Period end is the next midnight; allow 2 hours tolerance for DST transitions
       const diffMs = budget.periodEnd.getTime() - budget.periodStart.getTime();
-      expect(diffMs).toBe(24 * 60 * 60 * 1000);
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      expect(diffMs).toBeGreaterThanOrEqual(oneDayMs - 2 * 60 * 60 * 1000);
+      expect(diffMs).toBeLessThanOrEqual(oneDayMs + 2 * 60 * 60 * 1000);
     });
 
     it("monthly period should start on 1st and end on 1st of next month", () => {
@@ -583,7 +585,10 @@ describe("CostController", () => {
         period: "weekly",
       });
       const diff = budget.periodEnd.getTime() - budget.periodStart.getTime();
-      expect(diff).toBe(7 * 24 * 60 * 60 * 1000);
+      // Allow 2 hours tolerance for DST transitions within the 7-day window
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      expect(diff).toBeGreaterThanOrEqual(sevenDaysMs - 2 * 60 * 60 * 1000);
+      expect(diff).toBeLessThanOrEqual(sevenDaysMs + 2 * 60 * 60 * 1000);
     });
   });
 });

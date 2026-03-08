@@ -829,7 +829,10 @@ describe("SkillAnalyticsService", () => {
       const callArgs = prisma.skillConfig.findMany.mock.calls[0][0];
       const cutoffTime = callArgs.where.OR[1].lastUsedAt.lt.getTime();
       const expectedMs = 30 * 24 * 60 * 60 * 1000;
-      expect(before - cutoffTime).toBeGreaterThanOrEqual(expectedMs - 100);
+      // Allow 2 hours tolerance for DST transitions across the 30-day window
+      expect(before - cutoffTime).toBeGreaterThanOrEqual(
+        expectedMs - 2 * 60 * 60 * 1000,
+      );
     });
 
     it("respects custom days parameter", async () => {
@@ -839,7 +842,10 @@ describe("SkillAnalyticsService", () => {
       const callArgs = prisma.skillConfig.findMany.mock.calls[0][0];
       const cutoffTime = callArgs.where.OR[1].lastUsedAt.lt.getTime();
       const expectedMs = 60 * 24 * 60 * 60 * 1000;
-      expect(before - cutoffTime).toBeGreaterThanOrEqual(expectedMs - 100);
+      // Allow 2 hours tolerance for DST transitions across the 60-day window
+      expect(before - cutoffTime).toBeGreaterThanOrEqual(
+        expectedMs - 2 * 60 * 60 * 1000,
+      );
     });
 
     it("maps displayName to name field, falls back to skillId", async () => {

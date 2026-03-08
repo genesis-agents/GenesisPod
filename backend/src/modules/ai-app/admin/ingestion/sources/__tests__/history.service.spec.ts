@@ -300,8 +300,10 @@ describe("HistoryService", () => {
       const gte: Date = callArgs.where.completedAt.gte;
       const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      // Should be approximately 1 day ago (within 5 seconds tolerance)
-      expect(Math.abs(gte.getTime() - dayAgo.getTime())).toBeLessThan(5000);
+      // Should be approximately 1 day ago (within 2 hours tolerance for DST)
+      expect(Math.abs(gte.getTime() - dayAgo.getTime())).toBeLessThan(
+        2 * 60 * 60 * 1000,
+      );
     });
 
     it("should query with month period range", async () => {
