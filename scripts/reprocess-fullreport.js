@@ -467,6 +467,13 @@ function renumberHeadings(content) {
       continue;
     }
 
+    // Convert plain (non-bold) numbered items to bullets to avoid confusion
+    // with hierarchical heading numbers (e.g., "1." under "1.10." heading)
+    if (currentDim > 0 && h3Count > 0 && /^\d+\.\s+[^*|]/.test(line)) {
+      lines[i] = line.replace(/^\d+\.\s+/, "- ");
+      continue;
+    }
+
     // Any heading resets bold list tracking
     if (/^#{2,6}\s+/.test(line)) {
       boldListCounter = 0;

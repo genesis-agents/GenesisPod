@@ -144,6 +144,14 @@ export function renumberHeadings(content: string): string {
       continue;
     }
 
+    // Convert plain (non-bold) numbered items under ### / #### headings to
+    // bullet points. "1. Reformer：..." under heading "1.10." looks like a
+    // numbering error; converting to "- Reformer：..." removes the ambiguity.
+    if (currentDim > 0 && h3Count > 0 && /^\d+\.\s+[^*|]/.test(line)) {
+      lines[i] = line.replace(/^\d+\.\s+/, "- ");
+      continue;
+    }
+
     // Any heading resets bold list tracking
     if (/^#{2,6}\s+/.test(line)) {
       boldListCounter = 0;
