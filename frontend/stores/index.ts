@@ -7,9 +7,6 @@ export * from './ai-office';
 // AI Teams stores (existing modular structure)
 export * from './ai-teams';
 
-// AI Insights stores (formerly AI Research)
-export * from './ai-insights';
-
 // AI Writing stores
 export * from './ai-writing';
 
@@ -27,7 +24,5 @@ export * from './user';
 export * from './aiOfficeStore';
 
 // Legacy stores - only export unique items not in modular versions
-// aiTeamsStore and topicInsightsStore are now fully replaced by ai-teams and ai-insights modules
-// Uncomment below if you need legacy exports:
+// aiTeamsStore is fully replaced by ai-teams module
 // export * from './aiTeamsStore';
-// export * from './topicInsightsStore';
