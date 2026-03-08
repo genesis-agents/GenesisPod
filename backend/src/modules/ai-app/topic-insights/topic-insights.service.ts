@@ -525,6 +525,13 @@ export class TopicInsightsService {
   }
 
   /**
+   * ★ v5.1: 获取报告质量缺陷详情（按需扫描）
+   */
+  async getReportQualityDetails(reportId: string, rule?: string) {
+    return this.qualityTraceService.getQualityDetails(reportId, rule);
+  }
+
+  /**
    * ★ 重新计算证据可信度评分
    */
   async recalculateEvidenceCredibility(reportId: string) {

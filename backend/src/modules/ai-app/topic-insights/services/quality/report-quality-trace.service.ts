@@ -16,7 +16,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import type { TopicEvidence } from "@prisma/client";
-import { scanContentDefects, type ContentDefectScan } from "./defect-scanner";
+import {
+  scanContentDefects,
+  extractDefectDetails,
+  type ContentDefectScan,
+  type DefectDetails,
+} from "./defect-scanner";
 
 // ==================== Types ====================
 
@@ -476,6 +481,45 @@ export class ReportQualityTraceService {
       dimensionCount: trace.dimensionOutputs.length,
       evidenceCount: trace.evidenceQuality.totalEvidences,
     };
+  }
+
+  /**
+   * Get defect details by scanning fullReport content on demand.
+   * Returns actual offending lines per defect rule.
+   */
+  async getQualityDetails(
+    reportId: string,
+    rule?: string,
+  ): Promise<{
+    details: DefectDetails;
+    dimensionBreakdown: Array<{
+      dimensionName: string;
+      defects: ContentDefectScan;
+    }>;
+  } | null> {
+    // Get fullReport for on-demand scanning
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      select: { fullReport: true },
+    });
+    if (!report?.fullReport) return null;
+
+    // Scan fullReport for details
+    const allDetails = extractDefectDetails(report.fullReport, 30);
+
+    // If a specific rule is requested, filter to just that rule
+    const details: DefectDetails = rule
+      ? { [rule]: allDetails[rule] ?? [] }
+      : allDetails;
+
+    // Get per-dimension breakdown from stored trace
+    const trace = await this.getQualityTrace(reportId);
+    const dimensionBreakdown = (trace?.dimensionOutputs ?? []).map((dim) => ({
+      dimensionName: dim.dimensionName,
+      defects: dim.defects,
+    }));
+
+    return { details, dimensionBreakdown };
   }
 
   // ==================== Scoring Algorithms ====================

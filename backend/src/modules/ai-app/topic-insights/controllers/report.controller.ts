@@ -535,6 +535,24 @@ export class ReportController {
     return this.topicResearchService.getReportQualitySummary(reportId);
   }
 
+  /**
+   * ★ v5.1: 获取报告质量缺陷详情（具体行内容）
+   */
+  @Get("topics/:topicId/reports/:reportId/quality-details")
+  @ApiOperation({
+    summary: "获取报告质量缺陷详情",
+    description: "按需扫描报告内容，返回具体缺陷行",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "缺陷详情" })
+  async getQualityDetails(
+    @Param("reportId") reportId: string,
+    @Query("rule") rule?: string,
+  ) {
+    return this.topicResearchService.getReportQualityDetails(reportId, rule);
+  }
+
   @Post("topics/:topicId/reports/:reportId/regenerate")
   @ApiOperation({
     summary: "重新合成报告内容",

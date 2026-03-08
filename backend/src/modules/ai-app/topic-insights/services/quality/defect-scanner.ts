@@ -269,6 +269,254 @@ function countHtmlEntities(content: string): number {
   return matches ? matches.length : 0;
 }
 
+// ==================== Detail Extraction ====================
+
+/**
+ * Per-defect-type detail: actual offending lines with line numbers.
+ */
+export interface DefectDetail {
+  /** Line number (1-based) */
+  line: number;
+  /** The actual content of the line (truncated to 200 chars) */
+  text: string;
+}
+
+/**
+ * Map from defect rule name → list of offending lines.
+ * Only rules with count > 0 will appear.
+ */
+export type DefectDetails = Record<string, DefectDetail[]>;
+
+/**
+ * Scan content and return actual offending lines per defect type.
+ * Designed for on-demand detail API — heavier than scanContentDefects.
+ */
+export function extractDefectDetails(
+  content: string,
+  maxPerRule = 20,
+): DefectDetails {
+  if (!content || content.length === 0) return {};
+
+  const details: DefectDetails = {};
+
+  const bareLatex = extractBareLatexDetails(content, maxPerRule);
+  if (bareLatex.length > 0) details.bareLatexCount = bareLatex;
+
+  const brokenDollar = extractBrokenDollarDetails(content, maxPerRule);
+  if (brokenDollar.length > 0) details.brokenDollarNesting = brokenDollar;
+
+  const longItems = extractLongListItemDetails(content, maxPerRule);
+  if (longItems.length > 0) details.longListItems = longItems;
+
+  const missingH = extractMissingHeadingDetails(content, maxPerRule);
+  if (missingH.length > 0) details.missingHeadings = missingH;
+
+  const echoes = extractHeadingEchoDetails(content, maxPerRule);
+  if (echoes.length > 0) details.headingEchoes = echoes;
+
+  const pseudo = extractPseudoCodeDetails(content, maxPerRule);
+  if (pseudo.length > 0) details.pseudoCodeLines = pseudo;
+
+  const leaked = extractLeakedMetaDetails(content, maxPerRule);
+  if (leaked.length > 0) details.leakedMetaNotes = leaked;
+
+  return details;
+}
+
+function truncate(s: string, max = 200): string {
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
+function extractBareLatexDetails(content: string, max: number): DefectDetail[] {
+  const results: DefectDetail[] = [];
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length && results.length < max; i++) {
+    const line = lines[i];
+    if (line.trim().startsWith("```") || line.trim().startsWith("$$")) continue;
+    const stripped = line
+      .replace(/\$\$[^$]*\$\$/g, "")
+      .replace(/\$[^$]+\$/g, "");
+    if (
+      /\\(?:frac|sum|int|prod|sqrt|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|infty|partial|nabla|cdot|times|leq|geq|neq|approx|sim|equiv|subset|supset|cap|cup|in|notin|forall|exists|mathbb|mathcal|mathbf|mathrm|text|left|right|begin|end)\b/.test(
+        stripped,
+      )
+    ) {
+      results.push({ line: i + 1, text: truncate(line.trim()) });
+    }
+  }
+  return results;
+}
+
+function extractBrokenDollarDetails(
+  content: string,
+  max: number,
+): DefectDetail[] {
+  const results: DefectDetail[] = [];
+  const lines = content.split("\n");
+  // Find display math blocks and report their starting lines
+  let inDisplay = false;
+  let displayStart = 0;
+  let displayContent = "";
+  for (let i = 0; i < lines.length && results.length < max; i++) {
+    if (lines[i].trim().startsWith("$$")) {
+      if (!inDisplay) {
+        inDisplay = true;
+        displayStart = i;
+        displayContent = "";
+      } else {
+        // end of display math — check for lone $
+        if (/(?<!\$)\$(?!\$)/.test(displayContent)) {
+          results.push({
+            line: displayStart + 1,
+            text: truncate(lines[displayStart].trim()),
+          });
+        }
+        inDisplay = false;
+      }
+    } else if (inDisplay) {
+      displayContent += lines[i] + "\n";
+    }
+  }
+  return results;
+}
+
+function extractLongListItemDetails(
+  content: string,
+  max: number,
+): DefectDetail[] {
+  const results: DefectDetail[] = [];
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length && results.length < max; i++) {
+    const trimmed = lines[i].trim();
+    if (
+      (trimmed.startsWith("- ") ||
+        trimmed.startsWith("* ") ||
+        /^\d+\.\s/.test(trimmed)) &&
+      trimmed.length > 120
+    ) {
+      results.push({ line: i + 1, text: truncate(trimmed) });
+    }
+  }
+  return results;
+}
+
+function extractMissingHeadingDetails(
+  content: string,
+  max: number,
+): DefectDetail[] {
+  const results: DefectDetail[] = [];
+  const lines = content.split("\n");
+  let blockStart = 0;
+  let blockLen = 0;
+  let hasSubHeading = false;
+
+  for (let i = 0; i <= lines.length && results.length < max; i++) {
+    const isHeading = i < lines.length && /^#{1,3}\s/.test(lines[i]);
+    const isEnd = i === lines.length;
+
+    if (isHeading || isEnd) {
+      if (blockLen > 500 && !hasSubHeading) {
+        const preview = lines[blockStart]?.trim() || "(empty)";
+        results.push({
+          line: blockStart + 1,
+          text: truncate(`[${blockLen} chars without subheading] ${preview}`),
+        });
+      }
+      blockStart = i + 1;
+      blockLen = 0;
+      hasSubHeading = false;
+    } else {
+      blockLen += (lines[i]?.length ?? 0) + 1;
+      if (lines[i] && /^###\s/.test(lines[i])) hasSubHeading = true;
+    }
+  }
+  return results;
+}
+
+function extractHeadingEchoDetails(
+  content: string,
+  max: number,
+): DefectDetail[] {
+  const results: DefectDetail[] = [];
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length - 1 && results.length < max; i++) {
+    const heading = lines[i].match(/^#{1,4}\s+(.+)/);
+    if (heading) {
+      const headingText = heading[1].trim();
+      for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+        const nextLine = lines[j].trim();
+        if (nextLine === "") continue;
+        if (
+          nextLine === headingText ||
+          nextLine === `**${headingText}**` ||
+          nextLine.startsWith(`${headingText}：`) ||
+          nextLine.startsWith(`${headingText}:`)
+        ) {
+          results.push({
+            line: i + 1,
+            text: truncate(`${lines[i].trim()} → ${nextLine}`),
+          });
+        }
+        break;
+      }
+    }
+  }
+  return results;
+}
+
+function extractPseudoCodeDetails(
+  content: string,
+  max: number,
+): DefectDetail[] {
+  const results: DefectDetail[] = [];
+  let inCodeBlock = false;
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length && results.length < max; i++) {
+    if (lines[i].trim().startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+    const trimmed = lines[i].trim();
+    if (
+      /^(?:if|else|for|while|return|def|function|class|import|from|try|catch|switch|case)\s/i.test(
+        trimmed,
+      ) &&
+      !trimmed.startsWith("-") &&
+      !trimmed.startsWith("*")
+    ) {
+      results.push({ line: i + 1, text: truncate(trimmed) });
+    }
+  }
+  return results;
+}
+
+function extractLeakedMetaDetails(
+  content: string,
+  max: number,
+): DefectDetail[] {
+  const results: DefectDetail[] = [];
+  const patterns = [
+    /【.*?字.*?】/,
+    /\[.*?words?\]/i,
+    /\(约?\s*\d+\s*字\)/,
+    /\(approximately?\s*\d+\s*words?\)/i,
+    /^注[：:]/,
+    /^Note[：:]/,
+    /^备注[：:]/,
+    /本报告/,
+    /作为.*?助手/,
+    /作为AI/,
+  ];
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length && results.length < max; i++) {
+    if (patterns.some((p) => p.test(lines[i]))) {
+      results.push({ line: i + 1, text: truncate(lines[i].trim()) });
+    }
+  }
+  return results;
+}
+
 function measureForeignContentRatio(content: string): number {
   if (content.length === 0) return 0;
 

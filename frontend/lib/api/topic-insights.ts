@@ -442,6 +442,33 @@ export async function getReportQualitySummary(
   );
 }
 
+/**
+ * ★ v5.1: 获取报告质量缺陷详情
+ */
+export async function getReportQualityDetails(
+  topicId: string,
+  reportId: string,
+  rule?: string
+): Promise<ReportQualityDetails | null> {
+  const params = rule ? `?rule=${encodeURIComponent(rule)}` : '';
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/quality-details${params}`
+  );
+}
+
+export interface DefectDetail {
+  line: number;
+  text: string;
+}
+
+export interface ReportQualityDetails {
+  details: Record<string, DefectDetail[]>;
+  dimensionBreakdown: Array<{
+    dimensionName: string;
+    defects: Record<string, number>;
+  }>;
+}
+
 /** 报告质量追踪数据类型 */
 export interface ReportQualityTrace {
   version: number;

@@ -2927,18 +2927,27 @@ export function stripChapterHighlights(content: string): string {
   const lines = content.split("\n");
   const result: string[] = [];
   let skipping = false;
+  let trailingBlanks = 0; // count trailing blank lines after block ends
 
   for (const line of lines) {
     if (HEADER_RE.test(line)) {
       skipping = true;
+      trailingBlanks = 0;
       continue;
     }
     if (skipping) {
       // Continue skipping blockquote continuation lines
-      if (/^>\s/.test(line) || line.trim() === ">" || line.trim() === "") {
+      if (/^>\s/.test(line) || line.trim() === ">") {
         continue;
       }
+      // Allow skipping at most 1 blank line after the block (the separator)
+      if (line.trim() === "") {
+        trailingBlanks++;
+        if (trailingBlanks <= 1) continue; // skip one blank line
+        // Additional blank lines: stop skipping, keep them
+      }
       skipping = false;
+      trailingBlanks = 0;
     }
     result.push(line);
   }
