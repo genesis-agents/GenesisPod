@@ -11,7 +11,7 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-} from "../report-formatting.utils";
+} from "@/modules/ai-app/shared/report-template";
 
 describe("simplifyLatexNotation", () => {
   it("should convert \\frac to slash notation", () => {

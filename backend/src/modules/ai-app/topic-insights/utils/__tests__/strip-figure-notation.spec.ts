@@ -1,4 +1,4 @@
-import { stripInternalFigureNotation } from "../report-formatting.utils";
+import { stripInternalFigureNotation } from "@/modules/ai-app/shared/report-template";
 
 describe("stripInternalFigureNotation", () => {
   it("should strip [证据[N] 图M] notation", () => {
@@ -49,10 +49,17 @@ describe("stripInternalFigureNotation", () => {
     expect(stripInternalFigureNotation("详见数据(图3)。")).toBe("详见数据。");
   });
 
-  it("should strip 见图N所示 inline refs", () => {
+  it("should preserve 如图N所示 natural language refs", () => {
     expect(stripInternalFigureNotation("如图1所示，市场规模达100亿。")).toBe(
+      "如图1所示，市场规模达100亿。",
+    );
+  });
+
+  it("should strip 见图N / 参见图N inline refs", () => {
+    expect(stripInternalFigureNotation("见图1，市场规模达100亿。")).toBe(
       "市场规模达100亿。",
     );
+    expect(stripInternalFigureNotation("参见图2中的数据。")).toBe("的数据。");
   });
 
   it("should strip Leader 提供的 role leakage", () => {

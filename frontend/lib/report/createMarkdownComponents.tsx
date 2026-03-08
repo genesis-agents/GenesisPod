@@ -108,6 +108,8 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
 export function createMarkdownComponents(processText: ProcessTextFn) {
   // Track heading slug counts for dedup (reset per render)
   const slugCounts = new Map<string, number>();
+  // Track the last seen h2 heading text for context-aware rendering
+  let lastH2Text = '';
 
   return {
     img: ({ src, alt }: { src?: string; alt?: string }) => (
@@ -181,9 +183,21 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     }: React.HTMLAttributes<HTMLElement> & {
       children?: React.ReactNode;
       node?: unknown;
-    }) => (
-      <strong {...props}>{processChildrenSimple(children, processText)}</strong>
-    ),
+    }) => {
+      const isConclusionSection = /结语|Conclusion/i.test(lastH2Text);
+      if (isConclusionSection) {
+        return (
+          <strong className="text-purple-700" {...props}>
+            {processChildrenSimple(children, processText)}
+          </strong>
+        );
+      }
+      return (
+        <strong {...props}>
+          {processChildrenSimple(children, processText)}
+        </strong>
+      );
+    },
     em: ({
       children,
       node: _node,
@@ -300,11 +314,14 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
       node?: unknown;
-    }) => (
-      <h2 id={headingSlug(children, slugCounts)} {...props}>
-        {processChildrenSimple(children, processText)}
-      </h2>
-    ),
+    }) => {
+      lastH2Text = extractText(children);
+      return (
+        <h2 id={headingSlug(children, slugCounts)} {...props}>
+          {processChildrenSimple(children, processText)}
+        </h2>
+      );
+    },
     h3: ({
       children,
       node: _node,
@@ -336,11 +353,58 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     }: React.BlockquoteHTMLAttributes<HTMLQuoteElement> & {
       children?: React.ReactNode;
       node?: unknown;
-    }) => (
-      <blockquote {...props}>
-        {processChildrenSimple(children, processText)}
-      </blockquote>
-    ),
+    }) => {
+      const text = extractText(children);
+      const isChapterHighlights = /本章要点|Chapter Highlights/i.test(text);
+
+      if (isChapterHighlights) {
+        return (
+          <div className="my-4 rounded-xl border-l-4 border-blue-400 bg-blue-50/60 px-5 py-4">
+            {processChildrenSimple(children, processText)}
+          </div>
+        );
+      }
+
+      return (
+        <blockquote {...props}>
+          {processChildrenSimple(children, processText)}
+        </blockquote>
+      );
+    },
+    ul: ({
+      children,
+      node: _node,
+      ...props
+    }: React.HTMLAttributes<HTMLUListElement> & {
+      children?: React.ReactNode;
+      node?: unknown;
+      depth?: number;
+    }) => {
+      const depth = props.depth ?? 0;
+      const listStyle = depth > 0 ? 'circle' : 'disc';
+      return (
+        <ul {...props} style={{ listStyleType: listStyle, ...props.style }}>
+          {children}
+        </ul>
+      );
+    },
+    ol: ({
+      children,
+      node: _node,
+      ...props
+    }: React.OlHTMLAttributes<HTMLOListElement> & {
+      children?: React.ReactNode;
+      node?: unknown;
+      depth?: number;
+    }) => {
+      const depth = props.depth ?? 0;
+      const listStyle = depth > 0 ? 'lower-alpha' : 'decimal';
+      return (
+        <ol {...props} style={{ listStyleType: listStyle, ...props.style }}>
+          {children}
+        </ol>
+      );
+    },
     code: ({
       className,
       children,

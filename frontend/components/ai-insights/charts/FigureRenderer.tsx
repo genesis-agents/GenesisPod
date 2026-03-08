@@ -401,15 +401,26 @@ export function FigureRenderer({
           {showSource && (chart.evidenceCitationIndex || chart.source) && (
             <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
               <span>{'来源:'}</span>
-              {chart.evidenceCitationIndex && onCitationClick && (
-                <button
-                  onClick={() => onCitationClick(chart.evidenceCitationIndex!)}
-                  className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                  aria-label={`[${chart.evidenceCitationIndex}]`}
-                >
-                  [{chart.evidenceCitationIndex}]
-                </button>
-              )}
+              {chart.evidenceCitationIndex &&
+                (onCitationClick ? (
+                  <button
+                    onClick={() =>
+                      onCitationClick(chart.evidenceCitationIndex!)
+                    }
+                    className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                    aria-label={`[${chart.evidenceCitationIndex}]`}
+                  >
+                    [{chart.evidenceCitationIndex}]
+                  </button>
+                ) : (
+                  <a
+                    href={`#ref-${chart.evidenceCitationIndex}`}
+                    className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                    aria-label={`[${chart.evidenceCitationIndex}]`}
+                  >
+                    [{chart.evidenceCitationIndex}]
+                  </a>
+                ))}
               {chart.source && <span>{chart.source}</span>}
             </div>
           )}

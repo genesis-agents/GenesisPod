@@ -11,7 +11,7 @@ import {
   CITATION_STANDARDS,
   CHART_STANDARDS,
   CHAPTER_HIGHLIGHTS,
-} from "./report-writing-standards";
+} from "@/modules/ai-app/shared/report-template";
 
 /**
  * 维度研究系统提示词

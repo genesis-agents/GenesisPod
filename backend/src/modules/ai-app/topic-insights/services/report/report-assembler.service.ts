@@ -42,7 +42,11 @@ import {
   normalizeArrowNotation,
   stripLeakedHtmlComments,
   deduplicateAdjacentCitations,
-} from "../../utils/report-formatting.utils";
+  extractTableFootnotes,
+  boldSummaryPrefixes,
+  bulletifyBlockquoteItems,
+  splitEnumerationToList,
+} from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
@@ -228,20 +232,32 @@ export class ReportAssemblerService {
     // Repair Markdown tables (missing separator rows, blank lines)
     processed = repairMarkdownTables(processed);
 
+    // Extract footnote rows from tables (long explanatory text in last row)
+    processed = extractTableFootnotes(processed);
+
     // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
     processed = splitWallOfText(processed);
 
     // Wrap pseudocode/code-like blocks in fenced code blocks
     processed = wrapPseudoCodeBlocks(processed);
 
-    // Collapse excess sub-headings (> 10 per dimension → demote to ####)
-    processed = collapseExcessSubHeadings(processed, 10);
+    // Collapse excess sub-headings (> 8 per dimension → demote to ####)
+    processed = collapseExcessSubHeadings(processed, 8);
 
     // Enforce max list item length (split long items at sentence boundaries)
     processed = truncateLongListItems(processed);
 
     // Separate conclusion paragraphs trapped in list structures
     processed = separateTrappedConclusions(processed);
+
+    // Add bullet markers to consecutive blockquote lines without them
+    processed = bulletifyBlockquoteItems(processed);
+
+    // Split enumeration patterns (一是/二是...) into bullet lists
+    processed = splitEnumerationToList(processed);
+
+    // Bold summary prefix before Chinese colon (短语：→ **短语**：)
+    processed = boldSummaryPrefixes(processed);
 
     return processed;
   }
@@ -288,15 +304,27 @@ export class ReportAssemblerService {
     const locale = isEn ? "en-US" : "zh-CN";
 
     // ── Sanitize supplementary content ────────────────────────────────────
-    // Extract plain markdown from raw JSON strings, then strip LLM meta-notes
+    // Extract plain markdown from raw JSON strings, strip LLM meta-notes,
+    // and remove blockquotes from supplementary sections (spec: 禁止补充节使用引用块)
     const sc: SupplementaryContent = {};
     for (const key of Object.keys(
       supplementaryContent,
     ) as (keyof SupplementaryContent)[]) {
       const val = supplementaryContent[key];
-      sc[key] = val
-        ? stripLLMMetaNotes(extractMarkdownFromJsonString(val))
-        : val;
+      if (val) {
+        let cleaned = stripLLMMetaNotes(extractMarkdownFromJsonString(val));
+        // Strip blockquotes from supplementary sections (cross-dimension, risk, strategy)
+        if (
+          key === "crossDimensionAnalysis" ||
+          key === "riskAssessment" ||
+          key === "strategicRecommendations"
+        ) {
+          cleaned = cleaned.replace(/^>\s*(.+)$/gm, "$1");
+        }
+        sc[key] = cleaned;
+      } else {
+        sc[key] = val;
+      }
     }
 
     // ── Sort dimensions by priority ────────────────────────────────────────
@@ -653,10 +681,10 @@ export class ReportAssemblerService {
         warnings.push(`Removed ${hrCount} horizontal rule(s)`);
       }
       const boldCount = (content.match(/\*\*[^*]+\*\*/g) ?? []).length;
-      if (boldCount > 120) {
-        content = limitBoldFormatting(content, 5);
+      if (boldCount > 60) {
+        content = limitBoldFormatting(content, 2);
         warnings.push(
-          `Bold formatting count ${boldCount} exceeds limit 120, reduced`,
+          `Bold formatting count ${boldCount} exceeds limit 60, reduced`,
         );
       }
     }
@@ -692,6 +720,9 @@ export class ReportAssemblerService {
     // Repair Markdown tables (missing separator rows, blank lines)
     content = repairMarkdownTables(content);
 
+    // Extract footnote rows from tables (long explanatory text in last row)
+    content = extractTableFootnotes(content);
+
     // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
     content = splitWallOfText(content);
 
@@ -710,8 +741,8 @@ export class ReportAssemblerService {
     // Wrap pseudocode blocks in fenced code blocks
     content = wrapPseudoCodeBlocks(content);
 
-    // Collapse excess sub-headings (> 10 per dimension → demote to ####)
-    content = collapseExcessSubHeadings(content, 10);
+    // Collapse excess sub-headings (> 8 per dimension → demote to ####)
+    content = collapseExcessSubHeadings(content, 8);
 
     // Enforce max list item length
     content = truncateLongListItems(content);
@@ -739,6 +770,15 @@ export class ReportAssemblerService {
 
     // Deduplicate adjacent identical citations ([5][5] → [5])
     content = deduplicateAdjacentCitations(content);
+
+    // Add bullet markers to consecutive blockquote lines without them
+    content = bulletifyBlockquoteItems(content);
+
+    // Split enumeration patterns (一是/二是...) into bullet lists
+    content = splitEnumerationToList(content);
+
+    // Bold summary prefix before Chinese colon (短语：→ **短语**：)
+    content = boldSummaryPrefixes(content);
 
     const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) ?? []).length;
     if (deepHeadingCount > 0) {
@@ -892,7 +932,10 @@ export class ReportAssemblerService {
       const accessDate = e.accessedAt
         ? new Date(e.accessedAt).toLocaleDateString(locale)
         : new Date().toLocaleDateString(locale);
-      return `[${e.index}] ${e.title}. ${e.domain || ""}. ${e.url}. ${accessedLabel}: ${accessDate}`;
+      // Title is the hyperlink; domain and raw URL are hidden
+      // Escape brackets in title to avoid breaking markdown link syntax
+      const safeTitle = e.title.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+      return `[${e.index}] [${safeTitle}](${e.url}). ${accessedLabel}: ${accessDate}`;
     });
 
     let section = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;

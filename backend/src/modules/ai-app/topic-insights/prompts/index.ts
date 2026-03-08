@@ -16,7 +16,7 @@ export {
   SYNTHESIS_FORMATTING,
   getWritingStandards,
   getExecutiveSummaryFormat,
-} from "./report-writing-standards";
+} from "@/modules/ai-app/shared/report-template";
 
 export {
   DIMENSION_RESEARCH_SYSTEM_PROMPT,

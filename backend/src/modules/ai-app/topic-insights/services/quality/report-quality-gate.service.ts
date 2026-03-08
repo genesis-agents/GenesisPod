@@ -17,7 +17,7 @@ import {
   deduplicateHeadings,
   stripLLMMetaNotes,
   stripInternalFigureNotation,
-} from "../../utils/report-formatting.utils";
+} from "@/modules/ai-app/shared/report-template";
 import { stripChartJsonFromContent } from "../../utils/strip-chart-json.utils";
 
 /**
@@ -101,29 +101,34 @@ export class ReportQualityGateService {
 
     // 3. 加粗密度检查 + 自动限制
     const boldCount = (fixedContent.match(/\*\*[^*]+\*\*/g) || []).length;
-    if (boldCount > 20) {
+    if (boldCount > 12) {
       violations.push({
         rule: "bold_density",
         severity: "warning",
-        message: `加粗处数量 ${boldCount} 超过阈值 20/维度，已自动限制为每节 3 处`,
+        message: `加粗处数量 ${boldCount} 超过阈值 12/维度，已自动限制为每节 2 处`,
         currentValue: boldCount,
-        threshold: 20,
+        threshold: 12,
       });
-      fixedContent = limitBoldFormatting(fixedContent, 3);
+      fixedContent = limitBoldFormatting(fixedContent, 2);
       wasAutoFixed = true;
     }
 
-    // 4. 引用块密度检查 + 自动限制
-    const blockquoteCount = (fixedContent.match(/^>\s*.+$/gm) || []).length;
-    if (blockquoteCount > 5) {
+    // 4. 引用块密度检查 + 自动限制（规范：每维度最多 1 个，不含章节要点）
+    const blockquoteLines = fixedContent.match(/^>\s*.+$/gm) || [];
+    // Exclude chapter highlights blockquotes (本章要点/Chapter Highlights)
+    const nonHighlightBlockquotes = blockquoteLines.filter(
+      (line) => !/本章要点|Chapter Highlights/i.test(line),
+    );
+    const blockquoteCount = nonHighlightBlockquotes.length;
+    if (blockquoteCount > 1) {
       violations.push({
         rule: "blockquote_density",
         severity: "warning",
-        message: `引用块数量 ${blockquoteCount} 超过阈值 5/维度，已自动限制`,
+        message: `引用块数量 ${blockquoteCount} 超过阈值 1/维度（不含章节要点），已自动限制`,
         currentValue: blockquoteCount,
-        threshold: 5,
+        threshold: 1,
       });
-      fixedContent = limitBlockquotes(fixedContent, 5);
+      fixedContent = limitBlockquotes(fixedContent, 1);
       wasAutoFixed = true;
     }
 
@@ -369,31 +374,31 @@ export class ReportQualityGateService {
       });
     }
 
-    // 2. 全文加粗密度
+    // 2. 全文加粗密度（规范：每节最多 2 处）
     const boldCount = (fixedContent.match(/\*\*[^*]+\*\*/g) || []).length;
-    if (boldCount > 120) {
+    if (boldCount > 60) {
       violations.push({
         rule: "bold_density_report",
         severity: "warning",
-        message: `全文加粗 ${boldCount} 处超过阈值 120`,
+        message: `全文加粗 ${boldCount} 处超过阈值 60`,
         currentValue: boldCount,
-        threshold: 120,
+        threshold: 60,
       });
-      fixedContent = limitBoldFormatting(fixedContent, 5);
+      fixedContent = limitBoldFormatting(fixedContent, 2);
       wasAutoFixed = true;
     }
 
-    // 3. 全文引用块密度
+    // 3. 全文引用块密度（规范：全文最多 8 个，不含章节要点）
     const blockquoteCount = (fixedContent.match(/^>\s*.+$/gm) || []).length;
-    if (blockquoteCount > 15) {
+    if (blockquoteCount > 8) {
       violations.push({
         rule: "blockquote_density_report",
         severity: "warning",
-        message: `全文引用块 ${blockquoteCount} 个超过阈值 15`,
+        message: `全文引用块 ${blockquoteCount} 个超过阈值 8`,
         currentValue: blockquoteCount,
-        threshold: 15,
+        threshold: 8,
       });
-      fixedContent = limitBlockquotes(fixedContent, 15);
+      fixedContent = limitBlockquotes(fixedContent, 8);
       wasAutoFixed = true;
     }
 

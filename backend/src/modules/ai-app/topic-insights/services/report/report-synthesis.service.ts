@@ -18,7 +18,7 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-} from "../../utils/report-formatting.utils";
+} from "@/modules/ai-app/shared/report-template";
 import { AIModelType } from "@prisma/client";
 import type {
   ResearchTopic,

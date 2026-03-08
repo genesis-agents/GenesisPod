@@ -307,7 +307,7 @@ export function detectForeignLanguageBlocks(
  */
 export function limitBoldFormatting(
   content: string,
-  maxPerSection: number = 3,
+  maxPerSection: number = 2,
 ): string {
   const sections = content.split(/(?=^###\s)/m);
 
@@ -339,8 +339,8 @@ export function limitBoldFormatting(
  */
 export function limitBlockquotes(
   content: string,
-  maxCount: number = 15,
-  maxCharsPerBlock: number = 150,
+  maxCount: number = 8,
+  maxCharsPerBlock: number = 120,
 ): string {
   let count = 0;
   return content.replace(/^>\s*(.+)$/gm, (match, inner: string) => {
@@ -929,11 +929,19 @@ export function stripInternalFigureNotation(content: string): string {
       )
       // "（图N）" / "(图N)" — parenthesized figure refs
       .replace(/[（(]图\d+[)）]/g, "")
-      // "见图N" / "如图N所示" / "参见图N" — inline orphan refs
+      // "见图N" / "参见图N" — inline orphan refs (but preserve "如图N所示" natural language refs)
       .replace(
-        /(?:见|如|参见|详见)(?:下)?图\d+(?:所示|中|可知)?[，,。.；;]?\s*/g,
+        /(?:见|参见|详见)(?:下)?图\d+(?:所示|中|可知)?[，,。.；;]?\s*/g,
         "",
       )
+
+      // ── Standalone figure title lines (rendered by FigureRenderer, redundant in body) ──
+      // "图 2. Transformer变体优化与演进预测图" — full line with figure number + title
+      .replace(/^[ \t]*图\s*\d+[.．。]\s*[^\n]+$/gm, "")
+      // "图N:M..." — garbled evidence:figure index (e.g., "图10:0确认...")
+      .replace(/图\d+:\d+[^\n]{0,50}/g, "")
+      // "来源: 证据 [N]" / "来源：证据[N]" — source labels handled by FigureRenderer
+      .replace(/^[ \t]*来源[：:]\s*证据\s*\[\d+\]\s*$/gm, "")
 
       // ── Clean up resulting artifacts ──
       // Double punctuation from removed notation
@@ -1466,6 +1474,47 @@ export function repairMarkdownTables(content: string): string {
 }
 
 /**
+ * Extract footnote rows from markdown tables.
+ *
+ * LLMs sometimes append an explanatory paragraph as the last row of a table:
+ *   | 风险项 | 概率 | 影响 |
+ *   |---|---|---|
+ *   | 计算成本 | 75 | 9 |
+ *   | 影响评分依据：成本9分（EBITDA影响15%）... | | |
+ *
+ * This extracts such rows into a paragraph below the table. A row is treated
+ * as a footnote when:
+ * - It's the last row of the table
+ * - The first cell is much longer (>50 chars) than other cells
+ * - Other cells are empty or nearly empty
+ */
+export function extractTableFootnotes(content: string): string {
+  return content.replace(
+    /((?:^\|[^\n]+\|\s*\n){3,})/gm,
+    (tableBlock: string) => {
+      const lines = tableBlock.trimEnd().split("\n");
+      if (lines.length < 4) return tableBlock; // header + sep + data + footnote minimum
+
+      const lastLine = lines[lines.length - 1];
+      const cells = lastLine.split("|").filter((c) => c !== "");
+      if (cells.length === 0) return tableBlock;
+
+      const firstCell = cells[0].trim();
+      const otherCells = cells.slice(1).map((c) => c.trim());
+      const otherCellsEmpty = otherCells.every((c) => c.length <= 2);
+
+      // Footnote: first cell is long, others are empty
+      if (firstCell.length > 50 && otherCellsEmpty) {
+        const tableWithout = lines.slice(0, -1).join("\n");
+        return tableWithout + "\n\n" + firstCell + "\n";
+      }
+
+      return tableBlock;
+    },
+  );
+}
+
+/**
  * Deduplicate heading echo: remove a plain text line that immediately follows
  * a heading and matches the heading text (with or without numbering prefix).
  *
@@ -1934,6 +1983,203 @@ export function stripLeakedHtmlComments(content: string): string {
  */
 export function deduplicateAdjacentCitations(content: string): string {
   return content.replace(/\[(\d+)\]\s*\[\1\]/g, "[$1]");
+}
+
+/**
+ * Bold the summary prefix before a Chinese full-width colon at paragraph start.
+ *
+ * SOTA reports (McKinsey, Stanford HAI) use bold labels for scannable text.
+ * Pattern: A paragraph starts with a short phrase (≤25 chars) followed by `：`,
+ * then continues with explanation text.
+ *
+ * Example:
+ *   规模扩张强化回路：前沿模型性能提升...
+ *   → **规模扩张强化回路**：前沿模型性能提升...
+ *
+ * Guards:
+ * - Skip lines already containing bold markers
+ * - Skip headings, list items, blockquotes, table rows
+ * - Skip if prefix is too short (≤2 chars) or too long (>25 chars)
+ * - Only applies to the FIRST colon in a line (avoids double-bolding)
+ */
+export function boldSummaryPrefixes(content: string): string {
+  return content.replace(
+    /^(?![#>|\-*\d])((?:(?!\*\*)[^\n：]){3,25})：/gm,
+    (_match, prefix: string) => {
+      // Skip if line already has bold or is inside a code block
+      if (prefix.includes("**") || prefix.includes("`")) return _match;
+      // Skip very generic single-word prefixes (e.g., "注" "如" "但")
+      if (prefix.trim().length <= 2) return _match;
+      return `**${prefix.trim()}**：`;
+    },
+  );
+}
+
+/**
+ * Add bullet markers to consecutive parallel lines in blockquotes.
+ *
+ * LLMs sometimes produce blockquote items without list markers:
+ *   > 核心架构Transformer变体（O(N log N)），进而推动...
+ *   > 训练优化持续预训练（Chinchilla N∝C^0.46），进而推动...
+ *
+ * This converts them to:
+ *   > - 核心架构Transformer变体（O(N log N)），进而推动...
+ *   > - 训练优化持续预训练（Chinchilla N∝C^0.46），进而推动...
+ *
+ * Only applies when 2+ consecutive `> ` lines exist without `-` markers.
+ */
+export function bulletifyBlockquoteItems(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    // Detect a run of consecutive blockquote lines without bullet markers
+    if (/^>\s+(?![-*]\s|>|\*\*)/.test(lines[i])) {
+      const runStart = i;
+      while (i < lines.length && /^>\s+(?![-*]\s|>|\*\*)/.test(lines[i])) {
+        i++;
+      }
+      const runLength = i - runStart;
+      if (runLength >= 2) {
+        // Add bullet markers to the run
+        for (let j = runStart; j < i; j++) {
+          result.push(lines[j].replace(/^>\s+/, "> - "));
+        }
+      } else {
+        // Single blockquote line — leave as-is
+        result.push(lines[runStart]);
+      }
+    } else {
+      result.push(lines[i]);
+      i++;
+    }
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Bold Chinese enumeration markers in flowing text for visual scannability.
+ *
+ * SOTA reports emphasize enumeration markers so readers can quickly scan
+ * parallel items within dense paragraphs:
+ *   一是/二是/三是, 一方面/另一方面, 首先/其次/最后/此外,
+ *   第一/第二/第三, 其一/其二/其三
+ *
+ * Example:
+ *   ...一是以通用语言模型为核心...二是以世界模型为代表...
+ *   → ...**一是**以通用语言模型为核心...**二是**以世界模型为代表...
+ *
+ * Guards:
+ * - Only bolded when preceded by punctuation, start-of-line, or whitespace
+ * - Skip if already bold
+ * - The marker word itself is bolded (not the following text)
+ */
+/**
+ * Split Chinese enumeration patterns in paragraphs into bullet lists.
+ *
+ * Detects patterns like "一是...二是...三是..." within a paragraph and
+ * splits them into a leading sentence + bullet list items.
+ *
+ * Supported patterns:
+ *   一是/二是/三是, 一方面/另一方面, 首先/其次/最后/此外,
+ *   第一/第二/第三, 其一/其二/其三
+ *
+ * Example:
+ *   "在技术栈层面，可观察到三条路线：一是以通用语言模型为核心...二是以世界模型为代表..."
+ *   →
+ *   "在技术栈层面，可观察到三条路线：\n\n- 以通用语言模型为核心...\n- 以世界模型为代表..."
+ *
+ * Guards:
+ * - Only splits when >=2 enumeration markers found in the same paragraph
+ * - Skips headings, blockquotes, list items
+ * - Preserves the leading sentence before the first marker
+ */
+export function splitEnumerationToList(content: string): string {
+  // All marker families: each array is a group that appears together
+  const markerGroups = [
+    ["一是", "二是", "三是", "四是", "五是"],
+    ["一方面", "另一方面"],
+    ["首先", "其次", "再次", "最后", "此外"],
+    ["其一", "其二", "其三", "其四"],
+    ["第一", "第二", "第三", "第四", "第五"],
+  ];
+  const allMarkers = markerGroups.flat();
+
+  // Build a single regex that matches any marker preceded by a boundary
+  const markerPattern = new RegExp(
+    `([；;，,。：:！!？?\\s]|^)(${allMarkers.join("|")})`,
+    "g",
+  );
+
+  const paragraphs = content.split("\n\n");
+  const result: string[] = [];
+
+  for (const para of paragraphs) {
+    const trimmed = para.trim();
+
+    // Skip headings, blockquotes, list items, short paragraphs
+    if (
+      /^[#>]/.test(trimmed) ||
+      /^[-*\d]+[.)]\s/.test(trimmed) ||
+      trimmed.length < 20
+    ) {
+      result.push(para);
+      continue;
+    }
+
+    // Count how many enumeration markers appear
+    const matches = [...trimmed.matchAll(markerPattern)];
+    if (matches.length < 2) {
+      result.push(para);
+      continue;
+    }
+
+    // Find the first marker's position to split leading sentence
+    const firstMatch = matches[0];
+    const firstMarkerStart = firstMatch.index;
+    // Include the boundary character (punctuation before marker) in the lead
+    const boundaryChar = firstMatch[1];
+    const leadEnd =
+      firstMarkerStart + (boundaryChar.trim() ? boundaryChar.length : 0);
+
+    const leadSentence = trimmed.substring(0, leadEnd).trim();
+
+    // Split content at each marker position into list items
+    const items: string[] = [];
+    for (let i = 0; i < matches.length; i++) {
+      const markerText = matches[i][2]; // the marker itself (e.g., "一是")
+      const startAfterMarker = matches[i].index + matches[i][0].length;
+      const endPos =
+        i < matches.length - 1 ? matches[i + 1].index : trimmed.length;
+
+      // Get content after marker, trim leading/trailing punctuation
+      const itemContent = trimmed
+        .substring(startAfterMarker, endPos)
+        .replace(/^[，,；;：:]\s*/, "")
+        .replace(/[；;，,]\s*$/, "")
+        .trim();
+
+      // Remove the marker word from item (it served as a structural label)
+      // But keep the semantic content
+      if (itemContent.length > 0) {
+        items.push(`- ${itemContent}`);
+      } else {
+        // Marker with no content — skip
+        items.push(`- ${markerText}`);
+      }
+    }
+
+    if (items.length >= 2) {
+      const parts = leadSentence ? [leadSentence, "", ...items] : items;
+      result.push(parts.join("\n"));
+    } else {
+      result.push(para);
+    }
+  }
+
+  return result.join("\n\n");
 }
 
 /**

@@ -21,7 +21,7 @@ import {
   renderPromptTemplate,
   getLanguageInstruction,
 } from "../../prompts/dimension-research.prompt";
-import { getWritingStandards } from "../../prompts/report-writing-standards";
+import { getWritingStandards } from "@/modules/ai-app/shared/report-template";
 import type {
   EvidenceData,
   GeneratedChart,

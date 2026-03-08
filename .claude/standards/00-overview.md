@@ -51,6 +51,7 @@ Genesis.ai 采用系统化、自动化的开发规范体系，确保代码质量
 | 11   | [部署规范](11-deployment.md)          | CI/CD、环境配置、监控告警            | 🟡 SHOULD |
 | 12   | [脚本管理](12-scripts-management.md)  | 临时脚本归档、清理策略               | 🟡 SHOULD |
 | 13   | [模块依赖](13-module-dependencies.md) | NestJS 循环依赖防范、forwardRef 使用 | 🔴 MUST   |
+| 15   | [报告模板](15-report-template.md)     | 报告 13 种内容类型统一格式规范       | 🔴 MUST   |
 
 ### 🚀 快速参考
 

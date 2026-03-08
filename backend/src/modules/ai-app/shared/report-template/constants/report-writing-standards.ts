@@ -75,22 +75,29 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 - 加粗文本应构成"扫描层"：读者仅看加粗内容即可获取核心论点
 
 ### 引用块（> blockquote）
-- 全文（含所有维度）最多 10-15 个引用块
-- 每个维度最多 2 个引用块
-- 每个引用块不超过 150 字
-- 仅用于：该维度最核心的 1 个判断 + 该维度最关键的 1 个数据发现
+- 全文（含所有维度）最多 8 个引用块（不含"本章要点"）
+- 每个维度最多 1 个引用块（选该维度最核心的单条判断）
+- 每个引用块不超过 80 字
+- 格式：\`> **判断句内容。**\`（整句加粗）
+- 引用块内容不得与本章要点中的任何一条重复
 - 禁止每段结尾都加引用块总结
+- 禁止补充节（跨维度/风险/战略）使用引用块
 
 ### 分割线（---）
 - 禁止在 detailedContent 中使用 ---
 - 章节分隔由标题层级自动实现
 
 ### 列表
-- 有序列表统一 1. 2. 3.（阿拉伯数字），禁止中文数字
+- 有序列表统一 1. 2. 3.（阿拉伯数字），禁止中文数字"一、二、三"
 - 无序列表统一 - （短横线）
 - 列表项不超过 2 层嵌套
 - **每条列表项不超过 100 字**：超长列表项应拆分为多条，或改用段落展开
-- 列表不是段落的替代品：每条列表项应是独立的点，不要把结论性段落放在列表末尾`;
+- 列表不是段落的替代品：每条列表项应是独立的点，不要把结论性段落放在列表末尾
+
+### 枚举拆分
+- 段落内出现"一是...二是..."、"一方面...另一方面..."、"首先...其次..."、"第一...第二..."等枚举模式时，必须拆分为无序列表
+- 枚举前的引导句保留为段落，每个枚举项变为 \`- \` 列表项
+- 禁止在段落中用中文枚举标记串联多个并列观点`;
 
 /**
  * Flexible analysis depth requirement (replaces rigid 4-layer framework).
@@ -181,19 +188,22 @@ export const CHAPTER_HIGHLIGHTS = `## 章节要点速览（每个维度 detailed
  */
 export const EXECUTIVE_SUMMARY_FORMAT = `## 执行摘要（对标 McKinsey SCR 框架）
 
-### 结构（严格按顺序）
-1. **核心论断**（1 句话，30 字以内，加粗）：全文最重要的单一结论
-2. **背景**（2-3 句）：研究范围和时间窗口
-3. **核心发现**（3-5 条，编号列表）：每条 1-2 句话，加粗要点句
-4. **关键指标**（表格）：指标名 | 数值 | 来源
-5. **风险预警**（2-3 条，编号列表）：每条 1 句话
-6. **行动建议**（3 条，按角色）：每条 1 句话
+### 结构（严格按顺序，每个区块必须有 \`###\` 子标题）
+1. **核心论断**（加粗段落，1 句话，30 字以内）：全文最重要的单一结论
+2. **背景**（段落，2-3 句）：研究范围和时间窗口
+3. \`### 核心发现\`（3-5 条编号列表）：每条 1-2 句话，加粗要点句
+4. \`### 关键指标\`（表格）：指标名 | 数值 | 来源
+5. \`### 风险预警\`（2-3 条编号列表）：每条 1 句话
+6. \`### 行动建议\`（3 条按角色编号列表）：角色名加粗 + 1 句话建议
 
 ### 约束
 - 总长度 400-600 字
 - 核心发现每条加粗第一句（判断句），第二句不加粗（数据支撑）
+- 行动建议每条角色名加粗（如 **企业决策者：**）
+- 表格与正文对齐（不缩进在编号列表下），位于 \`### 关键指标\` 标题之后
 - 必须独立可读：不读全文也能获取核心信息
-- 禁止使用引用块`;
+- 禁止使用引用块
+- 禁止多段编号列表无标题并列`;
 
 /**
  * Formatting standards for report synthesis (supplementary sections).
@@ -265,10 +275,11 @@ export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 - Bold text should form a "scan layer": reader gets core points from bold alone
 
 ### Blockquotes (> blockquote)
-- Max 10-15 blockquotes across entire report
-- Max 2 blockquotes per dimension
-- Each blockquote max 150 words
-- Only for: 1 core judgment + 1 key data finding per dimension
+- Max 8 blockquotes across entire report (excluding Chapter Highlights)
+- Max 1 blockquote per dimension (the single most important judgment)
+- Each blockquote max 80 words, format: \`> **Judgment sentence.**\` (bold entire sentence)
+- Blockquote content must not duplicate any Chapter Highlights point
+- Do NOT use blockquotes in supplementary sections (cross-dimension/risk/strategy)
 
 ### Horizontal Rules (---)
 - Do NOT use --- in detailedContent
@@ -279,7 +290,11 @@ export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 - Unordered lists: - (dash only)
 - Max 2 nesting levels
 - **Each list item max 100 characters**: Split long items into multiple items or use paragraphs
-- Lists are not paragraph substitutes: Do not put concluding paragraphs as list items`;
+- Lists are not paragraph substitutes: Do not put concluding paragraphs as list items
+
+### Enumeration Splitting
+- When paragraphs contain enumeration patterns like "firstly...secondly...", "on one hand...on the other hand...", split them into bullet lists
+- Keep the introductory sentence as a paragraph, each enumerated point becomes a \`- \` list item`;
 
 export const CHAPTER_HIGHLIGHTS_EN = `## Chapter Highlights (required at start of each dimension's detailedContent)
 
@@ -297,19 +312,22 @@ Constraints:
 
 export const EXECUTIVE_SUMMARY_FORMAT_EN = `## Executive Summary (McKinsey SCR Framework)
 
-### Structure (strict order)
-1. **Thesis Statement** (1 sentence, max 30 words, bold): The single most important conclusion
-2. **Context** (2-3 sentences): Research scope and time window
-3. **Core Findings** (3-5 items, numbered): Each 1-2 sentences, bold the judgment sentence
-4. **Key Metrics** (table): Metric | Value | Source
-5. **Risk Alerts** (2-3 items, numbered): Each 1 sentence
-6. **Action Items** (3 items, by audience): Each 1 sentence
+### Structure (strict order, each block must have a \`###\` sub-heading)
+1. **Thesis Statement** (bold paragraph, 1 sentence, max 30 words): The single most important conclusion
+2. **Context** (paragraph, 2-3 sentences): Research scope and time window
+3. \`### Core Findings\` (3-5 items, numbered): Each 1-2 sentences, bold the judgment sentence
+4. \`### Key Metrics\` (table): Metric | Value | Source
+5. \`### Risk Alerts\` (2-3 items, numbered): Each 1 sentence
+6. \`### Action Items\` (3 items, by audience): Bold audience role + 1 sentence recommendation
 
 ### Constraints
 - Total length 400-600 words
 - Core findings: bold first sentence (judgment), second sentence plain (data support)
+- Action items: bold audience role (e.g., **Enterprise Leaders:**)
+- Table aligned with body text (not indented under numbered list), placed after \`### Key Metrics\`
 - Must be independently readable: core information without reading full report
-- Do NOT use blockquotes`;
+- Do NOT use blockquotes
+- Do NOT place multiple numbered lists without sub-headings`;
 
 /**
  * Language-aware writing standards resolver.

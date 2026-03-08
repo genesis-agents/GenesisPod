@@ -17,7 +17,7 @@ import {
   HEADING_HIERARCHY,
   HEADING_HIERARCHY_EN,
   getExecutiveSummaryFormat,
-} from "./report-writing-standards";
+} from "@/modules/ai-app/shared/report-template";
 import {
   renderPromptTemplate,
   getLanguageInstruction,
