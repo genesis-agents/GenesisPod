@@ -163,6 +163,59 @@ export class ProxyController {
   }
 
   /**
+   * 微信公众号文章 HTML 预处理
+   *
+   * 微信文章的特殊之处：
+   * 1. #js_content 默认 visibility:hidden，Readability 会跳过隐藏内容
+   * 2. 图片使用 data-src 而非 src（懒加载）
+   * 3. 包含大量微信 UI 噪声（"继续滑动看下一个"等）
+   */
+  private preprocessWechatHtml(html: string): string {
+    let processed = html;
+
+    // 1. 移除 visibility:hidden 和 display:none，让 Readability 能看到内容
+    processed = processed.replace(
+      /visibility\s*:\s*hidden/gi,
+      "visibility:visible",
+    );
+
+    // 2. 把 data-src 转为 src（微信图片懒加载）
+    processed = processed.replace(
+      /<img([^>]*?)data-src="([^"]+)"([^>]*?)>/gi,
+      (match, before, dataSrc, after) => {
+        // 如果已有 src 属性且不是空的占位图，保留原 src
+        if (/src="(?!data:)[^"]+"/i.test(before + after)) {
+          return match;
+        }
+        return `<img${before}src="${dataSrc}"${after}>`;
+      },
+    );
+
+    // 3. 移除微信 UI 噪声元素
+    const noisePatterns = [
+      /<div[^>]*class="[^"]*qr_code_pc[^"]*"[^>]*>[\s\S]*?<\/div>/gi,
+      /<div[^>]*id="js_pc_qr_code"[^>]*>[\s\S]*?<\/div>/gi,
+      /继续滑动看下一个/g,
+      /向上滑动看下一个/g,
+      /轻触阅读原文/g,
+    ];
+    for (const pattern of noisePatterns) {
+      processed = processed.replace(pattern, "");
+    }
+
+    // 4. 将微信图片 URL 通过代理（在提取后的 content 中也会生效）
+    processed = processed.replace(
+      /src="(https?:\/\/mmbiz\.qpic\.cn[^"]+)"/gi,
+      (_, imgUrl) => {
+        const proxyUrl = `/api/v1/proxy/image?url=${encodeURIComponent(imgUrl)}`;
+        return `src="${proxyUrl}"`;
+      },
+    );
+
+    return processed;
+  }
+
+  /**
    * 从 URL 中提取标题（用于 fallback）
    */
   private extractTitleFromUrl(url: string): string {
@@ -888,6 +941,12 @@ export class ProxyController {
         break;
       }
 
+      // 微信公众号文章预处理：Readability 会跳过 visibility:hidden 的内容
+      // 微信 HTML 中 #js_content 默认是隐藏的，需要先 unhide
+      if (currentUrl.includes("mp.weixin.qq.com")) {
+        html = this.preprocessWechatHtml(html!);
+      }
+
       // 统一使用 AdvancedExtractorService (Readability) 提取 HTML 内容
       // 这样可以保留图片、表格等富媒体内容
       const contentResult = await this.advancedExtractor.extract(
@@ -997,6 +1056,14 @@ export class ProxyController {
 
       this.logger.log(`Proxying image: ${urlObj.hostname}`);
 
+      // 微信图片需要特殊的 Referer
+      const isWechatImage =
+        urlObj.hostname === "mmbiz.qpic.cn" ||
+        urlObj.hostname === "mmbiz.qlogo.cn";
+      const referer = isWechatImage
+        ? "https://mp.weixin.qq.com/"
+        : `${urlObj.protocol}//${urlObj.hostname}/`;
+
       // 尝试直接获取图片
       try {
         const response = await axios.get(url, {
@@ -1008,7 +1075,7 @@ export class ProxyController {
             Accept:
               "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
-            Referer: `${urlObj.protocol}//${urlObj.hostname}/`,
+            Referer: referer,
           },
         });
 
