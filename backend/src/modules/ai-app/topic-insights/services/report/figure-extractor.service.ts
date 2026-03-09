@@ -303,6 +303,15 @@ export class FigureExtractorService {
         return null;
       }
 
+      // ★ v4.4: 解码 HTML 实体（&amp; → &, &#39; → ' 等）
+      // HTML 中提取的 URL 常包含 &amp; 导致参数腐蚀
+      imgSrc = imgSrc
+        .replace(/&amp;/g, "&")
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
+
       let resolved: string;
 
       // 已经是绝对 URL
@@ -409,6 +418,24 @@ export class FigureExtractorService {
       /hero[-_]?image/i,
       /cover[-_]?image/i,
       /featured[-_]?image/i,
+      // ★ v4.4: 排除装饰性图片和通用页面元素
+      /author[-_]?photo/i,
+      /headshot/i,
+      /portrait/i,
+      /background[-_]?image/i,
+      /bg[-_]?image/i,
+      /decorative/i,
+      /ornament/i,
+      /pattern[-_]?bg/i,
+      /newsletter/i,
+      /subscribe/i,
+      /signup/i,
+      /cta[-_]/i,
+      /promo/i,
+      /sponsor/i,
+      /affiliate/i,
+      /wp-content\/uploads.*-\d+x\d+\./i, // WordPress 缩略图
+      /gravatar\.com/i, // 头像
     ];
 
     if (excludePatterns.some((pattern) => pattern.test(combinedText))) {
@@ -447,9 +474,6 @@ export class FigureExtractorService {
       /architecture/i,
       /overview/i,
       /screenshot/i,
-      /image/i,
-      /photo/i,
-      /picture/i,
       /map/i,
       /timeline/i,
       /workflow/i,
@@ -476,6 +500,12 @@ export class FigureExtractorService {
     // 如果包含内容关键词，保留
     if (includePatterns.some((pattern) => pattern.test(combinedText))) {
       return true;
+    }
+
+    // ★ v4.4: 有尺寸信息时，过大过小都可疑
+    // 正常内容图片通常 300-2000px 宽
+    if (width && (width < 100 || width > 3000)) {
+      return false;
     }
 
     // ★ 不再有宽松兜底：没有匹配 include 关键词就拒绝

@@ -331,7 +331,7 @@ export class DimensionMissionService {
       `${logPrefix} Search completed: ${searchResult.items.length} sources found`,
     );
 
-    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 12;
+    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 20;
     const enrichmentMaxLength =
       (topicConfig?.enrichmentMaxLength as number) || 6000;
     const enableFigures = topicConfig?.enableFigures !== false;
@@ -434,7 +434,7 @@ export class DimensionMissionService {
       searchedAt: new Date().toISOString(),
       freshnessInfo,
       knowledgeBaseInfo,
-      sources: enrichedResults.slice(0, 20).map((item) => {
+      sources: enrichedResults.slice(0, 30).map((item) => {
         let publishedDate: string | undefined;
         if (item.publishedAt) {
           try {
@@ -455,12 +455,24 @@ export class DimensionMissionService {
         const isKnowledgeBase =
           String(item.sourceType).toLowerCase() === "local" ||
           metadata?.knowledgeBaseSource === true;
+
+        // Look up scores from fusion scoredItems
+        const scoredEntry = searchResult.scoredItems?.find(
+          (s) => s.item.url === item.url,
+        );
+
         return {
           title: item.title || "未知标题",
           url: item.url || "",
           domain: item.domain,
           sourceType: String(item.sourceType),
           publishedDate,
+          credibilityScore: scoredEntry
+            ? Math.round(scoredEntry.credibilityScore * 100)
+            : undefined,
+          relevanceScore: scoredEntry
+            ? Math.round(scoredEntry.relevanceScore * 100)
+            : undefined,
           isKnowledgeBase,
           similarity: isKnowledgeBase
             ? (metadata?.similarity as number | undefined)
@@ -1849,7 +1861,12 @@ export class DimensionMissionService {
       entries.length > MAX_FIGURES_FOR_LEADER
         ? `\n...还有 ${entries.length - MAX_FIGURES_FOR_LEADER} 个图表未列出`
         : "";
-    return `共 ${entries.length} 个可用图表（展示前 ${displayEntries.length} 个）：\n${displayEntries.join("\n")}${suffix}`;
+    // ★ v4.4: 在图表列表前加入严格的分配指引
+    const guidance = `【重要】分配图表时必须严格审核：
+1. 图表的标题/图注必须与所分配章节的主题高度相关，不可仅凭关键词部分匹配
+2. 如果某个章节没有高度匹配的图表，宁可不分配任何图表，也不要勉强选用不相关的图片
+3. 禁止将通用性图片（如产品架构图、公司介绍图）分配给具体技术分析章节`;
+    return `${guidance}\n\n共 ${entries.length} 个可用图表（展示前 ${displayEntries.length} 个）：\n${displayEntries.join("\n")}${suffix}`;
   }
 
   /**
@@ -1951,14 +1968,31 @@ export class DimensionMissionService {
           return false;
         }
 
-        // At least one keyword must appear in section context
-        const hasOverlap = allKeywords.some((kw) => sectionText.includes(kw));
-        if (!hasOverlap) {
+        // ★ v4.4: 强化相关性过滤 — 要求最低匹配比例，不再是"任意1个匹配就放行"
+        // 之前 "模型" 这种高频双字词导致完全不相关的图片也通过了
+        const matchedKeywords = allKeywords.filter((kw) =>
+          sectionText.includes(kw),
+        );
+        const overlapRatio =
+          allKeywords.length > 0
+            ? matchedKeywords.length / allKeywords.length
+            : 0;
+
+        // 至少匹配 2 个关键词 且 匹配比例 ≥ 20%，或关键词少时要求匹配 ≥ 50%
+        const MIN_MATCH_COUNT = 2;
+        const MIN_OVERLAP_RATIO = 0.2;
+        const isRelevant =
+          allKeywords.length <= 3
+            ? overlapRatio >= 0.5 // 关键词少时要求高比例
+            : matchedKeywords.length >= MIN_MATCH_COUNT &&
+              overlapRatio >= MIN_OVERLAP_RATIO;
+
+        if (!isRelevant) {
           this.logger.warn(
-            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — no keyword overlap`,
+            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — overlap ${matchedKeywords.length}/${allKeywords.length} (${(overlapRatio * 100).toFixed(0)}%) below threshold`,
           );
         }
-        return hasOverlap;
+        return isRelevant;
       });
       section.allocatedFigures = relevant;
       totalAllocated += relevant.length;

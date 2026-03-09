@@ -68,6 +68,8 @@ interface SearchResultsMetadata {
     url: string;
     domain?: string;
     sourceType?: string;
+    credibilityScore?: number;
+    relevanceScore?: number;
     publishedDate?: string;
     // ★ 知识库来源标记
     isKnowledgeBase?: boolean;
@@ -247,6 +249,7 @@ interface TodoDetailPanelProps {
 
 // ★ 搜索结果详情展示组件
 function SearchResultsDisplay({ sr }: { sr: SearchResultsMetadata }) {
+  const [showAllSources, setShowAllSources] = useState(false);
   return (
     <div className="mt-2 space-y-2 rounded-lg bg-blue-50 p-3">
       <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
@@ -342,52 +345,95 @@ function SearchResultsDisplay({ sr }: { sr: SearchResultsMetadata }) {
             <Globe className="h-3 w-3" />
             来源 ({sr.sources.length})
           </div>
-          <div className="max-h-32 space-y-1 overflow-y-auto">
-            {sr.sources.slice(0, 5).map((source, idx) => (
-              <a
-                key={idx}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  'flex items-start gap-1 rounded p-1.5 text-xs hover:bg-gray-50',
-                  source.isKnowledgeBase ? 'bg-purple-50' : 'bg-white'
-                )}
-              >
-                <ExternalLink
+          <div
+            className={cn(
+              'space-y-1 overflow-y-auto',
+              showAllSources ? 'max-h-96' : 'max-h-32'
+            )}
+          >
+            {(showAllSources ? sr.sources : sr.sources.slice(0, 5)).map(
+              (source, idx) => (
+                <a
+                  key={idx}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className={cn(
-                    'mt-0.5 h-3 w-3 flex-shrink-0',
-                    source.isKnowledgeBase ? 'text-purple-500' : 'text-blue-500'
+                    'flex items-start gap-1 rounded p-1.5 text-xs hover:bg-gray-50',
+                    source.isKnowledgeBase ? 'bg-purple-50' : 'bg-white'
                   )}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
-                    <span className="truncate font-medium text-gray-700">
-                      {source.title}
-                    </span>
-                    {source.isKnowledgeBase && (
-                      <span className="flex-shrink-0 rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-600">
-                        知识库
+                >
+                  <ExternalLink
+                    className={cn(
+                      'mt-0.5 h-3 w-3 flex-shrink-0',
+                      source.isKnowledgeBase
+                        ? 'text-purple-500'
+                        : 'text-blue-500'
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="truncate font-medium text-gray-700">
+                        {source.title}
                       </span>
-                    )}
+                      {source.isKnowledgeBase && (
+                        <span className="flex-shrink-0 rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-600">
+                          知识库
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {source.domain && (
+                        <span className="text-gray-400">{source.domain}</span>
+                      )}
+                      {source.relevanceScore != null && (
+                        <span
+                          className={cn(
+                            'rounded px-1 py-0.5 text-[10px]',
+                            source.relevanceScore >= 60
+                              ? 'bg-green-100 text-green-700'
+                              : source.relevanceScore >= 30
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-gray-100 text-gray-500'
+                          )}
+                        >
+                          相关 {source.relevanceScore}
+                        </span>
+                      )}
+                      {source.credibilityScore != null && (
+                        <span
+                          className={cn(
+                            'rounded px-1 py-0.5 text-[10px]',
+                            source.credibilityScore >= 70
+                              ? 'bg-blue-100 text-blue-700'
+                              : source.credibilityScore >= 50
+                                ? 'bg-gray-100 text-gray-600'
+                                : 'bg-gray-100 text-gray-400'
+                          )}
+                        >
+                          可信 {source.credibilityScore}
+                        </span>
+                      )}
+                      {source.similarity !== undefined && (
+                        <span className="text-purple-500">
+                          相似度: {(source.similarity * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {source.domain && (
-                      <span className="text-gray-400">{source.domain}</span>
-                    )}
-                    {source.similarity !== undefined && (
-                      <span className="text-purple-500">
-                        相似度: {(source.similarity * 100).toFixed(0)}%
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </a>
-            ))}
+                </a>
+              )
+            )}
             {sr.sources.length > 5 && (
-              <div className="text-xs text-gray-400">
-                ...还有 {sr.sources.length - 5} 条来源
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllSources(!showAllSources)}
+                className="w-full text-center text-xs text-blue-500 hover:text-blue-700 hover:underline"
+              >
+                {showAllSources
+                  ? '收起'
+                  : `展开全部 ${sr.sources.length} 条来源`}
+              </button>
             )}
           </div>
         </div>

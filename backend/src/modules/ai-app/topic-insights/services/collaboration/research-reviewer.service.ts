@@ -130,12 +130,24 @@ export class ResearchReviewerService {
         qualityLevel: this.determineQualityLevel(reviewData.overallScore),
         overallScore: reviewData.overallScore,
         scores: reviewData.scores,
-        issues: reviewData.issues.map((issue) => ({
-          type: issue.type as ReviewIssue["type"],
-          severity: issue.severity as ReviewIssue["severity"],
-          description: issue.description,
-          affectedSection: issue.affectedSection,
-        })),
+        issues: (Array.isArray(reviewData.issues) ? reviewData.issues : []).map(
+          (issue) => {
+            // Handle plain string issues from LLM
+            if (typeof issue === "string") {
+              return {
+                type: "shallow_analysis" as ReviewIssue["type"],
+                severity: "major" as ReviewIssue["severity"],
+                description: issue,
+              };
+            }
+            return {
+              type: (issue.type || "shallow_analysis") as ReviewIssue["type"],
+              severity: this.normalizeSeverity(issue.severity),
+              description: issue.description || String(issue),
+              affectedSection: issue.affectedSection,
+            };
+          },
+        ),
         suggestions: reviewData.suggestions,
         needsReresearch:
           reviewData.needsReresearch ||
@@ -942,5 +954,37 @@ ${analysis.detailedContent.substring(0, 6000)}${analysis.detailedContent.length 
       needsReresearch: true,
       reresearchFocus: ["全部内容"],
     };
+  }
+
+  /**
+   * Normalize LLM severity values to expected enum.
+   * Handles Chinese values, typos, and alternative English terms.
+   */
+  private normalizeSeverity(raw: string | undefined): ReviewIssue["severity"] {
+    if (!raw) return "major";
+    const lower = raw.toLowerCase().trim();
+    // English exact match
+    if (lower === "critical") return "critical";
+    if (lower === "major") return "major";
+    if (lower === "minor") return "minor";
+    // Chinese mappings
+    if (lower.includes("严重") || lower.includes("致命")) return "critical";
+    if (
+      lower.includes("重要") ||
+      lower.includes("主要") ||
+      lower.includes("中等")
+    )
+      return "major";
+    if (
+      lower.includes("轻微") ||
+      lower.includes("次要") ||
+      lower.includes("建议")
+    )
+      return "minor";
+    // Alternative English
+    if (lower === "high" || lower === "error") return "critical";
+    if (lower === "medium" || lower === "warning") return "major";
+    if (lower === "low" || lower === "info") return "minor";
+    return "major"; // safe default
   }
 }

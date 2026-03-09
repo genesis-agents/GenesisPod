@@ -80,6 +80,13 @@ export interface AggregatedSearchResult {
     executionTimeMs: number;
     sourceResults: Record<DataSourceType, number>;
   };
+  /** Scored items with relevance and credibility scores (from ResultFusionService) */
+  scoredItems?: Array<{
+    item: DataSourceResult;
+    score: number;
+    relevanceScore: number;
+    credibilityScore: number;
+  }>;
 }
 
 /**

@@ -37,7 +37,8 @@ export interface SearchResultsRecord {
     url: string;
     domain?: string;
     sourceType: string;
-    credibilityScore?: number;
+    credibilityScore?: number; // 可信度评分 (0-100)
+    relevanceScore?: number; // 相关度评分 (0-100)
     publishedDate?: string; // 发布日期
     // ★ 知识库来源标记
     isKnowledgeBase?: boolean; // 是否来自知识库

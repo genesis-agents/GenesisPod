@@ -55,17 +55,71 @@ const ACADEMIC_DOMAIN_PATTERNS = [
   "acm.org",
 ];
 
-/** Score weight configuration */
+/** Score weight configuration — relevance-first ranking */
 const WEIGHTS = {
-  sourceType: 0.4,
-  domainAuthority: 0.2,
-  recency: 0.25,
-  contentDepth: 0.15,
+  relevance: 0.35,
+  sourceType: 0.25,
+  domainAuthority: 0.15,
+  recency: 0.15,
+  contentDepth: 0.1,
 };
 
-interface ScoredResult {
+/** Common stop words to exclude from relevance matching */
+const STOP_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "is",
+  "are",
+  "was",
+  "were",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "of",
+  "and",
+  "or",
+  "not",
+  "with",
+  "by",
+  "from",
+  "as",
+  "it",
+  "be",
+  "this",
+  "that",
+  "which",
+  "but",
+  "if",
+  "about",
+  "site",
+  "com",
+  "org",
+  // Chinese stop words
+  "的",
+  "了",
+  "在",
+  "是",
+  "和",
+  "与",
+  "对",
+  "从",
+  "到",
+  "也",
+  "就",
+  "都",
+  "而",
+  "及",
+  "或",
+]);
+
+export interface ScoredResult {
   item: DataSourceResult;
   score: number;
+  relevanceScore: number;
+  credibilityScore: number;
 }
 
 @Injectable()
@@ -103,30 +157,43 @@ export class ResultFusionService {
       `After deduplication: ${dedupedItems.length} items (removed ${allItems.length - dedupedItems.length})`,
     );
 
-    // 3. Score each item
-    const scored: ScoredResult[] = dedupedItems.map((item) => ({
-      item,
-      score: this.scoreItem(item),
-    }));
+    // 3. Score each item (relevance + credibility composite)
+    const scored: ScoredResult[] = dedupedItems.map((item) => {
+      const relevanceScore = this.getRelevanceScore(item, searchQuery);
+      const credibilityScore = this.getCredibilityScore(item);
+      const score =
+        relevanceScore * WEIGHTS.relevance +
+        credibilityScore *
+          (WEIGHTS.sourceType +
+            WEIGHTS.domainAuthority +
+            WEIGHTS.contentDepth) +
+        this.getRecencyScore(item.publishedAt) * WEIGHTS.recency;
+      return { item, score, relevanceScore, credibilityScore };
+    });
 
-    // 4. Sort by credibility score descending
+    // 4. Sort by composite score descending
     scored.sort((a, b) => b.score - a.score);
 
     // 5. Enforce domain diversity — no more than MAX_ITEMS_PER_DOMAIN per domain
-    const diverseItems = this.enforceDomainDiversity(scored);
+    const diverseScored = this.enforceDomainDiversity(scored);
 
     const sources = Array.from(sourceResults.keys());
     const executionTimeMs = Date.now() - startTime;
 
+    this.logger.log(
+      `Fusion complete: ${allItems.length} raw → ${dedupedItems.length} deduped → ${diverseScored.length} diverse (${executionTimeMs}ms)`,
+    );
+
     return {
-      items: diverseItems,
-      totalCount: diverseItems.length,
+      items: diverseScored.map((s) => s.item),
+      totalCount: diverseScored.length,
       sources,
       metadata: {
         searchQuery,
         executionTimeMs,
         sourceResults: sourceCountMap as Record<DataSourceType, number>,
       },
+      scoredItems: diverseScored,
     };
   }
 
@@ -167,36 +234,109 @@ export class ResultFusionService {
   // Scoring
   // ============================================================================
 
-  private scoreItem(item: DataSourceResult): number {
+  /**
+   * Credibility score combining source type, domain authority, and content depth.
+   * Returns 0–1.
+   */
+  getCredibilityScore(item: DataSourceResult): number {
     const sourceTypeScore = this.getSourceTypeScore(item.sourceType);
     const domainAuthorityScore = this.getDomainAuthorityScore(
       item.domain ?? item.url,
     );
-    const recencyScore = this.getRecencyScore(item.publishedAt);
     const contentDepthScore = this.getContentDepthScore(item.snippet);
 
+    // Weighted average within the credibility sub-components
     return (
-      sourceTypeScore * WEIGHTS.sourceType +
-      domainAuthorityScore * WEIGHTS.domainAuthority +
-      recencyScore * WEIGHTS.recency +
-      contentDepthScore * WEIGHTS.contentDepth
+      sourceTypeScore * 0.5 +
+      domainAuthorityScore * 0.3 +
+      contentDepthScore * 0.2
     );
+  }
+
+  /**
+   * Relevance score: how well the item matches the search query.
+   * Uses keyword overlap between query terms and title + snippet.
+   * Returns 0–1.
+   */
+  getRelevanceScore(item: DataSourceResult, searchQuery: string): number {
+    if (!searchQuery) return 0.5; // neutral if no query
+
+    const queryTerms = this.tokenize(searchQuery);
+    if (queryTerms.length === 0) return 0.5;
+
+    const titleLower = (item.title || "").toLowerCase();
+    const snippetLower = (item.snippet || "").toLowerCase();
+    const combined = titleLower + " " + snippetLower;
+
+    let titleHits = 0;
+    let snippetHits = 0;
+
+    for (const term of queryTerms) {
+      if (titleLower.includes(term)) titleHits++;
+      if (snippetLower.includes(term)) snippetHits++;
+    }
+
+    // Title match is 2x more important than snippet match
+    const titleCoverage = titleHits / queryTerms.length;
+    const snippetCoverage = snippetHits / queryTerms.length;
+    let score = titleCoverage * 0.6 + snippetCoverage * 0.4;
+
+    // Bonus: exact phrase match in title (boost for highly relevant results)
+    const queryLower = searchQuery.toLowerCase().trim();
+    if (queryLower.length > 5 && titleLower.includes(queryLower)) {
+      score = Math.min(1.0, score + 0.15);
+    }
+
+    // Bonus: citation count from academic sources (metadata.citationCount)
+    const citationCount = (item.metadata?.citationCount as number) || 0;
+    if (citationCount > 100) {
+      score = Math.min(1.0, score + 0.1);
+    } else if (citationCount > 20) {
+      score = Math.min(1.0, score + 0.05);
+    }
+
+    // Penalty: very short snippet likely means low-quality result
+    if (combined.length < 50) {
+      score *= 0.5;
+    }
+
+    return Math.max(0, Math.min(1.0, score));
+  }
+
+  /**
+   * Tokenize a query string into meaningful terms, removing stop words and noise.
+   */
+  private tokenize(query: string): string[] {
+    // Remove site: filters, OR operators, quotes
+    const cleaned = query
+      .replace(/site:\S+/gi, "")
+      .replace(/\bOR\b/gi, "")
+      .replace(/["']/g, "")
+      .toLowerCase();
+
+    // Split on whitespace and non-alphanumeric (preserving CJK characters)
+    const tokens = cleaned
+      .split(/[\s,;|]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
+
+    return [...new Set(tokens)];
   }
 
   // ============================================================================
   // Domain Diversity
   // ============================================================================
 
-  private enforceDomainDiversity(scored: ScoredResult[]): DataSourceResult[] {
+  private enforceDomainDiversity(scored: ScoredResult[]): ScoredResult[] {
     const domainCounts = new Map<string, number>();
-    const result: DataSourceResult[] = [];
+    const result: ScoredResult[] = [];
 
-    for (const { item } of scored) {
-      const domain = this.extractDomain(item.url);
+    for (const entry of scored) {
+      const domain = this.extractDomain(entry.item.url);
       const count = domainCounts.get(domain) ?? 0;
 
       if (count < MAX_ITEMS_PER_DOMAIN) {
-        result.push(item);
+        result.push(entry);
         domainCounts.set(domain, count + 1);
       }
     }

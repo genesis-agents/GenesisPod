@@ -1182,6 +1182,8 @@ export interface SearchResultsRecord {
     url: string;
     domain?: string;
     sourceType?: string;
+    credibilityScore?: number;
+    relevanceScore?: number;
     publishedDate?: string;
     isKnowledgeBase?: boolean;
     similarity?: number;

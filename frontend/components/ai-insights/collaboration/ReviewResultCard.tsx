@@ -264,7 +264,15 @@ function IssuesList({
       </h4>
       <div className="space-y-1.5">
         {displayIssues.map((issue, idx) => {
-          const severityConf = severityConfigs[issue.severity];
+          // Handle both structured ReviewIssue and plain string issues
+          const isString = typeof issue === 'string';
+          const severity = isString ? 'major' : issue.severity || 'major';
+          const description = isString
+            ? (issue as unknown as string)
+            : issue.description || String(issue);
+          const severityConf =
+            severityConfigs[severity as keyof typeof severityConfigs] ||
+            severityConfigs.major;
           return (
             <div
               key={idx}
@@ -277,7 +285,7 @@ function IssuesList({
                 [{severityConf.label}]
               </span>{' '}
               <span className="text-gray-700 dark:text-gray-300">
-                {issue.description}
+                {description}
               </span>
             </div>
           );
