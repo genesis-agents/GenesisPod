@@ -1051,6 +1051,34 @@ export class DataSourceRouterService {
     const record = data as Record<string, unknown>;
 
     switch (toolId) {
+      case "openalex-search": {
+        const papers = (record.papers || []) as Array<{
+          title: string;
+          url: string;
+          abstract?: string;
+          authors?: string[];
+          year?: number;
+          citationCount?: number;
+          doi?: string;
+          openAccessUrl?: string;
+          source?: string;
+        }>;
+        return papers.map((p) => ({
+          sourceType,
+          title: p.title,
+          url: p.openAccessUrl || p.url,
+          snippet: p.abstract || "",
+          domain: "openalex.org",
+          metadata: {
+            authors: p.authors,
+            year: p.year,
+            citationCount: p.citationCount,
+            doi: p.doi,
+            source: p.source,
+          },
+        }));
+      }
+
       case "semantic-scholar": {
         const papers = (record.papers || []) as Array<{
           title: string;

@@ -31,10 +31,10 @@ export class InputComplexityCheck implements IInputGuardrail {
   readonly enabled = true;
 
   private readonly thresholds: ComplexityThresholds = {
-    maxLength: 100000, // 100k characters
-    maxTokenEstimate: 25000, // ~25k tokens
-    warnLength: 50000, // 50k characters
-    warnTokenEstimate: 12500, // ~12.5k tokens
+    maxLength: 400000, // 400k characters (~100k tokens, within model context limits)
+    maxTokenEstimate: 100000, // ~100k tokens (GPT-5.1/Claude support 128k+ input)
+    warnLength: 200000, // 200k characters
+    warnTokenEstimate: 50000, // ~50k tokens
   };
 
   /**

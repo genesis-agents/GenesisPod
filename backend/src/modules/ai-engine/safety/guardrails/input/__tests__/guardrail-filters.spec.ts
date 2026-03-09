@@ -138,30 +138,29 @@ describe("InputComplexityCheck", () => {
     expect(result.message).toContain("acceptable");
   });
 
-  it("should warn for input exceeding warn length (50k chars)", async () => {
-    // Use long words to keep token count below maxTokenEstimate (25000)
-    // 'abcdefghij ' = 11 chars per word, 4546 repetitions = ~50006 chars, ~5910 tokens
-    const longContent = "abcdefghij ".repeat(4546);
+  it("should warn for input exceeding warn length (200k chars)", async () => {
+    // 'abcdefghij ' = 11 chars per word, 18182 repetitions = ~200002 chars
+    const longContent = "abcdefghij ".repeat(18182);
     const result = await check.check({ content: longContent });
     expect(result.passed).toBe(true);
     expect(result.severity).toBe("warning");
     expect(result.message).toContain("large");
   });
 
-  it("should block for input exceeding max length (100k chars)", async () => {
-    const veryLongContent = "a ".repeat(50001); // ~100002 chars
+  it("should block for input exceeding max length (400k chars)", async () => {
+    const veryLongContent = "a ".repeat(200001); // ~400002 chars
     const result = await check.check({ content: veryLongContent });
     expect(result.passed).toBe(false);
     expect(result.severity).toBe("block");
     expect(result.message).toContain("exceeds maximum length");
     const meta = result.metadata as any;
-    expect(meta.maxLength).toBe(100000);
+    expect(meta.maxLength).toBe(400000);
   });
 
   it("should block for input exceeding max token estimate", async () => {
-    // Create content with many words to exceed 25000 token estimate
-    // 25000 tokens / 1.3 ≈ 19231 words needed
-    const manyWords = "word ".repeat(20000); // ~20000 words = ~26000 tokens
+    // Create content with many words to exceed 100000 token estimate
+    // 100000 tokens / 1.3 ≈ 76924 words needed
+    const manyWords = "word ".repeat(80000); // ~80000 words = ~104000 tokens
     const result = await check.check({ content: manyWords });
     expect(result.passed).toBe(false);
     expect(result.severity).toBe("block");

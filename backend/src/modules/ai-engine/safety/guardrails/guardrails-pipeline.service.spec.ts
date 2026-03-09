@@ -80,7 +80,7 @@ describe("GuardrailsPipelineService", () => {
     });
 
     it("should block excessively long input", async () => {
-      const longContent = "a".repeat(150000);
+      const longContent = "a".repeat(500000);
       const result = await service.processInput({
         content: longContent,
       });
