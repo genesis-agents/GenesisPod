@@ -193,6 +193,7 @@ export class DataSourceRouterService {
             [DataSourceType.SOCIAL_X]: 0,
             [DataSourceType.SEMANTIC_SCHOLAR]: 0,
             [DataSourceType.PUBMED]: 0,
+            [DataSourceType.OPENALEX]: 0,
             [DataSourceType.FINANCE_API]: 0,
             [DataSourceType.WEATHER_API]: 0,
           },
@@ -958,6 +959,8 @@ export class DataSourceRouterService {
         );
       case DataSourceType.PUBMED:
         return this.searchViaTool("pubmed", source, query, maxResults);
+      case DataSourceType.OPENALEX:
+        return this.searchViaTool("openalex-search", source, query, maxResults);
       case DataSourceType.FINANCE_API:
         return this.searchViaTool("finance-api", source, query, maxResults);
       case DataSourceType.WEATHER_API:
@@ -2272,6 +2275,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       [DataSourceType.SOCIAL_X]: 60,
       [DataSourceType.SEMANTIC_SCHOLAR]: 100,
       [DataSourceType.PUBMED]: 95,
+      [DataSourceType.OPENALEX]: 100,
       [DataSourceType.FINANCE_API]: 85,
       [DataSourceType.WEATHER_API]: 75,
     };

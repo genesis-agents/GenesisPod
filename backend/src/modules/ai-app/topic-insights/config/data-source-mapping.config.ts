@@ -25,6 +25,7 @@ export const DATA_SOURCE_TO_TOOL_ID: Partial<Record<DataSourceType, string>> = {
   // ★ P0: 新增实时数据源连接器
   [DataSourceType.SEMANTIC_SCHOLAR]: "semantic-scholar",
   [DataSourceType.PUBMED]: "pubmed",
+  [DataSourceType.OPENALEX]: "openalex-search",
   [DataSourceType.FINANCE_API]: "finance-api",
   [DataSourceType.WEATHER_API]: "weather-api",
   // RSS, LOCAL 暂未映射工具
@@ -57,6 +58,8 @@ export const TOOL_ID_TO_DATA_SOURCE: Record<string, DataSourceType> = {
   "semantic-scholar": DataSourceType.SEMANTIC_SCHOLAR,
   semanticscholar: DataSourceType.SEMANTIC_SCHOLAR,
   pubmed: DataSourceType.PUBMED,
+  "openalex-search": DataSourceType.OPENALEX,
+  openalex: DataSourceType.OPENALEX,
   "finance-api": DataSourceType.FINANCE_API,
   finance: DataSourceType.FINANCE_API,
   "weather-api": DataSourceType.WEATHER_API,

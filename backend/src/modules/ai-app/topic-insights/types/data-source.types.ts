@@ -23,6 +23,7 @@ export enum DataSourceType {
   // ★ P0: 实时数据源接入
   SEMANTIC_SCHOLAR = "semantic-scholar", // Semantic Scholar 学术论文 API
   PUBMED = "pubmed", // PubMed 生物医学文献
+  OPENALEX = "openalex", // OpenAlex 开放学术数据库 (2.5亿+作品)
   FINANCE_API = "finance-api", // 金融数据 API (Alpha Vantage)
   WEATHER_API = "weather-api", // 天气数据 API (Open-Meteo)
 }

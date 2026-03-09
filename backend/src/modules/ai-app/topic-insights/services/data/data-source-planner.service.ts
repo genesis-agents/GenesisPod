@@ -185,6 +185,28 @@ export class DataSourcePlannerService {
       isAvailable: true,
     },
     {
+      type: DataSourceType.OPENALEX,
+      displayName: "OpenAlex",
+      description:
+        "OpenAlex 开放学术数据库，2.5亿+学术作品，跨学科覆盖，免费无限制访问",
+      useCases: [
+        "大规模文献调研",
+        "引用网络分析",
+        "开放获取论文",
+        "跨学科研究",
+        "学术趋势分析",
+      ],
+      characteristics: [
+        "全学科覆盖",
+        "开放获取标记",
+        "引用计数",
+        "免费无Key",
+        "高吞吐量",
+      ],
+      requiresApiKey: false,
+      isAvailable: true,
+    },
+    {
       type: DataSourceType.FINANCE_API,
       displayName: "Finance Data API",
       description: "金融数据搜索，获取公司信息、股票行情、市场数据",

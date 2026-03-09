@@ -292,6 +292,7 @@ export class DataSourceStrategyService {
       [DataSourceType.SOCIAL_X]: 60,
       [DataSourceType.SEMANTIC_SCHOLAR]: 100,
       [DataSourceType.PUBMED]: 95,
+      [DataSourceType.OPENALEX]: 100,
       [DataSourceType.FINANCE_API]: 85,
       [DataSourceType.WEATHER_API]: 75,
     };
