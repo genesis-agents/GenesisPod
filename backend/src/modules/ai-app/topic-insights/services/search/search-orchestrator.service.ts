@@ -26,6 +26,7 @@ import {
 import {
   dataSourceToToolId,
   convertToolsToDataSources,
+  TOOL_ID_TO_DATA_SOURCE,
 } from "../../config/data-source-mapping.config";
 import type { SearchPipelineOptions, QualityVerdict } from "./search.types";
 import { QueryStrategyService } from "./query/query-strategy.service";
@@ -140,6 +141,9 @@ export class SearchOrchestratorService {
           }
 
           if (enabledSet.has(toolId)) {
+            filteredSources.push(source);
+          } else if (this.hasAnySubToolEnabled(source, enabledSet)) {
+            // Aggregate sources (e.g. ACADEMIC) — keep if any sub-tool is enabled
             filteredSources.push(source);
           } else {
             this.logger.warn(
@@ -325,5 +329,40 @@ export class SearchOrchestratorService {
     }
 
     return sources.length > 0 ? sources : [...DEFAULT_SOURCES];
+  }
+
+  /**
+   * Check if an aggregate source type (e.g. ACADEMIC) has any enabled sub-tools.
+   * ACADEMIC maps to "arxiv-search" but actually uses openalex-search, pubmed, etc.
+   * If any of these sub-tools is enabled, the aggregate source should be kept.
+   */
+  private hasAnySubToolEnabled(
+    source: DataSourceType,
+    enabledSet: Set<string>,
+  ): boolean {
+    // Find all tool IDs that map to this source type or its sub-types
+    const relatedToolIds: string[] = [];
+    for (const [toolId, mappedSource] of Object.entries(
+      TOOL_ID_TO_DATA_SOURCE,
+    )) {
+      if (mappedSource === source) {
+        relatedToolIds.push(toolId);
+      }
+    }
+
+    // For ACADEMIC, also check tools that map to sub-types (OPENALEX, PUBMED, etc.)
+    if (source === DataSourceType.ACADEMIC) {
+      const subTypes = [
+        DataSourceType.OPENALEX,
+        DataSourceType.SEMANTIC_SCHOLAR,
+        DataSourceType.PUBMED,
+      ];
+      for (const subType of subTypes) {
+        const subToolId = dataSourceToToolId(subType);
+        if (subToolId) relatedToolIds.push(subToolId);
+      }
+    }
+
+    return relatedToolIds.some((tid) => enabledSet.has(tid));
   }
 }
