@@ -32,8 +32,11 @@ const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
   { value: 'SKILLSMP', key: 'skillsmp' },
   { value: 'POLICY', key: 'policy' },
   { value: 'FINANCE', key: 'finance' },
+  { value: 'ACADEMIC', key: 'academic' },
+  { value: 'WEATHER', key: 'weather' },
   { value: 'DEV_TOOLS', key: 'devTools' },
   { value: 'MCP', key: 'mcp' },
+  { value: 'USER_DONATED', key: 'userDonated' },
   { value: 'OTHER', key: 'other' },
 ];
 

@@ -3963,8 +3963,11 @@
         "skillsmp": "Skills Marketplace",
         "policy": "Policy Research",
         "finance": "Finance Data",
+        "academic": "Academic Research",
+        "weather": "Weather Data",
         "devTools": "Dev Tools",
         "mcp": "MCP Servers",
+        "userDonated": "User Donated",
         "other": "Other"
       }
     }

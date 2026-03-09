@@ -3963,8 +3963,11 @@
         "skillsmp": "技能市场",
         "policy": "政策研究",
         "finance": "金融数据",
+        "academic": "学术研究",
+        "weather": "天气数据",
         "devTools": "开发工具",
         "mcp": "MCP 服务器",
+        "userDonated": "用户捐赠",
         "other": "其他"
       }
     }
