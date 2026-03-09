@@ -339,11 +339,13 @@ export class AiSocialController {
     @Query("type") type?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
+    @Query("since") since?: string,
   ) {
     return this.aiSocialService.getExploreSources(req.user.id, {
       type,
       page: Number(page) || 1,
-      limit: Number(limit) || 20,
+      limit: limit ? Number(limit) : undefined,
+      since,
     });
   }
 

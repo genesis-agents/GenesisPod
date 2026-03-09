@@ -651,6 +651,7 @@ interface SourceItemBase {
 export async function getExploreSources(options?: {
   limit?: number;
   offset?: number;
+  type?: string;
 }): Promise<{
   items: Array<{
     id: string;
@@ -665,6 +666,11 @@ export async function getExploreSources(options?: {
 }> {
   const params = new URLSearchParams();
   if (options?.limit) params.set('limit', options.limit.toString());
+  if (options?.type) params.set('type', options.type);
+  // Default: fetch content from the last 7 days
+  const since = new Date();
+  since.setDate(since.getDate() - 7);
+  params.set('since', since.toISOString());
   const query = params.toString();
   const data = await fetchWithAuth<SourceItemBase[]>(
     `/api/v1/ai-social/sources/explore${query ? `?${query}` : ''}`

@@ -1189,7 +1189,12 @@ export class AiSocialService {
 
   async getExploreSources(
     _userId: string,
-    options: { type?: string; page: number; limit: number },
+    options: {
+      type?: string;
+      page: number;
+      limit?: number;
+      since?: string;
+    },
   ) {
     const where: Record<string, unknown> = {};
 
@@ -1197,11 +1202,20 @@ export class AiSocialService {
       where.type = options.type.toUpperCase();
     }
 
+    // 时间范围过滤：默认最近 7 天
+    if (options.since) {
+      const sinceDate = new Date(options.since);
+      if (!isNaN(sinceDate.getTime())) {
+        where.createdAt = { gte: sinceDate };
+      }
+    }
+
+    const take = options.limit || 200; // 无 limit 时取较大值
     const resources = await this.prisma.resource.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      skip: (options.page - 1) * options.limit,
-      take: options.limit,
+      skip: (options.page - 1) * take,
+      take,
       select: {
         id: true,
         type: true,

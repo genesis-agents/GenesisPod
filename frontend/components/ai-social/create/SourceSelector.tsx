@@ -56,7 +56,22 @@ export function SourceSelector() {
 
   const [sourceItems, setSourceItems] = useState<SourceItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+
+  // Resource type options for Explore filter
+  const exploreTypeOptions = [
+    { value: '', label: 'All' },
+    { value: 'NEWS', label: 'News' },
+    { value: 'PAPER', label: 'Paper' },
+    { value: 'BLOG', label: 'Blog' },
+    { value: 'REPORT', label: 'Report' },
+    { value: 'YOUTUBE_VIDEO', label: 'Video' },
+    { value: 'PROJECT', label: 'Project' },
+    { value: 'RSS', label: 'RSS' },
+    { value: 'POLICY', label: 'Policy' },
+    { value: 'EVENT', label: 'Event' },
+  ];
 
   // Source options configuration
   const sourceOptions: {
@@ -111,8 +126,11 @@ export function SourceSelector() {
     },
   ];
 
-  // Load source items when source type changes
-  const loadSourceItems = async (type: SocialContentSourceType) => {
+  // Load source items when source type or type filter changes
+  const loadSourceItems = async (
+    type: SocialContentSourceType,
+    resourceType?: string
+  ) => {
     setError(null);
     try {
       let result: { items: SourceItem[]; total: number } = {
@@ -122,7 +140,9 @@ export function SourceSelector() {
 
       switch (type) {
         case 'AI_EXPLORE':
-          result = await fetchExplore({ limit: 50 });
+          result = await fetchExplore({
+            type: resourceType || undefined,
+          });
           break;
         case 'AI_RESEARCH':
           result = await fetchResearch({ limit: 50 });
@@ -147,9 +167,10 @@ export function SourceSelector() {
       !['MANUAL', 'EXTERNAL_URL'].includes(sourceType) &&
       !sourceId
     ) {
-      loadSourceItems(sourceType);
+      loadSourceItems(sourceType, typeFilter);
     }
-  }, [sourceType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceType, typeFilter]);
 
   // Handle source type selection
   const handleSourceTypeSelect = (type: SocialContentSourceType) => {
@@ -339,6 +360,25 @@ export function SourceSelector() {
           className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-12 pr-4 focus:border-rose-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20"
         />
       </div>
+
+      {/* Type filter tabs (Explore only) */}
+      {sourceType === 'AI_EXPLORE' && (
+        <div className="flex flex-wrap gap-2">
+          {exploreTypeOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setTypeFilter(opt.value)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                typeFilter === opt.value
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Error */}
       {error && (

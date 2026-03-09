@@ -662,7 +662,7 @@ export function useSocialSources() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchExplore = useCallback(
-    async (options?: { limit?: number; offset?: number }) => {
+    async (options?: { limit?: number; offset?: number; type?: string }) => {
       setLoading(true);
       setError(null);
       try {
