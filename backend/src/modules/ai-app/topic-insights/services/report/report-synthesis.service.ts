@@ -1370,7 +1370,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         fullText?: string;
       };
       if (esObj.fullText) {
-        return esObj.fullText;
+        // ★ Strip markdown bold markers (**text**) - they render as raw text
+        // in many contexts (export, quick view, etc.)
+        return esObj.fullText.replace(/\*\*(.*?)\*\*/g, "$1");
       }
       // 如果没有 fullText，从结构化字段组装
       const parts: string[] = [];
@@ -1422,15 +1424,15 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
             esJsonParsed.fullText &&
             typeof esJsonParsed.fullText === "string"
           ) {
-            return esJsonParsed.fullText;
+            return esJsonParsed.fullText.replace(/\*\*(.*?)\*\*/g, "$1");
           }
-          return esStr;
+          return esStr.replace(/\*\*(.*?)\*\*/g, "$1");
         } catch {
           // JSON 解析失败，使用原始字符串
-          return esStr;
+          return esStr.replace(/\*\*(.*?)\*\*/g, "$1");
         }
       }
-      return esStr;
+      return esStr.replace(/\*\*(.*?)\*\*/g, "$1");
     }
 
     return "";

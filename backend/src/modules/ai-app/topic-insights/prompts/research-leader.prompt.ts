@@ -392,6 +392,14 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
 
 ## 输出要求
 
+### keyPoints 格式要求（必须严格遵守）
+- 每条要点必须是**完整的独立陈述句**，直接表达核心观点
+- **禁止**使用序号前缀开头，如"第一类是..."、"一是..."、"其一..."
+- **禁止**使用分类标记开头，如"类是..."、"层是..."、"点是..."
+- 正确示例："Transformer 架构在长序列处理上面临二次复杂度瓶颈"
+- 错误示例："第一类是架构瓶颈"、"一是复杂度问题"
+- 每条要点 15-60 字，表达一个完整的信息点
+
 请输出 JSON 格式的维度分析大纲：
 
 \`\`\`json
@@ -411,7 +419,7 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
       "id": "section_1",
       "title": "章节标题",
       "description": "这个章节要回答什么问题",
-      "keyPoints": ["必须覆盖的要点1", "要点2", "要点3"],
+      "keyPoints": ["完整独立的陈述句要点1", "完整独立的陈述句要点2", "完整独立的陈述句要点3"],
       "targetWords": 1000,
       "evidenceRequirements": {
         "minReferences": 3,

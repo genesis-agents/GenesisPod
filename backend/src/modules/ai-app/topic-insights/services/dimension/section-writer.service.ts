@@ -126,8 +126,19 @@ export class SectionWriterService {
     // 格式化证据列表
     const evidenceFormatted = formatEvidenceForPrompt(evidenceData);
 
-    // 格式化要点列表
+    // 格式化要点列表（★ 规范化：去除截断的序号前缀）
     const keyPointsFormatted = section.keyPoints
+      .map((p) => {
+        // Strip truncated ordinal prefixes: "第一类是..." → "...", "一是..." → "..."
+        // Also strip bare fragments: "类是...", "层是...", "点是...", "是..."
+        let normalized = p
+          .replace(/^[第]?[一二三四五六七八九十]+[类层点条项]?[是：:]\s*/u, "")
+          .replace(/^[类层点条项][是：:]\s*/u, "")
+          .replace(/^[是][：:]\s*/u, "");
+        // If normalization emptied the string, use original
+        if (normalized.trim().length < 5) normalized = p;
+        return normalized;
+      })
       .map((p, i) => `${i + 1}. ${p}`)
       .join("\n");
 
@@ -303,22 +314,35 @@ export class SectionWriterService {
           // Relevance check: caption or relevanceReason must share keywords with section
           const figText =
             `${fig.caption || ""} ${fig.relevanceReason || ""}`.toLowerCase();
-          // At least one meaningful word (>= 2 chars) must appear in both
+          // ★ Require at least 2 meaningful keyword overlaps (was 1, too permissive)
           const figWords = figText
             .split(/[\s,，。、：:；;（）()]+/)
             .filter((w) => w.length >= 2);
-          return figWords.some((word) => sectionKeywords.includes(word));
+          const matchCount = figWords.filter((word) =>
+            sectionKeywords.includes(word),
+          ).length;
+          return matchCount >= 2;
         })
-        .map((fig, idx) => ({
-          id: `auto-fig-${idx}`,
-          evidenceCitationIndex: fig.evidenceIndex,
-          figureIndex: fig.figureIndex,
-          imageUrl: fig.imageUrl,
-          caption: fig.caption || "",
-          position: "end_of_section",
-          source: `Source [${fig.evidenceIndex}]`,
-          relevance: fig.relevanceReason || "",
-        }));
+        .map((fig, idx) => {
+          // ★ Build descriptive Source text from evidence metadata
+          const evidenceItem = evidenceData.find(
+            (_e, i) => i + 1 === fig.evidenceIndex,
+          );
+          const sourceText = evidenceItem
+            ? `${evidenceItem.title || evidenceItem.domain || ""}`.trim() ||
+              `[${fig.evidenceIndex}]`
+            : `[${fig.evidenceIndex}]`;
+          return {
+            id: `auto-fig-${idx}`,
+            evidenceCitationIndex: fig.evidenceIndex,
+            figureIndex: fig.figureIndex,
+            imageUrl: fig.imageUrl,
+            caption: fig.caption || "",
+            position: "end_of_section",
+            source: sourceText,
+            relevance: fig.relevanceReason || "",
+          };
+        });
       if (figureRefsToBackfill.length > 0) {
         this.logger.log(
           `[writeSection] Auto-injected ${figureRefsToBackfill.length} figures from allocatedFigures after relevance filter (LLM did not output figureReferences)`,
@@ -357,7 +381,11 @@ export class SectionWriterService {
       const keywords = [...bigrams, ...latinWords];
       // No keywords → reject (empty/generic caption)
       if (keywords.length === 0) return false;
-      const relevant = keywords.some((kw) => sectionCtx.includes(kw));
+      // ★ Require at least 2 keyword overlaps to prevent false positives
+      const matchCount = keywords.filter((kw) =>
+        sectionCtx.includes(kw),
+      ).length;
+      const relevant = matchCount >= 2;
       if (!relevant) {
         this.logger.warn(
           `[writeSection] Removing irrelevant figure "${ref.caption}" from section "${section.title}" — no keyword overlap`,
