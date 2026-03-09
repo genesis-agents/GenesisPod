@@ -16,13 +16,14 @@ import {
   UseInterceptors,
   UseGuards,
   Req,
+  Res,
   BadRequestException,
 } from "@nestjs/common";
 import { SkipThrottle, Throttle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import * as path from "path";
-import { Request } from "express";
+import { Request, Response } from "express";
 import {
   ApiTags,
   ApiOperation,
@@ -436,6 +437,98 @@ export class ResourcesController {
     this.logger.log(`Fetching resource ${id}`);
 
     return this.resourcesService.findOne(id);
+  }
+
+  /**
+   * 图片代理 - 解决微信等平台的图片防盗链
+   * GET /api/v1/resources/proxy-image?url=https://mmbiz.qpic.cn/...
+   *
+   * 允许的图片域名白名单（防 SSRF）：
+   * - mmbiz.qpic.cn (微信公众号图片)
+   * - mmbiz.qlogo.cn (微信头像)
+   */
+  @Get("proxy-image")
+  @Public()
+  @SkipThrottle()
+  @ApiOperation({
+    summary: "图片代理",
+    description: "代理获取有防盗链限制的外部图片（如微信公众号图片）",
+  })
+  @ApiQuery({ name: "url", description: "图片URL", required: true })
+  @ApiResponse({ status: 200, description: "图片内容" })
+  @ApiResponse({ status: 400, description: "非法URL" })
+  async proxyImage(
+    @Query("url") imageUrl: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!imageUrl) {
+      res.status(400).json({ message: "url parameter is required" });
+      return;
+    }
+
+    // 安全：仅允许白名单域名，防止 SSRF
+    const allowedDomains = ["mmbiz.qpic.cn", "mmbiz.qlogo.cn"];
+
+    try {
+      const urlObj = new URL(imageUrl);
+      if (!allowedDomains.includes(urlObj.hostname)) {
+        res.status(400).json({
+          message: `Domain ${urlObj.hostname} is not allowed for image proxy`,
+        });
+        return;
+      }
+
+      // 仅允许 HTTPS
+      if (urlObj.protocol !== "https:") {
+        res.status(400).json({ message: "Only HTTPS URLs are allowed" });
+        return;
+      }
+    } catch {
+      res.status(400).json({ message: "Invalid URL format" });
+      return;
+    }
+
+    try {
+      const response = await fetch(imageUrl, {
+        headers: {
+          Referer: "https://mp.weixin.qq.com/",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
+        },
+        redirect: "follow",
+      });
+
+      if (!response.ok) {
+        res.status(response.status).json({
+          message: `Upstream returned ${response.status}`,
+        });
+        return;
+      }
+
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+
+      // 验证返回的确实是图片
+      if (!contentType.startsWith("image/")) {
+        res.status(400).json({ message: "Response is not an image" });
+        return;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+
+      // 设置缓存头，减少重复请求
+      res.set({
+        "Content-Type": contentType,
+        "Content-Length": buffer.length.toString(),
+        "Cache-Control": "public, max-age=86400", // 缓存 24 小时
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.send(buffer);
+    } catch (error) {
+      this.logger.warn(
+        `Image proxy failed for ${imageUrl}: ${(error as Error).message}`,
+      );
+      res.status(502).json({ message: "Failed to fetch image" });
+    }
   }
 
   /**

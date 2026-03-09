@@ -544,9 +544,11 @@ export class SourceWhitelistService {
             // Apple
             "apple.com",
             "machinelearning.apple.com",
+            // WeChat Official Accounts (微信公众号)
+            "mp.weixin.qq.com",
           ],
           description:
-            "Research blogs from: Google, Microsoft, NVIDIA, Intel, AMD, Cisco, Meta, OpenAI, DeepMind, Anthropic, etc.",
+            "Research blogs from: Google, Microsoft, NVIDIA, Intel, AMD, Cisco, Meta, OpenAI, DeepMind, Anthropic, WeChat Official Accounts, etc.",
         },
         {
           resourceType: "NEWS" as ResourceType,

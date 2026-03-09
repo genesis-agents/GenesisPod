@@ -385,6 +385,12 @@ export class ResourcesService {
         keepParams.add("v");
       } else if (urlObj.hostname === "openreview.net") {
         keepParams.add("id");
+      } else if (urlObj.hostname === "mp.weixin.qq.com") {
+        // 微信公众号文章的关键参数，缺一不可
+        keepParams.add("__biz");
+        keepParams.add("mid");
+        keepParams.add("idx");
+        keepParams.add("sn");
       }
 
       // 清理查询参数
@@ -490,6 +496,11 @@ export class ResourcesService {
         const newsInfo = await this.fetchWebPageInfo(finalUrl);
         title = newsInfo.title;
         abstract = newsInfo.abstract;
+      } else if (type === "BLOG" && this.isWechatArticleUrl(finalUrl)) {
+        // 微信公众号文章：专用解析器
+        const wechatInfo = await this.fetchWechatArticleInfo(finalUrl);
+        title = wechatInfo.title;
+        abstract = wechatInfo.abstract;
       } else if (type === "BLOG") {
         // 博客：从网页获取真实标题
         const blogInfo = await this.fetchWebPageInfo(finalUrl);
@@ -786,6 +797,134 @@ export class ResourcesService {
       this.logger.warn(`Failed to fetch GitHub project info: ${String(error)}`);
       return { title: "GitHub Project", abstract: null };
     }
+  }
+
+  /**
+   * 判断URL是否为微信公众号文章
+   */
+  private isWechatArticleUrl(url: string): boolean {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname === "mp.weixin.qq.com";
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 获取微信公众号文章信息
+   * 微信文章是服务端渲染的，可以直接抓取 HTML 解析
+   *
+   * HTML 结构：
+   * - 标题: <h1 class="rich_media_title">
+   * - 作者/公众号: <span class="rich_media_meta_text"> 或 <a id="js_name">
+   * - 正文: <div id="js_content">
+   * - 摘要: <meta name="description" content="...">
+   * - 封面: <meta property="og:image" content="...">
+   * - 发布时间: var ct = "1709888400" (Unix timestamp in page script)
+   */
+  private async fetchWechatArticleInfo(url: string): Promise<{
+    title: string;
+    abstract: string | null;
+    author: string | null;
+    coverImage: string | null;
+  }> {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        },
+        redirect: "follow",
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `WeChat article fetch failed: ${response.status} for ${url}`,
+        );
+        return {
+          title: "微信公众号文章",
+          abstract: null,
+          author: null,
+          coverImage: null,
+        };
+      }
+
+      const html = await response.text();
+
+      // 提取标题: <h1 class="rich_media_title" ...>标题</h1>
+      const titleMatch = html.match(
+        /<h1[^>]*class="rich_media_title"[^>]*>([\s\S]*?)<\/h1>/i,
+      );
+      const title = titleMatch
+        ? titleMatch[1]
+            .replace(/<[^>]+>/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+        : this.extractMetaContent(html, "og:title") || "微信公众号文章";
+
+      // 提取公众号名称: <a ... id="js_name">公众号名</a>
+      const authorMatch = html.match(
+        /<a[^>]*id="js_name"[^>]*>([\s\S]*?)<\/a>/i,
+      );
+      const author = authorMatch
+        ? authorMatch[1]
+            .replace(/<[^>]+>/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+        : null;
+
+      // 提取摘要: meta description
+      const abstract =
+        this.extractMetaContent(html, "description") ||
+        this.extractMetaContent(html, "og:description");
+
+      // 提取封面图: og:image
+      const coverImage = this.extractMetaContent(html, "og:image");
+
+      this.logger.log(
+        `Fetched WeChat article: "${title}" by ${author || "unknown"}`,
+      );
+
+      return { title, abstract, author, coverImage };
+    } catch (error) {
+      this.logger.warn(`Failed to fetch WeChat article info: ${String(error)}`);
+      return {
+        title: "微信公众号文章",
+        abstract: null,
+        author: null,
+        coverImage: null,
+      };
+    }
+  }
+
+  /**
+   * 从 HTML 中提取 meta 标签内容
+   * 支持 name="xxx" 和 property="xxx" 两种格式
+   */
+  private extractMetaContent(html: string, nameOrProp: string): string | null {
+    // property="og:xxx" content="..."
+    const propMatch = html.match(
+      new RegExp(
+        `<meta[^>]+(?:property|name)=["']${nameOrProp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'][^>]+content=["']([^"']+)["']`,
+        "i",
+      ),
+    );
+    if (propMatch) return propMatch[1].replace(/\s+/g, " ").trim();
+
+    // content="..." property="og:xxx" (属性顺序反过来)
+    const reverseMatch = html.match(
+      new RegExp(
+        `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${nameOrProp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']`,
+        "i",
+      ),
+    );
+    if (reverseMatch) return reverseMatch[1].replace(/\s+/g, " ").trim();
+
+    return null;
   }
 
   /**
