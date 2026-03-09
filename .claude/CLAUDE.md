@@ -8,16 +8,20 @@
 
 ### 核心模块
 
-| 模块        | 描述                       | 路径                                     |
-| ----------- | -------------------------- | ---------------------------------------- |
-| AI Research | 深度研究，多步骤规划和报告 | `backend/src/modules/ai-app/research/`   |
-| AI Teams    | 多 Agent 协作，辩论碰撞    | `backend/src/modules/ai-app/teams/`      |
-| AI Office   | 文档/PPT/设计生成          | `backend/src/modules/ai-app/office/`     |
-| AI Ask      | 智能问答，多模型切换       | `backend/src/modules/ai-app/ask/`        |
-| AI Coding   | AI 编程助手，代码生成      | `backend/src/modules/ai-app/coding/`     |
-| AI Writing  | AI 写作助手，长文本创作    | `backend/src/modules/ai-app/writing/`    |
-| AI Social   | AI 社交内容生成            | `backend/src/modules/ai-app/social/`     |
-| Library     | 资源库，内容管理           | `backend/src/modules/content/resources/` |
+| 模块           | 描述                       | 路径                                         |
+| -------------- | -------------------------- | -------------------------------------------- |
+| AI Research    | 深度研究，多步骤规划和报告 | `backend/src/modules/ai-app/research/`       |
+| Topic Insights | 话题洞察，Research 衍生    | `backend/src/modules/ai-app/topic-insights/` |
+| AI Teams       | 多 Agent 协作，辩论碰撞    | `backend/src/modules/ai-app/teams/`          |
+| AI Office      | 文档/PPT/设计生成          | `backend/src/modules/ai-app/office/`         |
+| AI Writing     | AI 写作助手，长文本创作    | `backend/src/modules/ai-app/writing/`        |
+| AI Ask         | 智能问答，多模型切换       | `backend/src/modules/ai-app/ask/`            |
+| AI Image       | AI 图像生成                | `backend/src/modules/ai-app/image/`          |
+| AI Social      | AI 社交内容生成            | `backend/src/modules/ai-app/social/`         |
+| AI Simulation  | 多角色模拟辩论             | `backend/src/modules/ai-app/simulation/`     |
+| AI Planning    | AI 辅助规划                | `backend/src/modules/ai-app/planning/`       |
+| Library        | 资源库，内容管理           | `backend/src/modules/ai-app/library/`        |
+| Explore        | 内容浏览与发现             | `backend/src/modules/ai-app/explore/`        |
 
 ### 技术栈
 
@@ -37,10 +41,10 @@ Infra:    Docker + Railway + PM2 + Redis 7
 ### AI 架构分层（6 层）
 
 ```
-L6 Agent OS（智能编排层）→ 用户入口、意图路由、追踪       → modules/agent-os/
+L6 Intent Gateway（意图网关层）→ 意图识别、路由分发         → modules/intent-gateway/
 L5 Open API（开放接口层）→ MCP Server、Public API、Webhooks → modules/open-api/
 L4 AI Apps（业务应用层）→ Research、Teams、Writing、Office   → modules/ai-app/
-L3 AI Kernel（内核层）→ 进程管理、IPC、记忆、资源调度       → modules/ai-kernel/
+L3 AI Kernel（内核层）→ 进程管理、IPC、资源调度             → modules/ai-kernel/
 L2 AI Engine（核心能力层）→ LLM、Agents、Tools、RAG         → modules/ai-engine/
 L1 Infrastructure（基础设施层）→ Auth、Credits、Storage      → modules/ai-infra/
 ```
@@ -65,14 +69,15 @@ Image     ──┘                        └── Orchestration (执行器)
 
 **关键关系（Claude 必须记住，不要猜）：**
 
-| 关系               | 说明                                                                          |
-| ------------------ | ----------------------------------------------------------------------------- |
-| AI App → AI Engine | 单向依赖，App 层调 Engine 层，**反过来不行**                                  |
-| AI App 之间        | **极少直接依赖**，如有需要通过 AI Engine 中转                                 |
-| Topic Insights     | 属于 `ai-app/`，是 Research 的衍生应用，**不是** AI Engine 核心               |
-| RAG                | 核心在 `ai-engine/rag/`（Embedding/Vector/Chunker），业务逻辑在 `ai-app/rag/` |
-| Teams 模块         | `ai-engine/teams/` 是框架（Registry），`ai-app/teams/` 是业务（辩论等）       |
-| Image 模块         | `ai-engine/image/` 是能力，`ai-app/image/` 是应用，用 `forwardRef` 解循环依赖 |
+| 关系               | 说明                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| AI App → AI Engine | 单向依赖，App 层调 Engine 层，**反过来不行**                                          |
+| AI App 之间        | **极少直接依赖**，如有需要通过 AI Engine 中转                                         |
+| Topic Insights     | 属于 `ai-app/`，是 Research 的衍生应用，**不是** AI Engine 核心                       |
+| Library            | 属于 `ai-app/library/`，含 collections/notes/rag/knowledge-graph/integrations         |
+| RAG                | 核心在 `ai-engine/rag/`（Embedding/Vector/Chunker），业务逻辑在 `ai-app/library/rag/` |
+| Teams 模块         | `ai-engine/teams/` 是框架（Registry），`ai-app/teams/` 是业务（辩论等）               |
+| Image 模块         | `ai-engine/image/` 是能力，`ai-app/image/` 是应用，用 `forwardRef` 解循环依赖         |
 
 **注册模式（onModuleInit）：**
 
@@ -468,6 +473,6 @@ git commit -m "feat(module): description"
 
 ---
 
-**最后更新**: 2026-02-27
+**最后更新**: 2026-03-08
 **维护者**: Claude Code
 **版本**: 2.3
