@@ -59,12 +59,17 @@ function makeCongressApiResponse(billCount = 1) {
 // Mock PolicyDataService
 // ---------------------------------------------------------------------------
 
-type PolicyDataServiceMock = Pick<PolicyDataService, "httpGet" | "getApiKey">;
+type PolicyDataServiceMock = Pick<
+  PolicyDataService,
+  "httpGet" | "getApiKey" | "clearKeyFailure" | "markKeyFailed"
+>;
 
 function createMockPolicyDataService(): jest.Mocked<PolicyDataServiceMock> {
   return {
     httpGet: jest.fn(),
     getApiKey: jest.fn(),
+    clearKeyFailure: jest.fn(),
+    markKeyFailed: jest.fn(),
   };
 }
 
@@ -221,8 +226,7 @@ describe("CongressGovTool", () => {
         makeContext(),
       );
 
-      const calledUrl = mockPolicyDataService.httpGet.mock
-        .calls[0][0] as string;
+      const calledUrl = mockPolicyDataService.httpGet.mock.calls[0][0];
       expect(calledUrl).toContain("/hr");
     });
 
@@ -237,8 +241,7 @@ describe("CongressGovTool", () => {
         makeContext(),
       );
 
-      const calledUrl = mockPolicyDataService.httpGet.mock
-        .calls[0][0] as string;
+      const calledUrl = mockPolicyDataService.httpGet.mock.calls[0][0];
       expect(calledUrl).toContain("/bill/118/hr/1234");
     });
 

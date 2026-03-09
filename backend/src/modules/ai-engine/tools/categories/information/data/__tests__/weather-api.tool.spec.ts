@@ -96,12 +96,17 @@ const MOCK_FORECAST_RESPONSE = {
 // Mock PolicyDataService
 // ---------------------------------------------------------------------------
 
-type PolicyDataServiceMock = Pick<PolicyDataService, "httpGet" | "getApiKey">;
+type PolicyDataServiceMock = Pick<
+  PolicyDataService,
+  "httpGet" | "getApiKey" | "clearKeyFailure" | "markKeyFailed"
+>;
 
 function createMockPolicyDataService(): jest.Mocked<PolicyDataServiceMock> {
   return {
     httpGet: jest.fn(),
     getApiKey: jest.fn().mockResolvedValue(null),
+    clearKeyFailure: jest.fn(),
+    markKeyFailed: jest.fn(),
   };
 }
 

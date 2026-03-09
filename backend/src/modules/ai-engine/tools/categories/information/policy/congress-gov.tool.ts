@@ -275,9 +275,10 @@ export class CongressGovTool extends BaseTool<
       `[doExecute] Searching Congress.gov: query="${query}", congress=${effectiveCongress}`,
     );
 
+    // 获取 API Key (hoisted for catch block access)
+    const apiKey = await this.policyDataService.getApiKey(this.id);
+
     try {
-      // 获取 API Key
-      const apiKey = await this.policyDataService.getApiKey(this.id);
       if (!apiKey) {
         return {
           success: false,
@@ -370,6 +371,9 @@ export class CongressGovTool extends BaseTool<
         `[doExecute] Found ${bills.length} bills (total: ${totalCount})`,
       );
 
+      // Mark key as healthy on success
+      this.policyDataService.clearKeyFailure(this.id, apiKey);
+
       return {
         success: true,
         bills,
@@ -379,6 +383,13 @@ export class CongressGovTool extends BaseTool<
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[doExecute] Congress.gov API error: ${error}`);
+
+      // Track key failure for multi-key rotation
+      if (apiKey) {
+        const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
+        const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+        this.policyDataService.markKeyFailed(this.id, apiKey, statusCode);
+      }
 
       return {
         success: false,

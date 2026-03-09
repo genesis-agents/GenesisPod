@@ -286,11 +286,19 @@ export class FinanceApiTool extends BaseTool<
         };
       }
 
+      // Mark key as healthy on success
+      this.policyDataService.clearKeyFailure("finance-api", apiKey);
+
       return this.parseResponse(queryType, responseData);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[doExecute] Finance API error: ${error}`);
+
+      // Track key failure for multi-key rotation
+      const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
+      const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+      this.policyDataService.markKeyFailed("finance-api", apiKey, statusCode);
 
       return {
         success: false,

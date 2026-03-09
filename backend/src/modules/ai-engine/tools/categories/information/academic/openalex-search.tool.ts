@@ -219,12 +219,11 @@ export class OpenAlexSearchTool extends BaseTool<
       `[doExecute] Searching OpenAlex: query="${query}", maxResults=${maxResults}, year=${year ?? "any"}`,
     );
 
-    try {
-      // 获取管理员配置的 mailto（用于 polite pool 无限速）
-      // OpenAlex 不使用传统 API Key，而是通过 mailto 参数进入 polite pool
-      const configuredMailto =
-        await this.policyDataService.getApiKey("openalex");
+    // 获取管理员配置的 mailto（用于 polite pool 无限速，hoisted for catch block access）
+    // OpenAlex 不使用传统 API Key，而是通过 mailto 参数进入 polite pool
+    const configuredMailto = await this.policyDataService.getApiKey("openalex");
 
+    try {
       // 构建请求参数
       const baseUrl = "https://api.openalex.org/works";
       const params: Record<string, string | number> = {
@@ -314,6 +313,11 @@ export class OpenAlexSearchTool extends BaseTool<
         `[doExecute] Found ${papers.length} papers (total: ${responseData.meta?.count ?? 0})`,
       );
 
+      // Mark key as healthy on success
+      if (configuredMailto) {
+        this.policyDataService.clearKeyFailure("openalex", configuredMailto);
+      }
+
       return {
         success: true,
         papers,
@@ -324,6 +328,17 @@ export class OpenAlexSearchTool extends BaseTool<
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[doExecute] OpenAlex API error: ${error}`);
+
+      // Track key failure for multi-key rotation
+      if (configuredMailto) {
+        const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
+        const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+        this.policyDataService.markKeyFailed(
+          "openalex",
+          configuredMailto,
+          statusCode,
+        );
+      }
 
       return {
         success: false,

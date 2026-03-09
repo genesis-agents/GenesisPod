@@ -31,6 +31,8 @@ export interface ExternalTool {
   freeQuota?: string;
   pricing?: string;
   secretKey?: string | null;
+  /** 对应 Secret Manager 中的密钥名称，用于精确匹配 */
+  secretKeyName?: string;
 }
 
 /**

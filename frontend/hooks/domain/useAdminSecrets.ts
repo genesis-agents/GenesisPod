@@ -11,8 +11,11 @@ export type SecretCategory =
   | 'SKILLSMP'
   | 'POLICY'
   | 'FINANCE'
+  | 'ACADEMIC'
+  | 'WEATHER'
   | 'DEV_TOOLS'
   | 'MCP'
+  | 'USER_DONATED'
   | 'OTHER';
 
 export interface Secret {

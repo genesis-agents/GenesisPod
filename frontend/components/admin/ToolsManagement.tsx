@@ -977,7 +977,11 @@ export default function ToolsManagement() {
               (t) => t.id === provider.id
             );
             if (externalTool) {
-              setConfiguringTool(externalTool);
+              // 补充 secretKeyName 以便 ConfigureModal 精确匹配密钥
+              setConfiguringTool({
+                ...externalTool,
+                secretKeyName: provider.secretKeyName,
+              } as ExternalTool);
             } else {
               // 创建一个临时的 ExternalTool 对象
               setConfiguringTool({
@@ -989,6 +993,7 @@ export default function ToolsManagement() {
                 status: 'not_configured',
                 noKeyRequired: provider.noKeyRequired,
                 freeQuota: provider.freeQuota,
+                secretKeyName: provider.secretKeyName,
               } as ExternalTool);
             }
           }}

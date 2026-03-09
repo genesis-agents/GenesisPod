@@ -218,10 +218,10 @@ export class SemanticScholarSearchTool extends BaseTool<
       `[doExecute] Searching Semantic Scholar: query="${query}", maxResults=${maxResults}, year=${year ?? "any"}`,
     );
 
-    try {
-      // 获取 API Key（可选）
-      const apiKey = await this.policyDataService.getApiKey("semantic-scholar");
+    // 获取 API Key（可选，hoisted for catch block access）
+    const apiKey = await this.policyDataService.getApiKey("semantic-scholar");
 
+    try {
       // 构建请求参数
       const baseUrl = "https://api.semanticscholar.org/graph/v1/paper/search";
       const params: Record<string, string | number> = {
@@ -300,6 +300,11 @@ export class SemanticScholarSearchTool extends BaseTool<
         `[doExecute] Found ${papers.length} papers (total: ${responseData.total})`,
       );
 
+      // Mark key as healthy on success
+      if (apiKey) {
+        this.policyDataService.clearKeyFailure("semantic-scholar", apiKey);
+      }
+
       return {
         success: true,
         papers,
@@ -310,6 +315,17 @@ export class SemanticScholarSearchTool extends BaseTool<
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[doExecute] Semantic Scholar API error: ${error}`);
+
+      // Track key failure for multi-key rotation
+      if (apiKey) {
+        const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
+        const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+        this.policyDataService.markKeyFailed(
+          "semantic-scholar",
+          apiKey,
+          statusCode,
+        );
+      }
 
       return {
         success: false,

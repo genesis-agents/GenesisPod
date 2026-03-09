@@ -1551,8 +1551,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     hackernews: "hackernews-search",
     // GitHub
     "github-search": "github-search",
-    // YouTube
-    supadata: "web-scraper",
+    // YouTube (supadata is a service-level API used by YouTubeService, not a registry tool)
     // Policy
     "federal-register": "federal-register",
     "congress-gov": "congress-gov",

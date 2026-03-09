@@ -297,8 +297,9 @@ export class WeatherApiTool extends BaseTool<
     }
 
     try {
+      let result: WeatherApiOutput;
       if (queryType === "current") {
-        return await this.fetchCurrentWeather(
+        result = await this.fetchCurrentWeather(
           apiKey,
           city,
           lat,
@@ -307,12 +308,22 @@ export class WeatherApiTool extends BaseTool<
           lang,
         );
       } else {
-        return await this.fetchForecast(apiKey, city, lat, lon, units, lang);
+        result = await this.fetchForecast(apiKey, city, lat, lon, units, lang);
       }
+
+      // Mark key as healthy on success
+      this.policyDataService.clearKeyFailure("weather-api", apiKey);
+
+      return result;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[doExecute] Weather API error: ${error}`);
+
+      // Track key failure for multi-key rotation
+      const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
+      const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+      this.policyDataService.markKeyFailed("weather-api", apiKey, statusCode);
 
       return {
         success: false,

@@ -58,6 +58,16 @@ const CATEGORY_OPTIONS: {
     color: 'bg-emerald-100 text-emerald-800',
   },
   {
+    value: 'ACADEMIC',
+    label: 'Academic Research',
+    color: 'bg-violet-100 text-violet-800',
+  },
+  {
+    value: 'WEATHER',
+    label: 'Weather Data',
+    color: 'bg-sky-100 text-sky-800',
+  },
+  {
     value: 'DEV_TOOLS',
     label: 'Dev Tools',
     color: 'bg-orange-100 text-orange-800',
@@ -66,6 +76,11 @@ const CATEGORY_OPTIONS: {
     value: 'MCP',
     label: 'MCP Server',
     color: 'bg-cyan-100 text-cyan-800',
+  },
+  {
+    value: 'USER_DONATED',
+    label: 'User Donated',
+    color: 'bg-pink-100 text-pink-800',
   },
   { value: 'OTHER', label: 'Other', color: 'bg-gray-100 text-gray-800' },
 ];

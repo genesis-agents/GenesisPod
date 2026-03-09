@@ -206,10 +206,10 @@ export class PubMedSearchTool extends BaseTool<
       `[doExecute] Searching PubMed: query="${query}", maxResults=${maxResults}, sortBy=${sortBy}`,
     );
 
-    try {
-      // 获取可选 API key
-      const apiKey = await this.policyDataService.getApiKey("pubmed");
+    // 获取可选 API key (hoisted for catch block access)
+    const apiKey = await this.policyDataService.getApiKey("pubmed");
 
+    try {
       // Step 1: esearch — 获取匹配查询的 PMIDs
       const esearchBase =
         "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
@@ -353,6 +353,11 @@ export class PubMedSearchTool extends BaseTool<
         `[doExecute] Parsed ${articles.length} articles from PubMed`,
       );
 
+      // Mark key as healthy on success
+      if (apiKey) {
+        this.policyDataService.clearKeyFailure("pubmed", apiKey);
+      }
+
       return {
         success: true,
         articles,
@@ -363,6 +368,13 @@ export class PubMedSearchTool extends BaseTool<
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[doExecute] PubMed API error: ${error}`);
+
+      // Track key failure for multi-key rotation
+      if (apiKey) {
+        const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
+        const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+        this.policyDataService.markKeyFailed("pubmed", apiKey, statusCode);
+      }
 
       return {
         success: false,

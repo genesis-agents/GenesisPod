@@ -210,10 +210,10 @@ export class GithubSearchTool extends BaseTool<
       `[doExecute] Searching GitHub: query="${query}", language=${language}, sort=${sort}`,
     );
 
-    try {
-      // 获取 GitHub Token (可选)
-      const token = await this.policyDataService.getApiKey("github-search");
+    // 获取 GitHub Token (可选, hoisted for catch block access)
+    const token = await this.policyDataService.getApiKey("github-search");
 
+    try {
       // 构建搜索查询
       let searchQuery = query;
       if (language) {
@@ -283,6 +283,11 @@ export class GithubSearchTool extends BaseTool<
         `[doExecute] Found ${repositories.length} repositories (total: ${response.total_count})`,
       );
 
+      // Mark key as healthy on success
+      if (token) {
+        this.policyDataService.clearKeyFailure("github-search", token);
+      }
+
       return {
         repositories,
         totalCount: response.total_count,
@@ -291,6 +296,17 @@ export class GithubSearchTool extends BaseTool<
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
+
+      // Track key failure for multi-key rotation
+      if (token) {
+        const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
+        const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+        this.policyDataService.markKeyFailed(
+          "github-search",
+          token,
+          statusCode,
+        );
+      }
 
       // 检查是否是限速错误
       if (errorMessage.includes("403") || errorMessage.includes("rate limit")) {
