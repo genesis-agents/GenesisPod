@@ -186,19 +186,57 @@ export class DataSourceFetcherService {
   // ============================================================================
 
   /**
-   * 学术搜索 (使用 ArxivSearchTool)
+   * 学术搜索 (ArXiv 优先，失败自动 fallback 到 OpenAlex → Semantic Scholar → PubMed)
    */
   private async searchAcademic(
     query: string,
     maxResults: number,
   ): Promise<DataSourceResult[]> {
+    // 先尝试 ArXiv
+    const arxivResults = await this.searchArxiv(query, maxResults);
+    if (arxivResults.length > 0) {
+      return arxivResults;
+    }
+
+    // ArXiv 失败，按优先级 fallback
+    const fallbacks = ["openalex-search", "semantic-scholar", "pubmed"];
+    for (const toolId of fallbacks) {
+      this.logger.log(
+        `[searchAcademic] ArXiv failed, trying fallback: ${toolId}`,
+      );
+      const results = await this.searchViaFallbackTool(
+        toolId,
+        query,
+        maxResults,
+      );
+      if (results.length > 0) {
+        this.logger.log(
+          `[searchAcademic] Fallback ${toolId} returned ${results.length} results`,
+        );
+        return results;
+      }
+    }
+
+    this.logger.warn(
+      "[searchAcademic] All academic sources exhausted, no results",
+    );
+    return [];
+  }
+
+  /**
+   * ArXiv 搜索（内部方法）
+   */
+  private async searchArxiv(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
     try {
-      this.logger.log(`[searchAcademic] Searching arXiv: "${query}"`);
+      this.logger.log(`[searchArxiv] Searching arXiv: "${query}"`);
 
       const arxivTool = this.toolRegistry.tryGet("arxiv-search");
       if (!arxivTool) {
         this.logger.error(
-          "[searchAcademic] arxiv-search tool not registered in ToolRegistry",
+          "[searchArxiv] arxiv-search tool not registered in ToolRegistry",
         );
         return [];
       }
@@ -214,7 +252,7 @@ export class DataSourceFetcherService {
 
       if (!result.success || !result.data) {
         this.logger.warn(
-          `[searchAcademic] No results or error: ${result.error?.message}`,
+          `[searchArxiv] No results or error: ${result.error?.message}`,
         );
         return [];
       }
@@ -237,7 +275,7 @@ export class DataSourceFetcherService {
       };
 
       if (!arxivData.papers || arxivData.papers.length === 0) {
-        this.logger.warn("[searchAcademic] No papers in response");
+        this.logger.warn("[searchArxiv] No papers in response");
         return [];
       }
 
@@ -258,8 +296,56 @@ export class DataSourceFetcherService {
       }));
     } catch (error) {
       this.logger.error(
-        `[searchAcademic] Failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[searchArxiv] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
+      return [];
+    }
+  }
+
+  /**
+   * 通用工具 fallback 搜索
+   */
+  private async searchViaFallbackTool(
+    toolId: string,
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      const tool = this.toolRegistry.tryGet(toolId);
+      if (!tool) {
+        return [];
+      }
+
+      const result = await tool.execute(
+        { query, maxResults },
+        this.createToolContext(toolId),
+      );
+
+      if (!result.success || !result.data) {
+        return [];
+      }
+
+      // 统一转换结果格式
+      const data = result.data as Record<string, unknown>;
+      const items =
+        (data.papers as Array<Record<string, unknown>>) ||
+        (data.results as Array<Record<string, unknown>>) ||
+        (data.works as Array<Record<string, unknown>>) ||
+        [];
+
+      return items.map((item) => ({
+        sourceType: DataSourceType.ACADEMIC,
+        title: String(item.title || ""),
+        url: String(item.url || item.absUrl || item.doi || ""),
+        snippet: String(item.summary || item.abstract || "").slice(0, 500),
+        publishedAt:
+          item.published || item.publishedDate
+            ? new Date(String(item.published || item.publishedDate))
+            : undefined,
+        domain: toolId.replace("-search", ""),
+        metadata: { source: toolId },
+      }));
+    } catch {
       return [];
     }
   }

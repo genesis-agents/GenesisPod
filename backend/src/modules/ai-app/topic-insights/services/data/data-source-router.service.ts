@@ -1254,21 +1254,75 @@ export class DataSourceRouterService {
   }
 
   /**
-   * 学术搜索 (使用 ArxivSearchTool)
-   * 搜索 arXiv 上的学术论文（预印本）
+   * 学术搜索 (ArXiv 优先，失败自动 fallback 到 OpenAlex → Semantic Scholar → PubMed)
    */
   private async searchAcademic(
     query: string,
     maxResults: number,
   ): Promise<DataSourceResult[]> {
-    try {
-      this.logger.log(`[searchAcademic] Searching arXiv: "${query}"`);
+    // 先尝试 ArXiv
+    const arxivResults = await this.searchArxiv(query, maxResults);
+    if (arxivResults.length > 0) {
+      return arxivResults;
+    }
 
-      // 通过 ToolRegistry 获取 arxiv-search 工具
+    // ArXiv 失败（429 限流等），按优先级 fallback
+    const fallbackSources: Array<{
+      toolId: string;
+      sourceType: DataSourceType;
+      name: string;
+    }> = [
+      {
+        toolId: "openalex-search",
+        sourceType: DataSourceType.OPENALEX,
+        name: "OpenAlex",
+      },
+      {
+        toolId: "semantic-scholar",
+        sourceType: DataSourceType.SEMANTIC_SCHOLAR,
+        name: "Semantic Scholar",
+      },
+      { toolId: "pubmed", sourceType: DataSourceType.PUBMED, name: "PubMed" },
+    ];
+
+    for (const fallback of fallbackSources) {
+      this.logger.log(
+        `[searchAcademic] ArXiv failed, trying fallback: ${fallback.name}`,
+      );
+      const results = await this.searchViaTool(
+        fallback.toolId,
+        fallback.sourceType,
+        query,
+        maxResults,
+      );
+      if (results.length > 0) {
+        this.logger.log(
+          `[searchAcademic] Fallback ${fallback.name} returned ${results.length} results`,
+        );
+        return results;
+      }
+    }
+
+    this.logger.warn(
+      "[searchAcademic] All academic sources exhausted, no results",
+    );
+    return [];
+  }
+
+  /**
+   * ArXiv 搜索（内部方法，被 searchAcademic 调用）
+   */
+  private async searchArxiv(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      this.logger.log(`[searchArxiv] Searching arXiv: "${query}"`);
+
       const arxivTool = this.toolRegistry.tryGet("arxiv-search");
       if (!arxivTool) {
         this.logger.error(
-          "[searchAcademic] arxiv-search tool not registered in ToolRegistry",
+          "[searchArxiv] arxiv-search tool not registered in ToolRegistry",
         );
         return [];
       }
@@ -1284,7 +1338,7 @@ export class DataSourceRouterService {
 
       if (!result.success || !result.data) {
         this.logger.warn(
-          `[searchAcademic] No results or error: ${result.error?.message}`,
+          `[searchArxiv] No results or error: ${result.error?.message}`,
         );
         return [];
       }
@@ -1307,15 +1361,15 @@ export class DataSourceRouterService {
       };
 
       if (!arxivData.papers || arxivData.papers.length === 0) {
-        this.logger.warn("[searchAcademic] No papers in response");
+        this.logger.warn("[searchArxiv] No papers in response");
         return [];
       }
 
       return arxivData.papers.map((paper) => ({
         sourceType: DataSourceType.ACADEMIC,
         title: paper.title,
-        url: paper.absUrl, // 使用摘要页 URL 作为主链接
-        snippet: paper.summary?.slice(0, 500) || "", // 截取摘要前 500 字符
+        url: paper.absUrl,
+        snippet: paper.summary?.slice(0, 500) || "",
         publishedAt: paper.published ? new Date(paper.published) : undefined,
         domain: "arxiv.org",
         metadata: {
@@ -1328,7 +1382,7 @@ export class DataSourceRouterService {
       }));
     } catch (error) {
       this.logger.error(
-        `[searchAcademic] Failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[searchArxiv] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
