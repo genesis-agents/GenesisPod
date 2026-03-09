@@ -347,7 +347,13 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
     content: string,
     criteria: ReviewCriteria,
   ): string {
-    let prompt = `## 任务审核
+    const cw = (criteria.completenessWeight || 0.3) * 100;
+    const aw = (criteria.accuracyWeight || 0.3) * 100;
+    const lw = (criteria.logicWeight || 0.2) * 100;
+    const pw = (criteria.professionalismWeight || 0.2) * 100;
+    const threshold = criteria.passThreshold || 7;
+
+    let prompt = `## 任务产出质量审核
 
 ### 任务信息
 - 任务标题: ${request.task.title}
@@ -357,36 +363,40 @@ ${request.missionDescription ? `- Mission 目标: ${request.missionDescription}`
 ### 待审核内容
 ${content}
 
-### 审核标准
-请从以下维度评估（1-10分）：
-1. **完整性** (权重${(criteria.completenessWeight || 0.3) * 100}%): 是否覆盖了任务要求的所有方面
-2. **准确性** (权重${(criteria.accuracyWeight || 0.3) * 100}%): 信息是否准确可靠
-3. **逻辑性** (权重${(criteria.logicWeight || 0.2) * 100}%): 论述是否有逻辑、条理清晰
-4. **专业性** (权重${(criteria.professionalismWeight || 0.2) * 100}%): 表达是否专业、规范`;
+### 评分维度（各维度 1-10 分）
 
-    // 添加硬约束
+| 维度 | 权重 | 评估要点 |
+|------|------|----------|
+| 完整性 (completeness) | ${cw}% | 是否覆盖任务要求的所有方面，无明显遗漏 |
+| 准确性 (accuracy) | ${aw}% | 信息是否准确可靠，数据引用是否正确 |
+| 逻辑性 (logic) | ${lw}% | 论述是否有逻辑，论证链条是否完整 |
+| 专业性 (professionalism) | ${pw}% | 表达是否专业规范，术语使用是否准确 |
+
+加权总分 = completeness×${cw / 100} + accuracy×${aw / 100} + logic×${lw / 100} + professionalism×${pw / 100}
+通过阈值: ${threshold} 分`;
+
     if (request.constraints && request.constraints.length > 0) {
-      prompt += `\n\n### 硬约束要求（必须满足）
+      prompt += `\n\n### 硬约束要求（必须满足，违反直接不通过）
 ${request.constraints.map((c) => `- ${c.type}: ${c.description}`).join("\n")}`;
     }
 
     prompt += `
 
-### 输出格式
-请以 JSON 格式输出审核结果：
+### 输出要求
+只输出 JSON，不要其他文字。格式：
 \`\`\`json
 {
   "scores": {
-    "completeness": 分数,
-    "accuracy": 分数,
-    "logic": 分数,
-    "professionalism": 分数
+    "completeness": <1-10>,
+    "accuracy": <1-10>,
+    "logic": <1-10>,
+    "professionalism": <1-10>
   },
-  "totalScore": 加权总分,
-  "passed": true/false (总分>=${criteria.passThreshold || 7}为通过),
-  "feedback": "总体评价",
-  "issues": ["问题1", "问题2"],
-  "suggestions": ["建议1", "建议2"]
+  "totalScore": <加权总分，保留1位小数>,
+  "passed": <true/false>,
+  "feedback": "<2-3句总体评价>",
+  "issues": ["<具体问题1>", "<具体问题2>"],
+  "suggestions": ["<改进建议1>", "<改进建议2>"]
 }
 \`\`\``;
 
@@ -438,40 +448,40 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
   private parseReviewResult(
     content: string,
     criteria: ReviewCriteria,
-  ): Omit<ReviewResult, "tokensUsed"> {
-    try {
-      // 尝试解析 JSON
-      const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1]);
-        return {
-          passed:
-            parsed.passed ?? parsed.totalScore >= (criteria.passThreshold || 7),
-          score: parsed.totalScore || 7,
-          feedback: parsed.feedback || "",
-          issues: parsed.issues || [],
-          suggestions: parsed.suggestions || [],
-        };
-      }
+  ): Omit<ReviewResult, "tokensUsed"> & {
+    scores?: Record<string, number>;
+  } {
+    const threshold = criteria.passThreshold || 7;
 
-      // 尝试直接解析 JSON
+    const tryParse = (json: string) => {
+      const parsed = JSON.parse(json);
+      const totalScore =
+        typeof parsed.totalScore === "number" ? parsed.totalScore : 7;
+      return {
+        passed: parsed.passed ?? totalScore >= threshold,
+        score: totalScore,
+        feedback: parsed.feedback || "",
+        issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+        suggestions: Array.isArray(parsed.suggestions)
+          ? parsed.suggestions
+          : [],
+        scores: parsed.scores || undefined,
+      };
+    };
+
+    try {
+      // Try fenced JSON block first
+      const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/);
+      if (jsonMatch) return tryParse(jsonMatch[1]);
+
+      // Try bare JSON object
       const directJsonMatch = content.match(/\{[\s\S]*\}/);
-      if (directJsonMatch) {
-        const parsed = JSON.parse(directJsonMatch[0]);
-        return {
-          passed:
-            parsed.passed ?? parsed.totalScore >= (criteria.passThreshold || 7),
-          score: parsed.totalScore || 7,
-          feedback: parsed.feedback || "",
-          issues: parsed.issues || [],
-          suggestions: parsed.suggestions || [],
-        };
-      }
+      if (directJsonMatch) return tryParse(directJsonMatch[0]);
     } catch {
-      // JSON 解析失败
+      // JSON parse failed — fall through to keyword fallback
     }
 
-    // 降级：基于关键词判断
+    // Fallback: keyword-based judgment
     const lowerContent = content.toLowerCase();
     const hasNegative =
       lowerContent.includes("不通过") ||

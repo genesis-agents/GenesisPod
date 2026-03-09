@@ -303,19 +303,43 @@ export class FigureExtractorService {
         return null;
       }
 
+      let resolved: string;
+
       // 已经是绝对 URL
       if (imgSrc.startsWith("http://") || imgSrc.startsWith("https://")) {
-        return imgSrc;
+        resolved = imgSrc;
+      } else if (imgSrc.startsWith("//")) {
+        // 协议相对 URL
+        resolved = "https:" + imgSrc;
+      } else {
+        // 相对 URL，需要基于 baseUrl 解析
+        const base = new URL(baseUrl);
+        resolved = new URL(imgSrc, base).href;
       }
 
-      // 协议相对 URL
-      if (imgSrc.startsWith("//")) {
-        return "https:" + imgSrc;
+      // Validate: URL must parse and have a valid image-like path
+      const parsed = new URL(resolved);
+      if (!parsed.hostname || parsed.hostname.length < 3) {
+        return null;
       }
 
-      // 相对 URL，需要基于 baseUrl 解析
-      const base = new URL(baseUrl);
-      return new URL(imgSrc, base).href;
+      // Reject corrupted CDN URLs with encoding artifacts ($s!, %24s!, etc.)
+      if (/\$s!|%24s!/i.test(resolved)) {
+        this.logger.debug(
+          `Rejecting corrupted CDN URL (encoding artifact): ${resolved.substring(0, 120)}`,
+        );
+        return null;
+      }
+
+      // Reject URLs that are too long (likely corrupted srcset or concatenated params)
+      if (resolved.length > 2048) {
+        this.logger.debug(
+          `Rejecting excessively long URL (${resolved.length} chars): ${resolved.substring(0, 120)}...`,
+        );
+        return null;
+      }
+
+      return resolved;
     } catch (error) {
       this.logger.debug(`Failed to resolve URL: ${imgSrc} from ${baseUrl}`);
       return null;

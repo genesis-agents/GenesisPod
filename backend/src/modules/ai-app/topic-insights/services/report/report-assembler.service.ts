@@ -849,6 +849,10 @@ export class ReportAssemblerService {
     if (/[?&](?:w|width|h|height)=[12]\b/.test(url)) return true;
     // Data URIs (bloated, not real chart images)
     if (lower.startsWith("data:")) return true;
+    // Corrupted CDN URLs with encoding artifacts (Substack $s! pattern)
+    if (/\$s!|%24s!/i.test(url)) return true;
+    // Excessively long URLs (likely corrupted srcset concatenation)
+    if (url.length > 2048) return true;
     return false;
   }
 

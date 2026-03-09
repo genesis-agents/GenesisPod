@@ -267,6 +267,8 @@ export interface ReviewResult {
   passed: boolean;
   /** 分数（1-10） */
   score: number;
+  /** 各维度分数 (completeness, accuracy, logic, professionalism) */
+  scores?: Record<string, number>;
   /** 反馈内容 */
   feedback: string;
   /** 具体问题列表 */

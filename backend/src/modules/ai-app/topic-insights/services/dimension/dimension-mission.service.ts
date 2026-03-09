@@ -1864,6 +1864,7 @@ export class DimensionMissionService {
     evidenceData: EnrichedEvidenceData[],
   ): void {
     const globalSeen = new Set<string>(); // "evidenceIndex:figureIndex"
+    const globalSeenUrls = new Set<string>(); // cross-section imageUrl dedup
     let totalAllocated = 0;
 
     for (const section of outline.sections) {
@@ -1896,7 +1897,7 @@ export class DimensionMissionService {
             continue;
           }
         }
-        // 全局去重
+        // 全局去重 (by evidence:figure index)
         const key = `${fig.evidenceIndex}:${fig.figureIndex}`;
         if (globalSeen.has(key)) {
           this.logger.warn(
@@ -1905,6 +1906,15 @@ export class DimensionMissionService {
           continue;
         }
         globalSeen.add(key);
+
+        // 全局去重 (by imageUrl — prevents same image appearing in multiple sections)
+        if (globalSeenUrls.has(fig.imageUrl)) {
+          this.logger.warn(
+            `[validateAllocatedFigures] Section "${section.title}": duplicate imageUrl for [${key}], skipping`,
+          );
+          continue;
+        }
+        globalSeenUrls.add(fig.imageUrl);
         valid.push(fig);
       }
 

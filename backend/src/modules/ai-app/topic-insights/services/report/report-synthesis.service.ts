@@ -655,7 +655,7 @@ export class ReportSynthesisService {
       }
     }
 
-    // 10. ★ Phase 4: OutputReviewer — 报告质量评审（非阻塞）
+    // 10. ★ Phase 4: OutputReviewer — 报告质量评审（非阻塞，结果持久化到 qualityTrace）
     let reportQualityScore: number | undefined;
     if (this.outputReviewer && cleanedReport.length > 0) {
       try {
@@ -690,27 +690,42 @@ export class ReportSynthesisService {
           },
         });
         reportQualityScore = reviewResult.score;
+
+        // ★ Persist review result to qualityTrace (available to frontend via API)
+        this.qualityTrace.recordOutputReview(qualityCtx, {
+          passed: reviewResult.passed,
+          score: reviewResult.score,
+          scores: reviewResult.scores,
+          feedback: reviewResult.feedback,
+          issues: reviewResult.issues,
+          suggestions: reviewResult.suggestions,
+        });
+
         this.logger.log(
           `[synthesizeReport] Quality review: score=${reviewResult.score}, passed=${reviewResult.passed}`,
         );
-        // ★ Quality gate: log warning when review fails (non-blocking but tracked)
         if (!reviewResult.passed) {
-          const issuesSummary = reviewResult.issues
-            ?.map((i: string | { description?: string }) =>
-              typeof i === "string" ? i : i.description || "",
-            )
-            .filter(Boolean)
-            .join("; ");
           this.logger.warn(
             `[synthesizeReport] Quality review FAILED: score=${reviewResult.score} < threshold=6.5. ` +
-              `Report will still be saved but marked with low quality score. ` +
-              `Issues: ${issuesSummary || "none"}`,
+              `Report saved with low quality marker. ` +
+              `Issues: ${reviewResult.issues?.join("; ") || "none"}`,
           );
         }
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
-          `[synthesizeReport] Quality review failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          `[synthesizeReport] Quality review failed (non-fatal): ${errorMsg}`,
         );
+        // ★ Record the failure too — so frontend knows review was attempted but errored
+        this.qualityTrace.recordOutputReview(qualityCtx, {
+          passed: true, // default pass on error (avoid false blocking)
+          score: 0,
+          feedback: "",
+          issues: [],
+          suggestions: [],
+          reviewErrored: true,
+          errorMessage: errorMsg,
+        });
       }
     } else if (!this.outputReviewer) {
       this.logger.debug(

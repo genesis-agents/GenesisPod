@@ -33,6 +33,7 @@ export interface QualityTraceContext {
   postProcessing?: PostProcessingProbe;
   synthesisOutput?: SynthesisOutputProbe;
   finalAssessment?: FinalAssessmentProbe;
+  outputReview?: OutputReviewProbe;
 }
 
 export interface EvidenceQualityProbe {
@@ -120,6 +121,30 @@ export interface FinalAssessmentProbe {
   }>;
 }
 
+export interface OutputReviewProbe {
+  /** Whether the review passed */
+  passed: boolean;
+  /** Weighted score (1-10) */
+  score: number;
+  /** Per-dimension scores from reviewer */
+  scores?: {
+    completeness?: number;
+    accuracy?: number;
+    logic?: number;
+    professionalism?: number;
+  };
+  /** Overall feedback text */
+  feedback: string;
+  /** Specific issues identified */
+  issues: string[];
+  /** Improvement suggestions */
+  suggestions: string[];
+  /** Whether the review itself errored (API failure, parse failure) */
+  reviewErrored?: boolean;
+  /** Error message if review failed */
+  errorMessage?: string;
+}
+
 export interface ReportQualityTrace {
   version: 1;
   generatedAt: string;
@@ -129,6 +154,8 @@ export interface ReportQualityTrace {
   postProcessing: PostProcessingProbe;
   synthesisOutput: SynthesisOutputProbe;
   finalAssessment: FinalAssessmentProbe;
+  /** OutputReviewer LLM review result (Phase 4 of synthesis pipeline) */
+  outputReview?: OutputReviewProbe;
 }
 
 // ==================== Service ====================
@@ -332,6 +359,14 @@ export class ReportQualityTraceService {
     }
   }
 
+  /** Record OutputReviewer result (Phase 4 of synthesis pipeline) */
+  recordOutputReview(
+    ctx: QualityTraceContext,
+    result: OutputReviewProbe,
+  ): void {
+    ctx.outputReview = result;
+  }
+
   /** Probe 5: Compute final quality assessment from accumulated trace data */
   computeFinalAssessment(ctx: QualityTraceContext): FinalAssessmentProbe {
     const formatting = this.computeFormattingScore(ctx);
@@ -420,6 +455,7 @@ export class ReportQualityTraceService {
         tokensUsed: 0,
       },
       finalAssessment: ctx.finalAssessment!,
+      outputReview: ctx.outputReview,
     };
   }
 
@@ -467,6 +503,7 @@ export class ReportQualityTraceService {
     pipelineVersion: string;
     dimensionCount: number;
     evidenceCount: number;
+    outputReview?: OutputReviewProbe;
   } | null> {
     const trace = await this.getQualityTrace(reportId);
     if (!trace) return null;
@@ -480,6 +517,7 @@ export class ReportQualityTraceService {
       pipelineVersion: trace.pipelineVersion,
       dimensionCount: trace.dimensionOutputs.length,
       evidenceCount: trace.evidenceQuality.totalEvidences,
+      outputReview: trace.outputReview,
     };
   }
 
