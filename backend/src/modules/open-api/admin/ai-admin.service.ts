@@ -229,7 +229,10 @@ const BUILTIN_TOOL_TO_PROVIDER_CATEGORY: Record<string, string> = {
  * 可执行工具接口
  */
 interface ExecutableTool {
-  execute(input: Record<string, unknown>): Promise<unknown>;
+  execute(
+    input: Record<string, unknown>,
+    context?: Record<string, unknown>,
+  ): Promise<unknown>;
 }
 
 /**
@@ -1539,12 +1542,24 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     jina: "web-scraper",
     firecrawl: "web-scraper",
     tavilyExtract: "web-scraper",
-    // Academic
+    // Academic providers → respective tools
     arxiv: "arxiv-search",
+    "semantic-scholar": "semantic-scholar",
+    pubmed: "pubmed",
+    openalex: "openalex-search",
     // Community
     hackernews: "hackernews-search",
+    // GitHub
+    "github-search": "github-search",
     // YouTube
     supadata: "web-scraper",
+    // Policy
+    "federal-register": "federal-register",
+    "congress-gov": "congress-gov",
+    "whitehouse-news": "whitehouse-news",
+    // Finance & Weather
+    "alpha-vantage": "finance-api",
+    "weather-api": "weather-api",
   };
 
   /**
@@ -1560,6 +1575,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     "hackernews-search": { query: "AI", maxResults: 1 },
     "semantic-scholar": { query: "deep learning", maxResults: 1 },
     pubmed: { query: "CRISPR gene editing", maxResults: 1 },
+    "openalex-search": { query: "large language models", maxResults: 1 },
     "finance-api": { queryType: "stock_quote", symbol: "AAPL" },
     "weather-api": { queryType: "current", city: "London" },
     "github-search": { query: "machine learning", maxResults: 1 },
@@ -1619,7 +1635,14 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
         if (apiKey) {
           executeInput.apiKey = apiKey;
         }
-        const result = await tool.execute(executeInput);
+        // 构建工具执行上下文（BaseTool.execute 需要两个参数：input + context）
+        const toolContext = {
+          executionId: `admin-test-${Date.now()}`,
+          toolId: registryToolId,
+          callerType: "admin" as const,
+          createdAt: new Date(),
+        };
+        const result = await tool.execute(executeInput, toolContext);
         const duration = Date.now() - startTime;
 
         // 记录使用统计

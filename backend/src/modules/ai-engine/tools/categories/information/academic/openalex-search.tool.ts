@@ -220,6 +220,11 @@ export class OpenAlexSearchTool extends BaseTool<
     );
 
     try {
+      // 获取管理员配置的 mailto（用于 polite pool 无限速）
+      // OpenAlex 不使用传统 API Key，而是通过 mailto 参数进入 polite pool
+      const configuredMailto =
+        await this.policyDataService.getApiKey("openalex");
+
       // 构建请求参数
       const baseUrl = "https://api.openalex.org/works";
       const params: Record<string, string | number> = {
@@ -227,8 +232,15 @@ export class OpenAlexSearchTool extends BaseTool<
         per_page: Math.min(maxResults, 200),
         select:
           "id,title,authorships,abstract_inverted_index,publication_year,cited_by_count,doi,primary_location,open_access,type",
-        mailto: "api@genesis.ai",
       };
+
+      // 有 mailto 才进入 polite pool（无限速）；没有则受 10 req/s 限制
+      if (configuredMailto) {
+        params["mailto"] = configuredMailto;
+        this.logger.debug(
+          "[doExecute] Using configured mailto for polite pool",
+        );
+      }
 
       // 年份过滤
       if (year) {
