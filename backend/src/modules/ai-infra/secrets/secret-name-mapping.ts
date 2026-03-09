@@ -45,7 +45,8 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
   "github-search": "github-token",
 
   // ==================== Academic Research ====================
-  "openalex-search": "openalex-api-key",
+  openalex: "openalex-api-key", // provider ID alias (frontend uses 'openalex')
+  "openalex-search": "openalex-api-key", // registry tool ID
   "semantic-scholar": "semantic-scholar-api-key",
   pubmed: "pubmed-api-key",
 

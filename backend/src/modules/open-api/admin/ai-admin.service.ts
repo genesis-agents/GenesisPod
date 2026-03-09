@@ -1569,6 +1569,40 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       `Updated tool config: ${toolId}, enabled=${result.enabled}, secretKey=${result.secretKey ? "set" : "none"}`,
     );
 
+    // ★ 同步 Provider ID → Registry Tool ID 的关键字段
+    // 前端用 provider ID（如 openalex）保存，运行时用 registry ID（如 openalex-search）查询
+    // 需同步：secretKey、config（密钥读取）、enabled（能力开关）
+    const registryToolId = AIAdminService.PROVIDER_TO_TOOL_ID[toolId] || toolId;
+    if (registryToolId !== toolId) {
+      const syncData: Record<string, unknown> = {};
+      if (update.secretKey !== undefined) syncData.secretKey = update.secretKey;
+      if (update.config !== undefined)
+        syncData.config = update.config as Prisma.InputJsonValue;
+      if (update.enabled !== undefined) syncData.enabled = update.enabled;
+
+      if (Object.keys(syncData).length > 0) {
+        await this.prisma.toolConfig.upsert({
+          where: { toolId: registryToolId },
+          create: {
+            toolId: registryToolId,
+            enabled: update.enabled ?? true,
+            ...(syncData as {
+              secretKey?: string | null;
+              config?: Prisma.InputJsonValue;
+            }),
+          },
+          update: syncData as {
+            secretKey?: string | null;
+            config?: Prisma.InputJsonValue;
+            enabled?: boolean;
+          },
+        });
+        this.logger.log(
+          `Synced provider config ${toolId} → registry tool ${registryToolId}`,
+        );
+      }
+    }
+
     return { success: true, ...result };
   }
 
@@ -1667,6 +1701,13 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       if (secretValue) {
         apiKey = secretValue;
       }
+    } else if (
+      toolConfig?.config &&
+      typeof toolConfig.config === "object" &&
+      (toolConfig.config as Record<string, unknown>).apiKey
+    ) {
+      // 从 tool config 中读取直接保存的 API Key（无 legacy 端点的工具类别）
+      apiKey = String((toolConfig.config as Record<string, unknown>).apiKey);
     }
 
     // 如果没有提供输入，使用默认测试输入

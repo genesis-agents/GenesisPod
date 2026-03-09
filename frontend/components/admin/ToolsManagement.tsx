@@ -299,13 +299,26 @@ export default function ToolsManagement() {
       const capabilitiesData = allConfigsData.tools;
       const mcpServersData = allConfigsData.mcpServers || { servers: [] };
 
-      // Build secret key map
+      // Build secret key map + config apiKey map
       const secretKeyMap = new Map<string, string | null>();
+      const configApiKeyMap = new Set<string>();
       if (capabilitiesData?.tools) {
         capabilitiesData.tools.forEach(
-          (tool: { toolId: string; secretKey?: string | null }) => {
+          (tool: {
+            toolId: string;
+            secretKey?: string | null;
+            config?: Record<string, unknown> | null;
+          }) => {
             if (tool.secretKey) {
               secretKeyMap.set(tool.toolId, tool.secretKey);
+            }
+            // Also track tools with apiKey stored in config (no legacy endpoint)
+            if (
+              tool.config &&
+              typeof tool.config === 'object' &&
+              tool.config.apiKey
+            ) {
+              configApiKeyMap.add(tool.toolId);
             }
           }
         );
@@ -399,6 +412,12 @@ export default function ToolsManagement() {
 
           const secretKey = secretKeyMap.get(def.id) || null;
           if (secretKey) {
+            status = 'configured';
+            hasApiKey = true;
+          }
+
+          // Check for apiKey stored in tool config (categories without legacy endpoints)
+          if (configApiKeyMap.has(def.id)) {
             status = 'configured';
             hasApiKey = true;
           }
@@ -548,6 +567,7 @@ export default function ToolsManagement() {
       // Legacy config endpoints for direct API key
       let endpoint = '';
       let body: Record<string, unknown> = {};
+      let useLegacyEndpoint = true;
 
       switch (tool.category) {
         case 'external-search':
@@ -562,8 +582,10 @@ export default function ToolsManagement() {
           break;
         case 'external-extraction':
           endpoint = '/admin/extraction-config';
-          const extractId = toolId === 'tavilyExtract' ? 'tavily' : toolId;
-          body = { [`${extractId}ApiKey`]: apiKey };
+          {
+            const extractId = toolId === 'tavilyExtract' ? 'tavily' : toolId;
+            body = { [`${extractId}ApiKey`]: apiKey };
+          }
           break;
         case 'external-youtube':
           endpoint = '/admin/youtube-config';
@@ -571,25 +593,43 @@ export default function ToolsManagement() {
           break;
         case 'external-tts':
           endpoint = '/admin/tts-config';
-          const ttsId = toolId === 'googleTts' ? 'google' : toolId;
-          body = { [`${ttsId}ApiKey`]: apiKey };
+          {
+            const ttsId = toolId === 'googleTts' ? 'google' : toolId;
+            body = { [`${ttsId}ApiKey`]: apiKey };
+          }
           break;
         case 'external-skills':
           endpoint = '/admin/skillsmp-config';
           body = { apiKey };
           break;
         default:
-          throw new Error('Unsupported tool category');
+          // Categories without legacy endpoints (academic, finance, weather, devtools, policy)
+          // Save API key as tool config via unified endpoint
+          useLegacyEndpoint = false;
+          break;
       }
 
-      const res = await fetch(`${config.apiUrl}${endpoint}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        body: JSON.stringify(body),
-      });
+      let res: Response;
+      if (useLegacyEndpoint) {
+        res = await fetch(`${config.apiUrl}${endpoint}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify(body),
+        });
+      } else {
+        // For categories without legacy endpoints, store apiKey in tool config
+        res = await fetch(`${config.apiUrl}/admin/ai/tools/${toolId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({ config: { apiKey } }),
+        });
+      }
 
       if (res.ok) {
         setMessage({
@@ -643,6 +683,7 @@ export default function ToolsManagement() {
           success: data.success ?? res.ok,
           message:
             data.message ||
+            data.error ||
             (res.ok
               ? t('admin.tools.testSuccess')
               : t('admin.tools.testFailed')),

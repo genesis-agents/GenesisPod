@@ -307,20 +307,11 @@ export class AiEngineModule implements OnModuleInit {
           `  → These configs will be ignored. Consider removing them from the database.`,
         );
 
-        // ★ 自动清理孤立配置
-        try {
-          const orphanedIds = orphanedConfigs.map((c) => c.toolId);
-          await this.prisma.toolConfig.deleteMany({
-            where: { toolId: { in: orphanedIds } },
-          });
-          this.logger.log(
-            `[T4] Auto-cleaned ${orphanedIds.length} orphaned ToolConfig entries`,
-          );
-        } catch (cleanupError) {
-          this.logger.error(
-            `[T4] Failed to cleanup orphaned ToolConfigs: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
-          );
-        }
+        // ★ 不自动删除：这些可能是前端 Provider ID 配置（如 openalex vs openalex-search）
+        // Provider ID 与 Registry ID 不一致是正常的，删除会导致用户配置丢失
+        this.logger.log(
+          `[T4] Skipping auto-cleanup: orphaned configs may be valid provider-level configurations`,
+        );
       }
 
       // 统计：有多少注册的工具在数据库中有配置
