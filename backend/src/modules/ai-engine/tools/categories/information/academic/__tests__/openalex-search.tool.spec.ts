@@ -221,7 +221,9 @@ describe("OpenAlexSearchTool", () => {
 
       await tool.execute({ query: "AI" }, makeContext());
 
-      expect(mockPolicyDataService.getApiKey).toHaveBeenCalledWith("openalex");
+      expect(mockPolicyDataService.getApiKey).toHaveBeenCalledWith(
+        "openalex-search",
+      );
       expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
         "https://api.openalex.org/works",
         expect.objectContaining({ mailto: "researcher@university.edu" }),
