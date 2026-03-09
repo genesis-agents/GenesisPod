@@ -208,15 +208,30 @@ describe("OpenAlexSearchTool", () => {
       expect(paper?.type).toBe("article");
     });
 
-    it("should include mailto in API request for polite pool", async () => {
+    it("should include mailto in API request for polite pool when configured", async () => {
+      mockPolicyDataService.getApiKey.mockResolvedValue(
+        "researcher@university.edu",
+      );
       mockPolicyDataService.httpGet.mockResolvedValue(makeMockApiResponse());
 
       await tool.execute({ query: "AI" }, makeContext());
 
+      expect(mockPolicyDataService.getApiKey).toHaveBeenCalledWith("openalex");
       expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
         "https://api.openalex.org/works",
-        expect.objectContaining({ mailto: "api@genesis.ai" }),
+        expect.objectContaining({ mailto: "researcher@university.edu" }),
       );
+    });
+
+    it("should omit mailto when no key is configured", async () => {
+      mockPolicyDataService.getApiKey.mockResolvedValue(null);
+      mockPolicyDataService.httpGet.mockResolvedValue(makeMockApiResponse());
+
+      await tool.execute({ query: "AI" }, makeContext());
+
+      const callParams = mockPolicyDataService.httpGet.mock
+        .calls[0]?.[1] as Record<string, unknown>;
+      expect(callParams).not.toHaveProperty("mailto");
     });
 
     it("should return empty results gracefully when API returns no data", async () => {
