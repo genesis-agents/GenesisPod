@@ -1058,6 +1058,23 @@ export class SectionWriterService {
         }
       }
 
+      // ★ Backfill generic Source text (e.g. "Source [N]") with descriptive evidence metadata
+      if (
+        evidenceData &&
+        ref.evidenceCitationIndex &&
+        (!ref.source ||
+          /^Source\s*\[?\d+\]?$/i.test(ref.source) ||
+          /^\[\d+\]$/.test(ref.source))
+      ) {
+        const evItem = evidenceData[ref.evidenceCitationIndex - 1];
+        if (evItem) {
+          const descriptive = `${evItem.title || evItem.domain || ""}`.trim();
+          if (descriptive) {
+            ref.source = descriptive;
+          }
+        }
+      }
+
       // 清理 caption：去除原始网页标题格式（如 "Title | by Author | Platform"）
       if (ref.caption) {
         ref.caption = this.cleanFigureCaption(ref.caption);

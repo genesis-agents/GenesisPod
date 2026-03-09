@@ -1401,7 +1401,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
             esObj.actionItems.map((a) => `- ${a}`).join("\n"),
         );
       }
-      return parts.join("\n") || "";
+      // ★ Strip markdown bold markers from assembled text too
+      return parts.join("\n").replace(/\*\*(.*?)\*\*/g, "$1") || "";
     }
 
     if (typeof executiveSummaryInput === "string") {
