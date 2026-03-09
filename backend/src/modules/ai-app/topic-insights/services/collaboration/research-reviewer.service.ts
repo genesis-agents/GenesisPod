@@ -84,7 +84,7 @@ export class ResearchReviewerService {
       `Reviewing dimension: ${dimension.name} for topic: ${topic.name}`,
     );
 
-    const systemPrompt = this.buildDimensionReviewSystemPrompt();
+    const systemPrompt = this.buildDimensionReviewSystemPrompt(topic.type);
     const userPrompt = this.buildDimensionReviewUserPrompt(
       topic,
       dimension,
@@ -459,16 +459,37 @@ export class ResearchReviewerService {
   ): Promise<import("../../types/v5-research.types").FactCheckResult> {
     this.logger.log(`[factCheckReport] Starting fact check`);
 
-    // Extract citations [n] with surrounding context
-    const citationPattern = /([^.]*?\[(\d+)\][^.]*\.)/g;
+    // Extract citations [n] with surrounding context.
+    // Previous regex /([^.]*?\[(\d+)\][^.]*\.)/ failed across newlines and
+    // paragraph breaks. Now: find each [N], then grab surrounding text as context.
     const citations: Array<{ mark: string; context: string }> = [];
+    const inlineCitationPattern = /\[(\d+)\]/g;
     let match: RegExpExecArray | null;
 
-    while ((match = citationPattern.exec(reportContent)) !== null) {
+    while ((match = inlineCitationPattern.exec(reportContent)) !== null) {
       if (citations.length >= 30) break; // Limit to 30 citations
+      // Skip citations inside the references section (lines starting with [N] )
+      const lineStart = reportContent.lastIndexOf("\n", match.index) + 1;
+      if (
+        reportContent.slice(lineStart).trimStart().startsWith(`[${match[1]}]`)
+      ) {
+        // This [N] is at the start of a line → likely a reference entry, skip
+        const nextChar = reportContent[lineStart + match[0].length];
+        if (nextChar === " " || nextChar === "\t") continue;
+      }
+      // Grab ~100 chars before and after for context
+      const start = Math.max(0, match.index - 100);
+      const end = Math.min(
+        reportContent.length,
+        match.index + match[0].length + 100,
+      );
+      const context = reportContent
+        .slice(start, end)
+        .replace(/\n+/g, " ")
+        .trim();
       citations.push({
-        mark: `[${match[2]}]`,
-        context: match[1].trim().substring(0, 200),
+        mark: `[${match[1]}]`,
+        context: context.substring(0, 200),
       });
     }
 
@@ -533,12 +554,45 @@ export class ResearchReviewerService {
   /**
    * 构建维度审核系统提示词
    */
-  private buildDimensionReviewSystemPrompt(): string {
+  private buildDimensionReviewSystemPrompt(topicType?: string): string {
+    // Currency criteria depends on topic type — academic/technology topics
+    // use older sources legitimately; news/market topics need recency.
+    const currencyGuidance = this.getCurrencyGuidance(topicType);
+
     return `你是一位资深的研究质量审核专家，负责审核 AI 研究团队产出的研究报告质量。
 
 ## 你的职责
 
 从广度、深度、证据支撑、逻辑连贯、时效性五个维度严格评估研究质量。
+
+## 各维度评分标准
+
+### 广度 (breadth)
+- 90+：覆盖所有主要方面和边缘话题
+- 70-89：覆盖主要方面，有少量遗漏
+- 50-69：覆盖核心方面，遗漏多个重要角度
+- <50：严重遗漏，只覆盖片面内容
+
+### 深度 (depth)
+- 90+：每个方面有深入分析，揭示底层机制和因果关系
+- 70-89：多数方面有较深分析
+- 50-69：分析停留在表面，缺少深层洞察
+- <50：内容空泛，只有概述
+
+### 证据支撑 (evidence)
+- 90+：每个核心论点有 2+ 条可靠来源支撑
+- 70-89：多数论点有来源支撑
+- 50-69：部分论点缺少来源
+- <50：大量论点无依据
+
+### 逻辑连贯 (coherence)
+- 90+：论证链清晰完整，结论有据可依
+- 70-89：整体逻辑通顺，少量跳跃
+- 50-69：存在逻辑断层或矛盾
+- <50：结构混乱，逻辑不通
+
+### 时效性 (currency)
+${currencyGuidance}
 
 ## 输出格式
 
@@ -568,10 +622,39 @@ export class ResearchReviewerService {
 
 ## 审核原则
 
-1. **高标准严要求**：作为质量守门人，你的标准必须严格
+1. **实事求是**：严格按照上述评分标准评分，不主观臆断
 2. **具体可操作**：问题描述和建议必须具体，可以指导改进
-3. **实事求是**：基于实际内容评分，不主观臆断
-4. **建设性反馈**：指出问题的同时给出改进方向`;
+3. **建设性反馈**：指出问题的同时给出改进方向
+4. **区分维度权重**：时效性权重应低于广度、深度、证据，仅占整体 15%`;
+  }
+
+  /**
+   * Get currency scoring guidance based on topic type.
+   * Academic/technology topics legitimately use older sources;
+   * news/market topics need strict recency.
+   */
+  private getCurrencyGuidance(topicType?: string): string {
+    switch (topicType?.toUpperCase()) {
+      case "MACRO":
+      case "INDUSTRY":
+        return `- 90+：包含最近 3 个月内的来源，覆盖最新动态
+- 70-89：多数来源在 1 年内
+- 50-69：多数来源在 2 年内
+- <50：来源普遍超过 2 年，缺少近期数据`;
+      case "COMPANY":
+        return `- 90+：包含最近 3 个月内的来源，覆盖最新财报/动态
+- 70-89：多数来源在 6 个月内
+- 50-69：多数来源在 1 年内
+- <50：来源普遍超过 1 年`;
+      case "TECHNOLOGY":
+      default:
+        // Technology and general topics: academic papers from 2-5 years ago are normal
+        return `- 90+：包含近 1 年内的来源，并引用经典文献
+- 70-89：多数来源在 2 年内，包含领域基础文献
+- 50-69：多数来源在 3 年内
+- <50：来源普遍超过 5 年，缺少近期进展
+- **注意**：学术论文和技术文献 2-5 年内属于正常引用范围，不应因此扣分`;
+    }
   }
 
   /**

@@ -693,6 +693,20 @@ export class ReportSynthesisService {
         this.logger.log(
           `[synthesizeReport] Quality review: score=${reviewResult.score}, passed=${reviewResult.passed}`,
         );
+        // ★ Quality gate: log warning when review fails (non-blocking but tracked)
+        if (!reviewResult.passed) {
+          const issuesSummary = reviewResult.issues
+            ?.map((i: string | { description?: string }) =>
+              typeof i === "string" ? i : i.description || "",
+            )
+            .filter(Boolean)
+            .join("; ");
+          this.logger.warn(
+            `[synthesizeReport] Quality review FAILED: score=${reviewResult.score} < threshold=6.5. ` +
+              `Report will still be saved but marked with low quality score. ` +
+              `Issues: ${issuesSummary || "none"}`,
+          );
+        }
       } catch (err) {
         this.logger.warn(
           `[synthesizeReport] Quality review failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,

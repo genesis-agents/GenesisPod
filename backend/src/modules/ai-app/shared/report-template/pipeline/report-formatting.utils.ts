@@ -75,12 +75,10 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
  *
  * Handles three heading patterns:
  *   - ### N.M.  — standard sub-section headings
- *   - #### N.M. — demoted from ### by collapseExcessSubHeadings (two-part)
+ *   - #### N.M. — legacy demoted headings (two-part, kept for compatibility)
  *   - #### N.M.K. — original sub-sub-section headings (three-part)
  *
- * Also re-numbers bold list items (1. **text**) under #### N.M. headings,
- * since hierarchicalNumberBoldListItems skips sections with #### headings
- * and those items remain un-numbered after collapse.
+ * Also re-numbers bold list items (1. **text**) under headings.
  *
  * Only affects headings that already have N.M. or N.M.K. numbering format.
  */
@@ -2191,9 +2189,16 @@ export function collapsePseudoCodeHeadings(content: string): string {
 /**
  * Collapse excess sub-headings when a dimension has too many ### sections.
  *
- * If a dimension section (## N. Title) has more than maxSubHeadings ### children,
- * the excess ### headings are demoted to #### (h4) to reduce visual noise.
- * The first maxSubHeadings ### headings are kept as-is.
+ * Works in two modes:
+ *   - **Full-report mode**: content contains `## N. Title` dimension headings.
+ *     Each dimension resets the counter independently.
+ *   - **Per-dimension mode**: content has no `## N. Title` heading (e.g. when
+ *     called from `formatDimensionContent`). The entire content is treated as
+ *     a single dimension.
+ *
+ * Excess ### headings (beyond maxSubHeadings) are converted to bold paragraph
+ * titles (`**Title**`) rather than demoted to #### — this produces a more
+ * natural reading flow than deep heading nesting.
  */
 export function collapseExcessSubHeadings(
   content: string,
@@ -2202,7 +2207,11 @@ export function collapseExcessSubHeadings(
   const lines = content.split("\n");
   const result: string[] = [];
   let h3Count = 0;
-  let inDimension = false;
+
+  // Per-dimension mode: if no ## N. dimension headings exist, treat
+  // the entire content as one dimension (activate counting immediately).
+  const hasH2Dimensions = lines.some((l) => /^##\s+\d+\.?\s+/.test(l));
+  let inDimension = !hasH2Dimensions;
 
   for (const line of lines) {
     // New dimension section (## N. Title) resets counter
@@ -2223,8 +2232,16 @@ export function collapseExcessSubHeadings(
     if (inDimension && /^###\s+/.test(line) && !/^####/.test(line)) {
       h3Count++;
       if (h3Count > maxSubHeadings) {
-        // Demote to #### to reduce clutter
-        result.push(line.replace(/^###\s+/, "#### "));
+        // Convert to bold paragraph title for natural reading flow.
+        // Strip heading marker and any numbering prefix (e.g. "### 1.9. Title" → "**Title**")
+        const title = line
+          .replace(/^###\s+/, "")
+          .replace(/^(?!\d{4}[年\-])[\d.]+\s*/, "")
+          .trim();
+        if (title) {
+          result.push("");
+          result.push(`**${title}**`);
+        }
         continue;
       }
     }

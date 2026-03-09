@@ -486,6 +486,9 @@ export interface ChatWithSkillsRequest {
 
   /** 严格模式 */
   strictMode?: boolean;
+
+  /** 跳过输入/输出 guardrails（用于内部系统调用） */
+  skipGuardrails?: boolean;
 }
 
 /**

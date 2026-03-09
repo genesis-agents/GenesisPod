@@ -585,6 +585,7 @@ export class AIEngineFacade {
           strictMode: true, // fallback 模式下使用严格模式，让错误冒泡给 fallback 处理
           userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId 用于 Key 优先级解析
           processId: request.processId,
+          skipGuardrails: request.skipGuardrails,
         });
 
         if (result.isError) {
@@ -697,6 +698,7 @@ export class AIEngineFacade {
         strictMode: request.strictMode,
         userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
         processId: request.processId,
+        skipGuardrails: request.skipGuardrails,
       });
 
       const duration = Date.now() - startTime;
@@ -1016,6 +1018,7 @@ export class AIEngineFacade {
         maxTokens: request.maxTokens,
         temperature: request.temperature,
         strictMode: request.strictMode,
+        skipGuardrails: request.skipGuardrails,
       });
 
       return {
@@ -1065,6 +1068,7 @@ export class AIEngineFacade {
       maxTokens: request.maxTokens,
       temperature: request.temperature,
       strictMode: request.strictMode,
+      skipGuardrails: request.skipGuardrails,
     });
 
     // 5. 输出完成报告

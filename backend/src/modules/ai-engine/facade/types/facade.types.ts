@@ -70,6 +70,9 @@ export interface ChatRequest {
   /** 严格模式：API失败时抛出异常 */
   strictMode?: boolean;
 
+  /** 跳过输入/输出 guardrails（用于内部系统调用，如 claim extraction、fact check） */
+  skipGuardrails?: boolean;
+
   // ==================== 积分计费 ====================
 
   /**

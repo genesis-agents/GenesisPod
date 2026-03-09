@@ -802,6 +802,8 @@ export class AiChatService {
     traceId?: string;
     responseFormat?: string;
     processId?: string;
+    /** Skip input/output guardrails for internal system calls */
+    skipGuardrails?: boolean;
   }): Promise<{
     content: string;
     usage?: { totalTokens: number };
@@ -828,6 +830,7 @@ export class AiChatService {
       traceId,
       responseFormat,
       processId: explicitProcessId,
+      skipGuardrails,
     } = options;
 
     // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
@@ -867,20 +870,22 @@ export class AiChatService {
         `[chat] Using direct API key path for provider: ${provider}`,
       );
 
-      // ★ Guardrails: Input validation for BYOK path
-      const inputGuardrailResult = await this.runInputGuardrails(messages, {
-        provider,
-        modelId: providedModel,
-        spanId,
-        pathName: "BYOK",
-      });
-      if (!inputGuardrailResult.passed) {
-        return {
-          content: `Request blocked by content safety guardrail: ${inputGuardrailResult.blockedBy}`,
-          model: providedModel || "unknown",
-          usage: { totalTokens: 0 },
-          isError: true,
-        };
+      // ★ Guardrails: Input validation for BYOK path (skip for internal system calls)
+      if (!skipGuardrails) {
+        const inputGuardrailResult = await this.runInputGuardrails(messages, {
+          provider,
+          modelId: providedModel,
+          spanId,
+          pathName: "BYOK",
+        });
+        if (!inputGuardrailResult.passed) {
+          return {
+            content: `Request blocked by content safety guardrail: ${inputGuardrailResult.blockedBy}`,
+            model: providedModel || "unknown",
+            usage: { totalTokens: 0 },
+            isError: true,
+          };
+        }
       }
 
       try {
@@ -1017,20 +1022,22 @@ export class AiChatService {
         `temperature=${effectiveTemperature}, isReasoning=${modelConfig?.isReasoning ?? false}`,
     );
 
-    // ★ Guardrails: Input validation
-    const inputGuardrailResult = await this.runInputGuardrails(messages, {
-      modelType,
-      model,
-      spanId,
-      pathName: "Standard",
-    });
-    if (!inputGuardrailResult.passed) {
-      return {
-        content: `Request blocked by content safety guardrail: ${inputGuardrailResult.blockedBy}`,
+    // ★ Guardrails: Input validation (skip for internal system calls)
+    if (!skipGuardrails) {
+      const inputGuardrailResult = await this.runInputGuardrails(messages, {
+        modelType,
         model,
-        usage: { totalTokens: 0 },
-        isError: true,
-      };
+        spanId,
+        pathName: "Standard",
+      });
+      if (!inputGuardrailResult.passed) {
+        return {
+          content: `Request blocked by content safety guardrail: ${inputGuardrailResult.blockedBy}`,
+          model,
+          usage: { totalTokens: 0 },
+          isError: true,
+        };
+      }
     }
 
     // ★ Fallback 机制
