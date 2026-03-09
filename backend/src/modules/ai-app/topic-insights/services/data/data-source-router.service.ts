@@ -948,22 +948,30 @@ export class DataSourceRouterService {
       case DataSourceType.SOCIAL_X:
         return this.searchSocialX(query, maxResults);
 
-      // ★ P0: 新增实时数据源（通过 ConnectorRegistry 路由）
+      // ★ 学术/专业数据源（通过 ToolRegistry 直接调用）
       case DataSourceType.SEMANTIC_SCHOLAR:
+        return this.searchViaTool(
+          "semantic-scholar",
+          source,
+          query,
+          maxResults,
+        );
       case DataSourceType.PUBMED:
+        return this.searchViaTool("pubmed", source, query, maxResults);
       case DataSourceType.FINANCE_API:
+        return this.searchViaTool("finance-api", source, query, maxResults);
       case DataSourceType.WEATHER_API:
-        return this.searchViaConnector(source, query, maxResults);
+        return this.searchViaTool("weather-api", source, query, maxResults);
 
       default:
-        this.logger.warn(`Unknown data source type: ${source}`);
-        return [];
+        // 尝试通过 ConnectorRegistry fallback（未来扩展的自定义连接器）
+        return this.searchViaConnector(source, query, maxResults);
     }
   }
 
   /**
-   * ★ P0: 通过 ConnectorRegistry 执行搜索
-   * 统一路由到已注册的数据源连接器
+   * 通过 ConnectorRegistry 执行搜索（fallback 路径）
+   * 用于未来扩展的自定义数据源连接器
    */
   private async searchViaConnector(
     source: DataSourceType,
@@ -972,12 +980,189 @@ export class DataSourceRouterService {
   ): Promise<DataSourceResult[]> {
     if (!this.connectorRegistry) {
       this.logger.warn(
-        `[searchViaConnector] ConnectorRegistry not available, skipping ${source}`,
+        `[searchViaConnector] No handler for data source: ${source}`,
       );
       return [];
     }
 
     return this.connectorRegistry.searchViaConnector(source, query, maxResults);
+  }
+
+  /**
+   * 通过 ToolRegistry 直接调用工具执行搜索
+   * 通用路由：将工具返回的 data 转为 DataSourceResult[]
+   */
+  private async searchViaTool(
+    toolId: string,
+    sourceType: DataSourceType,
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      const tool = this.toolRegistry.tryGet(toolId);
+      if (!tool) {
+        this.logger.warn(
+          `[searchViaTool] ${toolId} tool not registered in ToolRegistry`,
+        );
+        return [];
+      }
+
+      this.logger.log(
+        `[searchViaTool] Calling ${toolId}: "${query}", maxResults=${maxResults}`,
+      );
+
+      const result = await tool.execute(
+        { query, maxResults },
+        this.createToolContext(toolId),
+      );
+
+      if (!result.success || !result.data) {
+        this.logger.warn(
+          `[searchViaTool] ${toolId} failed: ${result.error?.message || "no data"}`,
+        );
+        return [];
+      }
+
+      // 将工具结果统一转为 DataSourceResult
+      return this.convertToolResultToDataSource(
+        toolId,
+        sourceType,
+        result.data,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[searchViaTool] ${toolId} error: ${error instanceof Error ? error.message : error}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * 将各种工具的输出格式统一转换为 DataSourceResult[]
+   */
+  private convertToolResultToDataSource(
+    toolId: string,
+    sourceType: DataSourceType,
+    data: unknown,
+  ): DataSourceResult[] {
+    const record = data as Record<string, unknown>;
+
+    switch (toolId) {
+      case "semantic-scholar": {
+        const papers = (record.papers || []) as Array<{
+          title: string;
+          url: string;
+          abstract?: string;
+          authors?: string[];
+          year?: number;
+          citationCount?: number;
+          paperId?: string;
+          doi?: string;
+        }>;
+        return papers.map((p) => ({
+          sourceType,
+          title: p.title,
+          url: p.url || `https://www.semanticscholar.org/paper/${p.paperId}`,
+          snippet: p.abstract || "",
+          domain: "semanticscholar.org",
+          metadata: {
+            authors: p.authors,
+            year: p.year,
+            citationCount: p.citationCount,
+            doi: p.doi,
+          },
+        }));
+      }
+
+      case "pubmed": {
+        const articles = (record.articles || []) as Array<{
+          title: string;
+          pubmedUrl: string;
+          abstract?: string;
+          authors?: string[];
+          journal?: string;
+          publishedDate?: string;
+          doi?: string;
+        }>;
+        return articles.map((a) => ({
+          sourceType,
+          title: a.title,
+          url: a.pubmedUrl,
+          snippet: a.abstract || "",
+          publishedAt: a.publishedDate ? new Date(a.publishedDate) : undefined,
+          domain: "pubmed.ncbi.nlm.nih.gov",
+          metadata: {
+            authors: a.authors,
+            journal: a.journal,
+            doi: a.doi,
+          },
+        }));
+      }
+
+      case "finance-api": {
+        const dataPoints = (record.data || []) as Array<{
+          date: string;
+          value: string;
+          label?: string;
+        }>;
+        const metadata = record.metadata as Record<string, string> | undefined;
+        if (dataPoints.length === 0) return [];
+        // 返回一个汇总结果
+        return [
+          {
+            sourceType,
+            title: metadata?.symbol
+              ? `Financial data: ${metadata.symbol}`
+              : `Financial data: ${record.queryType}`,
+            url: "",
+            snippet: dataPoints
+              .slice(0, 5)
+              .map(
+                (d) => `${d.date}: ${d.value}${d.label ? ` (${d.label})` : ""}`,
+              )
+              .join("; "),
+            domain: "alphavantage.co",
+            metadata: { ...metadata, pointCount: dataPoints.length },
+          },
+        ];
+      }
+
+      case "weather-api": {
+        const location = record.location as
+          | {
+              name?: string;
+              country?: string;
+            }
+          | undefined;
+        const current = record.current as
+          | {
+              temp?: number;
+              description?: string;
+              humidity?: number;
+            }
+          | undefined;
+        const locationName = location?.name || "Unknown";
+        if (!current && !record.forecast) return [];
+        return [
+          {
+            sourceType,
+            title: `Weather: ${locationName}, ${location?.country || ""}`,
+            url: "",
+            snippet: current
+              ? `${current.description}, ${current.temp}°C, humidity ${current.humidity}%`
+              : "Forecast data available",
+            domain: "openweathermap.org",
+            metadata: { location, current },
+          },
+        ];
+      }
+
+      default:
+        this.logger.warn(
+          `[convertToolResultToDataSource] Unknown tool: ${toolId}`,
+        );
+        return [];
+    }
   }
 
   /**

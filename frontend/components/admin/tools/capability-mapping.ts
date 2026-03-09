@@ -114,9 +114,10 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
     name: 'arxiv-search',
     displayName: '学术搜索',
     description:
-      '搜索 arXiv 学术论文预印本，涵盖 AI、物理、数学、计算机科学等领域的前沿研究',
+      '搜索学术论文和研究文献，涵盖 AI、物理、数学、计算机科学、生物医学等领域',
     icon: 'GraduationCap',
     category: 'search',
+    independentProviders: true,
     providers: [
       {
         id: 'arxiv',
@@ -125,6 +126,24 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://arxiv.org',
         noKeyRequired: true,
         freeQuota: '3 requests/second',
+      },
+      {
+        id: 'semantic-scholar',
+        name: 'Semantic Scholar',
+        description: 'AI 驱动的学术搜索引擎，2亿+论文，引用分析和语义检索',
+        url: 'https://www.semanticscholar.org',
+        freeQuota: '100 requests/5min (无Key)',
+        pricing: '免费申请 API Key 提升限额',
+        secretKeyName: 'semantic-scholar-api-key',
+      },
+      {
+        id: 'pubmed',
+        name: 'PubMed',
+        description: 'NCBI 生物医学文献数据库，3600万+引文，覆盖医学和生命科学',
+        url: 'https://pubmed.ncbi.nlm.nih.gov',
+        freeQuota: '3 requests/second (无Key)',
+        pricing: '免费申请 API Key 提升至 10 req/s',
+        secretKeyName: 'pubmed-api-key',
       },
     ],
   },
@@ -237,8 +256,8 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
 
   // ==================== 金融数据能力 ====================
   {
-    id: 'finance-data',
-    name: 'finance-data',
+    id: 'finance-api',
+    name: 'finance-api',
     displayName: '金融数据',
     description: '获取实时金融数据，包括股票行情、外汇汇率和加密货币价格',
     icon: 'TrendingUp',
@@ -251,6 +270,27 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://www.alphavantage.co',
         freeQuota: '25 requests/day',
         secretKeyName: 'alpha-vantage-api-key',
+      },
+    ],
+  },
+
+  // ==================== 天气数据能力 ====================
+  {
+    id: 'weather-api',
+    name: 'weather-api',
+    displayName: '天气数据',
+    description: '获取全球城市的实时天气和未来5天天气预报',
+    icon: 'CloudSun',
+    category: 'search',
+    providers: [
+      {
+        id: 'weather-api',
+        name: 'OpenWeatherMap',
+        description: '全球天气数据 API，支持当前天气和预报',
+        url: 'https://openweathermap.org',
+        freeQuota: '60 requests/minute',
+        pricing: '免费tier可用',
+        secretKeyName: 'openweathermap-api-key',
       },
     ],
   },
@@ -293,9 +333,9 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
 
   // ==================== 开发工具能力 ====================
   {
-    id: 'github-integration',
-    name: 'github-integration',
-    displayName: 'GitHub 集成',
+    id: 'github-search',
+    name: 'github-search',
+    displayName: 'GitHub 搜索',
     description: '搜索 GitHub 仓库、代码和开源项目',
     icon: 'Github',
     category: 'devtools',

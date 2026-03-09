@@ -1185,7 +1185,7 @@ describe("AIAdminService", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.result).toEqual({ result: "ok" });
+      expect(result.result).toEqual({ resultCount: 1 });
     });
 
     it("should return success message for tool without execute method", async () => {

@@ -120,6 +120,22 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     freeQuota: 'Basic search free',
     pricing: 'Free/Paid',
   },
+  // Academic Research
+  {
+    id: 'semantic-scholar',
+    name: 'Semantic Scholar',
+    category: 'external-academic',
+    url: 'https://www.semanticscholar.org',
+    freeQuota: '100 requests/5 min (free)',
+    pricing: 'Free API key for higher limits',
+  },
+  {
+    id: 'pubmed',
+    name: 'PubMed (NCBI)',
+    category: 'external-academic',
+    url: 'https://pubmed.ncbi.nlm.nih.gov',
+    freeQuota: '3 req/s (free), 10 req/s (with key)',
+  },
   // Finance Data
   {
     id: 'alpha-vantage',
@@ -127,6 +143,14 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: 'external-finance',
     url: 'https://www.alphavantage.co',
     freeQuota: '25 requests/day',
+  },
+  // Weather Data
+  {
+    id: 'weather-api',
+    name: 'OpenWeatherMap',
+    category: 'external-weather',
+    url: 'https://openweathermap.org',
+    freeQuota: '60 req/min, 1,000 req/day',
   },
   // Policy Research Tools
   {
@@ -570,60 +594,18 @@ export default function ToolsManagement() {
     }));
 
     try {
-      let endpoint = '';
-
-      switch (tool.category) {
-        case 'external-search':
-          endpoint = `/admin/search-config/test`;
-          break;
-        case 'external-extraction':
-          endpoint = `/admin/extraction-config/test`;
-          break;
-        case 'external-youtube':
-          endpoint = `/admin/youtube-config/test`;
-          break;
-        case 'external-tts':
-          endpoint = `/admin/tts-config/test`;
-          break;
-        case 'external-skills':
-          endpoint = `/admin/skillsmp-config/test`;
-          break;
-        case 'policy-research':
-          endpoint = `/admin/policy-config/test`;
-          break;
-        case 'external-finance':
-          endpoint = `/admin/finance-config/test`;
-          break;
-        case 'external-devtools':
-          endpoint = `/admin/devtools-config/test`;
-          break;
-        default:
-          setTestResults((prev) => ({
-            ...prev,
-            [tool.id]: {
-              success: false,
-              message: t('admin.tools.notSupported'),
-            },
-          }));
-          setTestingTool(null);
-          return;
-      }
-
-      const requestBody: { provider: string; secretKey?: string } = {
-        provider: tool.id,
-      };
-      if (tool.secretKey) {
-        requestBody.secretKey = tool.secretKey;
-      }
-
-      const res = await fetch(`${config.apiUrl}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        body: JSON.stringify(requestBody),
-      });
+      // Use unified test endpoint: POST /admin/ai/tools/:toolId/test
+      const res = await fetch(
+        `${config.apiUrl}/admin/ai/tools/${tool.id}/test`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({}),
+        }
+      );
 
       const result = await res.json();
       // Handle wrapped API response { success: true, data: T }
@@ -1011,10 +993,22 @@ export default function ToolsManagement() {
             }
           }}
           onTestProvider={(providerId, category) => {
+            // First try to find in externalTools (has full status info)
             const tool = externalTools.find((t) => t.id === providerId);
             if (tool) {
               handleTestExternalTool(tool);
+              return;
             }
+            // Fallback: construct minimal tool object for providers not in EXTERNAL_TOOLS
+            // (e.g., arXiv, HN Algolia, and other noKeyRequired tools)
+            handleTestExternalTool({
+              id: providerId,
+              name: providerId,
+              category: category,
+              hasApiKey: false,
+              noKeyRequired: true,
+              status: 'configured',
+            } as ExternalTool);
           }}
           testingProvider={testingTool}
           testResults={testResults}

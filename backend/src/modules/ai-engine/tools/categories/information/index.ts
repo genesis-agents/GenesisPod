@@ -1,97 +1,90 @@
 /**
  * Information Retrieval Tools
- * 信息获取工具集 - 数据查询和知识检索
+ * 信息获取工具集 - 按分类组织
+ *
+ * 子目录：
+ * - web/       网络搜索和内容抓取 (WebSearch, WebScraper, DataFetch)
+ * - academic/  学术论文搜索 (ArXiv, SemanticScholar, PubMed)
+ * - community/ 技术社区搜索 (HackerNews, GitHub)
+ * - data/      数据接口 (Finance, Weather)
+ * - knowledge/ 内部知识检索 (RAG, Database, KnowledgeGraph)
+ * - policy/    政策研究 (FederalRegister, CongressGov, WhiteHouseNews)
  */
 
-// ============================================================================
-// Tool Classes
-// ============================================================================
-export { RAGSearchTool } from "./rag-search.tool";
-export { DatabaseQueryTool } from "./database-query.tool";
-export { KnowledgeGraphTool } from "./knowledge-graph.tool";
-export { WebSearchTool } from "./web-search.tool";
-export { WebScraperTool } from "./web-scraper.tool";
-export { DataFetchTool } from "./data-fetch.tool";
-export { HackerNewsSearchTool } from "./hackernews-search.tool";
-export { ArxivSearchTool } from "./arxiv-search.tool";
-export { GithubSearchTool } from "./github-search.tool";
+// Web Tools
+export { WebSearchTool, WebScraperTool, DataFetchTool } from "./web";
+export type {
+  WebSearchInput,
+  WebSearchOutput,
+  WebScraperInput,
+  WebScraperOutput,
+  DataFetchInput,
+  DataFetchOutput,
+} from "./web";
 
-// ============================================================================
-// Types - RAG Search
-// ============================================================================
+// Academic Research Tools
+export {
+  ArxivSearchTool,
+  SemanticScholarSearchTool,
+  PubMedSearchTool,
+} from "./academic";
+export type {
+  ArxivSearchInput,
+  ArxivSearchOutput,
+  ArxivPaper,
+  ArxivSortBy,
+  SemanticScholarSearchInput,
+  SemanticScholarSearchOutput,
+  SemanticScholarPaper,
+  PubMedSearchInput,
+  PubMedSearchOutput,
+  PubMedArticle,
+} from "./academic";
+
+// Community Tools
+export { HackerNewsSearchTool, GithubSearchTool } from "./community";
+export type {
+  HackerNewsSearchInput,
+  HackerNewsSearchOutput,
+  HackerNewsSearchResult,
+  HackerNewsTagType,
+  GithubSearchInput,
+  GithubSearchOutput,
+  GithubRepository,
+  GithubSortType,
+} from "./community";
+
+// Data Tools
+export { FinanceApiTool, WeatherApiTool } from "./data";
+export type {
+  FinanceApiInput,
+  FinanceApiOutput,
+  FinanceDataPoint,
+  WeatherApiInput,
+  WeatherApiOutput,
+  WeatherData,
+} from "./data";
+
+// Knowledge Tools
+export {
+  RAGSearchTool,
+  DatabaseQueryTool,
+  KnowledgeGraphTool,
+} from "./knowledge";
 export type {
   RAGSearchInput,
   RAGSearchResultItem,
   RAGSearchOutput,
-} from "./rag-search.tool";
-
-// ============================================================================
-// Types - Database Query
-// ============================================================================
-export type {
   DatabaseQueryInput,
   ColumnInfo,
   DatabaseQueryOutput,
-} from "./database-query.tool";
-
-// ============================================================================
-// Types - Knowledge Graph
-// ============================================================================
-export type {
   QueryType,
   KnowledgeGraphInput,
   GraphNode,
   GraphEdge,
   GraphPath,
   KnowledgeGraphOutput,
-} from "./knowledge-graph.tool";
+} from "./knowledge";
 
-// ============================================================================
-// Types - Web Search
-// ============================================================================
-export type { WebSearchInput, WebSearchOutput } from "./web-search.tool";
-
-// ============================================================================
-// Types - Web Scraper
-// ============================================================================
-export type { WebScraperInput, WebScraperOutput } from "./web-scraper.tool";
-
-// ============================================================================
-// Types - Data Fetch
-// ============================================================================
-export type { DataFetchInput, DataFetchOutput } from "./data-fetch.tool";
-
-// ============================================================================
-// Types - HackerNews Search
-// ============================================================================
-export type {
-  HackerNewsSearchInput,
-  HackerNewsSearchOutput,
-  HackerNewsSearchResult,
-  HackerNewsTagType,
-} from "./hackernews-search.tool";
-
-// ============================================================================
-// Types - ArXiv Search
-// ============================================================================
-export type {
-  ArxivSearchInput,
-  ArxivSearchOutput,
-  ArxivPaper,
-  ArxivSortBy,
-} from "./arxiv-search.tool";
-
-// ============================================================================
-// Types - GitHub Search
-// ============================================================================
-export type {
-  GithubSearchInput,
-  GithubSearchOutput,
-  GithubRepository,
-  GithubSortType,
-} from "./github-search.tool";
-
-// ============================================================================
 // Policy Research Tools
-// ============================================================================
 export * from "./policy";

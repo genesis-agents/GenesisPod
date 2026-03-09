@@ -22,7 +22,7 @@ import {
 // Memory Coordinator (支柱三)
 import { MemoryCoordinatorService } from "./knowledge/memory/memory-coordinator.service";
 // Layer 4: Knowledge Graph
-import { KnowledgeGraphTool } from "./tools/categories/information/knowledge-graph.tool";
+import { KnowledgeGraphTool } from "./tools/categories/information/knowledge/knowledge-graph.tool";
 
 /**
  * In-memory Store Factory

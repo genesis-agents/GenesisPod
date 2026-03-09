@@ -137,6 +137,58 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     freeQuota: "25 requests/day",
     secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING["alpha-vantage"],
   },
+  // Academic Research
+  {
+    id: "arxiv-search",
+    name: "ArXiv",
+    category: "Academic Research",
+    url: "https://arxiv.org",
+    noKeyRequired: true,
+    freeQuota: "3 requests/second",
+  },
+  {
+    id: "semantic-scholar",
+    name: "Semantic Scholar",
+    category: "Academic Research",
+    url: "https://www.semanticscholar.org",
+    freeQuota: "100 requests/5 min (free), 100 req/s (with key)",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING["semantic-scholar"],
+  },
+  {
+    id: "pubmed",
+    name: "PubMed (NCBI)",
+    category: "Academic Research",
+    url: "https://pubmed.ncbi.nlm.nih.gov",
+    freeQuota: "3 req/s (free), 10 req/s (with key)",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.pubmed,
+  },
+  // Tech Community
+  {
+    id: "hackernews-search",
+    name: "HackerNews (Algolia)",
+    category: "Tech Community",
+    url: "https://hn.algolia.com",
+    noKeyRequired: true,
+    freeQuota: "Unlimited (recommended: 1 req/s)",
+  },
+  // GitHub
+  {
+    id: "github-search",
+    name: "GitHub Search",
+    category: "GitHub",
+    url: "https://github.com",
+    freeQuota: "10 req/hour (free), 30 req/min (with token)",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING["github-search"],
+  },
+  // Weather
+  {
+    id: "weather-api",
+    name: "OpenWeatherMap",
+    category: "Weather",
+    url: "https://openweathermap.org",
+    freeQuota: "60 req/min, 1,000 req/day",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING["weather-api"],
+  },
   // Policy Research
   {
     id: "federal-register",
@@ -1474,23 +1526,74 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * 前端 Provider ID → 后端 Tool Registry ID 映射
+   * 前端 capability-mapping 中的 provider.id 与 ToolRegistry 注册的 tool.id 不一定一致
+   */
+  private static readonly PROVIDER_TO_TOOL_ID: Record<string, string> = {
+    // Web Search providers → web-search tool
+    tavily: "web-search",
+    perplexity: "web-search",
+    serper: "web-search",
+    duckduckgo: "web-search",
+    // Extraction providers → web-scraper tool
+    jina: "web-scraper",
+    firecrawl: "web-scraper",
+    tavilyExtract: "web-scraper",
+    // Academic
+    arxiv: "arxiv-search",
+    // Community
+    hackernews: "hackernews-search",
+    // YouTube
+    supadata: "web-scraper",
+  };
+
+  /**
+   * 每个工具的默认测试输入参数
+   */
+  private static readonly DEFAULT_TEST_INPUTS: Record<
+    string,
+    Record<string, unknown>
+  > = {
+    "web-search": { query: "AI technology news", maxResults: 1 },
+    "web-scraper": { url: "https://example.com" },
+    "arxiv-search": { query: "transformer architecture", maxResults: 1 },
+    "hackernews-search": { query: "AI", maxResults: 1 },
+    "semantic-scholar": { query: "deep learning", maxResults: 1 },
+    pubmed: { query: "CRISPR gene editing", maxResults: 1 },
+    "finance-api": { queryType: "stock_quote", symbol: "AAPL" },
+    "weather-api": { queryType: "current", city: "London" },
+    "github-search": { query: "machine learning", maxResults: 1 },
+    "federal-register": { query: "artificial intelligence", maxResults: 1 },
+    "congress-gov": { query: "technology", maxResults: 1 },
+    "whitehouse-news": { query: "technology", maxResults: 1 },
+  };
+
+  /**
    * 测试工具
    */
   async testTool(toolId: string, input?: Record<string, unknown>) {
-    const tool = this.toolRegistry.tryGet(toolId);
+    // 将前端 provider ID 映射到后端 tool registry ID
+    const registryToolId = AIAdminService.PROVIDER_TO_TOOL_ID[toolId] || toolId;
+
+    const tool = this.toolRegistry.tryGet(registryToolId);
 
     if (!tool) {
       return {
         success: false,
-        error: `Tool ${toolId} is not implemented or registered`,
+        error: `Tool ${toolId} (registry: ${registryToolId}) is not implemented or registered`,
         duration: 0,
       };
     }
 
-    // 获取工具配置，解析 API Key
-    const toolConfig = await this.prisma.toolConfig.findUnique({
+    // 获取工具配置，解析 API Key（先尝试 provider ID，再尝试 registry tool ID）
+    let toolConfig = await this.prisma.toolConfig.findUnique({
       where: { toolId },
     });
+    if (!toolConfig && registryToolId !== toolId) {
+      toolConfig = await this.prisma.toolConfig.findUnique({
+        where: { toolId: registryToolId },
+      });
+    }
 
     let apiKey: string | undefined;
     if (toolConfig?.secretKey) {
@@ -1503,12 +1606,19 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // 如果没有提供输入，使用默认测试输入
+    const defaultInput =
+      AIAdminService.DEFAULT_TEST_INPUTS[registryToolId] || {};
+    const executeInput = { ...defaultInput, ...input };
+
     const startTime = Date.now();
     try {
       // 尝试执行工具（如果有 execute 方法）
       if (isExecutableTool(tool)) {
         // 将 API Key 传递给工具
-        const executeInput = { ...input, apiKey };
+        if (apiKey) {
+          executeInput.apiKey = apiKey;
+        }
         const result = await tool.execute(executeInput);
         const duration = Date.now() - startTime;
 
@@ -1517,7 +1627,11 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
 
         return {
           success: true,
-          result,
+          message: `Tool ${toolId} test passed`,
+          result:
+            typeof result === "object"
+              ? { resultCount: Array.isArray(result) ? result.length : 1 }
+              : result,
           duration,
         };
       }

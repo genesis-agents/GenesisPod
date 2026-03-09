@@ -20,6 +20,8 @@ import {
   GraduationCap,
   Newspaper,
   Github,
+  TrendingUp,
+  CloudSun,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type {
@@ -40,6 +42,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   GraduationCap,
   Newspaper,
   Github,
+  TrendingUp,
+  CloudSun,
 };
 
 interface UnifiedCapabilityCardProps {

@@ -34,6 +34,8 @@ const CATEGORY_TO_SECRET_CATEGORY: Record<string, string | null> = {
   'external-tts': 'TTS',
   'external-skills': 'SKILLSMP',
   'external-finance': 'FINANCE',
+  'external-academic': 'ACADEMIC',
+  'external-weather': 'WEATHER',
   'policy-research': 'POLICY',
   'external-devtools': 'DEV_TOOLS',
   mcp: 'MCP',

@@ -44,8 +44,16 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
   // ==================== GitHub ====================
   "github-search": "github-token",
 
+  // ==================== Academic Research ====================
+  "semantic-scholar": "semantic-scholar-api-key",
+  pubmed: "pubmed-api-key",
+
   // ==================== Finance ====================
   "alpha-vantage": "alpha-vantage-api-key",
+  "finance-api": "alpha-vantage-api-key", // alias: finance-api tool uses Alpha Vantage
+
+  // ==================== Weather ====================
+  "weather-api": "openweathermap-api-key",
 };
 
 /**
@@ -80,8 +88,15 @@ export const SECRET_NAMES = {
   // GitHub
   GITHUB_TOKEN: EXTERNAL_TOOL_SECRET_MAPPING["github-search"],
 
+  // Academic Research
+  SEMANTIC_SCHOLAR: EXTERNAL_TOOL_SECRET_MAPPING["semantic-scholar"],
+  PUBMED: EXTERNAL_TOOL_SECRET_MAPPING.pubmed,
+
   // Finance
   ALPHA_VANTAGE: EXTERNAL_TOOL_SECRET_MAPPING["alpha-vantage"],
+
+  // Weather
+  OPENWEATHERMAP: EXTERNAL_TOOL_SECRET_MAPPING["weather-api"],
 } as const;
 
 /**
