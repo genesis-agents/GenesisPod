@@ -175,7 +175,7 @@ describe("SocialLeaderService", () => {
       expect(mockTransformer.transform).toHaveBeenCalled();
       expect(mockChecker.check).toHaveBeenCalled();
       expect(mockPrisma.socialContent.create).toHaveBeenCalled();
-      expect(mockPrisma.socialContent.update).toHaveBeenCalled();
+      // Single atomic create (no separate update step)
       expect(result.content).toBeDefined();
       expect(result.checkResult).toBeDefined();
       expect(result.message).toContain("内容已生成");
