@@ -27,6 +27,7 @@ export {
   ArxivSearchTool,
   SemanticScholarSearchTool,
   PubMedSearchTool,
+  OpenAlexSearchTool,
 } from "./academic";
 export type {
   ArxivSearchInput,
@@ -39,6 +40,9 @@ export type {
   PubMedSearchInput,
   PubMedSearchOutput,
   PubMedArticle,
+  OpenAlexSearchInput,
+  OpenAlexSearchOutput,
+  OpenAlexPaper,
 } from "./academic";
 
 // Community Tools

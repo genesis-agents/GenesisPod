@@ -21,6 +21,7 @@ import {
   GithubSearchTool,
   SemanticScholarSearchTool,
   PubMedSearchTool,
+  OpenAlexSearchTool,
   FinanceApiTool,
   WeatherApiTool,
   // Policy Tools
@@ -131,6 +132,7 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   GithubSearchTool,
   SemanticScholarSearchTool,
   PubMedSearchTool,
+  OpenAlexSearchTool,
   FinanceApiTool,
   WeatherApiTool,
   FederalRegisterTool,
@@ -229,6 +231,7 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "github-search": GithubSearchTool,
   "semantic-scholar": SemanticScholarSearchTool,
   pubmed: PubMedSearchTool,
+  "openalex-search": OpenAlexSearchTool,
   "finance-api": FinanceApiTool,
   "weather-api": WeatherApiTool,
   "federal-register": FederalRegisterTool,

@@ -1,0 +1,423 @@
+/**
+ * OpenAlex Search Tool
+ * OpenAlex 学术搜索工具 - 搜索跨领域学术论文，含引用计数、开放获取状态等元数据
+ *
+ * API 文档: https://docs.openalex.org/
+ * 无需 API Key（免费公开）
+ * 限速: 10 req/s (无 mailto)，无限制 (有 mailto，polite pool)
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { BaseTool } from "../../../base/base-tool";
+import {
+  ToolContext,
+  JSONSchema,
+  ToolCategory,
+} from "../../../abstractions/tool.interface";
+import { PolicyDataService } from "../policy/policy-data.service";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * 输入参数
+ */
+export interface OpenAlexSearchInput {
+  /** 搜索查询 */
+  query: string;
+  /** 最大结果数，默认 10，最大 200 */
+  maxResults?: number;
+  /** 年份范围过滤，如 "2023-2025" 或 "2024" */
+  year?: string;
+  /** 按引用数排序（默认按相关性） */
+  sortByCitations?: boolean;
+}
+
+/**
+ * OpenAlex 论文
+ */
+export interface OpenAlexPaper {
+  /** OpenAlex Work ID */
+  id: string;
+  /** 标题 */
+  title: string;
+  /** 作者列表 */
+  authors: string[];
+  /** 摘要 */
+  abstract: string;
+  /** 发表年份 */
+  year: number;
+  /** 引用数量 */
+  citationCount: number;
+  /** DOI */
+  doi?: string;
+  /** OpenAlex 页面链接 */
+  url: string;
+  /** 开放获取 URL（如有） */
+  openAccessUrl?: string;
+  /** 来源（期刊/会议名称） */
+  source?: string;
+  /** 论文类型（article, review, etc.） */
+  type?: string;
+}
+
+/**
+ * 输出结果
+ */
+export interface OpenAlexSearchOutput {
+  /** 论文列表 */
+  papers: OpenAlexPaper[];
+  /** 结果总数 */
+  totalResults: number;
+  /** 搜索查询 */
+  query: string;
+  /** 是否成功 */
+  success: boolean;
+  /** 错误信息 */
+  error?: string;
+}
+
+// ============================================================================
+// API Response Types
+// ============================================================================
+
+interface OpenAlexAuthorship {
+  author: {
+    id: string;
+    display_name: string;
+  };
+}
+
+interface OpenAlexApiWork {
+  id: string;
+  title?: string;
+  authorships?: OpenAlexAuthorship[];
+  abstract_inverted_index?: Record<string, number[]>;
+  publication_year?: number;
+  cited_by_count?: number;
+  doi?: string;
+  primary_location?: {
+    source?: {
+      display_name?: string;
+    };
+    landing_page_url?: string;
+  };
+  open_access?: {
+    oa_url?: string;
+    is_oa?: boolean;
+  };
+  type?: string;
+}
+
+interface OpenAlexApiResponse {
+  results: OpenAlexApiWork[];
+  meta: {
+    count: number;
+    per_page: number;
+  };
+}
+
+// ============================================================================
+// Tool Implementation
+// ============================================================================
+
+@Injectable()
+export class OpenAlexSearchTool extends BaseTool<
+  OpenAlexSearchInput,
+  OpenAlexSearchOutput
+> {
+  private readonly logger = new Logger(OpenAlexSearchTool.name);
+
+  /** 最大并发请求数 */
+  private static readonly MAX_CONCURRENT = 2;
+  /** 最小请求间隔 (ms) — polite pool 无限制，但保守设置 200ms */
+  private static readonly MIN_REQUEST_INTERVAL = 200;
+  /** 全局 429 冷却截止时间戳 */
+  private static cooldownUntil = 0;
+  /** 当前活跃请求数 */
+  private static activeRequests = 0;
+  /** 上次请求时间戳 */
+  private static lastRequestTime = 0;
+  /** 等待槽位的回调队列 */
+  private static readonly requestQueue: Array<() => void> = [];
+
+  readonly id = "openalex-search";
+  readonly name = "OpenAlex Search";
+  readonly description =
+    "搜索 OpenAlex 学术论文数据库：覆盖 2.5 亿+学术作品，跨学科元数据，引用分析，开放获取状态。数据来源：openalex.org，免费无需 API Key。适合大规模文献调研、引用网络分析、开放获取论文检索。";
+  readonly category: ToolCategory = "information";
+  readonly tags = ["academic", "research", "paper", "openalex", "science"];
+  readonly defaultTimeout = 30000;
+
+  readonly inputSchema: JSONSchema = {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description:
+          "搜索查询关键词。示例：'large language models', 'climate change', 'CRISPR gene editing'",
+      },
+      maxResults: {
+        type: "number",
+        description: "最大结果数量，默认 10，最大 200",
+        default: 10,
+      },
+      year: {
+        type: "string",
+        description: "年份范围过滤。格式：单年 '2024'，范围 '2020-2024'",
+      },
+      sortByCitations: {
+        type: "boolean",
+        description: "是否按引用数降序排列，默认按相关性",
+        default: false,
+      },
+    },
+    required: ["query"],
+  };
+
+  readonly outputSchema: JSONSchema = {
+    type: "object",
+    properties: {
+      success: { type: "boolean" },
+      papers: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            title: { type: "string" },
+            authors: { type: "array", items: { type: "string" } },
+            abstract: { type: "string" },
+            year: { type: "number" },
+            citationCount: { type: "number" },
+            doi: { type: "string" },
+            url: { type: "string" },
+            openAccessUrl: { type: "string" },
+            source: { type: "string" },
+            type: { type: "string" },
+          },
+        },
+      },
+      totalResults: { type: "number" },
+      query: { type: "string" },
+      error: { type: "string" },
+    },
+  };
+
+  constructor(private readonly policyDataService: PolicyDataService) {
+    super();
+  }
+
+  protected async doExecute(
+    input: OpenAlexSearchInput,
+    _context: ToolContext,
+  ): Promise<OpenAlexSearchOutput> {
+    const { query, maxResults = 10, year, sortByCitations = false } = input;
+
+    this.logger.log(
+      `[doExecute] Searching OpenAlex: query="${query}", maxResults=${maxResults}, year=${year ?? "any"}`,
+    );
+
+    try {
+      // 构建请求参数
+      const baseUrl = "https://api.openalex.org/works";
+      const params: Record<string, string | number> = {
+        search: query,
+        per_page: Math.min(maxResults, 200),
+        select:
+          "id,title,authorships,abstract_inverted_index,publication_year,cited_by_count,doi,primary_location,open_access,type",
+        mailto: "api@genesis.ai",
+      };
+
+      // 年份过滤
+      if (year) {
+        if (year.includes("-")) {
+          const [from, to] = year.split("-");
+          params["filter"] = `publication_year:${from}-${to}`;
+        } else {
+          params["filter"] = `publication_year:${year}`;
+        }
+      }
+
+      // 排序
+      if (sortByCitations) {
+        params["sort"] = "cited_by_count:desc";
+      }
+
+      this.logger.debug(`[doExecute] API params: ${JSON.stringify(params)}`);
+
+      // 带退避重试的请求，最多重试 3 次
+      const maxRetries = 3;
+      let responseData: OpenAlexApiResponse | undefined;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        await this.acquireSlot();
+        try {
+          responseData =
+            await this.policyDataService.httpGet<OpenAlexApiResponse>(
+              baseUrl,
+              params,
+            );
+          this.releaseSlot();
+          break;
+        } catch (err) {
+          this.releaseSlot();
+          const is429 = err instanceof Error && err.message.includes("429");
+          if (is429 && attempt < maxRetries) {
+            const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+            OpenAlexSearchTool.cooldownUntil = Date.now() + backoff;
+            this.logger.warn(
+              `[doExecute] OpenAlex 429 rate limited, retry ${attempt + 1}/${maxRetries} after ${backoff}ms (global cooldown set)`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoff));
+            continue;
+          }
+          if (is429) {
+            OpenAlexSearchTool.cooldownUntil = Date.now() + 30_000;
+            this.logger.warn(
+              `[doExecute] OpenAlex 429 exhausted all retries, setting 30s global cooldown for subsequent requests`,
+            );
+          }
+          throw err;
+        }
+      }
+
+      if (!responseData) {
+        return {
+          success: false,
+          papers: [],
+          totalResults: 0,
+          query,
+          error: "OpenAlex 搜索失败: 重试耗尽",
+        };
+      }
+
+      // 解析结果
+      const papers: OpenAlexPaper[] = (responseData.results ?? []).map((item) =>
+        this.parsePaper(item),
+      );
+
+      this.logger.log(
+        `[doExecute] Found ${papers.length} papers (total: ${responseData.meta?.count ?? 0})`,
+      );
+
+      return {
+        success: true,
+        papers,
+        totalResults: responseData.meta?.count ?? 0,
+        query,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`[doExecute] OpenAlex API error: ${error}`);
+
+      return {
+        success: false,
+        papers: [],
+        totalResults: 0,
+        query,
+        error: `OpenAlex 搜索失败: ${errorMessage}`,
+      };
+    }
+  }
+
+  /**
+   * 解析单篇论文 API 响应
+   */
+  private parsePaper(item: OpenAlexApiWork): OpenAlexPaper {
+    // 从 inverted index 重建摘要
+    const abstract = item.abstract_inverted_index
+      ? this.reconstructAbstract(item.abstract_inverted_index)
+      : "";
+
+    // 提取 OpenAlex ID（去除 URL 前缀）
+    const rawId = item.id ?? "";
+    const id = rawId.replace("https://openalex.org/", "");
+
+    // 提取 DOI（去除 URL 前缀）
+    const doi = item.doi ? item.doi.replace("https://doi.org/", "") : undefined;
+
+    return {
+      id,
+      title: item.title ?? "",
+      authors: (item.authorships ?? [])
+        .map((a) => a.author?.display_name)
+        .filter(Boolean),
+      abstract,
+      year: item.publication_year ?? 0,
+      citationCount: item.cited_by_count ?? 0,
+      doi,
+      url: rawId || `https://openalex.org/${id}`,
+      openAccessUrl: item.open_access?.oa_url ?? undefined,
+      source: item.primary_location?.source?.display_name ?? undefined,
+      type: item.type ?? undefined,
+    };
+  }
+
+  /**
+   * 从 OpenAlex inverted index 格式重建摘要文本
+   *
+   * OpenAlex 使用 inverted index 格式存储摘要：
+   * { "word1": [0, 5], "word2": [1, 3] } → 每个词对应在摘要中的位置列表
+   */
+  reconstructAbstract(invertedIndex: Record<string, number[]>): string {
+    const words: Array<[number, string]> = [];
+    for (const [word, positions] of Object.entries(invertedIndex)) {
+      for (const pos of positions) {
+        words.push([pos, word]);
+      }
+    }
+    words.sort((a, b) => a[0] - b[0]);
+    return words.map(([, word]) => word).join(" ");
+  }
+
+  /**
+   * 获取并发槽位，等待全局冷却 + 最小请求间隔
+   */
+  private async acquireSlot(): Promise<void> {
+    // 等待并发槽位
+    while (
+      OpenAlexSearchTool.activeRequests >= OpenAlexSearchTool.MAX_CONCURRENT
+    ) {
+      await new Promise<void>((resolve) => {
+        OpenAlexSearchTool.requestQueue.push(resolve);
+      });
+    }
+    OpenAlexSearchTool.activeRequests++;
+
+    // 等待全局 429 冷却结束
+    const cooldownRemaining = OpenAlexSearchTool.cooldownUntil - Date.now();
+    if (cooldownRemaining > 0) {
+      this.logger.debug(
+        `[acquireSlot] Waiting ${cooldownRemaining}ms for global 429 cooldown`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, cooldownRemaining));
+    }
+
+    // 强制最小请求间隔
+    const now = Date.now();
+    const timeSinceLastRequest = now - OpenAlexSearchTool.lastRequestTime;
+    if (timeSinceLastRequest < OpenAlexSearchTool.MIN_REQUEST_INTERVAL) {
+      const waitTime =
+        OpenAlexSearchTool.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      this.logger.debug(`[acquireSlot] Waiting ${waitTime}ms for rate limit`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+    OpenAlexSearchTool.lastRequestTime = Date.now();
+  }
+
+  /**
+   * 释放并发槽位，并唤醒队列中下一个等待者
+   */
+  private releaseSlot(): void {
+    OpenAlexSearchTool.activeRequests--;
+    const next = OpenAlexSearchTool.requestQueue.shift();
+    if (next) next();
+  }
+
+  validateInput(input: OpenAlexSearchInput): boolean {
+    return !!input.query && input.query.trim().length > 0;
+  }
+}

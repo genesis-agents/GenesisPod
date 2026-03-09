@@ -145,6 +145,14 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         pricing: '免费申请 API Key 提升至 10 req/s',
         secretKeyName: 'pubmed-api-key',
       },
+      {
+        id: 'openalex',
+        name: 'OpenAlex',
+        description: '开放学术数据库，2.5亿+学术作品，免费无限制，覆盖全学科',
+        url: 'https://openalex.org',
+        noKeyRequired: true,
+        freeQuota: '10 req/s (无 mailto)，无限制 (polite pool)',
+      },
     ],
   },
 

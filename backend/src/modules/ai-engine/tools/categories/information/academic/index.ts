@@ -22,3 +22,10 @@ export type {
   PubMedSearchOutput,
   PubMedArticle,
 } from "./pubmed-search.tool";
+
+export { OpenAlexSearchTool } from "./openalex-search.tool";
+export type {
+  OpenAlexSearchInput,
+  OpenAlexSearchOutput,
+  OpenAlexPaper,
+} from "./openalex-search.tool";
