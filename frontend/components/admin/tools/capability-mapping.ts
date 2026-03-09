@@ -416,6 +416,52 @@ export function getIndependentProviderIds(): string[] {
 }
 
 /**
+ * 前端 Provider ID → 后端 Tool Registry ID 映射
+ * 前端 capability-mapping 中的 provider.id 与 ToolRegistry 注册的 tool.id 不一定一致
+ * 用于前端查找 builtinTool 时将 provider.id 映射到实际的 tool ID
+ */
+export const PROVIDER_TO_TOOL_ID: Record<string, string> = {
+  // Web Search providers → web-search tool
+  tavily: 'web-search',
+  perplexity: 'web-search',
+  serper: 'web-search',
+  duckduckgo: 'web-search',
+  // Extraction providers → web-scraper tool
+  jina: 'web-scraper',
+  firecrawl: 'web-scraper',
+  tavilyExtract: 'web-scraper',
+  // Academic providers → respective tools
+  arxiv: 'arxiv-search',
+  'semantic-scholar': 'semantic-scholar',
+  pubmed: 'pubmed',
+  openalex: 'openalex-search',
+  // Community
+  hackernews: 'hackernews-search',
+  // GitHub
+  'github-search': 'github-search',
+  // YouTube
+  supadata: 'web-scraper',
+  // Policy
+  'federal-register': 'federal-register',
+  'congress-gov': 'congress-gov',
+  'whitehouse-news': 'whitehouse-news',
+  // Finance & Weather
+  'alpha-vantage': 'finance-api',
+  'weather-api': 'weather-api',
+  // Audio Generation
+  elevenlabs: 'audio-generation',
+  googleTts: 'audio-generation',
+};
+
+/**
+ * 根据 Provider ID 获取对应的 Tool Registry ID
+ * 如果映射表中没有，则返回原始 provider ID
+ */
+export function getToolIdForProvider(providerId: string): string {
+  return PROVIDER_TO_TOOL_ID[providerId] || providerId;
+}
+
+/**
  * 按类别分组并排序能力
  */
 export function getCapabilitiesByCategory(): Map<

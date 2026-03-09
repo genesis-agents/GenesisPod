@@ -332,7 +332,7 @@ export function UnifiedCapabilityCard({
 
                     {/* Test Button - 固定宽度确保对齐 */}
                     <div className="w-16 flex-shrink-0">
-                      {status.configured && onTestProvider && (
+                      {onTestProvider && (
                         <button
                           onClick={() => onTestProvider(provider.id)}
                           disabled={isTesting}

@@ -6,6 +6,7 @@ import {
   CAPABILITY_DEFINITIONS,
   CATEGORY_CONFIG,
   getIndependentProviderIds,
+  getToolIdForProvider,
   type CapabilityDefinition,
   type CapabilityCategory,
   type ProviderDefinition,
@@ -49,11 +50,14 @@ export function CapabilitiesTab({
       if (capability.independentProviders) {
         const providerStatuses: ProviderStatus[] = capability.providers.map(
           (provider) => {
-            // 独立 provider 使用自己的 ID 查找 builtinTool
-            const builtinTool = builtinTools.find((t) => t.id === provider.id);
-            const externalStatus = externalToolStatuses.find(
-              (e) => e.id === provider.id
-            );
+            // 独立 provider：先用 provider.id 查找，找不到则用映射后的 tool ID 查找
+            const toolId = getToolIdForProvider(provider.id);
+            const builtinTool =
+              builtinTools.find((t) => t.id === provider.id) ||
+              builtinTools.find((t) => t.id === toolId);
+            const externalStatus =
+              externalToolStatuses.find((e) => e.id === provider.id) ||
+              externalToolStatuses.find((e) => e.id === toolId);
 
             const configured =
               provider.noKeyRequired ||
@@ -68,8 +72,8 @@ export function CapabilitiesTab({
                 externalStatus?.hasApiKey || provider.noKeyRequired || false,
               secretKey: externalStatus?.secretKey,
               isActive: configured,
-              // 独立 provider 需要自己的 enabled 状态
-              enabled: builtinTool?.enabled ?? false,
+              // 独立 provider：后端 syncToolConfigs 默认 enabled=true
+              enabled: builtinTool?.enabled ?? true,
             };
           }
         );
@@ -86,7 +90,7 @@ export function CapabilitiesTab({
 
       // 普通能力：使用能力 ID 查找 builtinTool
       const builtinTool = builtinTools.find((t) => t.id === capability.id);
-      const enabled = builtinTool?.enabled ?? false;
+      const enabled = builtinTool?.enabled ?? true;
 
       // 查找每个 provider 的状态
       const providerStatuses: ProviderStatus[] = capability.providers.map(
