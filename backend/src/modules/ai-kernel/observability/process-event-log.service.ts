@@ -422,6 +422,7 @@ export class ProcessEventLogService {
         this.spans.delete(span.id);
       }
       this.traces.delete(oldestTraceId);
+      this.persistedTraceIds.delete(oldestTraceId);
       this.logger.debug(`[Trace] Evicted oldest trace: ${oldestTraceId}`);
     }
   }
