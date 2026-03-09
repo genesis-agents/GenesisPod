@@ -600,15 +600,28 @@ export class AiSocialService {
       throw new NotFoundException("连接不存在");
     }
 
-    // TODO: 实际刷新 session（如重新获取 token）
-    // 目前只更新时间戳
-    return this.prisma.socialPlatformConnection.update({
+    // Validate session is still active
+    const validationResult = await this.validateSession(connection);
+
+    // Update connection status based on validation
+    const updated = await this.prisma.socialPlatformConnection.update({
       where: { id: connectionId },
       data: {
         lastCheckAt: new Date(),
+        isActive: validationResult.isValid,
         updatedAt: new Date(),
       },
     });
+
+    return {
+      ...updated,
+      validationResult: {
+        isValid: validationResult.isValid,
+        message: validationResult.isValid
+          ? "会话有效，连接正常"
+          : validationResult.message || "会话已过期，请重新连接",
+      },
+    };
   }
 
   // ==================== 内容管理 ====================
@@ -1017,6 +1030,27 @@ export class AiSocialService {
   async publishContent(userId: string, id: string, dto: PublishContentDto) {
     const content = await this.getContent(userId, id);
 
+    // Guard: only DRAFT or FAILED (retry) content can be published
+    if (
+      content.status !== SocialContentStatus.DRAFT &&
+      content.status !== SocialContentStatus.FAILED
+    ) {
+      throw new BadRequestException(
+        `当前状态(${content.status})不允许发布，只有草稿或失败状态可以发布`,
+      );
+    }
+
+    // Guard: compliance check must pass before publishing (if check was run)
+    const compliance = content.complianceCheck as {
+      passed?: boolean;
+      score?: number;
+    } | null;
+    if (compliance && compliance.passed === false) {
+      throw new BadRequestException(
+        "内容合规检测未通过，请修改后再发布。可在内容详情查看具体问题",
+      );
+    }
+
     if (!content.connectionId && !dto.connectionId) {
       throw new BadRequestException("请选择发布账号");
     }
@@ -1334,8 +1368,8 @@ export class AiSocialService {
             continue;
           }
 
-          // 只允许发布草稿或已审核状态的内容
-          if (!["DRAFT", "APPROVED"].includes(content.status)) {
+          // 只允许发布草稿或失败(重试)状态的内容
+          if (!["DRAFT", "FAILED"].includes(content.status)) {
             errors.push({
               id,
               error: `当前状态(${content.status})不允许发布`,

@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from "@nestjs/common";
+import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AiSocialController } from "./ai-social.controller";
 import { AiSocialService } from "./ai-social.service";
@@ -11,6 +11,7 @@ import { ReviewService } from "./services/review.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
 import { SocialBrowserService } from "./services/social-browser.service";
 import { SessionHealthCheckScheduler } from "./services/session-health-check.scheduler";
+import { PublishSchedulerService } from "./services/publish-scheduler.service";
 import { WechatAdapter } from "./adapters/wechat.adapter";
 import { XhsMcpAdapter } from "./adapters/xiaohongshu.adapter";
 import { MCPClientService } from "./core/mcp-client.service";
@@ -50,6 +51,7 @@ import { initSessionCrypto } from "./utils/session-crypto";
     PublishExecutorService,
     SocialBrowserService,
     SessionHealthCheckScheduler,
+    PublishSchedulerService,
     WechatAdapter,
     XhsMcpAdapter,
     // ★ MCP Client Service (refactored to use MCPManager)
@@ -58,12 +60,25 @@ import { initSessionCrypto } from "./utils/session-crypto";
   exports: [AiSocialService],
 })
 export class AiSocialModule implements OnModuleInit {
+  private readonly logger = new Logger(AiSocialModule.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
     const key = this.configService.get<string>("SESSION_ENCRYPTION_KEY");
     if (key) {
       initSessionCrypto(key);
+      this.logger.log("Session encryption initialized");
+    } else if (process.env.NODE_ENV === "production") {
+      this.logger.error(
+        "SESSION_ENCRYPTION_KEY not set. " +
+          "WeChat login sessions cannot be encrypted. " +
+          "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+      );
+    } else {
+      this.logger.warn(
+        "SESSION_ENCRYPTION_KEY not set, using development fallback key",
+      );
     }
   }
 }

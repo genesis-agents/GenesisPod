@@ -142,6 +142,7 @@ export class BrowserService implements OnModuleDestroy {
 
   /**
    * 恢复会话数据到指定上下文（上下文不存在时自动创建）
+   * 恢复 cookies + localStorage + sessionStorage
    */
   async restoreSession(
     contextId: string,
@@ -155,6 +156,63 @@ export class BrowserService implements OnModuleDestroy {
     // Restore cookies
     if (sessionData.cookies && sessionData.cookies.length > 0) {
       await context.setCookie(...sessionData.cookies);
+    }
+
+    // Restore localStorage and sessionStorage via a temporary page
+    const hasLocalStorage =
+      sessionData.localStorage &&
+      Object.keys(sessionData.localStorage).length > 0;
+    const hasSessionStorage =
+      sessionData.sessionStorage &&
+      Object.keys(sessionData.sessionStorage).length > 0;
+
+    if (hasLocalStorage || hasSessionStorage) {
+      // Need a page on the correct origin to set storage.
+      // Determine origin from first cookie domain, fall back to about:blank.
+      const domain = sessionData.cookies?.[0]?.domain?.replace(/^\./, "");
+      const origin = domain ? `https://${domain}` : null;
+
+      if (origin) {
+        let tempPage: Page | null = null;
+        try {
+          tempPage = await context.newPage();
+          // Navigate to origin so storage writes go to the right partition
+          await tempPage.goto(origin, {
+            waitUntil: "domcontentloaded",
+            timeout: 15_000,
+          });
+
+          if (hasLocalStorage) {
+            await tempPage.evaluate((storage: Record<string, string>) => {
+              for (const [key, value] of Object.entries(storage)) {
+                window.localStorage.setItem(key, value);
+              }
+            }, sessionData.localStorage!);
+          }
+
+          if (hasSessionStorage) {
+            await tempPage.evaluate((storage: Record<string, string>) => {
+              for (const [key, value] of Object.entries(storage)) {
+                window.sessionStorage.setItem(key, value);
+              }
+            }, sessionData.sessionStorage!);
+          }
+
+          this.logger.debug(
+            `Restored storage for context ${contextId}: ` +
+              `localStorage=${Object.keys(sessionData.localStorage || {}).length}, ` +
+              `sessionStorage=${Object.keys(sessionData.sessionStorage || {}).length}`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to restore storage for context ${contextId}: ${error}`,
+          );
+        } finally {
+          if (tempPage) {
+            await tempPage.close().catch(() => {});
+          }
+        }
+      }
     }
   }
 

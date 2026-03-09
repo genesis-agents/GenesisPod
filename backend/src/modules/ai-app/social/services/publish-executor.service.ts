@@ -203,23 +203,29 @@ export class PublishExecutorService {
       const err = error as Error;
       this.logger.error(`发布失败: ${err.message}`, err.stack);
 
-      await this.prisma.socialContent.update({
-        where: { id: contentId },
-        data: {
-          status: SocialContentStatus.FAILED,
-          errorMessage: err.message,
-        },
-      });
+      // Ensure status always updates to FAILED, even if DB write fails
+      try {
+        await this.prisma.socialContent.update({
+          where: { id: contentId },
+          data: {
+            status: SocialContentStatus.FAILED,
+            errorMessage: err.message,
+          },
+        });
 
-      // 记录错误日志
-      await this.prisma.socialPublishLog.create({
-        data: {
-          contentId,
-          action: "PUBLISH",
-          status: "FAILED",
-          errorMessage: err.message,
-        },
-      });
+        await this.prisma.socialPublishLog.create({
+          data: {
+            contentId,
+            action: "PUBLISH",
+            status: "FAILED",
+            errorMessage: err.message,
+          },
+        });
+      } catch (dbError) {
+        this.logger.error(
+          `Failed to update content status to FAILED: ${(dbError as Error).message}`,
+        );
+      }
 
       return { success: false, errorMessage: err.message };
     }

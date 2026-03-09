@@ -260,40 +260,20 @@ export class SocialLeaderService {
     );
 
     try {
-      // Step 1: Create with minimal required fields only
-      const minimalData = {
-        userId,
-        contentType: dto.targetType,
-        sourceType: SocialContentSourceType.EXTERNAL_URL,
-        title: safeTitle,
-        content: safeContent,
-        status: SocialContentStatus.DRAFT,
-        reviewStatus: SocialReviewStatus.PENDING,
-      };
+      // Single atomic create with all fields (avoids orphaned records from two-step approach)
+      this.logger.log(`[processUrl] Creating content with all fields`);
 
-      this.logger.log(`[processUrl] Step 1: Creating with minimal fields`);
-
-      const content = await withRetry(
-        async () => {
-          return this.prisma.socialContent.create({
-            data: minimalData,
-          });
-        },
-        3,
-        500,
-        this.logger,
-      );
-
-      this.logger.log(
-        `[processUrl] Step 1 success: ${content.id}, updating with remaining fields`,
-      );
-
-      // Step 2: Update with optional fields
       const updatedContent = await withRetry(
         async () => {
-          return this.prisma.socialContent.update({
-            where: { id: content.id },
+          return this.prisma.socialContent.create({
             data: {
+              userId,
+              contentType: dto.targetType,
+              sourceType: SocialContentSourceType.EXTERNAL_URL,
+              title: safeTitle,
+              content: safeContent,
+              status: SocialContentStatus.DRAFT,
+              reviewStatus: SocialReviewStatus.PENDING,
               sourceUrl: safeSourceUrl,
               digest: safeDigest,
               coverImageUrl: safeCoverImageUrl,
@@ -309,9 +289,7 @@ export class SocialLeaderService {
         this.logger,
       );
 
-      this.logger.log(
-        `[processUrl] Step 2 success: Updated content ${updatedContent.id}`,
-      );
+      this.logger.log(`[processUrl] Created content ${updatedContent.id}`);
 
       // 6. 生成所有平台的适配版本（同步等待，告知用户结果）
       let versionGenerationFailed = false;
