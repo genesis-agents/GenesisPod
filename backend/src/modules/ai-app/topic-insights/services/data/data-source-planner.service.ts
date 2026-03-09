@@ -42,7 +42,7 @@ export class DataSourcePlannerService {
       type: DataSourceType.ACADEMIC,
       displayName: "Academic (arXiv)",
       description:
-        "arXiv 学术预印本搜索，涵盖 AI、物理、数学、计算机科学等领域",
+        "arXiv 学术预印本搜索，涵盖 AI、物理、数学、计算机科学等领域。⚠️ 限速严格(~1 req/s)，并发研究时容易触发 429",
       useCases: [
         "前沿技术研究",
         "算法原理",
@@ -50,9 +50,16 @@ export class DataSourcePlannerService {
         "理论基础",
         "技术趋势",
       ],
-      characteristics: ["学术权威", "技术深度", "引用可追溯", "偏理论性"],
+      characteristics: [
+        "学术权威",
+        "技术深度",
+        "引用可追溯",
+        "偏理论性",
+        "限速严格",
+      ],
       requiresApiKey: false,
       isAvailable: true,
+      throughput: "low",
     },
     {
       type: DataSourceType.GITHUB,
@@ -157,7 +164,7 @@ export class DataSourcePlannerService {
       type: DataSourceType.SEMANTIC_SCHOLAR,
       displayName: "Semantic Scholar",
       description:
-        "Semantic Scholar 学术论文搜索，覆盖全领域高质量论文，包含引用网络",
+        "Semantic Scholar 学术论文搜索，覆盖全领域高质量论文，包含引用网络。⚠️ 无 Key 时限速 1 req/s，并发时易 429",
       useCases: [
         "学术文献综述",
         "引用分析",
@@ -171,9 +178,11 @@ export class DataSourcePlannerService {
         "开放获取标记",
         "作者网络",
         "语义搜索",
+        "限速较严格",
       ],
       requiresApiKey: false,
       isAvailable: true,
+      throughput: "low",
     },
     {
       type: DataSourceType.PUBMED,
@@ -183,12 +192,13 @@ export class DataSourcePlannerService {
       characteristics: ["生物医学权威", "MeSH 术语", "临床证据", "同行评审"],
       requiresApiKey: false,
       isAvailable: true,
+      throughput: "medium",
     },
     {
       type: DataSourceType.OPENALEX,
       displayName: "OpenAlex",
       description:
-        "OpenAlex 开放学术数据库，2.5亿+学术作品，跨学科覆盖，免费无限制访问",
+        "OpenAlex 开放学术数据库，2.5亿+学术作品，跨学科覆盖，免费无限制访问。✅ 无限速，并发友好，推荐作为学术搜索首选",
       useCases: [
         "大规模文献调研",
         "引用网络分析",
@@ -201,10 +211,11 @@ export class DataSourcePlannerService {
         "开放获取标记",
         "引用计数",
         "免费无Key",
-        "高吞吐量",
+        "无限速高吞吐",
       ],
       requiresApiKey: false,
       isAvailable: true,
+      throughput: "high",
     },
     {
       type: DataSourceType.FINANCE_API,
@@ -343,11 +354,13 @@ export class DataSourcePlannerService {
 2. **覆盖全面**：确保从多个角度获取信息
 3. **权威可靠**：优先选择权威性高的数据源
 4. **效率平衡**：不要选择过多数据源，通常 2-4 个为宜
-5. **场景匹配**：
+5. **吞吐量优先**：同类数据源中优先选择高吞吐量(throughput=high)的，避免过度依赖限速严格(throughput=low)的数据源。学术搜索场景中，OpenAlex 应作为首选主力数据源，ArXiv/Semantic Scholar 作为补充
+6. **场景匹配**：
    - 政策法规研究：优先政府官方数据源
-   - 技术研究：优先学术和开源数据源
+   - 技术研究：优先学术（OpenAlex 为主 + ArXiv 补充）和开源数据源
    - 市场分析：优先 Web 搜索和新闻
    - 社区观点：优先社交媒体和论坛
+   - 生物医学：优先 PubMed + OpenAlex
 
 输出格式要求：
 - 返回 JSON 格式
@@ -362,10 +375,13 @@ export class DataSourcePlannerService {
     input: DataSourcePlanInput,
     availableSources: DataSourceCapability[],
   ): string {
+    const throughputLabel = (t?: string) =>
+      t === "high" ? "✅ 高吞吐" : t === "low" ? "⚠️ 限速严格" : "中等";
+
     const sourcesDescription = availableSources
       .map(
         (s) =>
-          `- **${s.type}** (${s.displayName}): ${s.description}\n  适用场景: ${s.useCases.join("、")}\n  特点: ${s.characteristics.join("、")}`,
+          `- **${s.type}** (${s.displayName}): ${s.description}\n  适用场景: ${s.useCases.join("、")}\n  特点: ${s.characteristics.join("、")}\n  吞吐量: ${throughputLabel(s.throughput)}`,
       )
       .join("\n\n");
 

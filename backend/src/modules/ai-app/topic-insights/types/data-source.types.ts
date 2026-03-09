@@ -180,4 +180,6 @@ export interface DataSourceCapability {
   requiresApiKey: boolean;
   /** 是否当前可用 */
   isAvailable: boolean;
+  /** 吞吐能力等级: high=无限制/高吞吐, medium=适中, low=严格限速 */
+  throughput?: "high" | "medium" | "low";
 }
