@@ -1254,20 +1254,15 @@ export class DataSourceRouterService {
   }
 
   /**
-   * 学术搜索 (ArXiv 优先，失败自动 fallback 到 OpenAlex → Semantic Scholar → PubMed)
+   * 学术搜索 (OpenAlex 优先，失败自动 fallback 到 Semantic Scholar → ArXiv → PubMed)
+   * OpenAlex: 2.5 亿论文、不限流（polite pool）、覆盖全学科
    */
   private async searchAcademic(
     query: string,
     maxResults: number,
   ): Promise<DataSourceResult[]> {
-    // 先尝试 ArXiv
-    const arxivResults = await this.searchArxiv(query, maxResults);
-    if (arxivResults.length > 0) {
-      return arxivResults;
-    }
-
-    // ArXiv 失败（429 限流等），按优先级 fallback
-    const fallbackSources: Array<{
+    // 按优先级尝试: OpenAlex → Semantic Scholar → ArXiv → PubMed
+    const sources: Array<{
       toolId: string;
       sourceType: DataSourceType;
       name: string;
@@ -1282,6 +1277,37 @@ export class DataSourceRouterService {
         sourceType: DataSourceType.SEMANTIC_SCHOLAR,
         name: "Semantic Scholar",
       },
+    ];
+
+    // 先尝试 OpenAlex / Semantic Scholar
+    for (const source of sources) {
+      this.logger.log(`[searchAcademic] Trying ${source.name}: "${query}"`);
+      const results = await this.searchViaTool(
+        source.toolId,
+        source.sourceType,
+        query,
+        maxResults,
+      );
+      if (results.length > 0) {
+        this.logger.log(
+          `[searchAcademic] ${source.name} returned ${results.length} results`,
+        );
+        return results;
+      }
+    }
+
+    // 再尝试 ArXiv（自带限流保护）
+    const arxivResults = await this.searchArxiv(query, maxResults);
+    if (arxivResults.length > 0) {
+      return arxivResults;
+    }
+
+    // 最后 fallback PubMed
+    const fallbackSources: Array<{
+      toolId: string;
+      sourceType: DataSourceType;
+      name: string;
+    }> = [
       { toolId: "pubmed", sourceType: DataSourceType.PUBMED, name: "PubMed" },
     ];
 

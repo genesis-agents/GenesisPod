@@ -167,27 +167,21 @@ describe("DataSourceFetcherService", () => {
       expect(results).toEqual([]);
     });
 
-    it("should return mapped academic results", async () => {
+    it("should return mapped academic results (OpenAlex priority)", async () => {
       const mockTool = {
         execute: jest.fn().mockResolvedValue({
           success: true,
           data: {
             success: true,
-            papers: [
+            results: [
               {
-                id: "2401.12345",
                 title: "Deep Learning Advances",
-                summary: "A ".repeat(300),
-                authors: ["Author One"],
+                url: "https://openalex.org/W12345",
+                abstract: "A ".repeat(300),
                 published: "2025-01-10",
-                updated: "2025-01-11",
-                categories: ["cs.LG"],
-                pdfUrl: "https://arxiv.org/pdf/2401.12345",
-                absUrl: "https://arxiv.org/abs/2401.12345",
               },
             ],
-            totalResults: 1,
-            query: "machine learning",
+            totalCount: 1,
           },
         }),
       };
@@ -201,8 +195,8 @@ describe("DataSourceFetcherService", () => {
 
       expect(results).toHaveLength(1);
       expect(results[0].sourceType).toBe(DataSourceType.ACADEMIC);
-      expect(results[0].domain).toBe("arxiv.org");
-      expect(results[0].metadata?.arxivId).toBe("2401.12345");
+      // OpenAlex is now the primary academic source
+      expect(mockToolRegistry.tryGet).toHaveBeenCalledWith("openalex-search");
     });
   });
 
