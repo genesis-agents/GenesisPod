@@ -651,6 +651,65 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
           `Auto-linked ${patchPromises.length} tool secret(s) from EXTERNAL_TOOL_SECRET_MAPPING`,
         );
       }
+
+      // ★ 3. 恢复 Provider ID alias 行
+      // 前端用 provider ID（如 openalex）保存和查询配置，
+      // 但 syncToolConfigs 步骤 1 只为 registry ID（如 openalex-search）创建行。
+      // 如果 provider alias 行在之前的重启中被删除，需要从 registry tool 行恢复。
+      // 反之亦然：如果 provider 行有 secretKey 而 registry 行没有，也需要同步。
+      const providerSyncPromises: Promise<unknown>[] = [];
+      // Re-fetch configs after step 1 & 2 mutations
+      const updatedConfigs = await this.prisma.toolConfig.findMany({
+        select: { toolId: true, secretKey: true, enabled: true, config: true },
+      });
+      const updatedConfigMap = new Map(
+        updatedConfigs.map((c) => [c.toolId, c]),
+      );
+
+      for (const [providerId, registryId] of Object.entries(
+        AIAdminService.PROVIDER_TO_TOOL_ID,
+      )) {
+        if (providerId === registryId) continue;
+        const providerConfig = updatedConfigMap.get(providerId);
+        const registryConfig = updatedConfigMap.get(registryId);
+
+        // Case A: registry has secretKey, provider row missing or no secretKey → create/update provider
+        if (registryConfig?.secretKey && !providerConfig?.secretKey) {
+          providerSyncPromises.push(
+            this.prisma.toolConfig.upsert({
+              where: { toolId: providerId },
+              create: {
+                toolId: providerId,
+                enabled: registryConfig.enabled,
+                secretKey: registryConfig.secretKey,
+              },
+              update: { secretKey: registryConfig.secretKey },
+            }),
+          );
+        }
+
+        // Case B: provider has secretKey, registry row missing or no secretKey → update registry
+        if (providerConfig?.secretKey && !registryConfig?.secretKey) {
+          providerSyncPromises.push(
+            this.prisma.toolConfig.upsert({
+              where: { toolId: registryId },
+              create: {
+                toolId: registryId,
+                enabled: providerConfig.enabled,
+                secretKey: providerConfig.secretKey,
+              },
+              update: { secretKey: providerConfig.secretKey },
+            }),
+          );
+        }
+      }
+
+      if (providerSyncPromises.length > 0) {
+        await Promise.all(providerSyncPromises);
+        this.logger.log(
+          `Synced ${providerSyncPromises.length} provider↔registry alias config(s)`,
+        );
+      }
     } catch (error: unknown) {
       this.logger.warn(
         `Failed to sync tool configs: ${getErrorMessage(error)}`,

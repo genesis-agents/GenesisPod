@@ -21,6 +21,7 @@ import CapabilitiesTab from './tools/CapabilitiesTab';
 import {
   CAPABILITY_DEFINITIONS,
   getIndependentProviderIds,
+  PROVIDER_TO_TOOL_ID,
   type ProviderDefinition,
 } from './tools/capability-mapping';
 
@@ -322,6 +323,34 @@ export default function ToolsManagement() {
             }
           }
         );
+      }
+
+      // ★ Bridge provider ID ↔ registry ID gap
+      // Frontend uses provider IDs (e.g. "openalex"), backend ToolRegistry uses
+      // registry IDs (e.g. "openalex-search"). After restart, DB may only have
+      // the registry ID row. Propagate secretKey/configApiKey across both IDs.
+      for (const [providerId, registryId] of Object.entries(
+        PROVIDER_TO_TOOL_ID
+      )) {
+        if (providerId === registryId) continue;
+        const providerSecret = secretKeyMap.get(providerId);
+        const registrySecret = secretKeyMap.get(registryId);
+        if (registrySecret && !providerSecret) {
+          secretKeyMap.set(providerId, registrySecret);
+        } else if (providerSecret && !registrySecret) {
+          secretKeyMap.set(registryId, providerSecret);
+        }
+        if (
+          configApiKeyMap.has(registryId) &&
+          !configApiKeyMap.has(providerId)
+        ) {
+          configApiKeyMap.add(providerId);
+        } else if (
+          configApiKeyMap.has(providerId) &&
+          !configApiKeyMap.has(registryId)
+        ) {
+          configApiKeyMap.add(registryId);
+        }
       }
 
       // Map builtin tools
