@@ -1,5 +1,7 @@
 /**
  * Unit tests for PolicyDataService
+ * Covers: getApiKey, getAllApiKeys, multi-key rotation, health tracking,
+ *         markKeyFailed/clearKeyFailure, getKeyHealthStatus, HTTP helpers, date helpers
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -57,9 +59,9 @@ describe("PolicyDataService", () => {
     service = module.get<PolicyDataService>(PolicyDataService);
   });
 
-  // ==================== getApiKey ====================
+  // ==================== getApiKey (single key, backward compat) ====================
 
-  describe("getApiKey", () => {
+  describe("getApiKey (single key)", () => {
     it("returns the secret value when secretKey is configured and secret exists", async () => {
       mockPrisma.toolConfig.findUnique.mockResolvedValue({
         toolId: "my-tool",
@@ -135,6 +137,255 @@ describe("PolicyDataService", () => {
 
       const result = await service.getApiKey("my-tool");
       expect(result).toBeNull();
+    });
+  });
+
+  // ==================== Multi-Key Rotation ====================
+
+  describe("getApiKey (multi-key rotation)", () => {
+    it("parses comma-separated keys from Secret Manager", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "serper",
+        secretKey: "SERPER_KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("key-a, key-b, key-c");
+
+      const result = await service.getApiKey("serper");
+      expect(result).toBeTruthy();
+      expect(["key-a", "key-b", "key-c"]).toContain(result);
+    });
+
+    it("rotates keys across multiple calls (Round-Robin)", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "serper",
+        secretKey: "SERPER_KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("key-1,key-2,key-3");
+
+      const results: string[] = [];
+      for (let i = 0; i < 6; i++) {
+        const key = await service.getApiKey("serper");
+        if (key) results.push(key);
+      }
+
+      // Should cycle through all 3 keys
+      expect(results.length).toBe(6);
+      expect(new Set(results).size).toBe(3);
+    });
+
+    it("skips failed keys and returns healthy ones", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "serper",
+        secretKey: "SERPER_KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("key-a,key-b");
+
+      // Mark key-a as failed with 429
+      service.markKeyFailed("serper", "key-a", 429);
+
+      // Should return key-b (the healthy one)
+      const result = await service.getApiKey("serper");
+      expect(result).toBe("key-b");
+    });
+
+    it("returns null when all keys are quota-exhausted (400/401)", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "serper",
+        secretKey: "SERPER_KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("key-a,key-b");
+
+      // Mark both keys as quota exhausted
+      service.markKeyFailed("serper", "key-a", 401);
+      service.markKeyFailed("serper", "key-b", 401);
+
+      const result = await service.getApiKey("serper");
+      expect(result).toBeNull();
+    });
+
+    it("returns oldest-failed key when all have temp errors (429/5xx)", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "serper",
+        secretKey: "SERPER_KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("key-a,key-b");
+
+      // Mark both keys with 429 (temp errors)
+      service.markKeyFailed("serper", "key-a", 429);
+      // Wait a tiny bit to ensure different timestamps
+      service.markKeyFailed("serper", "key-b", 429);
+
+      // Should return key-a (oldest failed)
+      const result = await service.getApiKey("serper");
+      expect(result).toBe("key-a");
+    });
+
+    it("filters empty keys from comma-separated string", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "serper",
+        secretKey: "SERPER_KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("key-a,,  , key-b,");
+
+      const keys = await service.getAllApiKeys("serper");
+      expect(keys).toEqual(["key-a", "key-b"]);
+    });
+
+    it("parses comma-separated keys from config.apiKey too", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "my-tool",
+        secretKey: null,
+        config: { apiKey: "cfg-key-1, cfg-key-2" },
+      });
+
+      const keys = await service.getAllApiKeys("my-tool");
+      expect(keys).toEqual(["cfg-key-1", "cfg-key-2"]);
+    });
+  });
+
+  // ==================== markKeyFailed / clearKeyFailure ====================
+
+  describe("markKeyFailed / clearKeyFailure", () => {
+    it("markKeyFailed causes getHealthyKey to skip that key", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "tool-x",
+        secretKey: "KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("alpha,beta");
+
+      service.markKeyFailed("tool-x", "alpha", 429);
+
+      const result = await service.getApiKey("tool-x");
+      expect(result).toBe("beta");
+    });
+
+    it("clearKeyFailure restores key to rotation", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "tool-x",
+        secretKey: "KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("alpha,beta");
+
+      service.markKeyFailed("tool-x", "alpha", 429);
+      service.clearKeyFailure("tool-x", "alpha");
+
+      // Both keys should be available now
+      const results = new Set<string>();
+      for (let i = 0; i < 4; i++) {
+        const key = await service.getApiKey("tool-x");
+        if (key) results.add(key);
+      }
+      expect(results.size).toBe(2);
+      expect(results.has("alpha")).toBe(true);
+      expect(results.has("beta")).toBe(true);
+    });
+
+    it("clearKeyFailure is a no-op for a key that was never failed", () => {
+      // Should not throw
+      service.clearKeyFailure("any-tool", "never-failed-key");
+    });
+  });
+
+  // ==================== getKeyHealthStatus ====================
+
+  describe("getKeyHealthStatus", () => {
+    it("returns health status for all keys", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "serper",
+        secretKey: "SERPER_KEYS",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("key-aaa-bbb-ccc,key-ddd-eee-fff");
+
+      service.markKeyFailed("serper", "key-aaa-bbb-ccc", 429);
+
+      const statuses = await service.getKeyHealthStatus("serper");
+      expect(statuses).toHaveLength(2);
+
+      // First key should be unhealthy (429 within cooldown)
+      expect(statuses[0].index).toBe(0);
+      expect(statuses[0].maskedKey).toContain("****");
+      expect(statuses[0].isHealthy).toBe(false);
+      expect(statuses[0].lastError).toBe("HTTP 429");
+      expect(statuses[0].cooldownUntil).toBeDefined();
+
+      // Second key should be healthy
+      expect(statuses[1].index).toBe(1);
+      expect(statuses[1].isHealthy).toBe(true);
+      expect(statuses[1].lastError).toBeUndefined();
+    });
+
+    it("returns empty array when no keys configured", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue(null);
+
+      const statuses = await service.getKeyHealthStatus("unknown");
+      expect(statuses).toEqual([]);
+    });
+  });
+
+  // ==================== getMaskedKeyForDisplay ====================
+
+  describe("getMaskedKeyForDisplay", () => {
+    it("masks long keys with prefix****suffix", () => {
+      const result = service.getMaskedKeyForDisplay("tvly-abcdefghij-xyz");
+      expect(result).toBe("tvly-abc****xyz");
+    });
+
+    it("returns **** for short keys", () => {
+      expect(service.getMaskedKeyForDisplay("short")).toBe("****");
+      expect(service.getMaskedKeyForDisplay("")).toBe("****");
+    });
+
+    it("returns **** for undefined/null-like input", () => {
+      expect(service.getMaskedKeyForDisplay("")).toBe("****");
+    });
+  });
+
+  // ==================== getAllApiKeys ====================
+
+  describe("getAllApiKeys", () => {
+    it("returns empty array when no config found", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue(null);
+      const keys = await service.getAllApiKeys("unknown");
+      expect(keys).toEqual([]);
+    });
+
+    it("returns empty array on error", async () => {
+      mockPrisma.toolConfig.findUnique.mockRejectedValue(new Error("DB error"));
+      const keys = await service.getAllApiKeys("error-tool");
+      expect(keys).toEqual([]);
+    });
+
+    it("returns keys from Secret Manager", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "tool",
+        secretKey: "SECRET",
+        config: {},
+      });
+      mockSecrets.getValue.mockResolvedValue("k1,k2");
+
+      const keys = await service.getAllApiKeys("tool");
+      expect(keys).toEqual(["k1", "k2"]);
+    });
+
+    it("falls back to config.apiKey when Secret Manager returns null", async () => {
+      mockPrisma.toolConfig.findUnique.mockResolvedValue({
+        toolId: "tool",
+        secretKey: "SECRET",
+        config: { apiKey: "fallback-key" },
+      });
+      mockSecrets.getValue.mockResolvedValue(null);
+
+      const keys = await service.getAllApiKeys("tool");
+      expect(keys).toEqual(["fallback-key"]);
     });
   });
 

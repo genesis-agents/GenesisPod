@@ -1560,6 +1560,9 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     // Finance & Weather
     "alpha-vantage": "finance-api",
     "weather-api": "weather-api",
+    // Audio Generation
+    elevenlabs: "audio-generation",
+    googleTts: "audio-generation",
   };
 
   /**
@@ -1582,6 +1585,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     "federal-register": { query: "artificial intelligence", maxResults: 1 },
     "congress-gov": { query: "technology", maxResults: 1 },
     "whitehouse-news": { query: "technology", maxResults: 1 },
+    "audio-generation": { text: "Hello, this is a test.", voice: "Host1" },
   };
 
   /**
