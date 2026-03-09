@@ -618,16 +618,17 @@ export class TopicTeamOrchestratorService {
       this.logger.log(
         `[executeRefresh] Saving ${analysisResults.filter((r) => r.status === "fulfilled").length} dimension analyses...`,
       );
-      for (const result of analysisResults) {
+      for (let di = 0; di < analysisResults.length; di++) {
+        const result = analysisResults[di];
         if (result.status === "fulfilled") {
           const { dimensionId, analysisResult, evidenceIds } = result.value;
 
-          // 保存维度分析
+          // 保存维度分析（传入 dimIndex 以启用章节编号）
           const analysis =
             await this.reportSynthesisService.saveDimensionAnalysis(
               report.id,
               dimensionId,
-              analysisResult,
+              { ...analysisResult, dimIndex: di },
             );
 
           // 关联证据

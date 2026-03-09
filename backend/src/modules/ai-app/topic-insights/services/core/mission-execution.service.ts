@@ -890,9 +890,11 @@ export class MissionExecutionService {
               taskType: "dimension_research",
               status: ResearchTaskStatus.COMPLETED,
             },
+            orderBy: { createdAt: "asc" },
           });
 
-          for (const dimTask of dimensionTasks) {
+          for (let di = 0; di < dimensionTasks.length; di++) {
+            const dimTask = dimensionTasks[di];
             if (dimTask.result && dimTask.dimensionId) {
               const taskResult = dimTask.result as TaskResultJson;
               try {
@@ -900,6 +902,7 @@ export class MissionExecutionService {
                   reportId, // ★ 使用已有的 reportId
                   dimTask.dimensionId,
                   {
+                    dimIndex: di,
                     summary: taskResult.summary || "无摘要",
                     keyFindings: (taskResult.keyFindings ||
                       []) as DimensionAnalysisResult["keyFindings"],

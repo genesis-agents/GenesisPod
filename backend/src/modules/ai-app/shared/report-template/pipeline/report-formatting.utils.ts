@@ -6,16 +6,20 @@
  */
 
 /**
- * Heading level safety net: downgrades # and ## (which AI should not use
- * in detailedContent) to ###. Leaves ### and #### untouched.
+ * Heading level safety net: removes # and ## lines (which AI should not use
+ * in detailedContent — they are report-level titles, not section headings).
+ * Leaves ### and #### untouched for numberSubHeadings to process.
  *
  * Paired with prompt instruction HEADING_HIERARCHY that tells AI:
  * "Use ### and #### only. # and ## are reserved for the report framework."
  *
- * Replaces the old `+2 elevation` logic that collapsed all headings.
+ * Previously this demoted H1/H2 → H3, but that caused report titles like
+ * "# 市场分析报告" to become numbered subheadings (e.g. "### 3.1. 市场分析报告").
+ * Now H1/H2 lines are stripped entirely — their content is redundant with
+ * the report/dimension title already present in the framework.
  */
 export function sanitizeHeadingLevels(content: string): string {
-  return content.replace(/^(#{1,2})\s+/gm, () => "### ");
+  return content.replace(/^#{1,2}\s+.*$/gm, "");
   // ### and #### are preserved as-is for numberSubHeadings to process.
   // ##### and ###### should not appear (prompt forbids them); if they do, they pass through.
 }
@@ -41,8 +45,10 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
       // Strip existing numbering prefixes but preserve 4-digit years (e.g. "2026年")
       const cleanTitle = title
         .replace(/^(?!\d{4}[年\-–—/至])[\d.]+\s*/, "")
+        .replace(/^[IVXivx]+[.、）)]\s*/, "") // Roman numerals: III. / IV、
         .replace(/^[一二三四五六七八九十百]+[、．.]\s*/, "")
         .replace(/^（[一二三四五六七八九十百\d]+）\s*/, "")
+        .replace(/^[A-Z][.、)]\s*/, "") // Letter prefixes: A. / B、/ C)
         .trim();
 
       if (hashes === "###") {
@@ -2816,158 +2822,8 @@ export function stripFigureComments(content: string): string {
   return result;
 }
 
-// ============ Dimension Content Preprocessing ============
-
-/**
- * Context-free preprocessing pipeline for dimension `detailedContent`.
- *
- * Applies all transformations from `processDimensionContent` that do NOT
- * depend on report-level context (dimIndex, globalSeenParagraphs, etc.).
- *
- * This function is called at DB-write time (in `saveDimensionAnalysis`)
- * so that both chapter view (reads raw detailedContent) and continuous
- * view (reads fullReport via assembleFullReport) see properly formatted
- * content.
- *
- * Dimension-aware steps that remain in `processDimensionContent`:
- *   - numberSubHeadings (needs dimIndex)
- *   - hierarchicalNumberBoldListItems (depends on numberSubHeadings)
- *   - deduplicateParagraphs (needs cross-dimension globalSeenParagraphs)
- *   - truncateAtSentenceBoundary (report-level budget)
- *   - resolveChartPlaceholders (needs dimIndex + figureReferences)
- */
-export function preprocessDimensionContent(content: string): string {
-  let processed = content;
-
-  // ── Phase 1: Structure normalization ──────────────────────────────────
-  // Normalize chapter highlights (keep first block, remove duplicates)
-  processed = normalizeChapterHighlights(processed);
-
-  // Convert Chinese numeral headings (一、标题 → ### 标题)
-  processed = convertChineseNumeralHeadings(processed);
-
-  // Detect and promote heading-like plain text lines to ### headings
-  processed = detectAndPromoteHeadings(processed);
-
-  // Heading level safety net: demote # / ## to ###
-  processed = sanitizeHeadingLevels(processed);
-
-  // Remove duplicate headings
-  processed = deduplicateHeadings(processed);
-
-  // Remove plain text lines that echo the preceding heading
-  processed = deduplicateHeadingEcho(processed);
-
-  // Demote headings that contain pseudocode
-  processed = collapsePseudoCodeHeadings(processed);
-
-  // ── Phase 2: Content cleanup ─────────────────────────────────────────
-  // Convert plain ordered lists under #### to bullets
-  processed = convertDescriptiveListsToBullets(processed);
-
-  // Convert plain ordered lists under ### to bullets (chapter view context)
-  processed = convertPlainNumberedListsUnderH3ToBullets(processed);
-
-  // Strip LLM meta-notes (word-count, editorial instructions)
-  processed = stripLLMMetaNotes(processed);
-
-  // Strip leaked HTML comments
-  processed = stripLeakedHtmlComments(processed);
-
-  // Strip leaked internal figure/evidence notation
-  processed = stripInternalFigureNotation(processed);
-
-  // Normalize arrow notation corruption
-  processed = normalizeArrowNotation(processed);
-
-  // Deduplicate adjacent identical citations ([5][5] → [5])
-  processed = deduplicateAdjacentCitations(processed);
-
-  // ── Phase 3: Formatting repair ───────────────────────────────────────
-  // Repair blockquote bullets truncated mid-sentence
-  processed = repairTruncatedBlockquoteBullets(processed);
-
-  // Decode HTML entities (&gt; &lt; &amp;)
-  processed = decodeHtmlEntities(processed);
-
-  // Fix double source labels (来源：来源：→ 来源：)
-  processed = fixDoubleSourceLabels(processed);
-
-  // Repair broken list items (empty bullet + content on next line)
-  processed = repairBrokenListItems(processed);
-
-  // Clear empty blockquotes and broken image placeholders
-  processed = clearBrokenMediaAndEmptyBlocks(processed);
-
-  // Repair Markdown tables (missing separator rows, blank lines)
-  processed = repairMarkdownTables(processed);
-
-  // Extract footnote rows from tables
-  processed = extractTableFootnotes(processed);
-
-  // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
-  processed = splitWallOfText(processed);
-
-  // Wrap pseudocode/code-like blocks in fenced code blocks
-  processed = wrapPseudoCodeBlocks(processed);
-
-  // Collapse excess sub-headings (> 8 per dimension → demote to ####)
-  processed = collapseExcessSubHeadings(processed, 8);
-
-  // Remove empty headings (heading → next heading with no content)
-  processed = removeEmptyHeadings(processed);
-
-  // Enforce max list item length
-  processed = truncateLongListItems(processed);
-
-  // Separate conclusion paragraphs trapped in list structures
-  processed = separateTrappedConclusions(processed);
-
-  // Add bullet markers to consecutive blockquote lines without them
-  processed = bulletifyBlockquoteItems(processed);
-
-  // Split enumeration patterns (一是/二是...) into bullet lists
-  processed = splitEnumerationToList(processed);
-
-  // Bold summary prefix before Chinese colon
-  processed = boldSummaryPrefixes(processed);
-
-  // Remove hallucinated markdown images
-  processed = processed.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (_match, _alt: string, url: string) => {
-      const lower = url.toLowerCase();
-      if (lower.startsWith("data:")) return "";
-      if (
-        lower.includes("placeholder.com") ||
-        lower.includes("example.com") ||
-        lower.includes("via.placeholder")
-      )
-        return "";
-      if (lower.includes("image-not-found") || lower.includes("no-image"))
-        return "";
-      if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
-      return _match;
-    },
-  );
-
-  // Remove horizontal rules
-  processed = removeHorizontalRules(processed);
-
-  // Repair broken bold markers (**，text or ** [N])
-  processed = repairBrokenBoldMarkers(processed);
-
-  // Strip unresolved figure placeholders (<!-- figure:N:M -->)
-  processed = stripFigureComments(processed);
-
-  // Wrap bare inline LaTeX commands (not inside $...$) so remark-math can render them
-  processed = wrapBareInlineLatex(processed);
-
-  // Clean up triple+ newlines
-  processed = processed.replace(/\n{3,}/g, "\n\n");
-
-  return processed;
-}
+// preprocessDimensionContent and formatDimensionContent are in formatting-pipeline.ts
+// Re-exported via ../index.ts barrel for backward compatibility
 
 /**
  * Strip ALL "本章要点" / "Chapter Highlights" blockquote blocks from content.
@@ -3018,7 +2874,7 @@ export function stripChapterHighlights(content: string): string {
  * block, remove ALL blocks from their original positions, and prepend the first
  * block's content at the very beginning of the output.
  */
-function normalizeChapterHighlights(content: string): string {
+export function normalizeChapterHighlights(content: string): string {
   const CHAPTER_HIGHLIGHTS_RE =
     /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\**\s*$/i;
 

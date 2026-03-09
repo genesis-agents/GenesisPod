@@ -159,6 +159,8 @@ export class ReportSynthesisService {
     reportId: string,
     dimensionId: string,
     result: {
+      /** 0-based dimension index for heading numbering. When omitted, headings are unnumbered. */
+      dimIndex?: number;
       summary: string;
       keyFindings: Array<{
         finding: string;
@@ -192,7 +194,7 @@ export class ReportSynthesisService {
     // formatting pipeline steps so chapter view (which reads raw detailedContent)
     // receives properly formatted content identical to what fullReport contains.
     const processedContent = result.detailedContent
-      ? preprocessDimensionContent(result.detailedContent)
+      ? preprocessDimensionContent(result.detailedContent, result.dimIndex)
       : "";
 
     const analysis = await this.prisma.dimensionAnalysis.create({

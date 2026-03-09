@@ -9,3 +9,4 @@
  */
 export * from "./constants/report-writing-standards";
 export * from "./pipeline/report-formatting.utils";
+export * from "./pipeline/formatting-pipeline";

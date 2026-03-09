@@ -117,11 +117,13 @@ describe("Report Quality: Conclusion Deduplication", () => {
 // ============================================================
 
 describe("Report Quality: Heading Hierarchy", () => {
-  it("should sanitize # and ## to ###", () => {
+  it("should strip # and ## (report-level titles) while keeping ### and ####", () => {
     const input = "# 一级标题\n## 二级标题\n### 三级标题\n#### 四级标题";
     const result = sanitizeHeadingLevels(input);
-    expect(result).toContain("### 一级标题");
-    expect(result).toContain("### 二级标题");
+    // H1/H2 are report-level titles, stripped in dimension content
+    expect(result).not.toContain("一级标题");
+    expect(result).not.toContain("二级标题");
+    // H3/H4 preserved
     expect(result).toContain("### 三级标题");
     expect(result).toContain("#### 四级标题");
   });
@@ -258,12 +260,15 @@ describe("Report Quality: Quality Gate Service", () => {
   });
 
   describe("validateDimensionContent", () => {
-    it("should auto-fix # and ## headings", () => {
+    it("should auto-fix # and ## headings (strip them)", () => {
       const result = gate.validateDimensionContent(
         "# 一级标题\n\n## 二级标题\n\n内容很长".padEnd(900, "。"),
       );
       expect(result.wasAutoFixed).toBe(true);
-      expect(result.fixedContent).toContain("### 一级标题");
+      // H1/H2 are report-level titles — stripped, not demoted
+      expect(result.fixedContent).not.toContain("一级标题");
+      expect(result.fixedContent).not.toContain("二级标题");
+      expect(result.fixedContent).toContain("内容很长");
       expect(
         result.violations.some((v) => v.rule === "heading_hierarchy"),
       ).toBe(true);

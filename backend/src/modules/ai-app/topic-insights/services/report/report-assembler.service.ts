@@ -4,12 +4,6 @@ import {
   stripLeadingHeading,
 } from "@/common/utils/sanitize-content.utils";
 import {
-  sanitizeHeadingLevels,
-  numberSubHeadings,
-  hierarchicalNumberBoldListItems,
-  deduplicateParagraphs,
-  deduplicateHeadings,
-  stripLLMMetaNotes,
   filterJunkReferences,
   deduplicateReferencesByUrl,
   upgradeHttpToHttps,
@@ -21,25 +15,16 @@ import {
   stripInternalFigureNotation,
   mergeAdjacentMathBlocks,
   decodeHtmlEntities,
-  convertChineseNumeralHeadings,
   repairBrokenListItems,
   clearBrokenMediaAndEmptyBlocks,
   fixDoubleSourceLabels,
-  fixDuplicateHeadings,
-  removeEmptySections,
   splitWallOfText,
   repairMarkdownTables,
-  deduplicateHeadingEcho,
-  detectAndPromoteHeadings,
-  wrapPseudoCodeBlocks,
-  collapsePseudoCodeHeadings,
-  collapseExcessSubHeadings,
   removeEmptyHeadings,
   repairTruncatedBlockquoteBullets,
   truncateLongListItems,
   separateTrappedConclusions,
   enforceExecSummarySections,
-  truncateAtSentenceBoundary,
   normalizeArrowNotation,
   stripLeakedHtmlComments,
   deduplicateAdjacentCitations,
@@ -47,7 +32,6 @@ import {
   boldSummaryPrefixes,
   bulletifyBlockquoteItems,
   splitEnumerationToList,
-  convertDescriptiveListsToBullets,
   repairBrokenBoldMarkers,
   stripFigureComments,
   normalizeHighlightsInPlace,
@@ -61,6 +45,14 @@ import {
   cleanupEmptyBullets,
   normalizeInformalTerms,
   normalizeSourceLabels,
+  formatDimensionContent,
+  // Used by postProcessFinalReport
+  stripLLMMetaNotes,
+  detectAndPromoteHeadings,
+  deduplicateHeadingEcho,
+  collapsePseudoCodeHeadings,
+  wrapPseudoCodeBlocks,
+  collapseExcessSubHeadings,
 } from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
@@ -119,100 +111,7 @@ const MAX_DIMENSION_CHARS = 24000;
  *   本章要点（没有 blockquote 前缀）/ **本章要点** / - 本章要点
  *   > Chapter Highlights / Chapter Highlights
  */
-const CHAPTER_HIGHLIGHTS_RE =
-  /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\**\s*$/i;
-
-/**
- * Normalize chapter highlights: keep only the FIRST "本章要点" / "Chapter Highlights"
- * block, remove ALL blocks from their original positions, and prepend the first
- * block's content at the very beginning of the output.
- *
- * This handles LLMs that place the block mid-content (e.g. at sub-section 4.2).
- *
- * Formatting fixes applied to the kept block:
- * - Header line normalized to: `> **本章要点**`
- * - Bullet lines normalized to: `> - point`
- */
-function normalizeChapterHighlights(content: string): string {
-  const lines = content.split("\n");
-
-  // Pass 1: collect the first block's normalized lines and build the rest without any block
-  let firstBlockLines: string[] | null = null;
-  let currentBlockLines: string[] = [];
-  let insideBlock = false;
-  const bodyLines: string[] = [];
-
-  const flushBlock = () => {
-    if (currentBlockLines.length > 0 && firstBlockLines === null) {
-      firstBlockLines = currentBlockLines;
-    }
-    currentBlockLines = [];
-    insideBlock = false;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (CHAPTER_HIGHLIGHTS_RE.test(line)) {
-      if (insideBlock) {
-        // A new header while already inside — treat previous block as complete
-        flushBlock();
-      }
-      insideBlock = true;
-      const isEn = /Chapter Highlights/i.test(line);
-      const label = isEn ? "Chapter Highlights" : "本章要点";
-      currentBlockLines = [`> **${label}**`];
-      continue;
-    }
-
-    if (insideBlock) {
-      const trimmed = line.replace(/^>\s*/, "").trim();
-
-      // Blockquote bullet continuation
-      if (/^>\s*[-*]/.test(line) || /^\s*[-*]\s/.test(line)) {
-        const pointText = trimmed.replace(/^[-*]\s*/, "").trim();
-        if (pointText) {
-          currentBlockLines.push(`> - ${pointText}`);
-        }
-        continue;
-      }
-
-      // Empty line or bare blockquote marker ends the block
-      if (line.trim() === "" || line.trim() === ">") {
-        flushBlock();
-        bodyLines.push(line);
-        continue;
-      }
-
-      // Non-blockquote, non-list line ends the block
-      if (!/^>/.test(line)) {
-        flushBlock();
-        bodyLines.push(line);
-        continue;
-      }
-
-      // Blockquote line without list marker — treat as continuation point
-      if (trimmed) {
-        currentBlockLines.push(`> - ${trimmed}`);
-        continue;
-      }
-    }
-
-    bodyLines.push(line);
-  }
-
-  // Flush any block still open at EOF
-  flushBlock();
-
-  if (firstBlockLines === null) {
-    return content;
-  }
-
-  // Prepend the first block at the very top, separated from body by a blank line
-  const blockText = (firstBlockLines as string[]).join("\n");
-  const bodyText = bodyLines.join("\n").replace(/^\n+/, ""); // strip leading blanks from body
-  return `${blockText}\n\n${bodyText}`;
-}
+// normalizeChapterHighlights is now handled by the unified formatDimensionContent pipeline
 
 // ==================== Service ====================
 
@@ -265,161 +164,25 @@ export class ReportAssemblerService {
     figureReferences?: FigureReference[],
     generatedCharts?: GeneratedChart[],
   ): string {
+    // Pre-steps that need external imports not available in the shared pipeline
     let processed = stripLeadingHeading(content);
-
-    // BUG-1/2 fix: Normalize chapter highlights — keep only the first block,
-    // remove all duplicates (LLM sometimes adds 本章要点 in sub-sections or at
-    // both the start and end of detailedContent)
-    processed = normalizeChapterHighlights(processed);
-
-    // Safety net: remove chart JSON residue not separated by parseChartOutput
     processed = stripChartJsonFromContent(processed);
 
-    // Remove ONLY AI-hallucinated markdown images (fake URLs that return 404)
-    // Keep legitimate images from evidence sources
-    processed = processed.replace(
-      /!\[([^\]]*)\]\(([^)]+)\)/g,
-      (_match, _alt: string, url: string) => {
-        const lower = url.toLowerCase();
-        // Strip data URIs (bloated, not real images)
-        if (lower.startsWith("data:")) return "";
-        // Strip placeholder/example domains
-        if (
-          lower.includes("placeholder.com") ||
-          lower.includes("example.com") ||
-          lower.includes("via.placeholder")
-        )
-          return "";
-        // Strip obviously fake AI-generated URLs (common patterns)
-        if (lower.includes("image-not-found") || lower.includes("no-image"))
-          return "";
-        // Strip broken relative paths (no protocol, not starting with /)
-        if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
-        // Keep all other images (legitimate evidence source images)
-        return _match;
-      },
-    );
-
-    // Convert Chinese numeral headings (一、标题 → ### 标题) BEFORE heading normalization
-    processed = convertChineseNumeralHeadings(processed);
-
-    // Detect and promote heading-like plain text lines to ### headings
-    processed = detectAndPromoteHeadings(processed);
-
-    // Heading level safety net: demote # / ## to ###; keep ### / #### unchanged
-    processed = sanitizeHeadingLevels(processed);
-
-    // Remove duplicate headings (AI sometimes emits "### N. Xxx" then "### Xxx")
-    processed = deduplicateHeadings(processed);
-
-    // Remove plain text lines that echo the preceding heading
-    processed = deduplicateHeadingEcho(processed);
-
-    // Demote headings that contain pseudocode (e.g., "### if mask is not None")
-    processed = collapsePseudoCodeHeadings(processed);
-
-    // Unified sub-heading numbering: ### Title → ### N.M. Title
-    processed = numberSubHeadings(processed, dimIndex + 1);
-
-    // Hierarchical bold list item numbering
-    processed = hierarchicalNumberBoldListItems(processed);
-
-    // Convert plain ordered lists under #### to bullets (avoids numbering ambiguity)
-    processed = convertDescriptiveListsToBullets(processed);
-
-    // Cross-dimension paragraph deduplication (first 120 chars key)
-    processed = deduplicateParagraphs(processed, globalSeenParagraphs);
-
-    // Truncate content that exceeds the per-dimension character limit
-    // Uses sentence-safe truncation to avoid cutting mid-sentence
-    if (processed.length > MAX_DIMENSION_CHARS) {
-      this.logger.warn(
-        `[ReportAssembler] Dimension "${dimensionName ?? `dim${dimIndex}`}" content too long (${processed.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
-      );
-      processed = truncateAtSentenceBoundary(processed, MAX_DIMENSION_CHARS);
-    }
-
-    // Resolve <!-- figure:N:M --> → <!-- chart:dX-id --> placeholders
-    processed = this.resolveChartPlaceholders(
-      processed,
+    // Delegate to the unified formatting pipeline with full context
+    return formatDimensionContent(processed, {
       dimIndex,
-      figureReferences,
-      generatedCharts,
-    );
-
-    // Strip leaked internal figure/evidence notation ([证据[N] 图M], orphan refs, etc.)
-    processed = stripInternalFigureNotation(processed);
-
-    // Strip LLM meta-notes (word-count annotations, editorial instructions, etc.)
-    processed = stripLLMMetaNotes(processed);
-
-    // Strip leaked HTML comments (LLM authoring notes)
-    processed = stripLeakedHtmlComments(processed);
-
-    // Normalize arrow notation corruption (进而推动 → →)
-    processed = normalizeArrowNotation(processed);
-
-    // Deduplicate adjacent identical citations ([5][5] → [5])
-    processed = deduplicateAdjacentCitations(processed);
-
-    // Repair blockquote bullets truncated mid-sentence (from token budget limits)
-    processed = repairTruncatedBlockquoteBullets(processed);
-
-    // Decode HTML entities (&gt; &lt; &amp;) leaked by LLM
-    processed = decodeHtmlEntities(processed);
-
-    // Fix double source labels (来源：来源：→ 来源：)
-    processed = fixDoubleSourceLabels(processed);
-
-    // Fix duplicate adjacent headings (## Title\n\nTitle → ## Title)
-    processed = fixDuplicateHeadings(processed);
-
-    // Remove empty sections (heading followed immediately by next heading with no content)
-    processed = removeEmptySections(processed);
-
-    // Repair broken list items (empty bullet + content on next line)
-    processed = repairBrokenListItems(processed);
-
-    // Clear empty blockquotes and broken image placeholders
-    processed = clearBrokenMediaAndEmptyBlocks(processed);
-
-    // Repair Markdown tables (missing separator rows, blank lines)
-    processed = repairMarkdownTables(processed);
-
-    // Extract footnote rows from tables (long explanatory text in last row)
-    processed = extractTableFootnotes(processed);
-
-    // Split wall-of-text paragraphs (> 400 chars) at sentence boundaries
-    processed = splitWallOfText(processed);
-
-    // Wrap pseudocode/code-like blocks in fenced code blocks
-    processed = wrapPseudoCodeBlocks(processed);
-
-    // Collapse excess sub-headings (> 8 per dimension → demote to ####)
-    processed = collapseExcessSubHeadings(processed, 8);
-
-    // Remove empty headings (heading followed immediately by another heading with no content)
-    processed = removeEmptyHeadings(processed);
-
-    // Enforce max list item length (split long items at sentence boundaries)
-    processed = truncateLongListItems(processed);
-
-    // Separate conclusion paragraphs trapped in list structures
-    processed = separateTrappedConclusions(processed);
-
-    // Add bullet markers to consecutive blockquote lines without them
-    processed = bulletifyBlockquoteItems(processed);
-
-    // Split enumeration patterns (一是/二是...) into bullet lists
-    processed = splitEnumerationToList(processed);
-
-    // Clean up empty bullet items left by bulletify/enumeration steps
-    processed = cleanupEmptyBullets(processed);
-
-    // Bold summary prefix before Chinese colon (短语：→ **短语**：)
-    processed = boldSummaryPrefixes(processed);
-
-    return processed;
+      globalSeenParagraphs,
+      dimensionName,
+      maxDimensionChars: MAX_DIMENSION_CHARS,
+      resolveChartPlaceholders: (c: string) =>
+        this.resolveChartPlaceholders(
+          c,
+          dimIndex,
+          figureReferences,
+          generatedCharts,
+        ),
+      logger: this.logger,
+    });
   }
 
   /**

@@ -83,11 +83,12 @@ describe("deduplicateHeadings", () => {
 });
 
 describe("sanitizeHeadingLevels", () => {
-  it("should downgrade # and ## to ###", () => {
+  it("should remove # and ## (report-level titles, not section headings)", () => {
     const input = "# 标题\n内容\n## 二级标题\n内容";
     const result = sanitizeHeadingLevels(input);
-    expect(result).toContain("### 标题");
-    expect(result).toContain("### 二级标题");
+    expect(result).not.toContain("# 标题");
+    expect(result).not.toContain("## 二级标题");
+    expect(result).toContain("内容");
   });
 
   it("should leave ### and #### unchanged", () => {

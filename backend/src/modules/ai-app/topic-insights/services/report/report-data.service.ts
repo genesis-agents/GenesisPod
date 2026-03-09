@@ -104,6 +104,8 @@ export class ReportDataService {
     reportId: string,
     dimensionId: string,
     result: {
+      /** 0-based dimension index for heading numbering. When omitted, headings are unnumbered. */
+      dimIndex?: number;
       summary: string;
       keyFindings: Array<{
         finding: string;
@@ -145,7 +147,10 @@ export class ReportDataService {
           opportunities: result.opportunities,
           confidenceLevel: result.confidenceLevel,
           detailedContent: result.detailedContent
-            ? preprocessDimensionContent(result.detailedContent)
+            ? preprocessDimensionContent(
+                result.detailedContent,
+                result.dimIndex,
+              )
             : "",
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],
