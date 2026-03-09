@@ -208,6 +208,8 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
       let uniqueContributions = 0;
 
       variantResult.results.forEach((item, rank) => {
+        // 跳过没有 URL 的结果（无法作为唯一标识去重）
+        if (!item.url) return;
         const url = this.normalizeUrl(item.url);
 
         if (!fusionMap.has(url)) {
@@ -305,6 +307,7 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
    * URL 规范化
    */
   private normalizeUrl(url: string): string {
+    if (!url) return "";
     try {
       const parsed = new URL(url);
       // 移除 trailing slash 和 fragment

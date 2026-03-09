@@ -128,7 +128,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
       "id": "dimension_id",
       "name": "维度名称",
       "description": "维度描述",
-      "searchQueries": ["搜索词1", "搜索词2"],
+      "searchQueries": ["中文搜索词1", "English search query 1", "中文搜索词2"],
       "dataSources": ["web", "arxiv", "news"],
       "priority": 1
     }
@@ -186,7 +186,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 ## 注意事项
 1. ⚠️ **维度必须匹配类型**（最重要）：MACRO 广覆盖；TECHNOLOGY 聚焦技术生命周期；COMPANY 聚焦企业经营分析
 2. 维度数量：MACRO 6-10 个，TECHNOLOGY 5-8 个，COMPANY 5-8 个。宁可多一个视角也不要遗漏重要维度。
-3. ⚠️ **搜索词必须中英文混合**：每个维度的 searchQueries 必须同时包含中文和英文搜索词（各至少 1-2 条），确保搜索结果覆盖中英文高质量资源。例如：["AI Agent 架构趋势 2026", "AI Agent architecture trends 2026", "multi-agent systems latest research"]
+3. ⚠️⚠️ **搜索词必须中英文双语**（强制）：每个维度的 searchQueries 必须至少包含 1 条中文 + 1 条英文搜索词。学术论文数据库（OpenAlex、Semantic Scholar、ArXiv）以英文为主，纯中文搜索词会导致 0 结果。示例：["大模型推理能力 测试时计算 2026", "LLM reasoning test-time compute 2026", "chain of thought scaling inference"]。如果 searchQueries 中没有英文搜索词，规划将被退回。
 4. 数据源选择要与维度内容匹配
 5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式
 6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度

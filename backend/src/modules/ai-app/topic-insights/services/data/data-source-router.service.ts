@@ -33,7 +33,7 @@ import {
   SearchOptions,
   DataSourcePlan,
 } from "../../types/data-source.types";
-import { ResearchTopic, TopicDimension } from "@prisma/client";
+import { AIModelType, ResearchTopic, TopicDimension } from "@prisma/client";
 import { DataSourcePlannerService } from "./data-source-planner.service";
 import {
   dataSourceToToolId,
@@ -202,7 +202,7 @@ export class DataSourceRouterService {
     }
 
     // 2. 构建搜索查询
-    const searchQueries = this.buildSearchQueries(topic, dimension);
+    const searchQueries = await this.buildSearchQueries(topic, dimension);
     const searchQuery = searchQueries[0]; // primary query for metadata
 
     this.logger.debug(
@@ -666,10 +666,10 @@ export class DataSourceRouterService {
    * 构建搜索查询列表
    * ★ 增强：双语查询 — 中文 topic 自动生成英文搜索变体，确保英文文献覆盖
    */
-  private buildSearchQueries(
+  private async buildSearchQueries(
     topic: ResearchTopic,
     dimension: TopicDimension,
-  ): string[] {
+  ): Promise<string[]> {
     const topicName = topic.name;
     const dimensionName = dimension.name;
 
@@ -691,19 +691,15 @@ export class DataSourceRouterService {
       baseQueries.push(defaultQuery);
     }
 
-    // ★ 双语增强：如果预定义查询全是中文，补充英文 searchQueries
-    const englishQueries = (dimension.searchQueries as string[] | null)?.filter(
-      (q) => !this.containsChinese(q),
-    );
-    const hasEnglishQuery =
-      baseQueries.some((q) => !this.containsChinese(q)) ||
-      (englishQueries && englishQueries.length > 0);
+    // ★ 双语增强：如果所有查询都是中文，用 LLM 翻译补充英文查询
+    const hasEnglishQuery = baseQueries.some((q) => !this.containsChinese(q));
 
     if (!hasEnglishQuery && this.containsChinese(topicName)) {
-      // 所有查询都是中文，补充英文变体以覆盖英文文献
-      const englishKeywords = this.extractEnglishKeywords(dimension);
-      if (englishKeywords) {
-        baseQueries.push(englishKeywords);
+      // 取第一条中文查询翻译为英文（覆盖所有数据源：web、academic、news 等）
+      const primaryQuery = baseQueries[0] || defaultQuery;
+      const englishQuery = await this.translateToEnglish(primaryQuery);
+      if (englishQuery) {
+        baseQueries.push(englishQuery);
       }
     }
 
@@ -721,21 +717,33 @@ export class DataSourceRouterService {
   }
 
   /**
-   * 从维度配置中提取英文关键词用于跨语言搜索
-   * ★ 优先使用维度 description 中的英文部分，回退到通用英文研究查询
+   * 中文查询 → 英文搜索关键词（LLM 翻译，覆盖所有数据源）
    */
-  private extractEnglishKeywords(dimension: TopicDimension): string | null {
-    const desc = dimension.description || "";
-    // 如果 description 包含英文词汇（如技术术语），提取它们
-    const englishWords = desc.match(/[a-zA-Z][\w-]*(?:\s+[a-zA-Z][\w-]*)*/g);
-    if (englishWords && englishWords.length > 0) {
-      // 取最长的英文短语作为搜索关键词
-      const longestPhrase = englishWords.sort((a, b) => b.length - a.length)[0];
-      if (longestPhrase.length >= 3) {
-        return `${longestPhrase} research analysis`;
-      }
+  private async translateToEnglish(query: string): Promise<string | null> {
+    try {
+      const response = await this.chatFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a translator. Convert the Chinese search query to English search keywords. Output ONLY the English keywords, nothing else. Keep it concise (max 10 words).",
+          },
+          { role: "user", content: query },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "deterministic", outputLength: "minimal" },
+      });
+
+      const result = response?.content?.trim();
+      if (!result || result.length < 3) return null;
+      this.logger.log(`[translateToEnglish] "${query}" → "${result}"`);
+      return result;
+    } catch (error) {
+      this.logger.warn(
+        `[translateToEnglish] Failed: ${error instanceof Error ? error.message : error}`,
+      );
+      return null;
     }
-    return null;
   }
 
   /**
@@ -823,14 +831,20 @@ export class DataSourceRouterService {
     options: SearchOptions,
     topic?: ResearchTopic,
   ): Promise<DataSourceResult[]> {
-    const timeout = options.timeout || 30000; // 默认30秒超时
+    // ACADEMIC 使用更长超时（内部有多源 fallback 链），且不参与顶层熔断
+    const isAcademic = source === DataSourceType.ACADEMIC;
+    const timeout = options.timeout || (isAcademic ? 60000 : 30000);
     const maxResults = options.maxResults || 10;
     const entityId = `datasource:${source}`;
 
     this.logger.debug(`Searching ${source} with query: "${query}"`);
 
-    // ★ CircuitBreaker: 检查数据源熔断状态
-    if (this.circuitBreaker && !this.circuitBreaker.canExecute(entityId)) {
+    // ★ CircuitBreaker: 检查数据源熔断状态（ACADEMIC 豁免，因为内部有独立 fallback）
+    if (
+      !isAcademic &&
+      this.circuitBreaker &&
+      !this.circuitBreaker.canExecute(entityId)
+    ) {
       this.logger.warn(
         `[searchSource] Circuit breaker OPEN for ${entityId}, skipping`,
       );
@@ -857,30 +871,22 @@ export class DataSourceRouterService {
 
       const results = await Promise.race([searchPromise, timeoutPromise]);
 
-      // ★ CircuitBreaker: 记录成功
-      if (this.circuitBreaker) {
+      // ★ CircuitBreaker: 记录成功（ACADEMIC 豁免）
+      if (!isAcademic && this.circuitBreaker) {
         this.circuitBreaker.recordSuccess(entityId, Date.now() - startTime);
-      } else {
-        this.logger.debug(
-          "[Degraded] CircuitBreakerService unavailable, skipping success recording",
-        );
       }
 
       this.logger.debug(`${source} returned ${results.length} results`);
 
       return results;
     } catch (error) {
-      // ★ CircuitBreaker: 记录失败
-      if (this.circuitBreaker) {
+      // ★ CircuitBreaker: 记录失败（ACADEMIC 豁免）
+      if (!isAcademic && this.circuitBreaker) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         const errorType = errorMsg.includes("timeout")
           ? TaskCompletionType.TIMEOUT
           : TaskCompletionType.API_ERROR;
         this.circuitBreaker.recordFailure(entityId, errorType, errorMsg);
-      } else {
-        this.logger.debug(
-          "[Degraded] CircuitBreakerService unavailable, skipping failure recording",
-        );
       }
 
       this.logger.error(
@@ -1289,78 +1295,90 @@ export class DataSourceRouterService {
     query: string,
     maxResults: number,
   ): Promise<DataSourceResult[]> {
-    // 按优先级尝试: OpenAlex → Semantic Scholar → ArXiv → PubMed
-    const sources: Array<{
-      toolId: string;
-      sourceType: DataSourceType;
-      name: string;
-    }> = [
-      {
-        toolId: "openalex-search",
-        sourceType: DataSourceType.OPENALEX,
-        name: "OpenAlex",
-      },
-      {
-        toolId: "semantic-scholar",
-        sourceType: DataSourceType.SEMANTIC_SCHOLAR,
-        name: "Semantic Scholar",
-      },
-    ];
-
-    // 先尝试 OpenAlex / Semantic Scholar
-    for (const source of sources) {
-      this.logger.log(`[searchAcademic] Trying ${source.name}: "${query}"`);
-      const results = await this.searchViaTool(
-        source.toolId,
-        source.sourceType,
-        query,
-        maxResults,
+    // ★ OpenAlex 优先（带独立超时，防止拖垮整个方法）
+    this.logger.log(`[searchAcademic] Trying OpenAlex: "${query}"`);
+    const openAlexResults = await this.searchViaToolWithTimeout(
+      "openalex-search",
+      DataSourceType.OPENALEX,
+      query,
+      maxResults,
+      15000,
+    );
+    if (openAlexResults.length > 0) {
+      this.logger.log(
+        `[searchAcademic] OpenAlex returned ${openAlexResults.length} results`,
       );
-      if (results.length > 0) {
-        this.logger.log(
-          `[searchAcademic] ${source.name} returned ${results.length} results`,
-        );
-        return results;
-      }
+      return openAlexResults;
     }
 
-    // 再尝试 ArXiv（自带限流保护）
+    // Fallback: Semantic Scholar（带 10s 超时）
+    this.logger.log(`[searchAcademic] Trying Semantic Scholar: "${query}"`);
+    const ssResults = await this.searchViaToolWithTimeout(
+      "semantic-scholar",
+      DataSourceType.SEMANTIC_SCHOLAR,
+      query,
+      maxResults,
+      10000,
+    );
+    if (ssResults.length > 0) {
+      this.logger.log(
+        `[searchAcademic] Semantic Scholar returned ${ssResults.length} results`,
+      );
+      return ssResults;
+    }
+
+    // Fallback: ArXiv
     const arxivResults = await this.searchArxiv(query, maxResults);
     if (arxivResults.length > 0) {
       return arxivResults;
     }
 
     // 最后 fallback PubMed
-    const fallbackSources: Array<{
-      toolId: string;
-      sourceType: DataSourceType;
-      name: string;
-    }> = [
-      { toolId: "pubmed", sourceType: DataSourceType.PUBMED, name: "PubMed" },
-    ];
-
-    for (const fallback of fallbackSources) {
+    this.logger.log(`[searchAcademic] Trying fallback: PubMed`);
+    const pubmedResults = await this.searchViaToolWithTimeout(
+      "pubmed",
+      DataSourceType.PUBMED,
+      query,
+      maxResults,
+      10000,
+    );
+    if (pubmedResults.length > 0) {
       this.logger.log(
-        `[searchAcademic] ArXiv failed, trying fallback: ${fallback.name}`,
+        `[searchAcademic] Fallback PubMed returned ${pubmedResults.length} results`,
       );
-      const results = await this.searchViaTool(
-        fallback.toolId,
-        fallback.sourceType,
-        query,
-        maxResults,
-      );
-      if (results.length > 0) {
-        this.logger.log(
-          `[searchAcademic] Fallback ${fallback.name} returned ${results.length} results`,
-        );
-        return results;
-      }
+      return pubmedResults;
     }
 
     this.logger.warn(
       "[searchAcademic] All academic sources exhausted, no results",
     );
     return [];
+  }
+
+  /**
+   * 带超时的工具搜索（防止单个子源拖垮整个 searchAcademic）
+   */
+  private async searchViaToolWithTimeout(
+    toolId: string,
+    sourceType: DataSourceType,
+    query: string,
+    maxResults: number,
+    timeoutMs: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      const result = await Promise.race([
+        this.searchViaTool(toolId, sourceType, query, maxResults),
+        new Promise<DataSourceResult[]>((_, reject) =>
+          setTimeout(() => reject(new Error(`${toolId} timeout`)), timeoutMs),
+        ),
+      ]);
+      return result;
+    } catch (error) {
+      this.logger.warn(
+        `[searchViaToolWithTimeout] ${toolId} failed: ${error instanceof Error ? error.message : error}`,
+      );
+      return [];
+    }
   }
 
   /**
