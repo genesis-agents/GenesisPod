@@ -1231,6 +1231,7 @@ describe("AIAdminService", () => {
 
       expect(mockTool.execute).toHaveBeenCalledWith(
         expect.objectContaining({ apiKey: "actual-api-key" }),
+        expect.objectContaining({ callerType: "admin" }),
       );
     });
   });
