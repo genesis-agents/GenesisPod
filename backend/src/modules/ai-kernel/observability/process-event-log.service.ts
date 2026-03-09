@@ -40,6 +40,9 @@ export class ProcessEventLogService {
   /** Trace 按时间排序的 ID 列表（用于 FIFO 淘汰） */
   private traceIdsByTime: string[] = [];
 
+  /** 已持久化到 DB 的 Trace ID（避免 span FK 违约） */
+  private persistedTraceIds = new Set<string>();
+
   constructor(@Optional() private readonly prisma?: PrismaService) {}
 
   /**
@@ -332,6 +335,7 @@ export class ProcessEventLogService {
           duration: trace.duration ?? null,
         },
       });
+      this.persistedTraceIds.add(trace.id);
     } catch (error) {
       this.logger.debug(
         `[Trace] DB persist failed for trace ${trace.id}: ${error}`,
@@ -344,6 +348,13 @@ export class ProcessEventLogService {
    */
   private async persistSpan(span: SpanData): Promise<void> {
     if (!this.prisma) return;
+    // 确保 trace 已入库（避免 FK 违约）
+    if (!this.persistedTraceIds.has(span.traceId)) {
+      const trace = this.traces.get(span.traceId);
+      if (trace) {
+        await this.persistTrace(trace);
+      }
+    }
     try {
       await this.prisma.agentSpan.upsert({
         where: { id: span.id },

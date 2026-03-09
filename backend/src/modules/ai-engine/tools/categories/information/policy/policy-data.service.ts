@@ -49,7 +49,7 @@ const KEY_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 小时
 
 /** 判断错误码是否为配额耗尽类（需要长冷却） */
 const isQuotaExhaustedError = (errorCode: number): boolean =>
-  errorCode === 400 || errorCode === 401;
+  errorCode === 400 || errorCode === 401 || errorCode === 403;
 
 @Injectable()
 export class PolicyDataService {
@@ -133,8 +133,11 @@ export class PolicyDataService {
       if (!health || Date.now() - health.failedAt >= cooldown) {
         return key;
       }
-      // 单 key 冷却中，但没有替代，仍然返回（由调用方处理）
-      return key;
+      // 单 key 冷却中，跳过此数据源（避免无效重试）
+      this.logger.warn(
+        `[getHealthyKey] Single ${toolId} key in cooldown (${Math.ceil((cooldown - (Date.now() - health.failedAt)) / 1000)}s remaining), skipping`,
+      );
+      return null;
     }
 
     const now = Date.now();

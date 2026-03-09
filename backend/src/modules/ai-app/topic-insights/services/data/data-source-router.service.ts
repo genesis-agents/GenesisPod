@@ -322,6 +322,7 @@ export class DataSourceRouterService {
           searchQueries,
           since,
           topic,
+          dimension,
         );
       }
     } else {
@@ -330,6 +331,7 @@ export class DataSourceRouterService {
         searchQueries,
         since,
         topic,
+        dimension,
       );
     }
 
@@ -390,6 +392,7 @@ export class DataSourceRouterService {
     searchQueries: string[],
     since: Date,
     topic?: ResearchTopic,
+    dimension?: TopicDimension,
   ): Promise<AggregatedSearchResult> {
     const maxResultsPerQuery = Math.max(
       5,
@@ -412,10 +415,22 @@ export class DataSourceRouterService {
         (async () => {
           const results: PromiseSettledResult<DataSourceResult[]>[] = [];
           for (const query of searchQueries) {
+            // ★ 早停：已拿到足够结果则跳过后续查询
+            const existingCount = results
+              .filter((r) => r.status === "fulfilled")
+              .reduce((sum, r) => sum + r.value.length, 0);
+            if (existingCount >= maxResultsPerQuery) break;
+
+            // ★ WEB 源加时间后缀提高时效性；其他源（ACADEMIC 等）不加
+            const finalQuery =
+              source === DataSourceType.WEB && dimension
+                ? this.enhanceQueryWithTimestamp(query, dimension)
+                : query;
+
             try {
               const data = await this.searchSource(
                 source,
-                query,
+                finalQuery,
                 { maxResults: maxResultsPerQuery, since },
                 topic,
               );
@@ -664,7 +679,10 @@ export class DataSourceRouterService {
 
   /**
    * 构建搜索查询列表
-   * ★ 增强：双语查询 — 中文 topic 自动生成英文搜索变体，确保英文文献覆盖
+   * ★ 全英文策略：所有查询统一翻译为英文关键词
+   *   - 英文关键词在 web/academic/github 等所有数据源上效果最佳
+   *   - 中文查询在英文数据库（OpenAlex、Semantic Scholar、ArXiv、PubMed）上无结果
+   *   - 搜索引擎（Google/Bing）对英文关键词的覆盖范围更广
    */
   private async buildSearchQueries(
     topic: ResearchTopic,
@@ -675,45 +693,53 @@ export class DataSourceRouterService {
 
     const searchQueries = dimension.searchQueries as string[] | null;
 
-    const baseQueries: string[] = [];
+    const rawQueries: string[] = [];
     if (
       searchQueries &&
       Array.isArray(searchQueries) &&
       searchQueries.length > 0
     ) {
       // 使用所有预定义查询（最多 3 个）
-      baseQueries.push(...searchQueries.slice(0, 3));
+      rawQueries.push(...searchQueries.slice(0, 3));
     }
 
     // 始终添加默认查询作为兜底
     const defaultQuery = `${topicName} ${dimensionName}`;
-    if (!baseQueries.some((q) => q === defaultQuery)) {
-      baseQueries.push(defaultQuery);
+    if (!rawQueries.some((q) => q === defaultQuery)) {
+      rawQueries.push(defaultQuery);
     }
 
-    // ★ 双语增强：如果所有查询都是中文，用 LLM 翻译补充英文查询
-    const hasEnglishQuery = baseQueries.some((q) => !this.containsChinese(q));
+    // ★ 全英文策略：将所有中文查询批量翻译为英文
+    const englishQueries: string[] = [];
+    const chineseQueries = rawQueries.filter((q) => this.containsChinese(q));
+    const existingEnglish = rawQueries.filter((q) => !this.containsChinese(q));
 
-    if (!hasEnglishQuery && this.containsChinese(topicName)) {
-      // 取第一条中文查询翻译为英文（覆盖所有数据源：web、academic、news 等）
-      const primaryQuery = baseQueries[0] || defaultQuery;
-      const englishQuery = await this.translateToEnglish(primaryQuery);
-      if (englishQuery) {
-        baseQueries.push(englishQuery);
+    if (chineseQueries.length > 0) {
+      // 批量翻译（最多 3 条，控制 LLM 调用次数）
+      const translationPromises = chineseQueries
+        .slice(0, 3)
+        .map((q) => this.translateToEnglish(q));
+      const translations = await Promise.all(translationPromises);
+      for (const t of translations) {
+        if (t) englishQueries.push(t);
       }
     }
 
-    // 去重并增强时间戳（最多 5 个以容纳双语查询）
-    const enhanced = baseQueries
+    // 合并：翻译后的英文 + 原有英文，去重，最多 5 个
+    const allQueries = [...englishQueries, ...existingEnglish]
       .filter((q, i, arr) => arr.indexOf(q) === i)
-      .slice(0, 5)
-      .map((q) => this.enhanceQueryWithTimestamp(q, dimension));
+      .slice(0, 5);
 
-    this.logger.debug(
-      `[buildSearchQueries] Generated ${enhanced.length} queries: ${enhanced.map((q) => `"${q}"`).join(", ")}`,
+    // 如果翻译全部失败，回退到原始查询（总比没有好）
+    if (allQueries.length === 0) {
+      allQueries.push(...rawQueries.slice(0, 3));
+    }
+
+    this.logger.log(
+      `[buildSearchQueries] Generated ${allQueries.length} English queries: ${allQueries.map((q) => `"${q}"`).join(", ")}`,
     );
 
-    return enhanced;
+    return allQueries;
   }
 
   /**
@@ -831,20 +857,14 @@ export class DataSourceRouterService {
     options: SearchOptions,
     topic?: ResearchTopic,
   ): Promise<DataSourceResult[]> {
-    // ACADEMIC 使用更长超时（内部有多源 fallback 链），且不参与顶层熔断
-    const isAcademic = source === DataSourceType.ACADEMIC;
-    const timeout = options.timeout || (isAcademic ? 60000 : 30000);
+    const timeout = options.timeout || 30000;
     const maxResults = options.maxResults || 10;
     const entityId = `datasource:${source}`;
 
     this.logger.debug(`Searching ${source} with query: "${query}"`);
 
-    // ★ CircuitBreaker: 检查数据源熔断状态（ACADEMIC 豁免，因为内部有独立 fallback）
-    if (
-      !isAcademic &&
-      this.circuitBreaker &&
-      !this.circuitBreaker.canExecute(entityId)
-    ) {
+    // ★ CircuitBreaker: 检查数据源熔断状态
+    if (this.circuitBreaker && !this.circuitBreaker.canExecute(entityId)) {
       this.logger.warn(
         `[searchSource] Circuit breaker OPEN for ${entityId}, skipping`,
       );
@@ -871,8 +891,8 @@ export class DataSourceRouterService {
 
       const results = await Promise.race([searchPromise, timeoutPromise]);
 
-      // ★ CircuitBreaker: 记录成功（ACADEMIC 豁免）
-      if (!isAcademic && this.circuitBreaker) {
+      // ★ CircuitBreaker: 记录成功
+      if (this.circuitBreaker) {
         this.circuitBreaker.recordSuccess(entityId, Date.now() - startTime);
       }
 
@@ -880,8 +900,8 @@ export class DataSourceRouterService {
 
       return results;
     } catch (error) {
-      // ★ CircuitBreaker: 记录失败（ACADEMIC 豁免）
-      if (!isAcademic && this.circuitBreaker) {
+      // ★ CircuitBreaker: 记录失败
+      if (this.circuitBreaker) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         const errorType = errorMsg.includes("timeout")
           ? TaskCompletionType.TIMEOUT
@@ -925,7 +945,7 @@ export class DataSourceRouterService {
         return this.searchWeb(query, maxResults, since);
 
       case DataSourceType.ACADEMIC:
-        return this.searchAcademic(query, maxResults);
+        return this.searchAcademic(query, maxResults, since);
 
       case DataSourceType.GITHUB:
         return this.searchGithub(query, maxResults);
@@ -1288,71 +1308,114 @@ export class DataSourceRouterService {
   }
 
   /**
-   * 学术搜索 (OpenAlex 优先，失败自动 fallback 到 Semantic Scholar → ArXiv → PubMed)
-   * OpenAlex: 2.5 亿论文、不限流（polite pool）、覆盖全学科
+   * 学术搜索（并行可靠源 + 共享预算）
+   *
+   * 架构：
+   *   阶段1: OpenAlex + PubMed 并行（两个最可靠、无限流问题的源）
+   *   阶段2: 仅在阶段1结果不足且有预算时，尝试 SS / ArXiv
+   *   共享预算: 整个方法 20s 上限，避免阻塞维度数据收集
    */
   private async searchAcademic(
     query: string,
     maxResults: number,
+    _since?: Date,
   ): Promise<DataSourceResult[]> {
-    // ★ OpenAlex 优先（带独立超时，防止拖垮整个方法）
-    this.logger.log(`[searchAcademic] Trying OpenAlex: "${query}"`);
-    const openAlexResults = await this.searchViaToolWithTimeout(
-      "openalex-search",
-      DataSourceType.OPENALEX,
-      query,
-      maxResults,
-      15000,
+    const BUDGET_MS = 20000;
+    const deadline = Date.now() + BUDGET_MS;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    this.logger.log(
+      `[searchAcademic] Starting parallel search: "${query.substring(0, 60)}...", budget=${BUDGET_MS}ms`,
     );
-    if (openAlexResults.length > 0) {
-      this.logger.log(
-        `[searchAcademic] OpenAlex returned ${openAlexResults.length} results`,
+
+    // ★ 阶段1: 可靠源并行（OpenAlex + PubMed）
+    const [oaResults, pmResults] = await Promise.all([
+      this.searchViaToolWithTimeout(
+        "openalex-search",
+        DataSourceType.OPENALEX,
+        query,
+        maxResults,
+        Math.min(10000, remainingMs()),
+      ),
+      this.searchViaToolWithTimeout(
+        "pubmed",
+        DataSourceType.PUBMED,
+        query,
+        maxResults,
+        Math.min(10000, remainingMs()),
+      ),
+    ]);
+
+    const merged = this.deduplicateResults([...oaResults, ...pmResults]);
+
+    this.logger.log(
+      `[searchAcademic] Phase 1 (OpenAlex+PubMed): ${oaResults.length}+${pmResults.length} → ${merged.length} unique, ${remainingMs()}ms remaining`,
+    );
+
+    if (merged.length >= maxResults || remainingMs() <= 0) {
+      return merged.slice(0, maxResults);
+    }
+
+    // ★ 阶段2: 备选源（仅在有预算且需要更多结果时）
+    // Semantic Scholar
+    if (remainingMs() > 2000) {
+      const ssResults = await this.searchViaToolWithTimeout(
+        "semantic-scholar",
+        DataSourceType.SEMANTIC_SCHOLAR,
+        query,
+        maxResults,
+        Math.min(8000, remainingMs()),
       );
-      return openAlexResults;
+      if (ssResults.length > 0) {
+        merged.push(...ssResults);
+        this.logger.log(
+          `[searchAcademic] Phase 2 SS: +${ssResults.length} results`,
+        );
+      }
     }
 
-    // Fallback: Semantic Scholar（带 10s 超时）
-    this.logger.log(`[searchAcademic] Trying Semantic Scholar: "${query}"`);
-    const ssResults = await this.searchViaToolWithTimeout(
-      "semantic-scholar",
-      DataSourceType.SEMANTIC_SCHOLAR,
-      query,
-      maxResults,
-      10000,
+    if (merged.length >= maxResults || remainingMs() <= 2000) {
+      return this.deduplicateResults(merged).slice(0, maxResults);
+    }
+
+    // ArXiv（带超时包装，防止重试阻塞）
+    try {
+      const arxivPromise = this.searchArxiv(query, maxResults);
+      const arxivTimeout = Math.min(8000, remainingMs());
+      const arxivResults = await Promise.race([
+        arxivPromise,
+        new Promise<DataSourceResult[]>((resolve) =>
+          setTimeout(() => resolve([]), arxivTimeout),
+        ),
+      ]);
+      if (arxivResults.length > 0) {
+        merged.push(...arxivResults);
+        this.logger.log(
+          `[searchAcademic] Phase 2 ArXiv: +${arxivResults.length} results`,
+        );
+      }
+    } catch {
+      // ArXiv failure is non-critical
+    }
+
+    const final = this.deduplicateResults(merged);
+    this.logger.log(
+      `[searchAcademic] Final: ${final.length} unique results in ${BUDGET_MS - remainingMs()}ms`,
     );
-    if (ssResults.length > 0) {
-      this.logger.log(
-        `[searchAcademic] Semantic Scholar returned ${ssResults.length} results`,
-      );
-      return ssResults;
-    }
+    return final.slice(0, maxResults);
+  }
 
-    // Fallback: ArXiv
-    const arxivResults = await this.searchArxiv(query, maxResults);
-    if (arxivResults.length > 0) {
-      return arxivResults;
-    }
-
-    // 最后 fallback PubMed
-    this.logger.log(`[searchAcademic] Trying fallback: PubMed`);
-    const pubmedResults = await this.searchViaToolWithTimeout(
-      "pubmed",
-      DataSourceType.PUBMED,
-      query,
-      maxResults,
-      10000,
-    );
-    if (pubmedResults.length > 0) {
-      this.logger.log(
-        `[searchAcademic] Fallback PubMed returned ${pubmedResults.length} results`,
-      );
-      return pubmedResults;
-    }
-
-    this.logger.warn(
-      "[searchAcademic] All academic sources exhausted, no results",
-    );
-    return [];
+  /**
+   * 学术搜索结果去重（按 URL）
+   */
+  private deduplicateResults(results: DataSourceResult[]): DataSourceResult[] {
+    const seen = new Set<string>();
+    return results.filter((r) => {
+      const key = r.url || r.title;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   /**
