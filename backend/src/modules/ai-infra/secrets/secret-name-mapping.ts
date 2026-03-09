@@ -45,6 +45,7 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
   "github-search": "github-token",
 
   // ==================== Academic Research ====================
+  "openalex-search": "openalex-api-key",
   "semantic-scholar": "semantic-scholar-api-key",
   pubmed: "pubmed-api-key",
 
@@ -89,6 +90,7 @@ export const SECRET_NAMES = {
   GITHUB_TOKEN: EXTERNAL_TOOL_SECRET_MAPPING["github-search"],
 
   // Academic Research
+  OPENALEX: EXTERNAL_TOOL_SECRET_MAPPING["openalex-search"],
   SEMANTIC_SCHOLAR: EXTERNAL_TOOL_SECRET_MAPPING["semantic-scholar"],
   PUBMED: EXTERNAL_TOOL_SECRET_MAPPING.pubmed,
 

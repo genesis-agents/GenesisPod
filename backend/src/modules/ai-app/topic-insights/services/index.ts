@@ -98,3 +98,22 @@ export { AgentActivityService } from "./monitoring/agent-activity.service";
 export { ResearchMissionHealthService } from "./monitoring/research-mission-health.service";
 export { ResearchCheckpointService } from "./monitoring/research-checkpoint.service";
 export { TopicRefreshScheduler } from "./monitoring/topic-refresh.scheduler";
+
+// ==================== Search Pipeline ====================
+export {
+  SearchOrchestratorService,
+  GlobalSourceThrottleService,
+  SearchExecutorService,
+  QueryStrategyService,
+  ResultFusionService,
+  QualityGateService,
+  WebSearchAdapter,
+  AcademicSearchAdapter,
+  GithubSearchAdapter,
+  HackernewsSearchAdapter,
+  SocialSearchAdapter,
+  PolicySearchAdapter,
+  FinanceSearchAdapter,
+  WeatherSearchAdapter,
+  LocalSearchAdapter,
+} from "./search";

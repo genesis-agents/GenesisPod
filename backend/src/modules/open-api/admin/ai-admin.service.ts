@@ -147,6 +147,15 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     freeQuota: "3 requests/second",
   },
   {
+    id: "openalex-search",
+    name: "OpenAlex",
+    category: "Academic Research",
+    url: "https://openalex.org",
+    freeQuota:
+      "100k requests/month (free), unlimited (with polite pool mailto)",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING["openalex-search"],
+  },
+  {
     id: "semantic-scholar",
     name: "Semantic Scholar",
     category: "Academic Research",

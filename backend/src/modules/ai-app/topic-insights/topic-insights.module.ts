@@ -105,6 +105,22 @@ import {
   ResearchExportService,
   ResearchTemplateService,
   RAGFusionService,
+  // ★ Search Pipeline (modular search architecture)
+  GlobalSourceThrottleService,
+  QueryStrategyService,
+  SearchExecutorService,
+  ResultFusionService,
+  QualityGateService,
+  SearchOrchestratorService,
+  WebSearchAdapter,
+  AcademicSearchAdapter,
+  GithubSearchAdapter,
+  HackernewsSearchAdapter,
+  SocialSearchAdapter,
+  PolicySearchAdapter,
+  FinanceSearchAdapter,
+  WeatherSearchAdapter,
+  LocalSearchAdapter,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -188,6 +204,22 @@ const services = [
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
+  // ★ Search Pipeline (modular search architecture)
+  GlobalSourceThrottleService,
+  QueryStrategyService,
+  SearchExecutorService,
+  ResultFusionService,
+  QualityGateService,
+  SearchOrchestratorService,
+  WebSearchAdapter,
+  AcademicSearchAdapter,
+  GithubSearchAdapter,
+  HackernewsSearchAdapter,
+  SocialSearchAdapter,
+  PolicySearchAdapter,
+  FinanceSearchAdapter,
+  WeatherSearchAdapter,
+  LocalSearchAdapter,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];

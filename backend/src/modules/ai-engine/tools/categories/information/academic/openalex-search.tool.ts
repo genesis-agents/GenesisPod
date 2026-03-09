@@ -221,7 +221,8 @@ export class OpenAlexSearchTool extends BaseTool<
 
     // 获取管理员配置的 mailto（用于 polite pool 无限速，hoisted for catch block access）
     // OpenAlex 不使用传统 API Key，而是通过 mailto 参数进入 polite pool
-    const configuredMailto = await this.policyDataService.getApiKey("openalex");
+    const configuredMailto =
+      await this.policyDataService.getApiKey("openalex-search");
 
     try {
       // 构建请求参数
