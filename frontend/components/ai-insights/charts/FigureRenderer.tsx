@@ -16,7 +16,17 @@ import { ImageOff, ZoomIn, Loader2, AlertTriangle } from 'lucide-react';
 import type { ReportChart } from '@/types/topic-insights';
 import { ReportChartRenderer } from './ReportChartRenderer';
 import { ChartErrorBoundary } from './ChartErrorBoundary';
+import { CitationBadge } from '../citations/CitationBadge';
 import { useI18n } from '@/lib/i18n';
+
+/** Evidence data for citation hover tooltip */
+export interface FigureEvidenceInfo {
+  id: string;
+  title?: string | null;
+  url?: string | null;
+  snippet?: string | null;
+  domain?: string | null;
+}
 
 interface FigureRendererProps {
   /** 图表/图片数据 */
@@ -29,6 +39,8 @@ interface FigureRendererProps {
   allowZoom?: boolean;
   /** 点击引用索引时的回调 */
   onCitationClick?: (citationIndex: number) => void;
+  /** 引用证据数据（用于 hover 弹出引用信息） */
+  evidenceInfo?: FigureEvidenceInfo | null;
   /** 重试回调 */
   onRetry?: () => void;
 }
@@ -331,6 +343,7 @@ export function FigureRenderer({
   showSource = true,
   allowZoom = true,
   onCitationClick,
+  evidenceInfo,
   onRetry,
 }: FigureRendererProps) {
   // 判断图表类型 - 优先使用明确的 chartType
@@ -404,8 +417,13 @@ export function FigureRenderer({
               {chart.source && (
                 <span className="text-gray-500">{chart.source}</span>
               )}
-              {chart.evidenceCitationIndex &&
-                (onCitationClick ? (
+              {chart.evidenceCitationIndex && evidenceInfo ? (
+                <CitationBadge
+                  index={chart.evidenceCitationIndex}
+                  evidence={evidenceInfo}
+                />
+              ) : chart.evidenceCitationIndex ? (
+                onCitationClick ? (
                   <button
                     onClick={() =>
                       onCitationClick(chart.evidenceCitationIndex!)
@@ -423,7 +441,8 @@ export function FigureRenderer({
                   >
                     [{chart.evidenceCitationIndex}]
                   </a>
-                ))}
+                )
+              ) : null}
             </div>
           )}
         </figcaption>
@@ -444,6 +463,7 @@ export function FigureGallery({
   showEmptyState = false,
   emptyStateMessage,
   isLoading = false,
+  evidenceMap,
 }: {
   charts: ReportChart[];
   className?: string;
@@ -456,6 +476,8 @@ export function FigureGallery({
   emptyStateMessage?: string;
   /** 是否正在加载 */
   isLoading?: boolean;
+  /** Evidence lookup map: citationIndex → evidence info for hover tooltip */
+  evidenceMap?: Map<number, FigureEvidenceInfo>;
 }) {
   const { t } = useI18n();
 
@@ -525,6 +547,11 @@ export function FigureGallery({
           chart={chart}
           onCitationClick={onCitationClick}
           onRetry={onRetry ? () => onRetry(chart.id) : undefined}
+          evidenceInfo={
+            chart.evidenceCitationIndex && evidenceMap
+              ? evidenceMap.get(chart.evidenceCitationIndex)
+              : undefined
+          }
         />
       ))}
     </div>

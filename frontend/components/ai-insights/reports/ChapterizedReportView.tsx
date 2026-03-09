@@ -37,7 +37,11 @@ import type {
   TopicEvidence,
   ReportChart,
 } from '@/types/topic-insights';
-import { FigureRenderer, FigureGallery } from '../charts';
+import {
+  FigureRenderer,
+  FigureGallery,
+  type FigureEvidenceInfo,
+} from '../charts';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
@@ -385,6 +389,24 @@ function ChapterizedReportViewInner({
     },
     [evidenceMap]
   );
+
+  // ★ Build evidence info map for figure citation hover tooltips
+  // Maps 1-based citation index → evidence info (title, url, snippet, domain)
+  const figureEvidenceMap = useMemo(() => {
+    const map = new Map<number, FigureEvidenceInfo>();
+    if (evidence && evidence.length > 0) {
+      evidence.forEach((ev, idx) => {
+        map.set(idx + 1, {
+          id: ev.id,
+          title: ev.title,
+          url: ev.url,
+          snippet: ev.snippet,
+          domain: ev.domain,
+        });
+      });
+    }
+    return map;
+  }, [evidence]);
 
   // ★ v3.0: Create charts map by sectionId for quick lookup
   const chartsBySectionId = useMemo(() => {
@@ -874,7 +896,16 @@ function ChapterizedReportViewInner({
                       if (chart) {
                         elements.push(
                           <div key={`chart-${chartId}`} className="my-4">
-                            <FigureRenderer chart={chart} />
+                            <FigureRenderer
+                              chart={chart}
+                              evidenceInfo={
+                                chart.evidenceCitationIndex
+                                  ? figureEvidenceMap.get(
+                                      chart.evidenceCitationIndex
+                                    )
+                                  : undefined
+                              }
+                            />
                           </div>
                         );
                       }

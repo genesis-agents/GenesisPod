@@ -6,6 +6,7 @@
 
 export { ReportChartRenderer, RiskMatrixRenderer } from './ReportChartRenderer';
 export { FigureRenderer, FigureGallery } from './FigureRenderer';
+export type { FigureEvidenceInfo } from './FigureRenderer';
 export {
   ChartErrorBoundary,
   withChartErrorBoundary,

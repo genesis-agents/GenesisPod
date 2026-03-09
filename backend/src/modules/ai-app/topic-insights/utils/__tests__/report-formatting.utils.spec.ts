@@ -10,6 +10,15 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
+  detectAndPromoteHeadings,
+  bulletifyBlockquoteItems,
+  splitEnumerationToList,
+  cleanupEmptyBullets,
+  normalizeInformalTerms,
+  normalizeSourceLabels,
+  renumberHeadings,
+  removeEmptyHeadings,
+  mergeAdjacentMathBlocks,
 } from "@/modules/ai-app/shared/report-template";
 
 describe("stripRawMarkdownInContent", () => {
@@ -722,5 +731,393 @@ describe("remapCitationIndices", () => {
     const mapping = new Map([[1, 5]]);
     const result = remapCitationIndices("参见[abc]说明[1]", mapping);
     expect(result).toBe("参见[abc]说明[5]");
+  });
+});
+
+// ============================================================
+// detectAndPromoteHeadings
+// ============================================================
+
+describe("detectAndPromoteHeadings", () => {
+  it("should NOT promote bold line (guard regex skips lines starting with *)", () => {
+    // Bold lines start with *, which is caught by the guard regex on line 2099.
+    // This is expected: bold formatting serves as emphasis, not heading promotion.
+    const input =
+      "**多模态融合技术架构演进**\n\n详细内容在这里描述该技术架构的演进路线。";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).not.toContain("###");
+    expect(result).toContain("**多模态融合技术架构演进**");
+  });
+
+  it("should promote short line ending with colon to heading", () => {
+    const input = "核心技术路线：\n\n详细内容段落在这里描述主要技术路线。";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).toContain("### 核心技术路线");
+  });
+
+  it("should NOT promote line ending with colon when next line is a list item (dash)", () => {
+    const input =
+      "开源带来的影响主要体现在三点：\n- 降低了构建自有基础模型的门槛";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).not.toContain("###");
+    expect(result).toContain("开源带来的影响主要体现在三点：");
+  });
+
+  it("should NOT promote line ending with colon when next line is ordered list", () => {
+    const input = "关键创新方向：\n1. 自注意力机制优化\n2. 稀疏化计算";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).not.toContain("###");
+    expect(result).toContain("关键创新方向：");
+  });
+
+  it("should NOT promote line ending with colon when next line is bullet asterisk", () => {
+    const input = "技术挑战包括：\n* 计算效率瓶颈\n* 数据质量问题";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).not.toContain("###");
+  });
+
+  it("should skip lines that are already headings", () => {
+    const input = "### 已有标题\n\n内容";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).toBe(input);
+  });
+
+  it("should skip lines with sentence punctuation (not headings)", () => {
+    const input = "这是一段，包含逗号的长句子：\n\n后续内容";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).not.toContain("###");
+  });
+
+  it("should skip very short bold labels (2-4 chars)", () => {
+    const input = "**反馈**\n\n内容段落";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).not.toContain("###");
+  });
+
+  it("should NOT promote when next content is blockquote", () => {
+    const input = "总结评价：\n> 引用内容在这里";
+    const result = detectAndPromoteHeadings(input);
+    expect(result).not.toContain("###");
+  });
+});
+
+// ============================================================
+// bulletifyBlockquoteItems
+// ============================================================
+
+describe("bulletifyBlockquoteItems", () => {
+  it("should add bullet markers to consecutive blockquote lines", () => {
+    const input = "> 第一条内容\n> 第二条内容\n> 第三条内容";
+    const result = bulletifyBlockquoteItems(input);
+    expect(result).toBe("> - 第一条内容\n> - 第二条内容\n> - 第三条内容");
+  });
+
+  it("should NOT bulletify empty blockquote lines", () => {
+    const input = "> \n> 有内容的行";
+    const result = bulletifyBlockquoteItems(input);
+    // Empty line should remain as-is, single content line should not be bulletified
+    expect(result).not.toContain("> - ");
+    expect(result).toContain("> ");
+  });
+
+  it("should NOT bulletify single blockquote line", () => {
+    const input = "> 只有一行内容";
+    const result = bulletifyBlockquoteItems(input);
+    expect(result).toBe("> 只有一行内容");
+  });
+
+  it("should NOT bulletify lines that already have bullet markers", () => {
+    const input = "> - 已有bullet\n> - 另一个bullet";
+    const result = bulletifyBlockquoteItems(input);
+    expect(result).toBe(input);
+  });
+
+  it("should NOT bulletify lines with bold markers", () => {
+    const input = "> **标题行**\n> 内容行";
+    const result = bulletifyBlockquoteItems(input);
+    // Bold line should not match; only 1 non-bold line so no bulletification
+    expect(result).toBe(input);
+  });
+
+  it("should handle mixed empty and content blockquote lines", () => {
+    const input = "> 内容一\n> \n> 内容二\n> 内容三";
+    const result = bulletifyBlockquoteItems(input);
+    // Empty line breaks the run: "内容一" is alone (no bullet), then "内容二"+"内容三" = run of 2
+    expect(result).toContain("> 内容一");
+    expect(result).toContain("> - 内容二");
+    expect(result).toContain("> - 内容三");
+  });
+});
+
+// ============================================================
+// splitEnumerationToList
+// ============================================================
+
+describe("splitEnumerationToList", () => {
+  it("should split 一是/二是/三是 patterns into bullet list", () => {
+    const input =
+      "在技术栈层面，可观察到三条路线：一是以通用语言模型为核心构建应用，二是以世界模型为代表进行预测，三是以多模态融合为基础";
+    const result = splitEnumerationToList(input);
+    expect(result).toContain("- 以通用语言模型为核心构建应用");
+    expect(result).toContain("- 以世界模型为代表进行预测");
+    expect(result).toContain("- 以多模态融合为基础");
+  });
+
+  it("should split 首先/其次/最后 patterns", () => {
+    const input =
+      "需要关注以下方面：首先是计算效率的优化，其次是数据质量的保障，最后是安全对齐的强化";
+    const result = splitEnumerationToList(input);
+    expect(result).toContain("- ");
+    expect(result.match(/^- /gm)?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("should NOT split when fewer than 2 markers found", () => {
+    const input = "首先我们需要了解基础架构的演进趋势。";
+    const result = splitEnumerationToList(input);
+    expect(result).toBe(input);
+  });
+
+  it("should skip headings", () => {
+    const input = "### 一是核心架构，二是训练方法";
+    const result = splitEnumerationToList(input);
+    expect(result).toBe(input);
+  });
+
+  it("should skip short paragraphs", () => {
+    const input = "一是好，二是坏";
+    const result = splitEnumerationToList(input);
+    expect(result).toBe(input);
+  });
+
+  it("should NOT produce empty bullet items when marker has no content", () => {
+    const input = "关键要素包括以下几点，一是模型架构的优化方向，二是";
+    const result = splitEnumerationToList(input);
+    // Second item has no content — should be skipped
+    const bullets = result.match(/^- .+$/gm) || [];
+    for (const bullet of bullets) {
+      // Each bullet should have actual content after "- "
+      expect(bullet.replace(/^- /, "").trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("should preserve leading sentence before first marker", () => {
+    const input =
+      "在技术栈层面，可观察到两条路线：一是以通用语言模型为核心，二是以世界模型为代表";
+    const result = splitEnumerationToList(input);
+    expect(result).toContain("在技术栈层面，可观察到两条路线：");
+  });
+});
+
+// ============================================================
+// cleanupEmptyBullets
+// ============================================================
+
+describe("cleanupEmptyBullets", () => {
+  it("should remove empty dash bullet items", () => {
+    const input = "- 有内容\n- \n- 也有内容";
+    const result = cleanupEmptyBullets(input);
+    expect(result).toContain("- 有内容");
+    expect(result).toContain("- 也有内容");
+    expect(result).not.toMatch(/^-\s*$/m);
+  });
+
+  it("should remove empty asterisk bullet items", () => {
+    const input = "* 有内容\n* \n* 也有内容";
+    const result = cleanupEmptyBullets(input);
+    expect(result).not.toMatch(/^\*\s*$/m);
+  });
+
+  it("should remove empty blockquote bullet items", () => {
+    const input = "> - 有内容\n> - \n> - 也有内容";
+    const result = cleanupEmptyBullets(input);
+    expect(result).not.toMatch(/^>\s*-\s*$/m);
+  });
+
+  it("should collapse triple newlines after removal", () => {
+    const input = "段落一\n\n- \n\n段落二";
+    const result = cleanupEmptyBullets(input);
+    expect(result).not.toContain("\n\n\n");
+  });
+
+  it("should preserve non-empty bullets", () => {
+    const input = "- 第一项\n- 第二项\n- 第三项";
+    const result = cleanupEmptyBullets(input);
+    expect(result).toBe(input);
+  });
+});
+
+// ============================================================
+// normalizeInformalTerms
+// ============================================================
+
+describe("normalizeInformalTerms", () => {
+  it("should replace standalone 'hype' with 炒作", () => {
+    const input = "忽略hype如AGI即将来临的说法";
+    const result = normalizeInformalTerms(input);
+    expect(result).not.toContain("hype");
+    expect(result).toContain("炒作");
+  });
+
+  it("should replace 'hype宣传' with 过度宣传", () => {
+    const input = "hype宣传忽略训练开销";
+    const result = normalizeInformalTerms(input);
+    expect(result).toBe("过度宣传忽略训练开销");
+  });
+
+  it("should replace 'hype曲线' with 技术炒作周期曲线", () => {
+    const input = "参考Gartner的hype曲线";
+    const result = normalizeInformalTerms(input);
+    expect(result).toContain("技术炒作周期曲线");
+  });
+
+  it("should not modify English words containing 'hype' as substring", () => {
+    const input = "hyperparameter tuning is important";
+    const result = normalizeInformalTerms(input);
+    expect(result).toBe(input);
+  });
+
+  it("should handle case-insensitive 'Hype'", () => {
+    const input = "Hype现象值得警惕";
+    const result = normalizeInformalTerms(input);
+    expect(result).toContain("炒作");
+  });
+});
+
+// ============================================================
+// normalizeSourceLabels
+// ============================================================
+
+describe("normalizeSourceLabels", () => {
+  it("should add space after Source: when missing", () => {
+    const input = "Source:[94]";
+    const result = normalizeSourceLabels(input);
+    expect(result).toBe("Source: [94]");
+  });
+
+  it("should keep correct format unchanged", () => {
+    const input = "Source: [94]";
+    const result = normalizeSourceLabels(input);
+    expect(result).toBe("Source: [94]");
+  });
+
+  it("should convert Chinese 来源 to English Source", () => {
+    const input = "来源：[42]";
+    const result = normalizeSourceLabels(input);
+    expect(result).toBe("Source: [42]");
+  });
+
+  it("should strip 证据 from source labels", () => {
+    const input = "来源: 证据 [7]";
+    const result = normalizeSourceLabels(input);
+    expect(result).toBe("Source: [7]");
+  });
+});
+
+// ============================================================
+// renumberHeadings + removeEmptyHeadings integration
+// ============================================================
+
+describe("renumberHeadings after removeEmptyHeadings", () => {
+  it("should close numbering gaps when empty heading is removed", () => {
+    const input = [
+      "## 1. 维度一",
+      "",
+      "### 1.1. 第一节",
+      "内容A",
+      "",
+      "### 1.2. 空节",
+      "",
+      "### 1.3. 第三节",
+      "内容B",
+    ].join("\n");
+
+    // Remove empty heading then renumber
+    let result = removeEmptyHeadings(input);
+    result = renumberHeadings(result);
+
+    expect(result).toContain("### 1.1. 第一节");
+    expect(result).toContain("### 1.2. 第三节");
+    expect(result).not.toContain("1.3.");
+  });
+
+  it("should maintain correct numbering when no headings removed", () => {
+    const input = [
+      "## 1. 维度一",
+      "",
+      "### 1.1. 第一节",
+      "内容A",
+      "",
+      "### 1.2. 第二节",
+      "内容B",
+    ].join("\n");
+
+    const result = renumberHeadings(input);
+    expect(result).toContain("### 1.1. 第一节");
+    expect(result).toContain("### 1.2. 第二节");
+  });
+});
+
+// ============================================================
+// stripLLMMetaNotes — new variant coverage
+// ============================================================
+
+describe("stripLLMMetaNotes — internal note leak variants", () => {
+  it("should strip bare '字数约1250字（内部统计，不输出）'", () => {
+    const input = "正文内容字数约1250字（内部统计，不输出）后续内容";
+    const result = stripLLMMetaNotes(input);
+    expect(result).toBe("正文内容后续内容");
+    expect(result).not.toContain("内部统计");
+  });
+
+  it("should strip '字数约：1520字（内部计算，不输出）'", () => {
+    const input = "段落末尾字数约：1520字（内部计算，不输出）";
+    const result = stripLLMMetaNotes(input);
+    expect(result).not.toContain("内部计算");
+    expect(result).not.toContain("不输出");
+  });
+
+  it("should strip '字数1800字（内部统计）'", () => {
+    const input = "内容字数1800字（内部统计）结尾";
+    // This should match via existing (字数...) or new bare pattern
+    const result = stripLLMMetaNotes(input);
+    expect(result).not.toContain("内部统计");
+  });
+});
+
+// ============================================================
+// mergeAdjacentMathBlocks — asymmetric delimiter fix
+// ============================================================
+
+describe("mergeAdjacentMathBlocks — asymmetric delimiters", () => {
+  it("should fix $$formula$ to $$formula$$", () => {
+    const input = "$$\\text{FFN}(x)=W_2\\sigma(W_1 x)$";
+    const result = mergeAdjacentMathBlocks(input);
+    // Should have matching $$ on both sides
+    expect(result).toMatch(/^\$\$.*\$\$$/);
+    expect(result).not.toMatch(/[^$]\$$/);
+  });
+
+  it("should fix $formula$$ to $$formula$$", () => {
+    const input = "$\\text{Attention}(Q,K,V)$$";
+    const result = mergeAdjacentMathBlocks(input);
+    expect(result).toMatch(/^\$\$.*\$\$$/);
+  });
+
+  it("should not alter correctly paired $$formula$$", () => {
+    const input = "$$E = mc^2$$";
+    const result = mergeAdjacentMathBlocks(input);
+    expect(result).toBe("$$E = mc^2$$");
+  });
+
+  it("should not alter correctly paired $formula$", () => {
+    const input = "inline $x^2$ formula";
+    const result = mergeAdjacentMathBlocks(input);
+    expect(result).toContain("$x^2$");
+  });
+
+  it("should merge adjacent inline blocks: $A$ $B$ → $A B$", () => {
+    const input = "$\\alpha$ $\\beta$";
+    const result = mergeAdjacentMathBlocks(input);
+    expect(result).toBe("$\\alpha \\beta$");
   });
 });

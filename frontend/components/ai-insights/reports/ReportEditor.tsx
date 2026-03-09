@@ -36,7 +36,7 @@ import type {
   ReportChart,
 } from '@/types/topic-insights';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
-import { FigureRenderer } from '../charts';
+import { FigureRenderer, type FigureEvidenceInfo } from '../charts';
 import type { AIEditOperation } from '../types';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
@@ -594,6 +594,23 @@ function ReportEditorInner({
     [evidenceMap]
   );
 
+  // ★ Build evidence info map for figure citation hover tooltips
+  const figureEvidenceMap = useMemo(() => {
+    const map = new Map<number, FigureEvidenceInfo>();
+    if (evidence.length > 0) {
+      evidence.forEach((ev, idx) => {
+        map.set(idx + 1, {
+          id: ev.id,
+          title: ev.title,
+          url: ev.url,
+          snippet: ev.snippet,
+          domain: ev.domain,
+        });
+      });
+    }
+    return map;
+  }, [evidence]);
+
   // Get markdown content from report - filter out placeholder text
   const markdownContent = useMemo(() => {
     if (!report) return '';
@@ -1025,7 +1042,14 @@ function ReportEditorInner({
             if (chart) {
               return (
                 <div key={`chart-${index}`} className="my-6">
-                  <FigureRenderer chart={chart} />
+                  <FigureRenderer
+                    chart={chart}
+                    evidenceInfo={
+                      chart.evidenceCitationIndex
+                        ? figureEvidenceMap.get(chart.evidenceCitationIndex)
+                        : undefined
+                    }
+                  />
                 </div>
               );
             }

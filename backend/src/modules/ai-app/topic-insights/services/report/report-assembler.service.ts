@@ -58,6 +58,9 @@ import {
   wrapBareDisplayMath,
   deduplicateTerminalSections,
   stripChapterHighlights,
+  cleanupEmptyBullets,
+  normalizeInformalTerms,
+  normalizeSourceLabels,
 } from "@/modules/ai-app/shared/report-template";
 import {
   stripChartJsonFromContent,
@@ -409,6 +412,9 @@ export class ReportAssemblerService {
 
     // Split enumeration patterns (一是/二是...) into bullet lists
     processed = splitEnumerationToList(processed);
+
+    // Clean up empty bullet items left by bulletify/enumeration steps
+    processed = cleanupEmptyBullets(processed);
 
     // Bold summary prefix before Chinese colon (短语：→ **短语**：)
     processed = boldSummaryPrefixes(processed);
@@ -906,6 +912,10 @@ export class ReportAssemblerService {
     // Remove empty headings (heading → next heading with no content between)
     content = removeEmptyHeadings(content);
 
+    // Close numbering gaps immediately after heading removal (before other steps
+    // that depend on correct heading numbers, e.g. truncateLongListItems)
+    content = renumberHeadings(content);
+
     // Enforce max list item length
     content = truncateLongListItems(content);
 
@@ -939,6 +949,9 @@ export class ReportAssemblerService {
     // Split enumeration patterns (一是/二是...) into bullet lists
     content = splitEnumerationToList(content);
 
+    // Clean up empty bullet items left by bulletify/enumeration steps
+    content = cleanupEmptyBullets(content);
+
     // Bold summary prefix before Chinese colon (短语：→ **短语**：)
     content = boldSummaryPrefixes(content);
 
@@ -965,6 +978,12 @@ export class ReportAssemblerService {
 
     // Wrap standalone LaTeX display-math lines in $$ delimiters
     content = wrapBareDisplayMath(content);
+
+    // Normalize informal English terms to formal Chinese (e.g. "hype" → "炒作")
+    content = normalizeInformalTerms(content);
+
+    // Normalize citation source labels to consistent format (Source: [N])
+    content = normalizeSourceLabels(content);
 
     // Remove duplicate terminal sections (结语 repeating 跨维度关联分析 sub-sections)
     content = deduplicateTerminalSections(content);
@@ -1045,11 +1064,24 @@ export class ReportAssemblerService {
     // Favicons, logos, and icon assets
     if (lower.includes("favicon")) return true;
     if (
-      /\/(?:logo|icon|sprite|badge|avatar|banner|ads?)[\-_]?\w*\.(?:png|jpg|gif|svg|webp)/i.test(
-        url,
+      /(?:logo|icon|sprite|badge|avatar|banner|ads?)[-_]?\w*\.(?:png|jpg|gif|svg|webp)/i.test(
+        lower,
       )
     )
       return true;
+    // Stock photo and placeholder image domains (aligned with FigureExtractorService)
+    const garbageDomains = [
+      "unsplash.com",
+      "pexels.com",
+      "shutterstock.com",
+      "istockphoto.com",
+      "gettyimages.com",
+      "placeholder.com",
+      "via.placeholder",
+      "placeholdit.imgix",
+      "placehold.co",
+    ];
+    if (garbageDomains.some((d) => lower.includes(d))) return true;
     // Tracking pixels and very small images (1x1, 2x2)
     if (/[?&](?:w|width|h|height)=[12]\b/.test(url)) return true;
     // Data URIs (bloated, not real chart images)

@@ -548,6 +548,11 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/（字数[^）]{0,30}）/g, "")
       // Bold-wrapped word count annotations: **字数约1350字（内部统计，不输出）**
       .replace(/\*{2}字数[约共]?\d+字[^*]*\*{2}/g, "")
+      // Bare word count with internal note: 字数约1250字（内部统计，不输出）
+      .replace(
+        /字数[约：:]*\s*\d+字[（(][^）)]*(?:不输出|内部)[^）)]*[）)]/g,
+        "",
+      )
       // HTML bold word count: <strong>字数统计</strong>：约1120字 (appears in rendered output)
       .replace(/\*{2}字数统计\*{2}[：:]\s*[约共]?\d+字\s*/g, "")
       // Bare word count at line end: （当前字数: 1350）or [当前字数: 1350]
@@ -1245,6 +1250,12 @@ export function mergeAdjacentMathBlocks(content: string): string {
       return match;
     },
   );
+
+  // Fix asymmetric display/inline delimiter pairs:
+  //   $$formula$ → $$formula$$   (display math missing closing $$)
+  //   $formula$$ → $$formula$$   (display math missing opening $$)
+  result = result.replace(/\$\$([^$]+)\$(?!\$)/g, "$$$$$$1$$$$");
+  result = result.replace(/(?<!\$)\$([^$]+)\$\$/g, "$$$$$$1$$$$");
 
   // Fix unpaired $ in a line: odd number of $ suggests broken delimiters
   // Strategy: if a line has exactly 1 or 3 $ signs, it's likely broken
@@ -2124,7 +2135,14 @@ export function detectAndPromoteHeadings(content: string): string {
       !/[，。；！？、]/.test(trimmed.slice(0, -1))
     ) {
       const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
-      if (nextContent && !/^[#>|]/.test(nextContent.trim())) {
+      // Skip promotion if next content line is a heading, blockquote, table,
+      // or list item (ordered/unordered) — those indicate the current line is
+      // a lead-in sentence, not a section heading.
+      if (
+        nextContent &&
+        !/^[#>|\-*]/.test(nextContent.trim()) &&
+        !/^\d+[.)]\s/.test(nextContent.trim())
+      ) {
         const headingText = trimmed.replace(/[：:]$/, "");
         result.push(`### ${headingText}`);
         continue;
@@ -2585,12 +2603,16 @@ export function bulletifyBlockquoteItems(content: string): string {
   const lines = content.split("\n");
   const result: string[] = [];
 
+  // Regex requires actual non-whitespace content after "> " prefix,
+  // preventing empty blockquote lines from being converted to empty bullets.
+  const bqContentRe = /^>\s+(?![-*]\s|>|\*\*)\S/;
+
   let i = 0;
   while (i < lines.length) {
     // Detect a run of consecutive blockquote lines without bullet markers
-    if (/^>\s+(?![-*]\s|>|\*\*)/.test(lines[i])) {
+    if (bqContentRe.test(lines[i])) {
       const runStart = i;
-      while (i < lines.length && /^>\s+(?![-*]\s|>|\*\*)/.test(lines[i])) {
+      while (i < lines.length && bqContentRe.test(lines[i])) {
         i++;
       }
       const runLength = i - runStart;
@@ -2702,7 +2724,6 @@ export function splitEnumerationToList(content: string): string {
     // Split content at each marker position into list items
     const items: string[] = [];
     for (let i = 0; i < matches.length; i++) {
-      const markerText = matches[i][2]; // the marker itself (e.g., "一是")
       const startAfterMarker = matches[i].index + matches[i][0].length;
       const endPos =
         i < matches.length - 1 ? matches[i + 1].index : trimmed.length;
@@ -2718,10 +2739,8 @@ export function splitEnumerationToList(content: string): string {
       // But keep the semantic content
       if (itemContent.length > 0) {
         items.push(`- ${itemContent}`);
-      } else {
-        // Marker with no content — skip
-        items.push(`- ${markerText}`);
       }
+      // else: Marker with no content — skip entirely (don't push empty bullet)
     }
 
     if (items.length >= 2) {
@@ -3162,4 +3181,65 @@ export function getMinDataPoints(chartType: string): number {
     default:
       return 3;
   }
+}
+
+/**
+ * Remove empty bullet items and stray bullet markers from content.
+ *
+ * Cleans up artifacts left by bulletifyBlockquoteItems and splitEnumerationToList:
+ * - Empty list items: `- ` or `* ` with no content after marker
+ * - Empty blockquote bullets: `> - ` with no content
+ * - Consecutive blank lines left by removals
+ */
+export function cleanupEmptyBullets(content: string): string {
+  return (
+    content
+      // Remove empty list items (- or * with only whitespace after)
+      .replace(/^\s*[-*]\s*$/gm, "")
+      // Remove empty blockquote list items (> - with only whitespace after)
+      .replace(/^>\s*[-*]\s*$/gm, "")
+      // Collapse triple+ newlines left by removals
+      .replace(/\n{3,}/g, "\n\n")
+  );
+}
+
+/**
+ * Replace informal English terms with formal Chinese equivalents.
+ *
+ * Formal reports should not contain casual English loanwords when
+ * proper Chinese terminology exists. This is a post-processing step
+ * that normalizes common informal terms found in LLM-generated content.
+ */
+export function normalizeInformalTerms(content: string): string {
+  // Map of informal English terms to formal Chinese replacements
+  const replacements: Array<[RegExp, string]> = [
+    // "hype" variants — must handle compound forms
+    [/hype宣传/g, "过度宣传"],
+    [/hype曲线/g, "技术炒作周期曲线"],
+    [/忽略hype/g, "忽略炒作"],
+    [/(?<![a-zA-Z])hype(?![a-zA-Z])/gi, "炒作"],
+  ];
+  let result = content;
+  for (const [pattern, replacement] of replacements) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
+/**
+ * Normalize citation source labels to consistent format.
+ *
+ * Unifies variants like `Source:[94]`, `Source: [94]`, `来源:[94]`
+ * to the standard format `Source: [N]` (with space after colon).
+ */
+export function normalizeSourceLabels(content: string): string {
+  return (
+    content
+      // "Source:[N]" → "Source: [N]"
+      .replace(/Source:\[(\d+)\]/g, "Source: [$1]")
+      // "来源：[N]" → "Source: [N]"
+      .replace(/来源[：:]\s*\[(\d+)\]/g, "Source: [$1]")
+      // "来源: 证据 [N]" → "Source: [N]"
+      .replace(/来源[：:]\s*证据\s*\[(\d+)\]/g, "Source: [$1]")
+  );
 }
