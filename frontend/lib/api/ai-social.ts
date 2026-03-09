@@ -636,6 +636,7 @@ interface SourceItemBase {
   title?: string;
   name?: string;
   description?: string;
+  abstract?: string;
   type?: string;
   sourceUrl?: string;
   thumbnailUrl?: string;
@@ -654,9 +655,11 @@ export async function getExploreSources(options?: {
   items: Array<{
     id: string;
     title: string;
+    description?: string;
     url?: string;
     type?: string;
     thumbnail?: string;
+    createdAt?: string;
   }>;
   total: number;
 }> {
@@ -671,9 +674,11 @@ export async function getExploreSources(options?: {
     items: items.map((item) => ({
       id: item.id,
       title: item.title || item.name || 'Untitled',
+      description: item.abstract || item.description,
       url: item.sourceUrl,
       type: item.type,
       thumbnail: item.thumbnailUrl,
+      createdAt: item.createdAt,
     })),
     total: items.length,
   };

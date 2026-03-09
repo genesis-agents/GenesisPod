@@ -20,6 +20,8 @@ import {
   Search,
   Calendar,
   FileText,
+  ExternalLink,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { ClientDate } from '@/components/common/ClientDate';
 
@@ -29,6 +31,8 @@ interface SourceItem {
   description?: string;
   type?: string;
   createdAt?: string;
+  thumbnail?: string;
+  url?: string;
 }
 
 export function SourceSelector() {
@@ -359,13 +363,14 @@ export function SourceSelector() {
             <button
               key={item.id}
               onClick={() => handleSourceItemSelect(item)}
-              className={`group w-full rounded-xl border p-4 text-left transition-all hover:border-rose-300 hover:bg-rose-50 ${
+              className={`group w-full rounded-xl border p-4 text-left transition-all hover:border-rose-300 hover:bg-rose-50/50 ${
                 sourceId === item.id
                   ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-500/20'
                   : 'border-gray-200 bg-white'
               }`}
             >
               <div className="flex items-start gap-4">
+                {/* Radio indicator */}
                 <div
                   className={`mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 ${
                     sourceId === item.id
@@ -377,19 +382,63 @@ export function SourceSelector() {
                     <div className="h-2 w-2 rounded-full bg-white" />
                   )}
                 </div>
+
+                {/* Thumbnail */}
+                {item.thumbnail ? (
+                  <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.thumbnail}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ) : sourceType === 'AI_EXPLORE' ? (
+                  <div className="flex h-16 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                    <ImageIcon className="h-6 w-6 text-gray-300" />
+                  </div>
+                ) : null}
+
+                {/* Content */}
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-medium text-gray-900">{item.title}</h3>
+                  <h3 className="line-clamp-1 font-medium text-gray-900">
+                    {item.title}
+                  </h3>
                   {item.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                    <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-gray-500">
                       {item.description}
                     </p>
                   )}
-                  {item.createdAt && (
-                    <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      <ClientDate date={item.createdAt} format="date" />
-                    </div>
-                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {item.type && (
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        {item.type}
+                      </span>
+                    )}
+                    {item.createdAt && (
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                        <Calendar className="h-3 w-3" />
+                        <ClientDate date={item.createdAt} format="date" />
+                      </span>
+                    )}
+                    {item.url &&
+                      (() => {
+                        try {
+                          const hostname = new URL(item.url).hostname;
+                          return (
+                            <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                              <ExternalLink className="h-3 w-3" />
+                              <span className="max-w-[200px] truncate">
+                                {hostname}
+                              </span>
+                            </span>
+                          );
+                        } catch {
+                          return null;
+                        }
+                      })()}
+                  </div>
                 </div>
               </div>
             </button>
