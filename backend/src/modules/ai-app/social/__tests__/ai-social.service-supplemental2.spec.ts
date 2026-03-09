@@ -913,7 +913,7 @@ describe("AiSocialService (supplemental2)", () => {
           socialContent: {
             findFirst: jest
               .fn()
-              .mockResolvedValue({ ...mockContent, status: "APPROVED" }),
+              .mockResolvedValue({ ...mockContent, status: "DRAFT" }),
             update: jest.fn().mockResolvedValue({}),
           },
           socialPublishLog: {

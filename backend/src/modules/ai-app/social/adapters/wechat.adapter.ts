@@ -500,14 +500,34 @@ export class WechatAdapter {
       await this.fillContent(page, content);
       this.logger.log("Content filled successfully");
 
-      // Step 9: 保存为草稿
-      this.logger.log("Saving as draft...");
+      // Step 9: 先保存草稿（确保内容持久化，防止群发失败丢失内容）
+      this.logger.log("Saving as draft first...");
       const draftUrl = await this.saveDraft(page);
-      this.logger.log(`WeChat article saved as draft: ${draftUrl}`);
+      this.logger.log(`Draft saved: ${draftUrl}`);
 
+      // Step 10: 群发 — 点击"群发"按钮实际发布文章
+      this.logger.log("Starting mass send (群发)...");
+      const publishResult = await this.massSend(page);
+
+      if (publishResult.success) {
+        this.logger.log(
+          `WeChat article published successfully: ${publishResult.externalUrl || draftUrl}`,
+        );
+        return {
+          success: true,
+          externalUrl: publishResult.externalUrl || draftUrl,
+          externalId: publishResult.externalId,
+        };
+      }
+
+      // 群发失败，但草稿已保存
+      this.logger.warn(
+        `Mass send failed: ${publishResult.errorMessage}. Draft was saved at: ${draftUrl}`,
+      );
       return {
-        success: true,
+        success: false,
         externalUrl: draftUrl,
+        errorMessage: `群发失败: ${publishResult.errorMessage}（草稿已保存，可在公众号后台手动群发）`,
       };
     } catch (error) {
       const err = error as Error;
@@ -985,8 +1005,10 @@ export class WechatAdapter {
           `HTML content length: ${htmlContent.length} chars (original: ${content.content.length})`,
         );
 
-        // 方法1: 使用 execCommand 插入 HTML（最兼容 ProseMirror）
-        // ProseMirror 会监听 beforeinput 和 input 事件来处理内容
+        // ProseMirror 内容注入策略：
+        // 1. 先尝试 clipboard paste（ProseMirror 原生支持，不会截断）
+        // 2. 回退到 innerHTML 直接设置（比 execCommand 更可靠）
+        // 3. 最后尝试 execCommand（在 ProseMirror 上容易截断内容）
         const fillResult: {
           success: boolean;
           selector: string | null;
@@ -1014,14 +1036,75 @@ export class WechatAdapter {
                 // 聚焦编辑器
                 (editorEl as HTMLElement).focus();
 
-                // 方法1: 使用 Selection API + insertHTML (最可靠)
+                // 方法1: 使用 clipboard paste 事件（ProseMirror 原生处理，最可靠）
                 try {
                   const selection = window.getSelection();
                   if (selection) {
                     selection.selectAllChildren(editorEl);
                     selection.deleteFromDocument();
                   }
-                  // 尝试使用 insertHTML 命令
+                  const dt = new DataTransfer();
+                  dt.setData("text/html", html);
+                  dt.setData("text/plain", html.replace(/<[^>]*>/g, "\n"));
+                  const pasteEvent = new ClipboardEvent("paste", {
+                    clipboardData: dt,
+                    bubbles: true,
+                    cancelable: true,
+                  });
+                  const handled = editorEl.dispatchEvent(pasteEvent);
+                  // ProseMirror 会 preventDefault 来处理 paste，所以 handled=false 表示成功处理
+                  if (!handled) {
+                    editorEl.dispatchEvent(
+                      new Event("input", { bubbles: true }),
+                    );
+                    return { success: true, selector: sel, method: "paste" };
+                  }
+                  // 如果 paste 没有被 ProseMirror 处理（handled=true 意味着没有 preventDefault），
+                  // 检查内容是否已经被填入
+                  if (
+                    editorEl.textContent &&
+                    editorEl.textContent.length > 100
+                  ) {
+                    return {
+                      success: true,
+                      selector: sel,
+                      method: "paste-fallthrough",
+                    };
+                  }
+                } catch {
+                  // paste 事件可能失败，继续
+                }
+
+                // 方法2: 直接设置 innerHTML（比 execCommand 更可靠，不会截断）
+                try {
+                  const selection = window.getSelection();
+                  if (selection) {
+                    selection.selectAllChildren(editorEl);
+                    selection.deleteFromDocument();
+                  }
+                  (editorEl as HTMLElement).innerHTML = html;
+                  editorEl.dispatchEvent(new Event("input", { bubbles: true }));
+                  editorEl.dispatchEvent(
+                    new Event("change", { bubbles: true }),
+                  );
+                  // ProseMirror 可能需要手动触发更新
+                  // 通过 MutationObserver 或 input 事件通知 ProseMirror state
+                  return {
+                    success: true,
+                    selector: sel,
+                    method: "innerHTML",
+                  };
+                } catch {
+                  // innerHTML 设置失败
+                }
+
+                // 方法3: execCommand（最后手段，ProseMirror 上可能截断长内容）
+                try {
+                  const selection = window.getSelection();
+                  if (selection) {
+                    selection.selectAllChildren(editorEl);
+                    selection.deleteFromDocument();
+                  }
                   const success = document.execCommand(
                     "insertHTML",
                     false,
@@ -1038,36 +1121,8 @@ export class WechatAdapter {
                     };
                   }
                 } catch {
-                  // execCommand 可能失败，继续尝试其他方法
+                  // execCommand 失败
                 }
-
-                // 方法2: 使用 paste 事件模拟
-                try {
-                  const selection = window.getSelection();
-                  if (selection) {
-                    selection.selectAllChildren(editorEl);
-                    selection.deleteFromDocument();
-                  }
-                  const dt = new DataTransfer();
-                  dt.setData("text/html", html);
-                  dt.setData("text/plain", html.replace(/<[^>]*>/g, "\n"));
-                  const pasteEvent = new ClipboardEvent("paste", {
-                    clipboardData: dt,
-                    bubbles: true,
-                    cancelable: true,
-                  });
-                  editorEl.dispatchEvent(pasteEvent);
-                  editorEl.dispatchEvent(new Event("input", { bubbles: true }));
-                  return { success: true, selector: sel, method: "paste" };
-                } catch {
-                  // paste 事件可能失败
-                }
-
-                // 方法3: 直接设置 innerHTML（最后手段）
-                (editorEl as HTMLElement).innerHTML = html;
-                editorEl.dispatchEvent(new Event("input", { bubbles: true }));
-                editorEl.dispatchEvent(new Event("change", { bubbles: true }));
-                return { success: true, selector: sel, method: "innerHTML" };
               }
             }
             return { success: false, selector: null, method: null };
@@ -1090,10 +1145,11 @@ export class WechatAdapter {
             `Editor content length after fill: ${contentLength} chars`,
           );
 
-          // 如果内容长度远小于原始内容，说明填充失败，尝试键盘输入
-          if (contentLength < content.content.length * 0.5) {
+          // 如果内容长度远小于原始内容，说明填充失败/被截断，使用键盘输入重新填写
+          // 阈值从 0.5 提高到 0.8：ProseMirror 的 execCommand 常截断 ~50% 内容
+          if (contentLength < content.content.length * 0.8) {
             this.logger.warn(
-              `Content may not have been properly inserted (${contentLength} < ${content.content.length * 0.5}), trying keyboard input...`,
+              `Content truncated or incomplete (got ${contentLength}, expected ~${content.content.length}), retrying with keyboard input...`,
             );
             await page.keyboard.down("Control");
             await page.keyboard.press("a");
@@ -1265,17 +1321,37 @@ export class WechatAdapter {
       null;
 
     try {
-      // 监听 API 响应
+      // 监听 API 响应 — 必须精确匹配保存/更新草稿的 API
+      // 排除 pre_load_sentence、get_appmsg_ext_info 等预检查请求
       const responsePromise = page.waitForResponse(
         (response: { url: () => string; status: () => number }) => {
           const url = response.url();
-          // 匹配保存草稿的 API
-          return (
-            (url.includes("operate_appmsg") ||
-              url.includes("appmsg") ||
-              url.includes("draft")) &&
-            response.status() === 200
-          );
+          if (response.status() !== 200) return false;
+
+          // 排除已知的非保存请求
+          if (
+            url.includes("pre_load_sentence") ||
+            url.includes("get_appmsg_ext_info") ||
+            url.includes("checkoriginal") ||
+            url.includes("getappmsgext")
+          ) {
+            return false;
+          }
+
+          // 精确匹配保存草稿的 API：
+          // - operate_appmsg?t=ajax-response&sub=create (新建草稿)
+          // - operate_appmsg?t=ajax-response&sub=update (更新草稿)
+          // - /cgi-bin/draft/add (新版接口)
+          // - /cgi-bin/draft/update (新版接口)
+          if (url.includes("operate_appmsg")) {
+            return (
+              url.includes("sub=create") ||
+              url.includes("sub=update") ||
+              url.includes("sub=submit")
+            );
+          }
+
+          return url.includes("/draft/add") || url.includes("/draft/update");
         },
         { timeout: 30000 },
       );
@@ -1376,5 +1452,312 @@ export class WechatAdapter {
     const draftUrl = page.url();
     this.logger.log(`Draft saved successfully, URL: ${draftUrl}`);
     return draftUrl;
+  }
+
+  /**
+   * 群发文章 — 在编辑器中点击"群发"按钮完成实际发布
+   *
+   * 微信公众号编辑器顶部通常有两个按钮：
+   * - "保存为草稿" (Save as draft)
+   * - "群发" / "发表" (Mass send / Publish)
+   *
+   * 点击"群发"后会弹出确认弹窗，需要再次点击确认。
+   */
+  private async massSend(page: Page): Promise<PublishResult> {
+    this.logger.log("Looking for mass send (群发) button...");
+
+    let sendClicked = false;
+
+    // 方法1: 按钮文本匹配 — 微信公众号编辑器群发按钮
+    const sendPattern = /^群发$|^发表$|^Send|^Publish/i;
+    try {
+      const buttons = await page.$$("button");
+      for (const btn of buttons) {
+        const text = await btn.evaluate(
+          (el: Element) => el.textContent?.trim() || "",
+        );
+        if (sendPattern.test(text)) {
+          this.logger.log(`Found send button with text: "${text}"`);
+          await btn.click();
+          sendClicked = true;
+          this.logger.log(`Send button clicked: "${text}"`);
+          break;
+        }
+      }
+    } catch (btnError) {
+      this.logger.warn(
+        `Button text search failed: ${(btnError as Error).message}`,
+      );
+    }
+
+    // 方法2: CSS 选择器匹配
+    if (!sendClicked) {
+      const sendSelectors = [
+        ".js_send",
+        '[class*="send"]',
+        ".js_publish",
+        '[class*="publish"]',
+      ];
+      for (const selector of sendSelectors) {
+        try {
+          const btn = await page.$(selector);
+          if (btn) {
+            const text = await btn.evaluate(
+              (el: Element) => el.textContent?.trim() || "",
+            );
+            // 排除"保存"相关按钮
+            if (/保存|save/i.test(text)) continue;
+            await btn.click();
+            sendClicked = true;
+            this.logger.log(
+              `Send button clicked with selector: ${selector}, text: "${text}"`,
+            );
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    // 方法3: 查找工具栏区域中非"保存"的主要按钮
+    if (!sendClicked) {
+      try {
+        const toolbarButtons = await page.$$(
+          ".editor-toolbar button, .appmsg_edit_area button, .tool_bar button, .weui-desktop-btn_primary",
+        );
+        for (const btn of toolbarButtons) {
+          const text = await btn.evaluate(
+            (el: Element) => el.textContent?.trim() || "",
+          );
+          if (
+            /群发|发表|Publish|Send/i.test(text) &&
+            !/保存|save/i.test(text)
+          ) {
+            await btn.click();
+            sendClicked = true;
+            this.logger.log(`Send button clicked from toolbar: "${text}"`);
+            break;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!sendClicked) {
+      // 记录所有可用按钮，方便调试
+      const allButtons = await page
+        .$$eval("button", (els: Element[]) =>
+          els.map((el) => ({
+            text: el.textContent?.trim().substring(0, 60),
+            class: el.className?.substring(0, 60),
+          })),
+        )
+        .catch(() => []);
+      this.logger.error(
+        `No send button found. Available buttons: ${JSON.stringify(allButtons)}`,
+      );
+      return {
+        success: false,
+        errorMessage: "找不到群发按钮，微信后台界面可能已更新",
+      };
+    }
+
+    // 等待确认弹窗出现
+    this.logger.log("Waiting for confirmation dialog...");
+    await delay(2000);
+
+    // 处理确认弹窗 — 微信群发通常有确认弹窗
+    let confirmed = false;
+    try {
+      // 查找弹窗中的确认按钮
+      const confirmPatterns = [
+        // weui 弹窗确认按钮
+        ".weui-desktop-dialog .weui-desktop-btn_primary",
+        ".weui-desktop-dialog__ft .weui-desktop-btn_primary",
+        // 通用确认按钮
+        '.weui-desktop-dialog button:not([class*="default"])',
+        ".dialog-footer .btn-primary",
+        ".modal-footer .btn-primary",
+      ];
+
+      for (const selector of confirmPatterns) {
+        try {
+          const confirmBtn = await page.$(selector);
+          if (confirmBtn) {
+            const text = await confirmBtn.evaluate(
+              (el: Element) => el.textContent?.trim() || "",
+            );
+            this.logger.log(
+              `Found confirm button: "${text}" (selector: ${selector})`,
+            );
+            // 确保是确认按钮，不是取消
+            if (/确定|确认|发送|群发|OK|Confirm|Send/i.test(text)) {
+              await confirmBtn.click();
+              confirmed = true;
+              this.logger.log(`Confirmation clicked: "${text}"`);
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      // 如果通过选择器没找到，尝试按文本搜索弹窗内按钮
+      if (!confirmed) {
+        const dialogButtons = await page.$$(
+          ".weui-desktop-dialog button, .modal button, [role='dialog'] button",
+        );
+        for (const btn of dialogButtons) {
+          const text = await btn.evaluate(
+            (el: Element) => el.textContent?.trim() || "",
+          );
+          if (/确定|确认|发送|群发|OK|Confirm/i.test(text)) {
+            await btn.click();
+            confirmed = true;
+            this.logger.log(`Confirmation clicked via text search: "${text}"`);
+            break;
+          }
+        }
+      }
+    } catch (confirmError) {
+      this.logger.warn(
+        `Confirm dialog handling: ${(confirmError as Error).message}`,
+      );
+    }
+
+    // 有些情况下没有确认弹窗（如果点击群发直接发送了）
+    if (!confirmed) {
+      this.logger.log(
+        "No confirmation dialog found — send may have been triggered directly",
+      );
+    }
+
+    // 等待群发 API 响应
+    this.logger.log("Waiting for mass send API response...");
+    let sendSucceeded = false;
+    let externalUrl: string | undefined;
+
+    try {
+      const sendResponse = await page.waitForResponse(
+        (response: { url: () => string; status: () => number }) => {
+          const url = response.url();
+          if (response.status() !== 200) return false;
+          // 群发 API 匹配：
+          // - /cgi-bin/masssend (群发接口)
+          // - operate_appmsg?...sub=submit (提交群发)
+          // - /cgi-bin/freepublish/submit (发表接口)
+          return (
+            url.includes("masssend") ||
+            url.includes("freepublish") ||
+            (url.includes("operate_appmsg") && url.includes("sub=submit"))
+          );
+        },
+        { timeout: 30000 },
+      );
+
+      this.logger.log(`Got send response from: ${sendResponse.url()}`);
+
+      try {
+        const responseBody = await sendResponse.json();
+        this.logger.log(`Send response body: ${JSON.stringify(responseBody)}`);
+
+        if (responseBody.base_resp?.ret === 0 || responseBody.ret === 0) {
+          sendSucceeded = true;
+          // 尝试提取发布后的文章链接
+          externalUrl =
+            responseBody.url || responseBody.link || responseBody.article_url;
+          this.logger.log("Mass send API returned success (ret=0)");
+        } else if (responseBody.errcode === 0 || responseBody.errmsg === "ok") {
+          sendSucceeded = true;
+          this.logger.log("Mass send API returned success (errcode=0)");
+        } else {
+          const errMsg =
+            responseBody.base_resp?.err_msg ||
+            responseBody.errmsg ||
+            JSON.stringify(responseBody);
+          this.logger.error(`Mass send API returned error: ${errMsg}`);
+          return { success: false, errorMessage: errMsg };
+        }
+      } catch (parseError) {
+        this.logger.warn(
+          `Could not parse send response: ${(parseError as Error).message}`,
+        );
+      }
+    } catch (waitError) {
+      this.logger.warn(`Send response wait: ${(waitError as Error).message}`);
+    }
+
+    // 如果没有通过 API 验证，通过 UI 状态判断
+    if (!sendSucceeded) {
+      await delay(3000);
+
+      // 检查成功提示
+      try {
+        const toast = await page.$(".weui-desktop-toast__content");
+        if (toast) {
+          const toastText = await toast.evaluate(
+            (el: Element) => el.textContent || "",
+          );
+          this.logger.log(`Toast after send: "${toastText}"`);
+          if (
+            toastText.includes("成功") ||
+            toastText.includes("已群发") ||
+            toastText.includes("已发表")
+          ) {
+            sendSucceeded = true;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 检查是否跳转到了已发表/已群发页面
+      const currentUrl = page.url();
+      this.logger.log(`URL after send: ${currentUrl}`);
+      if (
+        currentUrl.includes("appmsg_publish") ||
+        currentUrl.includes("masssend") ||
+        currentUrl.includes("published")
+      ) {
+        sendSucceeded = true;
+      }
+
+      // 检查是否出现错误弹窗
+      try {
+        const errorDialog = await page.$(".weui-desktop-dialog__bd");
+        if (errorDialog) {
+          const errorText = await errorDialog.evaluate(
+            (el: Element) => el.textContent?.trim() || "",
+          );
+          if (
+            errorText &&
+            !errorText.includes("成功") &&
+            errorText.length > 5
+          ) {
+            this.logger.error(`Error dialog after send: "${errorText}"`);
+            await this.captureDebugInfo(page, "mass_send_error_dialog");
+            return { success: false, errorMessage: errorText };
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!sendSucceeded) {
+      await this.captureDebugInfo(page, "mass_send_unverified");
+      return {
+        success: false,
+        errorMessage: "群发操作已执行但未能确认成功，请登录公众号后台检查",
+      };
+    }
+
+    return {
+      success: true,
+      externalUrl,
+    };
   }
 }
