@@ -377,6 +377,78 @@ export class ResearchReviewerService {
   }
 
   /**
+   * V5 L3: 生成补充搜索查询
+   * 分析 disputed/unverified claims，生成针对性搜索查询以填补知识缺口
+   */
+  async generateGapSearchQueries(
+    disputedClaims: import("../../types/v5-research.types").ClaimValidationResult[],
+    existingEvidenceSummary: string,
+  ): Promise<
+    Array<{ query: string; targetClaimIds: string[]; searchType: string }>
+  > {
+    if (disputedClaims.length === 0) return [];
+
+    this.logger.log(
+      `[generateGapSearchQueries] Generating queries for ${disputedClaims.length} disputed/unverified claims`,
+    );
+
+    const { GAP_SEARCH_QUERY_PROMPT } =
+      await import("../../prompts/v5-research.prompt");
+
+    const prompt = GAP_SEARCH_QUERY_PROMPT.replace(
+      "{disputedClaimsJson}",
+      JSON.stringify(
+        disputedClaims.map((c) => ({
+          claimId: c.claimId,
+          status: c.status,
+          explanation: c.explanation,
+        })),
+        null,
+        2,
+      ),
+    ).replace(
+      "{existingEvidenceSummary}",
+      existingEvidenceSummary.substring(0, 4000),
+    );
+
+    try {
+      const response = await this.chatFacade.chatWithSkills({
+        messages: [
+          {
+            role: "system",
+            content: "你是研究策略专家。请输出 JSON 格式。",
+          },
+          { role: "user", content: prompt },
+        ],
+        modelType: AIModelType.CHAT_FAST,
+        taskProfile: { creativity: "low", outputLength: "short" },
+      });
+
+      const result = extractJsonFromAIResponse<{
+        queries: Array<{
+          query: string;
+          targetClaimIds: string[];
+          searchType: string;
+        }>;
+      }>(response.content, { requiredKey: "queries" });
+
+      if (result.success && result.data?.queries) {
+        const queries = result.data.queries.slice(0, 4); // Max 4 queries
+        this.logger.log(
+          `[generateGapSearchQueries] Generated ${queries.length} gap search queries`,
+        );
+        return queries;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[generateGapSearchQueries] Failed to generate queries: ${error}`,
+      );
+    }
+
+    return [];
+  }
+
+  /**
    * V5 L5: 事实核查报告
    * 提取报告中 [n] 引用及上下文，核对与原始证据是否一致
    * 仅 thorough 模式启用

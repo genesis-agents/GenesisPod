@@ -18,6 +18,7 @@ import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import { ResearchMemoryService } from "../research-memory.service";
+import { DataSourceFetcherService } from "../../data/data-source-fetcher.service";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 import { resolveResearchDepthConfig } from "../../../../../../modules/ai-app/topic-insights/types/v5-research.types";
 
@@ -110,6 +111,11 @@ function buildMocks() {
     extractAndStoreFindings: jest.fn().mockResolvedValue(5),
   };
 
+  const mockDataSourceFetcher = {
+    executeSearch: jest.fn().mockResolvedValue([]),
+    setCurrentTopic: jest.fn(),
+  };
+
   return {
     mockPrisma,
     mockResearchEventEmitter,
@@ -120,6 +126,7 @@ function buildMocks() {
     mockAiFacade,
     mockReviewerService,
     mockResearchMemory,
+    mockDataSourceFetcher,
   };
 }
 
@@ -198,6 +205,10 @@ describe("MissionExecutionService", () => {
           useValue: mocks.mockReviewerService,
         },
         { provide: ResearchMemoryService, useValue: mocks.mockResearchMemory },
+        {
+          provide: DataSourceFetcherService,
+          useValue: mocks.mockDataSourceFetcher,
+        },
       ],
     }).compile();
 
@@ -392,6 +403,10 @@ describe("MissionExecutionService", () => {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
           },
+          {
+            provide: DataSourceFetcherService,
+            useValue: mocks.mockDataSourceFetcher,
+          },
         ],
       }).compile();
       const svc = module.get<MissionExecutionService>(MissionExecutionService);
@@ -431,6 +446,10 @@ describe("MissionExecutionService", () => {
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
+          },
+          {
+            provide: DataSourceFetcherService,
+            useValue: mocks.mockDataSourceFetcher,
           },
         ],
       }).compile();
@@ -475,6 +494,10 @@ describe("MissionExecutionService", () => {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
           },
+          {
+            provide: DataSourceFetcherService,
+            useValue: mocks.mockDataSourceFetcher,
+          },
         ],
       }).compile();
       const svc = module.get<MissionExecutionService>(MissionExecutionService);
@@ -513,6 +536,10 @@ describe("MissionExecutionService", () => {
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
+          },
+          {
+            provide: DataSourceFetcherService,
+            useValue: mocks.mockDataSourceFetcher,
           },
         ],
       }).compile();
@@ -1379,6 +1406,10 @@ describe("MissionExecutionService", () => {
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
+          },
+          {
+            provide: DataSourceFetcherService,
+            useValue: mocks.mockDataSourceFetcher,
           },
         ],
       }).compile();

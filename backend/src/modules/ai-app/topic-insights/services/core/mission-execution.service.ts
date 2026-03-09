@@ -35,6 +35,8 @@ import type { LeaderPlan } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { ResearchMemoryService } from "./research-memory.service";
+import { DataSourceFetcherService } from "../data/data-source-fetcher.service";
+import { DataSourceType } from "../../types/data-source.types";
 
 /** Shape of ResearchTask.result (Prisma Json field) for dimension_research tasks */
 interface TaskResultJson {
@@ -95,6 +97,7 @@ export class MissionExecutionService {
     private readonly reviewerService: ResearchReviewerService,
     @Inject(forwardRef(() => ResearchMemoryService))
     private readonly researchMemory: ResearchMemoryService,
+    private readonly dataSourceFetcher: DataSourceFetcherService,
   ) {}
 
   /**
@@ -464,29 +467,15 @@ export class MissionExecutionService {
             break;
           }
 
-          // ============ V5: 认知循环 (Claim Validation) ============
+          // ============ V5: 认知循环 (Claim → Verify → Gap Search → Re-verify) ============
           if (depthConfig && depthConfig.maxCognitiveLoops > 0) {
             this.logger.log(
               `[V5] Running cognitive loop before quality review (maxLoops=${depthConfig.maxCognitiveLoops})`,
             );
 
-            await this.researchEventEmitter.emitAgentWorking(
-              topic.id,
-              {
-                agentId: task.assignedAgent,
-                agentName: "质量审核员",
-                agentRole: "reviewer",
-                status: "working",
-                taskDescription: "V5: 认知循环 - 提取断言并交叉验证...",
-                progress: 5,
-                modelId: assignedModelId,
-              },
-              missionId,
-            );
-
             try {
               // 收集所有维度研究的摘要作为证据
-              const evidenceSummary = completedTasks
+              let evidenceSummary = completedTasks
                 .map((t) => {
                   const taskResult = t.result as TaskResultJson;
                   return (
@@ -526,34 +515,167 @@ export class MissionExecutionService {
                 }
               }
 
-              if (allClaims.length > 0 && evidenceSummary.length > 0) {
-                const claimValidation =
-                  await this.reviewerService.validateClaims(
+              if (allClaims.length === 0 || evidenceSummary.length === 0) {
+                this.logger.log(
+                  `[V5] No claims or evidence to validate, skipping cognitive loop`,
+                );
+              } else {
+                // ★ Iterative cognitive loop: verify → find gaps → search → re-verify
+                for (
+                  let loopIdx = 0;
+                  loopIdx < depthConfig.maxCognitiveLoops;
+                  loopIdx++
+                ) {
+                  const loopNum = loopIdx + 1;
+
+                  await this.researchEventEmitter.emitAgentWorking(
+                    topic.id,
+                    {
+                      agentId: task.assignedAgent,
+                      agentName: "质量审核员",
+                      agentRole: "reviewer",
+                      status: "working",
+                      taskDescription: `V5: 认知循环 ${loopNum}/${depthConfig.maxCognitiveLoops} - 验证断言...`,
+                      progress: 5 + loopIdx * 3,
+                      modelId: assignedModelId,
+                    },
+                    missionId,
+                  );
+
+                  // Step 1: Validate claims against current evidence
+                  const validation = await this.reviewerService.validateClaims(
                     allClaims,
                     evidenceSummary,
                   );
 
-                this.logger.log(
-                  `[V5] Claim validation: ${claimValidation.stats.verified} verified, ${claimValidation.stats.disputed} disputed, ${claimValidation.stats.unverified} unverified`,
-                );
+                  this.logger.log(
+                    `[V5] Loop ${loopNum}: ${validation.stats.verified} verified, ${validation.stats.disputed} disputed, ${validation.stats.unverified} unverified`,
+                  );
 
-                await this.researchEventEmitter.emitAgentWorking(
-                  topic.id,
-                  {
-                    agentId: task.assignedAgent,
-                    agentName: "质量审核员",
-                    agentRole: "reviewer",
-                    status: "working",
-                    taskDescription: `V5: 断言验证完成 - ${claimValidation.stats.verified}个已验证, ${claimValidation.stats.disputed}个有争议`,
-                    progress: 8,
-                    modelId: assignedModelId,
-                  },
-                  missionId,
-                );
-              } else {
-                this.logger.log(
-                  `[V5] No claims or evidence to validate, skipping cognitive loop`,
-                );
+                  // Step 2: Identify high-importance gaps (disputed + unverified)
+                  const gapClaims = validation.results.filter(
+                    (r) =>
+                      r.status !== "verified" &&
+                      allClaims.find(
+                        (c) => c.id === r.claimId && c.importance !== "low",
+                      ),
+                  );
+
+                  if (gapClaims.length === 0) {
+                    this.logger.log(
+                      `[V5] Loop ${loopNum}: All important claims verified, exiting cognitive loop`,
+                    );
+
+                    await this.researchEventEmitter.emitAgentWorking(
+                      topic.id,
+                      {
+                        agentId: task.assignedAgent,
+                        agentName: "质量审核员",
+                        agentRole: "reviewer",
+                        status: "working",
+                        taskDescription: `V5: 断言验证完成 - ${validation.stats.verified}个已验证, 无重要缺口`,
+                        progress: 8,
+                        modelId: assignedModelId,
+                      },
+                      missionId,
+                    );
+                    break;
+                  }
+
+                  // Last loop iteration — don't search, just log results
+                  if (loopIdx === depthConfig.maxCognitiveLoops - 1) {
+                    this.logger.log(
+                      `[V5] Loop ${loopNum}: Max loops reached, ${gapClaims.length} gaps remain`,
+                    );
+
+                    await this.researchEventEmitter.emitAgentWorking(
+                      topic.id,
+                      {
+                        agentId: task.assignedAgent,
+                        agentName: "质量审核员",
+                        agentRole: "reviewer",
+                        status: "working",
+                        taskDescription: `V5: 认知循环完成 - ${validation.stats.verified}个已验证, ${gapClaims.length}个缺口待补充`,
+                        progress: 8,
+                        modelId: assignedModelId,
+                      },
+                      missionId,
+                    );
+                    break;
+                  }
+
+                  // Step 3: Generate targeted search queries for gaps
+                  const gapQueries =
+                    await this.reviewerService.generateGapSearchQueries(
+                      gapClaims,
+                      evidenceSummary,
+                    );
+
+                  if (gapQueries.length === 0) {
+                    this.logger.log(
+                      `[V5] Loop ${loopNum}: No gap queries generated, exiting`,
+                    );
+                    break;
+                  }
+
+                  await this.researchEventEmitter.emitAgentWorking(
+                    topic.id,
+                    {
+                      agentId: task.assignedAgent,
+                      agentName: "质量审核员",
+                      agentRole: "reviewer",
+                      status: "working",
+                      taskDescription: `V5: 发现 ${gapClaims.length} 个知识缺口，补充搜索 ${gapQueries.length} 条查询...`,
+                      progress: 6 + loopIdx * 3,
+                      modelId: assignedModelId,
+                    },
+                    missionId,
+                  );
+
+                  // Step 4: Execute supplementary searches
+                  const newEvidenceParts: string[] = [];
+                  for (const gq of gapQueries) {
+                    try {
+                      const results =
+                        await this.dataSourceFetcher.executeSearch(
+                          gq.searchType === "academic"
+                            ? DataSourceType.ACADEMIC
+                            : DataSourceType.WEB,
+                          gq.query,
+                          3, // Light search: max 3 results per query
+                        );
+
+                      for (const r of results) {
+                        if (r.snippet || r.title) {
+                          newEvidenceParts.push(
+                            `[补充证据] ${r.title || ""}: ${(r.snippet || "").substring(0, 500)}`,
+                          );
+                        }
+                      }
+                    } catch (searchError) {
+                      this.logger.warn(
+                        `[V5] Gap search failed for "${gq.query}": ${searchError}`,
+                      );
+                    }
+                  }
+
+                  if (newEvidenceParts.length === 0) {
+                    this.logger.log(
+                      `[V5] Loop ${loopNum}: Supplementary search returned no results, exiting`,
+                    );
+                    break;
+                  }
+
+                  // Step 5: Append new evidence and continue loop for re-validation
+                  this.logger.log(
+                    `[V5] Loop ${loopNum}: Found ${newEvidenceParts.length} supplementary evidence items, re-validating...`,
+                  );
+                  evidenceSummary = (
+                    evidenceSummary +
+                    "\n\n--- 补充搜索证据 ---\n" +
+                    newEvidenceParts.join("\n")
+                  ).substring(0, 12000); // Expand evidence budget for re-validation
+                }
               }
             } catch (error) {
               this.logger.warn(

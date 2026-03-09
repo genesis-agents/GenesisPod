@@ -15,6 +15,7 @@ import { ReportSynthesisService } from "../../services/report/report-synthesis.s
 import { AgentActivityService } from "../../services/monitoring/agent-activity.service";
 import { ResearchReviewerService } from "../../services/collaboration/research-reviewer.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
+import { DataSourceFetcherService } from "../../services/data/data-source-fetcher.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
@@ -126,6 +127,10 @@ describe("MissionExecutionService", () => {
         { provide: AgentActivityService, useValue: agentActivity },
         { provide: ChatFacade, useValue: aiFacade },
         { provide: ResearchReviewerService, useValue: reviewerService },
+        {
+          provide: DataSourceFetcherService,
+          useValue: { executeSearch: jest.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
