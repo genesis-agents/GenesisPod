@@ -239,8 +239,12 @@ export class ResearchMissionHealthService
         },
         include: {
           tasks: {
+            where: {
+              status: {
+                in: [ResearchTaskStatus.EXECUTING, ResearchTaskStatus.PENDING],
+              },
+            },
             orderBy: { updatedAt: "desc" },
-            take: 5, // 获取最近 5 个任务，用于判断是否有活跃任务
           },
         },
       });
