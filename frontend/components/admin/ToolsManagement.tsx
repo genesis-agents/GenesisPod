@@ -680,9 +680,6 @@ export default function ToolsManagement() {
   };
 
   const handleTestExternalTool = async (tool: ExternalTool) => {
-    // Allow free tools (noKeyRequired) to be tested without API key
-    if (!tool.hasApiKey && !tool.noKeyRequired) return;
-
     setTestingTool(tool.id);
     setTestResults((prev) => ({
       ...prev,
