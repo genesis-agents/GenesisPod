@@ -236,6 +236,15 @@ export function createMockAiEngineFacade() {
         isReasoning: true,
       }),
 
+    selectModel: jest
+      .fn<() => Promise<MockReasoningModel | null>>()
+      .mockResolvedValue({
+        id: "gpt-4o-mini",
+        name: "GPT-4o Mini",
+        provider: "openai",
+        isReasoning: false,
+      }),
+
     intentDetector: {
       detectIntent: jest.fn().mockReturnValue({
         intent: "GENERAL_CHAT",

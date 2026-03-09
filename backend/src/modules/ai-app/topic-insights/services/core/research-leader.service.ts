@@ -2095,13 +2095,18 @@ ${teamMembersText}`;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        // ★ 关键修复：每次重试时重新选择模型，让熔断器自动切换到可用模型
-        const leaderModel = await this.getReasoningModel();
+        // ★ 最后一次尝试时回退到非推理模型，增加容错性
+        const useReasoning = attempt < MAX_RETRIES;
+        const leaderModel = useReasoning
+          ? await this.getReasoningModel()
+          : await this.chatFacade.selectModel({ requireReasoning: false });
         if (!leaderModel) {
-          throw new Error("No reasoning model available for Leader");
+          throw new Error("No model available for Leader");
         }
+        const modelId =
+          "modelId" in leaderModel ? leaderModel.modelId : leaderModel.id;
         this.logger.log(
-          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Using model ${leaderModel.modelId}`,
+          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Using model ${modelId}${!useReasoning ? " (non-reasoning fallback)" : ""}`,
         );
 
         const startTime = Date.now();
@@ -2110,11 +2115,11 @@ ${teamMembersText}`;
             {
               role: "system",
               content:
-                "你是研究协调专家 Leader，负责规划维度分析大纲。请输出 JSON 格式。",
+                '你是研究协调专家 Leader，负责规划维度分析大纲。你必须只输出合法的 JSON 对象，不要输出任何解释文字、markdown 代码块标记或其他非 JSON 内容。JSON 必须包含 "sections" 数组。',
             },
             { role: "user", content: finalPrompt },
           ],
-          model: leaderModel.modelId,
+          model: modelId,
           taskProfile: {
             creativity: "medium",
             outputLength: "long",
@@ -2163,8 +2168,9 @@ ${teamMembersText}`;
         );
 
         if (!outline?.sections || outline.sections.length === 0) {
+          // ★ 记录原始输出前500字符，帮助诊断 JSON 解析失败原因
           this.logger.warn(
-            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Failed to parse JSON, retrying...`,
+            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Failed to parse JSON. Raw output (first 500 chars): ${response.content.slice(0, 500)}`,
           );
           lastError = new Error("Failed to parse dimension outline JSON");
           if (attempt < MAX_RETRIES) {

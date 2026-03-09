@@ -46,6 +46,9 @@ const HEALTH_CHECK_CONFIG = {
   /** Maximum execution time: 6 hours (safety net for very long research tasks) */
   maxExecutionTimeMs: 6 * 60 * 60 * 1000,
 
+  /** Per-task stuck threshold: 20 minutes — force-fail individual tasks stuck longer */
+  taskStuckThresholdMs: 20 * 60 * 1000,
+
   /** Max retries before giving up */
   maxRetries: 3,
 } as const;
@@ -330,13 +333,47 @@ export class ResearchMissionHealthService
       );
 
       if (hasExecutingTasks) {
-        // 有任务正在执行，可能是长时间的 AI 调用，只记录警告
-        this.logger.warn(
-          `Mission ${mission.id} has been inactive for ${Math.round(detail.stuckDurationMs / 1000 / 60)} minutes, ` +
-            `but has executing tasks - not marking as failed`,
-        );
-        detail.reason = "Has executing tasks - monitoring only";
-        // 不标记失败，让任务继续执行
+        // ★ 检查个别任务是否卡死（超过 taskStuckThresholdMs）
+        const stuckTasks = (mission.tasks || []).filter((task) => {
+          if (task.status !== ResearchTaskStatus.EXECUTING) return false;
+          const taskStart = task.startedAt || task.updatedAt;
+          const taskDuration = now.getTime() - new Date(taskStart).getTime();
+          return taskDuration > HEALTH_CHECK_CONFIG.taskStuckThresholdMs;
+        });
+
+        if (stuckTasks.length > 0) {
+          // 强制失败卡死的个别任务，但不影响整个 mission
+          for (const stuckTask of stuckTasks) {
+            const taskDurationMin = Math.round(
+              (now.getTime() -
+                new Date(
+                  stuckTask.startedAt || stuckTask.updatedAt,
+                ).getTime()) /
+                1000 /
+                60,
+            );
+            this.logger.warn(
+              `Force-failing stuck task ${stuckTask.id} in mission ${mission.id} (stuck ${taskDurationMin} min)`,
+            );
+            await this.prisma.researchTask.update({
+              where: { id: stuckTask.id },
+              data: {
+                status: ResearchTaskStatus.FAILED,
+                resultSummary: `任务执行超时（${taskDurationMin} 分钟无响应），已被健康检测服务强制终止`,
+                completedAt: now,
+              },
+            });
+          }
+          detail.reason = `Force-failed ${stuckTasks.length} stuck task(s), mission continues`;
+        } else {
+          // 有任务正在执行且未超时，只记录警告
+          this.logger.warn(
+            `Mission ${mission.id} has been inactive for ${Math.round(detail.stuckDurationMs / 1000 / 60)} minutes, ` +
+              `but has executing tasks - not marking as failed`,
+          );
+          detail.reason = "Has executing tasks - monitoring only";
+        }
+        // 不标记整个 mission 失败，让其继续执行
       } else {
         // 没有正在执行的任务，真的卡住了
         await this.markMissionFailed(

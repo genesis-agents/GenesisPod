@@ -60,6 +60,7 @@ function buildMocks() {
   const mockFacade = {
     getAvailableModelsExtended: jest.fn().mockResolvedValue([]),
     getReasoningModel: jest.fn(),
+    selectModel: jest.fn(),
     chat: jest.fn(),
     chatWithSkills: jest.fn(),
     intentDetector: {
@@ -250,13 +251,14 @@ describe("ResearchLeaderService (supplemental)", () => {
       );
     });
 
-    it("should throw when no reasoning model available on all attempts", async () => {
+    it("should throw when no model available on all attempts", async () => {
       mocks.mockFacade.getAvailableModelsExtended.mockResolvedValue([]);
       mocks.mockFacade.getReasoningModel.mockResolvedValue(null);
+      mocks.mockFacade.selectModel.mockResolvedValue(null);
 
       await expect(
         service.planDimensionOutline(topic, dimension, evidenceSummary),
-      ).rejects.toThrow("No reasoning model available for Leader");
+      ).rejects.toThrow("No model available for Leader");
     }, 15000);
 
     it("should retry and succeed on second attempt when first returns isError", async () => {

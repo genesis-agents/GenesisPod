@@ -587,35 +587,70 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     try {
       const registeredTools = this.toolRegistry.getAll();
       const existingConfigs = await this.prisma.toolConfig.findMany({
-        select: { toolId: true },
+        select: { toolId: true, secretKey: true },
       });
-      const existingToolIds = new Set(existingConfigs.map((c) => c.toolId));
-
-      // 找出没有数据库记录的工具
-      const missingTools = registeredTools.filter(
-        (tool) => !existingToolIds.has(tool.id),
+      const existingConfigMap = new Map(
+        existingConfigs.map((c) => [c.toolId, c]),
       );
 
-      if (missingTools.length === 0) {
-        return;
+      // 预查所有 Secret 名称，用于自动关联
+      const allSecrets = await this.prisma.secret.findMany({
+        where: { isActive: true, deletedAt: null },
+        select: { name: true },
+      });
+      const activeSecretNames = new Set(allSecrets.map((s) => s.name));
+
+      // ★ 1. 为新工具创建配置（含自动关联 secretKey）
+      const missingTools = registeredTools.filter(
+        (tool) => !existingConfigMap.has(tool.id),
+      );
+
+      if (missingTools.length > 0) {
+        await this.prisma.toolConfig.createMany({
+          data: missingTools.map((tool) => {
+            const mappedSecret = EXTERNAL_TOOL_SECRET_MAPPING[tool.id] ?? null;
+            const secretKey =
+              mappedSecret && activeSecretNames.has(mappedSecret)
+                ? mappedSecret
+                : null;
+            return {
+              toolId: tool.id,
+              displayName: tool.name,
+              description: tool.description,
+              category: tool.category,
+              enabled: true,
+              tags: tool.tags || [],
+              secretKey,
+            };
+          }),
+          skipDuplicates: true,
+        });
+
+        this.logger.log(
+          `Synced ${missingTools.length} tool configs: ${missingTools.map((t) => t.id).join(", ")}`,
+        );
       }
 
-      // 批量创建默认配置
-      await this.prisma.toolConfig.createMany({
-        data: missingTools.map((tool) => ({
-          toolId: tool.id,
-          displayName: tool.name,
-          description: tool.description,
-          category: tool.category,
-          enabled: true, // 默认启用
-          tags: tool.tags || [],
-        })),
-        skipDuplicates: true,
-      });
-
-      this.logger.log(
-        `Synced ${missingTools.length} tool configs: ${missingTools.map((t) => t.id).join(", ")}`,
-      );
+      // ★ 2. 补全已有配置中缺失的 secretKey 关联
+      const patchPromises: Promise<unknown>[] = [];
+      for (const [toolId, existing] of existingConfigMap) {
+        if (existing.secretKey) continue; // 已关联，跳过
+        const mappedSecret = EXTERNAL_TOOL_SECRET_MAPPING[toolId] ?? null;
+        if (mappedSecret && activeSecretNames.has(mappedSecret)) {
+          patchPromises.push(
+            this.prisma.toolConfig.update({
+              where: { toolId },
+              data: { secretKey: mappedSecret },
+            }),
+          );
+        }
+      }
+      if (patchPromises.length > 0) {
+        await Promise.all(patchPromises);
+        this.logger.log(
+          `Auto-linked ${patchPromises.length} tool secret(s) from EXTERNAL_TOOL_SECRET_MAPPING`,
+        );
+      }
     } catch (error: unknown) {
       this.logger.warn(
         `Failed to sync tool configs: ${getErrorMessage(error)}`,
