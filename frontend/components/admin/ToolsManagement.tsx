@@ -120,6 +120,14 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     freeQuota: 'Basic search free',
     pricing: 'Free/Paid',
   },
+  // Community
+  {
+    id: 'hackernews',
+    name: 'Hacker News',
+    category: 'external-search',
+    url: 'https://hn.algolia.com/api',
+    noKeyRequired: true,
+  },
   // Academic Research
   {
     id: 'semantic-scholar',
@@ -135,6 +143,20 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: 'external-academic',
     url: 'https://pubmed.ncbi.nlm.nih.gov',
     freeQuota: '3 req/s (free), 10 req/s (with key)',
+  },
+  {
+    id: 'openalex',
+    name: 'OpenAlex',
+    category: 'external-academic',
+    url: 'https://openalex.org',
+    freeQuota: '10 req/s (no mailto), unlimited (polite pool)',
+  },
+  {
+    id: 'arxiv',
+    name: 'arXiv',
+    category: 'external-academic',
+    url: 'https://arxiv.org',
+    noKeyRequired: true,
   },
   // Finance Data
   {
@@ -478,8 +500,13 @@ export default function ToolsManagement() {
     setMessage(null);
 
     try {
-      const tool = externalTools.find((t) => t.id === toolId);
-      if (!tool) return;
+      const tool =
+        externalTools.find((t) => t.id === toolId) || configuringTool;
+      if (!tool) {
+        setMessage({ type: 'error', text: t('admin.tools.saveFailed') });
+        setSaving(false);
+        return;
+      }
 
       // Handle Secret Manager mode - save reference to Secret Manager
       if (secretKey) {
