@@ -593,13 +593,19 @@ export class MissionExecutionService {
             );
 
             // 从任务结果中提取分析数据
-            // DimensionMissionResult 包含 analysisResult?: DimensionAnalysisResult
-            const missionResult = completedTask.result as {
-              analysisResult?: DimensionAnalysisResult;
-              evidenceIds?: string[];
-            } | null;
-
-            const analysisResult = missionResult?.analysisResult;
+            // ★ task.result 直接存储的是 DimensionAnalysisResult（见 executeTask line 389）
+            // 而不是 DimensionMissionResult 的嵌套结构
+            const taskResult = completedTask.result as Record<
+              string,
+              unknown
+            > | null;
+            const analysisResult = (
+              taskResult?.analysisResult
+                ? taskResult.analysisResult
+                : taskResult?.summary || taskResult?.keyFindings
+                  ? taskResult
+                  : null
+            ) as DimensionAnalysisResult | null;
 
             // 如果没有分析结果，跳过审核
             if (!analysisResult) {

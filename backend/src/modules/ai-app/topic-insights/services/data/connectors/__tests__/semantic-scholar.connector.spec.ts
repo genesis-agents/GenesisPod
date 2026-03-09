@@ -1,5 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { SemanticScholarConnector } from "../semantic-scholar.connector";
 import { DataSourceType } from "../../../../types/data-source.types";
 
@@ -10,17 +12,31 @@ const mockConfigService = {
   get: jest.fn(),
 };
 
+const mockPrismaService = {
+  toolConfig: {
+    findUnique: jest.fn().mockResolvedValue(null),
+  },
+};
+
+const mockSecretsService = {
+  getValue: jest.fn().mockResolvedValue(null),
+};
+
 describe("SemanticScholarConnector", () => {
   let connector: SemanticScholarConnector;
 
   beforeEach(async () => {
     jest.clearAllMocks();
     mockConfigService.get.mockReturnValue(undefined);
+    mockPrismaService.toolConfig.findUnique.mockResolvedValue(null);
+    mockSecretsService.getValue.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SemanticScholarConnector,
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: SecretsService, useValue: mockSecretsService },
       ],
     }).compile();
 
@@ -79,7 +95,10 @@ describe("SemanticScholarConnector", () => {
       expect(results[0].domain).toBe("semanticscholar.org");
       expect(results[0].metadata?.paperId).toBe("abc123");
       expect(results[0].metadata?.citationCount).toBe(150);
-      expect(results[0].metadata?.authors).toEqual(["Alice Smith", "Bob Jones"]);
+      expect(results[0].metadata?.authors).toEqual([
+        "Alice Smith",
+        "Bob Jones",
+      ]);
       expect(results[0].metadata?.venue).toBe("NeurIPS");
       expect(results[0].metadata?.fieldsOfStudy).toEqual([
         "Computer Science",
@@ -249,11 +268,14 @@ describe("SemanticScholarConnector", () => {
         providers: [
           SemanticScholarConnector,
           { provide: ConfigService, useValue: mockConfigService },
+          { provide: PrismaService, useValue: mockPrismaService },
+          { provide: SecretsService, useValue: mockSecretsService },
         ],
       }).compile();
 
-      const connectorWithKey =
-        module.get<SemanticScholarConnector>(SemanticScholarConnector);
+      const connectorWithKey = module.get<SemanticScholarConnector>(
+        SemanticScholarConnector,
+      );
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -263,9 +285,9 @@ describe("SemanticScholarConnector", () => {
       await connectorWithKey.search("test", 5);
 
       const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
-      expect((callOptions.headers as Record<string, string>)?.["x-api-key"]).toBe(
-        "test-ss-api-key",
-      );
+      expect(
+        (callOptions.headers as Record<string, string>)?.["x-api-key"],
+      ).toBe("test-ss-api-key");
     });
 
     it("should truncate abstract to 500 characters for snippet", async () => {

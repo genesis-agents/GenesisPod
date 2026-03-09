@@ -373,11 +373,13 @@ export class LeaderReviewService {
       }
 
       this.logger.warn(
-        `[extractClaims] Failed to parse claims for section ${sectionId}`,
+        `[extractClaims] Failed to parse claims for section ${sectionId}. chatStructured returned no valid claims.`,
       );
       return [];
     } catch (error) {
-      this.logger.error(`[extractClaims] Error extracting claims: ${error}`);
+      this.logger.error(
+        `[extractClaims] Error extracting claims for section ${sectionId}: ${error instanceof Error ? error.message : error}`,
+      );
       return [];
     }
   }

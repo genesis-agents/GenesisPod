@@ -8,13 +8,18 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import {
   IDataSourceConnector,
   ConnectorSearchOptions,
   ConnectorHealthStatus,
   SemanticScholarPaper,
 } from "../../../types/data-source-connector.types";
-import { DataSourceType, DataSourceResult } from "../../../types/data-source.types";
+import {
+  DataSourceType,
+  DataSourceResult,
+} from "../../../types/data-source.types";
 
 @Injectable()
 export class SemanticScholarConnector implements IDataSourceConnector {
@@ -24,10 +29,52 @@ export class SemanticScholarConnector implements IDataSourceConnector {
   readonly requiresApiKey = false; // 免费 API，有速率限制
 
   private readonly baseUrl = "https://api.semanticscholar.org/graph/v1";
-  private readonly apiKey?: string;
+  private cachedApiKey?: string;
+  private apiKeyLoadedAt = 0;
 
-  constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>("SEMANTIC_SCHOLAR_API_KEY");
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly secretsService: SecretsService,
+  ) {}
+
+  /**
+   * 获取 API Key：优先从 ToolConfig.secretKey → SecretsService 解密，回退到环境变量
+   * 缓存 5 分钟避免每次请求查 DB
+   */
+  private async getApiKey(): Promise<string | undefined> {
+    const now = Date.now();
+    if (this.cachedApiKey && now - this.apiKeyLoadedAt < 5 * 60 * 1000) {
+      return this.cachedApiKey;
+    }
+
+    try {
+      // 1. 从 ToolConfig.secretKey → SecretsService.getValue() 解密读取
+      const toolConfig = await this.prisma.toolConfig.findUnique({
+        where: { toolId: "semantic-scholar" },
+        select: { secretKey: true },
+      });
+
+      if (toolConfig?.secretKey) {
+        const decryptedValue = await this.secretsService.getValue(
+          toolConfig.secretKey,
+        );
+        if (decryptedValue) {
+          this.cachedApiKey = decryptedValue;
+          this.apiKeyLoadedAt = now;
+          return this.cachedApiKey;
+        }
+      }
+    } catch {
+      // DB/解密失败，回退到环境变量
+    }
+
+    // 2. 回退到环境变量
+    this.cachedApiKey = this.configService.get<string>(
+      "SEMANTIC_SCHOLAR_API_KEY",
+    );
+    this.apiKeyLoadedAt = now;
+    return this.cachedApiKey;
   }
 
   async search(
@@ -35,9 +82,7 @@ export class SemanticScholarConnector implements IDataSourceConnector {
     maxResults: number,
     options?: ConnectorSearchOptions,
   ): Promise<DataSourceResult[]> {
-    this.logger.log(
-      `[search] query="${query}", maxResults=${maxResults}`,
-    );
+    this.logger.log(`[search] query="${query}", maxResults=${maxResults}`);
 
     try {
       const fields =
@@ -52,11 +97,12 @@ export class SemanticScholarConnector implements IDataSourceConnector {
         params.set("sort", "citationCount:desc");
       }
 
+      const apiKey = await this.getApiKey();
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (this.apiKey) {
-        headers["x-api-key"] = this.apiKey;
+      if (apiKey) {
+        headers["x-api-key"] = apiKey;
       }
 
       const response = await fetch(
@@ -89,9 +135,14 @@ export class SemanticScholarConnector implements IDataSourceConnector {
 
   async isAvailable(): Promise<boolean> {
     try {
+      const apiKey = await this.getApiKey();
+      const headers: Record<string, string> = {};
+      if (apiKey) {
+        headers["x-api-key"] = apiKey;
+      }
       const response = await fetch(
         `${this.baseUrl}/paper/search?query=test&limit=1&fields=paperId`,
-        { signal: AbortSignal.timeout(5000) },
+        { headers, signal: AbortSignal.timeout(5000) },
       );
       return response.ok;
     } catch {
@@ -102,9 +153,14 @@ export class SemanticScholarConnector implements IDataSourceConnector {
   async healthCheck(): Promise<ConnectorHealthStatus> {
     const start = Date.now();
     try {
+      const apiKey = await this.getApiKey();
+      const headers: Record<string, string> = {};
+      if (apiKey) {
+        headers["x-api-key"] = apiKey;
+      }
       const response = await fetch(
         `${this.baseUrl}/paper/search?query=health&limit=1&fields=paperId`,
-        { signal: AbortSignal.timeout(5000) },
+        { headers, signal: AbortSignal.timeout(5000) },
       );
 
       return {
@@ -132,7 +188,8 @@ export class SemanticScholarConnector implements IDataSourceConnector {
     return {
       sourceType: DataSourceType.SEMANTIC_SCHOLAR,
       title: paper.title,
-      url: paper.url || `https://www.semanticscholar.org/paper/${paper.paperId}`,
+      url:
+        paper.url || `https://www.semanticscholar.org/paper/${paper.paperId}`,
       snippet,
       publishedAt: paper.publicationDate
         ? new Date(paper.publicationDate)

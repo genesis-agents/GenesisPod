@@ -1020,11 +1020,13 @@ export class ResearchLeaderService {
       }
 
       this.logger.warn(
-        `[extractClaims] Failed to parse claims for section ${sectionId}`,
+        `[extractClaims] Failed to parse claims for section ${sectionId}. Extraction error: ${result.error || "unknown"}. Raw (first 300 chars): ${response.content.slice(0, 300)}`,
       );
       return [];
     } catch (error) {
-      this.logger.error(`[extractClaims] Error extracting claims: ${error}`);
+      this.logger.error(
+        `[extractClaims] Error extracting claims for section ${sectionId}: ${error instanceof Error ? error.message : error}`,
+      );
       return [];
     }
   }
