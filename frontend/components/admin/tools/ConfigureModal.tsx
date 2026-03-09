@@ -24,8 +24,6 @@ interface Tool {
   url?: string;
   freeQuota?: string;
   pricing?: string;
-  /** 对应 Secret Manager 中的密钥名称，用于精确匹配 */
-  secretKeyName?: string;
 }
 
 // Map tool categories to secret categories
@@ -76,12 +74,10 @@ export default function ConfigureModal({
     tool.secretKey || null
   );
 
-  // Filter secrets: match by category OR by secretKeyName (exact name match)
+  // Filter secrets by category mapping only - admin defines secret names freely
   const secretCategory = CATEGORY_TO_SECRET_CATEGORY[tool.category];
   const filteredSecrets = availableSecrets.filter(
-    (s) =>
-      s.category === secretCategory ||
-      (tool.secretKeyName && s.name === tool.secretKeyName)
+    (s) => s.category === secretCategory
   );
 
   // Keyboard support - Escape to close

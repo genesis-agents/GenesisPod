@@ -3669,6 +3669,7 @@
         "export": "Export",
         "collaboration": "Collaboration",
         "search": "Web Search",
+        "academic": "Academic Search",
         "extraction": "Content Extraction",
         "youtube": "YouTube",
         "tts": "Text-to-Speech",
@@ -3677,6 +3678,7 @@
         "mcp": "MCP Servers",
         "devtools": "Dev Tools",
         "finance": "Finance Data",
+        "weather": "Weather Data",
         "generation": "Content Generation",
         "processing": "Processing"
       },

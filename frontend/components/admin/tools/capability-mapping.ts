@@ -13,7 +13,6 @@ export interface ProviderDefinition {
   noKeyRequired?: boolean;
   freeQuota?: string;
   pricing?: string;
-  secretKeyName?: string; // 对应 Secret Manager 中的密钥名称
 }
 
 export interface CapabilityDefinition {
@@ -33,6 +32,7 @@ export interface CapabilityDefinition {
  */
 export type CapabilityCategory =
   | 'search'
+  | 'academic'
   | 'extraction'
   | 'generation'
   | 'processing'
@@ -40,6 +40,7 @@ export type CapabilityCategory =
   | 'integration'
   | 'export'
   | 'finance'
+  | 'weather'
   | 'policy'
   | 'devtools';
 
@@ -51,15 +52,17 @@ export const CATEGORY_CONFIG: Record<
   { order: number; labelKey: string }
 > = {
   search: { order: 1, labelKey: 'admin.tools.categories.search' },
-  extraction: { order: 2, labelKey: 'admin.tools.categories.extraction' },
-  generation: { order: 3, labelKey: 'admin.tools.categories.generation' },
-  processing: { order: 4, labelKey: 'admin.tools.categories.processing' },
-  memory: { order: 5, labelKey: 'admin.tools.categories.memory' },
-  integration: { order: 6, labelKey: 'admin.tools.categories.integration' },
-  export: { order: 7, labelKey: 'admin.tools.categories.export' },
-  finance: { order: 8, labelKey: 'admin.tools.categories.finance' },
-  policy: { order: 9, labelKey: 'admin.tools.categories.policy' },
-  devtools: { order: 10, labelKey: 'admin.tools.categories.devtools' },
+  academic: { order: 2, labelKey: 'admin.tools.categories.academic' },
+  extraction: { order: 3, labelKey: 'admin.tools.categories.extraction' },
+  generation: { order: 4, labelKey: 'admin.tools.categories.generation' },
+  processing: { order: 5, labelKey: 'admin.tools.categories.processing' },
+  memory: { order: 6, labelKey: 'admin.tools.categories.memory' },
+  integration: { order: 7, labelKey: 'admin.tools.categories.integration' },
+  export: { order: 8, labelKey: 'admin.tools.categories.export' },
+  finance: { order: 9, labelKey: 'admin.tools.categories.finance' },
+  weather: { order: 10, labelKey: 'admin.tools.categories.weather' },
+  policy: { order: 11, labelKey: 'admin.tools.categories.policy' },
+  devtools: { order: 12, labelKey: 'admin.tools.categories.devtools' },
 };
 
 /**
@@ -82,21 +85,18 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         name: 'Tavily',
         description: 'AI Agent 优化的搜索 API，快速响应和结构化数据',
         url: 'https://tavily.com',
-        secretKeyName: 'tavily-search-api-key',
       },
       {
         id: 'perplexity',
         name: 'Perplexity',
         description: 'AI 驱动的研究搜索引擎，实时信息和深度研究',
         url: 'https://perplexity.ai',
-        secretKeyName: 'perplexity-api-key',
       },
       {
         id: 'serper',
         name: 'Serper',
         description: 'Google 搜索结果 API，高准确度和丰富元数据',
         url: 'https://serper.dev',
-        secretKeyName: 'serper-api-key',
       },
       {
         id: 'duckduckgo',
@@ -116,7 +116,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
     description:
       '搜索学术论文和研究文献，涵盖 AI、物理、数学、计算机科学、生物医学等领域',
     icon: 'GraduationCap',
-    category: 'search',
+    category: 'academic',
     independentProviders: true,
     providers: [
       {
@@ -134,7 +134,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://www.semanticscholar.org',
         freeQuota: '100 requests/5min (无Key)',
         pricing: '免费申请 API Key 提升限额',
-        secretKeyName: 'semantic-scholar-api-key',
       },
       {
         id: 'pubmed',
@@ -143,7 +142,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://pubmed.ncbi.nlm.nih.gov',
         freeQuota: '3 requests/second (无Key)',
         pricing: '免费申请 API Key 提升至 10 req/s',
-        secretKeyName: 'pubmed-api-key',
       },
       {
         id: 'openalex',
@@ -152,7 +150,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://openalex.org',
         freeQuota: '10 req/s (无 mailto)，配置邮箱后无限制 (polite pool)',
         pricing: '免费，配置联系邮箱即可解锁无限速',
-        secretKeyName: 'openalex-mailto',
       },
     ],
   },
@@ -193,21 +190,18 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         description: 'URL 转 Markdown，免费高质量提取',
         url: 'https://jina.ai/reader',
         freeQuota: '1M tokens/month',
-        secretKeyName: 'jina-api-key',
       },
       {
         id: 'firecrawl',
         name: 'Firecrawl',
         description: '专业网页抓取服务，支持 JavaScript 渲染',
         url: 'https://firecrawl.dev',
-        secretKeyName: 'firecrawl-api-key',
       },
       {
         id: 'tavilyExtract',
         name: 'Tavily Extract',
         description: 'Tavily 的内容提取服务',
         url: 'https://tavily.com',
-        secretKeyName: 'tavily-extraction-api-key',
       },
     ],
   },
@@ -228,7 +222,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://supadata.ai/youtube-transcript-api',
         freeQuota: '100/month',
         pricing: '$9/month (1000)',
-        secretKeyName: 'supadata-api-key',
       },
     ],
   },
@@ -249,7 +242,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://elevenlabs.io',
         freeQuota: '10,000 chars/month',
         pricing: '$5/month+',
-        secretKeyName: 'elevenlabs-api-key',
       },
       {
         id: 'googleTts',
@@ -258,7 +250,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://cloud.google.com/text-to-speech',
         freeQuota: '4M chars/month',
         pricing: 'Usage-based',
-        secretKeyName: 'google-tts-api-key',
       },
     ],
   },
@@ -278,7 +269,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         description: '实时金融数据 API，股票、外汇、加密货币行情',
         url: 'https://www.alphavantage.co',
         freeQuota: '25 requests/day',
-        secretKeyName: 'alpha-vantage-api-key',
       },
     ],
   },
@@ -290,7 +280,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
     displayName: '天气数据',
     description: '获取全球城市的实时天气和未来5天天气预报',
     icon: 'CloudSun',
-    category: 'search',
+    category: 'weather',
     providers: [
       {
         id: 'weather-api',
@@ -299,7 +289,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://openweathermap.org',
         freeQuota: '60 requests/minute',
         pricing: '免费tier可用',
-        secretKeyName: 'openweathermap-api-key',
       },
     ],
   },
@@ -328,7 +317,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         description: '搜索美国国会立法，获取法案和投票记录',
         url: 'https://api.congress.gov',
         freeQuota: '5,000 requests/hour',
-        secretKeyName: 'congress-gov',
       },
       {
         id: 'whitehouse-news',
@@ -356,7 +344,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         url: 'https://github.com',
         freeQuota: '60 requests/hour (unauthenticated)',
         pricing: '5,000 requests/hour (authenticated)',
-        secretKeyName: 'github-token',
       },
     ],
   },

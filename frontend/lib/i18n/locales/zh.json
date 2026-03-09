@@ -3669,6 +3669,7 @@
         "export": "导出",
         "collaboration": "协作",
         "search": "网络搜索",
+        "academic": "学术搜索",
         "extraction": "内容提取",
         "youtube": "YouTube",
         "tts": "语音合成",
@@ -3677,6 +3678,7 @@
         "mcp": "MCP 服务器",
         "devtools": "开发工具",
         "finance": "金融数据",
+        "weather": "天气数据",
         "generation": "内容生成",
         "processing": "数据处理"
       },
