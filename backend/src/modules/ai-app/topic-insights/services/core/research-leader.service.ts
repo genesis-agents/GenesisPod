@@ -2413,7 +2413,7 @@ ${teamMembersText}`;
     dimensions: Array<{ id: string; name: string; description?: string }>,
   ): string[] {
     // 基础技能（始终包含，data_interpretation 作为通用分析技能始终保留）
-    const skills = new Set(["deep_dive", "synthesis", "data_interpretation"]);
+    const skills = new Set(["deep-dive", "synthesis", "data-interpretation"]);
 
     // 收集该 Agent 负责的维度名称和描述
     const dimTexts = (assignment.assignedDimensions || [])
@@ -2431,7 +2431,7 @@ ${teamMembersText}`;
     }> = [
       {
         keywords: ["趋势", "走势", "变化", "增长", "下降", "trend", "growth"],
-        skill: "trend_analysis",
+        skill: "trend-analysis",
       },
       {
         keywords: [
@@ -2443,7 +2443,7 @@ ${teamMembersText}`;
           "competitor",
           "competition",
         ],
-        skill: "competitive_analysis",
+        skill: "competitive-analysis",
       },
       {
         keywords: [
@@ -2467,11 +2467,11 @@ ${teamMembersText}`;
           "statistics",
           "分析",
         ],
-        skill: "data_interpretation",
+        skill: "data-interpretation",
       },
       {
         keywords: ["未来", "预测", "展望", "forecast", "outlook", "projection"],
-        skill: "future_projection",
+        skill: "future-projection",
       },
       {
         keywords: [
@@ -2484,7 +2484,7 @@ ${teamMembersText}`;
           "impact",
           "driver",
         ],
-        skill: "cause_effect",
+        skill: "cause-effect",
       },
       {
         keywords: [
@@ -2500,7 +2500,7 @@ ${teamMembersText}`;
           "机遇",
           "威胁",
         ],
-        skill: "swot_analysis",
+        skill: "swot-analysis",
       },
       {
         keywords: [
@@ -2513,7 +2513,7 @@ ${teamMembersText}`;
           "问题",
           "挑战",
         ],
-        skill: "critical_thinking",
+        skill: "critical-thinking",
       },
     ];
 

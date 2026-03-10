@@ -138,7 +138,7 @@ export class ChatFacade {
     }, 0);
     const estimatedInputTokens = Math.ceil(totalMsgChars / CHARS_PER_TOKEN);
 
-    this.logger.log(
+    this.logger.debug(
       `[chat] modelType=${request.modelType}, model=${modelId}, messages=${request.messages.length}, totalChars=${totalMsgChars}, ~${estimatedInputTokens} tokens`,
     );
 
