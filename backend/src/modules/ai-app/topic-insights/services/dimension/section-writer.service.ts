@@ -398,19 +398,35 @@ export class SectionWriterService {
         }
       }
 
+      // ★ 诊断：记录每个 allocatedFigure 的状态
+      for (const fig of input.allocatedFigures) {
+        this.logger.log(
+          `[writeSection] allocatedFig[${fig.evidenceIndex}:${fig.figureIndex}]: imageUrl=${fig.imageUrl ? `"${fig.imageUrl.substring(0, 60)}..."` : "EMPTY"}, caption="${(fig.caption || "").substring(0, 50)}", reason="${(fig.relevanceReason || "").substring(0, 50)}"`,
+        );
+      }
+
       figureRefsToBackfill = input.allocatedFigures
         .filter((fig) => {
-          if (!fig.imageUrl) return false;
+          if (!fig.imageUrl) {
+            this.logger.warn(
+              `[writeSection] Dropping fig[${fig.evidenceIndex}:${fig.figureIndex}] — no imageUrl`,
+            );
+            return false;
+          }
           // Relevance check: caption or relevanceReason must share keywords with section
           const figText =
             `${fig.caption || ""} ${fig.relevanceReason || ""}`.toLowerCase();
-          // ★ Require at least 2 meaningful keyword overlaps (was 1, too permissive)
           const figWords = figText
             .split(/[\s,，。、：:；;（）()]+/)
             .filter((w) => w.length >= 2);
           const matchCount = figWords.filter((word) =>
             sectionKeywords.includes(word),
           ).length;
+          if (matchCount < 2) {
+            this.logger.warn(
+              `[writeSection] Dropping fig[${fig.evidenceIndex}:${fig.figureIndex}] — relevance matchCount=${matchCount} < 2, figWords=${figWords.length}, caption="${(fig.caption || "").substring(0, 40)}"`,
+            );
+          }
           return matchCount >= 2;
         })
         .map((fig, idx) => {
