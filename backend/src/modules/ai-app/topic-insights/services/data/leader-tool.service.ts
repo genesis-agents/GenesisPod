@@ -25,6 +25,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   AIModelType,
   DimensionStatus,
+  ResearchMissionStatus,
   ResearchTaskStatus,
 } from "@prisma/client";
 import {
@@ -280,6 +281,34 @@ export class LeaderToolService {
           },
           data: { status: ResearchTaskStatus.FAILED },
         });
+      }
+
+      // 检查是否有正在执行的 Mission 引用此维度，如有则跳过删除
+      const inFlightMissionCount = await this.prisma.researchMission.count({
+        where: {
+          topicId,
+          status: {
+            in: [
+              ResearchMissionStatus.EXECUTING,
+              ResearchMissionStatus.REVIEWING,
+            ],
+          },
+          tasks: {
+            some: { dimensionId: dimension.id },
+          },
+        },
+      });
+
+      if (inFlightMissionCount > 0) {
+        this.logger.warn(
+          `[deleteDimension] Skipping deletion of dimension ${dimension.name}: ${inFlightMissionCount} in-flight mission(s) still reference it`,
+        );
+        return {
+          success: false,
+          action: LeaderActionType.DELETE_DIMENSION,
+          message: `维度「${dimension.name}」有 ${inFlightMissionCount} 个正在执行的任务，无法删除`,
+          data: { dimensionId: dimension.id, name: dimension.name },
+        };
       }
 
       // 删除维度

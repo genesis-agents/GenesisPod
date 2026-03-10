@@ -495,7 +495,7 @@ export class DimensionSearchService {
         for (let j = 0; j < evidence.extractedFigures.length; j++) {
           const fig = evidence.extractedFigures[j];
           entries.push(
-            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${fig.imageUrl}`,
+            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${fig.imageUrl?.startsWith("data:") ? "[base64-image]" : fig.imageUrl || "无URL"}`,
           );
         }
       }

@@ -560,9 +560,30 @@ export class DimensionMissionService {
 
     // 6. 准备证据数据
     const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
+
+    // ★ 诊断：记录证据数据的实际大小
+    const evidenceDataTotalChars = evidenceData.reduce((sum, e) => {
+      return (
+        sum +
+        (e.title?.length || 0) +
+        (e.fullContent?.length || 0) +
+        (e.snippet?.length || 0) +
+        (e.url?.length || 0)
+      );
+    }, 0);
+    this.logger.log(
+      `${logPrefix} Evidence data prepared: ${evidenceData.length} items, total ~${evidenceDataTotalChars} chars` +
+        ` (largest: ${evidenceData.reduce((max, e) => Math.max(max, (e.fullContent?.length || 0) + (e.snippet?.length || 0)), 0)} chars)`,
+    );
+
     let evidenceSummary =
       this.createEvidenceSummary(evidenceData) +
       (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
+
+    // ★ 诊断：记录 evidenceSummary 初始大小（在压缩前）
+    this.logger.log(
+      `${logPrefix} Evidence summary initial size: ${evidenceSummary.length} chars (~${Math.ceil(evidenceSummary.length / 4)} tokens est.)`,
+    );
 
     // ★ Phase 5: 长上下文压缩 — 超过 8000 字符时智能摘要
     if (this.contextCompression && evidenceSummary.length > 8000) {
@@ -609,10 +630,27 @@ export class DimensionMissionService {
       );
     }
 
+    // ★ 硬截断兜底：当 ContextCompression 和 TokenBudgetService 都不可用时，
+    // 必须强制截断，防止 916K+ token 的 prompt 发送给 LLM 导致截断/超时/费用爆炸
+    const HARD_TRUNCATE_LIMIT = 12000;
+    if (evidenceSummary.length > HARD_TRUNCATE_LIMIT) {
+      this.logger.warn(
+        `${logPrefix} Evidence summary still too long after compression pipeline (${evidenceSummary.length} chars), hard truncating to ${HARD_TRUNCATE_LIMIT}`,
+      );
+      evidenceSummary =
+        evidenceSummary.slice(0, HARD_TRUNCATE_LIMIT) +
+        "\n\n[... 内容已截断，完整证据请参考原始搜索结果 ...]";
+    }
+
+    // ★ 诊断：记录 evidenceSummary 最终大小（压缩/截断后）
+    this.logger.log(
+      `${logPrefix} Evidence summary final size: ${evidenceSummary.length} chars (~${Math.ceil(evidenceSummary.length / 4)} tokens est.)`,
+    );
+
     const figuresSummary = this.buildFiguresSummary(evidenceData);
     if (figuresSummary) {
       this.logger.log(
-        `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
+        `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available, ${figuresSummary.length} chars`,
       );
     }
 
@@ -1849,8 +1887,14 @@ export class DimensionMissionService {
       if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
         for (let j = 0; j < evidence.extractedFigures.length; j++) {
           const fig = evidence.extractedFigures[j];
+          // ★ 关键修复：不将 base64 data URL 包含在文本摘要中
+          // base64 data URL 可达 200K-680K chars，会导致 prompt 膨胀到 148K-916K tokens
+          // Leader 规划大纲只需要知道图表的元信息（类型、标题、来源），不需要图片本身
+          const safeUrl = fig.imageUrl?.startsWith("data:")
+            ? `[base64-image:${fig.type || "unknown"}]`
+            : fig.imageUrl || "无URL";
           entries.push(
-            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${fig.imageUrl}`,
+            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${safeUrl}`,
           );
         }
       }

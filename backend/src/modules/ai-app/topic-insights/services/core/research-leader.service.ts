@@ -264,6 +264,7 @@ export class ResearchLeaderService {
           creativity: "medium",
           outputLength: "extended",
         },
+        responseFormat: "json",
       });
     } catch (aiError) {
       this.logger.error(
@@ -483,20 +484,32 @@ export class ResearchLeaderService {
 
     // 调用 AI 审核
     const startTime = Date.now();
-    const response = await this.chatFacade.chat({
-      messages: [
-        {
-          role: "system",
-          content: "你是研究质量审核专家，请输出 JSON 格式的审核决策。",
+    let response;
+    try {
+      response = await this.chatFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content: "你是研究质量审核专家，请输出 JSON 格式的审核决策。",
+          },
+          { role: "user", content: prompt },
+        ],
+        model: leaderModel.modelId,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
         },
-        { role: "user", content: prompt },
-      ],
-      model: leaderModel.modelId,
-      taskProfile: {
-        creativity: "low",
-        outputLength: "medium",
-      },
-    });
+      });
+    } catch (reviewError) {
+      this.logger.error(
+        `[reviewTaskResult] AI call failed: ${reviewError instanceof Error ? reviewError.message : reviewError}`,
+      );
+      return {
+        taskId,
+        status: "approved",
+        feedback: "审核失败（AI 调用异常，默认通过）",
+      };
+    }
     const latencyMs = Date.now() - startTime;
 
     // 解析审核结果
@@ -2113,6 +2126,22 @@ ${teamMembersText}`;
       : "";
     const finalPrompt = prompt + figuresSection;
 
+    // ★ 诊断日志：记录实际 prompt 大小和各模板变量大小
+    const OVERSIZED_PROMPT_CHARS = 50_000;
+    const PROMPT_PREVIEW_LEN = 200;
+    this.logger.log(
+      `[planDimensionOutline] Prompt size: finalPrompt=${finalPrompt.length} chars, ` +
+        `evidenceSummary=${evidenceSummary.length}, figuresSection=${figuresSection.length}`,
+    );
+
+    if (finalPrompt.length > OVERSIZED_PROMPT_CHARS) {
+      this.logger.error(
+        `[planDimensionOutline] ⚠ OVERSIZED finalPrompt (${finalPrompt.length} chars)! ` +
+          `First ${PROMPT_PREVIEW_LEN}: ${finalPrompt.substring(0, PROMPT_PREVIEW_LEN)}... | ` +
+          `Last ${PROMPT_PREVIEW_LEN}: ...${finalPrompt.substring(finalPrompt.length - PROMPT_PREVIEW_LEN)}`,
+      );
+    }
+
     // ★ 添加重试机制，处理 API 临时故障
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
@@ -2169,6 +2198,18 @@ ${teamMembersText}`;
             lc.includes("insufficient_credits")
           ) {
             throw new Error(`[INSUFFICIENT_CREDITS] ${errorContent}`);
+          }
+
+          // ★ 上下文过长：不重试（同样的 prompt 换模型也不会变小），直接失败
+          if (
+            lc.includes("context_too_long") ||
+            lc.includes("context length") ||
+            lc.includes("too many tokens") ||
+            lc.includes("reduce the length of the messages")
+          ) {
+            throw new Error(
+              `[CONTEXT_TOO_LONG] Prompt too large for any model. ${errorContent}`,
+            );
           }
 
           // ★ 检测配额超限错误，这类错误切换模型后可能成功
@@ -2376,6 +2417,18 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             lc.includes("insufficient_credits")
           ) {
             throw new Error(`[INSUFFICIENT_CREDITS] ${errorContent}`);
+          }
+
+          // ★ 上下文过长：不重试（同样的 prompt 换模型也不会变小），直接失败
+          if (
+            lc.includes("context_too_long") ||
+            lc.includes("context length") ||
+            lc.includes("too many tokens") ||
+            lc.includes("reduce the length of the messages")
+          ) {
+            throw new Error(
+              `[CONTEXT_TOO_LONG] Prompt too large for any model. ${errorContent}`,
+            );
           }
 
           const isQuotaError =

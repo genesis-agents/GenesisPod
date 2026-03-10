@@ -446,9 +446,10 @@ export class ResultFusionService {
    * - > 200 chars → 0.7
    * - Otherwise   → 0.5
    */
-  getContentDepthScore(snippet: string): number {
-    if (snippet.length > 500) return 1.0;
-    if (snippet.length > 200) return 0.7;
+  getContentDepthScore(snippet: string | null | undefined): number {
+    const len = snippet?.length || 0;
+    if (len > 500) return 1.0;
+    if (len > 200) return 0.7;
     return 0.5;
   }
 }

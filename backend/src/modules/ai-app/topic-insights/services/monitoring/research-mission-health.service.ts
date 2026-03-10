@@ -60,8 +60,8 @@ const RECOVERY_CONFIG = {
   /** 服务启动后多久开始恢复（等待其他服务就绪） */
   recoveryDelayMs: 10 * 1000,
 
-  /** 任务被认为是"中断"的阈值（服务重启期间无更新） */
-  interruptedThresholdMs: 5 * 60 * 1000,
+  /** 任务被认为是"中断"的阈值（LLM 任务可能运行 10-30 分钟，5 分钟太短会误判） */
+  interruptedThresholdMs: 30 * 60 * 1000,
 
   /** 最大并发恢复任务数 */
   maxConcurrentRecovery: 3,
@@ -237,6 +237,7 @@ export class ResearchMissionHealthService
             ],
           },
         },
+        take: 100,
         include: {
           tasks: {
             where: {
@@ -404,8 +405,12 @@ export class ResearchMissionHealthService
 
     if (mission.updatedAt) times.push(new Date(mission.updatedAt));
 
-    if (mission.tasks?.[0]?.updatedAt) {
-      times.push(new Date(mission.tasks[0].updatedAt));
+    if (mission.tasks && mission.tasks.length > 0) {
+      const sorted = [...mission.tasks].sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+      times.push(new Date(sorted[0].updatedAt));
     }
 
     if (times.length === 0) return null;
@@ -632,6 +637,7 @@ export class ResearchMissionHealthService
         where: {
           status: ResearchMissionStatus.EXECUTING,
         },
+        take: 50,
         include: {
           tasks: true,
           topic: { select: { id: true, name: true, userId: true } },

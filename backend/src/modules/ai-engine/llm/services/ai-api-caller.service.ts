@@ -95,11 +95,47 @@ export interface EmbeddingApiResult {
  * AI API 调用服务
  * 负责：调用各个 provider 的 API（OpenAI、Anthropic、Google、XAI）
  */
+/** 超过此 token 阈值的请求被视为异常（用于安全阀日志） */
+const OVERSIZED_REQUEST_TOKEN_THRESHOLD = 100_000;
+/** 粗略的字符-to-token 换算比（英文 ~4 chars/token，中文 ~2） */
+const CHARS_TO_TOKENS_RATIO = 4;
+/** 错误诊断日志中堆栈帧数量 */
+const STACK_CONTEXT_LINES = 5;
+
 @Injectable()
 export class AiApiCallerService {
   private readonly logger = new Logger(AiApiCallerService.name);
 
   constructor(private readonly httpService: HttpService) {}
+
+  /**
+   * 检测并记录异常大请求（>100K tokens），帮助快速定位 prompt 膨胀来源
+   */
+  private logOversizedRequest(
+    provider: string,
+    modelId: string,
+    estimatedTokens: number,
+    estimatedChars: number,
+    messages: Array<{ role: string; content: unknown }>,
+  ): void {
+    if (estimatedTokens <= OVERSIZED_REQUEST_TOKEN_THRESHOLD) return;
+    const messageSizes = messages.map((m, i) => {
+      const size =
+        typeof m.content === "string"
+          ? m.content.length
+          : JSON.stringify(m.content).length;
+      return `msg[${i}](${m.role}): ${size} chars`;
+    });
+    this.logger.error(
+      `[${provider}] ⚠ OVERSIZED REQUEST detected: model=${modelId}, ` +
+        `estimatedTokens=${estimatedTokens}, totalChars=${estimatedChars}, ` +
+        `msgs=${messages.length}, breakdown=[${messageSizes.join(", ")}]. ` +
+        `Stack: ${new Error().stack
+          ?.split("\n")
+          .slice(1, 1 + STACK_CONTEXT_LINES)
+          .join(" → ")}`,
+    );
+  }
 
   /**
    * 调用 OpenAI 兼容格式的 API（OpenAI, Azure, 各种代理服务）
@@ -137,12 +173,35 @@ export class AiApiCallerService {
     }
 
     // ★ 构建请求体 - 只包含有效的参数（支持多模态 contentParts）
+    const resolvedMessages = messages.map((m) => ({
+      role: m.role,
+      content: resolveOpenAIContent(m),
+    }));
+
+    // ★ 安全阀：检测异常大请求并记录诊断信息
+    const estimatedChars = resolvedMessages.reduce((sum, m) => {
+      if (typeof m.content === "string") return sum + m.content.length;
+      if (Array.isArray(m.content))
+        return (
+          sum +
+          m.content.reduce(
+            (s, p) => s + (p.text?.length || p.image_url?.url?.length || 0),
+            0,
+          )
+        );
+      return sum;
+    }, 0);
+    this.logOversizedRequest(
+      "callOpenAICompatibleAPI",
+      modelId,
+      Math.ceil(estimatedChars / CHARS_TO_TOKENS_RATIO),
+      estimatedChars,
+      resolvedMessages,
+    );
+
     const requestBody: Record<string, unknown> = {
       model: modelId,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: resolveOpenAIContent(m),
-      })),
+      messages: resolvedMessages,
       ...tokenParam,
       ...reasoningParam,
     };
@@ -158,7 +217,7 @@ export class AiApiCallerService {
 
     this.logger.debug(
       `[callOpenAICompatibleAPI] model=${modelId}, endpoint=${effectiveEndpoint.substring(0, 50)}..., ` +
-        `tokens=${maxTokens}, temp=${temperature}, msgs=${messages.length}`,
+        `tokens=${maxTokens}, temp=${temperature}, msgs=${messages.length}, ~${Math.ceil(estimatedChars / CHARS_TO_TOKENS_RATIO)} input tokens`,
     );
 
     const response = await firstValueFrom(
@@ -443,12 +502,35 @@ export class AiApiCallerService {
       : tokenParamName;
 
     // ★ 数据库驱动：使用配置的 tokenParamName（支持多模态 contentParts）
+    const resolvedXaiMessages = messages.map((m) => ({
+      role: m.role,
+      content: resolveOpenAIContent(m),
+    }));
+
+    // ★ 安全阀：检测异常大请求并记录诊断信息
+    const xaiEstimatedChars = resolvedXaiMessages.reduce((sum, m) => {
+      if (typeof m.content === "string") return sum + m.content.length;
+      if (Array.isArray(m.content))
+        return (
+          sum +
+          m.content.reduce(
+            (s, p) => s + (p.text?.length || p.image_url?.url?.length || 0),
+            0,
+          )
+        );
+      return sum;
+    }, 0);
+    this.logOversizedRequest(
+      "callXAIAPI",
+      modelId,
+      Math.ceil(xaiEstimatedChars / CHARS_TO_TOKENS_RATIO),
+      xaiEstimatedChars,
+      resolvedXaiMessages,
+    );
+
     const requestBody: Record<string, unknown> = {
       model: modelId,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: resolveOpenAIContent(m),
-      })),
+      messages: resolvedXaiMessages,
       [effectiveTokenParam]: maxTokens,
     };
     if (
@@ -466,7 +548,7 @@ export class AiApiCallerService {
     }
 
     this.logger.log(
-      `[callXAIAPI] model=${modelId}, tokenParam=${effectiveTokenParam}=${maxTokens}, reasoning=${isReasoningModel}, temp=${temperature}, responseFormat=${responseFormat}, keys=${Object.keys(requestBody).join(",")}`,
+      `[callXAIAPI] model=${modelId}, tokenParam=${effectiveTokenParam}=${maxTokens}, reasoning=${isReasoningModel}, temp=${temperature}, responseFormat=${responseFormat}, msgs=${messages.length}, ~${Math.ceil(xaiEstimatedChars / CHARS_TO_TOKENS_RATIO)} input tokens`,
     );
 
     const response = await firstValueFrom(

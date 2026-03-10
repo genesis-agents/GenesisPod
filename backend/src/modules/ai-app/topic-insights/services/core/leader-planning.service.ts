@@ -702,6 +702,18 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             );
           }
 
+          // ★ 上下文过长：不重试（同样的 prompt 换模型也不会变小），直接失败
+          if (
+            lc.includes("context_too_long") ||
+            lc.includes("context length") ||
+            lc.includes("too many tokens") ||
+            lc.includes("reduce the length of the messages")
+          ) {
+            throw new Error(
+              `[CONTEXT_TOO_LONG] Prompt too large for any model. ${errorContent}`,
+            );
+          }
+
           const isQuotaError =
             lc.includes("429") ||
             lc.includes("402") ||
@@ -903,6 +915,22 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
       : "";
     const finalPrompt = prompt + figuresSection;
 
+    // ★ 诊断日志：记录实际 prompt 大小和各模板变量大小
+    const OVERSIZED_PROMPT_CHARS = 50_000;
+    const PROMPT_PREVIEW_LEN = 200;
+    this.logger.log(
+      `[planDimensionOutline] Prompt size: finalPrompt=${finalPrompt.length} chars, ` +
+        `evidenceSummary=${evidenceSummary.length}, figuresSection=${figuresSection.length}`,
+    );
+
+    if (finalPrompt.length > OVERSIZED_PROMPT_CHARS) {
+      this.logger.error(
+        `[planDimensionOutline] ⚠ OVERSIZED finalPrompt (${finalPrompt.length} chars)! ` +
+          `First ${PROMPT_PREVIEW_LEN}: ${finalPrompt.substring(0, PROMPT_PREVIEW_LEN)}... | ` +
+          `Last ${PROMPT_PREVIEW_LEN}: ...${finalPrompt.substring(finalPrompt.length - PROMPT_PREVIEW_LEN)}`,
+      );
+    }
+
     // ★ 添加重试机制，处理 API 临时故障
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
@@ -990,6 +1018,18 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           ) {
             throw new Error(
               `[INSUFFICIENT_CREDITS] ${rawContent.slice(0, 200)}`,
+            );
+          }
+
+          // ★ 上下文过长：不重试（同样的 prompt 换模型也不会变小），直接失败
+          if (
+            lc.includes("context_too_long") ||
+            lc.includes("context length") ||
+            lc.includes("too many tokens") ||
+            lc.includes("reduce the length of the messages")
+          ) {
+            throw new Error(
+              `[CONTEXT_TOO_LONG] Prompt too large for any model. ${errorContent}`,
             );
           }
 

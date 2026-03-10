@@ -1107,10 +1107,13 @@ export class SectionWriterService {
   ): string {
     // ★ 优先使用 Leader 预分配的图表
     if (allocatedFigures && allocatedFigures.length > 0) {
-      const entries = allocatedFigures.map(
-        (fig) =>
-          `- 【已分配】证据[${fig.evidenceIndex}] 图${fig.figureIndex}: "${fig.caption}" (URL: ${fig.imageUrl})\n  分配原因: ${fig.relevanceReason}`,
-      );
+      const entries = allocatedFigures.map((fig) => {
+        // ★ 过滤 base64 data URL，避免将数十万字符的图片数据注入 LLM prompt
+        const safeUrl = fig.imageUrl?.startsWith("data:")
+          ? `[base64-image]`
+          : fig.imageUrl || "无URL";
+        return `- 【已分配】证据[${fig.evidenceIndex}] 图${fig.figureIndex}: "${fig.caption}" (URL: ${safeUrl})\n  分配原因: ${fig.relevanceReason}`;
+      });
       return `Leader 已为本章节分配以下图表（请优先使用）：\n${entries.join("\n")}`;
     }
 
@@ -1123,8 +1126,12 @@ export class SectionWriterService {
       if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
         for (let j = 0; j < evidence.extractedFigures.length; j++) {
           const fig = evidence.extractedFigures[j];
+          // ★ 过滤 base64 data URL
+          const safeUrl = fig.imageUrl?.startsWith("data:")
+            ? `[base64-image:${fig.type}]`
+            : fig.imageUrl || "无URL";
           figureEntries.push(
-            `- 证据[${i + 1}] 图${j}: ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (URL: ${fig.imageUrl})`,
+            `- 证据[${i + 1}] 图${j}: ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (URL: ${safeUrl})`,
           );
         }
       }

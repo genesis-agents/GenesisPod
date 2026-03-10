@@ -56,6 +56,17 @@ export class FigureRelevanceService {
   ): Promise<ExtractedFigure[]> {
     if (figures.length === 0) return [];
 
+    // ★ 前置检查：是否有可用的 MULTIMODAL 模型，没有则直接走 type-based fallback
+    const multimodalModel = await this.chatFacade.getDefaultModelByType(
+      AIModelType.MULTIMODAL,
+    );
+    if (!multimodalModel?.modelId) {
+      this.logger.warn(
+        `[filterRelevantFigures] No MULTIMODAL model configured, falling back to type-based filter`,
+      );
+      return figures.filter((f) => f.type !== "photo");
+    }
+
     // 限制批量大小，避免 token 爆炸
     const candidates = figures.slice(0, MAX_FIGURES_PER_BATCH);
 

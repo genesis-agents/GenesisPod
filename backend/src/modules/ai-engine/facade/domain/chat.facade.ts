@@ -126,9 +126,36 @@ export class ChatFacade {
     const modelId = await this.resolveModelId(request);
     const entityId = `chat:${modelId}`;
 
-    this.logger.debug(
-      `[chat] modelType=${request.modelType}, model=${modelId}, messages=${request.messages.length}`,
+    // ★ 诊断：计算实际消息大小，帮助定位异常大 prompt
+    const CHARS_PER_TOKEN = 4;
+    const LARGE_PROMPT_TOKEN_THRESHOLD = 50_000;
+    const totalMsgChars = request.messages.reduce((sum, m) => {
+      const contentLen =
+        typeof m.content === "string"
+          ? m.content.length
+          : JSON.stringify(m.content || "").length;
+      return sum + contentLen;
+    }, 0);
+    const estimatedInputTokens = Math.ceil(totalMsgChars / CHARS_PER_TOKEN);
+
+    this.logger.log(
+      `[chat] modelType=${request.modelType}, model=${modelId}, messages=${request.messages.length}, totalChars=${totalMsgChars}, ~${estimatedInputTokens} tokens`,
     );
+
+    // ★ 异常大 prompt 预警，包含每条消息的大小分解
+    if (estimatedInputTokens > LARGE_PROMPT_TOKEN_THRESHOLD) {
+      const msgBreakdown = request.messages.map((m, i) => {
+        const len =
+          typeof m.content === "string"
+            ? m.content.length
+            : JSON.stringify(m.content || "").length;
+        return `msg[${i}](${m.role}):${len}`;
+      });
+      this.logger.error(
+        `[chat] ⚠ LARGE PROMPT: ~${estimatedInputTokens} tokens, breakdown=[${msgBreakdown.join(", ")}], ` +
+          `stack=${new Error().stack?.split("\n").slice(1, 8).join(" → ")}`,
+      );
+    }
 
     // Step 3: Enforce constraints
     const constraintError = this.enforceRateLimitAndBudget(request, modelId);
