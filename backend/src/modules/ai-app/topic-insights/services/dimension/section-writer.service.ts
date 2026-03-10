@@ -258,9 +258,20 @@ export class SectionWriterService {
 
     // ★ 检查 API 错误状态
     if (response.isError) {
+      const errorPreview = response.content.slice(0, 200);
       this.logger.error(
-        `[writeSection] API error for ${section.title}: ${response.content.slice(0, 100)}`,
+        `[writeSection] API error for ${section.title}: ${errorPreview}`,
       );
+
+      // ★ 积分不足：不重试，直接抛出特殊错误让上层快速失败
+      const lc = errorPreview.toLowerCase();
+      if (
+        lc.includes("insufficient credits") ||
+        lc.includes("insufficient_credits")
+      ) {
+        throw new Error(`[INSUFFICIENT_CREDITS] ${response.content}`);
+      }
+
       throw new InternalServerErrorException(
         `API error while writing section "${section.title}": ${response.content}`,
       );
@@ -491,9 +502,20 @@ export class SectionWriterService {
 
     // ★ 检查 API 错误状态
     if (response.isError) {
+      const errorPreview = response.content.slice(0, 200);
       this.logger.error(
-        `[reviseSection] API error for ${section.title}: ${response.content.slice(0, 100)}`,
+        `[reviseSection] API error for ${section.title}: ${errorPreview}`,
       );
+
+      // ★ 积分不足：不重试，直接抛出特殊错误让上层快速失败
+      const lc = errorPreview.toLowerCase();
+      if (
+        lc.includes("insufficient credits") ||
+        lc.includes("insufficient_credits")
+      ) {
+        throw new Error(`[INSUFFICIENT_CREDITS] ${response.content}`);
+      }
+
       throw new InternalServerErrorException(
         `API error while revising section "${section.title}": ${response.content}`,
       );
@@ -586,6 +608,19 @@ export class SectionWriterService {
           `[writeSectionsParallel] Section "${inputs[i].section.title}" failed: ${result.reason?.message}`,
         );
       }
+    }
+
+    // ★ 积分不足快速失败：如果任何章节因积分不足失败，直接抛出不重试
+    const creditFailure = failedIndices.find(({ error }) =>
+      error.includes("[INSUFFICIENT_CREDITS]"),
+    );
+    if (creditFailure) {
+      this.logger.error(
+        `[writeSectionsParallel] Insufficient credits detected, aborting all sections without retry`,
+      );
+      throw new Error(
+        `[INSUFFICIENT_CREDITS] User has insufficient credits to continue research`,
+      );
     }
 
     // 如果有失败的章节，尝试用备用模型重试

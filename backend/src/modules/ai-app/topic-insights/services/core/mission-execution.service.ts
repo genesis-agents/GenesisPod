@@ -1177,6 +1177,44 @@ export class MissionExecutionService {
           resultSummary: `执行失败: ${errorMsg}`,
         },
       );
+
+      // ★ 积分不足快速失败：立即标记 Mission 为 FAILED，阻止后续任务启动
+      if (
+        errorMsg.includes("[INSUFFICIENT_CREDITS]") ||
+        errorMsg.toLowerCase().includes("insufficient credits")
+      ) {
+        this.logger.error(
+          `[executeTask] ★ Insufficient credits detected for task ${task.title}, failing mission ${missionId} immediately`,
+        );
+        try {
+          await this.prisma.researchMission.updateMany({
+            where: {
+              id: missionId,
+              status: { not: ResearchMissionStatus.FAILED },
+            },
+            data: {
+              status: ResearchMissionStatus.FAILED,
+            },
+          });
+          // ★ 同时取消所有 PENDING 任务，避免后续启动
+          await this.prisma.researchTask.updateMany({
+            where: {
+              missionId,
+              status: {
+                in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.ASSIGNED],
+              },
+            },
+            data: {
+              status: ResearchTaskStatus.FAILED,
+              resultSummary: "积分不足，任务已终止",
+            },
+          });
+        } catch (updateErr) {
+          this.logger.error(
+            `[executeTask] Failed to mark mission as FAILED: ${updateErr}`,
+          );
+        }
+      }
     }
   }
 

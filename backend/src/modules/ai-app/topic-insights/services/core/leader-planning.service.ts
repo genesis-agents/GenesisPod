@@ -630,13 +630,23 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
           const lc = errorContent.toLowerCase();
+
+          // ★ 积分不足：不重试，直接抛出让 mission 快速失败
+          if (
+            lc.includes("insufficient credits") ||
+            lc.includes("insufficient_credits")
+          ) {
+            throw new Error(
+              `[INSUFFICIENT_CREDITS] ${rawContent.slice(0, 200)}`,
+            );
+          }
+
           const isQuotaError =
             lc.includes("429") ||
             lc.includes("402") ||
             lc.includes("quota") ||
             lc.includes("rate limit") ||
             lc.includes("payment") ||
-            lc.includes("insufficient") ||
             lc.includes("billing") ||
             lc.includes("temporarily unavailable");
           if (isQuotaError) {
@@ -911,6 +921,17 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           this.logger.warn(
             `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
+
+          // ★ 积分不足：不重试，直接抛出让 mission 快速失败
+          if (
+            lc.includes("insufficient credits") ||
+            lc.includes("insufficient_credits")
+          ) {
+            throw new Error(
+              `[INSUFFICIENT_CREDITS] ${rawContent.slice(0, 200)}`,
+            );
+          }
+
           // ★ 检测配额超限错误，这类错误切换模型后可能成功
           const isQuotaError =
             lc.includes("429") ||
@@ -918,7 +939,6 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             lc.includes("quota") ||
             lc.includes("rate limit") ||
             lc.includes("payment") ||
-            lc.includes("insufficient") ||
             lc.includes("billing") ||
             lc.includes("temporarily unavailable");
           if (isQuotaError) {

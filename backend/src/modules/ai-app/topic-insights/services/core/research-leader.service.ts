@@ -2148,9 +2148,19 @@ ${teamMembersText}`;
         // ★ 关键修复：检查 API 是否返回了错误
         if (response.isError) {
           const errorContent = response.content.slice(0, 200);
+          const lc = errorContent.toLowerCase();
           this.logger.warn(
             `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
+
+          // ★ 积分不足：不重试，直接抛出让 mission 快速失败
+          if (
+            lc.includes("insufficient credits") ||
+            lc.includes("insufficient_credits")
+          ) {
+            throw new Error(`[INSUFFICIENT_CREDITS] ${errorContent}`);
+          }
+
           // ★ 检测配额超限错误，这类错误切换模型后可能成功
           const isQuotaError =
             errorContent.includes("429") ||
@@ -2336,9 +2346,19 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
 
         if (response.isError) {
           const errorContent = response.content.slice(0, 200);
+          const lc = errorContent.toLowerCase();
           this.logger.warn(
             `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
+
+          // ★ 积分不足：不重试，直接抛出让 mission 快速失败
+          if (
+            lc.includes("insufficient credits") ||
+            lc.includes("insufficient_credits")
+          ) {
+            throw new Error(`[INSUFFICIENT_CREDITS] ${errorContent}`);
+          }
+
           const isQuotaError =
             errorContent.includes("429") ||
             errorContent.includes("quota") ||
