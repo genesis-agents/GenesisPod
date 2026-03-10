@@ -1,4 +1,5 @@
 import { Global, Module } from "@nestjs/common";
+import { PrismaModule } from "../../common/prisma/prisma.module";
 import { TRACE_COLLECTOR_TOKEN } from "./abstractions";
 import { ProcessManagerService } from "./process/process-manager.service";
 import { EventJournalService } from "./journal/event-journal.service";
@@ -83,6 +84,7 @@ const KERNEL_PROVIDERS = [
 
 @Global()
 @Module({
+  imports: [PrismaModule],
   controllers: [ObservabilityController], // A2AController stays in A2AModule (app.module.ts)
   providers: KERNEL_PROVIDERS,
   exports: KERNEL_PROVIDERS,
