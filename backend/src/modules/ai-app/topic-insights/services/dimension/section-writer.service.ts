@@ -369,15 +369,6 @@ export class SectionWriterService {
       input.allocatedFigures &&
       input.allocatedFigures.length > 0
     ) {
-      // Build keywords from section title + keyPoints for relevance matching
-      const sectionKeywords = [
-        section.title,
-        ...section.keyPoints,
-        section.description || "",
-      ]
-        .join(" ")
-        .toLowerCase();
-
       // ★ 使用 fullEvidenceData（未过滤）回填 allocatedFigures 缺失的 imageUrl
       // Leader LLM 经常不输出 imageUrl，需要从原始证据中根据 evidenceIndex 查找
       const figSourceData = input.fullEvidenceData || evidenceData;
@@ -398,7 +389,9 @@ export class SectionWriterService {
         }
       }
 
-      // ★ 诊断：记录每个 allocatedFigure 的状态
+      // ★ allocatedFigures 已经过 validateAllocatedFigures 相关性校验，
+      // 这里只检查 imageUrl 是否存在，不再做冗余的关键词匹配过滤。
+      // 之前三重过滤（validateAllocatedFigures + 此处 + 最终过滤）导致零图片通过。
       for (const fig of input.allocatedFigures) {
         this.logger.log(
           `[writeSection] allocatedFig[${fig.evidenceIndex}:${fig.figureIndex}]: imageUrl=${fig.imageUrl ? `"${fig.imageUrl.substring(0, 60)}..."` : "EMPTY"}, caption="${(fig.caption || "").substring(0, 50)}", reason="${(fig.relevanceReason || "").substring(0, 50)}"`,
@@ -413,21 +406,7 @@ export class SectionWriterService {
             );
             return false;
           }
-          // Relevance check: caption or relevanceReason must share keywords with section
-          const figText =
-            `${fig.caption || ""} ${fig.relevanceReason || ""}`.toLowerCase();
-          const figWords = figText
-            .split(/[\s,，。、：:；;（）()]+/)
-            .filter((w) => w.length >= 2);
-          const matchCount = figWords.filter((word) =>
-            sectionKeywords.includes(word),
-          ).length;
-          if (matchCount < 2) {
-            this.logger.warn(
-              `[writeSection] Dropping fig[${fig.evidenceIndex}:${fig.figureIndex}] — relevance matchCount=${matchCount} < 2, figWords=${figWords.length}, caption="${(fig.caption || "").substring(0, 40)}"`,
-            );
-          }
-          return matchCount >= 2;
+          return true;
         })
         .map((fig, idx) => {
           // ★ Build descriptive Source text from evidence metadata
@@ -451,7 +430,11 @@ export class SectionWriterService {
         });
       if (figureRefsToBackfill.length > 0) {
         this.logger.log(
-          `[writeSection] Auto-injected ${figureRefsToBackfill.length} figures from allocatedFigures after relevance filter (LLM did not output figureReferences)`,
+          `[writeSection] Auto-injected ${figureRefsToBackfill.length}/${input.allocatedFigures.length} figures from allocatedFigures (LLM did not output figureReferences)`,
+        );
+      } else if (input.allocatedFigures.length > 0) {
+        this.logger.warn(
+          `[writeSection] All ${input.allocatedFigures.length} allocatedFigures dropped (no imageUrl after backfill)`,
         );
       }
     }
@@ -462,8 +445,9 @@ export class SectionWriterService {
       input.fullEvidenceData || evidenceData, // ★ 使用完整 evidenceData 按原始索引回填
     );
 
-    // ★ 最终相关性校验：无论 figureReferences 来自 LLM 还是 auto-inject，
-    //   都必须通过 caption-section 关键词匹配。防止 LLM 输出无关图片引用。
+    // ★ 最终相关性校验：
+    // - LLM 输出的 figureReferences 严格过滤（matchCount >= 2）防止 LLM 幻觉
+    // - auto-inject 的 allocatedFigures 宽松过滤（matchCount >= 1），因为已过 validateAllocatedFigures
     const sectionCtx = [
       section.title,
       ...section.keyPoints,
@@ -472,6 +456,8 @@ export class SectionWriterService {
       .join(" ")
       .toLowerCase();
     const finalFigureRefs = backfilledRefs.filter((ref) => {
+      const isAutoInjected =
+        typeof ref.id === "string" && ref.id.startsWith("auto-fig-");
       const refText =
         `${ref.caption || ""} ${ref.relevance || ""}`.toLowerCase();
       // Extract CJK bigrams + latin words for matching
@@ -486,15 +472,25 @@ export class SectionWriterService {
       }
       const keywords = [...bigrams, ...latinWords];
       // No keywords → reject (empty/generic caption)
-      if (keywords.length === 0) return false;
-      // ★ Require at least 2 keyword overlaps to prevent false positives
+      if (keywords.length === 0) {
+        if (isAutoInjected) {
+          // Auto-injected 无关键词但 Leader 已验证过，保留
+          this.logger.log(
+            `[writeSection] Keeping auto-injected figure "${ref.caption}" despite no keywords (pre-validated by Leader)`,
+          );
+          return true;
+        }
+        return false;
+      }
       const matchCount = keywords.filter((kw) =>
         sectionCtx.includes(kw),
       ).length;
-      const relevant = matchCount >= 2;
+      // Auto-injected 只需 1 个匹配（已过 validateAllocatedFigures），LLM 输出需 2 个
+      const threshold = isAutoInjected ? 1 : 2;
+      const relevant = matchCount >= threshold;
       if (!relevant) {
         this.logger.warn(
-          `[writeSection] Removing irrelevant figure "${ref.caption}" from section "${section.title}" — no keyword overlap`,
+          `[writeSection] Removing irrelevant figure "${ref.caption}" from section "${section.title}" — matchCount=${matchCount} < ${threshold} (${isAutoInjected ? "auto-inject" : "LLM"})`,
         );
       }
       return relevant;
