@@ -579,8 +579,14 @@ export class FigureExtractorService {
       return false;
     }
 
-    // ★ 不再有宽松兜底：没有匹配 include 关键词就拒绝
-    // 图片质量优先于数量，不为凑数而降低标准
+    // ★ v5.1: 有实质性 caption/alt（≥20 字符）的图片放行，交给后续 Vision/type 过滤判断
+    // 解决：大量有价值图片因 caption 不含 "chart"/"data" 等关键词而被误杀
+    const captionText = `${caption || ""} ${alt || ""}`.trim();
+    if (captionText.length >= 20) {
+      return true;
+    }
+
+    // 无关键词匹配且无实质性 caption → 拒绝
     return false;
   }
 
