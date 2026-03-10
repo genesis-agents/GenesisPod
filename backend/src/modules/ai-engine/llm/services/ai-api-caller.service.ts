@@ -432,6 +432,12 @@ export class AiApiCallerService {
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
 
+    const isReasoningModel = modelId.toLowerCase().includes("reasoning");
+    // xAI reasoning models use max_tokens (not max_completion_tokens like OpenAI o-series)
+    const effectiveTokenParam = isReasoningModel
+      ? "max_tokens"
+      : tokenParamName;
+
     // ★ 数据库驱动：使用配置的 tokenParamName（支持多模态 contentParts）
     const requestBody: Record<string, unknown> = {
       model: modelId,
@@ -439,11 +445,8 @@ export class AiApiCallerService {
         role: m.role,
         content: resolveOpenAIContent(m),
       })),
-      [tokenParamName]: maxTokens,
+      [effectiveTokenParam]: maxTokens,
     };
-
-    // 只有当 temperature 有值时才包含
-    const isReasoningModel = modelId.toLowerCase().includes("reasoning");
     if (
       temperature !== undefined &&
       temperature !== null &&
@@ -452,11 +455,13 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    if (responseFormat === "json") {
+    if (responseFormat === "json" && !isReasoningModel) {
       requestBody["response_format"] = { type: "json_object" };
     }
 
-    this.logger.debug(`[callXAIAPI] model=${modelId}, maxTokens=${maxTokens}`);
+    this.logger.log(
+      `[callXAIAPI] model=${modelId}, tokenParam=${effectiveTokenParam}=${maxTokens}, reasoning=${isReasoningModel}, temp=${temperature}, responseFormat=${responseFormat}, keys=${Object.keys(requestBody).join(",")}`,
+    );
 
     const response = await firstValueFrom(
       this.httpService.post(effectiveEndpoint, requestBody, {
