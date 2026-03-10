@@ -272,11 +272,22 @@ export class SectionWriterService {
       writingStandards: getWritingStandards(input.topicLanguage || "zh"),
     });
 
+    const isReasoningModel =
+      modelId?.toLowerCase().includes("reasoning") ?? false;
+    const effectiveSystemPrompt = isReasoningModel
+      ? this.stripChartInstructions(systemPrompt)
+      : systemPrompt;
+    if (isReasoningModel) {
+      this.logger.log(
+        `[writeSection] Reasoning model detected (${modelId}), chart instructions stripped from prompt`,
+      );
+    }
+
     const startTime = Date.now();
     // ★ 使用 chatWithSkills 自动注入 skill 内容到 system message，并记录 analytics
     const response = await this.chatFacade.chatWithSkills({
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: effectiveSystemPrompt },
         { role: "user", content: finalUserPrompt },
       ],
       // 不传 domain（避免加载全部 11 个 research skills）
@@ -545,10 +556,21 @@ export class SectionWriterService {
       input.assignedSkills,
     );
 
+    const isReasoningModelRevision =
+      modelId?.toLowerCase().includes("reasoning") ?? false;
+    const effectiveRevisionSystemPrompt = isReasoningModelRevision
+      ? this.stripChartInstructions(revisionSystemPrompt)
+      : revisionSystemPrompt;
+    if (isReasoningModelRevision) {
+      this.logger.log(
+        `[reviseSection] Reasoning model detected (${modelId}), chart instructions stripped from prompt`,
+      );
+    }
+
     const startTime = Date.now();
     const response = await this.chatFacade.chatWithSkills({
       messages: [
-        { role: "system", content: revisionSystemPrompt },
+        { role: "system", content: effectiveRevisionSystemPrompt },
         { role: "user", content: userPrompt },
       ],
       additionalSkills: skillIds,
@@ -903,6 +925,27 @@ export class SectionWriterService {
       parts.length > 0 ? parts.join("\n\n") : "请参考系统提示中的分析技能指导";
 
     return { leaderGuidance, skillIds };
+  }
+
+  /**
+   * 从系统提示词中剥离图表输出指令（用于推理模型）
+   *
+   * 推理模型不支持 response_format: json_object，且混合格式（Markdown + ---CHARTS--- + JSON）
+   * 对推理模型输出不稳定。此方法将"## 输出格式"章节替换为简单的纯文本指令。
+   */
+  private stripChartInstructions(prompt: string): string {
+    // Replace the entire "## 输出格式" section with a simple instruction.
+    // The section starts at "## 输出格式" and ends at the end of the prompt
+    // (it's the last major section in SECTION_WRITING_SYSTEM_PROMPT).
+    const sectionStart = prompt.indexOf("\n## 输出格式\n");
+    if (sectionStart === -1) {
+      return prompt;
+    }
+    const before = prompt.substring(0, sectionStart);
+    return (
+      before +
+      "\n## 输出格式\n\n直接输出 Markdown 格式的章节内容，不要附加任何 JSON 数据。"
+    );
   }
 
   /**

@@ -9,6 +9,7 @@
 
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 
@@ -153,17 +154,26 @@ export class ResearchMemoryService implements OnModuleDestroy {
       );
 
       // 5. 存储发现到数据库（使用批量插入以保证原子性）
-      const findingsData = findings.map((finding) => ({
-        topicId,
-        missionId,
-        entity: finding.entity,
-        finding: finding.finding,
-        category: finding.category,
-        confidence: finding.confidence,
-        sourceDimension: finding.sourceDimension,
-        sourceUrls: finding.sourceUrls,
-        tags: finding.tags,
-      }));
+      // ★ 过滤无效数据（LLM 提取的 findings 可能有空字段）
+      const findingsData = findings
+        .filter((f) => f.entity && f.finding && f.category)
+        .map((finding) => ({
+          topicId,
+          missionId,
+          entity: finding.entity.slice(0, 500),
+          finding: finding.finding,
+          category: finding.category,
+          confidence: Math.max(0, Math.min(1, finding.confidence || 0.5)),
+          sourceDimension: finding.sourceDimension || null,
+          sourceUrls: finding.sourceUrls || [],
+          tags: finding.tags || [],
+        }));
+
+      if (findingsData.length < findings.length) {
+        this.logger.warn(
+          `[extractAndStoreFindings] Filtered out ${findings.length - findingsData.length} invalid findings (empty entity/finding/category)`,
+        );
+      }
 
       let storedCount = 0;
       try {
@@ -173,9 +183,18 @@ export class ResearchMemoryService implements OnModuleDestroy {
         });
         storedCount = result.count;
       } catch (error) {
-        this.logger.error(
-          `[extractAndStoreFindings] Batch insert failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        if (
+          error instanceof PrismaClientKnownRequestError &&
+          error.code === "P2021"
+        ) {
+          this.logger.warn(
+            "[extractAndStoreFindings] research_memories table does not exist yet, skipping storage",
+          );
+        } else {
+          this.logger.error(
+            `[extractAndStoreFindings] Batch insert failed (${error instanceof PrismaClientKnownRequestError ? `code: ${error.code}` : "unknown"}): ${error instanceof Error ? error.message : "Unknown error"}`,
+          );
+        }
       }
 
       this.logger.log(
@@ -244,6 +263,15 @@ export class ResearchMemoryService implements OnModuleDestroy {
       );
       return memories;
     } catch (error) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === "P2021"
+      ) {
+        this.logger.warn(
+          "[getRelevantMemories] research_memories table does not exist yet",
+        );
+        return [];
+      }
       this.logger.error(
         `[getRelevantMemories] Error retrieving memories: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
@@ -303,6 +331,15 @@ export class ResearchMemoryService implements OnModuleDestroy {
 
       return `## 先前研究发现\n\n${sections.join("\n\n")}`;
     } catch (error) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === "P2021"
+      ) {
+        this.logger.warn(
+          "[getMemorySummary] research_memories table does not exist yet",
+        );
+        return "暂无先前研究记忆。";
+      }
       this.logger.error(
         `[getMemorySummary] Error generating summary: ${error instanceof Error ? error.message : "Unknown error"}`,
       );

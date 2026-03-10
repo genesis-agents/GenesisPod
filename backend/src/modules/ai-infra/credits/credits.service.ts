@@ -259,91 +259,94 @@ export class CreditsService implements OnModuleInit {
     // 获取交易类型
     const transactionType = this.getTransactionType(moduleType);
 
-    // 使用事务执行扣减
-    const result = await this.prisma.$transaction(async (tx) => {
-      // 获取账户并检查
-      let account = await tx.creditAccount.findUnique({
-        where: { userId },
-      });
+    // 使用事务执行扣减（增加超时以应对高并发连接池竞争）
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        // 获取账户并检查
+        let account = await tx.creditAccount.findUnique({
+          where: { userId },
+        });
 
-      // 如果账户不存在，自动创建
-      if (!account) {
-        this.logger.log(`Auto-creating credit account for user ${userId}`);
-        account = await tx.creditAccount.create({
+        // 如果账户不存在，自动创建
+        if (!account) {
+          this.logger.log(`Auto-creating credit account for user ${userId}`);
+          account = await tx.creditAccount.create({
+            data: {
+              userId,
+              balance: 10000,
+              totalEarned: 10000,
+            },
+          });
+          // 创建初始积分交易记录
+          await tx.creditTransaction.create({
+            data: {
+              accountId: account.id,
+              type: CreditTransactionType.INITIAL,
+              amount: 10000,
+              balanceAfter: 10000,
+              description: "初始积分 / Initial credits",
+            },
+          });
+        }
+
+        if (account.isFrozen) {
+          throw new AccountFrozenException();
+        }
+
+        if (account.balance < creditsToConsume) {
+          throw new InsufficientCreditsException(
+            creditsToConsume,
+            account.balance,
+          );
+        }
+
+        // 更新余额
+        const newBalance = account.balance - creditsToConsume;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 计算今日消费
+        let newTodaySpent = creditsToConsume;
+        if (account.todayDate && account.todayDate >= today) {
+          newTodaySpent = account.todaySpent + creditsToConsume;
+        }
+
+        await tx.creditAccount.update({
+          where: { id: account.id },
           data: {
-            userId,
-            balance: 10000,
-            totalEarned: 10000,
+            balance: newBalance,
+            totalSpent: account.totalSpent + creditsToConsume,
+            todaySpent: newTodaySpent,
+            todayDate: today,
           },
         });
-        // 创建初始积分交易记录
-        await tx.creditTransaction.create({
+
+        // 创建交易记录
+        const transaction = await tx.creditTransaction.create({
           data: {
             accountId: account.id,
-            type: CreditTransactionType.INITIAL,
-            amount: 10000,
-            balanceAfter: 10000,
-            description: "初始积分 / Initial credits",
+            type: transactionType,
+            amount: -creditsToConsume,
+            balanceAfter: newBalance,
+            description:
+              description || ruleName || `${moduleType} - ${operationType}`,
+            moduleType,
+            operationType,
+            referenceId,
+            tokenCount,
+            modelName,
+            idempotencyKey,
           },
         });
-      }
 
-      if (account.isFrozen) {
-        throw new AccountFrozenException();
-      }
-
-      if (account.balance < creditsToConsume) {
-        throw new InsufficientCreditsException(
-          creditsToConsume,
-          account.balance,
-        );
-      }
-
-      // 更新余额
-      const newBalance = account.balance - creditsToConsume;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // 计算今日消费
-      let newTodaySpent = creditsToConsume;
-      if (account.todayDate && account.todayDate >= today) {
-        newTodaySpent = account.todaySpent + creditsToConsume;
-      }
-
-      await tx.creditAccount.update({
-        where: { id: account.id },
-        data: {
-          balance: newBalance,
-          totalSpent: account.totalSpent + creditsToConsume,
-          todaySpent: newTodaySpent,
-          todayDate: today,
-        },
-      });
-
-      // 创建交易记录
-      const transaction = await tx.creditTransaction.create({
-        data: {
-          accountId: account.id,
-          type: transactionType,
-          amount: -creditsToConsume,
+        return {
+          consumed: creditsToConsume,
           balanceAfter: newBalance,
-          description:
-            description || ruleName || `${moduleType} - ${operationType}`,
-          moduleType,
-          operationType,
-          referenceId,
-          tokenCount,
-          modelName,
-          idempotencyKey,
-        },
-      });
-
-      return {
-        consumed: creditsToConsume,
-        balanceAfter: newBalance,
-        transactionId: transaction.id,
-      };
-    });
+          transactionId: transaction.id,
+        };
+      },
+      { timeout: 60000 },
+    );
 
     this.logger.log(
       `User ${userId} consumed ${creditsToConsume} credits for ${moduleType}:${operationType}`,
