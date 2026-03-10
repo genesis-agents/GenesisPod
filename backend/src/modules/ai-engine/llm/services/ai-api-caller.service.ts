@@ -432,7 +432,11 @@ export class AiApiCallerService {
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
 
-    const isReasoningModel = modelId.toLowerCase().includes("reasoning");
+    // ★ "non-reasoning" contains "reasoning" — must exclude it
+    const lowerModelId = modelId.toLowerCase();
+    const isReasoningModel =
+      lowerModelId.includes("reasoning") &&
+      !lowerModelId.includes("non-reasoning");
     // xAI reasoning models use max_tokens (not max_completion_tokens like OpenAI o-series)
     const effectiveTokenParam = isReasoningModel
       ? "max_tokens"
