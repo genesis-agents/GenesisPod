@@ -78,8 +78,8 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
         recursive: false,
       },
       {
-        path: path.join(this.baseSkillsDir, "office/skills"),
-        domain: "office",
+        path: path.join(this.baseSkillsDir, "shared/skills"),
+        domain: "shared",
         recursive: false,
       },
       {

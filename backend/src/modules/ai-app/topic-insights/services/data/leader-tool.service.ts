@@ -745,6 +745,7 @@ export class LeaderToolService {
           {
             query: enhancedQuery,
             numResults: 5,
+            language: "auto",
           },
           {
             executionId: `leader-search-${Date.now()}`,
@@ -781,6 +782,10 @@ export class LeaderToolService {
               currentDate,
               freshnessRequirement,
             });
+          } else {
+            this.logger.warn(
+              `[searchLatestData] Search API returned failure for query "${enhancedQuery}": ${(searchData as Record<string, unknown>).error ?? "unknown error"}`,
+            );
           }
         }
       } catch (error) {
@@ -915,7 +920,7 @@ ${context.dimensionName}
       const year = new Date().getFullYear();
       return [
         `${context.topicName} ${context.dimensionName} ${year}`,
-        `${context.dimensionName} latest trends ${year}`,
+        `${context.dimensionName} ${context.topicName} ${year}`,
       ];
     }
   }

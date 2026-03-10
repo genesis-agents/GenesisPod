@@ -7,9 +7,7 @@ import type { ChatMessage } from "../types/task-profile";
  * 解析 ChatMessage 的有效内容：优先使用 contentParts（多模态），回退到 content（纯文本）
  * 返回 OpenAI/xAI 兼容格式
  */
-function resolveOpenAIContent(
-  msg: ChatMessage,
-):
+function resolveOpenAIContent(msg: ChatMessage):
   | string
   | Array<{
       type: string;
@@ -32,9 +30,7 @@ function resolveOpenAIContent(
 /**
  * 解析 ChatMessage 的有效内容：Anthropic 格式
  */
-function resolveAnthropicContent(
-  msg: ChatMessage,
-):
+function resolveAnthropicContent(msg: ChatMessage):
   | string
   | Array<{
       type: string;
@@ -447,7 +443,12 @@ export class AiApiCallerService {
     };
 
     // 只有当 temperature 有值时才包含
-    if (temperature !== undefined && temperature !== null) {
+    const isReasoningModel = modelId.toLowerCase().includes("reasoning");
+    if (
+      temperature !== undefined &&
+      temperature !== null &&
+      !isReasoningModel
+    ) {
       requestBody.temperature = temperature;
     }
 

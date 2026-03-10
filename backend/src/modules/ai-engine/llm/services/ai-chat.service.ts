@@ -585,7 +585,7 @@ export class AiChatService {
               modelId,
               messages,
               maxTokens,
-              temperature,
+              effectiveTemperature,
               timeout,
               tokenParamName,
               responseFormat,
