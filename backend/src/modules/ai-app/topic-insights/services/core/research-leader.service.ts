@@ -2213,11 +2213,19 @@ ${teamMembersText}`;
           return outline;
         }
       } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
         this.logger.warn(
-          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES} failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES} failed: ${errorMsg}`,
         );
         lastError =
           error instanceof Error ? error : new Error("Unknown API error");
+
+        // ★ 积分不足：不重试，直接向上抛出
+        if (errorMsg.includes("INSUFFICIENT_CREDITS")) {
+          throw lastError;
+        }
+
         if (attempt < MAX_RETRIES) {
           await this.delay(RETRY_DELAY_MS * attempt);
         }

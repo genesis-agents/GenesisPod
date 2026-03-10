@@ -3,6 +3,7 @@ import {
   IsInt,
   IsOptional,
   Min,
+  Max,
   IsEnum,
   MaxLength,
 } from "class-validator";
@@ -17,6 +18,9 @@ export class AdminGrantCreditsDto {
 
   @IsInt()
   @Min(1)
+  @Max(2_000_000_000, {
+    message: "Single grant amount cannot exceed 2,000,000,000 (INT4 limit)",
+  })
   amount!: number;
 
   @IsOptional()
@@ -37,6 +41,9 @@ export class BatchGrantCreditsDto {
 
   @IsInt()
   @Min(1)
+  @Max(2_000_000_000, {
+    message: "Single grant amount cannot exceed 2,000,000,000 (INT4 limit)",
+  })
   amount!: number;
 
   @IsString()

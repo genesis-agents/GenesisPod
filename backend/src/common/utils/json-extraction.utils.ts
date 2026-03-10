@@ -45,7 +45,14 @@ export function extractJsonFromAIResponse<T = unknown>(
 ): JsonExtractionResult<T> {
   const { requiredKey, errorPreviewLength = 500 } = options;
 
-  // Method 1: Try direct JSON parse
+  // ★ Preprocessing: deduplicate consecutive identical lines
+  // Reasoning models sometimes output each JSON line twice
+  const deduplicated = deduplicateConsecutiveLines(content);
+
+  // Use deduplicated content for all subsequent methods
+  const processedContent = deduplicated !== content ? deduplicated : content;
+
+  // Method 1: Try direct JSON parse (try deduplicated first if different)
   try {
     const parsed = JSON.parse(content) as T;
     if (!requiredKey || hasKey(parsed, requiredKey)) {
@@ -166,6 +173,21 @@ export function extractJsonFromAIResponse<T = unknown>(
     }
   }
 
+  // Method 7: If deduplication produced different content, retry all methods on it
+  if (processedContent !== content) {
+    const retryResult = extractJsonFromAIResponse<T>(processedContent, {
+      ...options,
+      // Use a marker to prevent infinite recursion
+      requiredKey,
+    });
+    if (retryResult.success) {
+      return {
+        ...retryResult,
+        method: `deduplicated+${retryResult.method}`,
+      };
+    }
+  }
+
   // All methods failed
   const preview = content.substring(0, errorPreviewLength);
   return {
@@ -180,6 +202,27 @@ export function extractJsonFromAIResponse<T = unknown>(
  */
 function hasKey(obj: unknown, key: string): boolean {
   return typeof obj === "object" && obj !== null && key in obj;
+}
+
+/**
+ * Remove consecutive duplicate lines from content.
+ * Reasoning models sometimes output each line twice, producing invalid JSON
+ * with duplicate keys and missing commas.
+ */
+function deduplicateConsecutiveLines(content: string): string {
+  const lines = content.split("\n");
+  if (lines.length <= 1) return content;
+
+  const result: string[] = [lines[0]];
+  for (let i = 1; i < lines.length; i++) {
+    // Skip if this line is identical to the previous (after trimming)
+    if (lines[i].trim() === lines[i - 1].trim() && lines[i].trim().length > 0) {
+      continue;
+    }
+    result.push(lines[i]);
+  }
+
+  return result.join("\n");
 }
 
 /**
