@@ -59,19 +59,19 @@ describe('Agent Intent Gateway layer (level 6)', () => {
     expect(agentOsLayer.groups).toBeUndefined();
   });
 
-  it('contains 3 cards', () => {
-    expect(agentOsLayer.cards).toHaveLength(3);
+  it('contains 2 cards', () => {
+    expect(agentOsLayer.cards).toHaveLength(2);
   });
 
-  it('contains a clickable "traces" card with href', () => {
-    const tracesCard = agentOsLayer.cards?.find((c) => c.id === 'traces');
-    expect(tracesCard).toBeDefined();
-    expect(tracesCard?.clickable).toBe(true);
-    expect(tracesCard?.href).toBe('/admin/ai/traces');
-  });
-
-  it('contains a non-clickable intentRouter card', () => {
+  it('contains a clickable intentRouter card with traces href', () => {
     const card = agentOsLayer.cards?.find((c) => c.id === 'intentRouter');
+    expect(card).toBeDefined();
+    expect(card?.clickable).toBe(true);
+    expect(card?.href).toBe('/admin/ai/traces');
+  });
+
+  it('contains a non-clickable aiAskEntry card', () => {
+    const card = agentOsLayer.cards?.find((c) => c.id === 'aiAskEntry');
     expect(card?.clickable).toBe(false);
   });
 });
@@ -231,8 +231,8 @@ describe('Agent Engine layer (level 2)', () => {
     expect(Array.isArray(layer.cards)).toBe(true);
   });
 
-  it('contains 8 cards', () => {
-    expect(layer.cards).toHaveLength(8);
+  it('contains 7 cards', () => {
+    expect(layer.cards).toHaveLength(7);
   });
 
   it('models card is clickable with correct href', () => {
@@ -253,8 +253,8 @@ describe('Agent Engine layer (level 2)', () => {
     expect(card?.href).toBe('/library/rag');
   });
 
-  it('mcpClients card has href /admin/ai/tools', () => {
-    const card = layer.cards?.find((c) => c.id === 'mcpClients');
+  it('tools card has href /admin/ai/tools', () => {
+    const card = layer.cards?.find((c) => c.id === 'tools');
     expect(card?.clickable).toBe(true);
     expect(card?.href).toBe('/admin/ai/tools');
   });
