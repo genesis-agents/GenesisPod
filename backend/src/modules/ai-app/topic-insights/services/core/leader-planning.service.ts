@@ -563,6 +563,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     const failedModelIdsGlobal = new Set<string>();
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      let currentModelId = "";
       try {
         let leaderModel = await this.getReasoningModel();
 
@@ -590,6 +591,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             "No reasoning model available for Leader",
           );
         }
+        currentModelId = leaderModel.modelId;
         this.logger.log(
           `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES}: Using model ${leaderModel.modelId}`,
         );
@@ -736,13 +738,29 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           return globalOutline;
         }
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : "Unknown error";
         this.logger.warn(
-          `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES} failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES} failed: ${errMsg}`,
         );
+        // ★ 异常级别也检测计费错误，标记模型避免重选
+        const errLc = errMsg.toLowerCase();
+        if (
+          errLc.includes("402") ||
+          errLc.includes("quota") ||
+          errLc.includes("payment") ||
+          errLc.includes("insufficient") ||
+          errLc.includes("billing")
+        ) {
+          failedModelIdsGlobal.add(currentModelId);
+        }
         lastError =
           error instanceof Error ? error : new Error("Unknown API error");
         if (attempt < MAX_RETRIES) {
-          await this.delay(RETRY_DELAY_MS * attempt);
+          await this.delay(
+            failedModelIdsGlobal.has(currentModelId)
+              ? 500
+              : RETRY_DELAY_MS * attempt,
+          );
         }
       }
     }
@@ -822,6 +840,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     const failedModelIds = new Set<string>();
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      let currentModelId = "";
       try {
         // ★ 最后一次尝试时回退到非推理模型，增加容错性
         const useReasoning = attempt < MAX_RETRIES;
@@ -853,6 +872,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         }
         const modelId =
           "modelId" in leaderModel ? leaderModel.modelId : leaderModel.id;
+        currentModelId = modelId;
         this.logger.log(
           `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Using model ${modelId}${!useReasoning ? " (non-reasoning fallback)" : ""}`,
         );
@@ -889,15 +909,20 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         // ★ 关键修复：检查 API 是否返回了错误
         if (response.isError) {
           const errorContent = rawContent.slice(0, 200);
+          const lc = errorContent.toLowerCase();
           this.logger.warn(
             `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
           // ★ 检测配额超限错误，这类错误切换模型后可能成功
           const isQuotaError =
-            errorContent.includes("429") ||
-            errorContent.includes("quota") ||
-            errorContent.includes("rate limit") ||
-            errorContent.includes("temporarily unavailable");
+            lc.includes("429") ||
+            lc.includes("402") ||
+            lc.includes("quota") ||
+            lc.includes("rate limit") ||
+            lc.includes("payment") ||
+            lc.includes("insufficient") ||
+            lc.includes("billing") ||
+            lc.includes("temporarily unavailable");
           if (isQuotaError) {
             failedModelIds.add(modelId);
           }
@@ -957,13 +982,13 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           errLc.includes("insufficient") ||
           errLc.includes("billing")
         ) {
-          failedModelIds.add(modelId);
+          failedModelIds.add(currentModelId);
         }
         lastError =
           error instanceof Error ? error : new Error("Unknown API error");
         if (attempt < MAX_RETRIES) {
           await this.delay(
-            failedModelIds.has(modelId) ? 500 : RETRY_DELAY_MS * attempt,
+            failedModelIds.has(currentModelId) ? 500 : RETRY_DELAY_MS * attempt,
           );
         }
       }
