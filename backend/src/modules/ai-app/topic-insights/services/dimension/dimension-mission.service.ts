@@ -1965,8 +1965,10 @@ export class DimensionMissionService {
           return false;
         }
 
-        // ★ v4.4: 强化相关性过滤 — 要求最低匹配比例，不再是"任意1个匹配就放行"
-        // 之前 "模型" 这种高频双字词导致完全不相关的图片也通过了
+        // ★ v4.5: 相关性过滤 — 阈值经生产数据校准
+        // v4.4 的 20% overlap 太严格：长 caption（30+ bigrams）的 overlap 天然低，
+        // 生产中 "并购趋势图" → "并购整合" 这种明显相关的分配也被拒（18% < 20%）。
+        // 改为：长 caption 只要求 matchCount >= 2（不卡 ratio），短 caption 仍要求高比例。
         const matchedKeywords = allKeywords.filter((kw) =>
           sectionText.includes(kw),
         );
@@ -1975,18 +1977,15 @@ export class DimensionMissionService {
             ? matchedKeywords.length / allKeywords.length
             : 0;
 
-        // 至少匹配 2 个关键词 且 匹配比例 ≥ 20%，或关键词少时要求匹配 ≥ 50%
         const MIN_MATCH_COUNT = 2;
-        const MIN_OVERLAP_RATIO = 0.2;
         const isRelevant =
           allKeywords.length <= 3
             ? overlapRatio >= 0.5 // 关键词少时要求高比例
-            : matchedKeywords.length >= MIN_MATCH_COUNT &&
-              overlapRatio >= MIN_OVERLAP_RATIO;
+            : matchedKeywords.length >= MIN_MATCH_COUNT; // 长 caption 只要求绝对匹配数
 
         if (!isRelevant) {
           this.logger.warn(
-            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — overlap ${matchedKeywords.length}/${allKeywords.length} (${(overlapRatio * 100).toFixed(0)}%) below threshold`,
+            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — matchCount=${matchedKeywords.length}/${allKeywords.length} (${(overlapRatio * 100).toFixed(0)}%), threshold=${allKeywords.length <= 3 ? "50% ratio" : `>=${MIN_MATCH_COUNT} matches`}`,
           );
         }
         return isRelevant;
