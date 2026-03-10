@@ -26,6 +26,10 @@ import {
   CheckCircle2,
   Search,
   Loader2,
+  Brain,
+  ShieldCheck,
+  FileText,
+  PartyPopper,
 } from 'lucide-react';
 import { QuickViewReport } from '../reports/QuickViewReport';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -67,6 +71,11 @@ import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborati
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
 // ★ v5: 质量探针面板
 import { QualityProbePanel } from '../collaboration/QualityProbePanel';
+// ★ v8: Pipeline 阶段指示器
+import {
+  PipelinePhaseIndicator,
+  derivePipelinePhase,
+} from '../collaboration/PipelinePhaseIndicator';
 // 相关研究 Tab - 显示关联的 AI Research 项目
 import { RelatedResearchTab } from './RelatedResearchTab';
 // 反馈API - 用于将批注提交为反馈（统一使用 Core Feedback）
@@ -149,7 +158,7 @@ interface MessageDetail {
 // ★ AI Writing 模式：转换后的 UI 消息
 interface UIMessage {
   id: string;
-  type: 'system' | 'agent' | 'progress' | 'leader';
+  type: 'system' | 'agent' | 'progress' | 'leader' | 'phase_separator';
   agent?: string;
   agentIcon?: string;
   agentColor?: string;
@@ -161,6 +170,10 @@ interface UIMessage {
   progress?: number; // 0-100 进度
   status?: 'success' | 'error' | 'in_progress' | 'pending'; // ★ 消息状态，用于时间线颜色
   dimensionName?: string; // ★ 研究维度名称，用于按任务过滤
+  /** ★ v8: 额外元数据（模型、搜索结果、审核评分等） */
+  metadata?: Record<string, unknown>;
+  /** ★ v8: 阶段分隔符的阶段名 */
+  phaseName?: string;
 }
 
 interface TopicContentPanelProps {
@@ -2972,6 +2985,47 @@ function ProgressOverview({
 
 // ==================== 消息卡片组件 ====================
 
+// ★ v8: 阶段分隔符卡片
+function PhaseSeparatorCard({ msg }: { msg: UIMessage }) {
+  const phaseConfig: Record<
+    string,
+    { icon: React.ElementType; color: string; bg: string }
+  > = {
+    planning: { icon: Brain, color: 'text-purple-700', bg: 'bg-purple-100' },
+    researching: { icon: Search, color: 'text-blue-700', bg: 'bg-blue-100' },
+    reviewing: {
+      icon: ShieldCheck,
+      color: 'text-green-700',
+      bg: 'bg-green-100',
+    },
+    synthesizing: {
+      icon: FileText,
+      color: 'text-orange-700',
+      bg: 'bg-orange-100',
+    },
+    completed: {
+      icon: PartyPopper,
+      color: 'text-emerald-700',
+      bg: 'bg-emerald-100',
+    },
+  };
+  const config = phaseConfig[msg.phaseName || ''] || phaseConfig.planning;
+  const Icon = config.icon;
+
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-gray-300" />
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${config.color} ${config.bg}`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+        {msg.content}
+      </span>
+      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-gray-300" />
+    </div>
+  );
+}
+
 // Leader 规划卡片
 function LeaderPlanCard({ msg }: { msg: UIMessage }) {
   const { t } = useI18n();
@@ -3321,6 +3375,12 @@ function TeamInteractionTabContent({
   const [toolsPanelCollapsed, setToolsPanelCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // ★ v8: 缓存 pipeline 阶段推导结果，避免重复计算
+  const pipelineState = useMemo(
+    () => derivePipelinePhase(safeWsEvents, missionStatus),
+    [safeWsEvents, missionStatus]
+  );
+
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
   const uiMessages = useMemo<UIMessage[]>(() => {
     // Convert persisted messages to UI format
@@ -3499,9 +3559,58 @@ function TeamInteractionTabContent({
           agentBgColor = 'bg-blue-100';
         }
 
+        // ★ v8: 构建更丰富的 content，展示模型、搜索结果、审核评分
+        const rawContent =
+          safeString(data.message) || safeString(data.status) || '';
+        const modelId = safeString(data.modelId);
+        const taskDesc = safeString(data.taskDescription);
+        const searchResults = data.searchResults as
+          | Record<string, unknown>
+          | undefined;
+        const reviewResult = data.reviewResult as
+          | Record<string, unknown>
+          | undefined;
+
+        // 构建内容：优先用 message，补充元数据
+        const contentParts: string[] = [];
+        if (
+          rawContent &&
+          rawContent !== 'working' &&
+          rawContent !== 'completed'
+        ) {
+          contentParts.push(rawContent);
+        } else if (taskDesc) {
+          contentParts.push(taskDesc);
+        }
+        // 模型信息
+        if (modelId && !agent.includes(modelId)) {
+          contentParts.push(`[${modelId}]`);
+        }
+        // 搜索结果摘要
+        if (searchResults) {
+          const total = searchResults.total as number;
+          const filtered = searchResults.filtered as number;
+          const query = safeString(searchResults.query);
+          if (total > 0) {
+            const searchInfo = query
+              ? `${t('topicResearch.contentPanel.searchFound')} ${filtered}/${total} (${query})`
+              : `${t('topicResearch.contentPanel.searchFound')} ${filtered}/${total}`;
+            contentParts.push(searchInfo);
+          }
+        }
+        // 审核评分
+        if (reviewResult) {
+          const score = reviewResult.overallScore as number;
+          const level = safeString(reviewResult.qualityLevel);
+          if (score) {
+            contentParts.push(
+              `${t('topicResearch.contentPanel.qualityScore')}: ${score}/100 (${level})`
+            );
+          }
+        }
+
         content =
-          safeString(data.message) ||
-          safeString(data.status) ||
+          contentParts.join(' | ') ||
           t('topicResearch.contentPanel.agentWorking', { agent });
       } else if (eventType.startsWith('task:')) {
         agentIcon = '📋';
@@ -3580,11 +3689,41 @@ function TeamInteractionTabContent({
         agentType = 'leader';
         msgType = 'system';
         progress = data.progress as number;
-        content =
-          safeString(data.message) ||
-          t('topicResearch.contentPanel.taskLabel') +
-            ' ' +
-            eventType.split(':')[1];
+        // ★ v8: 更丰富的任务消息
+        if (eventType === 'mission:started') {
+          const leaderModel = safeString(data.leaderModel);
+          content =
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.missionStarted');
+          if (leaderModel) {
+            content += ` | ${t('topicResearch.contentPanel.leaderModel', { model: leaderModel })}`;
+          }
+          status = 'in_progress';
+        } else if (eventType === 'mission:completed') {
+          const completedTasks = data.completedTasks as number;
+          const totalTasks = data.totalTasks as number;
+          content =
+            safeString(data.message) ||
+            `${t('topicResearch.contentPanel.missionCompleted')} (${completedTasks}/${totalTasks})`;
+          status = 'success';
+        } else if (eventType === 'mission:failed') {
+          content =
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.missionFailed');
+          status = 'error';
+        } else if (eventType === 'mission:progress') {
+          const phase = safeString(data.phase);
+          const msg = safeString(data.message);
+          content = phase
+            ? `[${phase}] ${msg}`
+            : msg || t('topicResearch.contentPanel.taskLabel');
+        } else {
+          content =
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.taskLabel') +
+              ' ' +
+              eventType.split(':')[1];
+        }
       } else {
         content =
           safeString(data.message) ||
@@ -3646,8 +3785,84 @@ function TeamInteractionTabContent({
       ...wsUIMessages,
     ];
     allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    return allMessages;
-  }, [safeWsEvents, safePersistedMessages, safePersistedActivities]);
+
+    // ★ v8: 去噪 — 过滤纯 "completed"/"working" 等无意义消息（仅 WS 来源）
+    const denoised = allMessages.filter((msg) => {
+      const c = msg.content.trim().toLowerCase();
+      // 保留非空内容
+      if (!c) return false;
+      // 只过滤 WS 来源的纯状态词（persisted 消息保留）
+      const isWsMessage = msg.id.startsWith('ws-');
+      if (
+        isWsMessage &&
+        (c === 'completed' || c === 'working' || c === 'started')
+      )
+        return false;
+      return true;
+    });
+
+    // ★ v8: 插入阶段分隔符
+    const phaseMap: Record<string, string> = {
+      leader: 'planning',
+      researcher: 'researching',
+      reviewer: 'reviewing',
+      synthesizer: 'synthesizing',
+    };
+    const phaseLabels: Record<string, string> = {
+      planning: t('topicResearch.pipeline.planning'),
+      researching: t('topicResearch.pipeline.researching'),
+      reviewing: t('topicResearch.pipeline.reviewing'),
+      synthesizing: t('topicResearch.pipeline.synthesizing'),
+      completed: t('topicResearch.pipeline.completed'),
+    };
+    let lastPhase = '';
+    const withSeparators: UIMessage[] = [];
+    for (const msg of denoised) {
+      // 推断消息所属阶段（优先使用消息自身携带的 metadata）
+      let phase = '';
+      if (msg.metadata?.phase && typeof msg.metadata.phase === 'string') {
+        phase = msg.metadata.phase;
+      } else if (
+        msg.content.includes('研究任务已启动') ||
+        msg.content.includes('mission started')
+      ) {
+        phase = 'planning';
+      } else if (msg.agentType === 'leader') {
+        // Leader 在 planning 和 researching 阶段都会发消息
+        // 仅在还没进入 researching 阶段时归为 planning
+        phase =
+          lastPhase === 'researching' ||
+          lastPhase === 'reviewing' ||
+          lastPhase === 'synthesizing'
+            ? lastPhase
+            : 'planning';
+      } else if (msg.agentType) {
+        phase = phaseMap[msg.agentType] || '';
+      }
+      // mission:completed 事件
+      if (
+        msg.status === 'success' &&
+        msg.agentType === 'leader' &&
+        msg.content.includes('完成')
+      ) {
+        phase = 'completed';
+      }
+
+      if (phase && phase !== lastPhase) {
+        withSeparators.push({
+          id: `phase-sep-${phase}-${msg.timestamp.getTime()}`,
+          type: 'phase_separator',
+          content: phaseLabels[phase] || phase,
+          timestamp: msg.timestamp,
+          phaseName: phase,
+        });
+        lastPhase = phase;
+      }
+      withSeparators.push(msg);
+    }
+
+    return withSeparators;
+  }, [safeWsEvents, safePersistedMessages, safePersistedActivities, t]);
 
   // ★ 收集所有可用的维度名称
   const availableDimensions = useMemo(() => {
@@ -3670,6 +3885,8 @@ function TeamInteractionTabContent({
   // ★ 筛选后的消息（支持 Agent 类型、搜索关键词、维度过滤）
   const filteredMessages = useMemo(() => {
     return uiMessages.filter((msg) => {
+      // ★ v8: 阶段分隔符始终保留
+      if (msg.type === 'phase_separator') return true;
       // Agent 类型过滤
       if (filter !== 'all' && msg.agentType !== filter) {
         return false;
@@ -3706,6 +3923,10 @@ function TeamInteractionTabContent({
 
   // ★ 判断消息类型，返回合适的卡片组件
   const getMessageCard = useCallback((msg: UIMessage) => {
+    // ★ v8: 阶段分隔符
+    if (msg.type === 'phase_separator') {
+      return <PhaseSeparatorCard key={msg.id} msg={msg} />;
+    }
     // ★ 安全获取 content 字符串用于条件判断
     const content = safeString(msg.content);
     // Leader 规划消息
@@ -4171,8 +4392,12 @@ function TeamInteractionTabContent({
         )}
       </div>
 
-      {/* ★ 研究进度面板（可折叠） */}
-      <div className="shrink-0 border-b bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-2">
+      {/* ★ v8: Pipeline 阶段指示器 + 研究进度 */}
+      <div className="shrink-0 space-y-2 border-b bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-2">
+        <PipelinePhaseIndicator
+          currentPhase={pipelineState.phase}
+          isFailed={pipelineState.isFailed}
+        />
         <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
       </div>
 
@@ -4211,6 +4436,15 @@ function TeamInteractionTabContent({
 
             <div className="space-y-4 p-4">
               {filteredMessages.map((msg) => {
+                // ★ v8: 阶段分隔符 — 全宽渲染，无时间线节点
+                if (msg.type === 'phase_separator') {
+                  return (
+                    <div key={msg.id} className="relative -ml-6">
+                      {getMessageCard(msg)}
+                    </div>
+                  );
+                }
+
                 // ★ 根据状态确定时间线节点颜色
                 const getNodeColor = () => {
                   switch (msg.status) {

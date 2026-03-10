@@ -4888,7 +4888,23 @@
       "clickToJumpToReferences": "Click to jump to references",
       "viewFullSource": "View Full Source →",
       "ctrlHHistory": "Ctrl+H History",
-      "qualityReviewAndReport": "Quality review, report writing, final delivery"
+      "qualityReviewAndReport": "Quality review, report writing, final delivery",
+      "phaseSeparator": "Phase: {{phase}}",
+      "missionStarted": "Research mission started, Leader is analyzing...",
+      "leaderModel": "Leader model: {{model}}",
+      "agentAssigned": "{{agent}} assigned to {{dimension}} using {{model}}",
+      "noMoreMessages": "No more messages",
+      "searchFound": "Sources found",
+      "qualityScore": "Quality",
+      "missionCompleted": "Research completed",
+      "missionFailed": "Research failed"
+    },
+    "pipeline": {
+      "planning": "Planning",
+      "researching": "Researching",
+      "reviewing": "Reviewing",
+      "synthesizing": "Writing",
+      "completed": "Completed"
     },
     "credibility": {
       "title": "Source Credibility Analysis",

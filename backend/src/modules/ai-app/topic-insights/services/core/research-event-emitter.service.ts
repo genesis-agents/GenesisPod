@@ -288,6 +288,29 @@ export class ResearchEventEmitterService {
       leaderModel,
       message: "研究任务已启动，Leader 正在分析...",
     });
+
+    // ★ 持久化到数据库
+    try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId,
+          messageType: "SYSTEM_MESSAGE",
+          senderRole: "system",
+          senderName: "系统",
+          content: "研究任务已启动，Leader 正在分析...",
+          metadata: leaderModel ? { leaderModel } : undefined,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to persist mission started: ${error}`);
+    }
   }
 
   /**
@@ -315,12 +338,36 @@ export class ResearchEventEmitterService {
       this.realtimeAdapter.completeMissionTracking(missionId, "研究完成");
     }
 
+    const completedMessage = `研究完成，共完成 ${completedTasks} 个任务`;
     await this.emitToTopic(topicId, ResearchEventType.MISSION_COMPLETED, {
       missionId,
       completedTasks,
       totalTasks,
-      message: `研究完成，共完成 ${completedTasks} 个任务`,
+      message: completedMessage,
     });
+
+    // ★ 持久化到数据库
+    try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId,
+          messageType: "SYSTEM_MESSAGE",
+          senderRole: "system",
+          senderName: "系统",
+          content: completedMessage,
+          metadata: { completedTasks, totalTasks },
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to persist mission completed: ${error}`);
+    }
   }
 
   /**
@@ -337,11 +384,35 @@ export class ResearchEventEmitterService {
       this.realtimeAdapter.failMissionTracking(missionId, error);
     }
 
+    const failedMessage = `研究失败: ${error}`;
     await this.emitToTopic(topicId, ResearchEventType.MISSION_FAILED, {
       missionId,
       error,
-      message: `研究失败: ${error}`,
+      message: failedMessage,
     });
+
+    // ★ 持久化到数据库
+    try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId,
+          messageType: "SYSTEM_MESSAGE",
+          senderRole: "system",
+          senderName: "系统",
+          content: failedMessage,
+          metadata: { error },
+        },
+      });
+    } catch (dbError) {
+      this.logger.error(`Failed to persist mission failed: ${dbError}`);
+    }
   }
 
   // ==================== Leader 事件 ====================
@@ -428,12 +499,36 @@ export class ResearchEventEmitterService {
       this.realtimeAdapter.startPhase(missionId, "researching", "开始维度研究");
     }
 
+    const planReadyMessage = `规划完成：${dimensionCount} 个研究维度，分配 ${agentCount} 个研究员`;
     await this.emitToTopic(topicId, ResearchEventType.LEADER_PLAN_READY, {
       missionId,
       dimensionCount,
       agentCount,
-      message: `规划完成：${dimensionCount} 个研究维度，分配 ${agentCount} 个研究员`,
+      message: planReadyMessage,
     });
+
+    // ★ 持久化到数据库
+    try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId,
+          messageType: "SYSTEM_MESSAGE",
+          senderRole: "leader",
+          senderName: "Leader",
+          content: planReadyMessage,
+          metadata: { dimensionCount, agentCount },
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to persist leader plan ready: ${error}`);
+    }
   }
 
   /**
@@ -889,14 +984,37 @@ export class ResearchEventEmitterService {
       );
     }
 
+    const synthesisStartedMessage = "开始整合研究结果，撰写洞察报告...";
     await this.emitToTopic(
       topicId,
       ResearchEventType.REPORT_SYNTHESIS_STARTED,
       {
         missionId,
-        message: "📊 开始整合研究结果，撰写洞察报告...",
+        message: synthesisStartedMessage,
       },
     );
+
+    // ★ 持久化到数据库
+    try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId: missionId ?? "",
+          messageType: "SYSTEM_MESSAGE",
+          senderRole: "system",
+          senderName: "撰写员",
+          content: synthesisStartedMessage,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to persist report synthesis started: ${error}`);
+    }
   }
 
   /**
@@ -918,6 +1036,7 @@ export class ResearchEventEmitterService {
       );
     }
 
+    const synthesisCompletedMessage = `报告撰写完成，共 ${chapterCount} 个章节，${totalWordCount} 字`;
     await this.emitToTopic(
       topicId,
       ResearchEventType.REPORT_SYNTHESIS_COMPLETED,
@@ -925,9 +1044,34 @@ export class ResearchEventEmitterService {
         missionId,
         chapterCount,
         totalWordCount,
-        message: `📊 报告撰写完成，共 ${chapterCount} 个章节，${totalWordCount} 字`,
+        message: synthesisCompletedMessage,
       },
     );
+
+    // ★ 持久化到数据库
+    try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId: missionId ?? "",
+          messageType: "SYSTEM_MESSAGE",
+          senderRole: "synthesizer",
+          senderName: "撰写员",
+          content: synthesisCompletedMessage,
+          metadata: { chapterCount, totalWordCount },
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist report synthesis completed: ${error}`,
+      );
+    }
   }
 
   // ==================== 数据查询方法 ====================
