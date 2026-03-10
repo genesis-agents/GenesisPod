@@ -6,6 +6,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { FeishuItem, FeishuItemType, Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 export interface CreateFeishuItemParams {
   userId: string;
@@ -132,20 +133,31 @@ export class FeishuDataSourceService {
       ...(syncedToRag !== undefined && { syncedToRag }),
     };
 
-    const [items, total] = await Promise.all([
-      this.prisma.feishuItem.findMany({
-        where,
-        take: limit,
-        skip: offset,
-        orderBy: { [orderBy]: order },
-      }),
-      this.prisma.feishuItem.count({ where }),
-    ]);
+    try {
+      const [items, total] = await Promise.all([
+        this.prisma.feishuItem.findMany({
+          where,
+          take: limit,
+          skip: offset,
+          orderBy: { [orderBy]: order },
+        }),
+        this.prisma.feishuItem.count({ where }),
+      ]);
 
-    return {
-      items: items.map((item) => this.mapToItemWithMeta(item)),
-      total,
-    };
+      return {
+        items: items.map((item) => this.mapToItemWithMeta(item)),
+        total,
+      };
+    } catch (err) {
+      if (
+        err instanceof PrismaClientKnownRequestError &&
+        err.code === "P2021"
+      ) {
+        this.logger.warn("[getItems] feishu_items table does not exist yet");
+        return { items: [], total: 0 };
+      }
+      throw err;
+    }
   }
 
   /**
@@ -215,54 +227,86 @@ export class FeishuDataSourceService {
    * Get statistics
    */
   async getStats(userId: string): Promise<FeishuDataSourceStats> {
-    const [
-      totalItems,
-      wikiNodeCount,
-      docCount,
-      sheetCount,
-      bitableCount,
-      externalCount,
-      syncedToRagCount,
-      lastItem,
-    ] = await Promise.all([
-      this.prisma.feishuItem.count({ where: { userId } }),
-      this.prisma.feishuItem.count({ where: { userId, type: "WIKI_NODE" } }),
-      this.prisma.feishuItem.count({ where: { userId, type: "DOC" } }),
-      this.prisma.feishuItem.count({ where: { userId, type: "SHEET" } }),
-      this.prisma.feishuItem.count({ where: { userId, type: "BITABLE" } }),
-      this.prisma.feishuItem.count({ where: { userId, type: "EXTERNAL" } }),
-      this.prisma.feishuItem.count({ where: { userId, syncedToRag: true } }),
-      this.prisma.feishuItem.findFirst({
-        where: { userId },
-        orderBy: { syncedAt: "desc" },
-        select: { syncedAt: true },
-      }),
-    ]);
+    try {
+      const [
+        totalItems,
+        wikiNodeCount,
+        docCount,
+        sheetCount,
+        bitableCount,
+        externalCount,
+        syncedToRagCount,
+        lastItem,
+      ] = await Promise.all([
+        this.prisma.feishuItem.count({ where: { userId } }),
+        this.prisma.feishuItem.count({ where: { userId, type: "WIKI_NODE" } }),
+        this.prisma.feishuItem.count({ where: { userId, type: "DOC" } }),
+        this.prisma.feishuItem.count({ where: { userId, type: "SHEET" } }),
+        this.prisma.feishuItem.count({ where: { userId, type: "BITABLE" } }),
+        this.prisma.feishuItem.count({ where: { userId, type: "EXTERNAL" } }),
+        this.prisma.feishuItem.count({ where: { userId, syncedToRag: true } }),
+        this.prisma.feishuItem.findFirst({
+          where: { userId },
+          orderBy: { syncedAt: "desc" },
+          select: { syncedAt: true },
+        }),
+      ]);
 
-    return {
-      totalItems,
-      wikiNodeCount,
-      docCount,
-      sheetCount,
-      bitableCount,
-      externalCount,
-      syncedToRagCount,
-      lastSyncAt: lastItem?.syncedAt || null,
-    };
+      return {
+        totalItems,
+        wikiNodeCount,
+        docCount,
+        sheetCount,
+        bitableCount,
+        externalCount,
+        syncedToRagCount,
+        lastSyncAt: lastItem?.syncedAt || null,
+      };
+    } catch (err) {
+      if (
+        err instanceof PrismaClientKnownRequestError &&
+        err.code === "P2021"
+      ) {
+        this.logger.warn(
+          "[getStats] feishu_items table does not exist yet, returning empty stats",
+        );
+        return {
+          totalItems: 0,
+          wikiNodeCount: 0,
+          docCount: 0,
+          sheetCount: 0,
+          bitableCount: 0,
+          externalCount: 0,
+          syncedToRagCount: 0,
+          lastSyncAt: null,
+        };
+      }
+      throw err;
+    }
   }
 
   /**
    * Check if URL already exists
    */
   async urlExists(userId: string, sourceUrl: string): Promise<boolean> {
-    const item = await this.prisma.feishuItem.findUnique({
-      where: {
-        userId_sourceUrl: { userId, sourceUrl },
-      },
-      select: { id: true },
-    });
+    try {
+      const item = await this.prisma.feishuItem.findUnique({
+        where: {
+          userId_sourceUrl: { userId, sourceUrl },
+        },
+        select: { id: true },
+      });
 
-    return !!item;
+      return !!item;
+    } catch (err) {
+      if (
+        err instanceof PrismaClientKnownRequestError &&
+        err.code === "P2021"
+      ) {
+        return false;
+      }
+      throw err;
+    }
   }
 
   // =========================================================================
