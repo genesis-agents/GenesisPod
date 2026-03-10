@@ -36,7 +36,8 @@ export class AiConnectionTestService {
       modelLower.includes("o1") ||
       modelLower.includes("o3") ||
       modelLower.includes("deepseek-r1") ||
-      modelLower.includes("reasoning") ||
+      (modelLower.includes("reasoning") &&
+        !modelLower.includes("non-reasoning")) ||
       modelLower.includes("thinking")
     );
   }

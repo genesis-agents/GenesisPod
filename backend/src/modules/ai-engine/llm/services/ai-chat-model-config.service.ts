@@ -208,8 +208,9 @@ export class AiChatModelConfigService {
       // Anthropic reasoning models
       modelLower.includes("claude-3.5-opus") ||
       modelLower.includes("claude-4") ||
-      // Generic reasoning keyword
-      modelLower.includes("reasoning") ||
+      // Generic reasoning keyword (exclude "non-reasoning" variants)
+      (modelLower.includes("reasoning") &&
+        !modelLower.includes("non-reasoning")) ||
       modelLower.includes("thinking")
     );
   }
