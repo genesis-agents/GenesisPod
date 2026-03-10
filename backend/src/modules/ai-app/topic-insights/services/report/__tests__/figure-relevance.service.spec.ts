@@ -16,6 +16,9 @@ const makeFigure = (
 const mockChatFacade = {
   chat: jest.fn(),
   chatStructured: jest.fn(),
+  getDefaultModelByType: jest
+    .fn()
+    .mockResolvedValue({ modelId: "test-vision-model" }),
 };
 
 describe("FigureRelevanceService", () => {
