@@ -18,23 +18,15 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { ResearchMissionHealthService } from "../research-mission-health.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  ResearchEventEmitterService,
-  RESEARCH_INTERNAL_EVENTS,
-} from "../../core/research-event-emitter.service";
-import {
-  ResearchMissionStatus,
-  ResearchTaskStatus,
-  ResearchTodoStatus,
-} from "@prisma/client";
+import { ResearchEventEmitterService } from "../../core/research-event-emitter.service";
+import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Mock fixtures
 // ──────────────────────────────────────────────────────────────────────────────
 
 const now = new Date();
-const minutesAgo = (m: number) =>
-  new Date(now.getTime() - m * 60 * 1000);
+const minutesAgo = (m: number) => new Date(now.getTime() - m * 60 * 1000);
 
 const makeMission = (overrides: Record<string, unknown> = {}) => ({
   id: "mission-001",
@@ -122,7 +114,9 @@ describe("ResearchMissionHealthService", () => {
         updatedAt: minutesAgo(5),
         tasks: [],
       });
-      mockPrisma.researchMission.findMany.mockResolvedValue([longRunningMission]);
+      mockPrisma.researchMission.findMany.mockResolvedValue([
+        longRunningMission,
+      ]);
       mockPrisma.researchMission.update.mockResolvedValue({});
       mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
       mockPrisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
@@ -144,7 +138,12 @@ describe("ResearchMissionHealthService", () => {
         updatedAt: minutesAgo(35), // stuck > 30 min
         startedAt: minutesAgo(35),
         tasks: [
-          { id: "task-001", status: ResearchTaskStatus.PENDING, updatedAt: minutesAgo(35), startedAt: null },
+          {
+            id: "task-001",
+            status: ResearchTaskStatus.PENDING,
+            updatedAt: minutesAgo(35),
+            startedAt: null,
+          },
         ],
       });
       mockPrisma.researchMission.findMany.mockResolvedValue([stuckMission]);
@@ -162,10 +161,17 @@ describe("ResearchMissionHealthService", () => {
         updatedAt: minutesAgo(35), // inactive > 30 min
         startedAt: minutesAgo(35),
         tasks: [
-          { id: "task-001", status: ResearchTaskStatus.EXECUTING, updatedAt: minutesAgo(5), startedAt: minutesAgo(35) },
+          {
+            id: "task-001",
+            status: ResearchTaskStatus.EXECUTING,
+            updatedAt: minutesAgo(5),
+            startedAt: minutesAgo(35),
+          },
         ],
       });
-      mockPrisma.researchMission.findMany.mockResolvedValue([missionWithExecutingTask]);
+      mockPrisma.researchMission.findMany.mockResolvedValue([
+        missionWithExecutingTask,
+      ]);
 
       const result = await service.runHealthCheck();
 
@@ -245,7 +251,12 @@ describe("ResearchMissionHealthService", () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(
         makeMission({
           tasks: [
-            { id: "task-001", status: ResearchTaskStatus.COMPLETED, updatedAt: minutesAgo(10), startedAt: minutesAgo(30) },
+            {
+              id: "task-001",
+              status: ResearchTaskStatus.COMPLETED,
+              updatedAt: minutesAgo(10),
+              startedAt: minutesAgo(30),
+            },
           ],
         }),
       );
@@ -284,7 +295,13 @@ describe("ResearchMissionHealthService", () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(
         makeMission({
           status: ResearchMissionStatus.FAILED,
-          tasks: [{ status: ResearchTaskStatus.FAILED, updatedAt: now, startedAt: null }],
+          tasks: [
+            {
+              status: ResearchTaskStatus.FAILED,
+              updatedAt: now,
+              startedAt: null,
+            },
+          ],
         }),
       );
 
@@ -298,8 +315,18 @@ describe("ResearchMissionHealthService", () => {
         makeMission({
           status: ResearchMissionStatus.FAILED,
           tasks: [
-            { id: "task-001", status: ResearchTaskStatus.COMPLETED, updatedAt: minutesAgo(20), startedAt: minutesAgo(40) },
-            { id: "task-002", status: ResearchTaskStatus.FAILED, updatedAt: minutesAgo(10), startedAt: minutesAgo(20) },
+            {
+              id: "task-001",
+              status: ResearchTaskStatus.COMPLETED,
+              updatedAt: minutesAgo(20),
+              startedAt: minutesAgo(40),
+            },
+            {
+              id: "task-002",
+              status: ResearchTaskStatus.FAILED,
+              updatedAt: minutesAgo(10),
+              startedAt: minutesAgo(20),
+            },
           ],
         }),
       );
@@ -318,7 +345,9 @@ describe("ResearchMissionHealthService", () => {
 
       expect(config.checkIntervalMs).toBeGreaterThan(0);
       expect(config.stuckThresholdMs).toBeGreaterThan(0);
-      expect(config.maxExecutionTimeMs).toBeGreaterThan(config.stuckThresholdMs);
+      expect(config.maxExecutionTimeMs).toBeGreaterThan(
+        config.stuckThresholdMs,
+      );
       expect(config.maxRetries).toBeGreaterThan(0);
     });
   });
@@ -337,13 +366,13 @@ describe("ResearchMissionHealthService", () => {
 
     it("should recover interrupted mission by resetting executing tasks", async () => {
       const interruptedMission = makeMission({
-        updatedAt: new Date(now.getTime() - 10 * 60 * 1000), // stale > 5 min threshold
+        updatedAt: new Date(now.getTime() - 35 * 60 * 1000), // stale > 30 min threshold
         tasks: [
           {
             id: "task-001",
             status: ResearchTaskStatus.EXECUTING,
-            updatedAt: new Date(now.getTime() - 10 * 60 * 1000),
-            startedAt: new Date(now.getTime() - 30 * 60 * 1000),
+            updatedAt: new Date(now.getTime() - 35 * 60 * 1000),
+            startedAt: new Date(now.getTime() - 60 * 60 * 1000),
           },
         ],
       });

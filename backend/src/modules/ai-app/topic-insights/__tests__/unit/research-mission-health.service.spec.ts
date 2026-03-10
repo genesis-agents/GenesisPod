@@ -60,7 +60,7 @@ describe("ResearchMissionHealthService", () => {
   afterEach(() => {
     jest.clearAllMocks();
     // Stop the health check loop if it was started
-    service.onModuleDestroy();
+    void service.onModuleDestroy();
   });
 
   // ==================== runHealthCheck Tests ====================
@@ -208,7 +208,7 @@ describe("ResearchMissionHealthService", () => {
 
     it("should recover stale executing missions", async () => {
       // Arrange - mission hasn't been updated in 10 minutes (interrupted by server restart)
-      const staleDate = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago
+      const staleDate = new Date(Date.now() - 35 * 60 * 1000); // 35 minutes ago (> 30min threshold)
       const staleMission = {
         ...MOCK_MISSION_EXECUTING,
         updatedAt: staleDate,
@@ -237,7 +237,7 @@ describe("ResearchMissionHealthService", () => {
 
     it("should handle recovery failure gracefully", async () => {
       // Arrange
-      const staleDate = new Date(Date.now() - 10 * 60 * 1000);
+      const staleDate = new Date(Date.now() - 35 * 60 * 1000);
       const staleMission = {
         ...MOCK_MISSION_EXECUTING,
         updatedAt: staleDate,

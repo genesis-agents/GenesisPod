@@ -104,6 +104,7 @@ interface TaskResultJson {
   [key: string]: unknown;
 }
 import { resolveResearchDepthConfig } from "../../types/v5-research.types";
+import { LruMap } from "@/common/utils/lru-map";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
@@ -128,10 +129,10 @@ export class ResearchMissionService {
   private readonly logger = new Logger(ResearchMissionService.name);
 
   /** ★ Gap 4: Trace state per mission */
-  private readonly missionTraces = new Map<
+  private readonly missionTraces = new LruMap<
     string,
     { traceId: string; currentSpanId?: string }
-  >();
+  >(200);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -793,7 +794,7 @@ export class ResearchMissionService {
           }
           return startFn();
         };
-    wrappedStart().catch((err) => {
+    void wrappedStart().catch((err) => {
       this.logger.error(`[approvePlanAndExecute] Execution failed: ${err}`);
     });
   }

@@ -549,6 +549,12 @@ export class ResearchEventEmitterService {
 
     // ★ 保存到数据库
     try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+
       await this.prisma.researchTeamMessage.create({
         data: {
           topicId,
@@ -1025,11 +1031,12 @@ export class ResearchEventEmitterService {
         select: { id: true },
       });
       if (!topicExists) return;
+      if (!missionId) return;
 
       await this.prisma.researchTeamMessage.create({
         data: {
           topicId,
-          missionId: missionId ?? "",
+          missionId,
           messageType: "SYSTEM_MESSAGE",
           senderRole: "system",
           senderName: "撰写员",
@@ -1079,11 +1086,12 @@ export class ResearchEventEmitterService {
         select: { id: true },
       });
       if (!topicExists) return;
+      if (!missionId) return;
 
       await this.prisma.researchTeamMessage.create({
         data: {
           topicId,
-          missionId: missionId ?? "",
+          missionId,
           messageType: "SYSTEM_MESSAGE",
           senderRole: "synthesizer",
           senderName: "撰写员",

@@ -68,6 +68,9 @@ const mockPrisma = {
     update: jest.fn(),
     updateMany: jest.fn(),
   },
+  researchMission: {
+    count: jest.fn(),
+  },
 };
 
 describe("LeaderToolService (supplemental)", () => {
@@ -151,6 +154,7 @@ describe("LeaderToolService (supplemental)", () => {
         id: "dim1",
         name: "Empty Dimension",
       });
+      mockPrisma.researchMission.count.mockResolvedValue(0);
       mockPrisma.researchTask.count.mockResolvedValue(0);
       mockPrisma.topicDimension.delete.mockResolvedValue({});
 
@@ -169,6 +173,7 @@ describe("LeaderToolService (supplemental)", () => {
         id: "dim1",
         name: "Test",
       });
+      mockPrisma.researchMission.count.mockResolvedValue(0);
       mockPrisma.researchTask.count.mockResolvedValue(0);
       mockPrisma.topicDimension.delete.mockRejectedValue(
         new Error("FK constraint"),

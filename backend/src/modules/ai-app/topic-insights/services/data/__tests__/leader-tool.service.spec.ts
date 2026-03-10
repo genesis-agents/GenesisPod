@@ -35,6 +35,9 @@ const mockPrisma = {
     update: jest.fn(),
     updateMany: jest.fn(),
   },
+  researchMission: {
+    count: jest.fn(),
+  },
 };
 
 describe("LeaderToolService", () => {
@@ -131,6 +134,7 @@ describe("LeaderToolService", () => {
         id: "dim1",
         name: "Old Dimension",
       });
+      mockPrisma.researchMission.count.mockResolvedValue(0);
       mockPrisma.researchTask.count.mockResolvedValue(2);
       mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 2 });
       mockPrisma.topicDimension.delete.mockResolvedValue({});
@@ -164,6 +168,7 @@ describe("LeaderToolService", () => {
         id: "dim1",
         name: "Some Dimension",
       });
+      mockPrisma.researchMission.count.mockResolvedValue(0);
       mockPrisma.researchTask.count.mockResolvedValue(0);
       mockPrisma.topicDimension.delete.mockResolvedValue({});
 

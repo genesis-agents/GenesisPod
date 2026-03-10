@@ -260,30 +260,7 @@ export class LeaderToolService {
         };
       }
 
-      // 检查是否有正在执行的任务
-      const runningTasks = await this.prisma.researchTask.count({
-        where: {
-          dimensionId: dimension.id,
-          status: {
-            in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
-          },
-        },
-      });
-
-      if (runningTasks > 0) {
-        // 先取消任务
-        await this.prisma.researchTask.updateMany({
-          where: {
-            dimensionId: dimension.id,
-            status: {
-              in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
-            },
-          },
-          data: { status: ResearchTaskStatus.FAILED },
-        });
-      }
-
-      // 检查是否有正在执行的 Mission 引用此维度，如有则跳过删除
+      // 先检查是否有正在执行的 Mission 引用此维度，如有则跳过删除（避免 FK violation）
       const inFlightMissionCount = await this.prisma.researchMission.count({
         where: {
           topicId,
@@ -309,6 +286,28 @@ export class LeaderToolService {
           message: `维度「${dimension.name}」有 ${inFlightMissionCount} 个正在执行的任务，无法删除`,
           data: { dimensionId: dimension.id, name: dimension.name },
         };
+      }
+
+      // 无 in-flight mission 后，取消残留的 PENDING/EXECUTING 任务
+      const runningTasks = await this.prisma.researchTask.count({
+        where: {
+          dimensionId: dimension.id,
+          status: {
+            in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
+          },
+        },
+      });
+
+      if (runningTasks > 0) {
+        await this.prisma.researchTask.updateMany({
+          where: {
+            dimensionId: dimension.id,
+            status: {
+              in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
+            },
+          },
+          data: { status: ResearchTaskStatus.FAILED },
+        });
       }
 
       // 删除维度

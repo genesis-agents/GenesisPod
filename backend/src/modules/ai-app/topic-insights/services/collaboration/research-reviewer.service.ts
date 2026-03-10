@@ -720,7 +720,7 @@ ${analysis.confidenceLevel}
 - 已使用证据: ${analysis.evidenceUsed}
 
 ### 详细内容
-${analysis.detailedContent.substring(0, 6000)}${analysis.detailedContent.length > 6000 ? "...(已截断)" : ""}
+${(analysis.detailedContent || "").substring(0, 6000)}${(analysis.detailedContent || "").length > 6000 ? "...(已截断)" : ""}
 
 ---
 

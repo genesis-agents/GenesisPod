@@ -1686,7 +1686,7 @@ export class MissionExecutionService {
       });
 
       // 6. 异步启动执行循环
-      this.startExecution(missionId, topicId).catch((err) => {
+      void this.startExecution(missionId, topicId).catch((err) => {
         this.logger.error(
           `[resumeExecutionForNewTask] Execution failed: ${err}`,
         );
@@ -1711,13 +1711,14 @@ export class MissionExecutionService {
     missionId: string;
     topicId: string;
   }): Promise<void> {
-    this.resumeExecutionForNewTask(payload.missionId, payload.topicId).catch(
-      (err) => {
-        this.logger.error(
-          `[handleResumeMissionExecution] Failed to resume mission: ${err}`,
-        );
-      },
-    );
+    void this.resumeExecutionForNewTask(
+      payload.missionId,
+      payload.topicId,
+    ).catch((err) => {
+      this.logger.error(
+        `[handleResumeMissionExecution] Failed to resume mission: ${err}`,
+      );
+    });
   }
 
   // ==================== Phase 5: Recovery Methods ====================

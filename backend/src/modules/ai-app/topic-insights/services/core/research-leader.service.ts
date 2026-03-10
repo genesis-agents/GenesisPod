@@ -579,8 +579,14 @@ export class ResearchLeaderService {
     );
 
     // 0. 使用 AI Engine 的意图检测服务进行快速预检测
+    if (!this.agentFacade.intentDetector) {
+      this.logger.warn(
+        "[handleUserMessage] intentDetector not available, skipping intent detection",
+      );
+      return { response: "意图检测服务不可用，请稍后重试" };
+    }
     const intentResult =
-      this.agentFacade.intentDetector!.detectIntent(sanitizedMessage);
+      this.agentFacade.intentDetector.detectIntent(sanitizedMessage);
     this.logger.log(
       `[handleUserMessage] Intent detected: ${intentResult.intent} (confidence: ${intentResult.confidence})`,
     );
