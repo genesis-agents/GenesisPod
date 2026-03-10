@@ -747,6 +747,13 @@ export class SectionWriterService {
       fact_check: "fact-check",
       hypothesis_verification: "hypothesis-verification",
       report_editing: "report-editing",
+      claim_extraction: "claim-extraction",
+      fact_verification: "fact-verification",
+      multi_path_reasoning: "multi-path-reasoning",
+      multi_view_synthesizer: "multi-view-synthesizer",
+      specialized_role_analysis: "specialized-role-analysis",
+      content_critique: "content-critique",
+      consistency_check: "consistency-check",
     };
 
     // 将 section-level skill IDs 映射为 kebab-case

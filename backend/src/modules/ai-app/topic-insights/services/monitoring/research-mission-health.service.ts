@@ -483,7 +483,9 @@ export class ResearchMissionHealthService
     const mission = await this.prisma.researchMission.findUnique({
       where: { id: missionId },
       include: {
-        tasks: true,
+        tasks: {
+          select: { status: true, startedAt: true, updatedAt: true },
+        },
       },
     });
 

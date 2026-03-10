@@ -563,10 +563,10 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
     // Stop any existing polling first
     get().stopMissionPolling();
 
-    // ★ Counter for team data polling (every 3rd poll = every 6 seconds)
+    // ★ Counter for team data polling (every 5th poll = every 25 seconds)
     let pollCount = 0;
 
-    // Start polling every 2 seconds
+    // Start polling every 5 seconds (reduced from 2s to lower server load)
     const interval = setInterval(async () => {
       pollCount++;
 
@@ -594,9 +594,9 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
               : null,
           });
 
-          // ★ Poll team data every 6 seconds (every 3rd poll) during active mission
+          // ★ Poll team data every 25 seconds (every 5th poll) during active mission
           // This ensures Activities panel shows real-time team collaboration
-          if (isActive && pollCount % 3 === 0) {
+          if (isActive && pollCount % 5 === 0) {
             try {
               const [messages, activities] = await Promise.all([
                 api.getTeamMessages(topicId, {
@@ -667,7 +667,7 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
         }
         logger.error('Mission polling error:', error);
       }
-    }, 2000);
+    }, 5000);
 
     set({ missionPollingInterval: interval });
   },

@@ -773,14 +773,30 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       this.logger.debug(`Tavily: filtering results to last ${days} days`);
     }
 
+    // Parse site: operators from query and convert to Tavily's include_domains
+    const sitePattern = /\bsite:([^\s]+)/gi;
+    const extractedDomains: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = sitePattern.exec(query)) !== null) {
+      extractedDomains.push(match[1]);
+    }
+    let tavilyQuery = query
+      .replace(/\bsite:[^\s]+/gi, "")
+      .replace(/\bOR\b/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    if (!tavilyQuery && extractedDomains.length > 0) {
+      tavilyQuery = extractedDomains.join(" ");
+    }
+
     const requestBody: Record<string, unknown> = {
       api_key: apiKey,
-      query,
+      query: tavilyQuery,
       max_results: requestedResults,
       search_depth: "advanced", // Use advanced for better quality
       include_answer: false,
       include_raw_content: false,
-      include_domains: [], // Allow all domains for diversity
+      include_domains: extractedDomains,
       exclude_domains: [], // No exclusions
     };
 
@@ -814,7 +830,11 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     );
 
     // Apply comprehensive ranking algorithm
-    const rankedResults = this.rankSearchResults(rawResults, query, maxResults);
+    const rankedResults = this.rankSearchResults(
+      rawResults,
+      tavilyQuery,
+      maxResults,
+    );
 
     this.logger.debug(
       `Tavily returned ${rawResults.length} results, ranked to ${rankedResults.length}`,

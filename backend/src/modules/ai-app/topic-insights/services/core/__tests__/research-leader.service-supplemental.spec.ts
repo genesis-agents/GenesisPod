@@ -822,7 +822,7 @@ describe("ResearchLeaderService (supplemental)", () => {
       // Content no longer includes dimension name (added by assembleFullReport)
       expect(result.content).toContain("技术内容分析文字");
       // No AI call for single section
-      expect(mocks.mockFacade.chatWithSkills).not.toHaveBeenCalled();
+      expect(mocks.mockFacade.chat).not.toHaveBeenCalled();
     });
 
     it("should use simple concatenation when no reasoning model available", async () => {
@@ -853,7 +853,7 @@ describe("ResearchLeaderService (supplemental)", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mocks.mockFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           summary: "AI 生成的摘要文字",
           keyFindings: ["关键发现1", "关键发现2"],
@@ -883,9 +883,7 @@ describe("ResearchLeaderService (supplemental)", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mocks.mockFacade.chatWithSkills.mockRejectedValue(
-        new Error("AI API error"),
-      );
+      mocks.mockFacade.chat.mockRejectedValue(new Error("AI API error"));
 
       const sections = [
         { title: "部分一", content: "技术内容一" },
@@ -911,7 +909,7 @@ describe("ResearchLeaderService (supplemental)", () => {
         provider: "openai",
         isReasoning: true,
       });
-      mocks.mockFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockFacade.chat.mockResolvedValue({
         content: JSON.stringify({
           summary: "English summary here",
           keyFindings: ["Finding 1", "Finding 2"],
@@ -926,13 +924,14 @@ describe("ResearchLeaderService (supplemental)", () => {
 
       await service.integrateDimensionResults(dimension, sections, "en");
 
-      expect(mocks.mockFacade.chatWithSkills).toHaveBeenCalledWith(
+      expect(mocks.mockFacade.chat).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
               content: expect.stringContaining("You are a research report"),
             }),
           ]),
+          responseFormat: "json",
         }),
       );
     });

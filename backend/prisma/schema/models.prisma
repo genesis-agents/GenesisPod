@@ -6948,6 +6948,7 @@ model ResearchMission {
 
   // ========== 索引 ==========
   @@index([topicId, status])
+  @@index([topicId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
   @@map("research_missions")
 }

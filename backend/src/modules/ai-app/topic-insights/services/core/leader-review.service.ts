@@ -280,6 +280,7 @@ export class LeaderReviewService {
         creativity: "low",
         outputLength: "medium",
       },
+      responseFormat: "json",
     });
 
     const review = this.extractJsonFromResponse<{

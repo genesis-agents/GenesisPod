@@ -116,7 +116,7 @@ export class SemanticScholarSearchTool extends BaseTool<
   private readonly logger = new Logger(SemanticScholarSearchTool.name);
 
   /** 最大并发请求数（Semantic Scholar 比 ArXiv 宽松） */
-  private static readonly MAX_CONCURRENT = 2;
+  private static readonly MAX_CONCURRENT = 1;
   /** 无 API Key 时的最小请求间隔 (ms) */
   private static readonly MIN_REQUEST_INTERVAL_NO_KEY = 1000; // 1 req/s
   /** 有 API Key 时的最小请求间隔 (ms) */
@@ -261,7 +261,8 @@ export class SemanticScholarSearchTool extends BaseTool<
           this.releaseSlot();
           const is429 = err instanceof Error && err.message.includes("429");
           if (is429 && attempt < maxRetries) {
-            const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+            const backoff =
+              Math.pow(2, attempt + 1) * 1000 + Math.random() * 3000;
             // 设置全局冷却：所有排队的请求也必须等到冷却结束
             SemanticScholarSearchTool.cooldownUntil = Date.now() + backoff;
             this.logger.warn(
@@ -271,10 +272,10 @@ export class SemanticScholarSearchTool extends BaseTool<
             continue;
           }
           if (is429) {
-            // 3 次 retry 全部失败，设置 30s 长冷却让后续请求有恢复窗口
-            SemanticScholarSearchTool.cooldownUntil = Date.now() + 30_000;
+            // 3 次 retry 全部失败，设置 60s 长冷却让后续请求有恢复窗口
+            SemanticScholarSearchTool.cooldownUntil = Date.now() + 60_000;
             this.logger.warn(
-              `[doExecute] Semantic Scholar 429 exhausted all retries, setting 30s global cooldown for subsequent requests`,
+              `[doExecute] Semantic Scholar 429 exhausted all retries, setting 60s global cooldown for subsequent requests`,
             );
           }
           throw err;

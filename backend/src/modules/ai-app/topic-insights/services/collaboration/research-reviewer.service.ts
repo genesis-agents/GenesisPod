@@ -108,6 +108,7 @@ export class ResearchReviewerService {
           creativity: "low",
           outputLength: "medium",
         },
+        responseFormat: "json",
       });
 
       // Use robust JSON extraction to handle markdown code blocks
@@ -352,6 +353,7 @@ export class ResearchReviewerService {
             creativity: "deterministic",
             outputLength: "medium",
           },
+          responseFormat: "json",
         });
 
         const result = extractJsonFromAIResponse<{
@@ -438,6 +440,7 @@ export class ResearchReviewerService {
         ],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: { creativity: "low", outputLength: "short" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{
@@ -548,6 +551,7 @@ export class ResearchReviewerService {
           creativity: "deterministic",
           outputLength: "medium",
         },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<

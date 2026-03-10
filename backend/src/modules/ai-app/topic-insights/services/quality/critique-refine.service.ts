@@ -203,6 +203,7 @@ ${content}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["content-critique"],
         taskProfile: { creativity: "low", outputLength: "long" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{
@@ -378,6 +379,7 @@ ${issuesText}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["content-refine"],
         taskProfile: { creativity: "low", outputLength: "long" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{

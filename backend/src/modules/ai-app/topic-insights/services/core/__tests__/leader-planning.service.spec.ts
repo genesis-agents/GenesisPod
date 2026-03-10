@@ -33,7 +33,7 @@ function buildMocks() {
       provider: "openai",
       isReasoning: false,
     }),
-    chatWithSkills: jest.fn(),
+    chat: jest.fn(),
   };
 
   const mockResearchMemory = {
@@ -159,7 +159,7 @@ describe("LeaderPlanningService", () => {
 
     it("should return leader plan on successful AI response", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: JSON.stringify(mockLeaderPlanResponse),
         isError: false,
       });
@@ -174,7 +174,7 @@ describe("LeaderPlanningService", () => {
 
     it("should throw error when AI returns empty response", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: "",
         isError: false,
       });
@@ -186,7 +186,7 @@ describe("LeaderPlanningService", () => {
 
     it("should throw error when AI call fails", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chatWithSkills.mockRejectedValue(new Error("API timeout"));
+      aiFacade.chat.mockRejectedValue(new Error("API timeout"));
 
       await expect(service.planResearch("topic-1")).rejects.toThrow(
         "AI 调用失败",
@@ -224,7 +224,7 @@ describe("LeaderPlanningService", () => {
       };
 
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: JSON.stringify(planWithNoSkills),
         isError: false,
       });
@@ -266,7 +266,7 @@ describe("LeaderPlanningService", () => {
       };
 
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: JSON.stringify(planWithTrendDimension),
         isError: false,
       });
@@ -292,7 +292,7 @@ describe("LeaderPlanningService", () => {
     };
 
     it("should throw when all retries fail", async () => {
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: "invalid json",
         isError: false,
       });
@@ -343,7 +343,7 @@ describe("LeaderPlanningService", () => {
         ],
       };
 
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: JSON.stringify(mockOutline),
         isError: false,
       });
@@ -378,7 +378,7 @@ describe("LeaderPlanningService", () => {
     };
 
     it("should throw when all retries fail", async () => {
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: "no json here",
         isError: false,
       });
@@ -414,7 +414,7 @@ describe("LeaderPlanningService", () => {
         executionPlan: { parallelGroups: [["s-1"]], estimatedTotalWords: 800 },
       };
 
-      aiFacade.chatWithSkills.mockResolvedValue({
+      aiFacade.chat.mockResolvedValue({
         content: JSON.stringify(mockOutline),
         isError: false,
       });

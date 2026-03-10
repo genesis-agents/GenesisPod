@@ -81,10 +81,19 @@ export class TaskProfileMapperService {
     if (isReasoning) {
       const originalTokens = effectiveMaxTokens;
 
-      // ★ 根据模型实际限制动态计算推理模型最小值
-      // 不同模型差异很大：Grok 4 = 16384, Claude 4 = 16384, o1/o3 = 65536+
+      // ★ 根据 outputLength 分级计算推理模型 token 需求
+      // 推理模型内部 CoT 消耗大量 tokens，但 minimal/short 场景不需要满额
       const reasoningMin = getReasoningMinTokens(modelMaxTokens);
-      effectiveMaxTokens = Math.max(baseMaxTokens, reasoningMin);
+      if (
+        profile.outputLength === "minimal" ||
+        profile.outputLength === "short"
+      ) {
+        // minimal/short: 推理开销较小，使用 reasoningMin 的 30%（上限 8000）
+        const scaledMin = Math.min(Math.ceil(reasoningMin * 0.3), 8000);
+        effectiveMaxTokens = Math.max(baseMaxTokens, scaledMin);
+      } else {
+        effectiveMaxTokens = Math.max(baseMaxTokens, reasoningMin);
+      }
 
       // 对于 extended/long 输出，如果模型有足够空间才提升
       if (

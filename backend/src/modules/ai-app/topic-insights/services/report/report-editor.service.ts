@@ -322,6 +322,7 @@ export class ReportEditorService {
           creativity: "low",
           outputLength: "medium",
         },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<DeduplicationCheckResult>(

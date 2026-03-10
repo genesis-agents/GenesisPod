@@ -93,6 +93,7 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["rag-fusion-query"],
         taskProfile: { creativity: "medium", outputLength: "medium" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{

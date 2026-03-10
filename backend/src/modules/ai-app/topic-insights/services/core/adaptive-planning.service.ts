@@ -302,6 +302,7 @@ ${findingsText || "无"}
           creativity: "low", // 确定性分析
           outputLength: "medium",
         },
+        responseFormat: "json",
         modelType: AIModelType.CHAT, // 使用 CHAT 模型进行分析
       });
 
@@ -485,6 +486,7 @@ ${completedTasks.map((t) => `- ${t.title} (${t.dimensionName || "通用"})`).joi
           creativity: "low", // 确定性分析
           outputLength: "medium",
         },
+        responseFormat: "json",
         modelType: AIModelType.CHAT,
       });
 

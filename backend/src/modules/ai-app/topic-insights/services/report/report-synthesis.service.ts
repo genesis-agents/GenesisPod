@@ -920,6 +920,7 @@ export class ReportSynthesisService {
           creativity: "low",
           outputLength: "medium",
         },
+        responseFormat: "json",
       });
 
       const extractionResult = extractJsonFromAIResponse<{

@@ -84,6 +84,7 @@ ${content}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["claim-extraction"],
         taskProfile: { creativity: "deterministic", outputLength: "long" },
+        responseFormat: "json",
         skipGuardrails: true, // Internal system call — user content may trigger false positives
       });
 

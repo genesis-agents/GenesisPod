@@ -66,6 +66,7 @@ export class KnowledgeGraphService {
         additionalSkills: ["entity-extraction"],
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "deterministic", outputLength: "medium" },
+        responseFormat: "json",
       });
 
       const result = this.parseExtractionResult(response.content || "");

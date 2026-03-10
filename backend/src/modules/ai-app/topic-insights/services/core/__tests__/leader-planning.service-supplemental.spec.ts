@@ -41,7 +41,7 @@ function buildMocks() {
       provider: "openai",
       isReasoning: false,
     }),
-    chatWithSkills: jest.fn(),
+    chat: jest.fn(),
   };
 
   const mockResearchMemory = {
@@ -151,7 +151,7 @@ describe("LeaderPlanningService (supplemental)", () => {
           confidence: 0.9,
         },
       ]);
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify(basePlanResponse),
         isError: false,
       });
@@ -164,7 +164,7 @@ describe("LeaderPlanningService (supplemental)", () => {
         "topic-001",
         5,
       );
-      expect(mocks.mockAiFacade.chatWithSkills).toHaveBeenCalledWith(
+      expect(mocks.mockAiFacade.chat).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -187,7 +187,7 @@ describe("LeaderPlanningService (supplemental)", () => {
       mocks.mockResearchMemory.getRelevantMemories.mockRejectedValue(
         new Error("Memory service unavailable"),
       );
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify(basePlanResponse),
         isError: false,
       });
@@ -208,7 +208,7 @@ describe("LeaderPlanningService (supplemental)", () => {
         isReasoning: false,
       });
       mocks.mockAiFacade.getAvailableModelsExtended.mockResolvedValue([]);
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify(basePlanResponse),
         isError: false,
       });
@@ -216,7 +216,7 @@ describe("LeaderPlanningService (supplemental)", () => {
       await service.planResearch("topic-001");
 
       // The prompt should include existing dimensions info
-      expect(mocks.mockAiFacade.chatWithSkills).toHaveBeenCalledWith(
+      expect(mocks.mockAiFacade.chat).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -263,7 +263,7 @@ describe("LeaderPlanningService (supplemental)", () => {
           },
         ],
       };
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify(planWithDisplayName),
         isError: false,
       });
@@ -299,7 +299,7 @@ describe("LeaderPlanningService (supplemental)", () => {
           isAvailable: false,
         },
       ]);
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify(basePlanResponse),
         isError: false,
       });
@@ -334,7 +334,7 @@ describe("LeaderPlanningService (supplemental)", () => {
           isAvailable: true,
         },
       ]);
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify(basePlanResponse),
         isError: false,
       });
@@ -379,7 +379,7 @@ describe("LeaderPlanningService (supplemental)", () => {
           },
         ],
       };
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: JSON.stringify(planNoReason),
         isError: false,
       });
@@ -422,7 +422,7 @@ describe("LeaderPlanningService (supplemental)", () => {
         isReasoning: false,
       });
 
-      mocks.mockAiFacade.chatWithSkills
+      mocks.mockAiFacade.chat
         .mockResolvedValueOnce({
           content: "429 rate limit exceeded",
           isError: true,
@@ -453,7 +453,7 @@ describe("LeaderPlanningService (supplemental)", () => {
         provider: "openai",
         isReasoning: false,
       });
-      mocks.mockAiFacade.chatWithSkills.mockResolvedValue({
+      mocks.mockAiFacade.chat.mockResolvedValue({
         content: "<!DOCTYPE html><html>Service Unavailable</html>",
         isError: false,
       });
@@ -490,7 +490,7 @@ describe("LeaderPlanningService (supplemental)", () => {
         isReasoning: false,
       });
 
-      mocks.mockAiFacade.chatWithSkills
+      mocks.mockAiFacade.chat
         .mockResolvedValueOnce({
           content: "quota exceeded",
           isError: true,
@@ -529,7 +529,7 @@ describe("LeaderPlanningService (supplemental)", () => {
         isReasoning: false,
       });
 
-      mocks.mockAiFacade.chatWithSkills
+      mocks.mockAiFacade.chat
         .mockRejectedValueOnce(new Error("Network timeout"))
         .mockResolvedValueOnce({
           content: JSON.stringify({

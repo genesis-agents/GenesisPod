@@ -286,6 +286,7 @@ ${opposingContext}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["debate-argument-generator"],
         taskProfile: { creativity: "medium", outputLength: "medium" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{
@@ -360,6 +361,7 @@ ${conArgument.argument}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["debate-judge-assessor"],
         taskProfile: { creativity: "low", outputLength: "medium" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{
@@ -442,6 +444,7 @@ ${roundsSummary}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["debate-verdict-synthesizer"],
         taskProfile: { creativity: "low", outputLength: "medium" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{
@@ -552,6 +555,7 @@ ${previousContext}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["specialized-role-analysis"],
         taskProfile: role.taskProfile,
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{
@@ -643,6 +647,7 @@ ${viewsText}
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["multi-view-synthesizer"],
         taskProfile: { creativity: "low", outputLength: "medium" },
+        responseFormat: "json",
       });
 
       const result = extractJsonFromAIResponse<{

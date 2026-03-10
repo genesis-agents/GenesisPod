@@ -2391,7 +2391,7 @@ describe('useTopicInsightsStore', () => {
       expect(state.refreshProgress?.phase).toBe('Researching');
     });
 
-    it('polls team data on every 3rd poll (pollCount % 3 === 0)', async () => {
+    it('polls team data on every 5th poll (pollCount % 5 === 0)', async () => {
       const missionStatus = makeMissionStatus('EXECUTING');
       mockApi.getMission.mockResolvedValue(missionStatus);
       mockApi.getTeamMessages.mockResolvedValue([
@@ -2408,7 +2408,9 @@ describe('useTopicInsightsStore', () => {
       useTopicInsightsStore.getState().startMissionPolling('t1');
       await triggerPoll(); // poll 1
       await triggerPoll(); // poll 2
-      await triggerPoll(); // poll 3 - triggers team data
+      await triggerPoll(); // poll 3
+      await triggerPoll(); // poll 4
+      await triggerPoll(); // poll 5 - triggers team data
       restore();
 
       expect(mockApi.getTeamMessages).toHaveBeenCalledWith('t1', {

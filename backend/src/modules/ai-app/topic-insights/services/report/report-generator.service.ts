@@ -132,6 +132,7 @@ export class ReportGeneratorService {
           creativity: "low",
           outputLength: "medium",
         },
+        responseFormat: "json",
       });
 
       const extractionResult = extractJsonFromAIResponse<{

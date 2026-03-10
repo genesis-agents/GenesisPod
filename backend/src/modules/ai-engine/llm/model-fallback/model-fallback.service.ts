@@ -341,9 +341,15 @@ export class ModelFallbackService {
         }
         modelConfig = availableModel;
         currentModelId = modelConfig.modelId;
-        this.logger.warn(
-          `[${operation}] Preferred model ${preferredModelId} not available, using ${currentModelId}`,
-        );
+        if (preferredModelId) {
+          this.logger.warn(
+            `[${operation}] Preferred model ${preferredModelId} not available, using ${currentModelId}`,
+          );
+        } else {
+          this.logger.debug(
+            `[${operation}] No preferred model specified, using ${currentModelId}`,
+          );
+        }
       }
 
       // 内层循环：同一模型的重试
