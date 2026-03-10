@@ -1086,43 +1086,46 @@ export class DimensionWritingService {
 
     // ★ 使用 interactive transaction 保证原子性
     // 所有操作在同一事务内，防止并发竞态
-    const created = await this.prisma.$transaction(async (tx) => {
-      // 步骤1：获取当前最大 citationIndex
-      const maxIndexResult = await tx.topicEvidence.aggregate({
-        where: { reportId },
-        _max: { citationIndex: true },
-      });
-      const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
+    const created = await this.prisma.$transaction(
+      async (tx) => {
+        // 步骤1：获取当前最大 citationIndex
+        const maxIndexResult = await tx.topicEvidence.aggregate({
+          where: { reportId },
+          _max: { citationIndex: true },
+        });
+        const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
 
-      // 步骤2：批量插入（createMany 比循环插入快得多）
-      await tx.topicEvidence.createMany({
-        data: evidenceWithCredibility.map((evidence, i) => ({
-          title: evidence.title,
-          url: evidence.url,
-          domain: evidence.domain,
-          snippet: evidence.snippet,
-          sourceType: evidence.sourceType,
-          publishedAt: this.validateDate(evidence.publishedAt),
-          credibilityScore: evidence.credibilityScore,
-          citationIndex: startIndex + i,
-          reportId,
-        })),
-      });
+        // 步骤2：批量插入（createMany 比循环插入快得多）
+        await tx.topicEvidence.createMany({
+          data: evidenceWithCredibility.map((evidence, i) => ({
+            title: evidence.title,
+            url: evidence.url,
+            domain: evidence.domain,
+            snippet: evidence.snippet,
+            sourceType: evidence.sourceType,
+            publishedAt: this.validateDate(evidence.publishedAt),
+            credibilityScore: evidence.credibilityScore,
+            citationIndex: startIndex + i,
+            reportId,
+          })),
+        });
 
-      // 步骤3：查询刚插入的记录以获取 ID
-      // 因为在同一事务内，citationIndex 范围是确定的
-      return await tx.topicEvidence.findMany({
-        where: {
-          reportId,
-          citationIndex: {
-            gte: startIndex,
-            lt: startIndex + evidenceWithCredibility.length,
+        // 步骤3：查询刚插入的记录以获取 ID
+        // 因为在同一事务内，citationIndex 范围是确定的
+        return await tx.topicEvidence.findMany({
+          where: {
+            reportId,
+            citationIndex: {
+              gte: startIndex,
+              lt: startIndex + evidenceWithCredibility.length,
+            },
           },
-        },
-        orderBy: { citationIndex: "asc" },
-        select: { id: true, citationIndex: true },
-      });
-    });
+          orderBy: { citationIndex: "asc" },
+          select: { id: true, citationIndex: true },
+        });
+      },
+      { timeout: 120000 },
+    );
 
     // 构建映射
     const idMapping = new Map<string, string>();
