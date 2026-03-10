@@ -23,47 +23,58 @@ vi.mock('@/lib/utils/logger', () => ({
 
 const mockApi = vi.mocked(api);
 
+/** Wrap a topics array into the paginated response format */
+const wrapTopics = (topics: ResearchTopic[]): api.GetTopicsResponse => ({
+  topics,
+  total: topics.length,
+  skip: 0,
+  take: 20,
+});
+
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
-const makeTopic = (overrides: Partial<ResearchTopic> = {}): ResearchTopic => ({
-  id: 'topic-1',
-  name: 'Test Topic',
-  description: 'A test research topic',
-  type: 'PUBLIC' as ResearchTopic['type'],
-  createdById: 'user-1',
-  createdBy: {
-    id: 'user-1',
-    username: 'testuser',
-    fullName: 'Test User',
-    avatarUrl: null,
-  },
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-  ...overrides,
-} as ResearchTopic);
+const makeTopic = (overrides: Partial<ResearchTopic> = {}): ResearchTopic =>
+  ({
+    id: 'topic-1',
+    name: 'Test Topic',
+    description: 'A test research topic',
+    type: 'PUBLIC' as ResearchTopic['type'],
+    createdById: 'user-1',
+    createdBy: {
+      id: 'user-1',
+      username: 'testuser',
+      fullName: 'Test User',
+      avatarUrl: null,
+    },
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+    ...overrides,
+  }) as ResearchTopic;
 
 const makeDimension = (
   overrides: Partial<TopicDimension> = {}
-): TopicDimension => ({
-  id: 'dim-1',
-  topicId: 'topic-1',
-  name: 'Test Dimension',
-  description: 'A test dimension',
-  order: 0,
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-  ...overrides,
-} as TopicDimension);
+): TopicDimension =>
+  ({
+    id: 'dim-1',
+    topicId: 'topic-1',
+    name: 'Test Dimension',
+    description: 'A test dimension',
+    order: 0,
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+    ...overrides,
+  }) as TopicDimension;
 
-const makeReport = (overrides: Partial<TopicReport> = {}): TopicReport => ({
-  id: 'report-1',
-  topicId: 'topic-1',
-  title: 'Test Report',
-  content: 'Report content',
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-  ...overrides,
-} as TopicReport);
+const makeReport = (overrides: Partial<TopicReport> = {}): TopicReport =>
+  ({
+    id: 'report-1',
+    topicId: 'topic-1',
+    title: 'Test Report',
+    content: 'Report content',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+    ...overrides,
+  }) as TopicReport;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -136,8 +147,11 @@ describe('topicInsightsStore', () => {
 
   describe('fetchTopics', () => {
     it('should set topics on success', async () => {
-      const topics = [makeTopic({ id: 'topic-1' }), makeTopic({ id: 'topic-2' })];
-      mockApi.getTopics.mockResolvedValue(topics);
+      const topics = [
+        makeTopic({ id: 'topic-1' }),
+        makeTopic({ id: 'topic-2' }),
+      ];
+      mockApi.getTopics.mockResolvedValue(wrapTopics(topics));
 
       const { result } = getStore();
       await act(async () => {
@@ -150,8 +164,10 @@ describe('topicInsightsStore', () => {
     });
 
     it('should set isLoadingTopics=true during fetch', async () => {
-      let resolveTopics!: (v: ResearchTopic[]) => void;
-      const promise = new Promise<ResearchTopic[]>((res) => { resolveTopics = res; });
+      let resolveTopics!: (v: api.GetTopicsResponse) => void;
+      const promise = new Promise<api.GetTopicsResponse>((res) => {
+        resolveTopics = res;
+      });
       mockApi.getTopics.mockReturnValue(promise);
 
       const { result } = getStore();
@@ -162,7 +178,7 @@ describe('topicInsightsStore', () => {
       expect(result.current.isLoadingTopics).toBe(true);
 
       await act(async () => {
-        resolveTopics([]);
+        resolveTopics(wrapTopics([]));
         await promise;
       });
 
@@ -191,14 +207,20 @@ describe('topicInsightsStore', () => {
     });
 
     it('should pass options to API', async () => {
-      mockApi.getTopics.mockResolvedValue([]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([]));
       const { result } = getStore();
 
       await act(async () => {
-        await result.current.fetchTopics({ search: 'test' } as Parameters<typeof result.current.fetchTopics>[0]);
+        await result.current.fetchTopics({ search: 'test' } as Parameters<
+          typeof result.current.fetchTopics
+        >[0]);
       });
 
-      expect(mockApi.getTopics).toHaveBeenCalledWith({ search: 'test' });
+      expect(mockApi.getTopics).toHaveBeenCalledWith({
+        search: 'test',
+        skip: 0,
+        take: 20,
+      });
     });
   });
 
@@ -208,9 +230,11 @@ describe('topicInsightsStore', () => {
       const updated = makeTopic({ id: 'topic-1', name: 'New Name' });
 
       // Seed topics
-      mockApi.getTopics.mockResolvedValue([existing]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([existing]));
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
 
       mockApi.getTopic.mockResolvedValue(updated);
       await act(async () => {
@@ -238,13 +262,17 @@ describe('topicInsightsStore', () => {
       const existing = makeTopic({ id: 'topic-1' });
       const newTopic = makeTopic({ id: 'topic-new', name: 'New Topic' });
 
-      mockApi.getTopics.mockResolvedValue([existing]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([existing]));
       mockApi.createTopic.mockResolvedValue(newTopic);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
       await act(async () => {
-        await result.current.createTopic({ name: 'New Topic' } as Parameters<typeof result.current.createTopic>[0]);
+        await result.current.fetchTopics();
+      });
+      await act(async () => {
+        await result.current.createTopic({ name: 'New Topic' } as Parameters<
+          typeof result.current.createTopic
+        >[0]);
       });
 
       expect(result.current.topics[0]).toEqual(newTopic);
@@ -258,7 +286,9 @@ describe('topicInsightsStore', () => {
       const { result } = getStore();
       let returnedTopic!: ResearchTopic;
       await act(async () => {
-        returnedTopic = await result.current.createTopic({ name: 'New' } as Parameters<typeof result.current.createTopic>[0]);
+        returnedTopic = await result.current.createTopic({
+          name: 'New',
+        } as Parameters<typeof result.current.createTopic>[0]);
       });
 
       expect(returnedTopic).toEqual(newTopic);
@@ -270,13 +300,17 @@ describe('topicInsightsStore', () => {
       const original = makeTopic({ id: 'topic-1', name: 'Original' });
       const updated = makeTopic({ id: 'topic-1', name: 'Updated' });
 
-      mockApi.getTopics.mockResolvedValue([original]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([original]));
       mockApi.updateTopic.mockResolvedValue(updated);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
       await act(async () => {
-        await result.current.updateTopic('topic-1', { name: 'Updated' } as Parameters<typeof result.current.updateTopic>[1]);
+        await result.current.fetchTopics();
+      });
+      await act(async () => {
+        await result.current.updateTopic('topic-1', {
+          name: 'Updated',
+        } as Parameters<typeof result.current.updateTopic>[1]);
       });
 
       expect(result.current.topics[0].name).toBe('Updated');
@@ -286,15 +320,21 @@ describe('topicInsightsStore', () => {
       const original = makeTopic({ id: 'topic-1', name: 'Original' });
       const updated = makeTopic({ id: 'topic-1', name: 'Updated' });
 
-      mockApi.getTopics.mockResolvedValue([original]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([original]));
       mockApi.updateTopic.mockResolvedValue(updated);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
-      act(() => { result.current.setCurrentTopic(original); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
+      act(() => {
+        result.current.setCurrentTopic(original);
+      });
 
       await act(async () => {
-        await result.current.updateTopic('topic-1', { name: 'Updated' } as Parameters<typeof result.current.updateTopic>[1]);
+        await result.current.updateTopic('topic-1', {
+          name: 'Updated',
+        } as Parameters<typeof result.current.updateTopic>[1]);
       });
 
       expect(result.current.currentTopic?.name).toBe('Updated');
@@ -304,10 +344,12 @@ describe('topicInsightsStore', () => {
   describe('patchTopic', () => {
     it('should locally update topic without calling API', async () => {
       const original = makeTopic({ id: 'topic-1', name: 'Original' });
-      mockApi.getTopics.mockResolvedValue([original]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([original]));
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
 
       act(() => {
         result.current.patchTopic('topic-1', { name: 'Patched' });
@@ -319,11 +361,15 @@ describe('topicInsightsStore', () => {
 
     it('should also update currentTopic if it matches', async () => {
       const original = makeTopic({ id: 'topic-1', name: 'Original' });
-      mockApi.getTopics.mockResolvedValue([original]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([original]));
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
-      act(() => { result.current.setCurrentTopic(original); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
+      act(() => {
+        result.current.setCurrentTopic(original);
+      });
 
       act(() => {
         result.current.patchTopic('topic-1', { name: 'Patched' });
@@ -337,12 +383,16 @@ describe('topicInsightsStore', () => {
     it('should remove topic from list', async () => {
       const t1 = makeTopic({ id: 'topic-1' });
       const t2 = makeTopic({ id: 'topic-2' });
-      mockApi.getTopics.mockResolvedValue([t1, t2]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([t1, t2]));
       mockApi.deleteTopic.mockResolvedValue(undefined);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
-      await act(async () => { await result.current.deleteTopic('topic-1'); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
+      await act(async () => {
+        await result.current.deleteTopic('topic-1');
+      });
 
       expect(result.current.topics).toHaveLength(1);
       expect(result.current.topics[0].id).toBe('topic-2');
@@ -350,14 +400,20 @@ describe('topicInsightsStore', () => {
 
     it('should clear currentTopic if it was deleted', async () => {
       const t1 = makeTopic({ id: 'topic-1' });
-      mockApi.getTopics.mockResolvedValue([t1]);
+      mockApi.getTopics.mockResolvedValue(wrapTopics([t1]));
       mockApi.deleteTopic.mockResolvedValue(undefined);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
-      act(() => { result.current.setCurrentTopic(t1); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
+      act(() => {
+        result.current.setCurrentTopic(t1);
+      });
 
-      await act(async () => { await result.current.deleteTopic('topic-1'); });
+      await act(async () => {
+        await result.current.deleteTopic('topic-1');
+      });
 
       expect(result.current.currentTopic).toBeNull();
     });
@@ -368,7 +424,9 @@ describe('topicInsightsStore', () => {
       const topic = makeTopic();
       const { result } = getStore();
 
-      act(() => { result.current.setCurrentTopic(topic); });
+      act(() => {
+        result.current.setCurrentTopic(topic);
+      });
 
       expect(result.current.currentTopic).toEqual(topic);
     });
@@ -377,8 +435,12 @@ describe('topicInsightsStore', () => {
       const topic = makeTopic();
       const { result } = getStore();
 
-      act(() => { result.current.setCurrentTopic(topic); });
-      act(() => { result.current.setCurrentTopic(null); });
+      act(() => {
+        result.current.setCurrentTopic(topic);
+      });
+      act(() => {
+        result.current.setCurrentTopic(null);
+      });
 
       expect(result.current.currentTopic).toBeNull();
     });
@@ -388,7 +450,10 @@ describe('topicInsightsStore', () => {
 
   describe('fetchDimensions', () => {
     it('should set dimensions on success', async () => {
-      const dims = [makeDimension({ id: 'dim-1' }), makeDimension({ id: 'dim-2' })];
+      const dims = [
+        makeDimension({ id: 'dim-1' }),
+        makeDimension({ id: 'dim-2' }),
+      ];
       mockApi.getDimensions.mockResolvedValue(dims);
 
       const { result } = getStore();
@@ -403,15 +468,22 @@ describe('topicInsightsStore', () => {
 
     it('should set isLoadingDimensions=true during fetch', async () => {
       let resolve!: (v: TopicDimension[]) => void;
-      const promise = new Promise<TopicDimension[]>((res) => { resolve = res; });
+      const promise = new Promise<TopicDimension[]>((res) => {
+        resolve = res;
+      });
       mockApi.getDimensions.mockReturnValue(promise);
 
       const { result } = getStore();
-      act(() => { result.current.fetchDimensions('topic-1'); });
+      act(() => {
+        result.current.fetchDimensions('topic-1');
+      });
 
       expect(result.current.isLoadingDimensions).toBe(true);
 
-      await act(async () => { resolve([]); await promise; });
+      await act(async () => {
+        resolve([]);
+        await promise;
+      });
       expect(result.current.isLoadingDimensions).toBe(false);
     });
 
@@ -437,9 +509,13 @@ describe('topicInsightsStore', () => {
       mockApi.addDimension.mockResolvedValue(newDim);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchDimensions('topic-1'); });
       await act(async () => {
-        await result.current.addDimension('topic-1', { name: 'New Dim' } as Parameters<typeof result.current.addDimension>[1]);
+        await result.current.fetchDimensions('topic-1');
+      });
+      await act(async () => {
+        await result.current.addDimension('topic-1', {
+          name: 'New Dim',
+        } as Parameters<typeof result.current.addDimension>[1]);
       });
 
       expect(result.current.dimensions).toHaveLength(2);
@@ -456,9 +532,13 @@ describe('topicInsightsStore', () => {
       mockApi.updateDimension.mockResolvedValue(updated);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchDimensions('topic-1'); });
       await act(async () => {
-        await result.current.updateDimension('topic-1', 'dim-1', { name: 'Updated' } as Parameters<typeof result.current.updateDimension>[2]);
+        await result.current.fetchDimensions('topic-1');
+      });
+      await act(async () => {
+        await result.current.updateDimension('topic-1', 'dim-1', {
+          name: 'Updated',
+        } as Parameters<typeof result.current.updateDimension>[2]);
       });
 
       expect(result.current.dimensions[0].name).toBe('Updated');
@@ -474,7 +554,9 @@ describe('topicInsightsStore', () => {
       mockApi.deleteDimension.mockResolvedValue(undefined);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchDimensions('topic-1'); });
+      await act(async () => {
+        await result.current.fetchDimensions('topic-1');
+      });
       await act(async () => {
         await result.current.deleteDimension('topic-1', 'dim-1');
       });
@@ -489,10 +571,16 @@ describe('topicInsightsStore', () => {
   describe('fetchReports', () => {
     it('should set reports on success', async () => {
       const reports = [makeReport({ id: 'r-1' }), makeReport({ id: 'r-2' })];
-      mockApi.getReports.mockResolvedValue({ reports, hasMore: false, nextCursor: undefined });
+      mockApi.getReports.mockResolvedValue({
+        reports,
+        hasMore: false,
+        nextCursor: undefined,
+      });
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchReports('topic-1'); });
+      await act(async () => {
+        await result.current.fetchReports('topic-1');
+      });
 
       expect(result.current.reports).toEqual(reports);
       expect(result.current.isLoadingReports).toBe(false);
@@ -501,10 +589,16 @@ describe('topicInsightsStore', () => {
 
     it('should set hasMoreReports and cursor for pagination', async () => {
       const reports = [makeReport()];
-      mockApi.getReports.mockResolvedValue({ reports, hasMore: true, nextCursor: 'cursor-abc' });
+      mockApi.getReports.mockResolvedValue({
+        reports,
+        hasMore: true,
+        nextCursor: 'cursor-abc',
+      });
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchReports('topic-1'); });
+      await act(async () => {
+        await result.current.fetchReports('topic-1');
+      });
 
       expect(result.current.hasMoreReports).toBe(true);
       expect(result.current.reportsCursor).toBe('cursor-abc');
@@ -514,12 +608,24 @@ describe('topicInsightsStore', () => {
       const first = [makeReport({ id: 'r-1' })];
       const second = [makeReport({ id: 'r-2' })];
 
-      mockApi.getReports.mockResolvedValueOnce({ reports: first, hasMore: true, nextCursor: 'cursor-1' });
-      mockApi.getReports.mockResolvedValueOnce({ reports: second, hasMore: false, nextCursor: undefined });
+      mockApi.getReports.mockResolvedValueOnce({
+        reports: first,
+        hasMore: true,
+        nextCursor: 'cursor-1',
+      });
+      mockApi.getReports.mockResolvedValueOnce({
+        reports: second,
+        hasMore: false,
+        nextCursor: undefined,
+      });
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchReports('topic-1'); });
-      await act(async () => { await result.current.fetchReports('topic-1', true); });
+      await act(async () => {
+        await result.current.fetchReports('topic-1');
+      });
+      await act(async () => {
+        await result.current.fetchReports('topic-1', true);
+      });
 
       expect(result.current.reports).toHaveLength(2);
       expect(result.current.reports[0].id).toBe('r-1');
@@ -568,7 +674,9 @@ describe('topicInsightsStore', () => {
       mockApi.getLatestReport.mockResolvedValue(report);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchLatestReport('topic-1'); });
+      await act(async () => {
+        await result.current.fetchLatestReport('topic-1');
+      });
 
       expect(result.current.currentReport).toEqual(report);
     });
@@ -576,20 +684,28 @@ describe('topicInsightsStore', () => {
     it('should set currentReport=null and NO error for "Report not found"', async () => {
       // Pre-set a report so we can verify it gets cleared
       const { result } = getStore();
-      act(() => { result.current.setCurrentReport(makeReport()); });
+      act(() => {
+        result.current.setCurrentReport(makeReport());
+      });
 
       mockApi.getLatestReport.mockRejectedValue(new Error('Report not found'));
-      await act(async () => { await result.current.fetchLatestReport('topic-1'); });
+      await act(async () => {
+        await result.current.fetchLatestReport('topic-1');
+      });
 
       expect(result.current.currentReport).toBeNull();
       expect(result.current.error).toBeNull();
     });
 
     it('should set error for non-404 failures', async () => {
-      mockApi.getLatestReport.mockRejectedValue(new Error('Service unavailable'));
+      mockApi.getLatestReport.mockRejectedValue(
+        new Error('Service unavailable')
+      );
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchLatestReport('topic-1'); });
+      await act(async () => {
+        await result.current.fetchLatestReport('topic-1');
+      });
 
       expect(result.current.error).toBe('Service unavailable');
     });
@@ -600,7 +716,9 @@ describe('topicInsightsStore', () => {
       const report = makeReport();
       const { result } = getStore();
 
-      act(() => { result.current.setCurrentReport(report); });
+      act(() => {
+        result.current.setCurrentReport(report);
+      });
 
       expect(result.current.currentReport).toEqual(report);
     });
@@ -609,8 +727,12 @@ describe('topicInsightsStore', () => {
       const report = makeReport();
       const { result } = getStore();
 
-      act(() => { result.current.setCurrentReport(report); });
-      act(() => { result.current.setCurrentReport(null); });
+      act(() => {
+        result.current.setCurrentReport(report);
+      });
+      act(() => {
+        result.current.setCurrentReport(null);
+      });
 
       expect(result.current.currentReport).toBeNull();
     });
@@ -621,12 +743,20 @@ describe('topicInsightsStore', () => {
       const r1 = makeReport({ id: 'r-1' });
       const r2 = makeReport({ id: 'r-2' });
 
-      mockApi.getReports.mockResolvedValue({ reports: [r1, r2], hasMore: false, nextCursor: undefined });
+      mockApi.getReports.mockResolvedValue({
+        reports: [r1, r2],
+        hasMore: false,
+        nextCursor: undefined,
+      });
       mockApi.deleteReport.mockResolvedValue({ success: true, message: '' });
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchReports('topic-1'); });
-      await act(async () => { await result.current.deleteReport('topic-1', 'r-1'); });
+      await act(async () => {
+        await result.current.fetchReports('topic-1');
+      });
+      await act(async () => {
+        await result.current.deleteReport('topic-1', 'r-1');
+      });
 
       expect(result.current.reports).toHaveLength(1);
       expect(result.current.reports[0].id).toBe('r-2');
@@ -645,7 +775,9 @@ describe('topicInsightsStore', () => {
       });
       expect(result.current.error).toBe('Some error');
 
-      act(() => { result.current.clearError(); });
+      act(() => {
+        result.current.clearError();
+      });
 
       expect(result.current.error).toBeNull();
     });
@@ -654,13 +786,17 @@ describe('topicInsightsStore', () => {
   describe('resetStore', () => {
     it('should reset all state to initial values', async () => {
       const topics = [makeTopic()];
-      mockApi.getTopics.mockResolvedValue(topics);
+      mockApi.getTopics.mockResolvedValue(wrapTopics(topics));
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
       expect(result.current.topics).toHaveLength(1);
 
-      act(() => { result.current.resetStore(); });
+      act(() => {
+        result.current.resetStore();
+      });
 
       expect(result.current.topics).toEqual([]);
       expect(result.current.currentTopic).toBeNull();
@@ -676,17 +812,23 @@ describe('topicInsightsStore', () => {
       const topics = [makeTopic({ id: 't-1' }), makeTopic({ id: 't-2' })];
       const dims = [makeDimension()];
 
-      mockApi.getTopics.mockResolvedValue(topics);
+      mockApi.getTopics.mockResolvedValue(wrapTopics(topics));
       mockApi.getDimensions.mockResolvedValue(dims);
 
       const { result } = getStore();
-      await act(async () => { await result.current.fetchTopics(); });
-      await act(async () => { await result.current.fetchDimensions('t-1'); });
+      await act(async () => {
+        await result.current.fetchTopics();
+      });
+      await act(async () => {
+        await result.current.fetchDimensions('t-1');
+      });
 
       expect(result.current.topics).toHaveLength(2);
       expect(result.current.dimensions).toHaveLength(1);
 
-      act(() => { result.current.resetTopicData(); });
+      act(() => {
+        result.current.resetTopicData();
+      });
 
       // Topics list preserved
       expect(result.current.topics).toHaveLength(2);

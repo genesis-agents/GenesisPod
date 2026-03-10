@@ -159,22 +159,42 @@ export async function createTopic(dto: CreateTopicDto): Promise<ResearchTopic> {
 /**
  * 获取专题列表
  */
+export interface GetTopicsResponse {
+  topics: ResearchTopic[];
+  total: number;
+  skip: number;
+  take: number;
+}
+
 export async function getTopics(
   options?: ListTopicsDto
-): Promise<ResearchTopic[]> {
+): Promise<GetTopicsResponse> {
   const params = new URLSearchParams();
   if (options?.type) params.set('type', options.type);
   if (options?.status) params.set('status', options.status);
   if (options?.search) params.set('search', options.search);
-  if (options?.skip) params.set('skip', options.skip.toString());
-  if (options?.take) params.set('take', options.take.toString());
+  if (options?.skip != null) params.set('skip', options.skip.toString());
+  if (options?.take != null) params.set('take', options.take.toString());
 
   const query = params.toString();
   const response = await fetchWithAuth(
     `${API_PREFIX}/topics${query ? `?${query}` : ''}`
   );
-  // Backend returns { topics, total, skip, take }, extract the topics array
-  return Array.isArray(response) ? response : response.topics || [];
+  // Backend returns { topics, total, skip, take }
+  if (Array.isArray(response)) {
+    return {
+      topics: response,
+      total: response.length,
+      skip: 0,
+      take: response.length,
+    };
+  }
+  return {
+    topics: response.topics || [],
+    total: response.total ?? (response.topics?.length || 0),
+    skip: response.skip ?? 0,
+    take: response.take ?? 20,
+  };
 }
 
 /**

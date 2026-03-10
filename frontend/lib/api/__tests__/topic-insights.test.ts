@@ -301,7 +301,7 @@ describe('createTopic', () => {
 });
 
 describe('getTopics', () => {
-  it('returns topics array from { topics } envelope', async () => {
+  it('returns topics from { topics } envelope with pagination metadata', async () => {
     const topics = [{ id: 't1' }, { id: 't2' }];
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse({ topics, total: 2 })
@@ -309,10 +309,10 @@ describe('getTopics', () => {
 
     const result = await getTopics();
 
-    expect(result).toEqual(topics);
+    expect(result).toEqual({ topics, total: 2, skip: 0, take: 20 });
   });
 
-  it('returns raw array when response is already an array', async () => {
+  it('wraps raw array response into GetTopicsResponse', async () => {
     const topics = [{ id: 't1' }];
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse(topics)
@@ -320,7 +320,7 @@ describe('getTopics', () => {
 
     const result = await getTopics();
 
-    expect(result).toEqual(topics);
+    expect(result).toEqual({ topics, total: 1, skip: 0, take: 1 });
   });
 
   it('appends query params for type and search', async () => {

@@ -4344,6 +4344,7 @@
     "searchPlaceholder": "Search topics...",
     "noTopics": "No research topics yet",
     "noTopicsDesc": "Create your first research topic to start tracking industry trends",
+    "showingCount": "Showing {{shown}} of {{total}}",
     "noMatchingTopics": "No matching topics found",
     "noMatchingTopicsDesc": "Try a different search term",
     "confirmDelete": "Are you sure you want to delete this topic? All related data will be permanently deleted.",

@@ -202,7 +202,12 @@ describe('useTopicInsightsStore', () => {
   describe('fetchTopics', () => {
     it('loads topics and clears loading state', async () => {
       const topics = [makeTopic('t1'), makeTopic('t2')];
-      mockApi.getTopics.mockResolvedValue(topics);
+      mockApi.getTopics.mockResolvedValue({
+        topics,
+        total: topics.length,
+        skip: 0,
+        take: 20,
+      });
 
       await act(async () => {
         await useTopicInsightsStore.getState().fetchTopics();
@@ -840,11 +845,9 @@ describe('useTopicInsightsStore', () => {
       });
 
       act(() => {
-        useTopicInsightsStore
-          .getState()
-          .patchTopic('t1', {
-            title: 'Patched',
-          } as unknown as Partial<ResearchTopic>);
+        useTopicInsightsStore.getState().patchTopic('t1', {
+          title: 'Patched',
+        } as unknown as Partial<ResearchTopic>);
       });
 
       const state = useTopicInsightsStore.getState();
@@ -862,11 +865,9 @@ describe('useTopicInsightsStore', () => {
       });
 
       act(() => {
-        useTopicInsightsStore
-          .getState()
-          .patchTopic('t1', {
-            title: 'Patched',
-          } as unknown as Partial<ResearchTopic>);
+        useTopicInsightsStore.getState().patchTopic('t1', {
+          title: 'Patched',
+        } as unknown as Partial<ResearchTopic>);
       });
 
       expect(useTopicInsightsStore.getState().currentTopic).toBeNull();
@@ -1712,12 +1713,10 @@ describe('useTopicInsightsStore', () => {
 
       await expect(
         act(async () => {
-          await useTopicInsightsStore
-            .getState()
-            .compareReports('t1', {
-              reportId1: 'r1',
-              reportId2: 'r2',
-            } as never);
+          await useTopicInsightsStore.getState().compareReports('t1', {
+            reportId1: 'r1',
+            reportId2: 'r2',
+          } as never);
         })
       ).rejects.toThrow('Comparison failed');
 

@@ -8,7 +8,7 @@
  *         这样浏览器刷新能正确保持在详情页
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
@@ -95,9 +95,13 @@ export function TopicResearchTab({
 
   const {
     topics,
+    topicsTotal,
+    hasMoreTopics,
+    isLoadingMoreTopics,
     isLoadingTopics,
     error,
     fetchTopics,
+    loadMoreTopics,
     triggerRefresh,
     deleteTopic,
     updateTopic,
@@ -114,6 +118,12 @@ export function TopicResearchTab({
   // Ensure topics is always an array
   const topicsList = Array.isArray(topics) ? topics : [];
 
+  // Current filter options (shared between fetch and loadMore)
+  const filterOptions = {
+    type: activeType || undefined,
+    search: searchQuery || undefined,
+  };
+
   // Load topics
   const loadTopics = useCallback(async () => {
     try {
@@ -129,6 +139,31 @@ export function TopicResearchTab({
   useEffect(() => {
     loadTopics();
   }, [loadTopics]);
+
+  // Infinite scroll: IntersectionObserver on sentinel element
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          hasMoreTopics &&
+          !isLoadingMoreTopics
+        ) {
+          void loadMoreTopics(filterOptions);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMoreTopics, isLoadingMoreTopics, activeType, searchQuery]);
 
   // ★ 点击专题卡片 - 导航到独立路由
   const handleTopicClick = useCallback(
@@ -269,6 +304,23 @@ export function TopicResearchTab({
               {t('topicResearch.createTopic')}
             </span>
           </button>
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel + loading indicator */}
+      {!isLoadingTopics && topicsList.length > 0 && (
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {isLoadingMoreTopics && (
+            <LoaderIcon className="h-6 w-6 animate-spin text-blue-600" />
+          )}
+          {hasMoreTopics && !isLoadingMoreTopics && (
+            <span className="text-xs text-gray-400">
+              {t('topicResearch.showingCount', {
+                shown: topicsList.length,
+                total: topicsTotal,
+              })}
+            </span>
+          )}
         </div>
       )}
 

@@ -4344,6 +4344,7 @@
     "searchPlaceholder": "搜索专题...",
     "noTopics": "暂无研究专题",
     "noTopicsDesc": "创建您的第一个研究专题，开始追踪行业动态",
+    "showingCount": "已显示 {{shown}} / {{total}} 个专题",
     "noMatchingTopics": "未找到匹配的专题",
     "noMatchingTopicsDesc": "请尝试其他搜索关键词",
     "confirmDelete": "确定要删除这个专题吗？所有相关数据将被永久删除。",

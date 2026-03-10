@@ -46,6 +46,9 @@ import type {
 interface TopicInsightsState {
   // Topics
   topics: ResearchTopic[];
+  topicsTotal: number;
+  hasMoreTopics: boolean;
+  isLoadingMoreTopics: boolean;
   currentTopic: ResearchTopic | null;
   isLoadingTopics: boolean;
 
@@ -116,6 +119,7 @@ interface TopicInsightsState {
 
   // Actions - Topics
   fetchTopics: (options?: ListTopicsDto) => Promise<void>;
+  loadMoreTopics: (options?: ListTopicsDto) => Promise<void>;
   fetchTopic: (topicId: string) => Promise<void>;
   createTopic: (dto: CreateTopicDto) => Promise<ResearchTopic>;
   updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<ResearchTopic>;
@@ -260,6 +264,9 @@ function isReportNotFoundError(error: unknown): boolean {
 export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
   // Initial state
   topics: [],
+  topicsTotal: 0,
+  hasMoreTopics: false,
+  isLoadingMoreTopics: false,
   currentTopic: null,
   isLoadingTopics: false,
   dimensions: [],
@@ -302,14 +309,49 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
   fetchTopics: async (options) => {
     set({ isLoadingTopics: true, error: null });
     try {
-      const topics = await api.getTopics(options);
-      set({ topics, isLoadingTopics: false });
+      const PAGE_SIZE = 20;
+      const response = await api.getTopics({
+        ...options,
+        skip: 0,
+        take: PAGE_SIZE,
+      });
+      set({
+        topics: response.topics,
+        topicsTotal: response.total,
+        hasMoreTopics: response.topics.length < response.total,
+        isLoadingTopics: false,
+      });
     } catch (error) {
       set({
         isLoadingTopics: false,
         error:
           error instanceof Error ? error.message : 'Failed to fetch topics',
       });
+      throw error;
+    }
+  },
+
+  loadMoreTopics: async (options) => {
+    const { topics, hasMoreTopics, isLoadingMoreTopics } = get();
+    if (!hasMoreTopics || isLoadingMoreTopics) return;
+
+    set({ isLoadingMoreTopics: true });
+    try {
+      const PAGE_SIZE = 20;
+      const response = await api.getTopics({
+        ...options,
+        skip: topics.length,
+        take: PAGE_SIZE,
+      });
+      set((state) => ({
+        topics: [...state.topics, ...response.topics],
+        topicsTotal: response.total,
+        hasMoreTopics:
+          state.topics.length + response.topics.length < response.total,
+        isLoadingMoreTopics: false,
+      }));
+    } catch (error) {
+      set({ isLoadingMoreTopics: false });
       throw error;
     }
   },
@@ -1227,6 +1269,9 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
     get().stopMissionPolling();
     set({
       topics: [],
+      topicsTotal: 0,
+      hasMoreTopics: false,
+      isLoadingMoreTopics: false,
       currentTopic: null,
       isLoadingTopics: false,
       dimensions: [],
