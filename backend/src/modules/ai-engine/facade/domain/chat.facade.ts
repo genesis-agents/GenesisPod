@@ -70,6 +70,10 @@ const SENSITIVE_PATTERNS = [
   /bearer\s+\S+/gi,
 ];
 
+/** Short-lived cache to avoid repeated DB lookups for zero-balance users */
+const ZERO_BALANCE_CACHE_TTL = 30_000; // 30 seconds
+const zeroBalanceCache = new Map<string, number>(); // userId → expiry timestamp
+
 @Injectable()
 export class ChatFacade {
   private readonly logger = new Logger(ChatFacade.name);
@@ -757,11 +761,27 @@ export class ChatFacade {
     const billing = request.billing ?? this.resolveBillingFromContext();
     if (!billing) return null;
 
+    const userId = billing.userId;
+
+    // Fast path: check in-memory cache to avoid DB roundtrip for known zero-balance users
+    const cachedExpiry = zeroBalanceCache.get(userId);
+    if (cachedExpiry && Date.now() < cachedExpiry) {
+      return {
+        content:
+          "Insufficient credits. Please top up your account to continue.",
+        model: "",
+        tokensUsed: 0,
+        isError: true,
+      };
+    }
+
     try {
-      const { balance } = await this.creditsService.getBalance(billing.userId);
+      const { balance } = await this.creditsService.getBalance(userId);
       if (balance <= 0) {
+        // Cache this result to suppress repeated DB lookups and log spam
+        zeroBalanceCache.set(userId, Date.now() + ZERO_BALANCE_CACHE_TTL);
         this.logger.warn(
-          `[chat] Blocked: user ${billing.userId} has no credits (balance=${balance})`,
+          `[chat] Blocked: user ${userId} has no credits (balance=${balance}), cached for ${ZERO_BALANCE_CACHE_TTL / 1000}s`,
         );
         return {
           content:
@@ -770,6 +790,9 @@ export class ChatFacade {
           tokensUsed: 0,
           isError: true,
         };
+      } else {
+        // User topped up — clear cache
+        zeroBalanceCache.delete(userId);
       }
     } catch {
       // If balance check fails, allow the request through (fail-open)
@@ -825,6 +848,11 @@ export class ChatFacade {
       });
     } catch (creditError) {
       if (creditError instanceof InsufficientCreditsException) {
+        // Cache zero balance to suppress further LLM calls for this user
+        zeroBalanceCache.set(
+          billing.userId,
+          Date.now() + ZERO_BALANCE_CACHE_TTL,
+        );
         this.logger.error(
           `[Billing] Insufficient credits for user ${billing.userId}: ${creditError.message}`,
         );
