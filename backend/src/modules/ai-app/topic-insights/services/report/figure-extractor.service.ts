@@ -31,6 +31,12 @@ const VALIDATE_TIMEOUT_MS = 5_000;
 /** URL 路径中的最小图片宽度（低于此视为缩略图 URL） */
 const MIN_URL_DIMENSION_WIDTH = 400;
 
+/** 图片下载超时（毫秒） */
+const DOWNLOAD_TIMEOUT_MS = 10_000;
+
+/** 内联 base64 的最大图片大小（字节）：超过此大小保留原始 URL */
+const MAX_INLINE_IMAGE_BYTES = 500_000;
+
 /**
  * Figure Extractor Service
  *
@@ -691,41 +697,62 @@ export class FigureExtractorService {
   }
 
   /**
-   * 校验单个图片：尝试升级 URL → HEAD 校验 → 大小/尺寸校验
+   * 校验单个图片：尝试升级 URL → HEAD 校验 → 大小/尺寸校验 → 下载内联
    * 返回 null 表示该图片应被丢弃
+   *
+   * ★ v5: 校验通过后下载图片转 base64 data URL，确保报告中的图片永久可用
    */
   private async validateSingleFigure(
     figure: ExtractedFigure,
   ): Promise<ExtractedFigure | null> {
     const originalUrl = figure.imageUrl;
 
+    // 已经是 data URL，直接通过
+    if (originalUrl.startsWith("data:")) {
+      return figure;
+    }
+
     // 1. 尝试 CDN URL 升级（获取更高分辨率版本）
+    let validatedFigure: ExtractedFigure | null = null;
     const upgradedUrl = this.tryUpgradeImageUrl(originalUrl);
     if (upgradedUrl) {
-      // 先检查升级后的 URL 是否可用
       const upgradeResult = await this.headCheck(upgradedUrl);
       if (upgradeResult.ok) {
         this.logger.debug(
           `[validateFigure] Upgraded URL: ${originalUrl.substring(0, 80)} → ${upgradedUrl.substring(0, 80)}`,
         );
-        return this.applyValidationResult(
+        validatedFigure = this.applyValidationResult(
           { ...figure, imageUrl: upgradedUrl },
           upgradeResult,
         );
       }
-      // 升级失败，继续用原始 URL
     }
 
-    // 2. 校验原始 URL
-    const result = await this.headCheck(originalUrl);
-    if (!result.ok) {
-      this.logger.debug(
-        `[validateFigure] REJECTED (HTTP ${result.status}): ${originalUrl.substring(0, 120)}`,
-      );
-      return null;
+    // 2. 校验原始 URL（如果升级失败）
+    if (!validatedFigure) {
+      const result = await this.headCheck(originalUrl);
+      if (!result.ok) {
+        this.logger.debug(
+          `[validateFigure] REJECTED (HTTP ${result.status}): ${originalUrl.substring(0, 120)}`,
+        );
+        return null;
+      }
+      validatedFigure = this.applyValidationResult(figure, result);
     }
 
-    return this.applyValidationResult(figure, result);
+    if (!validatedFigure) return null;
+
+    // 3. ★ 下载图片并转为 base64 data URL（确保永久可用）
+    const inlined = await this.downloadAndInlineImage(validatedFigure.imageUrl);
+    if (inlined) {
+      return { ...validatedFigure, imageUrl: inlined };
+    }
+
+    // 下载失败时保留原始 URL（降级但不丢弃）
+    this.logger.warn(
+      `[validateFigure] Failed to inline image, keeping original URL: ${validatedFigure.imageUrl.substring(0, 100)}`,
+    );
+    return validatedFigure;
   }
 
   /**
@@ -806,6 +833,77 @@ export class FigureExtractorService {
     } catch {
       // 网络错误、超时、DNS 失败等
       return { ok: false, status: 0, contentLength: 0 };
+    }
+  }
+
+  /**
+   * ★ v5: 下载图片并转为 base64 data URL
+   *
+   * 确保报告中的图片永久可用，不依赖外部 URL 的持续有效性。
+   * 超过 MAX_INLINE_IMAGE_BYTES 的图片返回 null（保留原始 URL）。
+   */
+  private async downloadAndInlineImage(url: string): Promise<string | null> {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          signal: controller.signal,
+          redirect: "follow",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; GenesisBot/1.0; +https://genesis-ai-labs.org)",
+            Accept: "image/*",
+          },
+        });
+        clearTimeout(timer);
+
+        if (!response.ok) {
+          this.logger.debug(
+            `[downloadImage] HTTP ${response.status}: ${url.substring(0, 100)}`,
+          );
+          return null;
+        }
+
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.startsWith("image/")) {
+          this.logger.debug(
+            `[downloadImage] Not an image (${contentType}): ${url.substring(0, 100)}`,
+          );
+          return null;
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = Buffer.from(arrayBuffer);
+
+        if (bytes.length > MAX_INLINE_IMAGE_BYTES) {
+          this.logger.debug(
+            `[downloadImage] Too large to inline (${(bytes.length / 1024).toFixed(0)}KB > ${(MAX_INLINE_IMAGE_BYTES / 1024).toFixed(0)}KB): ${url.substring(0, 100)}`,
+          );
+          return null;
+        }
+
+        if (bytes.length < MIN_IMAGE_BYTES) {
+          this.logger.debug(
+            `[downloadImage] Downloaded image too small (${bytes.length} bytes), likely placeholder: ${url.substring(0, 100)}`,
+          );
+          return null;
+        }
+
+        const base64 = bytes.toString("base64");
+        // 规范化 MIME 类型
+        const mime = contentType.split(";")[0].trim();
+        this.logger.debug(
+          `[downloadImage] Inlined ${(bytes.length / 1024).toFixed(0)}KB image as ${mime}: ${url.substring(0, 80)}`,
+        );
+        return `data:${mime};base64,${base64}`;
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      return null;
     }
   }
 

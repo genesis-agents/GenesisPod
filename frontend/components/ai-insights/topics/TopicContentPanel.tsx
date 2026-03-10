@@ -3601,10 +3601,22 @@ function TeamInteractionTabContent({
         // 审核评分
         if (reviewResult) {
           const score = reviewResult.overallScore as number;
-          const level = safeString(reviewResult.qualityLevel);
+          const rawLevel = safeString(reviewResult.qualityLevel);
+          const levelLabel =
+            rawLevel === 'excellent'
+              ? t('topicResearch.contentPanel.excellent')
+              : rawLevel === 'good'
+                ? t('topicResearch.contentPanel.good')
+                : rawLevel === 'acceptable'
+                  ? t('topicResearch.contentPanel.qualified')
+                  : rawLevel === 'needs_revision'
+                    ? t('topicResearch.contentPanel.needsRevision')
+                    : rawLevel === 'rejected'
+                      ? t('topicResearch.contentPanel.fail')
+                      : rawLevel;
           if (score) {
             contentParts.push(
-              `${t('topicResearch.contentPanel.qualityScore')}: ${score}/100 (${level})`
+              `${t('topicResearch.contentPanel.qualityScore')}: ${score}/100 (${levelLabel})`
             );
           }
         }
@@ -3635,14 +3647,25 @@ function TeamInteractionTabContent({
         agentType = 'researcher';
         msgType = 'agent';
         if (eventType === 'dimension:research_started') {
-          content = t('topicResearch.contentPanel.startResearchingDot');
+          content =
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.startResearchingDot');
         } else if (eventType === 'dimension:research_progress') {
           progress = (data.progress as number) || 0;
-          content = t('topicResearch.contentPanel.researchProgressPercent', {
-            progress,
-          });
+          const currentStep = safeString(data.currentStep);
+          content = currentStep
+            ? `${t('topicResearch.contentPanel.researchProgressPercent', { progress })} - ${currentStep}`
+            : t('topicResearch.contentPanel.researchProgressPercent', {
+                progress,
+              });
         } else if (eventType === 'dimension:research_completed') {
-          content = t('topicResearch.contentPanel.researchCompletedDefault');
+          const findingsCount = data.findingsCount as number;
+          const wordCount = data.wordCount as number;
+          content =
+            safeString(data.message) ||
+            (findingsCount
+              ? `研究完成，发现 ${findingsCount} 个要点${wordCount ? `，${wordCount} 字` : ''}`
+              : t('topicResearch.contentPanel.researchCompletedDefault'));
           // ★ 添加研究结果预览
           const summary = (data.summary as string) || '';
           const keyFindings = (data.keyFindings as string[]) || [];
@@ -3664,11 +3687,20 @@ function TeamInteractionTabContent({
         msgType = 'agent';
 
         if (eventType === 'report:synthesis_started') {
-          content = t('topicResearch.contentPanel.startWritingResearchReport');
+          content =
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.startWritingResearchReport');
+        } else if (eventType === 'report:synthesis_progress') {
+          progress = (data.progress as number) || 0;
+          content = safeString(data.message) || `报告撰写中 ${progress}%`;
         } else if (eventType === 'report:synthesis_completed') {
-          content = t(
-            'topicResearch.contentPanel.researchReportWritingComplete'
-          );
+          const chapterCount = data.chapterCount as number;
+          const totalWordCount = data.totalWordCount as number;
+          content =
+            safeString(data.message) ||
+            (chapterCount
+              ? `${t('topicResearch.contentPanel.researchReportWritingComplete')}，共 ${chapterCount} 章节${totalWordCount ? `，${totalWordCount} 字` : ''}`
+              : t('topicResearch.contentPanel.researchReportWritingComplete'));
           // ★ 添加报告预览
           const reportTitle = safeString(data.title) || '';
           const summary = safeString(data.summary) || '';

@@ -962,6 +962,30 @@ export class ResearchEventEmitterService {
   // ==================== 报告撰写事件 ====================
 
   /**
+   * 发送报告撰写进度事件
+   */
+  async emitReportSynthesisProgress(
+    topicId: string,
+    data: {
+      progress: number;
+      phase: string;
+      message: string;
+      missionId?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(
+      topicId,
+      ResearchEventType.REPORT_SYNTHESIS_PROGRESS,
+      {
+        progress: data.progress,
+        phase: data.phase,
+        message: data.message,
+        missionId: data.missionId,
+      },
+    );
+  }
+
+  /**
    * 发送报告撰写开始事件
    * ★ 同时完成 researching 阶段，开始 synthesizing 阶段
    */

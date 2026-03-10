@@ -26,6 +26,7 @@ interface PipelinePhaseIndicatorProps {
   /** Whether the mission failed */
   isFailed?: boolean;
   className?: string;
+  onPhaseClick?: (phase: PipelinePhase) => void;
 }
 
 const PHASES: {
@@ -61,6 +62,7 @@ export function PipelinePhaseIndicator({
   progress,
   isFailed,
   className,
+  onPhaseClick,
 }: PipelinePhaseIndicatorProps) {
   const { t } = useI18n();
 
@@ -93,7 +95,8 @@ export function PipelinePhaseIndicator({
                 )}
               />
             )}
-            <div
+            <button
+              type="button"
               className={cn(
                 'flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-all',
                 isActive &&
@@ -103,9 +106,15 @@ export function PipelinePhaseIndicator({
                   isFailed &&
                   'bg-red-100 text-red-700 ring-1 ring-red-300',
                 isDone && 'bg-green-50 text-green-700',
-                isFutureOrFailed && !isActive && 'text-gray-400'
+                isFutureOrFailed && !isActive && 'text-gray-400',
+                onPhaseClick &&
+                  (isDone || isActive) &&
+                  'cursor-pointer hover:ring-2 hover:ring-blue-200',
+                !onPhaseClick && 'cursor-default'
               )}
               title={t(phase.labelKey)}
+              onClick={() => onPhaseClick?.(phase.key)}
+              disabled={!onPhaseClick || (!isDone && !isActive)}
             >
               <Icon
                 className={cn(
@@ -114,7 +123,7 @@ export function PipelinePhaseIndicator({
                 )}
               />
               <span className="hidden sm:inline">{t(phase.labelKey)}</span>
-            </div>
+            </button>
           </div>
         );
       })}

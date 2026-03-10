@@ -95,6 +95,8 @@ export class MissionExecutionService {
     private readonly agentActivity: AgentActivityService,
     private readonly chatFacade: ChatFacade,
     private readonly reviewerService: ResearchReviewerService,
+    // forwardRef: MissionExecutionService <-> ResearchMemoryService
+    // Execution calls Memory after each task to extract findings; Memory is read by LeaderPlanning which generates tasks that Execution drives
     @Inject(forwardRef(() => ResearchMemoryService))
     private readonly researchMemory: ResearchMemoryService,
     private readonly dataSourceFetcher: DataSourceFetcherService,
@@ -757,6 +759,14 @@ export class MissionExecutionService {
               );
 
               // ★ 发送维度审核结果事件（包含评分和结论）
+              const dimQualityLevelCn = this.getQualityLevelCn(
+                review.qualityLevel,
+              );
+              const dimTopIssue = review.issues[0]?.description ?? null;
+              const dimScoreRounded = Math.round(review.overallScore);
+              const dimTaskDescription = dimTopIssue
+                ? `「${dimension.name}」审核完成：${dimQualityLevelCn}（${dimScoreRounded}分）— ${dimTopIssue.length > 50 ? dimTopIssue.substring(0, 50) + "…" : dimTopIssue}`
+                : `「${dimension.name}」审核完成：${dimQualityLevelCn}（${dimScoreRounded}分）`;
               await this.researchEventEmitter.emitAgentWorking(
                 topic.id,
                 {
@@ -764,7 +774,7 @@ export class MissionExecutionService {
                   agentName: "质量审核员",
                   agentRole: "reviewer",
                   status: "working",
-                  taskDescription: `维度「${dimension.name}」审核完成`,
+                  taskDescription: dimTaskDescription,
                   progress: reviewProgress,
                   modelId: assignedModelId,
                   dimensionId: dimension.id,
@@ -806,6 +816,28 @@ export class MissionExecutionService {
                 );
 
                 // ★ 发送整体审核结果事件
+                const overallQualityLevelCn = this.getQualityLevelCn(
+                  overallReview.qualityLevel,
+                );
+                const overallScoreRounded = Math.round(
+                  overallReview.overallScore,
+                );
+                const passedCount = dimensionReviews.filter(
+                  (r) => r.overallScore >= 60,
+                ).length;
+                const failedCount = dimensionReviews.length - passedCount;
+                const topRecommendation =
+                  overallReview.recommendations[0] ?? null;
+                let overallTaskDescription = `整体质量审核完成：${overallScoreRounded}分/${overallQualityLevelCn}，${passedCount}个维度通过`;
+                if (failedCount > 0)
+                  overallTaskDescription += `，${failedCount}个需补充研究`;
+                if (topRecommendation) {
+                  const truncated =
+                    topRecommendation.length > 50
+                      ? topRecommendation.substring(0, 50) + "…"
+                      : topRecommendation;
+                  overallTaskDescription += `。主要建议：${truncated}`;
+                }
                 await this.researchEventEmitter.emitAgentWorking(
                   topic.id,
                   {
@@ -813,7 +845,7 @@ export class MissionExecutionService {
                     agentName: "质量审核员",
                     agentRole: "reviewer",
                     status: "completed",
-                    taskDescription: `质量审核完成：${overallReview.qualityLevel === "excellent" ? "优秀" : overallReview.qualityLevel === "good" ? "良好" : overallReview.qualityLevel === "acceptable" ? "合格" : "需修订"} (${overallReview.overallScore}分)`,
+                    taskDescription: overallTaskDescription,
                     progress: 100,
                     modelId: assignedModelId,
                     reviewResult: {
@@ -1863,6 +1895,23 @@ export class MissionExecutionService {
         `[addAgentToLeaderPlan] Failed to update leaderPlan: ${error}`,
       );
       // 不抛出异常，避免影响主流程
+    }
+  }
+
+  private getQualityLevelCn(qualityLevel: string): string {
+    switch (qualityLevel) {
+      case "excellent":
+        return "优秀";
+      case "good":
+        return "良好";
+      case "acceptable":
+        return "可接受";
+      case "needs_revision":
+        return "需修订";
+      case "rejected":
+        return "不合格";
+      default:
+        return qualityLevel;
     }
   }
 }

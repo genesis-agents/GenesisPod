@@ -135,19 +135,9 @@ function ReferenceFigureRenderer({
 
   const altText = generateAltText(chart, t);
 
-  // 图片加载失败时显示占位符
+  // 图片无效或加载失败 → 不显示（无效图片不应占据报告空间）
   if (imageError || !chart.imageUrl) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8">
-        <ImageOff className="h-12 w-12 text-gray-400" aria-hidden="true" />
-        <p className="mt-2 text-sm text-gray-500">
-          {t('topicResearch.charts.imageLoadFailed')}
-        </p>
-        {chart.title && (
-          <p className="mt-1 text-xs text-gray-400">{chart.title}</p>
-        )}
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -417,6 +407,14 @@ export function FigureRenderer({
               {chart.source && (
                 <span className="text-gray-500">{chart.source}</span>
               )}
+              {/* If no explicit source but we have evidenceInfo, show evidence title/domain */}
+              {!chart.source &&
+                evidenceInfo &&
+                (evidenceInfo.title || evidenceInfo.domain) && (
+                  <span className="text-gray-500">
+                    {evidenceInfo.title || evidenceInfo.domain}
+                  </span>
+                )}
               {chart.evidenceCitationIndex && evidenceInfo ? (
                 <CitationBadge
                   index={chart.evidenceCitationIndex}

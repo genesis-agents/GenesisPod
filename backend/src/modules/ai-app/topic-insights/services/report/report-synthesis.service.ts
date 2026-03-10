@@ -59,6 +59,7 @@ import {
 } from "./report-assembler.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { ReportQualityTraceService } from "../quality/report-quality-trace.service";
+import { ResearchEventEmitterService } from "../core/research-event-emitter.service";
 
 /**
  * Report Synthesis Service
@@ -90,6 +91,8 @@ export class ReportSynthesisService {
     @Optional() private readonly contextEvolution?: ContextEvolutionService,
     // ★ Batch 3: Token 预算智能截断
     @Optional() private readonly tokenBudgetService?: TokenBudgetService,
+    @Optional()
+    private readonly researchEventEmitter?: ResearchEventEmitterService,
   ) {}
 
   /**
@@ -304,6 +307,12 @@ export class ReportSynthesisService {
 
     const startTime = Date.now();
 
+    void this.researchEventEmitter?.emitReportSynthesisProgress(topic.id, {
+      progress: 5,
+      phase: "collecting",
+      message: "正在收集各维度研究结果...",
+    });
+
     // 1. 获取所有维度分析（包含维度和证据信息）
     const dimensionAnalyses = await this.prisma.dimensionAnalysis.findMany({
       where: { reportId },
@@ -339,6 +348,12 @@ export class ReportSynthesisService {
 
     // ★ Probe 1: 证据采集质量
     this.qualityTrace.recordEvidenceQuality(qualityCtx, allEvidences);
+
+    void this.researchEventEmitter?.emitReportSynthesisProgress(topic.id, {
+      progress: 15,
+      phase: "consistency_check",
+      message: "正在进行跨维度一致性分析...",
+    });
 
     // 4.5 ★ 跨维度一致性检查
     const consistencyCheck = await this.checkCrossDimensionConsistency(
@@ -443,6 +458,12 @@ export class ReportSynthesisService {
       return d;
     });
 
+    void this.researchEventEmitter?.emitReportSynthesisProgress(topic.id, {
+      progress: 30,
+      phase: "llm_generation",
+      message: "AI 正在撰写综合研究报告...",
+    });
+
     // 6. 使用 AI 生成综合报告（传入一致性检查结果）
     const synthesisResult = await this.generateComprehensiveReport(
       topic,
@@ -472,6 +493,12 @@ export class ReportSynthesisService {
         true,
       );
     }
+
+    void this.researchEventEmitter?.emitReportSynthesisProgress(topic.id, {
+      progress: 60,
+      phase: "post_processing",
+      message: "报告生成完成，正在进行去重与优化处理...",
+    });
 
     // 6.5 ★ 跨维度编辑层：去重 + 过渡
     const editResult = await this.reportEditor.editDimensionInputs(
@@ -655,6 +682,12 @@ export class ReportSynthesisService {
       }
     }
 
+    void this.researchEventEmitter?.emitReportSynthesisProgress(topic.id, {
+      progress: 75,
+      phase: "quality_gate",
+      message: "正在进行报告质量评审...",
+    });
+
     // 10. ★ Phase 4: OutputReviewer — 报告质量评审（非阻塞，结果持久化到 qualityTrace）
     let reportQualityScore: number | undefined;
     if (this.outputReviewer && cleanedReport.length > 0) {
@@ -732,6 +765,12 @@ export class ReportSynthesisService {
         "[Degraded] OutputReviewerService unavailable, skipping report quality review",
       );
     }
+
+    void this.researchEventEmitter?.emitReportSynthesisProgress(topic.id, {
+      progress: 90,
+      phase: "final_assembly",
+      message: "正在组装最终报告与参考文献...",
+    });
 
     // 11. 更新报告
     const generationTimeMs = Date.now() - startTime;
