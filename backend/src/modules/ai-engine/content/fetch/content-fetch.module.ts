@@ -1,17 +1,24 @@
 import { Module } from "@nestjs/common";
 import { ContentProcessingModule } from "../../../../common/content-processing/content-processing.module";
-import { ContentFetchService } from "./content-fetch.service";
+import {
+  ContentFetchService,
+  YOUTUBE_SERVICE_TOKEN,
+} from "./content-fetch.service";
+import { ExploreModule } from "../../../ai-app/explore/explore.module";
+import { YoutubeService } from "../../../ai-app/explore/youtube.service";
 
 /**
  * ContentFetchModule
  *
- * YoutubeService 通过 YOUTUBE_SERVICE_TOKEN 可选注入，
- * 由消费方模块（如 AiEngineModule）负责提供 provider 绑定，
- * 避免直接导入 ExploreModule 引起循环依赖。
+ * YoutubeService 通过 YOUTUBE_SERVICE_TOKEN 注入。
+ * ExploreModule 不依赖 AI Engine，因此可以安全导入（无循环依赖）。
  */
 @Module({
-  imports: [ContentProcessingModule],
-  providers: [ContentFetchService],
+  imports: [ContentProcessingModule, ExploreModule],
+  providers: [
+    ContentFetchService,
+    { provide: YOUTUBE_SERVICE_TOKEN, useExisting: YoutubeService },
+  ],
   exports: [ContentFetchService],
 })
 export class ContentFetchModule {}

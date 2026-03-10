@@ -22,8 +22,6 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { ExploreModule } from "../explore/explore.module";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
-import { YoutubeService } from "../explore/youtube.service";
-import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/facade";
 import { initSessionCrypto } from "./utils/session-crypto";
 
 @Module({
@@ -39,8 +37,6 @@ import { initSessionCrypto } from "./utils/session-crypto";
   ],
   controllers: [AiSocialController],
   providers: [
-    // Bind YoutubeService to YOUTUBE_SERVICE_TOKEN for ContentFetchService (Engine)
-    { provide: YOUTUBE_SERVICE_TOKEN, useExisting: YoutubeService },
     AiSocialService,
     SocialLeaderService,
     ContentFetcherService,
