@@ -56,6 +56,7 @@ import {
   ResearchReflectionService,
   DataSourcePlannerService,
   FigureExtractorService,
+  FigureRelevanceService,
   ReportValidationService,
   ReportEditorService,
   // ★ Mission sub-services (God Service decomposition)
@@ -159,6 +160,7 @@ const services = [
   ResearchReflectionService,
   DataSourcePlannerService,
   FigureExtractorService,
+  FigureRelevanceService,
   ReportValidationService,
   ReportEditorService,
   // ★ Leader sub-services

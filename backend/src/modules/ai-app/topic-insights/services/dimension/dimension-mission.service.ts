@@ -345,6 +345,7 @@ export class DimensionMissionService {
         topN: enrichmentTopN,
         maxContentLength: enrichmentMaxLength,
         enableFigures,
+        topicTitle: topic.name,
       },
     );
 

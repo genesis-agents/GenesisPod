@@ -20,6 +20,17 @@ export interface ExtractedFigure {
   height?: number;
 }
 
+// ==================== Constants ====================
+
+/** 最小图片文件大小（字节）：低于此阈值的栅格图片视为缩略图/占位符 */
+const MIN_IMAGE_BYTES = 15_000;
+
+/** HEAD 请求超时（毫秒） */
+const VALIDATE_TIMEOUT_MS = 5_000;
+
+/** URL 路径中的最小图片宽度（低于此视为缩略图 URL） */
+const MIN_URL_DIMENSION_WIDTH = 400;
+
 /**
  * Figure Extractor Service
  *
@@ -28,6 +39,7 @@ export interface ExtractedFigure {
  * 2. 过滤非图表图片（logo、icon、avatar 等）
  * 3. 分类图表类型
  * 4. 解析相对 URL 为绝对 URL
+ * 5. ★ v4.5: 异步校验图片可访问性 + 分辨率（宁缺毋滥）
  */
 @Injectable()
 export class FigureExtractorService {
@@ -117,7 +129,9 @@ export class FigureExtractorService {
         `[extractFiguresFromUrl] Extracted ${figures.length} figures from ${url}`,
       );
 
-      return figures;
+      // ★ v4.5: 异步校验图片可访问性 + 质量
+      const validated = await this.validateAndUpgradeFigures(figures);
+      return validated;
     } catch (error) {
       this.logger.warn(
         `[extractFiguresFromUrl] Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -252,17 +266,65 @@ export class FigureExtractorService {
   }
 
   /**
-   * 从 img 标签中提取最佳 src（优先 lazy-load 属性）
+   * 从 img 标签中提取最佳 src（优先 lazy-load 属性，其次 srcset 高清版）
    */
   private extractBestSrc(imgTag: string): string | null {
-    // Prefer lazy-load attributes which contain the real high-res URL
+    // 1. Prefer lazy-load attributes which contain the real high-res URL
     for (const attr of ["data-src", "data-original", "data-lazy-src"]) {
       const match = imgTag.match(new RegExp(`${attr}=["']([^"']+)["']`, "i"));
       if (match && !match[1].startsWith("data:")) {
         return match[1];
       }
     }
+
+    // 2. ★ v4.5: 尝试从 srcset 提取最高分辨率版本
+    const srcsetUrl = this.extractHighestResSrcset(imgTag);
+    if (srcsetUrl) return srcsetUrl;
+
     return null;
+  }
+
+  /**
+   * ★ v4.5: 从 srcset 属性中解析最高分辨率的图片 URL
+   *
+   * srcset 格式: "url1 800w, url2 400w" 或 "url1 2x, url2 1x"
+   * 选择宽度 >= 600w 的最大候选项
+   */
+  private extractHighestResSrcset(imgTag: string): string | null {
+    const srcsetMatch = imgTag.match(/srcset=["']([^"']+)["']/i);
+    if (!srcsetMatch) return null;
+
+    const srcset = srcsetMatch[1];
+    const candidates = srcset
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    let bestUrl = "";
+    let bestSize = 0;
+
+    for (const candidate of candidates) {
+      const parts = candidate.trim().split(/\s+/);
+      if (parts.length < 1) continue;
+      const url = parts[0];
+      if (!url || url.startsWith("data:")) continue;
+
+      const descriptor = parts[1] || "1x";
+      let size = 0;
+      if (descriptor.endsWith("w")) {
+        size = parseInt(descriptor, 10);
+      } else if (descriptor.endsWith("x")) {
+        size = parseFloat(descriptor) * 1000; // normalize to comparable scale
+      }
+
+      if (size > bestSize) {
+        bestSize = size;
+        bestUrl = url;
+      }
+    }
+
+    // 仅当最佳候选宽度 >= 600px 时才使用（避免选到小缩略图）
+    return bestSize >= 600 ? bestUrl : null;
   }
 
   /**
@@ -587,4 +649,262 @@ export class FigureExtractorService {
       .replace(/\s+/g, " ")
       .trim();
   }
+
+  // ==================== v4.5: Image Validation ====================
+
+  /**
+   * ★ v4.5: 异步校验并升级提取的图片列表
+   *
+   * 对每个候选图片执行：
+   * 1. 尝试 CDN URL 升级（识别缩略图参数，替换为高清版本）
+   * 2. HEAD 请求验证可访问性（非 200 直接丢弃）
+   * 3. Content-Length 校验（栅格图片 < 15KB 丢弃）
+   * 4. URL 路径中的尺寸提示校验（< 400px 宽丢弃）
+   *
+   * 原则：宁缺毋滥，不可访问或质量不达标的一律丢弃
+   */
+  async validateAndUpgradeFigures(
+    figures: ExtractedFigure[],
+  ): Promise<ExtractedFigure[]> {
+    if (figures.length === 0) return [];
+
+    const results = await Promise.allSettled(
+      figures.map((fig) => this.validateSingleFigure(fig)),
+    );
+
+    const validated = results
+      .filter(
+        (r): r is PromiseFulfilledResult<ExtractedFigure | null> =>
+          r.status === "fulfilled",
+      )
+      .map((r) => r.value)
+      .filter((fig): fig is ExtractedFigure => fig !== null);
+
+    if (figures.length !== validated.length) {
+      this.logger.log(
+        `[validateFigures] ${figures.length} candidates → ${validated.length} validated ` +
+          `(${figures.length - validated.length} rejected)`,
+      );
+    }
+
+    return validated;
+  }
+
+  /**
+   * 校验单个图片：尝试升级 URL → HEAD 校验 → 大小/尺寸校验
+   * 返回 null 表示该图片应被丢弃
+   */
+  private async validateSingleFigure(
+    figure: ExtractedFigure,
+  ): Promise<ExtractedFigure | null> {
+    const originalUrl = figure.imageUrl;
+
+    // 1. 尝试 CDN URL 升级（获取更高分辨率版本）
+    const upgradedUrl = this.tryUpgradeImageUrl(originalUrl);
+    if (upgradedUrl) {
+      // 先检查升级后的 URL 是否可用
+      const upgradeResult = await this.headCheck(upgradedUrl);
+      if (upgradeResult.ok) {
+        this.logger.debug(
+          `[validateFigure] Upgraded URL: ${originalUrl.substring(0, 80)} → ${upgradedUrl.substring(0, 80)}`,
+        );
+        return this.applyValidationResult(
+          { ...figure, imageUrl: upgradedUrl },
+          upgradeResult,
+        );
+      }
+      // 升级失败，继续用原始 URL
+    }
+
+    // 2. 校验原始 URL
+    const result = await this.headCheck(originalUrl);
+    if (!result.ok) {
+      this.logger.debug(
+        `[validateFigure] REJECTED (HTTP ${result.status}): ${originalUrl.substring(0, 120)}`,
+      );
+      return null;
+    }
+
+    return this.applyValidationResult(figure, result);
+  }
+
+  /**
+   * 根据 HEAD 响应结果判断图片是否合格
+   */
+  private applyValidationResult(
+    figure: ExtractedFigure,
+    result: HeadCheckResult,
+  ): ExtractedFigure | null {
+    const url = figure.imageUrl;
+    const contentType = result.contentType || "";
+
+    // SVG/矢量图跳过大小检查（矢量图无分辨率问题）
+    if (contentType.includes("svg")) {
+      return figure;
+    }
+
+    // 栅格图片：Content-Length 校验
+    if (result.contentLength > 0 && result.contentLength < MIN_IMAGE_BYTES) {
+      this.logger.debug(
+        `[validateFigure] REJECTED (too small: ${result.contentLength} bytes < ${MIN_IMAGE_BYTES}): ${url.substring(0, 120)}`,
+      );
+      return null;
+    }
+
+    // URL 路径中的尺寸提示校验
+    const urlDimensions = this.extractDimensionsFromUrl(url);
+    if (urlDimensions && urlDimensions.width < MIN_URL_DIMENSION_WIDTH) {
+      this.logger.debug(
+        `[validateFigure] REJECTED (URL hints small: ${urlDimensions.width}x${urlDimensions.height}): ${url.substring(0, 120)}`,
+      );
+      return null;
+    }
+
+    return figure;
+  }
+
+  /**
+   * 对图片 URL 发送 HEAD 请求，校验可访问性
+   */
+  private async headCheck(url: string): Promise<HeadCheckResult> {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(url, {
+          method: "HEAD",
+          signal: controller.signal,
+          redirect: "follow",
+          headers: {
+            // 伪装浏览器 UA，部分 CDN 拒绝无 UA 请求
+            "User-Agent":
+              "Mozilla/5.0 (compatible; GenesisBot/1.0; +https://genesis-ai-labs.org)",
+          },
+        });
+        clearTimeout(timer);
+
+        if (!response.ok) {
+          return { ok: false, status: response.status, contentLength: 0 };
+        }
+
+        const contentLength = parseInt(
+          response.headers.get("content-length") || "0",
+          10,
+        );
+        const contentType = response.headers.get("content-type") || "";
+
+        return {
+          ok: true,
+          status: response.status,
+          contentLength,
+          contentType,
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      // 网络错误、超时、DNS 失败等
+      return { ok: false, status: 0, contentLength: 0 };
+    }
+  }
+
+  /**
+   * ★ v4.5: 尝试升级 CDN URL 到更高分辨率版本
+   *
+   * 识别常见 CDN 的缩略图参数并替换：
+   * - Brightspot: /resize/WxH!/ → 去掉 resize
+   * - 通用: ?w=N, &width=N → 提升到 1200
+   * - 通用: /quality/N/ → 提升到 90
+   */
+  private tryUpgradeImageUrl(url: string): string | null {
+    let upgraded = url;
+    let changed = false;
+
+    // Brightspot CDN: /resize/WxH!/ 或 /resize/WxH/
+    if (/\/resize\/\d+x\d+!?\//.test(upgraded)) {
+      upgraded = upgraded.replace(
+        /\/resize\/\d+x\d+!?\//,
+        "/resize/1200x800!/",
+      );
+      changed = true;
+    }
+
+    // 通用 CDN 宽度参数: ?w=N, &w=N, ?width=N, &width=N（仅当值较小时升级）
+    const widthMatch = upgraded.match(/([?&])(?:w|width)=(\d+)/);
+    if (widthMatch && parseInt(widthMatch[2], 10) < MIN_URL_DIMENSION_WIDTH) {
+      upgraded = upgraded.replace(
+        /([?&])(?:w|width)=\d+/,
+        `${widthMatch[1]}w=1200`,
+      );
+      changed = true;
+    }
+
+    // 通用 CDN 高度参数: 跟随宽度一起调整
+    const heightMatch = upgraded.match(/([?&])(?:h|height)=(\d+)/);
+    if (changed && heightMatch && parseInt(heightMatch[2], 10) < 400) {
+      upgraded = upgraded.replace(
+        /([?&])(?:h|height)=\d+/,
+        `${heightMatch[1]}h=800`,
+      );
+    }
+
+    // 低质量参数: /quality/N/ → /quality/90/
+    const qualityMatch = upgraded.match(/\/quality\/(\d+)\//);
+    if (qualityMatch && parseInt(qualityMatch[1], 10) < 80) {
+      upgraded = upgraded.replace(/\/quality\/\d+\//, "/quality/90/");
+      changed = true;
+    }
+
+    return changed ? upgraded : null;
+  }
+
+  /**
+   * ★ v4.5: 从 URL 路径中提取尺寸提示
+   *
+   * 识别常见模式：
+   * - /292x220.png（路径中的 WxH）
+   * - /resize/320x214!/
+   * - ?w=300&h=200
+   */
+  private extractDimensionsFromUrl(
+    url: string,
+  ): { width: number; height: number } | null {
+    // 路径中的 WxH 模式（如 /292x220.png, /320x214!/）
+    const pathMatch = url.match(/\/(\d{2,4})x(\d{2,4})[.!/]/);
+    if (pathMatch) {
+      return {
+        width: parseInt(pathMatch[1], 10),
+        height: parseInt(pathMatch[2], 10),
+      };
+    }
+
+    // 查询参数中的尺寸
+    const wMatch = url.match(/[?&](?:w|width)=(\d+)/);
+    const hMatch = url.match(/[?&](?:h|height)=(\d+)/);
+    if (wMatch && hMatch) {
+      return {
+        width: parseInt(wMatch[1], 10),
+        height: parseInt(hMatch[1], 10),
+      };
+    }
+    // 只有宽度参数
+    if (wMatch) {
+      return {
+        width: parseInt(wMatch[1], 10),
+        height: 0,
+      };
+    }
+
+    return null;
+  }
+}
+
+// ==================== Internal Types ====================
+
+interface HeadCheckResult {
+  ok: boolean;
+  status: number;
+  contentLength: number;
+  contentType?: string;
 }

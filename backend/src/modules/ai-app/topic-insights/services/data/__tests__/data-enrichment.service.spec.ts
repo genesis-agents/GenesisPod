@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DataEnrichmentService } from "../data-enrichment.service";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import { FigureExtractorService } from "../../report/figure-extractor.service";
+import { FigureRelevanceService } from "../../report/figure-relevance.service";
 import { DataSourceType } from "../../../types/data-source.types";
 import type { DataSourceResult } from "../../../types/data-source.types";
 
@@ -11,6 +12,15 @@ const mockToolRegistry = {
 
 const mockFigureExtractor = {
   extractFigures: jest.fn().mockReturnValue([]),
+  validateAndUpgradeFigures: jest
+    .fn()
+    .mockImplementation((figs) => Promise.resolve(figs)),
+};
+
+const mockFigureRelevance = {
+  filterRelevantFigures: jest
+    .fn()
+    .mockImplementation((figs) => Promise.resolve(figs)),
 };
 
 const makeResult = (url: string): DataSourceResult => ({
@@ -32,6 +42,7 @@ describe("DataEnrichmentService", () => {
         DataEnrichmentService,
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: FigureExtractorService, useValue: mockFigureExtractor },
+        { provide: FigureRelevanceService, useValue: mockFigureRelevance },
       ],
     }).compile();
 
@@ -216,7 +227,7 @@ describe("DataEnrichmentService", () => {
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
       const results = [makeResult("https://example.com/article")];
-      const enriched = await service.enrichSearchResults(results, {
+      await service.enrichSearchResults(results, {
         enableFigures: false,
       });
 
@@ -231,9 +242,21 @@ describe("DataEnrichmentService", () => {
   describe("getEnrichmentStats", () => {
     it("should calculate correct stats from enriched results", () => {
       const enrichedResults = [
-        { contentSource: "fetched", fullContent: "A".repeat(100), urlValid: true },
-        { contentSource: "snippet", fullContent: "B".repeat(50), urlValid: false },
-        { contentSource: "fetched", fullContent: "C".repeat(200), urlValid: true },
+        {
+          contentSource: "fetched",
+          fullContent: "A".repeat(100),
+          urlValid: true,
+        },
+        {
+          contentSource: "snippet",
+          fullContent: "B".repeat(50),
+          urlValid: false,
+        },
+        {
+          contentSource: "fetched",
+          fullContent: "C".repeat(200),
+          urlValid: true,
+        },
       ] as any;
 
       const stats = service.getEnrichmentStats(enrichedResults);

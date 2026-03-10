@@ -41,6 +41,9 @@ export type {
   TaskProfile,
   CreativityLevel,
   OutputLengthLevel,
+  ContentPart,
+  TextContentPart,
+  ImageUrlContentPart,
 } from "../llm/types";
 export type { TeamConfig, ITeam } from "../teams/abstractions/team.interface";
 export { BUILTIN_TEAMS } from "../teams/abstractions/team.interface";

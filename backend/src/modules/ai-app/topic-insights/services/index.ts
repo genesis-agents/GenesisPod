@@ -54,6 +54,7 @@ export { ReportChangeService } from "./report/report-change.service";
 export { ReportAnnotationService } from "./report/report-annotation.service";
 export { CredibilityReportService } from "./report/credibility-report.service";
 export { FigureExtractorService } from "./report/figure-extractor.service";
+export { FigureRelevanceService } from "./report/figure-relevance.service";
 // ★ Report sub-services
 export { ReportGeneratorService } from "./report/report-generator.service";
 export { ReportAssemblerService } from "./report/report-assembler.service";

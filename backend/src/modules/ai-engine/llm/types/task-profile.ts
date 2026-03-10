@@ -78,13 +78,48 @@ export type OutputFormat =
   | "text"; // 纯文本（别名，兼容 facade.types.ts）
 
 /**
+ * 多模态内容部分 — 用于 Vision 场景（图片审查、多模态分析）
+ *
+ * 兼容 OpenAI / Anthropic / Google / xAI 的多模态消息格式：
+ * - OpenAI: content: [{ type: "text", text }, { type: "image_url", image_url: { url } }]
+ * - Anthropic: content: [{ type: "text", text }, { type: "image", source: { type: "url", url } }]
+ * - Google: parts: [{ text }, { inlineData / fileData }]
+ *
+ * AI Engine 的 AiApiCallerService 负责将此统一格式转换为各 provider 的原生格式。
+ */
+export type ContentPart = TextContentPart | ImageUrlContentPart;
+
+export interface TextContentPart {
+  type: "text";
+  text: string;
+}
+
+export interface ImageUrlContentPart {
+  type: "image_url";
+  image_url: {
+    url: string;
+    /** 图片细节级别，默认 "auto" */
+    detail?: "low" | "high" | "auto";
+  };
+}
+
+/**
  * 聊天消息
  * 统一类型定义，所有模块应从此处导入
+ *
+ * 多模态支持：
+ * - content: string — 纯文本消息（默认、最常用，100% 向后兼容）
+ * - contentParts?: ContentPart[] — 多模态消息（含图片 URL 等，用于 Vision 场景）
+ *
+ * 当 contentParts 存在时，AiApiCallerService 会优先使用 contentParts 构建 API 请求，
+ * content 字段仍然需要提供（作为纯文本 fallback / 日志摘要）。
  */
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
   name?: string;
+  /** 多模态内容部分，设置后 API 调用会使用此字段代替 content */
+  contentParts?: ContentPart[];
 }
 
 /**

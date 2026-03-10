@@ -12,6 +12,9 @@ export {
   TaskType,
   OutputFormat,
   ChatMessage,
+  ContentPart,
+  TextContentPart,
+  ImageUrlContentPart,
   // 映射常量
   CREATIVITY_TO_TEMPERATURE,
   OUTPUT_LENGTH_TO_TOKENS,

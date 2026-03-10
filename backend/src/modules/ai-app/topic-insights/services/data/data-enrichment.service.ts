@@ -23,6 +23,7 @@ import type {
   ExtractedFigure,
 } from "../../types/research.types";
 import { FigureExtractorService } from "../report/figure-extractor.service";
+import { FigureRelevanceService } from "../report/figure-relevance.service";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**
@@ -51,6 +52,8 @@ export interface DataEnrichmentOptions {
   parallel?: boolean;
   /** ★ 是否提取图表，默认 true */
   enableFigures?: boolean;
+  /** ★ v4.6: 研究主题标题，用于图片相关性审查（Vision LLM） */
+  topicTitle?: string;
 }
 
 /**
@@ -80,6 +83,7 @@ export class DataEnrichmentService {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     private readonly figureExtractor: FigureExtractorService,
+    private readonly figureRelevance: FigureRelevanceService,
   ) {}
 
   /**
@@ -183,6 +187,7 @@ export class DataEnrichmentService {
         maxContentLength,
         fetchTimeout,
         enableFigures,
+        options.topicTitle,
       );
     } else {
       enrichedTop = await this.enrichSequential(
@@ -190,6 +195,7 @@ export class DataEnrichmentService {
         maxContentLength,
         fetchTimeout,
         enableFigures,
+        options.topicTitle,
       );
     }
 
@@ -221,6 +227,7 @@ export class DataEnrichmentService {
     maxContentLength: number,
     fetchTimeout: number,
     enableFigures: boolean,
+    topicTitle?: string,
   ): Promise<EnrichedResult[]> {
     const enrichPromises = results.map((result) =>
       this.enrichSingleResult(
@@ -228,6 +235,7 @@ export class DataEnrichmentService {
         maxContentLength,
         fetchTimeout,
         enableFigures,
+        topicTitle,
       ),
     );
 
@@ -242,6 +250,7 @@ export class DataEnrichmentService {
     maxContentLength: number,
     fetchTimeout: number,
     enableFigures: boolean,
+    topicTitle?: string,
   ): Promise<EnrichedResult[]> {
     const enrichedResults: EnrichedResult[] = [];
 
@@ -251,6 +260,7 @@ export class DataEnrichmentService {
         maxContentLength,
         fetchTimeout,
         enableFigures,
+        topicTitle,
       );
       enrichedResults.push(enriched);
     }
@@ -268,6 +278,7 @@ export class DataEnrichmentService {
     maxContentLength: number,
     fetchTimeout: number,
     enableFigures: boolean = true,
+    topicTitle?: string,
   ): Promise<EnrichedResult> {
     // ★ v4: 检查全局缓存（跨维度 URL 去重）
     const cacheKey = this.normalizeUrl(result.url);
@@ -353,9 +364,30 @@ export class DataEnrichmentService {
               extractedFigures = extractedFigures.filter(
                 (f) => f.imageUrl && f.imageUrl.trim(),
               );
+
+              // ★ v4.5: 异步校验图片可访问性 + 质量（宁缺毋滥）
+              // HEAD 请求验证 URL 200、Content-Length >= 15KB、srcset 升级
+              if (extractedFigures.length > 0) {
+                extractedFigures =
+                  await this.figureExtractor.validateAndUpgradeFigures(
+                    extractedFigures,
+                  );
+              }
+
+              // ★ v4.6: 多模态 LLM 图片相关性审查（宁缺毋滥）
+              // 发送图片 URL 给 Vision 模型，判断是否为有价值且相关的信息图
+              if (extractedFigures.length > 0 && topicTitle) {
+                extractedFigures =
+                  await this.figureRelevance.filterRelevantFigures(
+                    extractedFigures,
+                    topicTitle,
+                  );
+              }
+
               if (beforeFilter > 0) {
                 this.logger.debug(
-                  `Extracted ${beforeFilter} figures from ${result.domain || result.url}, ${beforeFilter - extractedFigures.length} filtered (no URL), ${extractedFigures.length} valid`,
+                  `Extracted ${beforeFilter} figures from ${result.domain || result.url}, ` +
+                    `${beforeFilter - extractedFigures.length} filtered, ${extractedFigures.length} validated`,
                 );
               }
             }

@@ -5,4 +5,5 @@ export { ReportChangeService } from "./report-change.service";
 export { ReportAnnotationService } from "./report-annotation.service";
 export { CredibilityReportService } from "./credibility-report.service";
 export { FigureExtractorService } from "./figure-extractor.service";
+export { FigureRelevanceService } from "./figure-relevance.service";
 export { ReportAssemblerService } from "./report-assembler.service";

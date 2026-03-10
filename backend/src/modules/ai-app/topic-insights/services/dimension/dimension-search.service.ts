@@ -205,6 +205,7 @@ export class DimensionSearchService {
         topN: enrichmentTopN,
         maxContentLength: enrichmentMaxLength,
         enableFigures,
+        topicTitle: topic.name,
       },
     );
 

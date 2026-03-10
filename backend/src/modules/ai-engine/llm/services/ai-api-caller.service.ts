@@ -1,11 +1,84 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
+import type { ChatMessage } from "../types/task-profile";
 
-export interface ChatMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-  name?: string;
+/**
+ * 解析 ChatMessage 的有效内容：优先使用 contentParts（多模态），回退到 content（纯文本）
+ * 返回 OpenAI/xAI 兼容格式
+ */
+function resolveOpenAIContent(
+  msg: ChatMessage,
+):
+  | string
+  | Array<{
+      type: string;
+      text?: string;
+      image_url?: { url: string; detail?: string };
+    }> {
+  if (!msg.contentParts || msg.contentParts.length === 0) return msg.content;
+  return msg.contentParts.map((part) => {
+    if (part.type === "text") return { type: "text" as const, text: part.text };
+    return {
+      type: "image_url" as const,
+      image_url: {
+        url: part.image_url.url,
+        detail: part.image_url.detail || "auto",
+      },
+    };
+  });
+}
+
+/**
+ * 解析 ChatMessage 的有效内容：Anthropic 格式
+ */
+function resolveAnthropicContent(
+  msg: ChatMessage,
+):
+  | string
+  | Array<{
+      type: string;
+      text?: string;
+      source?: { type: string; url: string };
+    }> {
+  if (!msg.contentParts || msg.contentParts.length === 0) return msg.content;
+  return msg.contentParts.map((part) => {
+    if (part.type === "text") return { type: "text" as const, text: part.text };
+    return {
+      type: "image" as const,
+      source: { type: "url", url: part.image_url.url },
+    };
+  });
+}
+
+/**
+ * 解析 ChatMessage 的有效内容：Google Gemini 格式
+ *
+ * ★ 限制：Gemini 原生 API 不支持外部 HTTP URL 图片（fileData 仅接受 GCS URI，
+ * inlineData 需要 base64）。当 contentParts 包含 image_url 时，图片部分会被
+ * 跳过，只保留文本。如需 Gemini Vision，需在上层先将图片下载转为 base64。
+ */
+function resolveGeminiParts(msg: ChatMessage): Array<{ text?: string }> {
+  if (!msg.contentParts || msg.contentParts.length === 0) {
+    return [{ text: msg.content }];
+  }
+
+  const hasImages = msg.contentParts.some((p) => p.type === "image_url");
+  if (hasImages) {
+    // Gemini 原生 API 不支持外部 URL 图片，降级为纯文本
+    // 将图片的 caption/alt 信息保留为文本描述
+    const textParts = msg.contentParts
+      .filter((p) => p.type === "text")
+      .map((p) => ({ text: (p as { type: "text"; text: string }).text }));
+    if (textParts.length === 0) {
+      return [{ text: msg.content }];
+    }
+    return textParts;
+  }
+
+  return msg.contentParts
+    .filter((p) => p.type === "text")
+    .map((p) => ({ text: (p as { type: "text"; text: string }).text }));
 }
 
 export interface ChatCompletionResult {
@@ -67,12 +140,12 @@ export class AiApiCallerService {
       );
     }
 
-    // ★ 构建请求体 - 只包含有效的参数
+    // ★ 构建请求体 - 只包含有效的参数（支持多模态 contentParts）
     const requestBody: Record<string, unknown> = {
       model: modelId,
       messages: messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: resolveOpenAIContent(m),
       })),
       ...tokenParam,
       ...reasoningParam,
@@ -191,17 +264,17 @@ export class AiApiCallerService {
     const systemMessage = messages.find((m) => m.role === "system");
     const otherMessages = messages.filter((m) => m.role !== "system");
 
-    // ★ 构建请求体 - 只包含有效的参数
+    // ★ 构建请求体 - 只包含有效的参数（支持多模态 contentParts）
     const requestBody: Record<string, unknown> = {
       model: modelId,
       max_tokens: maxTokens,
       messages: otherMessages.map((m) => ({
         role: m.role === "assistant" ? "assistant" : "user",
-        content: m.content,
+        content: resolveAnthropicContent(m),
       })),
     };
 
-    // 只有当 system 有内容时才包含
+    // 只有当 system 有内容时才包含（system 仅支持纯文本）
     if (systemMessage?.content) {
       requestBody.system = systemMessage.content;
     }
@@ -278,10 +351,10 @@ export class AiApiCallerService {
     const systemMessage = messages.find((m) => m.role === "system");
     const otherMessages = messages.filter((m) => m.role !== "system");
 
-    // Convert to Gemini format
+    // Convert to Gemini format（支持多模态 contentParts）
     const contents = otherMessages.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
+      parts: resolveGeminiParts(m),
     }));
 
     // ★ 构建请求体 - 只包含有效的 temperature
@@ -363,12 +436,12 @@ export class AiApiCallerService {
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
 
-    // ★ 数据库驱动：使用配置的 tokenParamName
+    // ★ 数据库驱动：使用配置的 tokenParamName（支持多模态 contentParts）
     const requestBody: Record<string, unknown> = {
       model: modelId,
       messages: messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: resolveOpenAIContent(m),
       })),
       [tokenParamName]: maxTokens,
     };
