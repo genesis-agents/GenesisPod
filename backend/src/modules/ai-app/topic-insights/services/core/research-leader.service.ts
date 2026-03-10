@@ -2357,8 +2357,12 @@ ${teamMembersText}`;
           }
         } else {
           // ★ 成功
+          // ★ 诊断日志：记录每个 section 的 allocatedFigures 分配情况
+          const figSummary = outline.sections
+            .map((s) => `${s.title}:${s.allocatedFigures?.length ?? 0}figs`)
+            .join(", ");
           this.logger.log(
-            `[planDimensionOutline] Created outline with ${outline.sections.length} sections in ${latencyMs}ms (attempt ${attempt})`,
+            `[planDimensionOutline] Created outline with ${outline.sections.length} sections in ${latencyMs}ms (attempt ${attempt}). Figures: [${figSummary}]`,
           );
           return outline;
         }

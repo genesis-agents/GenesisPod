@@ -357,6 +357,13 @@ export class SectionWriterService {
     // construct figureReferences from allocatedFigures WITH relevance filtering.
     // Previously all allocated figures were injected blindly, causing irrelevant images
     // (e.g. "robot industry" image in a "transformer architecture" section).
+    // ★ 诊断日志：记录 allocatedFigures 状态
+    this.logger.log(
+      `[writeSection] ${section.title}: allocatedFigures=${input.allocatedFigures?.length ?? 0}, ` +
+        `figureRefsFromLLM=${figureRefsToBackfill.length}, ` +
+        `fullEvidenceData=${input.fullEvidenceData?.length ?? "N/A"}`,
+    );
+
     if (
       figureRefsToBackfill.length === 0 &&
       input.allocatedFigures &&
