@@ -59,31 +59,33 @@ export class InputComplexityCheck implements IInputGuardrail {
     const length = input.content.length;
     const estimatedTokens = this.estimateTokens(input.content);
 
-    // Check if exceeds maximum limits
+    // Check if exceeds maximum limits — warn but allow through (LLM APIs handle their own token limits)
     if (length > this.thresholds.maxLength) {
       return {
-        passed: false,
+        passed: true,
         guardrailId: this.id,
-        severity: "block",
-        message: `Input exceeds maximum length: ${length} characters (max: ${this.thresholds.maxLength})`,
+        severity: "warning",
+        message: `Input exceeds recommended length: ${length} characters (limit: ${this.thresholds.maxLength}). Allowing through — LLM API will enforce its own token limits.`,
         metadata: {
           length,
           maxLength: this.thresholds.maxLength,
           estimatedTokens,
+          oversized: true,
         },
       };
     }
 
     if (estimatedTokens > this.thresholds.maxTokenEstimate) {
       return {
-        passed: false,
+        passed: true,
         guardrailId: this.id,
-        severity: "block",
-        message: `Input exceeds maximum token estimate: ${estimatedTokens} tokens (max: ${this.thresholds.maxTokenEstimate})`,
+        severity: "warning",
+        message: `Input exceeds recommended token estimate: ${estimatedTokens} tokens (limit: ${this.thresholds.maxTokenEstimate}). Allowing through — LLM API will enforce its own token limits.`,
         metadata: {
           length,
           estimatedTokens,
           maxTokenEstimate: this.thresholds.maxTokenEstimate,
+          oversized: true,
         },
       };
     }

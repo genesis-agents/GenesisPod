@@ -40,6 +40,13 @@ const MIN_CONTENT_LENGTH = 200; // 最小内容长度（字符）
 const MIN_CONTENT_LENGTH_RATIO = 0.1; // 最小内容长度比例（相对于目标字数）
 
 /**
+ * 提示词最大字符数安全上限
+ * ~80K chars ≈ ~20K tokens，为推理模型保留足够的 completion token 空间
+ * 防止 reasoning model 将所有 completion token 用于 CoT 而输出空内容
+ */
+const MAX_PROMPT_CHARS = 80000;
+
+/**
  * 时间上下文配置
  * 用于向 LLM 传递当前时间和时效性要求
  */
@@ -128,7 +135,7 @@ export class SectionWriterService {
     );
 
     // 格式化证据列表
-    const evidenceFormatted = formatEvidenceForPrompt(evidenceData);
+    let evidenceFormatted = formatEvidenceForPrompt(evidenceData);
 
     // 格式化要点列表（★ 规范化：去除截断的序号前缀）
     const keyPointsFormatted = section.keyPoints
@@ -185,6 +192,34 @@ export class SectionWriterService {
 
       // 恢复原始顺序
       previousContent = parts.reverse().join("\n\n");
+    }
+
+    // ★ 提示词大小安全检查：防止超大 prompt 导致推理模型将所有 completion token 用于 CoT
+    // 估算固定部分（系统提示 + 要点 + 其他变量）约占 8000 字符，剩余预算分配给可变部分
+    const EVIDENCE_BUDGET = MAX_PROMPT_CHARS - previousContent.length - 8000;
+    if (evidenceFormatted.length > EVIDENCE_BUDGET && EVIDENCE_BUDGET > 0) {
+      this.logger.warn(
+        `[writeSection] Prompt too large for section "${section.title}": evidence=${evidenceFormatted.length} chars, budget=${EVIDENCE_BUDGET} chars. Truncating evidence.`,
+      );
+      // 在段落边界处截断，保持内容完整性
+      let truncated = evidenceFormatted.substring(0, EVIDENCE_BUDGET);
+      const lastSeparator = truncated.lastIndexOf("\n---\n");
+      if (lastSeparator > EVIDENCE_BUDGET * 0.5) {
+        truncated = truncated.substring(0, lastSeparator);
+      }
+      evidenceFormatted = truncated + "\n\n[部分证据因长度限制已省略]";
+      this.logger.warn(
+        `[writeSection] Evidence truncated to ${evidenceFormatted.length} chars for section "${section.title}"`,
+      );
+    }
+
+    // 如果截断证据后 previousContent 仍导致超限，进一步截断前置章节
+    const remainingBudget = MAX_PROMPT_CHARS - evidenceFormatted.length - 8000;
+    if (previousContent.length > remainingBudget && remainingBudget > 0) {
+      this.logger.warn(
+        `[writeSection] previousContent too large (${previousContent.length} chars), truncating to ${remainingBudget} chars`,
+      );
+      previousContent = previousContent.substring(0, remainingBudget) + "...";
     }
 
     // 格式化 Agent 配置指导（拆分为 leader 指导 + skill IDs）
@@ -448,7 +483,33 @@ export class SectionWriterService {
     );
 
     // 格式化证据列表
-    const evidenceFormatted = formatEvidenceForPrompt(evidenceData);
+    let evidenceFormattedRevision = formatEvidenceForPrompt(evidenceData);
+
+    // ★ 提示词大小安全检查（与 writeSection 保持一致）
+    // reviseSection 的固定部分还包含 originalContent + reviewFeedback，因此预算更保守
+    const REVISION_FIXED_OVERHEAD =
+      8000 + originalContent.length + reviewFeedback.length;
+    const REVISION_EVIDENCE_BUDGET = MAX_PROMPT_CHARS - REVISION_FIXED_OVERHEAD;
+    if (
+      evidenceFormattedRevision.length > REVISION_EVIDENCE_BUDGET &&
+      REVISION_EVIDENCE_BUDGET > 0
+    ) {
+      this.logger.warn(
+        `[reviseSection] Prompt too large for section "${section.title}": evidence=${evidenceFormattedRevision.length} chars, budget=${REVISION_EVIDENCE_BUDGET} chars. Truncating evidence.`,
+      );
+      let truncated = evidenceFormattedRevision.substring(
+        0,
+        REVISION_EVIDENCE_BUDGET,
+      );
+      const lastSeparator = truncated.lastIndexOf("\n---\n");
+      if (lastSeparator > REVISION_EVIDENCE_BUDGET * 0.5) {
+        truncated = truncated.substring(0, lastSeparator);
+      }
+      evidenceFormattedRevision = truncated + "\n\n[部分证据因长度限制已省略]";
+      this.logger.warn(
+        `[reviseSection] Evidence truncated to ${evidenceFormattedRevision.length} chars for section "${section.title}"`,
+      );
+    }
 
     // 准备提示词变量
     const promptVariables = {
@@ -458,7 +519,7 @@ export class SectionWriterService {
       originalContent,
       reviewFeedback,
       revisionInstructions: revisionInstructions || "请根据反馈改进内容",
-      evidenceList: evidenceFormatted,
+      evidenceList: evidenceFormattedRevision,
     };
 
     // 渲染用户提示词

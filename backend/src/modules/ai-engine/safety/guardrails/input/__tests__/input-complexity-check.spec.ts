@@ -77,21 +77,22 @@ describe("InputComplexityCheck", () => {
     });
   });
 
-  describe("block threshold (400k chars or 100k tokens)", () => {
-    it("blocks content exceeding maxLength (400000 chars)", async () => {
+  describe("oversized threshold (400k chars or 100k tokens)", () => {
+    it("warns but passes content exceeding maxLength (400000 chars)", async () => {
       const content = "a".repeat(400001);
       const result = await checker.check({ content });
-      expect(result.passed).toBe(false);
-      expect(result.severity).toBe("block");
+      expect(result.passed).toBe(true);
+      expect(result.severity).toBe("warning");
+      expect(result.metadata?.oversized).toBe(true);
     });
 
-    it("block result includes length metadata", async () => {
+    it("oversized result includes length metadata", async () => {
       const content = "a".repeat(400001);
       const result = await checker.check({ content });
       expect(result.metadata?.length).toBe(content.length);
     });
 
-    it("block result includes maxLength in metadata", async () => {
+    it("oversized result includes maxLength in metadata", async () => {
       const content = "a".repeat(400001);
       const result = await checker.check({ content });
       expect(result.metadata?.maxLength).toBe(400000);
@@ -136,13 +137,14 @@ describe("InputComplexityCheck", () => {
       expect(result.metadata?.estimatedTokens).toBe(5);
     });
 
-    it("triggers token block when Chinese content exceeds 100000 token estimate", async () => {
+    it("warns but passes when Chinese content exceeds 100000 token estimate", async () => {
       // Create content with enough Chinese chars to exceed maxTokenEstimate (100000)
       // Need chineseChars > 100000. Use 100001 Chinese chars.
       const content = "你".repeat(100001);
       const result = await checker.check({ content });
-      expect(result.passed).toBe(false);
-      expect(result.severity).toBe("block");
+      expect(result.passed).toBe(true);
+      expect(result.severity).toBe("warning");
+      expect(result.metadata?.oversized).toBe(true);
     });
   });
 
@@ -150,8 +152,9 @@ describe("InputComplexityCheck", () => {
     it("updateThresholds changes maxLength behavior", async () => {
       checker.updateThresholds({ maxLength: 10 });
       const result = await checker.check({ content: "This is eleven chars." });
-      expect(result.passed).toBe(false);
-      expect(result.severity).toBe("block");
+      expect(result.passed).toBe(true);
+      expect(result.severity).toBe("warning");
+      expect(result.metadata?.oversized).toBe(true);
     });
 
     it("updateThresholds changes warnLength behavior", async () => {
@@ -165,8 +168,9 @@ describe("InputComplexityCheck", () => {
       checker.updateThresholds({ maxTokenEstimate: 1, warnTokenEstimate: 0 });
       // "hello world" = 2 words = ceil(2 * 1.3) = 3 tokens > 1 maxTokenEstimate
       const result = await checker.check({ content: "hello world" });
-      expect(result.passed).toBe(false);
-      expect(result.severity).toBe("block");
+      expect(result.passed).toBe(true);
+      expect(result.severity).toBe("warning");
+      expect(result.metadata?.oversized).toBe(true);
     });
 
     it("updateThresholds only updates specified fields", async () => {

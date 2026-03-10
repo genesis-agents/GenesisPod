@@ -1834,27 +1834,8 @@ export class ResearchMissionService {
       `[cancelMission] Cancelled ${cancelledTodosResult.count} pending/queued/in_progress todos`,
     );
 
-    // ★ 清理该任务创建的空草稿报告（没有 dimensionAnalyses 的报告）
-    const topicId = mission.topicId;
-    const emptyDraftReports = await this.prisma.topicReport.findMany({
-      where: {
-        topicId,
-        dimensionAnalyses: { none: {} }, // 没有任何维度分析
-      },
-      select: { id: true },
-    });
-
-    if (emptyDraftReports.length > 0) {
-      const deleteIds = emptyDraftReports.map((r) => r.id);
-      await this.prisma.topicReport.deleteMany({
-        where: { id: { in: deleteIds } },
-      });
-      this.logger.log(
-        `[cancelMission] Cleaned up ${deleteIds.length} empty draft reports`,
-      );
-    }
-
     // ★ 发送取消事件通知前端
+    const topicId = mission.topicId;
     this.emitProgress({
       missionId,
       topicId,
@@ -3250,13 +3231,15 @@ export class ResearchMissionService {
       this.messageBus.clearSession(missionId);
     }
 
-    // ★ 只清理完全空的草稿报告（没有任何维度分析的）
+    // ★ 只清理完全空的草稿报告（没有任何维度分析且没有证据的）
     // 部分成功的报告应该保留，让用户看到已完成的研究
+    // 此时所有任务已完成，清理是安全的（不存在并发写入风险）
     if (!hasAnySuccess) {
       const emptyDraftReports = await this.prisma.topicReport.findMany({
         where: {
           topicId,
           dimensionAnalyses: { none: {} },
+          evidences: { none: {} },
         },
         select: { id: true },
       });

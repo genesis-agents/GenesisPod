@@ -1479,7 +1479,7 @@ describe("ResearchMissionService (supplemental4)", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("should clean up empty draft reports when cancelling active mission", async () => {
+    it("should NOT delete draft reports during cancel (deferred to finalizeMission to avoid FK race)", async () => {
       mocks.mockPrisma.researchMission.findUnique.mockResolvedValue({
         id: "mission-s4",
         status: ResearchMissionStatus.EXECUTING,
@@ -1490,13 +1490,6 @@ describe("ResearchMissionService (supplemental4)", () => {
       mocks.mockCollaboratorService.hasAccess.mockResolvedValue(true);
       mocks.mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 2 });
       mocks.mockPrisma.researchTodo.updateMany.mockResolvedValue({ count: 1 });
-
-      // Simulate empty draft reports
-      mocks.mockPrisma.topicReport.findMany.mockResolvedValue([
-        { id: "report-001" },
-        { id: "report-002" },
-      ]);
-      mocks.mockPrisma.topicReport.deleteMany.mockResolvedValue({ count: 2 });
       mocks.mockPrisma.researchMission.update.mockResolvedValue({
         id: "mission-s4",
         status: ResearchMissionStatus.CANCELLED,
@@ -1504,32 +1497,9 @@ describe("ResearchMissionService (supplemental4)", () => {
 
       await service.cancelMission("user-s4", "mission-s4");
 
-      expect(mocks.mockPrisma.topicReport.deleteMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: { in: ["report-001", "report-002"] } },
-        }),
-      );
-    });
-
-    it("should not call deleteMany when no empty draft reports found", async () => {
-      mocks.mockPrisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-s4",
-        status: ResearchMissionStatus.EXECUTING,
-        topicId: "topic-s4",
-        totalTasks: 1,
-        topic: { id: "topic-s4", userId: "user-s4" },
-      });
-      mocks.mockCollaboratorService.hasAccess.mockResolvedValue(true);
-      mocks.mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
-      mocks.mockPrisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
-      mocks.mockPrisma.topicReport.findMany.mockResolvedValue([]); // no empty reports
-      mocks.mockPrisma.researchMission.update.mockResolvedValue({
-        id: "mission-s4",
-        status: ResearchMissionStatus.CANCELLED,
-      });
-
-      await service.cancelMission("user-s4", "mission-s4");
-
+      // Draft report cleanup removed from cancelMission to prevent FK constraint violations
+      // when in-flight dimension tasks try to save evidence to a deleted report
+      expect(mocks.mockPrisma.topicReport.findMany).not.toHaveBeenCalled();
       expect(mocks.mockPrisma.topicReport.deleteMany).not.toHaveBeenCalled();
     });
 
