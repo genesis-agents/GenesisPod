@@ -66,6 +66,10 @@ import {
   getFreshnessRequirementDescription,
 } from "../../prompts/dimension-research.prompt";
 import {
+  createEvidenceSummary,
+  buildFiguresSummary,
+} from "./evidence-summary.utils";
+import {
   ContextCompressionService,
   type AICapabilityContext,
   ContextEvolutionService,
@@ -577,7 +581,7 @@ export class DimensionMissionService {
     );
 
     let evidenceSummary =
-      this.createEvidenceSummary(evidenceData) +
+      createEvidenceSummary(evidenceData) +
       (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
 
     // ★ 诊断：记录 evidenceSummary 初始大小（在压缩前）
@@ -647,7 +651,7 @@ export class DimensionMissionService {
       `${logPrefix} Evidence summary final size: ${evidenceSummary.length} chars (~${Math.ceil(evidenceSummary.length / 4)} tokens est.)`,
     );
 
-    const figuresSummary = this.buildFiguresSummary(evidenceData);
+    const figuresSummary = buildFiguresSummary(evidenceData);
     if (figuresSummary) {
       this.logger.log(
         `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available, ${figuresSummary.length} chars`,
@@ -1859,62 +1863,6 @@ export class DimensionMissionService {
       contentSource: item.contentSource,
       extractedFigures: item.extractedFigures,
     }));
-  }
-
-  /**
-   * 创建证据摘要（用于 Leader 规划大纲）
-   */
-  private createEvidenceSummary(evidenceData: EvidenceData[]): string {
-    const summary = evidenceData
-      .slice(0, 10) // 只取前10条，避免过长
-      .map(
-        (e, i) =>
-          `${i + 1}. [${e.sourceType || "web"}] ${e.title} (${e.domain || "未知来源"})`,
-      )
-      .join("\n");
-
-    return `共收集到 ${evidenceData.length} 条证据，摘要如下：\n${summary}\n${evidenceData.length > 10 ? `...还有 ${evidenceData.length - 10} 条` : ""}`;
-  }
-
-  /**
-   * 构建图表摘要（用于 Leader 规划时分配图表）
-   * 从证据数据中提取所有 extractedFigures，生成可读摘要
-   */
-  private buildFiguresSummary(evidenceData: EnrichedEvidenceData[]): string {
-    const entries: string[] = [];
-    for (let i = 0; i < evidenceData.length; i++) {
-      const evidence = evidenceData[i];
-      if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
-        for (let j = 0; j < evidence.extractedFigures.length; j++) {
-          const fig = evidence.extractedFigures[j];
-          // ★ 关键修复：不将 base64 data URL 包含在文本摘要中
-          // base64 data URL 可达 200K-680K chars，会导致 prompt 膨胀到 148K-916K tokens
-          // Leader 规划大纲只需要知道图表的元信息（类型、标题、来源），不需要图片本身
-          const safeUrl = fig.imageUrl?.startsWith("data:")
-            ? `[base64-image:${fig.type || "unknown"}]`
-            : fig.imageUrl || "无URL";
-          entries.push(
-            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${safeUrl}`,
-          );
-        }
-      }
-    }
-    if (entries.length === 0) {
-      return "";
-    }
-    // ★ 限制最多 20 个图表，避免 prompt 膨胀挤占 Leader 思考空间
-    const MAX_FIGURES_FOR_LEADER = 20;
-    const displayEntries = entries.slice(0, MAX_FIGURES_FOR_LEADER);
-    const suffix =
-      entries.length > MAX_FIGURES_FOR_LEADER
-        ? `\n...还有 ${entries.length - MAX_FIGURES_FOR_LEADER} 个图表未列出`
-        : "";
-    // ★ v4.4: 在图表列表前加入严格的分配指引
-    const guidance = `【重要】分配图表时必须严格审核：
-1. 图表的标题/图注必须与所分配章节的主题高度相关，不可仅凭关键词部分匹配
-2. 如果某个章节没有高度匹配的图表，宁可不分配任何图表，也不要勉强选用不相关的图片
-3. 禁止将通用性图片（如产品架构图、公司介绍图）分配给具体技术分析章节`;
-    return `${guidance}\n\n共 ${entries.length} 个可用图表（展示前 ${displayEntries.length} 个）：\n${displayEntries.join("\n")}${suffix}`;
   }
 
   /**

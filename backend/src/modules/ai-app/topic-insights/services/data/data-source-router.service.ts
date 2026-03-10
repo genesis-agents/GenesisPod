@@ -532,9 +532,14 @@ export class DataSourceRouterService {
   ): string[] {
     const keywords = `${topicName} ${dimensionName}`.trim();
 
+    const sanitizedDescription = dimensionDescription
+      .replace(/[^\w\s\u4e00-\u9fff-]/g, " ")
+      .slice(0, 200)
+      .trim();
+
     // 从 description 中提取英文术语用于英文学术站
     const englishTerms =
-      dimensionDescription.match(/[a-zA-Z][\w-]*(?:\s+[a-zA-Z][\w-]*)*/g) || [];
+      sanitizedDescription.match(/[a-zA-Z][\w-]*(?:\s+[a-zA-Z][\w-]*)*/g) || [];
     const bestEnglishTerm = englishTerms
       .filter((t) => t.length >= 3)
       .sort((a, b) => b.length - a.length)[0];
@@ -545,7 +550,7 @@ export class DataSourceRouterService {
     return [
       `${academicKeywords} research report 2024 2025 site:mckinsey.com OR site:bcg.com OR site:hbr.org`,
       `${academicKeywords} analysis whitepaper site:gartner.com OR site:forrester.com OR site:deloitte.com`,
-      `${keywords} ${dimensionDescription.split(/\s+/).slice(0, 5).join(" ")} academic paper`,
+      `${keywords} ${sanitizedDescription.split(/\s+/).slice(0, 5).join(" ")} academic paper`,
     ];
   }
 

@@ -19,9 +19,6 @@ import type { AdapterSearchResult } from "../search.types";
 /** Maximum number of items allowed from the same domain */
 const MAX_ITEMS_PER_DOMAIN = 3;
 
-/** Jaccard similarity threshold above which two titles are considered duplicates */
-const TITLE_SIMILARITY_THRESHOLD = 0.8;
-
 /** Source-type credibility base scores */
 const SOURCE_TYPE_SCORES: Partial<Record<DataSourceType, number>> = {
   [DataSourceType.ACADEMIC]: 0.9,
@@ -215,16 +212,18 @@ export class ResultFusionService {
 
     // Second pass: title-similarity deduplication on the already URL-deduped list
     const titleDeduped: DataSourceResult[] = [];
+    const seenTitleKeys = new Set<string>();
 
     for (const candidate of urlDeduped) {
-      const isDuplicate = titleDeduped.some(
-        (existing) =>
-          this.calculateTitleSimilarity(candidate.title, existing.title) >=
-          TITLE_SIMILARITY_THRESHOLD,
-      );
-      if (!isDuplicate) {
-        titleDeduped.push(candidate);
-      }
+      const titleKey = candidate.title
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean)
+        .sort()
+        .join(" ");
+      if (seenTitleKeys.has(titleKey)) continue;
+      seenTitleKeys.add(titleKey);
+      titleDeduped.push(candidate);
     }
 
     return titleDeduped;

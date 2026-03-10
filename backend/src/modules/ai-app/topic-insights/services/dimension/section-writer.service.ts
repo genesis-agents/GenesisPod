@@ -16,6 +16,7 @@ import {
 } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
+import { inferIsReasoning } from "@/modules/ai-engine/facade";
 import type { SectionPlan } from "../core/research-leader.service";
 import {
   SECTION_WRITING_SYSTEM_PROMPT,
@@ -272,8 +273,7 @@ export class SectionWriterService {
       writingStandards: getWritingStandards(input.topicLanguage || "zh"),
     });
 
-    const isReasoningModel =
-      modelId?.toLowerCase().includes("reasoning") ?? false;
+    const isReasoningModel = inferIsReasoning(modelId ?? "");
     const effectiveSystemPrompt = isReasoningModel
       ? this.stripChartInstructions(systemPrompt)
       : systemPrompt;
@@ -546,7 +546,10 @@ export class SectionWriterService {
     );
     const revisionSystemPrompt = renderPromptTemplate(
       SECTION_WRITING_SYSTEM_PROMPT,
-      { languageInstruction: revisionLanguageInstruction },
+      {
+        languageInstruction: revisionLanguageInstruction,
+        writingStandards: getWritingStandards(input.topicLanguage || "zh"),
+      },
     );
 
     // ★ 提取 Leader 分配的 skill（与 writeSection 保持一致）
@@ -556,8 +559,7 @@ export class SectionWriterService {
       input.assignedSkills,
     );
 
-    const isReasoningModelRevision =
-      modelId?.toLowerCase().includes("reasoning") ?? false;
+    const isReasoningModelRevision = inferIsReasoning(modelId ?? "");
     const effectiveRevisionSystemPrompt = isReasoningModelRevision
       ? this.stripChartInstructions(revisionSystemPrompt)
       : revisionSystemPrompt;

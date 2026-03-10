@@ -145,10 +145,17 @@ export class FigureRelevanceService {
         text: `\n--- 图片 ${i} ---\nCaption: ${fig.caption || "(无)"}\nType hint: ${fig.type}\nAlt: ${fig.alt || "(无)"}`,
       } satisfies TextContentPart);
 
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: fig.imageUrl, detail: "low" },
-      } satisfies ImageUrlContentPart);
+      if (fig.imageUrl.startsWith("data:")) {
+        contentParts.push({
+          type: "text",
+          text: `[图片 ${i} 为 base64 内嵌数据，无法通过 Vision API 审查，已跳过]`,
+        } satisfies TextContentPart);
+      } else {
+        contentParts.push({
+          type: "image_url",
+          image_url: { url: fig.imageUrl, detail: "low" },
+        } satisfies ImageUrlContentPart);
+      }
     }
 
     // 要求 JSON 输出

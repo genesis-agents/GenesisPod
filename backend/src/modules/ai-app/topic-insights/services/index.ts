@@ -30,7 +30,6 @@ export { MissionKernelBridgeService } from "./core/mission-kernel-bridge.service
 export { MissionNotificationService } from "./core/mission-notification.service";
 
 // ★ Leader sub-services
-export { LeaderPlanningService } from "./core/leader-planning.service";
 export { LeaderReviewService } from "./core/leader-review.service";
 export { LeaderChatService } from "./core/leader-chat.service";
 

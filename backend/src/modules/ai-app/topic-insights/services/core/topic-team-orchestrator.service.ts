@@ -354,9 +354,9 @@ export class TopicTeamOrchestratorService {
           },
         });
         // Dimension research tasks
-        for (const dim of dimensions) {
-          await this.prisma.researchTask.create({
-            data: {
+        try {
+          await this.prisma.researchTask.createMany({
+            data: dimensions.map((dim) => ({
               missionId: mission.id,
               title: `研究：${dim.name}`,
               description: dim.description || `深度研究 ${dim.name}`,
@@ -367,8 +367,12 @@ export class TopicTeamOrchestratorService {
               status: ResearchTaskStatus.PENDING,
               progress: 0,
               priority: 500,
-            },
+            })),
           });
+        } catch (dimErr) {
+          this.logger.warn(
+            `[initializeMission] Failed to create dimension tasks: ${dimErr instanceof Error ? dimErr.message : String(dimErr)}`,
+          );
         }
         // Report synthesis task
         await this.prisma.researchTask.create({

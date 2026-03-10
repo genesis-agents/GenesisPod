@@ -26,15 +26,16 @@ import {
 import { type SearchResultsRecord } from "../../types/monitoring.types";
 import { DataEnrichmentService } from "../data/data-enrichment.service";
 import { LeaderToolService } from "../data/leader-tool.service";
-import type {
-  EvidenceData,
-  EnrichedEvidenceData,
-} from "../../types/research.types";
+import type { EnrichedEvidenceData } from "../../types/research.types";
 import { AgentActivityType } from "@prisma/client";
 import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
 } from "../../prompts/dimension-research.prompt";
+import {
+  createEvidenceSummary,
+  buildFiguresSummary,
+} from "./evidence-summary.utils";
 import type { AICapabilityContext } from "@/modules/ai-engine/facade";
 import type { TemporalContext } from "./section-writer.service";
 
@@ -406,10 +407,10 @@ export class DimensionSearchService {
     // 6. 准备证据数据
     const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
     const evidenceSummary =
-      this.createEvidenceSummary(evidenceData) +
+      createEvidenceSummary(evidenceData) +
       (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
 
-    const figuresSummary = this.buildFiguresSummary(evidenceData);
+    const figuresSummary = buildFiguresSummary(evidenceData, false);
     if (figuresSummary) {
       this.logger.log(
         `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
@@ -466,50 +467,5 @@ export class DimensionSearchService {
       contentSource: item.contentSource,
       extractedFigures: item.extractedFigures,
     }));
-  }
-
-  /**
-   * 创建证据摘要（用于 Leader 规划大纲）
-   */
-  private createEvidenceSummary(evidenceData: EvidenceData[]): string {
-    const summary = evidenceData
-      .slice(0, 10) // 只取前10条，避免过长
-      .map(
-        (e, i) =>
-          `${i + 1}. [${e.sourceType || "web"}] ${e.title} (${e.domain || "未知来源"})`,
-      )
-      .join("\n");
-
-    return `共收集到 ${evidenceData.length} 条证据，摘要如下：\n${summary}\n${evidenceData.length > 10 ? `...还有 ${evidenceData.length - 10} 条` : ""}`;
-  }
-
-  /**
-   * 构建图表摘要（用于 Leader 规划时分配图表）
-   * 从证据数据中提取所有 extractedFigures，生成可读摘要
-   */
-  private buildFiguresSummary(evidenceData: EnrichedEvidenceData[]): string {
-    const entries: string[] = [];
-    for (let i = 0; i < evidenceData.length; i++) {
-      const evidence = evidenceData[i];
-      if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
-        for (let j = 0; j < evidence.extractedFigures.length; j++) {
-          const fig = evidence.extractedFigures[j];
-          entries.push(
-            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${fig.imageUrl?.startsWith("data:") ? "[base64-image]" : fig.imageUrl || "无URL"}`,
-          );
-        }
-      }
-    }
-    if (entries.length === 0) {
-      return "";
-    }
-    // ★ 限制最多 20 个图表，避免 prompt 膨胀挤占 Leader 思考空间
-    const MAX_FIGURES_FOR_LEADER = 20;
-    const displayEntries = entries.slice(0, MAX_FIGURES_FOR_LEADER);
-    const suffix =
-      entries.length > MAX_FIGURES_FOR_LEADER
-        ? `\n...还有 ${entries.length - MAX_FIGURES_FOR_LEADER} 个图表未列出`
-        : "";
-    return `共 ${entries.length} 个可用图表（展示前 ${displayEntries.length} 个）：\n${displayEntries.join("\n")}${suffix}`;
   }
 }

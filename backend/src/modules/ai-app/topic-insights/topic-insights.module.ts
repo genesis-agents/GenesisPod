@@ -64,7 +64,6 @@ import {
   MissionKernelBridgeService,
   MissionNotificationService,
   // ★ Leader sub-services
-  LeaderPlanningService,
   LeaderReviewService,
   LeaderChatService,
   // ★ Facade sub-services
@@ -164,7 +163,6 @@ const services = [
   ReportValidationService,
   ReportEditorService,
   // ★ Leader sub-services
-  LeaderPlanningService,
   LeaderReviewService,
   LeaderChatService,
   // ★ Facade sub-services

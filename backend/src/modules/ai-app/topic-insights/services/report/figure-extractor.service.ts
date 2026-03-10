@@ -25,9 +25,6 @@ export interface ExtractedFigure {
 /** 最小图片文件大小（字节）：低于此阈值的栅格图片视为缩略图/占位符 */
 const MIN_IMAGE_BYTES = 15_000;
 
-/** HEAD 请求超时（毫秒） */
-const VALIDATE_TIMEOUT_MS = 5_000;
-
 /** URL 路径中的最小图片宽度（低于此视为缩略图 URL） */
 const MIN_URL_DIMENSION_WIDTH = 400;
 
@@ -204,16 +201,22 @@ export class FigureExtractorService {
   ): ExtractedFigure[] {
     const figures: ExtractedFigure[] = [];
 
-    // 匹配 <figure>...<img>...<figcaption>...</figcaption>...</figure>
-    const figureRegex =
-      /<figure[^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["'][^>]*>[\s\S]*?(?:<figcaption[^>]*>([\s\S]*?)<\/figcaption>)?[\s\S]*?<\/figure>/gi;
+    // 匹配 <figure>...</figure> 块，再从块内提取 img 和 figcaption（避免 ReDoS）
+    const figureBlockRegex = /<figure[^>]*>[\s\S]*?<\/figure>/gi;
+    const imgSrcRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/i;
+    const figcaptionRegex = /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i;
 
     let match;
-    while ((match = figureRegex.exec(htmlContent)) !== null) {
-      const imgSrc = match[1];
+    while ((match = figureBlockRegex.exec(htmlContent)) !== null) {
+      const block = match[0];
+      const imgMatch = imgSrcRegex.exec(block);
+      if (!imgMatch) continue;
+      const imgSrc = imgMatch[1];
+
       // ★ 必须有 <figcaption>，否则跳过（不用 alt 兜底）
-      if (!match[2]) continue;
-      const figcaption = this.cleanHtmlText(match[2]);
+      const capMatch = figcaptionRegex.exec(block);
+      if (!capMatch) continue;
+      const figcaption = this.cleanHtmlText(capMatch[1]);
       if (!this.isMeaningfulCaption(figcaption)) continue;
 
       const resolvedUrl = this.resolveUrl(baseUrl, imgSrc);
@@ -222,7 +225,7 @@ export class FigureExtractorService {
           imageUrl: resolvedUrl,
           caption: figcaption,
           type: this.classifyFigureType(figcaption),
-          alt: this.extractAltFromImg(match[0]),
+          alt: this.extractAltFromImg(block),
         });
       }
     }
@@ -697,10 +700,10 @@ export class FigureExtractorService {
   }
 
   /**
-   * 校验单个图片：尝试升级 URL → HEAD 校验 → 大小/尺寸校验 → 下载内联
+   * 校验单个图片：尝试升级 URL → GET 下载内联（单次请求完成校验和内联）
    * 返回 null 表示该图片应被丢弃
    *
-   * ★ v5: 校验通过后下载图片转 base64 data URL，确保报告中的图片永久可用
+   * ★ v5: 单次 GET 请求校验头信息 + 下载转 base64，避免 HEAD+HEAD+GET 三次请求
    */
   private async validateSingleFigure(
     figure: ExtractedFigure,
@@ -713,127 +716,36 @@ export class FigureExtractorService {
     }
 
     // 1. 尝试 CDN URL 升级（获取更高分辨率版本）
-    let validatedFigure: ExtractedFigure | null = null;
     const upgradedUrl = this.tryUpgradeImageUrl(originalUrl);
+    const candidateUrl = upgradedUrl ?? originalUrl;
+    const candidateFigure = upgradedUrl
+      ? { ...figure, imageUrl: upgradedUrl }
+      : figure;
+
     if (upgradedUrl) {
-      const upgradeResult = await this.headCheck(upgradedUrl);
-      if (upgradeResult.ok) {
-        this.logger.debug(
-          `[validateFigure] Upgraded URL: ${originalUrl.substring(0, 80)} → ${upgradedUrl.substring(0, 80)}`,
-        );
-        validatedFigure = this.applyValidationResult(
-          { ...figure, imageUrl: upgradedUrl },
-          upgradeResult,
-        );
-      }
+      this.logger.debug(
+        `[validateFigure] Upgraded URL: ${originalUrl.substring(0, 80)} → ${upgradedUrl.substring(0, 80)}`,
+      );
     }
 
-    // 2. 校验原始 URL（如果升级失败）
-    if (!validatedFigure) {
-      const result = await this.headCheck(originalUrl);
-      if (!result.ok) {
-        this.logger.debug(
-          `[validateFigure] REJECTED (HTTP ${result.status}): ${originalUrl.substring(0, 120)}`,
-        );
-        return null;
-      }
-      validatedFigure = this.applyValidationResult(figure, result);
-    }
-
-    if (!validatedFigure) return null;
-
-    // 3. ★ 下载图片并转为 base64 data URL（确保永久可用）
-    const inlined = await this.downloadAndInlineImage(validatedFigure.imageUrl);
+    // 2. 单次 GET 请求：校验头信息 + 下载内联（如可用）
+    const inlined = await this.downloadAndInlineImage(candidateUrl);
     if (inlined) {
-      return { ...validatedFigure, imageUrl: inlined };
+      return { ...candidateFigure, imageUrl: inlined };
     }
 
-    // 下载失败时保留原始 URL（降级但不丢弃）
-    this.logger.warn(
-      `[validateFigure] Failed to inline image, keeping original URL: ${validatedFigure.imageUrl.substring(0, 100)}`,
-    );
-    return validatedFigure;
-  }
-
-  /**
-   * 根据 HEAD 响应结果判断图片是否合格
-   */
-  private applyValidationResult(
-    figure: ExtractedFigure,
-    result: HeadCheckResult,
-  ): ExtractedFigure | null {
-    const url = figure.imageUrl;
-    const contentType = result.contentType || "";
-
-    // SVG/矢量图跳过大小检查（矢量图无分辨率问题）
-    if (contentType.includes("svg")) {
-      return figure;
-    }
-
-    // 栅格图片：Content-Length 校验
-    if (result.contentLength > 0 && result.contentLength < MIN_IMAGE_BYTES) {
-      this.logger.debug(
-        `[validateFigure] REJECTED (too small: ${result.contentLength} bytes < ${MIN_IMAGE_BYTES}): ${url.substring(0, 120)}`,
-      );
-      return null;
-    }
-
-    // URL 路径中的尺寸提示校验
-    const urlDimensions = this.extractDimensionsFromUrl(url);
-    if (urlDimensions && urlDimensions.width < MIN_URL_DIMENSION_WIDTH) {
-      this.logger.debug(
-        `[validateFigure] REJECTED (URL hints small: ${urlDimensions.width}x${urlDimensions.height}): ${url.substring(0, 120)}`,
-      );
-      return null;
-    }
-
-    return figure;
-  }
-
-  /**
-   * 对图片 URL 发送 HEAD 请求，校验可访问性
-   */
-  private async headCheck(url: string): Promise<HeadCheckResult> {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
-
-      try {
-        const response = await fetch(url, {
-          method: "HEAD",
-          signal: controller.signal,
-          redirect: "follow",
-          headers: {
-            // 伪装浏览器 UA，部分 CDN 拒绝无 UA 请求
-            "User-Agent":
-              "Mozilla/5.0 (compatible; GenesisBot/1.0; +https://genesis-ai-labs.org)",
-          },
-        });
-        clearTimeout(timer);
-
-        if (!response.ok) {
-          return { ok: false, status: response.status, contentLength: 0 };
-        }
-
-        const contentLength = parseInt(
-          response.headers.get("content-length") || "0",
-          10,
-        );
-        const contentType = response.headers.get("content-type") || "";
-
-        return {
-          ok: true,
-          status: response.status,
-          contentLength,
-          contentType,
-        };
-      } finally {
-        clearTimeout(timer);
+    // 下载失败时（网络错误、尺寸不符等），若升级 URL 失败则回退原始 URL 重试
+    if (upgradedUrl) {
+      const fallbackInlined = await this.downloadAndInlineImage(originalUrl);
+      if (fallbackInlined) {
+        return { ...figure, imageUrl: fallbackInlined };
       }
-    } catch {
-      // 网络错误、超时、DNS 失败等
-      return { ok: false, status: 0, contentLength: 0 };
     }
+
+    this.logger.debug(
+      `[validateFigure] REJECTED (download failed): ${originalUrl.substring(0, 120)}`,
+    );
+    return null;
   }
 
   /**
@@ -956,53 +868,4 @@ export class FigureExtractorService {
 
     return changed ? upgraded : null;
   }
-
-  /**
-   * ★ v4.5: 从 URL 路径中提取尺寸提示
-   *
-   * 识别常见模式：
-   * - /292x220.png（路径中的 WxH）
-   * - /resize/320x214!/
-   * - ?w=300&h=200
-   */
-  private extractDimensionsFromUrl(
-    url: string,
-  ): { width: number; height: number } | null {
-    // 路径中的 WxH 模式（如 /292x220.png, /320x214!/）
-    const pathMatch = url.match(/\/(\d{2,4})x(\d{2,4})[.!/]/);
-    if (pathMatch) {
-      return {
-        width: parseInt(pathMatch[1], 10),
-        height: parseInt(pathMatch[2], 10),
-      };
-    }
-
-    // 查询参数中的尺寸
-    const wMatch = url.match(/[?&](?:w|width)=(\d+)/);
-    const hMatch = url.match(/[?&](?:h|height)=(\d+)/);
-    if (wMatch && hMatch) {
-      return {
-        width: parseInt(wMatch[1], 10),
-        height: parseInt(hMatch[1], 10),
-      };
-    }
-    // 只有宽度参数
-    if (wMatch) {
-      return {
-        width: parseInt(wMatch[1], 10),
-        height: 0,
-      };
-    }
-
-    return null;
-  }
-}
-
-// ==================== Internal Types ====================
-
-interface HeadCheckResult {
-  ok: boolean;
-  status: number;
-  contentLength: number;
-  contentType?: string;
 }

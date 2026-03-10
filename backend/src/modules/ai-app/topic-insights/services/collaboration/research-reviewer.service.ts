@@ -413,17 +413,21 @@ export class ResearchReviewerService {
     const { GAP_SEARCH_QUERY_PROMPT } =
       await import("../../prompts/v5-research.prompt");
 
+    const claimsStr = JSON.stringify(
+      disputedClaims.map((c) => ({
+        claimId: c.claimId,
+        status: c.status,
+        explanation: c.explanation,
+      })),
+      null,
+      2,
+    );
+    const truncatedClaims =
+      claimsStr.length > 3000 ? claimsStr.slice(0, 3000) + "...]" : claimsStr;
+
     const prompt = GAP_SEARCH_QUERY_PROMPT.replace(
       "{disputedClaimsJson}",
-      JSON.stringify(
-        disputedClaims.map((c) => ({
-          claimId: c.claimId,
-          status: c.status,
-          explanation: c.explanation,
-        })),
-        null,
-        2,
-      ),
+      truncatedClaims,
     ).replace(
       "{existingEvidenceSummary}",
       existingEvidenceSummary.substring(0, 4000),
