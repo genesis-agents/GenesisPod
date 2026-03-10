@@ -247,6 +247,7 @@ export class ChatFacade {
           model: modelConfig.modelId,
           maxTokens: request.maxTokens,
           temperature: request.temperature,
+          responseFormat: request.responseFormat,
           strictMode: true,
           userId: request.billing?.userId ?? RequestContext.getUserId(),
           processId: request.processId,
@@ -352,6 +353,7 @@ export class ChatFacade {
         model: request.model,
         maxTokens: request.maxTokens,
         temperature: request.temperature,
+        responseFormat: request.responseFormat,
         strictMode: request.strictMode,
         userId: request.billing?.userId ?? RequestContext.getUserId(),
         processId: request.processId,
@@ -442,6 +444,7 @@ export class ChatFacade {
         taskProfile: request.taskProfile,
         maxTokens: request.maxTokens,
         temperature: request.temperature,
+        responseFormat: request.responseFormat,
         strictMode: request.strictMode,
       });
 
@@ -482,6 +485,7 @@ export class ChatFacade {
       taskProfile: request.taskProfile,
       maxTokens: request.maxTokens,
       temperature: request.temperature,
+      responseFormat: request.responseFormat,
       strictMode: request.strictMode,
     });
 

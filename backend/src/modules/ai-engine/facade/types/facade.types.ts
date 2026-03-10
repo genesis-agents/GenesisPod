@@ -73,6 +73,9 @@ export interface ChatRequest {
   /** 跳过输入/输出 guardrails（用于内部系统调用，如 claim extraction、fact check） */
   skipGuardrails?: boolean;
 
+  /** JSON 模式：告诉 LLM 输出严格 JSON（支持 OpenAI json_object、Google JSON mode 等） */
+  responseFormat?: "json" | "text";
+
   // ==================== 积分计费 ====================
 
   /**

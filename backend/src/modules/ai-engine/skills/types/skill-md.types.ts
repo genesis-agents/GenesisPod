@@ -489,6 +489,9 @@ export interface ChatWithSkillsRequest {
 
   /** 跳过输入/输出 guardrails（用于内部系统调用） */
   skipGuardrails?: boolean;
+
+  /** JSON 模式 */
+  responseFormat?: "json" | "text";
 }
 
 /**
