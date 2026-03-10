@@ -91,6 +91,8 @@ export interface SectionWriteInput {
   topicLanguage?: string | null;
   /** ★ Leader 分配的任务级技能（与 section.agentConfig.skills 合并后注入 chatWithSkills） */
   assignedSkills?: string[];
+  /** ★ 完整 evidenceData（未经 filterEvidenceForSection 过滤），用于按原始索引回填图表 URL */
+  fullEvidenceData?: EvidenceData[];
 }
 
 /**
@@ -369,6 +371,26 @@ export class SectionWriterService {
         .join(" ")
         .toLowerCase();
 
+      // ★ 使用 fullEvidenceData（未过滤）回填 allocatedFigures 缺失的 imageUrl
+      // Leader LLM 经常不输出 imageUrl，需要从原始证据中根据 evidenceIndex 查找
+      const figSourceData = input.fullEvidenceData || evidenceData;
+      for (const fig of input.allocatedFigures) {
+        if (!fig.imageUrl && figSourceData[fig.evidenceIndex - 1]) {
+          const ev = figSourceData[fig.evidenceIndex - 1] as EvidenceData & {
+            extractedFigures?: ExtractedFigure[];
+          };
+          if (ev.extractedFigures?.[fig.figureIndex]) {
+            fig.imageUrl = ev.extractedFigures[fig.figureIndex].imageUrl || "";
+            if (!fig.caption) {
+              fig.caption =
+                ev.extractedFigures[fig.figureIndex].caption ||
+                ev.extractedFigures[fig.figureIndex].alt ||
+                "";
+            }
+          }
+        }
+      }
+
       figureRefsToBackfill = input.allocatedFigures
         .filter((fig) => {
           if (!fig.imageUrl) return false;
@@ -386,7 +408,7 @@ export class SectionWriterService {
         })
         .map((fig, idx) => {
           // ★ Build descriptive Source text from evidence metadata
-          const evidenceItem = evidenceData.find(
+          const evidenceItem = figSourceData.find(
             (_e, i) => i + 1 === fig.evidenceIndex,
           );
           const sourceText = evidenceItem
@@ -414,7 +436,7 @@ export class SectionWriterService {
     const backfilledRefs = this.backfillFigureUrls(
       figureRefsToBackfill,
       input.allocatedFigures,
-      evidenceData,
+      input.fullEvidenceData || evidenceData, // ★ 使用完整 evidenceData 按原始索引回填
     );
 
     // ★ 最终相关性校验：无论 figureReferences 来自 LLM 还是 auto-inject，

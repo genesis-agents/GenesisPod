@@ -1406,6 +1406,7 @@ export class DimensionMissionService {
         validationContext, // V5: inject validation context
         topicLanguage, // ★ 传递语言设置
         assignedSkills, // ★ Leader 分配的任务级技能
+        fullEvidenceData: evidenceData, // ★ 完整 evidenceData 用于图表索引回填
       }));
 
       // ★ 发送研究员开始写作事件
