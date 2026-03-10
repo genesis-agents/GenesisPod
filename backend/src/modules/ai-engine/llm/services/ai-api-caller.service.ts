@@ -455,7 +455,9 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    if (responseFormat === "json" && !isReasoningModel) {
+    // ★ xAI reasoning models DO support response_format (unlike temperature)
+    // Without it, reasoning models produce interleaved/malformed JSON output
+    if (responseFormat === "json") {
       requestBody["response_format"] = { type: "json_object" };
     }
 

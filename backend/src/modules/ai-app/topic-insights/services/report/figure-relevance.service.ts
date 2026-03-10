@@ -164,7 +164,7 @@ export class FigureRelevanceService {
               contentParts,
             },
           ],
-          modelType: AIModelType.CHAT,
+          modelType: AIModelType.MULTIMODAL,
           taskProfile: {
             creativity: "deterministic",
             outputLength: "short",

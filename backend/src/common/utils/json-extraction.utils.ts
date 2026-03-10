@@ -52,7 +52,7 @@ export function extractJsonFromAIResponse<T = unknown>(
   // Use deduplicated content for all subsequent methods
   const processedContent = deduplicated !== content ? deduplicated : content;
 
-  // Method 1: Try direct JSON parse (try deduplicated first if different)
+  // Method 1: Try direct JSON parse
   try {
     const parsed = JSON.parse(content) as T;
     if (!requiredKey || hasKey(parsed, requiredKey)) {
@@ -60,6 +60,23 @@ export function extractJsonFromAIResponse<T = unknown>(
     }
   } catch {
     // Continue to next method
+  }
+
+  // Method 1.5: If content starts with {, try brace-counting extraction
+  // Handles cases where model appends text after valid JSON, or content has trailing noise
+  const trimmedContent = content.trim();
+  if (trimmedContent.startsWith("{")) {
+    const extracted = extractJsonByBraceCounting(trimmedContent);
+    if (extracted) {
+      try {
+        const parsed = JSON.parse(extracted) as T;
+        if (!requiredKey || hasKey(parsed, requiredKey)) {
+          return { success: true, data: parsed, method: "braceCounting" };
+        }
+      } catch {
+        // Continue to next method
+      }
+    }
   }
 
   // Method 2: Extract from ```json code block using brace counting

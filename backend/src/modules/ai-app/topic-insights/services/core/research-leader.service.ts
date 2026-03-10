@@ -2025,6 +2025,15 @@ ${teamMembersText}`;
       return null;
     }
 
+    // ★ 诊断：先尝试直接 JSON.parse，记录具体错误
+    try {
+      JSON.parse(response);
+    } catch (directError) {
+      this.logger.warn(
+        `[extractJsonFromResponse] Direct JSON.parse error (len=${response.length}): ${directError instanceof SyntaxError ? directError.message : "unknown"}`,
+      );
+    }
+
     const result = extractJsonFromAIResponse<T>(response, { requiredKey });
 
     if (result.success && result.data) {
@@ -2138,6 +2147,7 @@ ${teamMembersText}`;
             { role: "user", content: finalPrompt },
           ],
           model: modelId,
+          responseFormat: "json",
           taskProfile: {
             creativity: "medium",
             outputLength: "long",
@@ -2345,6 +2355,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             { role: "user", content: prompt },
           ],
           model: leaderModel.modelId,
+          responseFormat: "json",
           taskProfile: {
             creativity: "medium",
             outputLength: "extended",
