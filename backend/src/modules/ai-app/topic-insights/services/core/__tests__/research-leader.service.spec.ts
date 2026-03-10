@@ -106,7 +106,7 @@ const mockLeaderPlanJson = {
       agentType: "dimension_researcher",
       assignedDimensions: ["dim-001"],
       modelId: "gpt-4o",
-      skills: ["deep_dive", "synthesis"],
+      skills: ["deep-dive", "synthesis"],
       tools: ["web-search"],
       assignmentReason: {
         agentReason: "专注技术领域",
@@ -404,9 +404,9 @@ describe("ResearchLeaderService", () => {
         (a) => a.agentType === "dimension_researcher",
       );
       expect(researcherAgent?.skills).toEqual([
-        "deep_dive",
+        "deep-dive",
         "synthesis",
-        "data_interpretation",
+        "data-interpretation",
       ]);
       expect(researcherAgent?.tools).toEqual(["web-search"]);
     });
@@ -447,7 +447,7 @@ describe("ResearchLeaderService", () => {
             agentType: "dimension_researcher",
             assignedDimensions: ["dim-001"],
             modelId: null, // no model assigned
-            skills: ["deep_dive"],
+            skills: ["deep-dive"],
             tools: ["web-search"],
           },
           {
@@ -1109,7 +1109,7 @@ describe("ResearchLeaderService", () => {
         "AI 监管政策研究",
       );
 
-      expect(result.skills).toContain("policy_analysis");
+      expect(result.skills).toContain("policy-analysis");
       expect(result.tools).toContain("federal-register");
     });
 
@@ -1129,7 +1129,7 @@ describe("ResearchLeaderService", () => {
         "分析市场份额",
       );
 
-      expect(result.skills).toContain("competitive_analysis");
+      expect(result.skills).toContain("competitive-analysis");
     });
 
     it("should use default skills when no keywords match", async () => {
@@ -1148,7 +1148,7 @@ describe("ResearchLeaderService", () => {
         "No keywords here",
       );
 
-      expect(result.skills).toContain("deep_dive");
+      expect(result.skills).toContain("deep-dive");
       expect(result.tools).toContain("web-search");
     });
   });
@@ -1537,7 +1537,7 @@ describe("ResearchLeaderService", () => {
       const reviewerAgent = result.agentAssignments?.find(
         (a) => a.agentType === "quality_reviewer",
       );
-      expect(reviewerAgent?.skills).toContain("critical_thinking");
+      expect(reviewerAgent?.skills).toContain("critical-thinking");
     });
 
     it("should auto-assign skills to report_writer agents missing skills", async () => {
@@ -1583,7 +1583,7 @@ describe("ResearchLeaderService", () => {
             agentType: "dimension_researcher",
             assignedDimensions: ["dim-001"],
             modelId: "gpt-4o",
-            skills: ["deep_dive"],
+            skills: ["deep-dive"],
             tools: ["web-search"],
             // no assignmentReason
           },

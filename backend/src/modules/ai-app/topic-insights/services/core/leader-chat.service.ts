@@ -1345,9 +1345,9 @@ ${teamMembersText}`;
     // 政策法规类
     if (isPolicyRelated) {
       skills.push(
-        "policy_analysis",
-        "regulatory_impact",
-        "legislative_tracking",
+        "policy-analysis",
+        "regulatory-impact",
+        "legislative-tracking",
       );
       tools.push("federal-register", "congress-gov", "whitehouse-news");
     }
@@ -1355,28 +1355,28 @@ ${teamMembersText}`;
     // 市场分析类
     if (isMarketRelated) {
       skills.push(
-        "trend_analysis",
-        "competitive_analysis",
-        "data_interpretation",
+        "trend-analysis",
+        "competitive-analysis",
+        "data-interpretation",
       );
       tools.push("web-search", "data-analysis");
     }
 
     // 技术研究类
     if (isTechRelated) {
-      skills.push("deep_dive", "comparison", "synthesis");
+      skills.push("deep-dive", "comparison", "synthesis");
       tools.push("academic-search", "web-search");
     }
 
     // 数据分析类
     if (isDataRelated) {
-      skills.push("data_interpretation", "trend_analysis");
+      skills.push("data-interpretation", "trend-analysis");
       tools.push("data-analysis", "web-search");
     }
 
     // 战略/综合类
     if (isStrategyRelated) {
-      skills.push("future_projection", "cause_effect", "synthesis");
+      skills.push("future-projection", "cause-effect", "synthesis");
       tools.push("web-search", "news");
     }
 
@@ -1386,7 +1386,7 @@ ${teamMembersText}`;
 
     // 如果没有匹配到任何关键词，使用默认值
     if (skills.length === 0) {
-      skills = ["deep_dive", "synthesis", "data_interpretation"];
+      skills = ["deep-dive", "synthesis", "data-interpretation"];
     }
     if (tools.length === 0) {
       tools = ["web-search"];

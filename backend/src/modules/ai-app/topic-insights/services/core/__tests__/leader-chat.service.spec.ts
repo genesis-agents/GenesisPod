@@ -1099,7 +1099,7 @@ describe("LeaderChatService", () => {
         "研究系统架构",
       );
 
-      expect(result.skills).toContain("deep_dive");
+      expect(result.skills).toContain("deep-dive");
     });
 
     it("should select strategy skills for strategy task", async () => {
@@ -1115,7 +1115,7 @@ describe("LeaderChatService", () => {
         "未来发展预测",
       );
 
-      expect(result.skills).toContain("future_projection");
+      expect(result.skills).toContain("future-projection");
     });
 
     it("should use default skills when no keywords match", async () => {

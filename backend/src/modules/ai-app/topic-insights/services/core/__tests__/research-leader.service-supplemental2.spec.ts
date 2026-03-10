@@ -343,7 +343,7 @@ describe("ResearchLeaderService (supplemental2)", () => {
       expect(plan.agentAssignments[0].modelId).toBe("gpt-4o");
       expect(plan.agentAssignments[1].modelId).toBe("claude-3");
       // Auto-assigned skills for agent-1 (no existing skills)
-      expect(plan.agentAssignments[0].skills).toContain("deep_dive");
+      expect(plan.agentAssignments[0].skills).toContain("deep-dive");
       // Auto-assigned tools for agent-1 (no existing tools)
       expect(plan.agentAssignments[0].tools).toContain("web-search");
     });
@@ -411,7 +411,7 @@ describe("ResearchLeaderService (supplemental2)", () => {
       const plan = await service.planResearch("topic-001");
 
       const reviewer = plan.agentAssignments[0];
-      expect(reviewer.skills).toContain("critical_thinking");
+      expect(reviewer.skills).toContain("critical-thinking");
       expect(reviewer.assignmentReason).toBeDefined();
       expect(reviewer.assignmentReason?.agentReason).toContain("审核");
     });
