@@ -9,7 +9,11 @@
  * - 检查内容长度，极短内容视为失败
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research-leader.service";
@@ -257,7 +261,7 @@ export class SectionWriterService {
       this.logger.error(
         `[writeSection] API error for ${section.title}: ${response.content.slice(0, 100)}`,
       );
-      throw new Error(
+      throw new InternalServerErrorException(
         `API error while writing section "${section.title}": ${response.content}`,
       );
     }
@@ -278,7 +282,7 @@ export class SectionWriterService {
       this.logger.error(
         `[writeSection] Content too short for ${section.title}: ${content.length} chars < ${minLength} min`,
       );
-      throw new Error(
+      throw new InternalServerErrorException(
         `Content too short for section "${section.title}": got ${content.length} chars, expected at least ${minLength}`,
       );
     }
@@ -490,7 +494,7 @@ export class SectionWriterService {
       this.logger.error(
         `[reviseSection] API error for ${section.title}: ${response.content.slice(0, 100)}`,
       );
-      throw new Error(
+      throw new InternalServerErrorException(
         `API error while revising section "${section.title}": ${response.content}`,
       );
     }
@@ -509,7 +513,7 @@ export class SectionWriterService {
       this.logger.error(
         `[reviseSection] Content too short for ${section.title}: ${content.length} chars < ${minLength} min`,
       );
-      throw new Error(
+      throw new InternalServerErrorException(
         `Revised content too short for section "${section.title}": got ${content.length} chars, expected at least ${minLength}`,
       );
     }

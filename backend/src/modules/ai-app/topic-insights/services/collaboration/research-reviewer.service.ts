@@ -1,4 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
@@ -117,7 +121,7 @@ export class ResearchReviewerService {
           `Failed to parse review response for dimension ${dimension.name}:`,
           extractionResult.error,
         );
-        throw new Error(
+        throw new InternalServerErrorException(
           extractionResult.error || "Failed to parse AI response",
         );
       }

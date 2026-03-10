@@ -15,7 +15,7 @@
  * - 有研究且较新 → 可选更新 (OPTIONAL)
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { DimensionStatus } from "@prisma/client";
 import {
@@ -75,7 +75,7 @@ export class ResearchStrategyService {
     });
 
     if (!topic) {
-      throw new Error(`Topic not found: ${topicId}`);
+      throw new NotFoundException(`Topic not found: ${topicId}`);
     }
 
     // 2. 分析主题研究状态

@@ -35,3 +35,6 @@ export * from "./todo.dto";
 
 // Report Editing DTOs
 export * from "./report-editing.dto";
+
+// Leader Chat DTOs
+export { LeaderChatDto } from "./leader-chat.dto";

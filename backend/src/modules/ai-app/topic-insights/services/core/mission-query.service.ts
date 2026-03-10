@@ -46,6 +46,8 @@ export class MissionQueryService {
     private readonly eventEmitter: EventEmitter2,
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly chatFacade: ChatFacade,
+    // forwardRef: MissionQueryService <-> ResearchLeaderService
+    // Leader uses MissionQuery to read/update task states; MissionQuery needs Leader to get reasoning model info for team view
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
   ) {}

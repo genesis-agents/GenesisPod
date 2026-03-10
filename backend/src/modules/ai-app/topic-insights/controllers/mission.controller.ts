@@ -26,6 +26,7 @@ import {
   LeaderMessageDto,
   MissionRetryDto,
   MissionAdjustDto,
+  LeaderChatDto,
 } from "../dto";
 import { CollaboratorRole } from "../dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
@@ -148,6 +149,8 @@ export class MissionController {
    * ★ Security: 速率限制 20次/分钟，AI 对话操作
    */
   @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/leader/message")
   @ApiOperation({
     summary: "处理 @Leader 消息",
@@ -179,6 +182,8 @@ export class MissionController {
    * ★ Security: 速率限制 20次/分钟，AI 对话操作
    */
   @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/leader/chat")
   @ApiOperation({
     summary: "Leader 解码用户输入",
@@ -213,7 +218,7 @@ export class MissionController {
   async leaderChat(
     @Request() req: RequestWithUser,
     @Param("id") topicId: string,
-    @Body() dto: { message: string; missionId?: string },
+    @Body() dto: LeaderChatDto,
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -345,6 +350,8 @@ export class MissionController {
   /**
    * 获取 Leader 决策历史
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/leader/decisions")
   @ApiOperation({
     summary: "获取 Leader 决策历史",
@@ -372,6 +379,8 @@ export class MissionController {
   /**
    * 获取当前 Mission 状态
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/mission")
   @ApiOperation({
     summary: "获取 Mission 状态",
@@ -421,6 +430,8 @@ export class MissionController {
   /**
    * 获取当前团队组成
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/team")
   @ApiOperation({
     summary: "获取研究团队",
@@ -518,6 +529,8 @@ export class MissionController {
   /**
    * 获取按维度分组的 Agent 活动记录
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/agent-activities/by-dimension")
   @ApiOperation({
     summary: "获取按维度分组的 Agent 活动记录",
@@ -541,6 +554,8 @@ export class MissionController {
   /**
    * 获取 Agent 活动统计
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/agent-activities/stats")
   @ApiOperation({
     summary: "获取 Agent 活动统计",
@@ -694,6 +709,8 @@ export class MissionController {
   /**
    * 获取 Mission 健康状态
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/missions/:missionId/health")
   @ApiOperation({
     summary: "获取 Mission 健康状态",
@@ -718,6 +735,8 @@ export class MissionController {
   /**
    * 获取专题当前 Mission 的健康状态
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/health")
   @ApiOperation({
     summary: "获取专题当前 Mission 的健康状态",
@@ -747,6 +766,8 @@ export class MissionController {
   /**
    * 检查 Mission 是否可恢复
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/missions/:missionId/can-resume")
   @ApiOperation({
     summary: "检查 Mission 是否可恢复",

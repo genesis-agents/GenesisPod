@@ -14,7 +14,11 @@
  * - 提供智能的补充搜索决策
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { EnrichedEvidenceData } from "../../types/research.types";
@@ -206,7 +210,7 @@ ${context.freshnessRequirement || "不限制"}
       // 尝试提取 JSON
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error("No JSON found in response");
+        throw new InternalServerErrorException("No JSON found in response");
       }
 
       const parsed = JSON.parse(jsonMatch[0]);

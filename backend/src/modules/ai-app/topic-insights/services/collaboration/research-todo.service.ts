@@ -53,6 +53,8 @@ export class ResearchTodoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: ResearchEventEmitterService,
+    // forwardRef: ResearchTodoService <-> ResearchLeaderService
+    // Leader creates and schedules TODO tasks; TODO completion triggers Leader review decisions
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
   ) {}

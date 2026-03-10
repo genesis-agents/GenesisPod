@@ -1,4 +1,11 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ChatFacade,
@@ -149,7 +156,7 @@ export class ReportSynthesisService {
       }
     }
 
-    throw new Error(
+    throw new InternalServerErrorException(
       `Failed to create draft report after ${maxRetries} retries`,
     );
   }
@@ -260,7 +267,9 @@ export class ReportSynthesisService {
     });
 
     if (!report?.fullReport) {
-      throw new Error(`Report ${reportId} not found or has no content`);
+      throw new NotFoundException(
+        `Report ${reportId} not found or has no content`,
+      );
     }
 
     const targetLanguage =
@@ -328,7 +337,9 @@ export class ReportSynthesisService {
     });
 
     if (dimensionAnalyses.length === 0) {
-      throw new Error("No dimension analyses found for report synthesis");
+      throw new InternalServerErrorException(
+        "No dimension analyses found for report synthesis",
+      );
     }
 
     // 2. 获取报告关联的所有证据
@@ -2303,11 +2314,13 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     ]);
 
     if (!report1 || !report2) {
-      throw new Error("One or both reports not found");
+      throw new NotFoundException("One or both reports not found");
     }
 
     if (report1.topicId !== topicId || report2.topicId !== topicId) {
-      throw new Error("Reports do not belong to the specified topic");
+      throw new BadRequestException(
+        "Reports do not belong to the specified topic",
+      );
     }
 
     // 简单的变化检测

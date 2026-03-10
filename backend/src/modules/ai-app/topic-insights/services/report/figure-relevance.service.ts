@@ -11,7 +11,11 @@
  * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import type {
@@ -189,7 +193,9 @@ export class FigureRelevanceService {
 
       // 验证结构
       if (!response.data?.results || !Array.isArray(response.data.results)) {
-        throw new Error("Invalid response structure: missing results array");
+        throw new InternalServerErrorException(
+          "Invalid response structure: missing results array",
+        );
       }
 
       return response.data;

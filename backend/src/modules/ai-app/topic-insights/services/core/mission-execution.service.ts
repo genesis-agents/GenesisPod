@@ -4,7 +4,15 @@
  * 负责 Mission 的任务执行和调度
  */
 
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -96,7 +104,7 @@ export class MissionExecutionService {
     private readonly chatFacade: ChatFacade,
     private readonly reviewerService: ResearchReviewerService,
     // forwardRef: MissionExecutionService <-> ResearchMemoryService
-    // Execution calls Memory after each task to extract findings; Memory is read by LeaderPlanning which generates tasks that Execution drives
+    // Execution stores research findings in Memory; Memory retrieval informs execution strategy decisions
     @Inject(forwardRef(() => ResearchMemoryService))
     private readonly researchMemory: ResearchMemoryService,
     private readonly dataSourceFetcher: DataSourceFetcherService,
@@ -130,7 +138,7 @@ export class MissionExecutionService {
     );
 
     if (!topic) {
-      throw new Error(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
     // ★ 先创建草稿报告，以便关联证据
@@ -387,7 +395,7 @@ export class MissionExecutionService {
               );
 
             if (!missionResult.success) {
-              throw new Error(
+              throw new InternalServerErrorException(
                 missionResult.error || "Dimension mission failed",
               );
             }
@@ -1224,7 +1232,9 @@ export class MissionExecutionService {
       );
 
     if (!missionResult.success || !missionResult.analysisResult) {
-      throw new Error(missionResult.error || "Dimension mission failed");
+      throw new InternalServerErrorException(
+        missionResult.error || "Dimension mission failed",
+      );
     }
 
     return missionResult.analysisResult;
@@ -1730,11 +1740,11 @@ export class MissionExecutionService {
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
     if (mission.status !== ResearchMissionStatus.EXECUTING) {
-      throw new Error(
+      throw new BadRequestException(
         `Mission ${missionId} is not in EXECUTING status (current: ${mission.status})`,
       );
     }

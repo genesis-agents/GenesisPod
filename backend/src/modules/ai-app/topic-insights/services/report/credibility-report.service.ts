@@ -11,7 +11,7 @@
  * 5. 识别并声明局限性
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 /**
@@ -112,7 +112,7 @@ export class CredibilityReportService {
     });
 
     if (!report) {
-      throw new Error(`Report not found: ${reportId}`);
+      throw new NotFoundException(`Report not found: ${reportId}`);
     }
 
     // 2. 计算来源分布

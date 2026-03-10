@@ -139,6 +139,8 @@ export class DimensionMissionService {
 
   constructor(
     private readonly prisma: PrismaService,
+    // forwardRef: DimensionMissionService <-> ResearchLeaderService
+    // Leader triggers dimension task execution; DimensionMission calls Leader to review section quality after search completes
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
     private readonly sectionWriter: SectionWriterService,

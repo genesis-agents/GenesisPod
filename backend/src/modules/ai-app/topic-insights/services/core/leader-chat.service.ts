@@ -8,7 +8,14 @@
  * - 获取决策历史（getDecisionHistory）
  */
 
-import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  forwardRef,
+  Inject,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ChatFacade,
@@ -43,6 +50,9 @@ export class LeaderChatService {
     private readonly agentFacade: AgentFacade,
     private readonly toolFacade: ToolFacade,
     private readonly eventEmitter: ResearchEventEmitterService,
+    // forwardRef: LeaderChatService -> LeaderToolService (one-way, needed for module loading order)
+    // Chat calls ToolService for tool execution (search/dimension ops); results return via method return values
+    // ToolService results feed back into Chat to generate the final Leader reply
     @Inject(forwardRef(() => LeaderToolService))
     private readonly leaderToolService: LeaderToolService,
   ) {}
@@ -130,7 +140,7 @@ export class LeaderChatService {
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
     // 2. 计算进度
@@ -183,7 +193,9 @@ export class LeaderChatService {
     // 4. 复杂意图：调用推理模型处理
     const leaderModel = await this.getReasoningModel();
     if (!leaderModel) {
-      throw new Error("No reasoning model available for Leader");
+      throw new ServiceUnavailableException(
+        "No reasoning model available for Leader",
+      );
     }
 
     // 5. 构建维度列表（供 Leader 了解当前有哪些维度）
@@ -575,7 +587,7 @@ export class LeaderChatService {
     });
 
     if (!topic) {
-      throw new Error(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
     // 2. 获取任务状态（如果有 missionId）

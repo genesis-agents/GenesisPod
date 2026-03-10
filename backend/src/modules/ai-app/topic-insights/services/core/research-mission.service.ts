@@ -11,6 +11,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  InternalServerErrorException,
   forwardRef,
   Inject,
   Optional,
@@ -135,6 +136,8 @@ export class ResearchMissionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    // forwardRef: ResearchMissionService <-> ResearchLeaderService
+    // Mission creates tasks for Leader to plan; Leader completion triggers Mission state transitions
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
     private readonly dimensionMissionService: DimensionMissionService,
@@ -1319,7 +1322,9 @@ export class ResearchMissionService {
       task.status !== ResearchTaskStatus.FAILED &&
       task.status !== ResearchTaskStatus.NEEDS_REVISION
     ) {
-      throw new Error(`Task ${taskId} is not in a retryable state`);
+      throw new BadRequestException(
+        `Task ${taskId} is not in a retryable state`,
+      );
     }
 
     return this.prisma.researchTask.update({
@@ -1348,7 +1353,7 @@ export class ResearchMissionService {
     }
 
     if (mission.status !== ResearchMissionStatus.FAILED) {
-      throw new Error(`Mission ${missionId} is not failed`);
+      throw new BadRequestException(`Mission ${missionId} is not failed`);
     }
 
     // 重置所有失败的任务
@@ -1596,7 +1601,7 @@ export class ResearchMissionService {
 
     // 只允许在执行中的 Mission 进行调整
     if (mission.status !== ResearchMissionStatus.EXECUTING) {
-      throw new Error(
+      throw new BadRequestException(
         `Cannot adjust mission in ${mission.status} status. Only EXECUTING missions can be adjusted.`,
       );
     }
@@ -2019,7 +2024,7 @@ export class ResearchMissionService {
     );
 
     if (!topic) {
-      throw new Error(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
     // ★ 先创建草稿报告，以便关联证据
@@ -2301,7 +2306,7 @@ export class ResearchMissionService {
               );
 
             if (!missionResult.success) {
-              throw new Error(
+              throw new InternalServerErrorException(
                 missionResult.error || "Dimension mission failed",
               );
             }
@@ -3107,7 +3112,9 @@ export class ResearchMissionService {
       );
 
     if (!missionResult.success || !missionResult.analysisResult) {
-      throw new Error(missionResult.error || "Dimension mission failed");
+      throw new InternalServerErrorException(
+        missionResult.error || "Dimension mission failed",
+      );
     }
 
     return missionResult.analysisResult;
@@ -3665,11 +3672,11 @@ export class ResearchMissionService {
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
     if (mission.status !== ResearchMissionStatus.EXECUTING) {
-      throw new Error(
+      throw new BadRequestException(
         `Mission ${missionId} is not in EXECUTING status (current: ${mission.status})`,
       );
     }

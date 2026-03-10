@@ -1,4 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
@@ -91,7 +97,7 @@ export class ReportDataService {
       }
     }
 
-    throw new Error(
+    throw new InternalServerErrorException(
       `Failed to create draft report after ${maxRetries} retries`,
     );
   }
@@ -480,11 +486,13 @@ export class ReportDataService {
     ]);
 
     if (!report1 || !report2) {
-      throw new Error("One or both reports not found");
+      throw new NotFoundException("One or both reports not found");
     }
 
     if (report1.topicId !== topicId || report2.topicId !== topicId) {
-      throw new Error("Reports do not belong to the specified topic");
+      throw new BadRequestException(
+        "Reports do not belong to the specified topic",
+      );
     }
 
     // 简单的变化检测

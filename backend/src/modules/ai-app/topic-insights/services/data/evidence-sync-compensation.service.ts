@@ -6,7 +6,12 @@
  * ★ 策略：内存队列 + 定期重试
  */
 
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { TeamFacade } from "@/modules/ai-engine/facade";
 import type { SaveEvidenceRequest } from "@/modules/ai-engine/facade";
 
@@ -129,7 +134,10 @@ export class EvidenceSyncCompensationService implements OnModuleDestroy {
     for (const entry of toRetry) {
       try {
         const saveResult = this.teamFacade.evidenceSave(entry.request);
-        if (!saveResult) throw new Error("EvidenceManager not available");
+        if (!saveResult)
+          throw new ServiceUnavailableException(
+            "EvidenceManager not available",
+          );
         await saveResult;
 
         // 成功：从队列中移除

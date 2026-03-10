@@ -28,7 +28,9 @@ function buildMocks() {
       }
       return (ops as (tx: unknown) => Promise<unknown>)(mockPrisma);
     }),
-    $queryRaw: jest.fn().mockResolvedValue([{ visibility: "PRIVATE", is_collaborator: false }]),
+    $queryRaw: jest
+      .fn()
+      .mockResolvedValue([{ visibility: "PRIVATE", is_collaborator: false }]),
   };
 
   return { mockPrisma };
@@ -82,7 +84,9 @@ describe("TopicDimensionService", () => {
     it("should throw NotFoundException when topic not found", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.listDimensions("user-1", "nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(
+        service.listDimensions("user-1", "nonexistent"),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should return dimensions with flattened analysis data", async () => {
@@ -95,7 +99,10 @@ describe("TopicDimensionService", () => {
               id: "analysis-1",
               summary: "Market growing",
               keyFindings: ["Finding 1"],
-              dataPoints: { dimensionAnalysis: "detailed", detailedContent: "content" },
+              dataPoints: {
+                dimensionAnalysis: "detailed",
+                detailedContent: "content",
+              },
             },
           ],
         },
@@ -109,7 +116,9 @@ describe("TopicDimensionService", () => {
 
     it("should return dimensions with null dataPoints when no analysis", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      prisma.topicDimension.findMany.mockResolvedValue([{ ...mockDimension, analyses: [] }]);
+      prisma.topicDimension.findMany.mockResolvedValue([
+        { ...mockDimension, analyses: [] },
+      ]);
 
       const result = await service.listDimensions("user-1", "topic-1");
       expect(result[0].dataPoints).toBeNull();
@@ -123,12 +132,16 @@ describe("TopicDimensionService", () => {
       prisma.researchTopic.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.addDimension("user-1", "nonexistent", { name: "New Dim" } as any),
+        service.addDimension("user-1", "nonexistent", {
+          name: "New Dim",
+        } as any),
       ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw ForbiddenException for non-owner", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "other-user" });
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "other-user",
+      });
 
       await expect(
         service.addDimension("user-1", "topic-1", { name: "New Dim" } as any),
@@ -138,7 +151,11 @@ describe("TopicDimensionService", () => {
     it("should create dimension with auto-calculated sortOrder", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       prisma.topicDimension.findFirst.mockResolvedValue({ sortOrder: 3 });
-      prisma.topicDimension.create.mockResolvedValue({ ...mockDimension, id: "dim-new", sortOrder: 4 });
+      prisma.topicDimension.create.mockResolvedValue({
+        ...mockDimension,
+        id: "dim-new",
+        sortOrder: 4,
+      });
 
       const result = await service.addDimension("user-1", "topic-1", {
         name: "New Dimension",
@@ -159,9 +176,14 @@ describe("TopicDimensionService", () => {
     it("should use sortOrder=1 when no existing dimensions", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       prisma.topicDimension.findFirst.mockResolvedValue(null);
-      prisma.topicDimension.create.mockResolvedValue({ ...mockDimension, sortOrder: 1 });
+      prisma.topicDimension.create.mockResolvedValue({
+        ...mockDimension,
+        sortOrder: 1,
+      });
 
-      await service.addDimension("user-1", "topic-1", { name: "First Dim" } as any);
+      await service.addDimension("user-1", "topic-1", {
+        name: "First Dim",
+      } as any);
 
       expect(prisma.topicDimension.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -179,14 +201,19 @@ describe("TopicDimensionService", () => {
       prisma.topicDimension.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateDimension("user-1", "topic-1", "dim-nonexistent", { name: "Updated" } as any),
+        service.updateDimension("user-1", "topic-1", "dim-nonexistent", {
+          name: "Updated",
+        } as any),
       ).rejects.toThrow(NotFoundException);
     });
 
     it("should update dimension successfully", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       prisma.topicDimension.findFirst.mockResolvedValue(mockDimension);
-      prisma.topicDimension.update.mockResolvedValue({ ...mockDimension, name: "Updated Name" });
+      prisma.topicDimension.update.mockResolvedValue({
+        ...mockDimension,
+        name: "Updated Name",
+      });
 
       const result = await service.updateDimension(
         "user-1",
@@ -215,9 +242,15 @@ describe("TopicDimensionService", () => {
       prisma.topicDimension.findFirst.mockResolvedValue(mockDimension);
       prisma.topicDimension.delete.mockResolvedValue({});
 
-      const result = await service.deleteDimension("user-1", "topic-1", "dim-1");
+      const result = await service.deleteDimension(
+        "user-1",
+        "topic-1",
+        "dim-1",
+      );
       expect(result.success).toBe(true);
-      expect(prisma.topicDimension.delete).toHaveBeenCalledWith({ where: { id: "dim-1" } });
+      expect(prisma.topicDimension.delete).toHaveBeenCalledWith({
+        where: { id: "dim-1" },
+      });
     });
   });
 
@@ -229,7 +262,9 @@ describe("TopicDimensionService", () => {
       prisma.topicDimension.findMany.mockResolvedValue([]); // no dims found
 
       await expect(
-        service.reorderDimensions("user-1", "topic-1", { dimensionIds: ["dim-1", "dim-2"] } as any),
+        service.reorderDimensions("user-1", "topic-1", {
+          dimensionIds: ["dim-1", "dim-2"],
+        } as any),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -252,24 +287,32 @@ describe("TopicDimensionService", () => {
 
   describe("getTemplates", () => {
     it("should return MACRO templates", async () => {
-      const result = await service.getTemplates({ type: ResearchTopicType.MACRO } as any);
+      const result = await service.getTemplates({
+        type: ResearchTopicType.MACRO,
+      } as any);
       expect(result.type).toBe(ResearchTopicType.MACRO);
       expect(Array.isArray(result.dimensions)).toBe(true);
     });
 
     it("should return TECHNOLOGY templates", async () => {
-      const result = await service.getTemplates({ type: ResearchTopicType.TECHNOLOGY } as any);
+      const result = await service.getTemplates({
+        type: ResearchTopicType.TECHNOLOGY,
+      } as any);
       expect(result.type).toBe(ResearchTopicType.TECHNOLOGY);
     });
 
     it("should return COMPANY templates", async () => {
-      const result = await service.getTemplates({ type: ResearchTopicType.COMPANY } as any);
+      const result = await service.getTemplates({
+        type: ResearchTopicType.COMPANY,
+      } as any);
       expect(result.type).toBe(ResearchTopicType.COMPANY);
     });
 
     it("should throw for unknown topic type", async () => {
       await expect(
-        service.getTemplates({ type: "UNKNOWN_TYPE" as ResearchTopicType } as any),
+        service.getTemplates({
+          type: "UNKNOWN_TYPE" as ResearchTopicType,
+        } as any),
       ).rejects.toThrow("Unknown topic type");
     });
   });
@@ -280,7 +323,7 @@ describe("TopicDimensionService", () => {
     it("should throw Not implemented error", async () => {
       await expect(
         service.refreshDimension("user-1", "topic-1", "dim-1", {} as any),
-      ).rejects.toThrow("Not implemented");
+      ).rejects.toThrow("is not yet implemented");
     });
   });
 
@@ -288,7 +331,7 @@ describe("TopicDimensionService", () => {
     it("should throw Not implemented error", async () => {
       await expect(
         service.createFromTemplate("user-1", {} as any),
-      ).rejects.toThrow("Not implemented");
+      ).rejects.toThrow("is not yet implemented");
     });
   });
 });

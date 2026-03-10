@@ -1,4 +1,12 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  BadRequestException,
+  ConflictException,
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AgentFacade, EvalPipelineService } from "@/modules/ai-engine/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "./research-event-emitter.service";
@@ -135,7 +143,9 @@ export class TopicTeamOrchestratorService {
 
     // 检查是否有活跃的刷新任务
     if (this.activeRefreshes.has(topicId)) {
-      throw new Error(`Refresh already in progress for topic ${topicId}`);
+      throw new ConflictException(
+        `Refresh already in progress for topic ${topicId}`,
+      );
     }
 
     // 创建 AbortController
@@ -253,7 +263,9 @@ export class TopicTeamOrchestratorService {
         }
 
         if (!leaderPlan.dimensions || leaderPlan.dimensions.length === 0) {
-          throw new Error("Leader AI failed to plan dimensions");
+          throw new InternalServerErrorException(
+            "Leader AI failed to plan dimensions",
+          );
         }
 
         this.logger.log(
@@ -583,8 +595,10 @@ export class TopicTeamOrchestratorService {
           topic.id, // Use topicId as a proxy since we don't have missionId here
           { phase: "L2_knowledge", researchDesign, depthConfig },
         );
-      } catch {
-        // non-fatal
+      } catch (err) {
+        this.logger.warn(
+          `[executeRefresh] Non-fatal error saving L2 checkpoint: ${(err as Error).message}`,
+        );
       }
 
       // V5: Hypothesis-driven queries (if hypotheses available and standard/thorough)
@@ -780,8 +794,10 @@ export class TopicTeamOrchestratorService {
               claimsCount: allClaims.length,
               validationContext,
             });
-          } catch {
-            // non-fatal
+          } catch (err) {
+            this.logger.warn(
+              `[executeRefresh] Non-fatal error saving L3 analysis checkpoint: ${(err as Error).message}`,
+            );
           }
         } catch (cognitiveError) {
           this.logger.warn(
@@ -886,8 +902,10 @@ export class TopicTeamOrchestratorService {
             ResearchTodoStatus.IN_PROGRESS,
             "正在合成报告...",
           );
-        } catch {
-          /* non-fatal */
+        } catch (err) {
+          this.logger.warn(
+            `[executeRefresh] Non-fatal error updating report todo to IN_PROGRESS: ${(err as Error).message}`,
+          );
         }
       }
       if (missionId) {
@@ -900,8 +918,10 @@ export class TopicTeamOrchestratorService {
               startedAt: new Date(),
             },
           });
-        } catch {
-          /* non-fatal */
+        } catch (err) {
+          this.logger.warn(
+            `[executeRefresh] Non-fatal error updating synthesis task to EXECUTING: ${(err as Error).message}`,
+          );
         }
       }
       const synthesisSpanId = traceId
@@ -1086,6 +1106,14 @@ export class TopicTeamOrchestratorService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+
+      // 取消场景：cancelRefresh() 已将 RefreshLog 写为 CANCELLED，不覆盖
+      if (abortController.signal.aborted) {
+        this.logger.log(
+          `[executeRefresh] Refresh cancelled for topic ${topicId}`,
+        );
+        throw error;
+      }
 
       // 更新刷新日志为失败
       await this.prisma.topicRefreshLog.update({
@@ -1354,14 +1382,16 @@ export class TopicTeamOrchestratorService {
             where: { id: dim.id },
             data: { status: "FAILED" },
           });
-        } catch {
-          // non-fatal
+        } catch (err) {
+          this.logger.warn(
+            `[researchDimensionsInParallel] Non-fatal error marking dimension as FAILED after search error: ${(err as Error).message}`,
+          );
         }
       }
     }
 
     if (successfulSearches.length === 0) {
-      throw new Error("All dimension searches failed");
+      throw new ServiceUnavailableException("All dimension searches failed");
     }
 
     this.logger.log(
@@ -1375,8 +1405,10 @@ export class TopicTeamOrchestratorService {
         searchedDimensions: successfulSearches.length,
         totalDimensions: totalCount,
       });
-    } catch {
-      // non-fatal
+    } catch (err) {
+      this.logger.warn(
+        `[researchDimensionsInParallel] Non-fatal error saving Phase 1 search checkpoint: ${(err as Error).message}`,
+      );
     }
 
     this.emitProgress({
@@ -1527,7 +1559,9 @@ export class TopicTeamOrchestratorService {
             );
 
           if (!missionResult.success) {
-            throw new Error(missionResult.error || "Dimension writing failed");
+            throw new InternalServerErrorException(
+              missionResult.error || "Dimension writing failed",
+            );
           }
 
           completedCount++;
@@ -1540,8 +1574,10 @@ export class TopicTeamOrchestratorService {
               completedCount,
               totalCount,
             });
-          } catch {
-            // non-fatal
+          } catch (err) {
+            this.logger.warn(
+              `[executeRefresh] Non-fatal error saving L4 writing checkpoint for dimension "${dimension.name}": ${(err as Error).message}`,
+            );
           }
 
           const progress = 40 + Math.round((completedCount / totalCount) * 40);
@@ -1573,8 +1609,10 @@ export class TopicTeamOrchestratorService {
               where: { id: dimension.id },
               data: { status: "FAILED" },
             });
-          } catch {
-            // non-fatal
+          } catch (err) {
+            this.logger.warn(
+              `[executeRefresh] Non-fatal error marking dimension as FAILED after write error: ${(err as Error).message}`,
+            );
           }
           throw error;
         }
@@ -1611,7 +1649,9 @@ export class TopicTeamOrchestratorService {
     });
 
     if (!dimension || dimension.topicId !== topic.id) {
-      throw new Error("Dimension not found or does not belong to topic");
+      throw new BadRequestException(
+        "Dimension not found or does not belong to topic",
+      );
     }
 
     const missionResult =
@@ -1621,7 +1661,9 @@ export class TopicTeamOrchestratorService {
       );
 
     if (!missionResult.success || !missionResult.analysisResult) {
-      throw new Error(missionResult.error || "Dimension mission failed");
+      throw new InternalServerErrorException(
+        missionResult.error || "Dimension mission failed",
+      );
     }
 
     return missionResult.analysisResult;

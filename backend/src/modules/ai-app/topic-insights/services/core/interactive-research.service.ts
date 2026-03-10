@@ -14,6 +14,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
+import { sanitize } from "../../utils/prompt-sanitizer";
 import { AIModelType } from "@prisma/client";
 import {
   InteractionType,
@@ -230,7 +231,7 @@ export class InteractiveResearchService {
           },
           {
             role: "user",
-            content: `Current topic ID: ${topicId}\nNew direction: ${payload.newDirection}\nAffected dimensions: ${payload.affectedDimensions?.join(", ") || "all"}`,
+            content: `Current topic ID: ${topicId}\nNew direction: ${sanitize(payload.newDirection)}\nAffected dimensions: ${payload.affectedDimensions?.join(", ") || "all"}`,
           },
         ],
         modelType: AIModelType.CHAT,
@@ -288,11 +289,11 @@ export class InteractiveResearchService {
         messages: [
           {
             role: "system",
-            content: `You are a research assistant analyzing the topic "${topic.name}". Answer the user's follow-up question based on the research context. Be concise but thorough.`,
+            content: `You are a research assistant analyzing the topic "${sanitize(topic.name)}". Answer the user's follow-up question based on the research context. Be concise but thorough.`,
           },
           {
             role: "user",
-            content: `Follow-up question: ${payload.question}${payload.context ? `\nContext: ${payload.context}` : ""}${payload.targetDimensionId ? `\nFocus on dimension: ${payload.targetDimensionId}` : ""}`,
+            content: `Follow-up question: ${sanitize(payload.question)}${payload.context ? `\nContext: ${sanitize(payload.context)}` : ""}${payload.targetDimensionId ? `\nFocus on dimension: ${payload.targetDimensionId}` : ""}`,
           },
         ],
         modelType: AIModelType.CHAT,

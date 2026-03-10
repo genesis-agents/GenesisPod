@@ -8,7 +8,12 @@
  * - 应用批准的调整到 LeaderPlan
  */
 
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
@@ -208,7 +213,7 @@ export class AdaptivePlanningService implements OnModuleDestroy {
     });
 
     if (!task) {
-      throw new Error(`Task ${taskId} not found`);
+      throw new NotFoundException(`Task ${taskId} not found`);
     }
 
     // 提取结果数据
@@ -409,7 +414,7 @@ ${findingsText || "无"}
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
     const leaderPlan = mission.leaderPlan as LeaderPlan | null;
@@ -533,7 +538,7 @@ ${completedTasks.map((t) => `- ${t.title} (${t.dimensionName || "通用"})`).joi
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
     const leaderPlan = (mission.leaderPlan as LeaderPlan | null) || {

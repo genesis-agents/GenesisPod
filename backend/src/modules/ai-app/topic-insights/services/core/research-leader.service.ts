@@ -5,7 +5,13 @@
  * 负责：任务理解、维度规划、Agent 分配、质量审核、报告整合
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ChatFacade,
@@ -150,13 +156,15 @@ export class ResearchLeaderService {
     });
 
     if (!topic) {
-      throw new Error(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
     // 2. 获取推理模型
     const leaderModel = await this.getReasoningModel();
     if (!leaderModel) {
-      throw new Error("No reasoning model available for Leader");
+      throw new ServiceUnavailableException(
+        "No reasoning model available for Leader",
+      );
     }
 
     // 3. 获取可用的 CHAT 模型列表（供 Leader 为 Agent 分配）
@@ -261,7 +269,7 @@ export class ResearchLeaderService {
       this.logger.error(
         `[planResearch] AI call failed: ${aiError instanceof Error ? aiError.message : aiError}`,
       );
-      throw new Error(
+      throw new InternalServerErrorException(
         `AI 调用失败: ${aiError instanceof Error ? aiError.message : "未知错误"}`,
       );
     }
@@ -270,7 +278,7 @@ export class ResearchLeaderService {
     // 6. 验证响应
     if (!response?.content) {
       this.logger.error("[planResearch] AI returned empty response");
-      throw new Error("AI 返回空响应，请稍后重试");
+      throw new InternalServerErrorException("AI 返回空响应，请稍后重试");
     }
 
     this.logger.log(
@@ -287,7 +295,9 @@ export class ResearchLeaderService {
       this.logger.error(
         `[planResearch] Failed to parse Leader plan. Response preview: ${response.content.slice(0, 500)}`,
       );
-      throw new Error("无法解析 AI 规划响应，请稍后重试");
+      throw new InternalServerErrorException(
+        "无法解析 AI 规划响应，请稍后重试",
+      );
     }
 
     // ★ 后处理：确保每个 Agent 都有 modelId、skills、tools
@@ -458,7 +468,9 @@ export class ResearchLeaderService {
     // 获取推理模型
     const leaderModel = await this.getReasoningModel();
     if (!leaderModel) {
-      throw new Error("No reasoning model available for Leader");
+      throw new ServiceUnavailableException(
+        "No reasoning model available for Leader",
+      );
     }
 
     // 构建 prompt
@@ -574,7 +586,7 @@ export class ResearchLeaderService {
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
     // 2. 计算进度
@@ -627,7 +639,9 @@ export class ResearchLeaderService {
     // 4. 复杂意图：调用推理模型处理
     const leaderModel = await this.getReasoningModel();
     if (!leaderModel) {
-      throw new Error("No reasoning model available for Leader");
+      throw new ServiceUnavailableException(
+        "No reasoning model available for Leader",
+      );
     }
 
     // 5. 构建维度列表（供 Leader 了解当前有哪些维度）
@@ -1324,7 +1338,7 @@ ${teamMembersText}`;
     });
 
     if (!topic) {
-      throw new Error(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
     // 2. 获取任务状态（如果有 missionId）
@@ -2103,7 +2117,9 @@ ${teamMembersText}`;
           ? await this.getReasoningModel()
           : await this.chatFacade.selectModel({ requireReasoning: false });
         if (!leaderModel) {
-          throw new Error("No model available for Leader");
+          throw new ServiceUnavailableException(
+            "No model available for Leader",
+          );
         }
         const modelId =
           "modelId" in leaderModel ? leaderModel.modelId : leaderModel.id;
@@ -2202,7 +2218,7 @@ ${teamMembersText}`;
     this.logger.error(
       `[planDimensionOutline] All ${MAX_RETRIES} attempts failed for dimension: ${dimension.name}`,
     );
-    throw new Error(
+    throw new InternalServerErrorException(
       `Failed to parse dimension outline after ${MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
     );
   }
@@ -2292,7 +2308,9 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
       try {
         const leaderModel = await this.getReasoningModel();
         if (!leaderModel) {
-          throw new Error("No reasoning model available for Leader");
+          throw new ServiceUnavailableException(
+            "No reasoning model available for Leader",
+          );
         }
         this.logger.log(
           `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES}: Using model ${leaderModel.modelId}`,
@@ -2436,7 +2454,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     }
 
     this.logger.error(`[planGlobalOutline] All ${MAX_RETRIES} attempts failed`);
-    throw new Error(
+    throw new InternalServerErrorException(
       `Failed to parse global outline after ${MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
     );
   }

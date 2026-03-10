@@ -1394,8 +1394,10 @@ export class DataSourceRouterService {
           `[searchAcademic] Phase 2 ArXiv: +${arxivResults.length} results`,
         );
       }
-    } catch {
-      // ArXiv failure is non-critical
+    } catch (err) {
+      this.logger.warn(
+        `[searchAcademic] ArXiv search failed (non-critical): ${(err as Error).message}`,
+      );
     }
 
     const final = this.deduplicateResults(merged);

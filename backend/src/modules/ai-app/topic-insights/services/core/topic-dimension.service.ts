@@ -2,6 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
   Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
@@ -184,7 +187,10 @@ export class TopicDimensionService {
     _dto: RefreshDimensionDto,
   ) {
     // TODO: Implement refreshDimension (高级功能，暂不实现)
-    throw new Error("Not implemented");
+    throw new HttpException(
+      "refreshDimension is not yet implemented",
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   /**
@@ -251,7 +257,10 @@ export class TopicDimensionService {
    */
   async createFromTemplate(_userId: string, _dto: CreateFromTemplateDto) {
     // TODO: Implement createFromTemplate (高级功能，暂不实现)
-    throw new Error("Not implemented");
+    throw new HttpException(
+      "createFromTemplate is not yet implemented",
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   /**
@@ -266,7 +275,7 @@ export class TopicDimensionService {
       case ResearchTopicType.COMPANY:
         return COMPANY_INSIGHT_DIMENSIONS;
       default:
-        throw new Error(`Unknown topic type: ${topicType}`);
+        throw new BadRequestException(`Unknown topic type: ${topicType}`);
     }
   }
 

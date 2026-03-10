@@ -80,8 +80,10 @@ export class AgentActivityService {
       if (modelLabel && !agentName.includes(`[${modelLabel}]`)) {
         return `${agentName} [${modelLabel}]`;
       }
-    } catch {
-      // non-fatal
+    } catch (err) {
+      this.logger.warn(
+        `[enrichAgentName] Model label lookup failed (non-fatal): ${(err as Error).message}`,
+      );
     }
     return agentName;
   }

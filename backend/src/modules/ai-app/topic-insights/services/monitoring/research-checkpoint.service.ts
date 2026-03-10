@@ -5,7 +5,7 @@
  * 参考 AI Writing 模块的 CheckpointService 实现
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ResearchMissionStatus,
@@ -44,7 +44,7 @@ export class ResearchCheckpointService {
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
     // Build checkpoint data

@@ -7,7 +7,15 @@
  * - 维度大纲规划（planDimensionOutline）
  */
 
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  NotFoundException,
+  ServiceUnavailableException,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
@@ -33,6 +41,8 @@ export class LeaderPlanningService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatFacade: ChatFacade,
+    // forwardRef: LeaderPlanningService -> ResearchMemoryService (one-way, needed for module loading order)
+    // Planning reads prior memory findings to inform new research plans; results return via method return values
     @Inject(forwardRef(() => ResearchMemoryService))
     private readonly researchMemory: ResearchMemoryService,
   ) {}
@@ -93,13 +103,15 @@ export class LeaderPlanningService {
     });
 
     if (!topic) {
-      throw new Error(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
     // 2. 获取推理模型
     const leaderModel = await this.getReasoningModel();
     if (!leaderModel) {
-      throw new Error("No reasoning model available for Leader");
+      throw new ServiceUnavailableException(
+        "No reasoning model available for Leader",
+      );
     }
 
     // 3. 获取可用的 CHAT 模型列表（供 Leader 为 Agent 分配）
@@ -226,7 +238,7 @@ export class LeaderPlanningService {
       this.logger.error(
         `[planResearch] AI call failed: ${aiError instanceof Error ? aiError.message : aiError}`,
       );
-      throw new Error(
+      throw new InternalServerErrorException(
         `AI 调用失败: ${aiError instanceof Error ? aiError.message : "未知错误"}`,
       );
     }
@@ -235,7 +247,7 @@ export class LeaderPlanningService {
     // 6. 验证响应
     if (!response?.content) {
       this.logger.error("[planResearch] AI returned empty response");
-      throw new Error("AI 返回空响应，请稍后重试");
+      throw new InternalServerErrorException("AI 返回空响应，请稍后重试");
     }
 
     this.logger.log(
@@ -252,7 +264,9 @@ export class LeaderPlanningService {
       this.logger.error(
         `[planResearch] Failed to parse Leader plan. Response preview: ${response.content.slice(0, 500)}`,
       );
-      throw new Error("无法解析 AI 规划响应，请稍后重试");
+      throw new InternalServerErrorException(
+        "无法解析 AI 规划响应，请稍后重试",
+      );
     }
 
     // ★ 后处理：确保每个 Agent 都有 modelId、skills、tools
@@ -546,12 +560,35 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
     let lastError: Error | null = null;
+    const failedModelIdsGlobal = new Set<string>();
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const leaderModel = await this.getReasoningModel();
+        let leaderModel = await this.getReasoningModel();
+
+        // ★ 如果选出的模型之前因配额/欠费失败，尝试选择其他模型
+        if (leaderModel && failedModelIdsGlobal.has(leaderModel.modelId)) {
+          this.logger.warn(
+            `[planGlobalOutline] Model ${leaderModel.modelId} previously failed (quota/billing), selecting alternative`,
+          );
+          const allModels = await this.chatFacade.getAvailableModelsExtended();
+          const alternativeModel = allModels.find(
+            (m) => m.isAvailable !== false && !failedModelIdsGlobal.has(m.id),
+          );
+          if (alternativeModel) {
+            leaderModel = {
+              modelId: alternativeModel.id,
+              modelName: alternativeModel.name,
+              provider: alternativeModel.provider,
+              isReasoning: alternativeModel.isReasoning ?? false,
+            };
+          }
+        }
+
         if (!leaderModel) {
-          throw new Error("No reasoning model available for Leader");
+          throw new ServiceUnavailableException(
+            "No reasoning model available for Leader",
+          );
         }
         this.logger.log(
           `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES}: Using model ${leaderModel.modelId}`,
@@ -569,6 +606,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           ],
           additionalSkills: ["research-planning"],
           model: leaderModel.modelId,
+          responseFormat: "json",
           taskProfile: {
             creativity: "medium",
             outputLength: "extended",
@@ -576,27 +614,41 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         });
         const latencyMs = Date.now() - startTime;
 
+        // ★ 预处理：剥离推理模型的思考标签（如 <think>...</think>）
+        let rawContent = response.content;
+        rawContent = rawContent
+          .replace(/<think>[\s\S]*?<\/think>/gi, "")
+          .trim();
+        rawContent = rawContent
+          .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+          .trim();
+
         if (response.isError) {
-          const errorContent = response.content.slice(0, 200);
+          const errorContent = rawContent.slice(0, 200);
           this.logger.warn(
             `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
+          const lc = errorContent.toLowerCase();
           const isQuotaError =
-            errorContent.includes("429") ||
-            errorContent.includes("quota") ||
-            errorContent.includes("rate limit") ||
-            errorContent.includes("temporarily unavailable");
-          lastError = new Error(`API error: ${response.content.slice(0, 100)}`);
+            lc.includes("429") ||
+            lc.includes("402") ||
+            lc.includes("quota") ||
+            lc.includes("rate limit") ||
+            lc.includes("payment") ||
+            lc.includes("insufficient") ||
+            lc.includes("billing") ||
+            lc.includes("temporarily unavailable");
+          if (isQuotaError) {
+            failedModelIdsGlobal.add(leaderModel.modelId);
+          }
+          lastError = new Error(`API error: ${rawContent.slice(0, 100)}`);
           if (attempt < MAX_RETRIES) {
             await this.delay(isQuotaError ? 500 : RETRY_DELAY_MS * attempt);
             continue;
           }
         }
 
-        if (
-          response.content.includes("<!DOCTYPE") ||
-          response.content.includes("<html")
-        ) {
+        if (rawContent.includes("<!DOCTYPE") || rawContent.includes("<html")) {
           this.logger.warn(
             `[planGlobalOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned HTML error page, retrying...`,
           );
@@ -608,7 +660,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         }
 
         const globalOutline = this.extractJsonFromResponse<GlobalOutline>(
-          response.content,
+          rawContent,
           "dimensions",
         );
 
@@ -696,7 +748,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     }
 
     this.logger.error(`[planGlobalOutline] All ${MAX_RETRIES} attempts failed`);
-    throw new Error(
+    throw new InternalServerErrorException(
       `Failed to parse global outline after ${MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
     );
   }
@@ -767,16 +819,37 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
     let lastError: Error | null = null;
+    const failedModelIds = new Set<string>();
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         // ★ 最后一次尝试时回退到非推理模型，增加容错性
         const useReasoning = attempt < MAX_RETRIES;
-        const leaderModel = useReasoning
+        let leaderModel = useReasoning
           ? await this.getReasoningModel()
           : await this.chatFacade.selectModel({ requireReasoning: false });
+
+        // ★ 如果选出的模型之前因配额/欠费失败，尝试选择其他模型
+        const selectedId =
+          leaderModel &&
+          ("modelId" in leaderModel ? leaderModel.modelId : leaderModel.id);
+        if (selectedId && failedModelIds.has(selectedId)) {
+          this.logger.warn(
+            `[planDimensionOutline] Model ${selectedId} previously failed (quota/billing), selecting alternative`,
+          );
+          const allModels = await this.chatFacade.getAvailableModelsExtended();
+          const alternativeModel = allModels.find(
+            (m) => m.isAvailable !== false && !failedModelIds.has(m.id),
+          );
+          if (alternativeModel) {
+            leaderModel = alternativeModel;
+          }
+        }
+
         if (!leaderModel) {
-          throw new Error("No model available for Leader");
+          throw new ServiceUnavailableException(
+            "No model available for Leader",
+          );
         }
         const modelId =
           "modelId" in leaderModel ? leaderModel.modelId : leaderModel.id;
@@ -796,6 +869,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           ],
           additionalSkills: ["research-planning"],
           model: modelId,
+          responseFormat: "json",
           taskProfile: {
             creativity: "medium",
             outputLength: "long",
@@ -803,9 +877,18 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         });
         const latencyMs = Date.now() - startTime;
 
+        // ★ 预处理：剥离推理模型的思考标签（如 <think>...</think>）
+        let rawContent = response.content;
+        rawContent = rawContent
+          .replace(/<think>[\s\S]*?<\/think>/gi, "")
+          .trim();
+        rawContent = rawContent
+          .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+          .trim();
+
         // ★ 关键修复：检查 API 是否返回了错误
         if (response.isError) {
-          const errorContent = response.content.slice(0, 200);
+          const errorContent = rawContent.slice(0, 200);
           this.logger.warn(
             `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
@@ -815,7 +898,10 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             errorContent.includes("quota") ||
             errorContent.includes("rate limit") ||
             errorContent.includes("temporarily unavailable");
-          lastError = new Error(`API error: ${response.content.slice(0, 100)}`);
+          if (isQuotaError) {
+            failedModelIds.add(modelId);
+          }
+          lastError = new Error(`API error: ${rawContent.slice(0, 100)}`);
           if (attempt < MAX_RETRIES) {
             // 配额错误不需要等太久，快速切换到下一个模型
             await this.delay(isQuotaError ? 500 : RETRY_DELAY_MS * attempt);
@@ -824,10 +910,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         }
 
         // ★ 检测是否返回了 HTML 错误页面（API 故障特征）
-        if (
-          response.content.includes("<!DOCTYPE") ||
-          response.content.includes("<html")
-        ) {
+        if (rawContent.includes("<!DOCTYPE") || rawContent.includes("<html")) {
           this.logger.warn(
             `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned HTML error page, retrying...`,
           );
@@ -839,14 +922,14 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         }
 
         const outline = this.extractJsonFromResponse<DimensionOutline>(
-          response.content,
+          rawContent,
           "sections", // requiredKey for validation
         );
 
         if (!outline?.sections || outline.sections.length === 0) {
           // ★ 记录原始输出前500字符，帮助诊断 JSON 解析失败原因
           this.logger.warn(
-            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Failed to parse JSON. Raw output (first 500 chars): ${response.content.slice(0, 500)}`,
+            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Failed to parse JSON. Raw output (first 500 chars): ${rawContent.slice(0, 500)}`,
           );
           lastError = new Error("Failed to parse dimension outline JSON");
           if (attempt < MAX_RETRIES) {
@@ -861,13 +944,27 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           return outline;
         }
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : "Unknown error";
         this.logger.warn(
-          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES} failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES} failed: ${errMsg}`,
         );
+        // ★ 异常级别也检测计费错误，标记模型避免重选
+        const errLc = errMsg.toLowerCase();
+        if (
+          errLc.includes("402") ||
+          errLc.includes("quota") ||
+          errLc.includes("payment") ||
+          errLc.includes("insufficient") ||
+          errLc.includes("billing")
+        ) {
+          failedModelIds.add(modelId);
+        }
         lastError =
           error instanceof Error ? error : new Error("Unknown API error");
         if (attempt < MAX_RETRIES) {
-          await this.delay(RETRY_DELAY_MS * attempt);
+          await this.delay(
+            failedModelIds.has(modelId) ? 500 : RETRY_DELAY_MS * attempt,
+          );
         }
       }
     }
@@ -876,7 +973,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     this.logger.error(
       `[planDimensionOutline] All ${MAX_RETRIES} attempts failed for dimension: ${dimension.name}`,
     );
-    throw new Error(
+    throw new InternalServerErrorException(
       `Failed to parse dimension outline after ${MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
     );
   }

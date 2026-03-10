@@ -125,8 +125,10 @@ export class DataSourceConnectorRegistry implements OnModuleInit {
       let available = false;
       try {
         available = await reg.connector.isAvailable();
-      } catch {
-        // ignore
+      } catch (err) {
+        this.logger.warn(
+          `[getAvailableConnectors] Connector ${sourceType} availability check failed: ${(err as Error).message}`,
+        );
       }
 
       statuses.push({

@@ -43,13 +43,19 @@ export class MissionLifecycleService {
 
   constructor(
     private readonly prisma: PrismaService,
+    // forwardRef: MissionLifecycleService <-> ResearchLeaderService
+    // Lifecycle calls Leader to plan research; Leader adjusts dimensions via LeaderToolService which triggers Lifecycle task creation
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly agentActivity: AgentActivityService,
+    // forwardRef: MissionLifecycleService <-> MissionQueryService
+    // Lifecycle emits progress events via QueryService; QueryService reads task states that Lifecycle updates
     @Inject(forwardRef(() => MissionQueryService))
     private readonly queryService: MissionQueryService,
+    // forwardRef: MissionLifecycleService <-> MissionExecutionService
+    // Lifecycle triggers Execution after planning; Execution updates Mission state managed by Lifecycle
     @Inject(forwardRef(() => MissionExecutionService))
     private readonly executionService: MissionExecutionService,
   ) {}
@@ -735,7 +741,9 @@ export class MissionLifecycleService {
       task.status !== ResearchTaskStatus.FAILED &&
       task.status !== ResearchTaskStatus.NEEDS_REVISION
     ) {
-      throw new Error(`Task ${taskId} is not in a retryable state`);
+      throw new BadRequestException(
+        `Task ${taskId} is not in a retryable state`,
+      );
     }
 
     return this.prisma.researchTask.update({
@@ -764,7 +772,7 @@ export class MissionLifecycleService {
     }
 
     if (mission.status !== ResearchMissionStatus.FAILED) {
-      throw new Error(`Mission ${missionId} is not failed`);
+      throw new BadRequestException(`Mission ${missionId} is not failed`);
     }
 
     // 重置所有失败的任务
@@ -822,7 +830,7 @@ export class MissionLifecycleService {
 
     // 只允许在执行中的 Mission 进行调整
     if (mission.status !== ResearchMissionStatus.EXECUTING) {
-      throw new Error(
+      throw new BadRequestException(
         `Cannot adjust mission in ${mission.status} status. Only EXECUTING missions can be adjusted.`,
       );
     }

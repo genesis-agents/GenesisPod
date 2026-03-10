@@ -67,6 +67,8 @@ export class DimensionWritingService {
 
   constructor(
     private readonly prisma: PrismaService,
+    // forwardRef: DimensionWritingService <-> ResearchLeaderService
+    // Leader schedules writing tasks; writing service calls Leader to review each section before finalizing
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
     private readonly sectionWriter: SectionWriterService,

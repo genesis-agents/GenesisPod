@@ -9,7 +9,11 @@
  * - 假设验证（verifyHypotheses）
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType, LeaderDecisionType } from "@prisma/client";
@@ -96,7 +100,9 @@ export class LeaderReviewService {
     // 获取推理模型
     const leaderModel = await this.getReasoningModel();
     if (!leaderModel) {
-      throw new Error("No reasoning model available for Leader");
+      throw new ServiceUnavailableException(
+        "No reasoning model available for Leader",
+      );
     }
 
     // ★ 约束验证：从主题描述中提取约束并校验输出
