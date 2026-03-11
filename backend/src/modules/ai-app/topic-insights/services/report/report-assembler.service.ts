@@ -854,7 +854,8 @@ export class ReportAssemblerService {
     // Corrupted CDN URLs with encoding artifacts (Substack $s! pattern)
     if (/\$s!|%24s!/i.test(url)) return true;
     // Excessively long URLs (likely corrupted srcset concatenation)
-    if (url.length > 2048) return true;
+    // ★ Skip length check for data: URIs — base64 images are legitimately 100K+ chars
+    if (!lower.startsWith("data:") && url.length > 2048) return true;
     return false;
   }
 
