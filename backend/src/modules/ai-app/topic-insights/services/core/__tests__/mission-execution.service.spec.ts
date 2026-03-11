@@ -1860,9 +1860,15 @@ describe("MissionExecutionService", () => {
         status: ResearchMissionStatus.EXECUTING,
       });
 
+      // ★ enableAiQualityReview = true so it uses the AI path (which throws)
+      const topicWithAiReview = {
+        ...mockTopic,
+        topicConfig: { enableAiQualityReview: true },
+      };
+
       await service.executeTask(
         qualityReviewTask as any,
-        mockTopic as any,
+        topicWithAiReview as any,
         "mission-1",
         "report-1",
       );
@@ -1943,9 +1949,15 @@ describe("MissionExecutionService", () => {
       // Pass thorough depthConfig explicitly so the cognitive loop is triggered
       const thoroughDepthConfig = resolveResearchDepthConfig("thorough");
 
+      // ★ enableAiQualityReview must be true for cognitive loop to run
+      const topicWithAiReview = {
+        ...mockTopic,
+        topicConfig: { enableAiQualityReview: true },
+      };
+
       await service.executeTask(
         qualityReviewTask as any,
-        mockTopic as any,
+        topicWithAiReview as any,
         "mission-1",
         "report-1",
         thoroughDepthConfig,
@@ -2019,9 +2031,15 @@ describe("MissionExecutionService", () => {
 
       const thoroughDepthConfig = resolveResearchDepthConfig("thorough");
 
+      // ★ enableAiQualityReview must be true so cognitive loop is entered
+      const topicWithAiReview = {
+        ...mockTopic,
+        topicConfig: { enableAiQualityReview: true },
+      };
+
       await service.executeTask(
         qualityReviewTask as any,
-        mockTopic as any,
+        topicWithAiReview as any,
         "mission-1",
         "report-1",
         thoroughDepthConfig,

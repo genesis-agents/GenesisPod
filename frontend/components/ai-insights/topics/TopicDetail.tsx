@@ -164,6 +164,29 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [missionStatus?.researchDepth]);
 
+  // AI quality review state — load from topicConfig
+  const [enableAiQualityReview, setEnableAiQualityReview] = useState<boolean>(
+    () => {
+      const saved = (topic.topicConfig as Record<string, unknown> | undefined)
+        ?.enableAiQualityReview;
+      return saved === true;
+    }
+  );
+
+  const handleEnableAiQualityReviewChange = useCallback(
+    (enabled: boolean) => {
+      setEnableAiQualityReview(enabled);
+      const currentConfig = (topic.topicConfig || {}) as Record<
+        string,
+        unknown
+      >;
+      updateTopic(topic.id, {
+        topicConfig: { ...currentConfig, enableAiQualityReview: enabled },
+      }).catch(() => {});
+    },
+    [topic.id, topic.topicConfig, updateTopic]
+  );
+
   // ★ 持久化深度选择到 topicConfig
   const handleResearchDepthChange = useCallback(
     (depth: 'quick' | 'standard' | 'thorough') => {
@@ -286,6 +309,8 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
         onCancelRefresh={handleCancelRefresh}
         researchDepth={researchDepth}
         onResearchDepthChange={handleResearchDepthChange}
+        enableAiQualityReview={enableAiQualityReview}
+        onEnableAiQualityReviewChange={handleEnableAiQualityReviewChange}
         onExportReport={handleExport}
         onBack={onBack}
         onSendLeaderInstruction={handleSendLeaderInstruction}

@@ -85,6 +85,9 @@ interface TopicResearchLayoutProps {
   /** V5: 研究深度 */
   researchDepth?: 'quick' | 'standard' | 'thorough';
   onResearchDepthChange?: (depth: 'quick' | 'standard' | 'thorough') => void;
+  /** AI Quality Review toggle */
+  enableAiQualityReview?: boolean;
+  onEnableAiQualityReviewChange?: (enabled: boolean) => void;
 }
 
 // Icons
@@ -192,6 +195,8 @@ export function TopicResearchLayout({
   initialView,
   researchDepth,
   onResearchDepthChange,
+  enableAiQualityReview,
+  onEnableAiQualityReviewChange,
 }: TopicResearchLayoutProps) {
   const { t } = useI18n();
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -376,6 +381,8 @@ export function TopicResearchLayout({
                   teamInfo={teamInfo}
                   researchDepth={researchDepth}
                   onResearchDepthChange={onResearchDepthChange}
+                  enableAiQualityReview={enableAiQualityReview}
+                  onEnableAiQualityReviewChange={onEnableAiQualityReviewChange}
                 />
               </div>
             </div>

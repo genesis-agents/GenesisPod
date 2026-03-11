@@ -37,6 +37,11 @@ import { AgentActivityService } from "../monitoring/agent-activity.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
+import type {
+  DimensionReviewResult,
+  ReviewIssue,
+} from "../../types/collaboration.types";
+import { ReviewQualityLevel } from "../../types/collaboration.types";
 import type { ResearchDepth } from "../../types/v5-research.types";
 import { resolveResearchDepthConfig } from "../../types/v5-research.types";
 import type { LeaderPlan } from "../../types/leader.types";
@@ -477,8 +482,24 @@ export class MissionExecutionService {
             break;
           }
 
+          // ★ 读取 enableAiQualityReview 标志（默认关闭，使用确定性检查）
+          const topicConfig = (
+            topic as { topicConfig?: Record<string, unknown> }
+          ).topicConfig;
+          const enableAiQualityReview =
+            topicConfig?.enableAiQualityReview === true;
+
+          this.logger.log(
+            `[quality_review] enableAiQualityReview=${enableAiQualityReview}`,
+          );
+
           // ============ V5: 认知循环 (Claim → Verify → Gap Search → Re-verify) ============
-          if (depthConfig && depthConfig.maxCognitiveLoops > 0) {
+          // 仅在启用 AI 质量审核时运行
+          if (
+            enableAiQualityReview &&
+            depthConfig &&
+            depthConfig.maxCognitiveLoops > 0
+          ) {
             this.logger.log(
               `[V5] Running cognitive loop before quality review (maxLoops=${depthConfig.maxCognitiveLoops})`,
             );
@@ -694,70 +715,257 @@ export class MissionExecutionService {
             }
           }
 
-          // ★ 执行真正的 AI 质量审核
-          const dimensionReviews = [];
+          // ★ 执行质量审核（AI 模式 or 确定性模式）
+          const dimensionReviews: DimensionReviewResult[] = [];
           const dimensions = topic.dimensions || [];
 
-          for (let i = 0; i < completedTasks.length; i++) {
-            const completedTask = completedTasks[i];
-            const dimension = dimensions.find(
-              (d: { id: string }) => d.id === completedTask.dimensionId,
-            );
-
-            if (!dimension) continue;
-
-            // 更新进度
-            const reviewProgress = Math.round(
-              10 + ((i + 1) / completedTasks.length) * 70,
-            );
-            await this.researchEventEmitter.emitAgentWorking(
-              topic.id,
-              {
-                agentId: task.assignedAgent,
-                agentName: "质量审核员",
-                agentRole: "reviewer",
-                status: "working",
-                taskDescription: `正在审核维度「${dimension.name}」...`,
-                progress: reviewProgress,
-                modelId: assignedModelId,
-              },
-              missionId,
-            );
-
-            // 从任务结果中提取分析数据
-            // ★ task.result 直接存储的是 DimensionAnalysisResult（见 executeTask line 389）
-            // 而不是 DimensionMissionResult 的嵌套结构
-            const taskResult = completedTask.result as Record<
-              string,
-              unknown
-            > | null;
-            const analysisResult = (
-              taskResult?.analysisResult
-                ? taskResult.analysisResult
-                : taskResult?.summary || taskResult?.keyFindings
-                  ? taskResult
-                  : null
-            ) as DimensionAnalysisResult | null;
-
-            // 如果没有分析结果，跳过审核
-            if (!analysisResult) {
-              this.logger.warn(
-                `No analysis result found for dimension ${dimension.name}, skipping review`,
+          if (enableAiQualityReview) {
+            // === AI 质量审核模式（含 LLM 调用）===
+            for (let i = 0; i < completedTasks.length; i++) {
+              const completedTask = completedTasks[i];
+              const dimension = dimensions.find(
+                (d: { id: string }) => d.id === completedTask.dimensionId,
               );
-              continue;
+
+              if (!dimension) continue;
+
+              // 更新进度
+              const reviewProgress = Math.round(
+                10 + ((i + 1) / completedTasks.length) * 70,
+              );
+              await this.researchEventEmitter.emitAgentWorking(
+                topic.id,
+                {
+                  agentId: task.assignedAgent,
+                  agentName: "质量审核员",
+                  agentRole: "reviewer",
+                  status: "working",
+                  taskDescription: `正在审核维度「${dimension.name}」...`,
+                  progress: reviewProgress,
+                  modelId: assignedModelId,
+                },
+                missionId,
+              );
+
+              // 从任务结果中提取分析数据
+              // ★ task.result 直接存储的是 DimensionAnalysisResult（见 executeTask line 389）
+              // 而不是 DimensionMissionResult 的嵌套结构
+              const taskResult = completedTask.result as Record<
+                string,
+                unknown
+              > | null;
+              const analysisResult = (
+                taskResult?.analysisResult
+                  ? taskResult.analysisResult
+                  : taskResult?.summary || taskResult?.keyFindings
+                    ? taskResult
+                    : null
+              ) as DimensionAnalysisResult | null;
+
+              // 如果没有分析结果，跳过审核
+              if (!analysisResult) {
+                this.logger.warn(
+                  `No analysis result found for dimension ${dimension.name}, skipping review`,
+                );
+                continue;
+              }
+
+              // 调用审核服务
+              try {
+                const review = await this.reviewerService.reviewDimension(
+                  topic,
+                  dimension,
+                  analysisResult,
+                  analysisResult.evidenceUsed || 0,
+                );
+                dimensionReviews.push(review);
+
+                // ★ 记录维度审核结果到活动记录（供前端展示详细审核数据）
+                await this.agentActivity.recordDimensionReview(
+                  topic.id,
+                  missionId,
+                  dimension.id,
+                  dimension.name,
+                  review,
+                );
+
+                // ★ 发送维度审核结果事件（包含评分和结论）
+                const dimQualityLevelCn = this.getQualityLevelCn(
+                  review.qualityLevel,
+                );
+                const dimTopIssue = review.issues[0]?.description ?? null;
+                const dimScoreRounded = Math.round(review.overallScore);
+                const dimTaskDescription = dimTopIssue
+                  ? `「${dimension.name}」审核完成：${dimQualityLevelCn}（${dimScoreRounded}分）— ${dimTopIssue.length > 50 ? dimTopIssue.substring(0, 50) + "…" : dimTopIssue}`
+                  : `「${dimension.name}」审核完成：${dimQualityLevelCn}（${dimScoreRounded}分）`;
+                await this.researchEventEmitter.emitAgentWorking(
+                  topic.id,
+                  {
+                    agentId: task.assignedAgent,
+                    agentName: "质量审核员",
+                    agentRole: "reviewer",
+                    status: "working",
+                    taskDescription: dimTaskDescription,
+                    progress: reviewProgress,
+                    modelId: assignedModelId,
+                    dimensionId: dimension.id,
+                    dimensionName: dimension.name,
+                    reviewResult: {
+                      qualityLevel: review.qualityLevel,
+                      overallScore: review.overallScore,
+                      scores: review.scores,
+                      issueCount: review.issues.length,
+                      suggestions: review.suggestions.slice(0, 3),
+                      needsReresearch: review.needsReresearch,
+                    },
+                  },
+                  missionId,
+                );
+              } catch (error) {
+                this.logger.warn(
+                  `Failed to review dimension ${dimension.name}: ${error}`,
+                );
+              }
             }
-
-            // 调用审核服务
-            try {
-              const review = await this.reviewerService.reviewDimension(
-                topic,
-                dimension,
-                analysisResult,
-                analysisResult.evidenceUsed || 0,
+          } else {
+            // === 确定性质量审核模式（无 LLM 调用）===
+            for (let i = 0; i < completedTasks.length; i++) {
+              const completedTask = completedTasks[i];
+              const dimension = dimensions.find(
+                (d: { id: string }) => d.id === completedTask.dimensionId,
               );
+              if (!dimension) continue;
+
+              const taskResult = completedTask.result as Record<
+                string,
+                unknown
+              > | null;
+              const analysisResult = (
+                taskResult?.analysisResult
+                  ? taskResult.analysisResult
+                  : taskResult?.summary || taskResult?.keyFindings
+                    ? taskResult
+                    : null
+              ) as DimensionAnalysisResult | null;
+
+              if (!analysisResult) continue;
+
+              // 确定性评分（基于启发式规则，无 LLM）
+              const contentLength =
+                (analysisResult.detailedContent as string | undefined)
+                  ?.length || 0;
+              const findingsCount =
+                (analysisResult.keyFindings as unknown[])?.length || 0;
+              const trendsCount =
+                (analysisResult.trends as unknown[])?.length || 0;
+              const challengesCount =
+                (analysisResult.challenges as unknown[])?.length || 0;
+              const opportunitiesCount =
+                (analysisResult.opportunities as unknown[])?.length || 0;
+              const evidenceUsed = analysisResult.evidenceUsed || 0;
+
+              const breadthScore = Math.min(
+                100,
+                (findingsCount >= 5 ? 40 : findingsCount * 8) +
+                  (trendsCount >= 3 ? 20 : trendsCount * 7) +
+                  (challengesCount >= 2 ? 20 : challengesCount * 10) +
+                  (opportunitiesCount >= 2 ? 20 : opportunitiesCount * 10),
+              );
+
+              const depthScore = Math.min(
+                100,
+                (contentLength >= 3000 ? 50 : Math.round(contentLength / 60)) +
+                  (findingsCount >= 3 ? 30 : findingsCount * 10) +
+                  (evidenceUsed >= 5 ? 20 : evidenceUsed * 4),
+              );
+
+              const evidenceScore = Math.min(
+                100,
+                evidenceUsed >= 10
+                  ? 90
+                  : evidenceUsed >= 5
+                    ? 70
+                    : evidenceUsed >= 3
+                      ? 50
+                      : evidenceUsed * 15,
+              );
+
+              const coherenceScore = Math.min(
+                100,
+                ((analysisResult.summary as string | undefined) ? 30 : 0) +
+                  (findingsCount > 0 ? 30 : 0) +
+                  (contentLength >= 500 ? 20 : 0) +
+                  ((analysisResult.confidenceLevel as string | undefined)
+                    ? 20
+                    : 0),
+              );
+
+              const currencyScore = 75; // 无 LLM 时默认合理分值
+
+              const overallScore = Math.round(
+                breadthScore * 0.25 +
+                  depthScore * 0.25 +
+                  evidenceScore * 0.25 +
+                  coherenceScore * 0.15 +
+                  currencyScore * 0.1,
+              );
+
+              // 基于启发式规则生成问题列表
+              const issues: ReviewIssue[] = [];
+              if (contentLength < 500) {
+                issues.push({
+                  type: "shallow_analysis",
+                  severity: "major",
+                  description: `内容较短（${contentLength} 字符），建议充实分析内容`,
+                });
+              }
+              if (findingsCount < 3) {
+                issues.push({
+                  type: "missing_coverage",
+                  severity: "major",
+                  description: `关键发现较少（${findingsCount} 条），建议覆盖更多方面`,
+                });
+              }
+              if (evidenceUsed < 3) {
+                issues.push({
+                  type: "weak_evidence",
+                  severity: "major",
+                  description: `证据支撑不足（${evidenceUsed} 条），建议增加数据来源`,
+                });
+              }
+
+              const qualityLevel: ReviewQualityLevel =
+                overallScore >= 90
+                  ? ReviewQualityLevel.EXCELLENT
+                  : overallScore >= 75
+                    ? ReviewQualityLevel.GOOD
+                    : overallScore >= 60
+                      ? ReviewQualityLevel.ACCEPTABLE
+                      : overallScore >= 40
+                        ? ReviewQualityLevel.NEEDS_REVISION
+                        : ReviewQualityLevel.REJECTED;
+
+              const review: DimensionReviewResult = {
+                dimensionId: dimension.id,
+                dimensionName: dimension.name,
+                qualityLevel,
+                overallScore,
+                scores: {
+                  breadth: breadthScore,
+                  depth: depthScore,
+                  evidence: evidenceScore,
+                  coherence: coherenceScore,
+                  currency: currencyScore,
+                },
+                issues,
+                suggestions: issues.map((iss) => iss.description),
+                needsReresearch: overallScore < 60,
+                reresearchFocus: overallScore < 60 ? ["全部内容"] : [],
+              };
+
               dimensionReviews.push(review);
 
-              // ★ 记录维度审核结果到活动记录（供前端展示详细审核数据）
+              // ★ 记录维度审核结果到活动记录
               await this.agentActivity.recordDimensionReview(
                 topic.id,
                 missionId,
@@ -766,15 +974,13 @@ export class MissionExecutionService {
                 review,
               );
 
-              // ★ 发送维度审核结果事件（包含评分和结论）
+              // ★ 发送进度事件
+              const reviewProgress = Math.round(
+                10 + ((i + 1) / completedTasks.length) * 70,
+              );
               const dimQualityLevelCn = this.getQualityLevelCn(
                 review.qualityLevel,
               );
-              const dimTopIssue = review.issues[0]?.description ?? null;
-              const dimScoreRounded = Math.round(review.overallScore);
-              const dimTaskDescription = dimTopIssue
-                ? `「${dimension.name}」审核完成：${dimQualityLevelCn}（${dimScoreRounded}分）— ${dimTopIssue.length > 50 ? dimTopIssue.substring(0, 50) + "…" : dimTopIssue}`
-                : `「${dimension.name}」审核完成：${dimQualityLevelCn}（${dimScoreRounded}分）`;
               await this.researchEventEmitter.emitAgentWorking(
                 topic.id,
                 {
@@ -782,7 +988,7 @@ export class MissionExecutionService {
                   agentName: "质量审核员",
                   agentRole: "reviewer",
                   status: "working",
-                  taskDescription: dimTaskDescription,
+                  taskDescription: `「${dimension.name}」快速检查完成：${dimQualityLevelCn}（${overallScore}分）`,
                   progress: reviewProgress,
                   modelId: assignedModelId,
                   dimensionId: dimension.id,
@@ -797,10 +1003,6 @@ export class MissionExecutionService {
                   },
                 },
                 missionId,
-              );
-            } catch (error) {
-              this.logger.warn(
-                `Failed to review dimension ${dimension.name}: ${error}`,
               );
             }
           }

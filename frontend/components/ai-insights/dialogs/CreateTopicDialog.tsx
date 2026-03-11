@@ -163,6 +163,10 @@ export function CreateTopicDialog({
   const [enableFigures, setEnableFigures] = useState(true); // ★ 是否显示图表，默认开启
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [researchDepth, setResearchDepth] = useState<
+    'quick' | 'standard' | 'thorough'
+  >('standard');
 
   // ★ 可见性选项 (使用 i18n)
   const visibilityOptions = useMemo(
@@ -354,6 +358,15 @@ export function CreateTopicDialog({
         );
         setVisibility((editTopic.visibility as TopicVisibility) || 'PRIVATE');
         setLanguage((editTopic.language as 'zh' | 'en') || 'zh');
+        const savedDepth = (
+          editTopic.topicConfig as { researchDepth?: string } | undefined
+        )?.researchDepth;
+        setResearchDepth(
+          savedDepth === 'quick' || savedDepth === 'thorough'
+            ? savedDepth
+            : 'standard'
+        );
+        setShowAdvanced(false);
         setError(null);
       } else {
         // ★ 创建模式：重置表单
@@ -368,6 +381,8 @@ export function CreateTopicDialog({
         setEnableFigures(true); // ★ 默认开启图表
         setVisibility('PRIVATE');
         setLanguage('zh');
+        setResearchDepth('standard');
+        setShowAdvanced(false);
         setError(null);
       }
     }
@@ -405,6 +420,7 @@ export function CreateTopicDialog({
       if (!enableFigures) {
         topicConfig.enableFigures = false;
       }
+      topicConfig.researchDepth = researchDepth;
 
       if (isEditMode && editTopic) {
         // ★ 编辑模式：更新专题
@@ -456,7 +472,7 @@ export function CreateTopicDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-xl font-semibold text-gray-900">
@@ -509,36 +525,7 @@ export function CreateTopicDialog({
             </div>
           ) : (
             // Step 2: Details Form
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* AI Planning Notice - v8.0: 维度由 AI 自动规划 */}
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
-                    <svg
-                      className="h-4 w-4 text-blue-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-900">
-                      {t('topicResearch.createDialog.aiPlanningTitle')}
-                    </h4>
-                    <p className="mt-1 text-xs text-blue-700">
-                      {t('topicResearch.createDialog.aiPlanningDesc')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
+            <form onSubmit={handleSubmit} className="space-y-3">
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -568,182 +555,252 @@ export function CreateTopicDialog({
                   placeholder={t(
                     'topicResearch.createDialog.topicDescPlaceholder'
                   )}
-                  rows={3}
+                  rows={2}
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
-              {/* Refresh Frequency */}
+              {/* Research Depth Selector */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('topicResearch.createDialog.refreshFrequency')}
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  {t('topicResearch.createDialog.researchDepthLabel') ||
+                    t('topicResearch.researchDepth.label')}
                 </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {frequencyOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setRefreshFrequency(option.value)}
-                      className={`rounded-lg border px-3 py-2 text-center transition-all ${
-                        refreshFrequency === option.value
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className="block text-sm font-medium">
-                        {option.label}
-                      </span>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(['quick', 'standard', 'thorough'] as const).map((depth) => {
+                    const labels: Record<string, string> = {
+                      quick: t('topicResearch.researchDepth.quick'),
+                      standard: t('topicResearch.researchDepth.standard'),
+                      thorough: t('topicResearch.researchDepth.thorough'),
+                    };
+                    const descriptions: Record<string, string> = {
+                      quick: t('topicResearch.researchDepth.quickDesc'),
+                      standard: t('topicResearch.researchDepth.standardDesc'),
+                      thorough: t('topicResearch.researchDepth.thoroughDesc'),
+                    };
+                    const isSelected = researchDepth === depth;
+                    return (
+                      <button
+                        key={depth}
+                        type="button"
+                        onClick={() => setResearchDepth(depth)}
+                        className={`rounded-md px-2 py-1.5 text-xs transition-all ${
+                          isSelected
+                            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                        }`}
+                        title={descriptions[depth]}
+                      >
+                        <div className="font-medium">{labels[depth]}</div>
+                        <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
+                          {descriptions[depth]}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Time Range */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('topicResearch.createDialog.searchTimeRange')}
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    {t('topicResearch.createDialog.searchTimeRangeHint')}
+              {/* Advanced Settings (collapsible) */}
+              <div className="border-t border-gray-100 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="flex w-full items-center justify-between py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
+                >
+                  <span>
+                    {t('topicResearch.createDialog.advancedSettings') ||
+                      'Advanced Settings'}
                   </span>
-                </label>
-                <div className="grid grid-cols-6 gap-2">
-                  {timeRangeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setSearchTimeRange(option.value)}
-                      className={`rounded-lg border px-3 py-2 text-center transition-all ${
-                        searchTimeRange === option.value
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                      title={option.description}
-                    >
-                      <span className="block text-sm font-medium">
-                        {option.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ★ Visibility Selector */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('topicResearch.sharing.visibility.title')}
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    {t('topicResearch.visibilityDesc')}
-                  </span>
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {visibilityOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setVisibility(option.value)}
-                      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
-                        visibility === option.value
-                          ? option.value === 'PRIVATE'
-                            ? 'border-gray-500 bg-gray-50 text-gray-700'
-                            : option.value === 'SHARED'
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-green-500 bg-green-50 text-green-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                      title={option.description}
-                    >
-                      {option.icon}
-                      <span className="text-sm font-medium">
-                        {option.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ★ Language Selector */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('topicResearch.language')}
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    {t('topicResearch.languageDesc')}
-                  </span>
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setLanguage('zh')}
-                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
-                      language === 'zh'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                  <svg
+                    className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                   >
-                    <span className="text-sm font-medium">
-                      {t('topicResearch.languageOptions.zh')}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLanguage('en')}
-                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
-                      language === 'en'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="text-sm font-medium">
-                      {t('topicResearch.languageOptions.en')}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* ★ Figure Display Toggle */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      {t('topicResearch.createDialog.reportFigures')}
-                    </label>
-                    <p className="text-xs text-gray-400">
-                      {t('topicResearch.createDialog.reportFiguresDesc')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEnableFigures(!enableFigures)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                      enableFigures ? 'bg-blue-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        enableFigures ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
                     />
-                  </button>
-                </div>
-              </div>
+                  </svg>
+                </button>
 
-              {/* Knowledge Base Selector */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('topicResearch.createDialog.knowledgeBase')}
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    {t('topicResearch.createDialog.knowledgeBaseHint')}
-                  </span>
-                </label>
-                <KnowledgeBaseSelector
-                  selectedIds={selectedKnowledgeBases}
-                  onSelectionChange={setSelectedKnowledgeBases}
-                  multiple={true}
-                  maxSelections={5}
-                  placeholder={t(
-                    'topicResearch.createDialog.knowledgeBasePlaceholder'
-                  )}
-                  disabled={loading}
-                />
+                {showAdvanced && (
+                  <div className="mt-2 space-y-3">
+                    {/* Refresh Frequency */}
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                        {t('topicResearch.createDialog.refreshFrequency')}
+                      </label>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {frequencyOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setRefreshFrequency(option.value)}
+                            className={`rounded-lg border px-2 py-1.5 text-center transition-all ${
+                              refreshFrequency === option.value
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            }`}
+                          >
+                            <span className="block text-xs font-medium">
+                              {option.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Time Range */}
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                        {t('topicResearch.createDialog.searchTimeRange')}
+                        <span className="ml-2 text-xs font-normal text-gray-400">
+                          {t('topicResearch.createDialog.searchTimeRangeHint')}
+                        </span>
+                      </label>
+                      <div className="grid grid-cols-6 gap-1.5">
+                        {timeRangeOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setSearchTimeRange(option.value)}
+                            className={`rounded-lg border px-2 py-1.5 text-center transition-all ${
+                              searchTimeRange === option.value
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            }`}
+                            title={option.description}
+                          >
+                            <span className="block text-xs font-medium">
+                              {option.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ★ Visibility Selector */}
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                        {t('topicResearch.sharing.visibility.title')}
+                        <span className="ml-2 text-xs font-normal text-gray-400">
+                          {t('topicResearch.visibilityDesc')}
+                        </span>
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {visibilityOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setVisibility(option.value)}
+                            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
+                              visibility === option.value
+                                ? option.value === 'PRIVATE'
+                                  ? 'border-gray-500 bg-gray-50 text-gray-700'
+                                  : option.value === 'SHARED'
+                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                    : 'border-green-500 bg-green-50 text-green-700'
+                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            }`}
+                            title={option.description}
+                          >
+                            {option.icon}
+                            <span className="text-xs font-medium">
+                              {option.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ★ Language Selector */}
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                        {t('topicResearch.language')}
+                        <span className="ml-2 text-xs font-normal text-gray-400">
+                          {t('topicResearch.languageDesc')}
+                        </span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setLanguage('zh')}
+                          className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
+                            language === 'zh'
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          <span className="text-xs font-medium">
+                            {t('topicResearch.languageOptions.zh')}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLanguage('en')}
+                          className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
+                            language === 'en'
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          <span className="text-xs font-medium">
+                            {t('topicResearch.languageOptions.en')}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ★ Figure Display Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          {t('topicResearch.createDialog.reportFigures')}
+                        </label>
+                        <p className="text-xs text-gray-400">
+                          {t('topicResearch.createDialog.reportFiguresDesc')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEnableFigures(!enableFigures)}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                          enableFigures ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            enableFigures ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Knowledge Base Selector */}
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                        {t('topicResearch.createDialog.knowledgeBase')}
+                        <span className="ml-2 text-xs font-normal text-gray-400">
+                          {t('topicResearch.createDialog.knowledgeBaseHint')}
+                        </span>
+                      </label>
+                      <KnowledgeBaseSelector
+                        selectedIds={selectedKnowledgeBases}
+                        onSelectionChange={setSelectedKnowledgeBases}
+                        multiple={true}
+                        maxSelections={5}
+                        placeholder={t(
+                          'topicResearch.createDialog.knowledgeBasePlaceholder'
+                        )}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {error && (

@@ -64,6 +64,9 @@ interface TopicTeamPanelProps {
   /** V5: 研究深度 */
   researchDepth?: 'quick' | 'standard' | 'thorough';
   onResearchDepthChange?: (depth: 'quick' | 'standard' | 'thorough') => void;
+  /** AI Quality Review toggle */
+  enableAiQualityReview?: boolean;
+  onEnableAiQualityReviewChange?: (enabled: boolean) => void;
 }
 
 // Agent 角色定义
@@ -208,6 +211,8 @@ export function TopicTeamPanel({
   teamInfo,
   researchDepth = 'standard',
   onResearchDepthChange,
+  enableAiQualityReview,
+  onEnableAiQualityReviewChange,
 }: TopicTeamPanelProps) {
   const { t } = useTranslation();
   const phaseDisplay = useMemo(() => getPhaseDisplay(t), [t]);
@@ -713,6 +718,48 @@ export function TopicTeamPanel({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* AI Quality Review Toggle */}
+        {!isMissionActive && canEdit && onEnableAiQualityReviewChange && (
+          <div className="mb-2 flex items-center justify-between rounded-md bg-gray-50 px-2.5 py-2">
+            <div>
+              <div className="text-xs font-medium text-gray-600">
+                {t('topicResearch.qualityReview.aiReviewLabel') ||
+                  'AI Quality Review'}
+              </div>
+              <div className="text-[10px] text-gray-400">
+                {t('topicResearch.qualityReview.aiReviewDesc') ||
+                  'Use AI for in-depth quality analysis (slower)'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                onEnableAiQualityReviewChange(!enableAiQualityReview)
+              }
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
+                enableAiQualityReview ? 'bg-blue-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                  enableAiQualityReview ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        )}
+
+        {/* AI Quality Review active badge */}
+        {isMissionActive && enableAiQualityReview && (
+          <div className="mb-1 flex items-center gap-1 text-[10px] text-purple-600">
+            <span>
+              {t('topicResearch.qualityReview.aiReviewLabel') ||
+                'AI Quality Review'}{' '}
+              enabled
+            </span>
           </div>
         )}
 

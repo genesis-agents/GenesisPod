@@ -3,6 +3,7 @@ import {
   IsString,
   IsOptional,
   IsObject,
+  IsBoolean,
   MaxLength,
   IsIn,
   IsNotEmpty,
@@ -59,6 +60,15 @@ export class LeaderPlanDto {
   @IsIn(["quick", "standard", "thorough"])
   @MaxLength(50)
   researchDepth?: string;
+
+  @ApiPropertyOptional({
+    description: "是否启用 AI 质量审核（默认关闭，使用确定性检查）",
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableAiQualityReview?: boolean;
 }
 
 /**
