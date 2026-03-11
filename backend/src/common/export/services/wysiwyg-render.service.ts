@@ -168,7 +168,7 @@ export class WysiwygRenderService {
       await page.setViewport({
         width: viewportWidth,
         height: 720,
-        deviceScaleFactor: 2, // 高分辨率截图
+        deviceScaleFactor: 1.5, // 平衡清晰度和内存占用（2x 在 Railway 上容易 OOM）
       });
 
       const fullHtml = this.wrapHtml(html, css, {});

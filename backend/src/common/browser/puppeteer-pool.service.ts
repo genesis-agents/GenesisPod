@@ -18,6 +18,15 @@ const DEFAULT_LAUNCH_ARGS = [
   "--font-render-hinting=none",
   // Anti-detection: prevent websites from detecting headless automation
   "--disable-blink-features=AutomationControlled",
+  // Memory optimization for constrained environments (Railway ~1GB)
+  "--single-process",
+  "--disable-extensions",
+  "--disable-background-networking",
+  "--disable-default-apps",
+  "--disable-sync",
+  "--disable-translate",
+  "--no-first-run",
+  "--js-flags=--max-old-space-size=256",
 ];
 
 @Injectable()
