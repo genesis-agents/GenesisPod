@@ -712,6 +712,15 @@ export function useIterativeResearch(
               `SSE stream ended in phase "${currentState.discussion.phase}" without completion. Backend may still be running.`
             );
             callbacksRef.current?.onStreamEndIncomplete?.();
+            return {
+              ...currentState,
+              discussion: {
+                ...currentState.discussion,
+                phase: 'error',
+                error: '研究流连接中断，后端可能仍在处理中',
+              },
+              isIterating: false,
+            };
           }
           return currentState;
         });

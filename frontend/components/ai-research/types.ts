@@ -8,6 +8,7 @@ export interface ResearchSession {
   id: string;
   query: string;
   status: string;
+  mode?: 'single' | 'iterative';
   report?: DeepResearchReport;
   discussion?: Array<{
     id: string;

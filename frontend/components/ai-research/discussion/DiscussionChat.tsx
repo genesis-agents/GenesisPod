@@ -216,58 +216,82 @@ export function DiscussionChat({
                   <History className="h-4 w-4" />
                   <span>历史研究 ({sessions.length})</span>
                 </div>
-                {sessions.map((session) => (
-                  <button
-                    key={session.id}
-                    onClick={() => onViewSession(session)}
-                    className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-purple-200 hover:bg-purple-50/30"
-                  >
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100">
-                      <Search className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="truncate text-sm font-medium text-gray-900">
-                        {session.query}
-                      </h4>
-                      <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
-                        <span
-                          className={cn(
-                            'rounded-full px-2 py-0.5 text-xs font-medium',
-                            session.status === 'COMPLETED'
-                              ? 'bg-green-100 text-green-700'
-                              : session.status === 'FAILED'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-blue-100 text-blue-700'
-                          )}
-                        >
-                          {session.status === 'COMPLETED'
-                            ? '已完成'
-                            : session.status === 'FAILED'
-                              ? '失败'
-                              : '进行中'}
-                        </span>
-                        <ClientDate
-                          date={session.createdAt}
-                          format="relative"
-                        />
-                        {session.sourcesUsed > 0 && (
-                          <span>{session.sourcesUsed} 来源</span>
+                {sessions.map((session) => {
+                  const isIterativeSession = session.mode === 'iterative';
+                  return (
+                    <button
+                      key={session.id}
+                      onClick={() => onViewSession(session)}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-lg border bg-white p-4 text-left transition-colors',
+                        isIterativeSession
+                          ? 'border-gray-200 hover:border-blue-200 hover:bg-blue-50/30'
+                          : 'border-gray-200 hover:border-purple-200 hover:bg-purple-50/30'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg',
+                          isIterativeSession ? 'bg-blue-100' : 'bg-purple-100'
+                        )}
+                      >
+                        {isIterativeSession ? (
+                          <RefreshCw className="h-5 w-5 text-blue-600" />
+                        ) : (
+                          <Search className="h-5 w-5 text-purple-600" />
                         )}
                       </div>
-                    </div>
-                    <button
-                      onClick={(e) => handleDelete(session.id, e)}
-                      disabled={deletingId === session.id}
-                      className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                    >
-                      {deletingId === session.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="truncate text-sm font-medium text-gray-900">
+                            {session.query}
+                          </h4>
+                          {isIterativeSession && (
+                            <span className="flex-shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                              迭代
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
+                          <span
+                            className={cn(
+                              'rounded-full px-2 py-0.5 text-xs font-medium',
+                              session.status === 'COMPLETED'
+                                ? 'bg-green-100 text-green-700'
+                                : session.status === 'FAILED'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-blue-100 text-blue-700'
+                            )}
+                          >
+                            {session.status === 'COMPLETED'
+                              ? '已完成'
+                              : session.status === 'FAILED'
+                                ? '失败'
+                                : '进行中'}
+                          </span>
+                          <ClientDate
+                            date={session.createdAt}
+                            format="relative"
+                          />
+                          {session.sourcesUsed > 0 && (
+                            <span>{session.sourcesUsed} 来源</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => handleDelete(session.id, e)}
+                        disabled={deletingId === session.id}
+                        className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                      >
+                        {deletingId === session.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
                     </button>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

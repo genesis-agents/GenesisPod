@@ -36,8 +36,8 @@ const QUALITY_THRESHOLD: Record<ExitContext["depth"], number> = {
   thorough: 0.85,
 };
 
-const SATURATION_GAIN_THRESHOLD = 0.1;
-const CONVERGENCE_DELTA_THRESHOLD = 0.03;
+const SATURATION_GAIN_THRESHOLD = 0.05;
+const CONVERGENCE_DELTA_THRESHOLD = 0.05;
 
 @Injectable()
 export class ExitDecisionService {
@@ -67,12 +67,14 @@ export class ExitDecisionService {
     }
 
     // 4. Information saturated: this round added very few new unique sources
-    if (informationGain < SATURATION_GAIN_THRESHOLD) {
+    //    Skip this check before round 2 to allow early exploration
+    if (iteration >= 2 && informationGain < SATURATION_GAIN_THRESHOLD) {
       return { exit: true, reason: "information_saturated" };
     }
 
     // 5. Converged: last 2 score deltas are both below the convergence threshold
-    if (scores.length >= 3) {
+    //    Also require a minimum score to prevent early convergence at low quality
+    if (scores.length >= 3 && latestScore >= 0.3) {
       const delta1 = Math.abs(
         scores[scores.length - 1] - scores[scores.length - 2],
       );

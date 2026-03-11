@@ -127,6 +127,7 @@ export function ResearchProjectLayout({
         id: sessionId,
         query: queryRef.current,
         status: 'COMPLETED',
+        mode: 'iterative',
         report,
         discussion: [],
         directions: null,
@@ -152,6 +153,40 @@ export function ResearchProjectLayout({
       logger.info(
         `Iterative research exited: ${data.reason}, score=${data.finalScore}`
       );
+    },
+    onStreamEndIncomplete: () => {
+      logger.warn(
+        'Iterative SSE stream ended without completion, starting recovery polling...'
+      );
+      if (recoveryPollRef.current) {
+        clearInterval(recoveryPollRef.current);
+      }
+      let attempts = 0;
+      const maxAttempts = 90;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const reloaded = await reloadSessions();
+        if (reloaded) {
+          const completed = reloaded.find(
+            (s) => s.status === 'COMPLETED' && s.report
+          );
+          if (completed) {
+            clearInterval(pollInterval);
+            setViewingSession(completed);
+            setActiveTab('report');
+            logger.info(
+              'Iterative recovery polling: found completed session',
+              completed.id
+            );
+            return;
+          }
+        }
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          logger.warn('Iterative recovery polling: gave up after max attempts');
+        }
+      }, 10000);
+      recoveryPollRef.current = pollInterval;
     },
   });
 
@@ -189,6 +224,7 @@ export function ResearchProjectLayout({
         id: sessionId,
         query: query,
         status: 'COMPLETED',
+        mode: 'single',
         report,
         discussion: messages.map((msg) => ({
           id: msg.id,

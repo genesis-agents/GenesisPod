@@ -375,7 +375,8 @@ export class IterativeResearchService {
 
       const newTotalSources = followUp.report.metadata.totalSources;
       const newSources = Math.max(0, newTotalSources - prevTotalSources);
-      informationGain = newTotalSources > 0 ? newSources / newTotalSources : 0;
+      informationGain =
+        prevTotalSources > 0 ? newSources / prevTotalSources : 1;
 
       subject.next({
         type: "iteration.research",
@@ -664,6 +665,7 @@ export class IterativeResearchService {
       let resolved = false;
       const obs = this.orchestrator.startResearch(projectId, {
         query: dto.query,
+        mode: "iterative",
         options: dto.options,
         isFollowUp: dto.isFollowUp,
         previousContext: dto.previousContext,

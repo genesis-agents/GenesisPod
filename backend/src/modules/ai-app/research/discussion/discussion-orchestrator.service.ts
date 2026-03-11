@@ -170,6 +170,7 @@ export class DiscussionOrchestratorService {
       data: {
         projectId,
         query: dto.query,
+        mode: dto.mode ?? "single",
         status: DeepResearchStatus.IDEATION,
       },
     });
