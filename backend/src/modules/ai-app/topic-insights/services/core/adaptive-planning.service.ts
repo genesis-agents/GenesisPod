@@ -298,6 +298,7 @@ ${findingsText || "无"}
           { role: "user", content: prompt },
         ],
         additionalSkills: ["task-quality-evaluator"],
+        skipGuardrails: true, // 内部系统调用，研究质量评估
         taskProfile: {
           creativity: "low", // 确定性分析
           outputLength: "medium",
@@ -482,6 +483,7 @@ ${completedTasks.map((t) => `- ${t.title} (${t.dimensionName || "通用"})`).joi
           { role: "user", content: prompt },
         ],
         additionalSkills: ["plan-adjuster"],
+        skipGuardrails: true, // 内部系统调用，计划调整
         taskProfile: {
           creativity: "low", // 确定性分析
           outputLength: "medium",

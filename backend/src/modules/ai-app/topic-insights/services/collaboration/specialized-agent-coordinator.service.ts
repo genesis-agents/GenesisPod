@@ -285,6 +285,7 @@ ${opposingContext}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["debate-argument-generator"],
+        skipGuardrails: true, // 内部系统调用
         taskProfile: { creativity: "medium", outputLength: "medium" },
         responseFormat: "json",
       });
@@ -360,6 +361,7 @@ ${conArgument.argument}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["debate-judge-assessor"],
+        skipGuardrails: true, // 内部系统调用
         taskProfile: { creativity: "low", outputLength: "medium" },
         responseFormat: "json",
       });
@@ -443,6 +445,7 @@ ${roundsSummary}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["debate-verdict-synthesizer"],
+        skipGuardrails: true, // 内部系统调用
         taskProfile: { creativity: "low", outputLength: "medium" },
         responseFormat: "json",
       });
@@ -554,6 +557,7 @@ ${previousContext}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["specialized-role-analysis"],
+        skipGuardrails: true, // 内部系统调用
         taskProfile: role.taskProfile,
         responseFormat: "json",
       });
@@ -646,6 +650,7 @@ ${viewsText}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["multi-view-synthesizer"],
+        skipGuardrails: true, // 内部系统调用
         taskProfile: { creativity: "low", outputLength: "medium" },
         responseFormat: "json",
       });

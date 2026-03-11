@@ -235,6 +235,7 @@ export class InteractiveResearchService {
           },
         ],
         modelType: AIModelType.CHAT,
+        skipGuardrails: true, // 内部分析调用，非用户直传
         taskProfile: { creativity: "low", outputLength: "short" },
       });
 
@@ -297,6 +298,7 @@ export class InteractiveResearchService {
           },
         ],
         modelType: AIModelType.CHAT,
+        skipGuardrails: true, // 含研究上下文数据，可能触发误报
         taskProfile: { creativity: "medium", outputLength: "medium" },
       });
 

@@ -121,6 +121,7 @@ export class ResearchMemoryService implements OnModuleDestroy {
           },
           { role: "user", content: extractionPrompt },
         ],
+        skipGuardrails: true, // 内部系统调用，研究结果提取
         taskProfile: {
           creativity: "deterministic",
           outputLength: "long",

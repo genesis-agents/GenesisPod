@@ -138,6 +138,7 @@ ${evidenceContext}
         const response = await this.chatFacade.chatWithSkills({
           messages: [{ role: "user", content: prompt }],
           additionalSkills: ["multi-path-reasoning"],
+          skipGuardrails: true, // 内部系统调用
           taskProfile: { creativity: creativityLevel, outputLength: "medium" },
         });
 
@@ -240,6 +241,7 @@ ${conclusionsText}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["multi-path-reasoning"],
+        skipGuardrails: true, // 内部系统调用
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 

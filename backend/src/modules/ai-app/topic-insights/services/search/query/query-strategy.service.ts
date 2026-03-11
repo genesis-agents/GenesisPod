@@ -201,6 +201,7 @@ export class QueryStrategyService {
           { role: "user", content: userContent },
         ],
         modelType: AIModelType.CHAT,
+        skipGuardrails: true, // 内部系统调用，搜索查询翻译
         taskProfile: { creativity: "deterministic", outputLength: "minimal" },
       });
 

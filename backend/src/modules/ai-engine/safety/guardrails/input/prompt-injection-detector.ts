@@ -54,9 +54,11 @@ export class PromptInjectionDetector implements IInputGuardrail {
       name: "Bypass Safety",
       severity: "block",
     },
-    // Jailbreak attempts
+    // Jailbreak attempts — "DAN" only in explicit jailbreak context
+    // Bare "DAN" removed: too many false positives on common English name "Dan"
     {
-      pattern: /\b(DAN|jailbreak)\b/gi,
+      pattern:
+        /\bjailbreak\b|(?:act\s+as|you\s+are(?:\s+now)?|enable|activate|enter|switch\s+to)\s+DAN\b|\bDAN\s+mode\b/gi,
       name: "Jailbreak Attempt",
       severity: "block",
     },

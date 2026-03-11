@@ -762,6 +762,7 @@ export class DataSourceRouterService {
           { role: "user", content: query },
         ],
         modelType: AIModelType.CHAT,
+        skipGuardrails: true, // 内部系统调用，翻译搜索查询
         taskProfile: { creativity: "deterministic", outputLength: "minimal" },
       });
 
@@ -2066,6 +2067,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
             { role: "user", content: userPrompt },
           ],
           model: grokModel.id,
+          skipGuardrails: true, // 内部系统调用，社交搜索
           taskProfile: { creativity: "low", outputLength: "long" },
         });
 

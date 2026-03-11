@@ -52,6 +52,7 @@ export class ResearchReflectionService {
       const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT_FAST,
+        skipGuardrails: true, // 内部系统调用，证据评估含外部搜索数据
         taskProfile: {
           creativity: "low",
           outputLength: "short",

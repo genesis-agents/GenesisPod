@@ -981,6 +981,7 @@ export class TopicInsightsService {
         { role: "user", content: prompt },
       ],
       modelType: AIModelType.CHAT,
+      skipGuardrails: true, // 报告内容含外部搜索数据，可能触发误报
       taskProfile: {
         creativity: dto.operation === "rewrite" ? "high" : "medium",
         outputLength: dto.operation === "compress" ? "short" : "medium",

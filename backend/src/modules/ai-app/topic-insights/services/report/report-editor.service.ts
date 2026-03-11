@@ -318,6 +318,7 @@ export class ReportEditorService {
         ],
         additionalSkills: ["dedup-checker"],
         modelType: AIModelType.CHAT,
+        skipGuardrails: true, // 内部系统调用，报告去重检查
         taskProfile: {
           creativity: "low",
           outputLength: "medium",

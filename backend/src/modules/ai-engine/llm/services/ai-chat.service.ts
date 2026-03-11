@@ -905,8 +905,8 @@ export class AiChatService {
           responseFormat,
         });
 
-        // ★ Guardrails: Output validation for BYOK path
-        if (!result.isError) {
+        // ★ Guardrails: Output validation for BYOK path (skip for internal system calls)
+        if (!skipGuardrails && !result.isError) {
           const outputGuardrailResult = await this.runOutputGuardrails(
             result.content,
             result.model,
@@ -1135,23 +1135,25 @@ export class AiChatService {
           });
         }
 
-        // ★ Guardrails: Output validation
-        const outputGuardrailResult = await this.runOutputGuardrails(
-          result.content,
-          result.model,
-          {
-            spanId,
-            tokensUsed: result.tokensUsed,
-            pathName: "Standard",
-          },
-        );
-        if (!outputGuardrailResult.passed) {
-          return {
-            content: "Response filtered by content safety guardrail",
-            usage: { totalTokens: result.tokensUsed },
-            model: result.model,
-            isError: true,
-          };
+        // ★ Guardrails: Output validation (skip for internal system calls)
+        if (!skipGuardrails) {
+          const outputGuardrailResult = await this.runOutputGuardrails(
+            result.content,
+            result.model,
+            {
+              spanId,
+              tokensUsed: result.tokensUsed,
+              pathName: "Standard",
+            },
+          );
+          if (!outputGuardrailResult.passed) {
+            return {
+              content: "Response filtered by content safety guardrail",
+              usage: { totalTokens: result.tokensUsed },
+              model: result.model,
+              isError: true,
+            };
+          }
         }
 
         if (attempt > 0) {

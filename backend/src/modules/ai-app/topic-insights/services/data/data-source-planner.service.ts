@@ -273,6 +273,7 @@ export class DataSourcePlannerService {
           },
         ],
         modelType: AIModelType.CHAT,
+        skipGuardrails: true, // 内部系统调用，数据源规划
         taskProfile: {
           creativity: "low",
           outputLength: "medium",

@@ -197,6 +197,7 @@ export class ChatFacade {
       query: request.query,
       additionalSkills: request.additionalSkills,
       skillContext: request.skillContext,
+      skipGuardrails: request.skipGuardrails,
     });
 
     return {

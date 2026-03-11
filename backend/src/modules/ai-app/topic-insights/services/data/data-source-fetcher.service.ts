@@ -868,6 +868,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
             { role: "user", content: userPrompt },
           ],
           model: grokModel.id,
+          skipGuardrails: true, // 内部系统调用，搜索查询
           taskProfile: { creativity: "low", outputLength: "long" },
         });
 

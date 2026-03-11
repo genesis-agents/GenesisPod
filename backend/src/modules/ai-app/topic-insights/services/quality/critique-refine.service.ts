@@ -202,6 +202,7 @@ ${content}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["content-critique"],
+        skipGuardrails: true, // 内部系统调用，内容审查
         taskProfile: { creativity: "low", outputLength: "long" },
         responseFormat: "json",
       });
@@ -378,6 +379,7 @@ ${issuesText}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["content-refine"],
+        skipGuardrails: true, // 内部系统调用，内容优化
         taskProfile: { creativity: "low", outputLength: "long" },
         responseFormat: "json",
       });

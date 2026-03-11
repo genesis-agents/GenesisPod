@@ -317,6 +317,7 @@ export class SectionWriterService {
       additionalSkills: skillIds,
       modelType: AIModelType.CHAT,
       model: modelId, // ★ 使用指定模型（如果提供）
+      skipGuardrails: true, // 内部系统调用，章节写作含外部研究数据
       taskProfile: {
         creativity: "medium",
         outputLength: "long", // 支持 800-1500 字的章节
@@ -640,6 +641,7 @@ export class SectionWriterService {
       additionalSkills: skillIds,
       modelType: AIModelType.CHAT,
       model: modelId, // ★ 使用指定模型（如果提供）
+      skipGuardrails: true, // 内部系统调用，章节修订
       taskProfile: {
         creativity: "low", // 修订时降低创造性，保持一致性
         outputLength: "long", // 支持 800-1500 字的章节

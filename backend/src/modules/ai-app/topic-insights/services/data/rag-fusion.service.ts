@@ -92,6 +92,7 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["rag-fusion-query"],
+        skipGuardrails: true, // 内部系统调用
         taskProfile: { creativity: "medium", outputLength: "medium" },
         responseFormat: "json",
       });

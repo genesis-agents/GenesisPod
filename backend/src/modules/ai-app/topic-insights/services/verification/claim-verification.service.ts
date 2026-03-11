@@ -237,6 +237,7 @@ ${evidences.map((e, i) => `[${i + 1}] ${e.title}\n摘要：${(e.snippet || e.ful
     try {
       const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        skipGuardrails: true, // 内部系统调用，声明+证据列表含外部搜索数据
         taskProfile: { creativity: "deterministic", outputLength: "short" },
       });
 
@@ -297,6 +298,7 @@ ${evidenceContent.substring(0, 3000)}
       const response = await this.chatFacade.chatWithSkills({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["fact-verification"],
+        skipGuardrails: true, // 内部系统调用，声明验证含外部证据
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 

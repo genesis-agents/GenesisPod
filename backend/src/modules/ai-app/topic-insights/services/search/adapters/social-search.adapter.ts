@@ -77,6 +77,7 @@ export class SocialSearchAdapter extends SearchAdapterBase {
       messages: [{ role: "user", content: userContent }],
       systemPrompt,
       modelType: AIModelType.CHAT,
+      skipGuardrails: true, // 内部系统调用，社交搜索
       taskProfile: { creativity: "deterministic", outputLength: "medium" },
     });
 

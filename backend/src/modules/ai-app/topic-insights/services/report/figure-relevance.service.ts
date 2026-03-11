@@ -207,6 +207,7 @@ export class FigureRelevanceService {
             },
           ],
           modelType: AIModelType.MULTIMODAL,
+          skipGuardrails: true, // 内部系统调用，图片审查
           taskProfile: {
             creativity: "deterministic",
             outputLength: "short",

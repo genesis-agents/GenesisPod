@@ -916,6 +916,7 @@ export class ReportSynthesisService {
         ],
         additionalSkills: ["consistency-check"],
         modelType: AIModelType.CHAT,
+        skipGuardrails: true, // 内部系统调用，一致性检查
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
@@ -1256,6 +1257,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       ],
       additionalSkills: ["report-synthesis"],
       modelType: AIModelType.CHAT,
+      skipGuardrails: true, // 内部系统调用，报告综合生成
       taskProfile: {
         creativity: "medium",
         outputLength: "extended",

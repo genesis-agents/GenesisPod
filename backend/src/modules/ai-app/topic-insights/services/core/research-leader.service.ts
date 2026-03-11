@@ -302,6 +302,7 @@ export class ResearchLeaderService {
           { role: "user", content: prompt },
         ],
         model: leaderModel.modelId,
+        skipGuardrails: true, // 内部系统调用，非用户输入
         taskProfile: {
           creativity: "medium",
           outputLength: "extended",
@@ -555,6 +556,7 @@ export class ResearchLeaderService {
           { role: "user", content: prompt },
         ],
         model: leaderModel.modelId,
+        skipGuardrails: true, // 内部系统调用，非用户输入
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
@@ -767,6 +769,7 @@ export class ResearchLeaderService {
         { role: "user", content: prompt },
       ],
       model: leaderModel.modelId,
+      skipGuardrails: true, // prompt 拼入系统生成的维度列表，可能触发误报
       taskProfile: {
         creativity: "medium",
         outputLength: "medium",
@@ -1095,6 +1098,7 @@ export class ResearchLeaderService {
           { role: "user", content: prompt },
         ],
         modelType: AIModelType.CHAT_FAST,
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
         taskProfile: {
           creativity: "deterministic",
           outputLength: "medium",
@@ -1157,6 +1161,7 @@ export class ResearchLeaderService {
           { role: "user", content: prompt },
         ],
         modelType: AIModelType.CHAT_FAST,
+        skipGuardrails: true, // 内部系统调用，证据数据可能触发误报
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
@@ -1564,6 +1569,7 @@ ${teamMembersText}`;
     const response = await this.chatFacade.chat({
       messages,
       model: leaderModel.modelId,
+      skipGuardrails: true, // 对话历史含 AI 生成内容，可能触发误报
       taskProfile: {
         creativity: "low", // 解码任务需要准确性
         outputLength: "short",
@@ -2263,6 +2269,7 @@ ${teamMembersText}`;
             { role: "user", content: finalPrompt },
           ],
           model: modelId,
+          skipGuardrails: true, // 内部系统调用，研究证据含外部搜索数据会触发误报
           responseFormat: "json",
           taskProfile: {
             creativity: "medium",
@@ -2326,6 +2333,8 @@ ${teamMembersText}`;
             await this.delay(isQuotaError ? 500 : RETRY_DELAY_MS * attempt);
             continue;
           }
+          // ★ 通用兜底：最后一次重试仍为 API 错误，跳出循环避免错误内容被当 JSON 解析
+          break;
         }
 
         // ★ 检测是否返回了 HTML 错误页面（API 故障特征）
@@ -2659,6 +2668,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             { role: "user", content: prompt },
           ],
           model: leaderModel.modelId,
+          skipGuardrails: true, // 内部系统调用，汇聚所有维度数据
           responseFormat: "json",
           taskProfile: {
             creativity: "medium",
@@ -2721,6 +2731,8 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             await this.delay(isQuotaError ? 500 : RETRY_DELAY_MS * attempt);
             continue;
           }
+          // ★ 通用兜底：最后一次重试仍为 API 错误，跳出循环避免错误内容被当 JSON 解析
+          break;
         }
 
         if (rawContent.includes("<!DOCTYPE") || rawContent.includes("<html")) {
@@ -2914,6 +2926,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         { role: "user", content: prompt },
       ],
       model: leaderModel.modelId,
+      skipGuardrails: true, // 内部系统调用，章节内容+图表数据
       taskProfile: {
         creativity: "low",
         outputLength: "medium",
@@ -3069,6 +3082,7 @@ ${fullContent.substring(0, 8000)}
           { role: "user", content: metaPrompt },
         ],
         model: leaderModel.modelId,
+        skipGuardrails: true, // 内部系统调用，维度报告内容
         responseFormat: "json",
         taskProfile: { creativity: "low", outputLength: "medium" },
       });

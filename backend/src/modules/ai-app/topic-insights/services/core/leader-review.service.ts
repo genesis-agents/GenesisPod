@@ -152,6 +152,7 @@ export class LeaderReviewService {
       messages: [{ role: "user", content: prompt + constraintSection }],
       systemPrompt: "你是研究质量审核专家，请输出 JSON 格式的审核决策。",
       model: leaderModel.modelId,
+      skipGuardrails: true, // 内部系统调用，研究结果审核
       taskProfile: { creativity: "low", outputLength: "medium" },
       schema: {
         type: "object",
@@ -276,6 +277,7 @@ export class LeaderReviewService {
       ],
       additionalSkills: ["section-review"],
       model: leaderModel.modelId,
+      skipGuardrails: true, // 内部系统调用，章节内容审核
       taskProfile: {
         creativity: "low",
         outputLength: "medium",
@@ -349,6 +351,7 @@ export class LeaderReviewService {
         systemPrompt:
           "你是事实核查专家，精确提取可验证的事实断言。请输出 JSON 格式。",
         modelType: AIModelType.CHAT_FAST,
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
         taskProfile: { creativity: "deterministic", outputLength: "medium" },
         schema: {
           type: "object",
@@ -422,6 +425,7 @@ export class LeaderReviewService {
         systemPrompt:
           "你是研究方法论专家，严谨验证研究假设。请输出 JSON 格式。",
         modelType: AIModelType.CHAT_FAST,
+        skipGuardrails: true, // 内部系统调用，证据数据可能触发误报
         taskProfile: { creativity: "low", outputLength: "medium" },
         schema: {
           type: "object",
