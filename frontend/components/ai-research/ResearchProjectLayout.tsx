@@ -104,6 +104,11 @@ export function ResearchProjectLayout({
 
   // Ref for recovery poll interval cleanup
   const recoveryPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track whether background recovery has been initiated (prevent re-triggers)
+  const backgroundRecoveryInitiatedRef = useRef(false);
+  // State for background research indicator
+  const [backgroundResearchSession, setBackgroundResearchSession] =
+    useState<ResearchSession | null>(null);
 
   // Insights (INSIGHT type) & Ideas (CREATIVE_IDEA type) hooks
   const {
@@ -347,6 +352,85 @@ export function ResearchProjectLayout({
     };
   }, []);
 
+  // Auto-detect in-progress background sessions on mount and start recovery polling.
+  // This handles the case where SSE disconnects, user navigates away, then comes back
+  // — the research may still be running in the backend.
+  const TERMINAL_STATUSES = useMemo(() => ['COMPLETED', 'FAILED'], []);
+  const BACKGROUND_MAX_AGE_MS = 30 * 60 * 1000; // 30 min safety net
+
+  useEffect(() => {
+    if (loadingSessions || sessions.length === 0) return;
+    if (isSearching || isIterating) return;
+    if (backgroundRecoveryInitiatedRef.current) return;
+
+    const inProgressSession = sessions.find(
+      (s) =>
+        !TERMINAL_STATUSES.includes(s.status) &&
+        Date.now() - new Date(s.createdAt).getTime() < BACKGROUND_MAX_AGE_MS
+    );
+
+    if (!inProgressSession) return;
+
+    backgroundRecoveryInitiatedRef.current = true;
+    setBackgroundResearchSession(inProgressSession);
+    logger.info(
+      'Detected in-progress background session, starting recovery polling:',
+      inProgressSession.id
+    );
+
+    // Clear any existing poll before starting a new one
+    if (recoveryPollRef.current) {
+      clearInterval(recoveryPollRef.current);
+    }
+
+    let attempts = 0;
+    const maxAttempts = 90; // Poll for up to 15 minutes (10s * 90)
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      const reloaded = await reloadSessions();
+      if (reloaded) {
+        const updated = reloaded.find((s) => s.id === inProgressSession.id);
+        if (updated && TERMINAL_STATUSES.includes(updated.status)) {
+          clearInterval(pollInterval);
+          recoveryPollRef.current = null;
+          setBackgroundResearchSession(null);
+          if (updated.status === 'COMPLETED' && updated.report) {
+            setViewingSession(updated);
+            setActiveTab('report');
+            logger.info(
+              'Background research completed, showing result:',
+              updated.id
+            );
+          }
+          return;
+        }
+        // Session disappeared (deleted?) — stop polling
+        if (!updated) {
+          clearInterval(pollInterval);
+          recoveryPollRef.current = null;
+          setBackgroundResearchSession(null);
+          return;
+        }
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(pollInterval);
+        recoveryPollRef.current = null;
+        setBackgroundResearchSession(null);
+        logger.warn(
+          'Background research recovery polling: gave up after max attempts'
+        );
+      }
+    }, 10000);
+    recoveryPollRef.current = pollInterval;
+  }, [
+    loadingSessions,
+    sessions,
+    isSearching,
+    isIterating,
+    TERMINAL_STATUSES,
+    reloadSessions,
+  ]);
+
   // Set tab badges based on iteration progress (B4)
   useEffect(() => {
     if (!isIterating || iterativeState.iterations.length === 0) return;
@@ -366,6 +450,9 @@ export function ResearchProjectLayout({
   const handleStartResearch = useCallback(
     (q: string, mode?: 'single' | 'iterative') => {
       setQuery(q);
+      // Reset background recovery tracking — new research supersedes any background detection
+      backgroundRecoveryInitiatedRef.current = false;
+      setBackgroundResearchSession(null);
       if (mode === 'iterative') {
         startIterativeResearch(q, {
           mode: 'iterative',
@@ -647,6 +734,21 @@ export function ResearchProjectLayout({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Background Research Banner */}
+      {backgroundResearchSession && (
+        <div className="flex items-center gap-3 border-b border-blue-200 bg-blue-50 px-6 py-2">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          <span className="text-sm text-blue-800">
+            {t('aiResearch.backgroundResearch') ||
+              '研究在后台运行中，完成后将自动显示结果...'}
+          </span>
+          <span className="text-xs text-blue-500">
+            {backgroundResearchSession.query?.slice(0, 40)}
+            {(backgroundResearchSession.query?.length ?? 0) > 40 ? '...' : ''}
+          </span>
         </div>
       )}
 
