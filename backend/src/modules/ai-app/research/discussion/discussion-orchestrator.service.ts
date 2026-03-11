@@ -17,6 +17,10 @@ import {
   KernelContext,
 } from "../../../ai-kernel/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
+import { ResearchToolRouterService } from "../search/research-tool-router.service";
+import type { ResearchToolStrategy } from "../search/research-tool-router.types";
+import { ResearchQualityGateService } from "../quality/research-quality-gate.service";
+import { ResearchFactCheckerService } from "../quality/research-fact-checker.service";
 import { LruMap } from "@/common/utils/lru-map";
 import {
   StartDeepResearchDto,
@@ -63,6 +67,9 @@ export class DiscussionOrchestratorService {
     @Optional() private readonly teamFacade: TeamFacade,
     @Optional() private readonly replanner: ResearchReplannerService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
+    @Optional() private readonly toolRouter?: ResearchToolRouterService,
+    @Optional() private readonly qualityGate?: ResearchQualityGateService,
+    @Optional() private readonly factChecker?: ResearchFactCheckerService,
   ) {}
 
   /**
@@ -125,6 +132,10 @@ export class DiscussionOrchestratorService {
     const language = resolveLanguage(dto.options?.language);
     const allMessages: DiscussionMessage[] = [];
     const searchRounds: SearchRound[] = [];
+
+    // ★ 工具路由：根据查询主题分类，选择最佳搜索工具组合
+    const toolStrategy: ResearchToolStrategy | undefined =
+      this.toolRouter?.buildToolStrategy(dto.query);
 
     // Start observability trace
     const traceId = this.agentFacade?.startTrace({
@@ -265,6 +276,7 @@ export class DiscussionOrchestratorService {
           allMessages,
           subject,
           language,
+          toolStrategy,
         );
 
         // ========== Dynamic Replanning ==========
@@ -309,8 +321,22 @@ export class DiscussionOrchestratorService {
                 },
               });
 
+              // ★ Replan 补充搜索也使用工具路由
+              const replanResolution =
+                toolStrategy && this.toolRouter
+                  ? this.toolRouter.resolveToolsForStep(
+                      step,
+                      toolStrategy.topicType,
+                      toolStrategy.stepOverrides,
+                    )
+                  : undefined;
+
               const round = await this.withTimeout(
-                this.searchService.executeStep(step, roundNum),
+                this.searchService.executeStep(
+                  step,
+                  roundNum,
+                  replanResolution,
+                ),
                 this.STAGE_TIMEOUT,
                 `Replan search ${roundNum}`,
               ).catch((err: unknown) => {
@@ -797,6 +823,7 @@ export class DiscussionOrchestratorService {
     allMessages: DiscussionMessage[],
     subject: Subject<DeepResearchSSEEvent>,
     language: ResearchLanguage,
+    toolStrategy?: ResearchToolStrategy,
   ): Promise<void> {
     const depth = dto.options?.depth || "standard";
     const maxRoundsPerDirection: Record<string, number> = {
@@ -856,8 +883,18 @@ export class DiscussionOrchestratorService {
           estimatedSources: 10,
         };
 
+        // ★ 使用工具路由解析本步骤的工具组合
+        const stepResolution =
+          toolStrategy && this.toolRouter
+            ? this.toolRouter.resolveToolsForStep(
+                step,
+                toolStrategy.topicType,
+                toolStrategy.stepOverrides,
+              )
+            : undefined;
+
         const round = await this.withTimeout(
-          this.searchService.executeStep(step, roundNum),
+          this.searchService.executeStep(step, roundNum, stepResolution),
           this.STAGE_TIMEOUT,
           `Search ${roundNum}`,
         );
@@ -960,7 +997,7 @@ export class DiscussionOrchestratorService {
       findingsTexts.push(`${researcher.config.name}：${findings}`);
     }
 
-    // 分析师交叉验证
+    // 分析师交叉验证 (★ 使用 fact-check + consistency-check 技能)
     const crossCheckContext = op.crossCheckRequest(findingsTexts.join("\n\n"));
 
     this.emitTyping(subject, analyst);
@@ -968,6 +1005,11 @@ export class DiscussionOrchestratorService {
       this.agentService.speak(analyst, crossCheckContext, {
         creativity: "low",
         outputLength: "short",
+        additionalSkills: [
+          "fact-check",
+          "consistency-check",
+          "cross-reference-validation",
+        ],
       }),
       this.STAGE_TIMEOUT,
       "Analyst cross-check",
@@ -982,7 +1024,7 @@ export class DiscussionOrchestratorService {
     allMessages.push(msgCrossCheck);
     this.publishMessage(sessionId, msgCrossCheck, subject);
 
-    // 总监综合洞察
+    // 总监综合洞察 (★ 使用 synthesis + critical-thinking 技能)
     const insightContext = op.insightRequest(crossCheck);
 
     this.emitTyping(subject, director);
@@ -990,6 +1032,7 @@ export class DiscussionOrchestratorService {
       this.agentService.speak(director, insightContext, {
         creativity: "medium",
         outputLength: "short",
+        additionalSkills: ["synthesis", "critical-thinking", "gap-analysis"],
       }),
       this.STAGE_TIMEOUT,
       "Director insight",
@@ -1043,6 +1086,44 @@ export class DiscussionOrchestratorService {
       this.SYNTHESIS_TIMEOUT,
       "Report synthesis",
     );
+
+    // ★ 质量门检查：自动修复格式问题
+    if (this.qualityGate) {
+      for (const section of report.sections) {
+        const qr = this.qualityGate.validateReport(section.content);
+        if (qr.wasAutoFixed && qr.fixedContent) {
+          section.content = qr.fixedContent;
+        }
+      }
+      const summaryQr = this.qualityGate.validateReport(
+        report.executiveSummary,
+      );
+      if (summaryQr.wasAutoFixed && summaryQr.fixedContent) {
+        report.executiveSummary = summaryQr.fixedContent;
+      }
+    }
+
+    // ★ 事实检查 (fire-and-forget, 不阻塞主流程)
+    if (this.factChecker && report.references.length > 0) {
+      void this.factChecker
+        .checkConsistency(
+          report.sections
+            .map((s) => `### ${s.title}\n${s.content}`)
+            .join("\n\n"),
+        )
+        .then((result) => {
+          if (result && !result.isConsistent) {
+            this.logger.warn(
+              `[FactChecker] Report has ${result.conflicts.length} consistency conflicts`,
+            );
+          }
+        })
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `[FactChecker] consistency check failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
 
     // 撰稿人完成通知
     const writeDoneMsg = this.agentService.createMessage(

@@ -319,18 +319,24 @@ export class ReportSynthesizerService {
 
   /**
    * Generate a single report part via independent API call
+   * ★ 升级：使用 chatWithSkills 注入 report-synthesis + evidence-summarization 技能
    */
   private async generatePart(
     prompt: string,
     outputLength: "medium" | "long" = "long",
   ): Promise<string> {
-    const result = await this.chatFacade.chat({
+    const result = await this.chatFacade.chatWithSkills({
       messages: [{ role: "user", content: prompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {
         creativity: "medium",
         outputLength,
       },
+      additionalSkills: [
+        "report-synthesis",
+        "evidence-summarization",
+        "source-credibility",
+      ],
       skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
     });
     return result.content;

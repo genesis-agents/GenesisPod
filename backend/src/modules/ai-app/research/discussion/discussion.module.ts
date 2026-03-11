@@ -23,6 +23,9 @@ import { DiscussionAgentService } from "./discussion-agent.service";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
 import { ResearchReplannerService } from "./research-replanner.service";
+import { ResearchToolRouterService } from "../search/research-tool-router.service";
+import { ResearchQualityGateService } from "../quality/research-quality-gate.service";
+import { ResearchFactCheckerService } from "../quality/research-fact-checker.service";
 
 const services = [
   DiscussionResearchService,
@@ -34,6 +37,9 @@ const services = [
   DiscussionOrchestratorService,
   ResearchIdeaService,
   ResearchReplannerService,
+  ResearchToolRouterService,
+  ResearchQualityGateService,
+  ResearchFactCheckerService,
 ];
 
 @Module({

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import type { ToolContext } from "@/modules/ai-engine/facade";
@@ -8,17 +8,23 @@ import {
   SearchRound,
   SearchSource,
 } from "./types";
+import { ResearchToolRouterService } from "../search/research-tool-router.service";
+import type { ToolResolution } from "../search/research-tool-router.types";
 
 /**
  * 迭代搜索服务
  * 执行研究计划中的搜索步骤，支持流式进度反馈
+ *
+ * ★ 升级：支持多工具并行搜索 (通过 ToolResolution)
  */
 @Injectable()
 export class IterativeSearchService {
   private readonly logger = new Logger(IterativeSearchService.name);
 
-  // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
-  constructor(private readonly toolRegistry: ToolRegistry) {}
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    @Optional() private readonly toolRouter?: ResearchToolRouterService,
+  ) {}
 
   /**
    * 创建工具执行上下文
@@ -34,21 +40,165 @@ export class IterativeSearchService {
 
   /**
    * 执行单个搜索步骤
-   * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
+   * ★ 升级：支持 ToolResolution 多工具并行搜索
+   *
+   * @param step 研究计划步骤
+   * @param round 搜索轮次编号
+   * @param toolResolution 可选的工具解析策略；为 undefined 时 fallback 到 web-search
    */
   async executeStep(
     step: ResearchPlanStep,
     round: number,
+    toolResolution?: ToolResolution,
   ): Promise<SearchRound> {
     this.logger.debug(`Executing search step ${step.id}: ${step.query}`);
 
     const startTime = Date.now();
-    const maxResults = step.type === "academic" ? 10 : 15;
 
-    // 根据步骤类型调整搜索查询
+    // 有 ToolResolution → 多工具并行；否则 fallback 到原来的 web-search 单工具
+    if (toolResolution && toolResolution.tools.length > 0) {
+      return this.executeMultiToolStep(step, round, toolResolution, startTime);
+    }
+
+    return this.executeSingleToolStep(step, round, startTime);
+  }
+
+  /**
+   * 多工具并行搜索
+   */
+  private async executeMultiToolStep(
+    step: ResearchPlanStep,
+    round: number,
+    resolution: ToolResolution,
+    startTime: number,
+  ): Promise<SearchRound> {
+    const allSources: SearchSource[] = [];
+
+    // 按 priority 排序
+    const sortedTools = [...resolution.tools].sort(
+      (a, b) => a.priority - b.priority,
+    );
+
+    // 并行模式：所有工具同时执行
+    if (resolution.mode === "parallel") {
+      const promises = sortedTools.map(async (assignment) => {
+        const tool = this.toolRegistry.tryGet(assignment.toolId);
+        if (!tool) {
+          this.logger.warn(
+            `[multiTool] Tool "${assignment.toolId}" not available, skipping`,
+          );
+          return [];
+        }
+
+        const query = this.toolRouter
+          ? this.toolRouter.transformQueryForTool(
+              step.query,
+              assignment.queryTransform,
+            )
+          : this.enhanceQuery(step.query, step.type);
+
+        try {
+          const result = await tool.execute(
+            { query, numResults: assignment.maxResults },
+            this.createToolContext(assignment.toolId),
+          );
+          return this.extractSourcesFromResult(
+            result,
+            round,
+            assignment.toolId,
+          );
+        } catch (err) {
+          if (assignment.required) {
+            this.logger.error(
+              `[multiTool] Required tool "${assignment.toolId}" failed: ${err}`,
+            );
+          } else {
+            this.logger.warn(
+              `[multiTool] Optional tool "${assignment.toolId}" failed: ${err}`,
+            );
+          }
+          return [];
+        }
+      });
+
+      const results = await Promise.allSettled(promises);
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          allSources.push(...result.value);
+        }
+      }
+    } else {
+      // primary-with-fallback / sequential: 按优先级依次尝试
+      for (const assignment of sortedTools) {
+        const tool = this.toolRegistry.tryGet(assignment.toolId);
+        if (!tool) continue;
+
+        const query = this.toolRouter
+          ? this.toolRouter.transformQueryForTool(
+              step.query,
+              assignment.queryTransform,
+            )
+          : this.enhanceQuery(step.query, step.type);
+
+        try {
+          const result = await tool.execute(
+            { query, numResults: assignment.maxResults },
+            this.createToolContext(assignment.toolId),
+          );
+          const sources = this.extractSourcesFromResult(
+            result,
+            round,
+            assignment.toolId,
+          );
+          allSources.push(...sources);
+
+          // primary-with-fallback: 第一个成功就够了
+          if (
+            resolution.mode === "primary-with-fallback" &&
+            sources.length > 0
+          ) {
+            break;
+          }
+        } catch (err) {
+          this.logger.warn(
+            `[multiTool] Tool "${assignment.toolId}" failed: ${err}`,
+          );
+        }
+      }
+    }
+
+    // 去重并截断
+    const dedupedSources = this.deduplicateSources(allSources).slice(
+      0,
+      resolution.maxTotalResults,
+    );
+
+    const duration = Date.now() - startTime;
+    this.logger.debug(
+      `Step ${step.id} completed (multi-tool): ${dedupedSources.length} results from ${sortedTools.map((t) => t.toolId).join(",")} in ${duration}ms`,
+    );
+
+    return {
+      round,
+      stepId: step.id,
+      query: step.query,
+      resultsCount: dedupedSources.length,
+      sources: dedupedSources,
+      timestamp: new Date(),
+    };
+  }
+
+  /**
+   * 原始单工具搜索 (web-search fallback)
+   */
+  private async executeSingleToolStep(
+    step: ResearchPlanStep,
+    round: number,
+    startTime: number,
+  ): Promise<SearchRound> {
+    const maxResults = step.type === "academic" ? 10 : 15;
     const searchQuery = this.enhanceQuery(step.query, step.type);
 
-    // ★ 通过 ToolRegistry 获取 web-search 工具
     const webSearchTool = this.toolRegistry.tryGet("web-search");
     if (!webSearchTool) {
       this.logger.error(
@@ -65,65 +215,23 @@ export class IterativeSearchService {
     }
 
     try {
-      // ★ 通过工具系统执行搜索
       const toolResult = await webSearchTool.execute(
-        {
-          query: searchQuery,
-          numResults: maxResults,
-        },
+        { query: searchQuery, numResults: maxResults },
         this.createToolContext("web-search"),
       );
 
-      if (!toolResult.success || !toolResult.data) {
-        this.logger.warn(
-          `[executeStep] Search failed: ${toolResult.error?.message || "unknown error"}`,
-        );
-        return {
-          round,
-          stepId: step.id,
-          query: step.query,
-          resultsCount: 0,
-          sources: [],
-          timestamp: new Date(),
-        };
-      }
-
-      const searchData = toolResult.data as {
-        results: Array<{
-          title: string;
-          url: string;
-          content: string;
-          domain?: string;
-          publishedDate?: string;
-          score?: number;
-        }>;
-        success: boolean;
-      };
-
-      if (!searchData.success || !searchData.results) {
-        return {
-          round,
-          stepId: step.id,
-          query: step.query,
-          resultsCount: 0,
-          sources: [],
-          timestamp: new Date(),
-        };
-      }
-
-      const sources: SearchSource[] = searchData.results.map(
-        (result, index) => ({
-          id: `source_${round}_${index}`,
-          title: result.title,
-          url: result.url,
-          snippet: result.content,
-          domain: result.domain || this.extractDomain(result.url),
-          publishedDate: result.publishedDate,
-          relevanceScore: result.score || 0.5,
-        }),
+      const sources = this.extractSourcesFromResult(
+        toolResult,
+        round,
+        "web-search",
       );
 
-      const searchRound: SearchRound = {
+      const duration = Date.now() - startTime;
+      this.logger.debug(
+        `Step ${step.id} completed: ${sources.length} results in ${duration}ms`,
+      );
+
+      return {
         round,
         stepId: step.id,
         query: step.query,
@@ -131,13 +239,6 @@ export class IterativeSearchService {
         sources,
         timestamp: new Date(),
       };
-
-      const duration = Date.now() - startTime;
-      this.logger.debug(
-        `Step ${step.id} completed: ${sources.length} results in ${duration}ms`,
-      );
-
-      return searchRound;
     } catch (error) {
       this.logger.error(`Search step ${step.id} failed: ${error}`);
       return {
@@ -149,6 +250,63 @@ export class IterativeSearchService {
         timestamp: new Date(),
       };
     }
+  }
+
+  /**
+   * 从工具执行结果中提取 SearchSource[]
+   */
+  private extractSourcesFromResult(
+    toolResult: {
+      success: boolean;
+      data?: unknown;
+      error?: { message?: string };
+    },
+    round: number,
+    toolId: string,
+  ): SearchSource[] {
+    if (!toolResult.success || !toolResult.data) {
+      this.logger.warn(
+        `[extractSources] ${toolId} returned no data: ${toolResult.error?.message || "unknown"}`,
+      );
+      return [];
+    }
+
+    const searchData = toolResult.data as {
+      results?: Array<{
+        title: string;
+        url: string;
+        content: string;
+        domain?: string;
+        publishedDate?: string;
+        score?: number;
+      }>;
+      success?: boolean;
+    };
+
+    if (!searchData.results) return [];
+
+    return searchData.results.map((result, index) => ({
+      id: `source_${round}_${toolId}_${index}`,
+      title: result.title,
+      url: result.url,
+      snippet: result.content,
+      domain: result.domain || this.extractDomain(result.url),
+      publishedDate: result.publishedDate,
+      relevanceScore: result.score || 0.5,
+    }));
+  }
+
+  /**
+   * 按 URL 去重 sources
+   */
+  private deduplicateSources(sources: SearchSource[]): SearchSource[] {
+    const seen = new Set<string>();
+    return sources.filter((s) => {
+      const key = this.normalizeUrl(s.url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   /**

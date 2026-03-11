@@ -12,10 +12,7 @@ import {
   createConstraintProfile,
   BUILTIN_TOOLS,
 } from "../../../ai-engine/facade";
-import type {
-  TeamConfig,
-  WorkflowConfig,
-} from "../../../ai-engine/facade";
+import type { TeamConfig, WorkflowConfig } from "../../../ai-engine/facade";
 
 /**
  * 研究团队工作流配置
@@ -140,13 +137,31 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
   ],
   workflow: RESEARCH_WORKFLOW,
   availableSkills: [
+    // 规划类
     "research-planning",
-    "information-retrieval",
-    "source-validation",
-    "data-analysis",
-    "trend-insight",
-    "content-creation",
-    "quality-review",
+    "research-direction-planning",
+    "gap-analysis",
+    // 分析类
+    "critical-thinking",
+    "data-interpretation",
+    "synthesis",
+    "comparison",
+    "cause-effect",
+    "trend-analysis",
+    "deep-dive",
+    // 验证类
+    "fact-check",
+    "consistency-check",
+    "claim-extraction",
+    "fact-verification",
+    "cross-reference-validation",
+    "source-credibility",
+    // 写作类
+    "report-synthesis",
+    "evidence-summarization",
+    "executive-summary-writing",
+    "content-critique",
+    "section-depth-evaluation",
   ],
   availableTools: [
     BUILTIN_TOOLS.WEB_SEARCH,
@@ -156,6 +171,15 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
     BUILTIN_TOOLS.TEXT_GENERATION,
     BUILTIN_TOOLS.EXPORT_DOCX,
     BUILTIN_TOOLS.EXPORT_PDF,
+    // ★ 专业领域搜索工具（由 ResearchToolRouter 按主题分类调度）
+    "arxiv-search",
+    "semantic-scholar",
+    "pubmed",
+    "github-search",
+    "hackernews-search",
+    "finance-api",
+    "federal-register",
+    "congress-gov",
   ],
   constraintProfile: createConstraintProfile("thorough", {
     quality: {

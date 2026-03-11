@@ -110,6 +110,8 @@ export class DiscussionAgentService {
 
   /**
    * 让指定 Agent 发言
+   *
+   * ★ 升级：支持 additionalSkills 参数，自动走 chatWithSkills 路径
    */
   async speak(
     agentState: AgentState,
@@ -118,6 +120,7 @@ export class DiscussionAgentService {
       creativity?: "deterministic" | "low" | "medium" | "high";
       outputLength?: "minimal" | "short" | "medium" | "long";
       modelType?: AIModelType;
+      additionalSkills?: string[];
     },
   ): Promise<string> {
     // 添加上下文到对话历史
@@ -129,19 +132,35 @@ export class DiscussionAgentService {
     // 防止对话历史无限增长：保留 system prompt + 最近 10 条消息
     this.trimConversationHistory(agentState, 10);
 
+    const messages = agentState.conversationHistory.map((m) => ({
+      role: m.role as "system" | "user" | "assistant",
+      content: m.content,
+    }));
+
     try {
-      const result = await this.chatFacade.chat({
-        messages: agentState.conversationHistory.map((m) => ({
-          role: m.role as "system" | "user" | "assistant",
-          content: m.content,
-        })),
-        modelType: options?.modelType || AIModelType.CHAT,
-        taskProfile: {
-          creativity: options?.creativity || "medium",
-          outputLength: options?.outputLength || "short",
-        },
-        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
-      });
+      const hasSkills =
+        options?.additionalSkills && options.additionalSkills.length > 0;
+
+      const result = hasSkills
+        ? await this.chatFacade.chatWithSkills({
+            messages,
+            modelType: options?.modelType || AIModelType.CHAT,
+            taskProfile: {
+              creativity: options?.creativity || "medium",
+              outputLength: options?.outputLength || "short",
+            },
+            additionalSkills: options.additionalSkills,
+            skipGuardrails: true,
+          })
+        : await this.chatFacade.chat({
+            messages,
+            modelType: options?.modelType || AIModelType.CHAT,
+            taskProfile: {
+              creativity: options?.creativity || "medium",
+              outputLength: options?.outputLength || "short",
+            },
+            skipGuardrails: true,
+          });
 
       const response = result.content;
 
