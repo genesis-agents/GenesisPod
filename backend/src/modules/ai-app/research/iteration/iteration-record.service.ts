@@ -92,12 +92,12 @@ export class IterationRecordService {
 
     const dataGapList =
       gaps.dataGaps.length > 0
-        ? gaps.dataGaps.map((g) => `- [ ] ${g}`).join("\n")
+        ? gaps.dataGaps.map((g) => `- ${g}`).join("\n")
         : "- (none)";
 
     const ideaGapList =
       gaps.ideaGaps.length > 0
-        ? gaps.ideaGaps.map((g) => `- [ ] ${g}`).join("\n")
+        ? gaps.ideaGaps.map((g) => `- ${g}`).join("\n")
         : "- (none)";
 
     return `# Round 0 — Initialisation
@@ -213,12 +213,12 @@ ${ideaGapList}
 
     const remainDataGaps =
       remainingGaps.dataGaps.length > 0
-        ? remainingGaps.dataGaps.map((g) => `- [ ] ${g}`).join("\n")
+        ? remainingGaps.dataGaps.map((g) => `- ${g}`).join("\n")
         : "- (none)";
 
     const remainIdeaGaps =
       remainingGaps.ideaGaps.length > 0
-        ? remainingGaps.ideaGaps.map((g) => `- [ ] ${g}`).join("\n")
+        ? remainingGaps.ideaGaps.map((g) => `- ${g}`).join("\n")
         : "- (none)";
 
     const exitLine = exitDecision.exit

@@ -933,7 +933,7 @@ describe("DiscussionResearchService", () => {
 
       expect(result).toEqual(mockSessions);
       expect(prisma.deepResearchSession.findMany).toHaveBeenCalledWith({
-        where: { projectId: "project-1" },
+        where: { projectId: "project-1", mode: { not: "iterative_internal" } },
         orderBy: { createdAt: "desc" },
         take: 10,
       });

@@ -99,6 +99,13 @@ interface DataLayerCardProps {
 }
 
 function DataLayerCard({ research, isExpanded }: DataLayerCardProps) {
+  const [showAll, setShowAll] = useState(false);
+  const PREVIEW_COUNT = 3;
+  const hasMore = research.queries.length > PREVIEW_COUNT;
+  const displayQueries = showAll
+    ? research.queries
+    : research.queries.slice(0, PREVIEW_COUNT);
+
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 shadow-sm">
       <div className="flex items-center gap-1.5">
@@ -129,7 +136,7 @@ function DataLayerCard({ research, isExpanded }: DataLayerCardProps) {
 
       {isExpanded && research.queries.length > 0 && (
         <div className="mt-1 flex flex-col gap-1">
-          {research.queries.slice(0, 3).map((q, i) => (
+          {displayQueries.map((q, i) => (
             <p
               key={i}
               className="flex items-center gap-1 truncate rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
@@ -139,10 +146,15 @@ function DataLayerCard({ research, isExpanded }: DataLayerCardProps) {
               {q}
             </p>
           ))}
-          {research.queries.length > 3 && (
-            <p className="text-xs text-muted-foreground">
-              +{research.queries.length - 3} 条
-            </p>
+          {hasMore && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-0.5 text-left text-xs font-medium text-blue-600 hover:text-blue-800"
+            >
+              {showAll
+                ? '收起'
+                : `+${research.queries.length - PREVIEW_COUNT} 条`}
+            </button>
           )}
         </div>
       )}
@@ -161,6 +173,8 @@ function CognitiveLayerCard({
   isExpanded,
   isInit,
 }: CognitiveLayerCardProps) {
+  const [showAll, setShowAll] = useState(false);
+  const PREVIEW_COUNT = 3;
   const newInsightsCount = isInit
     ? ideas.totalInsights
     : ideas.newInsights.length;
@@ -170,6 +184,10 @@ function CognitiveLayerCard({
   const displayItems = isInit
     ? ideas.newInsights
     : [...ideas.newInsights, ...ideas.newCreativeIdeas];
+  const hasMore = displayItems.length > PREVIEW_COUNT;
+  const visibleItems = showAll
+    ? displayItems
+    : displayItems.slice(0, PREVIEW_COUNT);
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-purple-200 bg-purple-50 p-3 shadow-sm">
@@ -197,7 +215,7 @@ function CognitiveLayerCard({
 
       {isExpanded && displayItems.length > 0 && (
         <div className="mt-1 flex flex-col gap-1">
-          {displayItems.slice(0, 3).map((item, i) => (
+          {visibleItems.map((item, i) => (
             <p
               key={i}
               className="flex items-center gap-1 truncate rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800"
@@ -207,10 +225,13 @@ function CognitiveLayerCard({
               {item.title}
             </p>
           ))}
-          {displayItems.length > 3 && (
-            <p className="text-xs text-muted-foreground">
-              +{displayItems.length - 3} 条
-            </p>
+          {hasMore && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-0.5 text-left text-xs font-medium text-purple-600 hover:text-purple-800"
+            >
+              {showAll ? '收起' : `+${displayItems.length - PREVIEW_COUNT} 条`}
+            </button>
           )}
         </div>
       )}
@@ -224,9 +245,15 @@ interface ProductLayerCardProps {
 }
 
 function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
+  const [showAll, setShowAll] = useState(false);
+  const PREVIEW_COUNT = 4; // 2 data + 2 idea
   const { score, gaps, demo } = round;
   const totalGaps = gaps.dataGaps.length + gaps.ideaGaps.length;
   const isGenerating = demo?.status === 'generating';
+  const hasMore = totalGaps > PREVIEW_COUNT;
+
+  const previewDataCount = showAll ? gaps.dataGaps.length : 2;
+  const previewIdeaCount = showAll ? gaps.ideaGaps.length : 2;
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-sm">
@@ -265,7 +292,7 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
 
       {isExpanded && totalGaps > 0 && (
         <div className="mt-1 flex flex-col gap-1">
-          {gaps.dataGaps.slice(0, 2).map((g, i) => (
+          {gaps.dataGaps.slice(0, previewDataCount).map((g, i) => (
             <p
               key={`d-${i}`}
               className="flex items-center gap-1 truncate rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
@@ -275,7 +302,7 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
               {g}
             </p>
           ))}
-          {gaps.ideaGaps.slice(0, 2).map((g, i) => (
+          {gaps.ideaGaps.slice(0, previewIdeaCount).map((g, i) => (
             <p
               key={`i-${i}`}
               className="flex items-center gap-1 truncate rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
@@ -285,8 +312,13 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
               {g}
             </p>
           ))}
-          {totalGaps > 4 && (
-            <p className="text-xs text-muted-foreground">+{totalGaps - 4} 条</p>
+          {hasMore && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-0.5 text-left text-xs font-medium text-amber-600 hover:text-amber-800"
+            >
+              {showAll ? '收起' : `+${totalGaps - PREVIEW_COUNT} 条`}
+            </button>
           )}
         </div>
       )}
@@ -359,7 +391,10 @@ function MarkdownRecord({ content }: MarkdownRecordProps) {
     if (line.trim().startsWith('- ')) {
       const items: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith('- ')) {
-        items.push(lines[i].trim().slice(2));
+        let text = lines[i].trim().slice(2);
+        // Strip markdown checkbox syntax "[ ] " or "[x] "
+        if (/^\[[ x]\] /.test(text)) text = text.slice(4);
+        items.push(text);
         i++;
       }
       blocks.push({ type: 'list', items });
