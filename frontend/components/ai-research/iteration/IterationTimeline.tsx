@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Timer,
   Send,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { IterationRound } from '@/hooks/features/useIterativeResearch';
@@ -279,6 +280,38 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
   );
 }
 
+// ==================== Record Panel ====================
+
+interface RecordPanelProps {
+  record: string;
+}
+
+function RecordPanel({ record }: RecordPanelProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs font-medium text-gray-500 transition-colors hover:text-gray-700"
+      >
+        <FileText className="h-3.5 w-3.5" />
+        <span>{isOpen ? '收起详细记录' : '查看详细记录'}</span>
+        {isOpen ? (
+          <ChevronUp className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-relaxed text-gray-700">
+          <pre className="whitespace-pre-wrap font-sans">{record}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ==================== Round Row ====================
 
 interface RoundRowProps {
@@ -403,6 +436,9 @@ function RoundRow({
 
           <ProductLayerCard round={iteration} isExpanded={expanded} />
         </div>
+
+        {/* Iteration Record */}
+        {iteration.record && <RecordPanel record={iteration.record} />}
       </div>
     </div>
   );

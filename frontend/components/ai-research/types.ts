@@ -42,6 +42,7 @@ export interface ResearchSession {
     }>;
     iterationSnapshots?: IterationRound[];
     iterationMeta?: IterationMeta;
+    iterationRecords?: string[]; // Per-round Markdown records
   } | null;
   sourcesUsed: number;
   tokensUsed: number;

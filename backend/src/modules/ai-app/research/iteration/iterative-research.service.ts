@@ -283,6 +283,8 @@ export class IterativeResearchService {
 
     const scores: number[] = [currentScore];
     const iterationRecords: string[] = [];
+    const userFeedbackHistory: string[] = [];
+    let latestFeedback: string | null = null;
 
     // Track per-round snapshot counts for the summary table
     const roundSnapshots: Array<{
@@ -328,6 +330,7 @@ export class IterativeResearchService {
         score: currentScore * 100,
         previousScore: 0,
         gaps: currentGaps,
+        record: initMarkdown ?? undefined,
       },
     } satisfies IterationEvalEvent);
 
@@ -367,11 +370,8 @@ export class IterativeResearchService {
       this.logger.log(
         `[Iterative] User feedback for round 0: "${round0Feedback.slice(0, 100)}"`,
       );
-      // Prepend user feedback to data gaps so buildFollowUpQuery uses it
-      currentGaps = {
-        dataGaps: [round0Feedback, ...currentGaps.dataGaps],
-        ideaGaps: currentGaps.ideaGaps,
-      };
+      userFeedbackHistory.push(round0Feedback);
+      latestFeedback = round0Feedback;
     }
 
     // ---- Iteration loop (rounds 1..maxIterations) ---------------------------
@@ -407,10 +407,23 @@ export class IterativeResearchService {
       } satisfies IterationStartEvent);
 
       // Build follow-up query targeting gaps
-      const followUpQuery = buildFollowUpQuery(dto.query, currentGaps);
+      const followUpQuery = buildFollowUpQuery(
+        dto.query,
+        currentGaps,
+        latestFeedback,
+      );
+      latestFeedback = null;
 
       // Run follow-up research
-      const previousContext = buildPreviousContext(currentReport);
+      const iterationHistory = buildIterationHistory(
+        iterationRecords,
+        scores,
+        userFeedbackHistory,
+      );
+      const previousContext = buildPreviousContext(
+        currentReport,
+        iterationHistory,
+      );
       const prevTotalSources = currentReport.metadata.totalSources;
 
       const followUp = await this.runInnerResearch(
@@ -604,6 +617,7 @@ export class IterativeResearchService {
           score: newScore * 100,
           previousScore: previousScore * 100,
           gaps: newGaps,
+          record: iterationMarkdown ?? undefined,
         },
       } satisfies IterationEvalEvent);
 
@@ -647,11 +661,8 @@ export class IterativeResearchService {
         this.logger.log(
           `[Iterative] User feedback for round ${round}: "${userFeedback.slice(0, 100)}"`,
         );
-        // Prepend user feedback to data gaps so buildFollowUpQuery uses it
-        currentGaps = {
-          dataGaps: [userFeedback, ...currentGaps.dataGaps],
-          ideaGaps: currentGaps.ideaGaps,
-        };
+        userFeedbackHistory.push(userFeedback);
+        latestFeedback = userFeedback;
       }
     }
 
@@ -1101,18 +1112,29 @@ export class IterativeResearchService {
 function buildFollowUpQuery(
   originalQuery: string,
   gaps: { dataGaps: string[]; ideaGaps: string[] },
+  userFeedback?: string | null,
 ): string {
-  const gapParts = [...gaps.dataGaps.slice(0, 3), ...gaps.ideaGaps.slice(0, 2)];
+  const parts: string[] = [];
 
-  if (gapParts.length === 0) {
+  if (userFeedback) {
+    parts.push(`[用户指令] ${userFeedback}`);
+  }
+
+  const gapParts = [...gaps.dataGaps.slice(0, 3), ...gaps.ideaGaps.slice(0, 2)];
+  if (gapParts.length > 0) {
+    parts.push(`[系统识别的gap] ${gapParts.join("; ")}`);
+  }
+
+  if (parts.length === 0) {
     return `${originalQuery} — 需要更深入的分析和额外证据`;
   }
 
-  return `${originalQuery} — 本轮重点: ${gapParts.join("; ")}`;
+  return `${originalQuery} — ${parts.join(" | ")}`;
 }
 
 function buildPreviousContext(
   report: DeepResearchReport,
+  iterationHistory?: string,
 ): StartIterativeResearchDto["previousContext"] {
   return {
     executiveSummary: report.executiveSummary,
@@ -1125,7 +1147,42 @@ function buildPreviousContext(
       title: r.title,
       url: r.url,
     })),
+    iterationHistory,
   };
+}
+
+function buildIterationHistory(
+  records: string[],
+  scores: number[],
+  userFeedbackHistory: string[],
+): string {
+  const parts: string[] = [];
+
+  // Score trajectory
+  if (scores.length > 0) {
+    const trajectory = scores
+      .map((s, i) => `Round ${i}: ${(s * 100).toFixed(0)}%`)
+      .join(" → ");
+    parts.push(`## 分数轨迹\n${trajectory}`);
+  }
+
+  // User feedback history
+  if (userFeedbackHistory.length > 0) {
+    const fbLines = userFeedbackHistory
+      .map((f, i) => `- Round ${i}: ${f}`)
+      .join("\n");
+    parts.push(`## 用户反馈历史\n${fbLines}`);
+  }
+
+  // Condensed iteration records (use last 2 records max to keep context window manageable)
+  const recentRecords = records.slice(-2);
+  if (recentRecords.length > 0) {
+    // Truncate each record to ~500 chars to avoid bloating context
+    const condensed = recentRecords.map((r) => r.slice(0, 500)).join("\n---\n");
+    parts.push(`## 近期迭代记录\n${condensed}`);
+  }
+
+  return parts.join("\n\n");
 }
 
 function extractKeywords(query: string): string[] {

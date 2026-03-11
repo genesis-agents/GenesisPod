@@ -32,6 +32,7 @@ export interface IterationRound {
   demo?: {
     status: 'generating' | 'completed';
   };
+  record?: string; // Markdown iteration record
   timestamp: Date;
 }
 
@@ -464,6 +465,7 @@ export function useIterativeResearch(
             score: number;
             previousScore: number;
             gaps: { dataGaps: string[]; ideaGaps: string[] };
+            record?: string;
           };
           const existingEvalIdx = iterationsRef.current.findIndex(
             (r) => r.round === evalData.round
@@ -477,6 +479,7 @@ export function useIterativeResearch(
                   score: evalData.score,
                   previousScore: evalData.previousScore,
                   gaps: evalData.gaps,
+                  record: evalData.record,
                 };
                 return updatedRound;
               }
@@ -488,6 +491,7 @@ export function useIterativeResearch(
               score: evalData.score,
               previousScore: evalData.previousScore,
               gaps: evalData.gaps,
+              record: evalData.record,
               timestamp: new Date(),
             };
             iterationsRef.current = [...iterationsRef.current, updatedRound];

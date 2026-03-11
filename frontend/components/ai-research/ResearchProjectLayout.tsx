@@ -892,11 +892,21 @@ export function ResearchProjectLayout({
                           Array.isArray(historySnapshots) &&
                           historySnapshots.length > 0
                         ) {
+                          const historyRecords =
+                            viewingSession?.directions?.iterationRecords;
+                          const snapshotsWithRecords = historySnapshots.map(
+                            (snap, idx) => ({
+                              ...snap,
+                              record: historyRecords?.[idx] ?? snap.record,
+                            })
+                          );
                           const lastRound =
-                            historySnapshots[historySnapshots.length - 1].round;
+                            snapshotsWithRecords[
+                              snapshotsWithRecords.length - 1
+                            ].round;
                           return (
                             <IterationTimeline
-                              iterations={historySnapshots}
+                              iterations={snapshotsWithRecords}
                               currentRound={lastRound}
                               exitReason={
                                 historyMeta?.exitReason ?? 'completed'
@@ -922,10 +932,17 @@ export function ResearchProjectLayout({
                               .iterationSnapshots!;
                           const meta =
                             latestIterativeSession.directions!.iterationMeta;
-                          const lastRound = snaps[snaps.length - 1].round;
+                          const latestRecords =
+                            latestIterativeSession.directions!.iterationRecords;
+                          const snapsWithRecords = snaps.map((snap, idx) => ({
+                            ...snap,
+                            record: latestRecords?.[idx] ?? snap.record,
+                          }));
+                          const lastRound =
+                            snapsWithRecords[snapsWithRecords.length - 1].round;
                           return (
                             <IterationTimeline
-                              iterations={snaps}
+                              iterations={snapsWithRecords}
                               currentRound={lastRound}
                               exitReason={meta?.exitReason ?? 'completed'}
                               finalScore={meta?.finalScore ?? null}

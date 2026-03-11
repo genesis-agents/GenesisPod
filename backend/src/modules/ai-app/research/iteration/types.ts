@@ -63,6 +63,7 @@ export interface StartIterativeResearchDto {
     sections: { title: string; content: string }[];
     conclusion: string;
     references: { title: string; url: string }[];
+    iterationHistory?: string;
   };
 }
 
@@ -109,6 +110,7 @@ export interface IterationEvalEvent {
     score: number;
     previousScore: number;
     gaps: { dataGaps: string[]; ideaGaps: string[] };
+    record?: string; // Markdown iteration record for this round
   };
 }
 

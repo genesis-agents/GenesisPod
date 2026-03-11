@@ -599,6 +599,9 @@ export class DiscussionOrchestratorService {
       if (ctx.conclusion) {
         parts.push(`**结论**: ${ctx.conclusion.slice(0, 300)}`);
       }
+      if (ctx.iterationHistory) {
+        parts.push(`**迭代历史**:\n${ctx.iterationHistory}`);
+      }
       previousFindings = parts.join("\n\n");
     }
 
