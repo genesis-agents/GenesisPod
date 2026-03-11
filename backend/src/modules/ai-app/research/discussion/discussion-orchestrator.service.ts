@@ -520,7 +520,10 @@ export class DiscussionOrchestratorService {
         // Auto-extract ideas from discussion messages
         // Skip in iterative mode — the iteration service handles extraction and
         // calling it here would cause a duplicate (and the 2nd run deletes+recreates).
-        if (session.mode !== "iterative") {
+        if (
+          session.mode !== "iterative" &&
+          session.mode !== "iterative_internal"
+        ) {
           try {
             await this.autoExtractIdeas(projectId, session.id, allMessages);
           } catch (extractError) {

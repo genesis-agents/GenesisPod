@@ -45,7 +45,7 @@ export interface IdeaSummary {
 
 export interface StartIterativeResearchDto {
   query: string;
-  mode: "single" | "iterative";
+  mode: "single" | "iterative" | "iterative_internal";
   options?: {
     maxRounds?: number;
     includeAcademic?: boolean;

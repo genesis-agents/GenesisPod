@@ -619,6 +619,9 @@ export class IterativeResearchService {
           newGaps = fallback.gaps;
         }
 
+        // Ensure score is monotonically non-decreasing — accumulated research should never lose quality
+        newScore = Math.max(newScore, currentScore);
+
         scores.push(newScore);
         currentScore = newScore;
         currentGaps = newGaps;
@@ -961,7 +964,7 @@ export class IterativeResearchService {
       let resolved = false;
       const obs = this.orchestrator.startResearch(projectId, {
         query: dto.query,
-        mode: "iterative",
+        mode: "iterative_internal",
         options: dto.options,
         isFollowUp: dto.isFollowUp,
         previousContext: dto.previousContext,

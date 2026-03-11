@@ -84,9 +84,13 @@ export class ExitDecisionService {
     // 4. Information saturated: this round added very few new unique sources
     //    P1-1 fix: Only trigger after MIN_ITERATIONS_FOR_EARLY_EXIT completed iterations
     //    to prevent premature exit when Round 0 finds many sources and Round 1 adds few.
+    // Only exit for saturation if quality is at least 50% of the depth target.
+    // Otherwise, low information gain just means we need better queries, not that we should stop.
+    const qualityFloor = QUALITY_THRESHOLD[depth] * 0.5;
     if (
       iteration >= MIN_ITERATIONS_FOR_EARLY_EXIT &&
-      informationGain < SATURATION_GAIN_THRESHOLD
+      informationGain < SATURATION_GAIN_THRESHOLD &&
+      latestScore >= qualityFloor
     ) {
       return { exit: true, reason: "information_saturated" };
     }
@@ -96,7 +100,7 @@ export class ExitDecisionService {
     //    P1-1 fix: Also require MIN_ITERATIONS_FOR_EARLY_EXIT
     if (
       scores.length >= 3 &&
-      latestScore >= 0.3 &&
+      latestScore >= qualityFloor &&
       iteration >= MIN_ITERATIONS_FOR_EARLY_EXIT
     ) {
       const delta1 = Math.abs(

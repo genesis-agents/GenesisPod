@@ -208,7 +208,7 @@ export interface PreviousReportContext {
 
 export interface StartDeepResearchDto {
   query: string;
-  mode?: "single" | "iterative"; // 研究模式，默认 single
+  mode?: "single" | "iterative" | "iterative_internal"; // 研究模式，默认 single
   options?: {
     maxRounds?: number; // 最大搜索轮次，默认 5
     includeAcademic?: boolean; // 是否包含学术搜索

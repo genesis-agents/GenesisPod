@@ -621,7 +621,7 @@ export class DiscussionResearchService {
    */
   async getProjectSessions(projectId: string) {
     return this.prisma.deepResearchSession.findMany({
-      where: { projectId },
+      where: { projectId, mode: { not: "iterative_internal" } },
       orderBy: { createdAt: "desc" },
       take: 10,
     });
