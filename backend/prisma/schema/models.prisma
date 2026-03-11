@@ -3454,7 +3454,7 @@ model DeepResearchSession {
   query String @db.Text
 
   // 研究模式
-  mode String @default("single") // "single" | "iterative"
+  mode String @default("single") @map("research_mode") // "single" | "iterative"
 
   // 状态
   status DeepResearchStatus @default(PLANNING)
