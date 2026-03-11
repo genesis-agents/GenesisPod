@@ -1637,7 +1637,7 @@ export class MissionExecutionService {
       );
 
       // ★ 提取并存储研究发现（异步，不阻塞完成流程）
-      this.extractResearchMemories(missionId, topicId).catch((error) => {
+      void this.extractResearchMemories(missionId, topicId).catch((error) => {
         this.logger.error(
           `[finalizeMission] Failed to extract research memories: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
@@ -2031,7 +2031,7 @@ export class MissionExecutionService {
     );
 
     // 4. 异步启动执行（不阻塞）
-    this.startExecution(missionId, mission.topicId).catch((err) => {
+    void this.startExecution(missionId, mission.topicId).catch((err) => {
       this.logger.error(
         `[continueExecution] Failed to continue execution: ${err.message}`,
       );

@@ -272,7 +272,7 @@ export class MissionLifecycleService {
     const PLANNING_TIMEOUT_MS = 10 * 60 * 1000; // 10 分钟超时
 
     // ★ 修复：添加超时控制，防止 AI 调用无限挂起
-    Promise.race([
+    void Promise.race([
       this.executePlanningAsync(
         mission.id,
         topicId,
@@ -470,7 +470,7 @@ export class MissionLifecycleService {
       const wrappedStart = existingCtx
         ? () => BillingContext.run(existingCtx, startFn)
         : startFn;
-      wrappedStart().catch((err: unknown) => {
+      void wrappedStart().catch((err: unknown) => {
         const errMsg = err instanceof Error ? err.message : String(err);
         this.logger.error(`[executePlanningAsync] Execution failed: ${errMsg}`);
         // 孤儿清理：标记 mission FAILED + 未完成的任务/todo

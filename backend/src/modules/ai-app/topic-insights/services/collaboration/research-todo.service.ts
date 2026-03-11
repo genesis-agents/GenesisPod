@@ -892,7 +892,7 @@ export class ResearchTodoService {
       this.logger.log(
         `[scheduleTodo] No running tasks, starting TODO ${todoId} immediately`,
       );
-      this.executeTodo(topicId, todoId).catch((error: Error) => {
+      void this.executeTodo(topicId, todoId).catch((error: Error) => {
         this.logger.error(
           `[scheduleTodo] Failed to execute TODO ${todoId}: ${error.message}`,
         );
@@ -948,7 +948,7 @@ export class ResearchTodoService {
     );
 
     // 执行下一个任务
-    this.executeTodo(topicId, nextTodo.id).catch((error: Error) => {
+    void this.executeTodo(topicId, nextTodo.id).catch((error: Error) => {
       this.logger.error(
         `[processNextQueuedTodo] Failed to execute TODO ${nextTodo.id}: ${error.message}`,
       );
@@ -1205,7 +1205,7 @@ export class ResearchTodoService {
       );
 
       // ★ v7.2: 任务完成后，检查并执行队列中的下一个任务
-      this.processNextQueuedTodo(topicId).catch((err: Error) => {
+      void this.processNextQueuedTodo(topicId).catch((err: Error) => {
         this.logger.error(
           `[executeTodo] Failed to process next queued todo: ${err.message}`,
         );
@@ -1231,7 +1231,7 @@ export class ResearchTodoService {
       });
 
       // ★ v7.2: 即使失败也要处理队列中的下一个任务
-      this.processNextQueuedTodo(topicId).catch((err: Error) => {
+      void this.processNextQueuedTodo(topicId).catch((err: Error) => {
         this.logger.error(
           `[executeTodo] Failed to process next queued todo after failure: ${err.message}`,
         );

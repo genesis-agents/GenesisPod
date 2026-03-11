@@ -53,7 +53,7 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
 
     // 设置定时检查
     this.intervalHandle = setInterval(() => {
-      this.checkAndRefreshTopics().catch((err) => {
+      void this.checkAndRefreshTopics().catch((err) => {
         this.logger.error("Scheduled refresh check failed", err);
       });
     }, this.CHECK_INTERVAL_MS).unref();

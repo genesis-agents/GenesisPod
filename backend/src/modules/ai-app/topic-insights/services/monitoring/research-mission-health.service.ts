@@ -142,7 +142,7 @@ export class ResearchMissionHealthService
 
     // ★ Phase 5: 延迟启动自动恢复（等待其他服务就绪）
     setTimeout(() => {
-      this.recoverInterruptedMissions().catch((err) => {
+      void this.recoverInterruptedMissions().catch((err) => {
         this.logger.error(`Auto-recovery failed: ${err.message}`);
       });
     }, RECOVERY_CONFIG.recoveryDelayMs).unref();
@@ -174,13 +174,13 @@ export class ResearchMissionHealthService
     }
 
     // Run immediately on startup
-    this.runHealthCheck().catch((err) => {
+    void this.runHealthCheck().catch((err) => {
       this.logger.error(`Initial health check failed: ${err.message}`);
     });
 
     // Set up interval
     this.healthCheckInterval = setInterval(() => {
-      this.runHealthCheck().catch((err) => {
+      void this.runHealthCheck().catch((err) => {
         this.logger.error(`Scheduled health check failed: ${err.message}`);
       });
     }, HEALTH_CHECK_CONFIG.checkIntervalMs).unref();
