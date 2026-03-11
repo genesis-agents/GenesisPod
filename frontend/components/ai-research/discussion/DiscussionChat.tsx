@@ -19,6 +19,8 @@ import {
   Trash2,
   ArrowLeft,
   RefreshCw,
+  Send,
+  StopCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { DiscussionResearchState } from '@/hooks';
@@ -41,6 +43,14 @@ interface DiscussionChatProps {
   onDeleteSession: (sessionId: string) => void | Promise<void>;
   viewingSession: ResearchSession | null;
   onBackToList: () => void;
+  isIterating?: boolean;
+  onSendFeedback?: (feedback: string) => Promise<void> | void;
+  awaitingFeedback?: {
+    round: number;
+    score: number;
+    gaps: { dataGaps: string[]; ideaGaps: string[] };
+    timeoutMs: number;
+  } | null;
   className?: string;
 }
 
@@ -57,6 +67,9 @@ export function DiscussionChat({
   onDeleteSession,
   viewingSession,
   onBackToList,
+  isIterating,
+  onSendFeedback,
+  awaitingFeedback,
   className,
 }: DiscussionChatProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -66,6 +79,7 @@ export function DiscussionChat({
   const [researchMode, setResearchMode] = useState<'single' | 'iterative'>(
     'single'
   );
+  const [feedbackInput, setFeedbackInput] = useState('');
 
   // Determine view mode
   const isResearching = isSearching && state.phase !== 'idle';
@@ -92,6 +106,13 @@ export function DiscussionChat({
     setSearchInput('');
     onStartResearch(trimmed, researchMode);
   }, [searchInput, isSearching, onStartResearch, researchMode]);
+
+  const handleSendFeedback = useCallback(() => {
+    const trimmed = feedbackInput.trim();
+    if (!trimmed) return;
+    onSendFeedback?.(trimmed);
+    setFeedbackInput('');
+  }, [feedbackInput, onSendFeedback]);
 
   const handleDelete = useCallback(
     async (sessionId: string, e: React.MouseEvent) => {
@@ -408,6 +429,47 @@ export function DiscussionChat({
           </div>
         </div>
       )}
+
+      {/* Feedback Input Bar */}
+      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-3">
+        <div className="mx-auto max-w-3xl">
+          {isIterating && (
+            <p className="mb-2 text-xs text-purple-600">
+              迭代研究进行中 — 输入内容将影响下一轮研究方向
+            </p>
+          )}
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={feedbackInput}
+              onChange={(e) => setFeedbackInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendFeedback()}
+              placeholder="输入你的想法或研究方向建议..."
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+            />
+            <button
+              onClick={handleSendFeedback}
+              disabled={!feedbackInput.trim()}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all',
+                feedbackInput.trim()
+                  ? 'bg-purple-600 text-white hover:bg-purple-700'
+                  : 'cursor-not-allowed bg-gray-100 text-gray-400'
+              )}
+            >
+              <Send className="h-4 w-4" />
+              发送
+            </button>
+            <button
+              onClick={onStop}
+              className="flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-all hover:bg-red-50"
+            >
+              <StopCircle className="h-4 w-4" />
+              停止
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

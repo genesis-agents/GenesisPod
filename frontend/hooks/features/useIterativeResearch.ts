@@ -6,6 +6,8 @@ import type { DeepResearchReport } from './useDeepResearch';
 import type {
   DiscussionMessage,
   DiscussionPhase,
+  DiscussionRole,
+  DiscussionMessageType,
   DiscussionResearchState,
 } from './useDiscussionResearch';
 
@@ -42,6 +44,12 @@ export interface IterativeResearchState {
   finalScore: number | null;
   totalIterations: number | null;
   isIterating: boolean;
+  awaitingFeedback: {
+    round: number;
+    score: number;
+    gaps: { dataGaps: string[]; ideaGaps: string[] };
+    timeoutMs: number;
+  } | null;
 }
 
 export interface IterativeResearchOptions {
@@ -93,6 +101,7 @@ const initialIterativeState: IterativeResearchState = {
   finalScore: null,
   totalIterations: null,
   isIterating: false,
+  awaitingFeedback: null,
 };
 
 // ==================== Hook ====================
@@ -109,6 +118,7 @@ export function useIterativeResearch(
   stop: () => void;
   reset: () => void;
   isActive: boolean;
+  sendFeedback: (text: string) => Promise<void>;
 } {
   const [state, setState] = useState<IterativeResearchState>(
     initialIterativeState
@@ -289,14 +299,27 @@ export function useIterativeResearch(
             round: number;
             targetGaps: { dataGaps: string[]; ideaGaps: string[] };
           };
+          const separatorMsg: DiscussionMessage = {
+            id: `iter_start_${startData.round}_${Date.now()}`,
+            agentRole: 'director' as DiscussionRole,
+            agentName: '迭代系统',
+            agentIcon: 'refresh-cw',
+            content: `── 第 ${startData.round} 轮迭代开始 ──\n目标: ${[...startData.targetGaps.dataGaps.slice(0, 2), ...startData.targetGaps.ideaGaps.slice(0, 2)].join('、') || '深度优化'}`,
+            phase: 'ideation' as DiscussionPhase,
+            messageType: 'system' as DiscussionMessageType,
+            timestamp: new Date(),
+          };
+          messagesRef.current = [...messagesRef.current, separatorMsg];
           // Clear reportContent for fresh content.delta accumulation in new round
           setState((prev) => ({
             ...prev,
             currentRound: startData.round,
             isIterating: true,
+            awaitingFeedback: null,
             discussion: {
               ...prev.discussion,
               reportContent: {},
+              messages: messagesRef.current,
             },
           }));
           break;
@@ -468,13 +491,47 @@ export function useIterativeResearch(
             };
             iterationsRef.current = [...iterationsRef.current, updatedRound];
           }
+          const evalMsg: DiscussionMessage = {
+            id: `iter_eval_${evalData.round}_${Date.now()}`,
+            agentRole: 'director' as DiscussionRole,
+            agentName: '评估系统',
+            agentIcon: 'bar-chart-2',
+            content: `── 第 ${evalData.round} 轮评估完成 ──\n得分: ${evalData.score.toFixed(0)}/100${evalData.previousScore > 0 ? ` (${evalData.score > evalData.previousScore ? '+' : ''}${(evalData.score - evalData.previousScore).toFixed(1)})` : ''}\n数据差距: ${evalData.gaps.dataGaps.slice(0, 3).join('、') || '无'}\n创意差距: ${evalData.gaps.ideaGaps.slice(0, 3).join('、') || '无'}`,
+            phase: 'synthesis' as DiscussionPhase,
+            messageType: 'system' as DiscussionMessageType,
+            timestamp: new Date(),
+          };
+          messagesRef.current = [...messagesRef.current, evalMsg];
           setState((prev) => ({
             ...prev,
             iterations: iterationsRef.current,
+            discussion: {
+              ...prev.discussion,
+              messages: messagesRef.current,
+            },
           }));
           callbacksRef.current?.onIterationUpdate?.(
             iterationsRef.current.find((r) => r.round === evalData.round)!
           );
+          break;
+        }
+
+        case 'iteration.awaiting_feedback': {
+          const fbData = data as {
+            round: number;
+            score: number;
+            gaps: { dataGaps: string[]; ideaGaps: string[] };
+            timeoutMs: number;
+          };
+          setState((prev) => ({
+            ...prev,
+            awaitingFeedback: {
+              round: fbData.round,
+              score: fbData.score,
+              gaps: fbData.gaps,
+              timeoutMs: fbData.timeoutMs,
+            },
+          }));
           break;
         }
 
@@ -502,6 +559,7 @@ export function useIterativeResearch(
               finalScore: exitData.finalScore,
               totalIterations: exitData.totalIterations,
               isIterating: false,
+              awaitingFeedback: null,
             };
           });
           callbacksRef.current?.onIterationExit?.(exitData);
@@ -678,6 +736,25 @@ export function useIterativeResearch(
     [projectId, cleanup, handleEvent]
   );
 
+  const sendFeedback = useCallback(
+    async (text: string) => {
+      try {
+        await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/feedback`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ feedback: text }),
+          }
+        );
+        setState((prev) => ({ ...prev, awaitingFeedback: null }));
+      } catch (err) {
+        logger.error('Failed to send feedback:', err);
+      }
+    },
+    [projectId]
+  );
+
   const stop = useCallback(() => {
     cleanup();
     setState((prev) => ({
@@ -721,6 +798,7 @@ export function useIterativeResearch(
       discussionPhase !== 'idle' &&
       discussionPhase !== 'completed' &&
       discussionPhase !== 'error',
+    sendFeedback,
   };
 }
 

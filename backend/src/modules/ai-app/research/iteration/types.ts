@@ -116,3 +116,13 @@ export interface IterationExitEvent {
   type: "iteration.exit";
   data: { reason: string; finalScore: number; totalIterations: number };
 }
+
+export interface IterationAwaitingFeedbackEvent {
+  type: "iteration.awaiting_feedback";
+  data: {
+    round: number;
+    score: number;
+    gaps: { dataGaps: string[]; ideaGaps: string[] };
+    timeoutMs: number;
+  };
+}

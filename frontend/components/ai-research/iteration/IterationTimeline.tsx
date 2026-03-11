@@ -55,13 +55,13 @@ function formatDelta(delta: number): string {
 
 function formatExitReason(reason: string): string {
   const map: Record<string, string> = {
-    quality_met: 'Quality threshold reached',
-    budget_exhausted: 'Maximum iterations reached',
-    no_gaps: 'All gaps resolved',
-    information_saturated: 'Information saturated',
-    converged: 'Score converged',
-    completed: 'Research completed',
-    user_stopped: 'Stopped by user',
+    quality_met: '质量达标',
+    budget_exhausted: '达到最大迭代次数',
+    no_gaps: '所有差距已解决',
+    information_saturated: '信息饱和',
+    converged: '分数收敛',
+    completed: '研究完成',
+    user_stopped: '用户停止',
   };
   return map[reason] ?? reason;
 }
@@ -75,10 +75,10 @@ interface DataLayerCardProps {
 
 function DataLayerCard({ research, isExpanded }: DataLayerCardProps) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 shadow-sm">
       <div className="flex items-center gap-1.5">
-        <Search className="h-3.5 w-3.5 text-blue-400" />
-        <span className="text-xs font-semibold text-blue-400">Data Layer</span>
+        <Search className="h-3.5 w-3.5 text-blue-700" />
+        <span className="text-xs font-semibold text-blue-700">数据层</span>
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -86,19 +86,19 @@ function DataLayerCard({ research, isExpanded }: DataLayerCardProps) {
           <span className="font-medium text-foreground">
             {research.newSources}
           </span>{' '}
-          sources
+          来源
         </span>
         <span>
           <span className="font-medium text-foreground">
             {Math.round(research.informationGain * 100)}%
           </span>{' '}
-          gain
+          信息增益
         </span>
         <span>
           <span className="font-medium text-foreground">
             {research.queries.length}
           </span>{' '}
-          queries
+          搜索
         </span>
       </div>
 
@@ -107,15 +107,16 @@ function DataLayerCard({ research, isExpanded }: DataLayerCardProps) {
           {research.queries.slice(0, 3).map((q, i) => (
             <p
               key={i}
-              className="truncate rounded bg-blue-500/10 px-2 py-0.5 text-xs text-blue-300"
+              className="flex items-center gap-1 truncate rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
               title={q}
             >
+              <AlertCircle className="h-3 w-3 flex-shrink-0 text-blue-500" />
               {q}
             </p>
           ))}
           {research.queries.length > 3 && (
             <p className="text-xs text-muted-foreground">
-              +{research.queries.length - 3} more
+              +{research.queries.length - 3} 条
             </p>
           )}
         </div>
@@ -146,12 +147,10 @@ function CognitiveLayerCard({
     : [...ideas.newInsights, ...ideas.newCreativeIdeas];
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-purple-200 bg-purple-50 p-3 shadow-sm">
       <div className="flex items-center gap-1.5">
-        <Lightbulb className="h-3.5 w-3.5 text-purple-400" />
-        <span className="text-xs font-semibold text-purple-400">
-          Cognitive Layer
-        </span>
+        <Lightbulb className="h-3.5 w-3.5 text-purple-700" />
+        <span className="text-xs font-semibold text-purple-700">认知层</span>
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -160,14 +159,14 @@ function CognitiveLayerCard({
             {isInit ? '' : '+'}
             {newInsightsCount}
           </span>{' '}
-          insights
+          洞察
         </span>
         <span>
           <span className="font-medium text-foreground">
             {isInit ? '' : '+'}
             {newCreativeCount}
           </span>{' '}
-          creative
+          创意
         </span>
       </div>
 
@@ -176,15 +175,16 @@ function CognitiveLayerCard({
           {displayItems.slice(0, 3).map((item, i) => (
             <p
               key={i}
-              className="truncate rounded bg-purple-500/10 px-2 py-0.5 text-xs text-purple-300"
+              className="flex items-center gap-1 truncate rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800"
               title={item.title}
             >
+              <Lightbulb className="h-3 w-3 flex-shrink-0 text-purple-500" />
               {item.title}
             </p>
           ))}
           {displayItems.length > 3 && (
             <p className="text-xs text-muted-foreground">
-              +{displayItems.length - 3} more
+              +{displayItems.length - 3} 条
             </p>
           )}
         </div>
@@ -204,19 +204,12 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
   const isGenerating = demo?.status === 'generating';
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-2 rounded-lg border p-3',
-        'border-green-500/20 bg-green-500/5'
-      )}
-    >
+    <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-sm">
       <div className="flex items-center gap-1.5">
-        <Code2 className="h-3.5 w-3.5 text-green-400" />
-        <span className="text-xs font-semibold text-green-400">
-          Product Layer
-        </span>
+        <Code2 className="h-3.5 w-3.5 text-amber-700" />
+        <span className="text-xs font-semibold text-amber-700">质量评估</span>
         {isGenerating && (
-          <Loader2 className="ml-auto h-3 w-3 animate-spin text-green-400" />
+          <Loader2 className="ml-auto h-3 w-3 animate-spin text-amber-600" />
         )}
       </div>
 
@@ -226,9 +219,9 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
             <span className={cn('text-sm font-bold', getScoreColor(score))}>
               {score.toFixed(1)}%
             </span>
-            <span className="text-xs text-muted-foreground">score</span>
+            <span className="text-xs text-muted-foreground">得分</span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-amber-100">
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-500',
@@ -241,8 +234,8 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
       </div>
 
       <div className="text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{totalGaps}</span> gap
-        {totalGaps !== 1 ? 's' : ''} identified
+        <span className="font-medium text-foreground">{totalGaps}</span>{' '}
+        个待改进项
       </div>
 
       {isExpanded && totalGaps > 0 && (
@@ -250,25 +243,25 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
           {gaps.dataGaps.slice(0, 2).map((g, i) => (
             <p
               key={`d-${i}`}
-              className="truncate rounded bg-green-500/10 px-2 py-0.5 text-xs text-green-300"
+              className="flex items-center gap-1 truncate rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
               title={g}
             >
+              <AlertCircle className="h-3 w-3 flex-shrink-0 text-amber-600" />
               {g}
             </p>
           ))}
           {gaps.ideaGaps.slice(0, 2).map((g, i) => (
             <p
               key={`i-${i}`}
-              className="truncate rounded bg-green-500/10 px-2 py-0.5 text-xs text-green-300"
+              className="flex items-center gap-1 truncate rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
               title={g}
             >
+              <Lightbulb className="h-3 w-3 flex-shrink-0 text-amber-600" />
               {g}
             </p>
           ))}
           {totalGaps > 4 && (
-            <p className="text-xs text-muted-foreground">
-              +{totalGaps - 4} more
-            </p>
+            <p className="text-xs text-muted-foreground">+{totalGaps - 4} 条</p>
           )}
         </div>
       )}
@@ -309,10 +302,10 @@ function RoundRow({
       <div className="relative z-10 flex h-10 w-10 flex-shrink-0 items-center justify-center">
         <div
           className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold',
+            'flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold',
             isCurrent && isActive
               ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-background text-muted-foreground'
+              : 'border-border bg-background text-foreground'
           )}
         >
           {isCurrent && isActive ? (
@@ -335,8 +328,8 @@ function RoundRow({
         >
           <span className="text-sm font-semibold text-foreground">
             {isInit
-              ? 'Round 0 — Initial Analysis'
-              : `Round ${iteration.round} — Iteration`}
+              ? '第 0 轮 — 初始分析'
+              : `第 ${iteration.round} 轮 — 迭代优化`}
           </span>
 
           {showDelta && (
@@ -344,8 +337,8 @@ function RoundRow({
               className={cn(
                 'flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium',
                 delta >= 0
-                  ? 'bg-green-500/10 text-green-500'
-                  : 'bg-red-500/10 text-red-500'
+                  ? 'bg-green-500/10 text-green-600'
+                  : 'bg-red-500/10 text-red-600'
               )}
             >
               <TrendingUp
@@ -377,9 +370,9 @@ function RoundRow({
               isExpanded={expanded}
             />
           ) : (
-            <div className="flex items-center justify-center rounded-lg border border-dashed border-blue-500/20 p-3">
+            <div className="flex items-center justify-center rounded-lg border border-dashed border-blue-200 p-3">
               <span className="text-xs text-muted-foreground">
-                No data collected
+                初始轮无搜索数据
               </span>
             </div>
           )}
@@ -391,9 +384,9 @@ function RoundRow({
               isInit={isInit}
             />
           ) : (
-            <div className="flex items-center justify-center rounded-lg border border-dashed border-purple-500/20 p-3">
+            <div className="flex items-center justify-center rounded-lg border border-dashed border-purple-200 p-3">
               <span className="text-xs text-muted-foreground">
-                No ideas yet
+                暂无创意数据
               </span>
             </div>
           )}
@@ -426,7 +419,7 @@ function ExitFooter({ exitReason, finalScore }: ExitFooterProps) {
           className={cn(
             'flex h-8 w-8 items-center justify-center rounded-full',
             isSuccess
-              ? 'bg-green-500/10 text-green-500'
+              ? 'bg-green-50 text-green-700'
               : 'bg-muted text-muted-foreground'
           )}
         >
@@ -439,14 +432,26 @@ function ExitFooter({ exitReason, finalScore }: ExitFooterProps) {
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 items-center gap-3 pb-2">
+      <div
+        className={cn(
+          'flex flex-1 items-center gap-3 rounded-lg border px-3 py-2',
+          isSuccess
+            ? 'border-green-200 bg-green-50'
+            : 'border-border bg-muted/30'
+        )}
+      >
         <div>
-          <p className="text-sm font-semibold text-foreground">
+          <p
+            className={cn(
+              'text-sm font-semibold',
+              isSuccess ? 'text-green-800' : 'text-foreground'
+            )}
+          >
             {formatExitReason(exitReason)}
           </p>
           {finalScore !== null && (
             <p className={cn('text-xs font-medium', getScoreColor(finalScore))}>
-              Final score: {finalScore.toFixed(1)}%
+              最终得分: {finalScore.toFixed(1)}%
             </p>
           )}
         </div>
@@ -486,9 +491,7 @@ export function IterationTimeline({
         )}
       >
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          Waiting for first iteration...
-        </p>
+        <p className="text-sm text-muted-foreground">等待首轮迭代...</p>
       </div>
     );
   }
@@ -498,11 +501,9 @@ export function IterationTimeline({
       {/* Header */}
       <div className="mb-4 flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold text-foreground">
-          Iteration History
-        </h3>
+        <h3 className="text-sm font-semibold text-foreground">迭代优化历程</h3>
         <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-          {iterations.length} round{iterations.length !== 1 ? 's' : ''}
+          {iterations.length} 轮
         </span>
       </div>
 
@@ -510,7 +511,7 @@ export function IterationTimeline({
       {iterations.length > 1 && (
         <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>Score progression</span>
+            <span>分数趋势</span>
             <span>
               {iterations[0].score.toFixed(1)}% →{' '}
               {iterations[iterations.length - 1].score.toFixed(1)}%
@@ -536,7 +537,7 @@ export function IterationTimeline({
                       'opacity-80'
                     )}
                     style={{ height: `${heightPct}%`, minHeight: '4px' }}
-                    title={`Round ${iter.round}: ${iter.score.toFixed(1)}%`}
+                    title={`第 ${iter.round} 轮: ${iter.score.toFixed(1)}%`}
                   />
                 </div>
               );
@@ -577,7 +578,7 @@ export function IterationTimeline({
             </div>
             <div className="flex flex-1 items-center pb-2">
               <p className="text-sm text-muted-foreground">
-                Processing next iteration...
+                正在处理下一轮迭代...
               </p>
             </div>
           </div>

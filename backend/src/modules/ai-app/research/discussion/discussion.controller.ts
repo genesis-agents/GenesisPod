@@ -232,6 +232,24 @@ export class DiscussionController {
   }
 
   /**
+   * 提交用户反馈（迭代研究暂停期间）
+   */
+  @Post("feedback")
+  submitFeedback(
+    @Param("projectId") projectId: string,
+    @Body() body: { feedback: string },
+  ) {
+    if (!body.feedback?.trim()) {
+      throw new BadRequestException("Feedback cannot be empty");
+    }
+    const accepted = this.iterativeResearch.submitFeedback(
+      projectId,
+      body.feedback.trim(),
+    );
+    return { accepted };
+  }
+
+  /**
    * 批量删除研究会话
    */
   @Delete("sessions")

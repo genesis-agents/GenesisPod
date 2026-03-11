@@ -24,6 +24,7 @@ import type {
   IterationDemoEvent,
   IterationEvalEvent,
   IterationExitEvent,
+  IterationAwaitingFeedbackEvent,
 } from "./types";
 import { ResearchMemoryService } from "../memory/research-memory.service";
 import type {
@@ -37,7 +38,8 @@ export type IterationSSEEvent =
   | IterationIdeasEvent
   | IterationDemoEvent
   | IterationEvalEvent
-  | IterationExitEvent;
+  | IterationExitEvent
+  | IterationAwaitingFeedbackEvent;
 
 const DEMO_POLL_INTERVAL_MS = 3000;
 const DEMO_POLL_TIMEOUT_MS = 120_000;
@@ -58,6 +60,14 @@ interface IdeaItem {
 @Injectable()
 export class IterativeResearchService {
   private readonly logger = new Logger(IterativeResearchService.name);
+
+  private readonly feedbackResolvers = new Map<
+    string,
+    {
+      resolve: (feedback: string | null) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -102,6 +112,32 @@ export class IterativeResearchService {
     );
 
     return subject.asObservable();
+  }
+
+  /**
+   * Called by the HTTP controller when the user submits feedback during the
+   * pause window. Returns true if a waiting resolver was found and resolved.
+   */
+  submitFeedback(projectId: string, feedback: string): boolean {
+    const entry = this.feedbackResolvers.get(projectId);
+    if (!entry) return false;
+    clearTimeout(entry.timer);
+    entry.resolve(feedback);
+    this.feedbackResolvers.delete(projectId);
+    return true;
+  }
+
+  private waitForFeedback(
+    projectId: string,
+    timeoutMs: number,
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.feedbackResolvers.delete(projectId);
+        resolve(null);
+      }, timeoutMs);
+      this.feedbackResolvers.set(projectId, { resolve, timer });
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -259,6 +295,33 @@ export class IterativeResearchService {
         gaps: currentGaps,
       },
     } satisfies IterationEvalEvent);
+
+    // Pause for user feedback after Round 0 (30s timeout)
+    const FEEDBACK_TIMEOUT_MS = 30_000;
+    subject.next({
+      type: "iteration.awaiting_feedback" as const,
+      data: {
+        round: 0,
+        score: currentScore * 100,
+        gaps: currentGaps,
+        timeoutMs: FEEDBACK_TIMEOUT_MS,
+      },
+    });
+
+    const round0Feedback = await this.waitForFeedback(
+      projectId,
+      FEEDBACK_TIMEOUT_MS,
+    );
+    if (round0Feedback) {
+      this.logger.log(
+        `[Iterative] User feedback for round 0: "${round0Feedback.slice(0, 100)}"`,
+      );
+      // Prepend user feedback to data gaps so buildFollowUpQuery uses it
+      currentGaps = {
+        dataGaps: [round0Feedback, ...currentGaps.dataGaps],
+        ideaGaps: currentGaps.ideaGaps,
+      };
+    }
 
     // ---- Iteration loop (rounds 1..maxIterations) ---------------------------
     let exitDecision: ExitDecision = { exit: false };
@@ -464,6 +527,32 @@ export class IterativeResearchService {
           gaps: newGaps,
         },
       } satisfies IterationEvalEvent);
+
+      // Pause for user feedback between iterations (30s timeout)
+      subject.next({
+        type: "iteration.awaiting_feedback" as const,
+        data: {
+          round,
+          score: newScore * 100,
+          gaps: newGaps,
+          timeoutMs: FEEDBACK_TIMEOUT_MS,
+        },
+      });
+
+      const userFeedback = await this.waitForFeedback(
+        projectId,
+        FEEDBACK_TIMEOUT_MS,
+      );
+      if (userFeedback) {
+        this.logger.log(
+          `[Iterative] User feedback for round ${round}: "${userFeedback.slice(0, 100)}"`,
+        );
+        // Prepend user feedback to data gaps so buildFollowUpQuery uses it
+        currentGaps = {
+          dataGaps: [userFeedback, ...currentGaps.dataGaps],
+          ideaGaps: currentGaps.ideaGaps,
+        };
+      }
     }
 
     // ---- Summary ------------------------------------------------------------
@@ -531,6 +620,13 @@ export class IterativeResearchService {
             `Failed to save session meta: ${err instanceof Error ? err.message : String(err)}`,
           );
         });
+    }
+
+    // Clean up any pending feedback resolver (e.g. if loop exited early)
+    const pendingFeedback = this.feedbackResolvers.get(projectId);
+    if (pendingFeedback) {
+      clearTimeout(pendingFeedback.timer);
+      this.feedbackResolvers.delete(projectId);
     }
 
     subject.next({

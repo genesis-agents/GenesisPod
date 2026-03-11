@@ -74,6 +74,9 @@ export function ResearchProjectLayout({
 }: ResearchProjectLayoutProps) {
   const { t, locale } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabKey>('discussion');
+  const [tabBadges, setTabBadges] = useState<Partial<Record<TabKey, boolean>>>(
+    {}
+  );
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [sessions, setSessions] = useState<ResearchSession[]>([]);
   const [viewingSession, setViewingSession] = useState<ResearchSession | null>(
@@ -117,6 +120,7 @@ export function ResearchProjectLayout({
     startResearch: startIterativeResearch,
     stop: stopIterative,
     isActive: isIterating,
+    sendFeedback,
   } = useIterativeResearch(projectId, {
     onComplete: ({ report, sessionId }) => {
       const newSession: ResearchSession = {
@@ -141,8 +145,8 @@ export function ResearchProjectLayout({
       logger.error('Iterative Research error:', error);
     },
     onIterationUpdate: () => {
-      // When iteration completes, auto-switch to iterations tab
-      setActiveTab('iterations');
+      // Don't auto-switch tabs - use badges instead (B4)
+      setTabBadges((prev) => ({ ...prev, iterations: true }));
     },
     onIterationExit: (data) => {
       logger.info(
@@ -271,6 +275,19 @@ export function ResearchProjectLayout({
       }
     };
   }, []);
+
+  // Set tab badges based on iteration progress (B4)
+  useEffect(() => {
+    if (!isIterating || iterativeState.iterations.length === 0) return;
+    const latest =
+      iterativeState.iterations[iterativeState.iterations.length - 1];
+    if (latest.ideas) {
+      setTabBadges((prev) => ({ ...prev, ideas: true }));
+    }
+    if (latest.demo?.status === 'completed') {
+      setTabBadges((prev) => ({ ...prev, demos: true }));
+    }
+  }, [iterativeState.iterations, isIterating]);
 
   // Handlers for DiscussionChat
   const researchLanguage = locale === 'zh' ? 'zh-CN' : 'en-US';
@@ -407,6 +424,12 @@ export function ResearchProjectLayout({
     },
     [generateDemo, setActiveTab]
   );
+
+  // Tab click handler - clears badge on click
+  const handleTabClick = useCallback((tab: TabKey) => {
+    setActiveTab(tab);
+    setTabBadges((prev) => ({ ...prev, [tab]: false }));
+  }, []);
 
   // Toggle left panel
   const toggleLeftPanel = useCallback(() => {
@@ -565,7 +588,7 @@ export function ResearchProjectLayout({
                     const q = query || projectName;
                     handleStartResearch(q);
                   }}
-                  onStop={stop}
+                  onStop={isIterating ? stopIterative : stop}
                 />
               </div>
             </div>
@@ -588,7 +611,7 @@ export function ResearchProjectLayout({
                   key={tab.key}
                   role="tab"
                   aria-selected={activeTab === tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => handleTabClick(tab.key)}
                   className={cn(
                     'relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors',
                     isActive
@@ -600,6 +623,9 @@ export function ResearchProjectLayout({
                   {tab.label}
                   {isActive && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                  )}
+                  {tabBadges[tab.key] && !isActive && (
+                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
                   )}
                 </button>
               );
@@ -622,6 +648,11 @@ export function ResearchProjectLayout({
                     }
                     query={query}
                     isSearching={isSearching || isIterating}
+                    isIterating={isIterating}
+                    onSendFeedback={sendFeedback}
+                    awaitingFeedback={
+                      isIterating ? iterativeState.awaitingFeedback : null
+                    }
                     sessions={sessions}
                     onStartResearch={handleStartResearch}
                     onStop={isIterating ? stopIterative : stop}
