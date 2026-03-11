@@ -3381,6 +3381,24 @@ function TeamInteractionTabContent({
     [safeWsEvents, missionStatus]
   );
 
+  // ★ 阶段导航点击：滚动到对应阶段分隔符
+  const handlePhaseClick = useCallback(
+    (phase: string) => {
+      // 展开消息列表（如果折叠了）
+      setMessagesCollapsed(false);
+      // 延迟一帧等 DOM 更新后再滚动
+      requestAnimationFrame(() => {
+        const target = document.querySelector<HTMLElement>(
+          `[data-phase="${phase}"]`
+        );
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    },
+    [setMessagesCollapsed]
+  );
+
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
   const uiMessages = useMemo<UIMessage[]>(() => {
     // Convert persisted messages to UI format
@@ -4429,6 +4447,7 @@ function TeamInteractionTabContent({
         <PipelinePhaseIndicator
           currentPhase={pipelineState.phase}
           isFailed={pipelineState.isFailed}
+          onPhaseClick={handlePhaseClick}
         />
         <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
       </div>
@@ -4471,7 +4490,11 @@ function TeamInteractionTabContent({
                 // ★ v8: 阶段分隔符 — 全宽渲染，无时间线节点
                 if (msg.type === 'phase_separator') {
                   return (
-                    <div key={msg.id} className="relative -ml-6">
+                    <div
+                      key={msg.id}
+                      className="relative -ml-6"
+                      data-phase={msg.phaseName}
+                    >
                       {getMessageCard(msg)}
                     </div>
                   );

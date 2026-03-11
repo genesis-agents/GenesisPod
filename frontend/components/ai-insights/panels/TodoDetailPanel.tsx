@@ -23,6 +23,9 @@ import {
   Search,
   Globe,
   ExternalLink,
+  ShieldCheck,
+  AlertTriangle,
+  Lightbulb,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-insights';
@@ -464,6 +467,217 @@ const STATUS_COLORS: Record<ResearchTodoStatus, string> = {
   CANCELLED: 'text-gray-400',
 };
 
+// ★ 质量审核结果类型检测
+function isQualityReviewResult(result: TodoResult): result is TodoResult & {
+  dimensionReviews: NonNullable<TodoResult['dimensionReviews']>;
+} {
+  return Array.isArray((result as Record<string, unknown>).dimensionReviews);
+}
+
+// ★ 质量等级配色
+const QUALITY_LEVEL_STYLES: Record<
+  string,
+  { text: string; bg: string; label: string }
+> = {
+  excellent: {
+    text: 'text-emerald-700',
+    bg: 'bg-emerald-100',
+    label: '优秀',
+  },
+  good: { text: 'text-blue-700', bg: 'bg-blue-100', label: '良好' },
+  acceptable: {
+    text: 'text-yellow-700',
+    bg: 'bg-yellow-100',
+    label: '合格',
+  },
+  needs_revision: {
+    text: 'text-orange-700',
+    bg: 'bg-orange-100',
+    label: '需修改',
+  },
+  rejected: { text: 'text-red-700', bg: 'bg-red-100', label: '不通过' },
+};
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return 'text-emerald-600';
+  if (score >= 60) return 'text-blue-600';
+  if (score >= 40) return 'text-yellow-600';
+  return 'text-red-600';
+}
+
+function getScoreBarColor(score: number): string {
+  if (score >= 80) return 'bg-emerald-500';
+  if (score >= 60) return 'bg-blue-500';
+  if (score >= 40) return 'bg-yellow-500';
+  return 'bg-red-500';
+}
+
+// ★ 质量审核结果专用展示组件
+function QualityReviewResultDisplay({
+  result,
+}: {
+  result: TodoResult & {
+    dimensionReviews: NonNullable<TodoResult['dimensionReviews']>;
+  };
+}) {
+  const overallReview = result.overallReview;
+  const qualityStyle =
+    QUALITY_LEVEL_STYLES[overallReview?.qualityLevel || ''] ||
+    QUALITY_LEVEL_STYLES.acceptable;
+
+  return (
+    <div className="space-y-3">
+      {/* 总体评价 */}
+      {overallReview && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-green-600" />
+            <span
+              className={cn(
+                'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                qualityStyle.bg,
+                qualityStyle.text
+              )}
+            >
+              {qualityStyle.label}
+            </span>
+          </div>
+          <span
+            className={cn(
+              'text-xl font-bold',
+              getScoreColor(overallReview.score)
+            )}
+          >
+            {overallReview.score}
+            <span className="text-sm font-normal text-gray-400">/100</span>
+          </span>
+        </div>
+      )}
+
+      {/* 已审核维度数 */}
+      <div className="rounded-md bg-blue-50 px-2 py-1 text-sm">
+        <span className="text-blue-600">
+          已审核 {safeString(result.reviewedTasks)} 个维度
+        </span>
+      </div>
+
+      {/* 各维度评分 */}
+      {result.dimensionReviews.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-gray-500">维度评分</div>
+          <div className="space-y-2">
+            {result.dimensionReviews.map((dim, idx) => {
+              const dimStyle =
+                QUALITY_LEVEL_STYLES[dim.qualityLevel] ||
+                QUALITY_LEVEL_STYLES.acceptable;
+              return (
+                <div
+                  key={idx}
+                  className="rounded-lg border border-gray-200 bg-white p-2.5"
+                >
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      {dim.dimensionName}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'rounded px-1.5 py-0.5 text-xs font-medium',
+                          dimStyle.bg,
+                          dimStyle.text
+                        )}
+                      >
+                        {dimStyle.label}
+                      </span>
+                      <span
+                        className={cn(
+                          'text-sm font-bold',
+                          getScoreColor(dim.score)
+                        )}
+                      >
+                        {dim.score}
+                      </span>
+                    </div>
+                  </div>
+                  {/* 分数条 */}
+                  <div className="mb-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-all',
+                        getScoreBarColor(dim.score)
+                      )}
+                      style={{ width: `${dim.score}%` }}
+                    />
+                  </div>
+                  {/* 问题数 + 建议 */}
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    {dim.issues > 0 && (
+                      <span className="flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 text-orange-500" />
+                        {dim.issues} 个问题
+                      </span>
+                    )}
+                    {dim.suggestions && dim.suggestions.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Lightbulb className="h-3 w-3 text-yellow-500" />
+                        {dim.suggestions.length} 条建议
+                      </span>
+                    )}
+                  </div>
+                  {/* 建议详情 */}
+                  {dim.suggestions && dim.suggestions.length > 0 && (
+                    <div className="mt-1.5 space-y-1">
+                      {dim.suggestions.map((sug, si) => (
+                        <div
+                          key={si}
+                          className="flex items-start gap-1 text-xs text-gray-600"
+                        >
+                          <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-yellow-500" />
+                          <span>{sug}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 总体建议 */}
+      {overallReview?.recommendations &&
+        overallReview.recommendations.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-gray-500">改进建议</div>
+            {overallReview.recommendations.map((rec, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-1.5 text-xs text-gray-600"
+              >
+                <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-yellow-500" />
+                <span>{rec}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+      {/* 需要重研提示 */}
+      {overallReview?.needsReresearch && (
+        <div className="flex items-center gap-2 rounded-md bg-orange-100 px-3 py-2">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <span className="text-xs text-orange-700">部分维度需要重新研究</span>
+        </div>
+      )}
+
+      {/* 反馈摘要 */}
+      {result.feedback && (
+        <p className="text-xs text-gray-500">{result.feedback}</p>
+      )}
+    </div>
+  );
+}
+
 export function TodoDetailPanel({
   topicId,
   todoId,
@@ -853,141 +1067,158 @@ export function TodoDetailPanel({
               结果
             </div>
 
-            {/* Basic stats */}
-            <div className="flex flex-wrap gap-3 text-sm">
-              {todo.result.sourcesFound !== undefined && (
-                <div className="rounded-md bg-blue-50 px-2 py-1">
-                  <span className="text-blue-600">
-                    {safeString(todo.result.sourcesFound)} 条来源
-                  </span>
-                </div>
-              )}
-              {todo.result.wordCount !== undefined && (
-                <div className="rounded-md bg-green-50 px-2 py-1">
-                  <span className="text-green-600">
-                    {safeString(todo.result.wordCount)}{' '}
-                    {t('topicResearch.todoDetail.wordUnit')}
-                  </span>
-                </div>
-              )}
-              {/* Show count if keyFindings is array */}
-              {Array.isArray(todo.result.keyFindings) && (
-                <div className="rounded-md bg-purple-50 px-2 py-1">
-                  <span className="text-purple-600">
-                    {t('topicResearch.todoDetail.keyFindingsCount', {
-                      count: todo.result.keyFindings.length,
-                    })}
-                  </span>
-                </div>
-              )}
-              {typeof todo.result.keyFindings === 'number' && (
-                <div className="rounded-md bg-purple-50 px-2 py-1">
-                  <span className="text-purple-600">
-                    {t('topicResearch.todoDetail.keyFindingsCount', {
-                      count: todo.result.keyFindings,
-                    })}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Summary */}
-            {todo.result.summary && typeof todo.result.summary === 'string' && (
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-gray-500">
-                  {t('topicResearch.todoDetail.summary')}
-                </div>
-                <p className="text-sm text-gray-700">{todo.result.summary}</p>
-              </div>
-            )}
-
-            {/* Key Findings - formatted */}
-            {Array.isArray(todo.result.keyFindings) &&
-              todo.result.keyFindings.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-500">
-                    {t('topicResearch.todoDetail.keyFindings')}
-                  </div>
-                  <ul className="space-y-1">
-                    {todo.result.keyFindings.slice(0, 5).map(
-                      (
-                        finding: {
-                          finding?: string;
-                          significance?: string;
-                        },
-                        idx: number
-                      ) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-2 text-sm"
-                        >
-                          <span
-                            className={cn(
-                              'mt-0.5 shrink-0 rounded px-1 py-0.5 text-xs',
-                              finding.significance === 'high'
-                                ? 'bg-red-100 text-red-700'
-                                : finding.significance === 'low'
-                                  ? 'bg-gray-100 text-gray-600'
-                                  : 'bg-yellow-100 text-yellow-700'
-                            )}
-                          >
-                            {finding.significance === 'high'
-                              ? t('topicResearch.todoDetail.significance.high')
-                              : finding.significance === 'low'
-                                ? t('topicResearch.todoDetail.significance.low')
-                                : t(
-                                    'topicResearch.todoDetail.significance.medium'
-                                  )}
-                          </span>
-                          <span className="text-gray-700">
-                            {finding.finding ||
-                              t('topicResearch.todoDetail.unknownFinding')}
-                          </span>
-                        </li>
-                      )
-                    )}
-                    {todo.result.keyFindings.length > 5 && (
-                      <li className="text-xs text-muted-foreground">
-                        {t('topicResearch.todoDetail.moreFindings', {
-                          count: todo.result.keyFindings.length - 5,
+            {/* ★ 质量审核结果 — 专用渲染 */}
+            {isQualityReviewResult(todo.result) ? (
+              <QualityReviewResultDisplay result={todo.result} />
+            ) : (
+              <>
+                {/* Basic stats */}
+                <div className="flex flex-wrap gap-3 text-sm">
+                  {todo.result.sourcesFound !== undefined && (
+                    <div className="rounded-md bg-blue-50 px-2 py-1">
+                      <span className="text-blue-600">
+                        {safeString(todo.result.sourcesFound)} 条来源
+                      </span>
+                    </div>
+                  )}
+                  {todo.result.wordCount !== undefined && (
+                    <div className="rounded-md bg-green-50 px-2 py-1">
+                      <span className="text-green-600">
+                        {safeString(todo.result.wordCount)}{' '}
+                        {t('topicResearch.todoDetail.wordUnit')}
+                      </span>
+                    </div>
+                  )}
+                  {/* Show count if keyFindings is array */}
+                  {Array.isArray(todo.result.keyFindings) && (
+                    <div className="rounded-md bg-purple-50 px-2 py-1">
+                      <span className="text-purple-600">
+                        {t('topicResearch.todoDetail.keyFindingsCount', {
+                          count: todo.result.keyFindings.length,
                         })}
-                      </li>
-                    )}
-                  </ul>
+                      </span>
+                    </div>
+                  )}
+                  {typeof todo.result.keyFindings === 'number' && (
+                    <div className="rounded-md bg-purple-50 px-2 py-1">
+                      <span className="text-purple-600">
+                        {t('topicResearch.todoDetail.keyFindingsCount', {
+                          count: todo.result.keyFindings,
+                        })}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
 
-            {/* Trends - formatted */}
-            {Array.isArray(todo.result.trends) &&
-              todo.result.trends.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-500">
-                    {t('topicResearch.todoDetail.trendAnalysis')}
-                  </div>
-                  <ul className="space-y-1">
-                    {todo.result.trends.slice(0, 3).map(
-                      (
-                        trend: {
-                          trend?: string;
-                          direction?: string;
-                          timeframe?: string;
-                        },
-                        idx: number
-                      ) => (
-                        <li key={idx} className="text-sm text-gray-700">
-                          <span className="font-medium">{trend.trend}</span>
-                          {trend.direction && (
-                            <span className="ml-1 text-xs text-muted-foreground">
-                              ({trend.direction}
-                              {trend.timeframe ? `, ${trend.timeframe}` : ''})
-                            </span>
-                          )}
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              )}
+                {/* Summary */}
+                {todo.result.summary &&
+                  typeof todo.result.summary === 'string' && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-gray-500">
+                        {t('topicResearch.todoDetail.summary')}
+                      </div>
+                      <p className="text-sm text-gray-700">
+                        {todo.result.summary}
+                      </p>
+                    </div>
+                  )}
+
+                {/* Key Findings - formatted */}
+                {Array.isArray(todo.result.keyFindings) &&
+                  todo.result.keyFindings.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-gray-500">
+                        {t('topicResearch.todoDetail.keyFindings')}
+                      </div>
+                      <ul className="space-y-1">
+                        {todo.result.keyFindings.slice(0, 5).map(
+                          (
+                            finding: {
+                              finding?: string;
+                              significance?: string;
+                            },
+                            idx: number
+                          ) => (
+                            <li
+                              key={idx}
+                              className="flex items-start gap-2 text-sm"
+                            >
+                              <span
+                                className={cn(
+                                  'mt-0.5 shrink-0 rounded px-1 py-0.5 text-xs',
+                                  finding.significance === 'high'
+                                    ? 'bg-red-100 text-red-700'
+                                    : finding.significance === 'low'
+                                      ? 'bg-gray-100 text-gray-600'
+                                      : 'bg-yellow-100 text-yellow-700'
+                                )}
+                              >
+                                {finding.significance === 'high'
+                                  ? t(
+                                      'topicResearch.todoDetail.significance.high'
+                                    )
+                                  : finding.significance === 'low'
+                                    ? t(
+                                        'topicResearch.todoDetail.significance.low'
+                                      )
+                                    : t(
+                                        'topicResearch.todoDetail.significance.medium'
+                                      )}
+                              </span>
+                              <span className="text-gray-700">
+                                {finding.finding ||
+                                  t('topicResearch.todoDetail.unknownFinding')}
+                              </span>
+                            </li>
+                          )
+                        )}
+                        {todo.result.keyFindings.length > 5 && (
+                          <li className="text-xs text-muted-foreground">
+                            {t('topicResearch.todoDetail.moreFindings', {
+                              count: todo.result.keyFindings.length - 5,
+                            })}
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                {/* Trends - formatted */}
+                {Array.isArray(todo.result.trends) &&
+                  todo.result.trends.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-gray-500">
+                        {t('topicResearch.todoDetail.trendAnalysis')}
+                      </div>
+                      <ul className="space-y-1">
+                        {todo.result.trends.slice(0, 3).map(
+                          (
+                            trend: {
+                              trend?: string;
+                              direction?: string;
+                              timeframe?: string;
+                            },
+                            idx: number
+                          ) => (
+                            <li key={idx} className="text-sm text-gray-700">
+                              <span className="font-medium">{trend.trend}</span>
+                              {trend.direction && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({trend.direction}
+                                  {trend.timeframe
+                                    ? `, ${trend.timeframe}`
+                                    : ''}
+                                  )
+                                </span>
+                              )}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+              </>
+            )}
 
             {/* Error */}
             {todo.result.error && (

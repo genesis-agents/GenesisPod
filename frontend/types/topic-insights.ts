@@ -811,6 +811,22 @@ export interface TodoResult {
   challenges?: Challenge[];
   opportunities?: Opportunity[];
   error?: string;
+  // 质量审核结果（QUALITY_REVIEW 任务专用）
+  reviewedTasks?: number;
+  dimensionReviews?: Array<{
+    dimensionName: string;
+    qualityLevel: string;
+    score: number;
+    issues: number;
+    suggestions: string[];
+  }>;
+  overallReview?: {
+    qualityLevel: string;
+    score: number;
+    recommendations: string[];
+    needsReresearch: boolean;
+  } | null;
+  feedback?: string;
 }
 
 /**
