@@ -14,13 +14,16 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
+import { IterativeResearchService } from "../iteration";
 import { StartDeepResearchDto } from "./types";
 
 /**
  * 深度研究 API 控制器
  * 提供 SSE 流式端点
  *
- * 使用 DiscussionOrchestratorService 驱动讨论式研究流程
+ * 使用 IterativeResearchService 统一入口:
+ * - mode='single' (默认): 直接委托给 DiscussionOrchestratorService
+ * - mode='iterative': 运行自迭代外层循环
  */
 @ApiTags("Research - Discussion")
 @Controller("ai-studio/projects/:projectId/deep-research")
@@ -29,6 +32,7 @@ export class DiscussionController {
 
   constructor(
     private readonly discussionOrchestrator: DiscussionOrchestratorService,
+    private readonly iterativeResearch: IterativeResearchService,
   ) {}
 
   /**
@@ -73,35 +77,46 @@ export class DiscussionController {
       safeWrite(":heartbeat\n\n");
     }, 15_000);
 
-    // 使用讨论驱动型研究流程
-    const subscription = this.discussionOrchestrator
-      .startResearch(projectId, dto)
-      .subscribe({
-        next: (event) => {
-          const eventData = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
-          safeWrite(eventData);
-        },
-        error: (error) => {
-          this.logger.error(`Research stream error: ${error}`);
-          const errorEvent = `event: error\ndata: ${JSON.stringify({ code: "STREAM_ERROR", message: "An error occurred during research", recoverable: false })}\n\n`;
-          safeWrite(errorEvent);
-          clearInterval(heartbeat);
-          clearTimeout(timeout);
-          if (connectionOpen) {
-            connectionOpen = false;
-            res.end();
-          }
-        },
-        complete: () => {
-          this.logger.log(`Research stream completed for project ${projectId}`);
-          clearInterval(heartbeat);
-          clearTimeout(timeout);
-          if (connectionOpen) {
-            connectionOpen = false;
-            res.end();
-          }
-        },
-      });
+    // Route through IterativeResearchService when available:
+    // 'single' delegates to orchestrator, 'iterative' runs the self-iterating outer loop.
+    const mode = dto.mode ?? "single";
+    this.logger.log(`Research mode: ${mode}`);
+
+    const observable = this.iterativeResearch.startResearch(projectId, {
+      query: dto.query,
+      mode,
+      options: dto.options,
+      iterationOptions: dto.iterationOptions,
+      isFollowUp: dto.isFollowUp,
+      previousContext: dto.previousContext,
+    });
+
+    const subscription = observable.subscribe({
+      next: (event) => {
+        const eventData = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
+        safeWrite(eventData);
+      },
+      error: (error) => {
+        this.logger.error(`Research stream error: ${error}`);
+        const errorEvent = `event: error\ndata: ${JSON.stringify({ code: "STREAM_ERROR", message: "An error occurred during research", recoverable: false })}\n\n`;
+        safeWrite(errorEvent);
+        clearInterval(heartbeat);
+        clearTimeout(timeout);
+        if (connectionOpen) {
+          connectionOpen = false;
+          res.end();
+        }
+      },
+      complete: () => {
+        this.logger.log(`Research stream completed for project ${projectId}`);
+        clearInterval(heartbeat);
+        clearTimeout(timeout);
+        if (connectionOpen) {
+          connectionOpen = false;
+          res.end();
+        }
+      },
+    });
 
     // 设置 30 分钟超时（研究流程包含多轮AI调用+搜索，通常需要10-20分钟）
     const timeout = setTimeout(

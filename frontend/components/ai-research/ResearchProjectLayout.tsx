@@ -276,11 +276,20 @@ export function ResearchProjectLayout({
   const researchLanguage = locale === 'zh' ? 'zh-CN' : 'en-US';
 
   const handleStartResearch = useCallback(
-    (q: string) => {
+    (q: string, mode?: 'single' | 'iterative') => {
       setQuery(q);
-      startResearch(q, { language: researchLanguage });
+      if (mode === 'iterative') {
+        startIterativeResearch(q, {
+          mode: 'iterative',
+          language: researchLanguage,
+          depth: 'standard',
+        });
+        setActiveTab('iterations');
+      } else {
+        startResearch(q, { language: researchLanguage });
+      }
     },
-    [startResearch, researchLanguage]
+    [startResearch, startIterativeResearch, researchLanguage]
   );
 
   const handleViewSession = useCallback((session: ResearchSession) => {

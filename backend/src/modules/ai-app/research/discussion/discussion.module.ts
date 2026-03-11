@@ -14,7 +14,6 @@ import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 
-import { DiscussionController } from "./discussion.controller";
 import { DiscussionResearchService } from "./discussion-research.service";
 import { ResearchPlannerService } from "./research-planner.service";
 import { IterativeSearchService } from "./iterative-search.service";
@@ -39,7 +38,7 @@ const services = [
 
 @Module({
   imports: [PrismaModule, forwardRef(() => AiEngineModule), CreditsModule],
-  controllers: [DiscussionController],
+  controllers: [],
   providers: services,
   exports: services,
 })

@@ -18,6 +18,7 @@ import {
   History,
   Trash2,
   ArrowLeft,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { DiscussionResearchState } from '@/hooks';
@@ -34,7 +35,7 @@ interface DiscussionChatProps {
   query: string;
   isSearching: boolean;
   sessions: ResearchSession[];
-  onStartResearch: (query: string) => void;
+  onStartResearch: (query: string, mode?: 'single' | 'iterative') => void;
   onStop: () => void;
   onViewSession: (session: ResearchSession) => void;
   onDeleteSession: (sessionId: string) => void | Promise<void>;
@@ -62,6 +63,9 @@ export function DiscussionChat({
   const [autoScroll, setAutoScroll] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [researchMode, setResearchMode] = useState<'single' | 'iterative'>(
+    'single'
+  );
 
   // Determine view mode
   const isResearching = isSearching && state.phase !== 'idle';
@@ -86,8 +90,8 @@ export function DiscussionChat({
     const trimmed = searchInput.trim();
     if (!trimmed || isSearching) return;
     setSearchInput('');
-    onStartResearch(trimmed);
-  }, [searchInput, isSearching, onStartResearch]);
+    onStartResearch(trimmed, researchMode);
+  }, [searchInput, isSearching, onStartResearch, researchMode]);
 
   const handleDelete = useCallback(
     async (sessionId: string, e: React.MouseEvent) => {
@@ -133,6 +137,38 @@ export function DiscussionChat({
                 <Sparkles className="h-4 w-4" />
                 研究
               </button>
+            </div>
+            {/* Research mode toggle */}
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                onClick={() => setResearchMode('single')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+                  researchMode === 'single'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                )}
+              >
+                <Search className="h-3 w-3" />
+                单次研究
+              </button>
+              <button
+                onClick={() => setResearchMode('iterative')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+                  researchMode === 'iterative'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                )}
+              >
+                <RefreshCw className="h-3 w-3" />
+                迭代研究
+              </button>
+              {researchMode === 'iterative' && (
+                <span className="text-xs text-gray-400">
+                  自动优化 Demo 直到质量达标
+                </span>
+              )}
             </div>
           </div>
         </div>

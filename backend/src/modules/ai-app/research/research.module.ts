@@ -37,10 +37,15 @@ import {
 import { IterationRecordService, IterativeResearchService } from "./iteration";
 import { ResearchMemoryService } from "./memory/research-memory.service";
 import { StrategyLoaderService } from "./memory/strategy-loader.service";
+import { DiscussionController } from "./discussion/discussion.controller";
 
 @Module({
   imports: [DiscussionModule, ResearchProjectModule],
-  controllers: [ResearchIdeaController, ResearchDemoController],
+  controllers: [
+    DiscussionController,
+    ResearchIdeaController,
+    ResearchDemoController,
+  ],
   providers: [
     ResearcherAgent,
     ResearchIdeaService,
