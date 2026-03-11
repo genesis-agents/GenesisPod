@@ -30,8 +30,6 @@ export { MissionNotificationService } from "./core/mission-notification.service"
 
 // ★ Leader sub-services
 export { LeaderReviewService } from "./core/leader-review.service";
-export { LeaderChatService } from "./core/leader-chat.service";
-
 // ★ Facade sub-services
 export { TopicCrudService } from "./core/topic-crud.service";
 export { TopicDimensionService } from "./core/topic-dimension.service";

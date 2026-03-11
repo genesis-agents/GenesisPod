@@ -64,7 +64,6 @@ import {
   MissionNotificationService,
   // ★ Leader sub-services
   LeaderReviewService,
-  LeaderChatService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,
@@ -162,7 +161,6 @@ const services = [
   ReportEditorService,
   // ★ Leader sub-services
   LeaderReviewService,
-  LeaderChatService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,
