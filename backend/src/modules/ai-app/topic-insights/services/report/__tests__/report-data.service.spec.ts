@@ -371,8 +371,9 @@ describe("ReportDataService", () => {
 
       const charts = service.collectAllCharts(dimensionInputs);
       const urlCounts = charts.filter((c) => c.imageUrl === sharedUrl).length;
-      // Per-dimension dedup: same imageUrl in different dimensions is allowed (different context)
-      expect(urlCounts).toBe(2);
+      // ★ Cross-dimension dedup: same imageUrl across different dimensions is now deduplicated
+      // to avoid duplicate images in the final report
+      expect(urlCounts).toBe(1);
     });
 
     it("should limit charts to 5 per dimension", () => {

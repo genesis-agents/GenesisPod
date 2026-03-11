@@ -897,15 +897,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         });
       }
 
-      // ★ v3.0: 处理 end_of_section 位置的图表
-      if (section.inlineCharts && section.inlineCharts.length > 0) {
-        const endCharts = section.inlineCharts.filter(
-          (c) => c.position === "end_of_section",
-        );
-        for (const chart of endCharts) {
-          parts.push(`\n<!-- chart:${chart.id} -->\n`);
-        }
-      }
+      // ★ end_of_section 图表已由 injectChartPlaceholders() 处理，不再重复追加
 
       parts.push("\n\n");
     }

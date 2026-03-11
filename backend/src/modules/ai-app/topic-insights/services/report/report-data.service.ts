@@ -309,9 +309,8 @@ export class ReportDataService {
           const chartId = `${dimPrefix}${fig.id}`;
           // ★ 按 ID 去重，防止同维度内重复 ID
           if (seenIds.has(chartId)) return;
-          // ★ 按 dimensionIndex+imageUrl 去重，防止同维度内同图重复
-          // 但允许不同维度引用同一来源图片（它们在不同上下文中使用）
-          const imageKey = fig.imageUrl ? `${dimIndex}:${fig.imageUrl}` : null;
+          // ★ 跨维度按 imageUrl 去重：同一张图片在整篇报告中只出现一次
+          const imageKey = fig.imageUrl || null;
           if (imageKey && seenImageUrls.has(imageKey)) {
             return;
           }

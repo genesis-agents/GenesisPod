@@ -1107,9 +1107,8 @@ export class ReportSynthesisService {
           const chartId = `${dimPrefix}${fig.id}`;
           // ★ 按 ID 去重，防止同维度内重复 ID
           if (seenIds.has(chartId)) return;
-          // ★ 按 dimensionIndex+imageUrl 去重，防止同维度内同图重复
-          // 但允许不同维度引用同一来源图片（它们在不同上下文中使用）
-          const imageKey = fig.imageUrl ? `${dimIndex}:${fig.imageUrl}` : null;
+          // ★ 跨维度按 imageUrl 去重：同一张图片在整篇报告中只出现一次
+          const imageKey = fig.imageUrl || null;
           if (imageKey && seenImageUrls.has(imageKey)) {
             return;
           }
@@ -2087,15 +2086,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         });
       }
 
-      // ★ v3.0: 处理 end_of_section 位置的图表
-      if (section.inlineCharts && section.inlineCharts.length > 0) {
-        const endCharts = section.inlineCharts.filter(
-          (c) => c.position === "end_of_section",
-        );
-        for (const chart of endCharts) {
-          parts.push(`\n<!-- chart:${chart.id} -->\n`);
-        }
-      }
+      // ★ end_of_section 图表应由 injectChartPlaceholders() 处理，不再重复追加
 
       parts.push("\n\n");
     }
