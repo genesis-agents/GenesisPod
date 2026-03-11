@@ -1311,13 +1311,13 @@ export class SectionWriterService {
         }
       }
 
-      // ★ Backfill generic Source text (e.g. "Source [N]") with descriptive evidence metadata
+      // ★ Backfill generic Source text (e.g. "Source [N]", "[19] [327]") with descriptive evidence metadata
+      // Match any source that is only citation numbers: [N], [N] [M], Source [N], Source: [N] [M], etc.
       if (
         evidenceData &&
         ref.evidenceCitationIndex &&
         (!ref.source ||
-          /^Source\s*\[?\d+\]?$/i.test(ref.source) ||
-          /^\[\d+\]$/.test(ref.source))
+          /^(source\s*:?\s*)?(\[?\d+\]?\s*)+$/i.test(ref.source.trim()))
       ) {
         const evItem = evidenceData[ref.evidenceCitationIndex - 1];
         if (evItem) {

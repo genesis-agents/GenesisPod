@@ -319,6 +319,68 @@ function getFigureLabel(figureNumber: number | undefined): string | null {
 }
 
 /**
+ * ★ Unified source line for figure captions
+ *
+ * Format: "Source: {descriptive text} [N]"
+ * - Descriptive text: chart.source → evidenceInfo.title → evidenceInfo.domain
+ * - [N]: clickable citation badge linking to reference
+ * - Citation-only source values (e.g. "[1]", "[19] [327]") are treated as empty
+ */
+function FigureSourceLine({
+  chart,
+  evidenceInfo,
+  onCitationClick,
+}: {
+  chart: ReportChart;
+  evidenceInfo?: FigureEvidenceInfo;
+  onCitationClick?: (citationIndex: number) => void;
+}) {
+  // ★ Resolve descriptive source text (never show bare citation numbers)
+  const isCitationOnly = chart.source
+    ? /^(source\s*:?\s*)?(\[?\d+\]?\s*)+$/i.test(chart.source.trim())
+    : true;
+
+  const sourceText =
+    !isCitationOnly && chart.source
+      ? chart.source
+      : evidenceInfo?.title || evidenceInfo?.domain || null;
+
+  const citationIndex = chart.evidenceCitationIndex;
+
+  return (
+    <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+      <span>Source:</span>
+      {sourceText && (
+        <span className="truncate text-gray-500" title={sourceText}>
+          {sourceText}
+        </span>
+      )}
+      {citationIndex && evidenceInfo ? (
+        <CitationBadge index={citationIndex} evidence={evidenceInfo} />
+      ) : citationIndex ? (
+        onCitationClick ? (
+          <button
+            onClick={() => onCitationClick(citationIndex)}
+            className="inline-flex shrink-0 items-center rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
+            title={`Reference [${citationIndex}]`}
+          >
+            [{citationIndex}]
+          </button>
+        ) : (
+          <a
+            href={`#ref-${citationIndex}`}
+            className="inline-flex shrink-0 items-center rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
+            title={`Reference [${citationIndex}]`}
+          >
+            [{citationIndex}]
+          </a>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * 主渲染组件
  *
  * SOTA 图表呈现规范（对标 APA/IEEE/McKinsey/BCG）：
@@ -402,46 +464,11 @@ export function FigureRenderer({
             </p>
           )}
           {showSource && (chart.evidenceCitationIndex || chart.source) && (
-            <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-              <span>Source:</span>
-              {chart.source && (
-                <span className="text-gray-500">{chart.source}</span>
-              )}
-              {/* If no explicit source but we have evidenceInfo, show evidence title/domain */}
-              {!chart.source &&
-                evidenceInfo &&
-                (evidenceInfo.title || evidenceInfo.domain) && (
-                  <span className="text-gray-500">
-                    {evidenceInfo.title || evidenceInfo.domain}
-                  </span>
-                )}
-              {chart.evidenceCitationIndex && evidenceInfo ? (
-                <CitationBadge
-                  index={chart.evidenceCitationIndex}
-                  evidence={evidenceInfo}
-                />
-              ) : chart.evidenceCitationIndex ? (
-                onCitationClick ? (
-                  <button
-                    onClick={() =>
-                      onCitationClick(chart.evidenceCitationIndex!)
-                    }
-                    className="inline-flex items-center rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
-                    title={`Reference [${chart.evidenceCitationIndex}]`}
-                  >
-                    [{chart.evidenceCitationIndex}]
-                  </button>
-                ) : (
-                  <a
-                    href={`#ref-${chart.evidenceCitationIndex}`}
-                    className="inline-flex items-center rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
-                    title={`Reference [${chart.evidenceCitationIndex}]`}
-                  >
-                    [{chart.evidenceCitationIndex}]
-                  </a>
-                )
-              ) : null}
-            </div>
+            <FigureSourceLine
+              chart={chart}
+              evidenceInfo={evidenceInfo ?? undefined}
+              onCitationClick={onCitationClick}
+            />
           )}
         </figcaption>
       )}

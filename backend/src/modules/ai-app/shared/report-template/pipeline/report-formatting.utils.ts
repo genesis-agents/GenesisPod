@@ -2153,6 +2153,34 @@ export function detectAndPromoteHeadings(content: string): string {
       }
     }
 
+    // Pattern 3: Standalone short Chinese line WITHOUT ending punctuation
+    // e.g. "网络作战与信号情报中的速度竞争" or "制度瓶颈为何拖慢规模化列装"
+    // These are sub-headings the LLM forgot to format.
+    // Criteria: 5-30 chars, contains Chinese, no ending punctuation (。！？；，、),
+    // not a sentence fragment (no comma/period mid-text), followed by content paragraph.
+    if (
+      trimmed.length >= 5 &&
+      trimmed.length <= 30 &&
+      /[\u4e00-\u9fff]{3,}/.test(trimmed) &&
+      !/[，。；！？、）)》」】]$/.test(trimmed) &&
+      !/[，。；！？]/.test(trimmed) && // no mid-sentence punctuation → not a sentence
+      !/^\[?\d+\]/.test(trimmed) // not a citation
+    ) {
+      const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
+      const prevContent =
+        result.length > 0 ? result[result.length - 1].trim() : "";
+      // Only promote if: preceded by blank/content (not another heading), followed by content paragraph
+      if (
+        nextContent &&
+        !/^[#>|\-*]/.test(nextContent.trim()) &&
+        !/^\d+[.)]\s/.test(nextContent.trim()) &&
+        !/^#{1,4}\s/.test(prevContent)
+      ) {
+        result.push(`### ${trimmed}`);
+        continue;
+      }
+    }
+
     result.push(line);
   }
 

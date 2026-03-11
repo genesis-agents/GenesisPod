@@ -1120,7 +1120,13 @@ export class ReportSynthesisService {
             dimensionName: dim.dimensionName,
             imageUrl: fig.imageUrl,
             evidenceCitationIndex: fig.evidenceCitationIndex,
-            source: fig.source || undefined,
+            // ★ Normalize source: strip citation-only values (e.g. "[1]", "[19] [327]", "Source: [1]")
+            // so frontend falls back to evidenceInfo.title for consistent display
+            source:
+              fig.source &&
+              !/^(source\s*:?\s*)?(\[?\d+\]?\s*)+$/i.test(fig.source.trim())
+                ? fig.source
+                : undefined,
           });
           dimChartCount++;
         });
