@@ -489,13 +489,21 @@ ${discussionContent}`;
       ).map((r) => r.id),
     );
 
+    // Build a lookup from insight ID → sessionId for creative idea attribution
+    const insightSessionMap = new Map(insights.map((i) => [i.id, i.sessionId]));
+
     // Save creative ideas
     const ideaData = creativeIdeas.map((idea) => {
       const sourceId = idea.sourceInsightIds.find((id) =>
         validInsightIds.has(id),
       );
+      // Inherit sessionId from source insight so session-based filtering works
+      const sessionId = sourceId
+        ? (insightSessionMap.get(sourceId) ?? null)
+        : null;
       return {
         projectId,
+        sessionId,
         title: idea.title,
         description: idea.concept,
         type: ResearchIdeaType.CREATIVE_IDEA,

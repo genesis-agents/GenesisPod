@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Search,
   Lightbulb,
@@ -11,6 +11,8 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Timer,
+  Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { IterationRound } from '@/hooks/features/useIterativeResearch';
@@ -25,6 +27,14 @@ export interface IterationTimelineProps {
   exitReason: string | null;
   finalScore: number | null;
   isActive: boolean;
+  maxIterations?: number;
+  awaitingFeedback?: {
+    round: number;
+    score: number;
+    gaps: { dataGaps: string[]; ideaGaps: string[] };
+    timeoutMs: number;
+  } | null;
+  onSendFeedback?: (text: string) => Promise<void>;
   className?: string;
 }
 
@@ -398,6 +408,157 @@ function RoundRow({
   );
 }
 
+// ==================== Feedback Countdown Card ====================
+
+interface FeedbackCountdownProps {
+  awaitingFeedback: NonNullable<IterationTimelineProps['awaitingFeedback']>;
+  onSendFeedback?: (text: string) => Promise<void>;
+}
+
+function FeedbackCountdownCard({
+  awaitingFeedback,
+  onSendFeedback,
+}: FeedbackCountdownProps) {
+  const [countdown, setCountdown] = useState(0);
+  const [feedbackText, setFeedbackText] = useState('');
+
+  useEffect(() => {
+    const total = Math.ceil(awaitingFeedback.timeoutMs / 1000);
+    setCountdown(total);
+    const interval = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [awaitingFeedback]);
+
+  const handleSend = useCallback(async () => {
+    if (!feedbackText.trim() || !onSendFeedback) return;
+    await onSendFeedback(feedbackText.trim());
+    setFeedbackText('');
+  }, [feedbackText, onSendFeedback]);
+
+  const progressPct =
+    (countdown / Math.ceil(awaitingFeedback.timeoutMs / 1000)) * 100;
+
+  return (
+    <div className="relative flex gap-4">
+      {/* Timeline badge */}
+      <div className="relative z-10 flex h-10 w-10 flex-shrink-0 items-center justify-center">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-blue-400 bg-blue-50">
+          <Timer className="h-4 w-4 text-blue-600" />
+        </div>
+      </div>
+
+      {/* Countdown content */}
+      <div className="mb-6 min-w-0 flex-1">
+        <div className="rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+          {/* Header */}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-900">
+                第 {awaitingFeedback.round} 轮评估完成
+              </span>
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-xs font-bold',
+                  awaitingFeedback.score >= 70
+                    ? 'bg-green-100 text-green-700'
+                    : awaitingFeedback.score >= 40
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-red-100 text-red-700'
+                )}
+              >
+                {awaitingFeedback.score.toFixed(1)}/100
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Timer className="h-3.5 w-3.5" />
+              <span>
+                {countdown > 0 ? `${countdown}s 后自动继续` : '自动继续中...'}
+              </span>
+            </div>
+          </div>
+
+          {/* Countdown progress bar */}
+          <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-1000"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+
+          {/* Gaps summary */}
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            {awaitingFeedback.gaps.dataGaps.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-gray-500">
+                  数据差距
+                </p>
+                <ul className="space-y-0.5">
+                  {awaitingFeedback.gaps.dataGaps.slice(0, 3).map((gap, i) => (
+                    <li key={i} className="truncate text-xs text-gray-700">
+                      <span className="mr-1 text-blue-500">-</span>
+                      {gap}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {awaitingFeedback.gaps.ideaGaps.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-gray-500">
+                  创意差距
+                </p>
+                <ul className="space-y-0.5">
+                  {awaitingFeedback.gaps.ideaGaps.slice(0, 3).map((gap, i) => (
+                    <li key={i} className="truncate text-xs text-gray-700">
+                      <span className="mr-1 text-indigo-500">-</span>
+                      {gap}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Feedback input */}
+          {onSendFeedback && (
+            <div>
+              <p className="mb-1.5 text-xs text-purple-600">
+                输入反馈以引导下一轮研究方向，或等待自动继续
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSend();
+                  }}
+                  placeholder="输入研究方向建议..."
+                  className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+                />
+                <button
+                  onClick={() => void handleSend()}
+                  disabled={!feedbackText.trim()}
+                  className={cn(
+                    'flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
+                    feedbackText.trim()
+                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      : 'cursor-not-allowed bg-gray-200 text-gray-400'
+                  )}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ==================== Exit Footer ====================
 
 interface ExitFooterProps {
@@ -480,6 +641,9 @@ export function IterationTimeline({
   exitReason,
   finalScore,
   isActive,
+  maxIterations,
+  awaitingFeedback,
+  onSendFeedback,
   className,
 }: IterationTimelineProps) {
   if (iterations.length === 0) {
@@ -498,12 +662,19 @@ export function IterationTimeline({
 
   return (
     <div className={cn('flex flex-col', className)}>
-      {/* Header */}
+      {/* Header with progress */}
       <div className="mb-4 flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold text-foreground">迭代优化历程</h3>
-        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-          {iterations.length} 轮
+        <span className="ml-auto flex items-center gap-2">
+          {isActive && maxIterations && (
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
+              进度 {iterations.length}/{maxIterations + 1}
+            </span>
+          )}
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            {iterations.length} 轮
+          </span>
         </span>
       </div>
 
@@ -556,20 +727,28 @@ export function IterationTimeline({
               key={iteration.round}
               iteration={iteration}
               isCurrent={isCurrent}
-              isLast={isLastIteration && !exitReason}
+              isLast={isLastIteration && !exitReason && !awaitingFeedback}
               isActive={isActive}
               defaultExpanded={isCurrent || i === iterations.length - 1}
             />
           );
         })}
 
+        {/* Feedback countdown card */}
+        {awaitingFeedback && isActive && (
+          <FeedbackCountdownCard
+            awaitingFeedback={awaitingFeedback}
+            onSendFeedback={onSendFeedback}
+          />
+        )}
+
         {/* Exit footer */}
         {exitReason && (
           <ExitFooter exitReason={exitReason} finalScore={finalScore} />
         )}
 
-        {/* Active indicator when still running */}
-        {isActive && !exitReason && (
+        {/* Active indicator when still running (not awaiting feedback) */}
+        {isActive && !exitReason && !awaitingFeedback && (
           <div className="relative flex gap-4">
             <div className="relative z-10 flex h-10 w-10 flex-shrink-0 items-center justify-center">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
@@ -578,7 +757,7 @@ export function IterationTimeline({
             </div>
             <div className="flex flex-1 items-center pb-2">
               <p className="text-sm text-muted-foreground">
-                正在处理下一轮迭代...
+                正在执行第 {currentRound + 1} 轮研究...
               </p>
             </div>
           </div>

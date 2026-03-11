@@ -194,15 +194,15 @@ export function useResearchIdeas(
         const result = await res.json();
         const extracted = result?.data ?? result;
         const newIdeas = Array.isArray(extracted) ? extracted : [];
-        // Replace all ideas since extraction deletes old ones and creates new
-        setIdeas(newIdeas);
+        // Refetch all ideas so multi-session state is preserved
+        await fetchIdeas();
         return newIdeas;
       } catch (err) {
         logger.error('Failed to extract ideas:', err);
         return [];
       }
     },
-    [projectId]
+    [projectId, fetchIdeas]
   );
 
   const extractCreativeIdeas = useCallback(async (): Promise<
@@ -220,13 +220,14 @@ export function useResearchIdeas(
       const result = await res.json();
       const extracted = result?.data ?? result;
       const newIdeas = Array.isArray(extracted) ? extracted : [];
-      setIdeas(newIdeas);
+      // Refetch all ideas so multi-session state is preserved
+      await fetchIdeas();
       return newIdeas;
     } catch (err) {
       logger.error('Failed to extract creative ideas:', err);
       return [];
     }
-  }, [projectId]);
+  }, [projectId, fetchIdeas]);
 
   useEffect(() => {
     if (!projectId) return;

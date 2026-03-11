@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Play,
   X,
@@ -21,6 +21,9 @@ interface DemosPanelProps {
   onGenerateDemo?: (ideaId: string) => void;
   onDeleteDemo?: (demoId: string) => void;
   isLoading?: boolean;
+  sessions?: Array<{ id: string; query: string }>;
+  /** Map from ideaId → sessionId, for session-based filtering */
+  ideaSessionMap?: Map<string, string>;
   className?: string;
 }
 
@@ -54,10 +57,18 @@ export function DemosPanel({
   onGenerateDemo,
   onDeleteDemo,
   isLoading = false,
+  sessions,
+  ideaSessionMap,
   className,
 }: DemosPanelProps) {
   const [viewingDemo, setViewingDemo] = useState<ResearchDemo | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  const [sessionFilter, setSessionFilter] = useState<string>('all');
+
+  const filteredDemos = useMemo(() => {
+    if (sessionFilter === 'all' || !ideaSessionMap) return demos;
+    return demos.filter((d) => ideaSessionMap.get(d.ideaId) === sessionFilter);
+  }, [demos, sessionFilter, ideaSessionMap]);
 
   const handleRefreshIframe = () => {
     setIframeKey((prev) => prev + 1);
@@ -123,8 +134,34 @@ export function DemosPanel({
   return (
     <>
       <div className={cn('space-y-4', className)}>
+        {/* Session filter */}
+        {sessions && sessions.length > 1 && (
+          <div className="flex items-center gap-2">
+            <select
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-purple-400 focus:outline-none"
+            >
+              <option value="all">全部研究</option>
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.query.slice(0, 30)}
+                  {s.query.length > 30 ? '...' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {filteredDemos.length === 0 && demos.length > 0 && (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
+            <Code2 className="mx-auto h-8 w-8 text-gray-300" />
+            <p className="mt-2 text-sm text-gray-500">没有符合筛选条件的演示</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {demos.map((demo) => {
+          {filteredDemos.map((demo) => {
             const statusConfig = STATUS_CONFIG[demo.status];
             const formattedDate = new Date(demo.createdAt).toLocaleDateString(
               'zh-CN',

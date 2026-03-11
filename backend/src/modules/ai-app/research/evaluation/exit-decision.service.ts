@@ -55,6 +55,16 @@ export class ExitDecisionService {
       return { exit: true, reason: "budget_exhausted" };
     }
 
+    // Guard: always run at least one real iteration (round 1) before allowing
+    // quality/gap/saturation/convergence exits. Round 0 is just the initial
+    // analysis — exiting before any follow-up research defeats the purpose.
+    if (iteration <= 1) {
+      return {
+        exit: false,
+        nextResearchFocus: [...new Set([...gaps.dataGaps, ...gaps.ideaGaps])],
+      };
+    }
+
     // 2. Quality met: latest score is at or above the depth threshold
     if (latestScore >= QUALITY_THRESHOLD[depth]) {
       return { exit: true, reason: "quality_met" };
@@ -67,8 +77,7 @@ export class ExitDecisionService {
     }
 
     // 4. Information saturated: this round added very few new unique sources
-    //    Skip this check before round 2 to allow early exploration
-    if (iteration >= 2 && informationGain < SATURATION_GAIN_THRESHOLD) {
+    if (informationGain < SATURATION_GAIN_THRESHOLD) {
       return { exit: true, reason: "information_saturated" };
     }
 

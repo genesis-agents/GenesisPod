@@ -3,6 +3,14 @@
  */
 
 import type { DeepResearchReport } from '@/hooks';
+import type { IterationRound } from '@/hooks/features/useIterativeResearch';
+
+export interface IterationMeta {
+  exitReason: string | null;
+  finalScore: number | null;
+  totalIterations: number | null;
+  maxIterations: number;
+}
 
 export interface ResearchSession {
   id: string;
@@ -26,12 +34,14 @@ export interface ResearchSession {
     timestamp: string | Date;
   }>;
   directions?: {
-    directions: Array<{
+    directions?: Array<{
       title: string;
       description?: string;
       assignedTo?: string;
       searchQueries?: string[];
     }>;
+    iterationSnapshots?: IterationRound[];
+    iterationMeta?: IterationMeta;
   } | null;
   sourcesUsed: number;
   tokensUsed: number;

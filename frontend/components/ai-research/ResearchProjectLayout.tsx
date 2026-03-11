@@ -10,7 +10,13 @@
  * ideas/demos hooks, and coordination between all child components.
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+} from 'react';
 import {
   ArrowLeft,
   MessageSquare,
@@ -23,6 +29,9 @@ import {
   Loader2,
   RefreshCw,
   Link,
+  ChevronDown,
+  ChevronUp,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
@@ -91,6 +100,7 @@ export function ResearchProjectLayout({
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [isExtractingInsights, setIsExtractingInsights] = useState(false);
   const [isExtractingIdeas, setIsExtractingIdeas] = useState(false);
+  const [topicExpanded, setTopicExpanded] = useState(true);
 
   // Ref for recovery poll interval cleanup
   const recoveryPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -144,6 +154,10 @@ export function ResearchProjectLayout({
       setActiveTab('report');
       // Reload sessions to get the full data
       void reloadSessions();
+      // Auto-extract insights and creative ideas from the completed session
+      void extractInsights(sessionId)
+        .then(() => extractCreativeIdeas())
+        .catch((err) => logger.error('Auto-extract failed:', err));
     },
     onError: (error) => {
       logger.error('Iterative Research error:', error);
@@ -256,6 +270,10 @@ export function ResearchProjectLayout({
       setSessions((prev) => [newSession, ...prev]);
       setViewingSession(newSession);
       setActiveTab('report');
+      // Auto-extract insights and creative ideas from the completed session
+      void extractInsights(sessionId)
+        .then(() => extractCreativeIdeas())
+        .catch((err) => logger.error('Auto-extract failed:', err));
     },
     onError: (error) => {
       logger.error('Discussion Research error:', error);
@@ -483,6 +501,22 @@ export function ResearchProjectLayout({
   const currentReport = viewingSession?.report || null;
   const currentSessionId = viewingSession?.id || null;
 
+  // Build ideaId → sessionId map for DemosPanel session filtering
+  const ideaSessionMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const idea of creativeIdeas) {
+      if (idea.sessionId) {
+        map.set(idea.id, idea.sessionId);
+      }
+    }
+    for (const insight of insights) {
+      if (insight.sessionId) {
+        map.set(insight.id, insight.sessionId);
+      }
+    }
+    return map;
+  }, [creativeIdeas, insights]);
+
   // Tab definitions
   const TABS: TabDefinition[] = [
     {
@@ -546,6 +580,61 @@ export function ResearchProjectLayout({
           </div>
         </div>
       </div>
+
+      {/* Research Topic Display (collapsible) */}
+      {(query || viewingSession?.query) && (
+        <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <button
+            onClick={() => setTopicExpanded((prev) => !prev)}
+            className="flex w-full items-center gap-3 px-6 py-2 text-left transition-colors hover:bg-blue-100/50"
+          >
+            <Search className="h-4 w-4 flex-shrink-0 text-blue-600" />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">
+              {viewingSession?.query || query}
+            </span>
+            {topicExpanded ? (
+              <ChevronUp className="h-4 w-4 flex-shrink-0 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 flex-shrink-0 text-gray-400" />
+            )}
+          </button>
+          {topicExpanded && (
+            <div className="px-6 pb-3">
+              {/* Show full query only if it was truncated in the header */}
+              {(viewingSession?.query || query || '').length > 80 && (
+                <p className="mb-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                  {viewingSession?.query || query}
+                </p>
+              )}
+              <div className="flex items-center gap-4 text-xs text-gray-500">
+                {viewingSession && (
+                  <>
+                    <span>
+                      {viewingSession.mode === 'iterative'
+                        ? '迭代研究'
+                        : '单次研究'}
+                    </span>
+                    <span>
+                      {new Date(viewingSession.createdAt).toLocaleDateString(
+                        'zh-CN'
+                      )}
+                    </span>
+                    {viewingSession.sourcesUsed > 0 && (
+                      <span>{viewingSession.sourcesUsed} 个来源</span>
+                    )}
+                  </>
+                )}
+                {!viewingSession && (isSearching || isIterating) && (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    研究进行中...
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Content: Left Panel + Right Content */}
       <div className="flex flex-1 overflow-hidden">
@@ -759,6 +848,11 @@ export function ResearchProjectLayout({
                         demos={demos}
                         onDeleteDemo={handleDeleteDemo}
                         isLoading={demosLoading}
+                        sessions={sessions.map((s) => ({
+                          id: s.id,
+                          query: s.query,
+                        }))}
+                        ideaSessionMap={ideaSessionMap}
                       />
                     </div>
                   </div>
@@ -768,26 +862,94 @@ export function ResearchProjectLayout({
                 {activeTab === 'iterations' && (
                   <div className="h-full overflow-y-auto">
                     <div className="mx-auto max-w-5xl p-6">
-                      {iterativeState.iterations.length > 0 ? (
-                        <IterationTimeline
-                          iterations={iterativeState.iterations}
-                          currentRound={iterativeState.currentRound}
-                          exitReason={iterativeState.exitReason}
-                          finalScore={iterativeState.finalScore}
-                          isActive={isIterating}
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                          <RefreshCw className="mb-4 h-12 w-12 text-gray-300" />
-                          <p className="text-lg font-medium">
-                            {t('aiResearch.iterations.empty') || '暂无迭代记录'}
-                          </p>
-                          <p className="mt-2 text-sm text-gray-400">
-                            {t('aiResearch.iterations.emptyHint') ||
-                              '使用迭代模式启动研究以查看自动优化过程'}
-                          </p>
-                        </div>
-                      )}
+                      {(() => {
+                        // Priority 1: Live SSE-driven iterations (active research)
+                        if (
+                          isIterating &&
+                          iterativeState.iterations.length > 0
+                        ) {
+                          return (
+                            <IterationTimeline
+                              iterations={iterativeState.iterations}
+                              currentRound={iterativeState.currentRound}
+                              exitReason={iterativeState.exitReason}
+                              finalScore={iterativeState.finalScore}
+                              isActive={true}
+                              maxIterations={4}
+                              awaitingFeedback={iterativeState.awaitingFeedback}
+                              onSendFeedback={sendFeedback}
+                            />
+                          );
+                        }
+
+                        // Priority 2: Historical data from DB (viewing completed session)
+                        const historySnapshots =
+                          viewingSession?.directions?.iterationSnapshots;
+                        const historyMeta =
+                          viewingSession?.directions?.iterationMeta;
+                        if (
+                          historySnapshots &&
+                          Array.isArray(historySnapshots) &&
+                          historySnapshots.length > 0
+                        ) {
+                          const lastRound =
+                            historySnapshots[historySnapshots.length - 1].round;
+                          return (
+                            <IterationTimeline
+                              iterations={historySnapshots}
+                              currentRound={lastRound}
+                              exitReason={
+                                historyMeta?.exitReason ?? 'completed'
+                              }
+                              finalScore={historyMeta?.finalScore ?? null}
+                              isActive={false}
+                              maxIterations={historyMeta?.maxIterations}
+                            />
+                          );
+                        }
+
+                        // Priority 3: Check most recent iterative session in list
+                        const latestIterativeSession = sessions.find(
+                          (s) =>
+                            s.mode === 'iterative' &&
+                            s.directions?.iterationSnapshots &&
+                            Array.isArray(s.directions.iterationSnapshots) &&
+                            s.directions.iterationSnapshots.length > 0
+                        );
+                        if (latestIterativeSession) {
+                          const snaps =
+                            latestIterativeSession.directions!
+                              .iterationSnapshots!;
+                          const meta =
+                            latestIterativeSession.directions!.iterationMeta;
+                          const lastRound = snaps[snaps.length - 1].round;
+                          return (
+                            <IterationTimeline
+                              iterations={snaps}
+                              currentRound={lastRound}
+                              exitReason={meta?.exitReason ?? 'completed'}
+                              finalScore={meta?.finalScore ?? null}
+                              isActive={false}
+                              maxIterations={meta?.maxIterations}
+                            />
+                          );
+                        }
+
+                        // Fallback: empty state
+                        return (
+                          <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                            <RefreshCw className="mb-4 h-12 w-12 text-gray-300" />
+                            <p className="text-lg font-medium">
+                              {t('aiResearch.iterations.empty') ||
+                                '暂无迭代记录'}
+                            </p>
+                            <p className="mt-2 text-sm text-gray-400">
+                              {t('aiResearch.iterations.emptyHint') ||
+                                '使用迭代模式启动研究以查看自动优化过程'}
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

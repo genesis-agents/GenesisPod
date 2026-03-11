@@ -57,6 +57,38 @@ interface IdeaItem {
   metadata: unknown;
 }
 
+/**
+ * Structured snapshot persisted per-round, aligned with frontend IterationRound type.
+ */
+export interface IterationSnapshot {
+  round: number;
+  score: number;
+  previousScore: number;
+  gaps: { dataGaps: string[]; ideaGaps: string[] };
+  research?: {
+    queries: string[];
+    newSources: number;
+    informationGain: number;
+  };
+  ideas?: {
+    newInsights: Array<{ title: string }>;
+    newCreativeIdeas: Array<{ title: string }>;
+    totalInsights: number;
+    totalCreativeIdeas: number;
+  };
+  demo?: {
+    status: "generating" | "completed";
+  };
+  timestamp: string; // ISO string for JSON serialization
+}
+
+export interface IterationMeta {
+  exitReason: string | null;
+  finalScore: number | null;
+  totalIterations: number | null;
+  maxIterations: number;
+}
+
 @Injectable()
 export class IterativeResearchService {
   private readonly logger = new Logger(IterativeResearchService.name);
@@ -206,9 +238,11 @@ export class IterativeResearchService {
     // Generate initial demo
     const demoIdea = allCreativeIdeas[0] ?? allInsights[0];
     let currentScore = 0;
+    // Default gaps ensure iteration continues even if demo evaluation fails.
+    // Without this, empty gaps trigger an immediate "no_gaps" exit.
     let currentGaps: { dataGaps: string[]; ideaGaps: string[] } = {
-      dataGaps: [],
-      ideaGaps: [],
+      dataGaps: ["Needs deeper evidence and data sources"],
+      ideaGaps: ["Explore additional creative angles"],
     };
     let lastDemoScore: DemoScore | undefined;
     let currentReport = report;
@@ -295,6 +329,22 @@ export class IterativeResearchService {
         gaps: currentGaps,
       },
     } satisfies IterationEvalEvent);
+
+    // Persist Round 0 snapshot (await to prevent write races with subsequent rounds)
+    await this.saveIterationSnapshot(currentSessionId, {
+      round: 0,
+      score: currentScore * 100,
+      previousScore: 0,
+      gaps: currentGaps,
+      ideas: {
+        newInsights: allInsights.map((i) => ({ title: i.title })),
+        newCreativeIdeas: allCreativeIdeas.map((i) => ({ title: i.title })),
+        totalInsights: allInsights.length,
+        totalCreativeIdeas: allCreativeIdeas.length,
+      },
+      demo: demoIdea ? { status: "completed" } : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     // Pause for user feedback after Round 0 (30s timeout)
     const FEEDBACK_TIMEOUT_MS = 30_000;
@@ -529,6 +579,27 @@ export class IterativeResearchService {
         },
       } satisfies IterationEvalEvent);
 
+      // Persist this round's snapshot (await to prevent write races with subsequent rounds)
+      await this.saveIterationSnapshot(currentSessionId, {
+        round,
+        score: newScore * 100,
+        previousScore: previousScore * 100,
+        gaps: newGaps,
+        research: {
+          queries: [followUpQuery],
+          newSources,
+          informationGain,
+        },
+        ideas: {
+          newInsights: newInsights.map((i) => ({ title: i.title })),
+          newCreativeIdeas: newCreativeIdeas.map((i) => ({ title: i.title })),
+          totalInsights: allInsights.length,
+          totalCreativeIdeas: allCreativeIdeas.length,
+        },
+        demo: bestIdea ? { status: "completed" } : undefined,
+        timestamp: new Date().toISOString(),
+      });
+
       // Pause for user feedback between iterations (30s timeout)
       subject.next({
         type: "iteration.awaiting_feedback" as const,
@@ -588,8 +659,14 @@ export class IterativeResearchService {
       iterationRecords.push(summaryMarkdown);
     }
 
-    // Persist iteration records to session metadata
+    // Persist iteration records (markdown audit log) and final meta to session
     await this.saveIterationMetadata(currentSessionId, iterationRecords);
+    await this.saveIterationMeta(currentSessionId, {
+      exitReason: exitDecision.reason ?? "completed",
+      finalScore: currentScore * 100,
+      totalIterations,
+      maxIterations,
+    });
 
     // Persist memory (fire-and-forget)
     if (this.memoryService) {
@@ -835,11 +912,17 @@ export class IterativeResearchService {
         insightDensity: 0.5,
         dataCompleteness: 0.5,
         interactionQuality: 0.5,
-        gaps: { dataGaps: [], ideaGaps: [] },
+        gaps: {
+          dataGaps: ["Needs deeper evidence and data sources"],
+          ideaGaps: ["Explore additional creative angles"],
+        },
         topicTypeMatch: true,
       },
       composite: 0.5,
-      gaps: { dataGaps: [], ideaGaps: [] },
+      gaps: {
+        dataGaps: ["Needs deeper evidence and data sources"],
+        ideaGaps: ["Explore additional creative angles"],
+      },
     };
 
     if (!this.demoEvaluator) return fallback;
@@ -861,7 +944,6 @@ export class IterativeResearchService {
 
   /**
    * Saves iteration records as a JSON array in the session's metadata JSONB field.
-   * Uses updateMany to be safe if session doesn't exist (no-op).
    */
   private async saveIterationMetadata(
     sessionId: string,
@@ -870,7 +952,6 @@ export class IterativeResearchService {
     if (records.length === 0) return;
 
     try {
-      // Read existing directions JSONB, then merge to avoid overwriting.
       const session = await this.prisma.deepResearchSession.findUnique({
         where: { id: sessionId },
         select: { directions: true },
@@ -890,6 +971,101 @@ export class IterativeResearchService {
     } catch (err) {
       this.logger.warn(
         `Failed to save iteration metadata for session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * Persists a structured iteration snapshot immediately after each round.
+   * Snapshots are stored in `directions.iterationSnapshots` as a JSON array,
+   * aligned with the frontend IterationRound type.
+   * Also saves iterationMeta (exitReason, finalScore, totalIterations, maxIterations).
+   */
+  private async saveIterationSnapshot(
+    sessionId: string,
+    snapshot: IterationSnapshot,
+    meta?: IterationMeta,
+  ): Promise<void> {
+    try {
+      const session = await this.prisma.deepResearchSession.findUnique({
+        where: { id: sessionId },
+        select: { directions: true },
+      });
+
+      const existingDirections =
+        session?.directions && typeof session.directions === "object"
+          ? (session.directions as Record<string, unknown>)
+          : {};
+
+      const existingSnapshots = Array.isArray(
+        existingDirections.iterationSnapshots,
+      )
+        ? (existingDirections.iterationSnapshots as IterationSnapshot[])
+        : [];
+
+      // Replace existing snapshot for the same round or append
+      const idx = existingSnapshots.findIndex(
+        (s) => s.round === snapshot.round,
+      );
+      if (idx >= 0) {
+        existingSnapshots[idx] = snapshot;
+      } else {
+        existingSnapshots.push(snapshot);
+      }
+
+      const updateData: Record<string, unknown> = {
+        ...existingDirections,
+        iterationSnapshots: existingSnapshots,
+      };
+      if (meta) {
+        updateData.iterationMeta = meta;
+      }
+
+      await this.prisma.deepResearchSession.update({
+        where: { id: sessionId },
+        data: {
+          directions: updateData as unknown as Record<string, unknown> & {
+            toJSON(): unknown;
+          },
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to save iteration snapshot for session ${sessionId} round ${snapshot.round}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * Persists iteration meta (exit reason, final score, etc.) to directions JSONB.
+   */
+  private async saveIterationMeta(
+    sessionId: string,
+    meta: IterationMeta,
+  ): Promise<void> {
+    try {
+      const session = await this.prisma.deepResearchSession.findUnique({
+        where: { id: sessionId },
+        select: { directions: true },
+      });
+
+      const existingDirections =
+        session?.directions && typeof session.directions === "object"
+          ? (session.directions as Record<string, unknown>)
+          : {};
+
+      const mergedData = { ...existingDirections, iterationMeta: meta };
+      await this.prisma.deepResearchSession.update({
+        where: { id: sessionId },
+        data: {
+          directions: mergedData as unknown as Record<string, unknown> & {
+            toJSON(): unknown;
+          },
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to save iteration meta for session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
