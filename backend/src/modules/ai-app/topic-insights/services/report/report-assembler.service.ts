@@ -847,8 +847,10 @@ export class ReportAssemblerService {
     if (garbageDomains.some((d) => lower.includes(d))) return true;
     // Tracking pixels and very small images (1x1, 2x2)
     if (/[?&](?:w|width|h|height)=[12]\b/.test(url)) return true;
-    // Data URIs (bloated, not real chart images)
-    if (lower.startsWith("data:")) return true;
+    // ★ data: URIs are legitimate — FigureExtractorService produces base64 images
+    // from source pages whose images cannot be directly hotlinked. These have
+    // already passed Vision LLM / type-based screening in FigureRelevanceService.
+    // Do NOT filter them here.
     // Corrupted CDN URLs with encoding artifacts (Substack $s! pattern)
     if (/\$s!|%24s!/i.test(url)) return true;
     // Excessively long URLs (likely corrupted srcset concatenation)
