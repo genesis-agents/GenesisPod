@@ -794,8 +794,63 @@ export class ResearchMissionService {
           }
           return startFn();
         };
-    void wrappedStart().catch((err) => {
+    void wrappedStart().catch(async (err) => {
       this.logger.error(`[approvePlanAndExecute] Execution failed: ${err}`);
+
+      // ★ 清理 orphaned tasks：将 mission 标记为 FAILED，取消所有未完成的 tasks/todos
+      try {
+        await this.prisma.researchMission.update({
+          where: { id: missionId },
+          data: {
+            status: ResearchMissionStatus.FAILED,
+            completedAt: new Date(),
+          },
+        });
+
+        const cancelledTasks = await this.prisma.researchTask.updateMany({
+          where: {
+            missionId,
+            status: {
+              in: [
+                ResearchTaskStatus.PENDING,
+                ResearchTaskStatus.ASSIGNED,
+                ResearchTaskStatus.EXECUTING,
+              ],
+            },
+          },
+          data: {
+            status: ResearchTaskStatus.FAILED,
+            resultSummary: "Mission 执行异常终止",
+            completedAt: new Date(),
+          },
+        });
+
+        const cancelledTodos = await this.prisma.researchTodo.updateMany({
+          where: {
+            missionId,
+            status: {
+              in: [
+                ResearchTodoStatus.PENDING,
+                ResearchTodoStatus.QUEUED,
+                ResearchTodoStatus.IN_PROGRESS,
+              ],
+            },
+          },
+          data: {
+            status: ResearchTodoStatus.CANCELLED,
+            statusMessage: "Mission 执行异常终止",
+            completedAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `[approvePlanAndExecute] Cleanup: ${cancelledTasks.count} tasks and ${cancelledTodos.count} todos cancelled`,
+        );
+      } catch (cleanupErr) {
+        this.logger.error(
+          `[approvePlanAndExecute] Cleanup failed: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`,
+        );
+      }
     });
   }
 
@@ -3034,11 +3089,17 @@ export class ResearchMissionService {
         `[executeTask] Task failed: ${task.title} - ${errorMsg}`,
       );
 
-      // 更新任务状态为失败
-      await this.updateTaskStatus(task.id, ResearchTaskStatus.FAILED, {
-        result: { error: errorMsg },
-        resultSummary: `执行失败: ${errorMsg}`,
-      });
+      // 更新任务状态为失败（防御性 try-catch，避免恢复操作本身抛错导致 unhandled rejection）
+      try {
+        await this.updateTaskStatus(task.id, ResearchTaskStatus.FAILED, {
+          result: { error: errorMsg },
+          resultSummary: `执行失败: ${errorMsg}`,
+        });
+      } catch (updateErr) {
+        this.logger.error(
+          `[executeTask] Failed to mark task ${task.id} as FAILED: ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`,
+        );
+      }
     }
   }
 
