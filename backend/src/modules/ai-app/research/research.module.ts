@@ -6,6 +6,9 @@
  * - Project: 研究项目管理 (CRUD、Sources、Chat、Notes、Outputs)
  * - Idea: 研究创意管理
  * - Demo: 研究演示管理
+ * - Iteration: 自迭代研究 (外层循环编排)
+ * - Evaluation: Demo 评估 (DOM分析 + LLM评审)
+ * - Memory: 研究记忆 (跨会话经验积累)
  */
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { DiscussionModule } from "./discussion/discussion.module";
@@ -25,6 +28,15 @@ import {
   RESEARCH_DATA_EXPORT,
   RESEARCH_PROJECT_DATA_EXPORT,
 } from "../shared/interfaces/data-export.interface";
+// Iterative research services
+import {
+  TopicClassifierService,
+  DemoEvaluatorService,
+  ExitDecisionService,
+} from "./evaluation";
+import { IterationRecordService, IterativeResearchService } from "./iteration";
+import { ResearchMemoryService } from "./memory/research-memory.service";
+import { StrategyLoaderService } from "./memory/strategy-loader.service";
 
 @Module({
   imports: [DiscussionModule, ResearchProjectModule],
@@ -45,6 +57,14 @@ import {
       provide: RESEARCH_PROJECT_DATA_EXPORT,
       useExisting: ResearchProjectExportAdapter,
     },
+    // Iterative research
+    TopicClassifierService,
+    DemoEvaluatorService,
+    ExitDecisionService,
+    IterationRecordService,
+    IterativeResearchService,
+    ResearchMemoryService,
+    StrategyLoaderService,
   ],
   exports: [
     DiscussionModule,
@@ -56,6 +76,7 @@ import {
     RESEARCH_DATA_EXPORT,
     ResearchProjectExportService,
     RESEARCH_PROJECT_DATA_EXPORT,
+    IterativeResearchService,
   ],
 })
 export class ResearchModule implements OnModuleInit {

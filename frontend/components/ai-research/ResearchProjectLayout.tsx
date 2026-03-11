@@ -21,6 +21,7 @@ import {
   Maximize2,
   Minimize2,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
@@ -30,6 +31,7 @@ import { logger } from '@/lib/utils/logger';
 import { useDiscussionResearch } from '@/hooks';
 import { useResearchIdeas } from '@/hooks/features/useResearchIdeas';
 import { useResearchDemos } from '@/hooks/features/useResearchDemos';
+import { useIterativeResearch } from '@/hooks/features/useIterativeResearch';
 import type { ResearchSession } from './types';
 import { AgentPanel } from './discussion/AgentPanel';
 import { DiscussionChat } from './discussion/DiscussionChat';
@@ -37,6 +39,7 @@ import { InsightsPanel } from './discussion/InsightsPanel';
 import { IdeasPanel } from './discussion/IdeasPanel';
 import { DemosPanel } from './discussion/DemosPanel';
 import { ReportPanel } from './discussion/ReportPanel';
+import { IterationTimeline } from './iteration/IterationTimeline';
 
 // ==================== Types ====================
 
@@ -47,7 +50,13 @@ interface ResearchProjectLayoutProps {
   onBack: () => void;
 }
 
-type TabKey = 'discussion' | 'insights' | 'ideas' | 'demos' | 'report';
+type TabKey =
+  | 'discussion'
+  | 'insights'
+  | 'ideas'
+  | 'demos'
+  | 'iterations'
+  | 'report';
 
 interface TabDefinition {
   key: TabKey;
@@ -71,9 +80,14 @@ export function ResearchProjectLayout({
     null
   );
   const [query, setQuery] = useState('');
+  const queryRef = useRef(query);
+  queryRef.current = query;
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [isExtractingInsights, setIsExtractingInsights] = useState(false);
   const [isExtractingIdeas, setIsExtractingIdeas] = useState(false);
+
+  // Ref for recovery poll interval cleanup
+  const recoveryPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Insights (INSIGHT type) & Ideas (CREATIVE_IDEA type) hooks
   const {
@@ -96,6 +110,46 @@ export function ResearchProjectLayout({
     deleteDemo,
     generateDemo,
   } = useResearchDemos(projectId);
+
+  // Iterative research hook
+  const {
+    state: iterativeState,
+    startResearch: startIterativeResearch,
+    stop: stopIterative,
+    isActive: isIterating,
+  } = useIterativeResearch(projectId, {
+    onComplete: ({ report, sessionId }) => {
+      const newSession: ResearchSession = {
+        id: sessionId,
+        query: queryRef.current,
+        status: 'COMPLETED',
+        report,
+        discussion: [],
+        directions: null,
+        sourcesUsed: report.metadata.totalSources,
+        tokensUsed: 0,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      };
+      setSessions((prev) => [newSession, ...prev]);
+      setViewingSession(newSession);
+      setActiveTab('report');
+      // Reload sessions to get the full data
+      void reloadSessions();
+    },
+    onError: (error) => {
+      logger.error('Iterative Research error:', error);
+    },
+    onIterationUpdate: () => {
+      // When iteration completes, auto-switch to iterations tab
+      setActiveTab('iterations');
+    },
+    onIterationExit: (data) => {
+      logger.info(
+        `Iterative research exited: ${data.reason}, score=${data.finalScore}`
+      );
+    },
+  });
 
   // Reusable session loader
   const reloadSessions = useCallback(async () => {
@@ -169,6 +223,10 @@ export function ResearchProjectLayout({
       logger.warn(
         'SSE stream ended without completion, starting recovery polling...'
       );
+      // Clear any existing poll before starting a new one
+      if (recoveryPollRef.current) {
+        clearInterval(recoveryPollRef.current);
+      }
       let attempts = 0;
       const maxAttempts = 90; // Poll for up to 15 minutes (10s * 90)
       const pollInterval = setInterval(async () => {
@@ -195,6 +253,7 @@ export function ResearchProjectLayout({
           logger.warn('Recovery polling: gave up after max attempts');
         }
       }, 10000);
+      recoveryPollRef.current = pollInterval;
     },
   });
 
@@ -203,6 +262,15 @@ export function ResearchProjectLayout({
     setLoadingSessions(true);
     reloadSessions().finally(() => setLoadingSessions(false));
   }, [reloadSessions]);
+
+  // Cleanup recovery poll interval on unmount
+  useEffect(() => {
+    return () => {
+      if (recoveryPollRef.current) {
+        clearInterval(recoveryPollRef.current);
+      }
+    };
+  }, []);
 
   // Handlers for DiscussionChat
   const researchLanguage = locale === 'zh' ? 'zh-CN' : 'en-US';
@@ -228,15 +296,13 @@ export function ResearchProjectLayout({
         );
         if (res.ok) {
           setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-          if (viewingSession?.id === sessionId) {
-            setViewingSession(null);
-          }
+          setViewingSession((prev) => (prev?.id === sessionId ? null : prev));
         }
       } catch (err) {
         logger.error('Failed to delete session:', err);
       }
     },
-    [projectId, viewingSession]
+    [projectId]
   );
 
   const handleBackToList = useCallback(() => {
@@ -367,6 +433,11 @@ export function ResearchProjectLayout({
       icon: Play,
     },
     {
+      key: 'iterations',
+      label: t('aiResearch.tabs.iterations') || '迭代',
+      icon: RefreshCw,
+    },
+    {
       key: 'report',
       label: t('aiResearch.tabs.report') || '报告',
       icon: FileText,
@@ -444,26 +515,36 @@ export function ResearchProjectLayout({
                   messages={
                     viewingSession?.discussion
                       ? (viewingSession.discussion as unknown as import('@/hooks').DiscussionMessage[])
-                      : discussionState.messages
+                      : isIterating
+                        ? iterativeState.discussion.messages
+                        : discussionState.messages
                   }
                   typingAgent={
-                    viewingSession ? null : discussionState.typingAgent
+                    viewingSession
+                      ? null
+                      : isIterating
+                        ? iterativeState.discussion.typingAgent
+                        : discussionState.typingAgent
                   }
                   directions={
                     viewingSession?.directions?.directions
                       ? viewingSession.directions.directions.map(
                           (d: { title: string }) => d.title
                         )
-                      : discussionState.directions
+                      : isIterating
+                        ? iterativeState.discussion.directions
+                        : discussionState.directions
                   }
                   currentPhase={
                     viewingSession
                       ? viewingSession.status === 'COMPLETED'
                         ? 'completed'
                         : 'idle'
-                      : discussionState.phase
+                      : isIterating
+                        ? iterativeState.discussion.phase
+                        : discussionState.phase
                   }
-                  isActive={isSearching}
+                  isActive={isSearching || isIterating}
                   hasSession={sessions.length > 0 || !!viewingSession}
                   onStart={() => {
                     const q = query || projectName;
@@ -483,13 +564,19 @@ export function ResearchProjectLayout({
         {/* Right Content Area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Tab Bar */}
-          <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-6">
+          <div
+            className="flex items-center gap-1 border-b border-gray-200 bg-white px-6"
+            role="tablist"
+            aria-label="Research tabs"
+          >
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
+                  role="tab"
+                  aria-selected={activeTab === tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={cn(
                     'relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors',
@@ -577,6 +664,34 @@ export function ResearchProjectLayout({
                         onDeleteDemo={handleDeleteDemo}
                         isLoading={demosLoading}
                       />
+                    </div>
+                  </div>
+                )}
+
+                {/* Iterations Tab */}
+                {activeTab === 'iterations' && (
+                  <div className="h-full overflow-y-auto">
+                    <div className="mx-auto max-w-5xl p-6">
+                      {iterativeState.iterations.length > 0 ? (
+                        <IterationTimeline
+                          iterations={iterativeState.iterations}
+                          currentRound={iterativeState.currentRound}
+                          exitReason={iterativeState.exitReason}
+                          finalScore={iterativeState.finalScore}
+                          isActive={isIterating}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                          <RefreshCw className="mb-4 h-12 w-12 text-gray-300" />
+                          <p className="text-lg font-medium">
+                            {t('aiResearch.iterations.empty') || '暂无迭代记录'}
+                          </p>
+                          <p className="mt-2 text-sm text-gray-400">
+                            {t('aiResearch.iterations.emptyHint') ||
+                              '使用迭代模式启动研究以查看自动优化过程'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
