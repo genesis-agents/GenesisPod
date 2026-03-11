@@ -140,6 +140,7 @@ export class DiscussionAgentService {
           creativity: options?.creativity || "medium",
           outputLength: options?.outputLength || "short",
         },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       const response = result.content;

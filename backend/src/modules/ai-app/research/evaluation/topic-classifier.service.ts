@@ -67,6 +67,7 @@ Classify this research topic.`;
         modelType: AIModelType.CHAT_FAST,
         taskProfile: { creativity: "deterministic", outputLength: "minimal" },
         responseFormat: "json",
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       if (response.isError) {

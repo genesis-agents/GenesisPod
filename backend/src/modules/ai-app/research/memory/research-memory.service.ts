@@ -159,6 +159,7 @@ export class ResearchMemoryService {
         ],
         modelType: AIModelType.CHAT_FAST,
         taskProfile: { creativity: "low", outputLength: "short" },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       const jsonMatch =

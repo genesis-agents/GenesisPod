@@ -177,6 +177,7 @@ Rules:
         creativity: "deterministic",
         outputLength: "short",
       },
+      skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
     });
 
     try {

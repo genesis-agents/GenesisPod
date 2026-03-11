@@ -326,6 +326,7 @@ ${discussionContent}`;
           creativity: "medium",
           outputLength: "long",
         },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       const jsonStr = result.content.replace(/```json\s*|\s*```/g, "").trim();
@@ -600,6 +601,7 @@ ${insightsContent}`;
           creativity: "high",
           outputLength: "long",
         },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       const jsonStr = result.content.replace(/```json\s*|\s*```/g, "").trim();

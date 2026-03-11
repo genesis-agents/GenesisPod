@@ -331,6 +331,7 @@ export class ReportSynthesizerService {
         creativity: "medium",
         outputLength,
       },
+      skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
     });
     return result.content;
   }
@@ -378,6 +379,7 @@ export class ReportSynthesizerService {
           creativity: "medium",
           outputLength: "long",
         },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       return this.parseReportResponse(result.content, lang);
@@ -410,6 +412,7 @@ export class ReportSynthesizerService {
           creativity: "medium",
           outputLength: "medium", // 章节需要充足篇幅进行深度分析
         },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       return result.content;
@@ -454,6 +457,7 @@ export class ReportSynthesizerService {
           creativity: "low",
           outputLength: "minimal",
         },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       const topics = JSON.parse(

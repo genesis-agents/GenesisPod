@@ -67,6 +67,7 @@ export class SelfReflectionService {
           creativity: "low", // 反思需要较低创造性，保持客观
           outputLength: "minimal", // 反思输出较短
         },
+        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
       });
 
       const reflection = this.parseReflectionResponse(
