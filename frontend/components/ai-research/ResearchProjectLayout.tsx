@@ -863,18 +863,15 @@ export function ResearchProjectLayout({
                   <div className="h-full overflow-y-auto">
                     <div className="mx-auto max-w-5xl p-6">
                       {(() => {
-                        // Priority 1: Live SSE-driven iterations (active research)
-                        if (
-                          isIterating &&
-                          iterativeState.iterations.length > 0
-                        ) {
+                        // Priority 1: Live/recent SSE-driven iterations (active or just completed/errored)
+                        if (iterativeState.iterations.length > 0) {
                           return (
                             <IterationTimeline
                               iterations={iterativeState.iterations}
                               currentRound={iterativeState.currentRound}
                               exitReason={iterativeState.exitReason}
                               finalScore={iterativeState.finalScore}
-                              isActive={true}
+                              isActive={isIterating}
                               maxIterations={4}
                               awaitingFeedback={iterativeState.awaitingFeedback}
                               onSendFeedback={sendFeedback}

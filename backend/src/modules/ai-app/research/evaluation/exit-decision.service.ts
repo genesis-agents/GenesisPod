@@ -71,8 +71,10 @@ export class ExitDecisionService {
     }
 
     // 3. No gaps remaining: both gap lists are empty
+    //    But only exit if quality is reasonable — 0 gaps with low score means
+    //    evaluation failed, not that research is complete.
     const hasNoGaps = gaps.dataGaps.length === 0 && gaps.ideaGaps.length === 0;
-    if (hasNoGaps) {
+    if (hasNoGaps && latestScore >= 0.3) {
       return { exit: true, reason: "no_gaps" };
     }
 

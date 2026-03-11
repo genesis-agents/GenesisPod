@@ -261,12 +261,15 @@ export function useIterativeResearch(
 
           if (modeRef.current === 'iterative') {
             // In iterative mode, intermediate completions do not finalize the session.
-            // Capture sessionId and report but keep phase as-is; iteration.exit finalizes.
+            // IMPORTANT: Do NOT update sessionId here — completeData.sessionId is the
+            // intermediate session which the backend deletes after syncing the report
+            // to the original session. Using a deleted sessionId would cause data loss
+            // on page refresh or SSE reconnect.
             setState((prev) => ({
               ...prev,
               discussion: {
                 ...prev.discussion,
-                sessionId: completeData.sessionId,
+                // Keep prev.discussion.sessionId (the original session) intact
                 report: completeData.report,
                 typingAgent: null,
               },

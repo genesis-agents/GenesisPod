@@ -238,8 +238,6 @@ export class IterativeResearchService {
     // Generate initial demo
     const demoIdea = allCreativeIdeas[0] ?? allInsights[0];
     let currentScore = 0;
-    // Empty defaults are safe: exit-decision guard (iteration <= 1 → no exit)
-    // prevents premature no_gaps exit before real evaluation runs.
     let currentGaps: { dataGaps: string[]; ideaGaps: string[] } = {
       dataGaps: [],
       ideaGaps: [],
@@ -249,6 +247,7 @@ export class IterativeResearchService {
     let currentSessionId = sessionId;
     const originalSessionId = sessionId; // Never changes - all iteration data saved here
 
+    let demoAvailable = false;
     if (demoIdea) {
       subject.next({
         type: "iteration.demo",
@@ -261,6 +260,7 @@ export class IterativeResearchService {
         demoIdea.id,
       );
       if (completedDemo) {
+        demoAvailable = true;
         subject.next({
           type: "iteration.demo",
           data: { round: 0, status: "completed" },
@@ -279,6 +279,16 @@ export class IterativeResearchService {
         currentScore = lastDemoScore.composite;
         currentGaps = lastDemoScore.gaps;
       }
+    }
+
+    // Fallback: when demo evaluation is unavailable, derive score from report heuristics
+    if (!demoAvailable) {
+      const fallback = estimateReportQuality(report, allInsights.length, allCreativeIdeas.length);
+      currentScore = fallback.score;
+      currentGaps = fallback.gaps;
+      this.logger.log(
+        `[Iterative] Demo unavailable, using report-based score: ${(currentScore * 100).toFixed(0)}%`,
+      );
     }
 
     const scores: number[] = [currentScore];
@@ -494,6 +504,7 @@ export class IterativeResearchService {
       let newScore = previousScore;
       let newGaps = currentGaps;
 
+      let roundDemoAvailable = false;
       if (bestIdea) {
         subject.next({
           type: "iteration.demo",
@@ -506,6 +517,7 @@ export class IterativeResearchService {
           bestIdea.id,
         );
         if (newDemo) {
+          roundDemoAvailable = true;
           subject.next({
             type: "iteration.demo",
             data: { round, status: "completed" },
@@ -527,6 +539,17 @@ export class IterativeResearchService {
         }
       }
 
+      // Fallback: when demo evaluation is unavailable, use report-based heuristics
+      if (!roundDemoAvailable) {
+        const fallback = estimateReportQuality(
+          followUp.report,
+          allInsights.length,
+          allCreativeIdeas.length,
+        );
+        newScore = fallback.score;
+        newGaps = fallback.gaps;
+      }
+
       scores.push(newScore);
       currentScore = newScore;
       currentGaps = newGaps;
@@ -541,7 +564,8 @@ export class IterativeResearchService {
             report: followUp.report as unknown as Record<string, unknown> & {
               toJSON(): unknown;
             },
-            status: "COMPLETED",
+            // Keep status as SEARCHING during iteration — only set COMPLETED at the end
+            status: "SEARCHING",
           },
         });
         // Delete intermediate session (it was just a workspace for this round)
@@ -1108,6 +1132,56 @@ export class IterativeResearchService {
 // ---------------------------------------------------------------------------
 // Pure helpers (no class state needed)
 // ---------------------------------------------------------------------------
+
+/**
+ * Fallback quality estimation when demo evaluation is unavailable.
+ * Uses report structure, content depth, and idea pool as heuristics.
+ */
+function estimateReportQuality(
+  report: DeepResearchReport,
+  insightCount: number,
+  creativeIdeaCount: number,
+): { score: number; gaps: { dataGaps: string[]; ideaGaps: string[] } } {
+  const sections = report.sections ?? [];
+  const refs = report.references ?? [];
+  const hasSummary = (report.executiveSummary?.length ?? 0) > 100;
+  const hasConclusion = (report.conclusion?.length ?? 0) > 50;
+
+  // Score components (0-1 each, weighted sum)
+  const sectionScore = Math.min(sections.length / 5, 1); // 5+ sections = full marks
+  const refScore = Math.min(refs.length / 20, 1); // 20+ refs = full marks
+  const depthScore = Math.min(
+    sections.reduce((sum, s) => sum + (s.content?.length ?? 0), 0) / 10000,
+    1,
+  ); // 10K+ chars = full marks
+  const ideaScore = Math.min(insightCount / 10, 1); // 10+ insights = full marks
+  const structureScore = (hasSummary ? 0.5 : 0) + (hasConclusion ? 0.5 : 0);
+
+  const score =
+    sectionScore * 0.25 +
+    refScore * 0.2 +
+    depthScore * 0.25 +
+    ideaScore * 0.15 +
+    structureScore * 0.15;
+
+  // Generate meaningful gaps based on what's missing
+  const dataGaps: string[] = [];
+  const ideaGaps: string[] = [];
+
+  if (sections.length < 4) dataGaps.push("报告章节不够全面，需要更多研究方向");
+  if (refs.length < 10) dataGaps.push("参考来源不足，需要更多数据支撑");
+  if (!hasSummary) dataGaps.push("缺少深入的执行摘要");
+  if (depthScore < 0.5) dataGaps.push("各章节分析深度不够，需要更详细的论述");
+  if (insightCount < 5) ideaGaps.push("洞察数量不足，需要更多独到见解");
+  if (creativeIdeaCount === 0) ideaGaps.push("缺少创意方案，需要提出创新性观点");
+
+  // Ensure at least one gap when score is low
+  if (dataGaps.length === 0 && ideaGaps.length === 0 && score < 0.75) {
+    dataGaps.push("需要更深入的分析和交叉验证");
+  }
+
+  return { score, gaps: { dataGaps, ideaGaps } };
+}
 
 function buildFollowUpQuery(
   originalQuery: string,
