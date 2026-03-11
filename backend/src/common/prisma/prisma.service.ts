@@ -17,7 +17,7 @@ const ENABLE_QUERY_LOG = process.env.ENABLE_QUERY_LOG === "true";
 
 // 数据库连接池配置
 const DB_POOL_SIZE = parseInt(process.env.DB_POOL_SIZE || "10", 10);
-const DB_POOL_TIMEOUT = parseInt(process.env.DB_POOL_TIMEOUT || "10", 10);
+const DB_POOL_TIMEOUT = parseInt(process.env.DB_POOL_TIMEOUT || "30", 10);
 
 // 事务超时配置 (毫秒) - 降至 30 秒以避免长事务阻塞
 const PRISMA_TRANSACTION_TIMEOUT = parseInt(
@@ -31,7 +31,7 @@ const PRISMA_TRANSACTION_TIMEOUT = parseInt(
  *
  * 推荐配置：
  * - DB_POOL_SIZE: 10 (默认) - 每个 Prisma 实例的最大连接数
- * - DB_POOL_TIMEOUT: 10 (默认) - 获取连接的超时时间（秒）
+ * - DB_POOL_TIMEOUT: 30 (默认) - 获取连接的超时时间（秒）
  *
  * PostgreSQL 连接池限制：
  * - Railway: max_connections = 100 (默认)

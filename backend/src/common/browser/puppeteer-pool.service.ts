@@ -19,7 +19,6 @@ const DEFAULT_LAUNCH_ARGS = [
   // Anti-detection: prevent websites from detecting headless automation
   "--disable-blink-features=AutomationControlled",
   // Memory optimization for constrained environments (Railway ~1GB)
-  "--single-process",
   "--disable-extensions",
   "--disable-background-networking",
   "--disable-default-apps",
