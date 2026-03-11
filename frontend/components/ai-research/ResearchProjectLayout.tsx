@@ -284,7 +284,9 @@ export function ResearchProjectLayout({
           language: researchLanguage,
           depth: 'standard',
         });
-        setActiveTab('iterations');
+        // Stay on discussion tab so user can see the live conversation.
+        // onIterationUpdate will switch to iterations tab after the first round.
+        setActiveTab('discussion');
       } else {
         startResearch(q, { language: researchLanguage });
       }
@@ -615,12 +617,14 @@ export function ResearchProjectLayout({
                 {/* Discussion Tab */}
                 {activeTab === 'discussion' && (
                   <DiscussionChat
-                    state={discussionState}
+                    state={
+                      isIterating ? iterativeState.discussion : discussionState
+                    }
                     query={query}
-                    isSearching={isSearching}
+                    isSearching={isSearching || isIterating}
                     sessions={sessions}
                     onStartResearch={handleStartResearch}
-                    onStop={stop}
+                    onStop={isIterating ? stopIterative : stop}
                     onViewSession={handleViewSession}
                     onDeleteSession={handleDeleteSession}
                     viewingSession={viewingSession}
