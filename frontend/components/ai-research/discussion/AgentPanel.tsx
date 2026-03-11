@@ -85,6 +85,7 @@ const ROLE_TAILWIND_BG: Record<DiscussionRole, string> = {
   analyst: 'bg-emerald-500',
   writer: 'bg-amber-500',
   reviewer: 'bg-rose-500',
+  user: 'bg-indigo-500',
 };
 
 const ROLE_TAILWIND_TEXT: Record<DiscussionRole, string> = {
@@ -93,6 +94,7 @@ const ROLE_TAILWIND_TEXT: Record<DiscussionRole, string> = {
   analyst: 'text-emerald-600',
   writer: 'text-amber-600',
   reviewer: 'text-rose-600',
+  user: 'text-indigo-600',
 };
 
 const ROLE_DESCRIPTIONS: Record<DiscussionRole, string> = {
@@ -101,6 +103,7 @@ const ROLE_DESCRIPTIONS: Record<DiscussionRole, string> = {
   analyst: '数据分析和交叉验证',
   writer: '撰写研究报告和摘要',
   reviewer: '质量审核和建议改进',
+  user: '用户反馈和指导',
 };
 
 type AgentStatus = 'idle' | 'speaking' | 'searching' | 'writing';
@@ -205,6 +208,7 @@ function getRoleCapabilities(role: DiscussionRole): string[] {
     analyst: ['数据分析', '交叉验证', '逻辑推理', '趋势识别'],
     writer: ['内容整合', '报告撰写', '结构组织', '文字润色'],
     reviewer: ['质量审核', '准确性验证', '一致性检查', '改进建议'],
+    user: ['反馈指导', '方向调整'],
   };
   return caps[role] || [];
 }
@@ -393,6 +397,7 @@ const ROLE_COLOR_KEYS: Record<DiscussionRole, string> = {
   analyst: 'emerald',
   writer: 'amber',
   reviewer: 'rose',
+  user: 'indigo',
 };
 
 function AgentTeamCanvasView({ agents }: { agents: AgentNode[] }) {
@@ -487,6 +492,7 @@ function AgentTeamCanvasView({ agents }: { agents: AgentNode[] }) {
           analyst: 'bg-emerald-50',
           writer: 'bg-amber-50',
           reviewer: 'bg-rose-50',
+          user: 'bg-indigo-50',
         };
 
         return (

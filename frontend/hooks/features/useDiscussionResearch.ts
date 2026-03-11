@@ -31,7 +31,8 @@ export type DiscussionRole =
   | 'researcher'
   | 'analyst'
   | 'writer'
-  | 'reviewer';
+  | 'reviewer'
+  | 'user';
 
 export type DiscussionMessageType =
   | 'proposal'
@@ -43,7 +44,8 @@ export type DiscussionMessageType =
   | 'synthesis'
   | 'draft'
   | 'review'
-  | 'system';
+  | 'system'
+  | 'user';
 
 export interface DiscussionMessage {
   id: string;

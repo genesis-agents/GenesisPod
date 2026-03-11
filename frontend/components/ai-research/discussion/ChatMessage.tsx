@@ -105,6 +105,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'pen-line': PenLine,
   'shield-check': ShieldCheck,
   info: Info,
+  user: User,
 };
 
 const ROLE_COLORS: Record<
@@ -135,6 +136,11 @@ const ROLE_COLORS: Record<
     bg: 'bg-rose-500',
     text: 'text-rose-600',
     border: 'border-rose-400',
+  },
+  user: {
+    bg: 'bg-indigo-500',
+    text: 'text-indigo-600',
+    border: 'border-indigo-400',
   },
 };
 
@@ -186,6 +192,12 @@ function getMessageStyle(messageType: DiscussionMessageType): {
       return {
         bgClass: 'bg-gray-50 border-y border-dashed border-gray-300',
         layout: 'divider',
+      };
+    case 'user':
+      return {
+        borderClass: 'border-r-4 border-indigo-400',
+        bgClass: 'bg-indigo-50/40',
+        layout: 'bubble',
       };
     case 'findings':
       return {
@@ -284,10 +296,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
     );
   }
 
+  const isUserMessage = message.messageType === 'user';
+
   // Full bubble message
   return (
     <div className="my-3">
-      <div className="flex gap-3">
+      <div className={cn('flex gap-3', isUserMessage && 'flex-row-reverse')}>
         {/* Agent Icon */}
         <div
           className={cn(
@@ -299,9 +313,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
         </div>
 
         {/* Message Content */}
-        <div className="min-w-0 flex-1">
+        <div className={cn('min-w-0 flex-1', isUserMessage && 'text-right')}>
           {/* Agent Name + Message Type + Timestamp */}
-          <div className="mb-1 flex items-baseline gap-2">
+          <div
+            className={cn(
+              'mb-1 flex items-baseline gap-2',
+              isUserMessage && 'justify-end'
+            )}
+          >
             <span className={cn('text-sm font-semibold', colors.text)}>
               {message.agentName}
             </span>
@@ -316,7 +335,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           {/* Message Bubble with Markdown */}
           <div
             className={cn(
-              'rounded-lg p-4 shadow-sm',
+              'rounded-lg p-4 text-left shadow-sm',
               style.bgClass,
               style.borderClass
             )}

@@ -748,6 +748,26 @@ export function useIterativeResearch(
   const sendFeedback = useCallback(
     async (text: string) => {
       try {
+        // Add user feedback as a visible message in the chat
+        const userMsg: DiscussionMessage = {
+          id: `user_feedback_${Date.now()}`,
+          agentRole: 'user' as DiscussionRole,
+          agentName: '用户反馈',
+          agentIcon: 'user',
+          content: text,
+          phase: 'ideation' as DiscussionPhase,
+          messageType: 'user' as DiscussionMessageType,
+          timestamp: new Date(),
+        };
+        messagesRef.current = [...messagesRef.current, userMsg];
+        setState((prev) => ({
+          ...prev,
+          discussion: {
+            ...prev.discussion,
+            messages: messagesRef.current,
+          },
+        }));
+
         await fetch(
           `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/feedback`,
           {
