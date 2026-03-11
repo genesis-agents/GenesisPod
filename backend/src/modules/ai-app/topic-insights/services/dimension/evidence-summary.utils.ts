@@ -38,14 +38,25 @@ export function buildFiguresSummary(
   includeGuidance = true,
 ): string {
   const entries: string[] = [];
+  // ★ 按 imageUrl 去重：同一张图可能被多个证据引用，只保留首次出现
+  // 避免 LLM 以为是不同图表而分配给不同 section，导致 validateAllocatedFigures 全部拒绝
+  const seenUrls = new Set<string>();
   for (let i = 0; i < evidenceData.length; i++) {
     const evidence = evidenceData[i];
     if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
       for (let j = 0; j < evidence.extractedFigures.length; j++) {
         const fig = evidence.extractedFigures[j];
-        const safeUrl = fig.imageUrl?.startsWith("data:")
+        const rawUrl = fig.imageUrl || "";
+        // 跳过已见过的 imageUrl（base64 除外，因为 base64 显示为占位符无法比较）
+        if (rawUrl && !rawUrl.startsWith("data:") && seenUrls.has(rawUrl)) {
+          continue;
+        }
+        if (rawUrl && !rawUrl.startsWith("data:")) {
+          seenUrls.add(rawUrl);
+        }
+        const safeUrl = rawUrl.startsWith("data:")
           ? `[base64-image:${fig.type || "unknown"}]`
-          : fig.imageUrl || "无URL";
+          : rawUrl || "无URL";
         entries.push(
           `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${safeUrl}`,
         );

@@ -93,31 +93,32 @@ export interface ReviewResultCardProps {
 
 const getQualityLevelConfig = (t: (key: string) => string) => ({
   excellent: {
-    label: t('topicResearch.collaboration.qualityLevel.excellent'),
+    label: t('topicResearch.collaboration.qualityLevel.excellent') || '优秀',
     color: 'text-emerald-600 dark:text-emerald-400',
     bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
     icon: CheckCircle,
   },
   good: {
-    label: t('topicResearch.collaboration.qualityLevel.good'),
+    label: t('topicResearch.collaboration.qualityLevel.good') || '良好',
     color: 'text-blue-600 dark:text-blue-400',
     bgColor: 'bg-blue-100 dark:bg-blue-900/30',
     icon: TrendingUp,
   },
   acceptable: {
-    label: t('topicResearch.collaboration.qualityLevel.acceptable'),
+    label: t('topicResearch.collaboration.qualityLevel.acceptable') || '合格',
     color: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
     icon: Minus,
   },
   needs_revision: {
-    label: t('topicResearch.collaboration.qualityLevel.needsRevision'),
+    label:
+      t('topicResearch.collaboration.qualityLevel.needsRevision') || '需修改',
     color: 'text-orange-600 dark:text-orange-400',
     bgColor: 'bg-orange-100 dark:bg-orange-900/30',
     icon: AlertTriangle,
   },
   rejected: {
-    label: t('topicResearch.collaboration.qualityLevel.rejected'),
+    label: t('topicResearch.collaboration.qualityLevel.rejected') || '不通过',
     color: 'text-red-600 dark:text-red-400',
     bgColor: 'bg-red-100 dark:bg-red-900/30',
     icon: XCircle,
@@ -126,40 +127,42 @@ const getQualityLevelConfig = (t: (key: string) => string) => ({
 
 const getScoreLabels = (t: (key: string) => string) => ({
   breadth: {
-    label: t('topicResearch.collaboration.reviewDimensions.breadth'),
+    label: t('topicResearch.collaboration.reviewDimensions.breadth') || '广度',
     icon: Target,
   },
   depth: {
-    label: t('topicResearch.collaboration.reviewDimensions.depth'),
+    label: t('topicResearch.collaboration.reviewDimensions.depth') || '深度',
     icon: TrendingDown,
   },
   evidence: {
-    label: t('topicResearch.collaboration.reviewDimensions.evidence'),
+    label: t('topicResearch.collaboration.reviewDimensions.evidence') || '证据',
     icon: BookOpen,
   },
   coherence: {
-    label: t('topicResearch.collaboration.reviewDimensions.coherence'),
+    label:
+      t('topicResearch.collaboration.reviewDimensions.coherence') || '连贯性',
     icon: Link2,
   },
   currency: {
-    label: t('topicResearch.collaboration.reviewDimensions.currency'),
+    label:
+      t('topicResearch.collaboration.reviewDimensions.currency') || '时效性',
     icon: Clock,
   },
 });
 
 const getSeverityConfig = (t: (key: string) => string) => ({
   critical: {
-    label: t('topicResearch.collaboration.severity.critical'),
+    label: t('topicResearch.collaboration.severity.critical') || '严重',
     color: 'text-red-600 dark:text-red-400',
     bgColor: 'bg-red-100 dark:bg-red-900/30',
   },
   major: {
-    label: t('topicResearch.collaboration.severity.major'),
+    label: t('topicResearch.collaboration.severity.major') || '重要',
     color: 'text-orange-600 dark:text-orange-400',
     bgColor: 'bg-orange-100 dark:bg-orange-900/30',
   },
   minor: {
-    label: t('topicResearch.collaboration.severity.minor'),
+    label: t('topicResearch.collaboration.severity.minor') || '轻微',
     color: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
   },
@@ -260,7 +263,8 @@ function IssuesList({
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-        {t('topicResearch.collaboration.issues')} ({issues.length})
+        {t('topicResearch.collaboration.issues') || '问题列表'} ({issues.length}
+        )
       </h4>
       <div className="space-y-1.5">
         {displayIssues.map((issue, idx) => {
@@ -294,7 +298,7 @@ function IssuesList({
           <div className="text-xs text-gray-500">
             {t('topicResearch.collaboration.moreIssues', {
               count: issues.length - 3,
-            })}
+            }) || `...还有 ${issues.length - 3} 个问题`}
           </div>
         )}
       </div>
@@ -320,7 +324,8 @@ function SuggestionsList({
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-        {t('topicResearch.collaboration.suggestions')} ({suggestions.length})
+        {t('topicResearch.collaboration.suggestions') || '改进建议'} (
+        {suggestions.length})
       </h4>
       <div className="space-y-1">
         {displaySuggestions.map((suggestion, idx) => (
@@ -336,7 +341,7 @@ function SuggestionsList({
           <div className="text-xs text-gray-500">
             {t('topicResearch.collaboration.moreSuggestions', {
               count: suggestions.length - 2,
-            })}
+            }) || `...还有 ${suggestions.length - 2} 条建议`}
           </div>
         )}
       </div>
@@ -407,7 +412,7 @@ export function ReviewResultCard({
       {!isDimensionReview && overallResult.dimensionReviews && (
         <div className="mb-4 space-y-1">
           <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            {t('topicResearch.collaboration.dimensionScores')}
+            {t('topicResearch.collaboration.dimensionScores') || '各维度评分'}
           </h4>
           <div className="flex flex-wrap gap-2">
             {overallResult.dimensionReviews.map((dim) => (
@@ -470,7 +475,8 @@ export function ReviewResultCard({
         <div className="mt-3 flex items-center gap-2 rounded-md bg-orange-100 px-3 py-2 dark:bg-orange-900/30">
           <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           <span className="text-xs text-orange-700 dark:text-orange-300">
-            {t('topicResearch.collaboration.needsReresearch')}
+            {t('topicResearch.collaboration.needsReresearch') ||
+              '部分维度需要重新研究'}
             {isDimensionReview &&
               dimResult.reresearchFocus &&
               dimResult.reresearchFocus.length > 0 && (
@@ -483,7 +489,8 @@ export function ReviewResultCard({
                   :{' '}
                   {t('topicResearch.collaboration.dimensionsToReresearch', {
                     count: overallResult.dimensionsToReresearch.length,
-                  })}
+                  }) ||
+                    `${overallResult.dimensionsToReresearch.length} 个维度需要重研`}
                 </span>
               )}
           </span>

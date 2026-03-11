@@ -1895,9 +1895,12 @@ export class DimensionMissionService {
           );
           continue;
         }
-        // 校验 imageUrl 非空
-        if (!fig.imageUrl) {
-          // 尝试从原始证据数据中补全
+        // 校验 imageUrl 非空 + 回填 base64 占位符
+        // ★ LLM 从 prompt 中复制的 "[base64-image:chart]" 是占位符，不是可渲染 URL
+        //   必须从原始证据数据中恢复真实的 data: URL
+        const needsBackfill =
+          !fig.imageUrl || fig.imageUrl.startsWith("[base64-image:");
+        if (needsBackfill) {
           const evidence = evidenceData[fig.evidenceIndex - 1];
           const originalFig = evidence?.extractedFigures?.[fig.figureIndex];
           if (originalFig?.imageUrl) {

@@ -1235,9 +1235,10 @@ export class SectionWriterService {
       const key = `${ref.evidenceCitationIndex}:${ref.figureIndex}`;
 
       // Level 1: 从 allocatedFigures 回填
+      // ★ "[base64-image:" 是 prompt 中的占位符，不是可渲染 URL，需要回填
       const allocated = allocatedMap.get(key);
       if (allocated) {
-        if (!ref.imageUrl) {
+        if (!ref.imageUrl || ref.imageUrl.startsWith("[base64-image:")) {
           ref.imageUrl = allocated.imageUrl;
           backfilled++;
         }
@@ -1247,7 +1248,7 @@ export class SectionWriterService {
       }
 
       // Level 2: 从原始 evidenceData.extractedFigures 回填（当 allocated 没匹配到时）
-      if (!ref.imageUrl) {
+      if (!ref.imageUrl || ref.imageUrl.startsWith("[base64-image:")) {
         const extracted = evidenceFigureMap.get(key);
         if (extracted?.imageUrl) {
           ref.imageUrl = extracted.imageUrl;
