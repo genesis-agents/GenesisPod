@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { Subject, Observable } from "rxjs";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { DiscussionOrchestratorService } from "../discussion/discussion-orchestrator.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
@@ -306,7 +307,11 @@ export class IterativeResearchService {
 
     // Fallback: when demo evaluation is unavailable, derive score from report heuristics
     if (!demoAvailable) {
-      const fallback = estimateReportQuality(report, allInsights.length, allCreativeIdeas.length);
+      const fallback = estimateReportQuality(
+        report,
+        allInsights.length,
+        allCreativeIdeas.length,
+      );
       currentScore = fallback.score;
       currentGaps = fallback.gaps;
       this.logger.log(
@@ -584,20 +589,61 @@ export class IterativeResearchService {
         currentReport = followUp.report;
         currentSessionId = followUp.sessionId;
 
-        // Update the original session with the latest report and clean up intermediate session
+        // Update the original session with the latest report and discussion, then clean up intermediate session
         try {
+          // Fetch intermediate session's discussion before deletion
+          let intermediateDiscussion: unknown[] = [];
+          if (currentSessionId !== originalSessionId) {
+            const intermediateSession =
+              await this.prisma.deepResearchSession.findUnique({
+                where: { id: currentSessionId },
+                select: { discussion: true },
+              });
+            if (
+              intermediateSession?.discussion &&
+              Array.isArray(intermediateSession.discussion)
+            ) {
+              intermediateDiscussion =
+                intermediateSession.discussion as unknown[];
+            }
+          }
+
+          // Merge: append intermediate discussion to original session
+          const originalSession =
+            await this.prisma.deepResearchSession.findUnique({
+              where: { id: originalSessionId },
+              select: { discussion: true },
+            });
+          const existingDiscussion =
+            originalSession?.discussion &&
+            Array.isArray(originalSession.discussion)
+              ? (originalSession.discussion as unknown[])
+              : [];
+          const mergedDiscussion = [
+            ...existingDiscussion,
+            ...intermediateDiscussion,
+          ];
+
           await this.prisma.deepResearchSession.update({
             where: { id: originalSessionId },
             data: {
               report: followUp.report as unknown as Record<string, unknown> & {
                 toJSON(): unknown;
               },
+              discussion:
+                mergedDiscussion as unknown as Prisma.InputJsonValue[],
               // Keep status as SEARCHING during iteration — only set COMPLETED at the end
               status: "SEARCHING",
             },
           });
-          // Delete intermediate session (it was just a workspace for this round)
+
+          // Reassign ideas from intermediate session to original session before deletion
           if (currentSessionId !== originalSessionId) {
+            await this.prisma.researchIdea.updateMany({
+              where: { sessionId: currentSessionId },
+              data: { sessionId: originalSessionId },
+            });
+
             await this.prisma.deepResearchSession
               .delete({
                 where: { id: currentSessionId },
@@ -787,6 +833,21 @@ export class IterativeResearchService {
       totalIterations,
       maxIterations,
     });
+
+    // Mark the original session as COMPLETED so frontend can display it properly
+    try {
+      await this.prisma.deepResearchSession.update({
+        where: { id: originalSessionId },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to mark session as COMPLETED: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
 
     // Persist memory (fire-and-forget)
     if (this.memoryService) {
@@ -1217,7 +1278,7 @@ function estimateReportQuality(
   const ideaScore = Math.min(insightCount / 10, 1); // 10+ insights = full marks
   const structureScore = (hasSummary ? 0.5 : 0) + (hasConclusion ? 0.5 : 0);
 
-  let baseScore =
+  const baseScore =
     sectionScore * 0.25 +
     refScore * 0.2 +
     depthScore * 0.25 +
@@ -1258,7 +1319,8 @@ function estimateReportQuality(
   if (!hasSummary) dataGaps.push("缺少深入的执行摘要");
   if (depthScore < 0.5) dataGaps.push("各章节分析深度不够，需要更详细的论述");
   if (insightCount < 5) ideaGaps.push("洞察数量不足，需要更多独到见解");
-  if (creativeIdeaCount === 0) ideaGaps.push("缺少创意方案，需要提出创新性观点");
+  if (creativeIdeaCount === 0)
+    ideaGaps.push("缺少创意方案，需要提出创新性观点");
 
   // Ensure at least one gap when score is low
   if (dataGaps.length === 0 && ideaGaps.length === 0 && score < 0.75) {
@@ -1343,9 +1405,10 @@ function buildIterationHistory(
     const fbLines = recentFeedback
       .map((f, i) => {
         const roundIdx = startIdx + i;
-        const trimmed = f.length > MAX_FEEDBACK_ENTRY_LENGTH
-          ? f.slice(0, MAX_FEEDBACK_ENTRY_LENGTH) + "..."
-          : f;
+        const trimmed =
+          f.length > MAX_FEEDBACK_ENTRY_LENGTH
+            ? f.slice(0, MAX_FEEDBACK_ENTRY_LENGTH) + "..."
+            : f;
         return `- Round ${roundIdx}: ${trimmed}`;
       })
       .join("\n");

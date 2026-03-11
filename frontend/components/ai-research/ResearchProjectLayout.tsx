@@ -152,8 +152,15 @@ export function ResearchProjectLayout({
       setSessions((prev) => [newSession, ...prev]);
       setViewingSession(newSession);
       setActiveTab('report');
-      // Reload sessions to get the full data
-      void reloadSessions();
+      // Reload sessions to get the full data, then update viewingSession with server data
+      void reloadSessions().then((reloaded) => {
+        if (reloaded) {
+          const fresh = reloaded.find((s) => s.id === sessionId);
+          if (fresh) {
+            setViewingSession(fresh);
+          }
+        }
+      });
       // Auto-extract insights and creative ideas from the completed session
       void extractInsights(sessionId)
         .then(() => extractCreativeIdeas())

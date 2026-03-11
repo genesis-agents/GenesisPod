@@ -518,12 +518,16 @@ export class DiscussionOrchestratorService {
           });
 
         // Auto-extract ideas from discussion messages
-        try {
-          await this.autoExtractIdeas(projectId, session.id, allMessages);
-        } catch (extractError) {
-          this.logger.warn(
-            `Failed to auto-extract ideas from session ${session.id}: ${extractError instanceof Error ? extractError.message : String(extractError)}`,
-          );
+        // Skip in iterative mode — the iteration service handles extraction and
+        // calling it here would cause a duplicate (and the 2nd run deletes+recreates).
+        if (session.mode !== "iterative") {
+          try {
+            await this.autoExtractIdeas(projectId, session.id, allMessages);
+          } catch (extractError) {
+            this.logger.warn(
+              `Failed to auto-extract ideas from session ${session.id}: ${extractError instanceof Error ? extractError.message : String(extractError)}`,
+            );
+          }
         }
       } catch (error) {
         // Fail AI Kernel process
@@ -602,9 +606,10 @@ export class DiscussionOrchestratorService {
       if (ctx.iterationHistory) {
         // Cap iteration history to prevent context bloat (already pre-truncated
         // by buildIterationHistory, this is a second safety net)
-        const cappedHistory = ctx.iterationHistory.length > 2000
-          ? ctx.iterationHistory.slice(0, 2000) + "\n[...已截断]"
-          : ctx.iterationHistory;
+        const cappedHistory =
+          ctx.iterationHistory.length > 2000
+            ? ctx.iterationHistory.slice(0, 2000) + "\n[...已截断]"
+            : ctx.iterationHistory;
         parts.push(`**迭代历史**:\n${cappedHistory}`);
       }
       previousFindings = parts.join("\n\n");
