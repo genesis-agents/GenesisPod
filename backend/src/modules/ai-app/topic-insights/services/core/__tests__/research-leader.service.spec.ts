@@ -44,6 +44,7 @@ function buildMocks() {
     getAvailableModelsExtended: jest.fn(),
     getReasoningModel: jest.fn(),
     chat: jest.fn(),
+    chatStructured: jest.fn(),
     intentDetector: {
       detectIntent: jest.fn(),
     },
@@ -1219,8 +1220,9 @@ describe("ResearchLeaderService", () => {
           sectionId: "section-1",
         },
       ];
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ claims: mockClaims }),
+      mockFacade.chatStructured.mockResolvedValue({
+        data: { claims: mockClaims },
+        rawContent: JSON.stringify({ claims: mockClaims }),
       });
 
       const result = await service.extractClaims(
@@ -1232,8 +1234,11 @@ describe("ResearchLeaderService", () => {
       expect(result[0].claim).toBe("5G 技术覆盖率达到 60%");
     });
 
-    it("should return empty array when AI returns unparseable content", async () => {
-      mockFacade.chat.mockResolvedValue({ content: "not valid json" });
+    it("should return empty array when chatStructured returns null data", async () => {
+      mockFacade.chatStructured.mockResolvedValue({
+        data: null,
+        rawContent: "not valid json",
+      });
 
       const result = await service.extractClaims("section-1", "some content");
 
@@ -1241,7 +1246,7 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should return empty array when AI call throws", async () => {
-      mockFacade.chat.mockRejectedValue(new Error("API error"));
+      mockFacade.chatStructured.mockRejectedValue(new Error("API error"));
 
       const result = await service.extractClaims("section-1", "some content");
 
@@ -1249,22 +1254,24 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should truncate very long section content to 4000 chars", async () => {
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ claims: [] }),
+      mockFacade.chatStructured.mockResolvedValue({
+        data: { claims: [] },
+        rawContent: "{}",
       });
 
       const longContent = "x".repeat(10000);
       await service.extractClaims("section-1", longContent);
 
-      const chatCall = mockFacade.chat.mock.calls[0][0];
-      const promptContent = chatCall.messages[1].content;
+      const chatCall = mockFacade.chatStructured.mock.calls[0][0];
+      const promptContent = chatCall.messages[0].content;
       // The truncated content should appear in the prompt
       expect(promptContent.length).toBeLessThan(longContent.length);
     });
 
     it("should return empty array when response has no claims key", async () => {
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ other: "data" }),
+      mockFacade.chatStructured.mockResolvedValue({
+        data: { other: "data" },
+        rawContent: JSON.stringify({ other: "data" }),
       });
 
       const result = await service.extractClaims("section-1", "content");
@@ -1282,7 +1289,7 @@ describe("ResearchLeaderService", () => {
       const result = await service.verifyHypotheses([], "evidence summary");
 
       expect(result).toEqual([]);
-      expect(mockFacade.chat).not.toHaveBeenCalled();
+      expect(mockFacade.chatStructured).not.toHaveBeenCalled();
     });
 
     it("should return verification results when AI returns valid JSON", async () => {
@@ -1296,8 +1303,9 @@ describe("ResearchLeaderService", () => {
           evidence: ["data point 1"],
         },
       ];
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ results: mockResults }),
+      mockFacade.chatStructured.mockResolvedValue({
+        data: { results: mockResults },
+        rawContent: JSON.stringify({ results: mockResults }),
       });
 
       const result = await service.verifyHypotheses(
@@ -1309,8 +1317,11 @@ describe("ResearchLeaderService", () => {
       expect(result[0].verdict).toBe("supported");
     });
 
-    it("should return empty array when AI returns unparseable content", async () => {
-      mockFacade.chat.mockResolvedValue({ content: "not json" });
+    it("should return empty array when chatStructured returns null data", async () => {
+      mockFacade.chatStructured.mockResolvedValue({
+        data: null,
+        rawContent: "not json",
+      });
 
       const result = await service.verifyHypotheses(
         [{ id: "h1", statement: "hypothesis", confidence: 0.5 }] as never,
@@ -1321,7 +1332,7 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should return empty array when AI call throws", async () => {
-      mockFacade.chat.mockRejectedValue(new Error("API error"));
+      mockFacade.chatStructured.mockRejectedValue(new Error("API error"));
 
       const result = await service.verifyHypotheses(
         [{ id: "h1", statement: "hypothesis", confidence: 0.5 }] as never,
@@ -1332,8 +1343,9 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should return empty array when response has no results key", async () => {
-      mockFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ other: "data" }),
+      mockFacade.chatStructured.mockResolvedValue({
+        data: { other: "data" },
+        rawContent: JSON.stringify({ other: "data" }),
       });
 
       const result = await service.verifyHypotheses(
