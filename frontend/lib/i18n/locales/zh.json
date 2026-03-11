@@ -5107,7 +5107,33 @@
       "allDimensions": "全部维度",
       "noMessages": "暂无协作消息",
       "uncategorized": "未分类",
-      "otherActivities": "其他活动"
+      "otherActivities": "其他活动",
+      "qualityLevel": {
+        "excellent": "优秀",
+        "good": "良好",
+        "acceptable": "合格",
+        "needsRevision": "需修改",
+        "rejected": "不通过"
+      },
+      "reviewDimensions": {
+        "breadth": "广度",
+        "depth": "深度",
+        "evidence": "证据",
+        "coherence": "连贯性",
+        "currency": "时效性"
+      },
+      "severity": {
+        "critical": "严重",
+        "major": "重要",
+        "minor": "轻微"
+      },
+      "issues": "问题列表",
+      "moreIssues": "...还有 {{count}} 个问题",
+      "suggestions": "改进建议",
+      "moreSuggestions": "...还有 {{count}} 条建议",
+      "dimensionScores": "各维度评分",
+      "needsReresearch": "部分维度需要重新研究",
+      "dimensionsToReresearch": "{{count}} 个维度需要重研"
     },
     "maximize": "全屏阅读",
     "exitMaximize": "退出全屏",

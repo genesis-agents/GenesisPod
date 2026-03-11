@@ -4996,6 +4996,32 @@
       "noMessages": "No collaboration messages",
       "uncategorized": "Uncategorized",
       "otherActivities": "Other Activities",
+      "qualityLevel": {
+        "excellent": "Excellent",
+        "good": "Good",
+        "acceptable": "Acceptable",
+        "needsRevision": "Needs Revision",
+        "rejected": "Rejected"
+      },
+      "reviewDimensions": {
+        "breadth": "Breadth",
+        "depth": "Depth",
+        "evidence": "Evidence",
+        "coherence": "Coherence",
+        "currency": "Currency"
+      },
+      "severity": {
+        "critical": "Critical",
+        "major": "Major",
+        "minor": "Minor"
+      },
+      "issues": "Issues",
+      "moreIssues": "...{{count}} more issues",
+      "suggestions": "Suggestions",
+      "moreSuggestions": "...{{count}} more suggestions",
+      "dimensionScores": "Dimension Scores",
+      "needsReresearch": "Some dimensions need re-research",
+      "dimensionsToReresearch": "{{count}} dimensions need re-research",
       "panel": {
         "taskList": "Task List",
         "conversation": "Conversation with Leader",
