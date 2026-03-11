@@ -562,11 +562,11 @@ export function CreateTopicDialog({
 
               {/* Research Depth Selector */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   {t('topicResearch.createDialog.researchDepthLabel') ||
                     t('topicResearch.researchDepth.label')}
                 </label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-2">
                   {(['quick', 'standard', 'thorough'] as const).map((depth) => {
                     const labels: Record<string, string> = {
                       quick: t('topicResearch.researchDepth.quick'),
@@ -578,21 +578,64 @@ export function CreateTopicDialog({
                       standard: t('topicResearch.researchDepth.standardDesc'),
                       thorough: t('topicResearch.researchDepth.thoroughDesc'),
                     };
+                    const icons: Record<string, string> = {
+                      quick: 'M13 10V3L4 14h7v7l9-11h-7z',
+                      standard:
+                        'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+                      thorough:
+                        'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5',
+                    };
                     const isSelected = researchDepth === depth;
                     return (
                       <button
                         key={depth}
                         type="button"
                         onClick={() => setResearchDepth(depth)}
-                        className={`rounded-md px-2 py-1.5 text-xs transition-all ${
+                        className={`group relative flex flex-col items-center rounded-xl border-2 px-3 py-3 text-center transition-all ${
                           isSelected
-                            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
-                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                            ? 'border-violet-500 bg-violet-50 text-violet-700 shadow-sm shadow-violet-500/10'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                         }`}
                         title={descriptions[depth]}
                       >
-                        <div className="font-medium">{labels[depth]}</div>
-                        <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
+                        {isSelected && (
+                          <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white">
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={3}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                        <svg
+                          className={`mb-1.5 h-5 w-5 ${isSelected ? 'text-violet-500' : 'text-gray-400 group-hover:text-gray-500'}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d={icons[depth]}
+                          />
+                        </svg>
+                        <div
+                          className={`text-sm font-semibold ${isSelected ? 'text-violet-700' : 'text-gray-700'}`}
+                        >
+                          {labels[depth]}
+                        </div>
+                        <div
+                          className={`mt-0.5 text-[11px] ${isSelected ? 'text-violet-500' : 'text-gray-400'}`}
+                        >
                           {descriptions[depth]}
                         </div>
                       </button>

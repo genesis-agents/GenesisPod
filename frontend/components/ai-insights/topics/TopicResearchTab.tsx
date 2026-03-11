@@ -141,11 +141,30 @@ export function TopicResearchTab({
   }, [loadTopics]);
 
   // Infinite scroll: IntersectionObserver on sentinel element
+  // ★ Must find the closest scrollable ancestor as `root`, because the page
+  // uses a nested `overflow-auto` container (not the viewport for scrolling).
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
+
+    // Find closest scrollable ancestor to use as IntersectionObserver root
+    let scrollRoot: Element | null = null;
+    let el: Element | null = sentinel.parentElement;
+    while (el) {
+      const style = getComputedStyle(el);
+      if (
+        style.overflow === 'auto' ||
+        style.overflow === 'scroll' ||
+        style.overflowY === 'auto' ||
+        style.overflowY === 'scroll'
+      ) {
+        scrollRoot = el;
+        break;
+      }
+      el = el.parentElement;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -157,7 +176,7 @@ export function TopicResearchTab({
           void loadMoreTopics(filterOptions);
         }
       },
-      { rootMargin: '200px' }
+      { root: scrollRoot, rootMargin: '200px' }
     );
 
     observer.observe(sentinel);
