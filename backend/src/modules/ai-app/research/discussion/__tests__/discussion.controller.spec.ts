@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DiscussionController } from "../discussion.controller";
 import type { DiscussionOrchestratorService } from "../discussion-orchestrator.service";
+import type { IterativeResearchService } from "../../iteration";
 import { Subject } from "rxjs";
 
 function createMockResponse() {
@@ -23,15 +24,24 @@ function createMockOrchestratorService() {
   } as unknown as jest.Mocked<DiscussionOrchestratorService>;
 }
 
+function createMockIterativeResearchService() {
+  return {
+    startResearch: jest.fn(),
+  } as unknown as jest.Mocked<IterativeResearchService>;
+}
+
 describe("DiscussionController", () => {
   let controller: DiscussionController;
   let mockOrchestratorService: jest.Mocked<DiscussionOrchestratorService>;
+  let mockIterativeResearch: jest.Mocked<IterativeResearchService>;
 
   beforeEach(() => {
     jest.useFakeTimers();
     mockOrchestratorService = createMockOrchestratorService();
+    mockIterativeResearch = createMockIterativeResearchService();
     controller = new DiscussionController(
       mockOrchestratorService as unknown as DiscussionOrchestratorService,
+      mockIterativeResearch as unknown as IterativeResearchService,
     );
   });
 
@@ -46,7 +56,7 @@ describe("DiscussionController", () => {
       const mockDto = { query: "What is the future of AI research?" } as never;
 
       const subject = new Subject<{ type: string; data: unknown }>();
-      mockOrchestratorService.startResearch.mockReturnValue(
+      mockIterativeResearch.startResearch.mockReturnValue(
         subject.asObservable() as never,
       );
 
@@ -83,7 +93,7 @@ describe("DiscussionController", () => {
 
       // Use a Subject that immediately errors to simulate stream failure
       const errorSubject = new Subject<{ type: string; data: unknown }>();
-      mockOrchestratorService.startResearch.mockReturnValue(
+      mockIterativeResearch.startResearch.mockReturnValue(
         errorSubject.asObservable() as never,
       );
 
@@ -109,7 +119,7 @@ describe("DiscussionController", () => {
       const mockDto = { query: "Query" } as never;
 
       const subject = new Subject<{ type: string; data: unknown }>();
-      mockOrchestratorService.startResearch.mockReturnValue(
+      mockIterativeResearch.startResearch.mockReturnValue(
         subject.asObservable() as never,
       );
 
@@ -143,7 +153,7 @@ describe("DiscussionController", () => {
       const mockDto = { query: "Long running query" } as never;
 
       const subject = new Subject<{ type: string; data: unknown }>();
-      mockOrchestratorService.startResearch.mockReturnValue(
+      mockIterativeResearch.startResearch.mockReturnValue(
         subject.asObservable() as never,
       );
 
@@ -169,7 +179,7 @@ describe("DiscussionController", () => {
       const mockDto = { query: "Query" } as never;
 
       const subject = new Subject<{ type: string; data: unknown }>();
-      mockOrchestratorService.startResearch.mockReturnValue(
+      mockIterativeResearch.startResearch.mockReturnValue(
         subject.asObservable() as never,
       );
 
