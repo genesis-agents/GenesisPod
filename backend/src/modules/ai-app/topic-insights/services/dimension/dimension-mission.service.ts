@@ -1899,7 +1899,9 @@ export class DimensionMissionService {
         // ★ LLM 从 prompt 中复制的 "[base64-image:chart]" 是占位符，不是可渲染 URL
         //   必须从原始证据数据中恢复真实的 data: URL
         const needsBackfill =
-          !fig.imageUrl || fig.imageUrl.startsWith("[base64-image:");
+          !fig.imageUrl ||
+          fig.imageUrl.startsWith("[base64-image") ||
+          fig.imageUrl === "无URL";
         if (needsBackfill) {
           const evidence = evidenceData[fig.evidenceIndex - 1];
           const originalFig = evidence?.extractedFigures?.[fig.figureIndex];

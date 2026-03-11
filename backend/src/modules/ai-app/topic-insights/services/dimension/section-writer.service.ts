@@ -232,6 +232,26 @@ export class SectionWriterService {
       input.assignedSkills,
     );
 
+    // ★ 索引重映射：allocatedFigures 的 evidenceIndex 是基于完整 evidenceData 的原始索引（1-based），
+    // 但 section prompt 中的证据列表是经过 filterEvidenceForSection 过滤重排的（[1],[2],[3]...）。
+    // 必须将 allocatedFigures 的 evidenceIndex 重映射为过滤后的位置索引，
+    // 否则 LLM 在两套索引间混乱，输出的 evidenceCitationIndex 无法匹配 backfill key。
+    const fullEvidence = input.fullEvidenceData || [];
+    const remappedAllocatedFigures = input.allocatedFigures?.map((fig) => {
+      // 找到原始证据在过滤后列表中的位置（按 id 匹配）
+      const originalEvidence = fullEvidence[fig.evidenceIndex - 1];
+      if (originalEvidence) {
+        const filteredIdx = evidenceData.findIndex(
+          (e) => e.id === originalEvidence.id,
+        );
+        if (filteredIdx >= 0) {
+          return { ...fig, evidenceIndex: filteredIdx + 1 }; // 1-based
+        }
+      }
+      // 如果找不到对应项（证据被过滤掉了），保留原始索引
+      return fig;
+    });
+
     // 准备提示词变量（包含时间上下文）
     const promptVariables = {
       sectionTitle: section.title,
@@ -247,10 +267,10 @@ export class SectionWriterService {
       freshnessRequirement:
         temporalContext?.freshnessRequirement ||
         "不限制时间范围，但建议优先使用最近的数据",
-      // ★ 图片资源列表
+      // ★ 图片资源列表（使用重映射后的索引，与证据列表索引一致）
       figuresList: this.formatFiguresForSection(
         evidenceData,
-        input.allocatedFigures,
+        remappedAllocatedFigures,
       ),
     };
 
@@ -353,36 +373,38 @@ export class SectionWriterService {
     // ★ 用 allocatedFigures + evidenceData 补全 figureReferences 中缺失的 imageUrl
     let figureRefsToBackfill = charts.figureReferences;
 
-    // ★ Auto-inject: if LLM didn't return figureReferences but Leader allocated figures,
-    // construct figureReferences from allocatedFigures WITH relevance filtering.
-    // Previously all allocated figures were injected blindly, causing irrelevant images
-    // (e.g. "robot industry" image in a "transformer architecture" section).
     // ★ 诊断日志：记录 allocatedFigures 状态
     this.logger.log(
-      `[writeSection] ${section.title}: allocatedFigures=${input.allocatedFigures?.length ?? 0}, ` +
+      `[writeSection] ${section.title}: allocatedFigures=${remappedAllocatedFigures?.length ?? 0}, ` +
         `figureRefsFromLLM=${figureRefsToBackfill.length}, ` +
         `fullEvidenceData=${input.fullEvidenceData?.length ?? "N/A"}`,
     );
 
     if (
       figureRefsToBackfill.length === 0 &&
-      input.allocatedFigures &&
-      input.allocatedFigures.length > 0
+      remappedAllocatedFigures &&
+      remappedAllocatedFigures.length > 0
     ) {
       // ★ 使用 fullEvidenceData（未过滤）回填 allocatedFigures 缺失的 imageUrl
-      // Leader LLM 经常不输出 imageUrl，需要从原始证据中根据 evidenceIndex 查找
+      // Leader LLM 经常不输出 imageUrl，需要从原始证据中根据原始 evidenceIndex 查找
+      // 注意：这里用 input.allocatedFigures（原始索引）查找 fullEvidenceData
       const figSourceData = input.fullEvidenceData || evidenceData;
-      for (const fig of input.allocatedFigures) {
-        if (!fig.imageUrl && figSourceData[fig.evidenceIndex - 1]) {
-          const ev = figSourceData[fig.evidenceIndex - 1] as EvidenceData & {
+      for (let fi = 0; fi < remappedAllocatedFigures.length; fi++) {
+        const remapped = remappedAllocatedFigures[fi];
+        const original = input.allocatedFigures![fi];
+        if (!remapped.imageUrl && figSourceData[original.evidenceIndex - 1]) {
+          const ev = figSourceData[
+            original.evidenceIndex - 1
+          ] as EvidenceData & {
             extractedFigures?: ExtractedFigure[];
           };
-          if (ev.extractedFigures?.[fig.figureIndex]) {
-            fig.imageUrl = ev.extractedFigures[fig.figureIndex].imageUrl || "";
-            if (!fig.caption) {
-              fig.caption =
-                ev.extractedFigures[fig.figureIndex].caption ||
-                ev.extractedFigures[fig.figureIndex].alt ||
+          if (ev.extractedFigures?.[remapped.figureIndex]) {
+            remapped.imageUrl =
+              ev.extractedFigures[remapped.figureIndex].imageUrl || "";
+            if (!remapped.caption) {
+              remapped.caption =
+                ev.extractedFigures[remapped.figureIndex].caption ||
+                ev.extractedFigures[remapped.figureIndex].alt ||
                 "";
             }
           }
@@ -391,14 +413,13 @@ export class SectionWriterService {
 
       // ★ allocatedFigures 已经过 validateAllocatedFigures 相关性校验，
       // 这里只检查 imageUrl 是否存在，不再做冗余的关键词匹配过滤。
-      // 之前三重过滤（validateAllocatedFigures + 此处 + 最终过滤）导致零图片通过。
-      for (const fig of input.allocatedFigures) {
+      for (const fig of remappedAllocatedFigures) {
         this.logger.log(
           `[writeSection] allocatedFig[${fig.evidenceIndex}:${fig.figureIndex}]: imageUrl=${fig.imageUrl ? `"${fig.imageUrl.substring(0, 60)}..."` : "EMPTY"}, caption="${(fig.caption || "").substring(0, 50)}", reason="${(fig.relevanceReason || "").substring(0, 50)}"`,
         );
       }
 
-      figureRefsToBackfill = input.allocatedFigures
+      figureRefsToBackfill = remappedAllocatedFigures
         .filter((fig) => {
           if (!fig.imageUrl) {
             this.logger.warn(
@@ -409,17 +430,15 @@ export class SectionWriterService {
           return true;
         })
         .map((fig, idx) => {
-          // ★ Build descriptive Source text from evidence metadata
-          const evidenceItem = figSourceData.find(
-            (_e, i) => i + 1 === fig.evidenceIndex,
-          );
+          // ★ Build descriptive Source text from evidence metadata (use filtered evidence by remapped index)
+          const evidenceItem = evidenceData[fig.evidenceIndex - 1];
           const sourceText = evidenceItem
             ? `${evidenceItem.title || evidenceItem.domain || ""}`.trim() ||
               `[${fig.evidenceIndex}]`
             : `[${fig.evidenceIndex}]`;
           return {
             id: `auto-fig-${idx}`,
-            evidenceCitationIndex: fig.evidenceIndex,
+            evidenceCitationIndex: fig.evidenceIndex, // ★ 使用重映射后的索引
             figureIndex: fig.figureIndex,
             imageUrl: fig.imageUrl,
             caption: fig.caption || "",
@@ -430,19 +449,21 @@ export class SectionWriterService {
         });
       if (figureRefsToBackfill.length > 0) {
         this.logger.log(
-          `[writeSection] Auto-injected ${figureRefsToBackfill.length}/${input.allocatedFigures.length} figures from allocatedFigures (LLM did not output figureReferences)`,
+          `[writeSection] Auto-injected ${figureRefsToBackfill.length}/${remappedAllocatedFigures.length} figures from allocatedFigures (LLM did not output figureReferences)`,
         );
-      } else if (input.allocatedFigures.length > 0) {
+      } else if (remappedAllocatedFigures.length > 0) {
         this.logger.warn(
-          `[writeSection] All ${input.allocatedFigures.length} allocatedFigures dropped (no imageUrl after backfill)`,
+          `[writeSection] All ${remappedAllocatedFigures.length} allocatedFigures dropped (no imageUrl after backfill)`,
         );
       }
     }
 
+    // ★ 索引系统已统一为 filtered evidence 的位置索引（1-based），
+    //   所以 Level 2 也应使用 filtered evidenceData 而非 fullEvidenceData
     const backfilledRefs = this.backfillFigureUrls(
       figureRefsToBackfill,
-      input.allocatedFigures,
-      input.fullEvidenceData || evidenceData, // ★ 使用完整 evidenceData 按原始索引回填
+      remappedAllocatedFigures, // ★ 使用重映射后的索引
+      evidenceData, // ★ 使用过滤后的 evidenceData（与 LLM prompt 中的索引一致）
     );
 
     // ★ 最终相关性校验：
@@ -1229,16 +1250,21 @@ export class SectionWriterService {
     }
 
     let backfilled = 0;
+    const usedAllocatedKeys = new Set<string>();
+
+    // ★ 辅助：判断 imageUrl 是否需要回填（空值、placeholder 占位符）
+    const needsBackfill = (url: string | undefined | null): boolean =>
+      !url || url.startsWith("[base64-image") || url === "无URL";
 
     // 补全缺失的 imageUrl
     for (const ref of figureRefs) {
       const key = `${ref.evidenceCitationIndex}:${ref.figureIndex}`;
 
-      // Level 1: 从 allocatedFigures 回填
-      // ★ "[base64-image:" 是 prompt 中的占位符，不是可渲染 URL，需要回填
+      // Level 1: 从 allocatedFigures 回填（精确 key 匹配）
       const allocated = allocatedMap.get(key);
       if (allocated) {
-        if (!ref.imageUrl || ref.imageUrl.startsWith("[base64-image:")) {
+        usedAllocatedKeys.add(key);
+        if (needsBackfill(ref.imageUrl)) {
           ref.imageUrl = allocated.imageUrl;
           backfilled++;
         }
@@ -1247,8 +1273,8 @@ export class SectionWriterService {
         }
       }
 
-      // Level 2: 从原始 evidenceData.extractedFigures 回填（当 allocated 没匹配到时）
-      if (!ref.imageUrl || ref.imageUrl.startsWith("[base64-image:")) {
+      // Level 2: 从原始 evidenceData.extractedFigures 回填（当 Level 1 没匹配到时）
+      if (needsBackfill(ref.imageUrl)) {
         const extracted = evidenceFigureMap.get(key);
         if (extracted?.imageUrl) {
           ref.imageUrl = extracted.imageUrl;
@@ -1256,6 +1282,30 @@ export class SectionWriterService {
             ref.caption = extracted.caption || extracted.alt || "";
           }
           backfilled++;
+        }
+      }
+
+      // Level 3: 兜底 — 当 key 不匹配时（LLM 用了过滤后的证据索引而非原始索引），
+      // 从未使用的 allocated figures 中找第一个有 imageUrl 的分配
+      if (needsBackfill(ref.imageUrl) && allocatedFigures) {
+        for (const fig of allocatedFigures) {
+          const figKey = `${fig.evidenceIndex}:${fig.figureIndex}`;
+          if (
+            !usedAllocatedKeys.has(figKey) &&
+            fig.imageUrl &&
+            !needsBackfill(fig.imageUrl)
+          ) {
+            ref.imageUrl = fig.imageUrl;
+            if (!ref.caption) {
+              ref.caption = fig.caption;
+            }
+            usedAllocatedKeys.add(figKey);
+            backfilled++;
+            this.logger.log(
+              `[backfillFigureUrls] Level 3 fallback: ref key=${key} → allocated key=${figKey}`,
+            );
+            break;
+          }
         }
       }
 

@@ -990,7 +990,9 @@ export class DimensionWritingService {
         }
         // 校验 imageUrl 非空 + 回填 base64 占位符
         const needsBackfill =
-          !fig.imageUrl || fig.imageUrl.startsWith("[base64-image:");
+          !fig.imageUrl ||
+          fig.imageUrl.startsWith("[base64-image") ||
+          fig.imageUrl === "无URL";
         if (needsBackfill) {
           const evidence = evidenceData[fig.evidenceIndex - 1];
           const originalFig = evidence?.extractedFigures?.[fig.figureIndex];
