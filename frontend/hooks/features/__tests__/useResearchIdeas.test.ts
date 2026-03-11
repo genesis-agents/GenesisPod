@@ -495,8 +495,9 @@ describe('useResearchIdeas', () => {
       ];
 
       mockFetch
-        .mockResolvedValueOnce(mockJsonResponse(initial))
-        .mockResolvedValueOnce(mockJsonResponse(extracted));
+        .mockResolvedValueOnce(mockJsonResponse(initial)) // 1. useEffect fetchIdeas
+        .mockResolvedValueOnce(mockJsonResponse(extracted)) // 2. extractIdeas POST
+        .mockResolvedValueOnce(mockJsonResponse(extracted)); // 3. refetch fetchIdeas inside extractIdeas
 
       const { result } = renderHook(() => useResearchIdeas(PROJECT_ID));
       await waitFor(() => expect(result.current.ideas).toHaveLength(1));
@@ -555,8 +556,9 @@ describe('useResearchIdeas', () => {
       const creative = [makeIdea({ id: 'creative-1', type: 'CREATIVE_IDEA' })];
 
       mockFetch
-        .mockResolvedValueOnce(mockJsonResponse(initial))
-        .mockResolvedValueOnce(mockJsonResponse(creative));
+        .mockResolvedValueOnce(mockJsonResponse(initial)) // 1. useEffect fetchIdeas
+        .mockResolvedValueOnce(mockJsonResponse(creative)) // 2. extractCreativeIdeas POST
+        .mockResolvedValueOnce(mockJsonResponse(creative)); // 3. refetch fetchIdeas inside extractCreativeIdeas
 
       const { result } = renderHook(() => useResearchIdeas(PROJECT_ID));
       await waitFor(() => expect(result.current.ideas).toHaveLength(1));

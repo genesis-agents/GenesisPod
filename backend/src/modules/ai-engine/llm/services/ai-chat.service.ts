@@ -1305,6 +1305,8 @@ export class AiChatService {
     maxTokens?: number;
     temperature?: number;
     userId?: string;
+    /** Skip input/output guardrails for internal system calls */
+    skipGuardrails?: boolean;
   }): AsyncGenerator<
     {
       content: string;
@@ -1485,8 +1487,9 @@ export class AiChatService {
         }
       }
 
-      // ★ Guardrails: Output validation
+      // ★ Guardrails: Output validation (skip for internal system calls)
       if (
+        !options.skipGuardrails &&
         this.guardrailsPipeline &&
         this.configService.get<string>("GUARDRAILS_ENABLED") !== "false" &&
         accumulatedContent
@@ -1501,14 +1504,7 @@ export class AiChatService {
               `[chatStream] Output blocked by guardrail: ${outputResult.blockedBy}`,
             );
 
-            // ★ Circuit Breaker: Record guardrails failure
-            if (this.circuitBreaker) {
-              this.circuitBreaker.recordFailure(
-                model,
-                TaskCompletionType.CONTENT_ERROR,
-                outputResult.blockedBy || "output_blocked",
-              );
-            }
+            // Note: guardrails block is NOT a model failure — do not record in Circuit Breaker
 
             yield {
               content: "",

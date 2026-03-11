@@ -1167,6 +1167,7 @@ export class AIEngineFacade {
         maxTokens: request.maxTokens,
         temperature: request.temperature,
         userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
+        skipGuardrails: request.skipGuardrails,
       })) {
         // 捕获 apiKeySource（在最终 chunk 中携带）
         if (chunk.apiKeySource) {
