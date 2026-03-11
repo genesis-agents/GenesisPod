@@ -203,6 +203,10 @@ describe("BillingService", () => {
     });
 
     it("should build 30-day daily trend with entries for all 30 days", async () => {
+      // Use fixed date at noon UTC to avoid timezone-induced duplicate date keys
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-03-15T12:00:00Z"));
+
       // Arrange
       mockPrisma.creditTransaction.aggregate
         .mockResolvedValueOnce({ _sum: { amount: 0 } })
@@ -227,6 +231,8 @@ describe("BillingService", () => {
         expect(typeof entry.date).toBe("string");
         expect(typeof entry.spent).toBe("number");
       });
+
+      jest.useRealTimers();
     });
 
     it("should aggregate daily transaction amounts into the trend map", async () => {

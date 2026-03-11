@@ -32,6 +32,7 @@ function buildMocks() {
     researchMission: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     researchTask: {
       findMany: jest.fn(),
@@ -573,11 +574,11 @@ describe("MissionExecutionService", () => {
         { id: "t1", status: ResearchTaskStatus.COMPLETED },
         { id: "t2", status: ResearchTaskStatus.COMPLETED },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       await service.finalizeMission("mission-1", "topic-1");
 
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: ResearchMissionStatus.COMPLETED,
@@ -594,11 +595,11 @@ describe("MissionExecutionService", () => {
         { id: "t1", status: ResearchTaskStatus.COMPLETED },
         { id: "t2", status: ResearchTaskStatus.FAILED },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       await service.finalizeMission("mission-1", "topic-1");
 
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: ResearchMissionStatus.COMPLETED,
@@ -616,13 +617,13 @@ describe("MissionExecutionService", () => {
         { id: "t1", status: ResearchTaskStatus.FAILED },
         { id: "t2", status: ResearchTaskStatus.FAILED },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
       prisma.topicReport.findMany.mockResolvedValue([{ id: "empty-report" }]);
       prisma.topicReport.deleteMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.finalizeMission("mission-1", "topic-1");
 
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: ResearchMissionStatus.FAILED,
@@ -639,7 +640,7 @@ describe("MissionExecutionService", () => {
       prisma.researchTask.findMany.mockResolvedValue([
         { id: "t1", status: ResearchTaskStatus.FAILED },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
       const emptyReports = [{ id: "empty-report-1" }, { id: "empty-report-2" }];
       prisma.topicReport.findMany.mockResolvedValue(emptyReports);
       const deleteManyMock = jest.fn().mockResolvedValue({ count: 2 });
@@ -657,7 +658,7 @@ describe("MissionExecutionService", () => {
       prisma.researchTask.findMany.mockResolvedValue([
         { id: "t1", status: ResearchTaskStatus.COMPLETED },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       await service.finalizeMission("mission-1", "topic-1");
 

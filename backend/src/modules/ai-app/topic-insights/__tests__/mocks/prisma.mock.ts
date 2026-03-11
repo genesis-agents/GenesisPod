@@ -32,6 +32,7 @@ export function createMockPrisma() {
       findMany: fn(),
       create: fn(),
       update: fn(),
+      updateMany: fn(),
       delete: fn(),
       count: fn(),
     },

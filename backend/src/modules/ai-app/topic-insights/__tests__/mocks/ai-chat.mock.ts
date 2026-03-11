@@ -174,6 +174,13 @@ export function createMockAiEngineFacade() {
       },
     }),
 
+    chatStructured: jest
+      .fn<() => Promise<{ data: unknown; rawContent: string }>>()
+      .mockResolvedValue({
+        data: MOCK_LEADER_PLAN,
+        rawContent: JSON.stringify(MOCK_LEADER_PLAN),
+      }),
+
     chatWithSkills: jest
       .fn<() => Promise<MockChatResponse>>()
       .mockResolvedValue({

@@ -35,8 +35,9 @@ describe("ResearchLeaderService - V5 Methods", () => {
           importance: "medium",
         },
       ];
-      mockAiFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ claims: mockClaims }),
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: { claims: mockClaims },
+        rawContent: JSON.stringify({ claims: mockClaims }),
       });
 
       const result = await service.extractClaims(
@@ -46,19 +47,22 @@ describe("ResearchLeaderService - V5 Methods", () => {
 
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe("c1");
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatStructured).toHaveBeenCalledWith(
         expect.objectContaining({ modelType: "CHAT_FAST" }),
       );
     });
 
-    it("should return empty array on invalid JSON", async () => {
-      mockAiFacade.chat.mockResolvedValue({ content: "not json at all" });
+    it("should return empty array on null data", async () => {
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: null,
+        rawContent: "not json at all",
+      });
       const result = await service.extractClaims("s1", "content");
       expect(result).toEqual([]);
     });
 
     it("should return empty array on AI exception", async () => {
-      mockAiFacade.chat.mockRejectedValue(new Error("API timeout"));
+      mockAiFacade.chatStructured.mockRejectedValue(new Error("API timeout"));
       const result = await service.extractClaims("s1", "content");
       expect(result).toEqual([]);
     });
@@ -109,8 +113,9 @@ describe("ResearchLeaderService - V5 Methods", () => {
           confidence: 50,
         },
       ];
-      mockAiFacade.chat.mockResolvedValue({
-        content: JSON.stringify({ results: mockResults }),
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: { results: mockResults },
+        rawContent: JSON.stringify({ results: mockResults }),
       });
 
       const result = await service.verifyHypotheses(
@@ -120,7 +125,7 @@ describe("ResearchLeaderService - V5 Methods", () => {
 
       expect(result).toHaveLength(3);
       expect(result[0].hypothesisId).toBe("h1");
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatStructured).toHaveBeenCalledWith(
         expect.objectContaining({ modelType: "CHAT_FAST" }),
       );
     });
@@ -128,7 +133,7 @@ describe("ResearchLeaderService - V5 Methods", () => {
     it("should return empty array for empty hypotheses without calling AI", async () => {
       const result = await service.verifyHypotheses([], "evidence");
       expect(result).toEqual([]);
-      expect(mockAiFacade.chat).not.toHaveBeenCalled();
+      expect(mockAiFacade.chatStructured).not.toHaveBeenCalled();
     });
   });
 });

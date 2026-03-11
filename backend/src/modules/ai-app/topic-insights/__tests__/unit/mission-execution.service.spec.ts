@@ -28,7 +28,6 @@ import {
 
 import {
   MOCK_TOPIC,
-  MOCK_MISSION_EXECUTING,
   MOCK_TASK_EXECUTING,
   MOCK_TASK_COMPLETED,
   createMockTask,
@@ -333,17 +332,17 @@ describe("MissionExecutionService", () => {
           status: ResearchTaskStatus.COMPLETED,
         },
       ]);
-      prisma.researchMission.update.mockResolvedValue({
-        ...MOCK_MISSION_EXECUTING,
-        status: ResearchMissionStatus.COMPLETED,
-      });
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       // Act
       await service.finalizeMission(missionId, topicId);
 
       // Assert
-      expect(prisma.researchMission.update).toHaveBeenCalledWith({
-        where: { id: missionId },
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: missionId,
+          status: { not: ResearchMissionStatus.CANCELLED },
+        },
         data: expect.objectContaining({
           status: ResearchMissionStatus.COMPLETED,
           completedTasks: 2,
@@ -379,17 +378,17 @@ describe("MissionExecutionService", () => {
       ]);
       prisma.topicReport.findMany.mockResolvedValue([{ id: "empty-report-1" }]);
       prisma.topicReport.deleteMany.mockResolvedValue({ count: 1 });
-      prisma.researchMission.update.mockResolvedValue({
-        id: missionId,
-        status: ResearchMissionStatus.FAILED,
-      });
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       // Act
       await service.finalizeMission(missionId, topicId);
 
       // Assert
-      expect(prisma.researchMission.update).toHaveBeenCalledWith({
-        where: { id: missionId },
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: missionId,
+          status: { not: ResearchMissionStatus.CANCELLED },
+        },
         data: expect.objectContaining({
           status: ResearchMissionStatus.FAILED,
           completedTasks: 0,
@@ -418,8 +417,11 @@ describe("MissionExecutionService", () => {
       await service.finalizeMission(missionId, topicId);
 
       // Assert
-      expect(prisma.researchMission.update).toHaveBeenCalledWith({
-        where: { id: missionId },
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: missionId,
+          status: { not: ResearchMissionStatus.CANCELLED },
+        },
         data: expect.objectContaining({
           status: ResearchMissionStatus.COMPLETED, // Partial success counts as success
           completedTasks: 1,
@@ -440,7 +442,7 @@ describe("MissionExecutionService", () => {
       await service.finalizeMission(missionId, topicId);
 
       // Assert
-      expect(prisma.researchMission.update).not.toHaveBeenCalled();
+      expect(prisma.researchMission.updateMany).not.toHaveBeenCalled();
       expect(queryService.emitProgress).not.toHaveBeenCalled();
     });
 

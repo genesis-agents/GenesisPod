@@ -1042,7 +1042,7 @@ describe("SkillLoaderService", () => {
   // -------------------------------------------------------------------------
 
   describe("getSkillsForTask — additionalSkillIds token budget", () => {
-    it("additionalSkillId 超出 token 预算时被跳过", async () => {
+    it("additionalSkillId 优先于 domain skill，domain skill 超出预算时被跳过", async () => {
       mockEstimateTokens.mockReturnValue(400);
 
       const domainSkill = makeSkillDefinition("domain-skill", "writing");
@@ -1051,14 +1051,16 @@ describe("SkillLoaderService", () => {
       service.registerSkill(domainSkill);
       service.registerSkill(additionalSkill);
 
-      // Budget 500: domain takes 400, extra would need 400 more → skipped
+      // Budget 500: additionalSkill gets priority (400), domain would need 400 more → domain skipped
       const result = await service.getSkillsForTask({
         domain: "writing",
         additionalSkillIds: ["extra-skill"],
         maxTokenBudget: 500,
       });
 
-      expect(result.some((s) => s.metadata.id === "extra-skill")).toBe(false);
+      // additionalSkills are prioritized over auto-matched domain skills
+      expect(result.some((s) => s.metadata.id === "extra-skill")).toBe(true);
+      expect(result.some((s) => s.metadata.id === "domain-skill")).toBe(false);
     });
 
     it("additionalSkillId 在预算内时被包含", async () => {
