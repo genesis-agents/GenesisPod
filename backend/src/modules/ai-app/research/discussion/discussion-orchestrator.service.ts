@@ -1181,7 +1181,7 @@ export class DiscussionOrchestratorService {
     });
 
     // Auto-correct stale sessions stuck in intermediate states
-    const staleThreshold = 15 * 60 * 1000; // 15 minutes
+    const staleThreshold = 5 * 60 * 1000; // 5 minutes
     const now = Date.now();
     const intermediateStatuses: DeepResearchStatus[] = [
       DeepResearchStatus.IDEATION,

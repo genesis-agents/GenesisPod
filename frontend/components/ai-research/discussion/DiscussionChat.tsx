@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { DiscussionResearchState } from '@/hooks';
+import { ResearchCreationDialog } from '../research-creation-dialog';
+import type { ResearchCreationOptions } from '../research-creation-dialog';
 import { PhaseIndicator } from './PhaseIndicator';
 import { ChatMessage } from './ChatMessage';
 import { PhaseTransition } from './PhaseTransition';
@@ -38,7 +40,7 @@ interface DiscussionChatProps {
   query: string;
   isSearching: boolean;
   sessions: ResearchSession[];
-  onStartResearch: (query: string, mode?: 'single' | 'iterative') => void;
+  onStartResearch: (query: string, options?: ResearchCreationOptions) => void;
   onStop: () => void;
   onViewSession: (session: ResearchSession) => void;
   onDeleteSession: (sessionId: string) => void | Promise<void>;
@@ -77,11 +79,9 @@ export function DiscussionChat({
   const [autoScroll, setAutoScroll] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [researchMode, setResearchMode] = useState<'single' | 'iterative'>(
-    'single'
-  );
   const [feedbackInput, setFeedbackInput] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [showCreationDialog, setShowCreationDialog] = useState(false);
 
   useEffect(() => {
     if (!awaitingFeedback) {
@@ -118,9 +118,16 @@ export function DiscussionChat({
   const handleSubmit = useCallback(() => {
     const trimmed = searchInput.trim();
     if (!trimmed || isSearching) return;
-    setSearchInput('');
-    onStartResearch(trimmed, researchMode);
-  }, [searchInput, isSearching, onStartResearch, researchMode]);
+    setShowCreationDialog(true);
+  }, [searchInput, isSearching]);
+
+  const handleDialogStart = useCallback(
+    (q: string, options: ResearchCreationOptions) => {
+      setSearchInput('');
+      onStartResearch(q, options);
+    },
+    [onStartResearch]
+  );
 
   const handleSendFeedback = useCallback(() => {
     const trimmed = feedbackInput.trim();
@@ -173,38 +180,6 @@ export function DiscussionChat({
                 <Sparkles className="h-4 w-4" />
                 研究
               </button>
-            </div>
-            {/* Research mode toggle */}
-            <div className="mt-2 flex items-center gap-3">
-              <button
-                onClick={() => setResearchMode('single')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
-                  researchMode === 'single'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                )}
-              >
-                <Search className="h-3 w-3" />
-                单次研究
-              </button>
-              <button
-                onClick={() => setResearchMode('iterative')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
-                  researchMode === 'iterative'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                )}
-              >
-                <RefreshCw className="h-3 w-3" />
-                迭代研究
-              </button>
-              {researchMode === 'iterative' && (
-                <span className="text-xs text-gray-400">
-                  自动优化 Demo 直到质量达标
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -283,14 +258,22 @@ export function DiscussionChat({
                                 ? 'bg-green-100 text-green-700'
                                 : session.status === 'FAILED'
                                   ? 'bg-red-100 text-red-700'
-                                  : 'bg-blue-100 text-blue-700'
+                                  : Date.now() -
+                                        new Date(session.createdAt).getTime() >
+                                      5 * 60 * 1000
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-blue-100 text-blue-700'
                             )}
                           >
                             {session.status === 'COMPLETED'
                               ? '已完成'
                               : session.status === 'FAILED'
                                 ? '失败'
-                                : '进行中'}
+                                : Date.now() -
+                                      new Date(session.createdAt).getTime() >
+                                    5 * 60 * 1000
+                                  ? '已中断'
+                                  : '进行中'}
                           </span>
                           <ClientDate
                             date={session.createdAt}
@@ -319,6 +302,14 @@ export function DiscussionChat({
             )}
           </div>
         </div>
+        <ResearchCreationDialog
+          open={showCreationDialog}
+          onClose={() => setShowCreationDialog(false)}
+          query={searchInput}
+          onQueryChange={setSearchInput}
+          onStart={handleDialogStart}
+          language="zh-CN"
+        />
       </div>
     );
   }
@@ -365,12 +356,16 @@ export function DiscussionChat({
                 <h4 className="mb-1 text-sm font-medium text-gray-600">
                   {viewingSession.status === 'FAILED'
                     ? '研究执行失败'
-                    : '讨论记录为空'}
+                    : viewingSession.status !== 'COMPLETED'
+                      ? '研究已中断'
+                      : '讨论记录为空'}
                 </h4>
                 <p className="max-w-xs text-xs text-gray-400">
                   {viewingSession.status === 'FAILED'
                     ? viewingSession.error || '执行过程中发生错误'
-                    : '该研究已完成但未保存讨论消息，请查看报告 Tab'}
+                    : viewingSession.status !== 'COMPLETED'
+                      ? '研究已中断，部分数据请查看迭代/报告 Tab'
+                      : '该研究已完成但未保存讨论消息，请查看报告 Tab'}
                 </p>
               </div>
             ) : (

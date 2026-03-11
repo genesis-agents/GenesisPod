@@ -1,6 +1,5 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { Subject, Observable } from "rxjs";
-import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { DiscussionOrchestratorService } from "../discussion/discussion-orchestrator.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
@@ -55,6 +54,7 @@ export type IterationSSEEvent =
 
 const DEMO_POLL_INTERVAL_MS = 3000;
 const DEMO_POLL_TIMEOUT_MS = 120_000;
+const MAX_ACCUMULATED_IDEAS = 30;
 
 interface RunInnerResult {
   sessionId: string;
@@ -550,6 +550,17 @@ export class IterativeResearchService {
             allCreativeIdeas.push(i);
         });
 
+        // Cap accumulated arrays to prevent OOM on long iterations
+        if (allInsights.length > MAX_ACCUMULATED_IDEAS) {
+          allInsights.splice(0, allInsights.length - MAX_ACCUMULATED_IDEAS);
+        }
+        if (allCreativeIdeas.length > MAX_ACCUMULATED_IDEAS) {
+          allCreativeIdeas.splice(
+            0,
+            allCreativeIdeas.length - MAX_ACCUMULATED_IDEAS,
+          );
+        }
+
         subject.next({
           type: "iteration.ideas",
           data: {
@@ -647,34 +658,30 @@ export class IterativeResearchService {
             }
           }
 
-          // Merge: append intermediate discussion to original session
-          const originalSession =
-            await this.prisma.deepResearchSession.findUnique({
+          // Incremental merge: use PostgreSQL jsonb concat to avoid 3x memory copy
+          if (intermediateDiscussion.length > 0) {
+            await this.prisma.$executeRaw`
+              UPDATE "deep_research_sessions"
+              SET "discussion" = COALESCE("discussion", '[]'::jsonb) || ${JSON.stringify(intermediateDiscussion)}::jsonb,
+                  "report" = ${JSON.stringify(followUp.report)}::jsonb,
+                  "status" = 'SEARCHING',
+                  "updated_at" = NOW()
+              WHERE "id" = ${originalSessionId}
+            `;
+          } else {
+            await this.prisma.deepResearchSession.update({
               where: { id: originalSessionId },
-              select: { discussion: true },
-            });
-          const existingDiscussion =
-            originalSession?.discussion &&
-            Array.isArray(originalSession.discussion)
-              ? (originalSession.discussion as unknown[])
-              : [];
-          const mergedDiscussion = [
-            ...existingDiscussion,
-            ...intermediateDiscussion,
-          ];
-
-          await this.prisma.deepResearchSession.update({
-            where: { id: originalSessionId },
-            data: {
-              report: followUp.report as unknown as Record<string, unknown> & {
-                toJSON(): unknown;
+              data: {
+                report: followUp.report as unknown as Record<
+                  string,
+                  unknown
+                > & {
+                  toJSON(): unknown;
+                },
+                status: "SEARCHING",
               },
-              discussion:
-                mergedDiscussion as unknown as Prisma.InputJsonValue[],
-              // Keep status as SEARCHING during iteration — only set COMPLETED at the end
-              status: "SEARCHING",
-            },
-          });
+            });
+          }
 
           // Reassign ideas from intermediate session to original session before deletion
           if (currentSessionId !== originalSessionId) {
@@ -1425,12 +1432,12 @@ function buildPreviousContext(
   iterationHistory?: string,
 ): StartIterativeResearchDto["previousContext"] {
   return {
-    executiveSummary: report.executiveSummary,
+    executiveSummary: report.executiveSummary?.slice(0, CONTEXT_SUMMARY_MAX),
     sections: report.sections.map((s) => ({
       title: s.title,
-      content: s.content,
+      content: s.content?.slice(0, CONTEXT_SECTION_MAX),
     })),
-    conclusion: report.conclusion,
+    conclusion: report.conclusion?.slice(0, CONTEXT_CONCLUSION_MAX),
     references: report.references.map((r) => ({
       title: r.title,
       url: r.url,
@@ -1438,6 +1445,10 @@ function buildPreviousContext(
     iterationHistory,
   };
 }
+
+const CONTEXT_SECTION_MAX = 500;
+const CONTEXT_SUMMARY_MAX = 1000;
+const CONTEXT_CONCLUSION_MAX = 500;
 
 /** Max total length for the assembled iteration history injected into context */
 const ITERATION_HISTORY_MAX_LENGTH = 2000;
