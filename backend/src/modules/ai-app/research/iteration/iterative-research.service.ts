@@ -35,7 +35,12 @@ import type {
 
 export interface IterationSessionEvent {
   type: "iteration.session";
-  data: { sessionId: string };
+  data: {
+    sessionId: string;
+    maxIterations?: number;
+    qualityThreshold?: number;
+    depth?: string;
+  };
 }
 
 export type IterationSSEEvent =
@@ -223,12 +228,25 @@ export class IterativeResearchService {
       report.executiveSummary,
     );
 
-    // Extract initial ideas
+    // Extract initial ideas (insights)
     const initialIdeas = await this.extractIdeas(userId, projectId, sessionId);
     const allInsights = initialIdeas.filter((i) => i.type === "INSIGHT");
     const allCreativeIdeas = initialIdeas.filter(
       (i) => i.type === "CREATIVE_IDEA",
     );
+
+    // P0-3: Also extract creative ideas from insights (they are NEVER auto-extracted
+    // by extractFromSession which only produces INSIGHTs).
+    if (allInsights.length > 0) {
+      const creativeIdeas = await this.extractCreativeIdeasSafe(
+        userId,
+        projectId,
+      );
+      creativeIdeas.forEach((i) => {
+        if (!allCreativeIdeas.some((x) => x.id === i.id))
+          allCreativeIdeas.push(i);
+      });
+    }
 
     // Emit ideas event for round 0
     subject.next({
@@ -254,10 +272,16 @@ export class IterativeResearchService {
     let currentSessionId = sessionId;
     const originalSessionId = sessionId; // Never changes - all iteration data saved here
 
-    // P0 #1: Notify frontend of sessionId immediately so it can save on early error
+    // P0 #1: Notify frontend of sessionId + config immediately so it can save on early error
+    // P1 #4: Include maxIterations and qualityThreshold so frontend doesn't hardcode
     subject.next({
       type: "iteration.session",
-      data: { sessionId: originalSessionId },
+      data: {
+        sessionId: originalSessionId,
+        maxIterations,
+        qualityThreshold: dto.iterationOptions?.qualityThreshold ?? 0.75,
+        depth,
+      },
     } satisfies IterationSessionEvent);
 
     // P1 #4: Emit research event for round 0 so frontend has source data from the start
@@ -504,6 +528,18 @@ export class IterativeResearchService {
         const newCreativeIdeas = newIdeas.filter(
           (i) => i.type === "CREATIVE_IDEA",
         );
+
+        // P0-3: Also re-extract creative ideas from accumulated insights
+        if (newInsights.length > 0) {
+          const freshCreativeIdeas = await this.extractCreativeIdeasSafe(
+            userId,
+            projectId,
+          );
+          freshCreativeIdeas.forEach((i) => {
+            if (!newCreativeIdeas.some((x) => x.id === i.id))
+              newCreativeIdeas.push(i);
+          });
+        }
 
         // Accumulate ideas
         newInsights.forEach((i) => {
@@ -774,7 +810,8 @@ export class IterativeResearchService {
           `[Iterative] Round ${round} failed, exiting loop gracefully: ${message}`,
         );
 
-        exitDecision = { exit: true, reason: "budget_exhausted" };
+        // P0-4: Use "round_error" instead of "budget_exhausted" so the user sees the real reason
+        exitDecision = { exit: true, reason: "round_error" };
         roundErrored = true;
 
         subject.next({
@@ -1073,6 +1110,28 @@ export class IterativeResearchService {
     }
   }
 
+  /**
+   * P0-3: Extract creative ideas from all project insights.
+   * Safe wrapper that never throws — returns empty array on failure.
+   */
+  private async extractCreativeIdeasSafe(
+    userId: string,
+    projectId: string,
+  ): Promise<IdeaItem[]> {
+    if (!this.ideaService) return [];
+    try {
+      return (await this.ideaService.extractCreativeIdeas(
+        userId,
+        projectId,
+      )) as IdeaItem[];
+    } catch (err) {
+      this.logger.warn(
+        `Creative idea extraction failed for project ${projectId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
+  }
+
   private async evaluateDemo(
     html: string,
     ideaPool: { insights: string[]; creativeIdeas: string[] },
@@ -1269,21 +1328,26 @@ function estimateReportQuality(
   const hasConclusion = (report.conclusion?.length ?? 0) > 50;
 
   // Score components (0-1 each, weighted sum)
-  const sectionScore = Math.min(sections.length / 5, 1); // 5+ sections = full marks
-  const refScore = Math.min(refs.length / 20, 1); // 20+ refs = full marks
+  // P1-2: Raised thresholds to prevent inflated scores that trigger premature quality_met exit.
+  // Previously 5 sections / 20 refs / 10K chars easily reached 0.75+; now requires genuinely comprehensive research.
+  const sectionScore = Math.min(sections.length / 8, 1); // 8+ sections = full marks (was 5)
+  const refScore = Math.min(refs.length / 40, 1); // 40+ refs = full marks (was 20)
   const depthScore = Math.min(
-    sections.reduce((sum, s) => sum + (s.content?.length ?? 0), 0) / 10000,
+    sections.reduce((sum, s) => sum + (s.content?.length ?? 0), 0) / 20000,
     1,
-  ); // 10K+ chars = full marks
-  const ideaScore = Math.min(insightCount / 10, 1); // 10+ insights = full marks
+  ); // 20K+ chars = full marks (was 10K)
+  const ideaScore = Math.min(insightCount / 15, 1); // 15+ insights = full marks (was 10)
   const structureScore = (hasSummary ? 0.5 : 0) + (hasConclusion ? 0.5 : 0);
 
-  const baseScore =
+  // P1-2: Apply a conservative ceiling (0.65) to prevent fallback alone from exceeding quality_met thresholds.
+  // Only demo-based evaluation should allow scores above 0.65.
+  const rawScore =
     sectionScore * 0.25 +
     refScore * 0.2 +
     depthScore * 0.25 +
     ideaScore * 0.15 +
     structureScore * 0.15;
+  const baseScore = Math.min(rawScore, 0.65);
 
   // P2 #8: Cross-round incremental improvement bonus (up to 0.1)
   let incrementalBonus = 0;

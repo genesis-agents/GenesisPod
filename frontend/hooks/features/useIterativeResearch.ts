@@ -51,6 +51,12 @@ export interface IterativeResearchState {
     gaps: { dataGaps: string[]; ideaGaps: string[] };
     timeoutMs: number;
   } | null;
+  /** P1-4: Actual max iterations from backend config (no longer hardcoded) */
+  maxIterations: number | null;
+  /** Quality threshold from backend config */
+  qualityThreshold: number | null;
+  /** Research depth from backend config */
+  depth: string | null;
 }
 
 export interface IterativeResearchOptions {
@@ -104,6 +110,9 @@ const initialIterativeState: IterativeResearchState = {
   totalIterations: null,
   isIterating: false,
   awaitingFeedback: null,
+  maxIterations: null,
+  qualityThreshold: null,
+  depth: null,
 };
 
 // ==================== Hook ====================
@@ -300,13 +309,23 @@ export function useIterativeResearch(
         }
 
         case 'iteration.session': {
-          const sessionData = data as { sessionId: string };
+          const sessionData = data as {
+            sessionId: string;
+            maxIterations?: number;
+            qualityThreshold?: number;
+            depth?: string;
+          };
           setState((prev) => ({
             ...prev,
             discussion: {
               ...prev.discussion,
               sessionId: sessionData.sessionId,
             },
+            // P1-4: Capture config from backend instead of hardcoding
+            maxIterations: sessionData.maxIterations ?? prev.maxIterations,
+            qualityThreshold:
+              sessionData.qualityThreshold ?? prev.qualityThreshold,
+            depth: sessionData.depth ?? prev.depth,
           }));
           break;
         }

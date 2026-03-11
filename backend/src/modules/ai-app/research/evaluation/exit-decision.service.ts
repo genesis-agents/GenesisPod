@@ -7,7 +7,8 @@ export interface ExitDecision {
     | "quality_met"
     | "information_saturated"
     | "converged"
-    | "no_gaps";
+    | "no_gaps"
+    | "round_error";
   nextResearchFocus?: string[];
 }
 
@@ -36,8 +37,10 @@ const QUALITY_THRESHOLD: Record<ExitContext["depth"], number> = {
   thorough: 0.85,
 };
 
-const SATURATION_GAIN_THRESHOLD = 0.05;
+const SATURATION_GAIN_THRESHOLD = 0.03;
 const CONVERGENCE_DELTA_THRESHOLD = 0.05;
+/** Minimum completed iterations before saturation/convergence can trigger exit */
+const MIN_ITERATIONS_FOR_EARLY_EXIT = 3;
 
 @Injectable()
 export class ExitDecisionService {
@@ -79,13 +82,23 @@ export class ExitDecisionService {
     }
 
     // 4. Information saturated: this round added very few new unique sources
-    if (informationGain < SATURATION_GAIN_THRESHOLD) {
+    //    P1-1 fix: Only trigger after MIN_ITERATIONS_FOR_EARLY_EXIT completed iterations
+    //    to prevent premature exit when Round 0 finds many sources and Round 1 adds few.
+    if (
+      iteration >= MIN_ITERATIONS_FOR_EARLY_EXIT &&
+      informationGain < SATURATION_GAIN_THRESHOLD
+    ) {
       return { exit: true, reason: "information_saturated" };
     }
 
     // 5. Converged: last 2 score deltas are both below the convergence threshold
     //    Also require a minimum score to prevent early convergence at low quality
-    if (scores.length >= 3 && latestScore >= 0.3) {
+    //    P1-1 fix: Also require MIN_ITERATIONS_FOR_EARLY_EXIT
+    if (
+      scores.length >= 3 &&
+      latestScore >= 0.3 &&
+      iteration >= MIN_ITERATIONS_FOR_EARLY_EXIT
+    ) {
       const delta1 = Math.abs(
         scores[scores.length - 1] - scores[scores.length - 2],
       );

@@ -29,6 +29,10 @@ export interface IterationTimelineProps {
   finalScore: number | null;
   isActive: boolean;
   maxIterations?: number;
+  /** P1-3: Quality threshold from backend config for transparency */
+  qualityThreshold?: number | null;
+  /** P1-3: Research depth from backend config */
+  depth?: string | null;
   awaitingFeedback?: {
     round: number;
     score: number;
@@ -73,8 +77,18 @@ function formatExitReason(reason: string): string {
     converged: '分数收敛',
     completed: '研究完成',
     user_stopped: '用户停止',
+    round_error: '迭代中发生错误，已保存已有成果',
   };
   return map[reason] ?? reason;
+}
+
+function formatDepth(depth: string): string {
+  const map: Record<string, string> = {
+    quick: '快速',
+    standard: '标准',
+    thorough: '深度',
+  };
+  return map[depth] ?? depth;
 }
 
 // ==================== Sub-components ====================
@@ -412,10 +426,7 @@ function MarkdownRecord({ content }: MarkdownRecordProps) {
                       className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
                     >
                       {row.map((cell, ci) => (
-                        <td
-                          key={ci}
-                          className="px-2 py-1 text-gray-600"
-                        >
+                        <td key={ci} className="px-2 py-1 text-gray-600">
                           {cell}
                         </td>
                       ))}
@@ -776,10 +787,12 @@ interface ExitFooterProps {
 }
 
 function ExitFooter({ exitReason, finalScore }: ExitFooterProps) {
+  const isError = exitReason === 'round_error';
   const isSuccess =
-    exitReason === 'quality_met' ||
-    exitReason === 'no_gaps' ||
-    exitReason === 'completed';
+    !isError &&
+    (exitReason === 'quality_met' ||
+      exitReason === 'no_gaps' ||
+      exitReason === 'completed');
 
   return (
     <div className="relative flex gap-4">
@@ -788,9 +801,11 @@ function ExitFooter({ exitReason, finalScore }: ExitFooterProps) {
         <div
           className={cn(
             'flex h-8 w-8 items-center justify-center rounded-full',
-            isSuccess
-              ? 'bg-green-50 text-green-700'
-              : 'bg-muted text-muted-foreground'
+            isError
+              ? 'bg-red-50 text-red-700'
+              : isSuccess
+                ? 'bg-green-50 text-green-700'
+                : 'bg-muted text-muted-foreground'
           )}
         >
           {isSuccess ? (
@@ -805,16 +820,22 @@ function ExitFooter({ exitReason, finalScore }: ExitFooterProps) {
       <div
         className={cn(
           'flex flex-1 items-center gap-3 rounded-lg border px-3 py-2',
-          isSuccess
-            ? 'border-green-200 bg-green-50'
-            : 'border-border bg-muted/30'
+          isError
+            ? 'border-red-200 bg-red-50'
+            : isSuccess
+              ? 'border-green-200 bg-green-50'
+              : 'border-border bg-muted/30'
         )}
       >
         <div>
           <p
             className={cn(
               'text-sm font-semibold',
-              isSuccess ? 'text-green-800' : 'text-foreground'
+              isError
+                ? 'text-red-800'
+                : isSuccess
+                  ? 'text-green-800'
+                  : 'text-foreground'
             )}
           >
             {formatExitReason(exitReason)}
@@ -851,6 +872,8 @@ export function IterationTimeline({
   finalScore,
   isActive,
   maxIterations,
+  qualityThreshold,
+  depth,
   awaitingFeedback,
   onSendFeedback,
   className,
@@ -886,6 +909,44 @@ export function IterationTimeline({
           </span>
         </span>
       </div>
+
+      {/* P1-3: Exit criteria transparency panel */}
+      {(maxIterations || qualityThreshold || depth) && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-500">
+          {depth && (
+            <span>
+              深度:{' '}
+              <span className="font-medium text-gray-700">
+                {formatDepth(depth)}
+              </span>
+            </span>
+          )}
+          {maxIterations && (
+            <span>
+              最大迭代:{' '}
+              <span className="font-medium text-gray-700">
+                {maxIterations} 轮
+              </span>
+            </span>
+          )}
+          {qualityThreshold != null && (
+            <span>
+              质量目标:{' '}
+              <span className="font-medium text-gray-700">
+                {(qualityThreshold * 100).toFixed(0)}%
+              </span>
+            </span>
+          )}
+          {exitReason && (
+            <span className="ml-auto">
+              退出原因:{' '}
+              <span className="font-medium text-gray-700">
+                {formatExitReason(exitReason)}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Score progression summary */}
       {iterations.length > 1 && (

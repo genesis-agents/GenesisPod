@@ -109,6 +109,7 @@ export function ResearchProjectLayout({
   const {
     ideas: insights,
     isLoading: insightsLoading,
+    fetchIdeas: fetchInsights,
     updateIdea: updateInsight,
     extractIdeas: extractInsights,
   } = useResearchIdeas(projectId, 'INSIGHT');
@@ -116,6 +117,7 @@ export function ResearchProjectLayout({
   const {
     ideas: creativeIdeas,
     isLoading: ideasLoading,
+    fetchIdeas: fetchCreativeIdeas,
     updateIdea: updateCreativeIdea,
     extractCreativeIdeas,
   } = useResearchIdeas(projectId, 'CREATIVE_IDEA');
@@ -123,6 +125,7 @@ export function ResearchProjectLayout({
   const {
     demos,
     isLoading: demosLoading,
+    fetchDemos,
     deleteDemo,
     generateDemo,
   } = useResearchDemos(projectId);
@@ -172,6 +175,10 @@ export function ResearchProjectLayout({
     onIterationUpdate: () => {
       // Don't auto-switch tabs - use badges instead (B4)
       setTabBadges((prev) => ({ ...prev, iterations: true }));
+      // P0-2: Refetch ideas/demos data so other tabs auto-update during iteration
+      void fetchInsights();
+      void fetchCreativeIdeas();
+      void fetchDemos();
     },
     onIterationExit: (data) => {
       logger.info(
@@ -879,7 +886,9 @@ export function ResearchProjectLayout({
                               exitReason={iterativeState.exitReason}
                               finalScore={iterativeState.finalScore}
                               isActive={isIterating}
-                              maxIterations={4}
+                              maxIterations={iterativeState.maxIterations ?? 4}
+                              qualityThreshold={iterativeState.qualityThreshold}
+                              depth={iterativeState.depth}
                               awaitingFeedback={iterativeState.awaitingFeedback}
                               onSendFeedback={sendFeedback}
                             />

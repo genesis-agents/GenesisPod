@@ -132,13 +132,23 @@ export class DiscussionController {
       30 * 60 * 1000,
     );
 
-    // 客户端断开连接时清理（但不 unsubscribe — research continues in background）
+    // 客户端断开连接时清理 — 但 NOT unsubscribe，研究继续在后台运行。
+    // P0-1 fix: 之前 subscription.unsubscribe() 会终止后端 Observable，
+    // 导致第二轮迭代时 SSE 断线（Railway/Cloudflare ~60s idle timeout）就终止整个研究。
+    // 现在只标记连接关闭 + 清理 heartbeat，让后端研究独立于 SSE 连接生命周期。
+    // 注意: 保留 30 分钟 timeout 作为安全网 — 防止研究挂死（LLM 调用卡住等）
+    // 导致 subscription 永远泄漏。
     res.on("close", () => {
-      this.logger.log(`Client disconnected from research stream`);
+      this.logger.log(
+        `Client disconnected from research stream (research continues in background)`,
+      );
       connectionOpen = false;
       clearInterval(heartbeat);
-      clearTimeout(timeout);
-      subscription.unsubscribe();
+      // DO NOT clearTimeout(timeout) — keep the 30-minute safety net active.
+      // If the research hangs (e.g. LLM call never returns), the timeout will
+      // force-unsubscribe and clean up the subscription.
+      // DO NOT call subscription.unsubscribe() — let the research Observable run to completion.
+      // The Subject buffers events; the controller just stops writing to the closed response.
     });
   }
 
