@@ -549,10 +549,51 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`[Skills]   Candidates: ${matchedSkills.length} skills`);
 
-    // Token budget trimming
     const skippedSkills: string[] = [];
     let currentTokens = 0;
 
+    // ★ additionalSkills 优先：先预留显式请求的技能预算，再用自动匹配填充剩余空间
+    const prioritySkills: SkillMdDefinition[] = [];
+    if (additionalSkillIds && additionalSkillIds.length > 0) {
+      this.logger.log(
+        `[Skills]   Adding ${additionalSkillIds.length} additional skills (priority): [${additionalSkillIds.join(", ")}]`,
+      );
+
+      for (const skillId of additionalSkillIds) {
+        // 如果自动匹配已包含，提取到优先列表
+        const existingIdx = matchedSkills.findIndex(
+          (s) => s.metadata.id === skillId,
+        );
+        if (existingIdx >= 0) {
+          const [existing] = matchedSkills.splice(existingIdx, 1);
+          const skillTokens =
+            existing.metadata.tokenBudget || estimateTokens(existing.content);
+          if (maxTokenBudget && currentTokens + skillTokens > maxTokenBudget) {
+            skippedSkills.push(`${skillId}(${skillTokens}t)`);
+            continue;
+          }
+          currentTokens += skillTokens;
+          prioritySkills.push(existing);
+          continue;
+        }
+
+        const skill = await this.getSkillById(skillId);
+        if (skill) {
+          const skillTokens =
+            skill.metadata.tokenBudget || estimateTokens(skill.content);
+          if (maxTokenBudget && currentTokens + skillTokens > maxTokenBudget) {
+            skippedSkills.push(`${skillId}(${skillTokens}t)`);
+            continue;
+          }
+          currentTokens += skillTokens;
+          prioritySkills.push(skill);
+        } else {
+          this.logger.warn(`[Skills] Additional skill not found: ${skillId}`);
+        }
+      }
+    }
+
+    // Token budget trimming（剩余预算分配给自动匹配的技能）
     if (maxTokenBudget) {
       const trimmed: SkillMdDefinition[] = [];
       for (const skill of matchedSkills) {
@@ -568,34 +609,8 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
       matchedSkills = trimmed;
     }
 
-    // Additional skill IDs
-    if (additionalSkillIds && additionalSkillIds.length > 0) {
-      this.logger.log(
-        `[Skills]   Adding ${additionalSkillIds.length} additional skills: [${additionalSkillIds.join(", ")}]`,
-      );
-
-      for (const skillId of additionalSkillIds) {
-        if (matchedSkills.some((s) => s.metadata.id === skillId)) {
-          continue;
-        }
-
-        const skill = await this.getSkillById(skillId);
-        if (skill) {
-          if (maxTokenBudget) {
-            const skillTokens =
-              skill.metadata.tokenBudget || estimateTokens(skill.content);
-            if (currentTokens + skillTokens > maxTokenBudget) {
-              skippedSkills.push(`${skillId}(${skillTokens}t)`);
-              continue;
-            }
-            currentTokens += skillTokens;
-          }
-          matchedSkills.push(skill);
-        } else {
-          this.logger.warn(`[Skills] Additional skill not found: ${skillId}`);
-        }
-      }
-    }
+    // 合并：priority skills 在前，自动匹配在后
+    matchedSkills = [...prioritySkills, ...matchedSkills];
 
     // Log results
     const matchedIds = matchedSkills.map((s) => s.metadata.id);
