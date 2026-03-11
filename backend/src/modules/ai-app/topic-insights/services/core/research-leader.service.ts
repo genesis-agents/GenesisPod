@@ -2347,6 +2347,8 @@ ${teamMembersText}`;
             await this.delay(RETRY_DELAY_MS * attempt);
             continue;
           }
+          // ★ 最后一次重试仍为 HTML，跳出循环避免 HTML 被当 JSON 解析
+          break;
         }
 
         const outline = this.extractJsonFromResponse<DimensionOutline>(
@@ -2744,6 +2746,8 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             await this.delay(RETRY_DELAY_MS * attempt);
             continue;
           }
+          // ★ 最后一次重试仍为 HTML，跳出循环避免 HTML 被当 JSON 解析
+          break;
         }
 
         const globalOutline = this.extractJsonFromResponse<GlobalOutline>(
