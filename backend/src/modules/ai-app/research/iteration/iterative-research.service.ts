@@ -247,6 +247,7 @@ export class IterativeResearchService {
     let lastDemoScore: DemoScore | undefined;
     let currentReport = report;
     let currentSessionId = sessionId;
+    const originalSessionId = sessionId; // Never changes - all iteration data saved here
 
     if (demoIdea) {
       subject.next({
@@ -331,7 +332,7 @@ export class IterativeResearchService {
     } satisfies IterationEvalEvent);
 
     // Persist Round 0 snapshot (await to prevent write races with subsequent rounds)
-    await this.saveIterationSnapshot(currentSessionId, {
+    await this.saveIterationSnapshot(originalSessionId, {
       round: 0,
       score: currentScore * 100,
       previousScore: 0,
@@ -519,6 +520,33 @@ export class IterativeResearchService {
       currentReport = followUp.report;
       currentSessionId = followUp.sessionId;
 
+      // Update the original session with the latest report and clean up intermediate session
+      try {
+        await this.prisma.deepResearchSession.update({
+          where: { id: originalSessionId },
+          data: {
+            report: followUp.report as unknown as Record<string, unknown> & {
+              toJSON(): unknown;
+            },
+            status: "COMPLETED",
+          },
+        });
+        // Delete intermediate session (it was just a workspace for this round)
+        if (currentSessionId !== originalSessionId) {
+          await this.prisma.deepResearchSession
+            .delete({
+              where: { id: currentSessionId },
+            })
+            .catch(() => {
+              /* ignore if already deleted */
+            });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Failed to sync report to original session: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // Snapshot actual counts for summary table
       roundSnapshots.push({
         insights: allInsights.length,
@@ -580,7 +608,7 @@ export class IterativeResearchService {
       } satisfies IterationEvalEvent);
 
       // Persist this round's snapshot (await to prevent write races with subsequent rounds)
-      await this.saveIterationSnapshot(currentSessionId, {
+      await this.saveIterationSnapshot(originalSessionId, {
         round,
         score: newScore * 100,
         previousScore: previousScore * 100,
@@ -659,9 +687,9 @@ export class IterativeResearchService {
       iterationRecords.push(summaryMarkdown);
     }
 
-    // Persist iteration records (markdown audit log) and final meta to session
-    await this.saveIterationMetadata(currentSessionId, iterationRecords);
-    await this.saveIterationMeta(currentSessionId, {
+    // Persist iteration records (markdown audit log) and final meta to original session
+    await this.saveIterationMetadata(originalSessionId, iterationRecords);
+    await this.saveIterationMeta(originalSessionId, {
       exitReason: exitDecision.reason ?? "completed",
       finalScore: currentScore * 100,
       totalIterations,
@@ -672,7 +700,7 @@ export class IterativeResearchService {
     if (this.memoryService) {
       void this.memoryService
         .saveSessionMeta({
-          sessionId: currentSessionId,
+          sessionId: originalSessionId,
           userId,
           topicType,
           topicKeywords: extractKeywords(dto.query),
@@ -713,6 +741,7 @@ export class IterativeResearchService {
         reason: exitDecision.reason ?? "completed",
         finalScore: currentScore * 100,
         totalIterations,
+        sessionId: originalSessionId,
       },
     } satisfies IterationExitEvent);
 
@@ -1076,10 +1105,10 @@ function buildFollowUpQuery(
   const gapParts = [...gaps.dataGaps.slice(0, 3), ...gaps.ideaGaps.slice(0, 2)];
 
   if (gapParts.length === 0) {
-    return `${originalQuery} — deeper analysis and additional evidence`;
+    return `${originalQuery} — 需要更深入的分析和额外证据`;
   }
 
-  return `${originalQuery} — focusing on: ${gapParts.join("; ")}`;
+  return `${originalQuery} — 本轮重点: ${gapParts.join("; ")}`;
 }
 
 function buildPreviousContext(

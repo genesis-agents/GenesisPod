@@ -578,9 +578,33 @@ export class DiscussionOrchestratorService {
 
     const op = ORCHESTRATOR_PROMPTS[language];
 
+    // Build a concise summary of previous findings for follow-up rounds
+    let previousFindings: string | undefined;
+    if (isFollowUp && dto.previousContext) {
+      const ctx = dto.previousContext;
+      const parts: string[] = [];
+      if (ctx.executiveSummary) {
+        parts.push(`**核心摘要**: ${ctx.executiveSummary.slice(0, 500)}`);
+      }
+      if (ctx.sections && ctx.sections.length > 0) {
+        const sectionSummary = ctx.sections
+          .map(
+            (s: { title: string; content: string }) =>
+              `- ${s.title}: ${s.content.slice(0, 150)}...`,
+          )
+          .slice(0, 5)
+          .join("\n");
+        parts.push(`**已研究章节**:\n${sectionSummary}`);
+      }
+      if (ctx.conclusion) {
+        parts.push(`**结论**: ${ctx.conclusion.slice(0, 300)}`);
+      }
+      previousFindings = parts.join("\n\n");
+    }
+
     // Round 1: 总监开场
     const directorOpener = isFollowUp
-      ? op.directorOpenerFollowUp(dto.query)
+      ? op.directorOpenerFollowUp(dto.query, previousFindings)
       : op.directorOpener(dto.query);
 
     this.emitTyping(subject, director);

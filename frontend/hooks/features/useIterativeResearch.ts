@@ -74,6 +74,7 @@ export interface UseIterativeResearchOptions {
     reason: string;
     finalScore: number;
     totalIterations: number;
+    sessionId?: string;
   }) => void;
   onStreamEndIncomplete?: () => void;
 }
@@ -540,6 +541,7 @@ export function useIterativeResearch(
             reason: string;
             finalScore: number;
             totalIterations: number;
+            sessionId?: string;
           };
           // Capture report/sessionId synchronously via setState updater,
           // then fire callbacks outside to avoid side-effects in updater.
@@ -547,12 +549,14 @@ export function useIterativeResearch(
           let capturedSessionId: string | null = null;
           setState((prev) => {
             capturedReport = prev.discussion.report;
-            capturedSessionId = prev.discussion.sessionId;
+            // Prefer the authoritative originalSessionId from the exit event
+            capturedSessionId = exitData.sessionId ?? prev.discussion.sessionId;
             return {
               ...prev,
               discussion: {
                 ...prev.discussion,
                 phase: 'completed' as DiscussionPhase,
+                sessionId: capturedSessionId,
                 typingAgent: null,
               },
               exitReason: exitData.reason,
@@ -786,16 +790,25 @@ export function useIterativeResearch(
 
   const stop = useCallback(() => {
     cleanup();
-    setState((prev) => ({
-      ...prev,
-      discussion: {
-        ...prev.discussion,
-        phase: prev.discussion.phase === 'idle' ? 'idle' : 'error',
-        error: prev.discussion.phase !== 'idle' ? '研究已取消' : null,
-        typingAgent: null,
-      },
-      isIterating: false,
-    }));
+    setState((prev) => {
+      // Trigger recovery polling if research was actually running
+      if (
+        prev.discussion.phase !== 'idle' &&
+        prev.discussion.phase !== 'completed'
+      ) {
+        callbacksRef.current?.onStreamEndIncomplete?.();
+      }
+      return {
+        ...prev,
+        discussion: {
+          ...prev.discussion,
+          phase: prev.discussion.phase === 'idle' ? 'idle' : 'error',
+          error: prev.discussion.phase !== 'idle' ? '研究已取消' : null,
+          typingAgent: null,
+        },
+        isIterating: false,
+      };
+    });
   }, [cleanup]);
 
   const reset = useCallback(() => {

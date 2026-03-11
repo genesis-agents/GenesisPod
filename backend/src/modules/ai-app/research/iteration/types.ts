@@ -114,7 +114,12 @@ export interface IterationEvalEvent {
 
 export interface IterationExitEvent {
   type: "iteration.exit";
-  data: { reason: string; finalScore: number; totalIterations: number };
+  data: {
+    reason: string;
+    finalScore: number;
+    totalIterations: number;
+    sessionId?: string;
+  };
 }
 
 export interface IterationAwaitingFeedbackEvent {

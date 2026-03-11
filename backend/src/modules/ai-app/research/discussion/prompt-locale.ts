@@ -266,7 +266,10 @@ export const ORCHESTRATOR_PROMPTS: Record<
   ResearchLanguage,
   {
     directorOpener: (query: string) => string;
-    directorOpenerFollowUp: (query: string) => string;
+    directorOpenerFollowUp: (
+      query: string,
+      previousFindings?: string,
+    ) => string;
     researcherIdeation: (directorResponse: string) => string;
     analystCritique: (
       directorResponse: string,
@@ -314,8 +317,17 @@ export const ORCHESTRATOR_PROMPTS: Record<
 ### 研究框架
 - 方向1
 - 方向2`,
-    directorOpenerFollowUp: (query) =>
-      `基于之前的研究，我们来深入探讨这个追问："${query}"。请分析这个新课题需要从哪些角度深入研究。
+    directorOpenerFollowUp: (query, previousFindings) =>
+      `基于前一轮的研究发现，我们需要继续深入。
+
+${previousFindings ? `## 前一轮关键发现\n${previousFindings}\n` : ""}
+## 本轮研究方向
+"${query}"
+
+请分析：
+1. 前一轮研究中哪些方面已经充分覆盖，不需要重复
+2. 哪些方面仍有明显差距，需要本轮重点深入
+3. 提出 3-4 个本轮具体研究方向
 
 请使用 Markdown 格式组织输出，用 ### 标记主要板块，用 - 列举要点。`,
     researcherIdeation: (directorResponse) =>
@@ -431,8 +443,17 @@ Use Markdown formatting: ### for major sections, - for bullet points. For exampl
 ### Research Framework
 - Direction 1
 - Direction 2`,
-    directorOpenerFollowUp: (query) =>
-      `Building on our previous research, let's dive deeper into this follow-up question: "${query}". Please analyze what angles need further investigation.
+    directorOpenerFollowUp: (query, previousFindings) =>
+      `Building on our previous research findings, we need to go deeper.
+
+${previousFindings ? `## Previous Key Findings\n${previousFindings}\n` : ""}
+## This Round's Focus
+"${query}"
+
+Please analyze:
+1. What was well-covered in previous rounds (avoid repetition)
+2. What gaps remain that need deeper investigation
+3. Propose 3-4 specific research directions for this round
 
 Use Markdown formatting: ### for major sections, - for bullet points.`,
     researcherIdeation: (directorResponse) =>
