@@ -238,11 +238,11 @@ export class IterativeResearchService {
     // Generate initial demo
     const demoIdea = allCreativeIdeas[0] ?? allInsights[0];
     let currentScore = 0;
-    // Default gaps ensure iteration continues even if demo evaluation fails.
-    // Without this, empty gaps trigger an immediate "no_gaps" exit.
+    // Empty defaults are safe: exit-decision guard (iteration <= 1 → no exit)
+    // prevents premature no_gaps exit before real evaluation runs.
     let currentGaps: { dataGaps: string[]; ideaGaps: string[] } = {
-      dataGaps: ["Needs deeper evidence and data sources"],
-      ideaGaps: ["Explore additional creative angles"],
+      dataGaps: [],
+      ideaGaps: [],
     };
     let lastDemoScore: DemoScore | undefined;
     let currentReport = report;
@@ -912,17 +912,11 @@ export class IterativeResearchService {
         insightDensity: 0.5,
         dataCompleteness: 0.5,
         interactionQuality: 0.5,
-        gaps: {
-          dataGaps: ["Needs deeper evidence and data sources"],
-          ideaGaps: ["Explore additional creative angles"],
-        },
+        gaps: { dataGaps: [], ideaGaps: [] },
         topicTypeMatch: true,
       },
       composite: 0.5,
-      gaps: {
-        dataGaps: ["Needs deeper evidence and data sources"],
-        ideaGaps: ["Explore additional creative angles"],
-      },
+      gaps: { dataGaps: [], ideaGaps: [] },
     };
 
     if (!this.demoEvaluator) return fallback;
