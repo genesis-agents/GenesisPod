@@ -1563,8 +1563,11 @@ export class MissionExecutionService {
       ? ResearchMissionStatus.COMPLETED
       : ResearchMissionStatus.FAILED;
 
-    await this.prisma.researchMission.update({
-      where: { id: missionId },
+    await this.prisma.researchMission.updateMany({
+      where: {
+        id: missionId,
+        status: { not: ResearchMissionStatus.CANCELLED },
+      },
       data: {
         status: finalStatus,
         completedTasks: completedTasks.length,

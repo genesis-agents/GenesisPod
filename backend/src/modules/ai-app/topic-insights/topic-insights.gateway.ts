@@ -439,6 +439,21 @@ export class TopicInsightsGateway
     );
 
     try {
+      // ★ Security: 验证 topic 访问权限
+      const topic = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { userId: true },
+      });
+
+      if (!topic || topic.userId !== user.id) {
+        return {
+          success: false,
+          needsRecovery: false,
+          currentState: null,
+          error: "Access denied",
+        };
+      }
+
       // 1. 查询当前 Mission 状态
       const mission = await this.prisma.researchMission.findFirst({
         where: { topicId },
@@ -504,7 +519,7 @@ export class TopicInsightsGateway
         success: false,
         needsRecovery: false,
         currentState: null,
-        error: errorMessage,
+        error: "Internal error",
       };
     }
   }

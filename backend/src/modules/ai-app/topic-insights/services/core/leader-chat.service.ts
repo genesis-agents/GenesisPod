@@ -120,8 +120,14 @@ export class LeaderChatService {
     );
 
     // 0. 使用 AI Engine 的意图检测服务进行快速预检测
+    if (!this.agentFacade.intentDetector) {
+      this.logger.warn(
+        "[handleUserMessage] intentDetector not available, skipping intent detection",
+      );
+      return { response: "意图检测服务不可用，请稍后重试" };
+    }
     const intentResult =
-      this.agentFacade.intentDetector!.detectIntent(sanitizedMessage);
+      this.agentFacade.intentDetector.detectIntent(sanitizedMessage);
     this.logger.log(
       `[handleUserMessage] Intent detected: ${intentResult.intent} (confidence: ${intentResult.confidence})`,
     );
@@ -454,9 +460,8 @@ export class LeaderChatService {
       }
     }
 
-    // ★ Fix: 代码级别的删除意图检测和强制执行
-    // 如果用户消息明确包含删除意图但 AI 没有输出 DELETE_DIMENSION action，强制执行
-    const deleteKeywords = ["删除", "移除", "取消", "去掉", "不要"];
+    // ★ 删除意图由 LLM 结构化输出处理，不再使用关键词 fallback（防止误删）
+    const deleteKeywords = ["删除", "移除"];
     const hasDeleteIntent = deleteKeywords.some((kw) =>
       sanitizedMessage.includes(kw),
     );
@@ -466,57 +471,8 @@ export class LeaderChatService {
 
     if (hasDeleteIntent && !hasDeleteAction) {
       this.logger.warn(
-        `[handleUserMessage] Detected delete intent but no DELETE_DIMENSION action, attempting fallback delete`,
+        `[handleUserMessage] User message contains delete keywords but LLM did not produce DELETE_DIMENSION action. Skipping fallback delete for safety.`,
       );
-
-      // 尝试从消息中提取维度名称
-      // 模式: "删除维度：X" / "删除 X 维度" / "把 X 删除" / "删除「X」"
-      const dimensionPatterns = [
-        /删除[维度章节]*[：:「\s]*([^」\s,，。]+)/,
-        /移除[维度章节]*[：:「\s]*([^」\s,，。]+)/,
-        /把[「\s]*([^」\s,，。]+)[」\s]*删除/,
-        /不要[「\s]*([^」\s,，。]+)/,
-        /取消[「\s]*([^」\s,，。]+)/,
-      ];
-
-      let extractedDimensionName: string | null = null;
-      for (const pattern of dimensionPatterns) {
-        const match = sanitizedMessage.match(pattern);
-        if (match && match[1]) {
-          extractedDimensionName = match[1].replace(/[「」]/g, "").trim();
-          break;
-        }
-      }
-
-      if (extractedDimensionName) {
-        this.logger.log(
-          `[handleUserMessage] Fallback: Attempting to delete dimension "${extractedDimensionName}"`,
-        );
-
-        try {
-          const deleteResult = await this.leaderToolService.deleteDimension({
-            topicId,
-            dimensionName: extractedDimensionName,
-          });
-          actionResults.push(deleteResult);
-
-          if (deleteResult.success) {
-            this.logger.log(
-              `[handleUserMessage] Fallback delete successful: ${deleteResult.message}`,
-            );
-            // 更新响应以反映删除操作
-            result.response = deleteResult.message;
-          }
-        } catch (error) {
-          this.logger.error(
-            `[handleUserMessage] Fallback delete failed: ${error}`,
-          );
-        }
-      } else {
-        this.logger.warn(
-          `[handleUserMessage] Could not extract dimension name from delete intent`,
-        );
-      }
     }
 
     // 10. 记录决策（包含动作执行结果）

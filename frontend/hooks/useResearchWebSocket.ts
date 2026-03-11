@@ -168,6 +168,10 @@ export function useResearchWebSocket(
   const connectingRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // ★ Ref that always reflects the latest error value, used inside connect()
+  // to avoid stale closure capture when connect is recreated.
+  const errorRef = useRef(error);
+  errorRef.current = error;
 
   // 状态
   const [progress, setProgress] = useState(0);
@@ -310,7 +314,8 @@ export function useResearchWebSocket(
       logger.error('[ResearchWS] Connection error:', err.message);
       connectingRef.current = false;
       // 只在首次失败时设置错误，避免频繁更新状态导致闪烁
-      if (!error) {
+      // Use errorRef.current instead of error to avoid stale closure
+      if (!errorRef.current) {
         setError(`WebSocket 连接失败`);
       }
     });
@@ -508,7 +513,11 @@ export function useResearchWebSocket(
     });
 
     socketRef.current = socket;
-  }, [topicId, error]);
+    // error is intentionally excluded: we use errorRef.current inside the
+    // callback to read the latest value without recreating the socket on each
+    // error state change (which would cause a reconnect loop).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicId]);
 
   // 断开连接
   const disconnect = useCallback(() => {

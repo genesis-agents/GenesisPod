@@ -649,7 +649,7 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
 
             // If completed, fetch the latest report
             if (status.status === 'COMPLETED') {
-              get().fetchLatestReport(topicId);
+              void get().fetchLatestReport(topicId);
             }
           }
         }

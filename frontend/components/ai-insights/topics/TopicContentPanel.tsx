@@ -468,6 +468,15 @@ export function TopicContentPanel({
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [regenerateFeedback, setRegenerateFeedback] = useState('');
 
+  // ★ 组件挂载状态 ref，防止 doRegenerate 轮询在组件卸载后继续执行
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // ★ 重新生成报告处理函数（异步：后端立即返回 202，前端轮询等待完成）
   const doRegenerate = useCallback(
     async (feedback?: string) => {
@@ -489,11 +498,15 @@ export function TopicContentPanel({
         // 轮询等待报告生成完成（generatedAt 变化表示完成）
         const maxAttempts = 40; // 最多等待 ~2 分钟
         for (let i = 0; i < maxAttempts; i++) {
+          if (!isMountedRef.current) return;
           await new Promise((r) => setTimeout(r, 3000));
+          if (!isMountedRef.current) return;
           try {
             const updated = await getReport(topicId, report.id);
             if (updated.generatedAt !== beforeGeneratedAt) {
-              window.location.reload();
+              if (isMountedRef.current) {
+                window.location.reload();
+              }
               return;
             }
           } catch {
@@ -501,7 +514,9 @@ export function TopicContentPanel({
           }
         }
         // 超时后也刷新（可能已完成）
-        window.location.reload();
+        if (isMountedRef.current) {
+          window.location.reload();
+        }
       } catch (error) {
         logger.error('Failed to regenerate report:', error);
         setToast({

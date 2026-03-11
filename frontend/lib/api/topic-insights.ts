@@ -284,6 +284,11 @@ export function createRefreshProgressStream(
   const tokens = getAuthTokens();
   const url = `${API_BASE}${API_PREFIX}/topics/${topicId}/refresh/progress`;
 
+  // SECURITY: EventSource API does not support custom headers, so the JWT
+  // token must be passed as a URL query parameter. This is a known limitation
+  // of the EventSource spec. TODO: Replace with a one-time SSE ticket endpoint
+  // (POST /auth/sse-ticket → short-lived token) to avoid long-lived JWT exposure
+  // in server logs and browser history.
   const eventSource = new EventSource(
     `${url}${tokens?.accessToken ? `?token=${tokens.accessToken}` : ''}`
   );
