@@ -1151,6 +1151,17 @@ function buildPreviousContext(
   };
 }
 
+/** Max total length for the assembled iteration history injected into context */
+const ITERATION_HISTORY_MAX_LENGTH = 2000;
+/** Max feedback entries to keep (most recent) */
+const MAX_FEEDBACK_ENTRIES = 3;
+/** Max chars per feedback entry */
+const MAX_FEEDBACK_ENTRY_LENGTH = 200;
+/** Max chars per iteration record */
+const MAX_RECORD_LENGTH = 500;
+/** Max recent records to include */
+const MAX_RECENT_RECORDS = 2;
+
 function buildIterationHistory(
   records: string[],
   scores: number[],
@@ -1158,7 +1169,7 @@ function buildIterationHistory(
 ): string {
   const parts: string[] = [];
 
-  // Score trajectory
+  // Score trajectory — compact, always include all (grows ~30 chars/round)
   if (scores.length > 0) {
     const trajectory = scores
       .map((s, i) => `Round ${i}: ${(s * 100).toFixed(0)}%`)
@@ -1166,23 +1177,46 @@ function buildIterationHistory(
     parts.push(`## 分数轨迹\n${trajectory}`);
   }
 
-  // User feedback history
+  // User feedback — keep recent N entries, truncate each to preserve signal density
   if (userFeedbackHistory.length > 0) {
-    const fbLines = userFeedbackHistory
-      .map((f, i) => `- Round ${i}: ${f}`)
+    const recentFeedback = userFeedbackHistory.slice(-MAX_FEEDBACK_ENTRIES);
+    const startIdx = userFeedbackHistory.length - recentFeedback.length;
+    const fbLines = recentFeedback
+      .map((f, i) => {
+        const roundIdx = startIdx + i;
+        const trimmed = f.length > MAX_FEEDBACK_ENTRY_LENGTH
+          ? f.slice(0, MAX_FEEDBACK_ENTRY_LENGTH) + "..."
+          : f;
+        return `- Round ${roundIdx}: ${trimmed}`;
+      })
       .join("\n");
     parts.push(`## 用户反馈历史\n${fbLines}`);
   }
 
-  // Condensed iteration records (use last 2 records max to keep context window manageable)
-  const recentRecords = records.slice(-2);
+  // Condensed iteration records — last N records, each truncated
+  const recentRecords = records.slice(-MAX_RECENT_RECORDS);
   if (recentRecords.length > 0) {
-    // Truncate each record to ~500 chars to avoid bloating context
-    const condensed = recentRecords.map((r) => r.slice(0, 500)).join("\n---\n");
+    const condensed = recentRecords
+      .map((r) =>
+        r.length > MAX_RECORD_LENGTH
+          ? r.slice(0, MAX_RECORD_LENGTH) + "..."
+          : r,
+      )
+      .join("\n---\n");
     parts.push(`## 近期迭代记录\n${condensed}`);
   }
 
-  return parts.join("\n\n");
+  const result = parts.join("\n\n");
+
+  // Final safety cap — truncate at sentence boundary when possible
+  if (result.length <= ITERATION_HISTORY_MAX_LENGTH) {
+    return result;
+  }
+  const truncated = result.slice(0, ITERATION_HISTORY_MAX_LENGTH);
+  const lastNewline = truncated.lastIndexOf("\n");
+  return lastNewline > ITERATION_HISTORY_MAX_LENGTH * 0.8
+    ? truncated.slice(0, lastNewline) + "\n[...已截断]"
+    : truncated + "\n[...已截断]";
 }
 
 function extractKeywords(query: string): string[] {

@@ -600,7 +600,12 @@ export class DiscussionOrchestratorService {
         parts.push(`**结论**: ${ctx.conclusion.slice(0, 300)}`);
       }
       if (ctx.iterationHistory) {
-        parts.push(`**迭代历史**:\n${ctx.iterationHistory}`);
+        // Cap iteration history to prevent context bloat (already pre-truncated
+        // by buildIterationHistory, this is a second safety net)
+        const cappedHistory = ctx.iterationHistory.length > 2000
+          ? ctx.iterationHistory.slice(0, 2000) + "\n[...已截断]"
+          : ctx.iterationHistory;
+        parts.push(`**迭代历史**:\n${cappedHistory}`);
       }
       previousFindings = parts.join("\n\n");
     }
