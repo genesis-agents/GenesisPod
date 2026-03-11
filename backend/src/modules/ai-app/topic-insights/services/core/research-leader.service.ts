@@ -1088,28 +1088,53 @@ export class ResearchLeaderService {
     ).replace("{sectionId}", sectionId);
 
     try {
-      const response = await this.chatFacade.chat({
-        messages: [
-          {
-            role: "system",
-            content:
-              "你是事实核查专家，精确提取可验证的事实断言。请输出 JSON 格式。",
+      const result = await this.chatFacade.chatStructured<{
+        claims: import("../../types/v5-research.types").ExtractedClaim[];
+      }>({
+        messages: [{ role: "user", content: prompt }],
+        systemPrompt: "你是事实核查专家，精确提取可验证的事实断言。",
+        schema: {
+          type: "object",
+          properties: {
+            claims: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  statement: { type: "string" },
+                  sectionId: { type: "string" },
+                  sourceEvidenceIndices: {
+                    type: "array",
+                    items: { type: "number" },
+                  },
+                  importance: {
+                    type: "string",
+                    enum: ["high", "medium", "low"],
+                  },
+                },
+                required: [
+                  "id",
+                  "statement",
+                  "sectionId",
+                  "sourceEvidenceIndices",
+                  "importance",
+                ],
+              },
+            },
           },
-          { role: "user", content: prompt },
-        ],
+          required: ["claims"],
+        },
         modelType: AIModelType.CHAT_FAST,
-        skipGuardrails: true, // 内部系统调用，研究内容可能触发误报
+        skipGuardrails: true,
+        throwOnParseError: false,
         taskProfile: {
           creativity: "deterministic",
           outputLength: "medium",
         },
       });
 
-      const result = extractJsonFromAIResponse<{
-        claims: import("../../types/v5-research.types").ExtractedClaim[];
-      }>(response.content, { requiredKey: "claims" });
-
-      if (result.success && result.data?.claims) {
+      if (result.data?.claims) {
         this.logger.log(
           `[extractClaims] Extracted ${result.data.claims.length} claims from section ${sectionId}`,
         );
@@ -1117,7 +1142,7 @@ export class ResearchLeaderService {
       }
 
       this.logger.warn(
-        `[extractClaims] Failed to parse claims for section ${sectionId}. Extraction error: ${result.error || "unknown"}. Raw (first 300 chars): ${response.content.slice(0, 300)}`,
+        `[extractClaims] Failed to parse claims for section ${sectionId}. Raw (first 300 chars): ${result.rawContent?.slice(0, 300)}`,
       );
       return [];
     } catch (error) {
@@ -1152,27 +1177,56 @@ export class ResearchLeaderService {
     ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
 
     try {
-      const response = await this.chatFacade.chat({
-        messages: [
-          {
-            role: "system",
-            content: "你是研究方法论专家，严谨验证研究假设。请输出 JSON 格式。",
+      const result = await this.chatFacade.chatStructured<{
+        results: import("../../types/v5-research.types").HypothesisVerificationResult[];
+      }>({
+        messages: [{ role: "user", content: prompt }],
+        systemPrompt: "你是研究方法论专家，严谨验证研究假设。",
+        schema: {
+          type: "object",
+          properties: {
+            results: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  hypothesisId: { type: "string" },
+                  status: {
+                    type: "string",
+                    enum: [
+                      "supported",
+                      "refuted",
+                      "partially_supported",
+                      "inconclusive",
+                    ],
+                  },
+                  supportingEvidence: { type: "string" },
+                  contradictingEvidence: { type: "string" },
+                  confidence: { type: "number" },
+                  refinedStatement: { type: "string" },
+                },
+                required: [
+                  "hypothesisId",
+                  "status",
+                  "supportingEvidence",
+                  "contradictingEvidence",
+                  "confidence",
+                ],
+              },
+            },
           },
-          { role: "user", content: prompt },
-        ],
+          required: ["results"],
+        },
         modelType: AIModelType.CHAT_FAST,
-        skipGuardrails: true, // 内部系统调用，证据数据可能触发误报
+        skipGuardrails: true,
+        throwOnParseError: false,
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
         },
       });
 
-      const result = extractJsonFromAIResponse<{
-        results: import("../../types/v5-research.types").HypothesisVerificationResult[];
-      }>(response.content, { requiredKey: "results" });
-
-      if (result.success && result.data?.results) {
+      if (result.data?.results) {
         this.logger.log(
           `[verifyHypotheses] Verified ${result.data.results.length} hypotheses`,
         );
