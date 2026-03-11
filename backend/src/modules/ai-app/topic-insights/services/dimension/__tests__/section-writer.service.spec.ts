@@ -1579,8 +1579,9 @@ describe("SectionWriterService", () => {
       expect(result[0].caption).toBe("Revenue Trend 2024");
     });
 
-    it("should filter out refs still missing imageUrl after backfill (key behavior)", () => {
+    it("should use Level 3 fallback when no exact key match exists", () => {
       // Ref has no imageUrl and no matching allocated figure (key mismatch)
+      // Level 3 fallback should assign the unused allocated figure
       const refs = [
         makeFigureRef({
           evidenceCitationIndex: 5,
@@ -1598,7 +1599,23 @@ describe("SectionWriterService", () => {
 
       const result = (service as any).backfillFigureUrls(refs, allocated);
 
-      // No match found => imageUrl still undefined => filtered out
+      // Level 3 fallback: unused allocated figure is assigned
+      expect(result).toHaveLength(1);
+      expect(result[0].imageUrl).toBe("https://example.com/other.png");
+    });
+
+    it("should filter out refs when no allocated figures available at all", () => {
+      const refs = [
+        makeFigureRef({
+          evidenceCitationIndex: 5,
+          figureIndex: 0,
+          imageUrl: undefined,
+        }),
+      ];
+
+      const result = (service as any).backfillFigureUrls(refs, []);
+
+      // No allocated figures => no fallback possible => filtered out
       expect(result).toHaveLength(0);
     });
 
