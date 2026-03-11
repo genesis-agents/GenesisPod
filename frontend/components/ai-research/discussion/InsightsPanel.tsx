@@ -48,6 +48,7 @@ interface InsightsPanelProps {
   ) => void;
   onExtractIdeas?: (sessionId: string) => void;
   activeSessionId?: string | null;
+  sessions?: Array<{ id: string; query: string }>;
   className?: string;
 }
 
@@ -139,15 +140,21 @@ export function InsightsPanel({
   onUpdateIdea,
   onExtractIdeas,
   activeSessionId,
+  sessions,
   className,
 }: InsightsPanelProps) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [sessionFilter, setSessionFilter] = useState<string>('all');
 
   const filteredIdeas = useMemo(() => {
-    if (filter === 'all') return ideas;
-    return ideas.filter((idea) => idea.status === filter);
-  }, [ideas, filter]);
+    let result =
+      filter === 'all' ? ideas : ideas.filter((idea) => idea.status === filter);
+    if (sessionFilter !== 'all') {
+      result = result.filter((idea) => idea.sessionId === sessionFilter);
+    }
+    return result;
+  }, [ideas, filter, sessionFilter]);
 
   const stats = useMemo(() => {
     const starred = ideas.filter((i) => i.status === 'STARRED').length;
@@ -273,6 +280,25 @@ export function InsightsPanel({
           />
         </div>
       </div>
+
+      {/* Session filter */}
+      {sessions && sessions.length > 1 && (
+        <div className="flex items-center gap-2">
+          <select
+            value={sessionFilter}
+            onChange={(e) => setSessionFilter(e.target.value)}
+            className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-purple-400 focus:outline-none"
+          >
+            <option value="all">全部研究</option>
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.query.slice(0, 30)}
+                {s.query.length > 30 ? '...' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">

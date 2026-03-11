@@ -22,6 +22,7 @@ import {
   Minimize2,
   Loader2,
   RefreshCw,
+  Link,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
@@ -39,6 +40,7 @@ import { InsightsPanel } from './discussion/InsightsPanel';
 import { IdeasPanel } from './discussion/IdeasPanel';
 import { DemosPanel } from './discussion/DemosPanel';
 import { ReportPanel } from './discussion/ReportPanel';
+import { ReferencesPanel } from './discussion/ReferencesPanel';
 import { IterationTimeline } from './iteration/IterationTimeline';
 
 // ==================== Types ====================
@@ -56,7 +58,8 @@ type TabKey =
   | 'ideas'
   | 'demos'
   | 'iterations'
-  | 'report';
+  | 'report'
+  | 'references';
 
 interface TabDefinition {
   key: TabKey;
@@ -512,6 +515,11 @@ export function ResearchProjectLayout({
       label: t('aiResearch.tabs.report') || '报告',
       icon: FileText,
     },
+    {
+      key: 'references',
+      label: t('aiResearch.tabs.references') || '参考来源',
+      icon: Link,
+    },
   ];
 
   return (
@@ -711,6 +719,10 @@ export function ResearchProjectLayout({
                         onUpdateIdea={handleUpdateInsight}
                         onExtractIdeas={handleExtractInsights}
                         activeSessionId={activeSessionId}
+                        sessions={sessions.map((s) => ({
+                          id: s.id,
+                          query: s.query,
+                        }))}
                       />
                     </div>
                   </div>
@@ -729,6 +741,10 @@ export function ResearchProjectLayout({
                         onGenerateDemo={handleGenerateDemo}
                         generatingIdeaId={generatingIdeaId}
                         demos={demos}
+                        sessions={sessions.map((s) => ({
+                          id: s.id,
+                          query: s.query,
+                        }))}
                       />
                     </div>
                   </div>
@@ -784,6 +800,17 @@ export function ResearchProjectLayout({
                         report={currentReport || null}
                         projectId={projectId}
                         sessionId={currentSessionId}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* References Tab */}
+                {activeTab === 'references' && (
+                  <div className="h-full overflow-y-auto">
+                    <div className="mx-auto max-w-4xl p-6">
+                      <ReferencesPanel
+                        references={currentReport?.references || []}
                       />
                     </div>
                   </div>

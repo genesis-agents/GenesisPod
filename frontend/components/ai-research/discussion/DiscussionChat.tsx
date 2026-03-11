@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Send,
   StopCircle,
+  Timer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { DiscussionResearchState } from '@/hooks';
@@ -80,6 +81,20 @@ export function DiscussionChat({
     'single'
   );
   const [feedbackInput, setFeedbackInput] = useState('');
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    if (!awaitingFeedback) {
+      setCountdown(0);
+      return;
+    }
+    const total = Math.ceil(awaitingFeedback.timeoutMs / 1000);
+    setCountdown(total);
+    const interval = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [awaitingFeedback]);
 
   // Determine view mode
   const isResearching = isSearching && state.phase !== 'idle';
@@ -247,9 +262,17 @@ export function DiscussionChat({
                             {session.query}
                           </h4>
                           {isIterativeSession && (
-                            <span className="flex-shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
-                              迭代
-                            </span>
+                            <>
+                              <span className="flex-shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                                迭代
+                              </span>
+                              {session.report?.metadata?.searchRounds &&
+                                session.report.metadata.searchRounds > 1 && (
+                                  <span className="flex-shrink-0 text-[10px] text-gray-400">
+                                    {session.report.metadata.searchRounds} 轮
+                                  </span>
+                                )}
+                            </>
                           )}
                         </div>
                         <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
@@ -454,12 +477,84 @@ export function DiscussionChat({
         </div>
       )}
 
+      {/* Iteration Evaluation Card */}
+      {awaitingFeedback && (
+        <div className="flex-shrink-0 border-t border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">
+                  第 {awaitingFeedback.round} 轮评估
+                </span>
+                <span
+                  className={cn(
+                    'rounded-full px-2.5 py-0.5 text-sm font-bold',
+                    awaitingFeedback.score >= 70
+                      ? 'bg-green-100 text-green-700'
+                      : awaitingFeedback.score >= 40
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-red-100 text-red-700'
+                  )}
+                >
+                  {awaitingFeedback.score.toFixed(1)}/100
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Timer className="h-3.5 w-3.5" />
+                <span>
+                  {countdown > 0 ? `${countdown}s 后自动继续` : '自动继续中...'}
+                </span>
+              </div>
+            </div>
+            {/* Gaps */}
+            <div className="grid grid-cols-2 gap-3">
+              {awaitingFeedback.gaps.dataGaps.length > 0 && (
+                <div>
+                  <p className="mb-1 text-xs font-medium text-gray-500">
+                    数据差距
+                  </p>
+                  <ul className="space-y-0.5">
+                    {awaitingFeedback.gaps.dataGaps
+                      .slice(0, 3)
+                      .map((gap, i) => (
+                        <li key={i} className="truncate text-xs text-gray-700">
+                          <span className="mr-1 text-blue-500">-</span>
+                          {gap}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+              {awaitingFeedback.gaps.ideaGaps.length > 0 && (
+                <div>
+                  <p className="mb-1 text-xs font-medium text-gray-500">
+                    创意差距
+                  </p>
+                  <ul className="space-y-0.5">
+                    {awaitingFeedback.gaps.ideaGaps
+                      .slice(0, 3)
+                      .map((gap, i) => (
+                        <li key={i} className="truncate text-xs text-gray-700">
+                          <span className="mr-1 text-indigo-500">-</span>
+                          {gap}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Feedback Input Bar */}
       <div className="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-3">
         <div className="mx-auto max-w-3xl">
           {isIterating && (
             <p className="mb-2 text-xs text-purple-600">
-              迭代研究进行中 — 输入内容将影响下一轮研究方向
+              {awaitingFeedback
+                ? '输入反馈以引导下一轮研究方向，或等待自动继续'
+                : '迭代研究进行中 — 输入内容将影响下一轮研究方向'}
             </p>
           )}
           <div className="flex items-center gap-3">
