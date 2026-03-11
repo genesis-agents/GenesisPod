@@ -2039,7 +2039,7 @@ export class MissionExecutionService {
         `[continueExecution] Failed to continue execution: ${err.message}`,
       );
       // 更新状态为失败
-      this.prisma.researchMission
+      void this.prisma.researchMission
         .update({
           where: { id: missionId },
           data: { status: ResearchMissionStatus.FAILED },

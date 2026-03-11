@@ -18,8 +18,6 @@ export {
 export { ResearchRealtimeAdapter } from "./core/research-realtime.adapter";
 export { ResearchStrategyService } from "./core/research-strategy.service";
 export { ResearchMemoryService } from "./core/research-memory.service";
-// ★ P0: 交互式研究
-export { InteractiveResearchService } from "./core/interactive-research.service";
 // ★ P1: 研究模板
 export { ResearchTemplateService } from "./core/research-template.service";
 
@@ -28,8 +26,6 @@ export { MissionObservabilityService } from "./core/mission-observability.servic
 export { MissionKernelBridgeService } from "./core/mission-kernel-bridge.service";
 export { MissionNotificationService } from "./core/mission-notification.service";
 
-// ★ Leader sub-services
-export { LeaderReviewService } from "./core/leader-review.service";
 // ★ Facade sub-services
 export { TopicCrudService } from "./core/topic-crud.service";
 export { TopicDimensionService } from "./core/topic-dimension.service";

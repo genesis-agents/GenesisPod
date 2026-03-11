@@ -62,8 +62,6 @@ import {
   MissionObservabilityService,
   MissionKernelBridgeService,
   MissionNotificationService,
-  // ★ Leader sub-services
-  LeaderReviewService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,
@@ -87,7 +85,6 @@ import {
   EvidenceSyncCompensationService,
   ResearchMemoryService,
   // ★ P0: 新增核心能力
-  InteractiveResearchService,
   DataSourceConnectorRegistry,
   SemanticScholarConnector,
   PubMedConnector,
@@ -159,8 +156,6 @@ const services = [
   FigureRelevanceService,
   ReportValidationService,
   ReportEditorService,
-  // ★ Leader sub-services
-  LeaderReviewService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,
@@ -183,7 +178,6 @@ const services = [
   // ★ Memory
   ResearchMemoryService,
   // ★ P0: 新增核心能力
-  InteractiveResearchService,
   DataSourceConnectorRegistry,
   SemanticScholarConnector,
   PubMedConnector,
