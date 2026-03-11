@@ -13,7 +13,11 @@
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { DiscussionModule } from "./discussion/discussion.module";
 import { ResearchProjectModule } from "./project/research-project.module";
-import { AgentRegistry, TeamRegistry } from "../../ai-engine/facade";
+import {
+  AgentRegistry,
+  TeamRegistry,
+  PromptSkillBridge,
+} from "../../ai-engine/facade";
 import { ResearcherAgent } from "./agents";
 import { RESEARCH_TEAM_CONFIG } from "./teams";
 import { ResearchIdeaService } from "./idea/research-idea.service";
@@ -91,11 +95,24 @@ export class ResearchModule implements OnModuleInit {
     private readonly agentRegistry: AgentRegistry,
     private readonly teamRegistry: TeamRegistry,
     private readonly researcherAgent: ResearcherAgent,
+    private readonly promptSkillBridge: PromptSkillBridge,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     this.agentRegistry.register(this.researcherAgent);
     this.teamRegistry.registerConfig(RESEARCH_TEAM_CONFIG);
+
+    try {
+      const result = await this.promptSkillBridge.registerDomain("research");
+      this.logger.log(
+        `Registered research skill domain: ${result.registered.length} skills loaded`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to register research skill domain: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
     this.logger.log("Registered ResearcherAgent and RESEARCH_TEAM_CONFIG");
   }
 }

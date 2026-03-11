@@ -271,7 +271,7 @@ export class TopicInsightsModule implements OnModuleInit {
   async onModuleInit() {
     // Bridge prompt skills from SKILL.md → SkillRegistry
     const bridgeResult =
-      await this.promptSkillBridge.registerDomain("research");
+      await this.promptSkillBridge.registerDomain("insights");
     this.logger.log(
       `Prompt skills bridged: registered=${bridgeResult.registered.length}, ` +
         `skipped=${bridgeResult.skipped.length}, errors=${bridgeResult.errors.length}`,
