@@ -815,6 +815,9 @@ export class ReportAssemblerService {
    */
   private isGarbageFigureUrl(url: string | undefined): boolean {
     if (!url) return true;
+    // ★ LLM placeholder leak: "[base64-image:chart]" or "base64-image:chart" (without brackets)
+    if (url.startsWith("[base64-image") || url.startsWith("base64-image"))
+      return true;
     const lower = url.toLowerCase();
     // QR code and app-code images (common on Chinese tech sites)
     if (lower.includes("appcode") || lower.includes("aicode")) return true;

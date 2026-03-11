@@ -398,20 +398,31 @@ export function FigureRenderer({
   evidenceInfo,
   onRetry,
 }: FigureRendererProps) {
+  // ★ Guard: skip figures with placeholder URLs leaked from LLM prompt context
+  const hasValidImageUrl =
+    chart.imageUrl &&
+    !chart.imageUrl.startsWith('[base64-image') &&
+    !chart.imageUrl.startsWith('base64-image');
+
   // 判断图表类型 - 优先使用明确的 chartType
   const isReferenceChart =
-    chart.chartType === 'reference' || (!chart.chartType && chart.imageUrl);
+    chart.chartType === 'reference' || (!chart.chartType && hasValidImageUrl);
 
   const isGeneratedChart =
     chart.chartType === 'generated' ||
     (!chart.chartType &&
-      !chart.imageUrl &&
+      !hasValidImageUrl &&
       chart.data &&
       chart.data.length > 0);
 
   // 生成图表需要验证数据完整性
   const hasValidGeneratedData =
     isGeneratedChart && isValidGeneratedChart(chart);
+
+  // ★ If a reference chart has no valid image URL, don't render an empty box
+  if (isReferenceChart && !hasValidImageUrl) {
+    return null;
+  }
 
   const figureLabel = getFigureLabel(chart.figureNumber);
 

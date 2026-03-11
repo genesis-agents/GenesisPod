@@ -1255,8 +1255,12 @@ export class SectionWriterService {
     const usedAllocatedKeys = new Set<string>();
 
     // ★ 辅助：判断 imageUrl 是否需要回填（空值、placeholder 占位符）
+    // ★ LLM may strip brackets → check both "[base64-image" and "base64-image"
     const needsBackfill = (url: string | undefined | null): boolean =>
-      !url || url.startsWith("[base64-image") || url === "无URL";
+      !url ||
+      url.startsWith("[base64-image") ||
+      url.startsWith("base64-image") ||
+      url === "无URL";
 
     // 补全缺失的 imageUrl
     for (const ref of figureRefs) {

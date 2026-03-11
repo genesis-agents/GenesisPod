@@ -299,6 +299,13 @@ export class ReportDataService {
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
           if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
+          // ★ Skip figures with placeholder URLs leaked from LLM prompt context
+          if (
+            !fig.imageUrl ||
+            fig.imageUrl.startsWith("[base64-image") ||
+            fig.imageUrl.startsWith("base64-image")
+          )
+            return;
           const chartId = `${dimPrefix}${fig.id}`;
           // ★ 按 ID 去重，防止同维度内重复 ID
           if (seenIds.has(chartId)) return;

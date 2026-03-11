@@ -989,9 +989,11 @@ export class DimensionWritingService {
           continue;
         }
         // 校验 imageUrl 非空 + 回填 base64 占位符
+        // ★ LLM may strip brackets → check both "[base64-image" and "base64-image"
         const needsBackfill =
           !fig.imageUrl ||
           fig.imageUrl.startsWith("[base64-image") ||
+          fig.imageUrl.startsWith("base64-image") ||
           fig.imageUrl === "无URL";
         if (needsBackfill) {
           const evidence = evidenceData[fig.evidenceIndex - 1];
