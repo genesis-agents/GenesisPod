@@ -33,7 +33,9 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { TopicAccessGuard, RequireTopicAccess } from "../guards";
 import {
-  ResearchMissionService,
+  MissionLifecycleService,
+  MissionQueryService,
+  MissionExecutionService,
   ResearchLeaderService,
   ResearchEventEmitterService,
   ResearchTodoService,
@@ -52,7 +54,9 @@ export class MissionController {
 
   constructor(
     private readonly topicResearchService: TopicInsightsService,
-    private readonly missionService: ResearchMissionService,
+    private readonly lifecycleService: MissionLifecycleService,
+    private readonly queryService: MissionQueryService,
+    private readonly executionService: MissionExecutionService,
     private readonly leaderService: ResearchLeaderService,
     private readonly eventEmitterService: ResearchEventEmitterService,
     private readonly todoService: ResearchTodoService,
@@ -81,7 +85,7 @@ export class MissionController {
   @ApiResponse({ status: 429, description: "请求过于频繁" })
   async leaderPlan(@Param("id") id: string, @Body() dto: LeaderPlanDto) {
     // ★ 权限检查已由 TopicAccessGuard 完成
-    return this.missionService.createMission({
+    return this.lifecycleService.createMission({
       topicId: id,
       userPrompt: dto.userPrompt,
       userContext: dto.userContext,
@@ -105,7 +109,7 @@ export class MissionController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回规划详情" })
   async getMissionPlan(@Param("id") id: string) {
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
@@ -131,7 +135,7 @@ export class MissionController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "规划已审批，执行已启动" })
   async approveMissionPlan(@Param("id") id: string) {
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
@@ -140,7 +144,7 @@ export class MissionController {
         `Mission is in ${mission.status} status, expected PLAN_READY`,
       );
     }
-    await this.missionService.approvePlanAndExecute(mission.id, id);
+    await this.lifecycleService.approvePlanAndExecute(mission.id, id);
     return { success: true, message: "Plan approved, execution started" };
   }
 
@@ -169,7 +173,7 @@ export class MissionController {
       throw new UnauthorizedException("User not authenticated");
     }
     // 获取当前 Mission
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
@@ -236,8 +240,7 @@ export class MissionController {
         // 1. 获取当前 Mission（如果有）
         let missionId = dto.missionId;
         if (!missionId) {
-          const mission =
-            await this.missionService.getMissionByTopicId(topicId);
+          const mission = await this.queryService.getMissionByTopicId(topicId);
           missionId = mission?.id;
         }
 
@@ -294,7 +297,7 @@ export class MissionController {
 
             // ★ v8.1: 将新 Agent 的 skills 和 tools 添加到 leaderPlan 中
             // 这样前端能够正确显示 Agent 的能力配置
-            await this.missionService.addAgentToLeaderPlan(missionId, {
+            await this.executionService.addAgentToLeaderPlan(missionId, {
               agentId: agentAssignment.agentId,
               agentName: agentAssignment.agentName,
               agentType: agentAssignment.agentType,
@@ -367,7 +370,7 @@ export class MissionController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       return [];
     }
@@ -393,7 +396,7 @@ export class MissionController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.missionService.getMissionByTopicId(id);
+    return this.queryService.getMissionByTopicId(id);
   }
 
   /**
@@ -412,19 +415,19 @@ export class MissionController {
   @ApiResponse({ status: 403, description: "无权限" })
   async retryMission(@Param("id") id: string, @Body() dto: MissionRetryDto) {
     // ★ 权限检查已由 TopicAccessGuard 完成
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No mission found for this topic");
     }
     if (dto.taskIds?.length) {
       // 重试指定任务
       const results = await Promise.all(
-        dto.taskIds.map((taskId) => this.missionService.retryTask(taskId)),
+        dto.taskIds.map((taskId) => this.lifecycleService.retryTask(taskId)),
       );
       return { retriedTasks: results.length };
     }
     // 重试整个 Mission
-    return this.missionService.retryMission(mission.id);
+    return this.lifecycleService.retryMission(mission.id);
   }
 
   /**
@@ -444,11 +447,11 @@ export class MissionController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       return { leaderId: null, leaderModel: null, agents: [] };
     }
-    return this.missionService.getTeamInfo(mission.id);
+    return this.queryService.getTeamInfo(mission.id);
   }
 
   /**
@@ -602,11 +605,11 @@ export class MissionController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
-    return this.missionService.adjustMission(userId, mission.id, dto);
+    return this.lifecycleService.adjustMission(userId, mission.id, dto);
   }
 
   /**
@@ -632,11 +635,11 @@ export class MissionController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    const mission = await this.missionService.getMissionByTopicId(id);
+    const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
-    return this.missionService.cancelMission(userId, mission.id);
+    return this.lifecycleService.cancelMission(userId, mission.id);
   }
 
   // ==================== Mission Detail Routes ====================
@@ -659,7 +662,7 @@ export class MissionController {
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
   ) {
-    return this.missionService.getMissionStatus(missionId);
+    return this.queryService.getMissionStatus(missionId);
   }
 
   /**
@@ -754,7 +757,7 @@ export class MissionController {
     }
 
     // 获取当前 Mission
-    const mission = await this.missionService.getMissionByTopicId(topicId);
+    const mission = await this.queryService.getMissionByTopicId(topicId);
     if (!mission) {
       return { health: null, message: "没有正在进行的研究任务" };
     }

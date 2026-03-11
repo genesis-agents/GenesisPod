@@ -1,5 +1,4 @@
 export { ResearchLeaderService } from "./research-leader.service";
-export { ResearchMissionService } from "./research-mission.service";
 export { TopicTeamOrchestratorService } from "./topic-team-orchestrator.service";
 export {
   ResearchEventEmitterService,

@@ -6,7 +6,6 @@
 
 // ==================== Core ====================
 export { ResearchLeaderService } from "./core/research-leader.service";
-export { ResearchMissionService } from "./core/research-mission.service";
 export { MissionQueryService } from "./core/mission-query.service";
 export { MissionLifecycleService } from "./core/mission-lifecycle.service";
 export { MissionExecutionService } from "./core/mission-execution.service";

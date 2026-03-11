@@ -29,7 +29,11 @@ import {
   CreateUserRequestTodoDto,
 } from "../dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { ResearchTodoService, ResearchMissionService } from "../services";
+import {
+  ResearchTodoService,
+  MissionLifecycleService,
+  MissionQueryService,
+} from "../services";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("Topic Research")
@@ -39,7 +43,8 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
 export class TodoController {
   constructor(
     private readonly todoService: ResearchTodoService,
-    private readonly missionService: ResearchMissionService,
+    private readonly lifecycleService: MissionLifecycleService,
+    private readonly queryService: MissionQueryService,
   ) {}
 
   // ==================== TODO Management ====================
@@ -142,7 +147,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.missionService.getTaskActivities(taskId);
+    return this.queryService.getTaskActivities(taskId);
   }
 
   /**
@@ -253,7 +258,7 @@ export class TodoController {
       // 如果是 NotFoundException，尝试作为 ResearchTask 处理
       if (error instanceof NotFoundException) {
         try {
-          const task = await this.missionService.retryTask(todoId);
+          const task = await this.lifecycleService.retryTask(todoId);
           // 将 Task 转换为类似 TODO 的格式返回
           return {
             id: task.id,

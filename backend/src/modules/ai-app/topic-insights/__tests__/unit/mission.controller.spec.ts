@@ -11,7 +11,9 @@ import { ExecutionContext } from "@nestjs/common";
 import { MissionController } from "../../controllers/mission.controller";
 import { TopicInsightsService } from "../../topic-insights.service";
 import {
-  ResearchMissionService,
+  MissionLifecycleService,
+  MissionQueryService,
+  MissionExecutionService,
   ResearchLeaderService,
   ResearchEventEmitterService,
   ResearchTodoService,
@@ -26,7 +28,9 @@ import { MOCK_MISSION_EXECUTING } from "../fixtures/topics.fixture";
 describe("MissionController", () => {
   let controller: MissionController;
   let topicResearchService: any;
-  let missionService: any;
+  let lifecycleService: any;
+  let queryService: any;
+  let executionService: any;
   let leaderService: any;
   let eventEmitterService: any;
   let todoService: any;
@@ -45,16 +49,25 @@ describe("MissionController", () => {
       getAgentActivityStats: jest.fn(),
     };
 
-    missionService = {
+    lifecycleService = {
       createMission: jest.fn(),
-      getMissionByTopicId: jest.fn(),
-      getMissionStatus: jest.fn(),
+      approvePlanAndExecute: jest.fn(),
       retryMission: jest.fn(),
       retryTask: jest.fn(),
       cancelMission: jest.fn(),
       adjustMission: jest.fn(),
+    };
+
+    queryService = {
+      getMissionByTopicId: jest.fn(),
+      getMissionStatus: jest.fn(),
       getTeamInfo: jest.fn(),
+      getTaskActivities: jest.fn(),
+    };
+
+    executionService = {
       addAgentToLeaderPlan: jest.fn(),
+      startExecution: jest.fn(),
     };
 
     leaderService = {
@@ -96,7 +109,9 @@ describe("MissionController", () => {
       controllers: [MissionController],
       providers: [
         { provide: TopicInsightsService, useValue: topicResearchService },
-        { provide: ResearchMissionService, useValue: missionService },
+        { provide: MissionLifecycleService, useValue: lifecycleService },
+        { provide: MissionQueryService, useValue: queryService },
+        { provide: MissionExecutionService, useValue: executionService },
         { provide: ResearchLeaderService, useValue: leaderService },
         { provide: ResearchEventEmitterService, useValue: eventEmitterService },
         { provide: ResearchTodoService, useValue: todoService },
@@ -130,7 +145,7 @@ describe("MissionController", () => {
         researchDepth: "thorough",
       };
 
-      missionService.createMission.mockResolvedValue({
+      lifecycleService.createMission.mockResolvedValue({
         ...MOCK_MISSION_EXECUTING,
         userPrompt: dto.userPrompt,
       });
@@ -140,7 +155,7 @@ describe("MissionController", () => {
 
       // Assert
       expect(result).toBeDefined();
-      expect(missionService.createMission).toHaveBeenCalledWith({
+      expect(lifecycleService.createMission).toHaveBeenCalledWith({
         topicId,
         userPrompt: dto.userPrompt,
         userContext: dto.userContext,
@@ -156,13 +171,13 @@ describe("MissionController", () => {
         userPrompt: "Research this topic",
       };
 
-      missionService.createMission.mockResolvedValue(MOCK_MISSION_EXECUTING);
+      lifecycleService.createMission.mockResolvedValue(MOCK_MISSION_EXECUTING);
 
       // Act
       await controller.leaderPlan(topicId, dto);
 
       // Assert
-      expect(missionService.createMission).toHaveBeenCalledWith(
+      expect(lifecycleService.createMission).toHaveBeenCalledWith(
         expect.objectContaining({
           mode: "fresh", // Default mode
         }),
@@ -178,7 +193,7 @@ describe("MissionController", () => {
       const topicId = "topic-123";
       const dto = { content: "@Leader please add a new dimension" };
 
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
       leaderService.handleUserMessage.mockResolvedValue({
@@ -211,7 +226,7 @@ describe("MissionController", () => {
 
     it("should throw NotFoundException when no active mission", async () => {
       // Arrange
-      missionService.getMissionByTopicId.mockResolvedValue(null);
+      queryService.getMissionByTopicId.mockResolvedValue(null);
 
       // Act & Assert
       await expect(
@@ -274,7 +289,7 @@ describe("MissionController", () => {
           modelId: "gpt-4o-mini",
         }),
       );
-      expect(missionService.addAgentToLeaderPlan).toHaveBeenCalled();
+      expect(executionService.addAgentToLeaderPlan).toHaveBeenCalled();
       expect(todoService.scheduleTodo).toHaveBeenCalled();
     });
 
@@ -313,7 +328,7 @@ describe("MissionController", () => {
       const topicId = "topic-123";
       const dto = { message: "What's the status?" };
 
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
       leaderService.decodeUserInput.mockResolvedValue({
@@ -325,7 +340,7 @@ describe("MissionController", () => {
       await controller.leaderChat(mockRequest, topicId, dto);
 
       // Assert
-      expect(missionService.getMissionByTopicId).toHaveBeenCalledWith(topicId);
+      expect(queryService.getMissionByTopicId).toHaveBeenCalledWith(topicId);
       expect(leaderService.decodeUserInput).toHaveBeenCalledWith(
         topicId,
         dto.message,
@@ -377,7 +392,7 @@ describe("MissionController", () => {
     it("should throw NotFoundException when no mission exists", async () => {
       // Arrange
       const topicId = "topic-123";
-      missionService.getMissionByTopicId.mockResolvedValue(null);
+      queryService.getMissionByTopicId.mockResolvedValue(null);
 
       // Act & Assert
       await expect(controller.retryMission(topicId, {})).rejects.toThrow(
@@ -391,16 +406,16 @@ describe("MissionController", () => {
     it("should retry entire mission when taskIds not provided", async () => {
       // Arrange
       const topicId = "topic-123";
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
-      missionService.retryMission.mockResolvedValue({ retriedTasks: 3 });
+      lifecycleService.retryMission.mockResolvedValue({ retriedTasks: 3 });
 
       // Act
       const result = await controller.retryMission(topicId, {});
 
       // Assert
-      expect(missionService.retryMission).toHaveBeenCalledWith(
+      expect(lifecycleService.retryMission).toHaveBeenCalledWith(
         MOCK_MISSION_EXECUTING.id,
       );
       expect((result as any).retriedTasks).toBe(3);
@@ -410,18 +425,18 @@ describe("MissionController", () => {
       // Arrange
       const topicId = "topic-123";
       const taskIds = ["task-1", "task-2"];
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
-      missionService.retryTask.mockResolvedValue({ success: true });
+      lifecycleService.retryTask.mockResolvedValue({ success: true });
 
       // Act
       const result = await controller.retryMission(topicId, { taskIds });
 
       // Assert
-      expect(missionService.retryTask).toHaveBeenCalledTimes(2);
-      expect(missionService.retryTask).toHaveBeenCalledWith("task-1");
-      expect(missionService.retryTask).toHaveBeenCalledWith("task-2");
+      expect(lifecycleService.retryTask).toHaveBeenCalledTimes(2);
+      expect(lifecycleService.retryTask).toHaveBeenCalledWith("task-1");
+      expect(lifecycleService.retryTask).toHaveBeenCalledWith("task-2");
       expect((result as any).retriedTasks).toBe(2);
     });
   });
@@ -441,7 +456,7 @@ describe("MissionController", () => {
 
     it("should throw NotFoundException when no active mission", async () => {
       // Arrange
-      missionService.getMissionByTopicId.mockResolvedValue(null);
+      queryService.getMissionByTopicId.mockResolvedValue(null);
 
       // Act & Assert
       await expect(
@@ -455,10 +470,10 @@ describe("MissionController", () => {
     it("should cancel mission successfully", async () => {
       // Arrange
       const topicId = "topic-123";
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
-      missionService.cancelMission.mockResolvedValue({
+      lifecycleService.cancelMission.mockResolvedValue({
         ...MOCK_MISSION_EXECUTING,
         status: "CANCELLED",
       });
@@ -467,7 +482,7 @@ describe("MissionController", () => {
       const result = await controller.cancelMission(mockRequest, topicId);
 
       // Assert
-      expect(missionService.cancelMission).toHaveBeenCalledWith(
+      expect(lifecycleService.cancelMission).toHaveBeenCalledWith(
         "user-123",
         MOCK_MISSION_EXECUTING.id,
       );
@@ -490,7 +505,7 @@ describe("MissionController", () => {
 
     it("should return mission for topic", async () => {
       // Arrange
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
 
@@ -499,14 +514,14 @@ describe("MissionController", () => {
 
       // Assert
       expect(result).toEqual(MOCK_MISSION_EXECUTING);
-      expect(missionService.getMissionByTopicId).toHaveBeenCalledWith(
+      expect(queryService.getMissionByTopicId).toHaveBeenCalledWith(
         "topic-123",
       );
     });
 
     it("should return null when no mission exists", async () => {
       // Arrange
-      missionService.getMissionByTopicId.mockResolvedValue(null);
+      queryService.getMissionByTopicId.mockResolvedValue(null);
 
       // Act
       const result = await controller.getMission(mockRequest, "topic-123");
@@ -530,24 +545,24 @@ describe("MissionController", () => {
         ],
       };
 
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
-      missionService.getTeamInfo.mockResolvedValue(teamInfo);
+      queryService.getTeamInfo.mockResolvedValue(teamInfo);
 
       // Act
       const result = await controller.getTeam(mockRequest, "topic-123");
 
       // Assert
       expect(result).toEqual(teamInfo);
-      expect(missionService.getTeamInfo).toHaveBeenCalledWith(
+      expect(queryService.getTeamInfo).toHaveBeenCalledWith(
         MOCK_MISSION_EXECUTING.id,
       );
     });
 
     it("should return empty team when no mission", async () => {
       // Arrange
-      missionService.getMissionByTopicId.mockResolvedValue(null);
+      queryService.getMissionByTopicId.mockResolvedValue(null);
 
       // Act
       const result = await controller.getTeam(mockRequest, "topic-123");
@@ -614,7 +629,7 @@ describe("MissionController", () => {
         { id: "decision-2", type: "ADJUST_SCOPE", timestamp: new Date() },
       ];
 
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
       leaderService.getDecisionHistory.mockResolvedValue(decisions);
@@ -634,7 +649,7 @@ describe("MissionController", () => {
 
     it("should return empty array when no mission", async () => {
       // Arrange
-      missionService.getMissionByTopicId.mockResolvedValue(null);
+      queryService.getMissionByTopicId.mockResolvedValue(null);
 
       // Act
       const result = await controller.getLeaderDecisions(
@@ -657,10 +672,10 @@ describe("MissionController", () => {
         dimensionName: "Risk Analysis",
       };
 
-      missionService.getMissionByTopicId.mockResolvedValue(
+      queryService.getMissionByTopicId.mockResolvedValue(
         MOCK_MISSION_EXECUTING,
       );
-      missionService.adjustMission.mockResolvedValue({ success: true });
+      lifecycleService.adjustMission.mockResolvedValue({ success: true });
 
       // Act
       const result = await controller.adjustMission(
@@ -671,7 +686,7 @@ describe("MissionController", () => {
 
       // Assert
       expect(result).toEqual({ success: true });
-      expect(missionService.adjustMission).toHaveBeenCalledWith(
+      expect(lifecycleService.adjustMission).toHaveBeenCalledWith(
         "user-123",
         MOCK_MISSION_EXECUTING.id,
         dto,
@@ -680,7 +695,7 @@ describe("MissionController", () => {
 
     it("should throw NotFoundException when no mission", async () => {
       // Arrange
-      missionService.getMissionByTopicId.mockResolvedValue(null);
+      queryService.getMissionByTopicId.mockResolvedValue(null);
 
       // Act & Assert
       await expect(

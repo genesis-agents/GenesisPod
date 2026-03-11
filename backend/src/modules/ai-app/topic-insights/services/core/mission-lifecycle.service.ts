@@ -36,6 +36,7 @@ import {
 import { AgentActivityType } from "@prisma/client";
 import { MissionQueryService } from "./mission-query.service";
 import { MissionExecutionService } from "./mission-execution.service";
+import { BillingContext } from "@/modules/ai-infra/facade";
 
 @Injectable()
 export class MissionLifecycleService {
@@ -462,9 +463,61 @@ export class MissionLifecycleService {
         `[executePlanningAsync] Mission ${missionId} planning completed with ${tasks.length} tasks`,
       );
 
-      // ★ 启动异步任务执行
-      this.executionService.startExecution(missionId, topicId).catch((err) => {
-        this.logger.error(`[executePlanningAsync] Execution failed: ${err}`);
+      // ★ 启动异步任务执行（确保 BillingContext 传播）
+      const existingCtx = BillingContext.get();
+      const startFn = () =>
+        this.executionService.startExecution(missionId, topicId);
+      const wrappedStart = existingCtx
+        ? () => BillingContext.run(existingCtx, startFn)
+        : startFn;
+      wrappedStart().catch((err: unknown) => {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.error(`[executePlanningAsync] Execution failed: ${errMsg}`);
+        // 孤儿清理：标记 mission FAILED + 未完成的任务/todo
+        void this.prisma.researchMission
+          .update({
+            where: { id: missionId },
+            data: { status: ResearchMissionStatus.FAILED },
+          })
+          .catch(() => {
+            // best-effort
+          });
+        void this.prisma.researchTask
+          .updateMany({
+            where: {
+              missionId,
+              status: {
+                notIn: [
+                  ResearchTaskStatus.COMPLETED,
+                  ResearchTaskStatus.FAILED,
+                ],
+              },
+            },
+            data: { status: ResearchTaskStatus.FAILED },
+          })
+          .catch(() => {
+            // best-effort
+          });
+        void this.prisma.researchTodo
+          .updateMany({
+            where: {
+              missionId,
+              status: {
+                notIn: [
+                  ResearchTodoStatus.COMPLETED,
+                  ResearchTodoStatus.CANCELLED,
+                ],
+              },
+            },
+            data: {
+              status: ResearchTodoStatus.CANCELLED,
+              statusMessage: "执行启动失败",
+              completedAt: new Date(),
+            },
+          })
+          .catch(() => {
+            // best-effort
+          });
       });
     } catch (error) {
       const errorMsg =
@@ -507,6 +560,138 @@ export class MissionLifecycleService {
 
       this.logger.error(`[executePlanningAsync] Planning failed: ${errorMsg}`);
     }
+  }
+
+  /**
+   * 审批研究规划并启动执行
+   * 从 PLAN_READY 状态转为 EXECUTING，然后 fire-and-forget 启动执行
+   */
+  async approvePlanAndExecute(
+    missionId: string,
+    topicId: string,
+    completedTasks: CompletedTaskData[] = [],
+  ): Promise<void> {
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+    });
+
+    if (!mission || !mission.leaderPlan) {
+      throw new NotFoundException(
+        `Mission ${missionId} not found or has no plan`,
+      );
+    }
+
+    const leaderPlan = mission.leaderPlan as unknown as LeaderPlan;
+
+    // 创建任务
+    const tasks = await this.createTasksFromPlan(
+      missionId,
+      topicId,
+      leaderPlan,
+      completedTasks,
+    );
+
+    // 更新 Mission 到执行状态
+    await this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: {
+        totalTasks: tasks.length,
+        status: ResearchMissionStatus.EXECUTING,
+        startedAt: new Date(),
+      },
+    });
+
+    // 发送进度事件
+    this.queryService.emitProgress({
+      missionId,
+      topicId,
+      status: ResearchMissionStatus.EXECUTING,
+      progress: 10,
+      phase: "executing",
+      message: `规划已确认，开始执行 ${tasks.length} 个任务`,
+      completedTasks: 0,
+      totalTasks: tasks.length,
+    });
+
+    this.logger.log(
+      `[approvePlanAndExecute] Mission ${missionId} approved, starting execution with ${tasks.length} tasks`,
+    );
+
+    // 启动异步任务执行（确保 BillingContext 传播到 fire-and-forget 链）
+    const existingCtx = BillingContext.get();
+    const startFn = () =>
+      this.executionService.startExecution(missionId, topicId);
+    const wrappedStart = existingCtx
+      ? () => BillingContext.run(existingCtx, startFn)
+      : async () => {
+          // 当从 controller 直接调用 approvePlanAndExecute 时，需要查询 userId
+          const topic = await this.prisma.researchTopic.findUnique({
+            where: { id: topicId },
+            select: { userId: true },
+          });
+          if (topic?.userId) {
+            return BillingContext.run(
+              {
+                userId: topic.userId,
+                moduleType: "topic-insights",
+                operationType: "research",
+                referenceId: topicId,
+              },
+              startFn,
+            );
+          }
+          return startFn();
+        };
+    void wrappedStart().catch((err: unknown) => {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[approvePlanAndExecute] Execution failed: ${errorMsg}`,
+      );
+      // Orphan cleanup: mark mission FAILED and cancel pending tasks/todos
+      void this.prisma.researchMission
+        .update({
+          where: { id: missionId },
+          data: { status: ResearchMissionStatus.FAILED },
+        })
+        .catch((updateErr: unknown) => {
+          this.logger.error(
+            `[approvePlanAndExecute] Failed to mark mission FAILED: ${updateErr}`,
+          );
+        });
+      void this.prisma.researchTask
+        .updateMany({
+          where: {
+            missionId,
+            status: {
+              notIn: [ResearchTaskStatus.COMPLETED, ResearchTaskStatus.FAILED],
+            },
+          },
+          data: { status: ResearchTaskStatus.FAILED },
+        })
+        .catch(() => {
+          // best-effort
+        });
+      void this.prisma.researchTodo
+        .updateMany({
+          where: {
+            missionId,
+            status: {
+              notIn: [
+                ResearchTodoStatus.COMPLETED,
+                ResearchTodoStatus.CANCELLED,
+              ],
+            },
+          },
+          data: {
+            status: ResearchTodoStatus.CANCELLED,
+            statusMessage: "执行启动失败",
+            completedAt: new Date(),
+          },
+        })
+        .catch(() => {
+          // best-effort
+        });
+    });
   }
 
   /**

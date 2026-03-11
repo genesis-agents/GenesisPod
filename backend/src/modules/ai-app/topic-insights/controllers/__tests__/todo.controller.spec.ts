@@ -1,28 +1,41 @@
 import { NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { TodoController } from "../todo.controller";
-import type { ResearchTodoService, ResearchMissionService } from "../../services";
+import type {
+  ResearchTodoService,
+  MissionLifecycleService,
+  MissionQueryService,
+} from "../../services";
 
 function createMockTodoService() {
   return {
     getTodos: jest.fn().mockResolvedValue({ items: [], summary: {} }),
     getTodoById: jest.fn().mockResolvedValue({ id: "todo-1", title: "Test" }),
-    getTodoDetails: jest.fn().mockResolvedValue({ id: "todo-1", activities: [] }),
+    getTodoDetails: jest
+      .fn()
+      .mockResolvedValue({ id: "todo-1", activities: [] }),
     pauseTodo: jest.fn().mockResolvedValue({ id: "todo-1", status: "PAUSED" }),
-    resumeTodo: jest.fn().mockResolvedValue({ id: "todo-1", status: "RUNNING" }),
-    cancelTodo: jest.fn().mockResolvedValue({ id: "todo-1", status: "CANCELLED" }),
+    resumeTodo: jest
+      .fn()
+      .mockResolvedValue({ id: "todo-1", status: "RUNNING" }),
+    cancelTodo: jest
+      .fn()
+      .mockResolvedValue({ id: "todo-1", status: "CANCELLED" }),
     retryTodo: jest.fn().mockResolvedValue({ id: "todo-1", status: "QUEUED" }),
     executeTodo: jest.fn().mockResolvedValue({ executing: true }),
-    prioritizeTodo: jest.fn().mockResolvedValue({ id: "todo-1", priority: "high" }),
-    updateTodoProgress: jest.fn().mockResolvedValue({ id: "todo-1", progress: 50 }),
+    prioritizeTodo: jest
+      .fn()
+      .mockResolvedValue({ id: "todo-1", priority: "high" }),
+    updateTodoProgress: jest
+      .fn()
+      .mockResolvedValue({ id: "todo-1", progress: 50 }),
     createUserRequestTodo: jest.fn().mockResolvedValue({ id: "todo-new" }),
     updateTodoContent: jest.fn().mockResolvedValue({ id: "todo-1" }),
     deleteTodo: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<ResearchTodoService>;
 }
 
-function createMockMissionService() {
+function createMockLifecycleService() {
   return {
-    getTaskActivities: jest.fn().mockResolvedValue({ task: {}, activities: [] }),
     retryTask: jest.fn().mockResolvedValue({
       id: "task-1",
       title: "Research Task",
@@ -30,7 +43,15 @@ function createMockMissionService() {
       taskType: "SEARCH",
       dimensionName: "Market",
     }),
-  } as unknown as jest.Mocked<ResearchMissionService>;
+  } as unknown as jest.Mocked<MissionLifecycleService>;
+}
+
+function createMockQueryService() {
+  return {
+    getTaskActivities: jest
+      .fn()
+      .mockResolvedValue({ task: {}, activities: [] }),
+  } as unknown as jest.Mocked<MissionQueryService>;
 }
 
 function createMockRequest(userId?: string) {
@@ -40,15 +61,18 @@ function createMockRequest(userId?: string) {
 describe("TodoController", () => {
   let controller: TodoController;
   let mockTodoService: jest.Mocked<ResearchTodoService>;
-  let mockMissionService: jest.Mocked<ResearchMissionService>;
+  let mockLifecycleService: jest.Mocked<MissionLifecycleService>;
+  let mockQueryService: jest.Mocked<MissionQueryService>;
   let mockReq: ReturnType<typeof createMockRequest>;
 
   beforeEach(() => {
     mockTodoService = createMockTodoService();
-    mockMissionService = createMockMissionService();
+    mockLifecycleService = createMockLifecycleService();
+    mockQueryService = createMockQueryService();
     controller = new TodoController(
       mockTodoService as unknown as ResearchTodoService,
-      mockMissionService as unknown as ResearchMissionService,
+      mockLifecycleService as unknown as MissionLifecycleService,
+      mockQueryService as unknown as MissionQueryService,
     );
     mockReq = createMockRequest("user-123");
   });
@@ -96,9 +120,9 @@ describe("TodoController", () => {
   });
 
   describe("getTaskActivities", () => {
-    it("should get task activities from mission service", async () => {
+    it("should get task activities from query service", async () => {
       await controller.getTaskActivities(mockReq as never, "topic-1", "task-1");
-      expect(mockMissionService.getTaskActivities).toHaveBeenCalledWith("task-1");
+      expect(mockQueryService.getTaskActivities).toHaveBeenCalledWith("task-1");
     });
   });
 
@@ -165,7 +189,7 @@ describe("TodoController", () => {
         "task-1",
       );
 
-      expect(mockMissionService.retryTask).toHaveBeenCalledWith("task-1");
+      expect(mockLifecycleService.retryTask).toHaveBeenCalledWith("task-1");
       expect(result.id).toBe("task-1");
       expect(result.status).toBe("QUEUED");
     });
@@ -173,7 +197,7 @@ describe("TodoController", () => {
     it("should rethrow when both todo and task retry fail", async () => {
       const notFoundError = new NotFoundException("Not found");
       mockTodoService.retryTodo.mockRejectedValue(notFoundError);
-      mockMissionService.retryTask.mockRejectedValue(new Error("Task error"));
+      mockLifecycleService.retryTask.mockRejectedValue(new Error("Task error"));
 
       await expect(
         controller.retryTodo(mockReq as never, "topic-1", "bad-id"),
@@ -198,7 +222,10 @@ describe("TodoController", () => {
         "topic-1",
         "todo-1",
       );
-      expect(mockTodoService.executeTodo).toHaveBeenCalledWith("topic-1", "todo-1");
+      expect(mockTodoService.executeTodo).toHaveBeenCalledWith(
+        "topic-1",
+        "todo-1",
+      );
       expect(result).toEqual({ executing: true });
     });
   });
@@ -212,7 +239,10 @@ describe("TodoController", () => {
         "todo-1",
         dto,
       );
-      expect(mockTodoService.prioritizeTodo).toHaveBeenCalledWith("todo-1", "high");
+      expect(mockTodoService.prioritizeTodo).toHaveBeenCalledWith(
+        "todo-1",
+        "high",
+      );
       expect(result).toEqual({ id: "todo-1", priority: "high" });
     });
   });
@@ -220,16 +250,19 @@ describe("TodoController", () => {
   describe("updateTodoProgress", () => {
     it("should update todo progress and status message", async () => {
       const dto = { progress: 75, statusMessage: "Almost done" } as never;
-      const result = await controller.updateTodoProgress(
+      const _result = await controller.updateTodoProgress(
         mockReq as never,
         "topic-1",
         "todo-1",
         dto,
       );
-      expect(mockTodoService.updateTodoProgress).toHaveBeenCalledWith("todo-1", {
-        progress: 75,
-        statusMessage: "Almost done",
-      });
+      expect(mockTodoService.updateTodoProgress).toHaveBeenCalledWith(
+        "todo-1",
+        {
+          progress: 75,
+          statusMessage: "Almost done",
+        },
+      );
     });
   });
 
@@ -259,7 +292,10 @@ describe("TodoController", () => {
     it("should update todo title and description", async () => {
       const dto = { title: "New title", description: "New description" };
       await controller.updateTodo(mockReq as never, "topic-1", "todo-1", dto);
-      expect(mockTodoService.updateTodoContent).toHaveBeenCalledWith("todo-1", dto);
+      expect(mockTodoService.updateTodoContent).toHaveBeenCalledWith(
+        "todo-1",
+        dto,
+      );
     });
   });
 

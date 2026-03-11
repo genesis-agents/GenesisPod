@@ -67,8 +67,32 @@ export class FigureRelevanceService {
       return figures.filter((f) => f.type !== "photo");
     }
 
+    // ★ 分离 base64 图片和 URL 图片：base64 无法发送给 Vision API
+    const base64Figures: ExtractedFigure[] = [];
+    const urlFigures: ExtractedFigure[] = [];
+    for (const fig of figures) {
+      if (fig.imageUrl?.startsWith("data:")) {
+        base64Figures.push(fig);
+      } else {
+        urlFigures.push(fig);
+      }
+    }
+
+    // base64 图片走 type-based 自动接受（已成功下载 = 有效图片）
+    const base64Accepted = base64Figures.filter((f) => f.type !== "photo");
+    if (base64Figures.length > 0) {
+      this.logger.log(
+        `[filterRelevantFigures] ${base64Accepted.length}/${base64Figures.length} base64 figures auto-accepted by type filter`,
+      );
+    }
+
+    // URL 图片发送给 Vision LLM 审查
+    if (urlFigures.length === 0) {
+      return base64Accepted;
+    }
+
     // 限制批量大小，避免 token 爆炸
-    const candidates = figures.slice(0, MAX_FIGURES_PER_BATCH);
+    const candidates = urlFigures.slice(0, MAX_FIGURES_PER_BATCH);
 
     try {
       const batchResult = await this.evaluateBatch(candidates, topicTitle);
@@ -106,12 +130,12 @@ export class FigureRelevanceService {
 
       if (rejected.length > 0) {
         this.logger.log(
-          `[filterRelevantFigures] Rejected ${rejected.length + missingCount}/${candidates.length} figures for "${topicTitle}":\n${rejected.join("\n")}`,
+          `[filterRelevantFigures] Rejected ${rejected.length + missingCount}/${candidates.length} URL figures for "${topicTitle}":\n${rejected.join("\n")}`,
         );
       }
 
-      // 如果超出批次的图片，不做审查直接丢弃（宁缺毋滥）
-      return accepted;
+      // 合并 base64 自动接受 + URL Vision 审查通过
+      return [...base64Accepted, ...accepted];
     } catch (error) {
       // Vision 调用失败时，回退到保守策略：只保留 chart/diagram/table 类型
       this.logger.warn(

@@ -23,7 +23,6 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
 import { LeaderToolService } from "../../services/data/leader-tool.service";
-import { ResearchMissionService } from "../../services/core/research-mission.service";
 import { createMockPrisma, createMockAiEngineFacade } from "../mocks";
 
 describe("ResearchLeaderService - planGlobalOutline", () => {
@@ -38,10 +37,6 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
   const mockLeaderToolService = {
     getAvailableTools: jest.fn<() => Promise<unknown>>().mockResolvedValue([]),
   };
-  const mockResearchMissionService = {
-    getMissionStatus: jest.fn(),
-  };
-
   beforeEach(async () => {
     mockPrisma = createMockPrisma();
     mockAiFacade = createMockAiEngineFacade();
@@ -58,10 +53,6 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
           useValue: mockResearchEventEmitter,
         },
         { provide: LeaderToolService, useValue: mockLeaderToolService },
-        {
-          provide: ResearchMissionService,
-          useValue: mockResearchMissionService,
-        },
       ],
     }).compile();
 
