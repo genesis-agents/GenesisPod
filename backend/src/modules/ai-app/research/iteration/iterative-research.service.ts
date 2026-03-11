@@ -32,6 +32,11 @@ import type {
   DeepResearchSSEEvent,
 } from "../discussion/types";
 
+export interface IterationSessionEvent {
+  type: "iteration.session";
+  data: { sessionId: string };
+}
+
 export type IterationSSEEvent =
   | IterationStartEvent
   | IterationResearchEvent
@@ -39,7 +44,8 @@ export type IterationSSEEvent =
   | IterationDemoEvent
   | IterationEvalEvent
   | IterationExitEvent
-  | IterationAwaitingFeedbackEvent;
+  | IterationAwaitingFeedbackEvent
+  | IterationSessionEvent;
 
 const DEMO_POLL_INTERVAL_MS = 3000;
 const DEMO_POLL_TIMEOUT_MS = 120_000;
@@ -247,6 +253,23 @@ export class IterativeResearchService {
     let currentSessionId = sessionId;
     const originalSessionId = sessionId; // Never changes - all iteration data saved here
 
+    // P0 #1: Notify frontend of sessionId immediately so it can save on early error
+    subject.next({
+      type: "iteration.session",
+      data: { sessionId: originalSessionId },
+    } satisfies IterationSessionEvent);
+
+    // P1 #4: Emit research event for round 0 so frontend has source data from the start
+    subject.next({
+      type: "iteration.research",
+      data: {
+        round: 0,
+        queries: [dto.query],
+        newSources: report.metadata.totalSources,
+        informationGain: 1.0,
+      },
+    } satisfies IterationResearchEvent);
+
     let demoAvailable = false;
     if (demoIdea) {
       subject.next({
@@ -436,257 +459,291 @@ export class IterativeResearchService {
       );
       const prevTotalSources = currentReport.metadata.totalSources;
 
-      const followUp = await this.runInnerResearch(
-        projectId,
-        {
-          query: followUpQuery,
-          options: dto.options,
-          isFollowUp: true,
-          previousContext,
-        },
-        subject,
-      );
-
-      const newTotalSources = followUp.report.metadata.totalSources;
-      const newSources = Math.max(0, newTotalSources - prevTotalSources);
-      informationGain =
-        prevTotalSources > 0 ? newSources / prevTotalSources : 1;
-
-      subject.next({
-        type: "iteration.research",
-        data: {
-          round,
-          queries: [followUpQuery],
-          newSources,
-          informationGain,
-        },
-      } satisfies IterationResearchEvent);
-
-      // Re-extract ideas for the new session
-      const newIdeas = await this.extractIdeas(
-        userId,
-        projectId,
-        followUp.sessionId,
-      );
-      const newInsights = newIdeas.filter((i) => i.type === "INSIGHT");
-      const newCreativeIdeas = newIdeas.filter(
-        (i) => i.type === "CREATIVE_IDEA",
-      );
-
-      // Accumulate ideas
-      newInsights.forEach((i) => {
-        if (!allInsights.some((x) => x.id === i.id)) allInsights.push(i);
-      });
-      newCreativeIdeas.forEach((i) => {
-        if (!allCreativeIdeas.some((x) => x.id === i.id))
-          allCreativeIdeas.push(i);
-      });
-
-      subject.next({
-        type: "iteration.ideas",
-        data: {
-          round,
-          newInsights: newInsights.map((i) => ({ title: i.title })),
-          newCreativeIdeas: newCreativeIdeas.map((i) => ({ title: i.title })),
-          totalInsights: allInsights.length,
-          totalCreativeIdeas: allCreativeIdeas.length,
-        },
-      } satisfies IterationIdeasEvent);
-
-      // Regenerate demo using best available idea
-      const bestIdea =
-        newCreativeIdeas[0] ??
-        allCreativeIdeas[0] ??
-        newInsights[0] ??
-        allInsights[0];
-
-      const previousScore = currentScore;
-      let newScore = previousScore;
-      let newGaps = currentGaps;
-
-      let roundDemoAvailable = false;
-      if (bestIdea) {
-        subject.next({
-          type: "iteration.demo",
-          data: { round, status: "generating" },
-        } satisfies IterationDemoEvent);
-
-        const newDemo = await this.createAndPollDemo(
-          userId,
-          projectId,
-          bestIdea.id,
-        );
-        if (newDemo) {
-          roundDemoAvailable = true;
-          subject.next({
-            type: "iteration.demo",
-            data: { round, status: "completed" },
-          } satisfies IterationDemoEvent);
-
-          const updatedScore = await this.evaluateDemo(
-            newDemo.htmlContent,
-            {
-              insights: allInsights.map((i) => i.title),
-              creativeIdeas: allCreativeIdeas.map((i) => i.title),
-            },
-            topicType,
-            dto.query,
-          );
-
-          newScore = updatedScore.composite;
-          newGaps = updatedScore.gaps;
-          lastDemoScore = updatedScore;
-        }
-      }
-
-      // Fallback: when demo evaluation is unavailable, use report-based heuristics
-      if (!roundDemoAvailable) {
-        const fallback = estimateReportQuality(
-          followUp.report,
-          allInsights.length,
-          allCreativeIdeas.length,
-        );
-        newScore = fallback.score;
-        newGaps = fallback.gaps;
-      }
-
-      scores.push(newScore);
-      currentScore = newScore;
-      currentGaps = newGaps;
-      currentReport = followUp.report;
-      currentSessionId = followUp.sessionId;
-
-      // Update the original session with the latest report and clean up intermediate session
+      // P0 #2: Wrap inner research and downstream processing in try-catch so a
+      // single-round failure does not discard all accumulated progress.
+      let roundErrored = false;
       try {
-        await this.prisma.deepResearchSession.update({
-          where: { id: originalSessionId },
-          data: {
-            report: followUp.report as unknown as Record<string, unknown> & {
-              toJSON(): unknown;
-            },
-            // Keep status as SEARCHING during iteration — only set COMPLETED at the end
-            status: "SEARCHING",
+        const followUp = await this.runInnerResearch(
+          projectId,
+          {
+            query: followUpQuery,
+            options: dto.options,
+            isFollowUp: true,
+            previousContext,
           },
-        });
-        // Delete intermediate session (it was just a workspace for this round)
-        if (currentSessionId !== originalSessionId) {
-          await this.prisma.deepResearchSession
-            .delete({
-              where: { id: currentSessionId },
-            })
-            .catch(() => {
-              /* ignore if already deleted */
-            });
-        }
-      } catch (err) {
-        this.logger.warn(
-          `Failed to sync report to original session: ${err instanceof Error ? err.message : String(err)}`,
+          subject,
         );
-      }
 
-      // Snapshot actual counts for summary table
-      roundSnapshots.push({
-        insights: allInsights.length,
-        creativeIdeas: allCreativeIdeas.length,
-        gapCount: newGaps.dataGaps.length + newGaps.ideaGaps.length,
-        keyChange: `Iteration ${round}`,
-      });
+        const newTotalSources = followUp.report.metadata.totalSources;
+        const newSources = Math.max(0, newTotalSources - prevTotalSources);
+        informationGain =
+          prevTotalSources > 0 ? newSources / prevTotalSources : 1;
 
-      // Build exit decision for record (peek ahead to see if we exit next)
-      const nextExitContext: ExitContext = {
-        iteration: round + 1,
-        depth,
-        scores,
-        informationGain,
-        gaps: currentGaps,
-      };
-      const nextExitDecision = this.exitDecisionService?.decide(
-        nextExitContext,
-      ) ?? {
-        exit: round + 1 >= maxIterations,
-      };
-
-      const iterationMarkdown =
-        this.iterationRecordService?.generateIterationRecord({
-          round,
-          previousScore,
-          gaps: currentGaps,
-          researchActions: {
+        subject.next({
+          type: "iteration.research",
+          data: {
+            round,
             queries: [followUpQuery],
             newSources,
             informationGain,
           },
-          newInsights: newInsights.map((i) => i.title),
-          newCreativeIdeas: newCreativeIdeas.map((i) => i.title),
-          ideaPoolTotal: {
-            insights: allInsights.length,
-            creativeIdeas: allCreativeIdeas.length,
-          },
-          adoptedInDemo: bestIdea ? [bestIdea.title] : [],
-          demoChanges: newGaps.dataGaps
-            .slice(0, 3)
-            .map((g) => `Addressed gap: ${g}`),
-          newScore,
-          remainingGaps: newGaps,
-          exitDecision: nextExitDecision,
-        });
-      if (iterationMarkdown) {
-        iterationRecords.push(iterationMarkdown);
-      }
+        } satisfies IterationResearchEvent);
 
-      subject.next({
-        type: "iteration.eval",
-        data: {
+        // Re-extract ideas for the new session
+        const newIdeas = await this.extractIdeas(
+          userId,
+          projectId,
+          followUp.sessionId,
+        );
+        const newInsights = newIdeas.filter((i) => i.type === "INSIGHT");
+        const newCreativeIdeas = newIdeas.filter(
+          (i) => i.type === "CREATIVE_IDEA",
+        );
+
+        // Accumulate ideas
+        newInsights.forEach((i) => {
+          if (!allInsights.some((x) => x.id === i.id)) allInsights.push(i);
+        });
+        newCreativeIdeas.forEach((i) => {
+          if (!allCreativeIdeas.some((x) => x.id === i.id))
+            allCreativeIdeas.push(i);
+        });
+
+        subject.next({
+          type: "iteration.ideas",
+          data: {
+            round,
+            newInsights: newInsights.map((i) => ({ title: i.title })),
+            newCreativeIdeas: newCreativeIdeas.map((i) => ({ title: i.title })),
+            totalInsights: allInsights.length,
+            totalCreativeIdeas: allCreativeIdeas.length,
+          },
+        } satisfies IterationIdeasEvent);
+
+        // Regenerate demo using best available idea
+        const bestIdea =
+          newCreativeIdeas[0] ??
+          allCreativeIdeas[0] ??
+          newInsights[0] ??
+          allInsights[0];
+
+        const previousScore = currentScore;
+        let newScore = previousScore;
+        let newGaps = currentGaps;
+
+        let roundDemoAvailable = false;
+        if (bestIdea) {
+          subject.next({
+            type: "iteration.demo",
+            data: { round, status: "generating" },
+          } satisfies IterationDemoEvent);
+
+          const newDemo = await this.createAndPollDemo(
+            userId,
+            projectId,
+            bestIdea.id,
+          );
+          if (newDemo) {
+            roundDemoAvailable = true;
+            subject.next({
+              type: "iteration.demo",
+              data: { round, status: "completed" },
+            } satisfies IterationDemoEvent);
+
+            const updatedScore = await this.evaluateDemo(
+              newDemo.htmlContent,
+              {
+                insights: allInsights.map((i) => i.title),
+                creativeIdeas: allCreativeIdeas.map((i) => i.title),
+              },
+              topicType,
+              dto.query,
+            );
+
+            newScore = updatedScore.composite;
+            newGaps = updatedScore.gaps;
+            lastDemoScore = updatedScore;
+          }
+        }
+
+        // Fallback: when demo evaluation is unavailable, use report-based heuristics
+        if (!roundDemoAvailable) {
+          const fallback = estimateReportQuality(
+            followUp.report,
+            allInsights.length,
+            allCreativeIdeas.length,
+            currentReport,
+          );
+          newScore = fallback.score;
+          newGaps = fallback.gaps;
+        }
+
+        scores.push(newScore);
+        currentScore = newScore;
+        currentGaps = newGaps;
+        currentReport = followUp.report;
+        currentSessionId = followUp.sessionId;
+
+        // Update the original session with the latest report and clean up intermediate session
+        try {
+          await this.prisma.deepResearchSession.update({
+            where: { id: originalSessionId },
+            data: {
+              report: followUp.report as unknown as Record<string, unknown> & {
+                toJSON(): unknown;
+              },
+              // Keep status as SEARCHING during iteration — only set COMPLETED at the end
+              status: "SEARCHING",
+            },
+          });
+          // Delete intermediate session (it was just a workspace for this round)
+          if (currentSessionId !== originalSessionId) {
+            await this.prisma.deepResearchSession
+              .delete({
+                where: { id: currentSessionId },
+              })
+              .catch(() => {
+                /* ignore if already deleted */
+              });
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Failed to sync report to original session: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        // Snapshot actual counts for summary table
+        roundSnapshots.push({
+          insights: allInsights.length,
+          creativeIdeas: allCreativeIdeas.length,
+          gapCount: newGaps.dataGaps.length + newGaps.ideaGaps.length,
+          keyChange: `Iteration ${round}`,
+        });
+
+        // Build exit decision for record (peek ahead to see if we exit next)
+        const nextExitContext: ExitContext = {
+          iteration: round + 1,
+          depth,
+          scores,
+          informationGain,
+          gaps: currentGaps,
+        };
+        const nextExitDecision = this.exitDecisionService?.decide(
+          nextExitContext,
+        ) ?? {
+          exit: round + 1 >= maxIterations,
+        };
+
+        const iterationMarkdown =
+          this.iterationRecordService?.generateIterationRecord({
+            round,
+            previousScore,
+            gaps: currentGaps,
+            researchActions: {
+              queries: [followUpQuery],
+              newSources,
+              informationGain,
+            },
+            newInsights: newInsights.map((i) => i.title),
+            newCreativeIdeas: newCreativeIdeas.map((i) => i.title),
+            ideaPoolTotal: {
+              insights: allInsights.length,
+              creativeIdeas: allCreativeIdeas.length,
+            },
+            adoptedInDemo: bestIdea ? [bestIdea.title] : [],
+            demoChanges: newGaps.dataGaps
+              .slice(0, 3)
+              .map((g) => `Addressed gap: ${g}`),
+            newScore,
+            remainingGaps: newGaps,
+            exitDecision: nextExitDecision,
+          });
+        if (iterationMarkdown) {
+          iterationRecords.push(iterationMarkdown);
+        }
+
+        subject.next({
+          type: "iteration.eval",
+          data: {
+            round,
+            score: newScore * 100,
+            previousScore: previousScore * 100,
+            gaps: newGaps,
+            record: iterationMarkdown ?? undefined,
+          },
+        } satisfies IterationEvalEvent);
+
+        // Persist this round's snapshot (await to prevent write races with subsequent rounds)
+        await this.saveIterationSnapshot(originalSessionId, {
           round,
           score: newScore * 100,
           previousScore: previousScore * 100,
           gaps: newGaps,
-          record: iterationMarkdown ?? undefined,
-        },
-      } satisfies IterationEvalEvent);
+          research: {
+            queries: [followUpQuery],
+            newSources,
+            informationGain,
+          },
+          ideas: {
+            newInsights: newInsights.map((i) => ({ title: i.title })),
+            newCreativeIdeas: newCreativeIdeas.map((i) => ({ title: i.title })),
+            totalInsights: allInsights.length,
+            totalCreativeIdeas: allCreativeIdeas.length,
+          },
+          demo: bestIdea ? { status: "completed" } : undefined,
+          timestamp: new Date().toISOString(),
+        });
 
-      // Persist this round's snapshot (await to prevent write races with subsequent rounds)
-      await this.saveIterationSnapshot(originalSessionId, {
-        round,
-        score: newScore * 100,
-        previousScore: previousScore * 100,
-        gaps: newGaps,
-        research: {
-          queries: [followUpQuery],
-          newSources,
-          informationGain,
-        },
-        ideas: {
-          newInsights: newInsights.map((i) => ({ title: i.title })),
-          newCreativeIdeas: newCreativeIdeas.map((i) => ({ title: i.title })),
-          totalInsights: allInsights.length,
-          totalCreativeIdeas: allCreativeIdeas.length,
-        },
-        demo: bestIdea ? { status: "completed" } : undefined,
-        timestamp: new Date().toISOString(),
-      });
+        // Pause for user feedback between iterations (30s timeout)
+        subject.next({
+          type: "iteration.awaiting_feedback" as const,
+          data: {
+            round,
+            score: newScore * 100,
+            gaps: newGaps,
+            timeoutMs: FEEDBACK_TIMEOUT_MS,
+          },
+        });
 
-      // Pause for user feedback between iterations (30s timeout)
-      subject.next({
-        type: "iteration.awaiting_feedback" as const,
-        data: {
-          round,
-          score: newScore * 100,
-          gaps: newGaps,
-          timeoutMs: FEEDBACK_TIMEOUT_MS,
-        },
-      });
-
-      const userFeedback = await this.waitForFeedback(
-        projectId,
-        FEEDBACK_TIMEOUT_MS,
-      );
-      if (userFeedback) {
-        this.logger.log(
-          `[Iterative] User feedback for round ${round}: "${userFeedback.slice(0, 100)}"`,
+        const userFeedback = await this.waitForFeedback(
+          projectId,
+          FEEDBACK_TIMEOUT_MS,
         );
-        userFeedbackHistory.push(userFeedback);
-        latestFeedback = userFeedback;
+        if (userFeedback) {
+          this.logger.log(
+            `[Iterative] User feedback for round ${round}: "${userFeedback.slice(0, 100)}"`,
+          );
+          userFeedbackHistory.push(userFeedback);
+          latestFeedback = userFeedback;
+        }
+      } catch (roundErr: unknown) {
+        // P0 #2: A round failure should not discard all accumulated data. Log the
+        // error, emit an eval event with the previous score so the frontend
+        // remains in a consistent state, then break out of the loop and fall
+        // through to the summary/save section so everything collected so far
+        // is still persisted.
+        const message =
+          roundErr instanceof Error ? roundErr.message : String(roundErr);
+        this.logger.error(
+          `[Iterative] Round ${round} failed, exiting loop gracefully: ${message}`,
+        );
+
+        exitDecision = { exit: true, reason: "budget_exhausted" };
+        roundErrored = true;
+
+        subject.next({
+          type: "iteration.eval",
+          data: {
+            round,
+            score: currentScore * 100,
+            previousScore: currentScore * 100,
+            gaps: currentGaps,
+          },
+        } satisfies IterationEvalEvent);
+      }
+
+      if (roundErrored) {
+        break;
       }
     }
 
@@ -1136,11 +1193,14 @@ export class IterativeResearchService {
 /**
  * Fallback quality estimation when demo evaluation is unavailable.
  * Uses report structure, content depth, and idea pool as heuristics.
+ * When `previousReport` is provided, applies an incremental improvement bonus
+ * (up to 0.1) based on section count, reference count, and total content growth.
  */
 function estimateReportQuality(
   report: DeepResearchReport,
   insightCount: number,
   creativeIdeaCount: number,
+  previousReport?: DeepResearchReport,
 ): { score: number; gaps: { dataGaps: string[]; ideaGaps: string[] } } {
   const sections = report.sections ?? [];
   const refs = report.references ?? [];
@@ -1157,12 +1217,37 @@ function estimateReportQuality(
   const ideaScore = Math.min(insightCount / 10, 1); // 10+ insights = full marks
   const structureScore = (hasSummary ? 0.5 : 0) + (hasConclusion ? 0.5 : 0);
 
-  const score =
+  let baseScore =
     sectionScore * 0.25 +
     refScore * 0.2 +
     depthScore * 0.25 +
     ideaScore * 0.15 +
     structureScore * 0.15;
+
+  // P2 #8: Cross-round incremental improvement bonus (up to 0.1)
+  let incrementalBonus = 0;
+  if (previousReport) {
+    const prevSections = previousReport.sections?.length ?? 0;
+    const prevRefs = previousReport.references?.length ?? 0;
+    const prevDepth = (previousReport.sections ?? []).reduce(
+      (sum, s) => sum + (s.content?.length ?? 0),
+      0,
+    );
+    const currDepth = sections.reduce(
+      (sum, s) => sum + (s.content?.length ?? 0),
+      0,
+    );
+
+    let improvements = 0;
+    if (sections.length > prevSections) improvements++;
+    if (refs.length > prevRefs) improvements++;
+    if (currDepth > prevDepth) improvements++;
+
+    // Each improvement dimension contributes up to 0.033 (3 * 0.033 ≈ 0.1)
+    incrementalBonus = Math.min((improvements / 3) * 0.1, 0.1);
+  }
+
+  const score = Math.min(baseScore + incrementalBonus, 1);
 
   // Generate meaningful gaps based on what's missing
   const dataGaps: string[] = [];

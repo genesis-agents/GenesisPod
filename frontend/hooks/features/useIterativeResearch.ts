@@ -299,6 +299,18 @@ export function useIterativeResearch(
           break;
         }
 
+        case 'iteration.session': {
+          const sessionData = data as { sessionId: string };
+          setState((prev) => ({
+            ...prev,
+            discussion: {
+              ...prev.discussion,
+              sessionId: sessionData.sessionId,
+            },
+          }));
+          break;
+        }
+
         case 'iteration.start': {
           const startData = data as {
             round: number;
@@ -315,7 +327,6 @@ export function useIterativeResearch(
             timestamp: new Date(),
           };
           messagesRef.current = [...messagesRef.current, separatorMsg];
-          // Clear reportContent for fresh content.delta accumulation in new round
           setState((prev) => ({
             ...prev,
             currentRound: startData.round,
@@ -323,7 +334,6 @@ export function useIterativeResearch(
             awaitingFeedback: null,
             discussion: {
               ...prev.discussion,
-              reportContent: {},
               messages: messagesRef.current,
             },
           }));

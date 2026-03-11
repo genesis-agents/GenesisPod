@@ -280,6 +280,183 @@ function ProductLayerCard({ round, isExpanded }: ProductLayerCardProps) {
   );
 }
 
+// ==================== Markdown Record Renderer ====================
+
+interface MarkdownRecordProps {
+  content: string;
+}
+
+function MarkdownRecord({ content }: MarkdownRecordProps) {
+  const lines = content.split('\n');
+
+  type Block =
+    | { type: 'h1'; text: string }
+    | { type: 'h2'; text: string }
+    | { type: 'h3'; text: string }
+    | { type: 'table'; rows: string[][] }
+    | { type: 'list'; items: string[] }
+    | { type: 'paragraph'; text: string };
+
+  const blocks: Block[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.startsWith('# ') && !line.startsWith('## ')) {
+      // Skip top-level title (redundant with round header)
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('### ')) {
+      blocks.push({ type: 'h3', text: line.slice(4).trim() });
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('## ')) {
+      blocks.push({ type: 'h2', text: line.slice(3).trim() });
+      i++;
+      continue;
+    }
+
+    if (line.trim().startsWith('|')) {
+      // Collect table rows
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        const row = lines[i]
+          .trim()
+          .replace(/^\||\|$/g, '')
+          .split('|')
+          .map((cell) => cell.trim());
+        // Skip separator rows (---|--- pattern)
+        if (!row.every((cell) => /^[-: ]+$/.test(cell))) {
+          rows.push(row);
+        }
+        i++;
+      }
+      if (rows.length > 0) {
+        blocks.push({ type: 'table', rows });
+      }
+      continue;
+    }
+
+    if (line.trim().startsWith('- ')) {
+      const items: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith('- ')) {
+        items.push(lines[i].trim().slice(2));
+        i++;
+      }
+      blocks.push({ type: 'list', items });
+      continue;
+    }
+
+    if (line.trim().length > 0) {
+      blocks.push({ type: 'paragraph', text: line.trim() });
+    }
+
+    i++;
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+      {blocks.map((block, idx) => {
+        if (block.type === 'h1') return null;
+
+        if (block.type === 'h2') {
+          return (
+            <div
+              key={idx}
+              className="border-b border-gray-200 pb-1 pt-1 text-xs font-semibold text-gray-700"
+            >
+              {block.text}
+            </div>
+          );
+        }
+
+        if (block.type === 'h3') {
+          return (
+            <div key={idx} className="text-xs font-medium text-gray-600">
+              {block.text}
+            </div>
+          );
+        }
+
+        if (block.type === 'table') {
+          const [header, ...bodyRows] = block.rows;
+          return (
+            <div
+              key={idx}
+              className="overflow-x-auto rounded border border-gray-200"
+            >
+              <table className="w-full text-xs">
+                {header && (
+                  <thead>
+                    <tr className="bg-gray-100">
+                      {header.map((cell, ci) => (
+                        <th
+                          key={ci}
+                          className="px-2 py-1 text-left font-medium text-gray-700"
+                        >
+                          {cell}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
+                <tbody>
+                  {bodyRows.map((row, ri) => (
+                    <tr
+                      key={ri}
+                      className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                    >
+                      {row.map((cell, ci) => (
+                        <td
+                          key={ci}
+                          className="px-2 py-1 text-gray-600"
+                        >
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+
+        if (block.type === 'list') {
+          return (
+            <ul key={idx} className="flex flex-col gap-0.5 pl-2">
+              {block.items.map((item, ii) => (
+                <li
+                  key={ii}
+                  className="flex items-start gap-1.5 text-xs text-gray-600"
+                >
+                  <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-gray-400" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (block.type === 'paragraph') {
+          return (
+            <p key={idx} className="text-xs text-gray-600">
+              {block.text}
+            </p>
+          );
+        }
+
+        return null;
+      })}
+    </div>
+  );
+}
+
 // ==================== Record Panel ====================
 
 interface RecordPanelProps {
@@ -303,11 +480,7 @@ function RecordPanel({ record }: RecordPanelProps) {
           <ChevronDown className="h-3 w-3" />
         )}
       </button>
-      {isOpen && (
-        <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-relaxed text-gray-700">
-          <pre className="whitespace-pre-wrap font-sans">{record}</pre>
-        </div>
-      )}
+      {isOpen && <MarkdownRecord content={record} />}
     </div>
   );
 }
