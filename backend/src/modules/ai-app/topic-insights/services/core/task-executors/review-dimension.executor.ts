@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchTaskStatus } from "@prisma/client";
-import { ResearchEventEmitterService } from "../research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { DataSourceFetcherService } from "../../data/data-source-fetcher.service";
@@ -58,13 +58,7 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
   ) {}
 
   async execute(context: TaskExecutionContext): Promise<TaskExecutionResult> {
-    const {
-      task,
-      topic,
-      missionId,
-      depthConfig,
-      assignedModelId,
-    } = context;
+    const { task, topic, missionId, depthConfig, assignedModelId } = context;
 
     // ★ 发送审核开始提示（传递 missionId 以便持久化）
     await this.researchEventEmitter.emitAgentWorking(
@@ -110,11 +104,9 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
     }
 
     // ★ 读取 enableAiQualityReview 标志（默认关闭，使用确定性检查）
-    const topicConfig = (
-      topic as { topicConfig?: Record<string, unknown> }
-    ).topicConfig;
-    const enableAiQualityReview =
-      topicConfig?.enableAiQualityReview === true;
+    const topicConfig = (topic as { topicConfig?: Record<string, unknown> })
+      .topicConfig;
+    const enableAiQualityReview = topicConfig?.enableAiQualityReview === true;
 
     this.logger.log(
       `[ReviewDimensionExecutor] enableAiQualityReview=${enableAiQualityReview}`,
@@ -137,9 +129,7 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
           .map((t) => {
             const taskResult = t.result as TaskResultJson;
             return (
-              taskResult?.summary ||
-              taskResult?.analysisResult?.summary ||
-              ""
+              taskResult?.summary || taskResult?.analysisResult?.summary || ""
             );
           })
           .filter(Boolean)
@@ -147,7 +137,7 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
           .substring(0, 8000);
 
         // 从结果中提取 claims（key findings 作为 claims）
-        const allClaims: import("../../../types/v5-research.types").ExtractedClaim[] =
+        const allClaims: import("../../../types/research-depth.types").ExtractedClaim[] =
           [];
         for (const t of completedTasks) {
           const taskResult = t.result as TaskResultJson;
@@ -294,14 +284,13 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
             const newEvidenceParts: string[] = [];
             for (const gq of gapQueries) {
               try {
-                const results =
-                  await this.dataSourceFetcher.executeSearch(
-                    gq.searchType === "academic"
-                      ? DataSourceType.ACADEMIC
-                      : DataSourceType.WEB,
-                    gq.query,
-                    3, // Light search: max 3 results per query
-                  );
+                const results = await this.dataSourceFetcher.executeSearch(
+                  gq.searchType === "academic"
+                    ? DataSourceType.ACADEMIC
+                    : DataSourceType.WEB,
+                  gq.query,
+                  3, // Light search: max 3 results per query
+                );
 
                 for (const r of results) {
                   if (r.snippet || r.title) {
@@ -336,9 +325,7 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
           }
         }
       } catch (error) {
-        this.logger.warn(
-          `[V5] Cognitive loop failed (non-fatal): ${error}`,
-        );
+        this.logger.warn(`[V5] Cognitive loop failed (non-fatal): ${error}`);
       }
     }
 
@@ -417,9 +404,7 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
           );
 
           // ★ 发送维度审核结果事件（包含评分和结论）
-          const dimQualityLevelCn = this.getQualityLevelCn(
-            review.qualityLevel,
-          );
+          const dimQualityLevelCn = this.getQualityLevelCn(review.qualityLevel);
           const dimTopIssue = review.issues[0]?.description ?? null;
           const dimScoreRounded = Math.round(review.overallScore);
           const dimTaskDescription = dimTopIssue
@@ -479,12 +464,10 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
 
         // 确定性评分（基于启发式规则，无 LLM）
         const contentLength =
-          (analysisResult.detailedContent as string | undefined)
-            ?.length || 0;
+          (analysisResult.detailedContent as string | undefined)?.length || 0;
         const findingsCount =
           (analysisResult.keyFindings as unknown[])?.length || 0;
-        const trendsCount =
-          (analysisResult.trends as unknown[])?.length || 0;
+        const trendsCount = (analysisResult.trends as unknown[])?.length || 0;
         const challengesCount =
           (analysisResult.challenges as unknown[])?.length || 0;
         const opportunitiesCount =
@@ -522,9 +505,7 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
           ((analysisResult.summary as string | undefined) ? 30 : 0) +
             (findingsCount > 0 ? 30 : 0) +
             (contentLength >= 500 ? 20 : 0) +
-            ((analysisResult.confidenceLevel as string | undefined)
-              ? 20
-              : 0),
+            ((analysisResult.confidenceLevel as string | undefined) ? 20 : 0),
         );
 
         const currencyScore = 75; // 无 LLM 时默认合理分值
@@ -605,9 +586,7 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
         const reviewProgress = Math.round(
           10 + ((i + 1) / completedTasks.length) * 70,
         );
-        const dimQualityLevelCn = this.getQualityLevelCn(
-          review.qualityLevel,
-        );
+        const dimQualityLevelCn = this.getQualityLevelCn(review.qualityLevel);
         await this.researchEventEmitter.emitAgentWorking(
           topic.id,
           {
@@ -656,15 +635,12 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
           const overallQualityLevelCn = this.getQualityLevelCn(
             overallReview.qualityLevel,
           );
-          const overallScoreRounded = Math.round(
-            overallReview.overallScore,
-          );
+          const overallScoreRounded = Math.round(overallReview.overallScore);
           const passedCount = dimensionReviews.filter(
             (r) => r.overallScore >= 60,
           ).length;
           const failedCount = dimensionReviews.length - passedCount;
-          const topRecommendation =
-            overallReview.recommendations[0] ?? null;
+          const topRecommendation = overallReview.recommendations[0] ?? null;
           let overallTaskDescription = `整体质量审核完成：${overallScoreRounded}分/${overallQualityLevelCn}，${passedCount}个维度通过`;
           if (failedCount > 0)
             overallTaskDescription += `，${failedCount}个需补充研究`;
@@ -690,13 +666,9 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
                 qualityLevel: overallReview.qualityLevel,
                 overallScore: overallReview.overallScore,
                 dimensionCount: dimensionReviews.length,
-                recommendations: overallReview.recommendations.slice(
-                  0,
-                  5,
-                ),
+                recommendations: overallReview.recommendations.slice(0, 5),
                 needsReresearch: overallReview.needsReresearch,
-                dimensionsToReresearch:
-                  overallReview.dimensionsToReresearch,
+                dimensionsToReresearch: overallReview.dimensionsToReresearch,
               },
             },
             missionId,

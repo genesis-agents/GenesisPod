@@ -18,7 +18,7 @@ import {
   type TopicDimension,
 } from "@prisma/client";
 import { DataSourceRouterService } from "../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../core/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
 import {
   AgentActivityService,
   type ThinkingPhase,

@@ -1,7 +1,7 @@
 /**
  * Topic Insights - Workflow Handlers
  *
- * These handlers implement WorkflowNodeHandler interface (L2 Engine)
+ * These handlers implement WorkflowNodeHandler interface (L3 Engine)
  * and are registered in TopicInsightsModule.onModuleInit().
  */
 

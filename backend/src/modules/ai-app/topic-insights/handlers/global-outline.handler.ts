@@ -13,8 +13,8 @@ import type {
   WorkflowNodeHandler,
   ExecutionContext,
 } from "@/modules/ai-engine/facade";
-import type { ResearchLeaderService } from "../services/core/research-leader.service";
-import type { GlobalOutline } from "../services/core/research-leader.service";
+import type { ResearchLeaderService } from "../services/core/research/research-leader.service";
+import type { GlobalOutline } from "../services/core/research/research-leader.service";
 
 export interface GlobalOutlineInput {
   topic: {
@@ -33,15 +33,14 @@ export interface GlobalOutlineInput {
   }>;
 }
 
-export class GlobalOutlineHandler
-  implements WorkflowNodeHandler<GlobalOutlineInput, GlobalOutline | null>
-{
+export class GlobalOutlineHandler implements WorkflowNodeHandler<
+  GlobalOutlineInput,
+  GlobalOutline | null
+> {
   readonly handlerId = "ti:global-outline";
   private readonly logger = new Logger(GlobalOutlineHandler.name);
 
-  constructor(
-    private readonly researchLeaderService: ResearchLeaderService,
-  ) {}
+  constructor(private readonly researchLeaderService: ResearchLeaderService) {}
 
   async execute(
     input: GlobalOutlineInput,

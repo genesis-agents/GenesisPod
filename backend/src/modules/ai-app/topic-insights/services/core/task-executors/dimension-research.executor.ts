@@ -1,7 +1,11 @@
-import { Injectable, Logger, InternalServerErrorException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { TopicDimension } from "@prisma/client";
-import { ResearchEventEmitterService } from "../research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import { DimensionMissionService } from "../../dimension/dimension-mission.service";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type {
@@ -44,9 +48,7 @@ export class DimensionResearchExecutor implements ITaskExecutor {
 
     // ★ 优先使用 dimensionId 查找（更可靠）
     let dimension = task.dimensionId
-      ? topic.dimensions?.find(
-          (d: TopicDimension) => d.id === task.dimensionId,
-        )
+      ? topic.dimensions?.find((d: TopicDimension) => d.id === task.dimensionId)
       : null;
 
     // 回退：按名称查找

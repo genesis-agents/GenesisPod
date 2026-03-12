@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RefreshFrequency, ResearchTopicStatus } from "@prisma/client";
-import { TopicTeamOrchestratorService } from "../core/topic-team-orchestrator.service";
+import { TopicTeamOrchestratorService } from "../core/topic/topic-team-orchestrator.service";
 
 /**
  * Topic Refresh Scheduler

@@ -14,11 +14,11 @@ import {
   Logger,
   InternalServerErrorException,
 } from "@nestjs/common";
-import { InsufficientCreditsException } from "../../exceptions/research.exceptions";
+import { InsufficientCreditsException } from "../../types/research.exceptions";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { inferIsReasoning } from "@/modules/ai-engine/facade";
-import type { SectionPlan } from "../core/research-leader.service";
+import type { SectionPlan } from "../core/research/research-leader.service";
 import {
   SECTION_WRITING_SYSTEM_PROMPT,
   SECTION_WRITING_USER_PROMPT_TEMPLATE,
@@ -86,7 +86,7 @@ export interface SectionWriteInput {
   /** ★ 时间上下文（当前日期和时效性要求） */
   temporalContext?: TemporalContext;
   /** ★ Leader 预分配的图表（避免写手重复选图） */
-  allocatedFigures?: import("../core/research-leader.service").AllocatedFigure[];
+  allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[];
   /** V5: 验证结果上下文（注入到写作 prompt 中） */
   validationContext?: string;
   /** 研究语言设置 (zh/en) */
@@ -764,8 +764,8 @@ export class SectionWriterService {
     }
 
     // ★ 积分不足快速失败：如果任何章节因积分不足失败，直接抛出不重试
-    const creditFailure = failedIndices.find(({ reason }) =>
-      reason instanceof InsufficientCreditsException,
+    const creditFailure = failedIndices.find(
+      ({ reason }) => reason instanceof InsufficientCreditsException,
     );
     if (creditFailure) {
       this.logger.error(
@@ -1173,7 +1173,7 @@ export class SectionWriterService {
    */
   private formatFiguresForSection(
     evidenceData: EvidenceData[],
-    allocatedFigures?: import("../core/research-leader.service").AllocatedFigure[],
+    allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[],
   ): string {
     // ★ 优先使用 Leader 预分配的图表
     if (allocatedFigures && allocatedFigures.length > 0) {
@@ -1218,7 +1218,7 @@ export class SectionWriterService {
    */
   private backfillFigureUrls(
     figureRefs: FigureReference[],
-    allocatedFigures?: import("../core/research-leader.service").AllocatedFigure[],
+    allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[],
     evidenceData?: EvidenceData[],
   ): FigureReference[] {
     if (figureRefs.length === 0) {
@@ -1228,7 +1228,7 @@ export class SectionWriterService {
     // Level 1: 构建 "evidenceIndex:figureIndex" -> allocatedFigure 映射
     const allocatedMap = new Map<
       string,
-      import("../core/research-leader.service").AllocatedFigure
+      import("../core/research/research-leader.service").AllocatedFigure
     >();
     if (allocatedFigures) {
       for (const fig of allocatedFigures) {

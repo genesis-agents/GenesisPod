@@ -311,5 +311,5 @@ export interface GlobalOutline {
   /** 去重规则（避免重复覆盖） */
   deduplicationRules: string[];
   /** V5: 研究设计 */
-  researchDesign?: import("./v5-research.types").ResearchDesign;
+  researchDesign?: import("./research-depth.types").ResearchDesign;
 }

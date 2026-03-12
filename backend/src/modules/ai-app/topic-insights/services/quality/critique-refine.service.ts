@@ -20,7 +20,7 @@ import {
   CritiqueRefineLoopResult,
   CritiqueRefineConfig,
   DEFAULT_CRITIQUE_REFINE_CONFIG,
-} from "../../types/quality-enhancement.types";
+} from "../../types/quality.types";
 
 export interface CritiqueRefineRequest {
   content: string;
@@ -323,20 +323,24 @@ ${issuesText}
 请按 content-refine skill 的改进原则（优先级聚焦、最小变更、精准定位、逻辑连贯）进行修改，输出 JSON。`;
 
     try {
-      const response =
-        await this.chatFacade.chatStructured<RawRefineResponse>({
-          messages: [{ role: "user", content: userPrompt }],
-          additionalSkills: ["content-refine"],
-          skipGuardrails: true,
-          taskProfile: { creativity: "low", outputLength: "long" },
-          schema: REFINE_SCHEMA,
-          strictMode: false,
-          throwOnParseError: false,
-          maxRetries: 1,
-        });
+      const response = await this.chatFacade.chatStructured<RawRefineResponse>({
+        messages: [{ role: "user", content: userPrompt }],
+        additionalSkills: ["content-refine"],
+        skipGuardrails: true,
+        taskProfile: { creativity: "low", outputLength: "long" },
+        schema: REFINE_SCHEMA,
+        strictMode: false,
+        throwOnParseError: false,
+        maxRetries: 1,
+      });
 
       if (response.data) {
-        return this.parseRefineResponse(response.data, content, critique, issuesToFix);
+        return this.parseRefineResponse(
+          response.data,
+          content,
+          critique,
+          issuesToFix,
+        );
       }
     } catch (error) {
       this.logger.error(`[refineContent] Error: ${error}`);

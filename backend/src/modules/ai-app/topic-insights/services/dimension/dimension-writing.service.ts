@@ -17,14 +17,14 @@ import {
   type ResearchTopic,
   type TopicDimension,
 } from "@prisma/client";
-import { LeaderReviewService } from "../core/leader-review.service";
-import { ResearchLeaderService } from "../core/research-leader.service";
+import { LeaderReviewService } from "../core/leader/leader-review.service";
+import { ResearchLeaderService } from "../core/research/research-leader.service";
 import {
   SectionWriterService,
   type SectionWriteResult,
   type TemporalContext,
 } from "./section-writer.service";
-import { ResearchEventEmitterService } from "../core/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
 import { AgentActivityService } from "../monitoring/agent-activity.service";
 import type { ThinkingPhase } from "../monitoring/agent-activity.service";
 import {
@@ -59,7 +59,7 @@ export interface DimensionWritingResult {
   integratedResult?: IntegratedDimensionResult;
   error?: string;
   actualModelId?: string;
-  extractedClaims?: import("../../types/v5-research.types").ExtractedClaim[];
+  extractedClaims?: import("../../types/research-depth.types").ExtractedClaim[];
 }
 
 @Injectable()
@@ -262,7 +262,7 @@ export class DimensionWritingService {
         content: r.content,
       }));
 
-      let extractedClaims: import("../../types/v5-research.types").ExtractedClaim[] =
+      let extractedClaims: import("../../types/research-depth.types").ExtractedClaim[] =
         [];
       try {
         const claimPromises = allSectionContents.map((sc) =>

@@ -24,16 +24,16 @@ import {
   type ResearchTopic,
   type TopicDimension,
 } from "@prisma/client";
-import { LeaderPlanningService } from "../core/leader-planning.service";
-import { LeaderReviewService } from "../core/leader-review.service";
-import { ResearchLeaderService } from "../core/research-leader.service";
+import { LeaderPlanningService } from "../core/leader/leader-planning.service";
+import { LeaderReviewService } from "../core/leader/leader-review.service";
+import { ResearchLeaderService } from "../core/research/research-leader.service";
 import {
   SectionWriterService,
   type SectionWriteResult,
   type TemporalContext,
 } from "./section-writer.service";
 import { DataSourceRouterService } from "../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../core/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
 import {
   AgentActivityService,
   type ThinkingPhase,
@@ -79,7 +79,7 @@ import {
   type EstablishedFact,
   TokenBudgetService,
 } from "@/modules/ai-engine/facade";
-import { MissionObservabilityService } from "../core/mission-observability.service";
+import { MissionObservabilityService } from "../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 
 /**
@@ -96,7 +96,7 @@ export interface DimensionMissionResult {
   error?: string;
   actualModelId?: string; // ★ 实际使用的模型
   /** V5: 提取的事实断言（用于后续验证） */
-  extractedClaims?: import("../../types/v5-research.types").ExtractedClaim[];
+  extractedClaims?: import("../../types/research-depth.types").ExtractedClaim[];
   /** Batch 2: 跨维度事实（用于报告一致性） */
   extractedFacts?: EstablishedFact[];
 }
@@ -1038,7 +1038,7 @@ export class DimensionMissionService {
         content: r.content,
       }));
 
-      let extractedClaims: import("../../types/v5-research.types").ExtractedClaim[] =
+      let extractedClaims: import("../../types/research-depth.types").ExtractedClaim[] =
         [];
       try {
         const claimPromises = allSectionContents.map((sc) =>
@@ -1162,10 +1162,7 @@ export class DimensionMissionService {
         if (indexMapping.size > 0) {
           finalIntegratedResult = {
             ...integratedResult,
-            content: replaceEvidenceIds(
-              integratedResult.content,
-              indexMapping,
-            ),
+            content: replaceEvidenceIds(integratedResult.content, indexMapping),
           };
         }
 

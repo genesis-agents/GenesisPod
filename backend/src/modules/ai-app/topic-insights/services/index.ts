@@ -5,41 +5,43 @@
  */
 
 // ==================== Core ====================
-export { ResearchLeaderService } from "./core/research-leader.service";
-// ★ Leader sub-services (ResearchLeader decomposition)
-export { LeaderPlanningService } from "./core/leader-planning.service";
-export { LeaderIntentService } from "./core/leader-intent.service";
-export { LeaderAgentSelectionService } from "./core/leader-agent-selection.service";
-export { LeaderReviewService } from "./core/leader-review.service";
-// ★ Task executors (MissionExecution decomposition)
-export { DimensionResearchExecutor } from "./core/task-executors/dimension-research.executor";
-export { ReviewDimensionExecutor } from "./core/task-executors/review-dimension.executor";
-export { SynthesisReportExecutor } from "./core/task-executors/synthesis-report.executor";
-export { GenericTaskExecutor } from "./core/task-executors/generic-task.executor";
-export { MissionQueryService } from "./core/mission-query.service";
-export { MissionLifecycleService } from "./core/mission-lifecycle.service";
-export { MissionExecutionService } from "./core/mission-execution.service";
-export { TopicTeamOrchestratorService } from "./core/topic-team-orchestrator.service";
+// Research
+export { ResearchLeaderService } from "./core/research/research-leader.service";
 export {
   ResearchEventEmitterService,
   RESEARCH_INTERNAL_EVENTS,
   type ResumeMissionExecutionPayload,
-} from "./core/research-event-emitter.service";
-export { ResearchRealtimeAdapter } from "./core/research-realtime.adapter";
-export { ResearchStrategyService } from "./core/research-strategy.service";
-export { ResearchMemoryService } from "./core/research-memory.service";
-// ★ P1: 研究模板
-export { ResearchTemplateService } from "./core/research-template.service";
+} from "./core/research/research-event-emitter.service";
+export { ResearchRealtimeAdapter } from "./core/research/research-realtime.adapter";
+export { ResearchStrategyService } from "./core/research/research-strategy.service";
+export { ResearchMemoryService } from "./core/research/research-memory.service";
+export { ResearchTemplateService } from "./core/research/research-template.service";
 
-// ★ Mission sub-services (God Service decomposition)
-export { MissionObservabilityService } from "./core/mission-observability.service";
-export { MissionNotificationService } from "./core/mission-notification.service";
+// Leader
+export { LeaderPlanningService } from "./core/leader/leader-planning.service";
+export { LeaderIntentService } from "./core/leader/leader-intent.service";
+export { LeaderAgentSelectionService } from "./core/leader/leader-agent-selection.service";
+export { LeaderReviewService } from "./core/leader/leader-review.service";
 
-// ★ Facade sub-services
-export { TopicCrudService } from "./core/topic-crud.service";
-export { TopicDimensionService } from "./core/topic-dimension.service";
-export { TopicExportService } from "./core/topic-export.service";
-export { TopicScheduleService } from "./core/topic-schedule.service";
+// Mission
+export { MissionQueryService } from "./core/mission/mission-query.service";
+export { MissionLifecycleService } from "./core/mission/mission-lifecycle.service";
+export { MissionExecutionService } from "./core/mission/mission-execution.service";
+export { MissionObservabilityService } from "./core/mission/mission-observability.service";
+export { MissionNotificationService } from "./core/mission/mission-notification.service";
+
+// Topic
+export { TopicTeamOrchestratorService } from "./core/topic/topic-team-orchestrator.service";
+export { TopicCrudService } from "./core/topic/topic-crud.service";
+export { TopicDimensionService } from "./core/topic/topic-dimension.service";
+export { TopicExportService } from "./core/topic/topic-export.service";
+export { TopicScheduleService } from "./core/topic/topic-schedule.service";
+
+// Task executors
+export { DimensionResearchExecutor } from "./core/task-executors/dimension-research.executor";
+export { ReviewDimensionExecutor } from "./core/task-executors/review-dimension.executor";
+export { SynthesisReportExecutor } from "./core/task-executors/synthesis-report.executor";
+export { GenericTaskExecutor } from "./core/task-executors/generic-task.executor";
 
 // ==================== Dimension ====================
 export { DimensionMissionService } from "./dimension/dimension-mission.service";
@@ -56,11 +58,9 @@ export { ReportAnnotationService } from "./report/report-annotation.service";
 export { CredibilityReportService } from "./report/credibility-report.service";
 export { FigureExtractorService } from "./report/figure-extractor.service";
 export { FigureRelevanceService } from "./report/figure-relevance.service";
-// ★ Report sub-services
 export { ReportGeneratorService } from "./report/report-generator.service";
 export { ReportAssemblerService } from "./report/report-assembler.service";
 export { ReportDataService } from "./report/report-data.service";
-// ★ P1: 引用格式化 + 多格式导出
 export { CitationFormatterService } from "./report/citation-formatter.service";
 export { ResearchExportService } from "./report/research-export.service";
 
@@ -73,7 +73,6 @@ export { LeaderToolService } from "./data/leader-tool.service";
 export { DataSourceFetcherService } from "./data/data-source-fetcher.service";
 export { DataSourceStrategyService } from "./data/data-source-strategy.service";
 export { EvidenceSyncCompensationService } from "./data/evidence-sync-compensation.service";
-// ★ P0: 新增数据服务
 export { DataSourceConnectorRegistry } from "./data/connectors/data-source-connector.registry";
 export { SemanticScholarConnector } from "./data/connectors/semantic-scholar.connector";
 export { PubMedConnector } from "./data/connectors/pubmed.connector";

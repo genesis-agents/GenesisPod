@@ -25,7 +25,7 @@ import {
 import {
   ResearchEventEmitterService,
   RESEARCH_INTERNAL_EVENTS,
-} from "../core/research-event-emitter.service";
+} from "../core/research/research-event-emitter.service";
 import type {
   HealthCheckResult,
   MissionHealthDetail,

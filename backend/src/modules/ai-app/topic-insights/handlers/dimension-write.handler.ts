@@ -16,11 +16,11 @@ import type {
 } from "@/modules/ai-engine/facade";
 import type { DimensionMissionService } from "../services/dimension/dimension-mission.service";
 import type { SearchPhaseResult } from "../services/dimension/dimension-mission.service";
-import type { ResearchLeaderService } from "../services/core/research-leader.service";
-import type { GlobalOutline } from "../services/core/research-leader.service";
+import type { ResearchLeaderService } from "../services/core/research/research-leader.service";
+import type { GlobalOutline } from "../services/core/research/research-leader.service";
 import type { DimensionOutline } from "../types/leader.types";
 import type { DimensionAnalysisResult } from "../types/research.types";
-import type { ExtractedClaim } from "../types/v5-research.types";
+import type { ExtractedClaim } from "../types/research-depth.types";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 
 export interface DimensionWriteInput {
@@ -41,9 +41,10 @@ export interface DimensionWriteOutput {
   extractedClaims?: ExtractedClaim[];
 }
 
-export class DimensionWriteHandler
-  implements WorkflowNodeHandler<DimensionWriteInput, DimensionWriteOutput>
-{
+export class DimensionWriteHandler implements WorkflowNodeHandler<
+  DimensionWriteInput,
+  DimensionWriteOutput
+> {
   readonly handlerId = "ti:dimension-write";
   private readonly logger = new Logger(DimensionWriteHandler.name);
 
@@ -75,8 +76,7 @@ export class DimensionWriteHandler
     if (globalOutline) {
       const coordinated = globalOutline.dimensions.find(
         (d) =>
-          d.dimensionId === dimension.id ||
-          d.dimensionName === dimension.name,
+          d.dimensionId === dimension.id || d.dimensionName === dimension.name,
       );
       if (coordinated) {
         outline = coordinated.outline;
@@ -127,7 +127,8 @@ export class DimensionWriteHandler
 
     if (!missionResult.success) {
       throw new Error(
-        missionResult.error || `Writing failed for dimension: ${dimension.name}`,
+        missionResult.error ||
+          `Writing failed for dimension: ${dimension.name}`,
       );
     }
 

@@ -25,7 +25,7 @@ import type {
   ResearchDepthConfig,
   ResearchDesign,
   ExtractedClaim,
-} from "../types/v5-research.types";
+} from "../types/research-depth.types";
 import type { SearchPhaseInput } from "../handlers/search-phase.handler";
 import { REFRESH_PIPELINE_WORKFLOW } from "./refresh-pipeline.workflow";
 import { v4 as uuid } from "uuid";

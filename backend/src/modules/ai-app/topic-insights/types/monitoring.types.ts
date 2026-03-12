@@ -180,7 +180,7 @@ export interface ResearchCheckpoint {
     | "L4_writing"
     | "L5_editing";
   /** V5: Research depth for this mission */
-  researchDepth?: import("./v5-research.types").ResearchDepth;
+  researchDepth?: import("./research-depth.types").ResearchDepth;
 }
 
 /**

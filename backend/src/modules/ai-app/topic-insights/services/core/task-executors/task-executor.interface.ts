@@ -1,5 +1,9 @@
-import type { ResearchTask, ResearchTopic, TopicDimension } from "@prisma/client";
-import type { ResearchDepthConfig } from "../../../types/v5-research.types";
+import type {
+  ResearchTask,
+  ResearchTopic,
+  TopicDimension,
+} from "@prisma/client";
+import type { ResearchDepthConfig } from "../../../types/research-depth.types";
 
 export interface TaskExecutionContext {
   task: ResearchTask;

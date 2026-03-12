@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchTaskStatus } from "@prisma/client";
-import { resolveResearchDepthConfig } from "../../../types/v5-research.types";
-import { ResearchEventEmitterService } from "../research-event-emitter.service";
+import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
@@ -113,24 +113,24 @@ export class SynthesisReportExecutor implements ITaskExecutor {
     )) as unknown as TaskExecutionResult;
 
     // V5: 深度门控后处理（fact-check for thorough mode）
-    const depthConfig = context.depthConfig ?? resolveResearchDepthConfig("standard");
+    const depthConfig =
+      context.depthConfig ?? resolveResearchDepthConfig("standard");
 
     if (depthConfig.factCheckEnabled) {
       this.logger.log(`[V5] Running fact-check (factCheckEnabled=true)`);
       try {
         const reportContent =
-          (synthesisResult as Record<string, unknown>)?.content as string || "";
-        const evidenceForFactCheck =
-          await this.prisma.topicEvidence.findMany({
-            where: { reportId },
-            select: { id: true, title: true, snippet: true },
-            take: 50,
-          });
-        const factCheckResult =
-          await this.reviewerService.factCheckReport(
-            reportContent,
-            evidenceForFactCheck,
-          );
+          ((synthesisResult as Record<string, unknown>)?.content as string) ||
+          "";
+        const evidenceForFactCheck = await this.prisma.topicEvidence.findMany({
+          where: { reportId },
+          select: { id: true, title: true, snippet: true },
+          take: 50,
+        });
+        const factCheckResult = await this.reviewerService.factCheckReport(
+          reportContent,
+          evidenceForFactCheck,
+        );
         this.logger.log(
           `[V5] Fact check: accuracy=${factCheckResult.accuracyScore}/100, issues=${factCheckResult.issues.length}`,
         );

@@ -310,10 +310,10 @@ export class ResearchReviewerService {
    * 使用 LLM 语义匹配（非关键词），批量验证每 5 个 claims
    */
   async validateClaims(
-    claims: import("../../types/v5-research.types").ExtractedClaim[],
+    claims: import("../../types/research-depth.types").ExtractedClaim[],
     evidenceSummary: string,
   ): Promise<
-    import("../../types/v5-research.types").ClaimValidationBatchResult
+    import("../../types/research-depth.types").ClaimValidationBatchResult
   > {
     if (claims.length === 0) {
       return {
@@ -327,7 +327,7 @@ export class ResearchReviewerService {
     );
 
     const { CLAIM_VALIDATION_PROMPT } =
-      await import("../../prompts/v5-research.prompt");
+      await import("../../prompts/research-depth.prompt");
     const BATCH_SIZE = 5;
 
     // Split claims into batches of 5
@@ -365,7 +365,7 @@ export class ResearchReviewerService {
           });
 
           const result = extractJsonFromAIResponse<{
-            results: import("../../types/v5-research.types").ClaimValidationResult[];
+            results: import("../../types/research-depth.types").ClaimValidationResult[];
           }>(response.content, { requiredKey: "results" });
 
           if (result.success && result.data?.results) {
@@ -410,7 +410,7 @@ export class ResearchReviewerService {
    * 分析 disputed/unverified claims，生成针对性搜索查询以填补知识缺口
    */
   async generateGapSearchQueries(
-    disputedClaims: import("../../types/v5-research.types").ClaimValidationResult[],
+    disputedClaims: import("../../types/research-depth.types").ClaimValidationResult[],
     existingEvidenceSummary: string,
   ): Promise<
     Array<{ query: string; targetClaimIds: string[]; searchType: string }>
@@ -422,7 +422,7 @@ export class ResearchReviewerService {
     );
 
     const { GAP_SEARCH_QUERY_PROMPT } =
-      await import("../../prompts/v5-research.prompt");
+      await import("../../prompts/research-depth.prompt");
 
     const claimsStr = JSON.stringify(
       disputedClaims.map((c) => ({
@@ -491,7 +491,7 @@ export class ResearchReviewerService {
   async factCheckReport(
     reportContent: string,
     evidenceData: Array<{ id: string; title: string; snippet: string | null }>,
-  ): Promise<import("../../types/v5-research.types").FactCheckResult> {
+  ): Promise<import("../../types/research-depth.types").FactCheckResult> {
     this.logger.log(`[factCheckReport] Starting fact check`);
 
     // Extract citations [n] with surrounding context.
@@ -546,7 +546,7 @@ export class ResearchReviewerService {
       .join("\n");
 
     const { FACT_CHECK_PROMPT } =
-      await import("../../prompts/v5-research.prompt");
+      await import("../../prompts/research-depth.prompt");
     const prompt = FACT_CHECK_PROMPT.replace(
       "{citationsWithContext}",
       citationsText,
@@ -572,7 +572,7 @@ export class ResearchReviewerService {
       });
 
       const result = extractJsonFromAIResponse<
-        import("../../types/v5-research.types").FactCheckResult
+        import("../../types/research-depth.types").FactCheckResult
       >(response.content, { requiredKey: "citations" });
 
       if (result.success && result.data) {
