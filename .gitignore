@@ -16,6 +16,11 @@ ENV/
 env.bak/
 venv.bak/
 
+# ESLint cache
+.eslintcache
+backend/.eslintcache
+frontend/.eslintcache
+
 # 测试
 coverage/
 coverage-*/
