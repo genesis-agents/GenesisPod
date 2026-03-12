@@ -926,8 +926,8 @@ export class AIEngineFacade {
     // ★ BYOK: BillingContext 为空时（公共端点），从 RequestContext 获取 userId
     const userId = RequestContext.getUserId();
     if (!userId) return undefined;
-    this.logger.debug(
-      `[Billing] Fallback billing context used (no BillingContext in AsyncLocalStorage). userId=${userId}`,
+    this.logger.warn(
+      `[Billing] Fallback billing context used — caller did not set BillingContext. userId=${userId}`,
     );
     return {
       userId,

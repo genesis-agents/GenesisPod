@@ -10,6 +10,7 @@ import {
   Request,
   UnauthorizedException,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
@@ -44,11 +45,13 @@ import {
 } from "../services";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import { BillingContext } from "../../../ai-infra/facade";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
 @Controller("topic-insights")
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(BillingContextInterceptor)
 export class MissionController {
   private readonly logger = new Logger(MissionController.name);
 
@@ -84,12 +87,12 @@ export class MissionController {
   @ApiResponse({ status: 403, description: "无权限" })
   @ApiResponse({ status: 429, description: "请求过于频繁" })
   async leaderPlan(@Param("id") id: string, @Body() dto: LeaderPlanDto) {
-    // ★ 权限检查已由 TopicAccessGuard 完成
+    // ★ BillingContext auto-injected by BillingContextInterceptor
     return this.lifecycleService.createMission({
       topicId: id,
       userPrompt: dto.userPrompt,
       userContext: dto.userContext,
-      mode: dto.mode || "fresh", // ★ 传递研究模式，默认为全新开始
+      mode: dto.mode || "fresh",
       researchDepth: dto.researchDepth,
     });
   }
@@ -136,6 +139,7 @@ export class MissionController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "规划已审批，执行已启动" })
   async approveMissionPlan(@Param("id") id: string) {
+    // ★ BillingContext auto-injected by BillingContextInterceptor
     const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");

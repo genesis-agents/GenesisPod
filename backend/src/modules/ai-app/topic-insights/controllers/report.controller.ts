@@ -12,6 +12,7 @@ import {
   Request,
   UnauthorizedException,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
@@ -34,11 +35,13 @@ import {
 } from "../dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
 @Controller("topic-insights")
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(BillingContextInterceptor)
 export class ReportController {
   private readonly logger = new Logger(ReportController.name);
 

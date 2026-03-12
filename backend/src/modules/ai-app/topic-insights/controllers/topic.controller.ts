@@ -12,6 +12,7 @@ import {
   Request,
   UnauthorizedException,
   UseGuards,
+  UseInterceptors,
   Sse,
   MessageEvent,
 } from "@nestjs/common";
@@ -44,11 +45,13 @@ import {
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
 @Controller("topic-insights")
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(BillingContextInterceptor)
 export class TopicController {
   private readonly logger = new Logger(TopicController.name);
 

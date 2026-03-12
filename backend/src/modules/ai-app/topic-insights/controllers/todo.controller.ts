@@ -11,6 +11,7 @@ import {
   Request,
   UnauthorizedException,
   UseGuards,
+  UseInterceptors,
   NotFoundException,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
@@ -36,11 +37,13 @@ import {
   MissionQueryService,
 } from "../services";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
 @Controller("topic-insights")
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(BillingContextInterceptor)
 export class TodoController {
   constructor(
     private readonly todoService: ResearchTodoService,
