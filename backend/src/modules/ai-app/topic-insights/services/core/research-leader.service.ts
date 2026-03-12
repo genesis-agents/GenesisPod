@@ -34,16 +34,11 @@ import {
   LeaderActionResult,
 } from "../data/leader-tool.service";
 import { TASK_PRIORITY } from "../../types/mission.types";
-import type {
-  GeneratedChart,
-  FigureReference,
-} from "../../types/research.types";
 import {
   LEADER_PLAN_PROMPT,
   LEADER_REVIEW_PROMPT,
   GLOBAL_OUTLINE_PROMPT,
   DIMENSION_OUTLINE_PROMPT,
-  SECTION_REVIEW_PROMPT,
   LEADER_DECODE_PROMPT,
   LEADER_INTERVENE_PROMPT,
   getLanguageInstruction,
@@ -2912,122 +2907,6 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     throw new InternalServerErrorException(
       `Failed to parse global outline after ${MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
     );
-  }
-
-  /**
-   * Leader 审核章节输出
-   *
-   * 多轮审核机制：
-   * - 检查是否完成要求
-   * - 不通过则返回修改指导
-   * - 最多允许 3 次修订
-   */
-  async reviewSectionOutput(
-    section: SectionPlan,
-    content: string,
-    revisionCount: number = 0,
-    charts?: {
-      generatedCharts?: GeneratedChart[];
-      figureReferences?: FigureReference[];
-    },
-    previousSections?: Array<{ title: string; content: string }>,
-    topicLanguage?: string | null,
-  ): Promise<SectionReviewDecision> {
-    this.logger.log(
-      `[reviewSectionOutput] Reviewing section: ${section.title} (revision ${revisionCount})`,
-    );
-
-    const leaderModel = await this.getReasoningModel();
-    if (!leaderModel) {
-      // 无推理模型时，默认通过
-      return {
-        sectionId: section.id,
-        approved: true,
-        score: 70,
-        feedback: "审核通过（无推理模型，默认通过）",
-      };
-    }
-
-    const previousSummary =
-      previousSections && previousSections.length > 0
-        ? previousSections
-            .map((s) => `### ${s.title}\n${s.content.substring(0, 800)}...`)
-            .join("\n\n")
-        : "无前置章节";
-
-    let prompt = SECTION_REVIEW_PROMPT.replace("{sectionTitle}", section.title)
-      .replace("{sectionDescription}", section.description)
-      .replace("{keyPoints}", section.keyPoints.join(", "))
-      .replace("{targetWords}", String(section.targetWords))
-      .replace(
-        "{minReferences}",
-        String(section.evidenceRequirements.minReferences),
-      )
-      .replace("{sectionContent}", content)
-      .replace("{previousSectionsSummary}", previousSummary)
-      .replace(
-        "{languageInstruction}",
-        getLanguageInstruction(topicLanguage || "zh"),
-      );
-
-    // ★ 注入图表数据供审核
-    if (charts?.generatedCharts?.length || charts?.figureReferences?.length) {
-      prompt += `\n\n## 章节图表数据\n\`\`\`json\n${JSON.stringify(charts, null, 2)}\n\`\`\``;
-    }
-
-    const response = await this.chatFacade.chat({
-      messages: [
-        {
-          role: "system",
-          content: "你是研究质量审核专家，请输出 JSON 格式的审核决策。",
-        },
-        { role: "user", content: prompt },
-      ],
-      model: leaderModel.modelId,
-      skipGuardrails: true, // 内部系统调用，章节内容+图表数据
-      taskProfile: {
-        creativity: "low",
-        outputLength: "medium",
-      },
-    });
-
-    const review = this.extractJsonFromResponse<{
-      approved: boolean;
-      score: number;
-      feedback: string;
-      revisionInstructions?: string;
-    }>(response.content, "approved"); // requiredKey for validation
-
-    if (!review) {
-      // 解析失败，默认通过
-      return {
-        sectionId: section.id,
-        approved: true,
-        score: 70,
-        feedback: "审核通过（解析失败，默认通过）",
-      };
-    }
-
-    // 如果已经修订多次，强制通过
-    if (!review.approved && revisionCount >= 2) {
-      this.logger.warn(
-        `[reviewSectionOutput] Max revisions reached, forcing approval for ${section.title}`,
-      );
-      return {
-        sectionId: section.id,
-        approved: true,
-        score: Math.max(review.score, 60),
-        feedback: `${review.feedback}（已达最大修订次数，强制通过）`,
-      };
-    }
-
-    return {
-      sectionId: section.id,
-      approved: review.approved,
-      score: review.score,
-      feedback: review.feedback,
-      revisionInstructions: review.revisionInstructions,
-    };
   }
 
   /**
