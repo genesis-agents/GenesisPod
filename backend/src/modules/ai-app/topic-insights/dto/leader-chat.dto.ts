@@ -19,6 +19,8 @@ export class LeaderChatDto {
   @ApiPropertyOptional({ description: "关联的 Mission ID" })
   @IsOptional()
   @IsString()
-  @Matches(/^[a-z0-9]{20,30}$/, { message: "missionId must be a valid CUID" })
+  @Matches(/^[a-z0-9-]{20,36}$/, {
+    message: "missionId must be a valid CUID or UUID",
+  })
   missionId?: string;
 }

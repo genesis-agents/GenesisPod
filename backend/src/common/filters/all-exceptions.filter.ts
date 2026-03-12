@@ -100,7 +100,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message =
           (typeof errorObj.message === "string"
             ? errorObj.message
-            : undefined) || message;
+            : Array.isArray(errorObj.message)
+              ? (errorObj.message as string[]).join("; ")
+              : undefined) || message;
         code =
           (typeof errorObj.error === "string" ? errorObj.error : undefined) ||
           code;
