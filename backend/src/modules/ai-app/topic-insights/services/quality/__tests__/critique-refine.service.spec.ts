@@ -8,7 +8,7 @@ import {
   CritiqueCategory,
   CritiqueSeverity,
   DEFAULT_CRITIQUE_REFINE_CONFIG,
-} from "../../../types/quality-enhancement.types";
+} from "../../../types/quality.types";
 
 const mockFacade = {
   chatWithSkills: jest.fn(),
@@ -135,7 +135,10 @@ describe("CritiqueRefineService", () => {
     it("should clamp overallScore to [0, 1]", async () => {
       mockFacade.chatStructured.mockResolvedValue({
         data: { ...goodCritiqueResponse, overallScore: 1.5 },
-        rawContent: JSON.stringify({ ...goodCritiqueResponse, overallScore: 1.5 }),
+        rawContent: JSON.stringify({
+          ...goodCritiqueResponse,
+          overallScore: 1.5,
+        }),
         model: "gpt-4",
       });
 

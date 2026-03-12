@@ -12,7 +12,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import { InsufficientCreditsException } from "../../../exceptions/research.exceptions";
+import { InsufficientCreditsException } from "../../../types/research.exceptions";
 
 // ============================================================
 // Helpers

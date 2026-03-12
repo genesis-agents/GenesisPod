@@ -17,7 +17,7 @@ import { RefreshFrequency, ResearchTopicStatus } from "@prisma/client";
 
 import { TopicRefreshScheduler } from "../topic-refresh.scheduler";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { TopicTeamOrchestratorService } from "../../core/topic-team-orchestrator.service";
+import { TopicTeamOrchestratorService } from "../../core/topic/topic-team-orchestrator.service";
 
 // ============================================================================
 // Helpers

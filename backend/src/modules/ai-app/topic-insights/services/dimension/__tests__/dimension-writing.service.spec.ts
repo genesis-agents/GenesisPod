@@ -16,10 +16,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionWritingService } from "../dimension-writing.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchLeaderService } from "../../core/research-leader.service";
-import { LeaderReviewService } from "../../core/leader-review.service";
+import { ResearchLeaderService } from "../../core/research/research-leader.service";
+import { LeaderReviewService } from "../../core/leader/leader-review.service";
 import { SectionWriterService } from "../section-writer.service";
-import { ResearchEventEmitterService } from "../../core/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../core/research/research-event-emitter.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { DimensionStatus } from "@prisma/client";
@@ -181,10 +181,14 @@ const mockLeaderService = {
 };
 
 const mockLeaderReviewService = {
-  reviewTaskResult: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+  reviewTaskResult: jest
+    .fn()
+    .mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
   extractClaims: jest.fn().mockResolvedValue([]),
   verifyHypotheses: jest.fn().mockResolvedValue([]),
-  reviewSectionOutput: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+  reviewSectionOutput: jest
+    .fn()
+    .mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
   integrateDimensionResults: jest.fn().mockResolvedValue({
     content: "## Analysis\n\nIntegrated content.",
     metadata: { summary: "Summary", keyFindings: [] },

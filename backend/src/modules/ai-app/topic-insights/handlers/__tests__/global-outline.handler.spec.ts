@@ -8,7 +8,7 @@
 import { GlobalOutlineHandler } from "../global-outline.handler";
 import type { GlobalOutlineInput } from "../global-outline.handler";
 import type { ExecutionContext } from "@/modules/ai-engine/facade";
-import type { GlobalOutline } from "../../services/core/research-leader.service";
+import type { GlobalOutline } from "../../services/core/research/research-leader.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,7 +25,9 @@ function makeContext(): ExecutionContext {
   };
 }
 
-function makeInput(overrides: Partial<GlobalOutlineInput> = {}): GlobalOutlineInput {
+function makeInput(
+  overrides: Partial<GlobalOutlineInput> = {},
+): GlobalOutlineInput {
   return {
     topic: {
       name: "AI Healthcare",
@@ -108,9 +110,10 @@ describe("GlobalOutlineHandler", () => {
       const input = makeInput();
       const result = await handler.execute(input, makeContext());
 
-      expect(
-        mockResearchLeaderService.planGlobalOutline,
-      ).toHaveBeenCalledWith(input.topic, input.dimensionSearchSummaries);
+      expect(mockResearchLeaderService.planGlobalOutline).toHaveBeenCalledWith(
+        input.topic,
+        input.dimensionSearchSummaries,
+      );
       expect(result).toBe(outline);
     });
 

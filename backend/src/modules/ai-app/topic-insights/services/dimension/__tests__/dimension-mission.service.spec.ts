@@ -10,16 +10,16 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionMissionService } from "../dimension-mission.service";
 import { replaceEvidenceIds } from "../content-analysis.utils";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchLeaderService } from "../../core/research-leader.service";
-import { LeaderPlanningService } from "../../core/leader-planning.service";
-import { LeaderReviewService } from "../../core/leader-review.service";
+import { ResearchLeaderService } from "../../core/research/research-leader.service";
+import { LeaderPlanningService } from "../../core/leader/leader-planning.service";
+import { LeaderReviewService } from "../../core/leader/leader-review.service";
 import { SectionWriterService } from "../section-writer.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../../core/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../core/research/research-event-emitter.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
-import { MissionObservabilityService } from "../../core/mission-observability.service";
+import { MissionObservabilityService } from "../../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { DimensionStatus } from "@prisma/client";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
@@ -185,10 +185,14 @@ function buildMocks() {
   };
 
   const mockLeaderReviewService = {
-    reviewTaskResult: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+    reviewTaskResult: jest
+      .fn()
+      .mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
     extractClaims: jest.fn().mockResolvedValue([]),
     verifyHypotheses: jest.fn().mockResolvedValue([]),
-    reviewSectionOutput: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+    reviewSectionOutput: jest
+      .fn()
+      .mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
     integrateDimensionResults: jest.fn().mockResolvedValue({
       content: "## 竞争格局\n\n综合分析内容...",
       metadata: { summary: "分析完成", keyFindings: [] },

@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionSearchService } from "../dimension-search.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../../core/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../core/research/research-event-emitter.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
@@ -159,10 +159,7 @@ describe("DimensionSearchService", () => {
     });
 
     it("should update dimension status to RESEARCHING", async () => {
-      await service.executeSearchPhase(
-        mockTopic as any,
-        mockDimension as any,
-      );
+      await service.executeSearchPhase(mockTopic as any, mockDimension as any);
 
       expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith({
         where: { id: mockDimension.id },
@@ -171,10 +168,7 @@ describe("DimensionSearchService", () => {
     });
 
     it("should call dataSourceRouter.fetchDataForDimension", async () => {
-      await service.executeSearchPhase(
-        mockTopic as any,
-        mockDimension as any,
-      );
+      await service.executeSearchPhase(mockTopic as any, mockDimension as any);
 
       expect(mockDataSourceRouter.fetchDataForDimension).toHaveBeenCalledWith(
         mockDimension,
@@ -211,10 +205,7 @@ describe("DimensionSearchService", () => {
     });
 
     it("should call enrichSearchResults with items from router", async () => {
-      await service.executeSearchPhase(
-        mockTopic as any,
-        mockDimension as any,
-      );
+      await service.executeSearchPhase(mockTopic as any, mockDimension as any);
 
       expect(mockDataEnrichment.enrichSearchResults).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -287,10 +278,7 @@ describe("DimensionSearchService", () => {
     });
 
     it("should call agentActivity.endThinkingPhase after search", async () => {
-      await service.executeSearchPhase(
-        mockTopic as any,
-        mockDimension as any,
-      );
+      await service.executeSearchPhase(mockTopic as any, mockDimension as any);
 
       expect(mockAgentActivity.endThinkingPhase).toHaveBeenCalledWith(
         mockTopic.id,
@@ -341,10 +329,7 @@ describe("DimensionSearchService", () => {
     });
 
     it("should fall back to dimension.id as effectiveMissionId when no missionId", async () => {
-      await service.executeSearchPhase(
-        mockTopic as any,
-        mockDimension as any,
-      );
+      await service.executeSearchPhase(mockTopic as any, mockDimension as any);
 
       expect(mockEventEmitter.emitAgentWorking).toHaveBeenCalledWith(
         mockTopic.id,
@@ -532,7 +517,9 @@ describe("DimensionSearchService", () => {
       );
 
       expect(result.searchResultsRecord.knowledgeBaseInfo?.enabled).toBe(true);
-      expect(result.searchResultsRecord.knowledgeBaseInfo?.matchedCount).toBe(1);
+      expect(result.searchResultsRecord.knowledgeBaseInfo?.matchedCount).toBe(
+        1,
+      );
     });
 
     it("should handle empty search results gracefully", async () => {

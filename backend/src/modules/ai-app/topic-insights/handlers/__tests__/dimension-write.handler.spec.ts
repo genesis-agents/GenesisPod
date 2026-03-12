@@ -11,7 +11,7 @@ import type {
   DimensionWriteOutput,
 } from "../dimension-write.handler";
 import type { ExecutionContext } from "@/modules/ai-engine/facade";
-import type { GlobalOutline } from "../../services/core/research-leader.service";
+import type { GlobalOutline } from "../../services/core/research/research-leader.service";
 import type { SearchPhaseResult } from "../../services/dimension/dimension-mission.service";
 import type { DimensionOutline } from "../../types/leader.types";
 import type { DimensionAnalysisResult } from "../../types/research.types";
@@ -392,7 +392,11 @@ describe("DimensionWriteHandler", () => {
 
       const input = makeWriteInput({
         globalOutline,
-        assignment: { modelId: "gpt-4o", tools: ["rag-search"], skills: ["synthesis"] },
+        assignment: {
+          modelId: "gpt-4o",
+          tools: ["rag-search"],
+          skills: ["synthesis"],
+        },
         maxRevisionRounds: 2,
       });
       await handler.execute(input, makeContext());
@@ -457,11 +461,10 @@ describe("DimensionWriteHandler", () => {
     it("marks dimension as FAILED in DB and returns 'skip'", async () => {
       mockPrisma.topicDimension.update.mockResolvedValue({});
 
-      const context = makeContext({ dimension: makeDimension({ id: "dim-1" }) });
-      const result = await handler.onError(
-        new Error("write failed"),
-        context,
-      );
+      const context = makeContext({
+        dimension: makeDimension({ id: "dim-1" }),
+      });
+      const result = await handler.onError(new Error("write failed"), context);
 
       expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith({
         where: { id: "dim-1" },
@@ -475,11 +478,10 @@ describe("DimensionWriteHandler", () => {
         new Error("DB connection lost"),
       );
 
-      const context = makeContext({ dimension: makeDimension({ id: "dim-1" }) });
-      const result = await handler.onError(
-        new Error("write failed"),
-        context,
-      );
+      const context = makeContext({
+        dimension: makeDimension({ id: "dim-1" }),
+      });
+      const result = await handler.onError(new Error("write failed"), context);
 
       expect(result).toBe("skip");
     });

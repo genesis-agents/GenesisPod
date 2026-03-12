@@ -188,23 +188,14 @@ describe("SlidesMissionHealthService", () => {
       expect(result.details).toHaveLength(0);
     });
 
-    it("should skip when already running", async () => {
-      // Simulate concurrent calls: first resolves slowly, second should skip
-      let firstResolve!: () => void;
-      const slow = new Promise<void>((res) => {
-        firstResolve = res;
-      });
-      prisma.slidesMission.findMany.mockReturnValueOnce(slow.then(() => []));
+    it("should handle concurrent calls (overlap guarded by HealthCheckRunner)", async () => {
+      // Overlap guard is now handled by HealthCheckRunner, not the service itself.
+      // Direct runHealthCheck() calls run without skip logic.
+      prisma.slidesMission.findMany.mockResolvedValue([]);
 
-      const first = service.runHealthCheck();
-      const second = service.runHealthCheck(); // should be skipped
-
-      const skippedResult = await second;
-      expect(skippedResult.totalMissions).toBe(0);
-      expect(skippedResult.details).toHaveLength(0);
-
-      firstResolve();
-      await first;
+      const result = await service.runHealthCheck();
+      expect(result.totalMissions).toBe(0);
+      expect(result.details).toHaveLength(0);
     });
 
     it("should mark a mission failed when execution time exceeds 2 hours", async () => {
