@@ -349,8 +349,8 @@ export class DimensionWritingService {
         (r.figureReferences || []).map((fig) => ({
           ...fig,
           id:
-            fig.id && fig.id.startsWith(`s${sectionIdx}-`)
-              ? fig.id
+            fig.id && String(fig.id).startsWith(`s${sectionIdx}-`)
+              ? String(fig.id)
               : `s${sectionIdx}-${fig.id || "fig"}`,
         })),
       );

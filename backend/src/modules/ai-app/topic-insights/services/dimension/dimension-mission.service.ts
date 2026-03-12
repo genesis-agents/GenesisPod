@@ -16,11 +16,7 @@
  * - 支持多轮质量审核
  */
 
-import {
-  Injectable,
-  Logger,
-  Optional,
-} from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import {
@@ -1124,8 +1120,8 @@ export class DimensionMissionService {
           ...fig,
           // ★ Prefix id with section index to avoid cross-section id collisions (e.g., both "fig-0")
           id:
-            fig.id && fig.id.startsWith(`s${sectionIdx}-`)
-              ? fig.id
+            fig.id && String(fig.id).startsWith(`s${sectionIdx}-`)
+              ? String(fig.id)
               : `s${sectionIdx}-${fig.id || "fig"}`,
         })),
       );
