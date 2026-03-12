@@ -1339,6 +1339,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           },
           timeout,
           maxRedirects: 3, // Reduced to prevent header accumulation
+          maxContentLength: 5 * 1024 * 1024, // 5MB limit to prevent memory pressure
           decompress: true,
         }),
       );
@@ -1398,11 +1399,17 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         response?: { status?: number; statusText?: string };
         message?: string;
       };
-      const errorMessage = err.response?.status
-        ? `HTTP ${err.response.status}: ${err.response.statusText || ""}`
+      const statusCode = err.response?.status;
+      const errorMessage = statusCode
+        ? `HTTP ${statusCode}: ${err.response?.statusText || ""}`
         : err.message || String(error);
-      // ★ 降级为 warn：URL 获取失败不是致命错误，研究会继续处理其他结果
-      this.logger.warn(`Failed to fetch URL ${url}: ${errorMessage}`);
+      // ★ 403/404/451 are expected for bot-blocked or missing pages — debug level
+      // Other errors (network, 5xx) get warn level
+      const isExpected =
+        statusCode === 403 || statusCode === 404 || statusCode === 451;
+      this.logger[isExpected ? "debug" : "warn"](
+        `Failed to fetch URL ${url}: ${errorMessage}`,
+      );
       return { success: false, error: errorMessage };
     }
   }
