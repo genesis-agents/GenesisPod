@@ -598,4 +598,516 @@ describe("TopicInsightsGateway", () => {
       });
     });
   });
+
+  // ==================== handleSyncRequest - with topic ownership mocked ====================
+
+  describe("handleSyncRequest - topic ownership", () => {
+    beforeEach(() => {
+      // By default mock topic owned by the authenticated user
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "user-123",
+      });
+    });
+
+    it("should return idle state when no mission exists", async () => {
+      prisma.researchMission.findFirst.mockResolvedValue(null);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result).toEqual({
+        success: true,
+        needsRecovery: false,
+        currentState: {
+          phase: "idle",
+          progress: 0,
+          message: "等待开始研究",
+        },
+      });
+    });
+
+    it("should return current mission state when mission exists", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.currentState).toBeDefined();
+      expect(result.currentState!.phase).toBe("researching");
+      expect(result.currentState!.missionId).toBe(mockMission.id);
+      expect(result.currentState!.progress).toBe(50);
+    });
+
+    it("should deny access when topic belongs to different user", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "another-user-999",
+      });
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        needsRecovery: false,
+        currentState: null,
+        error: "Access denied",
+      });
+    });
+
+    it("should deny access when topic not found", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "non-existent",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        needsRecovery: false,
+        currentState: null,
+        error: "Access denied",
+      });
+    });
+
+    it("should handle database errors gracefully and return Internal error", async () => {
+      prisma.researchMission.findFirst.mockRejectedValue(
+        new Error("Database connection failed"),
+      );
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.currentState).toBeNull();
+      expect(result.error).toBe("Internal error");
+    });
+
+    it("should not need recovery when client has no previous state", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        progressPercent: 50,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.needsRecovery).toBe(false);
+    });
+
+    it("should detect needsRecovery when phase mismatch", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        status: ResearchMissionStatus.COMPLETED,
+        progressPercent: 100,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+        lastKnownPhase: "researching",
+        lastKnownProgress: 100,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.needsRecovery).toBe(true);
+      expect(result.currentState!.phase).toBe("completed");
+    });
+
+    it("should detect needsRecovery when progress diff > 10%", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        progressPercent: 80,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+        lastKnownPhase: "researching",
+        lastKnownProgress: 50,
+      });
+
+      expect(result.needsRecovery).toBe(true);
+    });
+
+    it("should detect stale executing mission as needing recovery", async () => {
+      const staleDate = new Date(Date.now() - 10 * 60 * 1000);
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        status: ResearchMissionStatus.EXECUTING,
+        progressPercent: 50,
+        updatedAt: staleDate,
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+        lastKnownPhase: "researching",
+        lastKnownProgress: 50,
+      });
+
+      expect(result.needsRecovery).toBe(true);
+    });
+
+    it("should not flag recent executing mission with matching phase/progress as needing recovery", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        status: ResearchMissionStatus.EXECUTING,
+        progressPercent: 50,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+        lastKnownPhase: "researching",
+        lastKnownProgress: 48, // within 10%
+      });
+
+      expect(result.needsRecovery).toBe(false);
+    });
+
+    it("should map PLAN_READY status to plan_ready phase", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        status: ResearchMissionStatus.PLAN_READY,
+        progressPercent: 10,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.currentState!.phase).toBe("plan_ready");
+    });
+
+    it("should map REVIEWING status to synthesizing phase", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        status: ResearchMissionStatus.REVIEWING,
+        progressPercent: 80,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.currentState!.phase).toBe("synthesizing");
+      expect(result.currentState!.message).toBe("正在生成研究报告...");
+    });
+
+    it("should map FAILED status to failed phase with correct message", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        status: ResearchMissionStatus.FAILED,
+        progressPercent: 40,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.currentState!.phase).toBe("failed");
+      expect(result.currentState!.message).toBe("研究任务失败");
+    });
+
+    it("should map CANCELLED status to idle phase", async () => {
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        status: ResearchMissionStatus.CANCELLED,
+        progressPercent: 0,
+        updatedAt: new Date(),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.currentState!.phase).toBe("idle");
+    });
+
+    it("should include lastActivityAt in response when mission has updatedAt", async () => {
+      const updatedAt = new Date("2024-06-01T10:00:00.000Z");
+      const mockMission = {
+        ...MOCK_MISSION_EXECUTING,
+        updatedAt,
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(mockMission);
+
+      const result = await gateway.handleSyncRequest(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result.currentState!.lastActivityAt).toBe(updatedAt.toISOString());
+    });
+  });
+
+  // ==================== handleConnection Tests ====================
+
+  describe("handleConnection", () => {
+    it("should add socket to userConnections on authenticated connection", async () => {
+      const client = createMockClient(true);
+
+      await gateway.handleConnection(client as any);
+
+      // No error thrown and client not disconnected
+      expect(client.disconnect).not.toHaveBeenCalled();
+    });
+
+    it("should disconnect client if user data is missing", async () => {
+      const client = {
+        id: "test-client-no-user",
+        join: jest.fn(),
+        leave: jest.fn(),
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+        handshake: { address: "127.0.0.1" },
+        data: {}, // no user
+      };
+
+      await gateway.handleConnection(client as any);
+
+      expect(client.disconnect).toHaveBeenCalledWith(true);
+    });
+
+    it("should replace oldest socket when user exceeds max connections", async () => {
+      const user = { id: "heavy-user", email: "x@x.com", username: "heavy" };
+
+      // Simulate 5 existing sockets for this user
+      const existingSocketIds = ["s1", "s2", "s3", "s4", "s5"];
+      const oldestSocketMock = { emit: jest.fn(), disconnect: jest.fn() };
+      mockServer.sockets.sockets.set("s1", oldestSocketMock as any);
+
+      const userSocketsSet = new Set(existingSocketIds);
+      (gateway as any).userConnections.set(user.id, userSocketsSet);
+
+      const newClient = {
+        id: "s6",
+        join: jest.fn(),
+        leave: jest.fn(),
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+        handshake: { address: "127.0.0.1" },
+        data: { user, authenticatedAt: new Date() },
+      };
+
+      await gateway.handleConnection(newClient as any);
+
+      // oldest socket should be disconnected
+      expect(oldestSocketMock.disconnect).toHaveBeenCalledWith(true);
+      expect(oldestSocketMock.emit).toHaveBeenCalledWith(
+        "connection:replaced",
+        expect.objectContaining({ message: expect.any(String) }),
+      );
+    });
+  });
+
+  // ==================== handleDisconnect Tests ====================
+
+  describe("handleDisconnect", () => {
+    it("should remove socket from userConnections map", () => {
+      const userId = "user-dc-test";
+      const socketId = "socket-dc-1";
+      const userSockets = new Set([socketId]);
+      (gateway as any).userConnections.set(userId, userSockets);
+
+      const client = {
+        id: socketId,
+        data: { user: { id: userId } },
+      };
+
+      gateway.handleDisconnect(client as any);
+
+      expect((gateway as any).userConnections.has(userId)).toBe(false);
+    });
+
+    it("should delete userId key when last socket disconnects", () => {
+      const userId = "user-last-socket";
+      const socketId = "socket-last";
+      const userSockets = new Set([socketId]);
+      (gateway as any).userConnections.set(userId, userSockets);
+
+      const client = {
+        id: socketId,
+        data: { user: { id: userId } },
+      };
+
+      gateway.handleDisconnect(client as any);
+
+      expect((gateway as any).userConnections.has(userId)).toBe(false);
+    });
+
+    it("should not throw when disconnecting unauthenticated socket", () => {
+      const client = {
+        id: "anon-socket",
+        data: {},
+      };
+
+      expect(() => gateway.handleDisconnect(client as any)).not.toThrow();
+    });
+
+    it("should keep other sockets in set when one user has multiple connections", () => {
+      const userId = "user-multi";
+      const userSockets = new Set(["s-a", "s-b", "s-c"]);
+      (gateway as any).userConnections.set(userId, userSockets);
+
+      const client = { id: "s-b", data: { user: { id: userId } } };
+      gateway.handleDisconnect(client as any);
+
+      const remaining = (gateway as any).userConnections.get(
+        userId,
+      ) as Set<string>;
+      expect(remaining.size).toBe(2);
+      expect(remaining.has("s-b")).toBe(false);
+    });
+  });
+
+  // ==================== handleLeaveTopic error path ====================
+
+  describe("handleLeaveTopic - error path", () => {
+    it("should return success:false and emit error when leave throws", async () => {
+      const client = {
+        ...mockClient,
+        leave: jest.fn().mockRejectedValue(new Error("leave failed")),
+        emit: jest.fn(),
+      };
+
+      const result = await gateway.handleLeaveTopic(client as any, {
+        topicId: "topic-error",
+      });
+
+      expect(result).toEqual({ success: false });
+      expect(client.emit).toHaveBeenCalledWith("error", {
+        message: "Operation failed",
+      });
+    });
+  });
+
+  // ==================== handleJoinTopic - error path ====================
+
+  describe("handleJoinTopic - error path", () => {
+    it("should return internal error when database throws during join", async () => {
+      prisma.researchTopic.findUnique.mockRejectedValue(new Error("DB Error"));
+
+      const result = await gateway.handleJoinTopic(mockClient as any, {
+        topicId: "topic-123",
+      });
+
+      expect(result).toEqual({ success: false, error: "Internal error" });
+    });
+  });
+
+  // ==================== afterInit - middleware error path ====================
+
+  describe("afterInit - middleware error path", () => {
+    it("should call next with Authentication failed when unexpected error occurs", async () => {
+      gateway.afterInit();
+
+      const socket = {
+        id: "client-crash",
+        handshake: {
+          auth: { token: "crash-token" },
+          headers: {},
+          address: "127.0.0.1",
+        },
+        data: {} as Record<string, unknown>,
+      };
+
+      // Make verifyAsync throw a non-standard error to trigger catch block
+      jwtService.verifyAsync.mockImplementation(() => {
+        throw new Error("Unexpected JWT library crash");
+      });
+
+      const next = jest.fn();
+      await middlewareFn!(socket, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it("should use Authorization header token when auth.token is absent", async () => {
+      gateway.afterInit();
+
+      const socket = {
+        id: "client-bearer",
+        handshake: {
+          auth: {},
+          headers: { authorization: "Bearer bearer-only-token" },
+          address: "127.0.0.1",
+        },
+        data: {} as Record<string, unknown>,
+      };
+
+      prisma.user.findUnique.mockResolvedValue({
+        id: "user-123",
+        email: "test@example.com",
+        username: "testuser",
+      });
+
+      const next = jest.fn();
+      await middlewareFn!(socket, next);
+
+      expect(jwtService.verifyAsync).toHaveBeenCalledWith(
+        "bearer-only-token",
+        expect.any(Object),
+      );
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it("should set username to email when username is falsy", async () => {
+      gateway.afterInit();
+
+      const socket = {
+        id: "client-no-username",
+        handshake: {
+          auth: { token: "token-no-username" },
+          headers: {},
+          address: "127.0.0.1",
+        },
+        data: {} as Record<string, unknown>,
+      };
+
+      prisma.user.findUnique.mockResolvedValue({
+        id: "user-no-username",
+        email: "nousername@example.com",
+        username: null, // falsy username
+      });
+
+      const next = jest.fn();
+      await middlewareFn!(socket, next);
+
+      expect(next).toHaveBeenCalledWith();
+      expect((socket.data as any).user.username).toBe("nousername@example.com");
+    });
+  });
 });

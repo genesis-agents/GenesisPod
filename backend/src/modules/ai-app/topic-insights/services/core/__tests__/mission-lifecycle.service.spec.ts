@@ -893,5 +893,174 @@ describe("MissionLifecycleService", () => {
       // Tasks should still be created
       expect(tasks.length).toBeGreaterThanOrEqual(3);
     });
+
+    it("should increment sortOrder beyond existing maxDimension.sortOrder", async () => {
+      // maxDimension has sortOrder = 5
+      prisma.topicDimension.findFirst.mockResolvedValue({ sortOrder: 5 });
+      // No existing dimension with same name
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "new-dim",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+
+      await service.createTasksFromPlan("mission-1", "topic-1", mockLeaderPlan);
+
+      expect(prisma.topicDimension.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            sortOrder: 6, // starts at maxDimension.sortOrder + 1 = 6
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── approvePlanAndExecute ───────────────────────────────────────────────────
+
+  describe("approvePlanAndExecute", () => {
+    it("should throw NotFoundException when mission not found", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.approvePlanAndExecute("nonexistent", "topic-1"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw NotFoundException when mission has no leaderPlan", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-1",
+        leaderPlan: null,
+      });
+
+      await expect(
+        service.approvePlanAndExecute("mission-1", "topic-1"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should create tasks, update mission to EXECUTING, and fire startExecution", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-1",
+        leaderPlan: mockLeaderPlan,
+      });
+      // createTasksFromPlan internals
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-db",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+      prisma.researchMission.update.mockResolvedValue({
+        id: "mission-1",
+        status: ResearchMissionStatus.EXECUTING,
+      });
+      // researchTopic.findUnique for BillingContext (no existingCtx in test)
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+
+      await service.approvePlanAndExecute("mission-1", "topic-1");
+
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "mission-1" },
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.EXECUTING,
+          }),
+        }),
+      );
+      // startExecution is called fire-and-forget, so we wait a tick
+      await new Promise((r) => setImmediate(r));
+      expect(executionService.startExecution).toHaveBeenCalledWith(
+        "mission-1",
+        "topic-1",
+      );
+    });
+  });
+
+  // ─── executePlanningAsync BillingContext propagation ────────────────────────
+
+  describe("executePlanningAsync - BillingContext propagation", () => {
+    it("should call planResearch with the correct topicId and userPrompt", async () => {
+      leaderService.planResearch.mockResolvedValue(mockLeaderPlan);
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-1",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `t-${Date.now()}`, ...args.data }),
+      );
+      prisma.researchMission.update.mockResolvedValue({});
+
+      await service.executePlanningAsync(
+        "mission-1",
+        "topic-1",
+        "AI Research",
+        "深度分析AI市场趋势",
+      );
+
+      expect(leaderService.planResearch).toHaveBeenCalledWith(
+        "topic-1",
+        "深度分析AI市场趋势",
+      );
+    });
+
+    it("should call emitLeaderThinking with understanding phase before planning", async () => {
+      const mocks = buildMocks();
+      const module2: TestingModule = await Test.createTestingModule({
+        providers: [
+          MissionLifecycleService,
+          { provide: PrismaService, useValue: mocks.mockPrisma },
+          { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
+          {
+            provide: ResearchEventEmitterService,
+            useValue: mocks.mockResearchEventEmitter,
+          },
+          {
+            provide: TopicCollaboratorService,
+            useValue: mocks.mockCollaboratorService,
+          },
+          { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
+          { provide: MissionQueryService, useValue: mocks.mockQueryService },
+          {
+            provide: MissionExecutionService,
+            useValue: mocks.mockExecutionService,
+          },
+        ],
+      }).compile();
+
+      const svc2 = module2.get<MissionLifecycleService>(
+        MissionLifecycleService,
+      );
+      mocks.mockLeaderService.planResearch.mockResolvedValue(mockLeaderPlan);
+      mocks.mockPrisma.leaderDecision.create.mockResolvedValue({});
+      mocks.mockPrisma.topicDimension.findFirst.mockResolvedValue(null);
+      mocks.mockPrisma.topicDimension.findMany.mockResolvedValue([]);
+      mocks.mockPrisma.topicDimension.create.mockResolvedValue({
+        id: "d1",
+        name: "Market Analysis",
+      });
+      mocks.mockPrisma.researchTask.create.mockResolvedValue({ id: "t1" });
+      mocks.mockPrisma.researchMission.update.mockResolvedValue({});
+
+      await svc2.executePlanningAsync("mission-1", "topic-1", "AI Research");
+
+      expect(
+        mocks.mockResearchEventEmitter.emitLeaderThinking,
+      ).toHaveBeenCalledWith(
+        "topic-1",
+        expect.objectContaining({ phase: "understanding" }),
+      );
+    });
   });
 });

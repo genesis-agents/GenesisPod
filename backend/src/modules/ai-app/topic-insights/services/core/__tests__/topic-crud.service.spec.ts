@@ -5,15 +5,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TopicCrudService } from "../topic-crud.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
-import {
-  ResearchTopicStatus,
-  RefreshFrequency,
-  DimensionStatus,
-} from "@prisma/client";
+import { NotFoundException, ForbiddenException } from "@nestjs/common";
+import { ResearchTopicStatus } from "@prisma/client";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -47,9 +40,16 @@ function buildMocks() {
     topicRefreshLog: {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
-      aggregate: jest.fn().mockResolvedValue({ _count: 0, _avg: { dimensionsRefreshed: 0, sourcesFound: 0 } }),
+      aggregate: jest
+        .fn()
+        .mockResolvedValue({
+          _count: 0,
+          _avg: { dimensionsRefreshed: 0, sourcesFound: 0 },
+        }),
     },
-    $transaction: jest.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockPrisma)),
+    $transaction: jest.fn(async (cb: (tx: unknown) => Promise<unknown>) =>
+      cb(mockPrisma),
+    ),
     $queryRaw: jest.fn().mockResolvedValue([{ id: "topic-1" }]),
   };
 
@@ -101,11 +101,13 @@ describe("TopicCrudService", () => {
 
   describe("createTopic", () => {
     it("should create topic without dimensions when none provided", async () => {
-      (prisma.researchTopic as any).create = jest.fn().mockResolvedValue(mockTopic);
-      prisma.$transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
-        const result = await (prisma.researchTopic as any).create();
-        return { ...result, dimensions: [] };
-      });
+      prisma.researchTopic.create = jest.fn().mockResolvedValue(mockTopic);
+      prisma.$transaction.mockImplementation(
+        async (_cb: (tx: unknown) => Promise<unknown>) => {
+          const result = await prisma.researchTopic.create();
+          return { ...result, dimensions: [] };
+        },
+      );
 
       const result = await service.createTopic("user-1", {
         name: "AI Research",
@@ -118,14 +120,18 @@ describe("TopicCrudService", () => {
 
     it("should create topic with dimensions when provided", async () => {
       const topicWithDims = { ...mockTopic, id: "topic-with-dims" };
-      (prisma.researchTopic as any).create = jest.fn().mockResolvedValue(topicWithDims);
-      (prisma.topicDimension as any).create = jest.fn().mockResolvedValue({ id: "dim-1", name: "Market" });
+      prisma.researchTopic.create = jest.fn().mockResolvedValue(topicWithDims);
+      prisma.topicDimension.create = jest
+        .fn()
+        .mockResolvedValue({ id: "dim-1", name: "Market" });
 
-      prisma.$transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
-        const topic = await (prisma.researchTopic as any).create();
-        const dim = await (prisma.topicDimension as any).create();
-        return { ...topic, dimensions: [dim] };
-      });
+      prisma.$transaction.mockImplementation(
+        async (_cb: (tx: unknown) => Promise<unknown>) => {
+          const topic = await prisma.researchTopic.create();
+          const dim = await prisma.topicDimension.create();
+          return { ...topic, dimensions: [dim] };
+        },
+      );
 
       const result = await service.createTopic("user-1", {
         name: "AI Research",
@@ -143,7 +149,9 @@ describe("TopicCrudService", () => {
     it("should throw NotFoundException when topic not found", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.getTopic("user-1", "nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(service.getTopic("user-1", "nonexistent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should throw ForbiddenException when user lacks access to private topic", async () => {
@@ -152,9 +160,13 @@ describe("TopicCrudService", () => {
         userId: "other-user",
         visibility: "PRIVATE",
       });
-      prisma.$queryRaw.mockResolvedValue([{ visibility: "PRIVATE", is_collaborator: false }]);
+      prisma.$queryRaw.mockResolvedValue([
+        { visibility: "PRIVATE", is_collaborator: false },
+      ]);
 
-      await expect(service.getTopic("user-1", "topic-1")).rejects.toThrow(ForbiddenException);
+      await expect(service.getTopic("user-1", "topic-1")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it("should return topic for owner", async () => {
@@ -170,7 +182,9 @@ describe("TopicCrudService", () => {
         userId: "other-user",
         visibility: "PUBLIC",
       });
-      prisma.$queryRaw.mockResolvedValue([{ visibility: "PUBLIC", is_collaborator: false }]);
+      prisma.$queryRaw.mockResolvedValue([
+        { visibility: "PUBLIC", is_collaborator: false },
+      ]);
 
       const result = await service.getTopic("user-1", "topic-1");
       expect(result.id).toBe("topic-1");
@@ -183,13 +197,21 @@ describe("TopicCrudService", () => {
     it("should throw NotFoundException when topic not found", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.updateTopic("user-1", "nonexistent", { name: "New Name" } as any)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.updateTopic("user-1", "nonexistent", {
+          name: "New Name",
+        } as any),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw ForbiddenException when non-owner tries to update", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "other-user" });
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "other-user",
+      });
 
-      await expect(service.updateTopic("user-1", "topic-1", { name: "Updated" } as any)).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.updateTopic("user-1", "topic-1", { name: "Updated" } as any),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it("should update topic successfully for owner", async () => {
@@ -200,7 +222,9 @@ describe("TopicCrudService", () => {
         dimensions: [],
       });
 
-      const result = await service.updateTopic("user-1", "topic-1", { name: "Updated AI Research" } as any);
+      const result = await service.updateTopic("user-1", "topic-1", {
+        name: "Updated AI Research",
+      } as any);
       expect(result.name).toBe("Updated AI Research");
     });
   });
@@ -211,13 +235,19 @@ describe("TopicCrudService", () => {
     it("should throw NotFoundException when topic not found", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.deleteTopic("user-1", "nonexistent")).rejects.toThrow(NotFoundException);
+      await expect(
+        service.deleteTopic("user-1", "nonexistent"),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw ForbiddenException for non-owner", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "other-user" });
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "other-user",
+      });
 
-      await expect(service.deleteTopic("user-1", "topic-1")).rejects.toThrow(ForbiddenException);
+      await expect(service.deleteTopic("user-1", "topic-1")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it("should delete topic for owner", async () => {
@@ -241,11 +271,24 @@ describe("TopicCrudService", () => {
           createdAt: new Date(),
           completedAt: new Date(),
           status: "COMPLETED",
-          tasks: [{ id: "task-1", status: "COMPLETED", dimensionName: "Market", result: { summary: "Done" }, resultSummary: "Done" }],
+          tasks: [
+            {
+              id: "task-1",
+              status: "COMPLETED",
+              dimensionName: "Market",
+              result: { summary: "Done" },
+              resultSummary: "Done",
+            },
+          ],
         },
       ]);
       prisma.topicReport.findMany.mockResolvedValue([
-        { id: "report-1", version: 1, generatedAt: new Date(), totalSources: 10 },
+        {
+          id: "report-1",
+          version: 1,
+          generatedAt: new Date(),
+          totalSources: 10,
+        },
       ]);
 
       const result = await service.getResearchHistory("user-1", "topic-1");
@@ -261,7 +304,10 @@ describe("TopicCrudService", () => {
     it("should return topic stats", async () => {
       prisma.researchTopic.findUnique
         .mockResolvedValueOnce({ userId: "user-1" }) // access check
-        .mockResolvedValueOnce({ ...mockTopic, _count: { dimensions: 3, reports: 2, refreshLogs: 5 } });
+        .mockResolvedValueOnce({
+          ...mockTopic,
+          _count: { dimensions: 3, reports: 2, refreshLogs: 5 },
+        });
 
       const result = await service.getStats("user-1", "topic-1");
       expect(result.topic.id).toBe("topic-1");
@@ -273,7 +319,9 @@ describe("TopicCrudService", () => {
         .mockResolvedValueOnce({ userId: "user-1" }) // access check
         .mockResolvedValueOnce(null); // getStats query
 
-      await expect(service.getStats("user-1", "topic-1")).rejects.toThrow(NotFoundException);
+      await expect(service.getStats("user-1", "topic-1")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -293,9 +341,322 @@ describe("TopicCrudService", () => {
       ]);
       prisma.researchTopic.count.mockResolvedValue(1);
 
-      const result = await service.listTopics("user-1", { skip: 0, take: 20 } as any);
+      const result = await service.listTopics("user-1", {
+        skip: 0,
+        take: 20,
+      } as any);
       expect(result.topics).toHaveLength(1);
       expect(result.total).toBe(1);
+    });
+
+    it("should apply type filter when provided", async () => {
+      prisma.researchTopic.findMany.mockResolvedValue([]);
+      prisma.researchTopic.count.mockResolvedValue(0);
+
+      await service.listTopics("user-1", {
+        type: "TECHNOLOGY",
+        skip: 0,
+        take: 20,
+      } as any);
+
+      expect(prisma.researchTopic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({ type: "TECHNOLOGY" }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it("should apply status filter when provided", async () => {
+      prisma.researchTopic.findMany.mockResolvedValue([]);
+      prisma.researchTopic.count.mockResolvedValue(0);
+
+      await service.listTopics("user-1", {
+        status: "ACTIVE" as any,
+        skip: 0,
+        take: 20,
+      } as any);
+
+      expect(prisma.researchTopic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({ status: "ACTIVE" }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it("should apply search filter when provided", async () => {
+      prisma.researchTopic.findMany.mockResolvedValue([]);
+      prisma.researchTopic.count.mockResolvedValue(0);
+
+      await service.listTopics("user-1", {
+        search: "semiconductor",
+        skip: 0,
+        take: 20,
+      } as any);
+
+      expect(prisma.researchTopic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  expect.objectContaining({
+                    name: expect.objectContaining({
+                      contains: "semiconductor",
+                    }),
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it("should compute missionProgress from latestMission", async () => {
+      prisma.researchTopic.findMany.mockResolvedValue([
+        {
+          ...mockTopic,
+          _count: { reports: 1, dimensions: 2 },
+          reports: [{ id: "r-1", totalSources: 15, generatedAt: new Date() }],
+          missions: [
+            {
+              id: "m-1",
+              status: "COMPLETED",
+              totalTasks: 5,
+              completedTasks: 5,
+              progressPercent: 100,
+            },
+          ],
+        },
+      ]);
+      prisma.researchTopic.count.mockResolvedValue(1);
+
+      const result = await service.listTopics("user-1", {
+        skip: 0,
+        take: 20,
+      } as any);
+      const topic = result.topics[0];
+      expect(topic.missionProgress).toBe(100);
+      expect(topic.missionStatus).toBe("COMPLETED");
+      expect(topic.totalSources).toBe(15);
+    });
+
+    it("should return missionStatus null when no missions", async () => {
+      prisma.researchTopic.findMany.mockResolvedValue([
+        {
+          ...mockTopic,
+          _count: { reports: 0, dimensions: 0 },
+          reports: [],
+          missions: [],
+        },
+      ]);
+      prisma.researchTopic.count.mockResolvedValue(1);
+
+      const result = await service.listTopics("user-1", {
+        skip: 0,
+        take: 20,
+      } as any);
+      const topic = result.topics[0];
+      expect(topic.missionStatus).toBeNull();
+      expect(topic.missionProgress).toBe(0);
+    });
+  });
+
+  // ─── getLogs ─────────────────────────────────────────────────────────────────
+
+  describe("getLogs", () => {
+    it("should return logs for topic owner", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.topicRefreshLog.findMany.mockResolvedValue([
+        { id: "log-1", status: "SUCCESS", startedAt: new Date() },
+      ]);
+      prisma.topicRefreshLog.count.mockResolvedValue(1);
+
+      const result = await service.getLogs("user-1", "topic-1", {
+        limit: 20,
+      } as any);
+      expect(result.logs).toHaveLength(1);
+      expect(result.total).toBe(1);
+    });
+
+    it("should apply status filter when provided in query", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.topicRefreshLog.findMany.mockResolvedValue([]);
+      prisma.topicRefreshLog.count.mockResolvedValue(0);
+
+      await service.getLogs("user-1", "topic-1", {
+        status: "SUCCESS",
+        limit: 10,
+      } as any);
+
+      expect(prisma.topicRefreshLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: "SUCCESS" }),
+        }),
+      );
+    });
+
+    it("should throw NotFoundException when topic not found for getLogs", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getLogs("user-1", "nonexistent", {} as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── recalculateTopicStats ───────────────────────────────────────────────────
+
+  describe("recalculateTopicStats", () => {
+    it("should update topic stats from reports", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.topicReport.aggregate.mockResolvedValue({
+        _count: { id: 3 },
+        _max: { generatedAt: new Date("2024-06-01") },
+      });
+      prisma.topicReport.findFirst.mockResolvedValue({ totalSources: 42 });
+      prisma.researchTopic.update.mockResolvedValue({
+        ...mockTopic,
+        totalReports: 3,
+        totalSources: 42,
+      });
+
+      const result = await service.recalculateTopicStats("user-1", "topic-1");
+      expect(result.totalReports).toBe(3);
+      expect(result.totalSources).toBe(42);
+      expect(prisma.researchTopic.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalReports: 3, totalSources: 42 }),
+        }),
+      );
+    });
+
+    it("should use 0 for totalSources when no reports exist", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.topicReport.aggregate.mockResolvedValue({
+        _count: { id: 0 },
+        _max: { generatedAt: null },
+      });
+      prisma.topicReport.findFirst.mockResolvedValue(null);
+      prisma.researchTopic.update.mockResolvedValue({
+        ...mockTopic,
+        totalReports: 0,
+        totalSources: 0,
+      });
+
+      const result = await service.recalculateTopicStats("user-1", "topic-1");
+      expect(result.totalSources).toBe(0);
+    });
+
+    it("should throw ForbiddenException for non-owner", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "other-user",
+      });
+
+      await expect(
+        service.recalculateTopicStats("user-1", "topic-1"),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── checkTopicAccess (via getTopic) ─────────────────────────────────────────
+
+  describe("checkTopicAccess edge cases", () => {
+    it("should allow SHARED topic access for active collaborator", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        ...mockTopic,
+        userId: "other-user",
+        visibility: "SHARED",
+      });
+      // $queryRaw returns SHARED + is_collaborator true
+      prisma.$queryRaw.mockResolvedValue([
+        { visibility: "SHARED", is_collaborator: true },
+      ]);
+
+      const result = await service.getTopic("user-1", "topic-1");
+      expect(result.id).toBe("topic-1");
+    });
+
+    it("should deny SHARED topic access when not a collaborator", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        ...mockTopic,
+        userId: "other-user",
+        visibility: "SHARED",
+      });
+      prisma.$queryRaw.mockResolvedValue([
+        { visibility: "SHARED", is_collaborator: false },
+      ]);
+
+      await expect(service.getTopic("user-1", "topic-1")).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it("should deny PRIVATE topic access to non-owner", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        ...mockTopic,
+        userId: "other-user",
+        visibility: "PRIVATE",
+      });
+      prisma.$queryRaw.mockResolvedValue([
+        { visibility: "PRIVATE", is_collaborator: false },
+      ]);
+
+      await expect(service.getTopic("user-1", "topic-1")).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it("should deny when $queryRaw returns empty array", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        ...mockTopic,
+        userId: "other-user",
+        visibility: "SHARED",
+      });
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await expect(service.getTopic("user-1", "topic-1")).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  // ─── verifyTopicReadAccess (via getResearchHistory) ─────────────────────────
+
+  describe("verifyTopicReadAccess", () => {
+    it("should throw ForbiddenException when non-owner tries to read private topic", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "other-user",
+      });
+      prisma.$queryRaw.mockResolvedValue([
+        { visibility: "PRIVATE", is_collaborator: false },
+      ]);
+
+      await expect(
+        service.getResearchHistory("user-1", "topic-1"),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("should allow non-owner to access PUBLIC topic via getResearchHistory", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "other-user",
+      });
+      prisma.$queryRaw.mockResolvedValue([
+        { visibility: "PUBLIC", is_collaborator: false },
+      ]);
+      prisma.researchMission.findMany.mockResolvedValue([]);
+      prisma.topicReport.findMany.mockResolvedValue([]);
+
+      const result = await service.getResearchHistory("user-1", "topic-1");
+      expect(result.totalMissions).toBe(0);
     });
   });
 });

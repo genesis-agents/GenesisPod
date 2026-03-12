@@ -95,7 +95,10 @@ describe("ResearchEventEmitterService", () => {
       expect(handler).toHaveBeenCalledWith(
         "topic-123",
         "test:event",
-        expect.objectContaining({ data: "test", timestamp: expect.any(String) }),
+        expect.objectContaining({
+          data: "test",
+          timestamp: expect.any(String),
+        }),
       );
     });
   });
@@ -194,7 +197,12 @@ describe("ResearchEventEmitterService", () => {
     });
 
     it("should pass isQuickMode to adapter", async () => {
-      await service.emitMissionStarted("topic-123", "mission-456", undefined, true);
+      await service.emitMissionStarted(
+        "topic-123",
+        "mission-456",
+        undefined,
+        true,
+      );
 
       expect(mockRealtimeAdapter.startMissionTracking).toHaveBeenCalledWith(
         "topic-123",
@@ -427,7 +435,11 @@ describe("ResearchEventEmitterService", () => {
       const handler = jest.fn().mockResolvedValue(undefined);
       service.registerEmitHandler(handler);
 
-      await service.emitLeaderResponse("topic-123", "m-001", "Research plan ready");
+      await service.emitLeaderResponse(
+        "topic-123",
+        "m-001",
+        "Research plan ready",
+      );
 
       expect(handler).toHaveBeenCalledWith(
         "topic-123",
@@ -437,11 +449,7 @@ describe("ResearchEventEmitterService", () => {
     });
 
     it("should persist leader response to database", async () => {
-      await service.emitLeaderResponse(
-        "topic-123",
-        "m-001",
-        "Plan created",
-      );
+      await service.emitLeaderResponse("topic-123", "m-001", "Plan created");
 
       expect(mockPrisma.researchTeamMessage.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -889,7 +897,12 @@ describe("ResearchEventEmitterService", () => {
 
   describe("emitReportSynthesisCompleted", () => {
     it("should complete synthesizing phase in adapter when missionId provided", async () => {
-      await service.emitReportSynthesisCompleted("topic-123", 5, 10000, "mission-456");
+      await service.emitReportSynthesisCompleted(
+        "topic-123",
+        5,
+        10000,
+        "mission-456",
+      );
 
       expect(mockRealtimeAdapter.completePhase).toHaveBeenCalledWith(
         "mission-456",
@@ -922,7 +935,9 @@ describe("ResearchEventEmitterService", () => {
         { id: "2", createdAt: new Date("2024-01-02") },
       ];
       // findMany returns in desc order (as the service queries)
-      mockPrisma.researchTeamMessage.findMany.mockResolvedValue([...msgs].reverse());
+      mockPrisma.researchTeamMessage.findMany.mockResolvedValue(
+        [...msgs].reverse(),
+      );
 
       const result = await service.getTeamMessages("topic-123");
 
@@ -986,18 +1001,20 @@ describe("ResearchEventEmitterService", () => {
 
   describe("getLeaderConversationHistory", () => {
     it("should return formatted conversation history", async () => {
-      mockPrisma.researchTeamMessage.findMany.mockResolvedValue([
-        {
-          messageType: "USER_MESSAGE",
-          content: "What is the market size?",
-          createdAt: new Date("2024-01-01"),
-        },
-        {
-          messageType: "LEADER_RESPONSE",
-          content: "The market size is $50B",
-          createdAt: new Date("2024-01-02"),
-        },
-      ].reverse()); // Service will reverse these
+      mockPrisma.researchTeamMessage.findMany.mockResolvedValue(
+        [
+          {
+            messageType: "USER_MESSAGE",
+            content: "What is the market size?",
+            createdAt: new Date("2024-01-01"),
+          },
+          {
+            messageType: "LEADER_RESPONSE",
+            content: "The market size is $50B",
+            createdAt: new Date("2024-01-02"),
+          },
+        ].reverse(),
+      ); // Service will reverse these
 
       const history = await service.getLeaderConversationHistory("topic-123");
 
@@ -1022,6 +1039,230 @@ describe("ResearchEventEmitterService", () => {
           take: 10, // maxTurns * 2
         }),
       );
+    });
+  });
+
+  describe("emitToTopic - no adapter and no handler", () => {
+    it("should log debug when no adapter and no handler registered", async () => {
+      // Create service without adapter or handler
+      const moduleNoAdapter: TestingModule = await Test.createTestingModule({
+        providers: [
+          ResearchEventEmitterService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: EventEmitter2, useValue: mockEventEmitter2 },
+          // No ResearchRealtimeAdapter provided
+        ],
+      }).compile();
+
+      const svcNoAdapter = moduleNoAdapter.get<ResearchEventEmitterService>(
+        ResearchEventEmitterService,
+      );
+
+      // Should not throw
+      await expect(
+        svcNoAdapter.emitToTopic("topic-x", "test:event", { data: 1 }),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitMissionStarted persistence edge cases", () => {
+    it("should skip DB persistence when topic not found during emitMissionStarted", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitMissionStarted("nonexistent", "mission-1");
+
+      // After finding topic null, researchTeamMessage.create should NOT be called
+      expect(mockPrisma.researchTeamMessage.create).not.toHaveBeenCalled();
+    });
+
+    it("should handle persistence error gracefully in emitMissionStarted", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      await expect(
+        service.emitMissionStarted("topic-123", "mission-1"),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitMissionCompleted persistence edge cases", () => {
+    it("should skip DB persistence when topic not found during emitMissionCompleted", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitMissionCompleted("nonexistent", "mission-1", 3, 3);
+
+      expect(mockPrisma.researchTeamMessage.create).not.toHaveBeenCalled();
+    });
+
+    it("should persist mission completed message when topic exists", async () => {
+      await service.emitMissionCompleted("topic-123", "mission-1", 4, 4);
+
+      expect(mockPrisma.researchTeamMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            topicId: "topic-123",
+            missionId: "mission-1",
+            messageType: "SYSTEM_MESSAGE",
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("emitMissionFailed persistence edge cases", () => {
+    it("should skip DB persistence when topic not found during emitMissionFailed", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitMissionFailed("nonexistent", "mission-1", "timeout");
+
+      expect(mockPrisma.researchTeamMessage.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("emitAgentWorking with modelId", () => {
+    it("should include model display name in agentDisplayName when modelId provided", async () => {
+      const { getModelDisplayNameMap } = jest.requireMock(
+        "../../../utils/model-display-name",
+      );
+      getModelDisplayNameMap.mockResolvedValue(
+        new Map([["ep-abc123", "Doubao (豆包)"]]),
+      );
+
+      await service.emitAgentWorking(
+        "topic-123",
+        {
+          agentId: "r-1",
+          agentName: "研究员",
+          agentRole: "researcher",
+          status: "working",
+          modelId: "ep-abc123",
+        },
+        "mission-456",
+      );
+
+      expect(mockPrisma.researchAgentActivity.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            agentName: expect.stringContaining("Doubao (豆包)"),
+          }),
+        }),
+      );
+    });
+
+    it("should not duplicate model label in agentName when already included", async () => {
+      const { getModelDisplayNameMap } = jest.requireMock(
+        "../../../utils/model-display-name",
+      );
+      getModelDisplayNameMap.mockResolvedValue(new Map([["gpt-4o", "GPT-4o"]]));
+
+      await service.emitAgentWorking(
+        "topic-123",
+        {
+          agentId: "r-1",
+          agentName: "研究员 [GPT-4o]",
+          agentRole: "researcher",
+          status: "working",
+          modelId: "gpt-4o",
+        },
+        "mission-456",
+      );
+
+      // Should not add another [GPT-4o] suffix
+      expect(mockPrisma.researchAgentActivity.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            agentName: "研究员 [GPT-4o]",
+          }),
+        }),
+      );
+    });
+
+    it("should handle foreign key constraint error in emitAgentWorking gracefully", async () => {
+      mockPrisma.researchAgentActivity.create.mockRejectedValue(
+        new Error("Foreign key constraint failed"),
+      );
+
+      await expect(
+        service.emitAgentWorking(
+          "topic-123",
+          {
+            agentId: "r-1",
+            agentName: "研究员",
+            agentRole: "researcher",
+            status: "working",
+          },
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitAgentCompleted edge cases", () => {
+    it("should not persist when missionId is not provided", async () => {
+      await service.emitAgentCompleted(
+        "topic-123",
+        "researcher-1",
+        "研究员",
+        "Done",
+        // no missionId
+      );
+
+      expect(mockPrisma.researchAgentActivity.create).not.toHaveBeenCalled();
+    });
+
+    it("should skip persistence when topic does not exist in emitAgentCompleted", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitAgentCompleted(
+        "nonexistent-topic",
+        "researcher-1",
+        "研究员",
+        "Done",
+        "mission-456",
+      );
+
+      expect(mockPrisma.researchAgentActivity.create).not.toHaveBeenCalled();
+    });
+
+    it("should handle foreign key constraint error in emitAgentCompleted gracefully", async () => {
+      mockPrisma.researchAgentActivity.create.mockRejectedValue(
+        new Error("Foreign key constraint failed"),
+      );
+
+      await expect(
+        service.emitAgentCompleted(
+          "topic-123",
+          "researcher-1",
+          "研究员",
+          "Done",
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitLeaderPlanReady persistence edge cases", () => {
+    it("should skip persistence when topic not found in emitLeaderPlanReady", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitLeaderPlanReady("nonexistent", "mission-1", 3, 3);
+
+      expect(mockPrisma.researchTeamMessage.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("emitLeaderResponse persistence edge cases", () => {
+    it("should skip persistence when topic not found in emitLeaderResponse", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitLeaderResponse(
+        "nonexistent",
+        "mission-1",
+        "Response text",
+      );
+
+      expect(mockPrisma.researchTeamMessage.create).not.toHaveBeenCalled();
     });
   });
 
