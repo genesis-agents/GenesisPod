@@ -4,7 +4,7 @@ description: |
   Interactive workflow pattern for AI App modules. Defines user intervention points
   (pause/resume/redirect/approve), state transition guards, and mid-execution adjustments.
   Use when: interactive-research, user-intervention, pause-resume, plan-approval.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: planning
 taskTypes:

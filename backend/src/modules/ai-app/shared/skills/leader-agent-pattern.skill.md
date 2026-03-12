@@ -4,7 +4,7 @@ description: |
   Leader-Agent orchestration pattern for AI App modules. Leader makes decisions (plan/review/chat),
   Agents execute tasks. Leader uses reasoning models, Agents use execution models.
   Use when: multi-agent orchestration, ai-planning, leader-design, agent-coordination.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: planning
 taskTypes:

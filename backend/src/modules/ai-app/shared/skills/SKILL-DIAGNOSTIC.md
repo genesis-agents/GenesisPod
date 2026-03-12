@@ -1,7 +1,30 @@
 # Skill Diagnostic Report
 
-> AI App 模块 × 10 Skills 匹配度诊断
-> 生成日期: 2026-03-12
+> AI App 模块 × 10 Architectural Pattern Skills 匹配度诊断
+> 生成日期: 2026-03-12 | 更新日期: 2026-03-12 (v2.0 — PK 审计修订)
+
+## 0. 重要概念澄清
+
+### 本文档中的 "Skill" 含义
+
+**本文档中的 10 个 Skill 是架构模式文档（.skill.md），描述的是 NestJS Service 层的设计范式**，而非 `PromptSkillAdapter` 执行的 LLM prompt 定义。
+
+| 概念                             | 含义                                        | 示例                                             |
+| -------------------------------- | ------------------------------------------- | ------------------------------------------------ |
+| **Architectural Pattern Skill**  | 本文档讨论的 10 个范式                      | leader-agent-pattern, mission-driven-workflow    |
+| **LLM Prompt Skill (.skill.md)** | 通过 PromptSkillAdapter 执行的单次 LLM 调用 | TI 的 35 个 prompt skill (analysis/9, quality/8) |
+| **NestJS Service (.service.ts)** | 包含循环、DB、事件、状态机的业务逻辑        | TI 的 61 个 service 文件                         |
+
+### Skill vs Service 边界（PK 审计教训）
+
+**PromptSkillAdapter 只能做单次 LLM 调用**。以下场景绝不适合 Skill 化：
+
+- 0 LLM 调用的纯代码逻辑（如 DefectScanner 的 12 个 regex counter）
+- 有循环/迭代的多轮 LLM 调用（如 CritiqueRefine 的 critique→refine×N）
+- 需要 Prisma DB 读写的逻辑
+- 需要事件发射、状态机转换的逻辑
+
+**TI 的 35 个 .skill.md + 61 个 .service.ts = 正确的架构分离**，0 个 Service 可被 Skill 替代。
 
 ---
 
@@ -24,11 +47,13 @@
 
 **图例**:
 
-- `REF` — 参考实现（Topic Insights）
-- `HIGH` — 已有完整实现，与 skill 高度匹配
+- `REF` — 参考实现源（Topic Insights，所有 pattern 的验证基准）
+- `HIGH` — 已有完整实现，与 pattern 高度匹配
 - `MED` — 部分实现，有改进空间
-- `LOW` — 有需求但未采用该 skill 的标准 pattern
+- `LOW` — 有需求但未采用标准 pattern
 - `N/A` — 不适用（模块复杂度不足或业务场景不需要）
+
+**quality-gate-chain 特别说明**：TI 的 DefectScanner（12 regex counter，0 LLM）和 ReportQualityGate（代码检测+auto-fix，0 LLM）属于"代码分析门控"(Stage 1b)，与"LLM 评分门控"(Stage 2) 和"LLM 迭代门控"(Stage 3/CritiqueRefine) 是不同类型。详见 quality-gate-chain.skill.md v2.0 的"两类质量门控"章节。
 
 ---
 
@@ -394,14 +419,37 @@
 
 ---
 
-## 附录: 诊断方法说明
+## 附录 A: 诊断方法说明
 
-**REF 定义**: Topic Insights 作为所有 10 个 skills 的参考实现源，其每个 skill 均有完整、经过验证的实现。
+**REF 定义**: Topic Insights 作为所有 10 个 pattern 的参考实现源，其每个 pattern 均有完整、经过验证的实现。
 
-**HIGH 定义**: 模块已有与 skill 描述高度一致的完整实现，可直接作为其他模块的学习参考。与 REF 的区别在于 REF 是最初提炼出 skill 的源头模块。
+**HIGH 定义**: 模块已有与 pattern 描述高度一致的完整实现，可直接作为其他模块的学习参考。与 REF 的区别在于 REF 是最初提炼出 pattern 的源头模块。
 
-**MED 定义**: 模块有该 skill 所解决问题的需求，且有部分实现，但缺少标准化、自动化或完整的覆盖范围。
+**MED 定义**: 模块有该 pattern 所解决问题的需求，且有部分实现，但缺少标准化、自动化或完整的覆盖范围。
 
-**LOW 定义**: 模块有该 skill 所解决问题的明确需求，但当前实现方式与 skill 标准模式差距较大（如用 switch/case 替代注册表，用单层 gate 替代多层链）。
+**LOW 定义**: 模块有该 pattern 所解决问题的明确需求，但当前实现方式与标准模式差距较大（如用 switch/case 替代注册表，用单层 gate 替代多层链）。
 
-**N/A 定义**: 模块规模或业务场景不需要该 skill，强行引入会增加不必要的复杂度。
+**N/A 定义**: 模块规模或业务场景不需要该 pattern，强行引入会增加不必要的复杂度。
+
+---
+
+## 附录 B: PK 审计修订记录（2026-03-12）
+
+### 被纠正的判断
+
+| 原始判断                         | 纠正后           | 原因                                                                            |
+| -------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| DefectScanner → Skill 化可行     | **不可行，撤回** | 0 LLM 调用，纯 regex（12 counter + 7 detail extractors），转 Skill 反而增加成本 |
+| ReportQualityGate → Skill 化可行 | **不可行，撤回** | 0 LLM 调用，纯代码检测 + auto-fix，不涉及 LLM                                   |
+| CredibilityReport → Skill 化可行 | **不可行**       | 0 LLM 调用，4 表 join + 5 个评分算法，纯 DB + 计算                              |
+| CitationFormatter → Skill 化可行 | **不可行**       | 0 LLM 调用，纯字符串格式化（APA/MLA/Chicago/IEEE）                              |
+| CritiqueRefine → Skill 化可行    | **不可行**       | 有 `for` 循环 + convergence 检测，非单次调用                                    |
+| QueryStrategy → Skill 化可行     | **不可行**       | 读 Prisma 表 + 7 分支语言路由，LLM 仅用于子步骤                                 |
+| ResearchReflection → 部分可行    | **不推荐**       | 虽然是单次 LLM，但有失败降级逻辑（返回默认值），TI 已有对应 .skill.md           |
+
+### 核心教训
+
+1. **"Stateless" ≠ "Skill-suitable"** — CitationFormatter 是 stateless 的，但它 0 LLM，不需要 Skill
+2. **"No LLM" = 绝对不是 Skill** — 文件名中有 "quality" 不代表它调 LLM
+3. **必须读代码再判断** — 不能根据文件名、注释或猜测来评估 Skill 适用性
+4. **TI 的 35 个 .skill.md 已覆盖所有合适提取** — 不存在遗漏的 Skill 化机会

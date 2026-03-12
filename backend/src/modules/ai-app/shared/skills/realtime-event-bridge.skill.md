@@ -4,7 +4,7 @@ description: |
   Real-time event bridge pattern for AI App modules. Defines WebSocket gateway setup,
   event emitter architecture, dual emission (WS + DB persistence), and reconnection recovery.
   Use when: websocket-gateway, realtime-progress, event-driven, live-updates, sse-streaming.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: content
 taskTypes:

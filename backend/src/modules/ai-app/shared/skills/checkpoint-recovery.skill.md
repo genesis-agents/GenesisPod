@@ -4,7 +4,7 @@ description: |
   Checkpoint and recovery pattern for long-running AI tasks. Defines checkpoint saving strategy,
   resume-from-failure flow, incremental mode, and stalled task detection.
   Use when: fault-tolerance, checkpoint, task-recovery, resume, long-running-task.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: optimization
 taskTypes:

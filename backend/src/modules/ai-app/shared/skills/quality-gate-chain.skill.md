@@ -4,7 +4,7 @@ description: |
   Multi-stage quality gate chain pattern for AI App outputs. Defines structural validation,
   content quality scoring, full-chain tracing, and the Critique-Refine (Reflexion) loop.
   Use when: quality-control, output-validation, critique-refine, content-review, quality-gate.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: quality
 taskTypes:
@@ -55,6 +55,23 @@ Stage 3: 全链路追踪 (QualityTrace)
    └── 记录每步评分 → 质量报告
 ```
 
+## 两类质量门控：Code Gate vs LLM Gate
+
+> **PK 审计教训（2026-03-12）**：并非所有质量门控都需要 LLM。TI 的 DefectScanner（12 个 regex counter 函数 + 7 个 detail 提取器）和 ReportQualityGate（纯代码检测 + auto-fix）是 0 LLM 调用的复杂代码分析门控。将它们转为 LLM Skill 会**降低性能并增加成本**。
+
+| 类型                        | 是否调 LLM | 复杂度 | 示例                                                         |
+| --------------------------- | ---------- | ------ | ------------------------------------------------------------ |
+| **结构规则门控** (Stage 1)  | 否         | 低     | 标题层级检查、代码块闭合、字数限制                           |
+| **代码分析门控** (Stage 1b) | 否         | 中-高  | DefectScanner (regex统计)、ReportQualityGate (代码检测+修复) |
+| **LLM 评分门控** (Stage 2)  | 是（单次） | 中     | 内容质量评分、事实准确性评估                                 |
+| **LLM 迭代门控** (Stage 3)  | 是（多轮） | 高     | CritiqueRefine 循环（critique→evaluate→refine×N）            |
+
+**决策规则**：
+
+- 能用 regex/counter/规则解决的 → Code Gate（Stage 1/1b），不调 LLM
+- 需要语义理解但一次调用够的 → LLM 评分（Stage 2）
+- 需要多轮改进的 → CritiqueRefine（Stage 3），注意 maxIterations 上限
+
 ### Stage 1: 结构验证（规则引擎，不调 LLM）
 
 ```typescript
@@ -100,6 +117,57 @@ export class StructuralValidatorService {
 | 格式滥用     | 是         | 过多粗体/引用 → 自动清理  |
 | 水平线清理   | 是         | 删除多余 `---`            |
 | JSON 结构    | 部分       | 修复截断 JSON（补全括号） |
+
+### Stage 1b: 代码分析门控（复杂规则，仍不调 LLM）
+
+当简单规则不够、但又不需要 LLM 语义理解时，使用复杂代码分析：
+
+```typescript
+// TI 实例：DefectScanner — 12 个 regex counter 函数，0 LLM 调用
+@Injectable()
+export class DefectScannerService {
+  // 纯代码分析，不注入 ChatFacade
+  scanReport(content: string): DefectReport {
+    return {
+      // 12 个独立的 regex/counter 检测函数
+      missingCitations: this.countMissingCitations(content),
+      brokenLinks: this.countBrokenLinks(content),
+      duplicateParagraphs: this.detectDuplicates(content),
+      formatViolations: this.checkFormatting(content),
+      languageMixing: this.detectLanguageMixing(content),
+      emptyHeadings: this.countEmptyHeadings(content),
+      oversizedTables: this.detectOversizedTables(content),
+      // ... 共 12 个维度
+    };
+  }
+
+  // 每个检测函数都是纯 regex/string 分析
+  private countMissingCitations(content: string): number {
+    const claims = content.match(/据[^，。]+/g) ?? [];
+    const citations = content.match(/\[\d+\]/g) ?? [];
+    return Math.max(0, claims.length - citations.length);
+  }
+}
+
+// TI 实例：ReportQualityGate — 代码检测 + 自动修复，0 LLM 调用
+@Injectable()
+export class ReportQualityGateService {
+  // 纯代码检测 + 修复
+  validateAndFix(content: string): { content: string; fixes: string[] } {
+    const fixes: string[] = [];
+    let fixed = content;
+
+    // 检测并修复格式问题
+    fixed = this.fixHeadingLevels(fixed, fixes);
+    fixed = this.fixBrokenCodeBlocks(fixed, fixes);
+    fixed = this.removeExcessiveFormatting(fixed, fixes);
+
+    return { content: fixed, fixes };
+  }
+}
+```
+
+**判断标准**：如果检测逻辑可以用 regex、字符串匹配、计数器实现，就属于 Code Gate，不要升级为 LLM Gate。
 
 ### Stage 2: 内容评分（调 LLM 或规则混合）
 

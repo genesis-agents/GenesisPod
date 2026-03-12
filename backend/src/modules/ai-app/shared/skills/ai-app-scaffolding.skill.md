@@ -4,7 +4,7 @@ description: |
   AI App module scaffolding skill. Generates standard directory structure, module registration,
   agent definition, team config, and gateway setup for new AI App modules.
   Use when: creating new AI App module, bootstrapping ai-app, module-scaffold, new-module-setup.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: planning
 taskTypes:
@@ -322,6 +322,58 @@ export class BillingContextInterceptor implements NestInterceptor {
 @Controller("your-app")
 @UseInterceptors(BillingContextInterceptor)
 export class YourAppController { ... }
+```
+
+## Skill (.skill.md) vs Service 边界
+
+> **PK 审计教训（2026-03-12）**：Skill 替代提案 7 个判断中 7 个被证伪。核心问题是混淆了 "stateless" 和 "Skill-suitable"。
+
+### PromptSkillAdapter 的能力边界
+
+`.skill.md` 文件通过 `PromptSkillAdapter` 执行 = **单次 LLM 调用**。
+
+| Skill 能做的          | Skill 不能做的                      |
+| --------------------- | ----------------------------------- |
+| 单次 LLM prompt 调用  | 循环/迭代（for loop + convergence） |
+| 声明式输入 → 输出映射 | 数据库读写（Prisma 查询）           |
+| 固定 prompt 模板渲染  | 事件发射（WebSocket/EventEmitter2） |
+| JSON 结构化输出解析   | 条件分支 + 多步编排                 |
+| —                     | 状态机（FSM 转换）                  |
+| —                     | 长时间运行作业（> 30 秒）           |
+
+### 判断流程
+
+```
+该功能有 LLM 调用吗？
+  ├── 否 → 绝对不是 Skill（纯代码逻辑用 Service）
+  └── 是 → 是单次调用吗？
+        ├── 否（有循环/多轮）→ Service（如 CritiqueRefine 的 critique→refine×N）
+        └── 是 → 有 DB 读写吗？
+              ├── 是 → Service（如 QueryStrategy 读 Prisma 表 + 7 分支路由）
+              └── 否 → 有失败降级逻辑吗？
+                    ├── 是 → Service（如 ResearchReflection 失败时返回默认值）
+                    └── 否 → ✅ 可以提取为 .skill.md
+```
+
+### TI 的正确实践
+
+Topic Insights 有 **35 个 .skill.md 文件**（analysis/9, debate/3, quality/8, report/4, research/11），覆盖所有适合提取的 LLM prompt。同时有 **61 个 .service.ts 文件**，处理所有需要循环、DB、事件、状态机的逻辑。
+
+**0 个 Service 可以被 Skill 替代** — 这是正确的架构分离结果，不是遗漏。
+
+### skills/ 目录结构
+
+```
+your-app/
+├── skills/
+│   ├── analysis/          # 分析类 prompt
+│   │   ├── gap-analysis.skill.md
+│   │   └── trend-detection.skill.md
+│   ├── quality/           # 质量评估 prompt
+│   │   ├── content-critique.skill.md
+│   │   └── fact-check.skill.md
+│   └── report/            # 报告生成 prompt
+│       └── executive-summary.skill.md
 ```
 
 ## 禁忌

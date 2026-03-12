@@ -22,7 +22,11 @@ import {
   ToolFacade,
   UserIntent,
 } from "@/modules/ai-engine/facade";
-import { LeaderDecisionType, ResearchTaskStatus } from "@prisma/client";
+import {
+  LeaderDecisionType,
+  ResearchMissionStatus,
+  ResearchTaskStatus,
+} from "@prisma/client";
 import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import { sanitize } from "../../../utils/prompt-sanitizer";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
@@ -331,6 +335,47 @@ export class LeaderIntentService {
                         },
                       });
                     }
+                  }
+
+                  // ★ 重置下游任务（quality_review + report_synthesis）为 PENDING
+                  // 确保新维度完成后触发重新审核和重新合成报告
+                  const resetResult = await this.prisma.researchTask.updateMany(
+                    {
+                      where: {
+                        missionId,
+                        taskType: {
+                          in: ["quality_review", "report_synthesis"],
+                        },
+                        status: {
+                          in: [
+                            ResearchTaskStatus.COMPLETED,
+                            ResearchTaskStatus.FAILED,
+                          ],
+                        },
+                      },
+                      data: {
+                        status: ResearchTaskStatus.PENDING,
+                        result: undefined,
+                        resultSummary: null,
+                        startedAt: null,
+                        completedAt: null,
+                      },
+                    },
+                  );
+
+                  if (resetResult.count > 0) {
+                    this.logger.log(
+                      `[handleUserMessage] Reset ${resetResult.count} downstream tasks (quality_review/report_synthesis) to PENDING`,
+                    );
+                    // 重置 mission 进度（允许进度回退到反映新任务状态）
+                    await this.prisma.researchMission.update({
+                      where: { id: missionId },
+                      data: {
+                        status: ResearchMissionStatus.EXECUTING,
+                        progressPercent: 0, // 允许 updateMissionProgress 重新计算
+                        completedAt: null,
+                      },
+                    });
                   }
 
                   this.logger.log(
@@ -1051,5 +1096,4 @@ ${teamMembersText}`;
       isReasoning: modelInfo.isReasoning ?? false,
     };
   }
-
 }

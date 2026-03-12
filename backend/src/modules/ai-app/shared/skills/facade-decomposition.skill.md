@@ -4,7 +4,7 @@ description: |
   Facade decomposition skill for AI App service layer. Defines when and how to split
   God Services into focused sub-services using the Facade pattern.
   Use when: service-refactoring, god-service, service-decomposition, code-organization.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: optimization
 taskTypes:
@@ -257,6 +257,22 @@ ResearchLeaderService (1500+ 行，混合了规划/意图/选择/审核逻辑)
 ```
 
 **拆分依据**：按认知域切分（规划 vs 意图 vs 选择 vs 审核），每个域调用不同的 LLM 提示词和数据访问模式，互不交叉。
+
+### Case 3：MissionExecutionService → Task Executor Pattern
+
+```
+MissionExecutionService (大量内联任务处理逻辑)
+  ↓ 提取 Task Executor
+├── task-executors/
+│   ├── task-executor.interface.ts      ITaskExecutor + TaskExecutionContext
+│   ├── dimension-research.executor.ts  搜索 + 数据收集
+│   ├── review-dimension.executor.ts    质量审核
+│   ├── synthesis-report.executor.ts    综合报告生成
+│   └── generic-task.executor.ts        fallback 执行器
+└── MissionExecutionService             executorMap 分派 (开闭原则)
+```
+
+**拆分依据**：不同 taskType 的执行逻辑完全独立，用 `Map<taskType, ITaskExecutor>` 替代 switch/case，新增 taskType 只需实现接口 + 注册。
 
 ## 禁忌
 

@@ -5,7 +5,7 @@ description: |
   (PLANNING -> EXECUTING -> REVIEWING -> COMPLETED), lifecycle/execution separation,
   and async fire-and-forget execution model.
   Use when: implementing long-running AI tasks, mission-lifecycle, task-orchestration, workflow-design.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: planning
 taskTypes:
@@ -400,6 +400,23 @@ MissionExecutionService
 ```
 
 优势：新增 taskType 只需实现 `ITaskExecutor` 并注册到 executorMap，不修改 MissionExecutionService 核心逻辑（开闭原则）。
+
+## Refresh Pipeline（刷新管道）
+
+当 Topic 需要增量更新时（而非完全重新研究），使用 RefreshPipelineService：
+
+```
+用户点击"刷新"
+     ↓
+RefreshPipelineService.refreshTopic(topicId)
+     ↓
+1. 检测哪些维度数据已过期（基于 DATA_FRESHNESS 阈值）
+2. 只为过期维度创建新任务（增量模式）
+3. 复用未过期维度的已有结果
+4. 执行增量 Mission
+```
+
+这是 Mission 增量模式的高层应用，将"哪些需要刷新"的决策逻辑从 MissionExecutionService 中分离。
 
 ## 禁忌
 

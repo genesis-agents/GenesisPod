@@ -4,7 +4,7 @@ description: |
   Multi-source data gathering pipeline pattern. Defines the Strategy-Execute-Fuse-Gate pipeline,
   search adapter architecture, result fusion with deduplication, and quality-based retry.
   Use when: data-gathering, search-pipeline, multi-source, web-search, academic-search.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: content
 taskTypes:

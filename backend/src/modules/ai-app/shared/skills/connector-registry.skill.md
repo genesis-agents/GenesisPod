@@ -4,7 +4,7 @@ description: |
   Data source connector registry pattern for AI App modules. Defines the IDataSourceConnector
   interface, registry with health checks, and plugin-style connector registration.
   Use when: external-api-integration, data-connector, plugin-system, adapter-registry.
-version: "1.0.0"
+version: "2.0.0"
 domain: general
 layer: content
 taskTypes:

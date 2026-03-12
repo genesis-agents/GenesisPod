@@ -4,11 +4,7 @@
  * 负责 Mission 和 Task 的查询、状态更新
  */
 
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -327,8 +323,20 @@ export class MissionQueryService {
       (t) => t.status === ResearchTaskStatus.COMPLETED,
     ).length;
     const totalTasks = tasks.length;
-    const progressPercent =
+    const calculatedProgress =
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    // ★ 单调递增：进度只能前进不能后退，避免多源竞争导致的视觉跳跃
+    // 场景：emitProgress 手动发 10%（规划完成），随后 updateMissionProgress 按
+    // completedTasks/totalTasks 计算出更低的值（增量模式下已复制任务会导致跳跃）
+    const currentMission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { progressPercent: true },
+    });
+    const progressPercent = Math.max(
+      calculatedProgress,
+      currentMission?.progressPercent ?? 0,
+    );
 
     // 检查任务状态
     const failedTasks = tasks.filter(
@@ -352,7 +360,10 @@ export class MissionQueryService {
     // 否则保持当前状态（IN_PROGRESS）
 
     await this.prisma.researchMission.updateMany({
-      where: { id: missionId, status: { not: ResearchMissionStatus.CANCELLED } },
+      where: {
+        id: missionId,
+        status: { not: ResearchMissionStatus.CANCELLED },
+      },
       data: {
         completedTasks,
         progressPercent,
