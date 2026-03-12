@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { readFileSync, existsSync } from "fs";
-import { join, resolve } from "path";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export interface StrategyRuleEntry {
   id: string;
@@ -20,20 +20,14 @@ export class StrategyLoaderService implements OnModuleInit {
 
   private loadStrategies(): void {
     try {
-      // Try __dirname first (works in source), then fallback for dist/
-      let filePath = join(
+      // __dirname works in both src/ (ts-node) and dist/ (compiled)
+      // because nest-cli.json assets copies strategies/*.md to dist/
+      const filePath = join(
         __dirname,
         "..",
         "strategies",
         "research-strategies.md",
       );
-      if (!existsSync(filePath)) {
-        // In compiled dist, __dirname points to dist/modules/...; try src path from cwd
-        filePath = resolve(
-          process.cwd(),
-          "src/modules/ai-app/research/strategies/research-strategies.md",
-        );
-      }
       const content = readFileSync(filePath, "utf-8");
       this.strategies = this.parseStrategies(content);
       this.logger.log(`Loaded ${this.strategies.length} research strategies`);
