@@ -72,7 +72,6 @@ import {
   ReportEditorService,
   // ★ Mission sub-services (God Service decomposition)
   MissionObservabilityService,
-  MissionKernelBridgeService,
   MissionNotificationService,
   // ★ Facade sub-services
   TopicCrudService,
@@ -163,7 +162,6 @@ const services = [
   GenericTaskExecutor,
   // ★ Mission sub-services (God Service decomposition)
   MissionObservabilityService,
-  MissionKernelBridgeService,
   MissionNotificationService,
   TopicCollaboratorService,
   ResearchEventEmitterService,

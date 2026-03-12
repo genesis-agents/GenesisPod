@@ -19,6 +19,11 @@ export const REFRESH_PIPELINE_WORKFLOW: Workflow = {
   description:
     "3-phase research pipeline: parallel search → global outline → assemble write inputs → parallel writing → quality review → revision",
   mode: "dag",
+  config: {
+    enableCheckpoints: true,
+    enableTracing: true,
+    timeout: 10 * 60 * 1000, // 10 minutes global timeout
+  },
   steps: [
     // Phase 1: Parallel dimension search
     {
@@ -132,10 +137,12 @@ export const REFRESH_PIPELINE_WORKFLOW: Workflow = {
       type: "handler",
       executor: "ti:revision",
       name: "Failed Dimension Revision",
-      description: "Critique-refine loop for dimensions that failed quality review",
+      description:
+        "Critique-refine loop for dimensions that failed quality review",
       dependsOn: ["quality-review"],
       condition: {
-        expression: "state.reviewResult && state.reviewResult.dimensionsToReresearch && state.reviewResult.dimensionsToReresearch.length > 0",
+        expression:
+          "state.reviewResult && state.reviewResult.dimensionsToReresearch && state.reviewResult.dimensionsToReresearch.length > 0",
       },
       input: {
         fromContext: {

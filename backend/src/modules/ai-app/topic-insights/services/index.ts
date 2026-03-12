@@ -33,7 +33,6 @@ export { ResearchTemplateService } from "./core/research-template.service";
 
 // ★ Mission sub-services (God Service decomposition)
 export { MissionObservabilityService } from "./core/mission-observability.service";
-export { MissionKernelBridgeService } from "./core/mission-kernel-bridge.service";
 export { MissionNotificationService } from "./core/mission-notification.service";
 
 // ★ Facade sub-services

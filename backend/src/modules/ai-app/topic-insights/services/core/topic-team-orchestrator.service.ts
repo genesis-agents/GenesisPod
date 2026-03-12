@@ -38,10 +38,7 @@ import {
   resolveResearchDepthConfig,
 } from "../../types/v5-research.types";
 import { buildValidationContextForWriting } from "../../prompts/v5-research.prompt";
-import {
-  WorkflowRefreshPipelineService,
-  type WorkflowRefreshResult,
-} from "../../workflows";
+import { WorkflowRefreshPipelineService } from "../../workflows";
 
 /**
  * Refresh Progress Event
@@ -525,53 +522,18 @@ export class TopicTeamOrchestratorService {
       }
 
       // 3. 并行执行维度研究（传递 Agent 分配信息以使用正确的工具和技能）
-      const dimensionSpanId = traceId
-        ? this.agentFacade?.addSpan(traceId, {
-            name: "Dimension Research (Parallel)",
-            type: "phase",
-            metadata: {
-              missionId,
-              dimensionCount: dimensions.length,
-              parallelism,
-            },
-          })
-        : undefined;
-      let analysisResults: WorkflowRefreshResult["results"];
-      let extractedDesign: WorkflowRefreshResult["researchDesign"];
-      try {
-        const parallelResult = await this.workflowRefreshPipelineService.execute(
-          topic,
-          dimensions,
-          report.id,
-          abortController.signal,
-          agentAssignments,
-          depthConfig,
-          parallelism,
-        );
-        analysisResults = parallelResult.results;
-        extractedDesign = parallelResult.researchDesign;
-        const successCount = analysisResults.filter(
-          (r) => r.status === "fulfilled",
-        ).length;
-        if (dimensionSpanId) {
-          this.agentFacade?.endSpan(dimensionSpanId, {
-            status: "success",
-            output: {
-              totalDimensions: dimensions.length,
-              successfulDimensions: successCount,
-              failedDimensions: dimensions.length - successCount,
-            },
-          });
-        }
-      } catch (dimErr) {
-        if (dimensionSpanId) {
-          this.agentFacade?.endSpan(dimensionSpanId, {
-            status: "error",
-            error: String(dimErr),
-          });
-        }
-        throw dimErr;
-      }
+      // ★ DAGExecutor 内部已自动创建 Trace/Span 和 Progress，无需手动管理
+      const parallelResult = await this.workflowRefreshPipelineService.execute(
+        topic,
+        dimensions,
+        report.id,
+        abortController.signal,
+        agentAssignments,
+        depthConfig,
+        parallelism,
+      );
+      const analysisResults = parallelResult.results;
+      const extractedDesign = parallelResult.researchDesign;
       const researchDesign = extractedDesign;
 
       // V5: Checkpoint after Phase 2 (global outline + research design)

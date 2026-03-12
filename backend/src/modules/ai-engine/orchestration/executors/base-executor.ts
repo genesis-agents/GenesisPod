@@ -19,6 +19,9 @@ import { SkillRegistry } from "../../skills/registry";
 import { AgentRegistry } from "../../agents/registry";
 import type { WorkflowHandlerRegistry } from "../handlers/handler-registry";
 import type { MapStepConfig } from "../handlers/workflow-node-handler.interface";
+import { RetryStrategy } from "./retry-strategy";
+import type { CircuitBreakerService } from "../../../ai-kernel/resource/circuit-breaker.service";
+import type { IProgressTracker } from "../../infra/realtime/abstractions/progress-tracker.interface";
 
 /**
  * 执行器接口
@@ -44,6 +47,8 @@ export abstract class BaseExecutor implements IExecutor {
   protected skillRegistry?: SkillRegistry;
   protected agentRegistry?: AgentRegistry;
   protected handlerRegistry?: WorkflowHandlerRegistry;
+  protected circuitBreaker?: CircuitBreakerService;
+  protected progressTracker?: IProgressTracker;
 
   constructor() {
     this.logger = new Logger(this.constructor.name);
@@ -70,6 +75,20 @@ export abstract class BaseExecutor implements IExecutor {
   }
 
   /**
+   * 设置熔断器服务（可选，用于 step 级别健康检查）
+   */
+  setCircuitBreaker(circuitBreaker: CircuitBreakerService): void {
+    this.circuitBreaker = circuitBreaker;
+  }
+
+  /**
+   * 设置进度追踪器（可选，DAGExecutor 用于自动上报进度）
+   */
+  setProgressTracker(progressTracker: IProgressTracker): void {
+    this.progressTracker = progressTracker;
+  }
+
+  /**
    * 执行工作流
    */
   abstract execute(
@@ -79,6 +98,7 @@ export abstract class BaseExecutor implements IExecutor {
 
   /**
    * 执行单个步骤
+   * 集成: 条件检查 → 熔断器检查 → 超时控制 → 重试策略 → 执行
    */
   protected async executeStep(
     step: WorkflowStep,
@@ -103,11 +123,102 @@ export abstract class BaseExecutor implements IExecutor {
         }
       }
 
+      // ★ 熔断器检查：executor 不可用时直接跳过
+      if (this.circuitBreaker && step.executor) {
+        if (!this.circuitBreaker.canExecute(step.executor)) {
+          this.logger.warn(
+            `Step "${step.id}" skipped: executor "${step.executor}" circuit is OPEN`,
+          );
+          const cbError = {
+            code: "CIRCUIT_BREAKER_OPEN",
+            message: `Executor "${step.executor}" is unavailable (circuit breaker open)`,
+          };
+          context.stepResults.set(step.id, {
+            stepId: step.id,
+            status: "failed",
+            error: cbError,
+            startTime,
+            endTime: new Date(),
+            duration: Date.now() - startTime.getTime(),
+          });
+          return this.createStepResult(
+            step.id,
+            "failed",
+            startTime,
+            undefined,
+            cbError,
+          );
+        }
+      }
+
       // 准备输入
       const input = this.resolveInput(step.input, context);
 
-      // 执行步骤
-      const output = await this.executeStepByType(step, input, context);
+      // ★ 构建执行函数（含超时控制）
+      const executeFn = async (): Promise<unknown> => {
+        const execPromise = this.executeStepByType(step, input, context);
+
+        // 超时控制：step.timeout 优先，否则无超时
+        const timeout = step.timeout;
+        if (timeout && timeout > 0) {
+          return Promise.race([
+            execPromise,
+            new Promise<never>((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(
+                    new Error(`Step "${step.id}" timed out after ${timeout}ms`),
+                  ),
+                timeout,
+              ),
+            ),
+          ]);
+        }
+
+        return execPromise;
+      };
+
+      // ★ 重试策略：step.retry 配置驱动
+      let output: unknown;
+      let retryCount = 0;
+
+      if (step.retry && step.retry.maxAttempts > 1) {
+        const strategy = new RetryStrategy({
+          maxRetries: step.retry.maxAttempts - 1,
+          initialDelay: step.retry.delay,
+          maxDelay: step.retry.maxDelay ?? 30000,
+          backoffMultiplier: step.retry.backoffMultiplier ?? 2,
+          jitter: true,
+        });
+
+        const result = await strategy.executeWithRetry(
+          executeFn,
+          step.executor || step.id,
+          `step:${step.id}`,
+        );
+
+        retryCount = result.attempts - 1;
+
+        if (!result.success) {
+          throw (
+            result.error?.originalError ||
+            new Error(
+              result.error?.message || "Step execution failed after retries",
+            )
+          );
+        }
+        output = result.data;
+      } else {
+        output = await executeFn();
+      }
+
+      // ★ 熔断器记录成功
+      if (this.circuitBreaker && step.executor) {
+        this.circuitBreaker.recordSuccess(
+          step.executor,
+          Date.now() - startTime.getTime(),
+        );
+      }
 
       // 保存输出
       if (step.output?.toContext) {
@@ -122,6 +233,7 @@ export abstract class BaseExecutor implements IExecutor {
         startTime,
         endTime: new Date(),
         duration: Date.now() - startTime.getTime(),
+        retryCount,
       });
 
       return this.createStepResult(step.id, "completed", startTime, output);
@@ -131,6 +243,18 @@ export abstract class BaseExecutor implements IExecutor {
         message: (error as Error).message,
         stack: (error as Error).stack,
       };
+
+      // ★ 熔断器记录失败
+      if (this.circuitBreaker && step.executor) {
+        const errorType = this.circuitBreaker.parseErrorType(
+          (error as Error).message,
+        );
+        this.circuitBreaker.recordFailure(
+          step.executor,
+          errorType,
+          (error as Error).message,
+        );
+      }
 
       context.stepResults.set(step.id, {
         stepId: step.id,
@@ -334,9 +458,7 @@ export abstract class BaseExecutor implements IExecutor {
     if (handler.validate) {
       const valid = await handler.validate(output, context);
       if (!valid) {
-        throw new Error(
-          `Handler "${handlerId}" output validation failed`,
-        );
+        throw new Error(`Handler "${handlerId}" output validation failed`);
       }
     }
 
@@ -390,8 +512,7 @@ export abstract class BaseExecutor implements IExecutor {
           );
           return { index, result: itemResult, success: true };
         } catch (err) {
-          const error =
-            err instanceof Error ? err : new Error(String(err));
+          const error = err instanceof Error ? err : new Error(String(err));
           if (onItemError === "abort") {
             throw error;
           }
@@ -428,9 +549,7 @@ export abstract class BaseExecutor implements IExecutor {
     step: WorkflowStep,
     context: ExecutionContext,
   ): Promise<unknown[]> {
-    const subSteps = (
-      step.metadata as { steps?: WorkflowStep[] }
-    )?.steps;
+    const subSteps = (step.metadata as { steps?: WorkflowStep[] })?.steps;
     if (!subSteps || !Array.isArray(subSteps)) {
       throw new Error(
         `Parallel step "${step.id}" requires metadata.steps array`,

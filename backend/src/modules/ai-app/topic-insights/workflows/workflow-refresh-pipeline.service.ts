@@ -11,13 +11,21 @@
  * 4. Maps DAG results back to business types
  */
 
-import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { DAGExecutor } from "@/modules/ai-engine/facade";
 import type { ExecutionContext, JsonObject } from "@/modules/ai-engine/facade";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 import type { AgentAssignment } from "../types/leader.types";
 import type { DimensionAnalysisResult } from "../types/research.types";
-import type { ResearchDepthConfig, ResearchDesign, ExtractedClaim } from "../types/v5-research.types";
+import type {
+  ResearchDepthConfig,
+  ResearchDesign,
+  ExtractedClaim,
+} from "../types/v5-research.types";
 import type { SearchPhaseInput } from "../handlers/search-phase.handler";
 import { REFRESH_PIPELINE_WORKFLOW } from "./refresh-pipeline.workflow";
 import { v4 as uuid } from "uuid";
@@ -100,6 +108,13 @@ export class WorkflowRefreshPipelineService {
       stepResults: new Map(),
       startTime: new Date(),
       signal,
+      metadata: {
+        roomConfig: {
+          roomId: `topic:${topic.id}`,
+          roomType: "topic",
+          entityId: topic.id,
+        },
+      } as unknown as JsonObject,
     };
 
     // 3. Execute DAG workflow (public API: async generator)
@@ -111,13 +126,9 @@ export class WorkflowRefreshPipelineService {
     // Consume all events
     for await (const event of events) {
       if (event.type === "step_completed" && event.stepId) {
-        this.logger.log(
-          `[execute] Step completed: ${event.stepId}`,
-        );
+        this.logger.log(`[execute] Step completed: ${event.stepId}`);
       } else if (event.type === "step_failed" && event.stepId) {
-        this.logger.warn(
-          `[execute] Step failed: ${event.stepId}`,
-        );
+        this.logger.warn(`[execute] Step failed: ${event.stepId}`);
       }
     }
 

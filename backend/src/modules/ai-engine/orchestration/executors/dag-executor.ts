@@ -1,6 +1,13 @@
 /**
  * AI Engine - DAG Executor
  * 有向无环图执行器实现
+ *
+ * ★ 集成 Kernel 服务：
+ * - ProgressTrackerService：自动进度上报（每个 step = 一个 phase）
+ * - CheckpointManager：step 完成后自动保存检查点
+ * - CircuitBreakerService：step 级健康检查（继承自 BaseExecutor）
+ * - RetryStrategy：step 级重试（继承自 BaseExecutor）
+ * - ProcessEventLogService：自动 Trace/Span
  */
 
 import { OnModuleDestroy } from "@nestjs/common";
@@ -12,6 +19,11 @@ import {
   ExecutionResult,
 } from "../abstractions/orchestrator.interface";
 import { BaseExecutor } from "./base-executor";
+import type { CheckpointManager } from "../../../ai-kernel/journal/checkpoint-manager";
+import type { ProcessEventLogService } from "../../../ai-kernel/observability/process-event-log.service";
+
+/** 默认看门狗超时（5 分钟） */
+const DEFAULT_WATCHDOG_TIMEOUT = 5 * 60 * 1000;
 
 /**
  * DAG 节点状态
@@ -32,10 +44,26 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
   readonly supportedModes = ["dag"];
 
   private maxConcurrency: number;
+  private checkpointManager?: CheckpointManager;
+  private traceCollector?: ProcessEventLogService;
 
   constructor(maxConcurrency = 10) {
     super();
     this.maxConcurrency = maxConcurrency;
+  }
+
+  /**
+   * 设置检查点管理器（可选，启用自动检查点）
+   */
+  setCheckpointManager(checkpointManager: CheckpointManager): void {
+    this.checkpointManager = checkpointManager;
+  }
+
+  /**
+   * 设置追踪收集器（可选，启用自动 Trace/Span）
+   */
+  setTraceCollector(traceCollector: ProcessEventLogService): void {
+    this.traceCollector = traceCollector;
   }
 
   /**
@@ -51,6 +79,57 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
     context: ExecutionContext,
   ): AsyncGenerator<ExecutionEvent, ExecutionResult> {
     const startTime = new Date();
+    const enableCheckpoints = workflow.config?.enableCheckpoints ?? false;
+    const enableTracing = workflow.config?.enableTracing ?? false;
+
+    // ★ 自动创建进度追踪任务
+    if (this.progressTracker && context.metadata?.roomConfig) {
+      try {
+        this.progressTracker.create({
+          id: context.executionId,
+          type: "workflow",
+          name: workflow.name,
+          roomConfig: context.metadata.roomConfig as {
+            roomId: string;
+            roomType: "topic" | "project" | "team" | "user";
+            entityId: string;
+          },
+          phases: workflow.steps.map((step) => ({
+            id: step.id,
+            name: step.name || step.id,
+            weight:
+              (step.metadata as { progressWeight?: number })?.progressWeight ??
+              1,
+          })),
+          metadata: { workflowId: workflow.id },
+        });
+        this.progressTracker.start(context.executionId);
+      } catch (err) {
+        this.logger.warn(
+          `[Progress] Failed to create tracker: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    // ★ 自动创建 Trace
+    let traceId: string | undefined;
+    if (enableTracing && this.traceCollector) {
+      try {
+        traceId = this.traceCollector.startTrace({
+          name: `workflow:${workflow.name}`,
+          type: "team_execution",
+          metadata: {
+            workflowId: workflow.id,
+            executionId: context.executionId,
+            stepCount: workflow.steps.length,
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `[Trace] Failed to start trace: ${(err as Error).message}`,
+        );
+      }
+    }
 
     yield this.createEvent("workflow_started", context, undefined, {
       workflow: { id: workflow.id, name: workflow.name },
@@ -67,6 +146,12 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
           error: "Circular dependency detected",
         });
 
+        this.finalizeTracking(
+          context.executionId,
+          false,
+          "Circular dependency detected",
+          traceId,
+        );
         return this.createResult(context, workflow, startTime, false, {
           code: "CIRCULAR_DEPENDENCY",
           message: "Circular dependency detected in workflow",
@@ -75,7 +160,14 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
 
       // 执行 DAG
       const events: ExecutionEvent[] = [];
-      await this.executeDAG(dag, context, (event) => events.push(event));
+      await this.executeDAG(
+        dag,
+        workflow,
+        context,
+        enableCheckpoints,
+        traceId,
+        (event) => events.push(event),
+      );
 
       // 发送收集的事件
       for (const event of events) {
@@ -92,6 +184,12 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
           failedSteps: failedNodes.map((n) => n.step.id),
         });
 
+        this.finalizeTracking(
+          context.executionId,
+          false,
+          `${failedNodes.length} step(s) failed`,
+          traceId,
+        );
         return this.createResult(context, workflow, startTime, false, {
           code: "STEPS_FAILED",
           message: `${failedNodes.length} step(s) failed`,
@@ -100,12 +198,19 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
 
       yield this.createEvent("workflow_completed", context);
 
+      this.finalizeTracking(context.executionId, true, undefined, traceId);
       return this.createResult(context, workflow, startTime, true);
     } catch (error) {
       yield this.createEvent("workflow_failed", context, undefined, {
         error: (error as Error).message,
       });
 
+      this.finalizeTracking(
+        context.executionId,
+        false,
+        (error as Error).message,
+        traceId,
+      );
       return this.createResult(context, workflow, startTime, false, {
         code: "EXECUTION_ERROR",
         message: (error as Error).message,
@@ -191,15 +296,20 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
 
   /**
    * 执行 DAG
+   * ★ 支持: 可配置看门狗超时、自动检查点、进度上报、Trace Span
    */
   private async executeDAG(
     dag: Map<string, DAGNode>,
+    workflow: Workflow,
     context: ExecutionContext,
+    enableCheckpoints: boolean,
+    traceId: string | undefined,
     onEvent: (event: ExecutionEvent) => void,
   ): Promise<void> {
     const running = new Map<string, Promise<void>>();
     const nodeStartTimes = new Map<string, number>();
-    const WATCHDOG_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    // ★ 可配置看门狗超时：workflow.config.timeout 或 step.timeout 或默认 5 分钟
+    const globalTimeout = workflow.config?.timeout ?? DEFAULT_WATCHDOG_TIMEOUT;
 
     while (true) {
       // 检查取消信号
@@ -207,16 +317,20 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
         for (const node of dag.values()) {
           if (node.status === "pending" || node.status === "ready") {
             node.status = "skipped";
+            // ★ 进度上报：跳过的阶段
+            this.trySkipPhase(context.executionId, node.step.id, "cancelled");
           }
         }
         break;
       }
 
       // 检查超时的节点（watchdog）
-      // 先收集超时节点，避免迭代 Map 时直接删除
       const timedOut: string[] = [];
       for (const [nodeId, startTime] of nodeStartTimes) {
-        if (Date.now() - startTime > WATCHDOG_TIMEOUT) {
+        // 使用 step 级别超时或全局超时
+        const stepNode = dag.get(nodeId);
+        const nodeTimeout = stepNode?.step.timeout ?? globalTimeout;
+        if (Date.now() - startTime > nodeTimeout) {
           timedOut.push(nodeId);
         }
       }
@@ -227,9 +341,14 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
           nodeStartTimes.delete(nodeId);
           running.delete(nodeId);
           this.skipDependents(nodeId, dag);
+
+          const timeoutMsg = `Node timed out after ${((stuckNode.step.timeout ?? globalTimeout) / 1000).toFixed(0)}s`;
+          // ★ 进度上报：超时失败
+          this.tryFailPhase(context.executionId, nodeId, timeoutMsg);
+
           onEvent(
             this.createEvent("step_failed", context, nodeId, {
-              error: `Node timed out after ${WATCHDOG_TIMEOUT / 1000}s`,
+              error: timeoutMsg,
             }),
           );
         }
@@ -253,12 +372,18 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
 
         node.status = "running";
         nodeStartTimes.set(node.step.id, Date.now());
-        const promise = this.executeNode(node, dag, context, onEvent).finally(
-          () => {
-            running.delete(node.step.id);
-            nodeStartTimes.delete(node.step.id);
-          },
-        );
+        const promise = this.executeNode(
+          node,
+          dag,
+          workflow,
+          context,
+          enableCheckpoints,
+          traceId,
+          onEvent,
+        ).finally(() => {
+          running.delete(node.step.id);
+          nodeStartTimes.delete(node.step.id);
+        });
         running.set(node.step.id, promise);
       }
 
@@ -271,23 +396,79 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
 
   /**
    * 执行单个节点
+   * ★ 集成：进度上报、自动检查点、Trace Span
    */
   private async executeNode(
     node: DAGNode,
     dag: Map<string, DAGNode>,
+    workflow: Workflow,
     context: ExecutionContext,
+    enableCheckpoints: boolean,
+    traceId: string | undefined,
     onEvent: (event: ExecutionEvent) => void,
   ): Promise<void> {
+    // ★ 进度上报：开始阶段
+    this.tryStartPhase(context.executionId, node.step.id, node.step.name);
+
+    // ★ 自动 Trace Span
+    let spanId: string | undefined;
+    if (traceId && this.traceCollector) {
+      try {
+        spanId = this.traceCollector.addSpan(traceId, {
+          name: node.step.name || node.step.id,
+          type: this.mapStepTypeToSpanType(node.step.type),
+          metadata: { executor: node.step.executor, stepId: node.step.id },
+        });
+      } catch {
+        // non-critical
+      }
+    }
+
     onEvent(
       this.createEvent("step_started", context, node.step.id, {
         step: { id: node.step.id, name: node.step.name },
       }),
     );
 
+    const stepStartTime = Date.now();
     const result = await this.executeStep(node.step, context);
+    const stepDuration = Date.now() - stepStartTime;
 
     if (result.status === "completed") {
       node.status = "completed";
+
+      // ★ 进度上报：完成阶段
+      this.tryCompletePhase(context.executionId, node.step.id);
+
+      // ★ Trace Span 结束
+      if (spanId && traceId && this.traceCollector) {
+        try {
+          this.traceCollector.endSpan(spanId, {
+            status: "success",
+            duration: stepDuration,
+          });
+        } catch {
+          // non-critical
+        }
+      }
+
+      // ★ 自动检查点
+      if (enableCheckpoints && this.checkpointManager) {
+        try {
+          await this.checkpointManager.createCheckpoint(
+            context.executionId,
+            workflow.id,
+            node.step.id,
+            context,
+          );
+          onEvent(this.createEvent("checkpoint_saved", context, node.step.id));
+        } catch (err) {
+          this.logger.warn(
+            `[Checkpoint] Failed to save after step "${node.step.id}": ${(err as Error).message}`,
+          );
+        }
+      }
+
       onEvent(
         this.createEvent("step_completed", context, node.step.id, {
           output: result.output,
@@ -310,6 +491,27 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
       }
     } else if (result.status === "failed") {
       node.status = "failed";
+
+      // ★ 进度上报：失败阶段
+      this.tryFailPhase(
+        context.executionId,
+        node.step.id,
+        result.error?.message || "Step failed",
+      );
+
+      // ★ Trace Span 结束（失败）
+      if (spanId && traceId && this.traceCollector) {
+        try {
+          this.traceCollector.endSpan(spanId, {
+            status: "error",
+            duration: stepDuration,
+            error: result.error?.message,
+          });
+        } catch {
+          // non-critical
+        }
+      }
+
       onEvent(
         this.createEvent("step_failed", context, node.step.id, {
           error: result.error,
@@ -320,6 +522,21 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
       this.skipDependents(node.step.id, dag);
     } else if (result.status === "skipped") {
       node.status = "skipped";
+
+      // ★ 进度上报：跳过阶段
+      this.trySkipPhase(context.executionId, node.step.id, "Condition not met");
+
+      // ★ Trace Span 结束（跳过）
+      if (spanId && traceId && this.traceCollector) {
+        try {
+          this.traceCollector.endSpan(spanId, {
+            status: "success",
+          });
+        } catch {
+          // non-critical
+        }
+      }
+
       onEvent(
         this.createEvent("step_skipped", context, node.step.id, {
           reason: "Condition not met",
@@ -379,5 +596,130 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
       endTime,
       duration: endTime.getTime() - startTime.getTime(),
     };
+  }
+
+  // ==================== 辅助方法 ====================
+
+  /**
+   * 完成追踪（进度 + Trace）
+   */
+  private finalizeTracking(
+    executionId: string,
+    success: boolean,
+    errorMsg?: string,
+    traceId?: string,
+  ): void {
+    // 进度追踪
+    if (this.progressTracker) {
+      try {
+        if (success) {
+          this.progressTracker.complete(executionId);
+        } else {
+          this.progressTracker.fail(executionId, errorMsg || "Workflow failed");
+        }
+      } catch {
+        // non-critical
+      }
+    }
+
+    // Trace
+    if (traceId && this.traceCollector) {
+      try {
+        this.traceCollector.endTrace(traceId, {
+          status: success ? "success" : "error",
+        });
+      } catch {
+        // non-critical
+      }
+    }
+  }
+
+  /** 安全地开始进度阶段 */
+  private tryStartPhase(
+    executionId: string,
+    phaseId: string,
+    name?: string,
+  ): void {
+    if (!this.progressTracker) return;
+    try {
+      this.progressTracker.startPhase(executionId, phaseId, name);
+    } catch {
+      // non-critical
+    }
+  }
+
+  /** 安全地完成进度阶段 */
+  private tryCompletePhase(executionId: string, phaseId: string): void {
+    if (!this.progressTracker) return;
+    try {
+      this.progressTracker.completePhase(executionId, phaseId);
+    } catch {
+      // non-critical
+    }
+  }
+
+  /** 安全地标记进度阶段失败 */
+  private tryFailPhase(
+    executionId: string,
+    phaseId: string,
+    error: string,
+  ): void {
+    if (!this.progressTracker) return;
+    try {
+      this.progressTracker.failPhase(executionId, phaseId, error);
+    } catch {
+      // non-critical
+    }
+  }
+
+  /** 安全地跳过进度阶段 */
+  private trySkipPhase(
+    executionId: string,
+    phaseId: string,
+    reason: string,
+  ): void {
+    if (!this.progressTracker) return;
+    try {
+      this.progressTracker.skipPhase(executionId, phaseId, reason);
+    } catch {
+      // non-critical
+    }
+  }
+
+  /** 将 WorkflowStep type 映射到 SpanType */
+  private mapStepTypeToSpanType(
+    stepType: string,
+  ):
+    | "llm_call"
+    | "tool_execution"
+    | "search"
+    | "analysis"
+    | "synthesis"
+    | "review"
+    | "planning"
+    | "phase"
+    | "evaluation" {
+    const mapping: Record<
+      string,
+      | "llm_call"
+      | "tool_execution"
+      | "search"
+      | "analysis"
+      | "synthesis"
+      | "review"
+      | "planning"
+      | "phase"
+      | "evaluation"
+    > = {
+      tool: "tool_execution",
+      skill: "tool_execution",
+      agent: "llm_call",
+      handler: "phase",
+      map: "phase",
+      transform: "analysis",
+      decision: "evaluation",
+      parallel: "phase",
+    };
+    return mapping[stepType] || "phase";
   }
 }

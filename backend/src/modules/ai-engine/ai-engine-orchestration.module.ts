@@ -28,6 +28,10 @@ import { FunctionCallingExecutor } from "./orchestration/executors/function-call
 // Checkpoints
 import { CheckpointManager } from "../ai-kernel/facade";
 
+// ★ Kernel services for executor integration
+import { ProgressTrackerService } from "../ai-kernel/facade";
+import { ProcessEventLogService } from "../ai-kernel/facade";
+
 // Orchestration Services
 import { TaskDecomposerService } from "./orchestration/services/task-decomposer.service";
 import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
@@ -59,6 +63,7 @@ import { AgentConfigService } from "./agents/config/agent-config.service";
 
 /**
  * Sequential Executor Factory
+ * ★ 也注入 CircuitBreaker（BaseExecutor 通用能力）
  */
 const sequentialExecutorFactory = {
   provide: SequentialExecutor,
@@ -67,17 +72,26 @@ const sequentialExecutorFactory = {
     skillRegistry: SkillRegistry,
     agentRegistry: AgentRegistry,
     handlerRegistry: WorkflowHandlerRegistry,
+    circuitBreaker: CircuitBreakerService,
   ) => {
     const executor = new SequentialExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
     executor.setHandlerRegistry(handlerRegistry);
+    executor.setCircuitBreaker(circuitBreaker);
     return executor;
   },
-  inject: [ToolRegistry, SkillRegistry, AgentRegistry, WorkflowHandlerRegistry],
+  inject: [
+    ToolRegistry,
+    SkillRegistry,
+    AgentRegistry,
+    WorkflowHandlerRegistry,
+    CircuitBreakerService,
+  ],
 };
 
 /**
  * DAG Executor Factory
+ * ★ 注入 Kernel 服务：ProgressTracker, CheckpointManager, CircuitBreaker, TraceCollector
  */
 const dagExecutorFactory = {
   provide: DAGExecutor,
@@ -86,17 +100,35 @@ const dagExecutorFactory = {
     skillRegistry: SkillRegistry,
     agentRegistry: AgentRegistry,
     handlerRegistry: WorkflowHandlerRegistry,
+    checkpointManager: CheckpointManager,
+    circuitBreaker: CircuitBreakerService,
+    progressTracker: ProgressTrackerService,
+    traceCollector: ProcessEventLogService,
   ) => {
     const executor = new DAGExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
     executor.setHandlerRegistry(handlerRegistry);
+    executor.setCheckpointManager(checkpointManager);
+    executor.setCircuitBreaker(circuitBreaker);
+    executor.setProgressTracker(progressTracker);
+    executor.setTraceCollector(traceCollector);
     return executor;
   },
-  inject: [ToolRegistry, SkillRegistry, AgentRegistry, WorkflowHandlerRegistry],
+  inject: [
+    ToolRegistry,
+    SkillRegistry,
+    AgentRegistry,
+    WorkflowHandlerRegistry,
+    CheckpointManager,
+    CircuitBreakerService,
+    ProgressTrackerService,
+    ProcessEventLogService,
+  ],
 };
 
 /**
  * Parallel Executor Factory
+ * ★ 也注入 CircuitBreaker（BaseExecutor 通用能力）
  */
 const parallelExecutorFactory = {
   provide: ParallelExecutor,
@@ -105,13 +137,21 @@ const parallelExecutorFactory = {
     skillRegistry: SkillRegistry,
     agentRegistry: AgentRegistry,
     handlerRegistry: WorkflowHandlerRegistry,
+    circuitBreaker: CircuitBreakerService,
   ) => {
     const executor = new ParallelExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
     executor.setHandlerRegistry(handlerRegistry);
+    executor.setCircuitBreaker(circuitBreaker);
     return executor;
   },
-  inject: [ToolRegistry, SkillRegistry, AgentRegistry, WorkflowHandlerRegistry],
+  inject: [
+    ToolRegistry,
+    SkillRegistry,
+    AgentRegistry,
+    WorkflowHandlerRegistry,
+    CircuitBreakerService,
+  ],
 };
 
 /**
@@ -149,6 +189,9 @@ const checkpointManagerFactory = {
 
     // Checkpoint
     checkpointManagerFactory,
+
+    // NOTE: ProgressTrackerService, ProcessEventLogService, CheckpointManager,
+    // CircuitBreakerService come from @Global() AiKernelModule — no need to re-declare
 
     // Orchestration Services
     TaskDecomposerService,
