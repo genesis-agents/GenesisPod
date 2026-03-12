@@ -16,8 +16,6 @@ export { DimensionResearchExecutor } from "./core/task-executors/dimension-resea
 export { ReviewDimensionExecutor } from "./core/task-executors/review-dimension.executor";
 export { SynthesisReportExecutor } from "./core/task-executors/synthesis-report.executor";
 export { GenericTaskExecutor } from "./core/task-executors/generic-task.executor";
-// ★ Refresh pipeline (Orchestrator decomposition)
-export { RefreshPipelineService } from "./core/refresh-pipeline.service";
 export { MissionQueryService } from "./core/mission-query.service";
 export { MissionLifecycleService } from "./core/mission-lifecycle.service";
 export { MissionExecutionService } from "./core/mission-execution.service";

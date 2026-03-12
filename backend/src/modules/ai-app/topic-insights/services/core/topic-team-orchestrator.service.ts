@@ -29,7 +29,6 @@ import { DataSourceRouterService } from "../data/data-source-router.service";
 import { ReportSynthesisService } from "../report/report-synthesis.service";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import { ResearchLeaderService } from "./research-leader.service";
-import { ReviewQualityLevel } from "../../types/collaboration.types";
 import { type AgentAssignment } from "../../types/leader.types";
 import { ResearchCheckpointService } from "../monitoring/research-checkpoint.service";
 import { ResearchTodoService } from "../collaboration/research-todo.service";
@@ -39,7 +38,10 @@ import {
   resolveResearchDepthConfig,
 } from "../../types/v5-research.types";
 import { buildValidationContextForWriting } from "../../prompts/v5-research.prompt";
-import { RefreshPipelineService } from "./refresh-pipeline.service";
+import {
+  WorkflowRefreshPipelineService,
+  type WorkflowRefreshResult,
+} from "../../workflows";
 
 /**
  * Refresh Progress Event
@@ -108,7 +110,7 @@ export class TopicTeamOrchestratorService {
     private readonly researchCheckpointService: ResearchCheckpointService,
     private readonly dataSourceRouterService: DataSourceRouterService,
     private readonly researchTodoService: ResearchTodoService,
-    private readonly refreshPipelineService: RefreshPipelineService,
+    private readonly workflowRefreshPipelineService: WorkflowRefreshPipelineService,
     @Optional() private readonly agentFacade?: AgentFacade,
     // ★ Batch 2: 自动化质量评估
     @Optional() private readonly evalPipeline?: EvalPipelineService,
@@ -534,14 +536,10 @@ export class TopicTeamOrchestratorService {
             },
           })
         : undefined;
-      let analysisResults: Awaited<
-        ReturnType<typeof this.refreshPipelineService.researchDimensionsInParallel>
-      >["results"];
-      let extractedDesign: Awaited<
-        ReturnType<typeof this.refreshPipelineService.researchDimensionsInParallel>
-      >["researchDesign"];
+      let analysisResults: WorkflowRefreshResult["results"];
+      let extractedDesign: WorkflowRefreshResult["researchDesign"];
       try {
-        const parallelResult = await this.refreshPipelineService.researchDimensionsInParallel(
+        const parallelResult = await this.workflowRefreshPipelineService.execute(
           topic,
           dimensions,
           report.id,
@@ -791,82 +789,6 @@ export class TopicTeamOrchestratorService {
             `[V5] Cognitive loop failed (non-fatal, analyses already saved): ${cognitiveError}`,
           );
         }
-      }
-
-      // 5. 质量审核阶段（non-fatal）
-      // ★ Hoist reviewSpanId outside try so catch can end it on error
-      const reviewSpanId = traceId
-        ? this.agentFacade?.addSpan(traceId, {
-            name: "Quality Review",
-            type: "review",
-            metadata: { missionId, dimensionCount: dimensions.length },
-          })
-        : undefined;
-      try {
-        this.emitProgress({
-          topicId,
-          reportId: report.id,
-          phase: "reviewing",
-          progress: 70,
-          completedDimensions: dimensions.length,
-          totalDimensions: dimensions.length,
-          message: "质量审核员正在审核研究质量...",
-        });
-
-        const reviewResult = await this.refreshPipelineService.reviewResearchQuality(
-          topic,
-          dimensions,
-          analysisResults,
-        );
-
-        this.logger.log(
-          `Review completed: ${reviewResult.qualityLevel} (${reviewResult.overallScore.toFixed(1)}/100)`,
-        );
-
-        if (reviewSpanId) {
-          this.agentFacade?.endSpan(reviewSpanId, {
-            status: "success",
-            output: {
-              qualityLevel: reviewResult.qualityLevel,
-              overallScore: reviewResult.overallScore,
-            },
-          });
-        }
-
-        if (
-          reviewResult.qualityLevel === ReviewQualityLevel.REJECTED ||
-          reviewResult.qualityLevel === ReviewQualityLevel.NEEDS_REVISION
-        ) {
-          this.logger.warn(
-            `Research quality below threshold: ${reviewResult.qualityLevel}. ` +
-              `Recommendations: ${reviewResult.recommendations.join("; ")}`,
-          );
-
-          // ★ 质量修订：对需要修订的维度执行批评-改进循环
-          if (
-            reviewResult.needsReresearch &&
-            reviewResult.dimensionsToReresearch.length > 0
-          ) {
-            await this.refreshPipelineService.reviseFailedDimensions(
-              topic,
-              dimensions,
-              analysisResults,
-              reviewResult,
-              topicId,
-              report.id,
-            );
-          }
-        }
-      } catch (reviewError) {
-        if (reviewSpanId) {
-          this.agentFacade?.endSpan(reviewSpanId, {
-            status: "error",
-            error: String(reviewError),
-          });
-        }
-        this.logger.warn(
-          `[executeRefresh] Quality review failed (non-fatal): ${reviewError}`,
-        );
       }
 
       // 发送合成开始事件

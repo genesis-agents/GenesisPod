@@ -132,11 +132,12 @@ export type StepType =
   | "tool" // 工具调用
   | "skill" // 技能调用
   | "agent" // Agent 调用
+  | "handler" // 自定义 Handler（App 层注册的 WorkflowNodeHandler）
   | "decision" // 决策节点
   | "wait" // 等待
   | "parallel" // 并行执行
   | "loop" // 循环
-  | "map" // 映射（并行处理数组）
+  | "map" // 映射（并行处理数组，executor 指向 handler ID）
   | "reduce" // 归约
   | "transform" // 数据转换
   | "checkpoint" // 检查点

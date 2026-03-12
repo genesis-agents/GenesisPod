@@ -8,6 +8,21 @@ import {
   DataSourceCapability,
 } from "../../types/data-source.types";
 import { dataSourceToToolId } from "../../config/data-source-mapping.config";
+import { DATA_SOURCE_CAPABILITIES } from "../../config/data-source-capabilities.config";
+
+interface DataSourcePlanResponse {
+  recommendedSources: string[];
+  sourceRationales: Record<string, string>;
+  overallRationale: string;
+  fallbackSources?: string[];
+  searchStrategy?: {
+    suggestedMaxResults?: number;
+    needsTimeFilter?: boolean;
+    suggestedTimeRangeDays?: number;
+    needsEnrichment?: boolean;
+  };
+  confidence?: number;
+}
 
 /**
  * DataSourcePlannerService
@@ -23,219 +38,6 @@ import { dataSourceToToolId } from "../../config/data-source-mapping.config";
 @Injectable()
 export class DataSourcePlannerService {
   private readonly logger = new Logger(DataSourcePlannerService.name);
-
-  /**
-   * 数据源能力描述表
-   * 用于让 AI 理解每个数据源的能力和适用场景
-   */
-  private readonly DATA_SOURCE_CAPABILITIES: DataSourceCapability[] = [
-    {
-      type: DataSourceType.WEB,
-      displayName: "Web Search",
-      description: "通用网络搜索，覆盖新闻、博客、企业网站等广泛内容",
-      useCases: ["市场分析", "行业新闻", "企业信息", "产品评测", "用户评论"],
-      characteristics: ["覆盖面广", "时效性好", "内容多样", "权威性参差不齐"],
-      requiresApiKey: true,
-      isAvailable: true,
-    },
-    {
-      type: DataSourceType.ACADEMIC,
-      displayName: "Academic (arXiv)",
-      description:
-        "arXiv 学术预印本搜索，涵盖 AI、物理、数学、计算机科学等领域。⚠️ 限速严格(~1 req/s)，并发研究时容易触发 429",
-      useCases: [
-        "前沿技术研究",
-        "算法原理",
-        "学术论文引用",
-        "理论基础",
-        "技术趋势",
-      ],
-      characteristics: [
-        "学术权威",
-        "技术深度",
-        "引用可追溯",
-        "偏理论性",
-        "限速严格",
-      ],
-      requiresApiKey: false,
-      isAvailable: true,
-      throughput: "low",
-    },
-    {
-      type: DataSourceType.GITHUB,
-      displayName: "GitHub Search",
-      description: "GitHub 开源仓库搜索，获取开源项目、代码实现、技术栈信息",
-      useCases: [
-        "技术实现",
-        "开源生态",
-        "代码参考",
-        "项目活跃度",
-        "技术栈分析",
-      ],
-      characteristics: ["实践导向", "代码级细节", "社区活跃度", "技术趋势"],
-      requiresApiKey: false, // 可选，但推荐
-      isAvailable: true,
-    },
-    {
-      type: DataSourceType.HACKERNEWS,
-      displayName: "HackerNews",
-      description: "技术社区讨论，获取技术人员对新技术、产品、事件的看法",
-      useCases: ["技术讨论", "社区观点", "产品反馈", "行业事件", "技术争议"],
-      characteristics: ["技术社区视角", "讨论深入", "观点多元", "时效性强"],
-      requiresApiKey: false,
-      isAvailable: true,
-    },
-    {
-      type: DataSourceType.FEDERAL_REGISTER,
-      displayName: "Federal Register",
-      description: "美国联邦公报，包含行政命令、法规、拟议规则、机构通知",
-      useCases: ["政策法规", "行政命令", "监管动态", "政府公告", "合规要求"],
-      characteristics: ["官方权威", "法规原文", "政策导向", "美国联邦层面"],
-      requiresApiKey: false,
-      isAvailable: true,
-    },
-    {
-      type: DataSourceType.CONGRESS,
-      displayName: "Congress.gov",
-      description: "美国国会立法信息，包含法案、决议、投票记录",
-      useCases: ["立法动态", "法案追踪", "政策变化", "两党态度", "委员会活动"],
-      characteristics: ["立法权威", "法案全文", "立法进程", "美国国会层面"],
-      requiresApiKey: false, // 可选
-      isAvailable: true,
-    },
-    {
-      type: DataSourceType.WHITEHOUSE,
-      displayName: "White House News",
-      description: "白宫新闻和声明，包含总统声明、政策公告、行政行动",
-      useCases: ["政府政策", "总统声明", "行政行动", "政府优先级", "外交政策"],
-      characteristics: ["最高行政权威", "政策风向", "时效性强", "美国行政层面"],
-      requiresApiKey: false,
-      isAvailable: true,
-    },
-    {
-      type: DataSourceType.RSS,
-      displayName: "RSS Feeds",
-      description: "RSS 订阅源搜索，基于预配置的行业媒体和博客",
-      useCases: ["行业动态", "博客更新", "媒体报道", "专家观点", "定制来源"],
-      characteristics: ["可定制", "持续更新", "来源可控", "需要预配置"],
-      requiresApiKey: false,
-      isAvailable: false, // TODO: 待实现
-    },
-    {
-      type: DataSourceType.LOCAL,
-      displayName: "Local Knowledge Base",
-      description: "本地资源库搜索（RAG），搜索用户上传的文档和报告",
-      useCases: [
-        "内部文档",
-        "历史报告",
-        "私有知识",
-        "已验证资料",
-        "上下文补充",
-      ],
-      characteristics: ["私有数据", "已验证", "语义搜索", "需要预先上传"],
-      requiresApiKey: false,
-      isAvailable: false, // TODO: 待实现
-    },
-    // ★ 社媒数据源
-    {
-      type: DataSourceType.SOCIAL_X,
-      displayName: "X/Twitter",
-      description: "X/Twitter 社媒热点搜索，获取实时社交媒体讨论和舆情",
-      useCases: [
-        "舆情监测",
-        "社会热点",
-        "用户反馈",
-        "品牌声誉",
-        "实时事件",
-        "KOL观点",
-      ],
-      characteristics: [
-        "实时性强",
-        "覆盖面广",
-        "情绪分析",
-        "影响力指标",
-        "需要 Grok 模型",
-      ],
-      requiresApiKey: true, // 需要 xAI API 或 Web Search 作为降级
-      isAvailable: true,
-    },
-    // ★ P0: 新增实时数据源连接器
-    {
-      type: DataSourceType.SEMANTIC_SCHOLAR,
-      displayName: "Semantic Scholar",
-      description:
-        "Semantic Scholar 学术论文搜索，覆盖全领域高质量论文，包含引用网络。⚠️ 无 Key 时限速 1 req/s，并发时易 429",
-      useCases: [
-        "学术文献综述",
-        "引用分析",
-        "研究趋势",
-        "高影响力论文",
-        "跨学科研究",
-      ],
-      characteristics: [
-        "论文引用数据",
-        "全学科覆盖",
-        "开放获取标记",
-        "作者网络",
-        "语义搜索",
-        "限速较严格",
-      ],
-      requiresApiKey: false,
-      isAvailable: true,
-      throughput: "low",
-    },
-    {
-      type: DataSourceType.PUBMED,
-      displayName: "PubMed",
-      description: "NCBI PubMed 生物医学文献搜索，覆盖医学、生命科学、生物技术",
-      useCases: ["医学研究", "生物技术", "药物开发", "临床试验", "公共卫生"],
-      characteristics: ["生物医学权威", "MeSH 术语", "临床证据", "同行评审"],
-      requiresApiKey: false,
-      isAvailable: true,
-      throughput: "medium",
-    },
-    {
-      type: DataSourceType.OPENALEX,
-      displayName: "OpenAlex",
-      description:
-        "OpenAlex 开放学术数据库，2.5亿+学术作品，跨学科覆盖，免费无限制访问。✅ 无限速，并发友好，推荐作为学术搜索首选",
-      useCases: [
-        "大规模文献调研",
-        "引用网络分析",
-        "开放获取论文",
-        "跨学科研究",
-        "学术趋势分析",
-      ],
-      characteristics: [
-        "全学科覆盖",
-        "开放获取标记",
-        "引用计数",
-        "免费无Key",
-        "无限速高吞吐",
-      ],
-      requiresApiKey: false,
-      isAvailable: true,
-      throughput: "high",
-    },
-    {
-      type: DataSourceType.FINANCE_API,
-      displayName: "Finance Data API",
-      description: "金融数据搜索，获取公司信息、股票行情、市场数据",
-      useCases: ["公司分析", "股票研究", "行业对比", "市场数据", "投资研究"],
-      characteristics: ["实时行情", "公司基本面", "行业分类", "全球市场"],
-      requiresApiKey: true,
-      isAvailable: true,
-    },
-    {
-      type: DataSourceType.WEATHER_API,
-      displayName: "Weather Data API",
-      description: "天气和气候数据搜索，获取全球天气预报和历史气候数据",
-      useCases: ["气候研究", "农业分析", "能源需求", "灾害评估", "旅游规划"],
-      characteristics: ["全球覆盖", "实时数据", "历史记录", "免费开放"],
-      requiresApiKey: false,
-      isAvailable: true,
-    },
-  ];
 
   constructor(
     private readonly chatFacade: ChatFacade,
@@ -260,28 +62,38 @@ export class DataSourcePlannerService {
       // 2. 构建 AI 规划提示词
       const prompt = this.buildPlanningPrompt(input, availableSources);
 
-      // 3. 调用 AI 进行规划
-      const response = await this.chatFacade.chat({
-        messages: [
-          {
-            role: "system",
-            content: this.getSystemPrompt(),
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+      // 3. 调用 AI 进行规划（chatStructured 自动处理 JSON 解析）
+      const response = await this.chatFacade.chatStructured<DataSourcePlanResponse>({
+        systemPrompt: this.getSystemPrompt(),
+        messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT,
-        skipGuardrails: true, // 内部系统调用，数据源规划
-        taskProfile: {
-          creativity: "low",
-          outputLength: "medium",
+        skipGuardrails: true,
+        taskProfile: { creativity: "low", outputLength: "medium" },
+        throwOnParseError: false,
+        schema: {
+          type: "object",
+          properties: {
+            recommendedSources: { type: "array", items: { type: "string" } },
+            sourceRationales: { type: "object" },
+            overallRationale: { type: "string" },
+            fallbackSources: { type: "array", items: { type: "string" } },
+            searchStrategy: {
+              type: "object",
+              properties: {
+                suggestedMaxResults: { type: "number" },
+                needsTimeFilter: { type: "boolean" },
+                suggestedTimeRangeDays: { type: "number" },
+                needsEnrichment: { type: "boolean" },
+              },
+            },
+            confidence: { type: "number" },
+          },
+          required: ["recommendedSources"],
         },
       });
 
-      // 4. 解析 AI 响应
-      const plan = this.parseAIResponse(response.content, availableSources);
+      // 4. 验证并构建规划结果
+      const plan = this.buildPlanFromResponse(response.data, availableSources);
 
       this.logger.log(
         `[planDataSources] AI recommended ${plan.recommendedSources.length} sources: ${plan.recommendedSources.join(", ")}`,
@@ -305,7 +117,7 @@ export class DataSourcePlannerService {
   private async getAvailableDataSources(): Promise<DataSourceCapability[]> {
     const availableCapabilities: DataSourceCapability[] = [];
 
-    for (const capability of this.DATA_SOURCE_CAPABILITIES) {
+    for (const capability of DATA_SOURCE_CAPABILITIES) {
       // 检查工具是否在 ToolRegistry 中注册并被 Admin 启用
       const toolId = this.dataSourceToToolId(capability.type);
       if (toolId) {
@@ -430,76 +242,67 @@ ${sourcesDescription}
   }
 
   /**
-   * 解析 AI 响应
+   * 从 chatStructured 解析结果构建数据源规划
    */
-  private parseAIResponse(
-    content: string,
+  private buildPlanFromResponse(
+    parsed: {
+      recommendedSources: string[];
+      sourceRationales?: Record<string, string>;
+      overallRationale?: string;
+      fallbackSources?: string[];
+      searchStrategy?: {
+        suggestedMaxResults?: number;
+        needsTimeFilter?: boolean;
+        suggestedTimeRangeDays?: number;
+        needsEnrichment?: boolean;
+      };
+      confidence?: number;
+    } | null,
     availableSources: DataSourceCapability[],
   ): DataSourcePlan {
-    try {
-      // 提取 JSON 块
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : content;
-
-      const parsed = JSON.parse(jsonStr);
-
-      // 验证并过滤推荐的数据源
-      const validSourceTypes = availableSources.map((s) => s.type);
-      const recommendedSources = (parsed.recommendedSources || []).filter(
-        (s: string) => validSourceTypes.includes(s as DataSourceType),
-      ) as DataSourceType[];
-
-      const fallbackSources = (parsed.fallbackSources || []).filter(
-        (s: string) => validSourceTypes.includes(s as DataSourceType),
-      ) as DataSourceType[];
-
+    if (!parsed?.recommendedSources) {
       return {
-        recommendedSources:
-          recommendedSources.length > 0
-            ? recommendedSources
-            : [DataSourceType.WEB],
-        sourceRationales: parsed.sourceRationales || {},
-        overallRationale: parsed.overallRationale || "AI 自动推荐",
-        fallbackSources,
-        searchStrategy: {
-          suggestedMaxResults: parsed.searchStrategy?.suggestedMaxResults || 25,
-          needsTimeFilter: parsed.searchStrategy?.needsTimeFilter ?? true,
-          suggestedTimeRangeDays:
-            parsed.searchStrategy?.suggestedTimeRangeDays || 180,
-          needsEnrichment: parsed.searchStrategy?.needsEnrichment ?? true,
+        recommendedSources: [DataSourceType.WEB],
+        sourceRationales: {
+          [DataSourceType.WEB]: "默认使用 Web 搜索作为通用数据源",
         },
-        confidence: parsed.confidence || 70,
+        overallRationale: "AI 响应解析失败，使用默认配置",
+        fallbackSources: [],
+        searchStrategy: {
+          suggestedMaxResults: 25,
+          needsTimeFilter: true,
+          suggestedTimeRangeDays: 180,
+          needsEnrichment: true,
+        },
+        confidence: 50,
       };
-    } catch (error) {
-      this.logger.warn(
-        `[parseAIResponse] Failed to parse AI response, using default: ${error instanceof Error ? error.message : String(error)}`,
-      );
-
-      // 返回基于关键词的简单规划
-      return this.getKeywordBasedPlan(availableSources);
     }
-  }
 
-  /**
-   * 基于关键词的简单规划（当 AI 解析失败时使用）
-   */
-  private getKeywordBasedPlan(
-    _availableSources: DataSourceCapability[],
-  ): DataSourcePlan {
+    const validSourceTypes = availableSources.map((s) => s.type);
+    const recommendedSources = (parsed.recommendedSources || []).filter(
+      (s: string) => validSourceTypes.includes(s as DataSourceType),
+    ) as DataSourceType[];
+
+    const fallbackSources = (parsed.fallbackSources || []).filter(
+      (s: string) => validSourceTypes.includes(s as DataSourceType),
+    ) as DataSourceType[];
+
     return {
-      recommendedSources: [DataSourceType.WEB],
-      sourceRationales: {
-        [DataSourceType.WEB]: "默认使用 Web 搜索作为通用数据源",
-      },
-      overallRationale: "AI 响应解析失败，使用默认配置",
-      fallbackSources: [],
+      recommendedSources:
+        recommendedSources.length > 0
+          ? recommendedSources
+          : [DataSourceType.WEB],
+      sourceRationales: parsed.sourceRationales || {},
+      overallRationale: parsed.overallRationale || "AI 自动推荐",
+      fallbackSources,
       searchStrategy: {
-        suggestedMaxResults: 25,
-        needsTimeFilter: true,
-        suggestedTimeRangeDays: 180,
-        needsEnrichment: true,
+        suggestedMaxResults: parsed.searchStrategy?.suggestedMaxResults || 25,
+        needsTimeFilter: parsed.searchStrategy?.needsTimeFilter ?? true,
+        suggestedTimeRangeDays:
+          parsed.searchStrategy?.suggestedTimeRangeDays || 180,
+        needsEnrichment: parsed.searchStrategy?.needsEnrichment ?? true,
       },
-      confidence: 50,
+      confidence: parsed.confidence || 70,
     };
   }
 
@@ -577,6 +380,6 @@ ${sourcesDescription}
    * 用于前端展示或调试
    */
   getDataSourceCapabilities(): DataSourceCapability[] {
-    return this.DATA_SOURCE_CAPABILITIES;
+    return DATA_SOURCE_CAPABILITIES;
   }
 }

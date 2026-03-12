@@ -52,10 +52,15 @@ import type {
   EnrichedEvidenceData,
   GeneratedChart,
   FigureReference,
-  Trend,
-  Challenge,
-  Opportunity,
 } from "../../types/research.types";
+import {
+  extractTrendsFromContent,
+  extractChallengesFromContent,
+  extractOpportunitiesFromContent,
+  replaceEvidenceIds,
+  validateDate,
+} from "./content-analysis.utils";
+import { assessCredibility } from "./credibility.utils";
 import { AgentActivityType, AIModelType } from "@prisma/client";
 import {
   getCurrentDateString,
@@ -1157,7 +1162,7 @@ export class DimensionMissionService {
         if (indexMapping.size > 0) {
           finalIntegratedResult = {
             ...integratedResult,
-            content: this.replaceEvidenceIds(
+            content: replaceEvidenceIds(
               integratedResult.content,
               indexMapping,
             ),
@@ -2025,7 +2030,7 @@ export class DimensionMissionService {
     // 评估可信度
     const evidenceWithCredibility = evidenceData.map((e) => ({
       ...e,
-      credibilityScore: this.assessCredibility(e),
+      credibilityScore: assessCredibility(e),
     }));
 
     // ★ 使用 interactive transaction 保证原子性
@@ -2049,7 +2054,7 @@ export class DimensionMissionService {
               domain: evidence.domain,
               snippet: evidence.snippet,
               sourceType: evidence.sourceType,
-              publishedAt: this.validateDate(evidence.publishedAt),
+              publishedAt: validateDate(evidence.publishedAt),
               credibilityScore: evidence.credibilityScore,
               citationIndex: startIndex + i,
               reportId,
@@ -2103,193 +2108,8 @@ export class DimensionMissionService {
     return { savedIds: created.map((e) => e.id), idMapping, indexMapping };
   }
 
-  /**
-   * 替换内容中的 prompt 引用为实际的 citationIndex
-   * ★ LLM 输出 [1], [2], [3]... 需要替换为实际的数据库 citationIndex
-   * 例如：如果第一个维度有10条证据，第二个维度的 [1] 需要变成 [11]
-   */
-  private replaceEvidenceIds(
-    content: string,
-    indexMapping: Map<number, number>,
-  ): string {
-    let result = content;
-    // 从大到小替换，避免 [1] 被替换后影响 [10], [11] 等
-    const sortedEntries = Array.from(indexMapping.entries()).sort(
-      (a, b) => b[0] - a[0],
-    );
-    for (const [promptIndex, actualCitationIndex] of sortedEntries) {
-      // 只有当 promptIndex 和 actualCitationIndex 不同时才需要替换
-      if (promptIndex !== actualCitationIndex) {
-        // Replace citation references [N]
-        const pattern = new RegExp(`\\[${promptIndex}\\]`, "g");
-        result = result.replace(pattern, `[${actualCitationIndex}]`);
-        // Replace figure placeholders <!-- figure:N:M -->
-        const figPattern = new RegExp(
-          `(<!--\\s*figure:)${promptIndex}(:)`,
-          "g",
-        );
-        result = result.replace(figPattern, `$1${actualCitationIndex}$2`);
-      }
-    }
-    return result;
-  }
-
-  /**
-   * 验证日期有效性
-   * ★ 修复：避免 Invalid Date 导致 Prisma 验证错误
-   */
-  private validateDate(date: Date | string | null | undefined): Date | null {
-    if (!date) {
-      return null;
-    }
-    // 检查是否为有效的 Date 对象
-    const d = date instanceof Date ? date : new Date(date);
-    // isNaN(d.getTime()) 检测 Invalid Date
-    if (isNaN(d.getTime())) {
-      return null;
-    }
-    return d;
-  }
-
-  /**
-   * 评估证据可信度
-   * ★ 改进版：更细致的评分系统，避免全部50%的问题
-   */
-  private assessCredibility(evidence: EvidenceData): number {
-    let score = 0;
-
-    // 1. 域名权威性评分 (最高 40 分)
-    if (evidence.domain) {
-      const domain = evidence.domain.toLowerCase();
-
-      // 最高权威 (政府、教育、顶级学术)
-      const topAuthority = [
-        ".gov",
-        ".edu",
-        ".ac.",
-        "nature.com",
-        "science.org",
-        "sciencedirect.com",
-        "springer.com",
-        "wiley.com",
-        "arxiv.org",
-        "pubmed.ncbi",
-        "ieee.org",
-        "acm.org",
-        "who.int",
-        "un.org",
-        "worldbank.org",
-        "imf.org",
-        "oecd.org",
-      ];
-
-      // 高权威 (知名媒体、智库)
-      const highAuthority = [
-        "reuters.com",
-        "bloomberg.com",
-        "wsj.com",
-        "nytimes.com",
-        "washingtonpost.com",
-        "bbc.com",
-        "economist.com",
-        "ft.com",
-        "theguardian.com",
-        "apnews.com",
-        "stanford.edu",
-        "mit.edu",
-        "harvard.edu",
-        "brookings.edu",
-        "rand.org",
-        "mckinsey.com",
-        "gartner.com",
-        "forrester.com",
-        "statista.com",
-      ];
-
-      // 中等权威 (行业媒体、知名博客)
-      const mediumAuthority = [
-        "techcrunch.com",
-        "wired.com",
-        "arstechnica.com",
-        "theverge.com",
-        "venturebeat.com",
-        "forbes.com",
-        "businessinsider.com",
-        "cnbc.com",
-        "cnn.com",
-        "medium.com",
-        "substack.com",
-        "hbr.org",
-      ];
-
-      if (topAuthority.some((auth) => domain.includes(auth))) {
-        score += 40;
-      } else if (highAuthority.some((auth) => domain.includes(auth))) {
-        score += 30;
-      } else if (mediumAuthority.some((auth) => domain.includes(auth))) {
-        score += 20;
-      } else {
-        // 普通网站基础分（提高以避免全部低可信）
-        score += 20;
-      }
-    } else {
-      score += 15; // 无域名信息给基础分
-    }
-
-    // 2. 来源类型评分 (最高 30 分)
-    const sourceTypeLower = (evidence.sourceType || "").toLowerCase();
-    switch (sourceTypeLower) {
-      case "academic":
-        score += 30;
-        break;
-      case "official":
-        score += 25;
-        break;
-      case "news":
-        score += 20;
-        break;
-      case "report":
-        score += 18;
-        break;
-      case "web":
-        score += 18; // 提高 web 类型分数
-        break;
-      default:
-        score += 15; // 默认给基础分
-        break;
-    }
-
-    // 3. 内容深度评分 (最高 15 分) - 基于 snippet 长度
-    const snippetLength = evidence.snippet?.length || 0;
-    if (snippetLength > 500) {
-      score += 15;
-    } else if (snippetLength > 200) {
-      score += 10;
-    } else if (snippetLength > 50) {
-      score += 5;
-    }
-
-    // 4. 时效性评分 (最高 15 分)
-    if (evidence.publishedAt) {
-      const ageInDays = Math.floor(
-        (Date.now() - new Date(evidence.publishedAt).getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-      if (ageInDays <= 30) {
-        score += 15; // 近一个月
-      } else if (ageInDays <= 180) {
-        score += 12; // 近半年
-      } else if (ageInDays <= 365) {
-        score += 8; // 近一年
-      } else if (ageInDays <= 730) {
-        score += 5; // 近两年
-      }
-      // 超过两年不加分
-    }
-
-    // 确保分数在合理范围内 (最低 15，最高 100)
-    return Math.max(15, Math.min(100, score));
-  }
+  // ★ Extracted: replaceEvidenceIds, validateDate → content-analysis.utils.ts
+  // ★ Extracted: assessCredibility → credibility.utils.ts
 
   /**
    * 转换为标准分析结果格式
@@ -2317,9 +2137,9 @@ export class DimensionMissionService {
           evidenceIds: [],
         }),
       ),
-      trends: this.extractTrendsFromContent(content),
-      challenges: this.extractChallengesFromContent(content),
-      opportunities: this.extractOpportunitiesFromContent(content),
+      trends: extractTrendsFromContent(content),
+      challenges: extractChallengesFromContent(content),
+      opportunities: extractOpportunitiesFromContent(content),
       evidenceUsed: evidenceIds.length,
       confidenceLevel: integratedResult.metadata.confidenceLevel,
       detailedContent: content,
@@ -2328,168 +2148,9 @@ export class DimensionMissionService {
     };
   }
 
-  /**
-   * 从 Markdown 内容中提取趋势项
-   */
-  private extractTrendsFromContent(content: string): Trend[] {
-    return this.extractSectionItems(content, [
-      "趋势",
-      "trend",
-      "发展趋势",
-      "未来趋势",
-    ]).map((item) => ({
-      trend: item,
-      direction: "emerging" as const,
-      timeframe: "近期",
-      evidenceIds: [],
-    }));
-  }
-
-  /**
-   * 从 Markdown 内容中提取挑战项
-   */
-  private extractChallengesFromContent(content: string): Challenge[] {
-    return this.extractSectionItems(content, [
-      "挑战",
-      "challenge",
-      "风险",
-      "问题",
-      "障碍",
-    ]).map((item) => ({
-      challenge: item,
-      impact: "",
-      evidenceIds: [],
-    }));
-  }
-
-  /**
-   * 从 Markdown 内容中提取机遇项
-   */
-  private extractOpportunitiesFromContent(content: string): Opportunity[] {
-    return this.extractSectionItems(content, [
-      "机遇",
-      "机会",
-      "opportunity",
-      "发展机遇",
-    ]).map((item) => ({
-      opportunity: item,
-      potential: "",
-      evidenceIds: [],
-    }));
-  }
-
-  /**
-   * H1 fix: 多策略从 Markdown 提取指定主题的列表项
-   * Strategy 1: ## 标题 + 列表项
-   * Strategy 2: **粗体关键词**: 内容
-   * Strategy 3: 段落中包含关键词的句子
-   */
-  private extractSectionItems(
-    content: string,
-    sectionKeywords: string[],
-  ): string[] {
-    // Strategy 1: Markdown header + bullet items
-    const fromHeaders = this.extractFromHeaders(content, sectionKeywords);
-    if (fromHeaders.length > 0) return fromHeaders;
-
-    // Strategy 2: **Bold keyword**: content pattern
-    const fromBold = this.extractFromBoldPatterns(content, sectionKeywords);
-    if (fromBold.length > 0) return fromBold;
-
-    // Strategy 3: Sentences containing keywords
-    return this.extractFromSentences(content, sectionKeywords);
-  }
-
-  private extractFromHeaders(
-    content: string,
-    sectionKeywords: string[],
-  ): string[] {
-    const items: string[] = [];
-    const lines = content.split("\n");
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      const isHeader = /^#{2,4}\s+/.test(line);
-      if (!isHeader) continue;
-
-      const headerText = line.replace(/^#{2,4}\s+/, "").toLowerCase();
-      const matched = sectionKeywords.some((kw) =>
-        headerText.includes(kw.toLowerCase()),
-      );
-      if (!matched) continue;
-
-      for (let j = i + 1; j < lines.length; j++) {
-        const nextLine = lines[j].trim();
-        if (/^#{2,4}\s+/.test(nextLine)) break;
-        const bulletMatch = nextLine.match(/^[-*]\s+\*\*(.+?)\*\*/);
-        if (bulletMatch) {
-          items.push(bulletMatch[1].replace(/:$/, "").trim());
-        } else {
-          const simpleBullet = nextLine.match(/^[-*]\s+(.{15,})/);
-          if (simpleBullet) {
-            const text = simpleBullet[1].replace(/\*\*/g, "").trim();
-            const sentence = text.split(/[。；;]/)[0];
-            if (sentence.length >= 10) {
-              items.push(
-                sentence.length > 120
-                  ? sentence.substring(0, 120) + "..."
-                  : sentence,
-              );
-            }
-          }
-        }
-        if (items.length >= 5) break;
-      }
-      break;
-    }
-
-    return items;
-  }
-
-  private extractFromBoldPatterns(
-    content: string,
-    sectionKeywords: string[],
-  ): string[] {
-    const items: string[] = [];
-    const regex = /\*\*(.+?)\*\*[:：]\s*(.+)/g;
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      const label = match[1].trim().toLowerCase();
-      const value = match[2].trim();
-      if (
-        sectionKeywords.some((kw) => label.includes(kw.toLowerCase())) &&
-        value.length >= 10
-      ) {
-        items.push(
-          value.length > 120 ? value.substring(0, 120) + "..." : value,
-        );
-        if (items.length >= 5) break;
-      }
-    }
-    return items;
-  }
-
-  private extractFromSentences(
-    content: string,
-    sectionKeywords: string[],
-  ): string[] {
-    const sentences = content.match(/[^。！？\n]+[。！？]/g) || [];
-    return sentences
-      .filter(
-        (s) =>
-          s.length >= 15 &&
-          sectionKeywords.some((kw) =>
-            s.toLowerCase().includes(kw.toLowerCase()),
-          ),
-      )
-      .slice(0, 5)
-      .map((s) => {
-        const trimmed = s.replace(/^[，、：:;\s]+/, "").trim();
-        return trimmed.length > 120
-          ? trimmed.substring(0, 120) + "..."
-          : trimmed;
-      });
-  }
+  // ★ Extracted: extractTrendsFromContent, extractChallengesFromContent,
+  //   extractOpportunitiesFromContent, extractSectionItems, extractFromHeaders,
+  //   extractFromBoldPatterns, extractFromSentences → content-analysis.utils.ts
 
   /**
    * 发送进度事件

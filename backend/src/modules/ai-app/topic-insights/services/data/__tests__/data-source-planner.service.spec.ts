@@ -4,7 +4,7 @@ import { ChatFacade, ToolFacade } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 
 const mockAiFacade = {
-  chat: jest.fn(),
+  chatStructured: jest.fn(),
   capabilityResolveTools: jest.fn(),
 };
 
@@ -69,25 +69,24 @@ describe("DataSourcePlannerService", () => {
         "web-search",
         "arxiv-search",
       ]);
-      mockAiFacade.chat.mockResolvedValue({
-        content: `\`\`\`json
-{
-  "recommendedSources": ["web", "academic"],
-  "sourceRationales": {
-    "web": "Web search for latest news",
-    "academic": "Academic papers for technical depth"
-  },
-  "overallRationale": "Both web and academic sources needed",
-  "fallbackSources": ["hackernews"],
-  "searchStrategy": {
-    "suggestedMaxResults": 20,
-    "needsTimeFilter": true,
-    "suggestedTimeRangeDays": 90,
-    "needsEnrichment": true
-  },
-  "confidence": 88
-}
-\`\`\``,
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
+          recommendedSources: ["web", "academic"],
+          sourceRationales: {
+            web: "Web search for latest news",
+            academic: "Academic papers for technical depth",
+          },
+          overallRationale: "Both web and academic sources needed",
+          fallbackSources: ["hackernews"],
+          searchStrategy: {
+            suggestedMaxResults: 20,
+            needsTimeFilter: true,
+            suggestedTimeRangeDays: 90,
+            needsEnrichment: true,
+          },
+          confidence: 88,
+        },
+        rawContent: "", model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -106,21 +105,20 @@ describe("DataSourcePlannerService", () => {
 
     it("should filter out invalid source types from AI response", async () => {
       mockAiFacade.capabilityResolveTools.mockResolvedValue(["web-search"]);
-      mockAiFacade.chat.mockResolvedValue({
-        content: `\`\`\`json
-{
-  "recommendedSources": ["web", "invalid-source-xyz", "fake-source"],
-  "sourceRationales": {},
-  "overallRationale": "Using web",
-  "fallbackSources": [],
-  "searchStrategy": {
-    "suggestedMaxResults": 25,
-    "needsTimeFilter": true,
-    "needsEnrichment": true
-  },
-  "confidence": 75
-}
-\`\`\``,
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
+          recommendedSources: ["web", "invalid-source-xyz", "fake-source"],
+          sourceRationales: {},
+          overallRationale: "Using web",
+          fallbackSources: [],
+          searchStrategy: {
+            suggestedMaxResults: 25,
+            needsTimeFilter: true,
+            needsEnrichment: true,
+          },
+          confidence: 75,
+        },
+        rawContent: "", model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -133,21 +131,20 @@ describe("DataSourcePlannerService", () => {
 
     it("should fall back to WEB when no valid sources in AI response", async () => {
       mockAiFacade.capabilityResolveTools.mockResolvedValue(["web-search"]);
-      mockAiFacade.chat.mockResolvedValue({
-        content: `\`\`\`json
-{
-  "recommendedSources": ["invalid1", "invalid2"],
-  "sourceRationales": {},
-  "overallRationale": "Invalid plan",
-  "fallbackSources": [],
-  "searchStrategy": {
-    "suggestedMaxResults": 25,
-    "needsTimeFilter": true,
-    "needsEnrichment": true
-  },
-  "confidence": 50
-}
-\`\`\``,
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
+          recommendedSources: ["invalid1", "invalid2"],
+          sourceRationales: {},
+          overallRationale: "Invalid plan",
+          fallbackSources: [],
+          searchStrategy: {
+            suggestedMaxResults: 25,
+            needsTimeFilter: true,
+            needsEnrichment: true,
+          },
+          confidence: 50,
+        },
+        rawContent: "", model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -155,22 +152,24 @@ describe("DataSourcePlannerService", () => {
       expect(plan.recommendedSources).toContain(DataSourceType.WEB);
     });
 
-    it("should use keyword-based fallback plan when AI response is invalid JSON", async () => {
+    it("should use fallback plan when chatStructured returns null data", async () => {
       mockAiFacade.capabilityResolveTools.mockResolvedValue(["web-search"]);
-      mockAiFacade.chat.mockResolvedValue({
-        content: "This is not valid JSON response",
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: null,
+        rawContent: "This is not valid JSON response",
+        model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
 
-      // Keyword-based fallback defaults to WEB
+      // Fallback defaults to WEB
       expect(plan.recommendedSources).toContain(DataSourceType.WEB);
       expect(plan.confidence).toBe(50);
     });
 
     it("should use default plan when AI chat throws error", async () => {
       mockAiFacade.capabilityResolveTools.mockResolvedValue(["web-search"]);
-      mockAiFacade.chat.mockRejectedValue(new Error("LLM API error"));
+      mockAiFacade.chatStructured.mockRejectedValue(new Error("LLM API error"));
 
       const plan = await service.planDataSources(baseInput);
 
@@ -183,7 +182,7 @@ describe("DataSourcePlannerService", () => {
     describe("getDefaultPlan - keyword-based dimension routing", () => {
       beforeEach(() => {
         // Make AI fail so we get the default plan
-        mockAiFacade.chat.mockRejectedValue(new Error("AI unavailable"));
+        mockAiFacade.chatStructured.mockRejectedValue(new Error("AI unavailable"));
         mockAiFacade.capabilityResolveTools.mockResolvedValue([]);
       });
 
@@ -324,16 +323,21 @@ describe("DataSourcePlannerService", () => {
 
     it("should call AI facade with correct modelType and taskProfile", async () => {
       mockAiFacade.capabilityResolveTools.mockResolvedValue(["web-search"]);
-      mockAiFacade.chat.mockResolvedValue({
-        content: `{"recommendedSources":["web"],"sourceRationales":{},"overallRationale":"test","fallbackSources":[],"searchStrategy":{"suggestedMaxResults":25,"needsTimeFilter":true,"needsEnrichment":true},"confidence":70}`,
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
+          recommendedSources: ["web"],
+          sourceRationales: {},
+          overallRationale: "test",
+          confidence: 70,
+        },
+        rawContent: "", model: "",
       });
 
       await service.planDataSources(baseInput);
 
-      expect(mockAiFacade.chat).toHaveBeenCalledWith(
+      expect(mockAiFacade.chatStructured).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
-            expect.objectContaining({ role: "system" }),
             expect.objectContaining({ role: "user" }),
           ]),
           taskProfile: expect.objectContaining({
@@ -344,10 +348,18 @@ describe("DataSourcePlannerService", () => {
       );
     });
 
-    it("should parse JSON without code block when AI returns raw JSON", async () => {
+    it("should handle parsed data correctly", async () => {
       mockAiFacade.capabilityResolveTools.mockResolvedValue(["web-search"]);
-      mockAiFacade.chat.mockResolvedValue({
-        content: `{"recommendedSources":["web"],"sourceRationales":{"web":"Good for general search"},"overallRationale":"Web is best","fallbackSources":[],"searchStrategy":{"suggestedMaxResults":25,"needsTimeFilter":true,"needsEnrichment":true},"confidence":70}`,
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
+          recommendedSources: ["web"],
+          sourceRationales: { web: "Good for general search" },
+          overallRationale: "Web is best",
+          fallbackSources: [],
+          searchStrategy: { suggestedMaxResults: 25, needsTimeFilter: true, needsEnrichment: true },
+          confidence: 70,
+        },
+        rawContent: "", model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -358,16 +370,15 @@ describe("DataSourcePlannerService", () => {
 
     it("should apply defaults when searchStrategy fields are missing", async () => {
       mockAiFacade.capabilityResolveTools.mockResolvedValue(["web-search"]);
-      mockAiFacade.chat.mockResolvedValue({
-        content: `\`\`\`json
-{
-  "recommendedSources": ["web"],
-  "sourceRationales": {},
-  "overallRationale": "Web only",
-  "fallbackSources": [],
-  "searchStrategy": {}
-}
-\`\`\``,
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
+          recommendedSources: ["web"],
+          sourceRationales: {},
+          overallRationale: "Web only",
+          fallbackSources: [],
+          searchStrategy: {},
+        },
+        rawContent: "", model: "",
       });
 
       const plan = await service.planDataSources(baseInput);

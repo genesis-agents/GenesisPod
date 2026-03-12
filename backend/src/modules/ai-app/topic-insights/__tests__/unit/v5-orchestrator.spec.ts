@@ -7,7 +7,7 @@ import {
   jest,
 } from "@jest/globals";
 import { TopicTeamOrchestratorService } from "../../services/core/topic-team-orchestrator.service";
-import { RefreshPipelineService } from "../../services/core/refresh-pipeline.service";
+import { WorkflowRefreshPipelineService } from "../../workflows";
 
 /** Helper: create a mock function that accepts any resolved value */
 const fn = () => jest.fn<() => Promise<unknown>>();
@@ -181,10 +181,8 @@ function createMockServices() {
     }),
   };
 
-  const refreshPipelineService = {
-    researchDimensionsInParallel: jest.fn().mockResolvedValue({ results: [], researchDesign: null }),
-    reviseFailedDimensions: jest.fn().mockResolvedValue([]),
-    reviewResearchQuality: jest.fn().mockResolvedValue({ needsReresearch: false }),
+  const workflowRefreshPipelineService = {
+    execute: jest.fn().mockResolvedValue({ results: [], researchDesign: null }),
   };
 
   return {
@@ -196,7 +194,7 @@ function createMockServices() {
     researchLeaderService,
     researchCheckpointService,
     dataSourceRouterService,
-    refreshPipelineService,
+    workflowRefreshPipelineService,
     mockDimension,
   };
 }
@@ -225,7 +223,7 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
       mocks.researchCheckpointService as any,
       mocks.dataSourceRouterService as any,
       {} as any, // researchTodoService
-      mocks.refreshPipelineService as any,
+      mocks.workflowRefreshPipelineService as unknown as WorkflowRefreshPipelineService,
     );
   });
 
@@ -245,19 +243,19 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("standard → delegates to refreshPipelineService.researchDimensionsInParallel", async () => {
+  it("standard → delegates to workflowRefreshPipelineService.execute", async () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
     expect(
-      mocks.refreshPipelineService.researchDimensionsInParallel,
+      mocks.workflowRefreshPipelineService.execute,
     ).toHaveBeenCalled();
   });
 
-  it("thorough → delegates to refreshPipelineService.researchDimensionsInParallel", async () => {
+  it("thorough → delegates to workflowRefreshPipelineService.execute", async () => {
     await service.executeRefresh(topic, { researchDepth: "thorough" });
 
     expect(
-      mocks.refreshPipelineService.researchDimensionsInParallel,
+      mocks.workflowRefreshPipelineService.execute,
     ).toHaveBeenCalled();
   });
 
@@ -287,11 +285,11 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
     ).resolves.toBeDefined();
   });
 
-  it("should call refreshPipelineService with correct researchDepth config", async () => {
+  it("should call workflowRefreshPipelineService with correct researchDepth config", async () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
     expect(
-      mocks.refreshPipelineService.researchDimensionsInParallel,
+      mocks.workflowRefreshPipelineService.execute,
     ).toHaveBeenCalledWith(
       expect.anything(), // topic
       expect.any(Array), // dimensions

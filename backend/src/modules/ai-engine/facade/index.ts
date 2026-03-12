@@ -461,11 +461,38 @@ export type { TeamId } from "../teams/abstractions/team.interface";
 // Agent types (expand existing ToolId re-export)
 export type { SkillId } from "../core/types/agent.types";
 
+// Common types
+export type { JsonObject, JsonValue } from "../core/types/common.types";
+
 // Orchestrator abstractions
 export type {
   Checkpoint,
   ExecutionContext,
+  Workflow,
+  WorkflowStep,
+  WorkflowMode,
+  StepType,
+  StepInput,
+  StepOutput,
+  StepCondition,
+  RetryConfig,
+  ErrorHandler,
+  ExecutionEvent,
+  ExecutionResult,
+  StepResult,
+  StepStatus,
+  WorkflowConfig as OrchestrationWorkflowConfig,
 } from "../orchestration/abstractions/orchestrator.interface";
+
+// Workflow Handlers
+export type {
+  WorkflowNodeHandler,
+  MapStepConfig,
+} from "../orchestration/handlers/workflow-node-handler.interface";
+export { WorkflowHandlerRegistry } from "../orchestration/handlers/handler-registry";
+
+// Executors
+export { DAGExecutor } from "../orchestration/executors/dag-executor";
 
 // Constraint engine
 export type {

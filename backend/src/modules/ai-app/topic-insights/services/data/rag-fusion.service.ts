@@ -12,7 +12,6 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   QueryVariant,
   QueryVariantType,
@@ -31,6 +30,17 @@ import { DataSourceResult } from "../../types/data-source.types";
  * 限制同时执行的搜索请求数量，防止资源耗尽
  */
 const CONCURRENT_SEARCH_LIMIT = 3;
+
+interface QueryVariantResponse {
+  variants: Array<{
+    query: string;
+    type: string;
+    weight?: number;
+    rationale?: string;
+    targetAspect?: string;
+  }>;
+  overallRationale: string;
+}
 
 @Injectable()
 export class RAGFusionService {
@@ -89,24 +99,34 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chatWithSkills({
+      const response = await this.chatFacade.chatStructured<QueryVariantResponse>({
         messages: [{ role: "user", content: prompt }],
         additionalSkills: ["rag-fusion-query"],
-        skipGuardrails: true, // 内部系统调用
+        skipGuardrails: true,
         taskProfile: { creativity: "medium", outputLength: "medium" },
-        responseFormat: "json",
+        throwOnParseError: false,
+        schema: {
+          type: "object",
+          properties: {
+            variants: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  query: { type: "string" },
+                  type: { type: "string" },
+                  weight: { type: "number" },
+                  rationale: { type: "string" },
+                  targetAspect: { type: "string" },
+                },
+                required: ["query", "type"],
+              },
+            },
+            overallRationale: { type: "string" },
+          },
+          required: ["variants"],
+        },
       });
-
-      const result = extractJsonFromAIResponse<{
-        variants: Array<{
-          query: string;
-          type: string;
-          weight?: number;
-          rationale?: string;
-          targetAspect?: string;
-        }>;
-        overallRationale: string;
-      }>(response.content);
 
       // 始终包含原始查询
       const variants: QueryVariant[] = [
@@ -119,9 +139,9 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
         },
       ];
 
-      if (result.success && result.data?.variants) {
-        for (let i = 0; i < result.data.variants.length; i++) {
-          const v = result.data.variants[i];
+      if (response.data?.variants) {
+        for (let i = 0; i < response.data.variants.length; i++) {
+          const v = response.data.variants[i];
           variants.push({
             id: `variant-${i + 1}`,
             query: v.query,
@@ -140,7 +160,7 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
       return {
         variants,
         generationTimeMs: Date.now() - startTime,
-        rationale: result.data?.overallRationale || "自动生成的查询变体",
+        rationale: response.data?.overallRationale || "自动生成的查询变体",
       };
     } catch (error) {
       this.logger.error(`[generateQueryVariants] Error: ${error}`);

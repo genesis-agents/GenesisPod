@@ -4,15 +4,12 @@
  * P1 优化：批评-改进循环服务
  * 参考：Reflexion (Shinn et al., 2023)
  *
- * 功能：
- * 1. 对内容进行多维度批评
- * 2. 基于批评进行针对性改进
- * 3. 迭代循环直到达到质量标准
+ * ★ 重构：使用 chatStructured<T>() 替代 chat() + extractJsonFromAIResponse()，
+ *   合并 3 处重复的 shouldStop/getStopReason/determineStopReason 为 1 个方法。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   CritiqueCategory,
   CritiqueSeverity,
@@ -35,6 +32,71 @@ export interface CritiqueRefineRequest {
   };
   config?: Partial<CritiqueRefineConfig>;
 }
+
+/** chatStructured schema for critique response */
+interface RawCritiqueResponse {
+  overallScore: number;
+  categoryScores: Record<string, number>;
+  items: Array<{
+    id?: string;
+    category: string;
+    severity: string;
+    location?: { type: string; reference: string; quote?: string };
+    issue?: string;
+    suggestion?: string;
+    exampleFix?: string;
+    relatedEvidence?: unknown;
+  }>;
+  strengths: string[];
+  improvementPriorities: string[];
+  summary: string;
+}
+
+/** chatStructured schema for refine response */
+interface RawRefineResponse {
+  refinedContent: string;
+  changesApplied: Array<{
+    critiqueItemId?: string;
+    original?: string;
+    revised?: string;
+    reason?: string;
+    changeType?: string;
+  }>;
+  remainingIssues: string[];
+  refinementSummary: string;
+}
+
+/** Stop evaluation result */
+type StopReason =
+  | "target_reached"
+  | "no_critical_issues"
+  | "no_improvement"
+  | "score_converged"
+  | "max_iterations";
+
+const CRITIQUE_SCHEMA = {
+  type: "object" as const,
+  required: ["overallScore", "items", "summary"],
+  properties: {
+    overallScore: { type: "number" as const },
+    categoryScores: { type: "object" as const },
+    items: { type: "array" as const },
+    strengths: { type: "array" as const },
+    improvementPriorities: { type: "array" as const },
+    summary: { type: "string" as const },
+  },
+};
+
+const REFINE_SCHEMA = {
+  type: "object" as const,
+  required: ["refinedContent", "changesApplied"],
+  properties: {
+    refinedContent: { type: "string" as const },
+    changesApplied: { type: "array" as const },
+    remainingIssues: { type: "array" as const },
+    refinementSummary: { type: "string" as const },
+  },
+};
 
 @Injectable()
 export class CritiqueRefineService {
@@ -73,10 +135,15 @@ export class CritiqueRefineService {
         config,
       );
 
-      // 2. 检查是否需要继续
-      if (this.shouldStop(critique, config, iterations)) {
+      // 2. 检查是否需要继续（统一 stop 判断）
+      const stopReason = this.evaluateStopCondition(
+        critique,
+        config,
+        iterations,
+      );
+      if (stopReason) {
         this.logger.log(
-          `[runCritiqueRefineLoop] Stopping at iteration ${iterationNumber}: ${this.getStopReason(critique, config, iterations)}`,
+          `[runCritiqueRefineLoop] Stopping at iteration ${iterationNumber}: ${stopReason}`,
         );
         break;
       }
@@ -89,7 +156,7 @@ export class CritiqueRefineService {
       );
 
       // 4. 记录迭代
-      const iteration: CritiqueRefineIteration = {
+      iterations.push({
         iterationNumber,
         critique,
         refinement,
@@ -97,13 +164,12 @@ export class CritiqueRefineService {
         contentAfter: refinement.refinedContent,
         scoreChange: refinement.scoreImprovement,
         timestamp: new Date(),
-      };
+      });
 
-      iterations.push(iteration);
       totalChanges += refinement.changesApplied.length;
       currentContent = refinement.refinedContent;
 
-      // 4. 检查改进是否足够
+      // 5. 检查改进幅度
       if (refinement.scoreImprovement < config.minImprovementThreshold) {
         this.logger.log(
           `[runCritiqueRefineLoop] Stopping: improvement ${refinement.scoreImprovement.toFixed(3)} below threshold`,
@@ -125,6 +191,10 @@ export class CritiqueRefineService {
         : finalCritique.overallScore;
     const finalScore = finalCritique.overallScore;
 
+    const stopReason =
+      this.evaluateStopCondition(finalCritique, config, iterations) ||
+      "max_iterations";
+
     const result: CritiqueRefineLoopResult = {
       finalContent: currentContent,
       iterations,
@@ -132,11 +202,11 @@ export class CritiqueRefineService {
       totalScoreImprovement: finalScore - initialScore,
       totalChanges,
       reachedTargetScore: finalScore >= config.targetScore,
-      stopReason: this.determineStopReason(finalCritique, config, iterations),
+      stopReason: this.mapStopReasonToLoopResult(stopReason),
       metadata: {
         totalIterations: iterations.length,
         totalTimeMs: Date.now() - startTime,
-        tokensUsed: 0, // Would be tracked in real implementation
+        tokensUsed: 0,
       },
     };
 
@@ -149,14 +219,14 @@ export class CritiqueRefineService {
   }
 
   /**
-   * 批评内容
+   * 批评内容 — 使用 chatStructured<T>() 替代手动 JSON 提取
    */
   async critiqueContent(
     content: string,
     context: CritiqueRefineRequest["context"],
     config: CritiqueRefineConfig,
   ): Promise<CritiqueResult> {
-    const prompt = `你是一个严格的内容质量审核专家。请对以下研究内容进行多维度批评。
+    const userPrompt = `请对以下研究内容进行多维度批评。
 
 ## 研究背景
 - 主题：${context.topicName}
@@ -167,162 +237,55 @@ export class CritiqueRefineService {
 ## 待审核内容
 ${content}
 
-## 输出格式（JSON）
-{
-  "overallScore": 0.75,
-  "categoryScores": {
-    "factual": 0.8,
-    "logical": 0.7,
-    "coverage": 0.75,
-    "clarity": 0.8
-  },
-  "items": [
-    {
-      "id": "issue-1",
-      "category": "factual",
-      "severity": "major",
-      "location": {
-        "type": "paragraph",
-        "reference": "第2段",
-        "quote": "相关引文"
-      },
-      "issue": "问题描述",
-      "suggestion": "改进建议",
-      "exampleFix": "修正示例"
-    }
-  ],
-  "strengths": ["优点1", "优点2"],
-  "improvementPriorities": ["优先改进1", "优先改进2"],
-  "summary": "综合评语"
-}
-
-只输出 JSON。`;
+请按 content-critique skill 的评审维度体系（8类）和严重度分级（4级）进行评审，输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chatWithSkills({
-        messages: [{ role: "user", content: prompt }],
-        additionalSkills: ["content-critique"],
-        skipGuardrails: true, // 内部系统调用，内容审查
-        taskProfile: { creativity: "low", outputLength: "long" },
-        responseFormat: "json",
-      });
+      const response =
+        await this.chatFacade.chatStructured<RawCritiqueResponse>({
+          messages: [{ role: "user", content: userPrompt }],
+          additionalSkills: ["content-critique"],
+          skipGuardrails: true,
+          taskProfile: { creativity: "low", outputLength: "long" },
+          schema: CRITIQUE_SCHEMA,
+          strictMode: false,
+          throwOnParseError: false,
+          maxRetries: 1,
+        });
 
-      const result = extractJsonFromAIResponse<{
-        overallScore: number;
-        categoryScores: Record<string, number>;
-        items: Array<{
-          id?: string;
-          category: string;
-          severity: string;
-          location?: {
-            type: string;
-            reference: string;
-            quote?: string;
-          };
-          issue?: string;
-          suggestion?: string;
-          exampleFix?: string;
-          relatedEvidence?: unknown;
-        }>;
-        strengths: string[];
-        improvementPriorities: string[];
-        summary: string;
-      }>(response.content);
-
-      if (result.success && result.data) {
-        const items: CritiqueItem[] = (result.data.items || []).map(
-          (item, index: number) => ({
-            id: item.id || `issue-${index + 1}`,
-            category: this.parseCategory(item.category),
-            severity: this.parseSeverity(item.severity),
-            location: item.location
-              ? {
-                  type: item.location.type as
-                    | "paragraph"
-                    | "sentence"
-                    | "section"
-                    | "document",
-                  reference: item.location.reference,
-                  quote: item.location.quote,
-                }
-              : {
-                  type: "document" as const,
-                  reference: "全文",
-                },
-            issue: item.issue || "",
-            suggestion: item.suggestion || "",
-            exampleFix: item.exampleFix,
-            relatedEvidence: item.relatedEvidence
-              ? (item.relatedEvidence as string[])
-              : undefined,
-          }),
-        );
-
-        const criticalIssues = items.filter(
-          (item) => item.severity === CritiqueSeverity.CRITICAL,
-        );
-
-        const overallScore = Math.max(
-          0,
-          Math.min(1, result.data.overallScore || 0.5),
-        );
-
-        return {
-          overallScore,
-          categoryScores: this.normalizeCategoryScores(
-            result.data.categoryScores,
-            config.enabledCategories,
-          ),
-          items,
-          strengths: result.data.strengths || [],
-          criticalIssues,
-          improvementPriorities: result.data.improvementPriorities || [],
-          summary: result.data.summary || "",
-          meetsQualityStandard: this.checkQualityStandard(
-            overallScore,
-            criticalIssues.length,
-            items.filter((i) => i.severity === CritiqueSeverity.MAJOR).length,
-            config,
-          ),
-          suggestedRefinementRounds: this.suggestRefinementRounds(
-            overallScore,
-            criticalIssues.length,
-          ),
-        };
+      if (response.data) {
+        return this.parseCritiqueResponse(response.data, config);
       }
     } catch (error) {
       this.logger.error(`[critiqueContent] Error: ${error}`);
     }
 
-    // 回退：保守评估
     return this.createFallbackCritique(config);
   }
 
   /**
-   * 改进内容
+   * 改进内容 — 使用 chatStructured<T>() 替代手动 JSON 提取
    */
   async refineContent(
     content: string,
     critique: CritiqueResult,
     context: CritiqueRefineRequest["context"],
   ): Promise<RefineResult> {
-    // 按优先级排序问题
-    const prioritizedIssues = [...critique.items].sort((a, b) => {
-      const severityOrder = {
-        [CritiqueSeverity.CRITICAL]: 0,
-        [CritiqueSeverity.MAJOR]: 1,
-        [CritiqueSeverity.MINOR]: 2,
-        [CritiqueSeverity.SUGGESTION]: 3,
-      };
-      return severityOrder[a.severity] - severityOrder[b.severity];
-    });
-
-    // 只处理重要问题
-    const issuesToFix = prioritizedIssues.filter(
-      (issue) =>
-        issue.severity === CritiqueSeverity.CRITICAL ||
-        issue.severity === CritiqueSeverity.MAJOR,
-    );
+    // 按优先级排序，只处理 critical + major
+    const issuesToFix = [...critique.items]
+      .sort((a, b) => {
+        const order = {
+          [CritiqueSeverity.CRITICAL]: 0,
+          [CritiqueSeverity.MAJOR]: 1,
+          [CritiqueSeverity.MINOR]: 2,
+          [CritiqueSeverity.SUGGESTION]: 3,
+        };
+        return order[a.severity] - order[b.severity];
+      })
+      .filter(
+        (issue) =>
+          issue.severity === CritiqueSeverity.CRITICAL ||
+          issue.severity === CritiqueSeverity.MAJOR,
+      );
 
     if (issuesToFix.length === 0) {
       return {
@@ -345,7 +308,7 @@ ${content}
       )
       .join("\n\n");
 
-    const prompt = `你是一个专业的内容改进专家。请根据以下批评意见修改内容。
+    const userPrompt = `请根据以下批评意见修改内容。
 
 ## 研究背景
 - 主题：${context.topicName}
@@ -357,81 +320,28 @@ ${content}
 ## 需要修正的问题
 ${issuesText}
 
-## 输出格式（JSON）
-{
-  "refinedContent": "修改后的完整内容",
-  "changesApplied": [
-    {
-      "critiqueItemId": "issue-1",
-      "original": "原文片段",
-      "revised": "修改后的片段",
-      "reason": "修改原因",
-      "changeType": "correction"
-    }
-  ],
-  "remainingIssues": ["无法修复的问题ID"],
-  "refinementSummary": "改进摘要"
-}
-
-只输出 JSON。`;
+请按 content-refine skill 的改进原则（优先级聚焦、最小变更、精准定位、逻辑连贯）进行修改，输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chatWithSkills({
-        messages: [{ role: "user", content: prompt }],
-        additionalSkills: ["content-refine"],
-        skipGuardrails: true, // 内部系统调用，内容优化
-        taskProfile: { creativity: "low", outputLength: "long" },
-        responseFormat: "json",
-      });
+      const response =
+        await this.chatFacade.chatStructured<RawRefineResponse>({
+          messages: [{ role: "user", content: userPrompt }],
+          additionalSkills: ["content-refine"],
+          skipGuardrails: true,
+          taskProfile: { creativity: "low", outputLength: "long" },
+          schema: REFINE_SCHEMA,
+          strictMode: false,
+          throwOnParseError: false,
+          maxRetries: 1,
+        });
 
-      const result = extractJsonFromAIResponse<{
-        refinedContent: string;
-        changesApplied: Array<{
-          critiqueItemId?: string;
-          original?: string;
-          revised?: string;
-          reason?: string;
-          changeType?: string;
-        }>;
-        remainingIssues: string[];
-        refinementSummary: string;
-      }>(response.content);
-
-      if (result.success && result.data) {
-        const remainingIssueIds = new Set(result.data.remainingIssues || []);
-        const remainingIssues = critique.items.filter(
-          (item) =>
-            remainingIssueIds.has(item.id) ||
-            item.severity === CritiqueSeverity.MINOR ||
-            item.severity === CritiqueSeverity.SUGGESTION,
-        );
-
-        // 估算分数提升
-        const fixedCount = issuesToFix.length - remainingIssueIds.size;
-        const scoreImprovement =
-          fixedCount * 0.05 * (1 - critique.overallScore);
-
-        return {
-          refinedContent: result.data.refinedContent || content,
-          changesApplied: (result.data.changesApplied || []).map((change) => ({
-            critiqueItemId: change.critiqueItemId || "",
-            original: change.original || "",
-            revised: change.revised || "",
-            reason: change.reason || "",
-            changeType: (change.changeType ||
-              "improvement") as RefineResult["changesApplied"][0]["changeType"],
-          })),
-          remainingIssues,
-          scoreImprovement: Math.max(0, Math.min(0.3, scoreImprovement)),
-          refinementSummary:
-            result.data.refinementSummary || `修复了 ${fixedCount} 个问题`,
-        };
+      if (response.data) {
+        return this.parseRefineResponse(response.data, content, critique, issuesToFix);
       }
     } catch (error) {
       this.logger.error(`[refineContent] Error: ${error}`);
     }
 
-    // 回退：返回原内容
     return {
       refinedContent: content,
       changesApplied: [],
@@ -442,33 +352,33 @@ ${issuesText}
   }
 
   /**
-   * 判断是否应该停止循环
-   * ★ Major Fix: 增加收敛检测，防止分数振荡浪费资源
+   * ★ 统一的停止条件评估（合并原 shouldStop + getStopReason + determineStopReason）
+   * 返回 StopReason 或 null（不应停止）
    */
-  private shouldStop(
+  private evaluateStopCondition(
     critique: CritiqueResult,
     config: CritiqueRefineConfig,
     iterations: CritiqueRefineIteration[],
-  ): boolean {
+  ): StopReason | null {
     // 达到目标分数
     if (critique.overallScore >= config.targetScore) {
-      return true;
+      return "target_reached";
     }
 
     // 无关键问题
     if (config.stopOnNoCritical && critique.criticalIssues.length === 0) {
-      return true;
+      return "no_critical_issues";
     }
 
     // 无改进
     if (config.stopOnNoImprovement && iterations.length > 0) {
       const lastIteration = iterations[iterations.length - 1];
       if (lastIteration.scoreChange < config.minImprovementThreshold) {
-        return true;
+        return "no_improvement";
       }
     }
 
-    // ★ 收敛检测：检测分数振荡（3次迭代后分数在±0.05范围内波动）
+    // 收敛检测：3次迭代分数在±0.05范围内波动
     if (iterations.length >= 3) {
       const recentScores = iterations
         .slice(-3)
@@ -477,88 +387,132 @@ ${issuesText}
       const maxScore = Math.max(...recentScores);
       if (maxScore - minScore < 0.05) {
         this.logger.log(
-          `[shouldStop] Detected score oscillation: scores ${recentScores.map((s) => s.toFixed(3)).join(", ")} within 0.05 range`,
+          `[evaluateStopCondition] Score convergence detected: ${recentScores.map((s) => s.toFixed(3)).join(", ")}`,
         );
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * 获取停止原因
-   * ★ Major Fix: 增加收敛检测原因
-   */
-  private getStopReason(
-    critique: CritiqueResult,
-    config: CritiqueRefineConfig,
-    iterations: CritiqueRefineIteration[],
-  ): string {
-    if (critique.overallScore >= config.targetScore) {
-      return "target_reached";
-    }
-    if (config.stopOnNoCritical && critique.criticalIssues.length === 0) {
-      return "no_critical_issues";
-    }
-    if (config.stopOnNoImprovement && iterations.length > 0) {
-      const lastIteration = iterations[iterations.length - 1];
-      if (lastIteration.scoreChange < config.minImprovementThreshold) {
-        return "no_improvement";
-      }
-    }
-    // ★ 收敛检测
-    if (iterations.length >= 3) {
-      const recentScores = iterations
-        .slice(-3)
-        .map((it) => it.critique.overallScore);
-      const minScore = Math.min(...recentScores);
-      const maxScore = Math.max(...recentScores);
-      if (maxScore - minScore < 0.05) {
         return "score_converged";
       }
     }
-    return "max_iterations";
+
+    return null;
   }
 
   /**
-   * 确定最终停止原因
-   * ★ Major Fix: 增加收敛检测原因
+   * 将内部 StopReason 映射到 CritiqueRefineLoopResult['stopReason'] 兼容值
    */
-  private determineStopReason(
-    critique: CritiqueResult,
-    config: CritiqueRefineConfig,
-    iterations: CritiqueRefineIteration[],
+  private mapStopReasonToLoopResult(
+    reason: StopReason,
   ): CritiqueRefineLoopResult["stopReason"] {
-    if (critique.overallScore >= config.targetScore) {
-      return "target_reached";
-    }
-    if (critique.criticalIssues.length === 0) {
-      return "no_critical_issues";
-    }
-    if (iterations.length > 0) {
-      const lastIteration = iterations[iterations.length - 1];
-      if (lastIteration.scoreChange < config.minImprovementThreshold) {
+    switch (reason) {
+      case "target_reached":
+        return "target_reached";
+      case "no_critical_issues":
+        return "no_critical_issues";
+      case "no_improvement":
+      case "score_converged":
         return "no_improvement";
-      }
+      case "max_iterations":
+        return "max_iterations";
     }
-    // ★ 收敛检测
-    if (iterations.length >= 3) {
-      const recentScores = iterations
-        .slice(-3)
-        .map((it) => it.critique.overallScore);
-      const minScore = Math.min(...recentScores);
-      const maxScore = Math.max(...recentScores);
-      if (maxScore - minScore < 0.05) {
-        return "no_improvement"; // 使用 no_improvement 作为收敛的兼容值
-      }
-    }
-    return "max_iterations";
   }
 
   /**
-   * 解析类别
+   * 解析 critique 结构化响应
    */
+  private parseCritiqueResponse(
+    data: RawCritiqueResponse,
+    config: CritiqueRefineConfig,
+  ): CritiqueResult {
+    const items: CritiqueItem[] = (data.items || []).map(
+      (item, index: number) => ({
+        id: item.id || `issue-${index + 1}`,
+        category: this.parseCategory(item.category),
+        severity: this.parseSeverity(item.severity),
+        location: item.location
+          ? {
+              type: item.location.type as
+                | "paragraph"
+                | "sentence"
+                | "section"
+                | "document",
+              reference: item.location.reference,
+              quote: item.location.quote,
+            }
+          : { type: "document" as const, reference: "全文" },
+        issue: item.issue || "",
+        suggestion: item.suggestion || "",
+        exampleFix: item.exampleFix,
+        relatedEvidence: item.relatedEvidence
+          ? (item.relatedEvidence as string[])
+          : undefined,
+      }),
+    );
+
+    const criticalIssues = items.filter(
+      (item) => item.severity === CritiqueSeverity.CRITICAL,
+    );
+    const overallScore = Math.max(0, Math.min(1, data.overallScore || 0.5));
+
+    return {
+      overallScore,
+      categoryScores: this.normalizeCategoryScores(
+        data.categoryScores,
+        config.enabledCategories,
+      ),
+      items,
+      strengths: data.strengths || [],
+      criticalIssues,
+      improvementPriorities: data.improvementPriorities || [],
+      summary: data.summary || "",
+      meetsQualityStandard: this.checkQualityStandard(
+        overallScore,
+        criticalIssues.length,
+        items.filter((i) => i.severity === CritiqueSeverity.MAJOR).length,
+        config,
+      ),
+      suggestedRefinementRounds: this.suggestRefinementRounds(
+        overallScore,
+        criticalIssues.length,
+      ),
+    };
+  }
+
+  /**
+   * 解析 refine 结构化响应
+   */
+  private parseRefineResponse(
+    data: RawRefineResponse,
+    originalContent: string,
+    critique: CritiqueResult,
+    issuesToFix: CritiqueItem[],
+  ): RefineResult {
+    const remainingIssueIds = new Set(data.remainingIssues || []);
+    const remainingIssues = critique.items.filter(
+      (item) =>
+        remainingIssueIds.has(item.id) ||
+        item.severity === CritiqueSeverity.MINOR ||
+        item.severity === CritiqueSeverity.SUGGESTION,
+    );
+
+    const fixedCount = issuesToFix.length - remainingIssueIds.size;
+    const scoreImprovement = fixedCount * 0.05 * (1 - critique.overallScore);
+
+    return {
+      refinedContent: data.refinedContent || originalContent,
+      changesApplied: (data.changesApplied || []).map((change) => ({
+        critiqueItemId: change.critiqueItemId || "",
+        original: change.original || "",
+        revised: change.revised || "",
+        reason: change.reason || "",
+        changeType: (change.changeType ||
+          "improvement") as RefineResult["changesApplied"][0]["changeType"],
+      })),
+      remainingIssues,
+      scoreImprovement: Math.max(0, Math.min(0.3, scoreImprovement)),
+      refinementSummary:
+        data.refinementSummary || `修复了 ${fixedCount} 个问题`,
+    };
+  }
+
   private parseCategory(category: string): CritiqueCategory {
     const mapping: Record<string, CritiqueCategory> = {
       factual: CritiqueCategory.FACTUAL,
@@ -573,9 +527,6 @@ ${issuesText}
     return mapping[category?.toLowerCase()] || CritiqueCategory.FACTUAL;
   }
 
-  /**
-   * 解析严重程度
-   */
   private parseSeverity(severity: string): CritiqueSeverity {
     const mapping: Record<string, CritiqueSeverity> = {
       critical: CritiqueSeverity.CRITICAL,
@@ -586,9 +537,6 @@ ${issuesText}
     return mapping[severity?.toLowerCase()] || CritiqueSeverity.MINOR;
   }
 
-  /**
-   * 标准化类别分数
-   */
   private normalizeCategoryScores(
     scores: Record<string, number>,
     enabledCategories: CritiqueCategory[],
@@ -600,9 +548,6 @@ ${issuesText}
     return result;
   }
 
-  /**
-   * 检查质量标准
-   */
   private checkQualityStandard(
     overallScore: number,
     criticalCount: number,
@@ -616,9 +561,6 @@ ${issuesText}
     );
   }
 
-  /**
-   * 建议改进轮数
-   */
   private suggestRefinementRounds(
     overallScore: number,
     criticalCount: number,
@@ -630,9 +572,6 @@ ${issuesText}
     return 0;
   }
 
-  /**
-   * 创建回退批评结果
-   */
   private createFallbackCritique(config: CritiqueRefineConfig): CritiqueResult {
     const categoryScores = {} as Record<CritiqueCategory, number>;
     for (const category of config.enabledCategories) {

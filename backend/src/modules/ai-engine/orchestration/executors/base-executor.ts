@@ -17,6 +17,8 @@ import {
 import { ToolRegistry } from "../../tools/registry";
 import { SkillRegistry } from "../../skills/registry";
 import { AgentRegistry } from "../../agents/registry";
+import type { WorkflowHandlerRegistry } from "../handlers/handler-registry";
+import type { MapStepConfig } from "../handlers/workflow-node-handler.interface";
 
 /**
  * 执行器接口
@@ -41,6 +43,7 @@ export abstract class BaseExecutor implements IExecutor {
   protected toolRegistry?: ToolRegistry;
   protected skillRegistry?: SkillRegistry;
   protected agentRegistry?: AgentRegistry;
+  protected handlerRegistry?: WorkflowHandlerRegistry;
 
   constructor() {
     this.logger = new Logger(this.constructor.name);
@@ -57,6 +60,13 @@ export abstract class BaseExecutor implements IExecutor {
     this.toolRegistry = toolRegistry;
     this.skillRegistry = skillRegistry;
     this.agentRegistry = agentRegistry;
+  }
+
+  /**
+   * 设置 Handler 注册表（可选，支持 "handler" / "map" step types）
+   */
+  setHandlerRegistry(handlerRegistry: WorkflowHandlerRegistry): void {
+    this.handlerRegistry = handlerRegistry;
   }
 
   /**
@@ -167,6 +177,15 @@ export abstract class BaseExecutor implements IExecutor {
 
       case "wait":
         return this.executeWait(input as number);
+
+      case "handler":
+        return this.executeHandler(step.executor, input, context);
+
+      case "map":
+        return this.executeMap(step, input, context);
+
+      case "parallel":
+        return this.executeParallelSteps(step, context);
 
       default:
         throw new Error(`Unsupported step type: ${step.type}`);
@@ -286,6 +305,146 @@ export abstract class BaseExecutor implements IExecutor {
     }
 
     return lastResult;
+  }
+
+  /**
+   * 执行自定义 Handler（App 层注册的 WorkflowNodeHandler）
+   */
+  protected async executeHandler(
+    handlerId: string,
+    input: unknown,
+    context: ExecutionContext,
+  ): Promise<unknown> {
+    if (!this.handlerRegistry) {
+      throw new Error("Handler registry not set");
+    }
+
+    const handler = this.handlerRegistry.getOrThrow(handlerId);
+
+    // 1. prepare（可选）
+    let preparedInput = input;
+    if (handler.prepare) {
+      preparedInput = await handler.prepare(input, context);
+    }
+
+    // 2. execute
+    const output = await handler.execute(preparedInput, context);
+
+    // 3. validate（可选）
+    if (handler.validate) {
+      const valid = await handler.validate(output, context);
+      if (!valid) {
+        throw new Error(
+          `Handler "${handlerId}" output validation failed`,
+        );
+      }
+    }
+
+    return output;
+  }
+
+  /**
+   * 执行 Map 步骤：对数组中的每个元素并行执行同一 handler
+   *
+   * step.executor = handler ID
+   * input = 数组（从 StepInput 解析）
+   * step.metadata.concurrency = 并发限制（默认 4）
+   * step.metadata.onItemError = 元素失败策略（默认 'skip'）
+   */
+  protected async executeMap(
+    step: WorkflowStep,
+    input: unknown,
+    context: ExecutionContext,
+  ): Promise<unknown[]> {
+    if (!Array.isArray(input)) {
+      throw new Error(
+        `Map step "${step.id}" expects array input, got ${typeof input}`,
+      );
+    }
+
+    const config: MapStepConfig = (step.metadata as MapStepConfig) || {};
+    const concurrency = config.concurrency ?? 4;
+    const onItemError = config.onItemError ?? "skip";
+
+    // p-limit is ESM-only; handle CJS interop
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pLimitMod = require("p-limit");
+    const pLimit: (c: number) => <T>(fn: () => Promise<T>) => Promise<T> =
+      pLimitMod.default || pLimitMod;
+    const limit = pLimit(concurrency);
+
+    const results: unknown[] = [];
+    const errors: Array<{ index: number; error: Error }> = [];
+
+    const promises = input.map((item: unknown, index: number) =>
+      limit(async () => {
+        if (context.signal?.aborted) {
+          throw new Error("Execution cancelled");
+        }
+
+        try {
+          const itemResult = await this.executeStepByType(
+            { ...step, type: "handler" },
+            item,
+            context,
+          );
+          return { index, result: itemResult, success: true };
+        } catch (err) {
+          const error =
+            err instanceof Error ? err : new Error(String(err));
+          if (onItemError === "abort") {
+            throw error;
+          }
+          this.logger.warn(
+            `Map step "${step.id}" item ${index} failed (skipping): ${error.message}`,
+          );
+          errors.push({ index, error });
+          return { index, result: undefined, success: false };
+        }
+      }),
+    );
+
+    const settled = await Promise.all(promises);
+    for (const item of settled) {
+      if (item.success) {
+        results.push(item.result);
+      }
+    }
+
+    if (errors.length > 0) {
+      this.logger.warn(
+        `Map step "${step.id}": ${errors.length}/${input.length} items failed`,
+      );
+    }
+
+    return results;
+  }
+
+  /**
+   * 执行 Parallel 步骤：并行执行多个子步骤
+   * step.metadata.steps = WorkflowStep[] 子步骤数组
+   */
+  protected async executeParallelSteps(
+    step: WorkflowStep,
+    context: ExecutionContext,
+  ): Promise<unknown[]> {
+    const subSteps = (
+      step.metadata as { steps?: WorkflowStep[] }
+    )?.steps;
+    if (!subSteps || !Array.isArray(subSteps)) {
+      throw new Error(
+        `Parallel step "${step.id}" requires metadata.steps array`,
+      );
+    }
+
+    const promises = subSteps.map((subStep) =>
+      this.executeStep(subStep, context),
+    );
+    const results = await Promise.allSettled(promises);
+
+    return results.map((r) =>
+      r.status === "fulfilled" ? r.value.output : undefined,
+    );
   }
 
   /**

@@ -10,7 +10,7 @@ import { DataSourceType } from "../../../types/data-source.types";
 import type { DataSourceResult } from "../../../types/data-source.types";
 
 const mockAiFacade = {
-  chatWithSkills: jest.fn(),
+  chatStructured: jest.fn(),
 };
 
 const makeDataSourceResult = (
@@ -69,13 +69,14 @@ describe("RAGFusionService", () => {
 
   describe("generateQueryVariants", () => {
     it("should always include the original query as first variant", async () => {
-      mockAiFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
           variants: [
             { query: "latest AI trends", type: "temporal", weight: 0.8 },
           ],
           overallRationale: "Mixed strategy",
-        }),
+        },
+        rawContent: "", model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -88,8 +89,8 @@ describe("RAGFusionService", () => {
     });
 
     it("should include AI-generated variants", async () => {
-      mockAiFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
           variants: [
             {
               query: "machine learning advances",
@@ -99,7 +100,8 @@ describe("RAGFusionService", () => {
             { query: "AI progress 2025", type: "temporal", weight: 0.9 },
           ],
           overallRationale: "Comprehensive coverage",
-        }),
+        },
+        rawContent: "", model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -114,7 +116,7 @@ describe("RAGFusionService", () => {
     });
 
     it("should return only original query on AI error", async () => {
-      mockAiFacade.chatWithSkills.mockRejectedValue(new Error("LLM error"));
+      mockAiFacade.chatStructured.mockRejectedValue(new Error("LLM error"));
 
       const result = await service.generateQueryVariants({
         originalQuery: "AI trends",
@@ -127,14 +129,15 @@ describe("RAGFusionService", () => {
     });
 
     it("should clamp variant weights to 0.5-1.0 range", async () => {
-      mockAiFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
           variants: [
             { query: "test query 1", type: "expanded", weight: 0.1 }, // below min
             { query: "test query 2", type: "expanded", weight: 1.5 }, // above max
           ],
           overallRationale: "test",
-        }),
+        },
+        rawContent: "", model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -152,8 +155,9 @@ describe("RAGFusionService", () => {
     });
 
     it("should include generationTimeMs in result", async () => {
-      mockAiFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({ variants: [], overallRationale: "test" }),
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: { variants: [], overallRationale: "test" },
+        rawContent: "", model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -330,13 +334,14 @@ describe("RAGFusionService", () => {
 
   describe("fusionSearch", () => {
     it("should run end-to-end fusion search", async () => {
-      mockAiFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
           variants: [
             { query: "AI latest research", type: "temporal", weight: 0.8 },
           ],
           overallRationale: "Temporal search",
-        }),
+        },
+        rawContent: "", model: "",
       });
 
       const mockSearchFn = jest
@@ -356,13 +361,14 @@ describe("RAGFusionService", () => {
     });
 
     it("should handle search function failures gracefully", async () => {
-      mockAiFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({
+      mockAiFacade.chatStructured.mockResolvedValue({
+        data: {
           variants: [
             { query: "AI research latest", type: "temporal", weight: 0.8 },
           ],
           overallRationale: "test",
-        }),
+        },
+        rawContent: "", model: "",
       });
 
       const mockSearchFn = jest

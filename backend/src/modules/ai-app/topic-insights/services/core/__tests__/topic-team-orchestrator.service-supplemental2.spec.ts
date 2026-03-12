@@ -109,7 +109,7 @@ import { ResearchCheckpointService } from "../../monitoring/research-checkpoint.
 import { DataSourceRouterService } from "../../data/data-source-router.service";
 import { ResearchTodoService } from "../../collaboration/research-todo.service";
 import { CritiqueRefineService } from "../../quality/critique-refine.service";
-import { RefreshPipelineService } from "../refresh-pipeline.service";
+import { WorkflowRefreshPipelineService } from "../../../workflows";
 import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -350,15 +350,11 @@ function makeAgentFacade() {
   };
 }
 
-function makeRefreshPipelineService() {
+function makeWorkflowRefreshPipelineService() {
   return {
-    researchDimensionsInParallel: jest
+    execute: jest
       .fn()
       .mockResolvedValue({ results: [], researchDesign: null }),
-    reviseFailedDimensions: jest.fn().mockResolvedValue([]),
-    reviewResearchQuality: jest
-      .fn()
-      .mockResolvedValue({ needsReresearch: false }),
   };
 }
 
@@ -372,7 +368,7 @@ async function buildModule(
   checkpointSvc = makeResearchCheckpointService(),
   dataSvc = makeDataSourceRouterService(),
   todoSvc = makeResearchTodoService(),
-  refreshPipelineSvc = makeRefreshPipelineService(),
+  workflowPipelineSvc = makeWorkflowRefreshPipelineService(),
 ) {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
@@ -390,7 +386,7 @@ async function buildModule(
         provide: CritiqueRefineService,
         useValue: { critiqueAndRefine: jest.fn() },
       },
-      { provide: RefreshPipelineService, useValue: refreshPipelineSvc },
+      { provide: WorkflowRefreshPipelineService, useValue: workflowPipelineSvc },
       { provide: AgentFacade, useValue: facade },
     ],
   }).compile();
@@ -407,7 +403,7 @@ async function buildModule(
     checkpointSvc,
     dataSvc,
     todoSvc,
-    refreshPipelineSvc,
+    workflowPipelineSvc,
   };
 }
 
@@ -753,19 +749,19 @@ describe("TopicTeamOrchestratorService executeRefresh() — planResearch error",
 });
 
 // ---------------------------------------------------------------------------
-// Tests: executeRefresh — delegates to RefreshPipelineService
+// Tests: executeRefresh — delegates to WorkflowRefreshPipelineService
 // ---------------------------------------------------------------------------
 
-describe("TopicTeamOrchestratorService executeRefresh() — RefreshPipelineService delegation", () => {
-  it("propagates error thrown by researchDimensionsInParallel", async () => {
+describe("TopicTeamOrchestratorService executeRefresh() — WorkflowRefreshPipelineService delegation", () => {
+  it("propagates error thrown by execute", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const reportSvc = makeReportSynthesisService();
     reportSvc.createDraftReport.mockResolvedValue({ id: "r1" });
 
-    const refreshPipelineSvc = makeRefreshPipelineService();
-    refreshPipelineSvc.researchDimensionsInParallel.mockRejectedValue(
+    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
+    workflowPipelineSvc.execute.mockRejectedValue(
       new Error("All dimension searches failed"),
     );
 
@@ -779,7 +775,7 @@ describe("TopicTeamOrchestratorService executeRefresh() — RefreshPipelineServi
       undefined,
       undefined,
       undefined,
-      refreshPipelineSvc,
+      workflowPipelineSvc,
     );
 
     await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow(
@@ -793,11 +789,11 @@ describe("TopicTeamOrchestratorService executeRefresh() — RefreshPipelineServi
     );
   });
 
-  it("calls researchDimensionsInParallel with topic and dimensions", async () => {
+  it("calls execute with topic and dimensions", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
-    const refreshPipelineSvc = makeRefreshPipelineService();
+    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
 
     const { service } = await buildModule(
       prisma,
@@ -809,14 +805,12 @@ describe("TopicTeamOrchestratorService executeRefresh() — RefreshPipelineServi
       undefined,
       undefined,
       undefined,
-      refreshPipelineSvc,
+      workflowPipelineSvc,
     );
 
     await service.executeRefresh(mockTopic as never);
 
-    expect(
-      refreshPipelineSvc.researchDimensionsInParallel,
-    ).toHaveBeenCalledWith(
+    expect(workflowPipelineSvc.execute).toHaveBeenCalledWith(
       expect.objectContaining({ id: "topic-1" }),
       expect.any(Array),
       expect.any(String),
@@ -875,8 +869,8 @@ describe("TopicTeamOrchestratorService executeRefresh() — save analysis result
     reportSvc.createDraftReport.mockResolvedValue({ id: "report-1" });
 
     const analysisResult = makeWritingResult().analysisResult;
-    const refreshPipelineSvc = makeRefreshPipelineService();
-    refreshPipelineSvc.researchDimensionsInParallel.mockResolvedValue({
+    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
+    workflowPipelineSvc.execute.mockResolvedValue({
       results: [
         {
           status: "fulfilled",
@@ -900,7 +894,7 @@ describe("TopicTeamOrchestratorService executeRefresh() — save analysis result
       undefined,
       undefined,
       undefined,
-      refreshPipelineSvc,
+      workflowPipelineSvc,
     );
 
     await service.executeRefresh(mockTopic as never);
@@ -920,8 +914,8 @@ describe("TopicTeamOrchestratorService executeRefresh() — save analysis result
     reportSvc.createDraftReport.mockResolvedValue({ id: "report-1" });
 
     const analysisResult = makeWritingResult().analysisResult;
-    const refreshPipelineSvc = makeRefreshPipelineService();
-    refreshPipelineSvc.researchDimensionsInParallel.mockResolvedValue({
+    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
+    workflowPipelineSvc.execute.mockResolvedValue({
       results: [
         {
           status: "fulfilled",
@@ -945,7 +939,7 @@ describe("TopicTeamOrchestratorService executeRefresh() — save analysis result
       undefined,
       undefined,
       undefined,
-      refreshPipelineSvc,
+      workflowPipelineSvc,
     );
 
     await service.executeRefresh(mockTopic as never);

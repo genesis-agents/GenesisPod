@@ -8,6 +8,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionMissionService } from "../dimension-mission.service";
+import { replaceEvidenceIds } from "../content-analysis.utils";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchLeaderService } from "../../core/research-leader.service";
 import { LeaderPlanningService } from "../../core/leader-planning.service";
@@ -2998,7 +2999,7 @@ describe("DimensionMissionService", () => {
       ]);
       const content = "See [1] and also [2] for details.";
 
-      const result = (service as any).replaceEvidenceIds(content, mapping);
+      const result = replaceEvidenceIds(content, mapping);
 
       expect(result).toBe("See [11] and also [12] for details.");
     });
@@ -3007,7 +3008,7 @@ describe("DimensionMissionService", () => {
       const mapping = new Map<number, number>([[1, 11]]);
       const content = "<!-- figure:1:2 -->";
 
-      const result = (service as any).replaceEvidenceIds(content, mapping);
+      const result = replaceEvidenceIds(content, mapping);
 
       expect(result).toBe("<!-- figure:11:2 -->");
     });
@@ -3020,7 +3021,7 @@ describe("DimensionMissionService", () => {
       ]);
       const content = "[1] references [10] and [11] in the text.";
 
-      const result = (service as any).replaceEvidenceIds(content, mapping);
+      const result = replaceEvidenceIds(content, mapping);
 
       expect(result).toBe("[100] references [200] and [300] in the text.");
     });
@@ -3032,7 +3033,7 @@ describe("DimensionMissionService", () => {
       ]);
       const content = "See [1] and [2].";
 
-      const result = (service as any).replaceEvidenceIds(content, mapping);
+      const result = replaceEvidenceIds(content, mapping);
 
       expect(result).toBe("See [1] and [12].");
     });
@@ -3041,7 +3042,7 @@ describe("DimensionMissionService", () => {
       const mapping = new Map<number, number>();
       const content = "Content with [1] citation stays unchanged.";
 
-      const result = (service as any).replaceEvidenceIds(content, mapping);
+      const result = replaceEvidenceIds(content, mapping);
 
       expect(result).toBe("Content with [1] citation stays unchanged.");
     });
@@ -3050,7 +3051,7 @@ describe("DimensionMissionService", () => {
       const mapping = new Map<number, number>([[3, 30]]);
       const content = "[3] is mentioned here and again [3] and once more [3].";
 
-      const result = (service as any).replaceEvidenceIds(content, mapping);
+      const result = replaceEvidenceIds(content, mapping);
 
       expect(result).toBe(
         "[30] is mentioned here and again [30] and once more [30].",
@@ -3061,7 +3062,7 @@ describe("DimensionMissionService", () => {
       const mapping = new Map<number, number>([[2, 22]]);
       const content = "<!--  figure:2:0 -->";
 
-      const result = (service as any).replaceEvidenceIds(content, mapping);
+      const result = replaceEvidenceIds(content, mapping);
 
       expect(result).toBe("<!--  figure:22:0 -->");
     });

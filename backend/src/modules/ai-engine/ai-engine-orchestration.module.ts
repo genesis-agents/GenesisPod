@@ -49,6 +49,9 @@ import { IntentRouterService } from "./orchestration/services/intent-router.serv
 // State Machine
 import { ProcessSupervisorService as ExecutionStateManager } from "../ai-kernel/facade";
 
+// Handlers
+import { WorkflowHandlerRegistry } from "./orchestration/handlers/handler-registry";
+
 // Agents (needed for executors)
 import { AgentOrchestrator } from "./agents/registry";
 import { AgentsController, AgentsService } from "./agents/api";
@@ -63,12 +66,14 @@ const sequentialExecutorFactory = {
     toolRegistry: ToolRegistry,
     skillRegistry: SkillRegistry,
     agentRegistry: AgentRegistry,
+    handlerRegistry: WorkflowHandlerRegistry,
   ) => {
     const executor = new SequentialExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    executor.setHandlerRegistry(handlerRegistry);
     return executor;
   },
-  inject: [ToolRegistry, SkillRegistry, AgentRegistry],
+  inject: [ToolRegistry, SkillRegistry, AgentRegistry, WorkflowHandlerRegistry],
 };
 
 /**
@@ -80,12 +85,14 @@ const dagExecutorFactory = {
     toolRegistry: ToolRegistry,
     skillRegistry: SkillRegistry,
     agentRegistry: AgentRegistry,
+    handlerRegistry: WorkflowHandlerRegistry,
   ) => {
     const executor = new DAGExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    executor.setHandlerRegistry(handlerRegistry);
     return executor;
   },
-  inject: [ToolRegistry, SkillRegistry, AgentRegistry],
+  inject: [ToolRegistry, SkillRegistry, AgentRegistry, WorkflowHandlerRegistry],
 };
 
 /**
@@ -97,12 +104,14 @@ const parallelExecutorFactory = {
     toolRegistry: ToolRegistry,
     skillRegistry: SkillRegistry,
     agentRegistry: AgentRegistry,
+    handlerRegistry: WorkflowHandlerRegistry,
   ) => {
     const executor = new ParallelExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    executor.setHandlerRegistry(handlerRegistry);
     return executor;
   },
-  inject: [ToolRegistry, SkillRegistry, AgentRegistry],
+  inject: [ToolRegistry, SkillRegistry, AgentRegistry, WorkflowHandlerRegistry],
 };
 
 /**
@@ -128,6 +137,9 @@ const checkpointManagerFactory = {
     AgentOrchestrator,
     AgentsService,
     AgentConfigService,
+
+    // Handlers
+    WorkflowHandlerRegistry,
 
     // Executors
     sequentialExecutorFactory,
@@ -165,6 +177,9 @@ const checkpointManagerFactory = {
     AgentOrchestrator,
     AgentsService,
     AgentConfigService,
+
+    // Handlers
+    WorkflowHandlerRegistry,
 
     // Executors
     SequentialExecutor,

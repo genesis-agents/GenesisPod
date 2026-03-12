@@ -12,6 +12,7 @@ import {
 
 const mockFacade = {
   chatWithSkills: jest.fn(),
+  chatStructured: jest.fn(),
 };
 
 const baseContext: CritiqueRefineRequest["context"] = {
@@ -99,9 +100,9 @@ describe("CritiqueRefineService", () => {
 
   describe("critiqueContent", () => {
     it("should return critique result with parsed items and scores", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify(poorCritiqueResponse),
-        tokensUsed: 200,
+      mockFacade.chatStructured.mockResolvedValue({
+        data: poorCritiqueResponse,
+        rawContent: JSON.stringify(poorCritiqueResponse),
         model: "gpt-4",
       });
 
@@ -118,7 +119,7 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should return fallback critique when AI throws error", async () => {
-      mockFacade.chatWithSkills.mockRejectedValue(new Error("API error"));
+      mockFacade.chatStructured.mockRejectedValue(new Error("API error"));
 
       const result = await service.critiqueContent(
         "Content",
@@ -132,9 +133,9 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should clamp overallScore to [0, 1]", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify({ ...goodCritiqueResponse, overallScore: 1.5 }),
-        tokensUsed: 100,
+      mockFacade.chatStructured.mockResolvedValue({
+        data: { ...goodCritiqueResponse, overallScore: 1.5 },
+        rawContent: JSON.stringify({ ...goodCritiqueResponse, overallScore: 1.5 }),
         model: "gpt-4",
       });
 
@@ -148,9 +149,9 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should return meetsQualityStandard true when score is high and no critical issues", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify(goodCritiqueResponse),
-        tokensUsed: 150,
+      mockFacade.chatStructured.mockResolvedValue({
+        data: goodCritiqueResponse,
+        rawContent: JSON.stringify(goodCritiqueResponse),
         model: "gpt-4",
       });
 
@@ -165,9 +166,10 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should handle response wrapped in markdown code block", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: `\`\`\`json\n${JSON.stringify(goodCritiqueResponse)}\n\`\`\``,
-        tokensUsed: 150,
+      // chatStructured handles JSON parsing internally, so data is already parsed
+      mockFacade.chatStructured.mockResolvedValue({
+        data: goodCritiqueResponse,
+        rawContent: JSON.stringify(goodCritiqueResponse),
         model: "gpt-4",
       });
 
@@ -214,9 +216,9 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should return refined content when issues are fixed", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify(refineResponse),
-        tokensUsed: 200,
+      mockFacade.chatStructured.mockResolvedValue({
+        data: refineResponse,
+        rawContent: JSON.stringify(refineResponse),
         model: "gpt-4",
       });
 
@@ -260,7 +262,7 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should return original content when AI throws error", async () => {
-      mockFacade.chatWithSkills.mockRejectedValue(new Error("Network error"));
+      mockFacade.chatStructured.mockRejectedValue(new Error("Network error"));
 
       const critique = makeCritique();
       const result = await service.refineContent(
@@ -278,15 +280,15 @@ describe("CritiqueRefineService", () => {
   describe("runCritiqueRefineLoop", () => {
     it("should stop immediately when initial critique meets target score", async () => {
       // First call returns good score (will stop immediately), then final critique
-      mockFacade.chatWithSkills
+      mockFacade.chatStructured
         .mockResolvedValueOnce({
-          content: JSON.stringify(goodCritiqueResponse), // initial critique: score 0.9 >= target 0.85
-          tokensUsed: 100,
+          data: goodCritiqueResponse, // initial critique: score 0.9 >= target 0.85
+          rawContent: JSON.stringify(goodCritiqueResponse),
           model: "gpt-4",
         })
         .mockResolvedValueOnce({
-          content: JSON.stringify(goodCritiqueResponse), // final critique
-          tokensUsed: 100,
+          data: goodCritiqueResponse, // final critique
+          rawContent: JSON.stringify(goodCritiqueResponse),
           model: "gpt-4",
         });
 
@@ -305,25 +307,25 @@ describe("CritiqueRefineService", () => {
     it("should iterate when initial score is below target", async () => {
       // First iteration: critique shows poor score, refine improves it
       // After refine, second critique shows good score
-      mockFacade.chatWithSkills
+      mockFacade.chatStructured
         .mockResolvedValueOnce({
-          content: JSON.stringify(poorCritiqueResponse),
-          tokensUsed: 100,
+          data: poorCritiqueResponse,
+          rawContent: JSON.stringify(poorCritiqueResponse),
           model: "gpt-4",
         }) // iteration 1 critique
         .mockResolvedValueOnce({
-          content: JSON.stringify(refineResponse),
-          tokensUsed: 150,
+          data: refineResponse,
+          rawContent: JSON.stringify(refineResponse),
           model: "gpt-4",
         }) // iteration 1 refine
         .mockResolvedValueOnce({
-          content: JSON.stringify(goodCritiqueResponse),
-          tokensUsed: 100,
+          data: goodCritiqueResponse,
+          rawContent: JSON.stringify(goodCritiqueResponse),
           model: "gpt-4",
         }) // iteration 2 critique (stop: target_reached)
         .mockResolvedValueOnce({
-          content: JSON.stringify(goodCritiqueResponse),
-          tokensUsed: 100,
+          data: goodCritiqueResponse,
+          rawContent: JSON.stringify(goodCritiqueResponse),
           model: "gpt-4",
         }); // final critique
 
@@ -342,9 +344,9 @@ describe("CritiqueRefineService", () => {
 
     it("should stop after max iterations", async () => {
       // Always poor score to ensure max iterations hit
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify(poorCritiqueResponse),
-        tokensUsed: 100,
+      mockFacade.chatStructured.mockResolvedValue({
+        data: poorCritiqueResponse,
+        rawContent: JSON.stringify(poorCritiqueResponse),
         model: "gpt-4",
       });
 
@@ -367,25 +369,25 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should track total changes across iterations", async () => {
-      mockFacade.chatWithSkills
+      mockFacade.chatStructured
         .mockResolvedValueOnce({
-          content: JSON.stringify(poorCritiqueResponse),
-          tokensUsed: 100,
+          data: poorCritiqueResponse,
+          rawContent: JSON.stringify(poorCritiqueResponse),
           model: "gpt-4",
         })
         .mockResolvedValueOnce({
-          content: JSON.stringify(refineResponse),
-          tokensUsed: 150,
+          data: refineResponse,
+          rawContent: JSON.stringify(refineResponse),
           model: "gpt-4",
         })
         .mockResolvedValueOnce({
-          content: JSON.stringify(goodCritiqueResponse),
-          tokensUsed: 100,
+          data: goodCritiqueResponse,
+          rawContent: JSON.stringify(goodCritiqueResponse),
           model: "gpt-4",
         })
         .mockResolvedValueOnce({
-          content: JSON.stringify(goodCritiqueResponse),
-          tokensUsed: 100,
+          data: goodCritiqueResponse,
+          rawContent: JSON.stringify(goodCritiqueResponse),
           model: "gpt-4",
         });
 
@@ -401,9 +403,9 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should use custom config when provided", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify(goodCritiqueResponse),
-        tokensUsed: 100,
+      mockFacade.chatStructured.mockResolvedValue({
+        data: goodCritiqueResponse,
+        rawContent: JSON.stringify(goodCritiqueResponse),
         model: "gpt-4",
       });
 
@@ -422,9 +424,9 @@ describe("CritiqueRefineService", () => {
     });
 
     it("should include metadata with timing information", async () => {
-      mockFacade.chatWithSkills.mockResolvedValue({
-        content: JSON.stringify(goodCritiqueResponse),
-        tokensUsed: 100,
+      mockFacade.chatStructured.mockResolvedValue({
+        data: goodCritiqueResponse,
+        rawContent: JSON.stringify(goodCritiqueResponse),
         model: "gpt-4",
       });
 

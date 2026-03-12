@@ -9,8 +9,6 @@ export { DimensionResearchExecutor } from "./task-executors/dimension-research.e
 export { ReviewDimensionExecutor } from "./task-executors/review-dimension.executor";
 export { SynthesisReportExecutor } from "./task-executors/synthesis-report.executor";
 export { GenericTaskExecutor } from "./task-executors/generic-task.executor";
-// ★ Refresh pipeline (Orchestrator decomposition)
-export { RefreshPipelineService } from "./refresh-pipeline.service";
 export { TopicTeamOrchestratorService } from "./topic-team-orchestrator.service";
 export {
   ResearchEventEmitterService,

@@ -2,6 +2,7 @@ import { Module, OnModuleInit, Logger, Optional } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
@@ -9,6 +10,7 @@ import {
   PromptSkillBridge,
   AgentRegistry,
   TeamRegistry,
+  WorkflowHandlerRegistry,
 } from "../../ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
@@ -47,8 +49,6 @@ import {
   ReviewDimensionExecutor,
   SynthesisReportExecutor,
   GenericTaskExecutor,
-  // ★ Refresh pipeline
-  RefreshPipelineService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
   DimensionMissionService,
@@ -130,6 +130,14 @@ import {
   LocalSearchAdapter,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
+import {
+  SearchPhaseHandler,
+  GlobalOutlineHandler,
+  DimensionWriteHandler,
+  RevisionHandler,
+  QualityReviewHandler,
+} from "./handlers";
+import { WorkflowRefreshPipelineService } from "./workflows";
 
 const services = [
   TopicInsightsService,
@@ -232,8 +240,8 @@ const services = [
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
-  // ★ Refresh pipeline (Orchestrator decomposition)
-  RefreshPipelineService,
+  // ★ Workflow-based refresh pipeline
+  WorkflowRefreshPipelineService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];
@@ -280,8 +288,14 @@ export class TopicInsightsModule implements OnModuleInit {
     private readonly financeApiConnector: FinanceApiConnector,
     private readonly weatherApiConnector: WeatherApiConnector,
     private readonly topicInsightsAgent: TopicInsightsAgent,
+    private readonly dimensionMissionService: DimensionMissionService,
+    private readonly researchLeaderService: ResearchLeaderService,
+    private readonly researchReviewerService: ResearchReviewerService,
+    private readonly critiqueRefineService: CritiqueRefineService,
+    private readonly prismaService: PrismaService,
     @Optional() private readonly agentRegistry?: AgentRegistry,
     @Optional() private readonly teamRegistry?: TeamRegistry,
+    @Optional() private readonly handlerRegistry?: WorkflowHandlerRegistry,
   ) {}
 
   async onModuleInit() {
@@ -311,6 +325,32 @@ export class TopicInsightsModule implements OnModuleInit {
       if (this.teamRegistry) {
         this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
         this.logger.log("Registered TOPIC_INSIGHTS team config");
+      }
+
+      // ★ Workflow Handlers — register TI handlers for DAG-based pipeline
+      if (this.handlerRegistry) {
+        this.handlerRegistry.register(
+          new SearchPhaseHandler(this.dimensionMissionService),
+        );
+        this.handlerRegistry.register(
+          new GlobalOutlineHandler(this.researchLeaderService),
+        );
+        this.handlerRegistry.register(
+          new DimensionWriteHandler(
+            this.dimensionMissionService,
+            this.researchLeaderService,
+            this.prismaService,
+          ),
+        );
+        this.handlerRegistry.register(
+          new RevisionHandler(this.critiqueRefineService, this.prismaService),
+        );
+        this.handlerRegistry.register(
+          new QualityReviewHandler(this.researchReviewerService),
+        );
+        this.logger.log(
+          `Workflow handlers registered: ${this.handlerRegistry.listIds().filter((id) => id.startsWith("ti:")).length} TI handlers`,
+        );
       }
     } catch (error) {
       this.logger.error(
