@@ -147,8 +147,9 @@ export class ResearchMissionHealthService
     );
 
     // ★ Phase 5: 延迟启动自动恢复（等待其他服务就绪）
+    // isStartup=true: 跳过阈值过滤，进程刚启动时所有 EXECUTING mission 都是遗留的
     setTimeout(() => {
-      void this.recoverInterruptedMissions().catch((err) => {
+      void this.recoverInterruptedMissions({ isStartup: true }).catch((err) => {
         this.logger.error(`Auto-recovery failed: ${err.message}`);
       });
     }, RECOVERY_CONFIG.recoveryDelayMs).unref();
@@ -567,8 +568,14 @@ export class ResearchMissionHealthService
    * ★ Phase 5: 服务启动时恢复中断的任务
    *
    * 场景：服务重启（部署/崩溃）后，EXECUTING 状态的任务需要继续执行
+   *
+   * @param options.isStartup 启动恢复模式：跳过阈值过滤，恢复所有 EXECUTING mission。
+   *   进程刚启动时内存中没有任何 running task，所有 EXECUTING 状态都是遗留的。
+   *   运行时由 health check 调用时传 false，使用阈值区分正常长任务和真正 stuck。
    */
-  async recoverInterruptedMissions(): Promise<RecoveryResult> {
+  async recoverInterruptedMissions(
+    options: { isStartup?: boolean } = {},
+  ): Promise<RecoveryResult> {
     if (this.isRecovering) {
       this.logger.debug("Recovery already in progress, skipping");
       return {
@@ -581,7 +588,10 @@ export class ResearchMissionHealthService
     }
 
     this.isRecovering = true;
-    this.logger.log("Starting auto-recovery of interrupted missions...");
+    const mode = options.isStartup ? "startup" : "runtime";
+    this.logger.log(
+      `Starting auto-recovery of interrupted missions (mode=${mode})...`,
+    );
 
     const result: RecoveryResult = {
       checkedAt: new Date(),
@@ -612,27 +622,34 @@ export class ResearchMissionHealthService
 
       const now = Date.now();
       const threshold = RECOVERY_CONFIG.interruptedThresholdMs;
+      const { isStartup = false } = options;
 
-      // 2. 筛选需要恢复的任务（超过阈值无更新）
-      const interruptedMissions = executingMissions.filter((mission) => {
-        const lastUpdate = new Date(mission.updatedAt).getTime();
-        const isStale = now - lastUpdate > threshold;
+      // 2. 筛选需要恢复的任务
+      // ★ isStartup=true: 进程刚启动，所有 EXECUTING mission 都是遗留的，无需阈值过滤
+      // ★ isStartup=false: 运行时 health check 调用，用阈值区分正常长任务和真正 stuck
+      const interruptedMissions = isStartup
+        ? executingMissions
+        : executingMissions.filter((mission) => {
+            const lastUpdate = new Date(mission.updatedAt).getTime();
+            const isStale = now - lastUpdate > threshold;
 
-        // 检查是否有正在执行但可能中断的任务
-        const hasStaleExecutingTask = mission.tasks.some((task) => {
-          if (task.status !== ResearchTaskStatus.EXECUTING) return false;
-          const taskLastUpdate = new Date(task.updatedAt).getTime();
-          return now - taskLastUpdate > threshold;
-        });
+            // 检查是否有正在执行但可能中断的任务
+            const hasStaleExecutingTask = mission.tasks.some((task) => {
+              if (task.status !== ResearchTaskStatus.EXECUTING) return false;
+              const taskLastUpdate = new Date(task.updatedAt).getTime();
+              return now - taskLastUpdate > threshold;
+            });
 
-        return isStale || hasStaleExecutingTask;
-      });
+            return isStale || hasStaleExecutingTask;
+          });
 
       result.interruptedMissions = interruptedMissions.length;
 
       if (interruptedMissions.length === 0) {
         this.logger.log(
-          "All executing missions are active, no recovery needed",
+          isStartup
+            ? "No executing missions found on startup, no recovery needed"
+            : "All executing missions are active, no recovery needed",
         );
         return result;
       }
