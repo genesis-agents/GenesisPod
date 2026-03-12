@@ -658,11 +658,17 @@ export class IterativeResearchService {
             }
           }
 
-          // Incremental merge: use PostgreSQL jsonb concat to avoid 3x memory copy
+          // Incremental merge: use PostgreSQL array concat to avoid 3x memory copy
+          // discussion column is jsonb[] (Prisma Json[])
+          // Convert new elements via jsonb array → unnest → array_agg to get jsonb[]
           if (intermediateDiscussion.length > 0) {
+            const newDiscussionJson = JSON.stringify(intermediateDiscussion);
             await this.prisma.$executeRaw`
               UPDATE "deep_research_sessions"
-              SET "discussion" = COALESCE("discussion", '[]'::jsonb) || ${JSON.stringify(intermediateDiscussion)}::jsonb,
+              SET "discussion" = array_cat(
+                    COALESCE("discussion", ARRAY[]::jsonb[]),
+                    (SELECT array_agg(elem) FROM jsonb_array_elements(${newDiscussionJson}::jsonb) AS elem)
+                  ),
                   "report" = ${JSON.stringify(followUp.report)}::jsonb,
                   "status" = 'SEARCHING',
                   "updated_at" = NOW()
