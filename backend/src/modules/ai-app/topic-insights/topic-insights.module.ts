@@ -37,6 +37,18 @@ import {
   EvidenceManagementService,
   ResearchReviewerService,
   ResearchLeaderService,
+  // ★ Leader sub-services (God Service decomposition)
+  LeaderPlanningService,
+  LeaderIntentService,
+  LeaderAgentSelectionService,
+  LeaderReviewService,
+  // ★ Task executors
+  DimensionResearchExecutor,
+  ReviewDimensionExecutor,
+  SynthesisReportExecutor,
+  GenericTaskExecutor,
+  // ★ Refresh pipeline
+  RefreshPipelineService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
   DimensionMissionService,
@@ -128,9 +140,19 @@ const services = [
   TopicRefreshScheduler,
   EvidenceManagementService,
   ResearchLeaderService,
+  // ★ Leader sub-services (ResearchLeader decomposition)
+  LeaderPlanningService,
+  LeaderIntentService,
+  LeaderAgentSelectionService,
+  LeaderReviewService,
   MissionQueryService,
   MissionLifecycleService,
   MissionExecutionService,
+  // ★ Task executors (MissionExecution decomposition)
+  DimensionResearchExecutor,
+  ReviewDimensionExecutor,
+  SynthesisReportExecutor,
+  GenericTaskExecutor,
   // ★ Mission sub-services (God Service decomposition)
   MissionObservabilityService,
   MissionKernelBridgeService,
@@ -210,6 +232,8 @@ const services = [
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
+  // ★ Refresh pipeline (Orchestrator decomposition)
+  RefreshPipelineService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];
@@ -261,31 +285,38 @@ export class TopicInsightsModule implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Bridge prompt skills from SKILL.md → SkillRegistry
-    const bridgeResult =
-      await this.promptSkillBridge.registerDomain("insights");
-    this.logger.log(
-      `Prompt skills bridged: registered=${bridgeResult.registered.length}, ` +
-        `skipped=${bridgeResult.skipped.length}, errors=${bridgeResult.errors.length}`,
-    );
+    try {
+      // Bridge prompt skills from SKILL.md → SkillRegistry
+      const bridgeResult =
+        await this.promptSkillBridge.registerDomain("insights");
+      this.logger.log(
+        `Prompt skills bridged: registered=${bridgeResult.registered.length}, ` +
+          `skipped=${bridgeResult.skipped.length}, errors=${bridgeResult.errors.length}`,
+      );
 
-    // ★ P0: 注册数据源连接器
-    this.connectorRegistry.register(this.semanticScholarConnector);
-    this.connectorRegistry.register(this.pubMedConnector);
-    this.connectorRegistry.register(this.financeApiConnector);
-    this.connectorRegistry.register(this.weatherApiConnector);
-    this.logger.log(
-      `Data source connectors registered: ${this.connectorRegistry.getCount()}`,
-    );
+      // ★ P0: 注册数据源连接器
+      this.connectorRegistry.register(this.semanticScholarConnector);
+      this.connectorRegistry.register(this.pubMedConnector);
+      this.connectorRegistry.register(this.financeApiConnector);
+      this.connectorRegistry.register(this.weatherApiConnector);
+      this.logger.log(
+        `Data source connectors registered: ${this.connectorRegistry.getCount()}`,
+      );
 
-    // ★ Gap 1: Agent/Team 注册 → IntentRouter 可发现
-    if (this.agentRegistry) {
-      this.agentRegistry.register(this.topicInsightsAgent);
-      this.logger.log("Registered TopicInsightsAgent");
-    }
-    if (this.teamRegistry) {
-      this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
-      this.logger.log("Registered TOPIC_INSIGHTS team config");
+      // ★ Gap 1: Agent/Team 注册 → IntentRouter 可发现
+      if (this.agentRegistry) {
+        this.agentRegistry.register(this.topicInsightsAgent);
+        this.logger.log("Registered TopicInsightsAgent");
+      }
+      if (this.teamRegistry) {
+        this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
+        this.logger.log("Registered TOPIC_INSIGHTS team config");
+      }
+    } catch (error) {
+      this.logger.error(
+        `TopicInsightsModule onModuleInit failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Non-fatal: module still functions, but some registrations may be missing
     }
   }
 }

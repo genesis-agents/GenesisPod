@@ -8,8 +8,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  Inject,
-  forwardRef,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -26,7 +24,6 @@ import {
 } from "./research-event-emitter.service";
 
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { ResearchLeaderService } from "./research-leader.service";
 import type { LeaderPlan } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import type {
@@ -46,10 +43,6 @@ export class MissionQueryService {
     private readonly eventEmitter: EventEmitter2,
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly chatFacade: ChatFacade,
-    // forwardRef: MissionQueryService <-> ResearchLeaderService
-    // Leader uses MissionQuery to read/update task states; MissionQuery needs Leader to get reasoning model info for team view
-    @Inject(forwardRef(() => ResearchLeaderService))
-    private readonly leaderService: ResearchLeaderService,
   ) {}
 
   /**
@@ -358,8 +351,8 @@ export class MissionQueryService {
     }
     // 否则保持当前状态（IN_PROGRESS）
 
-    await this.prisma.researchMission.update({
-      where: { id: missionId },
+    await this.prisma.researchMission.updateMany({
+      where: { id: missionId, status: { not: ResearchMissionStatus.CANCELLED } },
       data: {
         completedTasks,
         progressPercent,
@@ -393,8 +386,8 @@ export class MissionQueryService {
     let leaderModel = mission.leaderModelId || mission.leaderModelName;
     if (!leaderModel) {
       // 旧数据没有存储模型ID，动态获取当前使用的推理模型
-      const currentModel = await this.leaderService.getReasoningModel();
-      leaderModel = currentModel?.modelId || currentModel?.modelName || null;
+      const currentModel = await this.chatFacade.getReasoningModel();
+      leaderModel = currentModel?.id || currentModel?.name || null;
       this.logger.log(
         `[getTeamInfo] Mission ${missionId} has no stored model, using current: ${leaderModel}`,
       );

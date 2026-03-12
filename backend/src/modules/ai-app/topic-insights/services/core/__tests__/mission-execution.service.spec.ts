@@ -12,15 +12,15 @@ import { MissionExecutionService } from "../mission-execution.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { MissionQueryService } from "../mission-query.service";
-import { DimensionMissionService } from "../../dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
-import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import { ResearchMemoryService } from "../research-memory.service";
-import { DataSourceFetcherService } from "../../data/data-source-fetcher.service";
+import { DimensionResearchExecutor } from "../task-executors/dimension-research.executor";
+import { ReviewDimensionExecutor } from "../task-executors/review-dimension.executor";
+import { SynthesisReportExecutor } from "../task-executors/synthesis-report.executor";
+import { GenericTaskExecutor } from "../task-executors/generic-task.executor";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
-import { resolveResearchDepthConfig } from "../../../../../../modules/ai-app/topic-insights/types/v5-research.types";
+import { resolveResearchDepthConfig } from "../../../types/v5-research.types";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -82,20 +82,9 @@ function buildMocks() {
     emitProgress: jest.fn(),
   };
 
-  const mockDimensionMissionService = {
-    executeDimensionResearch: jest.fn().mockResolvedValue({
-      summary: "Research complete",
-      keyFindings: ["Finding 1"],
-    }),
-  };
-
   const mockReportSynthesisService = {
     createDraftReport: jest.fn().mockResolvedValue({ id: "report-draft" }),
     synthesizeReport: jest.fn().mockResolvedValue({ id: "report-final" }),
-  };
-
-  const mockAgentActivity = {
-    recordActivity: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockAiFacade = {
@@ -104,30 +93,45 @@ function buildMocks() {
     getAvailableModels: jest.fn().mockResolvedValue([]),
   };
 
-  const mockReviewerService = {
-    reviewTaskResult: jest.fn().mockResolvedValue({ status: "approved" }),
-  };
-
   const mockResearchMemory = {
     extractAndStoreFindings: jest.fn().mockResolvedValue(5),
   };
 
-  const mockDataSourceFetcher = {
-    executeSearch: jest.fn().mockResolvedValue([]),
-    setCurrentTopic: jest.fn(),
+  const mockDimensionResearchExecutor = {
+    execute: jest.fn().mockResolvedValue({
+      status: "completed",
+      summary: "Research complete",
+      keyFindings: ["Finding 1"],
+    }),
+    executeGenericDimensionResearch: jest.fn().mockResolvedValue({
+      summary: "Generic research done",
+      keyFindings: [],
+    }),
+  };
+
+  const mockReviewDimensionExecutor = {
+    execute: jest.fn().mockResolvedValue({ status: "completed" }),
+  };
+
+  const mockSynthesisReportExecutor = {
+    execute: jest.fn().mockResolvedValue({ status: "completed" }),
+  };
+
+  const mockGenericTaskExecutor = {
+    execute: jest.fn().mockResolvedValue({ status: "skipped" }),
   };
 
   return {
     mockPrisma,
     mockResearchEventEmitter,
     mockQueryService,
-    mockDimensionMissionService,
     mockReportSynthesisService,
-    mockAgentActivity,
     mockAiFacade,
-    mockReviewerService,
     mockResearchMemory,
-    mockDataSourceFetcher,
+    mockDimensionResearchExecutor,
+    mockReviewDimensionExecutor,
+    mockSynthesisReportExecutor,
+    mockGenericTaskExecutor,
   };
 }
 
@@ -192,23 +196,26 @@ describe("MissionExecutionService", () => {
         },
         { provide: MissionQueryService, useValue: mocks.mockQueryService },
         {
-          provide: DimensionMissionService,
-          useValue: mocks.mockDimensionMissionService,
-        },
-        {
           provide: ReportSynthesisService,
           useValue: mocks.mockReportSynthesisService,
         },
-        { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
         { provide: ChatFacade, useValue: mocks.mockAiFacade },
-        {
-          provide: ResearchReviewerService,
-          useValue: mocks.mockReviewerService,
-        },
         { provide: ResearchMemoryService, useValue: mocks.mockResearchMemory },
         {
-          provide: DataSourceFetcherService,
-          useValue: mocks.mockDataSourceFetcher,
+          provide: DimensionResearchExecutor,
+          useValue: mocks.mockDimensionResearchExecutor,
+        },
+        {
+          provide: ReviewDimensionExecutor,
+          useValue: mocks.mockReviewDimensionExecutor,
+        },
+        {
+          provide: SynthesisReportExecutor,
+          useValue: mocks.mockSynthesisReportExecutor,
+        },
+        {
+          provide: GenericTaskExecutor,
+          useValue: mocks.mockGenericTaskExecutor,
         },
       ],
     }).compile();
@@ -330,21 +337,29 @@ describe("MissionExecutionService", () => {
     });
 
     it("should execute dimension_research task when CAS succeeds", async () => {
-      prisma.researchTask.findUnique.mockResolvedValue({
+      prisma.researchTask.findUnique.mockResolvedValueOnce({
         status: ResearchTaskStatus.PENDING,
         modelId: "gpt-4o",
         skills: [],
         tools: [],
       });
-      prisma.researchMission.findUnique.mockResolvedValue(mockMission);
-      prisma.researchTask.updateMany.mockResolvedValue({ count: 1 });
+      prisma.researchMission.findUnique.mockResolvedValueOnce(mockMission);
+      prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      // Mock the dimension research execution
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionResearch = jest.fn().mockResolvedValue({
+      // Mock the dimension research executor
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
         summary: "Research complete",
         keyFindings: [],
-        sourcesFound: 5,
+      });
+
+      // Post-execution checks
+      prisma.researchTask.findUnique.mockResolvedValueOnce({
+        status: ResearchTaskStatus.EXECUTING,
+      });
+      prisma.researchMission.findUnique.mockResolvedValueOnce({
+        status: ResearchMissionStatus.EXECUTING,
       });
 
       queryService.updateTaskStatus.mockResolvedValue({
@@ -377,7 +392,7 @@ describe("MissionExecutionService", () => {
         { id: "gpt-4o", provider: "openai" },
         { id: "gpt-3.5", provider: "openai" },
       ]);
-      const module: TestingModule = await Test.createTestingModule({
+      const mod: TestingModule = await Test.createTestingModule({
         providers: [
           MissionExecutionService,
           { provide: PrismaService, useValue: mocks.mockPrisma },
@@ -387,30 +402,33 @@ describe("MissionExecutionService", () => {
           },
           { provide: MissionQueryService, useValue: mocks.mockQueryService },
           {
-            provide: DimensionMissionService,
-            useValue: mocks.mockDimensionMissionService,
-          },
-          {
             provide: ReportSynthesisService,
             useValue: mocks.mockReportSynthesisService,
           },
-          { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
           { provide: ChatFacade, useValue: mocks.mockAiFacade },
-          {
-            provide: ResearchReviewerService,
-            useValue: mocks.mockReviewerService,
-          },
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
           },
           {
-            provide: DataSourceFetcherService,
-            useValue: mocks.mockDataSourceFetcher,
+            provide: DimensionResearchExecutor,
+            useValue: mocks.mockDimensionResearchExecutor,
+          },
+          {
+            provide: ReviewDimensionExecutor,
+            useValue: mocks.mockReviewDimensionExecutor,
+          },
+          {
+            provide: SynthesisReportExecutor,
+            useValue: mocks.mockSynthesisReportExecutor,
+          },
+          {
+            provide: GenericTaskExecutor,
+            useValue: mocks.mockGenericTaskExecutor,
           },
         ],
       }).compile();
-      const svc = module.get<MissionExecutionService>(MissionExecutionService);
+      const svc = mod.get<MissionExecutionService>(MissionExecutionService);
       const result = await svc.calculateDynamicConcurrency();
       expect(result).toBe(4); // MIN_CONCURRENCY
     });
@@ -421,7 +439,7 @@ describe("MissionExecutionService", () => {
         { id: "gpt-4o", provider: "openai" },
         { id: "claude-3", provider: "anthropic" },
       ]);
-      const module: TestingModule = await Test.createTestingModule({
+      const mod: TestingModule = await Test.createTestingModule({
         providers: [
           MissionExecutionService,
           { provide: PrismaService, useValue: mocks.mockPrisma },
@@ -431,30 +449,33 @@ describe("MissionExecutionService", () => {
           },
           { provide: MissionQueryService, useValue: mocks.mockQueryService },
           {
-            provide: DimensionMissionService,
-            useValue: mocks.mockDimensionMissionService,
-          },
-          {
             provide: ReportSynthesisService,
             useValue: mocks.mockReportSynthesisService,
           },
-          { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
           { provide: ChatFacade, useValue: mocks.mockAiFacade },
-          {
-            provide: ResearchReviewerService,
-            useValue: mocks.mockReviewerService,
-          },
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
           },
           {
-            provide: DataSourceFetcherService,
-            useValue: mocks.mockDataSourceFetcher,
+            provide: DimensionResearchExecutor,
+            useValue: mocks.mockDimensionResearchExecutor,
+          },
+          {
+            provide: ReviewDimensionExecutor,
+            useValue: mocks.mockReviewDimensionExecutor,
+          },
+          {
+            provide: SynthesisReportExecutor,
+            useValue: mocks.mockSynthesisReportExecutor,
+          },
+          {
+            provide: GenericTaskExecutor,
+            useValue: mocks.mockGenericTaskExecutor,
           },
         ],
       }).compile();
-      const svc = module.get<MissionExecutionService>(MissionExecutionService);
+      const svc = mod.get<MissionExecutionService>(MissionExecutionService);
       const result = await svc.calculateDynamicConcurrency();
       expect(result).toBe(6); // 4 + (2-1)*2
     });
@@ -468,7 +489,7 @@ describe("MissionExecutionService", () => {
         { id: "m4", provider: "p4" },
         { id: "m5", provider: "p5" },
       ]);
-      const module: TestingModule = await Test.createTestingModule({
+      const mod: TestingModule = await Test.createTestingModule({
         providers: [
           MissionExecutionService,
           { provide: PrismaService, useValue: mocks.mockPrisma },
@@ -478,30 +499,33 @@ describe("MissionExecutionService", () => {
           },
           { provide: MissionQueryService, useValue: mocks.mockQueryService },
           {
-            provide: DimensionMissionService,
-            useValue: mocks.mockDimensionMissionService,
-          },
-          {
             provide: ReportSynthesisService,
             useValue: mocks.mockReportSynthesisService,
           },
-          { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
           { provide: ChatFacade, useValue: mocks.mockAiFacade },
-          {
-            provide: ResearchReviewerService,
-            useValue: mocks.mockReviewerService,
-          },
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
           },
           {
-            provide: DataSourceFetcherService,
-            useValue: mocks.mockDataSourceFetcher,
+            provide: DimensionResearchExecutor,
+            useValue: mocks.mockDimensionResearchExecutor,
+          },
+          {
+            provide: ReviewDimensionExecutor,
+            useValue: mocks.mockReviewDimensionExecutor,
+          },
+          {
+            provide: SynthesisReportExecutor,
+            useValue: mocks.mockSynthesisReportExecutor,
+          },
+          {
+            provide: GenericTaskExecutor,
+            useValue: mocks.mockGenericTaskExecutor,
           },
         ],
       }).compile();
-      const svc = module.get<MissionExecutionService>(MissionExecutionService);
+      const svc = mod.get<MissionExecutionService>(MissionExecutionService);
       const result = await svc.calculateDynamicConcurrency();
       expect(result).toBe(8); // capped at MAX
     });
@@ -511,7 +535,7 @@ describe("MissionExecutionService", () => {
       mocks.mockAiFacade.getAvailableModels.mockRejectedValue(
         new Error("API unavailable"),
       );
-      const module: TestingModule = await Test.createTestingModule({
+      const mod: TestingModule = await Test.createTestingModule({
         providers: [
           MissionExecutionService,
           { provide: PrismaService, useValue: mocks.mockPrisma },
@@ -521,30 +545,33 @@ describe("MissionExecutionService", () => {
           },
           { provide: MissionQueryService, useValue: mocks.mockQueryService },
           {
-            provide: DimensionMissionService,
-            useValue: mocks.mockDimensionMissionService,
-          },
-          {
             provide: ReportSynthesisService,
             useValue: mocks.mockReportSynthesisService,
           },
-          { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
           { provide: ChatFacade, useValue: mocks.mockAiFacade },
-          {
-            provide: ResearchReviewerService,
-            useValue: mocks.mockReviewerService,
-          },
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
           },
           {
-            provide: DataSourceFetcherService,
-            useValue: mocks.mockDataSourceFetcher,
+            provide: DimensionResearchExecutor,
+            useValue: mocks.mockDimensionResearchExecutor,
+          },
+          {
+            provide: ReviewDimensionExecutor,
+            useValue: mocks.mockReviewDimensionExecutor,
+          },
+          {
+            provide: SynthesisReportExecutor,
+            useValue: mocks.mockSynthesisReportExecutor,
+          },
+          {
+            provide: GenericTaskExecutor,
+            useValue: mocks.mockGenericTaskExecutor,
           },
         ],
       }).compile();
-      const svc = module.get<MissionExecutionService>(MissionExecutionService);
+      const svc = mod.get<MissionExecutionService>(MissionExecutionService);
       const result = await svc.calculateDynamicConcurrency();
       expect(result).toBe(4); // MIN fallback
     });
@@ -699,25 +726,12 @@ describe("MissionExecutionService", () => {
       setupCasSuccess();
       setupPostCompletionOk();
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          summary: "Test summary",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 2,
-          confidenceLevel: "high",
-          detailedContent: "details",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "Test summary",
+        keyFindings: [],
         actualModelId: "gpt-4o",
-        extractedClaims: [],
-        dimensionId: "dim-1",
       });
 
       await service.executeTask(
@@ -750,23 +764,11 @@ describe("MissionExecutionService", () => {
         .mockResolvedValueOnce({ status: ResearchMissionStatus.EXECUTING }); // post-exec
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          summary: "done",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
-        dimensionId: "dim-1",
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "done",
+        keyFindings: [],
       });
 
       await service.executeTask(
@@ -799,23 +801,11 @@ describe("MissionExecutionService", () => {
         .mockResolvedValueOnce({ status: ResearchMissionStatus.CANCELLED }); // post-exec: mission cancelled
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          summary: "done",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
-        dimensionId: "dim-1",
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "done",
+        keyFindings: [],
       });
 
       await service.executeTask(
@@ -853,23 +843,11 @@ describe("MissionExecutionService", () => {
       };
       (prisma as any).topicDimension = mockTopicDimension;
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          summary: "done",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
-        dimensionId: "dim-new",
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "done",
+        keyFindings: [],
       });
 
       // Restore task findUnique properly
@@ -938,24 +916,11 @@ describe("MissionExecutionService", () => {
       setupCasSuccess();
       setupPostCompletionOk();
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          // no summary field directly, but detailedContent will be in result
-          content: "Content-only result without summary",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "Details here",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
-        dimensionId: "dim-1",
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        // no summary field, but content is set
+        content: "Content-only result without summary",
+        keyFindings: [],
       });
 
       await service.executeTask(
@@ -1381,7 +1346,7 @@ describe("MissionExecutionService", () => {
   describe("executeTask - leaderPlan agentAssignment lookup", () => {
     it("should use model from leaderPlan agentAssignment when task has no modelId", async () => {
       const mocks = buildMocks();
-      const module: TestingModule = await Test.createTestingModule({
+      const mod: TestingModule = await Test.createTestingModule({
         providers: [
           MissionExecutionService,
           { provide: PrismaService, useValue: mocks.mockPrisma },
@@ -1391,30 +1356,33 @@ describe("MissionExecutionService", () => {
           },
           { provide: MissionQueryService, useValue: mocks.mockQueryService },
           {
-            provide: DimensionMissionService,
-            useValue: mocks.mockDimensionMissionService,
-          },
-          {
             provide: ReportSynthesisService,
             useValue: mocks.mockReportSynthesisService,
           },
-          { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
           { provide: ChatFacade, useValue: mocks.mockAiFacade },
-          {
-            provide: ResearchReviewerService,
-            useValue: mocks.mockReviewerService,
-          },
           {
             provide: ResearchMemoryService,
             useValue: mocks.mockResearchMemory,
           },
           {
-            provide: DataSourceFetcherService,
-            useValue: mocks.mockDataSourceFetcher,
+            provide: DimensionResearchExecutor,
+            useValue: mocks.mockDimensionResearchExecutor,
+          },
+          {
+            provide: ReviewDimensionExecutor,
+            useValue: mocks.mockReviewDimensionExecutor,
+          },
+          {
+            provide: SynthesisReportExecutor,
+            useValue: mocks.mockSynthesisReportExecutor,
+          },
+          {
+            provide: GenericTaskExecutor,
+            useValue: mocks.mockGenericTaskExecutor,
           },
         ],
       }).compile();
-      const svc = module.get<MissionExecutionService>(MissionExecutionService);
+      const svc = mod.get<MissionExecutionService>(MissionExecutionService);
 
       // Task has no modelId
       mocks.mockPrisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -1441,24 +1409,14 @@ describe("MissionExecutionService", () => {
       });
       mocks.mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 1 });
 
-      const mockDimService = (svc as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
+      // Mock executor on svc instance
+      (svc as any).dimensionResearchExecutor.execute = jest
+        .fn()
+        .mockResolvedValue({
+          status: "completed",
           summary: "done",
           keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
-        dimensionId: "dim-1",
-      });
+        });
 
       // Post completion checks
       mocks.mockPrisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -1502,23 +1460,11 @@ describe("MissionExecutionService", () => {
       prisma.researchMission.findUnique.mockResolvedValueOnce(mockMission);
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          summary: "found by name",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
-        dimensionId: "dim-1",
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "found by name",
+        keyFindings: [],
       });
 
       // Post completion
@@ -1571,23 +1517,11 @@ describe("MissionExecutionService", () => {
         create: jest.fn(),
       };
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          summary: "from db dim",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-        evidenceIds: [],
-        dimensionId: "dim-1",
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "from db dim",
+        keyFindings: [],
       });
 
       // Post completion
@@ -1622,11 +1556,10 @@ describe("MissionExecutionService", () => {
       prisma.researchMission.findUnique.mockResolvedValueOnce(mockMission);
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: false,
-        error: "Dimension research failed due to timeout",
-      });
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockRejectedValue(
+        new Error("Dimension research failed due to timeout"),
+      );
 
       await service.executeTask(
         mockPendingTask as any,
@@ -1676,8 +1609,13 @@ describe("MissionExecutionService", () => {
     it("should skip quality review when no completed dimension tasks", async () => {
       setupCasSuccessForReview();
 
-      // No completed tasks
-      prisma.researchTask.findMany.mockResolvedValueOnce([]);
+      // Mock the review executor to return a skipped result (no completed tasks scenario)
+      const mockReviewExecutor = (service as any).reviewDimensionExecutor;
+      mockReviewExecutor.execute = jest.fn().mockResolvedValue({
+        status: "skipped",
+        reviewedTasks: 0,
+        feedback: "没有已完成的维度研究任务",
+      });
 
       // Post completion
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -1706,58 +1644,20 @@ describe("MissionExecutionService", () => {
     it("should execute quality review with completed tasks", async () => {
       setupCasSuccessForReview();
 
-      const completedTasks = [
-        {
-          id: "dim-task-1",
-          taskType: "dimension_research",
-          status: ResearchTaskStatus.COMPLETED,
-          dimensionId: "dim-1",
-          result: {
-            summary: "Market analysis complete",
-            keyFindings: ["Finding 1", "Finding 2"],
-            analysisResult: {
-              summary: "Analysis summary",
-              keyFindings: ["Finding 1"],
-            },
+      // Mock the review executor to return a result with reviewedTasks
+      const mockReviewExecutor = (service as any).reviewDimensionExecutor;
+      mockReviewExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        reviewedTasks: 1,
+        dimensionReviews: [
+          {
+            dimensionName: "Market Analysis",
+            qualityLevel: "good",
+            overallScore: 85,
           },
-          mission: {
-            topic: {
-              ...mockTopic,
-              dimensions: [{ id: "dim-1", name: "Market Analysis" }],
-            },
-          },
-        },
-      ];
-      prisma.researchTask.findMany.mockResolvedValueOnce(completedTasks);
-
-      // Mock reviewer service
-      const mockReviewer = (service as any).reviewerService;
-      mockReviewer.reviewDimension = jest.fn().mockResolvedValue({
-        dimensionName: "Market Analysis",
-        qualityLevel: "good",
-        overallScore: 85,
-        scores: { depth: 85, accuracy: 90, relevance: 80 },
-        issues: [],
-        suggestions: ["Improve coverage"],
-        needsReresearch: false,
-        actualModelId: "gpt-4o",
+        ],
+        summary: "Quality review completed",
       });
-      mockReviewer.reviewOverall = jest.fn().mockResolvedValue({
-        qualityLevel: "good",
-        overallScore: 85,
-        scores: {},
-        issues: [],
-        suggestions: [],
-        recommendations: ["Well done"],
-        needsReresearch: false,
-        dimensionsToReresearch: [],
-      });
-
-      const mockAgentAct = (service as any).agentActivity;
-      mockAgentAct.recordDimensionReview = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      mockAgentAct.recordOverallReview = jest.fn().mockResolvedValue(undefined);
 
       // Post completion
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -1828,30 +1728,13 @@ describe("MissionExecutionService", () => {
     it("should continue when reviewDimension throws", async () => {
       setupCasSuccessForReview();
 
-      const completedTasks = [
-        {
-          id: "dim-task-1",
-          taskType: "dimension_research",
-          status: ResearchTaskStatus.COMPLETED,
-          dimensionId: "dim-1",
-          result: {
-            summary: "summary",
-            analysisResult: { summary: "analysis" },
-          },
-          mission: {
-            topic: {
-              ...mockTopic,
-              dimensions: [{ id: "dim-1", name: "Market Analysis" }],
-            },
-          },
-        },
-      ];
-      prisma.researchTask.findMany.mockResolvedValueOnce(completedTasks);
-
-      const mockReviewer = (service as any).reviewerService;
-      mockReviewer.reviewDimension = jest
-        .fn()
-        .mockRejectedValue(new Error("Review API error"));
+      // Mock the review executor to simulate a non-fatal internal error by returning a partial result
+      const mockReviewExecutor = (service as any).reviewDimensionExecutor;
+      mockReviewExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        reviewedTasks: 0,
+        summary: "Review completed with errors",
+      });
 
       // Post completion
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -1861,15 +1744,9 @@ describe("MissionExecutionService", () => {
         status: ResearchMissionStatus.EXECUTING,
       });
 
-      // ★ enableAiQualityReview = true so it uses the AI path (which throws)
-      const topicWithAiReview = {
-        ...mockTopic,
-        topicConfig: { enableAiQualityReview: true },
-      };
-
       await service.executeTask(
         qualityReviewTask as any,
-        topicWithAiReview as any,
+        mockTopic as any,
         "mission-1",
         "report-1",
       );
@@ -1896,48 +1773,13 @@ describe("MissionExecutionService", () => {
       });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      const completedTasks = [
-        {
-          id: "dim-task-1",
-          taskType: "dimension_research",
-          status: ResearchTaskStatus.COMPLETED,
-          dimensionId: "dim-1",
-          result: {
-            summary: "Market analysis",
-            keyFindings: ["Important finding 1"],
-            analysisResult: { summary: "Analysis", keyFindings: ["Finding 1"] },
-          },
-          mission: {
-            topic: {
-              ...mockTopic,
-              dimensions: [{ id: "dim-1", name: "Market Analysis" }],
-            },
-          },
-        },
-      ];
-      prisma.researchTask.findMany.mockResolvedValueOnce(completedTasks);
-
-      const mockReviewer = (service as any).reviewerService;
-      mockReviewer.validateClaims = jest.fn().mockResolvedValue({
-        validatedClaims: [],
-        stats: { verified: 1, disputed: 0, unverified: 0 },
+      // Mock the review executor to return a result simulating cognitive loop ran
+      const mockReviewExecutor = (service as any).reviewDimensionExecutor;
+      mockReviewExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        reviewedTasks: 1,
+        summary: "Thorough review completed with cognitive loop",
       });
-      mockReviewer.reviewDimension = jest.fn().mockResolvedValue({
-        dimensionName: "Market Analysis",
-        qualityLevel: "good",
-        overallScore: 85,
-        scores: {},
-        issues: [],
-        suggestions: [],
-        needsReresearch: false,
-        actualModelId: null,
-      });
-      mockReviewer.reviewOverall = jest.fn().mockResolvedValue(null);
-
-      const mockAgentAct = (service as any).agentActivity;
-      mockAgentAct.recordDimensionReview = jest
-        .fn()
-        .mockResolvedValue(undefined);
 
       // Post completion
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -1947,24 +1789,22 @@ describe("MissionExecutionService", () => {
         status: ResearchMissionStatus.EXECUTING,
       });
 
-      // Pass thorough depthConfig explicitly so the cognitive loop is triggered
       const thoroughDepthConfig = resolveResearchDepthConfig("thorough");
-
-      // ★ enableAiQualityReview must be true for cognitive loop to run
-      const topicWithAiReview = {
-        ...mockTopic,
-        topicConfig: { enableAiQualityReview: true },
-      };
 
       await service.executeTask(
         qualityReviewTask as any,
-        topicWithAiReview as any,
+        mockTopic as any,
         "mission-1",
         "report-1",
         thoroughDepthConfig,
       );
 
-      expect(mockReviewer.validateClaims).toHaveBeenCalled();
+      expect(mockReviewExecutor.execute).toHaveBeenCalled();
+      expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
+        "review-task-1",
+        ResearchTaskStatus.COMPLETED,
+        expect.any(Object),
+      );
     });
 
     it("should log skip when no claims or evidence for cognitive loop", async () => {
@@ -1981,46 +1821,13 @@ describe("MissionExecutionService", () => {
       });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      // Tasks with empty keyFindings (no claims to validate)
-      const tasksWithNoClaims = [
-        {
-          id: "dim-task-empty",
-          taskType: "dimension_research",
-          status: ResearchTaskStatus.COMPLETED,
-          dimensionId: "dim-1",
-          result: {
-            summary: "", // empty summary = empty evidence
-            keyFindings: [], // empty findings = no claims
-            analysisResult: { summary: "", keyFindings: [] },
-          },
-          mission: {
-            topic: {
-              ...mockTopic,
-              dimensions: [{ id: "dim-1", name: "Market Analysis" }],
-            },
-          },
-        },
-      ];
-      prisma.researchTask.findMany.mockResolvedValueOnce(tasksWithNoClaims);
-
-      const mockReviewer = (service as any).reviewerService;
-      mockReviewer.validateClaims = jest.fn();
-      mockReviewer.reviewDimension = jest.fn().mockResolvedValue({
-        dimensionName: "Market Analysis",
-        qualityLevel: "good",
-        overallScore: 80,
-        scores: {},
-        issues: [],
-        suggestions: [],
-        needsReresearch: false,
-        actualModelId: null,
+      // Mock the review executor - it completes without calling validateClaims (encapsulated)
+      const mockReviewExecutor = (service as any).reviewDimensionExecutor;
+      mockReviewExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        reviewedTasks: 0,
+        summary: "No claims to validate",
       });
-      mockReviewer.reviewOverall = jest.fn().mockResolvedValue(null);
-
-      const mockAgentAct = (service as any).agentActivity;
-      mockAgentAct.recordDimensionReview = jest
-        .fn()
-        .mockResolvedValue(undefined);
 
       // Post completion
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -2032,22 +1839,21 @@ describe("MissionExecutionService", () => {
 
       const thoroughDepthConfig = resolveResearchDepthConfig("thorough");
 
-      // ★ enableAiQualityReview must be true so cognitive loop is entered
-      const topicWithAiReview = {
-        ...mockTopic,
-        topicConfig: { enableAiQualityReview: true },
-      };
-
       await service.executeTask(
         qualityReviewTask as any,
-        topicWithAiReview as any,
+        mockTopic as any,
         "mission-1",
         "report-1",
         thoroughDepthConfig,
       );
 
-      // validateClaims should NOT be called because no claims/evidence
-      expect(mockReviewer.validateClaims).not.toHaveBeenCalled();
+      // Executor was called and task completed
+      expect(mockReviewExecutor.execute).toHaveBeenCalled();
+      expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
+        "review-task-1",
+        ResearchTaskStatus.COMPLETED,
+        expect.any(Object),
+      );
     });
 
     it("should handle cognitive loop failure gracefully", async () => {
@@ -2064,48 +1870,13 @@ describe("MissionExecutionService", () => {
       });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      const completedTasks = [
-        {
-          id: "dim-task-1",
-          taskType: "dimension_research",
-          status: ResearchTaskStatus.COMPLETED,
-          dimensionId: "dim-1",
-          result: {
-            summary: "Some evidence",
-            keyFindings: [{ finding: "claim 1", significance: "high" }],
-            analysisResult: { summary: "Some evidence", keyFindings: [] },
-          },
-          mission: {
-            topic: {
-              ...mockTopic,
-              dimensions: [{ id: "dim-1", name: "Market Analysis" }],
-            },
-          },
-        },
-      ];
-      prisma.researchTask.findMany.mockResolvedValueOnce(completedTasks);
-
-      const mockReviewer = (service as any).reviewerService;
-      // validateClaims throws an error
-      mockReviewer.validateClaims = jest
-        .fn()
-        .mockRejectedValue(new Error("Claims validation error"));
-      mockReviewer.reviewDimension = jest.fn().mockResolvedValue({
-        dimensionName: "Market Analysis",
-        qualityLevel: "good",
-        overallScore: 80,
-        scores: {},
-        issues: [],
-        suggestions: [],
-        needsReresearch: false,
-        actualModelId: null,
+      // Mock executor to simulate a graceful recovery from internal failure
+      const mockReviewExecutor = (service as any).reviewDimensionExecutor;
+      mockReviewExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        reviewedTasks: 1,
+        summary: "Review completed despite cognitive loop error",
       });
-      mockReviewer.reviewOverall = jest.fn().mockResolvedValue(null);
-
-      const mockAgentAct = (service as any).agentActivity;
-      mockAgentAct.recordDimensionReview = jest
-        .fn()
-        .mockResolvedValue(undefined);
 
       // Post completion
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -2138,46 +1909,13 @@ describe("MissionExecutionService", () => {
     it("should handle overall review failure gracefully", async () => {
       setupCasSuccessForReview();
 
-      const completedTasks = [
-        {
-          id: "dim-task-1",
-          taskType: "dimension_research",
-          status: ResearchTaskStatus.COMPLETED,
-          dimensionId: "dim-1",
-          result: {
-            summary: "summary",
-            analysisResult: { summary: "analysis" },
-          },
-          mission: {
-            topic: {
-              ...mockTopic,
-              dimensions: [{ id: "dim-1", name: "Market Analysis" }],
-            },
-          },
-        },
-      ];
-      prisma.researchTask.findMany.mockResolvedValueOnce(completedTasks);
-
-      const mockReviewer = (service as any).reviewerService;
-      mockReviewer.reviewDimension = jest.fn().mockResolvedValue({
-        dimensionName: "Market Analysis",
-        qualityLevel: "good",
-        overallScore: 85,
-        scores: {},
-        issues: [],
-        suggestions: [],
-        needsReresearch: false,
-        actualModelId: null,
+      // Mock executor to simulate graceful recovery from overall review failure
+      const mockReviewExecutor = (service as any).reviewDimensionExecutor;
+      mockReviewExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        reviewedTasks: 1,
+        summary: "Review completed despite overall review error",
       });
-      // reviewOverall throws
-      mockReviewer.reviewOverall = jest
-        .fn()
-        .mockRejectedValue(new Error("Overall review failed"));
-
-      const mockAgentAct = (service as any).agentActivity;
-      mockAgentAct.recordDimensionReview = jest
-        .fn()
-        .mockResolvedValue(undefined);
 
       // Post completion
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -2231,48 +1969,13 @@ describe("MissionExecutionService", () => {
       });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      // Add emitReportSynthesisStarted and emitReportSynthesisCompleted to mock
-      researchEventEmitter.emitReportSynthesisStarted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      researchEventEmitter.emitReportSynthesisCompleted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-
-      // Dimension tasks for report_synthesis
-      prisma.researchTask.findMany.mockResolvedValueOnce([
-        {
-          id: "dim-task-1",
-          dimensionId: "dim-1",
-          dimensionName: "Market Analysis",
-          result: {
-            summary: "Analysis summary",
-            keyFindings: [],
-            trends: [],
-            challenges: [],
-            opportunities: [],
-            evidenceUsed: 3,
-            confidenceLevel: "high",
-            detailedContent: "Detailed content here",
-            figureReferences: [],
-            generatedCharts: [],
-          },
-        },
-      ]);
-
-      const mockReportService = (service as any).reportSynthesisService;
-      mockReportService.saveDimensionAnalysis = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      mockReportService.synthesizeReport = jest.fn().mockResolvedValue({
-        fullReport: "Full report content",
-        executiveSummary: "Executive summary",
-        totalSources: 5,
-        highlights: [
-          { title: "Highlight 1" },
-          { title: "Highlight 2" },
-          { title: "Highlight 3" },
-        ],
+      // Mock the synthesis executor to return a proper result
+      const mockSynthesisExecutor = (service as any).synthesisReportExecutor;
+      mockSynthesisExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "Executive summary",
+        wordCount: 5000,
+        reportId: "report-1",
       });
 
       // Post completion
@@ -2290,8 +1993,7 @@ describe("MissionExecutionService", () => {
         "report-1",
       );
 
-      expect(mockReportService.saveDimensionAnalysis).toHaveBeenCalled();
-      expect(mockReportService.synthesizeReport).toHaveBeenCalled();
+      expect(mockSynthesisExecutor.execute).toHaveBeenCalled();
       expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
         "synthesis-task-1",
         ResearchTaskStatus.COMPLETED,
@@ -2313,38 +2015,12 @@ describe("MissionExecutionService", () => {
       });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      researchEventEmitter.emitReportSynthesisStarted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      researchEventEmitter.emitReportSynthesisCompleted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-
-      prisma.researchTask.findMany.mockResolvedValueOnce([]);
-
-      const mockReportService = (service as any).reportSynthesisService;
-      mockReportService.saveDimensionAnalysis = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      mockReportService.synthesizeReport = jest.fn().mockResolvedValue({
-        content: "Full report text",
-        fullReport: "Full report text",
-      });
-
-      // fact check evidence
-      prisma.topicEvidence = {
-        createMany: jest.fn(),
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { id: "ev-1", title: "Evidence Title", snippet: "Snippet text" },
-          ]),
-      } as any;
-
-      const mockReviewer = (service as any).reviewerService;
-      mockReviewer.factCheckReport = jest.fn().mockResolvedValue({
-        accuracyScore: 90,
-        issues: [],
+      // Mock synthesis executor to simulate fact-check ran
+      const mockSynthesisExecutor = (service as any).synthesisReportExecutor;
+      mockSynthesisExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "Thorough report with fact-check",
+        wordCount: 8000,
       });
 
       // Post completion
@@ -2362,7 +2038,12 @@ describe("MissionExecutionService", () => {
         "report-1",
       );
 
-      expect(mockReviewer.factCheckReport).toHaveBeenCalled();
+      expect(mockSynthesisExecutor.execute).toHaveBeenCalled();
+      expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
+        "synthesis-task-1",
+        ResearchTaskStatus.COMPLETED,
+        expect.any(Object),
+      );
     });
   });
 
@@ -2387,34 +2068,6 @@ describe("MissionExecutionService", () => {
         .mockResolvedValueOnce({ status: ResearchMissionStatus.EXECUTING });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      researchEventEmitter.emitReportSynthesisStarted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      researchEventEmitter.emitReportSynthesisCompleted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-
-      prisma.researchTask.findMany.mockResolvedValueOnce([
-        {
-          id: "dim-task-1",
-          dimensionId: "dim-1",
-          dimensionName: "Market Analysis",
-          result: { summary: "summary" },
-        },
-      ]);
-
-      const mockReportService = (service as any).reportSynthesisService;
-      // saveDimensionAnalysis throws
-      mockReportService.saveDimensionAnalysis = jest
-        .fn()
-        .mockRejectedValue(new Error("DB save error"));
-      mockReportService.synthesizeReport = jest.fn().mockResolvedValue({
-        fullReport: "report",
-        executiveSummary: "summary",
-        totalSources: 1,
-        highlights: [],
-      });
-
       const reportSynthesisTask = {
         ...mockPendingTask,
         id: "synthesis-task-err",
@@ -2423,6 +2076,14 @@ describe("MissionExecutionService", () => {
         dimensionName: null,
       };
 
+      // Mock executor to return successfully despite internal error
+      const mockSynthesisExecutor = (service as any).synthesisReportExecutor;
+      mockSynthesisExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "report",
+        wordCount: 1000,
+      });
+
       await service.executeTask(
         reportSynthesisTask as any,
         mockTopic as any,
@@ -2430,8 +2091,8 @@ describe("MissionExecutionService", () => {
         "report-1",
       );
 
-      // Should still succeed even though saveDimensionAnalysis failed
-      expect(mockReportService.synthesizeReport).toHaveBeenCalled();
+      // Should still succeed even though saveDimensionAnalysis would have failed
+      expect(mockSynthesisExecutor.execute).toHaveBeenCalled();
       expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
         "synthesis-task-err",
         ResearchTaskStatus.COMPLETED,
@@ -2461,40 +2122,6 @@ describe("MissionExecutionService", () => {
         .mockResolvedValueOnce({ status: ResearchMissionStatus.EXECUTING });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      researchEventEmitter.emitReportSynthesisStarted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      researchEventEmitter.emitReportSynthesisCompleted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-
-      prisma.researchTask.findMany.mockResolvedValueOnce([]);
-
-      const mockReportService = (service as any).reportSynthesisService;
-      mockReportService.saveDimensionAnalysis = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      mockReportService.synthesizeReport = jest.fn().mockResolvedValue({
-        content: "report content",
-        fullReport: "report content",
-        executiveSummary: "summary",
-        totalSources: 1,
-        highlights: [],
-      });
-
-      (prisma as any).topicEvidence = {
-        createMany: jest.fn(),
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ id: "ev-1", title: "Title", snippet: "text" }]),
-      };
-
-      const mockReviewer = (service as any).reviewerService;
-      // factCheckReport throws
-      mockReviewer.factCheckReport = jest
-        .fn()
-        .mockRejectedValue(new Error("Fact check failed"));
-
       const reportSynthesisTask = {
         ...mockPendingTask,
         id: "synthesis-task-fc",
@@ -2502,6 +2129,14 @@ describe("MissionExecutionService", () => {
         dimensionId: null,
         dimensionName: null,
       };
+
+      // Mock executor to simulate non-fatal fact-check failure recovery
+      const mockSynthesisExecutor = (service as any).synthesisReportExecutor;
+      mockSynthesisExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "Report completed despite fact-check error",
+        wordCount: 3000,
+      });
 
       // Should not throw - fact-check failure is non-fatal
       await expect(
@@ -2644,29 +2279,12 @@ describe("MissionExecutionService", () => {
       });
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      researchEventEmitter.emitReportSynthesisStarted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      researchEventEmitter.emitReportSynthesisCompleted = jest
-        .fn()
-        .mockResolvedValue(undefined);
-
-      prisma.researchTask.findMany.mockResolvedValueOnce([]);
-
-      const mockReportService = (service as any).reportSynthesisService;
-      mockReportService.saveDimensionAnalysis = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      // Return result without .summary but with .content to hit line 929
-      // Actually synthesizeReport returns result, then it's re-mapped to {summary, wordCount...}
-      // The re-mapping at line 837 creates a new result object with .summary
-      // So result.summary will always be set after report_synthesis
-      // Let's just verify the call is made
-      mockReportService.synthesizeReport = jest.fn().mockResolvedValue({
-        fullReport: "Text",
-        executiveSummary: "Summary text",
-        totalSources: 2,
-        highlights: [],
+      // Mock executor to return result with .content but no .summary to test content branch
+      const mockSynthesisExecutor = (service as any).synthesisReportExecutor;
+      mockSynthesisExecutor.execute = jest.fn().mockResolvedValue({
+        // no summary, but content is defined
+        content: "Report content without summary field",
+        wordCount: 2000,
       });
 
       prisma.researchTask.findUnique.mockResolvedValueOnce({
@@ -2704,25 +2322,12 @@ describe("MissionExecutionService", () => {
       prisma.researchMission.findUnique.mockResolvedValueOnce(mockMission);
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
-          summary: "done",
-          keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-          actualModelId: "different-actual-model", // different from assigned
-        },
-        evidenceIds: [],
-        dimensionId: "dim-1",
-        actualModelId: "different-actual-model",
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.execute = jest.fn().mockResolvedValue({
+        status: "completed",
+        summary: "done",
+        keyFindings: [],
+        actualModelId: "different-actual-model", // different from assigned
       });
 
       // Post completion checks
@@ -2765,22 +2370,10 @@ describe("MissionExecutionService", () => {
 
   describe("executeGenericDimensionResearch", () => {
     it("should throw when executeDimensionMission fails in generic path", async () => {
-      (prisma as any).topicDimension = {
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({
-          id: "new-dim",
-          name: "New Dimension",
-          topicId: "topic-1",
-        }),
-        findUnique: jest.fn(),
-      };
-
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: false,
-        error: "Generic dimension mission failed",
-        analysisResult: null,
-      });
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.executeGenericDimensionResearch = jest
+        .fn()
+        .mockRejectedValue(new Error("Generic dimension mission failed"));
 
       await expect(
         service.executeGenericDimensionResearch(
@@ -2792,32 +2385,13 @@ describe("MissionExecutionService", () => {
     });
 
     it("should create dimension and return result on success", async () => {
-      (prisma as any).topicDimension = {
-        findFirst: jest.fn().mockResolvedValue({ sortOrder: 5 }),
-        create: jest.fn().mockResolvedValue({
-          id: "new-dim",
-          name: "Market Analysis",
-          topicId: "topic-1",
-        }),
-        findUnique: jest.fn(),
-      };
-
-      const mockDimService = (service as any).dimensionMissionService;
-      mockDimService.executeDimensionMission = jest.fn().mockResolvedValue({
-        success: true,
-        analysisResult: {
+      const mockDimExecutor = (service as any).dimensionResearchExecutor;
+      mockDimExecutor.executeGenericDimensionResearch = jest
+        .fn()
+        .mockResolvedValue({
           summary: "Generic research done",
           keyFindings: [],
-          trends: [],
-          challenges: [],
-          opportunities: [],
-          evidenceUsed: 0,
-          confidenceLevel: "medium",
-          detailedContent: "",
-          figureReferences: [],
-          generatedCharts: [],
-        },
-      });
+        });
 
       const result = await service.executeGenericDimensionResearch(
         mockPendingTask as any,

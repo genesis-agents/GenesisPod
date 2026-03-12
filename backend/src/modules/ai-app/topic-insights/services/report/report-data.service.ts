@@ -673,4 +673,175 @@ export class ReportDataService {
     const topicConfig = topic.topicConfig as Record<string, unknown> | null;
     return topicConfig?.enableFigures !== false;
   }
+
+  // ==================== Report CRUD (extracted from facade) ====================
+
+  /**
+   * 删除报告及其所有关联数据（级联删除）
+   */
+  async deleteReportCascade(reportId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.dimensionAnalysis.deleteMany({ where: { reportId } });
+      await tx.topicReportRevision.deleteMany({ where: { reportId } });
+      await tx.reportAnnotation.deleteMany({ where: { reportId } });
+      await tx.reportChange.deleteMany({ where: { reportId } });
+      await tx.topicReport.delete({ where: { id: reportId } });
+    });
+
+    this.logger.log(`[deleteReportCascade] Report ${reportId} deleted`);
+  }
+
+  /**
+   * 更新报告内容（附带修订历史）
+   */
+  async updateReportContent(
+    reportId: string,
+    dto: {
+      executiveSummary?: string;
+      fullReport?: string;
+      changeDescription?: string;
+    },
+  ): Promise<TopicReport> {
+    return this.prisma.$transaction(async (tx) => {
+      const latestRevision = await tx.topicReportRevision.findFirst({
+        where: { reportId },
+        orderBy: { revisionNumber: "desc" },
+      });
+
+      const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
+
+      // 获取当前报告内容用于保存修订
+      const currentReport = await tx.topicReport.findUniqueOrThrow({
+        where: { id: reportId },
+        select: { fullReport: true },
+      });
+
+      await tx.topicReportRevision.create({
+        data: {
+          reportId,
+          revisionNumber: newRevisionNumber,
+          content: currentReport.fullReport,
+          changeDescription: dto.changeDescription || "用户手动编辑",
+          editedBy: "user",
+          editOperation: "manual_edit",
+        },
+      });
+
+      return tx.topicReport.update({
+        where: { id: reportId },
+        data: {
+          ...(dto.executiveSummary && {
+            executiveSummary: dto.executiveSummary,
+          }),
+          ...(dto.fullReport && { fullReport: dto.fullReport }),
+        },
+      });
+    });
+  }
+
+  /**
+   * 获取报告修订历史
+   */
+  async getReportRevisions(reportId: string) {
+    return this.prisma.topicReportRevision.findMany({
+      where: { reportId },
+      orderBy: { revisionNumber: "desc" },
+      select: {
+        id: true,
+        revisionNumber: true,
+        changeDescription: true,
+        editedBy: true,
+        editOperation: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  /**
+   * 回滚报告到指定版本
+   */
+  async rollbackToRevision(
+    reportId: string,
+    revisionNumber: number,
+    currentFullReport: string,
+  ): Promise<{
+    report: TopicReport;
+    rolledBackFrom: number;
+    rolledBackTo: number;
+  }> {
+    const targetRevision = await this.prisma.topicReportRevision.findFirst({
+      where: { reportId, revisionNumber },
+    });
+
+    if (!targetRevision) {
+      throw new NotFoundException(
+        `Revision ${revisionNumber} not found for this report`,
+      );
+    }
+
+    const latestRevision = await this.prisma.topicReportRevision.findFirst({
+      where: { reportId },
+      orderBy: { revisionNumber: "desc" },
+    });
+
+    const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
+
+    await this.prisma.topicReportRevision.create({
+      data: {
+        reportId,
+        revisionNumber: newRevisionNumber,
+        content: currentFullReport,
+        changeDescription: `回滚前的版本（从版本 ${revisionNumber} 回滚）`,
+        editedBy: "user",
+        editOperation: "rollback",
+      },
+    });
+
+    const updatedReport = await this.prisma.topicReport.update({
+      where: { id: reportId },
+      data: { fullReport: targetRevision.content },
+    });
+
+    return {
+      report: updatedReport,
+      rolledBackFrom: newRevisionNumber - 1,
+      rolledBackTo: revisionNumber,
+    };
+  }
+
+  /**
+   * AI 编辑后保存修订和更新报告（事务）
+   */
+  async saveAiEditRevision(
+    reportId: string,
+    currentContent: string,
+    newFullReport: string,
+    changeDescription: string,
+    editOperation: string,
+  ): Promise<TopicReport> {
+    return this.prisma.$transaction(async (tx) => {
+      const latestRevision = await tx.topicReportRevision.findFirst({
+        where: { reportId },
+        orderBy: { revisionNumber: "desc" },
+      });
+
+      const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
+
+      await tx.topicReportRevision.create({
+        data: {
+          reportId,
+          revisionNumber: newRevisionNumber,
+          content: currentContent,
+          changeDescription,
+          editedBy: "ai",
+          editOperation,
+        },
+      });
+
+      return tx.topicReport.update({
+        where: { id: reportId },
+        data: { fullReport: newFullReport },
+      });
+    });
+  }
 }

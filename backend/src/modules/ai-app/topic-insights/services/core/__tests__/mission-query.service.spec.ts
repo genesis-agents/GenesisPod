@@ -20,6 +20,7 @@ function buildMocks() {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     researchTask: {
       findMany: jest.fn(),
@@ -687,11 +688,11 @@ describe("MissionQueryService", () => {
         { status: ResearchTaskStatus.COMPLETED },
         { status: ResearchTaskStatus.COMPLETED },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       await service.updateMissionProgress("mission-1");
 
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: ResearchMissionStatus.COMPLETED,
@@ -706,11 +707,11 @@ describe("MissionQueryService", () => {
         { status: ResearchTaskStatus.COMPLETED },
         { status: ResearchTaskStatus.FAILED },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       await service.updateMissionProgress("mission-1");
 
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: ResearchMissionStatus.FAILED,
@@ -724,21 +725,26 @@ describe("MissionQueryService", () => {
         { status: ResearchTaskStatus.COMPLETED },
         { status: ResearchTaskStatus.EXECUTING },
       ]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       await service.updateMissionProgress("mission-1");
 
-      const updateArgs = prisma.researchMission.update.mock.calls[0][0];
-      expect(updateArgs.data.status).toBeUndefined();
+      // When tasks still running, no terminal status update should be called
+      const updateManyCalls = prisma.researchMission.updateMany.mock
+        .calls as { data?: { status?: string } }[][];
+      const statusUpdateCalls = updateManyCalls.filter(
+        (call) => call[0]?.data?.status !== undefined,
+      );
+      expect(statusUpdateCalls).toHaveLength(0);
     });
 
     it("should calculate 0 progress when no tasks", async () => {
       prisma.researchTask.findMany.mockResolvedValue([]);
-      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
 
       await service.updateMissionProgress("mission-1");
 
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             progressPercent: 0,
@@ -787,12 +793,8 @@ describe("MissionQueryService", () => {
       expect(result.agents[0].status).toBe("working");
     });
 
-    it("should use leaderService fallback when no stored model", async () => {
+    it("should use chatFacade fallback when no stored model", async () => {
       const mocks = buildMocks();
-      mocks.mockLeaderService.getReasoningModel = jest.fn().mockResolvedValue({
-        modelId: "dynamic-model",
-        modelName: "Dynamic Model",
-      });
 
       const missionNoModel = {
         ...mockMission,
@@ -816,9 +818,12 @@ describe("MissionQueryService", () => {
             provide: ChatFacade,
             useValue: {
               getDefaultModelByType: jest.fn().mockResolvedValue(null),
+              getReasoningModel: jest.fn().mockResolvedValue({
+                id: "dynamic-model",
+                name: "Dynamic Model",
+              }),
             },
           },
-          { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
         ],
       }).compile();
 

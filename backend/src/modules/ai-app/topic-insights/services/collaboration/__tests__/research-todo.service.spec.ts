@@ -22,7 +22,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ResearchTodoService } from '../research-todo.service';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { ResearchEventEmitterService } from '../../core/research-event-emitter.service';
-import { ResearchLeaderService } from '../../core/research-leader.service';
+import { LeaderReviewService } from '../../core/leader-review.service';
 import { ResearchTodoStatus, ResearchTodoType } from '@prisma/client';
 import { TodoEventType } from '../../../types/collaboration.types';
 
@@ -151,7 +151,7 @@ describe('ResearchTodoService', () => {
         ResearchTodoService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ResearchEventEmitterService, useValue: mockEventEmitter },
-        { provide: ResearchLeaderService, useValue: mockLeaderService },
+        { provide: LeaderReviewService, useValue: mockLeaderService },
       ],
     }).compile();
 

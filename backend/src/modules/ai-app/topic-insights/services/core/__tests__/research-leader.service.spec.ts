@@ -17,6 +17,10 @@ import {
 } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
+import { LeaderPlanningService } from "../leader-planning.service";
+import { LeaderIntentService } from "../leader-intent.service";
+import { LeaderAgentSelectionService } from "../leader-agent-selection.service";
+import { LeaderReviewService } from "../leader-review.service";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -129,6 +133,10 @@ describe("ResearchLeaderService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchLeaderService,
+        LeaderPlanningService,
+        LeaderIntentService,
+        LeaderAgentSelectionService,
+        LeaderReviewService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ChatFacade, useValue: mockFacade },
         { provide: AgentFacade, useValue: mockFacade },

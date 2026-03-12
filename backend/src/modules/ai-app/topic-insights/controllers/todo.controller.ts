@@ -13,6 +13,7 @@ import {
   UseGuards,
   NotFoundException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import {
   ApiTags,
   ApiOperation,
@@ -52,6 +53,7 @@ export class TodoController {
   /**
    * 获取专题的 TODO 列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/todos")
   @ApiOperation({
     summary: "获取 TODO 列表",
@@ -83,6 +85,7 @@ export class TodoController {
   /**
    * 获取单个 TODO 详情
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/todos/:todoId")
   @ApiOperation({
     summary: "获取 TODO 详情",
@@ -106,6 +109,7 @@ export class TodoController {
   /**
    * 获取 TODO 详情（包含 Agent 活动）
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/todos/:todoId/details")
   @ApiOperation({
     summary: "获取 TODO 详情和活动",
@@ -130,6 +134,7 @@ export class TodoController {
    * ★ 获取任务（ResearchTask）相关的活动记录
    * 注意：这个 endpoint 用于获取 missionStatus.tasks 中任务的活动
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/tasks/:taskId/activities")
   @ApiOperation({
     summary: "获取任务活动记录",
@@ -153,6 +158,7 @@ export class TodoController {
   /**
    * 暂停 TODO
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/todos/:todoId/pause")
   @HttpCode(200)
   @ApiOperation({
@@ -178,6 +184,7 @@ export class TodoController {
   /**
    * 恢复 TODO
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/todos/:todoId/resume")
   @HttpCode(200)
   @ApiOperation({
@@ -203,6 +210,7 @@ export class TodoController {
   /**
    * 取消 TODO
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/todos/:todoId/cancel")
   @HttpCode(200)
   @ApiOperation({
@@ -231,6 +239,7 @@ export class TodoController {
    * ★ 增强版：同时支持 ResearchTodo ID 和 ResearchTask ID
    * 前端显示的任务可能来自 missionStatus.tasks（ResearchTask）或 apiTodos（ResearchTodo）
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/todos/:todoId/retry")
   @HttpCode(200)
   @ApiOperation({
@@ -282,6 +291,7 @@ export class TodoController {
    * ★ 执行用户请求的 TODO
    * 解析 TODO 内容，执行相应操作（如新增维度并研究）
    */
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("topics/:topicId/todos/:todoId/execute")
   @HttpCode(202)
   @ApiOperation({
@@ -307,6 +317,7 @@ export class TodoController {
   /**
    * 调整 TODO 优先级
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:topicId/todos/:todoId/priority")
   @ApiOperation({
     summary: "调整优先级",
@@ -332,6 +343,7 @@ export class TodoController {
   /**
    * 更新 TODO 进度（内部使用）
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:topicId/todos/:todoId/progress")
   @ApiOperation({
     summary: "更新进度",
@@ -360,6 +372,7 @@ export class TodoController {
   /**
    * 创建用户请求 TODO
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/missions/:missionId/todos")
   @ApiOperation({
     summary: "创建用户请求",
@@ -390,6 +403,7 @@ export class TodoController {
   /**
    * ★ 更新 TODO（编辑标题和描述）
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:topicId/todos/:todoId")
   @ApiOperation({
     summary: "更新 TODO",
@@ -415,6 +429,7 @@ export class TodoController {
   /**
    * ★ 删除 TODO
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Delete("topics/:topicId/todos/:todoId")
   @HttpCode(200)
   @ApiOperation({

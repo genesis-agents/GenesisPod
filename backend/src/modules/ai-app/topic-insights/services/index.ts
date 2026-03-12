@@ -6,6 +6,18 @@
 
 // ==================== Core ====================
 export { ResearchLeaderService } from "./core/research-leader.service";
+// ★ Leader sub-services (ResearchLeader decomposition)
+export { LeaderPlanningService } from "./core/leader-planning.service";
+export { LeaderIntentService } from "./core/leader-intent.service";
+export { LeaderAgentSelectionService } from "./core/leader-agent-selection.service";
+export { LeaderReviewService } from "./core/leader-review.service";
+// ★ Task executors (MissionExecution decomposition)
+export { DimensionResearchExecutor } from "./core/task-executors/dimension-research.executor";
+export { ReviewDimensionExecutor } from "./core/task-executors/review-dimension.executor";
+export { SynthesisReportExecutor } from "./core/task-executors/synthesis-report.executor";
+export { GenericTaskExecutor } from "./core/task-executors/generic-task.executor";
+// ★ Refresh pipeline (Orchestrator decomposition)
+export { RefreshPipelineService } from "./core/refresh-pipeline.service";
 export { MissionQueryService } from "./core/mission-query.service";
 export { MissionLifecycleService } from "./core/mission-lifecycle.service";
 export { MissionExecutionService } from "./core/mission-execution.service";

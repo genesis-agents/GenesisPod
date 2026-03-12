@@ -11,6 +11,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import {
   ApiTags,
   ApiOperation,
@@ -45,6 +46,7 @@ export class ReportReviewController {
   /**
    * 获取报告批注列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/reports/:reportId/annotations")
   @ApiOperation({
     summary: "获取报告批注",
@@ -77,6 +79,7 @@ export class ReportReviewController {
   /**
    * 创建批注
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/reports/:reportId/annotations")
   @ApiOperation({
     summary: "创建批注",
@@ -104,6 +107,7 @@ export class ReportReviewController {
   /**
    * 更新批注
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:topicId/reports/:reportId/annotations/:annotationId")
   @ApiOperation({
     summary: "更新批注",
@@ -134,6 +138,7 @@ export class ReportReviewController {
   /**
    * 删除批注
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Delete("topics/:topicId/reports/:reportId/annotations/:annotationId")
   @ApiOperation({
     summary: "删除批注",
@@ -162,6 +167,7 @@ export class ReportReviewController {
   /**
    * 解决批注
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/reports/:reportId/annotations/:annotationId/resolve")
   @ApiOperation({
     summary: "解决批注",
@@ -190,6 +196,7 @@ export class ReportReviewController {
   /**
    * 批量解决批注
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/reports/:reportId/annotations/resolve-all")
   @ApiOperation({
     summary: "批量解决批注",
@@ -219,6 +226,7 @@ export class ReportReviewController {
   /**
    * 获取报告的审核任务列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/reports/:reportId/review-tasks")
   @ApiOperation({
     summary: "获取审核任务列表",
@@ -242,6 +250,7 @@ export class ReportReviewController {
   /**
    * 创建审核任务
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/reports/:reportId/review-tasks")
   @ApiOperation({
     summary: "创建审核任务",
@@ -268,6 +277,7 @@ export class ReportReviewController {
   /**
    * 分配审核任务
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:topicId/reports/:reportId/review-tasks/:taskId/assign")
   @ApiOperation({
     summary: "分配审核任务",
@@ -302,6 +312,7 @@ export class ReportReviewController {
   /**
    * 完成审核任务
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:topicId/reports/:reportId/review-tasks/:taskId/complete")
   @ApiOperation({
     summary: "完成审核任务",
@@ -336,6 +347,7 @@ export class ReportReviewController {
   /**
    * 获取审核任务统计
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/reports/:reportId/review-tasks/stats")
   @ApiOperation({
     summary: "获取审核任务统计",
@@ -359,6 +371,7 @@ export class ReportReviewController {
   /**
    * 检查报告是否可发布
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:topicId/reports/:reportId/review-tasks/can-publish")
   @ApiOperation({
     summary: "检查报告是否可发布",

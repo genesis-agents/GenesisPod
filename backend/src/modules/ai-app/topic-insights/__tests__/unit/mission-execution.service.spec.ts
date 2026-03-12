@@ -12,12 +12,13 @@ import { MissionQueryService } from "../../services/core/mission-query.service";
 import { ResearchMemoryService } from "../../services/core/research-memory.service";
 import { DimensionMissionService } from "../../services/dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../../services/report/report-synthesis.service";
-import { AgentActivityService } from "../../services/monitoring/agent-activity.service";
-import { ResearchReviewerService } from "../../services/collaboration/research-reviewer.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { DataSourceFetcherService } from "../../services/data/data-source-fetcher.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
+import { DimensionResearchExecutor } from "../../services/core/task-executors/dimension-research.executor";
+import { ReviewDimensionExecutor } from "../../services/core/task-executors/review-dimension.executor";
+import { SynthesisReportExecutor } from "../../services/core/task-executors/synthesis-report.executor";
+import { GenericTaskExecutor } from "../../services/core/task-executors/generic-task.executor";
 
 import {
   createMockPrisma,
@@ -38,17 +39,14 @@ describe("MissionExecutionService", () => {
   let prisma: ReturnType<typeof createMockPrisma>;
   let researchEventEmitter: ReturnType<typeof createMockResearchEventEmitter>;
   let queryService: any;
-  let dimensionMissionService: any;
+  let dimensionResearchExecutorMock: any;
   let reportSynthesisService: any;
-  let agentActivity: ReturnType<typeof createMockAgentActivityService>;
   let aiFacade: ReturnType<typeof createMockAiEngineFacade>;
-  let reviewerService: any;
 
   beforeEach(async () => {
     // Create mock services
     prisma = createMockPrisma();
     researchEventEmitter = createMockResearchEventEmitter();
-    agentActivity = createMockAgentActivityService();
     aiFacade = createMockAiEngineFacade();
 
     queryService = {
@@ -59,8 +57,8 @@ describe("MissionExecutionService", () => {
       getAgentNameFromTaskType: jest.fn().mockReturnValue("研究员"),
     };
 
-    dimensionMissionService = {
-      executeDimensionMission: jest.fn().mockResolvedValue({
+    dimensionResearchExecutorMock = {
+      execute: jest.fn().mockResolvedValue({
         success: true,
         analysisResult: {
           summary: "Test analysis",
@@ -69,6 +67,13 @@ describe("MissionExecutionService", () => {
           confidenceLevel: "high",
           detailedContent: "Detailed analysis content",
         },
+      }),
+      executeGenericDimensionResearch: jest.fn().mockResolvedValue({
+        summary: "Test analysis",
+        keyFindings: [],
+        evidenceUsed: 0,
+        confidenceLevel: "medium",
+        detailedContent: "",
       }),
     };
 
@@ -80,31 +85,6 @@ describe("MissionExecutionService", () => {
         chapters: [{ title: "Chapter 1" }],
       }),
       saveDimensionAnalysis: jest.fn().mockResolvedValue(undefined),
-    };
-
-    reviewerService = {
-      reviewDimension: jest.fn().mockResolvedValue({
-        qualityLevel: "good",
-        overallScore: 85,
-        scores: { depth: 80, accuracy: 90, coverage: 85 },
-        issues: [],
-        suggestions: ["Great work"],
-        needsReresearch: false,
-      }),
-      reviewOverall: jest.fn().mockResolvedValue({
-        qualityLevel: "excellent",
-        overallScore: 90,
-        recommendations: ["Continue this approach"],
-        needsReresearch: false,
-      }),
-      validateClaims: jest.fn().mockResolvedValue({
-        stats: { verified: 5, disputed: 0, unverified: 1 },
-      }),
-      factCheckReport: jest.fn().mockResolvedValue({
-        accuracyScore: 95,
-        citations: [],
-        issues: [],
-      }),
     };
 
     const mockResearchMemoryService = {
@@ -120,15 +100,24 @@ describe("MissionExecutionService", () => {
           useValue: researchEventEmitter,
         },
         { provide: MissionQueryService, useValue: queryService },
-        { provide: ResearchMemoryService, useValue: mockResearchMemoryService },
-        { provide: DimensionMissionService, useValue: dimensionMissionService },
         { provide: ReportSynthesisService, useValue: reportSynthesisService },
-        { provide: AgentActivityService, useValue: agentActivity },
         { provide: ChatFacade, useValue: aiFacade },
-        { provide: ResearchReviewerService, useValue: reviewerService },
+        { provide: ResearchMemoryService, useValue: mockResearchMemoryService },
         {
-          provide: DataSourceFetcherService,
-          useValue: { executeSearch: jest.fn().mockResolvedValue([]) },
+          provide: DimensionResearchExecutor,
+          useValue: dimensionResearchExecutorMock,
+        },
+        {
+          provide: ReviewDimensionExecutor,
+          useValue: { execute: jest.fn().mockResolvedValue({ success: true }) },
+        },
+        {
+          provide: SynthesisReportExecutor,
+          useValue: { execute: jest.fn().mockResolvedValue({ success: true }) },
+        },
+        {
+          provide: GenericTaskExecutor,
+          useValue: { execute: jest.fn().mockResolvedValue({ success: true }) },
         },
       ],
     }).compile();
@@ -544,9 +533,7 @@ describe("MissionExecutionService", () => {
         },
         data: { status: ResearchTaskStatus.EXECUTING },
       });
-      expect(
-        dimensionMissionService.executeDimensionMission,
-      ).toHaveBeenCalled();
+      expect(dimensionResearchExecutorMock.execute).toHaveBeenCalled();
       // Only COMPLETED status update goes through updateTaskStatus
       expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
         task.id,
@@ -575,9 +562,7 @@ describe("MissionExecutionService", () => {
 
       // Assert
       expect(queryService.updateTaskStatus).not.toHaveBeenCalled();
-      expect(
-        dimensionMissionService.executeDimensionMission,
-      ).not.toHaveBeenCalled();
+      expect(dimensionResearchExecutorMock.execute).not.toHaveBeenCalled();
     });
 
     it("should skip execution if mission is cancelled", async () => {
@@ -601,9 +586,7 @@ describe("MissionExecutionService", () => {
 
       // Assert
       expect(queryService.updateTaskStatus).not.toHaveBeenCalled();
-      expect(
-        dimensionMissionService.executeDimensionMission,
-      ).not.toHaveBeenCalled();
+      expect(dimensionResearchExecutorMock.execute).not.toHaveBeenCalled();
     });
 
     it("should handle task failure and update status", async () => {
@@ -641,7 +624,7 @@ describe("MissionExecutionService", () => {
         },
         researchDepth: "standard",
       });
-      dimensionMissionService.executeDimensionMission.mockRejectedValue(
+      dimensionResearchExecutorMock.execute.mockRejectedValue(
         new Error("API Error"),
       );
 

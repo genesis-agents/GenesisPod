@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "@jest/globals";
 import { ResearchLeaderService } from "../../services/core/research-leader.service";
+import { LeaderReviewService } from "../../services/core/leader-review.service";
 import type { ResearchHypothesis } from "../../types/v5-research.types";
 import { createMockAiEngineFacade } from "../mocks";
 
@@ -9,11 +10,21 @@ describe("ResearchLeaderService - V5 Methods", () => {
 
   beforeEach(() => {
     mockAiFacade = createMockAiEngineFacade();
+
+    // Use a real LeaderReviewService wired to the mocked ChatFacade so that
+    // mockAiFacade.chatStructured is actually invoked by the real logic.
+    const leaderReview = new LeaderReviewService(
+      {} as any, // prisma (not needed by extractClaims / verifyHypotheses)
+      mockAiFacade as any, // chatFacade
+    );
+
     service = new ResearchLeaderService(
       {} as any, // prisma
-      mockAiFacade as any, // aiFacade
-      {} as any, // eventEmitter
-      {} as any, // leaderToolService
+      {} as any, // chatFacade
+      {} as any, // leaderPlanning
+      {} as any, // leaderIntent
+      {} as any, // leaderAgentSelection
+      leaderReview, // leaderReview
     );
   });
 

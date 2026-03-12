@@ -4145,7 +4145,8 @@ describe("DataSourceRouterService", () => {
 
         const fetchPromise = svc.fetchDataForDimension(dimension, topic);
         // Advance past the 30s default timeout in searchSource
-        jest.advanceTimersByTime(35000);
+        // Use async version to properly flush microtask queue after timer fires
+        await jest.advanceTimersByTimeAsync(35000);
         const result = await fetchPromise;
 
         expect(result).toBeDefined();
@@ -4189,7 +4190,7 @@ describe("DataSourceRouterService", () => {
         });
 
         const fetchPromise = svc.fetchDataForDimension(dimension, topic);
-        jest.advanceTimersByTime(35000);
+        await jest.advanceTimersByTimeAsync(35000);
         await fetchPromise;
 
         // The timeout message contains "timeout" → recordFailure called with TIMEOUT type
@@ -4743,45 +4744,38 @@ describe("DataSourceRouterService", () => {
           return {
             execute: jest
               .fn()
-              .mockImplementation(
-                () =>
-                  new Promise((resolve) =>
-                    setTimeout(
-                      () => resolve({ success: true, data: { papers: [] } }),
-                      60000,
-                    ),
-                  ),
-              ),
+              .mockImplementation(() => new Promise(() => {})), // never resolves
           };
         }
         if (toolId === "pubmed") {
           return {
             execute: jest
               .fn()
-              .mockImplementation(
-                () =>
-                  new Promise((resolve) =>
-                    setTimeout(
-                      () => resolve({ success: true, data: { articles: [] } }),
-                      60000,
-                    ),
-                  ),
-              ),
+              .mockImplementation(() => new Promise(() => {})), // never resolves
           };
         }
         if (toolId === "web-search") return { execute: mockWebSearchExecute };
         return null;
       });
 
-      const topic = makeResearchTopic();
-      const dimension = makeTopicDimension({
-        searchSources: [DataSourceType.ACADEMIC],
-      });
+      jest.useFakeTimers();
+      try {
+        const topic = makeResearchTopic();
+        const dimension = makeTopicDimension({
+          searchSources: [DataSourceType.ACADEMIC],
+        });
 
-      // Should complete without throwing (timeout returns [] gracefully)
-      const result = await service.fetchDataForDimension(dimension, topic);
-      expect(result).toBeDefined();
-    }, 35000);
+        const fetchPromise = service.fetchDataForDimension(dimension, topic);
+        // Advance past the tool timeout + searchSource timeout
+        await jest.advanceTimersByTimeAsync(35000);
+        const result = await fetchPromise;
+
+        // Should complete without throwing (timeout returns [] gracefully)
+        expect(result).toBeDefined();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 
   // ============================================================

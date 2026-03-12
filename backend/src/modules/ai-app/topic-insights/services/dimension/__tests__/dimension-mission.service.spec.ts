@@ -10,6 +10,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionMissionService } from "../dimension-mission.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchLeaderService } from "../../core/research-leader.service";
+import { LeaderPlanningService } from "../../core/leader-planning.service";
+import { LeaderReviewService } from "../../core/leader-review.service";
 import { SectionWriterService } from "../section-writer.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
 import { ResearchEventEmitterService } from "../../core/research-event-emitter.service";
@@ -175,6 +177,23 @@ function buildMocks() {
     extractClaims: jest.fn().mockResolvedValue([]),
   };
 
+  const mockLeaderPlanningService = {
+    planResearch: jest.fn(),
+    getReasoningModel: jest.fn().mockResolvedValue(null),
+    planDimensionOutline: jest.fn().mockResolvedValue(mockOutline),
+  };
+
+  const mockLeaderReviewService = {
+    reviewTaskResult: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+    extractClaims: jest.fn().mockResolvedValue([]),
+    verifyHypotheses: jest.fn().mockResolvedValue([]),
+    reviewSectionOutput: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+    integrateDimensionResults: jest.fn().mockResolvedValue({
+      content: "## 竞争格局\n\n综合分析内容...",
+      metadata: { summary: "分析完成", keyFindings: [] },
+    }),
+  };
+
   const mockSectionWriter = {
     writeSection: jest.fn(),
     writeSectionWithRevisions: jest.fn().mockResolvedValue(mockSectionResult),
@@ -214,6 +233,8 @@ function buildMocks() {
   return {
     mockPrisma,
     mockLeaderService,
+    mockLeaderPlanningService,
+    mockLeaderReviewService,
     mockSectionWriter,
     mockDataSourceRouter,
     mockEventEmitter,
@@ -231,6 +252,12 @@ describe("DimensionMissionService", () => {
   let service: DimensionMissionService;
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockLeaderService: ReturnType<typeof buildMocks>["mockLeaderService"];
+  let mockLeaderPlanningService: ReturnType<
+    typeof buildMocks
+  >["mockLeaderPlanningService"];
+  let mockLeaderReviewService: ReturnType<
+    typeof buildMocks
+  >["mockLeaderReviewService"];
   let mockSectionWriter: ReturnType<typeof buildMocks>["mockSectionWriter"];
   let mockDataSourceRouter: ReturnType<
     typeof buildMocks
@@ -244,6 +271,8 @@ describe("DimensionMissionService", () => {
     const mocks = buildMocks();
     mockPrisma = mocks.mockPrisma;
     mockLeaderService = mocks.mockLeaderService;
+    mockLeaderPlanningService = mocks.mockLeaderPlanningService;
+    mockLeaderReviewService = mocks.mockLeaderReviewService;
     mockSectionWriter = mocks.mockSectionWriter;
     mockDataSourceRouter = mocks.mockDataSourceRouter;
     mockEventEmitter = mocks.mockEventEmitter;
@@ -256,6 +285,14 @@ describe("DimensionMissionService", () => {
         DimensionMissionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ResearchLeaderService, useValue: mockLeaderService },
+        {
+          provide: LeaderPlanningService,
+          useValue: mocks.mockLeaderPlanningService,
+        },
+        {
+          provide: LeaderReviewService,
+          useValue: mocks.mockLeaderReviewService,
+        },
         { provide: SectionWriterService, useValue: mockSectionWriter },
         { provide: DataSourceRouterService, useValue: mockDataSourceRouter },
         { provide: ResearchEventEmitterService, useValue: mockEventEmitter },
@@ -601,7 +638,7 @@ describe("DimensionMissionService", () => {
       );
 
       // Leader outline should have been called for this dimension
-      expect(mockLeaderService.planDimensionOutline).toHaveBeenCalled();
+      expect(mockLeaderPlanningService.planDimensionOutline).toHaveBeenCalled();
     });
 
     it("should run literature baseline scan when maxRevisionRounds > 0", async () => {
@@ -731,7 +768,7 @@ describe("DimensionMissionService", () => {
       await service.executeDimensionMission(mockTopic, mockDimension);
 
       // extractClaims called per section result
-      expect(mockLeaderService.extractClaims).toHaveBeenCalled();
+      expect(mockLeaderReviewService.extractClaims).toHaveBeenCalled();
     });
 
     it("should save evidence and return evidenceIds when reportId provided", async () => {

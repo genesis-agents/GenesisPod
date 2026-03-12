@@ -7,6 +7,7 @@ import {
   jest,
 } from "@jest/globals";
 import { TopicTeamOrchestratorService } from "../../services/core/topic-team-orchestrator.service";
+import { RefreshPipelineService } from "../../services/core/refresh-pipeline.service";
 
 /** Helper: create a mock function that accepts any resolved value */
 const fn = () => jest.fn<() => Promise<unknown>>();
@@ -180,6 +181,12 @@ function createMockServices() {
     }),
   };
 
+  const refreshPipelineService = {
+    researchDimensionsInParallel: jest.fn().mockResolvedValue({ results: [], researchDesign: null }),
+    reviseFailedDimensions: jest.fn().mockResolvedValue([]),
+    reviewResearchQuality: jest.fn().mockResolvedValue({ needsReresearch: false }),
+  };
+
   return {
     prisma,
     eventEmitter,
@@ -189,6 +196,7 @@ function createMockServices() {
     researchLeaderService,
     researchCheckpointService,
     dataSourceRouterService,
+    refreshPipelineService,
     mockDimension,
   };
 }
@@ -217,6 +225,7 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
       mocks.researchCheckpointService as any,
       mocks.dataSourceRouterService as any,
       {} as any, // researchTodoService
+      mocks.refreshPipelineService as any,
     );
   });
 
@@ -236,75 +245,20 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("standard → runs literature baseline and cognitive loop, skips fact check", async () => {
-    // Make cognitive loop have claims to process
-    mocks.dimensionMissionService.executeWritingPhase.mockResolvedValue({
-      success: true,
-      analysisResult: {
-        summary: "summary",
-        keyFindings: [],
-        trends: [],
-        challenges: [],
-        opportunities: [],
-        confidenceLevel: "high",
-        evidenceUsed: 5,
-        detailedContent: "content",
-      },
-      evidenceIds: ["e1"],
-      extractedClaims: [
-        {
-          id: "c1",
-          statement: "claim",
-          sectionId: "s1",
-          sourceEvidenceIndices: [0],
-          importance: "high",
-        },
-      ],
-    });
-
+  it("standard → delegates to refreshPipelineService.researchDimensionsInParallel", async () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
     expect(
-      mocks.dataSourceRouterService.scanLiteratureBaseline,
+      mocks.refreshPipelineService.researchDimensionsInParallel,
     ).toHaveBeenCalled();
-    expect(mocks.researchReviewerService.validateClaims).toHaveBeenCalled();
-    expect(
-      mocks.researchReviewerService.factCheckReport,
-    ).not.toHaveBeenCalled();
   });
 
-  it("thorough → runs all V5 features including fact check", async () => {
-    mocks.dimensionMissionService.executeWritingPhase.mockResolvedValue({
-      success: true,
-      analysisResult: {
-        summary: "summary",
-        keyFindings: [],
-        trends: [],
-        challenges: [],
-        opportunities: [],
-        confidenceLevel: "high",
-        evidenceUsed: 5,
-        detailedContent: "content",
-      },
-      evidenceIds: ["e1"],
-      extractedClaims: [
-        {
-          id: "c1",
-          statement: "claim",
-          sectionId: "s1",
-          sourceEvidenceIndices: [0],
-          importance: "high",
-        },
-      ],
-    });
-
+  it("thorough → delegates to refreshPipelineService.researchDimensionsInParallel", async () => {
     await service.executeRefresh(topic, { researchDepth: "thorough" });
 
     expect(
-      mocks.dataSourceRouterService.scanLiteratureBaseline,
+      mocks.refreshPipelineService.researchDimensionsInParallel,
     ).toHaveBeenCalled();
-    expect(mocks.researchReviewerService.validateClaims).toHaveBeenCalled();
-    expect(mocks.researchReviewerService.factCheckReport).toHaveBeenCalled();
   });
 
   it("should save checkpoints at key phases", async () => {
@@ -333,16 +287,20 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
     ).resolves.toBeDefined();
   });
 
-  it("should pass maxRevisionRounds to executeWritingPhase", async () => {
+  it("should call refreshPipelineService with correct researchDepth config", async () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
-    // standard config has maxRevisionRounds=1
-    const writingCalls = mocks.dimensionMissionService.executeWritingPhase.mock
-      .calls as unknown[][];
-    expect(writingCalls.length).toBeGreaterThan(0);
-    // The last argument should be maxRevisionRounds (index 11 based on the source)
-    const lastArg = writingCalls[0][writingCalls[0].length - 1];
-    expect(lastArg).toBe(1);
+    expect(
+      mocks.refreshPipelineService.researchDimensionsInParallel,
+    ).toHaveBeenCalledWith(
+      expect.anything(), // topic
+      expect.any(Array), // dimensions
+      expect.any(String), // reportId
+      expect.any(AbortSignal), // signal
+      expect.anything(), // agentAssignments
+      expect.anything(), // depthConfig
+      expect.any(Number), // parallelism
+    );
   });
 
   it("thorough fact check queries evidence from DB", async () => {

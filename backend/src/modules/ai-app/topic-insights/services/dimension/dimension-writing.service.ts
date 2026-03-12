@@ -10,13 +10,14 @@
  * 4. 保存证据和生成分析结果
  */
 
-import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DimensionStatus,
   type ResearchTopic,
   type TopicDimension,
 } from "@prisma/client";
+import { LeaderReviewService } from "../core/leader-review.service";
 import { ResearchLeaderService } from "../core/research-leader.service";
 import {
   SectionWriterService,
@@ -67,9 +68,7 @@ export class DimensionWritingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    // forwardRef: DimensionWritingService <-> ResearchLeaderService
-    // Leader schedules writing tasks; writing service calls Leader to review each section before finalizing
-    @Inject(forwardRef(() => ResearchLeaderService))
+    private readonly leaderReview: LeaderReviewService,
     private readonly leaderService: ResearchLeaderService,
     private readonly sectionWriter: SectionWriterService,
     private readonly eventEmitter: ResearchEventEmitterService,
@@ -267,7 +266,7 @@ export class DimensionWritingService {
         [];
       try {
         const claimPromises = allSectionContents.map((sc) =>
-          this.leaderService.extractClaims(sc.sectionId, sc.content),
+          this.leaderReview.extractClaims(sc.sectionId, sc.content),
         );
         const claimResults = await Promise.all(claimPromises);
         extractedClaims = claimResults.flat();

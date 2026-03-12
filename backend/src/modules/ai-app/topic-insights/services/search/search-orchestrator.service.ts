@@ -40,8 +40,10 @@ const DEFAULT_SOURCES: DataSourceType[] = [
   DataSourceType.ACADEMIC,
 ];
 
+import { DATA_FRESHNESS } from "../../config/health-monitoring.config";
+
 /** Six months in milliseconds — used for default `since` date */
-const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+const SIX_MONTHS_MS = DATA_FRESHNESS.SIX_MONTHS_MS;
 
 @Injectable()
 export class SearchOrchestratorService {

@@ -18,8 +18,10 @@ const DEFAULT_MIN_RESULTS = 5;
 /** Minimum fraction of items with publishedAt in the last 6 months to pass freshness check */
 const FRESHNESS_RATIO_THRESHOLD = 0.2;
 
+import { DATA_FRESHNESS } from "../../../config/health-monitoring.config";
+
 /** Six months expressed in milliseconds */
-const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+const SIX_MONTHS_MS = DATA_FRESHNESS.SIX_MONTHS_MS;
 
 /** Fraction of requested sources that may fail before triggering a retry recommendation */
 const FAILED_SOURCE_RATIO_THRESHOLD = 0.5;

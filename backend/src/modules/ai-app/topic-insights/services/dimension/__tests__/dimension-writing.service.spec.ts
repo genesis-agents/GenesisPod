@@ -17,6 +17,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionWritingService } from "../dimension-writing.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchLeaderService } from "../../core/research-leader.service";
+import { LeaderReviewService } from "../../core/leader-review.service";
 import { SectionWriterService } from "../section-writer.service";
 import { ResearchEventEmitterService } from "../../core/research-event-emitter.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
@@ -179,6 +180,17 @@ const mockLeaderService = {
   extractClaims: jest.fn().mockResolvedValue([]),
 };
 
+const mockLeaderReviewService = {
+  reviewTaskResult: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+  extractClaims: jest.fn().mockResolvedValue([]),
+  verifyHypotheses: jest.fn().mockResolvedValue([]),
+  reviewSectionOutput: jest.fn().mockResolvedValue({ approved: true, feedback: "OK", score: 80 }),
+  integrateDimensionResults: jest.fn().mockResolvedValue({
+    content: "## Analysis\n\nIntegrated content.",
+    metadata: { summary: "Summary", keyFindings: [] },
+  }),
+};
+
 const mockSectionWriter = {
   writeSection: jest.fn(),
   reviseSection: jest.fn(),
@@ -260,6 +272,7 @@ describe("DimensionWritingService", () => {
         DimensionWritingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ResearchLeaderService, useValue: mockLeaderService },
+        { provide: LeaderReviewService, useValue: mockLeaderReviewService },
         { provide: SectionWriterService, useValue: mockSectionWriter },
         { provide: ResearchEventEmitterService, useValue: mockEventEmitter },
         { provide: AgentActivityService, useValue: mockAgentActivity },
@@ -687,7 +700,7 @@ describe("DimensionWritingService", () => {
       const fakeClaims = [
         { id: "claim-1", text: "AI will dominate by 2030", sectionId: "sec-1" },
       ];
-      mockLeaderService.extractClaims.mockResolvedValue(fakeClaims);
+      mockLeaderReviewService.extractClaims.mockResolvedValue(fakeClaims);
 
       const result = await service.executeWritingPhase(
         topic,

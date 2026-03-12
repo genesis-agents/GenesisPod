@@ -14,6 +14,7 @@ import {
   Logger,
   InternalServerErrorException,
 } from "@nestjs/common";
+import { InsufficientCreditsException } from "../../exceptions/research.exceptions";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { inferIsReasoning } from "@/modules/ai-engine/facade";
@@ -27,6 +28,7 @@ import {
   getLanguageInstruction,
 } from "../../prompts/dimension-research.prompt";
 import { getWritingStandards } from "@/modules/ai-app/shared/report-template";
+import { sanitizeImageUrl } from "../../utils/sanitize-image-url.utils";
 import type {
   EvidenceData,
   GeneratedChart,
@@ -338,7 +340,7 @@ export class SectionWriterService {
         lc.includes("insufficient credits") ||
         lc.includes("insufficient_credits")
       ) {
-        throw new Error(`[INSUFFICIENT_CREDITS] ${response.content}`);
+        throw new InsufficientCreditsException(response.content);
       }
 
       throw new InternalServerErrorException(
@@ -662,7 +664,7 @@ export class SectionWriterService {
         lc.includes("insufficient credits") ||
         lc.includes("insufficient_credits")
       ) {
-        throw new Error(`[INSUFFICIENT_CREDITS] ${response.content}`);
+        throw new InsufficientCreditsException(response.content);
       }
 
       throw new InternalServerErrorException(
@@ -735,6 +737,7 @@ export class SectionWriterService {
       index: number;
       input: SectionWriteInput;
       error: string;
+      reason: unknown;
     }[] = [];
 
     // 第一轮：并行执行所有章节
@@ -752,6 +755,7 @@ export class SectionWriterService {
           index: i,
           input: inputs[i],
           error: result.reason?.message || String(result.reason),
+          reason: result.reason,
         });
         this.logger.warn(
           `[writeSectionsParallel] Section "${inputs[i].section.title}" failed: ${result.reason?.message}`,
@@ -760,15 +764,15 @@ export class SectionWriterService {
     }
 
     // ★ 积分不足快速失败：如果任何章节因积分不足失败，直接抛出不重试
-    const creditFailure = failedIndices.find(({ error }) =>
-      error.includes("[INSUFFICIENT_CREDITS]"),
+    const creditFailure = failedIndices.find(({ reason }) =>
+      reason instanceof InsufficientCreditsException,
     );
     if (creditFailure) {
       this.logger.error(
         `[writeSectionsParallel] Insufficient credits detected, aborting all sections without retry`,
       );
-      throw new Error(
-        `[INSUFFICIENT_CREDITS] User has insufficient credits to continue research`,
+      throw new InsufficientCreditsException(
+        "User has insufficient credits to continue research",
       );
     }
 
@@ -1175,9 +1179,7 @@ export class SectionWriterService {
     if (allocatedFigures && allocatedFigures.length > 0) {
       const entries = allocatedFigures.map((fig) => {
         // ★ 过滤 base64 data URL，避免将数十万字符的图片数据注入 LLM prompt
-        const safeUrl = fig.imageUrl?.startsWith("data:")
-          ? `[base64-image]`
-          : fig.imageUrl || "无URL";
+        const safeUrl = sanitizeImageUrl(fig.imageUrl) || "无URL";
         return `- 【已分配】证据[${fig.evidenceIndex}] 图${fig.figureIndex}: "${fig.caption}" (URL: ${safeUrl})\n  分配原因: ${fig.relevanceReason}`;
       });
       return `Leader 已为本章节分配以下图表（请优先使用）：\n${entries.join("\n")}`;
@@ -1193,9 +1195,7 @@ export class SectionWriterService {
         for (let j = 0; j < evidence.extractedFigures.length; j++) {
           const fig = evidence.extractedFigures[j];
           // ★ 过滤 base64 data URL
-          const safeUrl = fig.imageUrl?.startsWith("data:")
-            ? `[base64-image:${fig.type}]`
-            : fig.imageUrl || "无URL";
+          const safeUrl = sanitizeImageUrl(fig.imageUrl) || "无URL";
           figureEntries.push(
             `- 证据[${i + 1}] 图${j}: ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (URL: ${safeUrl})`,
           );

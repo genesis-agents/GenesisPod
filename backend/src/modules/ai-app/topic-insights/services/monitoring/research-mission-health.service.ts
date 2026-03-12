@@ -30,27 +30,28 @@ import type {
   MissionHealthStatus,
   RecoveryResult,
 } from "../../types/monitoring.types";
+import { HEALTH_MONITORING } from "../../config/health-monitoring.config";
 
 // ==================== Configuration ====================
 
 /**
- * Health check configuration
+ * Health check configuration — sourced from centralized config
  */
 const HEALTH_CHECK_CONFIG = {
   /** Check interval: 5 minutes (same as AI Writing) */
-  checkIntervalMs: 5 * 60 * 1000,
+  checkIntervalMs: HEALTH_MONITORING.CHECK_INTERVAL_MS,
 
   /** Stuck threshold: 30 minutes without progress (same as AI Writing) */
-  stuckThresholdMs: 30 * 60 * 1000,
+  stuckThresholdMs: HEALTH_MONITORING.INTERRUPTED_THRESHOLD_MS,
 
   /** Maximum execution time: 6 hours (safety net for very long research tasks) */
-  maxExecutionTimeMs: 6 * 60 * 60 * 1000,
+  maxExecutionTimeMs: HEALTH_MONITORING.MAX_MISSION_DURATION_MS,
 
   /** Per-task stuck threshold: 20 minutes — force-fail individual tasks stuck longer */
   taskStuckThresholdMs: 20 * 60 * 1000,
 
   /** Max retries before giving up */
-  maxRetries: 3,
+  maxRetries: HEALTH_MONITORING.MAX_CONSECUTIVE_FAILURES,
 } as const;
 
 /**
@@ -61,7 +62,7 @@ const RECOVERY_CONFIG = {
   recoveryDelayMs: 10 * 1000,
 
   /** 任务被认为是"中断"的阈值（LLM 任务可能运行 10-30 分钟，5 分钟太短会误判） */
-  interruptedThresholdMs: 30 * 60 * 1000,
+  interruptedThresholdMs: HEALTH_MONITORING.INTERRUPTED_THRESHOLD_MS,
 
   /** 最大并发恢复任务数 */
   maxConcurrentRecovery: 3,

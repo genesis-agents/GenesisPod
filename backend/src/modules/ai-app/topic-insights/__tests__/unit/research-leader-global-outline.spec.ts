@@ -23,6 +23,10 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
 import { LeaderToolService } from "../../services/data/leader-tool.service";
+import { LeaderPlanningService } from "../../services/core/leader-planning.service";
+import { LeaderIntentService } from "../../services/core/leader-intent.service";
+import { LeaderAgentSelectionService } from "../../services/core/leader-agent-selection.service";
+import { LeaderReviewService } from "../../services/core/leader-review.service";
 import { createMockPrisma, createMockAiEngineFacade } from "../mocks";
 
 describe("ResearchLeaderService - planGlobalOutline", () => {
@@ -44,6 +48,10 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchLeaderService,
+        LeaderPlanningService,
+        LeaderIntentService,
+        LeaderAgentSelectionService,
+        LeaderReviewService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ChatFacade, useValue: mockAiFacade },
         { provide: AgentFacade, useValue: mockAiFacade },
@@ -57,14 +65,6 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
     }).compile();
 
     service = module.get<ResearchLeaderService>(ResearchLeaderService);
-
-    // Mock getReasoningModel method
-    (service as any)["getReasoningModel"] = jest
-      .fn<() => Promise<unknown>>()
-      .mockResolvedValue({
-        modelId: "gpt-4o",
-        name: "GPT-4o",
-      });
   });
 
   afterEach(() => {
@@ -535,14 +535,15 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
     });
 
     it("should use reasoning model from getReasoningModel()", async () => {
-      // Arrange
+      // Arrange - patch the chatFacade mock to return a custom model
       const customModel = {
-        modelId: "claude-sonnet-4",
+        id: "claude-sonnet-4",
         name: "Claude Sonnet 4",
+        provider: "anthropic",
+        isReasoning: false,
       };
-      (service as any)["getReasoningModel"] = jest
-        .fn<() => Promise<unknown>>()
-        .mockResolvedValue(customModel);
+      // LeaderPlanningService calls chatFacade.getReasoningModel internally
+      mockAiFacade.getReasoningModel.mockResolvedValue(customModel);
 
       const validOutline = {
         dimensions: mockDimensionSearchResults.map((dim) => ({
@@ -586,20 +587,18 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
       // Act
       await service.planGlobalOutline(mockTopic, mockDimensionSearchResults);
 
-      // Assert
-      expect((service as any)["getReasoningModel"]).toHaveBeenCalled();
+      // Assert - the underlying chatFacade.getReasoningModel was called
+      expect(mockAiFacade.getReasoningModel).toHaveBeenCalled();
       expect(mockAiFacade.chat).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: customModel.modelId,
+          model: customModel.id,
         }),
       );
     });
 
     it("should throw if getReasoningModel returns null", async () => {
-      // Arrange
-      (service as any)["getReasoningModel"] = jest
-        .fn<() => Promise<unknown>>()
-        .mockResolvedValue(null);
+      // Arrange - make chatFacade return null for getReasoningModel
+      mockAiFacade.getReasoningModel.mockResolvedValue(null);
 
       // Act & Assert
       await expect(

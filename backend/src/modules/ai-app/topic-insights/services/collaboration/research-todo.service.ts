@@ -17,8 +17,6 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-  forwardRef,
-  Inject,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -30,10 +28,8 @@ import {
 } from "@prisma/client";
 import type { ResearchTodo, ResearchMission } from "@prisma/client";
 import { ResearchEventEmitterService } from "../core/research-event-emitter.service";
-import {
-  ResearchLeaderService,
-  type ReviewDecision,
-} from "../core/research-leader.service";
+import { LeaderReviewService } from "../core/leader-review.service";
+import type { ReviewDecision } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import {
   TodoEventType,
@@ -53,10 +49,7 @@ export class ResearchTodoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: ResearchEventEmitterService,
-    // forwardRef: ResearchTodoService <-> ResearchLeaderService
-    // Leader creates and schedules TODO tasks; TODO completion triggers Leader review decisions
-    @Inject(forwardRef(() => ResearchLeaderService))
-    private readonly leaderService: ResearchLeaderService,
+    private readonly leaderReview: LeaderReviewService,
   ) {}
 
   // ==================== CRUD 操作 ====================
@@ -1000,7 +993,7 @@ export class ResearchTodoService {
         };
       }
 
-      const reviewResult = await this.leaderService.reviewTaskResult(
+      const reviewResult = await this.leaderReview.reviewTaskResult(
         todo.missionId,
         todo.id,
         {

@@ -10,6 +10,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import {
   ApiTags,
   ApiOperation,
@@ -20,6 +21,7 @@ import {
 import { TopicInsightsService } from "../topic-insights.service";
 import {
   AddCollaboratorDto,
+  CollaboratorRole,
   UpdateCollaboratorRoleDto,
   UpdateTopicVisibilityDto,
   ApplyToJoinDto,
@@ -27,6 +29,7 @@ import {
 } from "../dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { TopicCollaboratorService } from "../services";
+import { TopicAccessGuard, RequireTopicAccess } from "../guards";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("Topic Research")
@@ -44,6 +47,9 @@ export class CollaborationController {
   /**
    * 获取协作者列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/collaborators")
   @ApiOperation({
     summary: "获取协作者列表",
@@ -65,6 +71,9 @@ export class CollaborationController {
   /**
    * 添加协作者
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.ADMIN)
   @Post("topics/:id/collaborators")
   @ApiOperation({
     summary: "添加协作者",
@@ -92,6 +101,9 @@ export class CollaborationController {
   /**
    * 更新协作者角色
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Patch("topics/:topicId/collaborators/:collaboratorId")
   @ApiOperation({
     summary: "更新协作者角色",
@@ -121,6 +133,9 @@ export class CollaborationController {
   /**
    * 移除协作者
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Delete("topics/:topicId/collaborators/:collaboratorId")
   @ApiOperation({
     summary: "移除协作者",
@@ -149,6 +164,7 @@ export class CollaborationController {
   /**
    * 离开专题
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:id/leave")
   @ApiOperation({
     summary: "离开专题",
@@ -168,6 +184,9 @@ export class CollaborationController {
   /**
    * 更新专题可见性
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Patch("topics/:id/visibility")
   @ApiOperation({
     summary: "更新专题可见性",
@@ -194,6 +213,9 @@ export class CollaborationController {
   /**
    * 获取专题共享设置
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/sharing")
   @ApiOperation({
     summary: "获取共享设置",
@@ -217,6 +239,7 @@ export class CollaborationController {
   /**
    * 用户申请加入专题
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:id/apply")
   @ApiOperation({
     summary: "申请加入专题",
@@ -239,6 +262,9 @@ export class CollaborationController {
   /**
    * 获取待审核的申请列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Get("topics/:id/applications")
   @ApiOperation({
     summary: "获取待审核申请",
@@ -260,6 +286,9 @@ export class CollaborationController {
   /**
    * 审核申请
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/applications/:applicationId/review")
   @ApiOperation({
     summary: "审核申请",
@@ -290,6 +319,7 @@ export class CollaborationController {
   /**
    * 检查当前用户的申请状态
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/my-application")
   @ApiOperation({
     summary: "获取我的申请状态",

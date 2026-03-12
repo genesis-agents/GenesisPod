@@ -1,4 +1,16 @@
 export { ResearchLeaderService } from "./research-leader.service";
+// ★ Leader sub-services (ResearchLeader decomposition)
+export { LeaderPlanningService } from "./leader-planning.service";
+export { LeaderIntentService } from "./leader-intent.service";
+export { LeaderAgentSelectionService } from "./leader-agent-selection.service";
+export { LeaderReviewService } from "./leader-review.service";
+// ★ Task executors (MissionExecution decomposition)
+export { DimensionResearchExecutor } from "./task-executors/dimension-research.executor";
+export { ReviewDimensionExecutor } from "./task-executors/review-dimension.executor";
+export { SynthesisReportExecutor } from "./task-executors/synthesis-report.executor";
+export { GenericTaskExecutor } from "./task-executors/generic-task.executor";
+// ★ Refresh pipeline (Orchestrator decomposition)
+export { RefreshPipelineService } from "./refresh-pipeline.service";
 export { TopicTeamOrchestratorService } from "./topic-team-orchestrator.service";
 export {
   ResearchEventEmitterService,

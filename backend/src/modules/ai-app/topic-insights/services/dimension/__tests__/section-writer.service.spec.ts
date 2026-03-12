@@ -12,6 +12,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
+import { InsufficientCreditsException } from "../../../exceptions/research.exceptions";
 
 // ============================================================
 // Helpers
@@ -218,7 +219,7 @@ describe("SectionWriterService", () => {
           section: makeSection(),
           evidenceData: [],
         }),
-      ).rejects.toThrow("[INSUFFICIENT_CREDITS]");
+      ).rejects.toThrow(InsufficientCreditsException);
     });
 
     it("should throw INSUFFICIENT_CREDITS when response contains insufficient_credits", async () => {
@@ -234,7 +235,7 @@ describe("SectionWriterService", () => {
           section: makeSection(),
           evidenceData: [],
         }),
-      ).rejects.toThrow("[INSUFFICIENT_CREDITS]");
+      ).rejects.toThrow(InsufficientCreditsException);
     });
 
     it("should handle previousSections context truncation", async () => {
@@ -583,7 +584,7 @@ describe("SectionWriterService", () => {
           revisionInstructions: "Add more data",
           evidenceData: [],
         }),
-      ).rejects.toThrow("[INSUFFICIENT_CREDITS]");
+      ).rejects.toThrow(InsufficientCreditsException);
     });
 
     it("should throw error when revised content is too short", async () => {
@@ -771,7 +772,7 @@ describe("SectionWriterService", () => {
       ];
 
       await expect(service.writeSectionsParallel(inputs)).rejects.toThrow(
-        "[INSUFFICIENT_CREDITS]",
+        InsufficientCreditsException,
       );
     });
 

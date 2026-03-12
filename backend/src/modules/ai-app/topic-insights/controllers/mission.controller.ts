@@ -68,10 +68,10 @@ export class MissionController {
 
   /**
    * Leader 生成研究规划
-   * ★ Security: 速率限制 10次/分钟，AI 密集型操作
+   * ★ Security: 速率限制 5次/分钟，AI 密集型操作
    * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/leader/plan")
@@ -98,6 +98,7 @@ export class MissionController {
    * 获取研究规划
    * 返回当前 Mission 的 LeaderPlan（用于规划透明度展示）
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/mission/plan")
@@ -124,7 +125,7 @@ export class MissionController {
    * 审批研究规划
    * 用户确认规划后，启动研究执行
    */
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/mission/approve-plan")
@@ -150,9 +151,9 @@ export class MissionController {
 
   /**
    * 处理 @Leader 用户消息
-   * ★ Security: 速率限制 20次/分钟，AI 对话操作
+   * ★ Security: 速率限制 5次/分钟，AI 密集型操作
    */
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/leader/message")
@@ -183,9 +184,9 @@ export class MissionController {
   /**
    * ★ Leader 解码用户输入（Claude Code CLI 风格）
    * 先理解用户意图，再决定如何响应
-   * ★ Security: 速率限制 20次/分钟，AI 对话操作
+   * ★ Security: 速率限制 5次/分钟，AI 密集型操作
    */
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/leader/chat")
@@ -353,6 +354,7 @@ export class MissionController {
   /**
    * 获取 Leader 决策历史
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/leader/decisions")
@@ -382,6 +384,7 @@ export class MissionController {
   /**
    * 获取当前 Mission 状态
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/mission")
@@ -403,6 +406,7 @@ export class MissionController {
    * 重试失败的任务
    * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/mission/retry")
@@ -433,6 +437,7 @@ export class MissionController {
   /**
    * 获取当前团队组成
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/team")
@@ -457,6 +462,7 @@ export class MissionController {
   /**
    * 获取团队互动消息
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/team-messages")
@@ -491,6 +497,7 @@ export class MissionController {
   /**
    * 获取 Agent 活动记录
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/agent-activities")
@@ -532,6 +539,7 @@ export class MissionController {
   /**
    * 获取按维度分组的 Agent 活动记录
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/agent-activities/by-dimension")
@@ -557,6 +565,7 @@ export class MissionController {
   /**
    * 获取 Agent 活动统计
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/agent-activities/stats")
@@ -587,6 +596,7 @@ export class MissionController {
    * 调整 Mission 执行策略
    * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/mission/adjust")
@@ -616,6 +626,7 @@ export class MissionController {
    * 取消 Mission
    * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/mission/cancel")
@@ -647,6 +658,7 @@ export class MissionController {
   /**
    * 获取指定 Mission 详情
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/missions/:missionId")
@@ -668,6 +680,7 @@ export class MissionController {
   /**
    * 获取指定 Mission 的团队消息
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/missions/:missionId/messages")
@@ -689,6 +702,7 @@ export class MissionController {
   /**
    * 获取指定 Mission 的 Agent 活动
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/missions/:missionId/activities")
@@ -712,6 +726,7 @@ export class MissionController {
   /**
    * 获取 Mission 健康状态
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/missions/:missionId/health")
@@ -738,6 +753,7 @@ export class MissionController {
   /**
    * 获取专题当前 Mission 的健康状态
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/health")
@@ -769,6 +785,7 @@ export class MissionController {
   /**
    * 检查 Mission 是否可恢复
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/missions/:missionId/can-resume")
@@ -796,6 +813,7 @@ export class MissionController {
    * 恢复失败的 Mission
    * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
   @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/missions/:missionId/resume")
@@ -819,6 +837,7 @@ export class MissionController {
   /**
    * 获取可恢复的 Mission 列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("resumable-missions")
   @ApiOperation({
     summary: "获取可恢复的 Mission 列表",
@@ -837,6 +856,7 @@ export class MissionController {
   /**
    * 手动触发健康检查
    */
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("admin/health-check")
   @UseGuards(AdminGuard)
   @ApiOperation({

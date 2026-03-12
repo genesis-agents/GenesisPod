@@ -109,6 +109,7 @@ import { ResearchCheckpointService } from "../../monitoring/research-checkpoint.
 import { DataSourceRouterService } from "../../data/data-source-router.service";
 import { ResearchTodoService } from "../../collaboration/research-todo.service";
 import { CritiqueRefineService } from "../../quality/critique-refine.service";
+import { RefreshPipelineService } from "../refresh-pipeline.service";
 import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -369,6 +370,14 @@ async function buildModule(
       {
         provide: CritiqueRefineService,
         useValue: { critiqueAndRefine: jest.fn() },
+      },
+      {
+        provide: RefreshPipelineService,
+        useValue: {
+          researchDimensionsInParallel: jest.fn().mockResolvedValue({ results: [], researchDesign: null }),
+          reviseFailedDimensions: jest.fn().mockResolvedValue([]),
+          reviewResearchQuality: jest.fn().mockResolvedValue({ needsReresearch: false }),
+        },
       },
       { provide: AgentFacade, useValue: facade },
     ],

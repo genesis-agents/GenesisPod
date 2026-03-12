@@ -12,6 +12,7 @@ import {
   CHART_STANDARDS,
   CHAPTER_HIGHLIGHTS,
 } from "@/modules/ai-app/shared/report-template";
+import { sanitizeImageUrl } from "../utils/sanitize-image-url.utils";
 
 /**
  * 维度研究系统提示词
@@ -423,9 +424,7 @@ function formatFiguresForEvidence(
     .map((fig, idx) => {
       const typeLabel = getFigureTypeLabel(fig.type);
       // ★ 过滤 base64 data URL，避免将数十万字符的图片数据注入 LLM prompt
-      const safeUrl = fig.imageUrl?.startsWith("data:")
-        ? `[base64-image:${fig.type || "unknown"}]`
-        : fig.imageUrl || "无URL";
+      const safeUrl = sanitizeImageUrl(fig.imageUrl) || "无URL";
       return `  - 图表 [${evidenceIndex}:${idx}]: ${typeLabel} - "${fig.caption || fig.alt || "无标题"}"
     引用格式: <!-- figure:${evidenceIndex}:${idx} -->
     URL: ${safeUrl}`;

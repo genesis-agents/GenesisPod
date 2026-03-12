@@ -19,8 +19,6 @@
 import {
   Injectable,
   Logger,
-  forwardRef,
-  Inject,
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -30,6 +28,8 @@ import {
   type ResearchTopic,
   type TopicDimension,
 } from "@prisma/client";
+import { LeaderPlanningService } from "../core/leader-planning.service";
+import { LeaderReviewService } from "../core/leader-review.service";
 import { ResearchLeaderService } from "../core/research-leader.service";
 import {
   SectionWriterService,
@@ -144,9 +144,8 @@ export class DimensionMissionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    // forwardRef: DimensionMissionService <-> ResearchLeaderService
-    // Leader triggers dimension task execution; DimensionMission calls Leader to review section quality after search completes
-    @Inject(forwardRef(() => ResearchLeaderService))
+    private readonly leaderPlanning: LeaderPlanningService,
+    private readonly leaderReview: LeaderReviewService,
     private readonly leaderService: ResearchLeaderService,
     private readonly sectionWriter: SectionWriterService,
     private readonly dataSourceRouter: DataSourceRouterService,
@@ -794,7 +793,7 @@ export class DimensionMissionService {
         select: { name: true, description: true },
       });
 
-      const outline = await this.leaderService.planDimensionOutline(
+      const outline = await this.leaderPlanning.planDimensionOutline(
         {
           name: topic.name,
           type: topic.type,
@@ -1042,7 +1041,7 @@ export class DimensionMissionService {
         [];
       try {
         const claimPromises = allSectionContents.map((sc) =>
-          this.leaderService.extractClaims(sc.sectionId, sc.content),
+          this.leaderReview.extractClaims(sc.sectionId, sc.content),
         );
         const claimResults = await Promise.all(claimPromises);
         extractedClaims = claimResults.flat();

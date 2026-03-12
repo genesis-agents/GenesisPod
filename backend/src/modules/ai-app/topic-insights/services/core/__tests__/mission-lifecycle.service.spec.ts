@@ -6,6 +6,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { MissionLifecycleService } from "../mission-lifecycle.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchLeaderService } from "../research-leader.service";
+import { LeaderPlanningService } from "../leader-planning.service";
+import { LeaderIntentService } from "../leader-intent.service";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { TopicCollaboratorService } from "../../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
@@ -71,6 +73,17 @@ function buildMocks() {
     handleUserMessage: jest.fn(),
   };
 
+  const mockLeaderPlanningService = {
+    planResearch: jest.fn(),
+    getReasoningModel: jest.fn().mockResolvedValue({ modelId: "gpt-4o", modelName: "GPT-4o" }),
+    planDimensionOutline: jest.fn(),
+  };
+
+  const mockLeaderIntentService = {
+    handleUserMessage: jest.fn(),
+    decodeUserInput: jest.fn(),
+  };
+
   const mockResearchEventEmitter = {
     emitLeaderThinking: jest.fn().mockResolvedValue(undefined),
     emitLeaderPlanning: jest.fn().mockResolvedValue(undefined),
@@ -97,6 +110,8 @@ function buildMocks() {
   return {
     mockPrisma,
     mockLeaderService,
+    mockLeaderPlanningService,
+    mockLeaderIntentService,
     mockResearchEventEmitter,
     mockCollaboratorService,
     mockAgentActivity,
@@ -165,7 +180,8 @@ const mockLeaderPlan = {
 describe("MissionLifecycleService", () => {
   let service: MissionLifecycleService;
   let prisma: ReturnType<typeof buildMocks>["mockPrisma"];
-  let leaderService: ReturnType<typeof buildMocks>["mockLeaderService"];
+  let leaderService: ReturnType<typeof buildMocks>["mockLeaderPlanningService"];
+  let leaderIntentService: ReturnType<typeof buildMocks>["mockLeaderIntentService"];
   let collaboratorService: ReturnType<
     typeof buildMocks
   >["mockCollaboratorService"];
@@ -174,7 +190,8 @@ describe("MissionLifecycleService", () => {
   beforeEach(async () => {
     const mocks = buildMocks();
     prisma = mocks.mockPrisma;
-    leaderService = mocks.mockLeaderService;
+    leaderService = mocks.mockLeaderPlanningService;
+    leaderIntentService = mocks.mockLeaderIntentService;
     collaboratorService = mocks.mockCollaboratorService;
     executionService = mocks.mockExecutionService;
 
@@ -182,7 +199,14 @@ describe("MissionLifecycleService", () => {
       providers: [
         MissionLifecycleService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
-        { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
+        {
+          provide: LeaderPlanningService,
+          useValue: mocks.mockLeaderPlanningService,
+        },
+        {
+          provide: LeaderIntentService,
+          useValue: mocks.mockLeaderIntentService,
+        },
         {
           provide: ResearchEventEmitterService,
           useValue: mocks.mockResearchEventEmitter,
@@ -577,7 +601,7 @@ describe("MissionLifecycleService", () => {
         topic: { userId: "user-1" },
         status: ResearchMissionStatus.EXECUTING,
       });
-      leaderService.handleUserMessage.mockResolvedValue({ response: "OK" });
+      leaderIntentService.handleUserMessage.mockResolvedValue({ response: "OK" });
       prisma.leaderDecision.create.mockResolvedValue({});
       prisma.researchMission.findUniqueOrThrow.mockResolvedValue(mockMission);
 
@@ -585,7 +609,7 @@ describe("MissionLifecycleService", () => {
         focusAreas: ["AI安全", "算法伦理"],
       });
 
-      expect(leaderService.handleUserMessage).toHaveBeenCalledWith(
+      expect(leaderIntentService.handleUserMessage).toHaveBeenCalledWith(
         "topic-1",
         "mission-1",
         expect.stringContaining("AI安全"),
@@ -1021,7 +1045,14 @@ describe("MissionLifecycleService", () => {
         providers: [
           MissionLifecycleService,
           { provide: PrismaService, useValue: mocks.mockPrisma },
-          { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
+          {
+            provide: LeaderPlanningService,
+            useValue: mocks.mockLeaderPlanningService,
+          },
+          {
+            provide: LeaderIntentService,
+            useValue: mocks.mockLeaderIntentService,
+          },
           {
             provide: ResearchEventEmitterService,
             useValue: mocks.mockResearchEventEmitter,
@@ -1042,7 +1073,7 @@ describe("MissionLifecycleService", () => {
       const svc2 = module2.get<MissionLifecycleService>(
         MissionLifecycleService,
       );
-      mocks.mockLeaderService.planResearch.mockResolvedValue(mockLeaderPlan);
+      mocks.mockLeaderPlanningService.planResearch.mockResolvedValue(mockLeaderPlan);
       mocks.mockPrisma.leaderDecision.create.mockResolvedValue({});
       mocks.mockPrisma.topicDimension.findFirst.mockResolvedValue(null);
       mocks.mockPrisma.topicDimension.findMany.mockResolvedValue([]);

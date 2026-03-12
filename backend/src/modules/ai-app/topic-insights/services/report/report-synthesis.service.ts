@@ -707,7 +707,12 @@ export class ReportSynthesisService {
         const reviewModel = await this.chatFacade
           .getDefaultModelByType(AIModelType.CHAT)
           .then((m) => m?.modelId ?? "")
-          .catch(() => "");
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `[synthesizeReport] Fallback triggered: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return "";
+          });
 
         const reviewResult = await this.outputReviewer.reviewOutput({
           missionId: reportId,

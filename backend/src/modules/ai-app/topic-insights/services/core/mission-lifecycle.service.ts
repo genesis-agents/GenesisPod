@@ -21,7 +21,8 @@ import {
   LeaderDecisionType,
 } from "@prisma/client";
 import type { ResearchMission, ResearchTask } from "@prisma/client";
-import { ResearchLeaderService } from "./research-leader.service";
+import { LeaderPlanningService } from "./leader-planning.service";
+import { LeaderIntentService } from "./leader-intent.service";
 import type { LeaderPlan } from "../../types/leader.types";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { TopicCollaboratorService } from "../collaboration/topic-collaborator.service";
@@ -44,10 +45,8 @@ export class MissionLifecycleService {
 
   constructor(
     private readonly prisma: PrismaService,
-    // forwardRef: MissionLifecycleService <-> ResearchLeaderService
-    // Lifecycle calls Leader to plan research; Leader adjusts dimensions via LeaderToolService which triggers Lifecycle task creation
-    @Inject(forwardRef(() => ResearchLeaderService))
-    private readonly leaderService: ResearchLeaderService,
+    private readonly leaderPlanning: LeaderPlanningService,
+    private readonly leaderIntent: LeaderIntentService,
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly agentActivity: AgentActivityService,
@@ -236,7 +235,7 @@ export class MissionLifecycleService {
     }
 
     // 3. 获取 Leader 模型信息
-    const leaderModel = await this.leaderService.getReasoningModel();
+    const leaderModel = await this.leaderPlanning.getReasoningModel();
     this.logger.log(
       `[createMission] Leader model: ${leaderModel?.modelId || "null"} / ${leaderModel?.modelName || "null"}`,
     );
@@ -356,7 +355,7 @@ export class MissionLifecycleService {
         "Leader 正在制定研究计划，确定研究维度和任务分配...",
       );
 
-      const leaderPlan = await this.leaderService.planResearch(
+      const leaderPlan = await this.leaderPlanning.planResearch(
         topicId,
         userPrompt,
       );
@@ -479,8 +478,10 @@ export class MissionLifecycleService {
             where: { id: missionId },
             data: { status: ResearchMissionStatus.FAILED },
           })
-          .catch(() => {
-            // best-effort
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `[executePlanningAsync] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
           });
         void this.prisma.researchTask
           .updateMany({
@@ -495,8 +496,10 @@ export class MissionLifecycleService {
             },
             data: { status: ResearchTaskStatus.FAILED },
           })
-          .catch(() => {
-            // best-effort
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `[executePlanningAsync] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
           });
         void this.prisma.researchTodo
           .updateMany({
@@ -515,8 +518,10 @@ export class MissionLifecycleService {
               completedAt: new Date(),
             },
           })
-          .catch(() => {
-            // best-effort
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `[executePlanningAsync] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
           });
       });
     } catch (error) {
@@ -668,8 +673,10 @@ export class MissionLifecycleService {
           },
           data: { status: ResearchTaskStatus.FAILED },
         })
-        .catch(() => {
-          // best-effort
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `[approvePlanAndExecute] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
         });
       void this.prisma.researchTodo
         .updateMany({
@@ -688,8 +695,10 @@ export class MissionLifecycleService {
             completedAt: new Date(),
           },
         })
-        .catch(() => {
-          // best-effort
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `[approvePlanAndExecute] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
         });
     });
   }
@@ -1074,7 +1083,7 @@ export class MissionLifecycleService {
     // 3. 调整聚焦领域（通知 Leader）
     if (adjustment.focusAreas?.length) {
       // 请求 Leader 重新评估任务优先级
-      await this.leaderService.handleUserMessage(
+      await this.leaderIntent.handleUserMessage(
         mission.topicId,
         missionId,
         `请调整研究重点，优先关注以下领域：${adjustment.focusAreas.join("、")}`,

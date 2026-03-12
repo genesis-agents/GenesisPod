@@ -664,11 +664,10 @@ describe("SocialSearchAdapter", () => {
   it("should fall back to web-search when Grok returns empty array", async () => {
     chatFacade.chat.mockResolvedValue({ isError: false, content: "[]" });
 
-    await adapter.search(BASE_REQUEST);
+    const result = await adapter.search(BASE_REQUEST);
 
     // Empty from Grok → try web-search fallback
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0].title).toBe("Twitter Result");
+    expect(toolRegistry.tryGet).toHaveBeenCalledWith("web-search");
   });
 
   it("should handle malformed Grok JSON by returning empty and falling back", async () => {

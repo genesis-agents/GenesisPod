@@ -46,6 +46,7 @@ import {
   TopicExportService,
   TopicScheduleService,
   ReportQualityTraceService,
+  ReportDataService,
 } from "./services";
 import { ChatFacade } from "../../ai-engine/facade";
 import {
@@ -132,6 +133,7 @@ export class TopicInsightsService {
     private readonly exportService: TopicExportService,
     private readonly scheduleService: TopicScheduleService,
     private readonly qualityTraceService: ReportQualityTraceService,
+    private readonly reportDataService: ReportDataService,
   ) {}
 
   // ==================== Topics CRUD (delegated to TopicCrudService) ====================
@@ -693,47 +695,18 @@ export class TopicInsightsService {
    * 删除报告（仅管理员/所有者）
    */
   async deleteReport(userId: string, topicId: string, reportId: string) {
-    // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
     const report = await this.reportService.getReport(reportId);
-
     if (!report || report.topicId !== topicId) {
       throw new NotFoundException("Report not found");
     }
 
-    // 使用事务删除报告及其关联数据
-    await this.prisma.$transaction(async (tx) => {
-      // 1. 删除维度分析
-      await tx.dimensionAnalysis.deleteMany({
-        where: { reportId },
-      });
-
-      // 2. 删除报告修订历史
-      await tx.topicReportRevision.deleteMany({
-        where: { reportId },
-      });
-
-      // 3. 删除报告批注
-      await tx.reportAnnotation.deleteMany({
-        where: { reportId },
-      });
-
-      // 4. 删除报告变更记录
-      await tx.reportChange.deleteMany({
-        where: { reportId },
-      });
-
-      // 5. 删除报告本身
-      await tx.topicReport.delete({
-        where: { id: reportId },
-      });
-    });
+    await this.reportDataService.deleteReportCascade(reportId);
 
     this.logger.log(
       `[deleteReport] Report ${reportId} deleted by user ${userId}`,
     );
-
     return { success: true, message: "Report deleted successfully" };
   }
 
@@ -873,7 +846,6 @@ export class TopicInsightsService {
       changeDescription?: string;
     },
   ) {
-    // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
     const report = await this.reportService.getReport(reportId);
@@ -881,41 +853,7 @@ export class TopicInsightsService {
       throw new NotFoundException("Report not found");
     }
 
-    // 使用事务确保修订历史和报告更新的原子性
-    return this.prisma.$transaction(async (tx) => {
-      // 创建修订历史记录
-      const latestRevision = await tx.topicReportRevision.findFirst({
-        where: { reportId },
-        orderBy: { revisionNumber: "desc" },
-      });
-
-      const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
-
-      // 保存当前版本到修订历史
-      await tx.topicReportRevision.create({
-        data: {
-          reportId,
-          revisionNumber: newRevisionNumber,
-          content: report.fullReport,
-          changeDescription: dto.changeDescription || "用户手动编辑",
-          editedBy: "user",
-          editOperation: "manual_edit",
-        },
-      });
-
-      // 更新报告
-      const updatedReport = await tx.topicReport.update({
-        where: { id: reportId },
-        data: {
-          ...(dto.executiveSummary && {
-            executiveSummary: dto.executiveSummary,
-          }),
-          ...(dto.fullReport && { fullReport: dto.fullReport }),
-        },
-      });
-
-      return updatedReport;
-    });
+    return this.reportDataService.updateReportContent(reportId, dto);
   }
 
   /**
@@ -1044,35 +982,17 @@ export class TopicInsightsService {
       newFullReport = editedContent;
     }
 
-    // 使用事务确保修订历史和报告更新的原子性
-    const updatedReport = await this.prisma.$transaction(async (tx) => {
-      // 保存修订历史
-      const latestRevision = await tx.topicReportRevision.findFirst({
-        where: { reportId },
-        orderBy: { revisionNumber: "desc" },
-      });
-
-      const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
-
-      await tx.topicReportRevision.create({
-        data: {
-          reportId,
-          revisionNumber: newRevisionNumber,
-          content: report.fullReport,
-          changeDescription: dto.context
-            ? `AI ${dto.operation}: ${dto.context.slice(0, 50)}`
-            : `AI ${dto.operation} 操作`,
-          editedBy: "ai",
-          editOperation: dto.operation,
-        },
-      });
-
-      // 更新报告
-      return tx.topicReport.update({
-        where: { id: reportId },
-        data: { fullReport: newFullReport },
-      });
-    });
+    // 保存修订历史并更新报告（事务）
+    const changeDescription = dto.context
+      ? `AI ${dto.operation}: ${dto.context.slice(0, 50)}`
+      : `AI ${dto.operation} 操作`;
+    const updatedReport = await this.reportDataService.saveAiEditRevision(
+      reportId,
+      report.fullReport,
+      newFullReport,
+      changeDescription,
+      dto.operation,
+    );
 
     return {
       report: updatedReport,
@@ -1085,7 +1005,6 @@ export class TopicInsightsService {
    * 获取报告修订历史
    */
   async getReportRevisions(userId: string, topicId: string, reportId: string) {
-    // 验证专题读取权限（支持公开专题访问）
     await this.verifyTopicReadAccess(userId, topicId);
 
     const report = await this.reportService.getReport(reportId);
@@ -1093,20 +1012,7 @@ export class TopicInsightsService {
       throw new NotFoundException("Report not found");
     }
 
-    const revisions = await this.prisma.topicReportRevision.findMany({
-      where: { reportId },
-      orderBy: { revisionNumber: "desc" },
-      select: {
-        id: true,
-        revisionNumber: true,
-        changeDescription: true,
-        editedBy: true,
-        editOperation: true,
-        createdAt: true,
-      },
-    });
-
-    return revisions;
+    return this.reportDataService.getReportRevisions(reportId);
   }
 
   /**
@@ -1118,7 +1024,6 @@ export class TopicInsightsService {
     reportId: string,
     revisionNumber: number,
   ) {
-    // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
     const report = await this.reportService.getReport(reportId);
@@ -1126,47 +1031,11 @@ export class TopicInsightsService {
       throw new NotFoundException("Report not found");
     }
 
-    // 获取目标修订版本
-    const targetRevision = await this.prisma.topicReportRevision.findFirst({
-      where: { reportId, revisionNumber },
-    });
-
-    if (!targetRevision) {
-      throw new NotFoundException(
-        `Revision ${revisionNumber} not found for this report`,
-      );
-    }
-
-    // 保存当前版本到修订历史
-    const latestRevision = await this.prisma.topicReportRevision.findFirst({
-      where: { reportId },
-      orderBy: { revisionNumber: "desc" },
-    });
-
-    const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
-
-    await this.prisma.topicReportRevision.create({
-      data: {
-        reportId,
-        revisionNumber: newRevisionNumber,
-        content: report.fullReport,
-        changeDescription: `回滚前的版本（从版本 ${revisionNumber} 回滚）`,
-        editedBy: "user",
-        editOperation: "rollback",
-      },
-    });
-
-    // 恢复到目标版本
-    const updatedReport = await this.prisma.topicReport.update({
-      where: { id: reportId },
-      data: { fullReport: targetRevision.content },
-    });
-
-    return {
-      report: updatedReport,
-      rolledBackFrom: newRevisionNumber - 1,
-      rolledBackTo: revisionNumber,
-    };
+    return this.reportDataService.rollbackToRevision(
+      reportId,
+      revisionNumber,
+      report.fullReport,
+    );
   }
 
   /**

@@ -99,6 +99,7 @@ export class TopicController {
   /**
    * 创建专题
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics")
   @ApiOperation({
     summary: "创建专题",
@@ -130,6 +131,7 @@ export class TopicController {
   /**
    * 获取专题列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics")
   @ApiOperation({
     summary: "获取专题列表",
@@ -156,6 +158,7 @@ export class TopicController {
   /**
    * 获取专题详情
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id")
   @ApiOperation({ summary: "获取专题详情" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -173,6 +176,7 @@ export class TopicController {
   /**
    * 更新专题
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:id")
   @ApiOperation({ summary: "更新专题" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -194,6 +198,7 @@ export class TopicController {
   /**
    * 删除专题
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Delete("topics/:id")
   @ApiOperation({ summary: "删除专题" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -213,6 +218,7 @@ export class TopicController {
   /**
    * 触发刷新
    */
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("topics/:id/refresh")
   @ApiOperation({
     summary: "触发刷新",
@@ -236,6 +242,7 @@ export class TopicController {
   /**
    * 获取研究策略建议
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/research/strategy")
   @ApiOperation({
     summary: "获取研究策略建议",
@@ -257,6 +264,7 @@ export class TopicController {
   /**
    * 快速检查研究状态（用于前端按钮）
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/research/quick-check")
   @ApiOperation({
     summary: "快速检查研究状态",
@@ -278,6 +286,7 @@ export class TopicController {
   /**
    * 智能开始研究
    */
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("topics/:id/research/smart-start")
   @HttpCode(202)
   @ApiOperation({
@@ -301,6 +310,7 @@ export class TopicController {
   /**
    * 获取刷新状态
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/refresh/status")
   @ApiOperation({ summary: "获取当前刷新状态" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -320,6 +330,7 @@ export class TopicController {
   /**
    * 监听刷新进度 (SSE)
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Sse("topics/:id/refresh/progress")
   @ApiOperation({
     summary: "监听刷新进度",
@@ -341,6 +352,7 @@ export class TopicController {
   /**
    * 取消刷新
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:id/refresh/cancel")
   @ApiOperation({ summary: "取消正在进行的刷新" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -363,6 +375,7 @@ export class TopicController {
   /**
    * 获取维度列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/dimensions")
   @ApiOperation({ summary: "获取专题的所有维度" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -382,6 +395,7 @@ export class TopicController {
   /**
    * 添加维度
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:id/dimensions")
   @ApiOperation({ summary: "添加新维度" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -402,6 +416,7 @@ export class TopicController {
   /**
    * 更新维度
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:topicId/dimensions/:dimensionId")
   @ApiOperation({ summary: "更新维度配置" })
   @ApiParam({ name: "topicId", description: "专题ID" })
@@ -429,6 +444,7 @@ export class TopicController {
   /**
    * 删除维度
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Delete("topics/:topicId/dimensions/:dimensionId")
   @ApiOperation({ summary: "删除维度" })
   @ApiParam({ name: "topicId", description: "专题ID" })
@@ -454,6 +470,7 @@ export class TopicController {
   /**
    * 刷新单个维度
    */
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("topics/:topicId/dimensions/:dimensionId/refresh")
   @ApiOperation({ summary: "刷新单个维度" })
   @ApiParam({ name: "topicId", description: "专题ID" })
@@ -481,6 +498,7 @@ export class TopicController {
   /**
    * 调整维度顺序
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:id/dimensions/reorder")
   @ApiOperation({ summary: "调整维度顺序" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -503,6 +521,7 @@ export class TopicController {
   /**
    * 获取模板列表
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("templates")
   @ApiOperation({ summary: "获取专题模板列表" })
   @ApiQuery({ name: "type", required: true, description: "专题类型" })
@@ -522,6 +541,7 @@ export class TopicController {
   /**
    * 从模板创建专题
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/from-template")
   @ApiOperation({ summary: "从模板创建专题" })
   @ApiResponse({ status: 201, description: "专题创建成功" })
@@ -542,6 +562,7 @@ export class TopicController {
   /**
    * 获取刷新计划
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/schedule")
   @ApiOperation({ summary: "获取专题的刷新计划" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -558,6 +579,7 @@ export class TopicController {
   /**
    * 更新刷新计划
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Patch("topics/:id/schedule")
   @ApiOperation({ summary: "更新刷新计划" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -580,6 +602,7 @@ export class TopicController {
   /**
    * 获取刷新日志
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/logs")
   @ApiOperation({ summary: "获取专题的刷新日志" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -604,6 +627,7 @@ export class TopicController {
   /**
    * 获取专题统计
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/stats")
   @ApiOperation({ summary: "获取专题统计数据" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -620,6 +644,7 @@ export class TopicController {
   /**
    * ★ 重新计算专题统计数据
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/recalculate-stats")
   @ApiOperation({
     summary: "重新计算专题统计数据",
@@ -642,6 +667,7 @@ export class TopicController {
   /**
    * 获取研究历史时间线
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("topics/:id/research-history")
   @ApiOperation({
     summary: "获取研究历史时间线",

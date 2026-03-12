@@ -1,3 +1,4 @@
+import { sanitizeImageUrl } from "../../utils/sanitize-image-url.utils";
 import type {
   EvidenceData,
   EnrichedEvidenceData,
@@ -54,9 +55,7 @@ export function buildFiguresSummary(
         if (rawUrl && !rawUrl.startsWith("data:")) {
           seenUrls.add(rawUrl);
         }
-        const safeUrl = rawUrl.startsWith("data:")
-          ? `[base64-image:${fig.type || "unknown"}]`
-          : rawUrl || "无URL";
+        const safeUrl = sanitizeImageUrl(rawUrl) || "无URL";
         entries.push(
           `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${safeUrl}`,
         );
