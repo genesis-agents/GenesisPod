@@ -79,14 +79,15 @@ describe("GuardrailsPipelineService", () => {
       expect(result.results.some((r) => r.severity === "warning")).toBe(true);
     });
 
-    it("should block excessively long input", async () => {
+    it("should warn on excessively long input (input-complexity-check is advisory, never blocks)", async () => {
       const longContent = "a".repeat(500000);
       const result = await service.processInput({
         content: longContent,
       });
 
-      expect(result.passed).toBe(false);
-      expect(result.blockedBy).toBe("input-complexity-check");
+      // input-complexity-check returns passed=true with severity=warning (advisory only)
+      expect(result.passed).toBe(true);
+      expect(result.results.some((r) => r.severity === "warning")).toBe(true);
     });
   });
 

@@ -283,6 +283,7 @@ export class ChatFacade {
           strictMode: true,
           userId: request.billing?.userId ?? RequestContext.getUserId(),
           processId: request.processId,
+          skipGuardrails: request.skipGuardrails,
         });
 
         if (result.isError) {
@@ -389,6 +390,7 @@ export class ChatFacade {
         strictMode: request.strictMode,
         userId: request.billing?.userId ?? RequestContext.getUserId(),
         processId: request.processId,
+        skipGuardrails: request.skipGuardrails,
       });
 
       const duration = Date.now() - startTime;
@@ -478,6 +480,7 @@ export class ChatFacade {
         temperature: request.temperature,
         responseFormat: request.responseFormat,
         strictMode: request.strictMode,
+        skipGuardrails: request.skipGuardrails,
       });
 
       return {
@@ -519,6 +522,7 @@ export class ChatFacade {
       temperature: request.temperature,
       responseFormat: request.responseFormat,
       strictMode: request.strictMode,
+      skipGuardrails: request.skipGuardrails,
     });
 
     const duration = Date.now() - startTime;

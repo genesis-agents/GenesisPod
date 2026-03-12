@@ -147,24 +147,25 @@ describe("InputComplexityCheck", () => {
     expect(result.message).toContain("large");
   });
 
-  it("should block for input exceeding max length (400k chars)", async () => {
+  it("should warn (not block) for input exceeding max length (400k chars)", async () => {
     const veryLongContent = "a ".repeat(200001); // ~400002 chars
     const result = await check.check({ content: veryLongContent });
-    expect(result.passed).toBe(false);
-    expect(result.severity).toBe("block");
-    expect(result.message).toContain("exceeds maximum length");
+    // InputComplexityCheck is advisory-only: always passes, warns on oversized input
+    expect(result.passed).toBe(true);
+    expect(result.severity).toBe("warning");
+    expect(result.message).toContain("exceeds recommended length");
     const meta = result.metadata as any;
     expect(meta.maxLength).toBe(400000);
+    expect(meta.oversized).toBe(true);
   });
 
-  it("should block for input exceeding max token estimate", async () => {
+  it("should warn (not block) for input exceeding max token estimate", async () => {
     // Create content with many words to exceed 100000 token estimate
-    // 100000 tokens / 1.3 ≈ 76924 words needed
     const manyWords = "word ".repeat(80000); // ~80000 words = ~104000 tokens
     const result = await check.check({ content: manyWords });
-    expect(result.passed).toBe(false);
-    expect(result.severity).toBe("block");
-    expect(result.message).toContain("token estimate");
+    expect(result.passed).toBe(true);
+    expect(result.severity).toBe("warning");
+    expect(result.message).toContain("exceeds recommended token estimate");
   });
 
   it("should count Chinese characters in token estimate", async () => {
@@ -191,11 +192,11 @@ describe("InputComplexityCheck", () => {
     expect(result.severity).toBe("warning");
   });
 
-  it("should block when custom max threshold is very low", async () => {
+  it("should warn when custom max threshold is very low", async () => {
     check.updateThresholds({ maxLength: 5, maxTokenEstimate: 100000 });
     const result = await check.check({ content: "Hello world" }); // 11 chars
-    expect(result.passed).toBe(false);
-    expect(result.severity).toBe("block");
+    expect(result.passed).toBe(true);
+    expect(result.severity).toBe("warning");
   });
 });
 
