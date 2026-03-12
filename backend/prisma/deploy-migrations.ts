@@ -773,6 +773,18 @@ async function deploy(): Promise<void> {
         prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'FINDINGS'`,
       "DeepResearchStatus.FINDINGS",
     );
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'PLAN_READY' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'PLAN_READY'`,
+      "DeepResearchStatus.PLAN_READY",
+    );
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'CANCELLED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'CANCELLED'`,
+      "DeepResearchStatus.CANCELLED",
+    );
 
     // CreditTransactionType enum values (billing overhaul + donation rewards)
     const creditEnumValues = [
