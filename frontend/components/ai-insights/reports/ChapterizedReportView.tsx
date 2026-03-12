@@ -847,18 +847,22 @@ function ChapterizedReportViewInner({
                     t('topicResearch.reportEditor.noContent');
                   const charts = selectedChapter.charts || [];
 
-                  // If no charts or no chart markers, render as-is
+                  // If no charts, strip any orphaned chart markers and render as-is
                   if (
                     charts.length === 0 ||
                     !rawContent.includes('<!-- chart:')
                   ) {
+                    const cleanContent = rawContent.replace(
+                      /<!--\s*chart:[^\s]+?\s*-->/g,
+                      ''
+                    );
                     return (
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
                         components={createMarkdownComponents(processText)}
                       >
-                        {rawContent}
+                        {cleanContent}
                       </ReactMarkdown>
                     );
                   }

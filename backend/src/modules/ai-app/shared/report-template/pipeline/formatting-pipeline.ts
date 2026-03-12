@@ -52,6 +52,9 @@ import {
   repairBrokenBoldMarkers,
   stripFigureComments,
   wrapBareInlineLatex,
+  escapeLatexPipeInTables,
+  normalizeInlineDoubleDollar,
+  normalizeChapterToSection,
 } from "./report-formatting.utils";
 
 // ============ Context Interface ============
@@ -119,6 +122,7 @@ export function formatDimensionContent(
   }
 
   // ── Phase 3: Content cleanup ─────────────────────────────────────────
+  processed = normalizeChapterToSection(processed);
   processed = convertDescriptiveListsToBullets(processed);
   processed = convertPlainNumberedListsUnderH3ToBullets(processed);
   processed = stripLLMMetaNotes(processed);
@@ -165,6 +169,12 @@ export function formatDimensionContent(
   processed = removeHorizontalRules(processed);
   processed = repairBrokenBoldMarkers(processed);
   processed = stripFigureComments(processed);
+  // Note: stripOrphanedChartComments is NOT called here — chart comments
+  // (<!-- chart:xxx -->) are valid markers used by the frontend to position
+  // figures. They are only stripped in postProcessFinalReport (continuous view)
+  // and in the frontend renderer (chapter view).
+  processed = escapeLatexPipeInTables(processed);
+  processed = normalizeInlineDoubleDollar(processed);
   processed = wrapBareInlineLatex(processed);
   processed = fixUnbalancedLatexDelimiters(processed);
   processed = removeOrphanedFigureReferences(processed);

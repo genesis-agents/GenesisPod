@@ -2775,6 +2775,7 @@ export function splitEnumerationToList(content: string): string {
     // Split content at each marker position into list items
     const items: string[] = [];
     for (let i = 0; i < matches.length; i++) {
+      const markerWord = matches[i][2]; // The actual marker (一是, 二是, etc.)
       const startAfterMarker = matches[i].index + matches[i][0].length;
       const endPos =
         i < matches.length - 1 ? matches[i + 1].index : trimmed.length;
@@ -2786,10 +2787,9 @@ export function splitEnumerationToList(content: string): string {
         .replace(/[；;，,]\s*$/, "")
         .trim();
 
-      // Remove the marker word from item (it served as a structural label)
-      // But keep the semantic content
+      // Preserve marker word as prefix for semantic clarity (一是X → "一是X")
       if (itemContent.length > 0) {
-        items.push(`- ${itemContent}`);
+        items.push(`- **${markerWord}**${itemContent}`);
       }
       // else: Marker with no content — skip entirely (don't push empty bullet)
     }
@@ -3143,4 +3143,106 @@ export function normalizeSourceLabels(content: string): string {
       // "来源: 证据 [N]" → "Source: [N]"
       .replace(/来源[：:]\s*证据\s*\[(\d+)\]/g, "Source: [$1]")
   );
+}
+
+/**
+ * Escape literal `|` inside inline LaTeX (`$...$`) within Markdown table rows.
+ *
+ * Markdown tables use `|` as column separators. When a LaTeX expression like
+ * `$P(A|B)$` appears inside a table cell, the `|` breaks the table structure.
+ *
+ * This function replaces `|` with `\vert` inside `$...$` spans that appear
+ * on lines starting with `|` (table rows).
+ */
+export function escapeLatexPipeInTables(content: string): string {
+  return content
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      // Only process table rows
+      if (!trimmed.startsWith("|")) return line;
+      // Skip separator rows (|---|---|)
+      if (/^\|(\s*:?-{2,}:?\s*\|)+\s*$/.test(trimmed)) return line;
+
+      // Find $...$ spans and escape | inside them
+      return line.replace(/\$([^$]+)\$/g, (_match, inner: string) => {
+        if (!inner.includes("|")) return _match;
+        return "$" + inner.replace(/\|/g, "\\vert ") + "$";
+      });
+    })
+    .join("\n");
+}
+
+/**
+ * Normalize inline double-dollar `$$...$$` to single-dollar `$...$` when
+ * the expression is clearly inline (appears mid-line with surrounding text).
+ *
+ * Display math (`$$...$$`) should appear on its own line. When LLMs produce
+ * inline `$$` like `L=$$\alpha$$+1`, this converts it to `L=$\alpha$+1`.
+ *
+ * Guards:
+ * - Only converts when `$$` is NOT at the start/end of a line (which would be display math)
+ * - Skips fenced code blocks
+ */
+export function normalizeInlineDoubleDollar(content: string): string {
+  let inCodeBlock = false;
+  return content
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("```")) {
+        inCodeBlock = !inCodeBlock;
+        return line;
+      }
+      if (inCodeBlock) return line;
+
+      // Skip lines that are pure display math (start and end with $$)
+      if (
+        trimmed.startsWith("$$") &&
+        trimmed.endsWith("$$") &&
+        trimmed.length > 4
+      ) {
+        return line;
+      }
+
+      // Convert inline $$...$$ to $...$
+      // Match $$ that is NOT at start-of-line and has non-whitespace before/after
+      return line.replace(
+        /(?<=\S)\$\$([^$]+?)\$\$(?=\S|[，。；：、！？])/g,
+        (_, inner: string) => `$${inner}$`,
+      );
+    })
+    .join("\n");
+}
+
+/**
+ * Replace "本章" with "本节" in dimension content.
+ *
+ * Each dimension is a section (节), not a chapter (章). LLMs sometimes
+ * use "本章" which is incorrect at the section level. This only applies
+ * within dimension content — NOT in the assembled full report where
+ * dimensions become actual chapters.
+ *
+ * Preserves "本章要点" as-is (it's a recognized block type).
+ */
+export function normalizeChapterToSection(content: string): string {
+  return content
+    .replace(/本章节/g, "本维度") // Must run before 本章 → 本节
+    .replace(/本章(?!要点)/g, "本节");
+}
+
+/**
+ * Strip orphaned chart comment markers from content.
+ *
+ * After report assembly, some `<!-- chart:xxx -->` markers may remain unresolved
+ * (e.g., when chart data is missing). These show up as raw HTML comments in
+ * the rendered report. Also catches HTML-escaped variants.
+ */
+export function stripOrphanedChartComments(content: string): string {
+  let result = content;
+  // Raw HTML comment form
+  result = result.replace(/<!--\s*chart:[^\s]+?\s*-->/g, "");
+  // HTML-escaped form (appears in exported HTML)
+  result = result.replace(/&lt;!--\s*chart:[^\s]+?\s*--&gt;/g, "");
+  return result;
 }

@@ -19,6 +19,10 @@ import {
   renumberHeadings,
   removeEmptyHeadings,
   mergeAdjacentMathBlocks,
+  normalizeChapterToSection,
+  escapeLatexPipeInTables,
+  normalizeInlineDoubleDollar,
+  stripOrphanedChartComments,
 } from "@/modules/ai-app/shared/report-template";
 
 describe("stripRawMarkdownInContent", () => {
@@ -855,20 +859,22 @@ describe("bulletifyBlockquoteItems", () => {
 // ============================================================
 
 describe("splitEnumerationToList", () => {
-  it("should split 一是/二是/三是 patterns into bullet list", () => {
+  it("should split 一是/二是/三是 patterns into bullet list preserving markers", () => {
     const input =
       "在技术栈层面，可观察到三条路线：一是以通用语言模型为核心构建应用，二是以世界模型为代表进行预测，三是以多模态融合为基础";
     const result = splitEnumerationToList(input);
-    expect(result).toContain("- 以通用语言模型为核心构建应用");
-    expect(result).toContain("- 以世界模型为代表进行预测");
-    expect(result).toContain("- 以多模态融合为基础");
+    expect(result).toContain("- **一是**以通用语言模型为核心构建应用");
+    expect(result).toContain("- **二是**以世界模型为代表进行预测");
+    expect(result).toContain("- **三是**以多模态融合为基础");
   });
 
-  it("should split 首先/其次/最后 patterns", () => {
+  it("should split 首先/其次/最后 patterns preserving markers", () => {
     const input =
       "需要关注以下方面：首先是计算效率的优化，其次是数据质量的保障，最后是安全对齐的强化";
     const result = splitEnumerationToList(input);
-    expect(result).toContain("- ");
+    expect(result).toContain("- **首先**");
+    expect(result).toContain("- **其次**");
+    expect(result).toContain("- **最后**");
     expect(result.match(/^- /gm)?.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -1120,5 +1126,136 @@ describe("mergeAdjacentMathBlocks — asymmetric delimiters", () => {
     const input = "$\\alpha$ $\\beta$";
     const result = mergeAdjacentMathBlocks(input);
     expect(result).toBe("$\\alpha \\beta$");
+  });
+});
+
+// ============================================================
+// normalizeChapterToSection
+// ============================================================
+
+describe("normalizeChapterToSection", () => {
+  it("should replace 本章 with 本节", () => {
+    const input = "本章聚焦两个可验证方向";
+    expect(normalizeChapterToSection(input)).toBe("本节聚焦两个可验证方向");
+  });
+
+  it("should replace 本章节 with 本维度 (not 本节节)", () => {
+    const input = "本章节分析了三个趋势";
+    expect(normalizeChapterToSection(input)).toBe("本维度分析了三个趋势");
+  });
+
+  it("should preserve 本章要点", () => {
+    const input = "> **本章要点**\n> - 要点一";
+    expect(normalizeChapterToSection(input)).toContain("本章要点");
+  });
+
+  it("should handle multiple occurrences in same content", () => {
+    const input = "本章分析...本章节结论...本章要点";
+    const result = normalizeChapterToSection(input);
+    expect(result).toBe("本节分析...本维度结论...本章要点");
+  });
+
+  it("should not modify content without 本章", () => {
+    const input = "本节分析了趋势";
+    expect(normalizeChapterToSection(input)).toBe(input);
+  });
+});
+
+// ============================================================
+// escapeLatexPipeInTables
+// ============================================================
+
+describe("escapeLatexPipeInTables", () => {
+  it("should escape | inside $...$ in table rows", () => {
+    const input = "| Formula | $P(A|B)$ |";
+    const result = escapeLatexPipeInTables(input);
+    expect(result).toContain("$P(A\\vert B)$");
+  });
+
+  it("should not modify non-table lines", () => {
+    const input = "Inline $P(A|B)$ formula";
+    expect(escapeLatexPipeInTables(input)).toBe(input);
+  });
+
+  it("should not modify separator rows", () => {
+    const input = "|---|---|";
+    expect(escapeLatexPipeInTables(input)).toBe(input);
+  });
+
+  it("should handle multiple LaTeX spans in one row", () => {
+    const input = "| $a|b$ | $c|d$ |";
+    const result = escapeLatexPipeInTables(input);
+    expect(result).toContain("$a\\vert b$");
+    expect(result).toContain("$c\\vert d$");
+  });
+
+  it("should not modify table cells without LaTeX pipe", () => {
+    const input = "| $x^2$ | $y^2$ |";
+    expect(escapeLatexPipeInTables(input)).toBe(input);
+  });
+});
+
+// ============================================================
+// normalizeInlineDoubleDollar
+// ============================================================
+
+describe("normalizeInlineDoubleDollar", () => {
+  it("should convert inline $$...$$ to $...$", () => {
+    const input = "公式L=$$\\alpha$$是关键";
+    const result = normalizeInlineDoubleDollar(input);
+    expect(result).toBe("公式L=$\\alpha$是关键");
+  });
+
+  it("should not convert display math (line starts and ends with $$)", () => {
+    const input = "$$E = mc^2$$";
+    expect(normalizeInlineDoubleDollar(input)).toBe(input);
+  });
+
+  it("should skip fenced code blocks", () => {
+    const input = "```\nL=$$\\alpha$$\n```";
+    expect(normalizeInlineDoubleDollar(input)).toBe(input);
+  });
+
+  it("should handle $$ followed by Chinese punctuation", () => {
+    const input = "结果为X=$$\\beta$$，其中";
+    const result = normalizeInlineDoubleDollar(input);
+    expect(result).toBe("结果为X=$\\beta$，其中");
+  });
+
+  it("should not convert $$ at start of line (display math)", () => {
+    const input = "$$\\alpha$$ + 1";
+    // $$ at start of line — lookbehind requires \\S before $$
+    expect(normalizeInlineDoubleDollar(input)).toBe(input);
+  });
+});
+
+// ============================================================
+// stripOrphanedChartComments
+// ============================================================
+
+describe("stripOrphanedChartComments", () => {
+  it("should strip raw HTML chart comments", () => {
+    const input = "内容前<!-- chart:d1-s0-4:1 -->内容后";
+    expect(stripOrphanedChartComments(input)).toBe("内容前内容后");
+  });
+
+  it("should strip HTML-escaped chart comments", () => {
+    const input = "内容前&lt;!-- chart:d3-s0-4:0 --&gt;内容后";
+    expect(stripOrphanedChartComments(input)).toBe("内容前内容后");
+  });
+
+  it("should strip multiple chart comments", () => {
+    const input = "A<!-- chart:d1-c1 -->B<!-- chart:d2-c2 -->C";
+    expect(stripOrphanedChartComments(input)).toBe("ABC");
+  });
+
+  it("should not strip non-chart comments", () => {
+    const input = "<!-- figure:1:2 -->";
+    expect(stripOrphanedChartComments(input)).toBe(input);
+  });
+
+  it("should not modify content without chart comments", () => {
+    const input = "正常内容没有注释";
+    expect(stripOrphanedChartComments(input)).toBe(input);
   });
 });

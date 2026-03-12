@@ -34,6 +34,9 @@ import {
   splitEnumerationToList,
   repairBrokenBoldMarkers,
   stripFigureComments,
+  stripOrphanedChartComments,
+  escapeLatexPipeInTables,
+  normalizeInlineDoubleDollar,
   normalizeHighlightsInPlace,
   renumberHeadings,
   ensureBlankLineAfterTables,
@@ -474,13 +477,49 @@ export class ReportAssemblerService {
         }
       }
 
-      // Check 1: paragraph-level content overlap
+      // Build 4-gram sets for fuzzy paragraph matching
+      const extractNgrams = (text: string, n = 4): Set<string> => {
+        const clean = text.replace(/[\s，。；：、！？""''（）\[\]]/g, "");
+        const grams = new Set<string>();
+        for (let i = 0; i <= clean.length - n; i++) {
+          grams.add(clean.substring(i, i + n));
+        }
+        return grams;
+      };
+      const jaccardSimilarity = (a: Set<string>, b: Set<string>): number => {
+        if (a.size === 0 || b.size === 0) return 0;
+        let intersection = 0;
+        for (const g of a) {
+          if (b.has(g)) intersection++;
+        }
+        return intersection / (a.size + b.size - intersection);
+      };
+
+      // Pre-compute n-grams for each supplementary paragraph
+      const supplementaryNgrams: Set<string>[] = [];
+      for (const section of supplementarySections) {
+        for (const p of section.split("\n\n")) {
+          const trimmed = p.trim();
+          if (trimmed.length >= 60 && !/^[#>|!\-*\d]/.test(trimmed)) {
+            supplementaryNgrams.push(extractNgrams(trimmed));
+          }
+        }
+      }
+
+      // Check 1: paragraph-level content overlap (exact key + fuzzy n-gram)
       const conclusionParas = conclusionText
         .split("\n\n")
         .filter((p) => p.trim().length >= 60);
       const duplicateParas = conclusionParas.filter((p) => {
-        const key = p.trim().substring(0, 120).replace(/\s/g, "");
-        return supplementaryParagraphKeys.has(key);
+        const trimmed = p.trim();
+        // Exact match on 120-char prefix
+        const key = trimmed.substring(0, 120).replace(/\s/g, "");
+        if (supplementaryParagraphKeys.has(key)) return true;
+        // Fuzzy match: Jaccard similarity > 0.5 on 4-grams
+        const pNgrams = extractNgrams(trimmed);
+        return supplementaryNgrams.some(
+          (supNgrams) => jaccardSimilarity(pNgrams, supNgrams) > 0.5,
+        );
       });
       const overlapRatio =
         conclusionParas.length > 0
@@ -513,13 +552,17 @@ export class ReportAssemblerService {
           overlapRatio < 1.0 &&
           conclusionParas.length > duplicateParas.length
         ) {
-          // Partial overlap: remove only duplicate paragraphs
+          // Partial overlap: remove only duplicate paragraphs (exact + fuzzy)
           const uniqueParas = conclusionText.split("\n\n").filter((p) => {
             const trimmed = p.trim();
             if (trimmed.length < 60 || /^[#>|!\-*\d]/.test(trimmed))
               return true;
             const key = trimmed.substring(0, 120).replace(/\s/g, "");
-            return !supplementaryParagraphKeys.has(key);
+            if (supplementaryParagraphKeys.has(key)) return false;
+            const pNgrams = extractNgrams(trimmed);
+            return !supplementaryNgrams.some(
+              (supNgrams) => jaccardSimilarity(pNgrams, supNgrams) > 0.5,
+            );
           });
           conclusionText = uniqueParas.join("\n\n").trim();
           this.logger.warn(
@@ -726,6 +769,15 @@ export class ReportAssemblerService {
 
     // Strip residual figure placeholders (catch any missed by per-dimension pass)
     content = stripFigureComments(content);
+
+    // Strip orphaned chart comment markers (unresolved <!-- chart:xxx -->)
+    content = stripOrphanedChartComments(content);
+
+    // Escape LaTeX pipe characters inside table rows
+    content = escapeLatexPipeInTables(content);
+
+    // Normalize inline $$...$$ to $...$
+    content = normalizeInlineDoubleDollar(content);
 
     // Strip 本章要点 blocks from continuous view (redundant with exec summary)
     content = stripChapterHighlights(content);

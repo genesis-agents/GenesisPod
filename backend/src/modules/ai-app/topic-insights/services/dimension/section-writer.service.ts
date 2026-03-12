@@ -435,10 +435,22 @@ export class SectionWriterService {
         .map((fig, idx) => {
           // ★ Build descriptive Source text from evidence metadata (use filtered evidence by remapped index)
           const evidenceItem = evidenceData[fig.evidenceIndex - 1];
-          const sourceText = evidenceItem
-            ? `${evidenceItem.title || evidenceItem.domain || ""}`.trim() ||
-              `[${fig.evidenceIndex}]`
-            : `[${fig.evidenceIndex}]`;
+          // Fallback chain: evidence title → evidence domain → domain from imageUrl → citation index
+          let sourceText = "";
+          if (evidenceItem) {
+            sourceText =
+              `${evidenceItem.title || evidenceItem.domain || ""}`.trim();
+          }
+          if (!sourceText && fig.imageUrl) {
+            try {
+              sourceText = new URL(fig.imageUrl).hostname.replace(/^www\./, "");
+            } catch {
+              // invalid URL, skip
+            }
+          }
+          if (!sourceText) {
+            sourceText = `[${fig.evidenceIndex}]`;
+          }
           return {
             id: `auto-fig-${idx}`,
             evidenceCitationIndex: fig.evidenceIndex, // ★ 使用重映射后的索引
