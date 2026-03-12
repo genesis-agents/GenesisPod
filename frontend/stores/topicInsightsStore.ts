@@ -614,8 +614,8 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
             }
           }
 
-          // ★ Health check: detect stuck missions
-          if (isActive) {
+          // ★ Health check: detect stuck missions (first poll + every 6th = ~30s interval)
+          if (isActive && (pollCount === 1 || pollCount % 6 === 0)) {
             try {
               const healthResult = await api.getMissionHealth(topicId);
               if (healthResult.health && !healthResult.health.isHealthy) {

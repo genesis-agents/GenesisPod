@@ -332,8 +332,8 @@ export class LeaderPlanningService {
             (s: string) => !VALID_SKILLS.has(s),
           );
           if (invalidSkills.length > 0) {
-            this.logger.warn(
-              `[planResearch] Filtered out invalid skills for ${assignment.agentName || assignment.agentId}: ${invalidSkills.join(", ")}`,
+            this.logger.debug(
+              `[planResearch] Filtered out LLM-hallucinated skills for ${assignment.agentName || assignment.agentId}: ${invalidSkills.join(", ")}`,
             );
           }
           assignment.skills = validSkills;
@@ -548,13 +548,25 @@ export class LeaderPlanningService {
       try {
         // ★ 最后一次尝试时回退到非推理模型，增加容错性
         const useReasoning = attempt < MAX_RETRIES;
-        let leaderModel: { modelId: string; modelName: string; provider?: string; isReasoning: boolean } | null;
+        let leaderModel: {
+          modelId: string;
+          modelName: string;
+          provider?: string;
+          isReasoning: boolean;
+        } | null;
         if (useReasoning) {
           leaderModel = await this.getReasoningModel();
         } else {
-          const fallback = await this.chatFacade.selectModel({ requireReasoning: false });
+          const fallback = await this.chatFacade.selectModel({
+            requireReasoning: false,
+          });
           leaderModel = fallback
-            ? { modelId: fallback.id, modelName: fallback.name, provider: fallback.provider, isReasoning: fallback.isReasoning ?? false }
+            ? {
+                modelId: fallback.id,
+                modelName: fallback.name,
+                provider: fallback.provider,
+                isReasoning: fallback.isReasoning ?? false,
+              }
             : null;
         }
 
@@ -1197,5 +1209,4 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
-
 }

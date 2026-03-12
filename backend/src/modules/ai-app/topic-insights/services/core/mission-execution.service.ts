@@ -49,6 +49,7 @@ import {
   type TaskExecutionResult,
 } from "./task-executors";
 import { InsufficientCreditsException } from "../../exceptions/research.exceptions";
+import { BillingContext } from "@/modules/ai-infra/facade";
 
 /** Alias for task result JSON shape */
 type TaskResultJson = TaskExecutionResult;
@@ -923,8 +924,13 @@ export class MissionExecutionService {
         totalTasks: pendingTasks.length,
       });
 
-      // 6. 异步启动执行循环
-      void this.startExecution(missionId, topicId).catch((err) => {
+      // 6. 异步启动执行循环（确保 BillingContext 传播）
+      const existingCtx = BillingContext.get();
+      const startFn = () => this.startExecution(missionId, topicId);
+      const wrappedStart = existingCtx
+        ? () => BillingContext.run(existingCtx, startFn)
+        : startFn;
+      void wrappedStart().catch((err) => {
         this.logger.error(
           `[resumeExecutionForNewTask] Execution failed: ${err}`,
         );
@@ -949,14 +955,44 @@ export class MissionExecutionService {
     missionId: string;
     topicId: string;
   }): Promise<void> {
-    void this.resumeExecutionForNewTask(
-      payload.missionId,
-      payload.topicId,
-    ).catch((err) => {
-      this.logger.error(
-        `[handleResumeMissionExecution] Failed to resume mission: ${err}`,
-      );
+    // ★ Event handlers have no HTTP context — construct BillingContext from topic owner
+    const startFn = () =>
+      this.resumeExecutionForNewTask(payload.missionId, payload.topicId);
+
+    const existingCtx = BillingContext.get();
+    if (existingCtx) {
+      void BillingContext.run(existingCtx, startFn).catch((err) => {
+        this.logger.error(
+          `[handleResumeMissionExecution] Failed to resume mission: ${err}`,
+        );
+      });
+      return;
+    }
+
+    // No context — look up userId from topic
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: payload.topicId },
+      select: { userId: true },
     });
+    if (topic?.userId) {
+      const billingCtx = {
+        userId: topic.userId,
+        moduleType: "topic-insights" as const,
+        operationType: "research" as const,
+        referenceId: payload.missionId,
+      };
+      void BillingContext.run(billingCtx, startFn).catch((err) => {
+        this.logger.error(
+          `[handleResumeMissionExecution] Failed to resume mission: ${err}`,
+        );
+      });
+    } else {
+      void startFn().catch((err) => {
+        this.logger.error(
+          `[handleResumeMissionExecution] Failed to resume mission: ${err}`,
+        );
+      });
+    }
   }
 
   // ==================== Phase 5: Recovery Methods ====================
@@ -1066,8 +1102,13 @@ export class MissionExecutionService {
         `progress: ${completedCount}/${totalCount} (${progress}%)`,
     );
 
-    // 4. 异步启动执行（不阻塞）
-    void this.startExecution(missionId, mission.topicId).catch((err) => {
+    // 4. 异步启动执行（不阻塞，确保 BillingContext 传播）
+    const existingCtx2 = BillingContext.get();
+    const startFn2 = () => this.startExecution(missionId, mission.topicId);
+    const wrappedStart2 = existingCtx2
+      ? () => BillingContext.run(existingCtx2, startFn2)
+      : startFn2;
+    void wrappedStart2().catch((err) => {
       this.logger.error(
         `[continueExecution] Failed to continue execution: ${err.message}`,
       );
@@ -1184,5 +1225,4 @@ export class MissionExecutionService {
       // 不抛出异常，避免影响主流程
     }
   }
-
 }

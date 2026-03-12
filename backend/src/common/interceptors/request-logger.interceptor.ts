@@ -90,14 +90,19 @@ export class RequestLoggerInterceptor implements NestInterceptor {
           // 始终记录 HTTP 指标
           this.recordHttpMetrics(method, path, statusCode, duration);
 
-          this.logger.error(`${method} ${path || url} ${statusCode}`, error, {
-            requestId,
-            userId,
-            duration,
-            method,
-            path: path || url,
-            statusCode,
-          });
+          // 4xx = client error (WARN), 5xx = server error (ERROR)
+          const logMethod = statusCode < 500 ? "warn" : "error";
+          this.logger[logMethod](
+            `${method} ${path || url} ${statusCode} ${duration}ms`,
+            {
+              requestId,
+              userId,
+              duration,
+              method,
+              path: path || url,
+              statusCode,
+            },
+          );
         },
       }),
     );
