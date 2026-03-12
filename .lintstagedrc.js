@@ -11,19 +11,22 @@
  * - ESLint with type-aware rules rebuilds the TS program every invocation (~11s)
  * - --cache skips files whose content + config haven't changed
  * - Second commit in a session: ~1s instead of ~11s for unchanged files
+ *
+ * Why npx -w <workspace>?
+ * - ESLint needs tsconfig.json from the workspace root (backend/ or frontend/)
+ * - `cd backend && ...` fails on Windows (lint-staged doesn't use a shell)
+ * - `npx -w backend` uses npm workspaces to set correct cwd
  */
 const path = require("path");
 
 /**
- * Convert absolute file paths to paths relative to a subdirectory.
- * ESLint must run from backend/ or frontend/ to find tsconfig.json,
- * so we strip the prefix so paths resolve correctly after `cd`.
+ * Convert absolute file paths to paths relative to a subdirectory,
+ * always using forward slashes (cross-platform).
  */
 function toRelative(baseDir, files) {
-  return files.map((f) => path.relative(baseDir, f));
+  return files.map((f) => path.relative(baseDir, f).replace(/\\/g, "/"));
 }
 
-/** Quote a file path for shell usage (handles spaces). */
 function quote(f) {
   return `"${f}"`;
 }
@@ -34,8 +37,7 @@ module.exports = {
   "backend/**/*.{ts,tsx}": (files) => {
     const rel = toRelative("backend", files).map(quote).join(" ");
     return [
-      `cd backend && npx eslint --cache --fix ${rel}`,
-      // prettier uses absolute paths (works from any cwd)
+      `npx -w backend eslint --cache --fix ${rel}`,
       `prettier --write ${files.map(quote).join(" ")}`,
     ];
   },
@@ -43,7 +45,7 @@ module.exports = {
   "backend/**/*.{js,jsx}": (files) => {
     const rel = toRelative("backend", files).map(quote).join(" ");
     return [
-      `cd backend && npx eslint --cache --fix ${rel}`,
+      `npx -w backend eslint --cache --fix ${rel}`,
       `prettier --write ${files.map(quote).join(" ")}`,
     ];
   },
@@ -51,7 +53,7 @@ module.exports = {
   "frontend/**/*.{ts,tsx}": (files) => {
     const rel = toRelative("frontend", files).map(quote).join(" ");
     return [
-      `cd frontend && npx eslint --cache --fix ${rel}`,
+      `npx -w frontend eslint --cache --fix ${rel}`,
       `prettier --write ${files.map(quote).join(" ")}`,
     ];
   },
@@ -59,7 +61,7 @@ module.exports = {
   "frontend/**/*.{js,jsx}": (files) => {
     const rel = toRelative("frontend", files).map(quote).join(" ");
     return [
-      `cd frontend && npx eslint --cache --fix ${rel}`,
+      `npx -w frontend eslint --cache --fix ${rel}`,
       `prettier --write ${files.map(quote).join(" ")}`,
     ];
   },
