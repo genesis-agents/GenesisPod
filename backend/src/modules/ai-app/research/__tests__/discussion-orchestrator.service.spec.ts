@@ -1,15 +1,17 @@
 /**
- * Tests for DiscussionOrchestratorService
+ * Tests for DiscussionOrchestratorService (thin facade)
+ *
+ * Since DiscussionOrchestratorService is a thin facade that delegates to
+ * DiscussionPhaseCoordinatorService (research execution) and
+ * DiscussionSessionService (session CRUD), we mock those sub-services directly.
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { DiscussionOrchestratorService } from "../discussion/discussion-orchestrator.service";
+import { DiscussionPhaseCoordinatorService } from "../discussion/discussion-phase-coordinator.service";
+import { DiscussionSessionService } from "../discussion/discussion-session.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { DiscussionAgentService } from "../discussion/discussion-agent.service";
-import { IterativeSearchService } from "../discussion/iterative-search.service";
-import { ReportSynthesizerService } from "../discussion/report-synthesizer.service";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { ResearchReplannerService } from "../discussion/research-replanner.service";
+import { Observable, Subject } from "rxjs";
 
 jest.mock("@prisma/client", () => ({
   AIModelType: {
@@ -29,19 +31,6 @@ jest.mock("@prisma/client", () => ({
   PrismaClient: class MockPrismaClient {},
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
-  AIEngineFacade: jest.fn().mockImplementation(() => ({
-    chat: jest.fn(),
-    startTrace: jest.fn(),
-    endTrace: jest.fn(),
-    addSpan: jest.fn(),
-    endSpan: jest.fn(),
-    a2aPublish: jest.fn(),
-    a2aClearSession: jest.fn(),
-    coordinatorStore: jest.fn(),
-  })),
-}));
-
 jest.mock("../../../../common/prisma/prisma.service", () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
     researchProject: {
@@ -57,30 +46,8 @@ jest.mock("../../../../common/prisma/prisma.service", () => ({
     },
   })),
 }));
-jest.mock("../discussion/discussion-agent.service");
-jest.mock("../discussion/iterative-search.service");
-jest.mock("../discussion/report-synthesizer.service");
-jest.mock("../discussion/research-replanner.service");
 
-jest.mock("../../../ai-infra/credits/credits.service", () => ({
-  CreditsService: jest.fn(),
-}));
-
-jest.mock("../idea/research-idea.service", () => ({
-  ResearchIdeaService: jest.fn(),
-}));
-
-jest.mock("rxjs", () => ({
-  ...jest.requireActual("rxjs"),
-  Subject: jest.fn().mockImplementation(() => ({
-    next: jest.fn(),
-    complete: jest.fn(),
-    asObservable: jest.fn().mockReturnValue({ subscribe: jest.fn() }),
-  })),
-  Observable: jest.fn(),
-}));
-
-jest.mock("../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../ai-infra/facade", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
   },
@@ -89,6 +56,8 @@ jest.mock("../../../ai-infra/credits/billing-context", () => ({
 describe("DiscussionOrchestratorService", () => {
   let service: DiscussionOrchestratorService;
   let prisma: jest.Mocked<PrismaService>;
+  let coordinator: jest.Mocked<DiscussionPhaseCoordinatorService>;
+  let sessionService: jest.Mocked<DiscussionSessionService>;
 
   const projectId = "project-123";
   const sessionId = "session-456";
@@ -119,86 +88,29 @@ describe("DiscussionOrchestratorService", () => {
       },
     };
 
-    const mockAgentService = {
-      initializeTeam: jest.fn().mockReturnValue(new Map()),
-      speak: jest.fn().mockResolvedValue("Agent response"),
-      createMessage: jest.fn().mockReturnValue({
-        id: "msg1",
-        agentRole: "director",
-        agentName: "Research Director",
-        content: "Message content",
-        phase: "ideation",
-        messageType: "proposal",
-        timestamp: new Date().toISOString(),
-      }),
-      parseDirections: jest.fn().mockReturnValue([
-        {
-          title: "Direction 1",
-          description: "Research direction 1",
-          searchQueries: ["Query 1", "Query 2"],
-        },
-        {
-          title: "Direction 2",
-          description: "Research direction 2",
-          searchQueries: ["Query 3"],
-        },
-      ]),
+    const mockCoordinator = {
+      executeDiscussion: jest.fn().mockResolvedValue(undefined),
+      generatePlanOnly: jest.fn().mockResolvedValue({}),
+      approvePlan: jest.fn().mockResolvedValue(new Observable()),
     };
 
-    const mockSearchService = {
-      executeStep: jest.fn().mockResolvedValue({
-        round: 1,
-        stepId: "step_1",
-        query: "test",
-        resultsCount: 5,
-        sources: [],
-        timestamp: new Date(),
-      }),
-    };
-
-    const mockReportService = {
-      generateReport: jest.fn().mockResolvedValue({
-        executiveSummary: "Test summary",
-        sections: [{ title: "Section 1", content: "Content", citations: [] }],
-        conclusion: "Test conclusion",
-        references: [
-          {
-            id: 1,
-            title: "Ref 1",
-            url: "https://example.com",
-            snippet: "",
-            accessedAt: new Date(),
-          },
-        ],
-        metadata: {
-          totalSources: 5,
-          totalTokens: 1000,
-          duration: 60,
-          searchRounds: 3,
-        },
-      }),
-    };
-
-    const mockFacadeInstance = {
-      chat: jest.fn(),
-      startTrace: jest.fn().mockReturnValue("trace-123"),
-      endTrace: jest.fn(),
-      addSpan: jest.fn().mockReturnValue("span-123"),
-      endSpan: jest.fn(),
-      a2aPublish: jest.fn().mockReturnValue(Promise.resolve()),
-      a2aClearSession: jest.fn(),
-      coordinatorStore: jest.fn().mockReturnValue(Promise.resolve()),
+    const mockSessionService = {
+      getSession: jest.fn().mockResolvedValue(mockSession),
+      getProjectSessions: jest.fn().mockResolvedValue([mockSession]),
+      deleteSession: jest.fn().mockResolvedValue(mockSession),
+      deleteSessions: jest.fn().mockResolvedValue({ count: 1 }),
+      updateSession: jest.fn().mockResolvedValue(mockSession),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiscussionOrchestratorService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: DiscussionAgentService, useValue: mockAgentService },
-        { provide: IterativeSearchService, useValue: mockSearchService },
-        { provide: ReportSynthesizerService, useValue: mockReportService },
-        { provide: AIEngineFacade, useValue: mockFacadeInstance },
-        { provide: ResearchReplannerService, useValue: null },
+        {
+          provide: DiscussionPhaseCoordinatorService,
+          useValue: mockCoordinator,
+        },
+        { provide: DiscussionSessionService, useValue: mockSessionService },
       ],
     }).compile();
 
@@ -206,6 +118,8 @@ describe("DiscussionOrchestratorService", () => {
       DiscussionOrchestratorService,
     );
     prisma = module.get(PrismaService);
+    coordinator = module.get(DiscussionPhaseCoordinatorService);
+    sessionService = module.get(DiscussionSessionService);
   });
 
   afterEach(() => {
@@ -213,120 +127,115 @@ describe("DiscussionOrchestratorService", () => {
   });
 
   describe("getSession", () => {
-    it("should return session by id", async () => {
+    it("should delegate to DiscussionSessionService.getSession", async () => {
       const result = await service.getSession(sessionId);
 
       expect(result).toBe(mockSession);
-      expect(prisma.deepResearchSession.findUnique).toHaveBeenCalledWith({
-        where: { id: sessionId },
-      });
+      expect(sessionService.getSession).toHaveBeenCalledWith(sessionId);
     });
   });
 
   describe("getProjectSessions", () => {
-    it("should return sessions for a project", async () => {
+    it("should delegate to DiscussionSessionService.getProjectSessions", async () => {
       const result = await service.getProjectSessions(projectId);
 
       expect(Array.isArray(result)).toBe(true);
-      expect(prisma.deepResearchSession.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { projectId },
-          take: 10,
-        }),
-      );
+      expect(sessionService.getProjectSessions).toHaveBeenCalledWith(projectId);
     });
 
-    it("should auto-correct stale sessions", async () => {
-      const staleCutoff = Date.now() - 20 * 60 * 1000; // 20 minutes ago
-      const staleSession = {
-        ...mockSession,
-        status: "IDEATION",
-        updatedAt: new Date(staleCutoff),
-        discussion: [{ content: "Some content" }], // has discussion = COMPLETED
-      };
-
-      (prisma.deepResearchSession.findMany as jest.Mock).mockResolvedValue([
-        staleSession,
-      ]);
-      (prisma.deepResearchSession.update as jest.Mock).mockResolvedValue({
-        ...staleSession,
-        status: "COMPLETED",
-      });
-
-      await service.getProjectSessions(projectId);
-
-      expect(prisma.deepResearchSession.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: sessionId },
-          data: expect.objectContaining({
-            status: "COMPLETED",
-          }),
-        }),
-      );
-    });
-
-    it("should mark stale sessions without content as FAILED", async () => {
+    it("should auto-correct stale sessions via DiscussionSessionService", async () => {
       const staleCutoff = Date.now() - 20 * 60 * 1000;
-      const staleSessionNoContent = {
+      const correctedSession = {
         ...mockSession,
-        status: "SEARCHING",
+        status: "COMPLETED",
         updatedAt: new Date(staleCutoff),
-        discussion: null, // no discussion = FAILED
       };
-
-      (prisma.deepResearchSession.findMany as jest.Mock).mockResolvedValue([
-        staleSessionNoContent,
+      (sessionService.getProjectSessions as jest.Mock).mockResolvedValue([
+        correctedSession,
       ]);
-      (prisma.deepResearchSession.update as jest.Mock).mockResolvedValue({
-        ...staleSessionNoContent,
-        status: "FAILED",
-      });
 
-      await service.getProjectSessions(projectId);
+      const result = await service.getProjectSessions(projectId);
 
-      expect(prisma.deepResearchSession.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: "FAILED",
-          }),
-        }),
-      );
+      expect(result[0].status).toBe("COMPLETED");
+      expect(sessionService.getProjectSessions).toHaveBeenCalledWith(projectId);
     });
 
-    it("should not update recently active sessions", async () => {
+    it("should return sessions from sub-service", async () => {
       const recentSession = {
         ...mockSession,
         status: "SEARCHING",
-        updatedAt: new Date(), // just now
+        updatedAt: new Date(),
       };
 
-      (prisma.deepResearchSession.findMany as jest.Mock).mockResolvedValue([
+      (sessionService.getProjectSessions as jest.Mock).mockResolvedValue([
         recentSession,
       ]);
 
-      await service.getProjectSessions(projectId);
+      const result = await service.getProjectSessions(projectId);
 
-      expect(prisma.deepResearchSession.update).not.toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+      expect(sessionService.getProjectSessions).toHaveBeenCalledWith(projectId);
     });
   });
 
   describe("deleteSession", () => {
-    it("should delete a session", async () => {
+    it("should delegate to DiscussionSessionService.deleteSession", async () => {
       await service.deleteSession(sessionId);
 
-      expect(prisma.deepResearchSession.delete).toHaveBeenCalledWith({
-        where: { id: sessionId },
-      });
+      expect(sessionService.deleteSession).toHaveBeenCalledWith(sessionId);
     });
   });
 
   describe("deleteSessions", () => {
-    it("should delete multiple sessions", async () => {
+    it("should delegate to DiscussionSessionService.deleteSessions", async () => {
       const sessionIds = ["session-1", "session-2"];
       await service.deleteSessions(sessionIds);
 
-      expect(prisma.deepResearchSession.deleteMany).toHaveBeenCalledWith({
-        where: { id: { in: sessionIds } },
+      expect(sessionService.deleteSessions).toHaveBeenCalledWith(sessionIds);
+    });
+  });
+
+  describe("startResearch", () => {
+    it("should return an Observable", () => {
+      const obs = service.startResearch(projectId, { query: "test query" });
+      expect(obs).toBeDefined();
+      expect(typeof obs.subscribe).toBe("function");
+    });
+
+    it("should emit error event when project not found", (done) => {
+      (prisma.researchProject.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const events: any[] = [];
+      service.startResearch(projectId, { query: "test query" }).subscribe({
+        next: (event) => events.push(event),
+        error: (err) => done.fail(err),
+        complete: () => {
+          expect(events.some((e) => e.type === "error")).toBe(true);
+          const errorEvent = events.find((e) => e.type === "error");
+          expect(errorEvent.data.code).toBe("EXECUTION_ERROR");
+          done();
+        },
+      });
+    });
+
+    it("should call coordinator.executeDiscussion when project is found", (done) => {
+      (coordinator.executeDiscussion as jest.Mock).mockImplementation(
+        async (_projectId: string, _dto: any, subject: Subject<any>) => {
+          subject.next({
+            type: "interaction.complete",
+            data: { status: "success" },
+          });
+          subject.complete();
+        },
+      );
+
+      service.startResearch(projectId, { query: "test query" }).subscribe({
+        next: () => {},
+        error: (err) => done.fail(err),
+        complete: () => {
+          expect(coordinator.executeDiscussion).toHaveBeenCalled();
+          done();
+        },
       });
     });
   });

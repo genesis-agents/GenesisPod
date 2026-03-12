@@ -11,6 +11,7 @@ import {
   UseGuards,
   UnauthorizedException,
   ParseUUIDPipe,
+  UseInterceptors,
 } from "@nestjs/common";
 import { ResearchIdeaType } from "@prisma/client";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
@@ -21,11 +22,13 @@ import {
   CreateResearchIdeaDto,
   UpdateResearchIdeaDto,
 } from "./research-idea.dto";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("ai-studio")
 @ApiBearerAuth("access-token")
 @Controller("ai-studio/projects/:projectId/ideas")
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(BillingContextInterceptor)
 export class ResearchIdeaController {
   constructor(private readonly ideaService: ResearchIdeaService) {}
 

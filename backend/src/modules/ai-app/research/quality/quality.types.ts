@@ -1,6 +1,22 @@
 /** 违规严重程度 */
 export type ViolationSeverity = "error" | "warning" | "info";
 
+/** Layer 2 内容评分结果 */
+export interface ContentScore {
+  factuality: number;
+  depth: number;
+  coherence: number;
+  completeness: number;
+  overallScore: number;
+}
+
+/** Critique-lite 改进建议结果 */
+export interface CritiqueResult {
+  suggestions: string[];
+  criticalIssues: string[];
+  refinedSummary?: string;
+}
+
 /** 单条违规 */
 export interface QualityViolation {
   rule: string;
@@ -23,6 +39,18 @@ export interface ReportQualityResult {
     contentDepth: number;
     overall: number;
   };
+}
+
+/** 双层质量检查综合结果 */
+export interface DualLayerQualityResult {
+  /** Layer 1: 结构/格式检查 (existing) */
+  structural: ReportQualityResult;
+  /** Layer 2: LLM 内容评分 (new) */
+  content: ContentScore;
+  /** 改进建议（仅在 overallScore < 0.6 时生成） */
+  critique?: CritiqueResult;
+  /** 综合判定 */
+  passed: boolean;
 }
 
 /** 事实检查结果 */

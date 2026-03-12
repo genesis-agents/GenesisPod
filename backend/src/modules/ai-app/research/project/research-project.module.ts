@@ -20,6 +20,9 @@ import { TTS_SERVICE } from "../../../ai-engine/facade";
 import { ResearchProjectController } from "./research-project.controller";
 import { ResearchProjectService } from "./research-project.service";
 import { ResearchProjectSourceService } from "./research-project-source.service";
+import { SourceIngestionService } from "./source-ingestion.service";
+import { SourceMetadataService } from "./source-metadata.service";
+import { SourceQueryService } from "./source-query.service";
 import { ResearchProjectChatService } from "./research-project-chat.service";
 import { ResearchProjectOutputService } from "./research-project-output.service";
 import { ResearchProjectTTSService } from "./research-project-tts.service";
@@ -37,6 +40,9 @@ import { FileParserService } from "./services/file-parser.service";
   providers: [
     ResearchProjectService,
     ResearchProjectSourceService,
+    SourceIngestionService,
+    SourceMetadataService,
+    SourceQueryService,
     ResearchProjectChatService,
     ResearchProjectOutputService,
     ResearchProjectTTSService,

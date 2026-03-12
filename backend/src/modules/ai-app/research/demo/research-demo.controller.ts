@@ -9,17 +9,20 @@ import {
   UseGuards,
   UnauthorizedException,
   ParseUUIDPipe,
+  UseInterceptors,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import { ResearchDemoService } from "./research-demo.service";
 import { GenerateDemoDto } from "./research-demo.dto";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("ai-studio")
 @ApiBearerAuth("access-token")
 @Controller("ai-studio/projects/:projectId")
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(BillingContextInterceptor)
 export class ResearchDemoController {
   constructor(private readonly demoService: ResearchDemoService) {}
 

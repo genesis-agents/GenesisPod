@@ -21,11 +21,16 @@ import { SelfReflectionService } from "./self-reflection.service";
 import { ReportSynthesizerService } from "./report-synthesizer.service";
 import { DiscussionAgentService } from "./discussion-agent.service";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
+import { DiscussionSessionService } from "./discussion-session.service";
+import { DiscussionStreamService } from "./discussion-stream.service";
+import { DiscussionPhaseCoordinatorService } from "./discussion-phase-coordinator.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
 import { ResearchReplannerService } from "./research-replanner.service";
 import { ResearchToolRouterService } from "../search/research-tool-router.service";
 import { ResearchQualityGateService } from "../quality/research-quality-gate.service";
 import { ResearchFactCheckerService } from "../quality/research-fact-checker.service";
+import { ResearchContentScorerService } from "../quality/research-content-scorer.service";
+import { ResearchCritiqueService } from "../quality/research-critique.service";
 
 const services = [
   DiscussionResearchService,
@@ -34,12 +39,17 @@ const services = [
   SelfReflectionService,
   ReportSynthesizerService,
   DiscussionAgentService,
+  DiscussionSessionService,
+  DiscussionStreamService,
+  DiscussionPhaseCoordinatorService,
   DiscussionOrchestratorService,
   ResearchIdeaService,
   ResearchReplannerService,
   ResearchToolRouterService,
   ResearchQualityGateService,
   ResearchFactCheckerService,
+  ResearchContentScorerService,
+  ResearchCritiqueService,
 ];
 
 @Module({

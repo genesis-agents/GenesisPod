@@ -196,6 +196,21 @@ export type DeepResearchSSEEvent =
   | DiscussionPhaseEvent
   | DiscussionTypingEvent;
 
+// ==================== 计划审批相关 ====================
+
+export interface PlanApprovalRequest {
+  sessionId: string;
+  plan: ResearchPlan;
+  estimatedTime: number;
+  depth: string;
+}
+
+export interface PlanApprovalResponse {
+  approved: boolean;
+  modifiedPlan?: ResearchPlan;
+  feedback?: string;
+}
+
 // ==================== 请求/响应相关 ====================
 
 export interface PreviousReportContext {

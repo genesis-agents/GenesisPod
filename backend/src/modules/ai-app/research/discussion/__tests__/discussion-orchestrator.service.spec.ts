@@ -6,9 +6,10 @@
  * - executeDiscussion() — ideation → execution → findings → synthesis → completion
  * - getSession(), getProjectSessions() — stale session auto-correction
  * - deleteSession(), deleteSessions()
- * - countUniqueSources(), withTimeout(), getAgent()
- * - publishMessage(), emitTyping()
- * - autoExtractIdeas()
+ * - countUniqueSources(), withTimeout(), getAgent() (via DiscussionStreamService)
+ * - publishMessage(), emitTyping() (via DiscussionStreamService)
+ * - autoExtractIdeas() (via DiscussionPhaseCoordinatorService)
+ * - updateSession() (via DiscussionSessionService)
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -16,10 +17,14 @@ import { Logger } from "@nestjs/common";
 import { DeepResearchStatus } from "@prisma/client";
 import { Subject } from "rxjs";
 import { DiscussionOrchestratorService } from "../discussion-orchestrator.service";
+import { DiscussionPhaseCoordinatorService } from "../discussion-phase-coordinator.service";
+import { DiscussionSessionService } from "../discussion-session.service";
+import { DiscussionStreamService } from "../discussion-stream.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { DiscussionAgentService } from "../discussion-agent.service";
 import { IterativeSearchService } from "../iterative-search.service";
 import { ReportSynthesizerService } from "../report-synthesizer.service";
+import { ResearchReplannerService } from "../research-replanner.service";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -71,8 +76,85 @@ function makeReport() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+jest.mock("@prisma/client", () => ({
+  PrismaClient: class MockPrismaClient {},
+  AIModelType: { CHAT: "CHAT", CHAT_FAST: "CHAT_FAST" },
+  DeepResearchStatus: {
+    IDEATION: "IDEATION",
+    PLANNING: "PLANNING",
+    SEARCHING: "SEARCHING",
+    FINDINGS: "FINDINGS",
+    REFLECTING: "REFLECTING",
+    SYNTHESIZING: "SYNTHESIZING",
+    COMPLETED: "COMPLETED",
+    FAILED: "FAILED",
+  },
+}));
+
+jest.mock("@/modules/ai-engine/facade", () => ({
+  AIEngineFacade: jest.fn().mockImplementation(() => ({})),
+  AgentFacade: jest.fn().mockImplementation(() => ({})),
+  TeamFacade: jest.fn().mockImplementation(() => ({})),
+  ToolRegistry: jest.fn().mockImplementation(() => ({})),
+}));
+
+jest.mock("../../../../../common/prisma/prisma.service", () => ({
+  PrismaService: jest.fn().mockImplementation(() => ({
+    researchProject: { findUnique: jest.fn() },
+    deepResearchSession: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+  })),
+}));
+
+jest.mock("../discussion-agent.service");
+jest.mock("../iterative-search.service");
+jest.mock("../report-synthesizer.service");
+jest.mock("../research-replanner.service");
+
+jest.mock("../../../../ai-infra/facade", () => ({
+  BillingContext: {
+    run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
+  },
+  CreditsService: jest.fn(),
+  InsufficientCreditsException: class InsufficientCreditsException extends Error {},
+}));
+
+jest.mock("../../idea/research-idea.service", () => ({
+  ResearchIdeaService: jest.fn(),
+}));
+
+jest.mock("../../../../ai-kernel/facade", () => ({
+  MissionExecutorService: jest.fn(),
+  KernelContext: jest.fn(),
+}));
+
+jest.mock("../../search/research-tool-router.service", () => ({
+  ResearchToolRouterService: jest.fn(),
+}));
+
+jest.mock("../../quality/research-quality-gate.service", () => ({
+  ResearchQualityGateService: jest.fn(),
+}));
+
+jest.mock("../../quality/research-fact-checker.service", () => ({
+  ResearchFactCheckerService: jest.fn(),
+}));
+
+jest.mock("@/common/config/app.config", () => ({
+  APP_CONFIG: { brand: { userAgent: "TestAgent/1.0" } },
+}));
+
 describe("DiscussionOrchestratorService", () => {
   let service: DiscussionOrchestratorService;
+  let coordinator: DiscussionPhaseCoordinatorService;
+  let sessionService: DiscussionSessionService;
+  let streamService: DiscussionStreamService;
   let mockPrisma: any;
   let mockAgentService: any;
   let mockSearchService: any;
@@ -131,16 +213,18 @@ describe("DiscussionOrchestratorService", () => {
       speak: jest.fn().mockResolvedValue("mock agent response"),
       createMessage: jest
         .fn()
-        .mockImplementation((agent, content, phase, type) => ({
-          id: `msg-${Math.random()}`,
-          agentId: agent.config.role,
-          agentRole: agent.config.role,
-          agentName: agent.config.name,
-          content,
-          phase,
-          messageType: type,
-          timestamp: new Date(),
-        })),
+        .mockImplementation(
+          (agent: any, content: any, phase: any, type: any) => ({
+            id: `msg-${Math.random()}`,
+            agentId: agent.config.role,
+            agentRole: agent.config.role,
+            agentName: agent.config.name,
+            content,
+            phase,
+            messageType: type,
+            timestamp: new Date(),
+          }),
+        ),
       parseDirections: jest.fn().mockReturnValue([
         {
           title: "Direction 1",
@@ -205,37 +289,82 @@ describe("DiscussionOrchestratorService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiscussionOrchestratorService,
+        DiscussionPhaseCoordinatorService,
+        DiscussionSessionService,
+        DiscussionStreamService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: DiscussionAgentService, useValue: mockAgentService },
         { provide: IterativeSearchService, useValue: mockSearchService },
         { provide: ReportSynthesizerService, useValue: mockReportService },
-        // @Optional dependencies — inject via useValue to override
+        { provide: ResearchReplannerService, useValue: mockReplanner },
         { provide: "CreditsService", useValue: mockCreditsService },
         { provide: "ResearchIdeaService", useValue: mockIdeaService },
         { provide: "AgentFacade", useValue: mockAgentFacade },
         { provide: "TeamFacade", useValue: mockTeamFacade },
-        { provide: "ResearchReplannerService", useValue: mockReplanner },
       ],
     })
       .overrideProvider(DiscussionOrchestratorService)
       .useFactory({
-        factory: () =>
-          new DiscussionOrchestratorService(
-            mockPrisma,
-            mockAgentService,
-            mockSearchService,
-            mockReportService,
+        factory: (
+          prisma: PrismaService,
+          coord: DiscussionPhaseCoordinatorService,
+          sess: DiscussionSessionService,
+        ) => new DiscussionOrchestratorService(prisma, coord, sess),
+        inject: [
+          PrismaService,
+          DiscussionPhaseCoordinatorService,
+          DiscussionSessionService,
+        ],
+      })
+      .overrideProvider(DiscussionPhaseCoordinatorService)
+      .useFactory({
+        factory: (
+          prisma: PrismaService,
+          agentSvc: DiscussionAgentService,
+          searchSvc: IterativeSearchService,
+          reportSvc: ReportSynthesizerService,
+          sessSvc: DiscussionSessionService,
+          streamSvc: DiscussionStreamService,
+        ) =>
+          new DiscussionPhaseCoordinatorService(
+            prisma,
+            agentSvc,
+            searchSvc,
+            reportSvc,
+            sessSvc,
+            streamSvc,
             mockCreditsService,
             mockIdeaService,
             mockAgentFacade,
             mockTeamFacade,
             mockReplanner,
           ),
+        inject: [
+          PrismaService,
+          DiscussionAgentService,
+          IterativeSearchService,
+          ReportSynthesizerService,
+          DiscussionSessionService,
+          DiscussionStreamService,
+        ],
+      })
+      .overrideProvider(DiscussionStreamService)
+      .useFactory({
+        factory: () => new DiscussionStreamService(mockTeamFacade),
       })
       .compile();
 
     service = module.get<DiscussionOrchestratorService>(
       DiscussionOrchestratorService,
+    );
+    coordinator = module.get<DiscussionPhaseCoordinatorService>(
+      DiscussionPhaseCoordinatorService,
+    );
+    sessionService = module.get<DiscussionSessionService>(
+      DiscussionSessionService,
+    );
+    streamService = module.get<DiscussionStreamService>(
+      DiscussionStreamService,
     );
 
     jest.spyOn(Logger.prototype, "log").mockImplementation();
@@ -255,6 +384,7 @@ describe("DiscussionOrchestratorService", () => {
 
   describe("getSession", () => {
     it("should delegate to prisma.deepResearchSession.findUnique", async () => {
+      mockPrisma.deepResearchSession.findUnique.mockResolvedValue(mockSession);
       const result = await service.getSession(sessionId);
       expect(result).toEqual(mockSession);
       expect(mockPrisma.deepResearchSession.findUnique).toHaveBeenCalledWith({
@@ -355,11 +485,11 @@ describe("DiscussionOrchestratorService", () => {
       );
     });
 
-    it("should not auto-correct sessions updated recently (within 15 minutes)", async () => {
+    it("should not auto-correct sessions updated recently (within 5 minutes)", async () => {
       const recentSession = {
         ...mockSession,
         status: DeepResearchStatus.SEARCHING,
-        updatedAt: new Date(Date.now() - 5 * 60 * 1000), // 5 min ago
+        updatedAt: new Date(Date.now() - 1 * 60 * 1000), // 1 min ago
         discussion: null,
       };
       mockPrisma.deepResearchSession.findMany.mockResolvedValue([
@@ -587,16 +717,23 @@ describe("DiscussionOrchestratorService", () => {
     }, 10000);
 
     it("should work without creditsService (optional)", (done) => {
-      const serviceWithoutCredits = new DiscussionOrchestratorService(
+      const coordWithoutCredits = new DiscussionPhaseCoordinatorService(
         mockPrisma,
         mockAgentService,
         mockSearchService,
         mockReportService,
+        sessionService,
+        streamService,
         null as any, // no credits service
         null as any, // no idea service
         mockAgentFacade,
         mockTeamFacade,
         null as any, // no replanner
+      );
+      const serviceWithoutCredits = new DiscussionOrchestratorService(
+        mockPrisma,
+        coordWithoutCredits,
+        sessionService,
       );
 
       const events: any[] = [];
@@ -616,16 +753,23 @@ describe("DiscussionOrchestratorService", () => {
     }, 10000);
 
     it("should work without domain facades (optional)", (done) => {
-      const serviceWithoutFacade = new DiscussionOrchestratorService(
+      const coordWithoutFacade = new DiscussionPhaseCoordinatorService(
         mockPrisma,
         mockAgentService,
         mockSearchService,
         mockReportService,
+        sessionService,
+        streamService,
         mockCreditsService,
         null as any, // no idea service
         null as any, // no agent facade
         null as any, // no team facade
         null as any,
+      );
+      const serviceWithoutFacade = new DiscussionOrchestratorService(
+        mockPrisma,
+        coordWithoutFacade,
+        sessionService,
       );
 
       const events: any[] = [];
@@ -923,7 +1067,7 @@ describe("DiscussionOrchestratorService", () => {
   });
 
   // =========================================================================
-  // countUniqueSources (private — tested indirectly via startResearch output)
+  // countUniqueSources (via DiscussionStreamService)
   // =========================================================================
 
   describe("countUniqueSources (via startResearch)", () => {
@@ -966,12 +1110,12 @@ describe("DiscussionOrchestratorService", () => {
   });
 
   // =========================================================================
-  // withTimeout (private)
+  // withTimeout (via DiscussionStreamService)
   // =========================================================================
 
-  describe("withTimeout (private)", () => {
+  describe("withTimeout (via DiscussionStreamService)", () => {
     it("should resolve when promise completes before timeout", async () => {
-      const result = await (service as any).withTimeout(
+      const result = await streamService.withTimeout(
         Promise.resolve("value"),
         5000,
         "Test operation",
@@ -982,41 +1126,41 @@ describe("DiscussionOrchestratorService", () => {
     it("should reject when promise exceeds timeout", async () => {
       const neverResolves = new Promise(() => {});
       await expect(
-        (service as any).withTimeout(neverResolves, 10, "Slow operation"),
+        streamService.withTimeout(neverResolves, 10, "Slow operation"),
       ).rejects.toThrow("超时");
     });
   });
 
   // =========================================================================
-  // getAgent (private)
+  // getAgent (via DiscussionStreamService)
   // =========================================================================
 
-  describe("getAgent (private)", () => {
+  describe("getAgent (via DiscussionStreamService)", () => {
     it("should return agent when found in team", () => {
       const team = new Map([["director", makeAgent("director", "Director")]]);
-      const agent = (service as any).getAgent(team, "director");
+      const agent = streamService.getAgent(team, "director");
       expect(agent.config.role).toBe("director");
     });
 
     it("should throw when agent not found in team", () => {
       const team = new Map<string, any>();
-      expect(() => (service as any).getAgent(team, "nonexistent")).toThrow(
+      expect(() => streamService.getAgent(team, "nonexistent")).toThrow(
         'Agent "nonexistent" not initialized in team',
       );
     });
   });
 
   // =========================================================================
-  // emitTyping (private)
+  // emitTyping (via DiscussionStreamService)
   // =========================================================================
 
-  describe("emitTyping (private)", () => {
+  describe("emitTyping (via DiscussionStreamService)", () => {
     it("should emit discussion.typing event", () => {
       const subject = new Subject<any>();
       const events: any[] = [];
       subject.subscribe((e) => events.push(e));
 
-      (service as any).emitTyping(subject, makeAgent("director", "Director"));
+      streamService.emitTyping(subject, makeAgent("director", "Director"));
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe("discussion.typing");
       expect(events[0].data.agentRole).toBe("director");
@@ -1025,10 +1169,10 @@ describe("DiscussionOrchestratorService", () => {
   });
 
   // =========================================================================
-  // publishMessage (private)
+  // publishMessage (via DiscussionStreamService)
   // =========================================================================
 
-  describe("publishMessage (private)", () => {
+  describe("publishMessage (via DiscussionStreamService)", () => {
     it("should emit discussion.message event and call a2aPublish", () => {
       const subject = new Subject<any>();
       const events: any[] = [];
@@ -1044,24 +1188,14 @@ describe("DiscussionOrchestratorService", () => {
         timestamp: new Date(),
       };
 
-      (service as any).publishMessage(sessionId, msg, subject);
+      streamService.publishMessage(sessionId, msg, subject);
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe("discussion.message");
       expect(mockTeamFacade.a2aPublish).toHaveBeenCalled();
     });
 
     it("should not throw if domain facades are null", () => {
-      const serviceWithoutFacade = new DiscussionOrchestratorService(
-        mockPrisma,
-        mockAgentService,
-        mockSearchService,
-        mockReportService,
-        null as any,
-        null as any,
-        null as any, // no agent facade
-        null as any, // no team facade
-        null as any,
-      );
+      const streamWithoutFacade = new DiscussionStreamService(undefined);
 
       const subject = new Subject<any>();
       const msg = {
@@ -1075,18 +1209,18 @@ describe("DiscussionOrchestratorService", () => {
       };
 
       expect(() =>
-        (serviceWithoutFacade as any).publishMessage(sessionId, msg, subject),
+        streamWithoutFacade.publishMessage(sessionId, msg, subject),
       ).not.toThrow();
     });
   });
 
   // =========================================================================
-  // updateSession (private)
+  // updateSession (via DiscussionSessionService)
   // =========================================================================
 
-  describe("updateSession (private)", () => {
+  describe("updateSession (via DiscussionSessionService)", () => {
     it("should call prisma update with serialized data", async () => {
-      await (service as any).updateSession(sessionId, {
+      await sessionService.updateSession(sessionId, {
         status: DeepResearchStatus.COMPLETED,
         sourcesUsed: 5,
         completedAt: new Date("2025-01-01"),
@@ -1103,12 +1237,12 @@ describe("DiscussionOrchestratorService", () => {
   });
 
   // =========================================================================
-  // autoExtractIdeas (private)
+  // autoExtractIdeas (via DiscussionPhaseCoordinatorService — private)
   // =========================================================================
 
-  describe("autoExtractIdeas (private)", () => {
+  describe("autoExtractIdeas (private on DiscussionPhaseCoordinatorService)", () => {
     it("should call ideaService.extractFromSession when ideaService is available", async () => {
-      await (service as any).autoExtractIdeas(projectId, sessionId, []);
+      await (coordinator as any).autoExtractIdeas(projectId, sessionId, []);
       expect(mockIdeaService.extractFromSession).toHaveBeenCalledWith(
         userId,
         projectId,
@@ -1117,11 +1251,13 @@ describe("DiscussionOrchestratorService", () => {
     });
 
     it("should log and return when ideaService is not available", async () => {
-      const serviceWithoutIdea = new DiscussionOrchestratorService(
+      const coordWithoutIdea = new DiscussionPhaseCoordinatorService(
         mockPrisma,
         mockAgentService,
         mockSearchService,
         mockReportService,
+        sessionService,
+        streamService,
         null as any,
         null as any, // no idea service
         mockAgentFacade,
@@ -1130,14 +1266,14 @@ describe("DiscussionOrchestratorService", () => {
       );
 
       await expect(
-        (serviceWithoutIdea as any).autoExtractIdeas(projectId, sessionId, []),
+        (coordWithoutIdea as any).autoExtractIdeas(projectId, sessionId, []),
       ).resolves.toBeUndefined();
     });
 
     it("should return early when project not found", async () => {
       mockPrisma.researchProject.findUnique.mockResolvedValue(null);
       await expect(
-        (service as any).autoExtractIdeas(projectId, sessionId, []),
+        (coordinator as any).autoExtractIdeas(projectId, sessionId, []),
       ).resolves.toBeUndefined();
       expect(mockIdeaService.extractFromSession).not.toHaveBeenCalled();
     });

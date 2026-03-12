@@ -2,6 +2,40 @@ import type { ExitDecision, TopicType } from "../evaluation";
 
 export type { TopicType };
 
+/**
+ * Structured snapshot persisted per-round, aligned with frontend IterationRound type.
+ * Defined here so it can be shared between the service and ResearchCheckpoint without circular deps.
+ */
+export interface IterationSnapshot {
+  round: number;
+  score: number;
+  previousScore: number;
+  gaps: { dataGaps: string[]; ideaGaps: string[] };
+  research?: {
+    queries: string[];
+    newSources: number;
+    informationGain: number;
+  };
+  ideas?: {
+    newInsights: Array<{ title: string }>;
+    newCreativeIdeas: Array<{ title: string }>;
+    totalInsights: number;
+    totalCreativeIdeas: number;
+  };
+  demo?: {
+    status: "generating" | "completed";
+  };
+  timestamp: string; // ISO string for JSON serialization
+}
+
+export interface ResearchCheckpoint {
+  completedRounds: number;
+  lastSnapshot: IterationSnapshot;
+  accumulatedIdeas: Array<{ title: string; description?: string }>;
+  lastReportContent?: string;
+  savedAt: string; // ISO date
+}
+
 export interface IterationRecord {
   round: number; // 0 = init, 1+ = iterations
   type: "init" | "iteration" | "summary";

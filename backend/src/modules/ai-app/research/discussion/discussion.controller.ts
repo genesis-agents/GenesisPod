@@ -9,13 +9,21 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  UseInterceptors,
 } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
 import { IterativeResearchService } from "../iteration";
-import { StartDeepResearchDto } from "./types";
+import {
+  StartDeepResearchDto,
+  PlanApprovalRequest,
+  PlanApprovalResponse,
+} from "./types";
+import { ApprovePlanDto } from "./dto/plan-approval.dto";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
+import { SSE_CONFIG } from "../config/research.config";
 
 /**
  * 深度研究 API 控制器
@@ -27,6 +35,7 @@ import { StartDeepResearchDto } from "./types";
  */
 @ApiTags("Research - Discussion")
 @Controller("ai-studio/projects/:projectId/deep-research")
+@UseInterceptors(BillingContextInterceptor)
 export class DiscussionController {
   private readonly logger = new Logger(DiscussionController.name);
 
@@ -71,11 +80,11 @@ export class DiscussionController {
       }
     };
 
-    // SSE keepalive heartbeat every 15s to prevent proxy idle timeouts
+    // SSE keepalive heartbeat to prevent proxy idle timeouts
     // (Railway/Cloudflare proxies may close idle SSE connections after ~60s)
     const heartbeat = setInterval(() => {
       safeWrite(":heartbeat\n\n");
-    }, 15_000);
+    }, SSE_CONFIG.HEARTBEAT_INTERVAL_MS);
 
     // Route through IterativeResearchService when available:
     // 'single' delegates to orchestrator, 'iterative' runs the self-iterating outer loop.
@@ -118,19 +127,18 @@ export class DiscussionController {
       },
     });
 
-    // 设置 30 分钟超时（研究流程包含多轮AI调用+搜索，通常需要10-20分钟）
-    const timeout = setTimeout(
-      () => {
-        this.logger.warn("Research stream timeout after 30 minutes");
-        clearInterval(heartbeat);
-        subscription.unsubscribe();
-        if (connectionOpen) {
-          connectionOpen = false;
-          res.end();
-        }
-      },
-      30 * 60 * 1000,
-    );
+    // Hard timeout on the entire stream (research typically takes 10–20 min; 30 min is a safety net)
+    const timeout = setTimeout(() => {
+      this.logger.warn(
+        `Research stream timeout after ${SSE_CONFIG.STREAM_TIMEOUT_MS / 60_000} minutes`,
+      );
+      clearInterval(heartbeat);
+      subscription.unsubscribe();
+      if (connectionOpen) {
+        connectionOpen = false;
+        res.end();
+      }
+    }, SSE_CONFIG.STREAM_TIMEOUT_MS);
 
     // 客户端断开连接时清理 — 但 NOT unsubscribe，研究继续在后台运行。
     // P0-1 fix: 之前 subscription.unsubscribe() 会终止后端 Observable，
@@ -185,6 +193,72 @@ export class DiscussionController {
       sessionId,
       message: "深度研究已启动",
     };
+  }
+
+  /**
+   * 生成研究计划（带审批流）
+   * 生成计划后暂停，返回计划等待用户审批后再执行
+   */
+  @Post("plan")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: "生成研究计划",
+    description: "生成研究计划，等待用户审批后再执行",
+  })
+  @ApiResponse({ status: 201, description: "计划生成成功，等待审批" })
+  async generatePlan(
+    @Param("projectId") projectId: string,
+    @Body() dto: StartDeepResearchDto,
+  ): Promise<PlanApprovalRequest> {
+    this.logger.log(
+      `Generating research plan for project ${projectId}: "${dto.query.slice(0, 50)}..."`,
+    );
+
+    try {
+      return await this.discussionOrchestrator.generatePlanOnly(projectId, dto);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : "计划生成失败",
+      );
+    }
+  }
+
+  /**
+   * 审批研究计划
+   * 批准后立即开始执行，拒绝则取消会话
+   */
+  @Post("plan/:sessionId/approve")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: "审批研究计划",
+    description: "审批或拒绝研究计划，批准后开始执行",
+  })
+  @ApiResponse({ status: 201, description: "审批处理成功" })
+  async approvePlan(
+    @Param("projectId") projectId: string,
+    @Param("sessionId") sessionId: string,
+    @Body() dto: ApprovePlanDto,
+  ): Promise<{ sessionId: string; status: string }> {
+    this.logger.log(
+      `Processing plan approval for session ${sessionId} (project ${projectId}): approved=${dto.approved}`,
+    );
+
+    const approval: PlanApprovalResponse = {
+      approved: dto.approved,
+      modifiedPlan: dto.modifiedPlan,
+      feedback: dto.feedback,
+    };
+
+    try {
+      return await this.discussionOrchestrator.approvePlan(sessionId, approval);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        throw new NotFoundException(error.message);
+      }
+      throw new BadRequestException(
+        error instanceof Error ? error.message : "审批处理失败",
+      );
+    }
   }
 
   /**

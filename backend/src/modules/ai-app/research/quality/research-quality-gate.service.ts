@@ -7,30 +7,38 @@
  * 需要重写的结构/内容问题 → 标记 error 并生成重写指导
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import type { QualityViolation, ReportQualityResult } from "./quality.types";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import type {
+  QualityViolation,
+  ReportQualityResult,
+  DualLayerQualityResult,
+} from "./quality.types";
+import {
+  QUALITY_GATE_CONFIG,
+  QUALITY_GATE_DUAL_LAYER_CONFIG,
+} from "../config/research.config";
+import { ResearchContentScorerService } from "./research-content-scorer.service";
+import { ResearchCritiqueService } from "./research-critique.service";
 
-/** 每个章节的最小字符数（排除空白） */
-const MIN_SECTION_CHARS = 500;
-
-/** 空章节阈值（低于此值判定为空） */
-const EMPTY_SECTION_CHARS = 50;
-
-/** 最多保留的加粗标记数量 */
-const MAX_BOLD_COUNT = 15;
-
-/** 全文最多保留的引用块数量 */
-const MAX_BLOCKQUOTE_COUNT = 5;
-
-/** 引用覆盖率：至少此比例的章节含有引用标记 */
-const MIN_CITATION_COVERAGE_RATIO = 0.3;
-
-/** 触发引用覆盖检查的最小章节数 */
-const MIN_SECTIONS_FOR_CITATION_CHECK = 3;
+const {
+  MIN_SECTION_CHARS,
+  EMPTY_SECTION_CHARS,
+  MAX_BOLD_COUNT,
+  MAX_BLOCKQUOTE_COUNT,
+  MIN_CITATION_COVERAGE_RATIO,
+  MIN_SECTIONS_FOR_CITATION_CHECK,
+} = QUALITY_GATE_CONFIG;
 
 @Injectable()
 export class ResearchQualityGateService {
   private readonly logger = new Logger(ResearchQualityGateService.name);
+
+  constructor(
+    @Optional()
+    private readonly contentScorer?: ResearchContentScorerService,
+    @Optional()
+    private readonly critiqueService?: ResearchCritiqueService,
+  ) {}
 
   /**
    * 验证完整研究报告内容，返回质量检查结果。
@@ -249,6 +257,72 @@ export class ResearchQualityGateService {
         contentDepth: Math.round(contentDepth * 100) / 100,
         overall: Math.round(overall * 100) / 100,
       },
+    };
+  }
+
+  /**
+   * 双层质量验证：Layer 1（结构规则）+ Layer 2（LLM 内容评分）+ 可选 Critique。
+   *
+   * Layer 1 调用现有 `validateReport()`，保持完全向后兼容。
+   * Layer 2 通过 `ResearchContentScorerService.scoreContent()` 进行语义评分。
+   * 当 Layer 2 overallScore < CRITIQUE_TRIGGER_THRESHOLD 时触发单轮改进建议。
+   *
+   * @param content 报告 Markdown 内容
+   * @param query   原始研究查询
+   */
+  async validateReportDualLayer(
+    content: string,
+    query: string,
+  ): Promise<DualLayerQualityResult> {
+    const {
+      CONTENT_SCORE_THRESHOLD,
+      CRITIQUE_TRIGGER_THRESHOLD,
+      STRUCTURAL_SCORE_THRESHOLD,
+    } = QUALITY_GATE_DUAL_LAYER_CONFIG;
+
+    // Layer 1: 结构/格式检查（同步，复用现有逻辑）
+    const structuralResult = this.validateReport(content);
+
+    // Layer 2: LLM 内容评分（异步，可选服务）
+    const contentScore = this.contentScorer
+      ? await this.contentScorer.scoreContent(content, query)
+      : {
+          factuality: 0.5,
+          depth: 0.5,
+          coherence: 0.5,
+          completeness: 0.5,
+          overallScore: 0.5,
+        };
+
+    this.logger.log(
+      `[DualLayer] structural.overall=${structuralResult.scores.overall}, content.overall=${contentScore.overallScore}`,
+    );
+
+    // Critique-lite: 仅在 Layer 2 分数低于触发阈值时生成建议
+    let critique: DualLayerQualityResult["critique"];
+    if (
+      contentScore.overallScore < CRITIQUE_TRIGGER_THRESHOLD &&
+      this.critiqueService
+    ) {
+      critique = await this.critiqueService.critique(
+        content,
+        query,
+        contentScore,
+      );
+      this.logger.log(
+        `[DualLayer] Critique triggered (score=${contentScore.overallScore}): ${critique.suggestions.length} suggestions, ${critique.criticalIssues.length} critical issues`,
+      );
+    }
+
+    const passed =
+      structuralResult.scores.overall > STRUCTURAL_SCORE_THRESHOLD &&
+      contentScore.overallScore > CONTENT_SCORE_THRESHOLD;
+
+    return {
+      structural: structuralResult,
+      content: contentScore,
+      critique,
+      passed,
     };
   }
 

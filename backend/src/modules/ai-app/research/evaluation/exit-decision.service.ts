@@ -1,4 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import {
+  MAX_ITERATIONS,
+  QUALITY_THRESHOLD,
+  EXIT_DECISION_CONFIG,
+} from "../config/research.config";
 
 export interface ExitDecision {
   exit: boolean;
@@ -25,22 +30,11 @@ export interface ExitContext {
   };
 }
 
-const MAX_ITERATIONS: Record<ExitContext["depth"], number> = {
-  quick: 2,
-  standard: 4,
-  thorough: 6,
-};
-
-const QUALITY_THRESHOLD: Record<ExitContext["depth"], number> = {
-  quick: 0.6,
-  standard: 0.75,
-  thorough: 0.85,
-};
-
-const SATURATION_GAIN_THRESHOLD = 0.03;
-const CONVERGENCE_DELTA_THRESHOLD = 0.05;
-/** Minimum completed iterations before saturation/convergence can trigger exit */
-const MIN_ITERATIONS_FOR_EARLY_EXIT = 3;
+const {
+  SATURATION_GAIN_THRESHOLD,
+  CONVERGENCE_DELTA_THRESHOLD,
+  MIN_ITERATIONS_FOR_EARLY_EXIT,
+} = EXIT_DECISION_CONFIG;
 
 @Injectable()
 export class ExitDecisionService {

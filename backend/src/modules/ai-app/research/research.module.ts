@@ -38,7 +38,13 @@ import {
   DemoEvaluatorService,
   ExitDecisionService,
 } from "./evaluation";
-import { IterationRecordService, IterativeResearchService } from "./iteration";
+import {
+  IterationRecordService,
+  IterationFeedbackService,
+  IterationEvaluatorService,
+  IterationCoordinatorService,
+  IterativeResearchService,
+} from "./iteration";
 import { ResearchMemoryService } from "./memory/research-memory.service";
 import { StrategyLoaderService } from "./memory/strategy-loader.service";
 import { DiscussionController } from "./discussion/discussion.controller";
@@ -71,6 +77,9 @@ import { DiscussionController } from "./discussion/discussion.controller";
     DemoEvaluatorService,
     ExitDecisionService,
     IterationRecordService,
+    IterationFeedbackService,
+    IterationEvaluatorService,
+    IterationCoordinatorService,
     IterativeResearchService,
     ResearchMemoryService,
     StrategyLoaderService,

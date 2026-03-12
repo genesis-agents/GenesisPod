@@ -10,15 +10,19 @@
  * - searchSources() — quick mode, deep mode
  * - quickSearch() — all source types: local, web, arxiv, github, news, scholar, blogs, reports, policy
  * - deepResearch() — multiple rounds, related queries, academic queries, deduplication
- * - generateRelatedQueries() — term extraction from results
- * - generateAcademicQueries()
- * - isDuplicate(), deduplicateResults(), rankByRelevance()
- * - calculateRelevance(), calculateQuality(), calculateFreshness()
+ * - generateRelatedQueries() — term extraction from results (via SourceQueryService)
+ * - generateAcademicQueries() (via SourceQueryService)
+ * - isDuplicate(), deduplicateResults(), rankByRelevance() (via SourceQueryService)
+ * - calculateRelevance(), calculateQuality(), calculateFreshness() (via SourceQueryService)
+ * - findDuplicateSource() (via SourceIngestionService)
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchProjectSourceService } from "../research-project-source.service";
+import { SourceIngestionService } from "../source-ingestion.service";
+import { SourceQueryService } from "../source-query.service";
+import { SourceMetadataService } from "../source-metadata.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../../../ai-engine/facade";
 import { FileParserService } from "../services/file-parser.service";
@@ -30,6 +34,26 @@ jest.mock("axios", () => ({
 }));
 jest.mock("xml2js", () => ({
   parseStringPromise: jest.fn().mockResolvedValue({ feed: { entry: [] } }),
+}));
+
+jest.mock("@prisma/client", () => ({
+  PrismaClient: class MockPrismaClient {},
+  AIModelType: {
+    CHAT: "CHAT",
+    CHAT_FAST: "CHAT_FAST",
+  },
+}));
+
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ToolRegistry: jest.fn().mockImplementation(() => ({ tryGet: jest.fn() })),
+  ToolContext: jest.fn(),
+  AIEngineFacade: jest.fn().mockImplementation(() => ({})),
+}));
+
+jest.mock("@/common/config/app.config", () => ({
+  APP_CONFIG: {
+    brand: { userAgent: "TestAgent/1.0" },
+  },
 }));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -65,6 +89,8 @@ function makeWebSearchResult(title: string, url: string) {
 
 describe("ResearchProjectSourceService", () => {
   let service: ResearchProjectSourceService;
+  let ingestionService: SourceIngestionService;
+  let queryService: SourceQueryService;
   let mockPrisma: any;
   let mockToolRegistry: any;
   let mockFileParser: any;
@@ -107,6 +133,7 @@ describe("ResearchProjectSourceService", () => {
         findUnique: jest.fn().mockResolvedValue(makeSource()),
         findMany: jest.fn().mockResolvedValue([makeSource()]),
         delete: jest.fn().mockResolvedValue(makeSource()),
+        update: jest.fn().mockResolvedValue(makeSource()),
       },
       resource: {
         findMany: jest.fn().mockResolvedValue([
@@ -134,6 +161,9 @@ describe("ResearchProjectSourceService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResearchProjectSourceService,
+        SourceIngestionService,
+        SourceQueryService,
+        SourceMetadataService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: FileParserService, useValue: mockFileParser },
@@ -143,6 +173,10 @@ describe("ResearchProjectSourceService", () => {
     service = module.get<ResearchProjectSourceService>(
       ResearchProjectSourceService,
     );
+    ingestionService = module.get<SourceIngestionService>(
+      SourceIngestionService,
+    );
+    queryService = module.get<SourceQueryService>(SourceQueryService);
 
     jest.spyOn(Logger.prototype, "log").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
@@ -896,12 +930,12 @@ describe("ResearchProjectSourceService", () => {
   });
 
   // =========================================================================
-  // generateRelatedQueries (private)
+  // generateRelatedQueries (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("generateRelatedQueries (private)", () => {
+  describe("generateRelatedQueries (private on SourceQueryService)", () => {
     it("should return empty array for empty query", () => {
-      const result = (service as any).generateRelatedQueries("", []);
+      const result = (queryService as any).generateRelatedQueries("", []);
       expect(result).toEqual([]);
     });
 
@@ -910,7 +944,7 @@ describe("ResearchProjectSourceService", () => {
         { title: "Machine learning optimization techniques" },
         { title: "Deep learning frameworks comparison" },
       ];
-      const queries = (service as any).generateRelatedQueries(
+      const queries = (queryService as any).generateRelatedQueries(
         "machine learning",
         results,
       );
@@ -921,7 +955,7 @@ describe("ResearchProjectSourceService", () => {
     });
 
     it("should include standard variation queries", () => {
-      const queries = (service as any).generateRelatedQueries("AI", []);
+      const queries = (queryService as any).generateRelatedQueries("AI", []);
       expect(queries.some((q: string) => q.includes("latest research"))).toBe(
         true,
       );
@@ -933,12 +967,12 @@ describe("ResearchProjectSourceService", () => {
   });
 
   // =========================================================================
-  // generateAcademicQueries (private)
+  // generateAcademicQueries (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("generateAcademicQueries (private)", () => {
+  describe("generateAcademicQueries (private on SourceQueryService)", () => {
     it("should return 4 academic query variations", () => {
-      const queries = (service as any).generateAcademicQueries(
+      const queries = (queryService as any).generateAcademicQueries(
         "reinforcement learning",
       );
       expect(queries).toHaveLength(4);
@@ -949,10 +983,10 @@ describe("ResearchProjectSourceService", () => {
   });
 
   // =========================================================================
-  // isDuplicate (private)
+  // isDuplicate (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("isDuplicate (private)", () => {
+  describe("isDuplicate (private on SourceQueryService)", () => {
     const existingResults = [
       { sourceUrl: "https://example.com", title: "Example Title" },
       { sourceUrl: null, title: "No URL Title" },
@@ -963,7 +997,9 @@ describe("ResearchProjectSourceService", () => {
         sourceUrl: "https://example.com",
         title: "Different Title",
       };
-      expect((service as any).isDuplicate(result, existingResults)).toBe(true);
+      expect((queryService as any).isDuplicate(result, existingResults)).toBe(
+        true,
+      );
     });
 
     it("should return true when title matches existing", () => {
@@ -971,37 +1007,45 @@ describe("ResearchProjectSourceService", () => {
         sourceUrl: "https://different.com",
         title: "No URL Title",
       };
-      expect((service as any).isDuplicate(result, existingResults)).toBe(true);
+      expect((queryService as any).isDuplicate(result, existingResults)).toBe(
+        true,
+      );
     });
 
     it("should return false when neither URL nor title matches", () => {
       const result = { sourceUrl: "https://new.com", title: "Unique Title" };
-      expect((service as any).isDuplicate(result, existingResults)).toBe(false);
+      expect((queryService as any).isDuplicate(result, existingResults)).toBe(
+        false,
+      );
     });
 
     it("should be case-insensitive for URL comparison", () => {
       const result = { sourceUrl: "HTTPS://EXAMPLE.COM", title: "Different" };
-      expect((service as any).isDuplicate(result, existingResults)).toBe(true);
+      expect((queryService as any).isDuplicate(result, existingResults)).toBe(
+        true,
+      );
     });
 
     it("should handle missing sourceUrl and title", () => {
       const result = { other: "data" };
-      expect((service as any).isDuplicate(result, existingResults)).toBe(false);
+      expect((queryService as any).isDuplicate(result, existingResults)).toBe(
+        false,
+      );
     });
   });
 
   // =========================================================================
-  // deduplicateResults (private)
+  // deduplicateResults (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("deduplicateResults (private)", () => {
+  describe("deduplicateResults (private on SourceQueryService)", () => {
     it("should remove results with duplicate URLs", () => {
       const results = [
         { sourceUrl: "https://a.com", title: "A" },
         { sourceUrl: "https://a.com", title: "A duplicate" },
         { sourceUrl: "https://b.com", title: "B" },
       ];
-      const deduped = (service as any).deduplicateResults(results);
+      const deduped = (queryService as any).deduplicateResults(results);
       expect(deduped).toHaveLength(2);
     });
 
@@ -1011,7 +1055,7 @@ describe("ResearchProjectSourceService", () => {
         { title: "Same Title" },
         { title: "Different Title" },
       ];
-      const deduped = (service as any).deduplicateResults(results);
+      const deduped = (queryService as any).deduplicateResults(results);
       expect(deduped).toHaveLength(2);
     });
 
@@ -1020,7 +1064,7 @@ describe("ResearchProjectSourceService", () => {
         { other: "data" },
         { sourceUrl: "https://a.com", title: "Valid" },
       ];
-      const deduped = (service as any).deduplicateResults(results);
+      const deduped = (queryService as any).deduplicateResults(results);
       // Item with no key is filtered out
       expect(deduped.some((r: any) => r.sourceUrl === "https://a.com")).toBe(
         true,
@@ -1029,16 +1073,16 @@ describe("ResearchProjectSourceService", () => {
   });
 
   // =========================================================================
-  // rankByRelevance (private)
+  // rankByRelevance (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("rankByRelevance (private)", () => {
+  describe("rankByRelevance (private on SourceQueryService)", () => {
     it("should return results unchanged when query is empty", () => {
       const results = [
         { title: "A", sourceUrl: "https://a.com" },
         { title: "B", sourceUrl: "https://b.com" },
       ];
-      const ranked = (service as any).rankByRelevance(results, "");
+      const ranked = (queryService as any).rankByRelevance(results, "");
       expect(ranked).toEqual(results);
     });
 
@@ -1055,7 +1099,7 @@ describe("ResearchProjectSourceService", () => {
           sourceUrl: "https://b.com",
         },
       ];
-      const ranked = (service as any).rankByRelevance(
+      const ranked = (queryService as any).rankByRelevance(
         results,
         "machine learning",
       );
@@ -1064,7 +1108,7 @@ describe("ResearchProjectSourceService", () => {
 
     it("should add relevanceScore to each result", () => {
       const results = [{ title: "AI Test", sourceUrl: "https://a.com" }];
-      const ranked = (service as any).rankByRelevance(results, "AI");
+      const ranked = (queryService as any).rankByRelevance(results, "AI");
       expect(typeof ranked[0].relevanceScore).toBe("number");
     });
 
@@ -1073,20 +1117,20 @@ describe("ResearchProjectSourceService", () => {
         { title: "A", sourceUrl: "https://example.com/page1" },
         { title: "B", sourceUrl: "https://example.com/page2" },
       ];
-      const ranked = (service as any).rankByRelevance(results, "test");
+      const ranked = (queryService as any).rankByRelevance(results, "test");
       const second = ranked.find((r: any) => r.title === "B");
       expect(second._debug.diversity).toBe(30); // penalty for repeated domain
     });
   });
 
   // =========================================================================
-  // calculateQuality (private)
+  // calculateQuality (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("calculateQuality (private)", () => {
+  describe("calculateQuality (private on SourceQueryService)", () => {
     it("should give highest score to arxiv sources", () => {
       const result = { source: "arxiv", sourceUrl: "https://arxiv.org/paper" };
-      const score = (service as any).calculateQuality(result);
+      const score = (queryService as any).calculateQuality(result);
       expect(score).toBeGreaterThan(70);
     });
 
@@ -1104,8 +1148,10 @@ describe("ResearchProjectSourceService", () => {
         metadata: { stars: 10 }, // no star bonus
         sourceUrl: "https://github.com/unpopular/repo",
       };
-      const popularScore = (service as any).calculateQuality(popularRepo);
-      const unpopularScore = (service as any).calculateQuality(unpopularRepo);
+      const popularScore = (queryService as any).calculateQuality(popularRepo);
+      const unpopularScore = (queryService as any).calculateQuality(
+        unpopularRepo,
+      );
       // Popular repo should score >= unpopular (capped at 100)
       expect(popularScore).toBeGreaterThanOrEqual(unpopularScore);
       expect(popularScore).toBeGreaterThan(50);
@@ -1118,40 +1164,40 @@ describe("ResearchProjectSourceService", () => {
         sourceUrl: null,
       };
       const webResult = { source: "web", sourceUrl: null };
-      const localScore = (service as any).calculateQuality(localResult);
-      const webScore = (service as any).calculateQuality(webResult);
+      const localScore = (queryService as any).calculateQuality(localResult);
+      const webScore = (queryService as any).calculateQuality(webResult);
       expect(localScore).toBeGreaterThan(webScore);
     });
   });
 
   // =========================================================================
-  // calculateFreshness (private)
+  // calculateFreshness (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("calculateFreshness (private)", () => {
+  describe("calculateFreshness (private on SourceQueryService)", () => {
     it("should return 50 when no publishedAt present", () => {
       const result = { title: "No date" };
-      const score = (service as any).calculateFreshness(result);
+      const score = (queryService as any).calculateFreshness(result);
       expect(score).toBe(50);
     });
 
     it("should give higher score to recent content", () => {
       const recent = { publishedAt: new Date().toISOString() };
       const old = { publishedAt: new Date("2010-01-01").toISOString() };
-      const recentScore = (service as any).calculateFreshness(recent);
-      const oldScore = (service as any).calculateFreshness(old);
+      const recentScore = (queryService as any).calculateFreshness(recent);
+      const oldScore = (queryService as any).calculateFreshness(old);
       expect(recentScore).toBeGreaterThan(oldScore);
     });
   });
 
   // =========================================================================
-  // createToolContext (private)
+  // createToolContext (private — now on SourceQueryService)
   // =========================================================================
 
-  describe("createToolContext (private)", () => {
+  describe("createToolContext (private on SourceQueryService)", () => {
     it("should create a valid ToolContext with unique executionId", () => {
-      const ctx1 = (service as any).createToolContext("web-search");
-      const ctx2 = (service as any).createToolContext("web-search");
+      const ctx1 = (queryService as any).createToolContext("web-search");
+      const ctx2 = (queryService as any).createToolContext("web-search");
 
       expect(ctx1.toolId).toBe("web-search");
       expect(ctx1.callerType).toBe("orchestrator");
@@ -1161,12 +1207,12 @@ describe("ResearchProjectSourceService", () => {
   });
 
   // =========================================================================
-  // findDuplicateSource (private)
+  // findDuplicateSource (private — now on SourceIngestionService)
   // =========================================================================
 
-  describe("findDuplicateSource (private)", () => {
+  describe("findDuplicateSource (private on SourceIngestionService)", () => {
     it("should return null when no conditions match (empty title, no URL, no resourceId)", async () => {
-      const result = await (service as any).findDuplicateSource(
+      const result = await (ingestionService as any).findDuplicateSource(
         projectId,
         "", // empty title
         undefined,
@@ -1179,7 +1225,7 @@ describe("ResearchProjectSourceService", () => {
     it("should query with OR conditions when title, URL, and resourceId provided", async () => {
       mockPrisma.researchProjectSource.findFirst.mockResolvedValue(null);
 
-      await (service as any).findDuplicateSource(
+      await (ingestionService as any).findDuplicateSource(
         projectId,
         "Title",
         "https://url.com",

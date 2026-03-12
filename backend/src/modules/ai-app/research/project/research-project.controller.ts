@@ -43,11 +43,13 @@ import {
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { parsePagination } from "../../../../common/utils/pagination.utils";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("ai-studio")
 @ApiBearerAuth("access-token")
 @Controller("ai-studio")
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(BillingContextInterceptor)
 export class ResearchProjectController {
   constructor(
     private readonly studioService: ResearchProjectService,

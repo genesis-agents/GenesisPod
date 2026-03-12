@@ -3437,6 +3437,7 @@ model NotionSyncHistory {
 
 enum DeepResearchStatus {
   PLANNING // AI 正在规划研究步骤
+  PLAN_READY // 计划已生成，等待用户审批
   IDEATION // 团队头脑风暴讨论
   SEARCHING // 正在执行搜索
   FINDINGS // 团队汇报讨论发现
@@ -3444,6 +3445,7 @@ enum DeepResearchStatus {
   SYNTHESIZING // 正在合成报告
   COMPLETED // 研究完成
   FAILED // 研究失败
+  CANCELLED // 用户取消
 }
 
 model DeepResearchSession {
