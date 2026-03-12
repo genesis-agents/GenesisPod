@@ -3953,6 +3953,14 @@
       "legend": {
         "clickable": "可配置",
         "readOnly": "只读"
+      },
+      "dependencies": {
+        "title": "模块依赖关系图",
+        "subtitle": "各 AI App 模块与 Engine / Kernel 的架构调用关系",
+        "topicInsights": {
+          "title": "Topic Insights 依赖关系",
+          "subtitle": "Topic Insights / AI Engine / AI Kernel 架构调用关系"
+        }
       }
     },
     "secrets": {

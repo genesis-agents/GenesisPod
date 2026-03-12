@@ -171,8 +171,9 @@ const aiAppsLayer: ArchitectureLayer = {
         {
           id: 'aiInsights',
           i18nKey: 'nav.aiInsights',
+          href: '/admin/overview/dependencies/topic-insights',
           icon: Lightbulb,
-          clickable: false,
+          clickable: true,
           stats: [{ label: '主题', key: 'topics' }],
         },
         {

@@ -3953,6 +3953,14 @@
       "legend": {
         "clickable": "Configurable",
         "readOnly": "Read-only"
+      },
+      "dependencies": {
+        "title": "Module Dependency Map",
+        "subtitle": "Architecture dependencies between AI App modules and Engine / Kernel",
+        "topicInsights": {
+          "title": "Topic Insights Dependencies",
+          "subtitle": "Topic Insights / AI Engine / AI Kernel architecture dependencies"
+        }
       }
     },
     "secrets": {
