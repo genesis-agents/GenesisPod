@@ -229,22 +229,26 @@ export class MissionExecutionService {
     }
   }
 
-  // 按 taskType 分派执行
+  // ★ Task Executor Pattern：通过 executorMap 分派，不内联 switch/case
+  private executorMap = new Map<string, ITaskExecutor>([
+    ["dimension_research", this.dimensionResearchExecutor],
+    ["quality_review", this.reviewDimensionExecutor],
+    ["report_synthesis", this.synthesisReportExecutor],
+  ]);
+
   private async executeTask(task: Task): Promise<void> {
     await this.lifecycleService.updateTaskStatus(task.id, TaskStatus.EXECUTING);
 
+    const ctx: TaskExecutionContext = {
+      task,
+      missionId: task.missionId,
+      signal: this.taskSchedulers.get(task.missionId)?.signal,
+    };
+
     try {
-      switch (task.taskType) {
-        case "domain_task":
-          await this.executeDomainTask(task);
-          break;
-        case "quality_review":
-          await this.executeQualityReview(task);
-          break;
-        case "synthesis":
-          await this.executeSynthesis(task);
-          break;
-      }
+      const executor =
+        this.executorMap.get(task.taskType) ?? this.genericTaskExecutor;
+      await executor.execute(ctx);
       await this.lifecycleService.updateTaskStatus(
         task.id,
         TaskStatus.COMPLETED,
@@ -254,6 +258,23 @@ export class MissionExecutionService {
     }
   }
 }
+
+// Task Executor 接口（services/core/task-executors/task-executor.interface.ts）
+interface ITaskExecutor {
+  execute(ctx: TaskExecutionContext): Promise<void>;
+}
+
+interface TaskExecutionContext {
+  task: Task;
+  missionId: string;
+  signal?: AbortSignal;
+}
+
+// 执行器映射（services/core/task-executors/）
+// - dimension-research.executor.ts  → DimensionResearchExecutor
+// - review-dimension.executor.ts    → ReviewDimensionExecutor
+// - synthesis-report.executor.ts    → SynthesisReportExecutor
+// - generic-task.executor.ts        → GenericTaskExecutor（fallback）
 ```
 
 ## 异步执行模型
@@ -366,6 +387,19 @@ async resumeFromCheckpoint(missionId: string): Promise<void> {
   await this.executeTasks(pendingTasks);
 }
 ```
+
+## Task Executor Pattern 总结
+
+```
+MissionExecutionService
+  └── executorMap: Map<taskType, ITaskExecutor>
+        ├── "dimension_research" → DimensionResearchExecutor
+        ├── "quality_review"     → ReviewDimensionExecutor
+        ├── "report_synthesis"   → SynthesisReportExecutor
+        └── (fallback)           → GenericTaskExecutor
+```
+
+优势：新增 taskType 只需实现 `ITaskExecutor` 并注册到 executorMap，不修改 MissionExecutionService 核心逻辑（开闭原则）。
 
 ## 禁忌
 

@@ -311,6 +311,54 @@ function MissionControls({ mission }: { mission: Mission }) {
 }
 ```
 
+## Cross-Cutting Concerns：BillingContextInterceptor
+
+计费上下文是所有 TI Controller 的横切关注点。推荐通过 NestJS Interceptor 自动注入，消除每个方法手动调用 `BillingContext.run()` 的重复代码。
+
+```typescript
+// interceptors/billing-context.interceptor.ts
+@Injectable()
+export class BillingContextInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+
+    return new Observable((subscriber) => {
+      BillingContext.run({ userId: user.id, feature: "topic-insights" }, () => {
+        next.handle().subscribe(subscriber);
+      });
+    });
+  }
+}
+
+// 在 Controller 上应用
+@Controller("topic-insights")
+@UseInterceptors(BillingContextInterceptor)
+export class TopicController {
+  // 所有方法自动具有 BillingContext，无需手动 wrap
+  @Post("missions")
+  async createMission(@Body() dto: CreateMissionDto) {
+    return this.missionService.create(dto);
+  }
+}
+```
+
+**对比手动模式**：
+
+```typescript
+// ❌ 旧模式：每个方法手动 wrap
+async createMission(dto) {
+  return BillingContext.run({ userId, feature }, async () => {
+    return this.missionService.create(dto);
+  });
+}
+
+// ✅ 新模式：Interceptor 自动注入，方法保持简洁
+async createMission(dto) {
+  return this.missionService.create(dto);
+}
+```
+
 ## 禁忌
 
 1. **禁止无守卫的状态转换** -- 每个交互必须检查 VALID_TRANSITIONS

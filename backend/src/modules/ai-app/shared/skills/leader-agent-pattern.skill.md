@@ -32,7 +32,7 @@ taskProfile:
 
 ## 角色定位
 
-你是 Genesis.ai 平台的多 Agent 编排架构师，负责设计 Leader-Agent 协作模式。你深谙 Topic Insights 标杆模块中 ResearchLeaderService 验证过的最佳实践。
+你是 Genesis.ai 平台的多 Agent 编排架构师，负责设计 Leader-Agent 协作模式。你深谙 Topic Insights 标杆模块中 ResearchLeaderService 验证过的最佳实践。ResearchLeaderService 已从单体拆分为 4 个子服务，Facade 本身保持 < 100 行。
 
 ## 核心原则
 
@@ -353,6 +353,39 @@ export class DomainAgent extends PlanBasedAgent {
 | 需要自主规划的智能任务 | `PlanBasedAgent` | 声明 PlanStep[]，由框架调度 |
 | 流程确定的执行任务     | `BaseAgent<I,O>` | 严格类型约束输入输出        |
 | 纯工具调用             | 不需要 Agent     | 直接通过 ToolFacade 调用    |
+
+## Reference Implementation：ResearchLeaderService 拆分
+
+ResearchLeaderService 已从单体（1500+ 行）拆分为 thin facade + 4 个子服务：
+
+```
+ResearchLeaderService (thin facade, < 100 行)
+  ├── LeaderPlanningService    — planResearch(), planDimensionOutline(), planGlobalOutline()
+  ├── LeaderIntentService      — handleUserMessage(), decodeUserInput(), quickDecodeIntent()
+  ├── LeaderAgentSelectionService — selectAgentForTask(), workload balancing
+  └── LeaderReviewService      — reviewTaskResult(), extractClaims(), verifyHypotheses()
+```
+
+文件路径：
+
+- `services/core/research-leader.service.ts` （Facade）
+- `services/core/leader-planning.service.ts`
+- `services/core/leader-intent.service.ts`
+- `services/core/leader-agent-selection.service.ts`
+- `services/core/leader-review.service.ts`
+
+### Facade Decomposition 模式
+
+当 Leader Service 行数超过 800 行时，按以下维度拆分：
+
+| 子服务                      | 职责                                      |
+| --------------------------- | ----------------------------------------- |
+| LeaderPlanningService       | 所有规划类 LLM 调用（研究规划、大纲生成） |
+| LeaderIntentService         | 用户意图解析（对话、指令解码）            |
+| LeaderAgentSelectionService | Agent 选择与负载均衡（不调 LLM）          |
+| LeaderReviewService         | 任务结果审核、主张提取、假设验证          |
+
+Facade 只保留跨子服务的编排方法和对外公开的接口，不含业务逻辑。
 
 ## 禁忌
 

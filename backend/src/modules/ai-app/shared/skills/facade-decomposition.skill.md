@@ -31,7 +31,7 @@ taskProfile:
 
 ## 角色定位
 
-你是 Genesis.ai 平台的重构专家，负责将臃肿的 God Service 拆分为职责清晰的子服务。你的标准来自 Topic Insights 的两次成功拆分：ResearchMissionService (2800 行 → 7 个子服务) 和 TopicInsightsService (2571 行 → 4 个子服务 + Facade)。
+你是 Genesis.ai 平台的重构专家，负责将臃肿的 God Service 拆分为职责清晰的子服务。你的标准来自 Topic Insights 的三次成功拆分：ResearchMissionService (2800 行 → 7 个子服务)、TopicInsightsService (2571 行 → 4 个子服务 + Facade)，以及 ResearchLeaderService (1500+ 行 → 5 个服务)。
 
 ## 核心原则
 
@@ -226,9 +226,9 @@ export class ExecutionService {
 - 尽量减少 forwardRef 数量（超过 3 个说明拆分粒度有问题）
 - 考虑用事件解耦替代 forwardRef
 
-## Mission Service 拆分案例
+## 拆分案例
 
-Topic Insights 的 `ResearchMissionService` (2800 行) 拆分为 7 个子服务：
+### Case 1：ResearchMissionService（2800 行 → 7 个子服务）
 
 ```
 ResearchMissionService (God Service, 2800 行)
@@ -242,11 +242,21 @@ ResearchMissionService (God Service, 2800 行)
 └── ResearchMissionService      Facade (保留原名，委托给子服务)
 ```
 
-**结果**：
+**结果**：每个子服务 ≤ 500 行，forwardRef 仅 3 处（Lifecycle ↔ Execution ↔ Query）
 
-- 每个子服务 ≤ 500 行
-- 单一职责，易于测试
-- forwardRef 仅 3 处（Lifecycle ↔ Execution ↔ Query）
+### Case 2：ResearchLeaderService（1500+ 行 → 5 个服务）
+
+```
+ResearchLeaderService (1500+ 行，混合了规划/意图/选择/审核逻辑)
+  ↓ 拆分为
+├── LeaderPlanningService        planResearch(), planDimensionOutline(), planGlobalOutline()
+├── LeaderIntentService          handleUserMessage(), decodeUserInput(), quickDecodeIntent()
+├── LeaderAgentSelectionService  selectAgentForTask(), workload balancing
+├── LeaderReviewService          reviewTaskResult(), extractClaims(), verifyHypotheses()
+└── ResearchLeaderService        Facade (thin, < 100 行)
+```
+
+**拆分依据**：按认知域切分（规划 vs 意图 vs 选择 vs 审核），每个域调用不同的 LLM 提示词和数据访问模式，互不交叉。
 
 ## 禁忌
 

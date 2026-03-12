@@ -63,10 +63,20 @@ your-app/
 │
 ├── services/
 │   ├── core/                       # 编排核心 (必须有)
-│   │   ├── leader.service.ts       # AI 规划 + 审核决策
+│   │   ├── leader.service.ts       # AI 规划 + 审核决策 (thin facade)
+│   │   ├── leader-planning.service.ts   # 规划类 LLM 调用
+│   │   ├── leader-intent.service.ts     # 用户意图解析
+│   │   ├── leader-agent-selection.service.ts # Agent 选择与负载均衡
+│   │   ├── leader-review.service.ts     # 任务结果审核
 │   │   ├── lifecycle.service.ts    # Mission 状态转换
-│   │   ├── execution.service.ts   # 任务调度 + 并发控制
-│   │   └── event-emitter.service.ts # 事件发射 + 持久化
+│   │   ├── execution.service.ts    # 任务调度 + 并发控制
+│   │   ├── event-emitter.service.ts # 事件发射 + 持久化
+│   │   └── task-executors/         # Task Executor Pattern
+│   │       ├── task-executor.interface.ts  # ITaskExecutor + TaskExecutionContext
+│   │       ├── domain-task.executor.ts
+│   │       ├── quality-review.executor.ts
+│   │       ├── synthesis.executor.ts
+│   │       └── generic-task.executor.ts    # fallback executor
 │   │
 │   ├── domain-a/                   # 领域服务 (按业务拆分)
 │   │   ├── domain-a.service.ts
@@ -74,11 +84,14 @@ your-app/
 │   │
 │   └── index.ts
 │
+├── interceptors/                   # NestJS Interceptors (横切关注点)
+│   └── billing-context.interceptor.ts
 ├── dto/                            # 请求/响应 DTO
 ├── types/                          # 领域类型定义
 ├── skills/                         # 领域 SKILL.md 文件
 ├── guards/                         # 访问控制守卫
-├── config/                         # 静态配置 (模板等)
+├── config/                         # 静态配置 (health thresholds, templates 等)
+│   └── health-monitoring.config.ts
 └── __tests__/                      # 测试套件
     ├── fixtures/
     ├── mocks/
@@ -245,6 +258,72 @@ export { MainController, MissionController } from "./controllers";
 export { YourAppGateway } from "./your-app.gateway";
 ```
 
+## Task Executor Pattern 脚手架
+
+当模块有多种 taskType 时，使用 executorMap 替代内联 switch/case：
+
+```typescript
+// services/core/task-executors/task-executor.interface.ts
+export interface ITaskExecutor {
+  execute(ctx: TaskExecutionContext): Promise<void>;
+}
+
+export interface TaskExecutionContext {
+  task: Task;
+  missionId: string;
+  signal?: AbortSignal;
+}
+
+// services/core/execution.service.ts
+@Injectable()
+export class ExecutionService {
+  private executorMap: Map<string, ITaskExecutor>;
+
+  constructor(
+    private readonly domainTaskExecutor: DomainTaskExecutor,
+    private readonly qualityReviewExecutor: QualityReviewExecutor,
+    private readonly synthesisExecutor: SynthesisExecutor,
+    private readonly genericExecutor: GenericTaskExecutor,
+  ) {
+    this.executorMap = new Map([
+      ["domain_task", this.domainTaskExecutor],
+      ["quality_review", this.qualityReviewExecutor],
+      ["synthesis", this.synthesisExecutor],
+    ]);
+  }
+
+  private async executeTask(task: Task): Promise<void> {
+    const executor =
+      this.executorMap.get(task.taskType) ?? this.genericExecutor;
+    await executor.execute({ task, missionId: task.missionId });
+  }
+}
+```
+
+## Interceptor Pattern 脚手架
+
+对需要横切关注点（计费、鉴权、日志）的场景，用 `@UseInterceptors` 装饰器替代手动 wrap：
+
+```typescript
+// interceptors/billing-context.interceptor.ts
+@Injectable()
+export class BillingContextInterceptor implements NestInterceptor {
+  intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const user = ctx.switchToHttp().getRequest().user;
+    return new Observable((sub) => {
+      BillingContext.run({ userId: user.id, feature: "your-app" }, () => {
+        next.handle().subscribe(sub);
+      });
+    });
+  }
+}
+
+// 在 Controller 应用
+@Controller("your-app")
+@UseInterceptors(BillingContextInterceptor)
+export class YourAppController { ... }
+```
+
 ## 禁忌
 
 1. **禁止把执行逻辑放在 Agent 中** -- Agent 只声明元数据
@@ -252,6 +331,8 @@ export { YourAppGateway } from "./your-app.gateway";
 3. **禁止在 Module 里 import AiEngineModule** -- 通过 DI 注入 Facade 服务
 4. **禁止 Facade 服务超过 100 行** -- 超了就拆子服务
 5. **禁止在 providers 里扁平列出所有服务** -- 按 core/domain 子目录组织
+6. **禁止内联 switch/case 分派 taskType** -- 用 executorMap + ITaskExecutor 模式
+7. **禁止手动在每个 Controller 方法 wrap BillingContext** -- 用 Interceptor 统一注入
 
 {{#if moduleContext}}
 

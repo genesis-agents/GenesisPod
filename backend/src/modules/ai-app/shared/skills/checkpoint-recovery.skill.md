@@ -222,16 +222,32 @@ async createIncrementalMission(failedMissionId: string): Promise<Mission> {
 
 ## 卡死任务检测
 
+健康监控阈值集中在 `config/health-monitoring.config.ts` 的 `HEALTH_MONITORING` 常量，不硬编码毫秒数：
+
 ```typescript
+// config/health-monitoring.config.ts
+export const HEALTH_MONITORING = {
+  INTERRUPTED_THRESHOLD_MS: 30 * 60 * 1000, // 30 分钟无更新视为中断
+  MAX_MISSION_DURATION_MS: 6 * 60 * 60 * 1000, // 任务最长执行时间 6 小时
+  CHECK_INTERVAL_MS: 5 * 60 * 1000, // 健康检查间隔 5 分钟
+  MAX_CONSECUTIVE_FAILURES: 3, // 最多连续失败次数
+} as const;
+```
+
+```typescript
+import { HEALTH_MONITORING } from "../../config/health-monitoring.config";
+
 @Injectable()
 export class MissionHealthService {
-  // 定期检查（每 5 分钟）
+  // 定期检查（每 CHECK_INTERVAL_MS 毫秒）
   @Cron("*/5 * * * *")
   async checkStalledMissions(): Promise<void> {
     const stalled = await this.prisma.mission.findMany({
       where: {
         status: MissionStatus.EXECUTING,
-        updatedAt: { lt: new Date(Date.now() - 30 * 60 * 1000) }, // 30 分钟无更新
+        updatedAt: {
+          lt: new Date(Date.now() - HEALTH_MONITORING.INTERRUPTED_THRESHOLD_MS),
+        },
       },
     });
 

@@ -32,11 +32,24 @@ taskProfile:
 
 ## 角色定位
 
-你是 Genesis.ai 平台的数据管道架构师，负责设计多源数据获取、融合和质量控制系统。你的标准来自 Topic Insights 的搜索管道（8 种 Adapter + Query Strategy + Result Fusion + Quality Gate）。
+你是 Genesis.ai 平台的数据管道架构师，负责设计多源数据获取、融合和质量控制系统。你的标准来自 Topic Insights 的搜索管道（9 种 Adapter + Query Strategy + Result Fusion + Quality Gate）。
 
 ## 核心原则
 
-**管道分 5 步：Strategy → Execute → Fuse → Gate → (Retry)。每步职责清晰，可独立替换。**
+**管道分 8 步：Resolve → CapabilityGuard → ToolFacade → Strategy → Execute → Fuse → Gate → (Retry)。每步职责清晰，可独立替换。**
+
+## 完整管道步骤
+
+```
+Step 1: Resolve sources        从 dimension.searchSources 获取，或使用默认源
+Step 2: CapabilityGuard        过滤 AI Kernel 不支持的能力
+Step 3: ToolFacade check       过滤工具不可用的源
+Step 4: QueryStrategyService   为每个源生成专属查询词（source-aware）
+Step 5: SearchExecutorService  并行执行搜索（按源限流）
+Step 6: ResultFusionService    去重（Jaccard）+ 可信度排序
+Step 7: QualityGateService     5 项质量检查
+Step 8: WEB fallback retry     质量不过时仅用 WEB 重试（最多 1 次）
+```
 
 ## 管道架构
 
@@ -214,9 +227,13 @@ export class ResultFusionService {
 }
 ```
 
-### Stage 4: 质量门控
+### Stage 4: 质量门控（5 项检查）
+
+新鲜度时间窗口来自 `config/health-monitoring.config.ts` 中的 `DATA_FRESHNESS` 常量。
 
 ```typescript
+import { DATA_FRESHNESS } from "../../config/health-monitoring.config";
+
 @Injectable()
 export class SearchQualityGateService {
   evaluate(
@@ -242,10 +259,13 @@ export class SearchQualityGateService {
       threshold: 2,
     });
 
-    // 检查 3: 新鲜度（至少 20% 在 6 个月内）
+    // 检查 3: 新鲜度（至少 20% 在 6 个月内，阈值来自 DATA_FRESHNESS）
     const freshRatio =
-      result.items.filter((i) => isWithinMonths(i.publishedAt, 6)).length /
-      result.items.length;
+      result.items.filter(
+        (i) =>
+          i.publishedAt &&
+          Date.now() - i.publishedAt.getTime() <= DATA_FRESHNESS.SIX_MONTHS_MS,
+      ).length / result.items.length;
     checks.push({
       name: "freshness",
       passed: freshRatio >= 0.2,
@@ -253,13 +273,26 @@ export class SearchQualityGateService {
       threshold: 0.2,
     });
 
-    // 检查 4: 失败源比例
+    // 检查 4: 学术来源覆盖（如 context 要求）
+    if (context.requireAcademic) {
+      const academicCount = result.items.filter(
+        (i) => i.source === "ACADEMIC" || i.source === "PUBMED",
+      ).length;
+      checks.push({
+        name: "academicCoverage",
+        passed: academicCount >= (context.minAcademic ?? 1),
+        value: academicCount,
+        threshold: context.minAcademic ?? 1,
+      });
+    }
+
+    // 检查 5: 失败源比例（failedSourceRatio）
     const failedSources = result.sourceBreakdown.filter(
       (s) => !s.success,
     ).length;
     const failedRatio = failedSources / result.sourceBreakdown.length;
     checks.push({
-      name: "sourceHealth",
+      name: "failedSourceRatio",
       passed: failedRatio <= 0.5,
       value: 1 - failedRatio,
       threshold: 0.5,
@@ -305,6 +338,20 @@ async search(query: SearchQuery): Promise<AggregatedSearchResult> {
   return fused;  // 质量不过但不重试，返回原结果
 }
 ```
+
+## 已实现的 Search Adapter（9 个）
+
+| Adapter                 | 源类型     | 说明                         |
+| ----------------------- | ---------- | ---------------------------- |
+| web-search.adapter.ts   | WEB        | 通用网页搜索                 |
+| academic.adapter.ts     | ACADEMIC   | 学术文献（Semantic Scholar） |
+| pubmed.adapter.ts       | PUBMED     | 医学文献                     |
+| github.adapter.ts       | GITHUB     | 代码仓库                     |
+| hackernews.adapter.ts   | HACKERNEWS | HackerNews 社区              |
+| social.adapter.ts       | SOCIAL     | 社交媒体                     |
+| finance.adapter.ts      | FINANCE    | 金融数据                     |
+| weather.adapter.ts      | WEATHER    | 天气数据                     |
+| local-search.adapter.ts | LOCAL      | 本地知识库 (RAG)             |
 
 ## Search Adapter 接口
 

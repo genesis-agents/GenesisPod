@@ -132,6 +132,8 @@ export class ContentQualityGateService {
   }
 
   private evaluateByRules(content: string, criteria: QualityCriteria): Scores {
+    // 新鲜度时间窗口使用 config/health-monitoring.config.ts 中的 DATA_FRESHNESS 常量
+    // DATA_FRESHNESS.SIX_MONTHS_MS 和 ONE_YEAR_MS 是集中化的时间阈值
     return {
       // 来源多样性：引用了多少不同的来源
       sourceDiversity:
@@ -343,6 +345,20 @@ async executeTaskWithQuality(task: Task): Promise<TaskResult> {
   return { content, quality: verdict.overallScore };
 }
 ```
+
+## Search Quality Gate（5 项检查）
+
+搜索管道的 QualityGateService 独立于内容质量门控，执行以下 5 项检查：
+
+| 检查项            | 说明                                      | 配置来源                       |
+| ----------------- | ----------------------------------------- | ------------------------------ |
+| minResults        | 结果数量是否达到最低要求                  | context.minResults（默认 5）   |
+| sourceDiversity   | 源类型多样性（至少 2 种）                 | 硬编码阈值 2                   |
+| freshness         | 至少 20% 结果在 6 个月内                  | `DATA_FRESHNESS.SIX_MONTHS_MS` |
+| academicCoverage  | 学术来源数量（仅 requireAcademic 时检查） | context.minAcademic            |
+| failedSourceRatio | 失败源比例不超过 50%                      | 硬编码阈值 0.5                 |
+
+新鲜度时间窗口从 `config/health-monitoring.config.ts` 的 `DATA_FRESHNESS` 常量读取，不硬编码毫秒数。
 
 ## 禁忌
 
