@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import type { ToolContext } from "@/modules/ai-engine/facade";
+import { withTimeoutFallback } from "@/common/utils/timeout.utils";
 
 /**
  * 提取的图表信息
@@ -84,27 +85,22 @@ export class FigureExtractorService {
         return [];
       }
 
-      // 使用 Promise.race 实现超时控制
-      const fetchPromise = webScraperTool.execute(
-        {
-          url,
-          maxLength: 50000, // 获取更多内容以便提取图片
-          returnHtml: true, // 请求返回 HTML（如果工具支持）
-        },
-        this.createToolContext("web-scraper"),
-      );
-      const timeoutPromise = new Promise<{
-        success: false;
-        error: { message: string };
-      }>((resolve) =>
-        setTimeout(
-          () =>
-            resolve({ success: false, error: { message: "Fetch timeout" } }),
-          timeout,
+      // 超时控制
+      const toolResult = await withTimeoutFallback(
+        webScraperTool.execute(
+          {
+            url,
+            maxLength: 50000, // 获取更多内容以便提取图片
+            returnHtml: true, // 请求返回 HTML（如果工具支持）
+          },
+          this.createToolContext("web-scraper"),
         ),
+        timeout,
+        {
+          success: false,
+          error: { code: "TIMEOUT", message: "Fetch timeout" },
+        } as Awaited<ReturnType<typeof webScraperTool.execute>>,
       );
-
-      const toolResult = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (!toolResult.success || !toolResult.data) {
         this.logger.debug(

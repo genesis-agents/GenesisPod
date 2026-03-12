@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { withTimeout, withTimeoutFallback } from "@/common/utils/timeout.utils";
 // ★ 架构重构：移除 SearchService 直接导入，通过 ToolRegistry 调用
 // TODO: 后续添加其他数据源服务导入
 // import { ArxivService } from '../../../ingestion/crawlers/arxiv.service';
@@ -880,22 +881,12 @@ export class DataSourceRouterService {
     const startTime = Date.now();
 
     try {
-      // 使用 Promise.race 实现超时控制
-      const searchPromise = this.executeSearch(
-        source,
-        query,
-        maxResults,
-        options.since,
-        topic,
+      // 超时控制
+      const results = await withTimeout(
+        this.executeSearch(source, query, maxResults, options.since, topic),
+        timeout,
+        `Search timeout: ${source}`,
       );
-      const timeoutPromise = new Promise<DataSourceResult[]>((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`Search timeout: ${source}`)),
-          timeout,
-        ),
-      );
-
-      const results = await Promise.race([searchPromise, timeoutPromise]);
 
       // ★ CircuitBreaker: 记录成功
       if (this.circuitBreaker) {
@@ -1386,14 +1377,12 @@ export class DataSourceRouterService {
 
     // ArXiv（带超时包装，防止重试阻塞）
     try {
-      const arxivPromise = this.searchArxiv(query, maxResults);
       const arxivTimeout = Math.min(8000, remainingMs());
-      const arxivResults = await Promise.race([
-        arxivPromise,
-        new Promise<DataSourceResult[]>((resolve) =>
-          setTimeout(() => resolve([]), arxivTimeout),
-        ),
-      ]);
+      const arxivResults = await withTimeoutFallback(
+        this.searchArxiv(query, maxResults),
+        arxivTimeout,
+        [] as DataSourceResult[],
+      );
       if (arxivResults.length > 0) {
         merged.push(...arxivResults);
         this.logger.log(
@@ -1437,13 +1426,11 @@ export class DataSourceRouterService {
     timeoutMs: number,
   ): Promise<DataSourceResult[]> {
     try {
-      const result = await Promise.race([
+      return await withTimeout(
         this.searchViaTool(toolId, sourceType, query, maxResults),
-        new Promise<DataSourceResult[]>((_, reject) =>
-          setTimeout(() => reject(new Error(`${toolId} timeout`)), timeoutMs),
-        ),
-      ]);
-      return result;
+        timeoutMs,
+        `${toolId} timeout`,
+      );
     } catch (error) {
       this.logger.warn(
         `[searchViaToolWithTimeout] ${toolId} failed: ${error instanceof Error ? error.message : error}`,

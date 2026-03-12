@@ -11,6 +11,38 @@ import type {
 } from "@prisma/client";
 import type { ResearchMode } from "../dto/leader.dto";
 import type { DimensionAnalysisResult } from "./research.types";
+import type { StateTransitionMap } from "@/modules/ai-kernel/facade";
+
+/**
+ * Research Mission 状态转移规则
+ *
+ * PLANNING → PLAN_READY → EXECUTING → REVIEWING → COMPLETED
+ *                                  ↘ FAILED ↗ (retry → EXECUTING)
+ * Any active → CANCELLED
+ */
+export const RESEARCH_MISSION_TRANSITIONS: StateTransitionMap<ResearchMissionStatus> =
+  {
+    PLANNING: ["PLAN_READY", "EXECUTING", "FAILED", "CANCELLED"],
+    PLAN_READY: ["EXECUTING", "CANCELLED"],
+    EXECUTING: ["REVIEWING", "COMPLETED", "FAILED", "CANCELLED"],
+    REVIEWING: ["COMPLETED", "EXECUTING", "FAILED", "CANCELLED"],
+    COMPLETED: [],
+    FAILED: ["EXECUTING"], // retry
+    CANCELLED: [],
+  };
+
+/**
+ * Research Task 状态转移规则
+ */
+export const RESEARCH_TASK_TRANSITIONS: StateTransitionMap<ResearchTaskStatus> =
+  {
+    PENDING: ["ASSIGNED", "EXECUTING", "FAILED"],
+    ASSIGNED: ["EXECUTING", "FAILED"],
+    EXECUTING: ["COMPLETED", "NEEDS_REVISION", "FAILED"],
+    COMPLETED: [],
+    NEEDS_REVISION: ["PENDING", "EXECUTING", "FAILED"],
+    FAILED: ["PENDING"], // retry
+  };
 
 /**
  * 任务优先级常量

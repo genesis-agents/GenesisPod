@@ -13,6 +13,8 @@ import {
   Inject,
   forwardRef,
 } from "@nestjs/common";
+import { withTimeout } from "@/common/utils/timeout.utils";
+import { StateTransitionValidator } from "@/modules/ai-kernel/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ResearchMissionStatus,
@@ -31,6 +33,7 @@ import { CollaboratorRole } from "../../dto/collaborator.dto";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
   TASK_PRIORITY,
+  RESEARCH_MISSION_TRANSITIONS,
   type CreateMissionInput,
   type CompletedTaskData,
 } from "../../types/mission.types";
@@ -42,6 +45,14 @@ import { BillingContext } from "@/modules/ai-infra/facade";
 @Injectable()
 export class MissionLifecycleService {
   private readonly logger = new Logger(MissionLifecycleService.name);
+  private readonly missionStateValidator = new StateTransitionValidator(
+    RESEARCH_MISSION_TRANSITIONS,
+    [
+      ResearchMissionStatus.COMPLETED,
+      ResearchMissionStatus.FAILED,
+      ResearchMissionStatus.CANCELLED,
+    ],
+  );
 
   constructor(
     private readonly prisma: PrismaService,
@@ -271,7 +282,7 @@ export class MissionLifecycleService {
     const PLANNING_TIMEOUT_MS = 10 * 60 * 1000; // 10 分钟超时
 
     // ★ 修复：添加超时控制，防止 AI 调用无限挂起
-    void Promise.race([
+    void withTimeout(
       this.executePlanningAsync(
         mission.id,
         topicId,
@@ -279,13 +290,9 @@ export class MissionLifecycleService {
         userPrompt,
         completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
       ),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Planning timeout after 10 minutes")),
-          PLANNING_TIMEOUT_MS,
-        ),
-      ),
-    ]).catch(async (err) => {
+      PLANNING_TIMEOUT_MS,
+      "Planning timeout after 10 minutes",
+    ).catch(async (err) => {
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(
         `[createMission] Async planning failed: ${errorMessage}`,
@@ -965,9 +972,11 @@ export class MissionLifecycleService {
       throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
-    if (mission.status !== ResearchMissionStatus.FAILED) {
-      throw new BadRequestException(`Mission ${missionId} is not failed`);
-    }
+    // 验证状态转移: FAILED → EXECUTING
+    this.missionStateValidator.assertTransition(
+      mission.status,
+      ResearchMissionStatus.EXECUTING,
+    );
 
     // 重置所有失败的任务
     await this.prisma.researchTask.updateMany({
@@ -1204,12 +1213,11 @@ export class MissionLifecycleService {
       return mission;
     }
 
-    // 已完成的任务不能取消
-    if (mission.status === ResearchMissionStatus.COMPLETED) {
-      throw new BadRequestException(
-        `Cannot cancel mission that is already completed`,
-      );
-    }
+    // 验证状态转移: current → CANCELLED
+    this.missionStateValidator.assertTransition(
+      mission.status,
+      ResearchMissionStatus.CANCELLED,
+    );
 
     // ★ 取消所有未完成的任务（PENDING、ASSIGNED 或 EXECUTING 状态）
     const cancelledTasksResult = await this.prisma.researchTask.updateMany({

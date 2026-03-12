@@ -17,6 +17,7 @@ import { Injectable, Logger } from "@nestjs/common";
 // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import type { ToolContext } from "@/modules/ai-engine/facade";
+import { withTimeoutFallback } from "@/common/utils/timeout.utils";
 import type { DataSourceResult } from "../../types/data-source.types";
 import type {
   EnrichedResult,
@@ -311,26 +312,21 @@ export class DataEnrichmentService {
     }
 
     try {
-      // 使用 Promise.race 实现超时控制
-      const fetchPromise = webScraperTool.execute(
-        {
-          url: result.url,
-          maxLength: maxContentLength,
-        },
-        this.createToolContext("web-scraper"),
-      );
-      const timeoutPromise = new Promise<{
-        success: false;
-        error: { message: string };
-      }>((resolve) =>
-        setTimeout(
-          () =>
-            resolve({ success: false, error: { message: "Fetch timeout" } }),
-          fetchTimeout,
+      // 超时控制：超时后降级为 snippet
+      const toolResult = await withTimeoutFallback(
+        webScraperTool.execute(
+          {
+            url: result.url,
+            maxLength: maxContentLength,
+          },
+          this.createToolContext("web-scraper"),
         ),
+        fetchTimeout,
+        {
+          success: false,
+          error: { code: "TIMEOUT", message: "Fetch timeout" },
+        } as Awaited<ReturnType<typeof webScraperTool.execute>>,
       );
-
-      const toolResult = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (toolResult.success && toolResult.data) {
         const scraperData = toolResult.data as {

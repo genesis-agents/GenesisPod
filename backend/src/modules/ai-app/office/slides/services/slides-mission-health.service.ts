@@ -21,6 +21,8 @@ import {
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SlidesMissionStatus, SlidesTaskStatus } from "@prisma/client";
+import { HealthCheckRunner } from "@/modules/ai-kernel/facade";
+import { mapWithConcurrencySettled } from "@/common/utils/concurrency.utils";
 
 // Type alias for the actual status used in slides (IN_PROGRESS vs EXECUTING)
 const TASK_EXECUTING_STATUS = SlidesTaskStatus.IN_PROGRESS;
@@ -143,8 +145,11 @@ export class SlidesMissionHealthService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(SlidesMissionHealthService.name);
-  private healthCheckInterval: NodeJS.Timeout | null = null;
-  private isRunning = false;
+  private readonly healthCheckRunner = new HealthCheckRunner({
+    name: "SlidesMissionHealth",
+    intervalMs: HEALTH_CHECK_CONFIG.checkIntervalMs,
+    runImmediately: true,
+  });
   private isRecovering = false;
 
   constructor(
@@ -156,7 +161,7 @@ export class SlidesMissionHealthService
    * Module initialization - start health check loop
    */
   onModuleInit(): void {
-    this.startHealthCheckLoop();
+    this.healthCheckRunner.start(() => this.runHealthCheck().then(() => {}));
     this.logger.log(
       `Health check service started with ${HEALTH_CHECK_CONFIG.checkIntervalMs / 1000}s interval`,
     );
@@ -177,7 +182,7 @@ export class SlidesMissionHealthService
    * Module destruction - stop health check loop
    */
   async onModuleDestroy(): Promise<void> {
-    this.stopHealthCheckLoop();
+    this.healthCheckRunner.stop();
 
     // Save checkpoints before shutdown
     await this.saveCheckpointsBeforeShutdown();
@@ -186,56 +191,12 @@ export class SlidesMissionHealthService
   }
 
   /**
-   * Start the health check loop
-   */
-  private startHealthCheckLoop(): void {
-    if (this.healthCheckInterval) {
-      return;
-    }
-
-    // Run immediately on startup
-    this.runHealthCheck().catch((err) => {
-      this.logger.error(`Initial health check failed: ${err.message}`);
-    });
-
-    // Set up interval
-    this.healthCheckInterval = setInterval(() => {
-      this.runHealthCheck().catch((err) => {
-        this.logger.error(`Scheduled health check failed: ${err.message}`);
-      });
-    }, HEALTH_CHECK_CONFIG.checkIntervalMs).unref();
-  }
-
-  /**
-   * Stop the health check loop
-   */
-  private stopHealthCheckLoop(): void {
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-      this.healthCheckInterval = null;
-    }
-  }
-
-  /**
    * Run a health check on all active missions
    */
   async runHealthCheck(): Promise<HealthCheckResult> {
-    if (this.isRunning) {
-      this.logger.debug("Health check already running, skipping");
-      return {
-        checkedAt: new Date(),
-        totalMissions: 0,
-        stuckMissions: 0,
-        recoveredMissions: 0,
-        failedMissions: 0,
-        details: [],
-      };
-    }
-
-    this.isRunning = true;
     this.logger.log("Starting health check...");
 
-    try {
+    {
       const result: HealthCheckResult = {
         checkedAt: new Date(),
         totalMissions: 0,
@@ -298,8 +259,6 @@ export class SlidesMissionHealthService
       }
 
       return result;
-    } finally {
-      this.isRunning = false;
     }
   }
 
@@ -632,41 +591,35 @@ export class SlidesMissionHealthService
       );
 
       // Concurrent recovery (limited)
-      const concurrencyLimit = RECOVERY_CONFIG.maxConcurrentRecovery;
+      const batchResults = await mapWithConcurrencySettled(
+        interruptedMissions,
+        (mission) => this.recoverSingleMission(mission as MissionWithTasks),
+        RECOVERY_CONFIG.maxConcurrentRecovery,
+      );
 
-      for (let i = 0; i < interruptedMissions.length; i += concurrencyLimit) {
-        const batch = interruptedMissions.slice(i, i + concurrencyLimit);
+      for (let j = 0; j < batchResults.length; j++) {
+        const batchResult = batchResults[j];
+        const mission = interruptedMissions[j];
 
-        const batchResults = await Promise.allSettled(
-          batch.map((mission) =>
-            this.recoverSingleMission(mission as MissionWithTasks),
-          ),
-        );
-
-        for (let j = 0; j < batchResults.length; j++) {
-          const batchResult = batchResults[j];
-          const mission = batch[j];
-
-          if (batchResult.status === "fulfilled" && batchResult.value.success) {
-            result.recoveredMissions++;
-            result.details.push({
-              missionId: mission.id,
-              sessionId: mission.sessionId,
-              action: "recovered",
-              reason: batchResult.value.reason,
-            });
-          } else {
-            result.failedRecoveries++;
-            result.details.push({
-              missionId: mission.id,
-              sessionId: mission.sessionId,
-              action: "failed",
-              reason:
-                batchResult.status === "rejected"
-                  ? batchResult.reason?.message || "Unknown error"
-                  : batchResult.value.reason,
-            });
-          }
+        if (batchResult.status === "fulfilled" && batchResult.value.success) {
+          result.recoveredMissions++;
+          result.details.push({
+            missionId: mission.id,
+            sessionId: mission.sessionId,
+            action: "recovered",
+            reason: batchResult.value.reason,
+          });
+        } else {
+          result.failedRecoveries++;
+          result.details.push({
+            missionId: mission.id,
+            sessionId: mission.sessionId,
+            action: "failed",
+            reason:
+              batchResult.status === "rejected"
+                ? batchResult.reason?.message || "Unknown error"
+                : batchResult.value.reason,
+          });
         }
       }
 

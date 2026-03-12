@@ -12,16 +12,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { createConcurrencyLimiter } from "@/common/utils/concurrency.utils";
 import type { ThrottleStats } from "./search.types";
-
-// p-limit is ESM-only; handle both CJS interop shapes
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pLimit: (concurrency: number) => <T>(fn: () => Promise<T>) => Promise<T> =
-  (() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("p-limit");
-    return mod.default || mod;
-  })();
 
 /** Default per-source concurrency limits based on API rate constraints */
 const DEFAULT_CONCURRENCY: Record<string, number> = {
@@ -69,7 +61,7 @@ export class GlobalSourceThrottleService {
   registerSource(sourceId: string, concurrency: number): void {
     if (this.limiters.has(sourceId)) return;
     this.limiters.set(sourceId, {
-      limiter: pLimit(concurrency),
+      limiter: createConcurrencyLimiter(concurrency),
       concurrency,
       activeCount: 0,
       pendingCount: 0,

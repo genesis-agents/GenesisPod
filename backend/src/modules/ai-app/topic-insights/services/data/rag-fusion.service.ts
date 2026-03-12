@@ -12,6 +12,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
+import { mapWithConcurrency } from "@/common/utils/concurrency.utils";
 import {
   QueryVariant,
   QueryVariantType,
@@ -99,34 +100,35 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
 只输出 JSON。`;
 
     try {
-      const response = await this.chatFacade.chatStructured<QueryVariantResponse>({
-        messages: [{ role: "user", content: prompt }],
-        additionalSkills: ["rag-fusion-query"],
-        skipGuardrails: true,
-        taskProfile: { creativity: "medium", outputLength: "medium" },
-        throwOnParseError: false,
-        schema: {
-          type: "object",
-          properties: {
-            variants: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  query: { type: "string" },
-                  type: { type: "string" },
-                  weight: { type: "number" },
-                  rationale: { type: "string" },
-                  targetAspect: { type: "string" },
+      const response =
+        await this.chatFacade.chatStructured<QueryVariantResponse>({
+          messages: [{ role: "user", content: prompt }],
+          additionalSkills: ["rag-fusion-query"],
+          skipGuardrails: true,
+          taskProfile: { creativity: "medium", outputLength: "medium" },
+          throwOnParseError: false,
+          schema: {
+            type: "object",
+            properties: {
+              variants: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    query: { type: "string" },
+                    type: { type: "string" },
+                    weight: { type: "number" },
+                    rationale: { type: "string" },
+                    targetAspect: { type: "string" },
+                  },
+                  required: ["query", "type"],
                 },
-                required: ["query", "type"],
               },
+              overallRationale: { type: "string" },
             },
-            overallRationale: { type: "string" },
+            required: ["variants"],
           },
-          required: ["variants"],
-        },
-      });
+        });
 
       // 始终包含原始查询
       const variants: QueryVariant[] = [
@@ -387,13 +389,12 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
       }
     };
 
-    // 使用批次执行，每批最多 CONCURRENT_SEARCH_LIMIT 个并发
-    const variantResults: VariantSearchResult[] = [];
-    for (let i = 0; i < variants.length; i += CONCURRENT_SEARCH_LIMIT) {
-      const batch = variants.slice(i, i + CONCURRENT_SEARCH_LIMIT);
-      const batchResults = await Promise.all(batch.map(executeVariant));
-      variantResults.push(...batchResults);
-    }
+    // 使用并发控制执行变体查询
+    const variantResults = await mapWithConcurrency(
+      variants,
+      executeVariant,
+      CONCURRENT_SEARCH_LIMIT,
+    );
 
     // 3. 融合结果
     const fusedResult = this.fuseResults(variantResults, mergedConfig);

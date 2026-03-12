@@ -13,6 +13,7 @@ import {
   CircuitBreakerService,
   TaskCompletionType,
 } from "@/modules/ai-kernel/facade";
+import { withTimeout } from "@/common/utils/timeout.utils";
 import { ToolRegistry, type ToolContext } from "@/modules/ai-engine/facade";
 import type { DataSourceResult } from "../../../types/data-source.types";
 import type {
@@ -96,20 +97,13 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
       };
     }
 
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-
     try {
       // Execute with timeout
-      const searchPromise = this.doSearch(request);
-      const timeoutPromise = new Promise<DataSourceResult[]>((_, reject) => {
-        timeoutHandle = setTimeout(
-          () => reject(new Error(`${this.sourceId} timeout (${timeoutMs}ms)`)),
-          timeoutMs,
-        );
-      });
-
-      const items = await Promise.race([searchPromise, timeoutPromise]);
-      clearTimeout(timeoutHandle);
+      const items = await withTimeout(
+        this.doSearch(request),
+        timeoutMs,
+        `${this.sourceId} timeout (${timeoutMs}ms)`,
+      );
       const durationMs = Date.now() - startTime;
 
       // Record CB success
@@ -127,7 +121,6 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
         },
       };
     } catch (error) {
-      clearTimeout(timeoutHandle);
       const durationMs = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
 

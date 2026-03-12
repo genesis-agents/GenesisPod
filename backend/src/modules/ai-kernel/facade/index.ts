@@ -105,6 +105,17 @@ export { A2AApiKeyGuard } from "../ipc/a2a/a2a-api-key.guard";
 // IPC — Progress
 export { ProgressTrackerService } from "../ipc/progress-tracker.service";
 
+// Resource — Health Check
+export { HealthCheckRunner } from "../resource/health-check-runner";
+export type { HealthCheckRunnerConfig } from "../resource/health-check-runner";
+
+// Process — State Transition
+export {
+  StateTransitionValidator,
+  InvalidTransitionError,
+} from "../process/state-transition-validator";
+export type { StateTransitionMap } from "../process/state-transition-validator";
+
 // Resource — additional
 export { CircuitBreakerService } from "../resource/circuit-breaker.service";
 export {

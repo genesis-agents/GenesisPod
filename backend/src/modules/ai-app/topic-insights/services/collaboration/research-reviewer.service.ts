@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
+import { mapWithConcurrency } from "@/common/utils/concurrency.utils";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
@@ -327,60 +328,68 @@ export class ResearchReviewerService {
 
     const { CLAIM_VALIDATION_PROMPT } =
       await import("../../prompts/v5-research.prompt");
-    const allResults: import("../../types/v5-research.types").ClaimValidationResult[] =
-      [];
     const BATCH_SIZE = 5;
 
-    // Process in batches of 5
+    // Split claims into batches of 5
+    const batches: (typeof claims)[] = [];
     for (let i = 0; i < claims.length; i += BATCH_SIZE) {
-      const batch = claims.slice(i, i + BATCH_SIZE);
-      const prompt = CLAIM_VALIDATION_PROMPT.replace(
-        "{claimsJson}",
-        JSON.stringify(batch, null, 2),
-      ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
-
-      try {
-        const response = await this.chatFacade.chatWithSkills({
-          messages: [
-            {
-              role: "system",
-              content: "你是严谨的事实核查专家。请输出 JSON 格式。",
-            },
-            { role: "user", content: prompt },
-          ],
-          additionalSkills: ["fact-verification"],
-          modelType: AIModelType.CHAT_FAST,
-          skipGuardrails: true, // 内部系统调用，事实核查含外部数据
-          taskProfile: {
-            creativity: "deterministic",
-            outputLength: "medium",
-          },
-          responseFormat: "json",
-        });
-
-        const result = extractJsonFromAIResponse<{
-          results: import("../../types/v5-research.types").ClaimValidationResult[];
-        }>(response.content, { requiredKey: "results" });
-
-        if (result.success && result.data?.results) {
-          allResults.push(...result.data.results);
-        }
-      } catch (error) {
-        this.logger.warn(
-          `[validateClaims] Batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${error}`,
-        );
-        // Mark batch claims as unverified on failure
-        for (const claim of batch) {
-          allResults.push({
-            claimId: claim.id,
-            status: "unverified",
-            supportingSourceIndices: [],
-            contradictingSourceIndices: [],
-            explanation: "验证过程出错",
-          });
-        }
-      }
+      batches.push(claims.slice(i, i + BATCH_SIZE));
     }
+
+    // Process batches sequentially (concurrency=1), each batch = 1 LLM call
+    const batchResults = await mapWithConcurrency(
+      batches,
+      async (batch, batchIndex) => {
+        const prompt = CLAIM_VALIDATION_PROMPT.replace(
+          "{claimsJson}",
+          JSON.stringify(batch, null, 2),
+        ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
+
+        try {
+          const response = await this.chatFacade.chatWithSkills({
+            messages: [
+              {
+                role: "system",
+                content: "你是严谨的事实核查专家。请输出 JSON 格式。",
+              },
+              { role: "user", content: prompt },
+            ],
+            additionalSkills: ["fact-verification"],
+            modelType: AIModelType.CHAT_FAST,
+            skipGuardrails: true, // 内部系统调用，事实核查含外部数据
+            taskProfile: {
+              creativity: "deterministic",
+              outputLength: "medium",
+            },
+            responseFormat: "json",
+          });
+
+          const result = extractJsonFromAIResponse<{
+            results: import("../../types/v5-research.types").ClaimValidationResult[];
+          }>(response.content, { requiredKey: "results" });
+
+          if (result.success && result.data?.results) {
+            return result.data.results;
+          }
+        } catch (error) {
+          this.logger.warn(
+            `[validateClaims] Batch ${batchIndex + 1} failed: ${error}`,
+          );
+        }
+
+        // Fallback: mark batch claims as unverified
+        return batch.map((c) => ({
+          claimId: c.id,
+          status: "unverified" as const,
+          supportingSourceIndices: [] as number[],
+          contradictingSourceIndices: [] as number[],
+          explanation: "验证过程出错",
+        }));
+      },
+      1, // concurrency=1: sequential LLM calls
+    );
+
+    const allResults = batchResults.flat();
 
     const stats = {
       verified: allResults.filter((r) => r.status === "verified").length,
