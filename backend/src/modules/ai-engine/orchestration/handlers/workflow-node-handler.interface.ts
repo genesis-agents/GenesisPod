@@ -2,7 +2,7 @@
  * AI Engine - Workflow Node Handler Interface
  *
  * App 层实现此接口注册自定义步骤处理器，Engine 层负责调度执行。
- * 这是 L4 App → L2 Engine 的扩展点：App 注册 Handler，Engine 驱动 Workflow。
+ * 这是 L4 App → L3 Engine 的扩展点：App 注册 Handler，Engine 驱动 Workflow。
  *
  * 生命周期：prepare → execute → validate
  * 错误处理：onError 返回策略（retry/skip/abort）

@@ -10,10 +10,10 @@
 | Layer             | Path                      | Submodules | Prod TS Files |
 | ----------------- | ------------------------- | ---------- | ------------- |
 | L4 AI Apps        | `modules/ai-app/`         | 15         | 774           |
-| L2 AI Engine      | `modules/ai-engine/`      | 14         | 422           |
+| L3 AI Engine      | `modules/ai-engine/`      | 14         | 422           |
 | L1 Infrastructure | `modules/ai-infra/`       | 11         | 65            |
 | L5 Open API       | `modules/open-api/`       | 4          | 71            |
-| L3 AI Kernel      | `modules/ai-kernel/`      | —          | 54            |
+| L2 AI Kernel      | `modules/ai-kernel/`      | —          | 54            |
 | L6 Intent Gateway | `modules/intent-gateway/` | —          | 1             |
 | **Total**         |                           |            | **1,387**     |
 

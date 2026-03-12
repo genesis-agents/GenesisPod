@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Simulation module crossing L4 -> L2 layers:
  * - L4 AI Apps: Scenario simulation and execution
- * - L2 AI Engine: LLM-powered simulation
+ * - L3 AI Engine: LLM-powered simulation
  */
 
 // ---------------------------------------------------------------------------

@@ -278,13 +278,10 @@ backend/
 │       │   ├── topic-insights/ # 话题洞察（Research 衍生）
 │       │   └── writing/        # AI 写作
 │       │
-│       ├── ai-kernel/          # L3 AI Kernel（内核层）
-│       │   └── ai-kernel.module.ts
-│       │
-│       ├── ai-engine/          # L2 AI Engine（核心能力层）
+│       ├── ai-engine/          # L3 AI Engine（核心能力层）
 │       │   ├── agents/         # Agent 框架
 │       │   ├── content/        # 内容处理引擎
-│       │   ├── facade/         # 统一入口（L4 通过此访问 L2）
+│       │   ├── facade/         # 统一入口（L4 通过此访问 L3）
 │       │   ├── guardrails/     # 护栏管道
 │       │   ├── knowledge/      # 知识库
 │       │   ├── llm/            # LLM 集成层
@@ -297,6 +294,9 @@ backend/
 │       │   ├── skills/         # 技能系统
 │       │   ├── teams/          # Teams 框架
 │       │   └── tools/          # 工具系统（200+ 工具）
+│       │
+│       ├── ai-kernel/          # L2 AI Kernel（内核层）
+│       │   └── ai-kernel.module.ts
 │       │
 │       └── ai-infra/           # L1 Infrastructure（基础设施层）
 │           ├── auth/           # 认证授权
@@ -511,14 +511,14 @@ L4  AI Apps（业务应用层）
         Research、Teams、Writing、Office、Social、Image
         Ask、Simulation、Planning、Topic Insights、Library、Explore
 
-L3  AI Kernel（内核层）
-    └── modules/ai-kernel/
-        进程管理、IPC、资源调度
-
-L2  AI Engine（核心能力层）
+L3  AI Engine（核心能力层）
     └── modules/ai-engine/
         LLM 集成、Agents 框架、Teams 框架、Tools 系统
         RAG、MCP Client、Guardrails、Observability
+
+L2  AI Kernel（内核层）
+    └── modules/ai-kernel/
+        进程管理、IPC、资源调度
 
 L1  Infrastructure（基础设施层）
     └── modules/ai-infra/

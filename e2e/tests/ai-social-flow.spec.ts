@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Social content module crossing L4 -> L2 -> L1 layers:
  * - L4 AI Apps: Social content creation and publishing
- * - L2 AI Engine: Content generation
+ * - L3 AI Engine: Content generation
  * - L1 Infrastructure: Credits and integrations
  */
 

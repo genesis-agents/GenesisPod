@@ -57,7 +57,7 @@
 **Architecture Diagram (WebFetch analysis)**:
 
 - L4 AI Agents: Feedback Management card visible, linked to `/admin/feedback` - **PASS**
-- L2 AI Engine: RAG Retrieval card visible as non-clickable capability - **PASS**
+- L3 AI Engine: RAG Retrieval card visible as non-clickable capability - **PASS**
 - L4 Knowledge group: Knowledge Base (RAG) card visible, linked to `/library/rag` - **PASS**
 - L1 Infrastructure: 11 cards (System Management, Logs, Monitoring, etc.) - NO Feedback - **PASS**
 

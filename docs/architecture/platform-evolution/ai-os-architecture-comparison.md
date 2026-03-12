@@ -46,8 +46,8 @@
 | -------------- | ---------------------------- | ----------------------------------- | -------------------- | ------------------------------------------------ |
 | **应用层**     | 用户程序                     | Agent SDK (Cerebrum) + 6 Agent 框架 | 未定义               | L6 Agent OS + L4 AI Apps                         |
 | **接口层**     | System Call Interface        | LLM System Call Interface           | --                   | L5 Open API (MCP/REST/Webhooks)                  |
-| **内核层**     | Kernel (进程/内存/文件/网络) | AIOS Kernel (6 模块)                | LLM 即内核           | L3 AI Kernel (16 个服务)                         |
-| **能力层**     | --                           | LLM Core(s)                         | LLM + Tools + 多模态 | L2 AI Engine (LLM/Agents/Tools/Teams/Skills/RAG) |
+| **内核层**     | Kernel (进程/内存/文件/网络) | AIOS Kernel (6 模块)                | LLM 即内核           | L2 AI Kernel (16 个服务)                         |
+| **能力层**     | --                           | LLM Core(s)                         | LLM + Tools + 多模态 | L3 AI Engine (LLM/Agents/Tools/Teams/Skills/RAG) |
 | **基础设施层** | Hardware (CPU/RAM/Disk)      | Hardware Abstraction Layer          | 本地硬件             | L1 Infrastructure (Auth/Credits/Storage)         |
 | **总层数**     | 3-4 层                       | 3 层                                | ~2 层 (概念)         | **6 层**                                         |
 

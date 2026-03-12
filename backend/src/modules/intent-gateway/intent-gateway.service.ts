@@ -6,7 +6,7 @@
  * - Module capability listing for external consumers
  * - Rate limiting hooks (future)
  *
- * Architecture: L6 Intent Gateway → L2 AI Engine (via facade)
+ * Architecture: L6 Intent Gateway → L3 AI Engine (via facade)
  *
  * IntentRouterService is injected as @Optional so that the Intent Gateway
  * module can bootstrap independently of the AI Engine module in test

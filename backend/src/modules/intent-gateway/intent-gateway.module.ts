@@ -8,7 +8,7 @@
  * - 会话管理
  *
  * Architecture layer: L6 (top of 6-layer stack)
- * Depends on: L2 AI Engine (via facade) — injected as @Optional
+ * Depends on: L3 AI Engine (via facade) — injected as @Optional
  */
 import { Module } from "@nestjs/common";
 import { IntentGatewayService } from "./intent-gateway.service";

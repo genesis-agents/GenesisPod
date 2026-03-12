@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Image module crossing L4 -> L2 layers:
  * - L4 AI Apps: Image generation and gallery
- * - L2 AI Engine: Image generation models
+ * - L3 AI Engine: Image generation models
  */
 
 // ---------------------------------------------------------------------------

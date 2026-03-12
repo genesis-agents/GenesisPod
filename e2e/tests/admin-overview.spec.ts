@@ -26,7 +26,7 @@ const EXPECTED_STAT_KEYS = [
   "skills",
   "feedbackCount",
   "bookmarkedResources",
-  // L3 Kernel
+  // L2 Kernel
   "kernelProcesses",
   "kernelRunning",
   "kernelEvents",
@@ -34,7 +34,7 @@ const EXPECTED_STAT_KEYS = [
   "kernelSubscriptions",
   "kernelBreakers",
   "kernelLLMCalls",
-  // L2 Engine
+  // L3 Engine
   "aiModels",
   "agents",
   "knowledgeBases",
@@ -229,28 +229,28 @@ test.describe("Admin Overview — Architecture Diagram", () => {
     }
   });
 
-  test("L3 Kernel layer shows all 8 cards", async ({ page }) => {
-    // L3 should show the Kernel heading
-    const l3Heading = page.getByRole("heading", { name: /Kernel/i });
-    await expect(l3Heading).toBeVisible();
+  test("L2 Kernel layer shows all 8 cards", async ({ page }) => {
+    // L2 should show the Kernel heading
+    const l2Heading = page.getByRole("heading", { name: /Kernel/i });
+    await expect(l2Heading).toBeVisible();
 
-    // L3 should have 8 kernel module links (processes, journal, memory, ipc, resources, observability, security, scheduler)
+    // L2 should have 8 kernel module links (processes, journal, memory, ipc, resources, observability, security, scheduler)
     const kernelLinks = page.locator('a[href^="/admin/kernel/"]');
     await expect(kernelLinks).toHaveCount(8);
   });
 
-  test("L2 Engine layer shows all 8 cards", async ({ page }) => {
-    // L2 should show the Engine heading
-    const l2Heading = page.getByRole("heading", { name: /Engine/i });
-    await expect(l2Heading).toBeVisible();
+  test("L3 Engine layer shows all 8 cards", async ({ page }) => {
+    // L3 should show the Engine heading
+    const l3Heading = page.getByRole("heading", { name: /Engine/i });
+    await expect(l3Heading).toBeVisible();
 
-    // L2 should have engine module links (models, agents, teams, skills, tools + mcp-clients now under /admin/ai/tools)
+    // L3 should have engine module links (models, agents, teams, skills, tools + mcp-clients now under /admin/ai/tools)
     const engineLinks = page.locator(
       'a[href^="/admin/ai/"]:not([href*="traces"])',
     );
     // At minimum: models, agents, teams, skills, tools, mcp-clients = 6 clickable cards (mcp-clients shares tools href)
     const count = await engineLinks.count();
-    expect(count, "L2 should have at least 5 clickable engine cards").toBeGreaterThanOrEqual(5);
+    expect(count, "L3 should have at least 5 clickable engine cards").toBeGreaterThanOrEqual(5);
   });
 
   test("static stat values are correct", async ({ page, baseURL }) => {

@@ -3906,10 +3906,10 @@
         "openApiDesc": "面向外部Agent和第三方的访问接口",
         "aiApps": "第四层：Agent应用",
         "aiAppsDesc": "Agent应用（只读，通过左侧菜单访问）",
-        "aiKernel": "第三层：Agent运行时",
-        "aiKernelDesc": "进程管理、事件日志、记忆、IPC、资源调度",
-        "aiEngine": "第二层：Agent引擎",
+        "aiEngine": "第三层：Agent引擎",
         "aiEngineDesc": "核心能力配置",
+        "aiKernel": "第二层：Agent运行时",
+        "aiKernelDesc": "进程管理、事件日志、记忆、IPC、资源调度",
         "infrastructure": "第一层：基础设施",
         "infrastructureDesc": "基础服务配置"
       },

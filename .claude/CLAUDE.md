@@ -44,8 +44,8 @@ Infra:    Docker + Railway + PM2 + Redis 7
 L6 Intent Gateway（意图网关层）→ 意图识别、路由分发         → modules/intent-gateway/
 L5 Open API（开放接口层）→ MCP Server、Public API、Webhooks → modules/open-api/
 L4 AI Apps（业务应用层）→ Research、Teams、Writing、Office   → modules/ai-app/
-L3 AI Kernel（内核层）→ 进程管理、IPC、资源调度             → modules/ai-kernel/
-L2 AI Engine（核心能力层）→ LLM、Agents、Tools、RAG         → modules/ai-engine/
+L3 AI Engine（核心能力层）→ LLM、Agents、Tools、RAG         → modules/ai-engine/
+L2 AI Kernel（内核层）→ 进程管理、IPC、资源调度             → modules/ai-kernel/
 L1 Infrastructure（基础设施层）→ Auth、Credits、Storage      → modules/ai-infra/
 ```
 

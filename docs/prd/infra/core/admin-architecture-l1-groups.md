@@ -327,7 +327,7 @@ const infrastructureLayer: ArchitectureLayer = {
 ### 6.1 无破坏性变更
 
 - 现有 7 个模块的 id、href、clickable 属性不变
-- L2（AI Engine）和 L3（AI Apps）层不受影响
+- L3（AI Engine）和 L4（AI Apps）层不受影响
 - `ArchitectureCard` 组件无需修改
 
 ### 6.2 后续扩展

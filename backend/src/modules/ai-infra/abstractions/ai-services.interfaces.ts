@@ -1,5 +1,5 @@
 /**
- * L1 Infrastructure — Abstract interfaces for L2 (AI Engine) services
+ * L1 Infrastructure — Abstract interfaces for L3 (AI Engine) services
  *
  * L1 modules must NOT import from L2 directly. Instead, they depend on
  * these abstract interfaces and inject via DI tokens. The actual bindings

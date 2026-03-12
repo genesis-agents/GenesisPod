@@ -3906,10 +3906,10 @@
         "openApiDesc": "Open interfaces for external agents and third-party integrations",
         "aiApps": "Layer 4: Agent Apps",
         "aiAppsDesc": "Agent Applications (read-only, access via sidebar)",
-        "aiKernel": "Layer 3: Agent Runtime",
-        "aiKernelDesc": "Process management, event journal, memory, IPC, resource scheduling",
-        "aiEngine": "Layer 2: Agent Engine",
+        "aiEngine": "Layer 3: Agent Engine",
         "aiEngineDesc": "Core Capabilities",
+        "aiKernel": "Layer 2: Agent Runtime",
+        "aiKernelDesc": "Process management, event journal, memory, IPC, resource scheduling",
         "infrastructure": "Layer 1: Infrastructure",
         "infrastructureDesc": "Foundation Services"
       },

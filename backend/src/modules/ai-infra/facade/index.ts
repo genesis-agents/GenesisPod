@@ -2,7 +2,7 @@
  * AI Infrastructure Facade (L1)
  *
  * Unified entry point for all ai-infra public exports.
- * All higher-layer modules (L2 AI Engine, L4 AI Apps, L5 Open API)
+ * All higher-layer modules (L3 AI Engine, L4 AI Apps, L5 Open API)
  * should import ai-infra symbols from this facade, not from internal paths.
  *
  * NOTE: NestJS Module classes are NOT exported here to avoid circular

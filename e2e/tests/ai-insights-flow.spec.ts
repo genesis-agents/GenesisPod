@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Topic Insights module crossing L4 -> L2 -> L1 layers:
  * - L4 AI Apps: Topic insights dashboard and research
- * - L2 AI Engine: LLM research and analysis
+ * - L3 AI Engine: LLM research and analysis
  * - L1 Infrastructure: Credits consumed
  */
 

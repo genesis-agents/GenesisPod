@@ -5,8 +5,8 @@ import { test, expect } from "@playwright/test";
  *
  * Full Research flow crossing L4 → L3 → L2 → L1 layers:
  * - L4 AI Apps: Research module (projects, sources, notes, chat)
- * - L3 AI Kernel: Process registration triggered by project creation
- * - L2 AI Engine: RAG system (sources), LLM service (chat)
+ * - L2 AI Kernel: Process registration triggered by project creation
+ * - L3 AI Engine: RAG system (sources), LLM service (chat)
  * - L1 Infrastructure: Credits consumed during LLM calls
  */
 
@@ -239,10 +239,10 @@ test.describe("Research API — Projects (L4 App)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. API Contract Tests — Sources (L4 App → L2 Engine RAG)
+// 3. API Contract Tests — Sources (L4 App → L3 Engine RAG)
 // ---------------------------------------------------------------------------
 
-test.describe("Research API — Sources (L4 → L2 RAG)", () => {
+test.describe("Research API — Sources (L4 → L3 RAG)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/ai-research", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
@@ -378,10 +378,10 @@ test.describe("Research API — Sources (L4 → L2 RAG)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. API Contract Tests — Chat (L4 App → L2 Engine LLM → L1 Credits)
+// 4. API Contract Tests — Chat (L4 App → L3 Engine LLM → L1 Credits)
 // ---------------------------------------------------------------------------
 
-test.describe("Research API — Chat (L4 → L2 Engine LLM)", () => {
+test.describe("Research API — Chat (L4 → L3 Engine LLM)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/ai-research", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
@@ -570,7 +570,7 @@ test.describe("Research API — Cross-layer Verification", () => {
     await page.waitForTimeout(500);
   });
 
-  test("Creating a project is reflected in overview stats (L3 Kernel)", async ({
+  test("Creating a project is reflected in overview stats (L2 Kernel)", async ({
     page,
     baseURL,
   }) => {

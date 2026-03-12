@@ -1,4 +1,4 @@
-# L3 AI Kernel — 内核层
+# L2 AI Kernel — 内核层
 
 > 进程管理、IPC、记忆、资源调度
 

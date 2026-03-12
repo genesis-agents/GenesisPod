@@ -275,10 +275,10 @@ test.describe("Collections API (L4 App)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Knowledge Graph (L4 App → L2 Engine)
+// 3. Knowledge Graph (L4 App → L3 Engine)
 // ---------------------------------------------------------------------------
 
-test.describe("Knowledge Graph API (L4 → L2 Engine)", () => {
+test.describe("Knowledge Graph API (L4 → L3 Engine)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/explore", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
@@ -374,10 +374,10 @@ test.describe("Notes API (L4 App)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. RAG System Status (L4 App → L2 Engine RAG)
+// 5. RAG System Status (L4 App → L3 Engine RAG)
 // ---------------------------------------------------------------------------
 
-test.describe("RAG System Status (L4 → L2 Engine)", () => {
+test.describe("RAG System Status (L4 → L3 Engine)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/explore", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);

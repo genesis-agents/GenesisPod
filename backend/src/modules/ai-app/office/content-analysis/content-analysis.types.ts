@@ -7,7 +7,7 @@
  * 此文件 re-export 核心类型并扩展 L4 特有的业务类型。
  */
 
-// Re-export core content feature types from L2 (AI Engine) via Facade
+// Re-export core content feature types from L3 (AI Engine) via Facade
 export {
   ContentComplexity,
   ContentCategory,

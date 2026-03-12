@@ -141,7 +141,7 @@ export class MissionExecutionService {
     private stateManager: MissionStateManager,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
-    // ★ IPC: Agent 间消息总线（L3 Kernel）
+    // ★ IPC: Agent 间消息总线（L2 Kernel）
     @Optional() private readonly messageBus?: MessageBusService,
   ) {
     this.logger.debug(

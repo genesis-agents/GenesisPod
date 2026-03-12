@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Teams module full flow crossing L4 → L2 layers:
  * - L4 AI Apps: Teams module (topics, AI members, messages, summary)
- * - L2 AI Engine: Teams framework (registry), LLM service (summary generation)
+ * - L3 AI Engine: Teams framework (registry), LLM service (summary generation)
  */
 
 // ---------------------------------------------------------------------------
@@ -352,7 +352,7 @@ test.describe("Teams API — AI Members (L4 App)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. API Contract Tests — Messages (L4 App → L2 Engine)
+// 4. API Contract Tests — Messages (L4 App → L3 Engine)
 // ---------------------------------------------------------------------------
 
 test.describe("Teams API — Messages (L4 App)", () => {
@@ -444,10 +444,10 @@ test.describe("Teams API — Messages (L4 App)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. API Contract Tests — Summary (L4 App → L2 Engine LLM)
+// 5. API Contract Tests — Summary (L4 App → L3 Engine LLM)
 // ---------------------------------------------------------------------------
 
-test.describe("Teams API — Summary (L4 → L2 Engine)", () => {
+test.describe("Teams API — Summary (L4 → L3 Engine)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/ai-teams", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);

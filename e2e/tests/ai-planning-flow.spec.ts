@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Planning module crossing L4 -> L2 layers:
  * - L4 AI Apps: Plan creation, milestone management
- * - L2 AI Engine: LLM-powered planning
+ * - L3 AI Engine: LLM-powered planning
  */
 
 // ---------------------------------------------------------------------------

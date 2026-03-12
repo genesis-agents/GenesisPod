@@ -5,8 +5,8 @@
  * Layer 6: Agent Intent Gateway (Entry, Intent Routing, Traces)
  * Layer 5: External Agent Access (Open Interfaces)
  * Layer 4: Agent Apps (Business Applications - Read-only)
- * Layer 3: Agent Runtime (Process, Memory, IPC, Resources)
- * Layer 2: Agent Engine (Core Capabilities)
+ * Layer 3: Agent Engine (Core Capabilities)
+ * Layer 2: Agent Runtime (Process, Memory, IPC, Resources)
  * Layer 1: Infrastructure (Foundation)
  */
 
@@ -263,12 +263,12 @@ const aiAppsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 3: Agent Runtime (Process, Memory, IPC, Resources)
+// Layer 2: Agent Runtime (Process, Memory, IPC, Resources)
 const aiKernelLayer: ArchitectureLayer = {
   id: 'aiKernel',
   titleKey: 'admin.architecture.layers.aiKernel',
   subtitleKey: 'admin.architecture.layers.aiKernelDesc',
-  level: 3,
+  level: 2,
   cards: [
     {
       id: 'kernelProcesses',
@@ -345,12 +345,12 @@ const aiKernelLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 2: Agent Engine (Core Capabilities)
+// Layer 3: Agent Engine (Core Capabilities)
 const aiEngineLayer: ArchitectureLayer = {
   id: 'aiEngine',
   titleKey: 'admin.architecture.layers.aiEngine',
   subtitleKey: 'admin.architecture.layers.aiEngineDesc',
-  level: 2,
+  level: 3,
   cards: [
     {
       id: 'models',
@@ -548,8 +548,8 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
   agentOsLayer,
   openApiLayer,
   aiAppsLayer,
-  aiKernelLayer,
   aiEngineLayer,
+  aiKernelLayer,
   infrastructureLayer,
 ];
 
@@ -586,16 +586,6 @@ export const LAYER_STYLES = {
     hoverBorder: 'hover:border-violet-300',
   },
   3: {
-    // Agent Runtime - Teal theme
-    badge: 'bg-teal-100 text-teal-700',
-    border: 'border-teal-200',
-    accent: 'text-teal-600',
-    bg: 'bg-gradient-to-br from-teal-50 to-slate-50/80',
-    accentBar: 'bg-gradient-to-b from-teal-500 to-slate-600',
-    iconBg: 'bg-teal-100 text-teal-600',
-    hoverBorder: 'hover:border-teal-300',
-  },
-  2: {
     // Agent Engine - Blue theme
     badge: 'bg-blue-100 text-blue-700',
     border: 'border-blue-200',
@@ -604,6 +594,16 @@ export const LAYER_STYLES = {
     accentBar: 'bg-gradient-to-b from-blue-500 to-cyan-600',
     iconBg: 'bg-blue-100 text-blue-600',
     hoverBorder: 'hover:border-blue-300',
+  },
+  2: {
+    // Agent Runtime - Teal theme
+    badge: 'bg-teal-100 text-teal-700',
+    border: 'border-teal-200',
+    accent: 'text-teal-600',
+    bg: 'bg-gradient-to-br from-teal-50 to-slate-50/80',
+    accentBar: 'bg-gradient-to-b from-teal-500 to-slate-600',
+    iconBg: 'bg-teal-100 text-teal-600',
+    hoverBorder: 'hover:border-teal-300',
   },
   1: {
     // Infrastructure - Green theme (bottom layer)

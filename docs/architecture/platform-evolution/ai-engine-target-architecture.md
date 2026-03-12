@@ -7,8 +7,8 @@
 
 ```
 1. AIEngineFacade = 2951 行 God Object + 399 行 index.ts（139 re-export）
-2. ai-infra (L1) 有 7 个模块反向依赖 L2/L3/L4（admin、feedback、integrations/*）
-3. ai-kernel (L3) 多处反向依赖 L2 接口（IProgressTracker、IEventEmitter、IMemoryStore）
+2. ai-infra (L1) 有 7 个模块反向依赖 L3/L2/L4（admin、feedback、integrations/*）
+3. ai-kernel (L2) 多处反向依赖 L3 接口（IProgressTracker、IEventEmitter、IMemoryStore）
 4. ai-engine/content/ 内含 3 个业务模块（long-form、analysis、synthesis）应属 L4
 5. content/ 和 ingestion/ 是孤儿模块，不属于任何层
 6. agent-os/ 命名不准确，实际职责是意图路由
@@ -71,10 +71,10 @@
 │      │       └── google-drive/ Google Drive（从 ai-infra 搬入）       │
 │      └── proxy/          代理抓取（从 ai-infra 搬入）                  │
 ├─────────────────────────────────────────────────────────────────────┤
-│  L3  AI Kernel（内核层）                                              │
+│  L2  AI Kernel（内核层）                                              │
 │  ai-kernel/                                                         │
 │  ├── facade/index.ts      统一导出（独立，不经 Engine 转发）           │
-│  ├── abstractions/        自有接口（不依赖 L2 定义）                   │
+│  ├── abstractions/        自有接口（不依赖 L3 定义）                   │
 │  ├── process/             进程管理                                    │
 │  ├── ipc/                 进程间通信                                  │
 │  ├── memory/              内核记忆                                    │
@@ -88,7 +88,7 @@
 │  ├── observability/       可观测性                                    │
 │  └── api/                 内核 API                                    │
 ├─────────────────────────────────────────────────────────────────────┤
-│  L2  AI Engine（核心能力层）                                          │
+│  L3  AI Engine（核心能力层）                                          │
 │  ai-engine/                                                         │
 │  ├── facade/                                                        │
 │  │   ├── domain/          5 个领域 Facade（拆分 God Object）          │
@@ -123,7 +123,7 @@
 │  ├── storage/             R2 存储                                     │
 │  ├── email/               邮件                                       │
 │  ├── notifications/       通知                                       │
-│  ├── monitoring/          监控（健康检查解耦 L2 依赖）                 │
+│  ├── monitoring/          监控（健康检查解耦 L3 依赖）                 │
 │  ├── release/             版本管理                                    │
 │  ├── settings/            系统设置                                    │
 │  ├── table-management/    表管理                                      │
@@ -135,26 +135,26 @@
 
 ```
 L6 Intent Gateway ──→ L4 AI Apps       (意图路由到具体应用)
-                  ──→ L2 Engine Facades (Agent 执行)
+                  ──→ L3 Engine Facades (Agent 执行)
                   ──→ L1 Infra Facade   (Auth)
 
 L5 Open API ──→ L4 AI Apps             (Admin 管理各 App)
-            ──→ L2 Engine Facades      (MCP Server 直接调用能力)
+            ──→ L3 Engine Facades      (MCP Server 直接调用能力)
             ──→ L1 Infra Facade        (Auth、Secrets)
 
-L4 AI Apps ──→ L3 Kernel Facade        (进程管理、记忆)
-           ──→ L2 Engine Facades       (LLM、RAG、Agent、Tool、Team)
+L4 AI Apps ──→ L2 Kernel Facade        (进程管理、记忆)
+           ──→ L3 Engine Facades       (LLM、RAG、Agent、Tool、Team)
            ──→ L1 Infra Facade         (Credits、Secrets、Storage)
 
-L3 Kernel ──→ L1 Infra                 (Prisma、Cache)
+L2 Kernel ──→ L1 Infra                 (Prisma、Cache)
 
-L2 Engine ──→ L1 Infra                 (Prisma、Secrets、Credits)
+L3 Engine ──→ L1 Infra                 (Prisma、Secrets、Credits)
 
 禁止:
   - L1 → L2/L3/L4（基础层不依赖上层）
-  - L2 → L3（Engine 不依赖 Kernel）
-  - L3 → L2（Kernel 不依赖 Engine）
-  - L4 App 之间互相依赖（通过 L2/L3 中转）
+  - L3 → L2（Engine 不依赖 Kernel）
+  - L2 → L3（Kernel 不依赖 Engine）
+  - L4 App 之间互相依赖（通过 L3/L2 中转）
 ```
 
 ## 核心变化：五件事
@@ -202,7 +202,7 @@ constructor(
          ↑ 直接从 kernel 导入，不绕路
 ```
 
-Engine facade 删除全部 L3 re-export（当前 30 行）。
+Engine facade 删除全部 L2 re-export（当前 30 行）。
 
 ### 3. 三层 Facade 体系
 
@@ -225,9 +225,9 @@ ai-infra/facade/    → 基础服务（Credits、Secrets、Storage、Auth...）
 | google-drive/      | ai-infra (L1)  | ai-app/library/rag/integrations (L4) | 同上                 |
 | ai-file-organizer/ | ai-infra (L1)  | ai-app (L4)                          | 用 AI 分类，是应用   |
 | proxy/             | ai-infra (L1)  | ai-app/library/proxy (L4)            | 服务于内容获取       |
-| content/long-form/ | ai-engine (L2) | ai-app/writing/content-engine (L4)   | 写作业务逻辑         |
-| content/analysis/  | ai-engine (L2) | ai-app/office/content-analysis (L4)  | PPT 分析业务         |
-| content/synthesis/ | ai-engine (L2) | ai-app/office/content-synthesis (L4) | 报告组装业务         |
+| content/long-form/ | ai-engine (L3) | ai-app/writing/content-engine (L4)   | 写作业务逻辑         |
+| content/analysis/  | ai-engine (L3) | ai-app/office/content-analysis (L4)  | PPT 分析业务         |
+| content/synthesis/ | ai-engine (L3) | ai-app/office/content-synthesis (L4) | 报告组装业务         |
 | agent-os/          | 命名不准确     | intent-gateway/ (L6)                 | 改名为意图网关       |
 | content/           | 孤儿           | ai-app/library/ (L4)                 | 知识库统一管理       |
 | ingestion/         | 孤儿           | ai-app/library/ingestion (L4)        | 并入知识库           |
@@ -263,10 +263,10 @@ ai-infra/facade/    → 基础服务（Credits、Secrets、Storage、Auth...）
 | modules/ 一级目录 | 8 个（含 2 个孤儿）     | 6 个（严格对应 6 层）          |
 | Engine Facade     | 1 个 2951 行 God Object | 5 个各 < 500 行领域 Facade     |
 | facade/index.ts   | 399 行 139 export       | 精简到类型+常量导出            |
-| L2→L3 re-export   | 30 行转发               | 0，Kernel 独立导出             |
+| L3→L2 re-export   | 30 行转发               | 0，Kernel 独立导出             |
 | L1 分层违规       | 7 个模块反向依赖        | 0，全部归位                    |
-| L2 业务泄漏       | 3 个 content/\* 子模块  | 0，下沉到 L4                   |
-| L3 接口依赖       | 直接 import L2 接口     | 自有 abstractions/             |
+| L3 业务泄漏       | 3 个 content/\* 子模块  | 0，下沉到 L4                   |
+| L2 接口依赖       | 直接 import L3 接口     | 自有 abstractions/             |
 | content/ingestion | 孤儿，不属于任何层      | 统一到 ai-app/library/         |
 | @Global()         | Engine + Kernel 全局    | 无，显式 imports（后续）       |
 | 消费者感知        | 80 个方法一锅端         | 按需注入，各 Facade 10-15 方法 |
@@ -292,10 +292,10 @@ Phase 3: AI Engine 内容模块下沉
   - content/analysis + synthesis → ai-app/office/
   - 更新 engine facade 移除这些 export
 
-Phase 4: AI Kernel L3 合规
+Phase 4: AI Kernel L2 合规
   - 接口下沉到 common/ 或 kernel/abstractions/
-  - 断开 A2A Controller 对 L2 的直接依赖
-  - Kernel 完全自治，零 L2 import
+  - 断开 A2A Controller 对 L3 的直接依赖
+  - Kernel 完全自治，零 L3 import
 
 Phase 5: 拆 God Facade — 5 个领域 Facade
   - 新建 ChatFacade, RAGFacade, AgentFacade, TeamFacade, ToolFacade

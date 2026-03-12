@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Library and RAG module crossing multiple layers:
  * - L4 AI Apps: Resource library, RAG management
- * - L2 AI Engine: RAG / embedding
+ * - L3 AI Engine: RAG / embedding
  * - L1 Infrastructure: Storage
  */
 

@@ -198,7 +198,7 @@ describe("StatisticsService", () => {
         "systemSettings",
         "totalLogins",
         "monitoringErrors",
-        // L2 Engine
+        // L3 Engine
         "mcpServers",
         "agents",
         "knowledgeBases",

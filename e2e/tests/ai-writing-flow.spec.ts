@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Writing module flow crossing L4 → L2 → L1 layers:
  * - L4 AI Apps: Writing module (projects, chapters, story bible, world)
- * - L2 AI Engine: LLM service (content generation)
+ * - L3 AI Engine: LLM service (content generation)
  * - L1 Infrastructure: Credits consumed during generation
  */
 

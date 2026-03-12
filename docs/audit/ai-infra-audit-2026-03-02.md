@@ -321,7 +321,7 @@
      ...
    };
    ```
-   这是 L1 层（monitoring）持有 L2 层（AI Engine）的模型定价数据，关注点错误。模型价格配置应在 L2 维护，L1 通过查询获取。
+   这是 L1 层（monitoring）持有 L3 层（AI Engine）的模型定价数据，关注点错误。模型价格配置应在 L3 维护，L1 通过查询获取。
 
 ---
 
@@ -527,7 +527,7 @@
 | P1     | `auth.controller.ts` 裸 `process.env.FRONTEND_URL`                           | 配置管理         | `auth/auth.controller.ts:239`               | 低（注入 ConfigService）   | 本迭代   |
 | P1     | Service 层多处 `throw new Error` (14 处)                                     | 错误处理         | 见上方列表                                  | 中（逐一替换为 HTTP 异常） | 本迭代   |
 | P2     | `storage.service.ts` 体积 2331 行，混合多个关注点                            | 代码质量、内聚性 | `storage/storage.service.ts`                | 高（拆分 service）         | 下次迭代 |
-| P2     | `AIMetricsService` 中硬编码模型定价表（L1 持有 L2 知识）                     | 依赖合理性       | `monitoring/ai-metrics.service.ts:56-70`    | 中（查询 AI Engine）       | 下次迭代 |
+| P2     | `AIMetricsService` 中硬编码模型定价表（L1 持有 L3 知识）                     | 依赖合理性       | `monitoring/ai-metrics.service.ts:56-70`    | 中（查询 AI Engine）       | 下次迭代 |
 | P2     | `settings.service.ts` 中 `AiSettings` 接口含 AI Engine 参数                  | 模块内聚         | `settings/settings.service.ts`              | 中（重新分配到 Engine）    | 下次迭代 |
 | P2     | `settings.controller.ts` 路径前缀硬编码 `"api/v1/admin/settings"`            | 接口设计         | `settings/settings.controller.ts:31`        | 低（移除 api/v1 前缀）     | 下次迭代 |
 | P3     | `auth/__tests__/auth.service.spec.ts` placeholder + 根目录真实 spec 双重冲突 | 测试             | `auth/__tests__/auth.service.spec.ts`       | 低（合并或清理）           | 长期     |
@@ -560,7 +560,7 @@
 ### 长期改进
 
 - [ ] 拆分 `storage.service.ts`（建议独立出 `memory-stats.service.ts`）
-- [ ] 将 AI 模型定价数据从 `AIMetricsService` 迁移至 L2 AI Engine 层查询
+- [ ] 将 AI 模型定价数据从 `AIMetricsService` 迁移至 L3 AI Engine 层查询
 - [ ] 清理 `auth/__tests__/` 中的 placeholder 测试文件
 - [ ] 修正 `credits.service.spec.ts` 中 mock 方法名与实现不一致问题
 - [ ] 为所有 Controller 补充 `@ApiOperation`/`@ApiResponse` Swagger 标注

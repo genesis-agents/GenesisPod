@@ -4,11 +4,11 @@ import { test, expect } from "@playwright/test";
  * AI Apps Layer (L4) — E2E Tests
  *
  * Covers:
- * 1. Ask Module       (/ai-ask)       L6 Gateway → L4 App → L2 Engine
- * 2. Explore / Library (/explore)     L4 App → L2 Engine
- * 3. Research Module  (/ai-research)  L4 App → L3 Kernel → L2 Engine
- * 4. Writing Module   (/ai-writing)   L4 App → L2 Engine
- * 5. Teams Module     (/ai-teams)     L4 App → L2 Engine Teams
+ * 1. Ask Module       (/ai-ask)       L6 Gateway → L4 App → L3 Engine
+ * 2. Explore / Library (/explore)     L4 App → L3 Engine
+ * 3. Research Module  (/ai-research)  L4 App → L2 Kernel → L3 Engine
+ * 4. Writing Module   (/ai-writing)   L4 App → L3 Engine
+ * 5. Teams Module     (/ai-teams)     L4 App → L3 Engine Teams
  * 6. Data Management  (/admin/data-management)
  * 7. Feedback Admin   (/admin/feedback)
  * 8. Cross-Layer Integration          AI Engine Diagnosis + Usage Stats
@@ -33,7 +33,7 @@ async function getAuthHeader(
 }
 
 // ---------------------------------------------------------------------------
-// 1. Ask Module — L6 Gateway → L4 App → L2 Engine (LLM) → L1 Infra (credits)
+// 1. Ask Module — L6 Gateway → L4 App → L3 Engine (LLM) → L1 Infra (credits)
 // ---------------------------------------------------------------------------
 test.describe("Ask Module (/ai-ask)", () => {
   test("page loads with input field visible", async ({ page }) => {
@@ -110,7 +110,7 @@ test.describe("Ask Module (/ai-ask)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Explore / Library — L4 App → L2 Engine
+// 2. Explore / Library — L4 App → L3 Engine
 // ---------------------------------------------------------------------------
 test.describe("Explore / Library (/explore)", () => {
   test.beforeEach(async ({ page }) => {
@@ -176,7 +176,7 @@ test.describe("Explore / Library (/explore)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Research Module — L4 App → L3 Kernel (processes) → L2 Engine (agents)
+// 3. Research Module — L4 App → L2 Kernel (processes) → L3 Engine (agents)
 // ---------------------------------------------------------------------------
 test.describe("Research Module (/ai-research)", () => {
   test.beforeEach(async ({ page }) => {
@@ -240,7 +240,7 @@ test.describe("Research Module (/ai-research)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Writing Module — L4 App → L2 Engine
+// 4. Writing Module — L4 App → L3 Engine
 // ---------------------------------------------------------------------------
 test.describe("Writing Module (/ai-writing)", () => {
   test("page loads with AppShell and writing interface", async ({ page }) => {
@@ -322,7 +322,7 @@ test.describe("Writing Module (/ai-writing)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. Teams / Debate — L4 App → L2 Engine Teams
+// 5. Teams / Debate — L4 App → L3 Engine Teams
 // ---------------------------------------------------------------------------
 test.describe("Teams Module (/ai-teams)", () => {
   test("page loads with teams interface", async ({ page }) => {
@@ -526,7 +526,7 @@ test.describe("Feedback Page (/admin/feedback)", () => {
 test.describe("Cross-Layer Integration", () => {
   /**
    * AI Engine full diagnosis — exercises every layer:
-   * Admin UI (L6) → Admin API (L5) → AI Engine (L2) → AI Infra (L1)
+   * Admin UI (L6) → Admin API (L5) → AI Engine (L3) → AI Infra (L1)
    */
   test("API: GET /admin/ai/diagnose returns full system diagnosis", async ({
     page,
@@ -596,8 +596,8 @@ test.describe("Cross-Layer Integration", () => {
 
   /**
    * Overview stats — validate the keys that prove cross-layer wiring:
-   * - kernelProcesses (L3 Kernel)
-   * - aiModels (L2 Engine)
+   * - kernelProcesses (L2 Kernel)
+   * - aiModels (L3 Engine)
    * - totalUsers (L1 Infra)
    * - askSessions (L6 Gateway)
    */
@@ -626,8 +626,8 @@ test.describe("Cross-Layer Integration", () => {
 
     // Cross-layer verification
     const crossLayerKeys: Array<[string, string]> = [
-      ["kernelProcesses", "L3 Kernel"],
-      ["aiModels", "L2 Engine"],
+      ["kernelProcesses", "L2 Kernel"],
+      ["aiModels", "L3 Engine"],
       ["totalUsers", "L1 Infra"],
       ["askSessions", "L6 Gateway"],
       ["researchMissions", "L4 Apps — Research"],
