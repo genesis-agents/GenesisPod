@@ -29,6 +29,7 @@ import {
 import type { ResearchTodo, ResearchMission } from "@prisma/client";
 import { ResearchEventEmitterService } from "../core/research-event-emitter.service";
 import { LeaderReviewService } from "../core/leader-review.service";
+import { BillingContext } from "@/modules/ai-infra/facade";
 import type { ReviewDecision } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import {
@@ -880,12 +881,19 @@ export class ResearchTodoService {
     });
 
     // 4. 根据队列状态决定是否立即执行
+    // ★ 捕获 BillingContext，fire-and-forget 路径需要显式传播
+    const billingCtx = BillingContext.get();
+
     if (runningTodos === 0) {
       // 没有正在执行的任务，立即开始
       this.logger.log(
         `[scheduleTodo] No running tasks, starting TODO ${todoId} immediately`,
       );
-      void this.executeTodo(topicId, todoId).catch((error: Error) => {
+      const startFn = () => this.executeTodo(topicId, todoId);
+      const wrapped = billingCtx
+        ? () => BillingContext.run(billingCtx, startFn)
+        : startFn;
+      void wrapped().catch((error: Error) => {
         this.logger.error(
           `[scheduleTodo] Failed to execute TODO ${todoId}: ${error.message}`,
         );
@@ -940,8 +948,32 @@ export class ResearchTodoService {
       `[processNextQueuedTodo] Starting next queued TODO: ${nextTodo.id}`,
     );
 
-    // 执行下一个任务
-    void this.executeTodo(topicId, nextTodo.id).catch((error: Error) => {
+    // ★ 确保 BillingContext 传播到 fire-and-forget 的 executeTodo
+    const existingCtx = BillingContext.get();
+    const startFn = () => this.executeTodo(topicId, nextTodo.id);
+    const wrapped = existingCtx
+      ? () => BillingContext.run(existingCtx, startFn)
+      : async () => {
+          // BillingContext 可能在前一个 TODO 结束时丢失，从 DB 恢复
+          const topic = await this.prisma.researchTopic.findUnique({
+            where: { id: topicId },
+            select: { userId: true },
+          });
+          if (topic?.userId) {
+            return BillingContext.run(
+              {
+                userId: topic.userId,
+                moduleType: "topic-insights",
+                operationType: "research",
+                referenceId: topicId,
+              },
+              startFn,
+            );
+          }
+          return startFn();
+        };
+
+    void wrapped().catch((error: Error) => {
       this.logger.error(
         `[processNextQueuedTodo] Failed to execute TODO ${nextTodo.id}: ${error.message}`,
       );
