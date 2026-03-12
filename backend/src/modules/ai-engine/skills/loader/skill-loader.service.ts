@@ -588,7 +588,7 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
           currentTokens += skillTokens;
           prioritySkills.push(skill);
         } else {
-          this.logger.warn(`[Skills] Additional skill not found: ${skillId}`);
+          this.logger.debug(`[Skills] Additional skill not found: ${skillId}`);
         }
       }
     }

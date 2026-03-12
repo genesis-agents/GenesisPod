@@ -846,8 +846,11 @@ export class ChatFacade {
 
     const userId = RequestContext.getUserId();
     if (!userId) return undefined;
-    this.logger.warn(
-      `[Billing] Fallback billing context used — caller did not set BillingContext. userId=${userId}`,
+    // ★ Fallback is expected for internal service calls (e.g., section-writer, dimension-research)
+    // where AsyncLocalStorage context may be lost through scheduler/setTimeout chains.
+    // The billing still works correctly — just with generic moduleType.
+    this.logger.debug(
+      `[Billing] Fallback billing context used (no BillingContext in AsyncLocalStorage). userId=${userId}`,
     );
     return {
       userId,
