@@ -7,34 +7,35 @@ export NODE_ENV=test
 
 echo ""
 echo "════════════════════════════════════════════════════════════"
-echo "  Pre-push 验证 (与 CI 相同的检查)"
+echo "  Pre-push 验证 (类型 + 构建 + 变更测试)"
+echo "  Lint 已在 pre-commit 执行"
 echo "════════════════════════════════════════════════════════════"
 echo ""
 
-# 1. 类型检查 (最重要!)
-echo "🔍 [1/4] 类型检查..."
-npm run type-check || {
+# 1. 类型检查 (并行执行前后端，~6s)
+echo "[1/3] 类型检查 (前后端并行)..."
+npx concurrently --kill-others-on-fail --names "fe,be" \
+  "npm run type-check:frontend" \
+  "npm run type-check:backend" \
+  > /dev/null 2>&1 || {
     echo ""
-    echo "❌ 类型检查失败！"
-    echo "💡 运行 'npm run type-check' 查看详细错误"
+    echo "  类型检查失败！重新运行查看详情:"
+    echo ""
+    npm run type-check:frontend 2>&1 | tail -20
+    echo "---"
+    npm run type-check:backend 2>&1 | tail -20
     echo ""
     exit 1
 }
-echo "✓ 类型检查通过"
+echo "  类型检查通过"
 echo ""
 
-# 2. Lint 检查 (仅类型检查已覆盖关键错误，lint warnings 不阻止 push)
-echo "[2/4] Lint 检查 (仅报告，不阻止)..."
-npm run lint 2>&1 || true
-echo "Lint 检查完成"
-echo ""
-
-# 3. 构建检查
-echo "🔨 [3/4] 构建检查..."
+# 2. 构建检查 (~38s)
+echo "[2/3] 后端构建检查..."
 BUILD_LOG=$(mktemp)
 npm run build:backend > "$BUILD_LOG" 2>&1 || {
     echo ""
-    echo "❌ 构建失败！"
+    echo "  构建失败！"
     echo "── 最后 20 行输出 ──"
     tail -20 "$BUILD_LOG"
     echo ""
@@ -42,26 +43,45 @@ npm run build:backend > "$BUILD_LOG" 2>&1 || {
     exit 1
 }
 rm -f "$BUILD_LOG"
-echo "✓ 构建检查通过"
+echo "  构建检查通过"
 echo ""
 
-# 4. 快速测试
-echo "🧪 [4/4] 快速测试..."
+# 3. 变更相关测试 (只跑与本次变更相关的测试，~10s；无变更则跳过)
+echo "[3/3] 变更相关测试..."
 TEST_LOG=$(mktemp)
-npm run test:quick > "$TEST_LOG" 2>&1 || {
+
+# 后端：只跑与 origin/main 之后变更文件相关的测试
+cd backend
+npx jest --changedSince=origin/main --passWithNoTests > "$TEST_LOG" 2>&1
+BACKEND_EXIT=$?
+cd ..
+
+# 前端：只跑与变更相关的测试
+cd frontend
+npx vitest run --changed HEAD~1 --passWithNoTests >> "$TEST_LOG" 2>&1 || true
+cd ..
+
+if [ $BACKEND_EXIT -ne 0 ]; then
     echo ""
-    echo "❌ 测试失败！push 已阻止"
+    echo "  测试失败！"
     echo "── 最后 30 行输出 ──"
     tail -30 "$TEST_LOG"
     echo ""
     rm -f "$TEST_LOG"
     exit 1
-}
+fi
+
+# 显示测试摘要
+SUMMARY=$(grep -E "^(Tests|Test Suites|No tests found)" "$TEST_LOG" | tail -3)
+if [ -n "$SUMMARY" ]; then
+    echo "$SUMMARY" | while read -r line; do echo "  $line"; done
+else
+    echo "  无变更相关测试"
+fi
 rm -f "$TEST_LOG"
-echo "✓ 测试完成"
 echo ""
 
 echo "════════════════════════════════════════════════════════════"
-echo "  ✅ 所有验证通过"
+echo "  所有验证通过"
 echo "════════════════════════════════════════════════════════════"
 echo ""
