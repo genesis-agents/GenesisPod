@@ -153,14 +153,14 @@ describe('Agent Apps layer (level 4)', () => {
 });
 
 // ============================================================================
-// Agent Runtime layer (level 3)
+// Agent Runtime layer (level 2)
 // ============================================================================
 
-describe('Agent Runtime layer (level 3)', () => {
+describe('Agent Runtime layer (level 2)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 3)!;
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 2)!;
   });
 
   it('has id "aiKernel"', () => {
@@ -213,14 +213,14 @@ describe('Agent Runtime layer (level 3)', () => {
 });
 
 // ============================================================================
-// Agent Engine layer (level 2)
+// Agent Engine layer (level 3)
 // ============================================================================
 
-describe('Agent Engine layer (level 2)', () => {
+describe('Agent Engine layer (level 3)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 2)!;
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 3)!;
   });
 
   it('has id "aiEngine"', () => {
@@ -372,12 +372,12 @@ describe('LAYER_STYLES', () => {
     expect(LAYER_STYLES[4].badge).toContain('violet');
   });
 
-  it('level 3 uses teal theme in badge', () => {
-    expect(LAYER_STYLES[3].badge).toContain('teal');
+  it('level 3 uses blue theme in badge', () => {
+    expect(LAYER_STYLES[3].badge).toContain('blue');
   });
 
-  it('level 2 uses blue theme in badge', () => {
-    expect(LAYER_STYLES[2].badge).toContain('blue');
+  it('level 2 uses teal theme in badge', () => {
+    expect(LAYER_STYLES[2].badge).toContain('teal');
   });
 
   it('level 1 uses emerald theme in badge', () => {
