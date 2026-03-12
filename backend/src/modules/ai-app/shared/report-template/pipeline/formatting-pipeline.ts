@@ -171,8 +171,8 @@ export function formatDimensionContent(
   processed = stripFigureComments(processed);
   // Note: stripOrphanedChartComments is NOT called here — chart comments
   // (<!-- chart:xxx -->) are valid markers used by the frontend to position
-  // figures. They are only stripped in postProcessFinalReport (continuous view)
-  // and in the frontend renderer (chapter view).
+  // figures. They are only stripped in the frontend renderer (chapter view)
+  // when no charts data is available for a given chapter.
   processed = escapeLatexPipeInTables(processed);
   processed = normalizeInlineDoubleDollar(processed);
   processed = wrapBareInlineLatex(processed);

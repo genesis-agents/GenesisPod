@@ -34,7 +34,6 @@ import {
   splitEnumerationToList,
   repairBrokenBoldMarkers,
   stripFigureComments,
-  stripOrphanedChartComments,
   escapeLatexPipeInTables,
   normalizeInlineDoubleDollar,
   normalizeHighlightsInPlace,
@@ -770,8 +769,10 @@ export class ReportAssemblerService {
     // Strip residual figure placeholders (catch any missed by per-dimension pass)
     content = stripFigureComments(content);
 
-    // Strip orphaned chart comment markers (unresolved <!-- chart:xxx -->)
-    content = stripOrphanedChartComments(content);
+    // Note: stripOrphanedChartComments is NOT called here — chart comments
+    // (<!-- chart:xxx -->) are valid markers used by the frontend to position
+    // figures in both continuous view (ReportEditor) and chapter view
+    // (ChapterizedReportView). Stripping them here kills all chart rendering.
 
     // Escape LaTeX pipe characters inside table rows
     content = escapeLatexPipeInTables(content);
