@@ -101,8 +101,21 @@ export class ReportQualityGateService {
     }
 
     // 3. 加粗密度检查（仅记录，不强制限制 — 用户指示放宽）
+    // ★ 极端情况（>30）加入 rewriteGuidance 引导 AI 收敛
     const boldCount = (fixedContent.match(/\*\*[^*]+\*\*/g) || []).length;
-    if (boldCount > 12) {
+    if (boldCount > 30) {
+      violations.push({
+        rule: "bold_density",
+        severity: "warning",
+        message: `加粗处数量 ${boldCount} 严重超标（建议 ≤12/维度），请精简`,
+        currentValue: boldCount,
+        threshold: 12,
+      });
+      rewriteGuidance.push(
+        `加粗过度：当前 ${boldCount} 处加粗，远超建议阈值 12 处/维度。` +
+          `请仅对核心结论和关键数据加粗，每个子章节不超过 2 处加粗。`,
+      );
+    } else if (boldCount > 12) {
       violations.push({
         rule: "bold_density",
         severity: "warning",
@@ -193,6 +206,24 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
+    // 4.95 ★ 本章要点（Chapter Highlights）存在性检查
+    // 规范要求每个维度应有 "> **本章要点**" blockquote
+    const hasChapterHighlights =
+      />\s*\*{0,2}本章要点\*{0,2}/i.test(fixedContent) ||
+      />\s*\*{0,2}Chapter Highlights\*{0,2}/i.test(fixedContent);
+    if (!hasChapterHighlights) {
+      violations.push({
+        rule: "chapter_highlights_missing",
+        severity: "warning",
+        message:
+          "缺少「本章要点」（Chapter Highlights）blockquote，请在维度开头添加 3-5 条核心要点",
+      });
+      rewriteGuidance.push(
+        "缺少本章要点：请在维度内容开头添加 blockquote 格式的「本章要点」，包含 3-5 条核心发现，" +
+          '格式为 "> **本章要点**\\n> - 要点1\\n> - 要点2\\n> - 要点3"',
+      );
+    }
+
     // ========== 检测但不自动修复的规则（需要 AI 重写） ==========
 
     // 5. 语言一致性检查
@@ -281,6 +312,10 @@ export class ReportQualityGateService {
         currentValue: subjectiveCount,
         threshold: 3,
       });
+      rewriteGuidance.push(
+        `主观表达过多：检测到 ${subjectiveCount} 处"我们认为/判断/预测"等第一人称表达，超过 3 次/维度阈值。` +
+          `请改用客观表述，如"研究表明"、"数据显示"、"分析结果指出"。`,
+      );
     }
 
     // 9. 引用集中度检查（单个引用出现 >5 次 warning，>8 次 warning）

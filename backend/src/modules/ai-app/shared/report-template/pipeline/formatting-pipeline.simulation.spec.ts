@@ -736,12 +736,13 @@ describe("Scenario 5: Full production content simulation", () => {
 // Scenario 6: Regression safety
 // ============================================================
 describe("Scenario 6: Regression safety checks", () => {
-  it("sanitizeHeadingLevels does NOT affect ###/####", () => {
-    const content = "### 三级\n内容\n#### 四级\n内容\n##### 五级";
+  it("sanitizeHeadingLevels preserves ###/#### but strips #####/######", () => {
+    const content = "### 三级\n内容\n#### 四级\n内容\n##### 五级\n###### 六级";
     const result = sanitizeHeadingLevels(content);
     expect(result).toContain("### 三级");
     expect(result).toContain("#### 四级");
-    expect(result).toContain("##### 五级");
+    expect(result).not.toContain("##### 五级");
+    expect(result).not.toContain("###### 六级");
   });
 
   it("sanitizeHeadingLevels does NOT affect non-heading # (e.g., #hashtag)", () => {

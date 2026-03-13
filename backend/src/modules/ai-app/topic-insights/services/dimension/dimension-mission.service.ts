@@ -1602,14 +1602,27 @@ export class DimensionMissionService {
     // 按相关度排序
     scored.sort((a, b) => b.score - a.score);
 
-    // 保留相关度 > 0 的 evidence，但至少保留 5 条
+    // 保留相关度 > 0 的 evidence，按分数排序
     const relevant = scored.filter((s) => s.score > 0);
     if (relevant.length >= 5) {
       return relevant.map((s) => s.evidence);
     }
 
-    // 不足 5 条时，补充前 N 条（按原始顺序）
-    return scored.slice(0, Math.max(5, relevant.length)).map((s) => s.evidence);
+    // 不足 5 条时，补充低分 evidence，但标记 score=0 的为弱相关
+    // ★ 只补充到 5 条，不再无限制保留完全无关的 evidence
+    const minRequired = Math.max(5, relevant.length);
+    const result = scored.slice(0, minRequired);
+
+    // ★ 如果大量 evidence 完全不相关（score=0），记录 warning
+    const zeroScoreCount = result.filter((s) => s.score === 0).length;
+    if (zeroScoreCount > result.length * 0.5) {
+      // 超过一半无关 — 优先返回有分的，限制无关项
+      const withScore = result.filter((s) => s.score > 0);
+      const withoutScore = result.filter((s) => s.score === 0).slice(0, 2);
+      return [...withScore, ...withoutScore].map((s) => s.evidence);
+    }
+
+    return result.map((s) => s.evidence);
   }
 
   /**
