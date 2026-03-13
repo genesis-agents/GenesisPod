@@ -42,7 +42,8 @@ export type CapabilityCategory =
   | 'finance'
   | 'weather'
   | 'policy'
-  | 'devtools';
+  | 'devtools'
+  | 'image-search';
 
 /**
  * 类别显示顺序和配置
@@ -61,8 +62,12 @@ export const CATEGORY_CONFIG: Record<
   export: { order: 8, labelKey: 'admin.tools.categories.export' },
   finance: { order: 9, labelKey: 'admin.tools.categories.finance' },
   weather: { order: 10, labelKey: 'admin.tools.categories.weather' },
-  policy: { order: 11, labelKey: 'admin.tools.categories.policy' },
-  devtools: { order: 12, labelKey: 'admin.tools.categories.devtools' },
+  'image-search': {
+    order: 11,
+    labelKey: 'admin.tools.categories.image-search',
+  },
+  policy: { order: 12, labelKey: 'admin.tools.categories.policy' },
+  devtools: { order: 13, labelKey: 'admin.tools.categories.devtools' },
 };
 
 /**
@@ -293,6 +298,41 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
     ],
   },
 
+  // ==================== 图像搜索能力 ====================
+  {
+    id: 'image-search',
+    name: 'image-search',
+    displayName: '图像搜索',
+    description: '搜索互联网图片，用于研究报告插图和数据可视化素材',
+    icon: 'Image',
+    category: 'image-search',
+    providers: [
+      {
+        id: 'serpapi-image-search',
+        name: 'SerpAPI',
+        description: 'Google 图片搜索 API，高质量结果和丰富元数据',
+        url: 'https://serpapi.com',
+        freeQuota: '100 searches/month',
+        pricing: '$50/month (5000)',
+      },
+      {
+        id: 'bing-image-search',
+        name: 'Bing Image Search',
+        description: 'Microsoft Bing 图片搜索 API，支持安全过滤',
+        url: 'https://www.microsoft.com/en-us/bing/apis/bing-image-search-api',
+        pricing: '$3/1000 transactions',
+      },
+      {
+        id: 'google-image-search',
+        name: 'Google Custom Search',
+        description: 'Google 自定义搜索 API，需配置搜索引擎 ID',
+        url: 'https://developers.google.com/custom-search',
+        freeQuota: '100 queries/day',
+        pricing: '$5/1000 queries',
+      },
+    ],
+  },
+
   // ==================== 政策研究能力 ====================
   // 每个 Provider 都是独立的工具，有各自的开关
   {
@@ -438,6 +478,10 @@ export const PROVIDER_TO_TOOL_ID: Record<string, string> = {
   // Audio Generation
   elevenlabs: 'audio-generation',
   googleTts: 'audio-generation',
+  // Image Search providers → image-search aggregator tool
+  'serpapi-image-search': 'image-search',
+  'bing-image-search': 'image-search',
+  'google-image-search': 'image-search',
 };
 
 /**

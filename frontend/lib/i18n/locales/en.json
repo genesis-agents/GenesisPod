@@ -3679,6 +3679,7 @@
         "devtools": "Dev Tools",
         "finance": "Finance Data",
         "weather": "Weather Data",
+        "image-search": "Image Search",
         "generation": "Content Generation",
         "processing": "Processing"
       },
@@ -3975,6 +3976,7 @@
         "finance": "Finance Data",
         "academic": "Academic Research",
         "weather": "Weather Data",
+        "imageSearch": "Image Search",
         "devTools": "Dev Tools",
         "mcp": "MCP Servers",
         "userDonated": "User Donated",

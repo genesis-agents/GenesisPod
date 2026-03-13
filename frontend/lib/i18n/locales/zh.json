@@ -3679,6 +3679,7 @@
         "devtools": "开发工具",
         "finance": "金融数据",
         "weather": "天气数据",
+        "image-search": "图像搜索",
         "generation": "内容生成",
         "processing": "数据处理"
       },
@@ -3975,6 +3976,7 @@
         "finance": "金融数据",
         "academic": "学术研究",
         "weather": "天气数据",
+        "imageSearch": "图像搜索",
         "devTools": "开发工具",
         "mcp": "MCP 服务器",
         "userDonated": "用户捐赠",
