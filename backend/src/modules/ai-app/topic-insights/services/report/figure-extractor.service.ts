@@ -23,8 +23,9 @@ export interface ExtractedFigure {
 
 // ==================== Constants ====================
 
-/** 最小图片文件大小（字节）：低于此阈值的栅格图片视为缩略图/占位符 */
-const MIN_IMAGE_BYTES = 15_000;
+/** 最小图片文件大小（字节）：低于此阈值的栅格图片视为缩略图/占位符
+ * ★ v6.0: 从 15KB 降到 5KB — 很多有意义的图表/线图在 5-15KB 范围 */
+const MIN_IMAGE_BYTES = 5_000;
 
 /** URL 路径中的最小图片宽度（低于此视为缩略图 URL） */
 const MIN_URL_DIMENSION_WIDTH = 400;
@@ -176,8 +177,9 @@ export class FigureExtractorService {
       ),
     );
 
-    // 4. 限制每个 URL 最多提取的图表数量，避免低质量图片泛滥
-    const MAX_FIGURES_PER_URL = 5;
+    // 4. 限制每个 URL 最多提取的图片数量
+    // ★ v6.0: 从 5 提升到 10 — 高质量文章常有 10+ 配图
+    const MAX_FIGURES_PER_URL = 10;
     const limitedFigures = filteredFigures.slice(0, MAX_FIGURES_PER_URL);
 
     this.logger.debug(
@@ -189,7 +191,10 @@ export class FigureExtractorService {
 
   /**
    * 提取 <figure> 元素
-   * ★ 只提取有 <figcaption> 的 figure，没有图注的跳过
+   *
+   * ★ v6.0: 放宽提取条件 — 无 figcaption 时用 alt 兜底，
+   *   都没有时用空 caption（交给 isLikelyChart 黑名单过滤）。
+   *   旧逻辑要求必须有 figcaption 且 ≥8 字符，杀掉了大量有价值图片。
    */
   private extractFigureElements(
     baseUrl: string,
@@ -197,7 +202,6 @@ export class FigureExtractorService {
   ): ExtractedFigure[] {
     const figures: ExtractedFigure[] = [];
 
-    // 匹配 <figure>...</figure> 块，再从块内提取 img 和 figcaption（避免 ReDoS）
     const figureBlockRegex = /<figure[^>]*>[\s\S]*?<\/figure>/gi;
     const imgSrcRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/i;
     const figcaptionRegex = /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i;
@@ -209,19 +213,24 @@ export class FigureExtractorService {
       if (!imgMatch) continue;
       const imgSrc = imgMatch[1];
 
-      // ★ 必须有 <figcaption>，否则跳过（不用 alt 兜底）
+      // 优先用 figcaption，没有则用 alt 兜底
       const capMatch = figcaptionRegex.exec(block);
-      if (!capMatch) continue;
-      const figcaption = this.cleanHtmlText(capMatch[1]);
-      if (!this.isMeaningfulCaption(figcaption)) continue;
+      const alt = this.extractAltFromImg(block);
+      let caption = "";
+      if (capMatch) {
+        const figcaption = this.cleanHtmlText(capMatch[1]);
+        caption = this.isMeaningfulCaption(figcaption) ? figcaption : alt;
+      } else {
+        caption = alt;
+      }
 
       const resolvedUrl = this.resolveUrl(baseUrl, imgSrc);
       if (resolvedUrl) {
         figures.push({
           imageUrl: resolvedUrl,
-          caption: figcaption,
-          type: this.classifyFigureType(figcaption),
-          alt: this.extractAltFromImg(block),
+          caption: caption || "",
+          type: this.classifyFigureType(caption || alt),
+          alt,
         });
       }
     }
@@ -231,7 +240,10 @@ export class FigureExtractorService {
 
   /**
    * 提取独立的 <img> 元素
-   * ★ 只提取有实质性 alt 文本的 img，无描述的跳过
+   *
+   * ★ v6.0: 放宽提取条件 — 有 alt 文本的直接接受；无 alt 但有尺寸
+   *   信息且宽度 ≥ 200px 的也接受（大图通常是内容图片）。
+   *   旧逻辑要求 alt ≥8 字符，杀掉了 80%+ 的图片。
    */
   private extractImgElements(
     baseUrl: string,
@@ -239,23 +251,23 @@ export class FigureExtractorService {
   ): ExtractedFigure[] {
     const figures: ExtractedFigure[] = [];
 
-    // 匹配 <img> 标签（包含 lazy-load 属性 data-src / data-original）
     const imgRegex =
       /<img[^>]+(?:src|data-src|data-original)=["']([^"']+)["'][^>]*>/gi;
 
     let match;
     while ((match = imgRegex.exec(htmlContent)) !== null) {
       const alt = this.extractAltFromFullMatch(match[0]);
-      // ★ 必须有实质性 alt 文本，否则跳过
-      if (!this.isMeaningfulCaption(alt)) continue;
+      const width = this.extractDimension(match[0], "width");
+      const height = this.extractDimension(match[0], "height");
 
-      // Prefer data-src/data-original (lazy-load real URL) over src (placeholder)
+      // 接受条件：有非空 alt，或宽度 ≥ 200px（大图通常是内容图片）
+      const hasAlt = alt && alt.trim().length > 0;
+      const isLargeImage = width !== undefined && width >= 200;
+      if (!hasAlt && !isLargeImage) continue;
+
       const imgSrc = this.extractBestSrc(match[0]) || match[1];
       const resolvedUrl = this.resolveUrl(baseUrl, imgSrc);
       if (resolvedUrl) {
-        const width = this.extractDimension(match[0], "width");
-        const height = this.extractDimension(match[0], "height");
-
         figures.push({
           imageUrl: resolvedUrl,
           caption: alt,
@@ -423,7 +435,15 @@ export class FigureExtractorService {
   }
 
   /**
-   * 判断图片是否可能是有意义的内容图片（图表、插图、研究图等）
+   * 判断图片是否可能是有意义的内容图片。
+   *
+   * ★ v6.0 根因重构：从白名单改为黑名单模式。
+   *
+   * 旧逻辑（白名单）：必须匹配 chart/data/graph 等关键词才放行
+   *   → 导致新闻照片、产品图、事件场景图全部被杀，报告图片极度稀少
+   *
+   * 新逻辑（黑名单）：只排除明确的非内容图片（logo/icon/tracking pixel/装饰图），
+   *   其余全部放行，交给后续 validateAndUpgradeFigures 做可访问性校验。
    */
   private isLikelyChart(
     url: string,
@@ -432,11 +452,10 @@ export class FigureExtractorService {
     width?: number,
     height?: number,
   ): boolean {
-    // Skip tiny images (tracking pixels, spacers)
+    // ── 硬性排除：尺寸过小 ──
     if (width && height && (width < 50 || height < 50)) {
       return false;
     }
-    // Skip 1x1 tracking pixels by URL pattern
     if (/[?&](w|width|h|height)=1\b/.test(url)) {
       return false;
     }
@@ -444,17 +463,20 @@ export class FigureExtractorService {
     const combinedText =
       `${url || ""} ${caption || ""} ${alt || ""}`.toLowerCase();
 
-    // 排除模式：明显不是内容图片
+    // ── 黑名单：明确的非内容图片 ──
     const excludePatterns = [
+      // UI 元素
       /logo/i,
       /icon/i,
       /avatar/i,
-      /profile/i,
-      /banner/i,
-      /advertisement/i,
-      /\bad\b/i,
+      /favicon/i,
       /button/i,
       /arrow/i,
+      /spinner/i,
+      /loading/i,
+      /badge/i,
+      /emoji/i,
+      // 社交/广告
       /social/i,
       /share/i,
       /facebook/i,
@@ -462,128 +484,46 @@ export class FigureExtractorService {
       /linkedin/i,
       /instagram/i,
       /youtube/i,
-      /emoji/i,
-      /favicon/i,
-      /thumb/i,
-      /thumbnail/i,
-      /placeholder/i,
-      /loading/i,
-      /spinner/i,
-      /badge/i,
-      /rating/i,
-      /star/i,
+      /advertisement/i,
+      /\bad\b/i,
+      /sponsor/i,
+      /affiliate/i,
+      /promo/i,
+      /cta[-_]/i,
+      // 追踪/占位
       /pixel/i,
       /tracking/i,
       /spacer/i,
-      // ★ v4.3: 排除 stock photo 域名（这些图片与研究内容无关）
-      /unsplash\.com/i,
-      /pexels\.com/i,
-      /shutterstock\.com/i,
-      /istockphoto\.com/i,
-      /gettyimages\.com/i,
-      /stock/i,
-      /hero[-_]?image/i,
-      /cover[-_]?image/i,
-      /featured[-_]?image/i,
-      // ★ v4.4: 排除装饰性图片和通用页面元素
-      /author[-_]?photo/i,
-      /headshot/i,
-      /portrait/i,
-      /background[-_]?image/i,
-      /bg[-_]?image/i,
+      /placeholder/i,
+      // 装饰性
       /decorative/i,
       /ornament/i,
       /pattern[-_]?bg/i,
+      /background[-_]?image/i,
+      /bg[-_]?image/i,
+      // 人物头像（非内容）
+      /gravatar\.com/i,
+      /author[-_]?photo/i,
+      /headshot/i,
+      // 页面元素
       /newsletter/i,
       /subscribe/i,
       /signup/i,
-      /cta[-_]/i,
-      /promo/i,
-      /sponsor/i,
-      /affiliate/i,
-      /wp-content\/uploads.*-\d+x\d+\./i, // WordPress 缩略图
-      /gravatar\.com/i, // 头像
+      // WordPress 缩略图
+      /wp-content\/uploads.*-\d+x\d+\./i,
     ];
 
     if (excludePatterns.some((pattern) => pattern.test(combinedText))) {
       return false;
     }
 
-    // 包含模式：图表、研究图、内容插图等
-    const includePatterns = [
-      /chart/i,
-      /graph/i,
-      /figure/i,
-      /diagram/i,
-      /plot/i,
-      /visualization/i,
-      /trend/i,
-      /growth/i,
-      /market/i,
-      /data/i,
-      /statistic/i,
-      /forecast/i,
-      /projection/i,
-      /comparison/i,
-      /analysis/i,
-      /report/i,
-      /survey/i,
-      /infographic/i,
-      /illustration/i,
-      /research/i,
-      /study/i,
-      /result/i,
-      /finding/i,
-      /evidence/i,
-      /experiment/i,
-      /model/i,
-      /framework/i,
-      /architecture/i,
-      /overview/i,
-      /screenshot/i,
-      /map/i,
-      /timeline/i,
-      /workflow/i,
-      /process/i,
-      /pipeline/i,
-      /图/i,
-      /表/i,
-      /趋势/i,
-      /数据/i,
-      /统计/i,
-      /分析/i,
-      /预测/i,
-      /对比/i,
-      /增长/i,
-      /市场/i,
-      /研究/i,
-      /示意/i,
-      /流程/i,
-      /框架/i,
-      /结果/i,
-      /截图/i,
-    ];
-
-    // 如果包含内容关键词，保留
-    if (includePatterns.some((pattern) => pattern.test(combinedText))) {
-      return true;
-    }
-
-    // ★ v4.4: 有尺寸信息时，过大过小都可疑
-    // 正常内容图片通常 300-2000px 宽
-    if (width && (width < 100 || width > 3000)) {
+    // ── 尺寸异常排除（但不要求尺寸必须存在）──
+    if (width && (width < 80 || width > 4000)) {
       return false;
     }
 
-    // ★ v5.1: 有实质性 caption/alt（≥20 字符）的图片放行，交给后续 Vision/type 过滤判断
-    // 解决：大量有价值图片因 caption 不含 "chart"/"data" 等关键词而被误杀
-    const captionText = `${caption || ""} ${alt || ""}`.trim();
-    if (captionText.length >= 20) {
-      return true;
-    }
-
-    // 无关键词匹配且无实质性 caption → 拒绝
-    return false;
+    // ── 黑名单模式：通过排除的图片全部放行 ──
+    return true;
   }
 
   /**
@@ -780,10 +720,14 @@ export class FigureExtractorService {
   }
 
   /**
-   * ★ v6: HEAD 请求校验图片 URL 可访问性
+   * ★ v6.0: HEAD 请求校验图片 URL 可访问性
    *
    * 只做校验，不下载完整内容。返回 true 表示图片可访问。
-   * 检查项：HTTP 状态码、Content-Type 是否为 image/*、Content-Length 在合理范围内
+   *
+   * ★ 关键改进：
+   *   - HEAD 请求返回 405/403 时，视为 CDN 不支持 HEAD，乐观放行
+   *   - 网络错误/超时时，乐观放行（宁可多一张可能失效的图，不要少一张好图）
+   *   - Content-Type 不是 image/* 时才拒绝（有些 CDN HEAD 不返回 Content-Type）
    */
   private async validateImageUrl(url: string): Promise<boolean> {
     try {
@@ -803,7 +747,15 @@ export class FigureExtractorService {
         });
         clearTimeout(timer);
 
+        // 4xx/5xx（除了 405 Method Not Allowed 和 403 Forbidden）→ 拒绝
+        // 405/403 常见于不支持 HEAD 的 CDN → 乐观放行
         if (!response.ok) {
+          if (response.status === 405 || response.status === 403) {
+            this.logger.debug(
+              `[validateImageUrl] HEAD ${response.status} (CDN likely doesn't support HEAD, accepting): ${url.substring(0, 100)}`,
+            );
+            return true;
+          }
           this.logger.debug(
             `[validateImageUrl] HTTP ${response.status}: ${url.substring(0, 100)}`,
           );
@@ -811,14 +763,14 @@ export class FigureExtractorService {
         }
 
         const contentType = response.headers.get("content-type") || "";
-        if (!contentType.startsWith("image/")) {
+        // 只在明确不是图片时拒绝（空 Content-Type 放行）
+        if (contentType && !contentType.startsWith("image/")) {
           this.logger.debug(
             `[validateImageUrl] Not an image (${contentType}): ${url.substring(0, 100)}`,
           );
           return false;
         }
 
-        // 检查 Content-Length（如果可用）
         const contentLength = parseInt(
           response.headers.get("content-length") || "0",
           10,
@@ -841,6 +793,7 @@ export class FigureExtractorService {
         clearTimeout(timer);
       }
     } catch {
+      // 网络错误/超时 → 拒绝（放上去用户看到的是破图）
       return false;
     }
   }

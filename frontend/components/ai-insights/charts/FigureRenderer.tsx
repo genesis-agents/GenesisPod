@@ -398,11 +398,16 @@ export function FigureRenderer({
   evidenceInfo,
   onRetry,
 }: FigureRendererProps) {
-  // ★ Guard: skip figures with placeholder URLs leaked from LLM prompt context
+  // ★ Guard: skip figures with invalid URLs (base64, placeholders, PDF, fabricated)
   const hasValidImageUrl =
     chart.imageUrl &&
     !chart.imageUrl.startsWith('[base64-image') &&
-    !chart.imageUrl.startsWith('base64-image');
+    !chart.imageUrl.startsWith('base64-image') &&
+    !chart.imageUrl.startsWith('data:') &&
+    !chart.imageUrl.includes('xxxx') &&
+    !/\.pdf(\?|$)/i.test(chart.imageUrl) &&
+    (chart.imageUrl.startsWith('http://') ||
+      chart.imageUrl.startsWith('https://'));
 
   // 判断图表类型 - 优先使用明确的 chartType
   const isReferenceChart =

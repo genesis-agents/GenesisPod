@@ -842,4 +842,38 @@ describe("Scenario 5: repairLatexCommands fixes KaTeX parse errors", () => {
     const result = repairLatexCommands(input);
     expect(result).toBe("$\\bar{x_{k}}$");
   });
+
+  it("should fix $formula$$ (extra closing $)", () => {
+    // Real error: $\frac{QK^T}{\sqrt{d_k}}$$ （d_k为键维度）
+    const input = "$\\frac{QK^T}{\\sqrt{d_k}}$$ （d_k为键维度）和softmax";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$\\frac{QK^T}{\\sqrt{d_k}}$ （d_k为键维度）和softmax");
+  });
+
+  it("should fix \\sqrt{d}$$) mid-formula", () => {
+    // Real error: \sqrt{d}$$)转为\phi(Q)\phi
+    const input = "$\\sqrt{d}$$)转为";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$\\sqrt{d}$)转为");
+  });
+
+  it("should fix mid-line $$ as inline math opener", () => {
+    // Real error: 0L = $$\alpha → should be 0L = $\alpha
+    const input = "L_{MLM} = $$\\alpha$";
+    const result = repairLatexCommands(input);
+    expect(result).toContain("$\\alpha$");
+    expect(result).not.toContain("$$\\alpha");
+  });
+
+  it("should auto-close unbalanced braces in inline math", () => {
+    // Real error: ${R}^{n \times n$ missing closing }
+    const input = "$\\mathbb{R}^{n \\times n$";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$\\mathbb{R}^{n \\times n}$");
+  });
+
+  it("should not modify already balanced inline math", () => {
+    const input = "$\\mathbb{R}^{n \\times d}$";
+    expect(repairLatexCommands(input)).toBe(input);
+  });
 });

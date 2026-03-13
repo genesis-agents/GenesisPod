@@ -1004,13 +1004,34 @@ export function repairLatexCommands(content: string): string {
   );
   result = result.replace(braceFixRe, "$1{$2}");
 
-  // Fix 2: Broken inline $$ that should be separate $ delimiters
-  // Pattern: `$...$，其中 $$\alpha` → `$...$，其中 $\alpha`
-  // When $$ appears mid-line (not at line start) preceded by non-$ char + text, it's a broken delimiter
-  result = result.replace(/(\$[^$\n]+\$)([^$\n]{1,20})\$\$(?![\n$])/g, "$1$2$");
+  // Fix 2a: Inline math with extra closing $ — `$formula$$` → `$formula$`
+  // LLM writes `$\frac{QK^T}{\sqrt{d_k}}$$` with an accidental double-$
+  // Pattern: `$<content>$$<followed by non-$ non-newline char>` → remove the extra $
+  // Safety: require a non-$ char after $$ to avoid matching display math `$$...$$`
+  result = result.replace(/(\$[^$\n]+)\$\$([^$\n])/g, "$1$$$2");
+
+  // Fix 2b: `$...$<text>$$\alpha` → `$...$<text>$\alpha`
+  // When $$ appears mid-line after a closed inline math + some text
+  result = result.replace(/(\$[^$\n]+\$)([^$\n]{1,30})\$\$(?![\n$])/g, "$1$2$");
+
+  // Fix 2c: Mid-line $$ used as inline math opener (not at line start)
+  // e.g. `L = $$\alpha` → `L = $\alpha`
+  // Match: non-empty content before $$ on the same line, followed by LaTeX command
+  result = result.replace(/([^\n$]{2,})\$\$(?!\$)(\\[a-zA-Z])/g, "$1$$$2");
 
   // Fix 3: Stray double-closing braces after \text{...}} → \text{...}
   result = result.replace(/\\text\{([^}]*)\}\}/g, "\\text{$1}");
+
+  // Fix 4: Unbalanced braces in inline math — auto-close missing }
+  // e.g. `$\mathbb{R}^{n \times n$` → `$\mathbb{R}^{n \times n}$`
+  result = result.replace(/\$([^$\n]+)\$/g, (_match, inner: string) => {
+    const opens = (inner.match(/\{/g) || []).length;
+    const closes = (inner.match(/\}/g) || []).length;
+    if (opens > closes) {
+      return "$" + inner + "}".repeat(opens - closes) + "$";
+    }
+    return _match;
+  });
 
   return result;
 }

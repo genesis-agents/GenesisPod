@@ -55,6 +55,8 @@ export interface DataEnrichmentOptions {
   enableFigures?: boolean;
   /** ★ v4.6: 研究主题标题，用于图片相关性审查（Vision LLM） */
   topicTitle?: string;
+  /** ★ v6.0: 维度名称，与 topicTitle 组合提供更精准的语义上下文 */
+  dimensionName?: string;
 }
 
 /**
@@ -182,13 +184,18 @@ export class DataEnrichmentService {
 
     // 抓取完整内容
     let enrichedTop: EnrichedResult[];
+    // ★ v6.0: 组合主题+维度名作为 Vision LLM 语义上下文
+    const figureContext = options.dimensionName
+      ? `${options.topicTitle} - ${options.dimensionName}`
+      : options.topicTitle;
+
     if (parallel) {
       enrichedTop = await this.enrichParallel(
         toEnrich,
         maxContentLength,
         fetchTimeout,
         enableFigures,
-        options.topicTitle,
+        figureContext,
       );
     } else {
       enrichedTop = await this.enrichSequential(
@@ -196,7 +203,7 @@ export class DataEnrichmentService {
         maxContentLength,
         fetchTimeout,
         enableFigures,
-        options.topicTitle,
+        figureContext,
       );
     }
 

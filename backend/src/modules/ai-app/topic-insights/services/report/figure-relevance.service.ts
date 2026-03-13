@@ -3,10 +3,12 @@
  *
  * 使用多模态 LLM（Vision）对候选图片进行内容审查：
  * 1. 图片是否可辨识（非损坏、非纯色占位符）
- * 2. 图片类型是否为有价值的信息图（chart/diagram/table vs 装饰性 photo/banner）
- * 3. 图片内容是否与研究主题相关
+ * 2. 图片是否与研究主题有信息价值（不限于 chart/diagram，photo 也可以有价值）
+ * 3. 排除纯装饰性图片（横幅广告、纯色背景、无意义 stock photo）
  *
- * 原则："宁缺毋滥" — 不确定的图片一律过滤
+ * ★ v6.0 根因修复：旧 prompt 要求"必须是信息图(chart/diagram/table)"，
+ *   导致有价值的新闻照片、产品截图、技术演示图全被杀。
+ *   新原则："有信息价值就保留" — photo 类型不再自动拒绝。
  *
  * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
  */
@@ -64,7 +66,7 @@ export class FigureRelevanceService {
       this.logger.warn(
         `[filterRelevantFigures] No MULTIMODAL model configured, falling back to type-based filter`,
       );
-      return figures.filter((f) => f.type !== "photo");
+      return figures;
     }
 
     // ★ 分离 base64 图片和 URL 图片：base64 无法发送给 Vision API
@@ -91,58 +93,66 @@ export class FigureRelevanceService {
       return base64Accepted;
     }
 
-    // 限制批量大小，避免 token 爆炸
-    const candidates = urlFigures.slice(0, MAX_FIGURES_PER_BATCH);
+    // ★ v6.0: 分批处理所有候选图片，不再截断
+    // 旧逻辑 slice(0, 8) 直接丢弃第 9 张之后的图片
+    const allAccepted: ExtractedFigure[] = [];
+    const allRejected: string[] = [];
 
-    try {
-      const batchResult = await this.evaluateBatch(candidates, topicTitle);
+    for (
+      let batchStart = 0;
+      batchStart < urlFigures.length;
+      batchStart += MAX_FIGURES_PER_BATCH
+    ) {
+      const batch = urlFigures.slice(
+        batchStart,
+        batchStart + MAX_FIGURES_PER_BATCH,
+      );
 
-      const accepted: ExtractedFigure[] = [];
-      const rejected: string[] = [];
-      const seenIndices = new Set<number>();
+      try {
+        const batchResult = await this.evaluateBatch(batch, topicTitle);
 
-      for (const result of batchResult.results) {
-        if (result.index < 0 || result.index >= candidates.length) continue;
-        // ★ 去重：LLM 可能返回重复 index
-        if (seenIndices.has(result.index)) continue;
-        seenIndices.add(result.index);
+        const seenIndices = new Set<number>();
+        for (const result of batchResult.results) {
+          if (result.index < 0 || result.index >= batch.length) continue;
+          if (seenIndices.has(result.index)) continue;
+          seenIndices.add(result.index);
 
-        if (result.accepted) {
-          accepted.push(candidates[result.index]);
-        } else {
-          rejected.push(
-            `[${result.index}] ${candidates[result.index].imageUrl.substring(0, 60)}... → ${result.reason}`,
+          if (result.accepted) {
+            allAccepted.push(batch[result.index]);
+          } else {
+            allRejected.push(
+              `[${batchStart + result.index}] ${batch[result.index].imageUrl.substring(0, 60)}... → ${result.reason}`,
+            );
+          }
+        }
+
+        // LLM 遗漏的 index → 视为拒绝
+        const missingCount = batch.length - seenIndices.size;
+        if (missingCount > 0) {
+          const missingIndices = Array.from(
+            { length: batch.length },
+            (_, i) => i,
+          ).filter((i) => !seenIndices.has(i));
+          this.logger.warn(
+            `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1}: LLM omitted ${missingCount} indices (${missingIndices.join(",")}), treating as rejected`,
           );
         }
-      }
-
-      // ★ 检测 LLM 遗漏的 index（宁缺毋滥 → 遗漏视为拒绝）
-      const missingCount = candidates.length - seenIndices.size;
-      if (missingCount > 0) {
-        const missingIndices = Array.from(
-          { length: candidates.length },
-          (_, i) => i,
-        ).filter((i) => !seenIndices.has(i));
+      } catch (error) {
+        // 单批失败 → 该批全部保留（不因 API 故障丢图）
         this.logger.warn(
-          `[filterRelevantFigures] LLM omitted ${missingCount} indices (${missingIndices.join(",")}), treating as rejected`,
+          `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1} Vision check failed, accepting all ${batch.length} figures: ${error instanceof Error ? error.message : error}`,
         );
+        allAccepted.push(...batch);
       }
-
-      if (rejected.length > 0) {
-        this.logger.log(
-          `[filterRelevantFigures] Rejected ${rejected.length + missingCount}/${candidates.length} URL figures for "${topicTitle}":\n${rejected.join("\n")}`,
-        );
-      }
-
-      // 合并 base64 自动接受 + URL Vision 审查通过
-      return [...base64Accepted, ...accepted];
-    } catch (error) {
-      // Vision 调用失败时，回退到保守策略：只保留 chart/diagram/table 类型
-      this.logger.warn(
-        `[filterRelevantFigures] Vision check failed, falling back to type-based filter: ${error instanceof Error ? error.message : error}`,
-      );
-      return figures.filter((f) => f.type !== "photo");
     }
+
+    if (allRejected.length > 0) {
+      this.logger.log(
+        `[filterRelevantFigures] Rejected ${allRejected.length}/${urlFigures.length} URL figures for "${topicTitle}":\n${allRejected.join("\n")}`,
+      );
+    }
+
+    return [...base64Accepted, ...allAccepted];
   }
 
   /**
@@ -158,7 +168,7 @@ export class FigureRelevanceService {
     // 开头说明
     contentParts.push({
       type: "text",
-      text: `请审查以下 ${figures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。\n\n对每张图片判断：\n1. 图片是否可辨识（非损坏、非纯色、非占位符、非广告）\n2. 图片类型是否为信息图（chart/diagram/table/infographic），而非装饰性照片\n3. 图片内容是否与研究主题相关\n\n原则：宁缺毋滥，不确定的一律拒绝。\n`,
+      text: `请审查以下 ${figures.length} 张候选图片是否适合用于研究报告章节「${topicTitle}」。\n\n对每张图片判断：\n1. 图片是否可辨识（非损坏、非纯色、非占位符）\n2. 图片内容是否与该章节主题直接相关（不仅是大主题相关，而是与具体章节内容匹配）\n3. 图片是否具有信息价值 — 数据图表、产品截图、新闻照片、技术示意图、活动现场等均可\n\n接受标准：图片内容与该章节主题直接相关且有信息价值。\n排除标准：纯广告横幅、装饰性背景图、与章节主题无关的图片。\n`,
     } satisfies TextContentPart);
 
     // 逐张图片

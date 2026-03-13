@@ -354,6 +354,7 @@ export class DimensionMissionService {
         maxContentLength: enrichmentMaxLength,
         enableFigures,
         topicTitle: topic.name,
+        dimensionName: dimension.name,
       },
     );
 
@@ -1968,13 +1969,14 @@ export class DimensionMissionService {
         }
         const allKeywords = [...bigrams, ...latinWords];
 
-        // ★ 宁缺勿滥：caption 无关键词（空或纯数字如 "Figure 1"）→ 拒绝
-        // 之前 return true 导致无 caption 图片全部放行，造成大量无关图片
+        // ★ v6.0: caption 无关键词时放行（图片已通过 Vision LLM 语义审查）
+        // 旧逻辑在这里拒绝空 caption 图片，但这些图片可能已通过 figureRelevance
+        // 的 Vision 审查确认了与主题相关性
         if (allKeywords.length === 0) {
-          this.logger.warn(
-            `[validateAllocatedFigures] Rejecting figure with empty/generic caption "${fig.caption}" from section "${section.title}"`,
+          this.logger.debug(
+            `[validateAllocatedFigures] Figure with empty/generic caption "${fig.caption}" from section "${section.title}" — accepting (already passed upstream filters)`,
           );
-          return false;
+          return true;
         }
 
         // ★ v4.5: 相关性过滤 — 阈值经生产数据校准

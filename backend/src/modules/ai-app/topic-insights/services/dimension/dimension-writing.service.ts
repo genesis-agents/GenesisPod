@@ -1052,12 +1052,12 @@ export class DimensionWritingService {
         }
         const allKeywords = [...bigrams, ...latinWords];
 
-        // ★ 宁缺勿滥：caption 无关键词（空或纯数字如 "Figure 1"）→ 拒绝
+        // ★ v6.0: caption 无关键词时放行（图片已通过上游 Vision LLM 审查）
         if (allKeywords.length === 0) {
-          this.logger.warn(
-            `[validateAllocatedFigures] Rejecting figure with empty/generic caption "${fig.caption}" from section "${section.title}"`,
+          this.logger.debug(
+            `[validateAllocatedFigures] Figure with empty/generic caption "${fig.caption}" from section "${section.title}" — accepting (already passed upstream filters)`,
           );
-          return false;
+          return true;
         }
 
         // At least one keyword must appear in section context

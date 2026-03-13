@@ -286,8 +286,8 @@ export class ReportDataService {
     // ★ 增强去重：生成图表按标题关键词去重（去除标点、空格后比较）
     const seenTitleKeys = new Set<string>();
 
-    // ★ 限制每个维度最多收集的图表数量
-    const MAX_CHARTS_PER_DIMENSION = 5;
+    // ★ v6.0: 从 5 提升到 8 — 每个维度可能有多个证据源各自的配图
+    const MAX_CHARTS_PER_DIMENSION = 8;
 
     dimensionInputs.forEach((dim, dimIndex) => {
       // ★ sectionId 对应章节编号（从1开始），用于章节视图匹配

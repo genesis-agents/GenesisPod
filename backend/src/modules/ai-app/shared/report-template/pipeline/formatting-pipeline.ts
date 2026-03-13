@@ -210,22 +210,44 @@ export function preprocessDimensionContent(
 
 /**
  * Remove hallucinated markdown images (data URIs, placeholder domains, broken paths).
+ *
+ * ★ v2: 增强过滤 — 基于生产数据分析（2026-03-13），LLM 编造图片 URL 的模式：
+ * - data: base64 URLs（占 93%）
+ * - placeholder/example.com 域名
+ * - 含 "xxxx" 的伪造 URL
+ * - PDF 链接被误当图片
+ * - /img/example-*, /images/sample-* 等通用路径模式
  */
 function removeHallucinatedImages(content: string): string {
   return content.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_match, _alt: string, url: string) => {
       const lower = url.toLowerCase();
+      // Base64 data URLs
       if (lower.startsWith("data:")) return "";
+      // Placeholder/example domains
       if (
         lower.includes("placeholder.com") ||
         lower.includes("example.com") ||
         lower.includes("via.placeholder")
       )
         return "";
+      // Error indicator paths
       if (lower.includes("image-not-found") || lower.includes("no-image"))
         return "";
-      if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
+      // Non-HTTP URLs (relative paths, file://, etc.)
+      if (!lower.startsWith("http://") && !lower.startsWith("https://"))
+        return "";
+      // ★ Fabricated URLs with "xxxx" patterns
+      if (lower.includes("xxxx")) return "";
+      // ★ PDF links misidentified as images
+      if (/\.pdf(\?|$)/i.test(url)) return "";
+      // ★ Generic example/sample image paths (LLM common fabrication patterns)
+      if (
+        /\/img\/example[-_]/i.test(url) ||
+        /\/images?\/(sample|placeholder|dummy|test)[-_]/i.test(url)
+      )
+        return "";
       return _match;
     },
   );

@@ -88,17 +88,20 @@ describe("FigureExtractorService", () => {
       expect(result[0].imageUrl).toBe("https://example.com/chart.png");
     });
 
-    it("should skip figure elements without figcaption", () => {
+    it("should extract figure elements without figcaption (uses alt as caption fallback)", () => {
       const html = `<figure><img src="https://example.com/chart.png" alt="chart"></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      // No figcaption means the figure extractor skips it; img extractor also skips because alt is too short
-      expect(result).toEqual([]);
+      // v6.0: no figcaption → alt used as fallback caption; figure is extracted
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].imageUrl).toBe("https://example.com/chart.png");
     });
 
-    it("should skip figure elements with non-meaningful figcaption", () => {
+    it("should extract figure elements with non-meaningful figcaption (falls back to alt or empty caption)", () => {
       const html = `<figure><img src="https://example.com/fig.png"><figcaption>Figure 1</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption → falls back to alt (empty here); figure still extracted
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].imageUrl).toBe("https://example.com/fig.png");
     });
 
     it("should filter out logo images", () => {
@@ -149,15 +152,17 @@ describe("FigureExtractorService", () => {
       expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should reject images with width < 100", () => {
-      const html = `<img src="https://example.com/image.png" width="80" alt="This is a sufficiently long alt text without any keywords to match">`;
+    it("should reject images with width < 80", () => {
+      const html = `<img src="https://example.com/image.png" width="50" alt="This is a sufficiently long alt text without any keywords to match">`;
       const result = service.extractFigures("https://example.com", html);
+      // v6.0: threshold changed from <100 to <80; width=50 is still rejected
       expect(result).toEqual([]);
     });
 
-    it("should reject images with width > 3000", () => {
-      const html = `<img src="https://example.com/image.png" width="3500" alt="This is a sufficiently long alt text without any keywords to match">`;
+    it("should reject images with width > 4000", () => {
+      const html = `<img src="https://example.com/image.png" width="4500" alt="This is a sufficiently long alt text without any keywords to match">`;
       const result = service.extractFigures("https://example.com", html);
+      // v6.0: threshold changed from >3000 to >4000; width=4500 is rejected, width=3500 would now pass
       expect(result).toEqual([]);
     });
 
@@ -185,14 +190,15 @@ describe("FigureExtractorService", () => {
       }
     });
 
-    it("should limit to MAX_FIGURES_PER_URL (5) per call", () => {
+    it("should limit to MAX_FIGURES_PER_URL (10) per call", () => {
       const imgs = Array.from(
-        { length: 10 },
+        { length: 15 },
         (_, i) =>
           `<figure><img src="https://example.com/chart-${i}.png" alt="chart ${i}"><figcaption>Annual growth chart showing trends ${i} and data statistics analysis</figcaption></figure>`,
       ).join("\n");
       const result = service.extractFigures("https://example.com", imgs);
-      expect(result.length).toBeLessThanOrEqual(5);
+      // v6.0: MAX_FIGURES_PER_URL changed from 5 to 10
+      expect(result.length).toBeLessThanOrEqual(10);
     });
 
     it("should classify table type correctly", () => {
@@ -275,10 +281,12 @@ describe("FigureExtractorService", () => {
       expect(Array.isArray(result)).toBe(true);
     });
 
-    it("should exclude unsplash.com stock photos", () => {
+    it("should no longer exclude unsplash.com stock photos (v6.0: blacklist removed)", () => {
       const html = `<img src="https://unsplash.com/photo-123.jpg" alt="Beautiful market analysis chart data statistics growth trends forecast">`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: stock photo domains like unsplash.com are no longer blacklisted; figure is extracted
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].imageUrl).toBe("https://unsplash.com/photo-123.jpg");
     });
 
     it("should exclude gravatar.com avatars", () => {
@@ -575,7 +583,7 @@ describe("FigureExtractorService", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("should reject image smaller than 15KB via Content-Length header (placeholder)", async () => {
+    it("should reject image smaller than 5KB via Content-Length header (v6.0: MIN_IMAGE_BYTES=5000)", async () => {
       const figure = {
         imageUrl: "https://example.com/tiny.png",
         caption: "Tiny chart",
@@ -590,7 +598,7 @@ describe("FigureExtractorService", () => {
             h === "content-type"
               ? "image/png"
               : h === "content-length"
-                ? "5000"
+                ? "3000"
                 : null,
           ),
         },
@@ -598,6 +606,7 @@ describe("FigureExtractorService", () => {
 
       const result = await service.validateAndUpgradeFigures([figure]);
 
+      // v6.0: MIN_IMAGE_BYTES changed from 15000 to 5000; 3000 < 5000 is still rejected
       expect(result).toHaveLength(0);
     });
 
@@ -804,64 +813,74 @@ describe("FigureExtractorService", () => {
       expect(result).toEqual([]);
     });
 
-    it("should treat 'figure 1' as non-meaningful (generic)", () => {
+    it("should still extract figure when figcaption is 'figure 1' (non-meaningful — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>figure 1</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat 'fig. 2' as non-meaningful (generic)", () => {
+    it("should still extract figure when figcaption is 'fig. 2' (non-meaningful — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>fig. 2</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat 'image 3' as non-meaningful (generic)", () => {
+    it("should still extract figure when figcaption is 'image 3' (non-meaningful — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>image 3</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat 'photo' as non-meaningful (generic)", () => {
+    it("should still extract figure when figcaption is 'photo' (non-meaningful — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>photo</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat '123' as non-meaningful (numeric only)", () => {
+    it("should still extract figure when figcaption is '123' (numeric only — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>123</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat short text (<8 chars) as non-meaningful", () => {
+    it("should still extract figure when figcaption is short text (<8 chars — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>short</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat 'screenshot 1' as non-meaningful (generic)", () => {
+    it("should still extract figure when figcaption is 'screenshot 1' (non-meaningful — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>screenshot 1</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat 'table 2' as non-meaningful (generic)", () => {
+    it("should still extract figure when figcaption is 'table 2' (non-meaningful — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>table 2</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat Chinese generic captions as non-meaningful", () => {
+    it("should still extract figure when Chinese generic figcaption '图1' is non-meaningful (falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>图1</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it("should treat '图片 2' as non-meaningful", () => {
+    it("should still extract figure when figcaption is '图片 2' (non-meaningful — falls back to alt/empty)", () => {
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>图片 2</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
-      expect(result).toEqual([]);
+      // v6.0: non-meaningful figcaption uses alt fallback; figure is still extracted
+      expect(result.length).toBeGreaterThan(0);
     });
   });
 

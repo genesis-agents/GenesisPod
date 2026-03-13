@@ -93,9 +93,8 @@ describe("FigureRelevanceService", () => {
         "AI Research",
       );
 
-      // Fallback: keeps everything except "photo" type
-      expect(result).toHaveLength(2);
-      expect(result.every((f) => f.type !== "photo")).toBe(true);
+      // ★ v6.0: Fallback now keeps all figures (photo type no longer auto-rejected)
+      expect(result).toHaveLength(3);
     });
 
     // ============================================================
@@ -180,35 +179,57 @@ describe("FigureRelevanceService", () => {
       expect(result).toHaveLength(1);
     });
 
-    it("should limit candidates to MAX_FIGURES_PER_BATCH", async () => {
-      // Create 12 figures (exceeds MAX_FIGURES_PER_BATCH = 8)
+    it("should process all candidates in batches of MAX_FIGURES_PER_BATCH", async () => {
+      // Create 12 figures (exceeds MAX_FIGURES_PER_BATCH = 8, needs 2 batches)
       const figures = Array.from({ length: 12 }, (_, i) =>
         makeFigure(`https://example.com/${i}.png`),
       );
 
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: Array.from({ length: 8 }, (_, i) => ({
-            index: i,
-            accepted: true,
-          })),
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
+      // Mock: batch 1 (8 figures) all accepted, batch 2 (4 figures) all accepted
+      mockChatFacade.chatStructured
+        .mockResolvedValueOnce({
+          data: {
+            results: Array.from({ length: 8 }, (_, i) => ({
+              index: i,
+              accepted: true,
+            })),
+          },
+          rawContent: "{}",
+          model: "test",
+          tokensUsed: 100,
+          retriedParse: false,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            results: Array.from({ length: 4 }, (_, i) => ({
+              index: i,
+              accepted: true,
+            })),
+          },
+          rawContent: "{}",
+          model: "test",
+          tokensUsed: 100,
+          retriedParse: false,
+        });
 
       const result = await service.filterRelevantFigures(figures, "Test Topic");
 
-      // Only first 8 are evaluated, rest are discarded
-      expect(result).toHaveLength(8);
-      // chatStructured should receive at most 8 images in contentParts
-      const callArgs = mockChatFacade.chatStructured.mock.calls[0][0];
-      const imageCount = callArgs.messages[0].contentParts.filter(
+      // ★ v6.0: All 12 figures processed in 2 batches, all accepted
+      expect(result).toHaveLength(12);
+      // chatStructured called twice (2 batches)
+      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(2);
+      // First batch: 8 images
+      const batch1Args = mockChatFacade.chatStructured.mock.calls[0][0];
+      const batch1ImageCount = batch1Args.messages[0].contentParts.filter(
         (p: { type: string }) => p.type === "image_url",
       ).length;
-      expect(imageCount).toBe(8);
+      expect(batch1ImageCount).toBe(8);
+      // Second batch: 4 images
+      const batch2Args = mockChatFacade.chatStructured.mock.calls[1][0];
+      const batch2ImageCount = batch2Args.messages[0].contentParts.filter(
+        (p: { type: string }) => p.type === "image_url",
+      ).length;
+      expect(batch2ImageCount).toBe(4);
     });
 
     it("should reject all when chatStructured returns invalid structure", async () => {
