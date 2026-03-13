@@ -56,6 +56,13 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
 
   // ==================== Weather ====================
   "weather-api": "openweathermap-api-key",
+
+  // ==================== Image Search ====================
+  "bing-image-search": "bing-image-search-api-key",
+  "google-image-search": "google-cse-api-key",
+  "google-cse-engine-id": "google-cse-engine-id",
+  "serpapi-image-search": "serpapi-api-key",
+  "image-search": "serpapi-api-key", // aggregator uses primary provider key (SerpAPI)
 };
 
 /**
@@ -100,6 +107,12 @@ export const SECRET_NAMES = {
 
   // Weather
   OPENWEATHERMAP: EXTERNAL_TOOL_SECRET_MAPPING["weather-api"],
+
+  // Image Search
+  BING_IMAGE_SEARCH: EXTERNAL_TOOL_SECRET_MAPPING["bing-image-search"],
+  GOOGLE_CSE: EXTERNAL_TOOL_SECRET_MAPPING["google-image-search"],
+  GOOGLE_CSE_ENGINE_ID: EXTERNAL_TOOL_SECRET_MAPPING["google-cse-engine-id"],
+  SERPAPI: EXTERNAL_TOOL_SECRET_MAPPING["serpapi-image-search"],
 } as const;
 
 /**
@@ -235,5 +248,33 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "SkillsMP API Key",
     category: "SKILLSMP",
     provider: "SkillsMP",
+  },
+  {
+    key: "imageSearch.bing.apiKey",
+    name: SECRET_NAMES.BING_IMAGE_SEARCH,
+    displayName: "Bing Image Search API Key",
+    category: "IMAGE_SEARCH",
+    provider: "Bing",
+  },
+  {
+    key: "imageSearch.google.apiKey",
+    name: SECRET_NAMES.GOOGLE_CSE,
+    displayName: "Google Custom Search API Key",
+    category: "IMAGE_SEARCH",
+    provider: "Google",
+  },
+  {
+    key: "imageSearch.google.engineId",
+    name: SECRET_NAMES.GOOGLE_CSE_ENGINE_ID,
+    displayName: "Google Custom Search Engine ID",
+    category: "IMAGE_SEARCH",
+    provider: "Google",
+  },
+  {
+    key: "imageSearch.serpapi.apiKey",
+    name: SECRET_NAMES.SERPAPI,
+    displayName: "SerpAPI API Key",
+    category: "IMAGE_SEARCH",
+    provider: "SerpAPI",
   },
 ];

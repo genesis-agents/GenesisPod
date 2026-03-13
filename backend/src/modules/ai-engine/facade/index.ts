@@ -535,4 +535,11 @@ export { AgentFacade } from "./domain/agent.facade";
 export { TeamFacade } from "./domain/team.facade";
 export { ToolFacade } from "./domain/tool.facade";
 
+// ★ Image Search tool types（for topic-insights figure pipeline）
+export type {
+  ImageSearchInput,
+  ImageSearchResult,
+  ImageSearchOutput,
+} from "../tools/categories/information/image-search/image-search.types";
+
 // ★ Phase 8: Kernel re-exports REMOVED — all AI App consumers now import from "../../ai-kernel/facade" directly.

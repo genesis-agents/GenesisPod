@@ -7567,6 +7567,7 @@ enum SecretCategory {
   FINANCE // 金融数据 API (Alpha Vantage)
   ACADEMIC // 学术研究 API (Semantic Scholar, PubMed)
   WEATHER // 天气数据 API (OpenWeatherMap)
+  IMAGE_SEARCH // 图片搜索 API (Bing, Google CSE, SerpAPI)
   DEV_TOOLS // 开发工具 API (GitHub, GitLab)
   MCP // MCP 服务器 API (Slack, Google Drive)
   USER_DONATED // 用户捐赠的 API Key

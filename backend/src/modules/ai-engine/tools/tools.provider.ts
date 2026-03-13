@@ -28,6 +28,11 @@ import {
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
+  // Image Search Tools
+  BingImageSearchTool,
+  GoogleImageSearchTool,
+  SerpAPIImageSearchTool,
+  ImageSearchAggregatorTool,
 } from "./categories/information";
 
 // ============================================================================
@@ -138,6 +143,10 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
+  BingImageSearchTool,
+  GoogleImageSearchTool,
+  SerpAPIImageSearchTool,
+  ImageSearchAggregatorTool,
 
   // Generation Tools
   TextGenerationTool,
@@ -237,6 +246,10 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "federal-register": FederalRegisterTool,
   "congress-gov": CongressGovTool,
   "whitehouse-news": WhiteHouseNewsTool,
+  "image-search": ImageSearchAggregatorTool,
+  "bing-image-search": BingImageSearchTool,
+  "google-image-search": GoogleImageSearchTool,
+  "serpapi-image-search": SerpAPIImageSearchTool,
 
   // Generation
   "text-generation": TextGenerationTool,

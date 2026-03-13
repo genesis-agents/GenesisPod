@@ -34,6 +34,7 @@ const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
   { value: 'FINANCE', key: 'finance' },
   { value: 'ACADEMIC', key: 'academic' },
   { value: 'WEATHER', key: 'weather' },
+  { value: 'IMAGE_SEARCH', key: 'imageSearch' },
   { value: 'DEV_TOOLS', key: 'devTools' },
   { value: 'MCP', key: 'mcp' },
   { value: 'USER_DONATED', key: 'userDonated' },

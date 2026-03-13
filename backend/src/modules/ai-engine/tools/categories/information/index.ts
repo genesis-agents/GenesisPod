@@ -92,3 +92,16 @@ export type {
 
 // Policy Research Tools
 export * from "./policy";
+
+// Image Search Tools
+export {
+  BingImageSearchTool,
+  GoogleImageSearchTool,
+  SerpAPIImageSearchTool,
+  ImageSearchAggregatorTool,
+} from "./image-search";
+export type {
+  ImageSearchInput,
+  ImageSearchOutput,
+  ImageSearchResult,
+} from "./image-search";

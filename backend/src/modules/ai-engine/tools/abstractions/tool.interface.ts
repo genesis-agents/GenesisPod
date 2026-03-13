@@ -196,6 +196,10 @@ export const BUILTIN_TOOLS = {
   RAG_SEARCH: "rag-search",
   DATABASE_QUERY: "database-query",
   KNOWLEDGE_GRAPH: "knowledge-graph",
+  IMAGE_SEARCH: "image-search",
+  BING_IMAGE_SEARCH: "bing-image-search",
+  GOOGLE_IMAGE_SEARCH: "google-image-search",
+  SERPAPI_IMAGE_SEARCH: "serpapi-image-search",
 
   // 内容生成
   TEXT_GENERATION: "text-generation",

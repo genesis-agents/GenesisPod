@@ -13,6 +13,7 @@ export type SecretCategory =
   | 'FINANCE'
   | 'ACADEMIC'
   | 'WEATHER'
+  | 'IMAGE_SEARCH'
   | 'DEV_TOOLS'
   | 'MCP'
   | 'USER_DONATED'

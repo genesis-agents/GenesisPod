@@ -68,6 +68,11 @@ const CATEGORY_OPTIONS: {
     color: 'bg-sky-100 text-sky-800',
   },
   {
+    value: 'IMAGE_SEARCH',
+    label: 'Image Search',
+    color: 'bg-rose-100 text-rose-800',
+  },
+  {
     value: 'DEV_TOOLS',
     label: 'Dev Tools',
     color: 'bg-orange-100 text-orange-800',
