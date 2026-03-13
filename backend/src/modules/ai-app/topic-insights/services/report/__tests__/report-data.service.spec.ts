@@ -376,7 +376,7 @@ describe("ReportDataService", () => {
       expect(urlCounts).toBe(1);
     });
 
-    it("should limit charts to 5 per dimension", () => {
+    it("should limit charts to 8 per dimension", () => {
       const figureReferences = Array.from({ length: 10 }, (_, i) => ({
         id: `fig-${i}`,
         caption: `Chart ${i}`,
@@ -404,7 +404,7 @@ describe("ReportDataService", () => {
       ];
 
       const charts = service.collectAllCharts(dimensionInputs);
-      expect(charts.length).toBeLessThanOrEqual(5);
+      expect(charts.length).toBeLessThanOrEqual(8);
     });
 
     it("should return empty array when no dimension inputs", () => {

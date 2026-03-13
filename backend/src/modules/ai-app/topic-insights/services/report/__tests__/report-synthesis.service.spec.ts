@@ -2412,15 +2412,15 @@ describe("ReportSynthesisService", () => {
       expect(genCharts.length).toBe(0);
     });
 
-    it("should limit to MAX_CHARTS_PER_DIMENSION (5) per dimension", async () => {
+    it("should limit to MAX_CHARTS_PER_DIMENSION (8) per dimension", async () => {
       setupChartCollectionFromPrisma({
         trends: [],
         challenges: [],
         opportunities: [],
         detailedContent: "",
         figureReferences: [],
-        // 7 unique charts — only 5 should be collected
-        generatedCharts: Array.from({ length: 7 }, (_, i) => ({
+        // 10 unique charts — only 8 should be collected
+        generatedCharts: Array.from({ length: 10 }, (_, i) => ({
           id: `gen-${i}`,
           title: `Chart ${i}`,
           type: "bar",
@@ -2435,7 +2435,7 @@ describe("ReportSynthesisService", () => {
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
       const charts = updateCall.data.charts as Array<{ chartType?: string }>;
       const genCharts = charts.filter((c) => c.chartType === "generated");
-      expect(genCharts.length).toBeLessThanOrEqual(5);
+      expect(genCharts.length).toBeLessThanOrEqual(8);
     });
   });
 
