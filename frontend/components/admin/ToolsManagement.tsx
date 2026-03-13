@@ -206,6 +206,30 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     freeQuota: '60 requests/hour (unauthenticated)',
     pricing: '5,000 requests/hour (authenticated)',
   },
+  // Image Search Tools
+  {
+    id: 'serpapi-image-search',
+    name: 'SerpAPI',
+    category: 'external-image-search',
+    url: 'https://serpapi.com',
+    freeQuota: '100 searches/month',
+    pricing: '$50/month (5000)',
+  },
+  {
+    id: 'bing-image-search',
+    name: 'Bing Image Search',
+    category: 'external-image-search',
+    url: 'https://www.microsoft.com/en-us/bing/apis/bing-image-search-api',
+    pricing: '$3/1000 transactions',
+  },
+  {
+    id: 'google-image-search',
+    name: 'Google Custom Search',
+    category: 'external-image-search',
+    url: 'https://developers.google.com/custom-search',
+    freeQuota: '100 queries/day',
+    pricing: '$5/1000 queries',
+  },
 ];
 
 type TabType = 'ai-tools' | 'mcp';
