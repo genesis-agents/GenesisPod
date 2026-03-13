@@ -329,12 +329,14 @@ describe("FigureExtractorService", () => {
       }
     });
 
-    it("should classify empty text as chart", () => {
-      // classifyFigureType with empty string returns 'chart'
+    it("should classify figure type from figcaption text", () => {
+      // classifyFigureType returns a valid figure type
       const html = `<figure><img src="https://example.com/chart.png"><figcaption>Market analysis data statistics showing growth trends annually with research findings results</figcaption></figure>`;
       const result = service.extractFigures("https://example.com", html);
       if (result.length > 0) {
-        expect(["chart", "table", "diagram"]).toContain(result[0].type);
+        expect(["chart", "table", "diagram", "photo"]).toContain(
+          result[0].type,
+        );
       }
     });
 

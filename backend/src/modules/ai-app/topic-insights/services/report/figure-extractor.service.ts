@@ -625,7 +625,7 @@ export class FigureExtractorService {
   private classifyFigureType(
     text: string,
   ): "chart" | "table" | "diagram" | "photo" {
-    if (!text) return "chart";
+    if (!text) return "photo";
     const lowerText = text.toLowerCase();
 
     // 表格
@@ -647,8 +647,15 @@ export class FigureExtractorService {
       return "diagram";
     }
 
-    // 默认为图表
-    return "chart";
+    // 照片/图片
+    if (
+      /photo|image|picture|screenshot|照片|图片|截图|实拍|摄影/i.test(lowerText)
+    ) {
+      return "photo";
+    }
+
+    // 无法识别的默认为照片（研究报告中无关键词的图片多为实物照片）
+    return "photo";
   }
 
   /**
