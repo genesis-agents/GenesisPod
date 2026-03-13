@@ -432,10 +432,35 @@ export class MissionController {
       const results = await Promise.all(
         dto.taskIds.map((taskId) => this.lifecycleService.retryTask(taskId)),
       );
+
+      // ★ Bug fix: 单个任务重试后，需要确保 scheduler 能拾取
+      // 如果 mission 已经是终态（COMPLETED/FAILED），scheduler 已退出，
+      // 需要调用 resumeExecutionForNewTask 重启 scheduler
+      void this.executionService
+        .resumeExecutionForNewTask(mission.id, id)
+        .catch((error) => {
+          this.logger.error(
+            `[retryMission] Failed to resume execution after task retry: ${error instanceof Error ? error.message : "Unknown error"}`,
+          );
+        });
+
       return { retriedTasks: results.length };
     }
     // 重试整个 Mission
-    return this.lifecycleService.retryMission(mission.id);
+    const updatedMission = await this.lifecycleService.retryMission(mission.id);
+
+    // ★ Bug fix: retryMission 只重置任务状态（→ EXECUTING），不启动 scheduler
+    // 使用 resumeExecution 而非 startExecution — 复用已有报告，避免维度分析分散到不同报告
+    // 注意：不能用 resumeExecutionForNewTask，因为它看到 EXECUTING 会以为 scheduler 还在跑
+    void this.executionService
+      .resumeExecution(mission.id, id)
+      .catch((error) => {
+        this.logger.error(
+          `[retryMission] Failed to resume execution after mission retry: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      });
+
+    return updatedMission;
   }
 
   /**

@@ -189,6 +189,60 @@ export class MissionExecutionService {
   }
 
   /**
+   * 恢复执行（重试场景）
+   * 与 startExecution 不同，此方法复用已有的报告，不创建新草稿
+   * 避免重试时已完成的维度分析和新重试的维度分析分散在不同报告中
+   */
+  async resumeExecution(missionId: string, topicId: string): Promise<void> {
+    this.logger.log(
+      `[resumeExecution] Resuming execution for mission ${missionId}`,
+    );
+
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      include: { dimensions: true },
+    });
+
+    if (!topic) {
+      throw new NotFoundException(`Topic ${topicId} not found`);
+    }
+
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { researchDepth: true },
+    });
+    const researchDepth = (mission?.researchDepth ??
+      "standard") as ResearchDepth;
+    const depthConfig = resolveResearchDepthConfig(researchDepth);
+
+    // ★ 复用已有报告，不创建新草稿
+    const existingReport = await this.prisma.topicReport.findFirst({
+      where: { topicId },
+      orderBy: { generatedAt: "desc" },
+      select: { id: true },
+    });
+
+    if (!existingReport) {
+      // Fallback: 如果没有已有报告（不应该发生），走正常流程
+      this.logger.warn(
+        `[resumeExecution] No existing report found for topic ${topicId}, falling back to startExecution`,
+      );
+      return this.startExecution(missionId, topicId);
+    }
+
+    this.logger.log(
+      `[resumeExecution] Reusing existing report: ${existingReport.id}`,
+    );
+
+    const maxConcurrentTasks = await this.calculateDynamicConcurrency();
+    await this.executeDynamicScheduler(missionId, maxConcurrentTasks, (task) =>
+      this.executeTask(task, topic, missionId, existingReport.id, depthConfig),
+    );
+
+    await this.finalizeMission(missionId, topicId);
+  }
+
+  /**
    * 执行单个任务
    */
   async executeTask(
@@ -586,16 +640,36 @@ export class MissionExecutionService {
     const failedTasks = tasks.filter(
       (t) => t.status === ResearchTaskStatus.FAILED,
     );
+    const pendingTasks = tasks.filter(
+      (t) =>
+        t.status === ResearchTaskStatus.PENDING ||
+        t.status === ResearchTaskStatus.EXECUTING,
+    );
 
     // ★ 改进的状态判断逻辑：
-    // - 如果有任何成功的任务，标记为 COMPLETED（部分成功也算成功）
-    // - 只有全部失败才标记为 FAILED
-    // 这样用户可以看到部分成功的研究结果
+    // - 有未完成（PENDING/EXECUTING）的任务 → FAILED（调度异常，如死锁或重试后未被拾取）
+    // - 所有任务已终结且有成功 → COMPLETED（部分成功也算成功）
+    // - 所有任务已终结且全部失败 → FAILED
     const hasAnySuccess = completedTasks.length > 0;
     const hasAnyFailure = failedTasks.length > 0;
-    const finalStatus = hasAnySuccess
-      ? ResearchMissionStatus.COMPLETED
-      : ResearchMissionStatus.FAILED;
+    const hasIncomplete = pendingTasks.length > 0;
+
+    let finalStatus: ResearchMissionStatus;
+    if (hasIncomplete) {
+      // ★ Bug fix: PENDING/EXECUTING 任务仍存在 → 调度异常，不能标记为 COMPLETED
+      finalStatus = ResearchMissionStatus.FAILED;
+      this.logger.warn(
+        `[finalizeMission] Mission ${missionId} has ${pendingTasks.length} incomplete tasks (PENDING/EXECUTING), marking as FAILED`,
+      );
+    } else if (hasAnySuccess) {
+      finalStatus = ResearchMissionStatus.COMPLETED;
+    } else {
+      finalStatus = ResearchMissionStatus.FAILED;
+    }
+
+    const progressPercent = hasIncomplete
+      ? Math.round((completedTasks.length / tasks.length) * 100)
+      : 100;
 
     await this.prisma.researchMission.updateMany({
       where: {
@@ -605,7 +679,7 @@ export class MissionExecutionService {
       data: {
         status: finalStatus,
         completedTasks: completedTasks.length,
-        progressPercent: 100,
+        progressPercent,
         completedAt: new Date(),
       },
     });
@@ -636,7 +710,11 @@ export class MissionExecutionService {
     let statusMessage: string;
     let phase: string;
 
-    if (hasAnySuccess && !hasAnyFailure) {
+    if (hasIncomplete) {
+      // 调度异常（死锁/重试未拾取）
+      phase = "failed";
+      statusMessage = `研究未完成：${completedTasks.length} 个任务成功，${pendingTasks.length} 个任务未被调度，请重试`;
+    } else if (hasAnySuccess && !hasAnyFailure) {
       // 完全成功
       phase = "completed";
       statusMessage = `研究完成，共完成 ${completedTasks.length} 个任务`;
@@ -779,6 +857,10 @@ export class MissionExecutionService {
             this.logger.log(
               `[dynamicScheduler] Task completed: ${task.title} (${task.id})`,
             );
+            // ★ Bug fix: 只在成功时标记为已完成
+            // 失败的任务不加入 completedTaskIds，因为用户可能重试（重置为 PENDING）
+            // 如果失败任务被加入 completedTaskIds，重试后 scheduler 的 newTasks 过滤会跳过它
+            completedTaskIds.add(task.id);
           })
           .catch((error) => {
             this.logger.error(
@@ -786,9 +868,7 @@ export class MissionExecutionService {
             );
           })
           .finally(() => {
-            // 任务完成后从执行列表移除
             executingTasks.delete(task.id);
-            completedTaskIds.add(task.id);
           });
 
         executingTasks.set(task.id, taskPromise);
@@ -925,8 +1005,9 @@ export class MissionExecutionService {
       });
 
       // 6. 异步启动执行循环（确保 BillingContext 传播）
+      // ★ 使用 resumeExecution 复用已有报告，避免维度分析分散到不同报告
       const existingCtx = BillingContext.get();
-      const startFn = () => this.startExecution(missionId, topicId);
+      const startFn = () => this.resumeExecution(missionId, topicId);
       const wrappedStart = existingCtx
         ? () => BillingContext.run(existingCtx, startFn)
         : startFn;
