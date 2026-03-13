@@ -41,15 +41,14 @@ export interface KeyHealthStatus {
   cooldownUntil?: string;
 }
 
-/** Key 冷却时间（毫秒）- 临时性错误（429/5xx）后多久重试 */
+/** Key 冷却时间（毫秒）- 临时性错误（400/401/403/5xx）后多久重试 */
 const KEY_COOLDOWN_MS = 5 * 60 * 1000; // 5 分钟
 
-/** Key 长冷却时间（毫秒）- 配额耗尽（400/401）等不可恢复错误 */
+/** Key 长冷却时间（毫秒）- 配额耗尽（429 Too Many Requests）后长时间冷却 */
 const KEY_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 小时
 
-/** 判断错误码是否为配额耗尽类（需要长冷却） */
-const isQuotaExhaustedError = (errorCode: number): boolean =>
-  errorCode === 400 || errorCode === 401 || errorCode === 403;
+/** 判断错误码是否为配额耗尽类（需要长冷却）— 只有 429 是真正的速率/配额限制 */
+const isQuotaExhaustedError = (errorCode: number): boolean => errorCode === 429;
 
 @Injectable()
 export class PolicyDataService {
