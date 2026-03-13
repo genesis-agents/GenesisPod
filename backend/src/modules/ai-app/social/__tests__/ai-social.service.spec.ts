@@ -258,8 +258,9 @@ describe("AiSocialService", () => {
     });
 
     it("should return error if no pending session found", async () => {
-      mockCache.get.mockResolvedValue(false); // No lock
-      mockCache.get.mockResolvedValueOnce(null); // No pending session
+      mockCache.get
+        .mockResolvedValueOnce(false) // No lock
+        .mockResolvedValueOnce(null); // No pending session
 
       const result = await service.verifyConnection(userId, "wechat_mp");
 

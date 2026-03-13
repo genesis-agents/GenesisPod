@@ -51,8 +51,11 @@ function getEncryptionKey(keyHex?: string): Buffer {
   keyHex = keyHex || cachedKeyHex || process.env.SESSION_ENCRYPTION_KEY;
 
   if (!keyHex) {
-    // In development, use a default key (NOT for production!)
-    if (process.env.NODE_ENV === "development") {
+    // In development/test, use a default key (NOT for production!)
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.NODE_ENV === "test"
+    ) {
       logger.warn(
         "SESSION_ENCRYPTION_KEY not set, using default key (DEV ONLY)",
       );
