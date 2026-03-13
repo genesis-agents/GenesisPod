@@ -321,6 +321,185 @@ describe("DataEnrichmentService", () => {
   });
 
   // ============================================================
+  // Image search supplement
+  // ============================================================
+
+  describe("image search supplement", () => {
+    const mockWebScraperTool = {
+      execute: jest.fn().mockResolvedValue({
+        success: true,
+        data: { success: true, content: "Valid content ".repeat(50) },
+      }),
+    };
+
+    const mockImageSearchTool = {
+      execute: jest.fn(),
+    };
+
+    beforeEach(() => {
+      // Return different tools depending on the tool ID
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === "web-scraper") return mockWebScraperTool;
+        if (toolId === "image-search") return mockImageSearchTool;
+        return null;
+      });
+    });
+
+    it("should trigger image search when extracted figures < threshold", async () => {
+      // Web scraper returns content but extractor returns 0 figures
+      mockFigureExtractor.extractFigures.mockReturnValue([]);
+      mockImageSearchTool.execute.mockResolvedValue({
+        success: true,
+        data: {
+          success: true,
+          results: [
+            {
+              imageUrl: "https://img.com/chart1.png",
+              title: "AI Market Chart",
+              sourceUrl: "https://source.com",
+              sourceDomain: "source.com",
+              width: 800,
+              height: 600,
+            },
+            {
+              imageUrl: "https://img.com/chart2.png",
+              title: "Technology Trend Graph",
+              sourceUrl: "https://source2.com",
+              sourceDomain: "source2.com",
+            },
+          ],
+          totalResults: 2,
+          provider: "bing",
+        },
+      });
+
+      const results = [makeResult("https://example.com/article")];
+      const enriched = await service.enrichSearchResults(results, {
+        enableFigures: true,
+        topicTitle: "AI Technology",
+        dimensionName: "Market Analysis",
+      });
+
+      // Image search should have been called
+      expect(mockImageSearchTool.execute).toHaveBeenCalled();
+      // Figures should be attached to the result
+      expect(enriched[0].extractedFigures?.length).toBeGreaterThan(0);
+    });
+
+    it("should NOT trigger image search when enough figures already extracted", async () => {
+      // Return 5 figures from web extraction (above threshold of 3)
+      const figures = Array.from({ length: 5 }, (_, i) => ({
+        imageUrl: `https://example.com/fig${i}.png`,
+        caption: `Figure ${i}`,
+        type: "chart" as const,
+        alt: `Figure ${i}`,
+      }));
+      mockFigureExtractor.extractFigures.mockReturnValue(figures);
+
+      const results = [makeResult("https://example.com/article")];
+      const enriched = await service.enrichSearchResults(results, {
+        enableFigures: true,
+        topicTitle: "AI Technology",
+        dimensionName: "Market Analysis",
+      });
+
+      expect(mockImageSearchTool.execute).not.toHaveBeenCalled();
+      expect(enriched[0].extractedFigures).toHaveLength(5);
+    });
+
+    it("should NOT trigger image search when enableFigures=false", async () => {
+      mockFigureExtractor.extractFigures.mockReturnValue([]);
+
+      const results = [makeResult("https://example.com/article")];
+      await service.enrichSearchResults(results, {
+        enableFigures: false,
+        topicTitle: "AI Technology",
+      });
+
+      expect(mockImageSearchTool.execute).not.toHaveBeenCalled();
+    });
+
+    it("should NOT trigger image search when no topicTitle provided", async () => {
+      mockFigureExtractor.extractFigures.mockReturnValue([]);
+
+      const results = [makeResult("https://example.com/article")];
+      await service.enrichSearchResults(results, {
+        enableFigures: true,
+        // no topicTitle
+      });
+
+      expect(mockImageSearchTool.execute).not.toHaveBeenCalled();
+    });
+
+    it("should handle image search tool not registered gracefully", async () => {
+      mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
+        if (toolId === "web-scraper") return mockWebScraperTool;
+        return null; // image-search not registered
+      });
+      mockFigureExtractor.extractFigures.mockReturnValue([]);
+
+      const results = [makeResult("https://example.com/article")];
+      const enriched = await service.enrichSearchResults(results, {
+        enableFigures: true,
+        topicTitle: "AI Technology",
+      });
+
+      // Should complete without error, no supplemented figures
+      expect(enriched).toHaveLength(1);
+    });
+
+    it("should handle image search failure gracefully", async () => {
+      mockFigureExtractor.extractFigures.mockReturnValue([]);
+      mockImageSearchTool.execute.mockRejectedValue(new Error("API Error"));
+
+      const results = [makeResult("https://example.com/article")];
+      const enriched = await service.enrichSearchResults(results, {
+        enableFigures: true,
+        topicTitle: "AI Technology",
+      });
+
+      // Should complete without error
+      expect(enriched).toHaveLength(1);
+    });
+
+    it("should run supplemented figures through quality gates", async () => {
+      mockFigureExtractor.extractFigures.mockReturnValue([]);
+      mockImageSearchTool.execute.mockResolvedValue({
+        success: true,
+        data: {
+          success: true,
+          results: [
+            {
+              imageUrl: "https://img.com/chart1.png",
+              title: "Data Chart",
+              sourceUrl: "https://source.com",
+              sourceDomain: "source.com",
+            },
+          ],
+          totalResults: 1,
+          provider: "bing",
+        },
+      });
+
+      // Simulate quality gate rejecting all figures
+      mockFigureRelevance.filterRelevantFigures.mockResolvedValue([]);
+
+      const results = [makeResult("https://example.com/article")];
+      const enriched = await service.enrichSearchResults(results, {
+        enableFigures: true,
+        topicTitle: "AI Technology",
+      });
+
+      // validateAndUpgradeFigures should have been called for supplement
+      expect(mockFigureExtractor.validateAndUpgradeFigures).toHaveBeenCalled();
+      // filterRelevantFigures should have been called for supplement
+      expect(mockFigureRelevance.filterRelevantFigures).toHaveBeenCalled();
+      // But all rejected, so no figures attached
+      expect(enriched[0].extractedFigures?.length || 0).toBe(0);
+    });
+  });
+
+  // ============================================================
   // filterValidResults
   // ============================================================
 
