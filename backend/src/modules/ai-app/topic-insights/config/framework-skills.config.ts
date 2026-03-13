@@ -9,16 +9,14 @@
  * - 新增 EVENT 子类型：EVENT_SUBTYPE_SKILLS + VALID_SKILLS + skill.md
  */
 
-import { ResearchTopicType } from "@prisma/client";
-
 /**
  * 主类型 -> 框架技能映射
+ * 使用字符串字面量而非 ResearchTopicType 枚举，避免测试环境下 Prisma client 未生成导致运行时错误
  */
 export const FRAMEWORK_SKILLS_BY_TOPIC_TYPE: Record<string, string[]> = {
-  [ResearchTopicType.MACRO]: ["macro-analysis"],
-  [ResearchTopicType.TECHNOLOGY]: ["technology-analysis"],
-  [ResearchTopicType.COMPANY]: ["company-analysis"],
-  // EVENT 枚举值待 schema 添加后替换为 [ResearchTopicType.EVENT]
+  MACRO: ["macro-analysis"],
+  TECHNOLOGY: ["technology-analysis"],
+  COMPANY: ["company-analysis"],
   EVENT: ["event-analysis"],
 };
 
