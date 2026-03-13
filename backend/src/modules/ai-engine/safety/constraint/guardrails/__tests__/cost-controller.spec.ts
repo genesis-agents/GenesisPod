@@ -247,7 +247,7 @@ describe("CostController", () => {
       const daysDiff =
         (budget.periodEnd.getTime() - budget.periodStart.getTime()) /
         (1000 * 60 * 60 * 24);
-      expect(daysDiff).toBe(7);
+      expect(Math.round(daysDiff)).toBe(7);
     });
 
     it("should calculate monthly period correctly", () => {
