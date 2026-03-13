@@ -579,8 +579,14 @@ export function stripLLMMetaNotes(content: string): string {
       // ── 内部角色名泄露（Leader, Agent 等多 Agent 流程术语） ──
       .replace(/Leader\s*(?:分配|提供|生成|指派|要求|指导|规划)的?/g, "")
       .replace(/(?:研究|分析)?Agent\s*(?:分配|指派|生成|提供)的/g, "")
-      .replace(/基于\s*Leader\s*(?:指导|要求|分配|规划)[，,]?\s*/g, "")
-      .replace(/根据\s*Leader\s*(?:指导|要求|分配|规划)[，,]?\s*/g, "")
+      .replace(
+        /基于\s*Leader\s*(?:指导|要求|分配|规划)(?:\s*(?:要求|指导))?[，,]?\s*/g,
+        "",
+      )
+      .replace(
+        /根据\s*Leader\s*(?:指导|要求|分配|规划)(?:\s*(?:要求|指导))?[，,]?\s*/g,
+        "",
+      )
       // ── 内部术语泄露 ──
       // "题设" 系列 — LLM 把 prompt 中的指令当作事实引用
       .replace(
@@ -590,7 +596,7 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/(?:根据|按照|基于)\s*题设[，,]?\s*/g, "")
       // "前置章节/前文/上文" 交叉引用 — 章节间不能有内部引用
       .replace(
-        /(?:如|正如)?前置章节\s*(?:所述|提到|分析|讨论|指出|显示|表明)?[，,]?\s*/g,
+        /(?:如|正如)?前置章节\s*(?:所述|提到|分析|讨论|指出|显示|表明|中)?[，,]?\s*/g,
         "",
       )
       .replace(
@@ -662,7 +668,11 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/^\s*\[?(?:图片没有|没有图片|图片缺失|无图片)\]?\s*$/gm, "")
       // ── 孤立的图片 Source 行（H5 图片标题被删后残留的来源标注） ──
       // Pattern: "Source: Some Title, Journal, 2024" 或 "来源：某某文献"
-      .replace(/^\s*(?:Source|来源|数据来源|图片来源)\s*[：:]\s*[^\n]+$/gm, "")
+      // Length-limited to ≤150 chars to avoid stripping legitimate paragraphs starting with "来源："
+      .replace(
+        /^\s*(?:Source|来源|数据来源|图片来源)\s*[：:]\s*[^\n]{1,120}$/gm,
+        "",
+      )
       // ── "图表说明" 冗余叙述（LLM 为被删图片生成的解说段落） ──
       .replace(
         /^\s*(?:上述图表?|该图表?|此图表?)\s*(?:展示了|显示了|呈现了|描述了|说明了|反映了|概括了|揭示了)[^。]*。\s*$/gm,

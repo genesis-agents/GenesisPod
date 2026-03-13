@@ -1608,10 +1608,9 @@ export class DimensionMissionService {
       return relevant.map((s) => s.evidence);
     }
 
-    // 不足 5 条时，补充低分 evidence，但标记 score=0 的为弱相关
-    // ★ 只补充到 5 条，不再无限制保留完全无关的 evidence
-    const minRequired = Math.max(5, relevant.length);
-    const result = scored.slice(0, minRequired);
+    // 不足 5 条时，补充低分 evidence 到 5 条上限
+    // ★ 不再无限制保留完全无关的 evidence
+    const result = scored.slice(0, 5);
 
     // ★ 如果大量 evidence 完全不相关（score=0），记录 warning
     const zeroScoreCount = result.filter((s) => s.score === 0).length;
