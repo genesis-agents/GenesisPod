@@ -2629,97 +2629,258 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
 
 ### 18.9 重构后的目录结构
 
+> **设计原则**: 严格对齐 TI 的目录分层模式，确保两个模块的架构一致性。
+> TI 目录树参考: `backend/src/modules/ai-app/topic-insights/`
+
 ```
 backend/src/modules/ai-app/research/
-├── research.module.ts                    # 更新: 注册 workflow handlers
-├── research.gateway.ts                   # 新增: WebSocket gateway
 │
+│  ─── 模块入口 (与 TI 一致: 3 个根文件) ───
+├── research.module.ts                    # 更新: 注册 workflow handlers + gateway
+├── research.service.ts                   # 保留: 薄门面 (对标 TI topic-insights.service.ts)
+├── research.gateway.ts                   # 新增: WebSocket gateway (对标 TI topic-insights.gateway.ts)
+│
+│  ─── 注册层 (与 TI 一致) ───
 ├── agents/
-│   └── researcher.agent.ts              # 保留
+│   └── researcher.agent.ts              # 保留 (对标 TI agents/topic-insights.agent.ts)
 │
 ├── teams/
 │   └── research-team.config.ts          # 更新: DAG workflow v2
 │
+│  ─── HTTP 层 (与 TI 一致: 按领域拆分 Controller) ───
 ├── controllers/
-│   ├── research.controller.ts           # 更新: 新增 /steer endpoint
-│   ├── idea.controller.ts               # 保留
-│   └── demo.controller.ts              # 保留
+│   ├── research.controller.ts           # 更新: 启动研究/SSE (对标 TI mission.controller.ts)
+│   ├── idea.controller.ts               # 保留 (Research 独有)
+│   ├── demo.controller.ts               # 保留 (Research 独有)
+│   ├── steering.controller.ts           # 新增: /steer 协同驾驶 (Research 独有)
+│   └── leader-chat.controller.ts        # 新增: @Leader 对话 (对标 TI 的 leader chat 端点)
 │
+│  ─── DTO 层 (与 TI 一致: 14+ 文件, 按领域拆分) ───
+├── dto/
+│   ├── plan-approval.dto.ts             # 保留
+│   ├── steer.dto.ts                     # 新增: 协同驾驶请求
+│   ├── leader-chat.dto.ts               # 新增 (对标 TI dto/leader-chat.dto.ts)
+│   ├── create-research.dto.ts           # 保留
+│   ├── idea.dto.ts                      # 保留
+│   ├── demo.dto.ts                      # 保留
+│   └── iteration.dto.ts                 # 保留
+│
+│  ─── 守卫层 (与 TI 一致) ───
+├── guards/
+│   ├── billing-context.interceptor.ts   # 保留 (对标 TI guards/billing-context.interceptor.ts)
+│   └── project-access.guard.ts          # 新增 (对标 TI guards/topic-access.guard.ts)
+│
+│  ─── Workflow 处理器 (与 TI 一致: handlers/) ───
+├── handlers/
+│   ├── discussion-phase.handler.ts      # 新增 (对标 TI handlers/search-phase.handler.ts)
+│   ├── insight-extraction.handler.ts    # 新增 (对标 TI handlers/global-outline.handler.ts)
+│   ├── prototype-generation.handler.ts  # 新增
+│   ├── quality-review.handler.ts        # 新增 (对标 TI handlers/quality-review.handler.ts)
+│   └── revision.handler.ts             # 新增 (对标 TI handlers/revision.handler.ts)
+│
+│  ─── Prompt 模板 (与 TI 一致: prompts/ 独立目录) ───
+├── prompts/
+│   ├── research-leader.prompt.ts        # 从 discussion/ 迁出 (对标 TI prompts/research-leader.prompt.ts)
+│   ├── discussion-agent.prompt.ts       # 从 discussion/prompt-locale.ts 迁出
+│   ├── insight-extraction.prompt.ts     # 新增
+│   ├── report-synthesis.prompt.ts       # 从 report-synthesizer 迁出 (对标 TI prompts/report-synthesis.prompt.ts)
+│   └── steering.prompt.ts              # 新增: 协同驾驶指令模板
+│
+│  ─── 服务层 (与 TI 完全对齐的分层结构) ───
 ├── services/
+│   │
+│   │  ─── core/ (核心编排, 对标 TI services/core/) ───
 │   ├── core/
-│   │   ├── mission/
-│   │   │   ├── research-mission-lifecycle.service.ts  # 新增 (学 TI)
-│   │   │   ├── research-mission-execution.service.ts  # 新增 (学 TI)
-│   │   │   └── research-todo.service.ts              # 新增 (学 TI)
 │   │   │
-│   │   ├── leader/
-│   │   │   ├── research-leader-planning.service.ts   # 新增 (学 TI)
-│   │   │   ├── research-leader-intent.service.ts     # 新增 (学 TI)
-│   │   │   ├── research-leader-steering.service.ts   # 新增 (协同驾驶)
-│   │   │   └── research-leader-review.service.ts     # 新增 (学 TI)
+│   │   ├── leader/                                      # 对标 TI services/core/leader/ (4 个子服务)
+│   │   │   ├── research-leader-planning.service.ts      # 新增 (对标 TI leader-planning.service.ts)
+│   │   │   ├── research-leader-intent.service.ts        # 新增 (对标 TI leader-intent.service.ts)
+│   │   │   ├── research-leader-steering.service.ts      # 新增 (Research 独有: 协同驾驶)
+│   │   │   └── research-leader-review.service.ts        # 新增 (对标 TI leader-review.service.ts)
 │   │   │
-│   │   └── task-executors/
-│   │       ├── research-task-executor.interface.ts    # 新增
-│   │       ├── discussion.executor.ts                # 新增 (从 PhaseCoordinator 拆出)
-│   │       ├── search.executor.ts                    # 新增 (从 IterativeSearch 拆出)
-│   │       ├── insight-extraction.executor.ts        # 新增
-│   │       ├── idea-derivation.executor.ts           # 新增
-│   │       ├── prototype-generation.executor.ts      # 新增
-│   │       ├── report-synthesis.executor.ts          # 新增 (从 ReportSynthesizer 拆出)
-│   │       └── quality-review.executor.ts            # 新增
+│   │   ├── mission/                                     # 对标 TI services/core/mission/ (5 个服务)
+│   │   │   ├── research-mission-lifecycle.service.ts     # 新增 (对标 TI mission-lifecycle.service.ts)
+│   │   │   ├── research-mission-execution.service.ts     # 新增 (对标 TI mission-execution.service.ts)
+│   │   │   ├── research-mission-query.service.ts         # 新增 (对标 TI mission-query.service.ts)
+│   │   │   ├── research-mission-notification.service.ts  # 新增 (对标 TI mission-notification.service.ts)
+│   │   │   └── research-mission-observability.service.ts # 新增 (对标 TI mission-observability.service.ts)
+│   │   │
+│   │   ├── research/                                    # 对标 TI services/core/research/ (6 个服务)
+│   │   │   ├── research-leader.service.ts               # 薄门面 (对标 TI research-leader.service.ts)
+│   │   │   ├── research-event-emitter.service.ts        # 新增 (对标 TI research-event-emitter.service.ts)
+│   │   │   ├── research-realtime.adapter.ts             # 新增 (对标 TI research-realtime.adapter.ts)
+│   │   │   ├── research-memory.service.ts               # 迁入 (从 memory/ 迁入, 升级用 Kernel ProcessMemory)
+│   │   │   ├── research-strategy.service.ts             # 迁入 (从 memory/strategy-loader 迁入)
+│   │   │   └── research-template.service.ts             # 新增 (对标 TI research-template.service.ts)
+│   │   │
+│   │   ├── task-executors/                              # 对标 TI services/core/task-executors/ (4+接口)
+│   │   │   ├── task-executor.interface.ts               # 新增 (对标 TI task-executor.interface.ts)
+│   │   │   ├── discussion.executor.ts                   # 新增 (从 PhaseCoordinator 拆出, Research 独有)
+│   │   │   ├── search.executor.ts                       # 新增 (从 IterativeSearch 拆出)
+│   │   │   ├── insight-extraction.executor.ts           # 新增 (Research 独有)
+│   │   │   ├── idea-derivation.executor.ts              # 新增 (Research 独有)
+│   │   │   ├── prototype-generation.executor.ts         # 新增 (Research 独有)
+│   │   │   ├── report-synthesis.executor.ts             # 新增 (对标 TI synthesis-report.executor.ts)
+│   │   │   ├── quality-review.executor.ts               # 新增 (对标 TI review-dimension.executor.ts)
+│   │   │   └── generic-task.executor.ts                 # 新增 (对标 TI generic-task.executor.ts)
+│   │   │
+│   │   └── project/                                     # 对标 TI services/core/topic/ (5 个服务)
+│   │       ├── project-crud.service.ts                  # 保留 (对标 TI topic-crud.service.ts)
+│   │       ├── project-session.service.ts               # 从 discussion/ 迁入
+│   │       └── project-export.service.ts                # 保留 (对标 TI topic-export.service.ts)
 │   │
-│   ├── discussion/                                   # 保留但瘦身
-│   │   ├── discussion-agent.service.ts              # 保留 (7 Agent 团队)
-│   │   ├── discussion-phase.service.ts              # 瘦身: 只管讨论逻辑
-│   │   ├── discussion-session.service.ts            # 保留
-│   │   └── prompt-locale.ts                         # 保留
+│   │  ─── discussion/ (Research 独有: 多 Agent 讨论, TI 无此层) ───
+│   ├── discussion/
+│   │   ├── discussion-agent.service.ts                  # 保留 (7 Agent 团队编排)
+│   │   └── discussion-phase.service.ts                  # 瘦身: 只管讨论轮次逻辑
 │   │
+│   │  ─── collaboration/ (对标 TI services/collaboration/) ───
+│   ├── collaboration/
+│   │   ├── research-todo.service.ts                     # 新增 (对标 TI research-todo.service.ts)
+│   │   ├── research-reflection.service.ts               # 新增 (对标 TI research-reflection.service.ts)
+│   │   └── research-reviewer.service.ts                 # 新增 (对标 TI research-reviewer.service.ts)
+│   │
+│   │  ─── data/ (对标 TI services/data/) ───
+│   ├── data/
+│   │   ├── data-enrichment.service.ts                   # 新增 (对标 TI data-enrichment.service.ts)
+│   │   ├── evidence-management.service.ts               # 新增 (对标 TI evidence-management.service.ts)
+│   │   ├── leader-tool.service.ts                       # 新增 (对标 TI leader-tool.service.ts: Leader 主动搜索)
+│   │   └── rag-fusion.service.ts                        # 新增 (对标 TI rag-fusion.service.ts)
+│   │
+│   │  ─── search/ (对标 TI services/search/ 三层子结构) ───
+│   ├── search/
+│   │   ├── search-orchestrator.service.ts               # 保留 (对标 TI search-orchestrator.service.ts)
+│   │   ├── search-executor.service.ts                   # 保留 (对标 TI search-executor.service.ts)
+│   │   ├── research-tool-router.service.ts              # 保留
+│   │   ├── adapters/                                    # 新增子目录 (对标 TI search/adapters/)
+│   │   │   └── search-adapter.base.ts                   # 复用 ToolRegistry, 不需要 TI 的 10 个独立 adapter
+│   │   ├── fusion/                                      # 新增子目录 (对标 TI search/fusion/)
+│   │   │   ├── result-fusion.service.ts                 # 新增: 多源结果融合
+│   │   │   └── quality-gate.service.ts                  # 新增: 搜索质量门
+│   │   └── query/                                       # 新增子目录 (对标 TI search/query/)
+│   │       └── query-strategy.service.ts                # 新增: 查询策略
+│   │
+│   │  ─── iteration/ (Research 独有: 迭代循环, TI 无此层) ───
 │   ├── iteration/
-│   │   ├── iterative-research.service.ts            # 更新: 使用 DAG + ExitDecision
-│   │   ├── iteration-coordinator.service.ts         # 更新: 使用 MissionExecution
-│   │   └── iteration-feedback.service.ts            # 保留
+│   │   ├── iterative-research.service.ts                # 更新: 使用 DAG + ExitDecision
+│   │   ├── iteration-coordinator.service.ts             # 更新: 使用 MissionExecution
+│   │   └── iteration-feedback.service.ts                # 保留
 │   │
-│   ├── evaluation/                                  # 保留
-│   ├── quality/                                     # 保留
-│   ├── search/                                      # 保留
-│   ├── memory/                                      # 更新: 使用 Kernel ProcessMemory
-│   ├── project/                                     # 保留
-│   ├── idea/                                        # 保留
-│   └── demo/                                        # 更新: 支持多类型原型
+│   │  ─── evaluation/ (Research 独有: 迭代评估) ───
+│   ├── evaluation/
+│   │   ├── exit-decision.service.ts                     # 保留
+│   │   ├── demo-evaluator.service.ts                    # 保留
+│   │   └── topic-classifier.service.ts                  # 保留
+│   │
+│   │  ─── quality/ (对标 TI services/quality/) ───
+│   ├── quality/
+│   │   ├── research-quality-gate.service.ts             # 保留 (对标 TI report-quality-gate.service.ts)
+│   │   ├── research-fact-checker.service.ts             # 保留
+│   │   ├── research-content-scorer.service.ts           # 保留
+│   │   ├── research-critique.service.ts                 # 保留 (对标 TI critique-refine.service.ts)
+│   │   └── defect-scanner.ts                            # 新增 (对标 TI defect-scanner.ts)
+│   │
+│   │  ─── report/ (对标 TI services/report/) ───
+│   ├── report/
+│   │   ├── report-synthesizer.service.ts                # 保留 (对标 TI report-synthesis.service.ts)
+│   │   ├── report-assembler.service.ts                  # 新增 (对标 TI report-assembler.service.ts)
+│   │   ├── citation-formatter.service.ts                # 新增 (对标 TI citation-formatter.service.ts)
+│   │   └── research-export.service.ts                   # 保留 (对标 TI research-export.service.ts)
+│   │
+│   │  ─── monitoring/ (对标 TI services/monitoring/) ───
+│   └── monitoring/
+│       ├── agent-activity.service.ts                    # 新增 (对标 TI agent-activity.service.ts)
+│       ├── research-checkpoint.service.ts               # 新增 (对标 TI research-checkpoint.service.ts)
+│       └── research-mission-health.service.ts           # 新增 (对标 TI research-mission-health.service.ts)
 │
-├── skills/                                          # 大幅扩展
+│  ─── Skills (对标 TI 的 skill 文件放在模块根) ───
+├── skills/
 │   ├── (已有 22 个 .skill.md)
-│   ├── insight-extraction.skill.md                  # 新增
-│   ├── idea-derivation.skill.md                     # 新增
-│   ├── steer-deepen.skill.md                        # 新增
-│   ├── steer-pivot.skill.md                         # 新增
-│   ├── steer-inject.skill.md                        # 新增
-│   ├── prototype-interactive.skill.md               # 新增
-│   ├── prototype-architecture.skill.md              # 新增
-│   ├── prototype-dashboard.skill.md                 # 新增
-│   ├── prototype-comparison.skill.md                # 新增
-│   ├── prototype-journey.skill.md                   # 新增
-│   ├── prototype-canvas.skill.md                    # 新增
-│   ├── cross-project-retrieval.skill.md             # 新增
-│   └── exit-decision.skill.md                       # 新增
+│   ├── insight-extraction.skill.md                      # 新增
+│   ├── idea-derivation.skill.md                         # 新增
+│   ├── steer-deepen.skill.md                            # 新增
+│   ├── steer-pivot.skill.md                             # 新增
+│   ├── steer-inject.skill.md                            # 新增
+│   ├── prototype-interactive.skill.md                   # 新增
+│   ├── prototype-architecture.skill.md                  # 新增
+│   ├── prototype-dashboard.skill.md                     # 新增
+│   ├── prototype-comparison.skill.md                    # 新增
+│   ├── prototype-journey.skill.md                       # 新增
+│   ├── prototype-canvas.skill.md                        # 新增
+│   ├── cross-project-retrieval.skill.md                 # 新增
+│   └── exit-decision.skill.md                           # 新增
 │
+│  ─── 配置 (对标 TI config/) ───
 ├── config/
-│   ├── research.config.ts                           # 保留
-│   ├── valid-skills.config.ts                       # 更新: 新增 13 个 skills
-│   ├── tool-strategy.config.ts                      # 保留
-│   ├── agent-roles.config.ts                        # 新增 (学 TI)
-│   └── research-mission-transitions.ts              # 新增 (学 TI)
+│   ├── research.config.ts                               # 保留
+│   ├── valid-skills.config.ts                           # 更新: 新增 13 个 skills
+│   ├── tool-strategy.config.ts                          # 保留
+│   ├── agent-roles.config.ts                            # 新增 (对标 TI config/agent-roles.config.ts)
+│   ├── research-mission-transitions.ts                  # 新增 (状态机, TI 用 inline 常量)
+│   ├── data-source-mapping.config.ts                    # 新增 (对标 TI config/data-source-mapping.config.ts)
+│   └── health-monitoring.config.ts                      # 新增 (对标 TI config/health-monitoring.config.ts)
 │
-├── handlers/                                        # 新增 (学 TI)
-│   ├── discussion-phase.handler.ts
-│   ├── insight-extraction.handler.ts
-│   └── prototype-generation.handler.ts
+│  ─── 类型定义 (与 TI 一致: types/ 独立目录, 18+ 文件) ───
+├── types/
+│   ├── research.types.ts                                # 从各 service 迁出聚合
+│   ├── mission.types.ts                                 # 新增 (对标 TI types/mission.types.ts)
+│   ├── leader.types.ts                                  # 新增 (对标 TI types/leader.types.ts)
+│   ├── discussion.types.ts                              # 从 discussion/ 迁出
+│   ├── iteration.types.ts                               # 从 iteration/ 迁出
+│   ├── steering.types.ts                                # 新增 (协同驾驶类型)
+│   ├── report.types.ts                                  # 新增 (对标 TI types/report.types.ts)
+│   ├── quality.types.ts                                 # 新增 (对标 TI types/quality.types.ts)
+│   ├── collaboration.types.ts                           # 新增 (对标 TI types/collaboration.types.ts)
+│   ├── monitoring.types.ts                              # 新增 (对标 TI types/monitoring.types.ts)
+│   └── research.exceptions.ts                           # 新增 (对标 TI types/research.exceptions.ts)
 │
-└── dto/
-    ├── plan-approval.dto.ts                         # 保留
-    ├── steer.dto.ts                                 # 新增
-    └── leader-message.dto.ts                        # 新增
+│  ─── 工具函数 (与 TI 一致: utils/ 独立目录) ───
+├── utils/
+│   ├── extract-json.utils.ts                            # 保留 (对标 TI utils/extract-json.utils.ts)
+│   ├── prompt-sanitizer.ts                              # 新增 (对标 TI utils/prompt-sanitizer.ts)
+│   └── model-display-name.ts                            # 新增 (对标 TI utils/model-display-name.ts)
+│
+│  ─── Workflow (与 TI 一致: workflows/ 独立目录) ───
+├── workflows/
+│   └── iterative-research-pipeline.workflow.ts          # 新增 (对标 TI workflows/refresh-pipeline.workflow.ts)
+│
+│  ─── 策略 (保留) ───
+└── strategies/
+    └── research-strategies.md                           # 保留
 ```
+
+#### TI vs Research 目录对齐表
+
+| TI 目录                               | Research 对应                           | 说明                                      |
+| ------------------------------------- | --------------------------------------- | ----------------------------------------- |
+| `topic-insights.module.ts`            | `research.module.ts`                    | 1:1                                       |
+| `topic-insights.service.ts`           | `research.service.ts`                   | 1:1 薄门面                                |
+| `topic-insights.gateway.ts`           | `research.gateway.ts`                   | 1:1 WebSocket                             |
+| `agents/`                             | `agents/`                               | 1:1                                       |
+| `teams/`                              | `teams/`                                | 1:1                                       |
+| `controllers/` (6个)                  | `controllers/` (5个)                    | TI 有 todo + collab, Research 有 steering |
+| `dto/` (14个)                         | `dto/` (7个)                            | Research 更精简                           |
+| `guards/`                             | `guards/`                               | 1:1                                       |
+| `handlers/` (5个)                     | `handlers/` (5个)                       | 1:1                                       |
+| `prompts/` (6个)                      | `prompts/` (5个)                        | 1:1                                       |
+| `services/core/leader/` (4个)         | `services/core/leader/` (4个)           | 1:1                                       |
+| `services/core/mission/` (5个)        | `services/core/mission/` (5个)          | 1:1                                       |
+| `services/core/research/` (6个)       | `services/core/research/` (6个)         | 1:1                                       |
+| `services/core/task-executors/` (4+1) | `services/core/task-executors/` (7+1+1) | Research 更多 executor                    |
+| `services/core/topic/` (5个)          | `services/core/project/` (3个)          | 语义重命名                                |
+| `services/collaboration/` (5个)       | `services/collaboration/` (3个)         | Research 更精简                           |
+| `services/data/` (11个+connectors)    | `services/data/` (4个)                  | Research 用 ToolRegistry 替代 connectors  |
+| `services/dimension/` (7个)           | `services/discussion/` (2个)            | Research 独有: 多 Agent 讨论              |
+| —                                     | `services/iteration/` (3个)             | Research 独有: 迭代循环                   |
+| —                                     | `services/evaluation/` (3个)            | Research 独有: 迭代评估                   |
+| `services/monitoring/` (4个)          | `services/monitoring/` (3个)            | 1:1                                       |
+| `services/quality/` (4个)             | `services/quality/` (5个)               | 1:1                                       |
+| `services/report/` (13个)             | `services/report/` (4个)                | Research 更精简                           |
+| `services/search/` (3子目录)          | `services/search/` (3子目录)            | 1:1 结构                                  |
+| `types/` (18个)                       | `types/` (11个)                         | Research 少一些                           |
+| `utils/` (6个)                        | `utils/` (3个)                          | Research 更精简                           |
+| `workflows/` (2个)                    | `workflows/` (1个)                      | 1:1                                       |
+| `config/` (5个)                       | `config/` (7个)                         | Research 多 transitions 和 tool-strategy  |
 
 ### 18.10 前后端对接变更汇总
 
