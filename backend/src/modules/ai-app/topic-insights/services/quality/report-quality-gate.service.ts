@@ -10,7 +10,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
   detectForeignLanguageBlocks,
-  limitBoldFormatting,
   limitBlockquotes,
   removeHorizontalRules,
   sanitizeHeadingLevels,
@@ -99,18 +98,16 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
-    // 3. 加粗密度检查 + 自动限制
+    // 3. 加粗密度检查（仅记录，不强制限制 — 用户指示放宽）
     const boldCount = (fixedContent.match(/\*\*[^*]+\*\*/g) || []).length;
     if (boldCount > 12) {
       violations.push({
         rule: "bold_density",
         severity: "warning",
-        message: `加粗处数量 ${boldCount} 超过阈值 12/维度，已自动限制为每节 2 处`,
+        message: `加粗处数量 ${boldCount} 超过建议阈值 12/维度（已放宽，不强制）`,
         currentValue: boldCount,
         threshold: 12,
       });
-      fixedContent = limitBoldFormatting(fixedContent, 2);
-      wasAutoFixed = true;
     }
 
     // 4. 引用块密度检查 + 自动限制（规范：每维度最多 1 个，不含章节要点）
@@ -371,18 +368,16 @@ export class ReportQualityGateService {
       });
     }
 
-    // 2. 全文加粗密度（规范：每节最多 2 处）
+    // 2. 全文加粗密度（仅记录，不强制限制 — 用户指示放宽）
     const boldCount = (fixedContent.match(/\*\*[^*]+\*\*/g) || []).length;
     if (boldCount > 60) {
       violations.push({
         rule: "bold_density_report",
         severity: "warning",
-        message: `全文加粗 ${boldCount} 处超过阈值 60`,
+        message: `全文加粗 ${boldCount} 处超过建议阈值 60（已放宽，不强制）`,
         currentValue: boldCount,
         threshold: 60,
       });
-      fixedContent = limitBoldFormatting(fixedContent, 2);
-      wasAutoFixed = true;
     }
 
     // 3. 全文引用块密度（规范：全文最多 8 个，不含章节要点）

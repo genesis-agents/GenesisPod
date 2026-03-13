@@ -859,7 +859,7 @@ function ChapterizedReportViewInner({
                     return (
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex]}
+                        rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
                         components={createMarkdownComponents(processText)}
                       >
                         {cleanContent}
@@ -886,7 +886,7 @@ function ChapterizedReportViewInner({
                           <ReactMarkdown
                             key={`md-${i}`}
                             remarkPlugins={[remarkGfm, remarkMath]}
-                            rehypePlugins={[rehypeKatex]}
+                            rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
                             components={createMarkdownComponents(processText)}
                           >
                             {text}

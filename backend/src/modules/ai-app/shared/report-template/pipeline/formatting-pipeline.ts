@@ -325,9 +325,9 @@ export function removeOrphanedFigureReferences(content: string): string {
       .replace(/如图\s*\d+\s*所示[，,。；]?/g, "")
       // "(见图N)" / "（见图N）" → ""
       .replace(/[（(]见图\s*\d+[）)][，,。；]?/g, "")
-      // "图N展示了" / "图N显示" (subject-position Chinese) → ""
+      // "图N展示(了)" / "图N显示" (subject-position Chinese) → ""
       .replace(
-        /图\s*\d+\s*(?:展示了|显示了?|呈现了?|描述了?|说明了?|反映了?|列出了?)/g,
+        /图\s*\d+\s*(?:展示了?|显示了?|呈现了?|描述了?|说明了?|反映了?|列出了?|对比了?|总结了?|汇总了?|概括了?|给出了?|提供了?|揭示了?)/g,
         "",
       )
       // "(Figure N)" / "(Fig. N)" → ""

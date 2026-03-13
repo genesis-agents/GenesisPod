@@ -343,7 +343,7 @@ function FigureSourceLine({
   const sourceText =
     !isCitationOnly && chart.source
       ? chart.source
-      : evidenceInfo?.title || evidenceInfo?.domain || null;
+      : evidenceInfo?.title || evidenceInfo?.domain || chart.title || null;
 
   const citationIndex = chart.evidenceCitationIndex;
 
@@ -470,15 +470,14 @@ export function FigureRenderer({
       </ChartErrorBoundary>
 
       {/* ★ SOTA: 图表说明 + 来源标注（图表下方 caption） */}
-      {(chart.description ||
-        (showSource && (chart.evidenceCitationIndex || chart.source))) && (
+      {(chart.description || showSource) && (
         <figcaption className="mt-3 border-t border-gray-100 pt-2">
           {chart.description && (
             <p className="text-xs leading-relaxed text-gray-500">
               {chart.description}
             </p>
           )}
-          {showSource && (chart.evidenceCitationIndex || chart.source) && (
+          {showSource && (
             <FigureSourceLine
               chart={chart}
               evidenceInfo={evidenceInfo ?? undefined}

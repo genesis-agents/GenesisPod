@@ -162,7 +162,7 @@ export function QuickViewReport({
               <article className="prose prose-sm prose-gray max-w-none leading-relaxed">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
+                  rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
                   components={markdownComponents}
                 >
                   {report.executiveSummary}

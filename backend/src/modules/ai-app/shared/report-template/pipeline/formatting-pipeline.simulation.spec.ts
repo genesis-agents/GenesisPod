@@ -561,11 +561,12 @@ describe("Scenario 4: LaTeX delimiter fixing", () => {
     expect(result).toMatch(/\$.*\\alpha.*\$/);
   });
 
-  it("wrapBareInlineLatex skips lines with existing $", () => {
+  it("wrapBareInlineLatex wraps bare LaTeX outside existing $ spans", () => {
     const content = "公式 $E = mc^2$ 和 \\alpha 混合";
     const result = wrapBareInlineLatex(content);
-    // Line already has $, so wrapBareInlineLatex skips entirely
-    expect(result).toBe(content);
+    // Bare \alpha outside existing $...$ should be wrapped
+    expect(result).toContain("$E = mc^2$");
+    expect(result).toContain("$\\alpha");
   });
 
   it("wrapBareInlineLatex wraps single-command expressions like n \\times n", () => {

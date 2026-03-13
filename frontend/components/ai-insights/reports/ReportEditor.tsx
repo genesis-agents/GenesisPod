@@ -1018,7 +1018,7 @@ function ReportEditorInner({
       <ReactMarkdown
         key={key}
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
         components={createMarkdownComponents(processText)}
       >
         {content}
@@ -1315,7 +1315,7 @@ function ReportEditorInner({
               <article className="prose prose-gray prose-sm max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
+                  rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
                   components={{
                     a: ({ href, children }) => (
                       <a

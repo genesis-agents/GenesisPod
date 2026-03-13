@@ -74,7 +74,7 @@ describe("ReportQualityGateService", () => {
       expect(result.fixedContent).not.toMatch(/^\s*[-*]{3,}\s*$/m);
     });
 
-    it("should auto-limit bold when count > 12", () => {
+    it("should warn but not auto-fix bold when count > 12 (relaxed)", () => {
       const bolds = Array.from(
         { length: 15 },
         (_, i) => `**Bold${i}** text here`,
@@ -88,7 +88,8 @@ describe("ReportQualityGateService", () => {
       );
       expect(violation).toBeDefined();
       expect(violation?.threshold).toBe(12);
-      expect(result.wasAutoFixed).toBe(true);
+      // Bold enforcement relaxed — no auto-fix
+      expect(result.fixedContent).toContain("**Bold0**");
     });
 
     it("should NOT flag bold when count <= 12", () => {
@@ -375,7 +376,7 @@ describe("ReportQualityGateService", () => {
       expect(result.fixedContent).not.toMatch(/^\s*[-*]{3,}\s*$/m);
     });
 
-    it("should flag and auto-fix full report bold density > 60", () => {
+    it("should warn but not auto-fix full report bold density > 60 (relaxed)", () => {
       const bolds = Array.from(
         { length: 65 },
         (_, i) => `**Bold term ${i}** text here.`,
@@ -389,7 +390,8 @@ describe("ReportQualityGateService", () => {
       );
       expect(violation).toBeDefined();
       expect(violation?.threshold).toBe(60);
-      expect(result.wasAutoFixed).toBe(true);
+      // Bold enforcement relaxed — no auto-fix
+      expect(result.fixedContent).toContain("**Bold term 0**");
     });
 
     it("should NOT flag bold when count <= 60", () => {

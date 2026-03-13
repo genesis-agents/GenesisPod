@@ -71,11 +71,11 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 
 对标来源：McKinsey 3-5 bold/页，Nature Reviews max 7 展示项/篇
 
-### 加粗（**bold**）
-- 每个子节（### 标题下）最多 2 处加粗
+### 加粗（**bold**）— 建议性指导，不作硬性约束
+- 建议每个子节（### 标题下）不超过 2 处加粗
 - 仅加粗核心判断性语句（如"开源模型已逼近闭源 90% 性能"）
-- 禁止加粗：单独的数字/百分比/倍数（如 ~~**68倍**~~、~~**25%**~~）
-- 禁止加粗：整句（超过 30 字的内容不应整体加粗）
+- 避免加粗：单独的数字/百分比/倍数（如 ~~**68倍**~~、~~**25%**~~）
+- 避免加粗：整句（超过 30 字的内容不应整体加粗）
 - 加粗文本应构成"扫描层"：读者仅看加粗内容即可获取核心论点
 
 ### 引用块（> blockquote）
@@ -122,10 +122,11 @@ export const ANALYSIS_DEPTH = `## 分析深度要求
  */
 export const CITATION_STANDARDS = `## 引用规范
 
-### 引用分布
+### 引用分布（硬性约束）
 - 每个子节应引用至少 2 个不同来源
-- 单一来源在全文中被引用不超过 5 次
-- 如发现某来源被反复使用，检查是否有替代来源
+- **单一来源在全文中被引用不超过 5 次**（硬性上限，违反将被标记为质量问题）
+- 如发现某来源被反复使用，必须寻找替代来源分散引用
+- 禁止同一来源在连续 3 个段落中反复出现
 
 ### 引用密度
 - 对标：学术综述 ~25 引用/千字，行业报告 ~10 引用/千字
@@ -276,10 +277,10 @@ export const PROFESSIONAL_TONE_EN = `## Writing Style Standards
 
 export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 
-### Bold (**bold**)
-- Max 2 bold items per sub-section (### heading)
+### Bold (**bold**) — Advisory guideline, not enforced
+- Suggest max 2 bold items per sub-section (### heading)
 - Only bold core judgment statements
-- Do NOT bold: standalone numbers/percentages, entire sentences (>30 words)
+- Avoid bolding: standalone numbers/percentages, entire sentences (>30 words)
 - Bold text should form a "scan layer": reader gets core points from bold alone
 
 ### Blockquotes (> blockquote)

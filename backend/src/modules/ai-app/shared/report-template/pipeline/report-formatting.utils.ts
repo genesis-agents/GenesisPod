@@ -561,8 +561,10 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/\*{2}字数统计\*{2}[：:]\s*[约共]?\d+字\s*/g, "")
       // Bare word count at line end: （当前字数: 1350）or [当前字数: 1350]
       .replace(/[（(【\[]?\s*当前字数\s*[：:]\s*\d+\s*[)）】\]]?/g, "")
-      // Standalone word count line: 字数：约1350字
-      .replace(/^\s*字数[：:]\s*[约共]?\d+[字词]?\s*$/gm, "")
+      // Standalone word count line: 字数：约1350字 / 字数统计：约1050字
+      .replace(/^\s*字数[统计]*[：:]\s*[约共]?\d+[字词]?\s*$/gm, "")
+      // Standalone 字数统计 line with extra text: 字数统计：约1050字（含引用）
+      .replace(/^[ \t]*字数统计[：:][^\n]*/gm, "")
       // Inline word count before closing paren: ...风险[49]。字数：128） → ...风险[49]）
       .replace(/[。.，,]?\s*字数[：:]\s*\d+(?=[)）])/g, "")
       // English variants
@@ -1622,11 +1624,14 @@ export function wrapBareInlineLatex(content: string): string {
         return line;
       }
 
-      // Only process lines with no existing $ delimiter (avoids double-wrapping)
-      if (line.includes("$")) return line;
-
       // Skip lines with no known LaTeX commands at all
       if (!CMD_DETECT_RE.test(line)) return line;
+
+      // ★ For lines WITH existing $ delimiters: only wrap bare LaTeX outside math spans
+      // For lines WITHOUT $: wrap all bare LaTeX spans
+      if (line.includes("$")) {
+        return wrapBareLatexOutsideMath(line, CMD_DETECT_RE, LATEX_SPAN_RE);
+      }
 
       // Find LaTeX spans and wrap each in $...$
       return line.replace(LATEX_SPAN_RE, (match) => {
@@ -1641,6 +1646,72 @@ export function wrapBareInlineLatex(content: string): string {
       });
     })
     .join("\n");
+}
+
+/**
+ * Wrap bare LaTeX commands on a line that already has $...$ math spans.
+ *
+ * Strategy: split line into "inside math" and "outside math" segments,
+ * only apply wrapping to the "outside" segments.
+ */
+function wrapBareLatexOutsideMath(
+  line: string,
+  cmdDetectRe: RegExp,
+  latexSpanRe: RegExp,
+): string {
+  // Split line into segments: [outside, inside, outside, inside, ...]
+  // Use a simple state machine to track $ delimiters (skip $$)
+  const segments: { text: string; isMath: boolean }[] = [];
+  let inMath = false;
+  let current = "";
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "$") {
+      // Skip $$ (display math — shouldn't appear mid-line, but be safe)
+      if (line[i + 1] === "$") {
+        current += "$$";
+        i++;
+        continue;
+      }
+      if (inMath) {
+        // Closing $
+        current += ch;
+        segments.push({ text: current, isMath: true });
+        current = "";
+        inMath = false;
+      } else {
+        // Opening $
+        if (current) segments.push({ text: current, isMath: false });
+        current = ch;
+        inMath = true;
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) segments.push({ text: current, isMath: inMath });
+
+  // Only wrap bare LaTeX in non-math segments
+  let changed = false;
+  const result = segments
+    .map((seg) => {
+      if (seg.isMath) return seg.text;
+      if (!cmdDetectRe.test(seg.text)) return seg.text;
+      const wrapped = seg.text.replace(latexSpanRe, (match) => {
+        const inner = match.trim();
+        if (inner.length < 3) return match;
+        if (!inner.includes("\\")) return match;
+        changed = true;
+        const leading = match.slice(0, match.length - match.trimStart().length);
+        const trailing = match.slice(match.trimEnd().length);
+        return `${leading}$${inner}$${trailing}`;
+      });
+      return wrapped;
+    })
+    .join("");
+
+  return changed ? result : line;
 }
 
 /**

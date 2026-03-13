@@ -2099,7 +2099,9 @@ export default function AskPage() {
                             <div className="prose prose-sm max-w-none">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm, remarkMath]}
-                                rehypePlugins={[rehypeKatex]}
+                                rehypePlugins={[
+                                  [rehypeKatex, { output: 'html' }],
+                                ]}
                                 components={{
                                   blockquote: CollapsibleBlockquote,
                                   code: CodeBlock as React.ComponentType<
@@ -2251,7 +2253,9 @@ export default function AskPage() {
                                 <div className="prose prose-sm max-w-none">
                                   <ReactMarkdown
                                     remarkPlugins={[remarkGfm, remarkMath]}
-                                    rehypePlugins={[rehypeKatex]}
+                                    rehypePlugins={[
+                                      [rehypeKatex, { output: 'html' }],
+                                    ]}
                                     components={{
                                       blockquote: CollapsibleBlockquote,
                                       code: CodeBlock as React.ComponentType<

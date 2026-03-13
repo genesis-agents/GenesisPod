@@ -43,7 +43,6 @@ import {
   stripCitationsFromHeadings,
   wrapBareDisplayMath,
   deduplicateTerminalSections,
-  stripChapterHighlights,
   cleanupEmptyBullets,
   normalizeInformalTerms,
   normalizeSourceLabels,
@@ -780,8 +779,7 @@ export class ReportAssemblerService {
     // Normalize inline $$...$$ to $...$
     content = normalizeInlineDoubleDollar(content);
 
-    // Strip 本章要点 blocks from continuous view (redundant with exec summary)
-    content = stripChapterHighlights(content);
+    // Keep 本章要点 blocks — they provide per-chapter navigation value
 
     // Re-number headings to close gaps from removed/collapsed headings
     content = renumberHeadings(content);

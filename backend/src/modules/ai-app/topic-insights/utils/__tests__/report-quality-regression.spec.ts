@@ -281,15 +281,16 @@ describe("Report Quality: Quality Gate Service", () => {
       expect(result.fixedContent).not.toMatch(/^---$/m);
     });
 
-    it("should auto-limit bold formatting when exceeding 20", () => {
+    it("should warn but not auto-fix bold formatting when exceeding 20 (relaxed)", () => {
       const bolds = Array.from({ length: 25 }, (_, i) => `**粗体${i}**`).join(
         "\n",
       );
       const content = bolds + "。".repeat(400);
       const result = gate.validateDimensionContent(content);
+      // Bold enforcement relaxed — content should remain unchanged
       const boldCount = (result.fixedContent.match(/\*\*[^*]+\*\*/g) || [])
         .length;
-      expect(boldCount).toBeLessThan(25);
+      expect(boldCount).toBe(25);
     });
 
     it("should flag content shorter than 800 chars", () => {
