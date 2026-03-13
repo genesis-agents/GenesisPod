@@ -605,16 +605,35 @@ export default function ToolsManagement() {
         return;
       }
 
-      // When switching to direct input, clear the secretKey reference first
+      // Clear secretKey reference when switching to direct input or unlinking
       if (tool.secretKey && secretKey === null) {
-        await fetch(`${config.apiUrl}/admin/ai/tools/${toolId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeader(),
-          },
-          body: JSON.stringify({ secretKey: null }),
-        });
+        const clearRes = await fetch(
+          `${config.apiUrl}/admin/ai/tools/${toolId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeader(),
+            },
+            body: JSON.stringify({ secretKey: null }),
+          }
+        );
+
+        // If apiKey is empty, this is an "unlink only" action — don't proceed to legacy endpoints
+        if (!apiKey) {
+          if (clearRes.ok) {
+            setMessage({
+              type: 'success',
+              text: t('admin.tools.saveSuccess', { name: tool.name }),
+            });
+            setConfiguringTool(null);
+            await loadConfigs();
+            setTimeout(() => setMessage(null), 3000);
+          } else {
+            setMessage({ type: 'error', text: t('admin.tools.saveFailed') });
+          }
+          return;
+        }
       }
 
       // Legacy config endpoints for direct API key
