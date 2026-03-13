@@ -716,7 +716,14 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
     mode = 'fresh',
     researchDepth
   ) => {
-    set({ isRefreshing: true, isLoadingMission: true, error: null });
+    // ★ Reset missionStatus to prevent showing stale progress from previous mission
+    set({
+      isRefreshing: true,
+      isLoadingMission: true,
+      error: null,
+      missionStatus: null,
+      refreshProgress: null,
+    });
     try {
       const mission = await api.leaderPlan(topicId, {
         userPrompt,
