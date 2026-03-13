@@ -3700,7 +3700,8 @@
         "freeQuota": "免费额度",
         "pricing": "定价",
         "cancel": "取消",
-        "save": "保存"
+        "save": "保存",
+        "unlinkKey": "解除绑定"
       },
       "tabs": {
         "builtin": "内置工具",

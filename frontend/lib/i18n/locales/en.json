@@ -3700,7 +3700,8 @@
         "freeQuota": "Free quota",
         "pricing": "Pricing",
         "cancel": "Cancel",
-        "save": "Save"
+        "save": "Save",
+        "unlinkKey": "Unlink Key"
       },
       "tabs": {
         "builtin": "Built-in Tools",

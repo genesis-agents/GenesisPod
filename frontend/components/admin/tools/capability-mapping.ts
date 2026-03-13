@@ -478,10 +478,10 @@ export const PROVIDER_TO_TOOL_ID: Record<string, string> = {
   // Audio Generation
   elevenlabs: 'audio-generation',
   googleTts: 'audio-generation',
-  // Image Search providers → image-search aggregator tool
-  'serpapi-image-search': 'image-search',
-  'bing-image-search': 'image-search',
-  'google-image-search': 'image-search',
+  // Image Search providers — each has its own API key, no aggregator sync
+  'serpapi-image-search': 'serpapi-image-search',
+  'bing-image-search': 'bing-image-search',
+  'google-image-search': 'google-image-search',
 };
 
 /**
