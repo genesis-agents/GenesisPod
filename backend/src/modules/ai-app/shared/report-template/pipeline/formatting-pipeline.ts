@@ -26,6 +26,7 @@ import {
   stripLeakedHtmlComments,
   stripInternalFigureNotation,
   normalizeArrowNotation,
+  fixArrowChains,
   deduplicateAdjacentCitations,
   deduplicateParagraphs,
   truncateAtSentenceBoundary,
@@ -52,6 +53,7 @@ import {
   repairBrokenBoldMarkers,
   stripFigureComments,
   wrapBareInlineLatex,
+  wrapProseStyleMath,
   escapeLatexPipeInTables,
   normalizeInlineDoubleDollar,
   normalizeChapterToSection,
@@ -129,6 +131,7 @@ export function formatDimensionContent(
   processed = stripLeakedHtmlComments(processed);
   processed = stripInternalFigureNotation(processed);
   processed = normalizeArrowNotation(processed);
+  processed = fixArrowChains(processed);
   processed = deduplicateAdjacentCitations(processed);
 
   // ── Phase 4: Context-dependent operations ────────────────────────────
@@ -175,6 +178,7 @@ export function formatDimensionContent(
   // when no charts data is available for a given chapter.
   processed = escapeLatexPipeInTables(processed);
   processed = normalizeInlineDoubleDollar(processed);
+  processed = wrapProseStyleMath(processed);
   processed = wrapBareInlineLatex(processed);
   processed = fixUnbalancedLatexDelimiters(processed);
   processed = removeOrphanedFigureReferences(processed);

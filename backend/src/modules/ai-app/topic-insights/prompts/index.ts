@@ -6,16 +6,21 @@
 
 export {
   HEADING_HIERARCHY,
+  NARRATIVE_STRUCTURE,
   PROFESSIONAL_TONE,
   FORMATTING_LIMITS,
   ANALYSIS_DEPTH,
   CITATION_STANDARDS,
   CHART_STANDARDS,
+  TABLE_STANDARDS,
   CHAPTER_HIGHLIGHTS,
   EXECUTIVE_SUMMARY_FORMAT,
   SYNTHESIS_FORMATTING,
+  QUALITY_CHECKLIST,
   getWritingStandards,
   getExecutiveSummaryFormat,
+  getDimensionResearchStandards,
+  getQualityChecklist,
 } from "@/modules/ai-app/shared/report-template";
 
 export {

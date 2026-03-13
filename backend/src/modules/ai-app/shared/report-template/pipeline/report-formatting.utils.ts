@@ -544,6 +544,7 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/（精简字数[^）]*）/g, "")
       .replace(/（原\d+[^）]*）/g, "")
       .replace(/（[约共]\d+字）/g, "")
+      .replace(/（总字数[约共]?\d+字）/g, "")
       .replace(/（\d+字）/g, "")
       .replace(/[（(]字数[：:]?\s*[约共]?\d+[字词][)）]/g, "")
       .replace(/[（(]当前字数[：:]?\s*\d+[)）]/g, "")
@@ -1591,6 +1592,90 @@ export function wrapBareDisplayMath(content: string): string {
  * Only targets lines with NO existing `$` delimiter (simplest, lowest risk).
  * Lines that already use `$` are left untouched to avoid double-wrapping.
  */
+/**
+ * Wrap prose-style math notation that uses subscripts, superscripts, or
+ * known function names WITHOUT backslash prefixes.
+ *
+ * Targets patterns like:
+ *   W_1, PE_{(pos,2i)}, head_i, QW_i^Q, d_{model}
+ *   sin(x), cos(θ), log(n), FFN(x)
+ *   Attention(Q,K,V)
+ *
+ * These are NOT LaTeX commands (no backslash) but are mathematical
+ * notation that should be rendered as inline math.
+ */
+export function wrapProseStyleMath(content: string): string {
+  // ── Pattern 1: variable with subscript/superscript ──
+  // Matches: W_1, W_{model}, PE_{(pos,2i)}, head_i, QW_i^Q, d_k, b_1
+  // Must start with a letter, contain _ or ^, and have alphanumeric/brace content
+  const SUBSCRIPT_RE =
+    /(?<![$\\a-zA-Z])([A-Za-z][A-Za-z]*(?:_(?:\{[^}]+\}|[A-Za-z0-9]))+(?:\^(?:\{[^}]+\}|[A-Za-z0-9]))*)(?![a-zA-Z$])/g;
+
+  // ── Pattern 2: prose function calls like sin(x), cos(θ), log(n) ──
+  // Only match when NOT preceded by \ (which wrapBareInlineLatex handles)
+  const PROSE_FUNC_RE =
+    /(?<![$\\a-zA-Z])((?:sin|cos|tan|log|ln|exp|max|min|lim|inf|sup|softmax|Attention|Concat|FFN|ReLU|GELU|sigmoid|tanh)\s*\([^)]{1,80}\))(?![$])/g;
+
+  // ── Pattern 3: expressions with = containing subscripts/superscripts ──
+  // Like: PE_{(pos,2i)}=sin(pos/10000^{2i/d_{model}})
+  // This catches full equations in prose math style
+  const EQUATION_RE =
+    /(?<![$])([A-Za-z][A-Za-z_{}0-9,()]*(?:_\{[^}]+\}|_[a-z0-9])[^=]*=[^，。；\n]{3,80})(?![$])/g;
+
+  return content
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      // Skip display math, code blocks, headings, table rows, lines already having $
+      if (
+        trimmed.startsWith("$$") ||
+        trimmed.startsWith("```") ||
+        /^#{1,6}\s/.test(trimmed) ||
+        trimmed.startsWith("|") ||
+        trimmed.startsWith("> ")
+      ) {
+        return line;
+      }
+
+      // Skip lines with no math-like content at all
+      if (
+        !/_[{a-z0-9]|\^[{a-z0-9]/i.test(line) &&
+        !/(?:sin|cos|log|FFN|softmax|Attention)\s*\(/i.test(line)
+      ) {
+        return line;
+      }
+
+      // Apply pattern 3 first (equations), then 2 (functions), then 1 (subscripts)
+      // Only wrap if not already inside $...$
+      let result = line;
+
+      // Wrap full equations
+      result = result.replace(EQUATION_RE, (match, expr: string) => {
+        // Skip if already inside $ context
+        const before = result.slice(0, result.indexOf(match));
+        const dollarsBefore = (before.match(/\$/g) || []).length;
+        if (dollarsBefore % 2 !== 0) return match; // inside existing math
+        return `$${expr}$`;
+      });
+
+      // Wrap prose function calls (only if not already wrapped)
+      result = result.replace(PROSE_FUNC_RE, (match, expr: string) => {
+        if (result.includes(`$${expr}$`)) return match; // already wrapped by equation
+        return `$${expr}$`;
+      });
+
+      // Wrap standalone subscript/superscript variables
+      result = result.replace(SUBSCRIPT_RE, (match, expr: string) => {
+        if (result.includes(`$${expr}`) || result.includes(`${expr}$`))
+          return match;
+        return `$${expr}$`;
+      });
+
+      return result;
+    })
+    .join("\n");
+}
+
 export function wrapBareInlineLatex(content: string): string {
   const KNOWN_CMDS =
     "mathbb|mathcal|mathrm|mathbf|mathit|frac|sqrt|text|sum|prod|int|lim|inf|sup|max|min|log|ln|exp|sin|cos|tan|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|left|right|times|cdot|leq|geq|neq|approx|equiv|subset|supset|subseteq|supseteq|cap|cup|forall|exists|in|notin|top|bot|nabla|partial|infty|dots|ldots|cdots|quad|qquad|mid|vert|Vert|hat|bar|vec|tilde|overline|underline|oplus|otimes|circ|bullet|dagger|ddagger|angle|perp|parallel|sim|simeq|cong|propto|asymp|ll|gg|prec|succ|vee|wedge|neg|not|pm|mp|div|ast|star|begin|end|operatorname|underbrace|overbrace|limits|nolimits";
@@ -3378,10 +3463,21 @@ export function normalizeInlineDoubleDollar(content: string): string {
       }
 
       // Convert inline $$...$$ to $...$
-      // Match $$ that is NOT at start-of-line and has non-whitespace before/after
-      return line.replace(
-        /(?<=\S)\$\$([^$]+?)\$\$(?=\S|[，。；：、！？])/g,
-        (_, inner: string) => `$${inner}$`,
+      // Match $$ that is NOT at start-of-line (has content before it)
+      return (
+        line
+          .replace(
+            /(?<=\S)\$\$([^$]+?)\$\$(?=\S|[，。；：、！？])/g,
+            (_, inner: string) => `$${inner}$`,
+          )
+          // Also handle $$ with space before it (e.g. "O(n $$\log n)")
+          .replace(
+            /(?<=\S\s)\$\$([^$]+?)\$\$(?=[\S，。；：、！？)\]）】])/g,
+            (_, inner: string) => `$${inner}$`,
+          )
+          // Orphan $$ mid-line with no closing $$ — strip the extra $
+          // Handles: "O(n $$\log n)" → "O(n $\log n)"
+          .replace(/(?<=\S)\$\$(?=\\[a-zA-Z])/g, "$")
       );
     })
     .join("\n");

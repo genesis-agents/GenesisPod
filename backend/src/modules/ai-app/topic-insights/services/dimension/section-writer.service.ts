@@ -27,7 +27,10 @@ import {
   renderPromptTemplate,
   getLanguageInstruction,
 } from "../../prompts/dimension-research.prompt";
-import { getWritingStandards } from "@/modules/ai-app/shared/report-template";
+import {
+  getWritingStandards,
+  getDimensionResearchStandards,
+} from "@/modules/ai-app/shared/report-template";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import type {
   EvidenceData,
@@ -295,6 +298,9 @@ export class SectionWriterService {
     const systemPrompt = renderPromptTemplate(SECTION_WRITING_SYSTEM_PROMPT, {
       languageInstruction,
       writingStandards: getWritingStandards(input.topicLanguage || "zh"),
+      researchStandards: getDimensionResearchStandards(
+        input.topicLanguage || "zh",
+      ),
     });
 
     const isReasoningModel = inferIsReasoning(modelId ?? "");
@@ -383,14 +389,12 @@ export class SectionWriterService {
         `fullEvidenceData=${input.fullEvidenceData?.length ?? "N/A"}`,
     );
 
-    if (
-      figureRefsToBackfill.length === 0 &&
-      remappedAllocatedFigures &&
-      remappedAllocatedFigures.length > 0
-    ) {
-      // ★ 使用 fullEvidenceData（未过滤）回填 allocatedFigures 缺失的 imageUrl
-      // Leader LLM 经常不输出 imageUrl，需要从原始证据中根据原始 evidenceIndex 查找
-      // 注意：这里用 input.allocatedFigures（原始索引）查找 fullEvidenceData
+    // ★ v8: 补充模式 — LLM 输出的 figureReferences 保留，未被 LLM 提及的 allocatedFigures 自动补充
+    // 旧逻辑：只在 LLM 输出 0 个 figureReferences 时才使用 allocatedFigures（fallback-only）
+    // 问题：LLM 哪怕只输出 1 个 figureReference，其余 Leader 分配的图片全部丢失
+    // 新逻辑：始终将 LLM 未提及的 allocatedFigures 追加到 figureRefsToBackfill
+    if (remappedAllocatedFigures && remappedAllocatedFigures.length > 0) {
+      // 回填 allocatedFigures 缺失的 imageUrl（从 fullEvidenceData 中查找）
       const figSourceData = input.fullEvidenceData || evidenceData;
       for (let fi = 0; fi < remappedAllocatedFigures.length; fi++) {
         const remapped = remappedAllocatedFigures[fi];
@@ -414,16 +418,24 @@ export class SectionWriterService {
         }
       }
 
-      // ★ allocatedFigures 已经过 validateAllocatedFigures 相关性校验，
-      // 这里只检查 imageUrl 是否存在，不再做冗余的关键词匹配过滤。
+      // 诊断日志
       for (const fig of remappedAllocatedFigures) {
         this.logger.log(
           `[writeSection] allocatedFig[${fig.evidenceIndex}:${fig.figureIndex}]: imageUrl=${fig.imageUrl ? `"${fig.imageUrl.substring(0, 60)}..."` : "EMPTY"}, caption="${(fig.caption || "").substring(0, 50)}", reason="${(fig.relevanceReason || "").substring(0, 50)}"`,
         );
       }
 
-      figureRefsToBackfill = remappedAllocatedFigures
+      // 找出 LLM 已提及的 allocated figure keys（通过 evidenceCitationIndex:figureIndex 匹配）
+      const llmMentionedKeys = new Set<string>();
+      for (const ref of figureRefsToBackfill) {
+        llmMentionedKeys.add(`${ref.evidenceCitationIndex}:${ref.figureIndex}`);
+      }
+
+      // 将 LLM 未提及的 allocatedFigures 追加
+      const supplementFigures = remappedAllocatedFigures
         .filter((fig) => {
+          const key = `${fig.evidenceIndex}:${fig.figureIndex}`;
+          if (llmMentionedKeys.has(key)) return false; // LLM 已引用，不重复
           if (!fig.imageUrl) {
             this.logger.warn(
               `[writeSection] Dropping fig[${fig.evidenceIndex}:${fig.figureIndex}] — no imageUrl`,
@@ -433,9 +445,8 @@ export class SectionWriterService {
           return true;
         })
         .map((fig, idx) => {
-          // ★ Build descriptive Source text from evidence metadata (use filtered evidence by remapped index)
+          // Build descriptive Source text from evidence metadata
           const evidenceItem = evidenceData[fig.evidenceIndex - 1];
-          // Fallback chain: evidence title → evidence domain → domain from imageUrl → citation index
           let sourceText = "";
           if (evidenceItem) {
             sourceText =
@@ -453,7 +464,7 @@ export class SectionWriterService {
           }
           return {
             id: `auto-fig-${idx}`,
-            evidenceCitationIndex: fig.evidenceIndex, // ★ 使用重映射后的索引
+            evidenceCitationIndex: fig.evidenceIndex,
             figureIndex: fig.figureIndex,
             imageUrl: fig.imageUrl,
             caption: fig.caption || "",
@@ -462,13 +473,11 @@ export class SectionWriterService {
             relevance: fig.relevanceReason || "",
           };
         });
-      if (figureRefsToBackfill.length > 0) {
+
+      if (supplementFigures.length > 0) {
+        figureRefsToBackfill = [...figureRefsToBackfill, ...supplementFigures];
         this.logger.log(
-          `[writeSection] Auto-injected ${figureRefsToBackfill.length}/${remappedAllocatedFigures.length} figures from allocatedFigures (LLM did not output figureReferences)`,
-        );
-      } else if (remappedAllocatedFigures.length > 0) {
-        this.logger.warn(
-          `[writeSection] All ${remappedAllocatedFigures.length} allocatedFigures dropped (no imageUrl after backfill)`,
+          `[writeSection] Supplemented ${supplementFigures.length} unmentioned allocated figures (LLM output ${charts.figureReferences.length}, total now ${figureRefsToBackfill.length})`,
         );
       }
     }
@@ -1293,6 +1302,10 @@ export class SectionWriterService {
         if (!ref.caption) {
           ref.caption = allocated.caption;
         }
+        // ★ Backfill evidenceCitationIndex from allocated figure if missing
+        if (!ref.evidenceCitationIndex && allocated.evidenceIndex) {
+          ref.evidenceCitationIndex = allocated.evidenceIndex;
+        }
       }
 
       // Level 2: 从原始 evidenceData.extractedFigures 回填（当 Level 1 没匹配到时）
@@ -1320,6 +1333,10 @@ export class SectionWriterService {
             ref.imageUrl = fig.imageUrl;
             if (!ref.caption) {
               ref.caption = fig.caption;
+            }
+            // ★ Backfill evidenceCitationIndex from allocated figure
+            if (!ref.evidenceCitationIndex && fig.evidenceIndex) {
+              ref.evidenceCitationIndex = fig.evidenceIndex;
             }
             usedAllocatedKeys.add(figKey);
             backfilled++;

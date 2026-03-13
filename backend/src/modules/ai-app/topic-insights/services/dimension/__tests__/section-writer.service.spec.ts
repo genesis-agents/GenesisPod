@@ -520,6 +520,74 @@ describe("SectionWriterService", () => {
 
       expect(mockAiFacade.chatWithSkills).toHaveBeenCalled();
     });
+
+    it("should include writing standards in system prompt", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+        tokensUsed: 300,
+      });
+
+      await service.writeSection({
+        section: makeSection(),
+        evidenceData: [],
+      });
+
+      const callArgs = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find(
+        (m: { role: string }) => m.role === "system",
+      );
+      expect(systemMessage).toBeDefined();
+      expect(systemMessage.content).toContain("标题层级规范");
+      expect(systemMessage.content).toContain("叙事结构规范");
+    });
+
+    it("should include research standards (analysis depth, citations, charts, tables) in system prompt", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+        tokensUsed: 300,
+      });
+
+      await service.writeSection({
+        section: makeSection(),
+        evidenceData: [],
+      });
+
+      const callArgs = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find(
+        (m: { role: string }) => m.role === "system",
+      );
+      expect(systemMessage.content).toContain("分析深度要求");
+      expect(systemMessage.content).toContain("引用规范");
+      expect(systemMessage.content).toContain("图表规范");
+      expect(systemMessage.content).toContain("表格规范");
+    });
+
+    it("should use English standards when topicLanguage is en", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValueOnce({
+        content: validContent,
+        model: "gpt-4o",
+        isError: false,
+        tokensUsed: 300,
+      });
+
+      await service.writeSection({
+        section: makeSection(),
+        evidenceData: [],
+        topicLanguage: "en",
+      });
+
+      const callArgs = mockAiFacade.chatWithSkills.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find(
+        (m: { role: string }) => m.role === "system",
+      );
+      expect(systemMessage.content).toContain("Heading Hierarchy");
+      expect(systemMessage.content).toContain("Analysis Depth");
+      expect(systemMessage.content).toContain("Table Standards");
+    });
   });
 
   // ============================================================

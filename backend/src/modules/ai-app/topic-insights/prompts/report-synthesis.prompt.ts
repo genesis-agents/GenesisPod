@@ -16,6 +16,10 @@ import {
   PROFESSIONAL_TONE_EN,
   HEADING_HIERARCHY,
   HEADING_HIERARCHY_EN,
+  NARRATIVE_STRUCTURE,
+  NARRATIVE_STRUCTURE_EN,
+  TABLE_STANDARDS,
+  TABLE_STANDARDS_EN,
   getExecutiveSummaryFormat,
 } from "@/modules/ai-app/shared/report-template";
 import {
@@ -103,7 +107,11 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
 
 {{headingHierarchy}}
 
+{{narrativeStructure}}
+
 {{professionalTone}}
+
+{{tableStandards}}
 
 {{executiveSummaryFormat}}
 
@@ -441,7 +449,9 @@ export function renderSynthesisSystemPrompt(language: string): string {
   return renderPromptTemplate(REPORT_SYNTHESIS_SYSTEM_PROMPT, {
     languageInstruction: getLanguageInstruction(language),
     headingHierarchy: isEn ? HEADING_HIERARCHY_EN : HEADING_HIERARCHY,
+    narrativeStructure: isEn ? NARRATIVE_STRUCTURE_EN : NARRATIVE_STRUCTURE,
     professionalTone: isEn ? PROFESSIONAL_TONE_EN : PROFESSIONAL_TONE,
+    tableStandards: isEn ? TABLE_STANDARDS_EN : TABLE_STANDARDS,
     executiveSummaryFormat: getExecutiveSummaryFormat(language),
   });
 }
