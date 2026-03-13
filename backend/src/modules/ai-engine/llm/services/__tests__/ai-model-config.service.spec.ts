@@ -160,7 +160,6 @@ describe("AiModelConfigService", () => {
       // Assert
       expect(prismaService.aIModel.findMany).toHaveBeenCalledWith({
         where: {
-          modelType: { in: ["CHAT", "CHAT_FAST"] },
           isEnabled: true,
         },
       });
@@ -258,7 +257,6 @@ describe("AiModelConfigService", () => {
             { modelId: { equals: "gemini-2.0-flash", mode: "insensitive" } },
             { name: { equals: "gemini-2.0-flash", mode: "insensitive" } },
           ],
-          modelType: { in: ["CHAT", "CHAT_FAST"] },
           isEnabled: true,
         },
       });

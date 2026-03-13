@@ -404,9 +404,9 @@ export class AiModelConfigService {
    */
   async refreshModelConfigCache(): Promise<void> {
     try {
+      // ★ 加载所有启用模型（不限类型），确保 MULTIMODAL/CODE 等类型的模型也能被 getModelConfig 找到
       const models = await this.prisma.aIModel.findMany({
         where: {
-          modelType: { in: ["CHAT", "CHAT_FAST"] },
           isEnabled: true,
         },
       });
@@ -424,7 +424,7 @@ export class AiModelConfigService {
 
       this.modelConfigCacheTime = Date.now();
       this.logger.log(
-        `[refreshModelConfigCache] Loaded ${models.length} CHAT/CHAT_FAST models from database`,
+        `[refreshModelConfigCache] Loaded ${models.length} enabled models from database`,
       );
     } catch (error) {
       this.logger.error(`[refreshModelConfigCache] Failed: ${error}`);
@@ -499,7 +499,7 @@ export class AiModelConfigService {
     }
 
     // 3. 直接从数据库精确查询（同时支持 modelId 和 name 字段）
-    // ★ 必须同时查询 CHAT 和 CHAT_FAST，否则快速模型无法使用工具调用
+    // ★ 不限 modelType — getModelConfig 的职责是按 ID 查配置，类型过滤由调用方负责
     try {
       const model = await this.prisma.aIModel.findFirst({
         where: {
@@ -507,7 +507,6 @@ export class AiModelConfigService {
             { modelId: { equals: normalizedModelId, mode: "insensitive" } },
             { name: { equals: normalizedModelId, mode: "insensitive" } },
           ],
-          modelType: { in: ["CHAT", "CHAT_FAST"] },
           isEnabled: true,
         },
       });
@@ -530,10 +529,8 @@ export class AiModelConfigService {
     }
 
     // 4. ★ BYOK: 查找 disabled 模型（用户有对应 provider 的 Key 时可用）
-    const disabledConfig = await this.findDisabledModelForUser(
-      normalizedModelId,
-      ["CHAT", "CHAT_FAST"],
-    );
+    const disabledConfig =
+      await this.findDisabledModelForUser(normalizedModelId);
     if (disabledConfig) return disabledConfig;
 
     return null;
