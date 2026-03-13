@@ -594,6 +594,22 @@ export function stripLLMMetaNotes(content: string): string {
         "",
       )
       .replace(/(?:根据|按照|基于)\s*题设[，,]?\s*/g, "")
+      // "给定题设中的..." / "题设中的..." — "题设" with "中的" connector
+      // Only remove the "题设" prefix, preserving the noun that follows
+      .replace(/(?:给定)?题设中的/g, "")
+      // ── 主观第一人称表达 — 研究报告应使用客观叙述 ──
+      // "我们认为" → "分析表明" / "我们判断" → "判断" etc.
+      .replace(/我们认为[，,]?\s*/g, "")
+      .replace(/我们判断[，,]?\s*/g, "")
+      .replace(/我们预测[，,]?\s*/g, "")
+      .replace(/我们建议[，,]?\s*/g, "")
+      .replace(/我们观察到[，,]?\s*/g, "")
+      .replace(/我们注意到[，,]?\s*/g, "")
+      // ── 孤立的 "引用：" 标签 ──
+      .replace(/^\s*引用[：:]\s*$/gm, "")
+      // ── "[N 等M项]" 证据压缩格式泄露 ──
+      // e.g. "[1 等5项]", "[50 等3项]", "[数据 等5项]"
+      .replace(/\[[^\]]{1,10}\s*等\d+项\]/g, "")
       // "前置章节/前文/上文" 交叉引用 — 章节间不能有内部引用
       .replace(
         /(?:如|正如)?前置章节\s*(?:所述|提到|分析|讨论|指出|显示|表明|中)?[，,]?\s*/g,
@@ -682,6 +698,13 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/^\s*\.(?:avif|webp|png|jpg|jpeg|gif|svg)\)\s*$/gm, "")
       // ── 孤立的 fenced code block 标记（LLM 有时泄漏 ```json / ``` 而不包含代码内容）──
       .replace(/^```(?:json|markdown|md|text|plain)?\s*$/gm, "")
+      // ── 截断的"年"开头标题修复 ──
+      // LLM 有时输出 "年视角下的..." / "年技术路线..." 作为独立标题（年份被截断）
+      // Prepend current year dynamically
+      .replace(
+        /^(#{0,4}\s*)年(视角|技术路线|趋势|展望|演进|发展方向|模型|大模型)/gm,
+        `$1${new Date().getFullYear()}年$2`,
+      )
       // ── 清理多余空行 ──
       .replace(/\n{3,}/g, "\n\n")
       // ── LLM 章节元注释（引用分布统计等内部备注） ──
@@ -1041,6 +1064,22 @@ export function stripInternalFigureNotation(content: string): string {
       .replace(/图\d+:\d+[^\n]{0,50}/g, "")
       // "来源: 证据 [N]" / "来源：证据[N]" — source labels handled by FigureRenderer
       .replace(/^[ \t]*来源[：:]\s*证据\s*\[\d+\]\s*$/gm, "")
+
+      // ── "Source:证据[N] 分配图片[N]" — combined internal source + allocation metadata ──
+      // e.g. "Source:证据[2] 分配图片[262]" or "Source: 证据 [5] 分配图片 [100]"
+      .replace(
+        /^[ \t]*Source\s*[：:]\s*证据\s*\[[\d,\s]+\]\s*分配图片\s*\[\d+\]\s*$/gm,
+        "",
+      )
+
+      // ── "已分配图片/已分配的" — internal allocation language in prose ──
+      // Only match when followed by figure/chart context words to avoid false positives
+      // e.g. "已分配图片所示的..." or "已分配的架构图显示"
+      .replace(/已分配图片(?:所示的?)?/g, "")
+      .replace(/已分配的(?:架构图|示意图|图表?|图片|流程图)/g, "")
+
+      // ── "分配图片[N]" — standalone allocation metadata ──
+      .replace(/分配图片\s*\[\d+\]/g, "")
 
       // ── Clean up resulting artifacts ──
       // Double punctuation from removed notation
@@ -3517,7 +3556,9 @@ export function normalizeInlineDoubleDollar(content: string): string {
           )
           // Orphan $$ mid-line with no closing $$ — strip the extra $
           // Handles: "O(n $$\log n)" → "O(n $\log n)"
+          // Also: "a $$\log(C)" → "a $\log(C)"
           .replace(/(?<=\S)\$\$(?=\\[a-zA-Z])/g, "$")
+          .replace(/(?<=\S\s)\$\$(?=\\[a-zA-Z])/g, "$")
       );
     })
     .join("\n");

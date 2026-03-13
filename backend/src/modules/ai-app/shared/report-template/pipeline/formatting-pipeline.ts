@@ -182,6 +182,8 @@ export function formatDimensionContent(
   processed = wrapBareInlineLatex(processed);
   processed = fixUnbalancedLatexDelimiters(processed);
   processed = removeOrphanedFigureReferences(processed);
+  // Reference-style markdown images: ![alt][figure:N] — internal figure refs
+  processed = processed.replace(/!\[[^\]]*\]\[[^\]]*\]/g, "");
 
   // ── Phase 6: Final cleanup ───────────────────────────────────────────
   processed = processed.replace(/\n{3,}/g, "\n\n");

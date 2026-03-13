@@ -11,18 +11,33 @@
 
 /**
  * Strip chart JSON blocks that were not properly separated by parseChartOutput.
- * Handles patterns like: ---CHARTS--- {...}, CHARTS--- {...}, or ---CHARTS {...}
- * ★ Requires at least one side to have dashes (prevents false positives)
+ * Handles patterns like: ---CHARTS--- {...}, CHARTS--- {...}, ---CHARTS {...},
+ * or bare "CHARTS" followed by JSON array/object on next line.
+ * ★ Also strips "Figure References" metadata sections.
  */
 export function stripChartJsonFromContent(content: string): string {
+  // ★ Strip "Figure References" metadata sections (LLM leaks internal figure allocation data)
+  // Pattern: "Figure References" header followed by non-empty lines until first blank line or heading.
+  // Each continuation line must be non-empty and NOT a heading.
+  let result = content.replace(
+    /(?:^|\n)\s*\*{0,2}Figure\s*References\*{0,2}\s*\n(?:(?!#{1,6}\s)[^\n]+\n)*/gim,
+    "\n",
+  );
+
+  // ★ Handle bare "CHARTS" (no dashes) followed by JSON array on next line
+  // Pattern: standalone "CHARTS" line + "[" on next line + JSON content + "]"
+  result = result.replace(
+    /(?:^|\n)\s*CHARTS\s*\n\s*\[[\s\S]*?\n\s*\]\s*(?:\n|$)/gi,
+    "\n",
+  );
+
   // Find all CHARTS separator occurrences - require at least one side to have dash
   const separatorPattern = /(?:-+\s*CHARTS\s*-*|CHARTS\s*-+)/gi;
   let match: RegExpExecArray | null;
-  let result = content;
 
   // Process from last occurrence to first (to preserve indices)
   const matches: { index: number; length: number }[] = [];
-  while ((match = separatorPattern.exec(content)) !== null) {
+  while ((match = separatorPattern.exec(result)) !== null) {
     matches.push({ index: match.index, length: match[0].length });
   }
 

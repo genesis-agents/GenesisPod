@@ -73,6 +73,17 @@ export class ReportQualityGateService {
     let fixedContent = content ?? "";
     let wasAutoFixed = false;
 
+    // ★ Pre-compute subjective expression count BEFORE auto-fix strips them
+    const preFixSubjectivePatterns =
+      targetLanguage === "zh" ||
+      targetLanguage === "zh-CN" ||
+      targetLanguage === "zh-TW"
+        ? /我们(认为|判断|看到|发现|相信|预测|观察到|注意到)/g
+        : /\b(we believe|we think|we find|we observe|we predict|in our view|in our opinion)\b/gi;
+    const preFixSubjectiveCount = (
+      fixedContent.match(preFixSubjectivePatterns) || []
+    ).length;
+
     // ========== 可自动修复的规则 ==========
 
     // 1. 标题层级检查 + 自动修复
@@ -194,8 +205,11 @@ export class ReportQualityGateService {
     }
 
     // 4.9 内联 Markdown 图片清理（AI 生成的外部 URL 通常 404）
+    // ★ Also handle reference-style images: ![alt][figure:N] / ![alt][ref]
     const beforeImages = fixedContent;
-    fixedContent = fixedContent.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
+    fixedContent = fixedContent
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
+      .replace(/!\[([^\]]*)\]\[[^\]]+\]/g, "");
     if (fixedContent !== beforeImages) {
       violations.push({
         rule: "inline_images",
@@ -296,14 +310,9 @@ export class ReportQualityGateService {
     }
 
     // 8. "我们认为" 类主观表达过多
-    const subjectivePatterns =
-      targetLanguage === "zh" ||
-      targetLanguage === "zh-CN" ||
-      targetLanguage === "zh-TW"
-        ? /我们(认为|判断|看到|发现|相信|预测|观察到|注意到)/g
-        : /\b(we believe|we think|we find|we observe|we predict|in our view|in our opinion)\b/gi;
-    const subjectiveCount = (fixedContent.match(subjectivePatterns) || [])
-      .length;
+    // ★ Use pre-computed count (before stripLLMMetaNotes auto-removed them)
+    // This ensures detection still works even though the expressions are auto-cleaned
+    const subjectiveCount = preFixSubjectiveCount;
     if (subjectiveCount > 3) {
       violations.push({
         rule: "subjective_expression",
