@@ -216,11 +216,9 @@ export interface AgentSectionConfig {
  * Leader 预分配给章节的图表
  */
 export interface AllocatedFigure {
-  /** 证据编号 [1], [2]... */
-  evidenceIndex: number;
-  /** 该证据中图表索引 */
-  figureIndex: number;
-  /** 图片 URL */
+  /** 图表唯一 ID（如 FIG-1），从可用图表列表中选择 */
+  figureId: string;
+  /** 图片 URL — 由系统从 figureRegistry 回填，LLM 不输出此字段 */
   imageUrl: string;
   /** 图表标题/说明 */
   caption: string;

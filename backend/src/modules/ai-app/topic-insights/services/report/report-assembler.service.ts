@@ -924,19 +924,39 @@ export class ReportAssemblerService {
     let result = content;
     const dimPrefix = `d${dimIndex}-`;
 
-    // 1. Convert <!-- figure:N:M --> placeholders to <!-- chart:chartId -->
+    // 1. Convert <!-- figure:... --> placeholders to <!-- chart:chartId -->
     // Filter out garbage figure URLs (QR codes, logos, icons) before resolving
     const validFigureReferences = figureReferences?.filter(
       (r) => !this.isGarbageFigureUrl(r.imageUrl),
     );
 
     if (validFigureReferences && validFigureReferences.length > 0) {
-      const existingPlaceholders = (
+      // Check for new-format placeholders: <!-- figure:FIG-N -->
+      const newFormatPlaceholders = (
+        result.match(/<!--\s*figure:(FIG-\d+)\s*-->/g) ?? []
+      ).length;
+
+      // Check for old-format placeholders: <!-- figure:N:M -->
+      const oldFormatPlaceholders = (
         result.match(/<!--\s*figure:\d+:\d+\s*-->/g) ?? []
       ).length;
 
-      if (existingPlaceholders > 0) {
-        // Normal path: AI wrote <!-- figure:N:M --> placeholders — resolve them
+      const existingPlaceholders =
+        newFormatPlaceholders + oldFormatPlaceholders;
+
+      if (newFormatPlaceholders > 0) {
+        // New path: AI wrote <!-- figure:FIG-N --> placeholders — resolve by figureId
+        result = result.replace(
+          /<!--\s*figure:(FIG-\d+)\s*-->/g,
+          (_match, figId) => {
+            const ref = validFigureReferences.find((r) => r.figureId === figId);
+            return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
+          },
+        );
+      }
+
+      if (oldFormatPlaceholders > 0) {
+        // Legacy path: AI wrote <!-- figure:N:M --> placeholders — resolve by evidenceCitationIndex
         result = result.replace(
           /<!--\s*figure:(\d+):(\d+)\s*-->/g,
           (_match, evidenceIdx, figIdx) => {
@@ -948,8 +968,10 @@ export class ReportAssemblerService {
             return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
           },
         );
-      } else {
-        // Fallback path: AI did NOT write any <!-- figure:N:M --> placeholders.
+      }
+
+      if (existingPlaceholders === 0) {
+        // Fallback path: AI did NOT write any placeholders.
         // Inject <!-- chart:ID --> directly into the content based on the
         // position hints stored in each figureReference.position ("after_paragraph_N").
         this.logger.debug(
@@ -967,6 +989,8 @@ export class ReportAssemblerService {
     // 2. Skip generatedCharts injection (v4: AI-fabricated charts disabled)
 
     // 3. Strip unresolved figure placeholders (no matching figureReference found)
+    // Handle both new format (FIG-N) and old format (N:M) for backward compat
+    result = result.replace(/<!--\s*figure:(FIG-\d+)\s*-->/g, "");
     result = result.replace(/<!--\s*figure:\d+:\d+\s*-->/g, "");
 
     // 4. Deduplicate chart placeholders: same chartId only appears once

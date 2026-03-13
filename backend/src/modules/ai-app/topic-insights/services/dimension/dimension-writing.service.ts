@@ -35,7 +35,6 @@ import {
 import type {
   EvidenceData,
   DimensionAnalysisResult,
-  EnrichedEvidenceData,
   GeneratedChart,
   FigureReference,
   Trend,
@@ -145,7 +144,7 @@ export class DimensionWritingService {
 
     try {
       // 1. 校验并清理 Leader 分配的图表
-      this.validateAllocatedFigures(outline, searchPhaseResult.evidenceData);
+      this.validateAllocatedFigures(outline, searchPhaseResult.figureRegistry);
 
       this.logger.log(
         `${logPrefix} Outline validated: ${outline.sections.length} sections`,
@@ -230,6 +229,7 @@ export class DimensionWritingService {
         maxRevisionRounds,
         emitProgressFn,
         assignedSkills,
+        searchPhaseResult.figureRegistry,
       );
 
       // 记录写作完成
@@ -358,7 +358,7 @@ export class DimensionWritingService {
       const seenFigKeys = new Set<string>();
       const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
         if (!fig.imageUrl) return false;
-        const key = `${fig.evidenceCitationIndex}:${fig.figureIndex}`;
+        const key = fig.figureId || fig.imageUrl;
         if (seenFigKeys.has(key)) return false;
         seenFigKeys.add(key);
         return true;
@@ -395,9 +395,11 @@ export class DimensionWritingService {
 
         if (indexMapping.size > 0) {
           for (const ref of allFigureReferences) {
-            const mapped = indexMapping.get(ref.evidenceCitationIndex);
-            if (mapped !== undefined) {
-              ref.evidenceCitationIndex = mapped;
+            if (ref.evidenceCitationIndex !== undefined) {
+              const mapped = indexMapping.get(ref.evidenceCitationIndex);
+              if (mapped !== undefined) {
+                ref.evidenceCitationIndex = mapped;
+              }
             }
           }
         }
@@ -551,6 +553,10 @@ export class DimensionWritingService {
       taskId?: string,
     ) => Promise<void>,
     assignedSkills?: string[], // ★ Leader 分配的技能（注入到 chatWithSkills）
+    figureRegistry?: Map<
+      string,
+      import("./evidence-summary.utils").FigureRegistryEntry
+    >,
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -590,11 +596,14 @@ export class DimensionWritingService {
         validationContext,
         topicLanguage: topic?.language, // ★ 传递语言设置
         assignedSkills, // ★ Leader 分配的任务级技能
-        fullEvidenceData: evidenceData, // ★ 完整 evidenceData 用于图表索引回填
+        figureRegistry, // ★ 图表注册表用于 figureId 回填
       }));
 
       // 发送研究员开始写作事件
+      // 进度 = 已完成章节比例映射到 [30, 80] 区间（与 emitProgress 一致）
       const researcherAgentId = `researcher_${dimId}`;
+      const groupStartProgress =
+        30 + Math.round((sectionResults.length / outline.sections.length) * 50);
       await this.eventEmitter.emitAgentWorking(
         topicId,
         {
@@ -605,7 +614,7 @@ export class DimensionWritingService {
           taskDescription: `正在撰写章节：${groupSections.map((s) => s.title).join("、")}`,
           dimensionId: dimension.id,
           dimensionName: dimension.name,
-          progress: 30,
+          progress: groupStartProgress,
           modelId,
         },
         missionId,
@@ -964,14 +973,16 @@ export class DimensionWritingService {
 
   /**
    * 校验并清理 Leader 分配的 allocatedFigures
-   * - 过滤 evidenceIndex 越界的条目
-   * - 过滤 imageUrl 为空的条目
+   * - 通过 figureRegistry 回填 imageUrl（唯一可信源）
+   * - 过滤 registry 中不存在的 figureId
+   * - 过滤 imageUrl 无效的条目
    * - 全局去重：确保同一图表不被分配给多个 section
-   * - 记录分配结果日志
    */
   private validateAllocatedFigures(
     outline: DimensionOutline,
-    evidenceData: EnrichedEvidenceData[],
+    figureRegistry:
+      | Map<string, import("./evidence-summary.utils").FigureRegistryEntry>
+      | undefined,
   ): void {
     const globalSeen = new Set<string>();
     let totalAllocated = 0;
@@ -983,50 +994,32 @@ export class DimensionWritingService {
 
       const valid: typeof section.allocatedFigures = [];
       for (const fig of section.allocatedFigures) {
-        // 校验 evidenceIndex 范围（1-based）
-        if (fig.evidenceIndex < 1 || fig.evidenceIndex > evidenceData.length) {
+        // 从 registry 回填 imageUrl（唯一可信源）
+        const entry = figureRegistry?.get(fig.figureId);
+        if (entry) {
+          fig.imageUrl = entry.imageUrl;
+          fig.caption = fig.caption || entry.caption;
+        } else {
           this.logger.warn(
-            `[validateAllocatedFigures] Section "${section.title}": evidenceIndex ${fig.evidenceIndex} out of range (1-${evidenceData.length}), skipping`,
+            `[validateAllocatedFigures] Section "${section.title}": figureId "${fig.figureId}" not found in registry, skipping`,
           );
           continue;
         }
-        // 校验 imageUrl 非空 + 回填 base64 占位符
-        // ★ LLM may strip brackets → check both "[base64-image" and "base64-image"
-        const needsBackfill =
-          !fig.imageUrl ||
-          fig.imageUrl.startsWith("[base64-image") ||
-          fig.imageUrl.startsWith("base64-image") ||
-          fig.imageUrl === "无URL";
-        if (needsBackfill) {
-          const evidence = evidenceData[fig.evidenceIndex - 1];
-          const originalFig = evidence?.extractedFigures?.[fig.figureIndex];
-          if (originalFig?.imageUrl) {
-            fig.imageUrl = originalFig.imageUrl;
-            fig.caption =
-              fig.caption || originalFig.caption || originalFig.alt || "";
-          } else {
-            this.logger.warn(
-              `[validateAllocatedFigures] Section "${section.title}": empty imageUrl for [${fig.evidenceIndex}:${fig.figureIndex}], skipping`,
-            );
-            continue;
-          }
-        }
-        // ★ 回填后统一校验 URL 有效性（拦截 base64/PDF/伪造 URL）
+        // 校验 imageUrl 有效性
         if (!isValidFigureUrl(fig.imageUrl)) {
           this.logger.warn(
-            `[validateAllocatedFigures] Section "${section.title}": invalid URL for [${fig.evidenceIndex}:${fig.figureIndex}], skipping`,
+            `[validateAllocatedFigures] Section "${section.title}": invalid imageUrl for ${fig.figureId}, skipping`,
           );
           continue;
         }
-        // 全局去重
-        const key = `${fig.evidenceIndex}:${fig.figureIndex}`;
-        if (globalSeen.has(key)) {
+        // 全局去重 by figureId
+        if (globalSeen.has(fig.figureId)) {
           this.logger.warn(
-            `[validateAllocatedFigures] Section "${section.title}": duplicate figure [${key}], skipping`,
+            `[validateAllocatedFigures] Section "${section.title}": duplicate figure ${fig.figureId}, skipping`,
           );
           continue;
         }
-        globalSeen.add(key);
+        globalSeen.add(fig.figureId);
         valid.push(fig);
       }
 

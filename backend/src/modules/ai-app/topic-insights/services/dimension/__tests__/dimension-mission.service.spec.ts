@@ -1350,6 +1350,7 @@ describe("DimensionMissionService", () => {
         freshnessRequirement: "",
       },
       figuresSummary: "",
+      figureRegistry: new Map(),
       leaderContextSummary: "",
     };
 
@@ -1464,14 +1465,26 @@ describe("DimensionMissionService", () => {
         },
       ];
 
+      // Build figureRegistry matching the evidence data
+      const figureRegistry = new Map();
+      figureRegistry.set("FIG-1", {
+        figureId: "FIG-1",
+        imageUrl: "http://img.com/fig.png",
+        caption: "Chart 1",
+        type: "chart",
+        evidenceIndex: 1,
+        figureIndex: 0,
+        evidenceTitle: "Evidence 1",
+      });
+
       const sectionWithFigures = {
         ...mockOutline.sections[0],
         allocatedFigures: [
           {
-            evidenceIndex: 1,
-            figureIndex: 0,
-            imageUrl: "http://img.com/fig.png",
+            figureId: "FIG-1",
+            imageUrl: "",
             caption: "Chart 1",
+            relevanceReason: "test",
           },
         ],
       };
@@ -1483,6 +1496,7 @@ describe("DimensionMissionService", () => {
       const searchResultWithEvidence = {
         ...mockSearchPhaseResult,
         evidenceData,
+        figureRegistry,
       };
 
       const result = await service.executeWritingPhase(
@@ -1653,6 +1667,7 @@ describe("DimensionMissionService", () => {
         freshnessRequirement: "",
       },
       figuresSummary: "",
+      figureRegistry: new Map(),
       leaderContextSummary: "",
     };
 
@@ -1862,6 +1877,7 @@ describe("DimensionMissionService", () => {
         freshnessRequirement: "",
       },
       figuresSummary: "",
+      figureRegistry: new Map(),
       leaderContextSummary: "",
     });
 
@@ -2055,6 +2071,7 @@ describe("DimensionMissionService", () => {
         freshnessRequirement: "",
       },
       figuresSummary: "",
+      figureRegistry: new Map(),
       leaderContextSummary: "",
     };
 
@@ -2465,6 +2482,7 @@ describe("DimensionMissionService", () => {
         freshnessRequirement: "",
       },
       figuresSummary: "",
+      figureRegistry: new Map(),
       leaderContextSummary: "",
     };
 
@@ -2488,30 +2506,19 @@ describe("DimensionMissionService", () => {
       });
     });
 
-    it("should skip figure with out-of-range evidenceIndex (line 1616-1619)", async () => {
-      // evidenceData has 1 item, but figure references evidenceIndex 5 (out of range)
-      const evidenceData = [
-        {
-          id: "ev-1",
-          title: "E1",
-          url: "http://e1.com",
-          domain: "e1.com",
-          snippet: "s",
-          sourceType: "web",
-          publishedAt: null,
-        },
-      ];
-      const outlineOutOfRange = {
+    it("should skip figure with unknown figureId not in registry", async () => {
+      // Registry is empty — figureId "FIG-99" doesn't exist
+      const outlineUnknownId = {
         ...mockOutline,
         sections: [
           {
             ...mockOutline.sections[0],
             allocatedFigures: [
               {
-                evidenceIndex: 5,
-                figureIndex: 0,
-                imageUrl: "http://img.com/fig.png",
+                figureId: "FIG-99",
+                imageUrl: "",
                 caption: "Fig",
+                relevanceReason: "test",
               },
             ],
           },
@@ -2522,90 +2529,40 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+        { ...mockSearchPhaseBase } as unknown as Parameters<
           typeof service.executeWritingPhase
         >[2],
-        outlineOutOfRange,
+        outlineUnknownId,
       );
 
       expect(result.success).toBe(true);
       // The figure should have been removed from section
-      expect(outlineOutOfRange.sections[0].allocatedFigures.length).toBe(0);
+      expect(outlineUnknownId.sections[0].allocatedFigures.length).toBe(0);
     });
 
-    it("should recover imageUrl from extractedFigures when imageUrl is null (line 1624-1629)", async () => {
-      const evidenceData = [
-        {
-          id: "ev-1",
-          title: "E1",
-          url: "http://e1.com",
-          domain: "e1.com",
-          snippet: "s",
-          sourceType: "web",
-          publishedAt: null,
-          extractedFigures: [
-            {
-              imageUrl: "http://img.com/recovered.png",
-              caption: "市场概况图表",
-              alt: "alt",
-            },
-          ],
-        },
-      ];
-      const outlineNullImageUrl = {
-        ...mockOutline,
-        sections: [
-          {
-            ...mockOutline.sections[0],
-            allocatedFigures: [
-              // imageUrl is empty string — triggers null imageUrl path
-              { evidenceIndex: 1, figureIndex: 0, imageUrl: "", caption: "" },
-            ],
-          },
-          mockOutline.sections[1],
-        ],
-      };
+    it("should recover imageUrl from figureRegistry when figureId is valid", async () => {
+      const figureRegistry = new Map();
+      figureRegistry.set("FIG-1", {
+        figureId: "FIG-1",
+        imageUrl: "http://img.com/recovered.png",
+        caption: "市场概况图表",
+        type: "chart",
+        evidenceIndex: 1,
+        figureIndex: 0,
+        evidenceTitle: "E1",
+      });
 
-      const result = await service.executeWritingPhase(
-        mockTopic,
-        mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
-          typeof service.executeWritingPhase
-        >[2],
-        outlineNullImageUrl,
-      );
-
-      expect(result.success).toBe(true);
-      // imageUrl should be recovered
-      expect(outlineNullImageUrl.sections[0].allocatedFigures[0].imageUrl).toBe(
-        "http://img.com/recovered.png",
-      );
-    });
-
-    it("should skip figure when imageUrl null and no recovery available (line 1631-1634)", async () => {
-      const evidenceData = [
-        {
-          id: "ev-1",
-          title: "E1",
-          url: "http://e1.com",
-          domain: "e1.com",
-          snippet: "s",
-          sourceType: "web",
-          publishedAt: null,
-          extractedFigures: [], // no figures to recover from
-        },
-      ];
-      const outlineNoRecovery = {
+      const outlineValidId = {
         ...mockOutline,
         sections: [
           {
             ...mockOutline.sections[0],
             allocatedFigures: [
               {
-                evidenceIndex: 1,
-                figureIndex: 0,
+                figureId: "FIG-1",
                 imageUrl: "",
-                caption: "No recovery",
+                caption: "",
+                relevanceReason: "test",
               },
             ],
           },
@@ -2616,36 +2573,76 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+        { ...mockSearchPhaseBase, figureRegistry } as unknown as Parameters<
           typeof service.executeWritingPhase
         >[2],
-        outlineNoRecovery,
+        outlineValidId,
       );
 
       expect(result.success).toBe(true);
-      expect(outlineNoRecovery.sections[0].allocatedFigures.length).toBe(0);
+      // imageUrl should be recovered from registry
+      expect(outlineValidId.sections[0].allocatedFigures[0].imageUrl).toBe(
+        "http://img.com/recovered.png",
+      );
     });
 
-    it("should skip duplicate figures across sections (line 1640-1643)", async () => {
-      const evidenceData = [
-        {
-          id: "ev-1",
-          title: "E1",
-          url: "http://e1.com",
-          domain: "e1.com",
-          snippet: "s",
-          sourceType: "web",
-          publishedAt: null,
-          extractedFigures: [
-            {
-              imageUrl: "http://img.com/fig.png",
-              caption: "市场概况图表",
-              alt: "alt",
-            },
-          ],
-        },
-      ];
-      // Both sections reference the same figure 1:0
+    it("should skip figure when figureId not found in registry", async () => {
+      // Registry has FIG-1 but allocated figure references FIG-2 (not in registry)
+      const figureRegistry = new Map();
+      figureRegistry.set("FIG-1", {
+        figureId: "FIG-1",
+        imageUrl: "http://img.com/fig1.png",
+        caption: "Fig 1",
+        type: "chart",
+        evidenceIndex: 1,
+        figureIndex: 0,
+        evidenceTitle: "E1",
+      });
+
+      const outlineMissing = {
+        ...mockOutline,
+        sections: [
+          {
+            ...mockOutline.sections[0],
+            allocatedFigures: [
+              {
+                figureId: "FIG-2",
+                imageUrl: "",
+                caption: "No recovery",
+                relevanceReason: "test",
+              },
+            ],
+          },
+          mockOutline.sections[1],
+        ],
+      };
+
+      const result = await service.executeWritingPhase(
+        mockTopic,
+        mockDimension,
+        { ...mockSearchPhaseBase, figureRegistry } as unknown as Parameters<
+          typeof service.executeWritingPhase
+        >[2],
+        outlineMissing,
+      );
+
+      expect(result.success).toBe(true);
+      expect(outlineMissing.sections[0].allocatedFigures.length).toBe(0);
+    });
+
+    it("should skip duplicate figureId across sections", async () => {
+      const figureRegistry = new Map();
+      figureRegistry.set("FIG-1", {
+        figureId: "FIG-1",
+        imageUrl: "http://img.com/fig.png",
+        caption: "市场概况图表",
+        type: "chart",
+        evidenceIndex: 1,
+        figureIndex: 0,
+        evidenceTitle: "E1",
+      });
+
+      // Both sections reference the same FIG-1
       const outlineDuplicateFigs = {
         ...mockOutline,
         sections: [
@@ -2653,10 +2650,10 @@ describe("DimensionMissionService", () => {
             ...mockOutline.sections[0],
             allocatedFigures: [
               {
-                evidenceIndex: 1,
-                figureIndex: 0,
-                imageUrl: "http://img.com/fig.png",
+                figureId: "FIG-1",
+                imageUrl: "",
                 caption: "市场概况图表",
+                relevanceReason: "test",
               },
             ],
           },
@@ -2664,10 +2661,10 @@ describe("DimensionMissionService", () => {
             ...mockOutline.sections[1],
             allocatedFigures: [
               {
-                evidenceIndex: 1,
-                figureIndex: 0,
-                imageUrl: "http://img.com/fig.png",
+                figureId: "FIG-1",
+                imageUrl: "",
                 caption: "竞争对手分析图",
+                relevanceReason: "test",
               },
             ],
           },
@@ -2677,7 +2674,7 @@ describe("DimensionMissionService", () => {
       const result = await service.executeWritingPhase(
         mockTopic,
         mockDimension,
-        { ...mockSearchPhaseBase, evidenceData } as unknown as Parameters<
+        { ...mockSearchPhaseBase, figureRegistry } as unknown as Parameters<
           typeof service.executeWritingPhase
         >[2],
         outlineDuplicateFigs,
@@ -2707,6 +2704,7 @@ describe("DimensionMissionService", () => {
         freshnessRequirement: "",
       },
       figuresSummary: "",
+      figureRegistry: new Map(),
       leaderContextSummary: "",
     };
 

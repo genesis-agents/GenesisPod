@@ -35,6 +35,7 @@ import {
 import {
   createEvidenceSummary,
   buildFiguresSummary,
+  type FigureRegistryEntry,
 } from "./evidence-summary.utils";
 import type { AICapabilityContext } from "@/modules/ai-engine/facade";
 import type { TemporalContext } from "./section-writer.service";
@@ -51,6 +52,8 @@ export interface SearchPhaseResult {
   searchResultsRecord: SearchResultsRecord;
   temporalContext: TemporalContext;
   figuresSummary: string;
+  /** 图表注册表：figureId → 完整元数据，用于系统回填 imageUrl 等字段 */
+  figureRegistry: Map<string, FigureRegistryEntry>;
   leaderContextSummary: string;
   /** Phase 1 使用的模型、工具、技能（便于 Phase 3 调试） */
   modelId?: string;
@@ -411,10 +414,13 @@ export class DimensionSearchService {
       createEvidenceSummary(evidenceData) +
       (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
 
-    const figuresSummary = buildFiguresSummary(evidenceData, false);
+    const { summary: figuresSummary, figureRegistry } = buildFiguresSummary(
+      evidenceData,
+      false,
+    );
     if (figuresSummary) {
       this.logger.log(
-        `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
+        `${logPrefix} Figures summary for Leader: ${figureRegistry.size} figures available`,
       );
     }
 
@@ -427,6 +433,7 @@ export class DimensionSearchService {
       searchResultsRecord,
       temporalContext,
       figuresSummary,
+      figureRegistry,
       leaderContextSummary,
       modelId,
       assignedTools,

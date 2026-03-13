@@ -69,6 +69,7 @@ import {
 import {
   createEvidenceSummary,
   buildFiguresSummary,
+  type FigureRegistryEntry,
 } from "./evidence-summary.utils";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import {
@@ -131,6 +132,8 @@ export interface SearchPhaseResult {
   searchResultsRecord: SearchResultsRecord;
   temporalContext: TemporalContext;
   figuresSummary: string;
+  /** 图表注册表：figureId → 完整元数据，用于系统回填 imageUrl 等字段 */
+  figureRegistry: Map<string, FigureRegistryEntry>;
   leaderContextSummary: string;
   /** Phase 1 使用的模型、工具、技能（便于 Phase 3 调试） */
   modelId?: string;
@@ -653,10 +656,11 @@ export class DimensionMissionService {
       `${logPrefix} Evidence summary final size: ${evidenceSummary.length} chars (~${Math.ceil(evidenceSummary.length / 4)} tokens est.)`,
     );
 
-    const figuresSummary = buildFiguresSummary(evidenceData);
+    const { summary: figuresSummary, figureRegistry } =
+      buildFiguresSummary(evidenceData);
     if (figuresSummary) {
       this.logger.log(
-        `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available, ${figuresSummary.length} chars`,
+        `${logPrefix} Figures summary for Leader: ${figureRegistry.size} figures available, ${figuresSummary.length} chars`,
       );
     }
 
@@ -669,6 +673,7 @@ export class DimensionMissionService {
       searchResultsRecord,
       temporalContext,
       figuresSummary,
+      figureRegistry,
       leaderContextSummary,
       modelId,
       assignedTools,
@@ -923,7 +928,7 @@ export class DimensionMissionService {
 
     try {
       // 1. 校验并清理 Leader 分配的图表
-      this.validateAllocatedFigures(outline, searchPhaseResult.evidenceData);
+      this.validateAllocatedFigures(outline, searchPhaseResult.figureRegistry);
 
       this.logger.log(
         `${logPrefix} Outline validated: ${outline.sections.length} sections`,
@@ -1008,6 +1013,7 @@ export class DimensionMissionService {
         topic.language, // Language setting
         assignedSkills, // ★ Leader 分配的技能
         topic.type, // ★ 类型感知质量检查
+        searchPhaseResult.figureRegistry, // ★ 图表注册表
       );
 
       // 记录写作完成
@@ -1133,11 +1139,12 @@ export class DimensionMissionService {
               : `s${sectionIdx}-${fig.id || "fig"}`,
         })),
       );
-      // ★ Dedup by evidenceCitationIndex:figureIndex (not imageUrl) to preserve one ref per placeholder
+      // ★ Dedup by figureId (preferred) or imageUrl fallback — preserve one ref per figure
       const seenFigKeys = new Set<string>();
       const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
         if (!fig.imageUrl) return false;
-        const key = `${fig.evidenceCitationIndex}:${fig.figureIndex}`;
+        // Use figureId as the dedup key when available, otherwise fall back to imageUrl
+        const key = fig.figureId || fig.imageUrl;
         if (seenFigKeys.has(key)) return false;
         seenFigKeys.add(key);
         return true;
@@ -1153,7 +1160,11 @@ export class DimensionMissionService {
       for (const ref of allFigureReferences) {
         if (ref.source) continue; // LLM 已输出 source 的不覆盖
         const promptIdx = ref.evidenceCitationIndex; // 1-based
-        if (promptIdx >= 1 && promptIdx <= evidenceData.length) {
+        if (
+          promptIdx !== undefined &&
+          promptIdx >= 1 &&
+          promptIdx <= evidenceData.length
+        ) {
           const evidence = evidenceData[promptIdx - 1];
           if (evidence) {
             ref.source = evidence.title || evidence.domain || evidence.url;
@@ -1186,9 +1197,11 @@ export class DimensionMissionService {
 
         if (indexMapping.size > 0) {
           for (const ref of allFigureReferences) {
-            const mapped = indexMapping.get(ref.evidenceCitationIndex);
-            if (mapped !== undefined) {
-              ref.evidenceCitationIndex = mapped;
+            if (ref.evidenceCitationIndex !== undefined) {
+              const mapped = indexMapping.get(ref.evidenceCitationIndex);
+              if (mapped !== undefined) {
+                ref.evidenceCitationIndex = mapped;
+              }
             }
           }
         }
@@ -1388,6 +1401,7 @@ export class DimensionMissionService {
     topicLanguage?: string | null, // Language setting for review
     assignedSkills?: string[], // ★ Leader 分配的技能（注入到 chatWithSkills）
     topicType?: string, // ★ 类型感知质量检查
+    figureRegistry?: Map<string, FigureRegistryEntry>, // ★ 图表注册表
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -1422,11 +1436,14 @@ export class DimensionMissionService {
         validationContext, // V5: inject validation context
         topicLanguage, // ★ 传递语言设置
         assignedSkills, // ★ Leader 分配的任务级技能
-        fullEvidenceData: evidenceData, // ★ 完整 evidenceData 用于图表索引回填
+        figureRegistry, // ★ 图表注册表（用于 backfillFigureUrls）
       }));
 
       // ★ 发送研究员开始写作事件
+      // 进度 = 已完成章节比例映射到 [30, 80] 区间（与 emitProgress 一致）
       const researcherAgentId = `researcher_${dimId}`;
+      const groupStartProgress =
+        30 + Math.round((sectionResults.length / outline.sections.length) * 50);
       await this.eventEmitter.emitAgentWorking(
         topicId,
         {
@@ -1437,7 +1454,7 @@ export class DimensionMissionService {
           taskDescription: `正在撰写章节：${groupSections.map((s) => s.title).join("、")}`,
           dimensionId: dimension.id,
           dimensionName: dimension.name,
-          progress: 30,
+          progress: groupStartProgress,
           modelId,
         },
         missionId,
@@ -1898,17 +1915,19 @@ export class DimensionMissionService {
 
   /**
    * 校验并清理 Leader 分配的 allocatedFigures
-   * - 过滤 evidenceIndex 越界的条目
-   * - 过滤 imageUrl 为空的条目
+   * - 通过 figureRegistry 查找并回填 imageUrl（不信任 LLM 输出的 URL）
+   * - 过滤 figureId 不在注册表中的条目
+   * - 过滤 imageUrl 无效的条目
    * - 全局去重：确保同一图表不被分配给多个 section
+   * - 关键词相关性过滤：图表 caption 必须与 section 标题/描述有交集
    * - 记录分配结果日志
    */
   private validateAllocatedFigures(
     outline: DimensionOutline,
-    evidenceData: EnrichedEvidenceData[],
+    figureRegistry: Map<string, FigureRegistryEntry>,
   ): void {
-    const globalSeen = new Set<string>(); // "evidenceIndex:figureIndex"
-    const globalSeenUrls = new Set<string>(); // cross-section imageUrl dedup
+    const usedFigureIds = new Set<string>(); // 全局去重 by figureId
+    const globalSeenUrls = new Set<string>(); // 全局去重 by imageUrl
     let totalAllocated = 0;
 
     for (const section of outline.sections) {
@@ -1918,57 +1937,41 @@ export class DimensionMissionService {
 
       const valid: typeof section.allocatedFigures = [];
       for (const fig of section.allocatedFigures) {
-        // 校验 evidenceIndex 范围（1-based）
-        if (fig.evidenceIndex < 1 || fig.evidenceIndex > evidenceData.length) {
+        // 查找注册表
+        const entry = figureRegistry.get(fig.figureId);
+        if (!entry) {
           this.logger.warn(
-            `[validateAllocatedFigures] Section "${section.title}": evidenceIndex ${fig.evidenceIndex} out of range (1-${evidenceData.length}), skipping`,
+            `[validateAllocatedFigures] Section "${section.title}": figureId "${fig.figureId}" not found in registry, skipping`,
           );
           continue;
         }
-        // 校验 imageUrl 非空 + 回填 base64 占位符
-        // ★ LLM 从 prompt 中复制的 "[base64-image:chart]" 是占位符，不是可渲染 URL
-        //   必须从原始证据数据中恢复真实的 data: URL
-        // ★ LLM may strip brackets → check both "[base64-image" and "base64-image"
-        const needsBackfill =
-          !fig.imageUrl ||
-          fig.imageUrl.startsWith("[base64-image") ||
-          fig.imageUrl.startsWith("base64-image") ||
-          fig.imageUrl === "无URL";
-        if (needsBackfill) {
-          const evidence = evidenceData[fig.evidenceIndex - 1];
-          const originalFig = evidence?.extractedFigures?.[fig.figureIndex];
-          if (originalFig?.imageUrl) {
-            fig.imageUrl = originalFig.imageUrl;
-            fig.caption =
-              fig.caption || originalFig.caption || originalFig.alt || "";
-          } else {
-            this.logger.warn(
-              `[validateAllocatedFigures] Section "${section.title}": empty imageUrl for [${fig.evidenceIndex}:${fig.figureIndex}], skipping`,
-            );
-            continue;
-          }
-        }
+
+        // ★ CRITICAL: 始终从注册表回填 imageUrl，不信任 LLM 输出的 URL。
+        // 注册表中的 URL 来自 FigureExtractor 的 GET+Range 验证，是可信的。
+        fig.imageUrl = entry.imageUrl;
+        fig.caption = fig.caption || entry.caption;
+
         // ★ 回填后统一校验 URL 有效性（拦截 base64/PDF/伪造 URL）
         if (!isValidFigureUrl(fig.imageUrl)) {
           this.logger.warn(
-            `[validateAllocatedFigures] Section "${section.title}": invalid URL for [${fig.evidenceIndex}:${fig.figureIndex}], skipping`,
+            `[validateAllocatedFigures] Section "${section.title}": invalid URL for ${fig.figureId}, skipping`,
           );
           continue;
         }
-        // 全局去重 (by evidence:figure index)
-        const key = `${fig.evidenceIndex}:${fig.figureIndex}`;
-        if (globalSeen.has(key)) {
+
+        // 全局去重 (by figureId)
+        if (usedFigureIds.has(fig.figureId)) {
           this.logger.warn(
-            `[validateAllocatedFigures] Section "${section.title}": duplicate figure [${key}], skipping`,
+            `[validateAllocatedFigures] Section "${section.title}": duplicate ${fig.figureId}, skipping`,
           );
           continue;
         }
-        globalSeen.add(key);
+        usedFigureIds.add(fig.figureId);
 
         // 全局去重 (by imageUrl — prevents same image appearing in multiple sections)
         if (globalSeenUrls.has(fig.imageUrl)) {
           this.logger.warn(
-            `[validateAllocatedFigures] Section "${section.title}": duplicate imageUrl for [${key}], skipping`,
+            `[validateAllocatedFigures] Section "${section.title}": duplicate imageUrl for ${fig.figureId}, skipping`,
           );
           continue;
         }
@@ -2001,8 +2004,6 @@ export class DimensionMissionService {
         const allKeywords = [...bigrams, ...latinWords];
 
         // ★ v6.0: caption 无关键词时放行（图片已通过 Vision LLM 语义审查）
-        // 旧逻辑在这里拒绝空 caption 图片，但这些图片可能已通过 figureRelevance
-        // 的 Vision 审查确认了与主题相关性
         if (allKeywords.length === 0) {
           this.logger.debug(
             `[validateAllocatedFigures] Figure with empty/generic caption "${fig.caption}" from section "${section.title}" — accepting (already passed upstream filters)`,
@@ -2010,12 +2011,7 @@ export class DimensionMissionService {
           return true;
         }
 
-        // ★ v8: 相关性过滤 — 进一步放宽阈值
-        // v4.5 的 MIN_MATCH_COUNT=2 仍然误杀：
-        // - 中英混合 caption "AI market growth" 与 section "AI 市场增长" 只匹配 "AI"（1 match）
-        // - 短 caption "趋势图" 与 section "技术发展趋势" 50% ratio 可能不满足
-        // 新策略：长 caption >= 1 match，短 caption 任意 1 match 即可
-        // Leader 已做语义相关性判断，关键词匹配仅防明显错配
+        // ★ v8: 相关性过滤 — Leader 已做语义判断，关键词匹配仅防明显错配
         const matchedKeywords = allKeywords.filter((kw) =>
           sectionText.includes(kw),
         );
@@ -2024,7 +2020,7 @@ export class DimensionMissionService {
 
         if (!isRelevant) {
           this.logger.warn(
-            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — matchCount=${matchedKeywords.length}/${allKeywords.length}, no keyword overlap`,
+            `[validateAllocatedFigures] Removing irrelevant figure "${fig.figureId}" (caption: "${fig.caption}") from section "${section.title}" — matchCount=${matchedKeywords.length}/${allKeywords.length}`,
           );
         }
         return isRelevant;

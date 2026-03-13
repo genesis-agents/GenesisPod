@@ -19,6 +19,7 @@ import { ChatFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { inferIsReasoning } from "@/modules/ai-engine/facade";
 import type { SectionPlan } from "../core/research/research-leader.service";
+import type { FigureRegistryEntry } from "./evidence-summary.utils";
 import {
   SECTION_WRITING_SYSTEM_PROMPT,
   SECTION_WRITING_USER_PROMPT_TEMPLATE,
@@ -36,7 +37,6 @@ import type {
   EvidenceData,
   GeneratedChart,
   FigureReference,
-  ExtractedFigure,
 } from "../../types/research.types";
 
 /**
@@ -96,8 +96,8 @@ export interface SectionWriteInput {
   topicLanguage?: string | null;
   /** ★ Leader 分配的任务级技能（与 section.agentConfig.skills 合并后注入 chatWithSkills） */
   assignedSkills?: string[];
-  /** ★ 完整 evidenceData（未经 filterEvidenceForSection 过滤），用于按原始索引回填图表 URL */
-  fullEvidenceData?: EvidenceData[];
+  /** ★ 图表注册表（figureId → 元数据），用于 backfillFigureUrls 的单一可信来源 */
+  figureRegistry?: Map<string, FigureRegistryEntry>;
 }
 
 /**
@@ -237,26 +237,6 @@ export class SectionWriterService {
       input.assignedSkills,
     );
 
-    // ★ 索引重映射：allocatedFigures 的 evidenceIndex 是基于完整 evidenceData 的原始索引（1-based），
-    // 但 section prompt 中的证据列表是经过 filterEvidenceForSection 过滤重排的（[1],[2],[3]...）。
-    // 必须将 allocatedFigures 的 evidenceIndex 重映射为过滤后的位置索引，
-    // 否则 LLM 在两套索引间混乱，输出的 evidenceCitationIndex 无法匹配 backfill key。
-    const fullEvidence = input.fullEvidenceData || [];
-    const remappedAllocatedFigures = input.allocatedFigures?.map((fig) => {
-      // 找到原始证据在过滤后列表中的位置（按 id 匹配）
-      const originalEvidence = fullEvidence[fig.evidenceIndex - 1];
-      if (originalEvidence) {
-        const filteredIdx = evidenceData.findIndex(
-          (e) => e.id === originalEvidence.id,
-        );
-        if (filteredIdx >= 0) {
-          return { ...fig, evidenceIndex: filteredIdx + 1 }; // 1-based
-        }
-      }
-      // 如果找不到对应项（证据被过滤掉了），保留原始索引
-      return fig;
-    });
-
     // 准备提示词变量（包含时间上下文）
     const promptVariables = {
       sectionTitle: section.title,
@@ -272,11 +252,8 @@ export class SectionWriterService {
       freshnessRequirement:
         temporalContext?.freshnessRequirement ||
         "不限制时间范围，但建议优先使用最近的数据",
-      // ★ 图片资源列表（使用重映射后的索引，与证据列表索引一致）
-      figuresList: this.formatFiguresForSection(
-        evidenceData,
-        remappedAllocatedFigures,
-      ),
+      // ★ 图片资源列表（使用 figureId 标识，与注册表一致）
+      figuresList: this.formatFiguresForSection(input.allocatedFigures),
     };
 
     // 渲染用户提示词
@@ -384,74 +361,42 @@ export class SectionWriterService {
 
     // ★ 诊断日志：记录 allocatedFigures 状态
     this.logger.log(
-      `[writeSection] ${section.title}: allocatedFigures=${remappedAllocatedFigures?.length ?? 0}, ` +
+      `[writeSection] ${section.title}: allocatedFigures=${input.allocatedFigures?.length ?? 0}, ` +
         `figureRefsFromLLM=${figureRefsToBackfill.length}, ` +
-        `fullEvidenceData=${input.fullEvidenceData?.length ?? "N/A"}`,
+        `figureRegistry=${input.figureRegistry?.size ?? "N/A"}`,
     );
 
     // ★ v8: 补充模式 — LLM 输出的 figureReferences 保留，未被 LLM 提及的 allocatedFigures 自动补充
-    // 旧逻辑：只在 LLM 输出 0 个 figureReferences 时才使用 allocatedFigures（fallback-only）
-    // 问题：LLM 哪怕只输出 1 个 figureReference，其余 Leader 分配的图片全部丢失
-    // 新逻辑：始终将 LLM 未提及的 allocatedFigures 追加到 figureRefsToBackfill
-    if (remappedAllocatedFigures && remappedAllocatedFigures.length > 0) {
-      // 回填 allocatedFigures 缺失的 imageUrl（从 fullEvidenceData 中查找）
-      const figSourceData = input.fullEvidenceData || evidenceData;
-      for (let fi = 0; fi < remappedAllocatedFigures.length; fi++) {
-        const remapped = remappedAllocatedFigures[fi];
-        const original = input.allocatedFigures![fi];
-        if (!remapped.imageUrl && figSourceData[original.evidenceIndex - 1]) {
-          const ev = figSourceData[
-            original.evidenceIndex - 1
-          ] as EvidenceData & {
-            extractedFigures?: ExtractedFigure[];
-          };
-          if (ev.extractedFigures?.[remapped.figureIndex]) {
-            remapped.imageUrl =
-              ev.extractedFigures[remapped.figureIndex].imageUrl || "";
-            if (!remapped.caption) {
-              remapped.caption =
-                ev.extractedFigures[remapped.figureIndex].caption ||
-                ev.extractedFigures[remapped.figureIndex].alt ||
-                "";
-            }
-          }
-        }
-      }
-
+    // LLM 现在只输出 figureId，通过注册表回填 imageUrl 等字段
+    if (input.allocatedFigures && input.allocatedFigures.length > 0) {
       // 诊断日志
-      for (const fig of remappedAllocatedFigures) {
+      for (const fig of input.allocatedFigures) {
         this.logger.log(
-          `[writeSection] allocatedFig[${fig.evidenceIndex}:${fig.figureIndex}]: imageUrl=${fig.imageUrl ? `"${fig.imageUrl.substring(0, 60)}..."` : "EMPTY"}, caption="${(fig.caption || "").substring(0, 50)}", reason="${(fig.relevanceReason || "").substring(0, 50)}"`,
+          `[writeSection] allocatedFig[${fig.figureId}]: imageUrl=${fig.imageUrl ? `"${fig.imageUrl.substring(0, 60)}..."` : "EMPTY"}, caption="${(fig.caption || "").substring(0, 50)}", reason="${(fig.relevanceReason || "").substring(0, 50)}"`,
         );
       }
 
-      // 找出 LLM 已提及的 allocated figure keys（通过 evidenceCitationIndex:figureIndex 匹配）
-      const llmMentionedKeys = new Set<string>();
+      // 找出 LLM 已提及的 figureId 集合
+      const llmMentionedIds = new Set<string>();
       for (const ref of figureRefsToBackfill) {
-        llmMentionedKeys.add(`${ref.evidenceCitationIndex}:${ref.figureIndex}`);
+        if (ref.figureId) llmMentionedIds.add(ref.figureId);
       }
 
       // 将 LLM 未提及的 allocatedFigures 追加
-      const supplementFigures = remappedAllocatedFigures
+      const supplementFigures = input.allocatedFigures
         .filter((fig) => {
-          const key = `${fig.evidenceIndex}:${fig.figureIndex}`;
-          if (llmMentionedKeys.has(key)) return false; // LLM 已引用，不重复
-          if (!fig.imageUrl) {
+          if (llmMentionedIds.has(fig.figureId)) return false; // LLM 已引用，不重复
+          if (!fig.imageUrl || !isValidFigureUrl(fig.imageUrl)) {
             this.logger.warn(
-              `[writeSection] Dropping fig[${fig.evidenceIndex}:${fig.figureIndex}] — no imageUrl`,
+              `[writeSection] Dropping ${fig.figureId} — no valid imageUrl`,
             );
             return false;
           }
           return true;
         })
         .map((fig, idx) => {
-          // Build descriptive Source text from evidence metadata
-          const evidenceItem = evidenceData[fig.evidenceIndex - 1];
-          let sourceText = "";
-          if (evidenceItem) {
-            sourceText =
-              `${evidenceItem.title || evidenceItem.domain || ""}`.trim();
-          }
+          const entry = input.figureRegistry?.get(fig.figureId);
+          let sourceText = entry?.evidenceTitle || "";
           if (!sourceText && fig.imageUrl) {
             try {
               sourceText = new URL(fig.imageUrl).hostname.replace(/^www\./, "");
@@ -460,12 +405,13 @@ export class SectionWriterService {
             }
           }
           if (!sourceText) {
-            sourceText = `[${fig.evidenceIndex}]`;
+            sourceText = fig.figureId;
           }
           return {
             id: `auto-fig-${idx}`,
-            evidenceCitationIndex: fig.evidenceIndex,
-            figureIndex: fig.figureIndex,
+            figureId: fig.figureId,
+            evidenceCitationIndex: entry?.evidenceIndex,
+            figureIndex: entry?.figureIndex,
             imageUrl: fig.imageUrl,
             caption: fig.caption || "",
             position: "end_of_section",
@@ -482,12 +428,10 @@ export class SectionWriterService {
       }
     }
 
-    // ★ 索引系统已统一为 filtered evidence 的位置索引（1-based），
-    //   所以 Level 2 也应使用 filtered evidenceData 而非 fullEvidenceData
     const backfilledRefs = this.backfillFigureUrls(
       figureRefsToBackfill,
-      remappedAllocatedFigures, // ★ 使用重映射后的索引
-      evidenceData, // ★ 使用过滤后的 evidenceData（与 LLM prompt 中的索引一致）
+      input.allocatedFigures,
+      input.figureRegistry,
     );
 
     // ★ 最终相关性校验：
@@ -1142,14 +1086,41 @@ export class SectionWriterService {
     }
     return refs.map((ref, idx) => ({
       id: ref.id || `fig-${idx}`,
-      evidenceCitationIndex: ref.evidenceCitationIndex ?? 0,
-      figureIndex: ref.figureIndex ?? 0,
+      figureId: ref.figureId,
+      evidenceCitationIndex: ref.evidenceCitationIndex,
+      figureIndex: ref.figureIndex,
       imageUrl: ref.imageUrl,
       caption: ref.caption || "",
       position: ref.position || `after_paragraph_${idx + 1}`,
-      source: ref.source,
+      source: this.sanitizeFigureSource(ref.source),
       relevance: ref.relevance,
     }));
+  }
+
+  /**
+   * ★ 清理 LLM 输出的 figure source 中泄露的内部 prompt 元数据
+   *
+   * LLM 经常将 prompt 中的内部标注（如"Leader 分配图片资源"、"【已分配】"、
+   * "证据[N] 图M"、"分配原因"等）回吐到 source 字段。这些文本不应呈现给用户。
+   */
+  private sanitizeFigureSource(source: string | undefined): string | undefined {
+    if (!source) return source;
+    let cleaned = source;
+    // Strip internal allocation markers
+    cleaned = cleaned.replace(
+      /[，,]?\s*Leader\s*[已为]*.*?分配.*?(?:图[表片]?资源|以下图表)[^，。;]*[，。;]?/g,
+      "",
+    );
+    cleaned = cleaned.replace(/【已分配】/g, "");
+    // Strip "证据[N] 图M" or "（证据N图M）" patterns
+    cleaned = cleaned.replace(/[（(]?\s*证据\[?\d+\]?\s*图\d+\s*[）)]?/g, "");
+    // Strip "分配原因: xxx" patterns
+    cleaned = cleaned.replace(/分配原因[:：][^，。\n]*/g, "");
+    // Strip "(URL: https://...)" patterns leaked from prompt
+    cleaned = cleaned.replace(/\(URL:\s*https?:\/\/[^\s)]+\)/g, "");
+    // Clean up leftover delimiters
+    cleaned = cleaned.replace(/^[，,；;\s]+|[，,；;\s]+$/g, "").trim();
+    return cleaned || undefined;
   }
 
   /**
@@ -1191,197 +1162,98 @@ export class SectionWriterService {
 
   /**
    * 格式化证据中的图片列表（用于图表生成提示）
-   * ★ 如果有 Leader 预分配的图表，只展示分配的图表
+   * ★ 使用 figureId 标识图表，LLM 引用时只需提供 figureId
    */
   private formatFiguresForSection(
-    evidenceData: EvidenceData[],
     allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[],
   ): string {
-    // ★ 优先使用 Leader 预分配的图表
     if (allocatedFigures && allocatedFigures.length > 0) {
       const entries = allocatedFigures
         .filter((fig) => isValidFigureUrl(fig.imageUrl))
         .map((fig) => {
-          return `- 【已分配】证据[${fig.evidenceIndex}] 图${fig.figureIndex}: "${fig.caption}" (URL: ${fig.imageUrl})\n  分配原因: ${fig.relevanceReason}`;
+          return `- 【已分配】${fig.figureId}: "${fig.caption}" (URL: ${fig.imageUrl})\n  分配原因: ${fig.relevanceReason}`;
         });
       if (entries.length === 0) {
         return "无可用图片资源";
       }
-      return `Leader 已为本章节分配以下图表（请优先使用）：\n${entries.join("\n")}`;
+      return `Leader 已为本章节分配以下图表（请优先使用，引用时使用 figureId）：\n${entries.join("\n")}`;
     }
-
-    // 退回到全量展示（兼容旧流程）
-    const figureEntries: string[] = [];
-    for (let i = 0; i < evidenceData.length; i++) {
-      const evidence = evidenceData[i] as EvidenceData & {
-        extractedFigures?: ExtractedFigure[];
-      };
-      if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
-        for (let j = 0; j < evidence.extractedFigures.length; j++) {
-          const fig = evidence.extractedFigures[j];
-          // ★ 跳过无效 URL（base64、placeholder 等不传给 LLM）
-          if (!isValidFigureUrl(fig.imageUrl)) continue;
-          figureEntries.push(
-            `- 证据[${i + 1}] 图${j}: ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (URL: ${fig.imageUrl})`,
-          );
-        }
-      }
-    }
-    if (figureEntries.length === 0) {
-      return "无可用图片资源";
-    }
-    return figureEntries.join("\n");
+    return "无可用图片资源";
   }
 
   /**
-   * 用 Leader 预分配的 allocatedFigures + evidenceData 补全 Writer 输出的 figureReferences
+   * 用 figureRegistry（单一可信来源）补全 Writer 输出的 figureReferences
    *
-   * LLM 输出 figureReferences 时经常省略 imageUrl，需要多级回填：
-   * 1. 精确匹配 allocatedFigures (evidenceIndex:figureIndex)
-   * 2. 从 evidenceData.extractedFigures 直接查找原始 URL
-   * 3. 仍无 URL 的引用被过滤（无法渲染）
+   * LLM 只输出 figureId，系统通过注册表回填 imageUrl、evidenceCitationIndex 等字段。
+   * 仍无 URL 的引用被过滤（无法渲染）。
    */
   private backfillFigureUrls(
     figureRefs: FigureReference[],
     allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[],
-    evidenceData?: EvidenceData[],
+    figureRegistry?: Map<string, FigureRegistryEntry>,
   ): FigureReference[] {
     if (figureRefs.length === 0) {
       return figureRefs;
     }
 
-    // Level 1: 构建 "evidenceIndex:figureIndex" -> allocatedFigure 映射
+    // Build allocated figureId → AllocatedFigure map for fallback
     const allocatedMap = new Map<
       string,
       import("../core/research/research-leader.service").AllocatedFigure
     >();
     if (allocatedFigures) {
       for (const fig of allocatedFigures) {
-        allocatedMap.set(`${fig.evidenceIndex}:${fig.figureIndex}`, fig);
-      }
-    }
-
-    // Level 2: 构建 "evidenceIndex:figureIndex" -> extractedFigure 映射（从原始证据）
-    const evidenceFigureMap = new Map<string, ExtractedFigure>();
-    if (evidenceData) {
-      for (let i = 0; i < evidenceData.length; i++) {
-        const ev = evidenceData[i] as EvidenceData & {
-          extractedFigures?: ExtractedFigure[];
-        };
-        if (ev.extractedFigures) {
-          for (let j = 0; j < ev.extractedFigures.length; j++) {
-            evidenceFigureMap.set(`${i + 1}:${j}`, ev.extractedFigures[j]);
-          }
-        }
+        allocatedMap.set(fig.figureId, fig);
       }
     }
 
     let backfilled = 0;
-    const usedAllocatedKeys = new Set<string>();
 
-    // ★ 辅助：判断 imageUrl 是否需要回填（空值、placeholder 占位符）
-    // ★ LLM may strip brackets → check both "[base64-image" and "base64-image"
-    const needsBackfill = (url: string | undefined | null): boolean =>
-      !url ||
-      url.startsWith("[base64-image") ||
-      url.startsWith("base64-image") ||
-      url === "无URL";
-
-    // 补全缺失的 imageUrl
     for (const ref of figureRefs) {
-      const key = `${ref.evidenceCitationIndex}:${ref.figureIndex}`;
-
-      // Level 1: 从 allocatedFigures 回填（精确 key 匹配）
-      const allocated = allocatedMap.get(key);
-      if (allocated) {
-        usedAllocatedKeys.add(key);
-        if (needsBackfill(ref.imageUrl)) {
-          ref.imageUrl = allocated.imageUrl;
+      const fid = ref.figureId;
+      if (fid) {
+        // Primary: look up in registry (single source of truth)
+        const entry = figureRegistry?.get(fid);
+        if (entry) {
+          ref.imageUrl = entry.imageUrl;
+          ref.evidenceCitationIndex = entry.evidenceIndex;
+          ref.figureIndex = entry.figureIndex;
+          if (!ref.caption) ref.caption = entry.caption;
+          if (!ref.source) ref.source = entry.evidenceTitle;
           backfilled++;
-        }
-        if (!ref.caption) {
-          ref.caption = allocated.caption;
-        }
-        // ★ Backfill evidenceCitationIndex from allocated figure if missing
-        if (!ref.evidenceCitationIndex && allocated.evidenceIndex) {
-          ref.evidenceCitationIndex = allocated.evidenceIndex;
-        }
-      }
-
-      // Level 2: 从原始 evidenceData.extractedFigures 回填（当 Level 1 没匹配到时）
-      if (needsBackfill(ref.imageUrl)) {
-        const extracted = evidenceFigureMap.get(key);
-        if (extracted?.imageUrl) {
-          ref.imageUrl = extracted.imageUrl;
-          if (!ref.caption) {
-            ref.caption = extracted.caption || extracted.alt || "";
-          }
-          backfilled++;
-        }
-      }
-
-      // Level 3: 兜底 — 当 key 不匹配时（LLM 用了过滤后的证据索引而非原始索引），
-      // 从未使用的 allocated figures 中找第一个有 imageUrl 的分配
-      if (needsBackfill(ref.imageUrl) && allocatedFigures) {
-        for (const fig of allocatedFigures) {
-          const figKey = `${fig.evidenceIndex}:${fig.figureIndex}`;
-          if (
-            !usedAllocatedKeys.has(figKey) &&
-            fig.imageUrl &&
-            !needsBackfill(fig.imageUrl)
-          ) {
-            ref.imageUrl = fig.imageUrl;
-            if (!ref.caption) {
-              ref.caption = fig.caption;
-            }
-            // ★ Backfill evidenceCitationIndex from allocated figure
-            if (!ref.evidenceCitationIndex && fig.evidenceIndex) {
-              ref.evidenceCitationIndex = fig.evidenceIndex;
-            }
-            usedAllocatedKeys.add(figKey);
+        } else {
+          // Fallback: try allocated figures map
+          const allocated = allocatedMap.get(fid);
+          if (allocated?.imageUrl && isValidFigureUrl(allocated.imageUrl)) {
+            ref.imageUrl = allocated.imageUrl;
+            if (!ref.caption) ref.caption = allocated.caption;
             backfilled++;
-            this.logger.log(
-              `[backfillFigureUrls] Level 3 fallback: ref key=${key} → allocated key=${figKey}`,
-            );
-            break;
           }
         }
+      } else {
+        this.logger.warn(
+          `[backfillFigureUrls] FigureReference missing figureId (id=${ref.id}, caption="${ref.caption?.slice(0, 40)}"), cannot backfill — old-format LLM output?`,
+        );
       }
 
-      // ★ Backfill generic Source text (e.g. "Source [N]", "[19] [327]") with descriptive evidence metadata
-      // Match any source that is only citation numbers: [N], [N] [M], Source [N], Source: [N] [M], etc.
-      if (
-        evidenceData &&
-        ref.evidenceCitationIndex &&
-        (!ref.source ||
-          /^(source\s*:?\s*)?(\[?\d+\]?\s*)+$/i.test(ref.source.trim()))
-      ) {
-        const evItem = evidenceData[ref.evidenceCitationIndex - 1];
-        if (evItem) {
-          const descriptive = `${evItem.title || evItem.domain || ""}`.trim();
-          if (descriptive) {
-            ref.source = descriptive;
-          }
-        }
-      }
-
-      // 清理 caption：去除原始网页标题格式（如 "Title | by Author | Platform"）
-      if (ref.caption) {
-        ref.caption = this.cleanFigureCaption(ref.caption);
+      // Clean up caption and source
+      if (ref.caption) ref.caption = this.cleanFigureCaption(ref.caption);
+      if (ref.source) {
+        ref.source = this.sanitizeFigureSource(ref.source) || ref.source;
       }
     }
 
     if (backfilled > 0) {
       this.logger.log(
-        `[backfillFigureUrls] Backfilled ${backfilled}/${figureRefs.length} figure URLs`,
+        `[backfillFigureUrls] Backfilled ${backfilled}/${figureRefs.length} figure URLs via registry`,
       );
     }
 
-    // ★ 过滤掉无效 URL 的引用（空、base64、placeholder、PDF 等）
+    // Filter out refs without valid imageUrl
     const result = figureRefs.filter((ref) => isValidFigureUrl(ref.imageUrl));
     if (result.length < figureRefs.length) {
       this.logger.warn(
-        `[backfillFigureUrls] Dropped ${figureRefs.length - result.length} figure refs without imageUrl`,
+        `[backfillFigureUrls] Dropped ${figureRefs.length - result.length} figure refs without valid imageUrl`,
       );
     }
     return result;

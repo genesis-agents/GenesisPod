@@ -427,17 +427,16 @@ export function ResearchCollaborationPanel({
           progress?: number;
           dimensionName?: string;
         };
-        // 按 taskId 存储
+        // 按 taskId 存储（取最大值，进度只增不减）
         if (data.taskId && typeof data.progress === 'number') {
-          taskMap.set(data.taskId, data.progress);
+          const existing = taskMap.get(data.taskId) ?? 0;
+          taskMap.set(data.taskId, Math.max(existing, data.progress));
         }
-        // ★ 同时按 dimensionName 存储（关键修复）
+        // ★ 同时按 dimensionName 存储（取最大值，进度只增不减）
         if (data.dimensionName && typeof data.progress === 'number') {
-          // 使用小写的 dimensionName 作为 key，确保匹配不区分大小写
-          dimensionMap.set(
-            data.dimensionName.toLowerCase().trim(),
-            data.progress
-          );
+          const key = data.dimensionName.toLowerCase().trim();
+          const existing = dimensionMap.get(key) ?? 0;
+          dimensionMap.set(key, Math.max(existing, data.progress));
         }
       }
     }
@@ -459,9 +458,11 @@ export function ResearchCollaborationPanel({
           task.dimensionName.toLowerCase().trim()
         );
       }
-      // 3. 应用实时进度（始终使用 WebSocket 的实时数据覆盖）
+      // 3. 应用实时进度（取 WebSocket 和 API 的较大值，进度只增不减）
+      // ★ 修复进度回退 bug：两个进度通道（emitAgentWorking→DB / emitProgress→WS）
+      //   可能因事件到达顺序不同导致 WS 低值覆盖 DB 高值
       if (realtimeProgress !== undefined) {
-        todo.progress = realtimeProgress;
+        todo.progress = Math.max(todo.progress, realtimeProgress);
       }
       return todo;
     });

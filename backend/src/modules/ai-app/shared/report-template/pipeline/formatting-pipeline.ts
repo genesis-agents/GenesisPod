@@ -180,9 +180,17 @@ export function formatDimensionContent(
   // boldSummaryPrefixes captures `$` and `\` into bold markers, corrupting
   // math delimiters. Wrapping first ensures `$...$` are in place before
   // any bold formatting touches the line.
+  //
+  // ★ ORDER MATTERS: wrapBareInlineLatex MUST run BEFORE wrapProseStyleMath.
+  // wrapBareInlineLatex handles full LaTeX commands (\frac, \sqrt, etc.) and
+  // wraps them as complete expressions. wrapProseStyleMath handles prose-style
+  // subscripts (d_k, W_1) and must skip content already inside $...$. If the
+  // order is reversed, wrapProseStyleMath wraps inner variables (e.g. d_k
+  // inside \sqrt{d_k}) first, fragmenting the LaTeX expression and causing
+  // KaTeX parse errors like \frac{} or \sqrt{}d_k}.
   processed = normalizeInlineDoubleDollar(processed);
-  processed = wrapProseStyleMath(processed);
   processed = wrapBareInlineLatex(processed);
+  processed = wrapProseStyleMath(processed);
   processed = fixUnbalancedLatexDelimiters(processed);
   // ── Bold and repair AFTER LaTeX is safely delimited ──
   processed = boldSummaryPrefixes(processed);

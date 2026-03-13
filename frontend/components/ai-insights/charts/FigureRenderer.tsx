@@ -99,7 +99,10 @@ function ReferenceFigureRenderer({
   showSource = true,
   allowZoom = true,
   onCitationClick,
-}: Omit<FigureRendererProps, 'className' | 'onRetry'>) {
+  onImageError: onImageErrorCallback,
+}: Omit<FigureRendererProps, 'className' | 'onRetry'> & {
+  onImageError?: () => void;
+}) {
   const { t } = useI18n();
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
@@ -118,6 +121,7 @@ function ReferenceFigureRenderer({
     if (isMountedRef.current) {
       setImageError(true);
       setImageLoading(false);
+      onImageErrorCallback?.();
     }
   };
 
@@ -398,7 +402,12 @@ export function FigureRenderer({
   evidenceInfo,
   onRetry,
 }: FigureRendererProps) {
-  // ★ Guard: skip figures with invalid URLs — only HTTP/HTTPS allowed
+  // ★ Track image load failures to hide the entire figure frame
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+
+  // ★ Guard: skip figures with invalid URLs
+  // Allow both HTTP/HTTPS URLs and data:image/ base64 (stored in DB from earlier extractions).
+  // Only reject LLM placeholder strings, fabricated URLs, and PDF links.
   const hasValidImageUrl =
     chart.imageUrl &&
     !chart.imageUrl.startsWith('[base64-image') &&
@@ -406,7 +415,8 @@ export function FigureRenderer({
     !chart.imageUrl.includes('xxxx') &&
     !/\.pdf(\?|$)/i.test(chart.imageUrl) &&
     (chart.imageUrl.startsWith('http://') ||
-      chart.imageUrl.startsWith('https://'));
+      chart.imageUrl.startsWith('https://') ||
+      chart.imageUrl.startsWith('data:image/'));
 
   // 判断图表类型 - 优先使用明确的 chartType
   const isReferenceChart =
@@ -425,6 +435,11 @@ export function FigureRenderer({
 
   // ★ If a reference chart has no valid image URL, don't render an empty box
   if (isReferenceChart && !hasValidImageUrl) {
+    return null;
+  }
+
+  // ★ If image failed to load at runtime, hide the entire figure (no empty frame)
+  if (imageLoadFailed) {
     return null;
   }
 
@@ -457,6 +472,7 @@ export function FigureRenderer({
             showSource={showSource}
             allowZoom={allowZoom}
             onCitationClick={onCitationClick}
+            onImageError={() => setImageLoadFailed(true)}
           />
         ) : isGeneratedChart ? (
           hasValidGeneratedData ? (

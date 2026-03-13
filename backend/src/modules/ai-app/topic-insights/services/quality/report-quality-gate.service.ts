@@ -180,7 +180,20 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
-    // 4.7 重复标题清理（AI 有时生成 "### 1. Title" 后又生成 "### Title"）
+    // 4.7 公式/LaTeX 完整性检查 + 自动修复
+    const latexIssues = this.validateAndFixLatex(fixedContent);
+    if (latexIssues.fixedContent !== fixedContent) {
+      fixedContent = latexIssues.fixedContent;
+      wasAutoFixed = true;
+    }
+    if (latexIssues.violations.length > 0) {
+      violations.push(...latexIssues.violations);
+    }
+    if (latexIssues.rewriteGuidance.length > 0) {
+      rewriteGuidance.push(...latexIssues.rewriteGuidance);
+    }
+
+    // 4.8 重复标题清理（AI 有时生成 "### 1. Title" 后又生成 "### Title"）
     const beforeDedup = fixedContent;
     fixedContent = deduplicateHeadings(fixedContent);
     if (fixedContent !== beforeDedup) {
@@ -667,5 +680,103 @@ export class ReportQualityGateService {
     }
 
     return warnings;
+  }
+
+  /**
+   * 公式/LaTeX 完整性检查 + 自动修复
+   *
+   * 检查项：
+   * 1. 拆分公式自动合并：$A$ $\in$ $B$ → $A \in B$
+   * 2. 不平衡的 $ 定界符检测
+   * 3. 缺参数的 LaTeX 命令检测（\frac 需要 2 个参数）
+   */
+  private validateAndFixLatex(content: string): {
+    fixedContent: string;
+    violations: QualityViolation[];
+    rewriteGuidance: string[];
+  } {
+    const violations: QualityViolation[] = [];
+    const rewriteGuidance: string[] = [];
+    let fixed = content;
+
+    // 1. 自动合并拆分公式：$A$ $\in$ $B$ → $A \in B$
+    // Pattern: $...$<whitespace>$...$  (adjacent math spans)
+    const beforeMerge = fixed;
+    fixed = fixed.replace(
+      /\$([^$]+)\$(\s+)\$([^$]+)\$/g,
+      (_match, a: string, _ws: string, b: string) => `$${a} ${b}$`,
+    );
+    // Run twice to catch chains of 3+ fragments: $A$ $\in$ $B$
+    fixed = fixed.replace(
+      /\$([^$]+)\$(\s+)\$([^$]+)\$/g,
+      (_match, a: string, _ws: string, b: string) => `$${a} ${b}$`,
+    );
+    if (fixed !== beforeMerge) {
+      violations.push({
+        rule: "latex_split_expressions",
+        severity: "warning",
+        message: `检测到拆分公式（$A$ $\\in$ $B$ 格式），已自动合并`,
+      });
+    }
+
+    // 2. 不平衡 $ 定界符检测（逐行，排除 $$ 和代码块）
+    let inCodeBlock = false;
+    let unbalancedCount = 0;
+    for (const line of fixed.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("```")) {
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+      if (inCodeBlock) continue;
+      if (trimmed.startsWith("$$") || trimmed.endsWith("$$")) continue;
+
+      // Remove $$ pairs, then count remaining $
+      const withoutDisplay = line.replace(/\$\$/g, "");
+      const dollarCount = (withoutDisplay.match(/\$/g) || []).length;
+      if (dollarCount % 2 !== 0) {
+        unbalancedCount++;
+      }
+    }
+    if (unbalancedCount > 0) {
+      violations.push({
+        rule: "latex_unbalanced_delimiters",
+        severity: "warning",
+        message: `检测到 ${unbalancedCount} 行含有不平衡的 $ 定界符，公式可能渲染异常`,
+        currentValue: unbalancedCount,
+        threshold: 0,
+      });
+      if (unbalancedCount > 3) {
+        rewriteGuidance.push(
+          `公式定界符不平衡：${unbalancedCount} 行的 $ 符号未配对。` +
+            `请确保每个数学表达式的 $...$ 成对出现，一个完整表达式放在同一对 $ 中。`,
+        );
+      }
+    }
+
+    // 3. 缺参数的 LaTeX 命令检测
+    // \frac 需要 2 个 {...}，\sqrt 需要至少 1 个 {...}
+    const fracMissing = (fixed.match(/\\frac\s*\{[^}]*\}(?!\s*\{)/g) || [])
+      .length;
+    const sqrtMissing = (fixed.match(/\\sqrt(?!\s*[\[{])/g) || []).length;
+    if (fracMissing > 0 || sqrtMissing > 0) {
+      const details: string[] = [];
+      if (fracMissing > 0)
+        details.push(`\\frac 缺少第二参数 ${fracMissing} 处`);
+      if (sqrtMissing > 0) details.push(`\\sqrt 缺少参数 ${sqrtMissing} 处`);
+      violations.push({
+        rule: "latex_incomplete_commands",
+        severity: "warning",
+        message: `检测到不完整的 LaTeX 命令：${details.join("、")}`,
+        currentValue: fracMissing + sqrtMissing,
+        threshold: 0,
+      });
+      rewriteGuidance.push(
+        `LaTeX 命令不完整：${details.join("、")}。` +
+          `\\frac 需要两个参数 \\frac{分子}{分母}，\\sqrt 需要参数 \\sqrt{表达式}。`,
+      );
+    }
+
+    return { fixedContent: fixed, violations, rewriteGuidance };
   }
 }

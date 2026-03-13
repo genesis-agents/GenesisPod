@@ -436,9 +436,7 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
       },
       "allocatedFigures": [
         {
-          "evidenceIndex": 1,
-          "figureIndex": 0,
-          "imageUrl": "图片URL",
+          "figureId": "FIG-1",
           "caption": "描述图表核心内容和关键数据的标题（禁止写'可用于说明...'等占位风格）",
           "relevanceReason": "与章节内容的关联说明"
         }

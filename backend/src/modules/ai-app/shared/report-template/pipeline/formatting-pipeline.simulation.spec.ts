@@ -657,6 +657,43 @@ describe("Scenario 4: LaTeX delimiter fixing", () => {
     expect(result).toMatch(/\$e\^\{-x\}\$/);
   });
 
+  // ── Critical regression: wrapProseStyleMath must NOT corrupt LaTeX inside $...$ ──
+  it("wrapProseStyleMath skips d_k inside $\\frac{QK^\\top}{\\sqrt{d_k}}$", () => {
+    // After wrapBareInlineLatex, the line has: $\frac{QK^\top}{\sqrt{d_k}}$
+    // wrapProseStyleMath must NOT touch d_k inside the $...$ span
+    const content =
+      "注意力得分计算公式为 $\\frac{QK^\\top}{\\sqrt{d_k}}$，其中d_k为维度。";
+    const result = wrapProseStyleMath(content);
+    // d_k inside $...$ must remain untouched
+    expect(result).toContain("$\\frac{QK^\\top}{\\sqrt{d_k}}$");
+    // d_k outside $...$ should be wrapped
+    expect(result).toContain("$d_k$为维度");
+  });
+
+  it("pipeline order: wrapBareInlineLatex then wrapProseStyleMath preserves \\frac", () => {
+    // Simulates the actual pipeline order
+    const content =
+      "注意力公式为\\frac{QK^\\top}{\\sqrt{d_k}}，其中d_k为维度。";
+    const step1 = wrapBareInlineLatex(content);
+    expect(step1).toContain("$\\frac{QK^\\top}{\\sqrt{d_k}}$");
+    const step2 = wrapProseStyleMath(step1);
+    // Must NOT fragment the \frac expression
+    expect(step2).toContain("$\\frac{QK^\\top}{\\sqrt{d_k}}$");
+    // Must NOT have $d_k$ INSIDE the \frac (i.e. no nested dollars within \frac)
+    expect(step2).not.toContain("\\sqrt{$d_k$}");
+    expect(step2).not.toContain("\\frac{}");
+    expect(step2).not.toContain("\\sqrt{}");
+  });
+
+  it("full pipeline handles \\frac{QK^\\top}{\\sqrt{d_k}} without fragmentation", () => {
+    const content =
+      "注意力公式为\\frac{QK^\\top}{\\sqrt{d_k}}，其中d_k为维度。";
+    const result = formatDimensionContent(content);
+    expect(result).toContain("$\\frac{QK^\\top}{\\sqrt{d_k}}$");
+    expect(result).not.toContain("\\sqrt{}");
+    expect(result).not.toContain("\\frac{}");
+  });
+
   it("known limitation: cross-line unbalanced delimiters are NOT fixed", () => {
     const content = [
       "公式如下 $\\frac{a}{b}",

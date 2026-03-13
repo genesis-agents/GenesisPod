@@ -142,11 +142,13 @@ export interface EvidenceData {
 export interface FigureReference {
   /** 图表 ID */
   id: string;
-  /** 来源证据编号 [1], [2] */
-  evidenceCitationIndex: number;
-  /** 证据中的第几个图表（从 0 开始） */
-  figureIndex: number;
-  /** 图片 URL（从证据中提取） */
+  /** 图表唯一 ID（如 FIG-1），对应 figureRegistry 中的 key */
+  figureId?: string;
+  /** 来源证据编号 [1], [2] — 由系统从 figureRegistry 回填 */
+  evidenceCitationIndex?: number;
+  /** 证据中的第几个图表（从 0 开始） — 由系统从 figureRegistry 回填 */
+  figureIndex?: number;
+  /** 图片 URL（从 figureRegistry 回填） */
   imageUrl?: string;
   /** 图表标题 */
   caption: string;

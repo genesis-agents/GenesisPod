@@ -15,6 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { preprocessLatex } from '@/lib/report/preprocessLatex';
 import {
   Shield,
   Maximize2,
@@ -2037,7 +2038,7 @@ export function TopicContentPanel({
                 remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
               >
-                {report.fullReport}
+                {preprocessLatex(report.fullReport)}
               </ReactMarkdown>
             </div>
           </div>
@@ -2583,7 +2584,7 @@ function ReportTabContent({
                   ),
                 }}
               >
-                {selectedContent.content || ''}
+                {preprocessLatex(selectedContent.content || '')}
               </ReactMarkdown>
             </article>
           </div>

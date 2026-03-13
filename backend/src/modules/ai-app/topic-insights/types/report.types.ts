@@ -351,8 +351,9 @@ export interface DimensionAnalysisInput {
   /** ★ 引用的原始图表（来自证据） */
   figureReferences?: Array<{
     id: string;
-    evidenceCitationIndex: number;
-    figureIndex: number;
+    figureId?: string;
+    evidenceCitationIndex?: number;
+    figureIndex?: number;
     imageUrl?: string;
     caption: string;
     position: string;

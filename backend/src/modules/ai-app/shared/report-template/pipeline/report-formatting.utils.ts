@@ -1713,7 +1713,7 @@ export function wrapProseStyleMath(content: string): string {
     .split("\n")
     .map((line) => {
       const trimmed = line.trim();
-      // Skip display math, code blocks, headings, table rows, lines already having $
+      // Skip display math, code blocks, headings, table rows, blockquotes
       if (
         trimmed.startsWith("$$") ||
         trimmed.startsWith("```") ||
@@ -1732,26 +1732,30 @@ export function wrapProseStyleMath(content: string): string {
         return line;
       }
 
-      // Apply pattern 3 first (equations), then 2 (functions), then 1 (subscripts)
-      // Only wrap if not already inside $...$
+      // ★ If line already contains $...$ (from prior wrapBareInlineLatex),
+      // only apply wrapping to text OUTSIDE existing math spans.
+      if (line.includes("$")) {
+        return applyProseWrapOutsideMath(
+          line,
+          EQUATION_RE,
+          PROSE_FUNC_RE,
+          SUBSCRIPT_RE,
+        );
+      }
+
+      // No existing $ — safe to apply patterns to the whole line
       let result = line;
 
-      // Wrap full equations
-      result = result.replace(EQUATION_RE, (match, expr: string) => {
-        // Skip if already inside $ context
-        const before = result.slice(0, result.indexOf(match));
-        const dollarsBefore = (before.match(/\$/g) || []).length;
-        if (dollarsBefore % 2 !== 0) return match; // inside existing math
+      // Apply pattern 3 first (equations), then 2 (functions), then 1 (subscripts)
+      result = result.replace(EQUATION_RE, (_match, expr: string) => {
         return `$${expr}$`;
       });
 
-      // Wrap prose function calls (only if not already wrapped)
       result = result.replace(PROSE_FUNC_RE, (match, expr: string) => {
         if (result.includes(`$${expr}$`)) return match; // already wrapped by equation
         return `$${expr}$`;
       });
 
-      // Wrap standalone subscript/superscript variables
       result = result.replace(SUBSCRIPT_RE, (match, expr: string) => {
         if (result.includes(`$${expr}`) || result.includes(`${expr}$`))
           return match;
@@ -1761,6 +1765,80 @@ export function wrapProseStyleMath(content: string): string {
       return result;
     })
     .join("\n");
+}
+
+/**
+ * Apply prose-style math wrapping only to segments OUTSIDE existing $...$ spans.
+ *
+ * Splits the line into math (inside $...$) and non-math segments, applies
+ * the three regex patterns only to non-math segments, then reassembles.
+ */
+function applyProseWrapOutsideMath(
+  line: string,
+  equationRe: RegExp,
+  proseFuncRe: RegExp,
+  subscriptRe: RegExp,
+): string {
+  // Split into segments: alternating non-math / math
+  const segments: { text: string; isMath: boolean }[] = [];
+  let inMath = false;
+  let current = "";
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "$") {
+      // Skip $$ (display math)
+      if (line[i + 1] === "$") {
+        current += "$$";
+        i++;
+        continue;
+      }
+      if (inMath) {
+        // Closing $
+        current += ch;
+        segments.push({ text: current, isMath: true });
+        current = "";
+        inMath = false;
+      } else {
+        // Opening $
+        if (current) segments.push({ text: current, isMath: false });
+        current = ch;
+        inMath = true;
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) segments.push({ text: current, isMath: inMath });
+
+  // Apply wrapping only to non-math segments
+  const result = segments
+    .map((seg) => {
+      if (seg.isMath) return seg.text;
+
+      let text = seg.text;
+
+      // Equations
+      text = text.replace(equationRe, (_match, expr: string) => `$${expr}$`);
+
+      // Prose functions (skip if already wrapped by equation pass)
+      text = text.replace(proseFuncRe, (match, expr: string) => {
+        if (text.includes(`$${expr}$`)) return match;
+        return `$${expr}$`;
+      });
+
+      // Subscript/superscript variables
+      text = text.replace(subscriptRe, (match, expr: string) => {
+        if (text.includes(`$${expr}`) || text.includes(`${expr}$`))
+          return match;
+        return `$${expr}$`;
+      });
+
+      return text;
+    })
+    .join("");
+
+  return result;
 }
 
 export function wrapBareInlineLatex(content: string): string {
