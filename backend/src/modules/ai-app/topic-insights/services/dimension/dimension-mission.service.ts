@@ -1146,6 +1146,21 @@ export class DimensionMissionService {
         `${logPrefix} Charts from sections: ${allFigureReferences.length} refs, ${allGeneratedCharts.length} generated`,
       );
 
+      // 4.5 ★ 确定性填充 figureReference.source — 用 evidenceCitationIndex 回查证据标题
+      // 必须在 saveEvidence/indexMapping 之前执行：此时 evidenceCitationIndex 仍是 promptIndex（1-based），
+      // 与 evidenceData 数组下标一致（promptIndex - 1）。saveEvidence 后 index 会被重映射为 DB citationIndex。
+      const evidenceData = searchPhaseResult.evidenceData;
+      for (const ref of allFigureReferences) {
+        if (ref.source) continue; // LLM 已输出 source 的不覆盖
+        const promptIdx = ref.evidenceCitationIndex; // 1-based
+        if (promptIdx >= 1 && promptIdx <= evidenceData.length) {
+          const evidence = evidenceData[promptIdx - 1];
+          if (evidence) {
+            ref.source = evidence.title || evidence.domain || evidence.url;
+          }
+        }
+      }
+
       // 5. 保存证据到数据库并替换临时ID
       let savedEvidenceIds: string[] = [];
       let finalIntegratedResult = integratedResult;

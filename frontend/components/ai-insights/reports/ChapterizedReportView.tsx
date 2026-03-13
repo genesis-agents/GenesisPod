@@ -816,7 +816,7 @@ function ChapterizedReportViewInner({
                 selectedChapter.keyFindings.length > 0 && (
                   <div className="mb-5 rounded-xl border-l-4 border-blue-400 bg-blue-50/60 p-4">
                     <h4 className="mb-2 text-sm font-semibold text-blue-800">
-                      Key Takeaways
+                      {t('topicResearch.reportEditor.keyTakeaways')}
                     </h4>
                     <ul className="space-y-1.5">
                       {selectedChapter.keyFindings.map((kf, idx) => (

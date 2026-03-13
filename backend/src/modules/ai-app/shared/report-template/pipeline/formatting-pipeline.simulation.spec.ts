@@ -22,6 +22,8 @@ import {
   sanitizeHeadingLevels,
   repairMarkdownTables,
   wrapBareInlineLatex,
+  wrapProseStyleMath,
+  boldSummaryPrefixes,
   repairLatexCommands,
   stripInternalFigureNotation,
   stripLLMMetaNotes,
@@ -612,6 +614,47 @@ describe("Scenario 4: LaTeX delimiter fixing", () => {
     // hasLatexAfter = false, hasLatexBefore = true (\sum)
     // → remove orphan $
     expect(result).toBe("文本 $$\\sum x$$ 更多文本 误写");
+  });
+
+  // ── Bug fix: boldSummaryPrefixes must not corrupt math delimiters ──
+  it("boldSummaryPrefixes skips lines containing $ delimiters", () => {
+    const content = "损失$L_{RLHF}$定义为：最小化奖励的负期望";
+    const result = boldSummaryPrefixes(content);
+    // $ must NOT be captured inside **...**
+    expect(result).toContain("$L_{RLHF}$");
+    expect(result).not.toContain("**损失$");
+  });
+
+  it("boldSummaryPrefixes skips lines with bare LaTeX commands", () => {
+    const content = "模型损失\\alpha定义为：xxx";
+    const result = boldSummaryPrefixes(content);
+    expect(result).not.toContain("**模型损失\\alpha定义为**");
+  });
+
+  it("full pipeline: boldSummaryPrefixes does not corrupt already-wrapped math", () => {
+    const content =
+      "损失函数$L_{RLHF} = -\\mathbb{E}[r]$的优化：基于PPO的强化学习";
+    const result = formatDimensionContent(content, { dimIndex: 0 });
+    expect(result).toContain("$L_{RLHF} = -\\mathbb{E}[r]$");
+  });
+
+  // ── Bug fix: wrapProseStyleMath supports superscript-only variables ──
+  it("wrapProseStyleMath wraps superscript-only variables like R^d", () => {
+    const content = "嵌入空间为R^d维向量。";
+    const result = wrapProseStyleMath(content);
+    expect(result).toMatch(/\$R\^d\$/);
+  });
+
+  it("wrapProseStyleMath wraps superscript with braces like x^{n+1}", () => {
+    const content = "下一步状态为x^{n+1}的函数。";
+    const result = wrapProseStyleMath(content);
+    expect(result).toMatch(/\$x\^\{n\+1\}\$/);
+  });
+
+  it("wrapProseStyleMath wraps e^{-x} pattern", () => {
+    const content = "衰减函数为e^{-x}形式。";
+    const result = wrapProseStyleMath(content);
+    expect(result).toMatch(/\$e\^\{-x\}\$/);
   });
 
   it("known limitation: cross-line unbalanced delimiters are NOT fixed", () => {

@@ -111,6 +111,21 @@ export function stripChartJsonFromContent(content: string): string {
   // 单独的 "图表数据" 标题行（无分隔线）
   result = result.replace(/\n#{1,3}\s*图表数据\s*\n/g, "\n");
 
+  // ★ Strip inline JSON figure reference arrays/objects leaked mid-content
+  // Pattern: { "type": "image" or { "type": "table" followed by JSON properties
+  // These are raw figureReferences objects that LLM failed to separate
+  result = result.replace(
+    /\{[^{}]*"type"\s*:\s*"(?:image|table)"[^}]*\}(?:\s*,\s*\{[^{}]*"type"\s*:\s*"(?:image|table)"[^}]*\})*/g,
+    "",
+  );
+
+  // ★ Strip leaked chart config JSON (Chart.js options)
+  // Pattern: "y1": { "type": "linear", ... } — chart axis configuration
+  result = result.replace(
+    /"\w+"\s*:\s*\{\s*"type"\s*:\s*"(?:linear|logarithmic|category|time)"[^}]*\}/g,
+    "",
+  );
+
   return result.trim();
 }
 

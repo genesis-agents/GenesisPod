@@ -622,6 +622,9 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/独立洞察[：:]/g, "")
       .replace(/需补充\d{4}\s*Q\d\s*企业报告验证/g, "")
       .replace(/(?:需|应)补充.*?(?:验证|数据|报告)/g, "")
+      // ── "图表提示" editorial commentary — LLM internal figure placement reasoning ──
+      // e.g. "图表提示图 30.TiDAR架构全流程图...可在本节相关段落后插入，用于强调..."
+      .replace(/图表提示[^\n]*(?:\n(?!#{1,6}\s|\n)[^\n]+)*/g, "")
       // ── 数据支撑总结块（内部标注） ──
       .replace(/^数据支撑总结[：:].+$/gm, "")
       // ── 教材/课程类源语言泄露 ──
@@ -1071,6 +1074,10 @@ export function stripInternalFigureNotation(content: string): string {
         /^[ \t]*Source\s*[：:]\s*证据\s*\[[\d,\s]+\]\s*分配图片\s*\[\d+\]\s*$/gm,
         "",
       )
+
+      // ── "Source:证据[N] 图M" — internal evidence+figure source notation leaked to caption ──
+      // e.g. "Source: 证据[4] 图8" or "Source:证据[2] 图3"
+      .replace(/^[ \t]*Source\s*[：:]\s*证据\s*\[[\d,\s]+\]\s*图\d+\s*$/gm, "")
 
       // ── "已分配图片/已分配的" — internal allocation language in prose ──
       // Only match when followed by figure/chart context words to avoid false positives
@@ -1684,11 +1691,12 @@ export function wrapBareDisplayMath(content: string): string {
  * notation that should be rendered as inline math.
  */
 export function wrapProseStyleMath(content: string): string {
-  // ── Pattern 1: variable with subscript/superscript ──
+  // ── Pattern 1: variable with subscript and/or superscript ──
   // Matches: W_1, W_{model}, PE_{(pos,2i)}, head_i, QW_i^Q, d_k, b_1
-  // Must start with a letter, contain _ or ^, and have alphanumeric/brace content
+  // Also matches superscript-only: R^d, x^{n+1}, e^{-x}, 10^{6}
+  // Must start with a letter/digit, contain _ or ^, and have alphanumeric/brace content
   const SUBSCRIPT_RE =
-    /(?<![$\\a-zA-Z])([A-Za-z][A-Za-z]*(?:_(?:\{[^}]+\}|[A-Za-z0-9]))+(?:\^(?:\{[^}]+\}|[A-Za-z0-9]))*)(?![a-zA-Z$])/g;
+    /(?<![$\\a-zA-Z])([A-Za-z0-9][A-Za-z0-9]*(?:(?:_(?:\{[^}]+\}|[A-Za-z0-9]))|(?:\^(?:\{[^}]+\}|[A-Za-z0-9])))(?:(?:_(?:\{[^}]+\}|[A-Za-z0-9]))|(?:\^(?:\{[^}]+\}|[A-Za-z0-9])))*)(?![a-zA-Z$])/g;
 
   // ── Pattern 2: prose function calls like sin(x), cos(θ), log(n) ──
   // Only match when NOT preceded by \ (which wrapBareInlineLatex handles)
@@ -1718,7 +1726,7 @@ export function wrapProseStyleMath(content: string): string {
 
       // Skip lines with no math-like content at all
       if (
-        !/_[{a-z0-9]|\^[{a-z0-9]/i.test(line) &&
+        !/_[{a-z0-9]|[A-Za-z0-9]\^[{a-z0-9]/i.test(line) &&
         !/(?:sin|cos|log|FFN|softmax|Attention)\s*\(/i.test(line)
       ) {
         return line;
@@ -2966,6 +2974,8 @@ export function boldSummaryPrefixes(content: string): string {
     (_match, prefix: string) => {
       // Skip if line already has bold or is inside a code block
       if (prefix.includes("**") || prefix.includes("`")) return _match;
+      // ★ Skip if prefix contains math delimiters or LaTeX commands — bolding would corrupt them
+      if (prefix.includes("$") || prefix.includes("\\")) return _match;
       // Skip very generic single-word prefixes (e.g., "注" "如" "但")
       if (prefix.trim().length <= 2) return _match;
       return `**${prefix.trim()}**：`;
@@ -3257,7 +3267,7 @@ export function stripChapterHighlights(content: string): string {
  */
 export function normalizeChapterHighlights(content: string): string {
   const CHAPTER_HIGHLIGHTS_RE =
-    /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\**\s*$/i;
+    /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights|Key Takeaways)\**[：:]*\**\s*$/i;
 
   const lines = content.split("\n");
 

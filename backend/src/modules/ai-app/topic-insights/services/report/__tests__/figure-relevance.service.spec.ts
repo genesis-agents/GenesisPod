@@ -93,8 +93,9 @@ describe("FigureRelevanceService", () => {
         "AI Research",
       );
 
-      // ★ v6.0: Fallback now keeps all figures (photo type no longer auto-rejected)
-      expect(result).toHaveLength(3);
+      // ★ v8: Fallback now keeps only chart/diagram/table (photo filtered out for safety)
+      expect(result).toHaveLength(2);
+      expect(result.every((f) => f.type !== "photo")).toBe(true);
     });
 
     // ============================================================

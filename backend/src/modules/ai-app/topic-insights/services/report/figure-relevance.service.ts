@@ -2,13 +2,16 @@
  * Figure Relevance Service
  *
  * 使用多模态 LLM（Vision）对候选图片进行内容审查：
- * 1. 图片是否可辨识（非损坏、非纯色占位符）
- * 2. 图片是否与研究主题有信息价值（不限于 chart/diagram，photo 也可以有价值）
- * 3. 排除纯装饰性图片（横幅广告、纯色背景、无意义 stock photo）
+ * 1. 图片是否可辨识（非损坏、非纯色占位符、非模糊不清）
+ * 2. 图片是否与研究主题有直接信息关联（不仅是主题词匹配，需内容实质相关）
+ * 3. 排除：纯装饰、横幅广告、stock photo、模糊/低质量、与主题无实质关联的配图
  *
  * ★ v6.0 根因修复：旧 prompt 要求"必须是信息图(chart/diagram/table)"，
  *   导致有价值的新闻照片、产品截图、技术演示图全被杀。
  *   新原则："有信息价值就保留" — photo 类型不再自动拒绝。
+ *
+ * ★ v8.0 强化：detail "low" → "auto"，增加模糊/质量检测指令，
+ *   API 失败时仅保留 chart/diagram/table 类型（不再全部放行）。
  *
  * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
  */
@@ -63,10 +66,19 @@ export class FigureRelevanceService {
       AIModelType.MULTIMODAL,
     );
     if (!multimodalModel?.modelId) {
-      this.logger.warn(
-        `[filterRelevantFigures] No MULTIMODAL model configured, falling back to type-based filter`,
+      // ★ v8: 无 Vision 模型时，仅保留 chart/diagram/table（高置信度类型）
+      // photo 类型在没有 Vision 审查的情况下风险太高
+      const safeFigures = figures.filter(
+        (fig) =>
+          fig.type === "chart" ||
+          fig.type === "diagram" ||
+          fig.type === "table",
       );
-      return figures;
+      this.logger.warn(
+        `[filterRelevantFigures] No MULTIMODAL model configured, ` +
+          `type-based fallback: keeping ${safeFigures.length}/${figures.length} (chart/diagram/table only)`,
+      );
+      return safeFigures;
     }
 
     // ★ v7: 上游 validateSingleFigure 已丢弃所有 data: URL，
@@ -116,11 +128,20 @@ export class FigureRelevanceService {
           );
         }
       } catch (error) {
-        // 单批失败 → 该批全部保留（不因 API 故障丢图）
-        this.logger.warn(
-          `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1} Vision check failed, accepting all ${batch.length} figures: ${error instanceof Error ? error.message : error}`,
+        // ★ v8: 单批失败 → 仅保留 chart/diagram/table 类型（高置信度图片），photo 丢弃
+        // 不再全部放行，避免低质量 photo 绕过质量关卡
+        const safeFallback = batch.filter(
+          (fig) =>
+            fig.type === "chart" ||
+            fig.type === "diagram" ||
+            fig.type === "table",
         );
-        allAccepted.push(...batch);
+        this.logger.warn(
+          `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1} Vision check failed, ` +
+            `keeping ${safeFallback.length}/${batch.length} (chart/diagram/table only): ` +
+            `${error instanceof Error ? error.message : error}`,
+        );
+        allAccepted.push(...safeFallback);
       }
     }
 
@@ -143,10 +164,22 @@ export class FigureRelevanceService {
     // 构建多模态 contentParts：交替 text + image
     const contentParts: ContentPart[] = [];
 
-    // 开头说明
+    // 开头说明 — ★ v8: 强化质量标准，增加模糊/低质量检测指令
     contentParts.push({
       type: "text",
-      text: `请审查以下 ${figures.length} 张候选图片是否适合用于研究报告章节「${topicTitle}」。\n\n对每张图片判断：\n1. 图片是否可辨识（非损坏、非纯色、非占位符）\n2. 图片内容是否与该章节主题直接相关（不仅是大主题相关，而是与具体章节内容匹配）\n3. 图片是否具有信息价值 — 数据图表、产品截图、新闻照片、技术示意图、活动现场等均可\n\n接受标准：图片内容与该章节主题直接相关且有信息价值。\n排除标准：纯广告横幅、装饰性背景图、与章节主题无关的图片。\n`,
+      text: [
+        `请严格审查以下 ${figures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。`,
+        "",
+        "对每张图片判断以下 4 项（任一不通过即拒绝）：",
+        "1. **可辨识性**：图片是否清晰可读？拒绝：损坏、纯色占位符、严重模糊/马赛克、文字无法辨认的低分辨率图",
+        "2. **内容相关性**：图片内容是否与研究主题「" +
+          topicTitle +
+          "」有直接实质关联？仅主题词巧合不算相关。拒绝：虽含相关关键词但实际内容无关的配图（如一篇AI文章配了一张无关的城市风景照）",
+        "3. **信息价值**：图片是否传递了对读者有用的信息？数据图表、趋势图、对比图、技术架构图、产品截图、关键人物照片 > 新闻配图 > 一般活动照片",
+        "4. **专业性**：图片是否适合出现在专业研究报告中？拒绝：纯广告横幅、stock photo（明显摆拍的素材图）、社交媒体截图、meme/表情包、装饰性背景图、网站 UI 元素",
+        "",
+        "★ 宁缺毋滥 — 报告不配图好过配低质量图。如果不确定，请拒绝。",
+      ].join("\n"),
     } satisfies TextContentPart);
 
     // 逐张图片
@@ -158,20 +191,23 @@ export class FigureRelevanceService {
       } satisfies TextContentPart);
 
       // ★ v7: 所有 data: URL 已在上游丢弃，此处只有 HTTP/HTTPS URL
+      // ★ v8: detail "low" → "auto" — 让模型根据图片大小选择分辨率，
+      //   低分辨率下无法检测模糊和细节质量问题
       contentParts.push({
         type: "image_url",
-        image_url: { url: fig.imageUrl, detail: "low" },
+        image_url: { url: fig.imageUrl, detail: "auto" },
       } satisfies ImageUrlContentPart);
     }
 
     // 要求 JSON 输出
     contentParts.push({
       type: "text",
-      text: `\n请以 JSON 格式返回审查结果，格式为：
+      text: `\n请以 JSON 格式返回审查结果。对于拒绝的图片，reason 必须说明具体原因类别（模糊/低质量/无关/装饰/广告/stock photo）。格式：
 {
   "results": [
     { "index": 0, "accepted": true },
-    { "index": 1, "accepted": false, "reason": "装饰性照片，与主题无关" }
+    { "index": 1, "accepted": false, "reason": "模糊不清，文字无法辨认" },
+    { "index": 2, "accepted": false, "reason": "stock photo，与主题无实质关联" }
   ]
 }
 仅返回 JSON，不要其他文字。`,

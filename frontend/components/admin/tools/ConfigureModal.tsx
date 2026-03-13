@@ -38,6 +38,7 @@ const CATEGORY_TO_SECRET_CATEGORY: Record<string, string | null> = {
   'external-weather': 'WEATHER',
   'policy-research': 'POLICY',
   'external-devtools': 'DEV_TOOLS',
+  'external-image-search': 'IMAGE_SEARCH',
   mcp: 'MCP',
 };
 

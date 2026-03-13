@@ -43,6 +43,7 @@ import {
   wrapPseudoCodeBlocks,
   collapseExcessSubHeadings,
   removeEmptyHeadings,
+  renumberHeadings,
   truncateLongListItems,
   separateTrappedConclusions,
   bulletifyBlockquoteItems,
@@ -168,22 +169,38 @@ export function formatDimensionContent(
   processed = bulletifyBlockquoteItems(processed);
   processed = splitEnumerationToList(processed);
   processed = cleanupEmptyBullets(processed);
-  processed = boldSummaryPrefixes(processed);
   processed = removeHorizontalRules(processed);
-  processed = repairBrokenBoldMarkers(processed);
   processed = stripFigureComments(processed);
   // Note: stripOrphanedChartComments is NOT called here — chart comments
   // (<!-- chart:xxx -->) are valid markers used by the frontend to position
   // figures. They are only stripped in the frontend renderer (chapter view)
   // when no charts data is available for a given chapter.
   processed = escapeLatexPipeInTables(processed);
+  // ── LaTeX wrapping must run BEFORE boldSummaryPrefixes ──
+  // boldSummaryPrefixes captures `$` and `\` into bold markers, corrupting
+  // math delimiters. Wrapping first ensures `$...$` are in place before
+  // any bold formatting touches the line.
   processed = normalizeInlineDoubleDollar(processed);
   processed = wrapProseStyleMath(processed);
   processed = wrapBareInlineLatex(processed);
   processed = fixUnbalancedLatexDelimiters(processed);
+  // ── Bold and repair AFTER LaTeX is safely delimited ──
+  processed = boldSummaryPrefixes(processed);
+  processed = repairBrokenBoldMarkers(processed);
   processed = removeOrphanedFigureReferences(processed);
   // Reference-style markdown images: ![alt][figure:N] — internal figure refs
   processed = processed.replace(/!\[[^\]]*\]\[[^\]]*\]/g, "");
+  // ★ Strip orphaned chart comments when no chart resolver is provided
+  // These are <!-- chart:dN-sN-N:N --> markers that were not consumed by the chart resolver.
+  // Without a resolver, they would leak into rendered content as visible HTML comments.
+  if (!ctx.resolveChartPlaceholders) {
+    processed = processed.replace(/<!--\s*chart:[^\s]+?\s*-->/g, "");
+  }
+
+  // ── Phase 5.5: Re-number headings to close gaps from removed headings ──
+  if (ctx.dimIndex !== undefined) {
+    processed = renumberHeadings(processed);
+  }
 
   // ── Phase 6: Final cleanup ───────────────────────────────────────────
   processed = processed.replace(/\n{3,}/g, "\n\n");
