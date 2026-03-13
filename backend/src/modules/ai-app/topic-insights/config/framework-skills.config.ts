@@ -1,0 +1,148 @@
+/**
+ * Framework Skills Configuration
+ *
+ * Layer 3 类型专属分析框架的唯一注册表。
+ * 管理 topicType → 框架技能映射、研究深度推荐、对抗验证技能分配。
+ *
+ * 扩展模式：
+ * - 新增主类型：FRAMEWORK_SKILLS_BY_TOPIC_TYPE + VALID_SKILLS + skill.md
+ * - 新增 EVENT 子类型：EVENT_SUBTYPE_SKILLS + VALID_SKILLS + skill.md
+ */
+
+import { ResearchTopicType } from "@prisma/client";
+
+/**
+ * 主类型 -> 框架技能映射
+ */
+export const FRAMEWORK_SKILLS_BY_TOPIC_TYPE: Record<string, string[]> = {
+  [ResearchTopicType.MACRO]: ["macro-analysis"],
+  [ResearchTopicType.TECHNOLOGY]: ["technology-analysis"],
+  [ResearchTopicType.COMPANY]: ["company-analysis"],
+  // EVENT 枚举值待 schema 添加后替换为 [ResearchTopicType.EVENT]
+  EVENT: ["event-analysis"],
+};
+
+/**
+ * EVENT 子类型 -> 附加技能映射（预留，EVENT 上线时启用）
+ */
+export const EVENT_SUBTYPE_SKILLS: Record<string, string[]> = {
+  merger_acquisition: ["event-ma"],
+  policy_regulation: ["event-policy"],
+  product_launch: ["event-product-launch"],
+  crisis_security: ["event-crisis"],
+  funding_ipo: ["event-funding"],
+  geopolitical_trade: ["event-geopolitical"],
+  leadership_change: ["event-leadership"],
+  tech_breakthrough: ["event-tech-breakthrough"],
+};
+
+/**
+ * 根据主类型 + 子类型解析应注入的框架技能列表
+ * @returns kebab-case skill IDs，可直接传给 chatWithSkills additionalSkills
+ */
+export function resolveFrameworkSkills(
+  topicType: string,
+  eventSubType?: string,
+): string[] {
+  const base = FRAMEWORK_SKILLS_BY_TOPIC_TYPE[topicType] || [];
+  if (topicType === "EVENT" && eventSubType) {
+    const sub = EVENT_SUBTYPE_SKILLS[eventSubType] || [];
+    return [...base, ...sub];
+  }
+  return base;
+}
+
+/**
+ * 类型 -> 推荐研究深度映射
+ * Leader 会根据此推荐选择深度，thorough 深度自动包含 DEVIL_ADVOCATE 角色
+ * 参考: ROLE_RECOMMENDATIONS_BY_DEPTH (agent-roles.config.ts:580-598)
+ */
+export const RECOMMENDED_DEPTH_BY_TOPIC_TYPE: Record<
+  string,
+  "quick" | "standard" | "thorough"
+> = {
+  MACRO: "thorough",
+  TECHNOLOGY: "standard",
+  COMPANY: "thorough",
+  EVENT: "thorough",
+};
+
+/**
+ * 类型 -> 推荐附加 debate skills
+ * 当 Leader 分配 DEVIL_ADVOCATE 时，这些 skills 会自动注入
+ */
+export const DEBATE_SKILLS_BY_TOPIC_TYPE: Record<string, string[]> = {
+  MACRO: ["critical-thinking", "debate-argument-generator"],
+  TECHNOLOGY: ["critical-thinking", "debate-argument-generator"],
+  COMPANY: [
+    "critical-thinking",
+    "competitive-analysis",
+    "debate-argument-generator",
+  ],
+  EVENT: ["critical-thinking", "debate-argument-generator"],
+};
+
+/**
+ * 基于话题文本自动检测 EVENT 子类型（预留，EVENT 上线时启用）
+ */
+export function detectEventSubType(
+  topicName: string,
+  topicDescription?: string | null,
+): string | undefined {
+  const text = `${topicName} ${topicDescription || ""}`.toLowerCase();
+  const patterns: Array<{ keywords: string[]; subType: string }> = [
+    {
+      keywords: ["收购", "并购", "合并", "acquisition", "merger", "m&a"],
+      subType: "merger_acquisition",
+    },
+    {
+      keywords: [
+        "政策",
+        "法规",
+        "法案",
+        "监管",
+        "regulation",
+        "policy",
+        "act",
+        "compliance",
+      ],
+      subType: "policy_regulation",
+    },
+    {
+      keywords: ["发布", "发售", "launch", "release", "unveil"],
+      subType: "product_launch",
+    },
+    {
+      keywords: ["危机", "事故", "泄露", "breach", "crisis", "incident"],
+      subType: "crisis_security",
+    },
+    {
+      keywords: ["融资", "ipo", "估值", "funding", "fundraise"],
+      subType: "funding_ipo",
+    },
+    {
+      keywords: [
+        "地缘",
+        "关税",
+        "制裁",
+        "贸易",
+        "geopolitical",
+        "tariff",
+        "sanction",
+      ],
+      subType: "geopolitical_trade",
+    },
+    {
+      keywords: ["ceo", "cto", "离职", "任命", "resignation", "appoint"],
+      subType: "leadership_change",
+    },
+    {
+      keywords: ["突破", "里程碑", "breakthrough", "milestone"],
+      subType: "tech_breakthrough",
+    },
+  ];
+  for (const { keywords, subType } of patterns) {
+    if (keywords.some((kw) => text.includes(kw))) return subType;
+  }
+  return undefined;
+}

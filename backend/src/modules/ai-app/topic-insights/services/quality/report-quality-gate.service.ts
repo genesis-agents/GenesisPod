@@ -16,6 +16,7 @@ import {
   deduplicateHeadings,
   stripLLMMetaNotes,
   stripInternalFigureNotation,
+  getQualityChecklist,
 } from "@/modules/ai-app/shared/report-template";
 import { stripChartJsonFromContent } from "../../utils/strip-chart-json.utils";
 
@@ -65,6 +66,7 @@ export class ReportQualityGateService {
   validateDimensionContent(
     content: string,
     targetLanguage: string = "zh",
+    topicType?: string,
   ): QualityCheckResult {
     const violations: QualityViolation[] = [];
     const rewriteGuidance: string[] = [];
@@ -324,7 +326,25 @@ export class ReportQualityGateService {
       }
     }
 
+    // ========== 类型感知检查（soft warning） ==========
+
+    if (topicType) {
+      const typeWarnings = this.validateTypeSpecificContent(
+        fixedContent,
+        topicType,
+      );
+      if (typeWarnings.length > 0) {
+        violations.push(...typeWarnings);
+        rewriteGuidance.push(...typeWarnings.map((w) => w.message));
+      }
+    }
+
     // ========== 汇总 ==========
+
+    // 当有需要 AI 重写的问题时，附加质量自检清单作为重写指引
+    if (rewriteGuidance.length > 0) {
+      rewriteGuidance.push(getQualityChecklist(targetLanguage));
+    }
 
     const hasErrors = violations.some((v) => v.severity === "error");
     const passed = !hasErrors;
@@ -538,5 +558,70 @@ export class ReportQualityGateService {
       wasAutoFixed,
       rewriteGuidance,
     };
+  }
+
+  /**
+   * 类型感知的质量检查（soft warning，不阻塞）
+   * 检查内容是否体现了该类型应有的分析深度特征
+   */
+  private validateTypeSpecificContent(
+    content: string,
+    topicType: string,
+  ): QualityViolation[] {
+    const warnings: QualityViolation[] = [];
+
+    switch (topicType) {
+      case "COMPANY":
+        // 企业分析应有竞争对比表格
+        if ((content.match(/\|/g) || []).length < 10) {
+          warnings.push({
+            rule: "type_specific",
+            severity: "warning",
+            message: "企业分析建议包含竞争对比表格（Porter 五力或 SWOT 矩阵）",
+          });
+        }
+        break;
+
+      case "TECHNOLOGY":
+        // 技术分析应有成熟度/采用阶段定位
+        if (
+          !/成熟度|hype.?cycle|TRL|adoption|采用曲线|技术就绪/i.test(content)
+        ) {
+          warnings.push({
+            rule: "type_specific",
+            severity: "warning",
+            message: "技术分析建议包含技术成熟度或采用阶段定位",
+          });
+        }
+        break;
+
+      case "MACRO":
+        // 宏观分析应有跨国/跨行业对比
+        if (!/对比|对标|compared|benchmark|vs\b/i.test(content)) {
+          warnings.push({
+            rule: "type_specific",
+            severity: "warning",
+            message: "宏观分析建议包含跨国或跨行业对比视角",
+          });
+        }
+        break;
+
+      case "EVENT":
+        // 事件分析应有因果分层
+        if (
+          !/远因|近因|导火索|structural.?cause|proximate.?cause|trigger/i.test(
+            content,
+          )
+        ) {
+          warnings.push({
+            rule: "type_specific",
+            severity: "warning",
+            message: "事件分析建议包含三层因果分析（远因/近因/导火索）",
+          });
+        }
+        break;
+    }
+
+    return warnings;
   }
 }

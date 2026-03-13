@@ -1007,6 +1007,7 @@ export class DimensionMissionService {
         maxRevisionRounds, // V5
         topic.language, // Language setting
         assignedSkills, // ★ Leader 分配的技能
+        topic.type, // ★ 类型感知质量检查
       );
 
       // 记录写作完成
@@ -1371,6 +1372,7 @@ export class DimensionMissionService {
     _maxRevisionRounds?: number, // V5: 最大修订轮次（v4 已替换为质量门控，保留参数向上兼容）
     topicLanguage?: string | null, // Language setting for review
     assignedSkills?: string[], // ★ Leader 分配的技能（注入到 chatWithSkills）
+    topicType?: string, // ★ 类型感知质量检查
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -1458,6 +1460,7 @@ export class DimensionMissionService {
         const qc = this.qualityGate.validateDimensionContent(
           result.content,
           topicLanguage || "zh",
+          topicType,
         );
 
         if (qc.wasAutoFixed) {
@@ -1519,6 +1522,7 @@ export class DimensionMissionService {
             const qc2 = this.qualityGate.validateDimensionContent(
               rewrittenResult.content,
               topicLanguage || "zh",
+              topicType,
             );
             result = {
               ...rewrittenResult,
@@ -1979,27 +1983,21 @@ export class DimensionMissionService {
           return true;
         }
 
-        // ★ v4.5: 相关性过滤 — 阈值经生产数据校准
-        // v4.4 的 20% overlap 太严格：长 caption（30+ bigrams）的 overlap 天然低，
-        // 生产中 "并购趋势图" → "并购整合" 这种明显相关的分配也被拒（18% < 20%）。
-        // 改为：长 caption 只要求 matchCount >= 2（不卡 ratio），短 caption 仍要求高比例。
+        // ★ v8: 相关性过滤 — 进一步放宽阈值
+        // v4.5 的 MIN_MATCH_COUNT=2 仍然误杀：
+        // - 中英混合 caption "AI market growth" 与 section "AI 市场增长" 只匹配 "AI"（1 match）
+        // - 短 caption "趋势图" 与 section "技术发展趋势" 50% ratio 可能不满足
+        // 新策略：长 caption >= 1 match，短 caption 任意 1 match 即可
+        // Leader 已做语义相关性判断，关键词匹配仅防明显错配
         const matchedKeywords = allKeywords.filter((kw) =>
           sectionText.includes(kw),
         );
-        const overlapRatio =
-          allKeywords.length > 0
-            ? matchedKeywords.length / allKeywords.length
-            : 0;
 
-        const MIN_MATCH_COUNT = 2;
-        const isRelevant =
-          allKeywords.length <= 3
-            ? overlapRatio >= 0.5 // 关键词少时要求高比例
-            : matchedKeywords.length >= MIN_MATCH_COUNT; // 长 caption 只要求绝对匹配数
+        const isRelevant = matchedKeywords.length >= 1;
 
         if (!isRelevant) {
           this.logger.warn(
-            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — matchCount=${matchedKeywords.length}/${allKeywords.length} (${(overlapRatio * 100).toFixed(0)}%), threshold=${allKeywords.length <= 3 ? "50% ratio" : `>=${MIN_MATCH_COUNT} matches`}`,
+            `[validateAllocatedFigures] Removing irrelevant figure "${fig.caption}" from section "${section.title}" — matchCount=${matchedKeywords.length}/${allKeywords.length}, no keyword overlap`,
           );
         }
         return isRelevant;

@@ -30,6 +30,11 @@ import {
   getLanguageInstruction,
 } from "../../../prompts";
 import {
+  resolveFrameworkSkills,
+  DEBATE_SKILLS_BY_TOPIC_TYPE,
+  RECOMMENDED_DEPTH_BY_TOPIC_TYPE,
+} from "../../../config/framework-skills.config";
+import {
   type LeaderPlan,
   type DimensionOutline,
   type LeaderModelInfo,
@@ -76,6 +81,19 @@ const VALID_SKILLS = new Set([
   "synthesis",
   "task-quality-evaluator",
   "trend-analysis",
+  // Framework skills (type-specific analysis frameworks)
+  "macro-analysis",
+  "technology-analysis",
+  "company-analysis",
+  "event-analysis",
+  "event-ma",
+  "event-policy",
+  "event-product-launch",
+  "event-crisis",
+  "event-funding",
+  "event-geopolitical",
+  "event-leadership",
+  "event-tech-breakthrough",
 ]);
 
 @Injectable()
@@ -218,14 +236,18 @@ export class LeaderPlanningService {
     // ★ Security: 对用户输入进行消毒，防止 Prompt Injection
     const sanitizedUserPrompt = sanitize(userPrompt || "请进行全面研究");
 
+    const recommendedDepth =
+      RECOMMENDED_DEPTH_BY_TOPIC_TYPE[topic.type] || "standard";
+
     const prompt = LEADER_PLAN_PROMPT.replace("{topic}", topic.name)
-      .replace("{topicType}", topic.type)
+      .replace(/{topicType}/g, topic.type)
       .replace("{description}", topic.description || "无")
       .replace("{userPrompt}", sanitizedUserPrompt)
       .replace("{availableModels}", availableModelsText)
       .replace("{existingDimensions}", existingDimensionsText)
       .replace(/{currentDate}/g, currentDate)
       .replace(/{currentYear}/g, currentYear)
+      .replace("{recommendedDepth}", recommendedDepth)
       .replace(
         "{languageInstruction}",
         getLanguageInstruction(topic.language || "zh"),
@@ -351,6 +373,19 @@ export class LeaderPlanningService {
 
         // 2. 为研究员确保有 skills（若 AI 未返回则根据维度内容智能选择）
         if (assignment.agentType === "dimension_researcher") {
+          // ★ 注入类型专属框架技能（Layer 3）
+          const frameworkSkills = resolveFrameworkSkills(topic.type);
+          if (frameworkSkills.length > 0) {
+            const existingSkills = assignment.skills || [];
+            // 框架技能前置，token 预算紧张时优先保留
+            assignment.skills = [
+              ...new Set([...frameworkSkills, ...existingSkills]),
+            ];
+            this.logger.debug(
+              `[planResearch] Injected framework skills [${frameworkSkills.join(", ")}] for ${assignment.agentName || assignment.agentId}`,
+            );
+          }
+
           if (!assignment.skills || assignment.skills.length === 0) {
             assignment.skills = this.selectDefaultSkillsForDimension(
               assignment,
@@ -399,6 +434,12 @@ export class LeaderPlanningService {
 
         // 3. 为质量审核员确保有 skills
         if (assignment.agentType === "quality_reviewer") {
+          // ★ 注入类型感知的 debate skills（覆盖 quality_reviewer 和 devil_advocate 角色）
+          const debateSkills = DEBATE_SKILLS_BY_TOPIC_TYPE[topic.type];
+          if (debateSkills && debateSkills.length > 0) {
+            const existing = assignment.skills || [];
+            assignment.skills = [...new Set([...debateSkills, ...existing])];
+          }
           if (!assignment.skills || assignment.skills.length === 0) {
             assignment.skills = ["critical-thinking", "synthesis"];
           }

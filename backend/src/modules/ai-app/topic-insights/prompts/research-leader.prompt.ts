@@ -192,6 +192,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度
 7. ⚠️ **动态选择**：modelId、skills、tools 必须从上面列出的可用选项中选择，且要根据具体任务需求选择最合适的
 8. ⚠️ **分配理由必须具体**：assignmentReason 中的 agentReason 要说明"为什么这个Agent适合这个任务"，modelReason 要说明"这个模型有什么特点使其适合这类任务"。避免空泛的描述。
+9. **研究深度建议**：根据主题类型 {topicType}，推荐研究深度为 **{recommendedDepth}**。thorough 深度应分配质量审核员（quality_reviewer）以确保对抗验证；standard 深度可省略对抗验证角色。
 
 {languageInstruction}`;
 
@@ -499,6 +500,8 @@ export const SECTION_REVIEW_PROMPT = `你是研究质量审核专家，负责审
 - 根因底线：关键论点必须有"为什么"的深层解释，纯现象描述不通过
 - 明确指导：如果不通过，给出具体的修改建议，尤其指出哪些段落需要加入分析
 - 不要吹毛求疵：格式、用词等小问题可以忽略，重点关注分析深度和内容质量
+
+{qualityChecklist}
 
 {languageInstruction}`;
 

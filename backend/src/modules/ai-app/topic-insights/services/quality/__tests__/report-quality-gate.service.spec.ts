@@ -340,6 +340,255 @@ describe("ReportQualityGateService", () => {
       expect(result.fixedContent).not.toContain("![chart]");
       expect(result.wasAutoFixed).toBe(true);
     });
+
+    it("should append quality checklist to rewriteGuidance when there are rewrite issues", () => {
+      // Short content triggers min_content_length error → rewriteGuidance is non-empty
+      const shortContent = "A".repeat(200);
+
+      const result = service.validateDimensionContent(shortContent, "zh");
+
+      expect(result.rewriteGuidance.length).toBeGreaterThan(1);
+      // Last entry should be the quality checklist
+      const lastGuidance =
+        result.rewriteGuidance[result.rewriteGuidance.length - 1];
+      expect(lastGuidance).toContain("输出前自检");
+      expect(lastGuidance).toContain("叙事质量");
+      expect(lastGuidance).toContain("数据质量");
+      expect(lastGuidance).toContain("格式合规");
+    });
+
+    it("should append English quality checklist for en language", () => {
+      const shortContent = "A".repeat(200);
+
+      const result = service.validateDimensionContent(shortContent, "en");
+
+      const lastGuidance =
+        result.rewriteGuidance[result.rewriteGuidance.length - 1];
+      expect(lastGuidance).toContain("Pre-Output Self-Check");
+    });
+
+    it("should NOT append quality checklist when no rewrite issues exist", () => {
+      // Clean content: >800 chars (stripped), diverse citations, no empty sections
+      const filler =
+        "量子计算技术持续进步，多个维度的研究成果表明其具有巨大潜力";
+      const paragraphs = Array.from(
+        { length: 30 },
+        (_, i) =>
+          `${filler}，阶段${i + 1}的数据证实了这一点 [${i + 1}][${i + 2}]。`,
+      ).join("\n");
+      const content = `### 技术现状\n\n${paragraphs}`;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      expect(result.rewriteGuidance).toHaveLength(0);
+    });
+  });
+
+  // =========================================================================
+  // validateDimensionContent — type-specific checks
+  // =========================================================================
+
+  describe("validateDimensionContent — type-specific checks", () => {
+    const longContent = (extra: string) =>
+      extra + "\n\n" + "分析内容。".repeat(200) + " [1][2][3]";
+
+    it("should NOT run type checks when topicType is omitted", () => {
+      const content = longContent("无特殊关键词");
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const typeViolation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(typeViolation).toBeUndefined();
+    });
+
+    it("should warn COMPANY content without comparison table", () => {
+      const content = longContent("企业经营状况分析");
+
+      const result = service.validateDimensionContent(content, "zh", "COMPANY");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.severity).toBe("warning");
+      expect(violation?.message).toContain("竞争对比表格");
+      expect(result.rewriteGuidance.some((g) => g.includes("Porter"))).toBe(
+        true,
+      );
+    });
+
+    it("should NOT warn COMPANY content with sufficient table pipes", () => {
+      // A simple table with enough pipe chars
+      const table =
+        "| 指标 | 企业A | 企业B |\n|------|------|------|\n| 营收 | 100亿 | 80亿 |\n| 利润 | 20亿 | 15亿 |";
+      const content = longContent(table);
+
+      const result = service.validateDimensionContent(content, "zh", "COMPANY");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should warn TECHNOLOGY content without maturity keywords", () => {
+      const content = longContent("芯片制程工艺分析");
+
+      const result = service.validateDimensionContent(
+        content,
+        "zh",
+        "TECHNOLOGY",
+      );
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.message).toContain("技术成熟度");
+    });
+
+    it("should NOT warn TECHNOLOGY content with Hype Cycle reference", () => {
+      const content = longContent("根据 Hype Cycle 分析，该技术处于期望膨胀期");
+
+      const result = service.validateDimensionContent(
+        content,
+        "zh",
+        "TECHNOLOGY",
+      );
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should NOT warn TECHNOLOGY content with TRL reference", () => {
+      const content = longContent("当前 TRL 级别为 6，处于原型验证阶段");
+
+      const result = service.validateDimensionContent(
+        content,
+        "zh",
+        "TECHNOLOGY",
+      );
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should NOT warn TECHNOLOGY content with Chinese 成熟度 keyword", () => {
+      const content = longContent("技术成熟度评估显示该技术已进入商业化阶段");
+
+      const result = service.validateDimensionContent(
+        content,
+        "zh",
+        "TECHNOLOGY",
+      );
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should warn MACRO content without comparison perspective", () => {
+      const content = longContent("宏观经济形势严峻");
+
+      const result = service.validateDimensionContent(content, "zh", "MACRO");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.message).toContain("跨国或跨行业对比");
+    });
+
+    it("should NOT warn MACRO content with comparison keywords", () => {
+      const content = longContent("与美国对比，中国的 GDP 增速更快");
+
+      const result = service.validateDimensionContent(content, "zh", "MACRO");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should NOT warn MACRO content with benchmark keyword", () => {
+      const content = longContent("以欧盟标准作为 benchmark 进行评估");
+
+      const result = service.validateDimensionContent(content, "zh", "MACRO");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should warn EVENT content without causal layering", () => {
+      const content = longContent("事件经过回顾与分析");
+
+      const result = service.validateDimensionContent(content, "zh", "EVENT");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.message).toContain("三层因果分析");
+    });
+
+    it("should NOT warn EVENT content with Chinese causal keywords", () => {
+      const content = longContent(
+        "远因是产业结构失衡，近因是监管政策收紧，导火索是一次供应链中断",
+      );
+
+      const result = service.validateDimensionContent(content, "zh", "EVENT");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should NOT warn EVENT content with English causal keywords", () => {
+      const content = longContent(
+        "The structural cause was market saturation, the proximate cause was regulatory action",
+      );
+
+      const result = service.validateDimensionContent(content, "en", "EVENT");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
+
+    it("should not block (passed=true) on type_specific warnings alone", () => {
+      const content = longContent("简单的企业分析内容");
+
+      const result = service.validateDimensionContent(content, "zh", "COMPANY");
+
+      // type_specific is warning, not error — should still pass
+      expect(result.passed).toBe(true);
+    });
+
+    it("should skip type checks for unknown topic types", () => {
+      const content = longContent("未知类型内容");
+
+      const result = service.validateDimensionContent(
+        content,
+        "zh",
+        "UNKNOWN_TYPE",
+      );
+
+      const violation = result.violations.find(
+        (v) => v.rule === "type_specific",
+      );
+      expect(violation).toBeUndefined();
+    });
   });
 
   // =========================================================================

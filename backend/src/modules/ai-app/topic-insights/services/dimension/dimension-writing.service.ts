@@ -558,10 +558,10 @@ export class DimensionWritingService {
     const dimId = dimension.id.slice(0, 8);
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
-    // Fetch topic for language setting
+    // Fetch topic for language + type setting
     const topic = await this.prisma.researchTopic.findUnique({
       where: { id: topicId },
-      select: { language: true },
+      select: { language: true, type: true },
     });
 
     // 按并行组执行
@@ -643,6 +643,7 @@ export class DimensionWritingService {
         const qc = this.qualityGate.validateDimensionContent(
           result.content,
           topic?.language || "zh",
+          topic?.type,
         );
 
         if (qc.wasAutoFixed) {
@@ -704,6 +705,7 @@ export class DimensionWritingService {
             const qc2 = this.qualityGate.validateDimensionContent(
               rewrittenResult.content,
               topic?.language || "zh",
+              topic?.type,
             );
             result = {
               ...rewrittenResult,

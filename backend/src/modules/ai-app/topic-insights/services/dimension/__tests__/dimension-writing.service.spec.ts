@@ -1489,7 +1489,7 @@ describe("DimensionWritingService", () => {
 
       expect(mockPrisma.researchTopic.findUnique).toHaveBeenCalledWith({
         where: { id: "topic-1" },
-        select: { language: true },
+        select: { language: true, type: true },
       });
     });
 
