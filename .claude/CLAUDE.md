@@ -418,14 +418,14 @@ const response = await this.aiChatService.chat({
 迁移脚本示例（添加 enum 值）：
 
 ```sql
-DO $$
-BEGIN
-    ALTER TYPE "MyEnum" ADD VALUE IF NOT EXISTS 'NEW_VALUE';
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- 正确：直接使用 IF NOT EXISTS，不要 DO $$ EXCEPTION 包装
+ALTER TYPE "MyEnum" ADD VALUE IF NOT EXISTS 'NEW_VALUE';
 ```
 
-**禁止**：使用 `npx prisma migrate dev`（会与手写迁移冲突）
+**禁止**：
+
+- 使用 `npx prisma migrate dev`（会与手写迁移冲突）
+- 使用 `DO $$ BEGIN ... EXCEPTION ... END $$` 包装 ALTER TYPE（EXCEPTION 子句创建 PostgreSQL 子事务，ALTER TYPE ADD VALUE 不能在子事务中执行，导致 `prisma migrate deploy` 必然失败）
 
 ---
 

@@ -12,17 +12,17 @@
 
 ## 分类导航
 
-| 分类          | 技能数量 | 主要用途                   | 导航                                      |
-| ------------- | -------- | -------------------------- | ----------------------------------------- |
-| AI            | 8        | AI/LLM 开发、多 Agent 协作 | [ai/](ai/README.md)                       |
-| Development   | 9        | 前后端开发、数据库、Git    | [development/](development/README.md)     |
-| Architecture  | 4        | Schema、安全、文档处理     | [architecture/](architecture/README.md)   |
-| Data          | 2        | 数据管道、知识图谱         | [data/](data/README.md)                   |
-| Operations    | 4        | DevOps、调试、部署         | [operations/](operations/README.md)       |
-| Quality       | 3        | 测试、代码审查、性能       | [quality/](quality/README.md)             |
-| Workflow      | 3        | 规划、执行、验证           | [workflow/](workflow/README.md)           |
-| Collaboration | 1        | 并行调查                   | [collaboration/](collaboration/README.md) |
-| **总计**      | **34**   | -                          | -                                         |
+| 分类          | 技能数量 | 主要用途                         | 导航                                      |
+| ------------- | -------- | -------------------------------- | ----------------------------------------- |
+| AI            | 8        | AI/LLM 开发、多 Agent 协作       | [ai/](ai/README.md)                       |
+| Development   | 9        | 前后端开发、数据库、Git          | [development/](development/README.md)     |
+| Architecture  | 5        | Schema、安全、文档处理、秘钥工具 | [architecture/](architecture/README.md)   |
+| Data          | 2        | 数据管道、知识图谱               | [data/](data/README.md)                   |
+| Operations    | 4        | DevOps、调试、部署               | [operations/](operations/README.md)       |
+| Quality       | 3        | 测试、代码审查、性能             | [quality/](quality/README.md)             |
+| Workflow      | 3        | 规划、执行、验证                 | [workflow/](workflow/README.md)           |
+| Collaboration | 1        | 并行调查                         | [collaboration/](collaboration/README.md) |
+| **总计**      | **35**   | -                                | -                                         |
 
 ## Progressive Disclosure 结构
 

@@ -10,8 +10,11 @@
  *
  * IMPORTANT:
  * - All schema changes should go through Prisma migrations
- * - Do NOT add emergency/force fixes here
- * - See docs/architecture/migration-workflow.md for guidelines
+ * - Do NOT add "fallback" CREATE TABLE / ALTER TABLE here
+ * - Do NOT use DO $$ EXCEPTION wrapper for ALTER TYPE ADD VALUE in migrations
+ *   (EXCEPTION creates a subtransaction; ALTER TYPE ADD VALUE fails in subtransactions)
+ * - Use direct: ALTER TYPE "X" ADD VALUE IF NOT EXISTS 'Y';
+ * - See .claude/skills/development/database-migration/SKILL.md for guidelines
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -57,6 +60,10 @@ async function deploy(): Promise<void> {
     }
 
     // Step 2: Resolve any failed migrations
+    // NOTE: This auto-resolves failed migrations as "applied" to unblock deployment.
+    // Historical migrations may have used DO $$/EXCEPTION patterns that fail in Prisma
+    // transactions. Those migrations are marked as applied, and the enum values are
+    // applied separately in Step 4 below.
     console.log("2. Checking for failed migrations...");
     const failedMigrations = await prisma.$queryRaw<
       Array<{ migration_name: string }>
@@ -68,16 +75,18 @@ async function deploy(): Promise<void> {
     if (failedMigrations.length > 0) {
       console.log(`   Found ${failedMigrations.length} failed migration(s):`);
       for (const m of failedMigrations) {
-        console.log(`   - Resolving: ${m.migration_name}`);
-        // Mark as applied since the objects likely already exist in DB
-        // Use --applied instead of --rolled-back to prevent re-running
+        console.log(
+          `   - WARNING: Auto-resolving as applied: ${m.migration_name}`,
+        );
+        console.log(
+          `     (migration SQL was NOT executed - check if manual intervention needed)`,
+        );
         try {
           execSync(
             `npx prisma migrate resolve --schema=prisma/schema --applied "${m.migration_name}"`,
             { stdio: "inherit", env: process.env },
           );
         } catch {
-          // Migration might already be resolved or doesn't exist in local files
           console.log(`     (already resolved or not found locally)`);
         }
       }
@@ -87,7 +96,6 @@ async function deploy(): Promise<void> {
     }
 
     // Step 2.5: Clean up rolled-back migrations
-    // ★ 只删除记录，让 prisma migrate deploy 重新运行它们
     console.log("2.5. Cleaning up rolled-back migrations...");
     const rolledBackMigrations = await prisma.$queryRaw<
       Array<{ migration_name: string }>
@@ -104,7 +112,6 @@ async function deploy(): Promise<void> {
         console.log(`   - ${m.migration_name}`);
       }
 
-      // 只删除记录，不标记为 applied，让 migrate deploy 重新运行
       const deleteResult = await prisma.$executeRaw`
         DELETE FROM "_prisma_migrations"
         WHERE rolled_back_at IS NOT NULL
@@ -123,558 +130,6 @@ async function deploy(): Promise<void> {
     });
     console.log("   Migrations deployed\n");
 
-    // Step 3.5: Ensure critical schema changes (fallback for failed migrations)
-    console.log("3.5. Ensuring critical schema changes...");
-
-    // Check if secrets.current_version column exists
-    const secretsColumnCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'secrets' AND column_name = 'current_version'
-      ) as exists
-    `;
-
-    if (!secretsColumnCheck[0]?.exists) {
-      console.log("   Adding secrets.current_version column...");
-      await prisma.$executeRaw`ALTER TABLE "secrets" ADD COLUMN IF NOT EXISTS "current_version" INT NOT NULL DEFAULT 1`;
-      console.log("   Added secrets.current_version");
-    } else {
-      console.log("   OK secrets.current_version");
-    }
-
-    // Check if secret_versions table exists
-    const versionsTableCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'secret_versions'
-      ) as exists
-    `;
-
-    if (!versionsTableCheck[0]?.exists) {
-      console.log("   Creating secret_versions table...");
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "secret_versions" (
-          "id" TEXT NOT NULL,
-          "secret_id" TEXT NOT NULL,
-          "version" INTEGER NOT NULL,
-          "encrypted_value" TEXT NOT NULL,
-          "iv" VARCHAR(32) NOT NULL,
-          "key_version" INTEGER NOT NULL DEFAULT 1,
-          "checksum" VARCHAR(64) NOT NULL,
-          "created_by" VARCHAR(100),
-          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "change_note" TEXT,
-          CONSTRAINT "secret_versions_pkey" PRIMARY KEY ("id"),
-          CONSTRAINT "secret_versions_secret_id_version_key" UNIQUE ("secret_id", "version"),
-          CONSTRAINT "secret_versions_secret_id_fkey" FOREIGN KEY ("secret_id") REFERENCES "secrets"("id") ON DELETE CASCADE ON UPDATE CASCADE
-        )
-      `;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "secret_versions_secret_id_idx" ON "secret_versions"("secret_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "secret_versions_created_at_idx" ON "secret_versions"("created_at")`;
-      console.log("   Created secret_versions table");
-    } else {
-      console.log("   OK secret_versions table");
-    }
-
-    // Check if tool_configs.secret_key column exists
-    const toolConfigsColumnCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'tool_configs' AND column_name = 'secret_key'
-      ) as exists
-    `;
-
-    if (!toolConfigsColumnCheck[0]?.exists) {
-      console.log("   Adding tool_configs.secret_key column...");
-      await prisma.$executeRaw`ALTER TABLE "tool_configs" ADD COLUMN IF NOT EXISTS "secret_key" VARCHAR(100)`;
-      console.log("   Added tool_configs.secret_key");
-    } else {
-      console.log("   OK tool_configs.secret_key");
-    }
-
-    // Check if login_history table exists
-    const loginHistoryCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'login_history'
-      ) as exists
-    `;
-
-    if (!loginHistoryCheck[0]?.exists) {
-      console.log("   Creating login_history table...");
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "login_history" (
-          "id" TEXT NOT NULL,
-          "user_id" TEXT NOT NULL,
-          "login_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
-          "ip_address" TEXT,
-          "user_agent" TEXT,
-          "device" TEXT,
-          "browser" TEXT,
-          "os" TEXT,
-          "location" TEXT,
-          CONSTRAINT "login_history_pkey" PRIMARY KEY ("id"),
-          CONSTRAINT "login_history_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
-        )
-      `;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "login_history_user_id_idx" ON "login_history"("user_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "login_history_login_at_idx" ON "login_history"("login_at")`;
-      console.log("   Created login_history table");
-    } else {
-      console.log("   OK login_history table");
-    }
-
-    // Check if mcp_server_configs.secret_key column exists
-    const mcpServerConfigsColumnCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'mcp_server_configs' AND column_name = 'secret_key'
-      ) as exists
-    `;
-
-    if (!mcpServerConfigsColumnCheck[0]?.exists) {
-      console.log("   Adding mcp_server_configs.secret_key column...");
-      await prisma.$executeRaw`ALTER TABLE "mcp_server_configs" ADD COLUMN IF NOT EXISTS "secret_key" VARCHAR(100)`;
-      console.log("   Added mcp_server_configs.secret_key");
-    } else {
-      console.log("   OK mcp_server_configs.secret_key");
-    }
-
-    // Check if ai_usage_logs table exists
-    const aiUsageLogsCheck = await prisma.$queryRaw<Array<{ exists: boolean }>>`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'ai_usage_logs'
-      ) as exists
-    `;
-
-    if (!aiUsageLogsCheck[0]?.exists) {
-      console.log("   Creating ai_usage_logs table...");
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "ai_usage_logs" (
-          "id" TEXT NOT NULL,
-          "capability_type" TEXT NOT NULL,
-          "capability_id" TEXT NOT NULL,
-          "user_id" TEXT,
-          "team_id" TEXT,
-          "agent_id" TEXT,
-          "success" BOOLEAN NOT NULL,
-          "duration" INTEGER,
-          "tokens_used" INTEGER,
-          "error_code" TEXT,
-          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          CONSTRAINT "ai_usage_logs_pkey" PRIMARY KEY ("id")
-        )
-      `;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "ai_usage_logs_capability_type_capability_id_idx" ON "ai_usage_logs"("capability_type", "capability_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "ai_usage_logs_created_at_idx" ON "ai_usage_logs"("created_at")`;
-      console.log("   Created ai_usage_logs table");
-    } else {
-      console.log("   OK ai_usage_logs table");
-    }
-
-    // Check if social_content_versions table exists
-    const socialContentVersionsCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'social_content_versions'
-      ) as exists
-    `;
-
-    if (!socialContentVersionsCheck[0]?.exists) {
-      console.log("   Creating social_content_versions table...");
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "social_content_versions" (
-          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
-          "content_id" TEXT NOT NULL,
-          "platform_type" "SocialPlatformType" NOT NULL,
-          "title" VARCHAR(200) NOT NULL,
-          "content" TEXT NOT NULL,
-          "digest" VARCHAR(500),
-          "is_default" BOOLEAN NOT NULL DEFAULT false,
-          "generated_by" VARCHAR(20),
-          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updated_at" TIMESTAMP(3) NOT NULL,
-          CONSTRAINT "social_content_versions_pkey" PRIMARY KEY ("id"),
-          CONSTRAINT "social_content_versions_content_id_fkey" FOREIGN KEY ("content_id") REFERENCES "social_contents"("id") ON DELETE CASCADE ON UPDATE CASCADE
-        )
-      `;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "social_content_versions_content_id_idx" ON "social_content_versions"("content_id")`;
-      await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "social_content_versions_content_id_platform_type_key" ON "social_content_versions"("content_id", "platform_type")`;
-      console.log("   Created social_content_versions table");
-    } else {
-      console.log("   OK social_content_versions table");
-    }
-
-    // Check if research_tasks.progress column exists
-    // ★ 2026-01-25: 任务进度追踪字段
-    const researchTasksProgressCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'research_tasks' AND column_name = 'progress'
-      ) as exists
-    `;
-
-    if (!researchTasksProgressCheck[0]?.exists) {
-      console.log("   Adding research_tasks.progress column...");
-      await prisma.$executeRaw`ALTER TABLE "research_tasks" ADD COLUMN IF NOT EXISTS "progress" INTEGER NOT NULL DEFAULT 0`;
-      await prisma.$executeRaw`COMMENT ON COLUMN "research_tasks"."progress" IS 'Task execution progress (0-100)'`;
-      console.log("   Added research_tasks.progress");
-    } else {
-      console.log("   OK research_tasks.progress");
-    }
-
-    // Check if research_tasks.skills column exists
-    // ★ 2026-01-26: Leader 分配的技能
-    const researchTasksSkillsCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'research_tasks' AND column_name = 'skills'
-      ) as exists
-    `;
-
-    if (!researchTasksSkillsCheck[0]?.exists) {
-      console.log("   Adding research_tasks.skills column...");
-      await prisma.$executeRaw`ALTER TABLE "research_tasks" ADD COLUMN IF NOT EXISTS "skills" TEXT[] DEFAULT ARRAY[]::TEXT[]`;
-      await prisma.$executeRaw`COMMENT ON COLUMN "research_tasks"."skills" IS 'Leader-assigned skills for this task'`;
-      console.log("   Added research_tasks.skills");
-    } else {
-      console.log("   OK research_tasks.skills");
-    }
-
-    // Check if research_tasks.tools column exists
-    // ★ 2026-01-26: Leader 分配的工具
-    const researchTasksToolsCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'research_tasks' AND column_name = 'tools'
-      ) as exists
-    `;
-
-    if (!researchTasksToolsCheck[0]?.exists) {
-      console.log("   Adding research_tasks.tools column...");
-      await prisma.$executeRaw`ALTER TABLE "research_tasks" ADD COLUMN IF NOT EXISTS "tools" TEXT[] DEFAULT ARRAY[]::TEXT[]`;
-      await prisma.$executeRaw`COMMENT ON COLUMN "research_tasks"."tools" IS 'Leader-assigned tools for this task'`;
-      console.log("   Added research_tasks.tools");
-    } else {
-      console.log("   OK research_tasks.tools");
-    }
-
-    // Check if research_topics.language column exists
-    // ★ 2026-01-26: 报告语言配置
-    const researchTopicsLanguageCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'research_topics' AND column_name = 'language'
-      ) as exists
-    `;
-
-    if (!researchTopicsLanguageCheck[0]?.exists) {
-      console.log("   Adding research_topics.language column...");
-      await prisma.$executeRaw`ALTER TABLE "research_topics" ADD COLUMN IF NOT EXISTS "language" VARCHAR(10) NOT NULL DEFAULT 'zh'`;
-      await prisma.$executeRaw`COMMENT ON COLUMN "research_topics"."language" IS 'Report language: zh (Chinese) or en (English)'`;
-      console.log("   Added research_topics.language");
-    } else {
-      console.log("   OK research_topics.language");
-    }
-
-    // Check if research_feedback_items table exists
-    // ★ 2026-01-27: Research Feedback Loop System
-    const researchFeedbackCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'research_feedback_items'
-      ) as exists
-    `;
-
-    if (!researchFeedbackCheck[0]?.exists) {
-      console.log("   Creating research feedback tables...");
-
-      // Create enums if not exist
-      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchFeedbackSource" AS ENUM ('REPORT_ANNOTATION', 'MANUAL', 'SYSTEM'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
-      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchFeedbackCategory" AS ENUM ('QUALITY_ISSUE', 'FEATURE_REQUEST', 'CONTENT_ERROR', 'IMPROVEMENT', 'POSITIVE'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
-      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchFeedbackItemStatus" AS ENUM ('PENDING', 'ANALYZING', 'REVIEWING', 'APPROVED', 'REJECTED', 'APPLIED', 'CLOSED'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
-      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ImprovementType" AS ENUM ('PROMPT_UPDATE', 'STRATEGY_CHANGE', 'QUALITY_RULE', 'DOCUMENTATION'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
-      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "FeedbackPriority" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'CRITICAL'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
-
-      // Create research_feedback_knowledge table first (referenced by FK)
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "research_feedback_knowledge" (
-          "id" TEXT NOT NULL,
-          "feedback_item_id" TEXT NOT NULL,
-          "title" VARCHAR(500) NOT NULL,
-          "content" TEXT NOT NULL,
-          "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
-          "improvement_type" "ImprovementType" NOT NULL,
-          "improvement_data" JSONB,
-          "applied_at" TIMESTAMP(3),
-          "effect_score" DOUBLE PRECISION,
-          "effect_notes" TEXT,
-          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          CONSTRAINT "research_feedback_knowledge_pkey" PRIMARY KEY ("id")
-        )
-      `;
-
-      // Create research_feedback_items table
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "research_feedback_items" (
-          "id" TEXT NOT NULL,
-          "source_type" "ResearchFeedbackSource" NOT NULL,
-          "source_id" TEXT,
-          "content" TEXT NOT NULL,
-          "selected_text" TEXT,
-          "category" "ResearchFeedbackCategory" DEFAULT 'IMPROVEMENT',
-          "subcategory" VARCHAR(100),
-          "priority" "FeedbackPriority" NOT NULL DEFAULT 'NORMAL',
-          "ai_analysis" JSONB,
-          "status" "ResearchFeedbackItemStatus" NOT NULL DEFAULT 'PENDING',
-          "assigned_to" TEXT,
-          "knowledge_item_id" TEXT,
-          "action_taken" TEXT,
-          "topic_id" TEXT,
-          "report_id" TEXT,
-          "section_id" TEXT,
-          "user_id" TEXT NOT NULL,
-          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "resolved_at" TIMESTAMP(3),
-          CONSTRAINT "research_feedback_items_pkey" PRIMARY KEY ("id"),
-          CONSTRAINT "research_feedback_items_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-          CONSTRAINT "research_feedback_items_topic_id_fkey" FOREIGN KEY ("topic_id") REFERENCES "research_topics"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-          CONSTRAINT "research_feedback_items_report_id_fkey" FOREIGN KEY ("report_id") REFERENCES "topic_reports"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-          CONSTRAINT "research_feedback_items_assigned_to_fkey" FOREIGN KEY ("assigned_to") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-          CONSTRAINT "research_feedback_items_knowledge_item_id_fkey" FOREIGN KEY ("knowledge_item_id") REFERENCES "research_feedback_knowledge"("id") ON DELETE SET NULL ON UPDATE CASCADE
-        )
-      `;
-
-      // Create indexes
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_items_status_priority_idx" ON "research_feedback_items"("status", "priority")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_items_topic_id_idx" ON "research_feedback_items"("topic_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_items_user_id_idx" ON "research_feedback_items"("user_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_knowledge_feedback_item_id_idx" ON "research_feedback_knowledge"("feedback_item_id")`;
-
-      console.log("   Created research feedback tables");
-    } else {
-      console.log("   OK research_feedback_items table");
-    }
-
-    // Check if slides_missions.context_package column exists
-    // ★ 2026-01-27: Mission Context Package for slides
-    const slidesMissionsContextPackageCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'slides_missions' AND column_name = 'context_package'
-      ) as exists
-    `;
-
-    if (!slidesMissionsContextPackageCheck[0]?.exists) {
-      console.log("   Adding slides_missions.context_package column...");
-      await prisma.$executeRaw`ALTER TABLE "slides_missions" ADD COLUMN IF NOT EXISTS "context_package" JSONB`;
-      await prisma.$executeRaw`COMMENT ON COLUMN "slides_missions"."context_package" IS 'Mission Context Package - structured context from Leader'`;
-      console.log("   Added slides_missions.context_package");
-    } else {
-      console.log("   OK slides_missions.context_package");
-    }
-
-    // Check if deep_research_sessions.discussion column exists
-    // ★ 2026-02-14: Discussion-driven research team columns
-    const deepResearchDiscussionCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'deep_research_sessions' AND column_name = 'discussion'
-      ) as exists
-    `;
-
-    if (!deepResearchDiscussionCheck[0]?.exists) {
-      console.log("   Adding deep_research_sessions.discussion column...");
-      await prisma.$executeRaw`ALTER TABLE "deep_research_sessions" ADD COLUMN IF NOT EXISTS "discussion" JSONB[] DEFAULT '{}'`;
-      console.log("   Added deep_research_sessions.discussion");
-    } else {
-      console.log("   OK deep_research_sessions.discussion");
-    }
-
-    const deepResearchDirectionsCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'deep_research_sessions' AND column_name = 'directions'
-      ) as exists
-    `;
-
-    if (!deepResearchDirectionsCheck[0]?.exists) {
-      console.log("   Adding deep_research_sessions.directions column...");
-      await prisma.$executeRaw`ALTER TABLE "deep_research_sessions" ADD COLUMN IF NOT EXISTS "directions" JSONB`;
-      console.log("   Added deep_research_sessions.directions");
-    } else {
-      console.log("   OK deep_research_sessions.directions");
-    }
-    // Check if research_ideas table exists
-    // ★ 2026-02-14: Research Ideas & Demos tables
-    const researchIdeasCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'research_ideas'
-      ) as exists
-    `;
-
-    if (!researchIdeasCheck[0]?.exists) {
-      console.log("   Creating research ideas & demos tables...");
-
-      // Create enums
-      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchIdeaStatus" AS ENUM ('DISCOVERED', 'STARRED', 'ARCHIVED'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
-      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchDemoStatus" AS ENUM ('PENDING', 'GENERATING', 'COMPLETED', 'FAILED'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
-
-      // Create research_ideas table
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "research_ideas" (
-          "id" TEXT NOT NULL,
-          "project_id" TEXT NOT NULL,
-          "session_id" TEXT,
-          "title" VARCHAR(500) NOT NULL,
-          "description" TEXT NOT NULL,
-          "source_message_id" TEXT,
-          "agent_role" VARCHAR(50),
-          "agent_name" VARCHAR(100),
-          "status" "ResearchIdeaStatus" NOT NULL DEFAULT 'DISCOVERED',
-          "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
-          "evidence" JSONB,
-          "metadata" JSONB,
-          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          CONSTRAINT "research_ideas_pkey" PRIMARY KEY ("id"),
-          CONSTRAINT "research_ideas_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "research_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-          CONSTRAINT "research_ideas_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "deep_research_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE
-        )
-      `;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_ideas_project_id_idx" ON "research_ideas"("project_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_ideas_session_id_idx" ON "research_ideas"("session_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_ideas_status_idx" ON "research_ideas"("status")`;
-
-      // Create research_demos table
-      await prisma.$executeRaw`
-        CREATE TABLE IF NOT EXISTS "research_demos" (
-          "id" TEXT NOT NULL,
-          "idea_id" TEXT NOT NULL,
-          "project_id" TEXT NOT NULL,
-          "title" VARCHAR(500) NOT NULL,
-          "html_content" TEXT NOT NULL DEFAULT '',
-          "status" "ResearchDemoStatus" NOT NULL DEFAULT 'PENDING',
-          "error" TEXT,
-          "metadata" JSONB,
-          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          CONSTRAINT "research_demos_pkey" PRIMARY KEY ("id"),
-          CONSTRAINT "research_demos_idea_id_fkey" FOREIGN KEY ("idea_id") REFERENCES "research_ideas"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-          CONSTRAINT "research_demos_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "research_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
-        )
-      `;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_demos_idea_id_idx" ON "research_demos"("idea_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_demos_project_id_idx" ON "research_demos"("project_id")`;
-      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_demos_status_idx" ON "research_demos"("status")`;
-
-      console.log("   Created research ideas & demos tables");
-    } else {
-      console.log("   OK research_ideas & research_demos tables");
-    }
-
-    // Check cross-module linking columns (20260220_cross_module_linking)
-    const slidesMissionSourceSubscriptionCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'slides_missions' AND column_name = 'source_subscription'
-      ) as exists
-    `;
-    if (!slidesMissionSourceSubscriptionCheck[0]?.exists) {
-      console.log("   Adding slides_missions.source_subscription column...");
-      await prisma.$executeRaw`ALTER TABLE "slides_missions" ADD COLUMN IF NOT EXISTS "source_subscription" JSONB`;
-      console.log("   Added slides_missions.source_subscription");
-    } else {
-      console.log("   OK slides_missions.source_subscription");
-    }
-
-    const researchProjectCrossModuleSourceCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'research_projects' AND column_name = 'cross_module_source'
-      ) as exists
-    `;
-    if (!researchProjectCrossModuleSourceCheck[0]?.exists) {
-      console.log("   Adding research_projects.cross_module_source column...");
-      await prisma.$executeRaw`ALTER TABLE "research_projects" ADD COLUMN IF NOT EXISTS "cross_module_source" JSONB`;
-      console.log("   Added research_projects.cross_module_source");
-    } else {
-      console.log("   OK research_projects.cross_module_source");
-    }
-
-    // Check if research_projects.visibility column exists
-    // ★ 2026-02-23: PRIVATE/PUBLIC visibility control
-    const researchProjectVisibilityCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'research_projects' AND column_name = 'visibility'
-      ) as exists
-    `;
-    if (!researchProjectVisibilityCheck[0]?.exists) {
-      console.log("   Adding research_projects.visibility column...");
-      await prisma.$executeRaw`ALTER TABLE "research_projects" ADD COLUMN IF NOT EXISTS "visibility" VARCHAR(20) NOT NULL DEFAULT 'PRIVATE'`;
-      console.log("   Added research_projects.visibility");
-    } else {
-      console.log("   OK research_projects.visibility");
-    }
-
-    const researchTopicLinkedResearchIdsCheck = await prisma.$queryRaw<
-      Array<{ exists: boolean }>
-    >`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'research_topics' AND column_name = 'linked_research_ids'
-      ) as exists
-    `;
-    if (!researchTopicLinkedResearchIdsCheck[0]?.exists) {
-      console.log("   Adding research_topics.linked_research_ids column...");
-      await prisma.$executeRaw`ALTER TABLE "research_topics" ADD COLUMN IF NOT EXISTS "linked_research_ids" JSONB DEFAULT '[]'::jsonb`;
-      console.log("   Added research_topics.linked_research_ids");
-    } else {
-      console.log("   OK research_topics.linked_research_ids");
-    }
-    console.log("");
-
     // Step 4: Generate Prisma Client
     console.log("4. Generating Prisma Client...");
     execSync("npx prisma generate --schema=prisma/schema", {
@@ -683,12 +138,18 @@ async function deploy(): Promise<void> {
     });
     console.log("   Client generated\n");
 
-    // Step 4.5: Fix enum values (cannot be added via migrations due to transaction limitations)
-    // Note: PostgreSQL ALTER TYPE doesn't support parameterized queries, so we use
-    // explicit SQL for each known enum value to avoid dynamic string construction
-    console.log("4.5. Fixing enum values...");
+    // Step 4.5: Ensure enum values exist
+    // WHY THIS EXISTS: Historical migration files used DO $$/EXCEPTION wrappers around
+    // ALTER TYPE ADD VALUE. This pattern creates a PostgreSQL subtransaction (via EXCEPTION),
+    // and ALTER TYPE ADD VALUE cannot execute inside a subtransaction. So those migrations
+    // failed, were auto-resolved as "applied" by Step 2, but the enum values were never
+    // actually added. This step compensates by adding them outside any transaction.
+    //
+    // FUTURE MIGRATIONS should use direct: ALTER TYPE "X" ADD VALUE IF NOT EXISTS 'Y';
+    // (no DO/EXCEPTION wrapper) — which works correctly in Prisma's transaction.
+    // Once all historical migrations are superseded, this section can be removed.
+    console.log("4.5. Ensuring enum values (legacy migration compensation)...");
 
-    // Helper to safely add enum value with explicit SQL (no string interpolation)
     const addEnumIfNotExists = async (
       checkQuery: Promise<{ exists: boolean }[]>,
       addQuery: () => Promise<number>,
@@ -760,7 +221,7 @@ async function deploy(): Promise<void> {
       "SecretCategory.MCP",
     );
 
-    // DeepResearchStatus enum values (discussion-driven research)
+    // DeepResearchStatus enum values
     await addEnumIfNotExists(
       prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'IDEATION' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
       () =>
@@ -786,7 +247,7 @@ async function deploy(): Promise<void> {
       "DeepResearchStatus.CANCELLED",
     );
 
-    // CreditTransactionType enum values (billing overhaul + donation rewards)
+    // CreditTransactionType enum values
     const creditEnumValues = [
       "AI_WRITING",
       "AI_IMAGE",
@@ -811,8 +272,12 @@ async function deploy(): Promise<void> {
         `CreditTransactionType.${value}`,
       );
     }
+    console.log("");
 
-    // Migrate legacy AI_STUDIO data to AI_RESEARCH (idempotent)
+    // Step 4.6: Data migrations (idempotent)
+    console.log("4.6. Running data migrations...");
+
+    // Migrate legacy AI_STUDIO data to AI_RESEARCH
     try {
       const migrated = await prisma.$executeRaw`
         UPDATE "credit_transactions" SET "type" = 'AI_RESEARCH' WHERE "type" = 'AI_STUDIO'
@@ -831,56 +296,35 @@ async function deploy(): Promise<void> {
     } catch {
       // AI_STUDIO enum value may not exist or tables may not exist yet
     }
-    console.log("");
 
-    // Step 4.6: Fix MCP server package names (from @anthropics to @modelcontextprotocol)
-    // Note: args is text[] array type, use array_replace() instead of jsonb functions
-    console.log("4.6. Fixing MCP server package names...");
+    // Fix MCP server package names (from @anthropics to @modelcontextprotocol)
     try {
-      // Fix GitHub server package name
       const githubFixed = await prisma.$executeRaw`
         UPDATE "mcp_server_configs"
         SET args = array_replace(args, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')
         WHERE '@anthropics/mcp-server-github' = ANY(args)
       `;
-      if (githubFixed > 0) {
-        console.log(`   Fixed ${githubFixed} GitHub MCP server(s)`);
-      }
-
-      // Fix DuckDuckGo server package name
       const ddgFixed = await prisma.$executeRaw`
         UPDATE "mcp_server_configs"
         SET args = array_replace(args, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')
         WHERE '@anthropics/mcp-server-duckduckgo' = ANY(args)
       `;
-      if (ddgFixed > 0) {
-        console.log(`   Fixed ${ddgFixed} DuckDuckGo MCP server(s)`);
-      }
-
-      // Fix Filesystem server package name
       const fsFixed = await prisma.$executeRaw`
         UPDATE "mcp_server_configs"
         SET args = array_replace(args, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')
         WHERE '@anthropics/mcp-server-filesystem' = ANY(args)
       `;
-      if (fsFixed > 0) {
-        console.log(`   Fixed ${fsFixed} Filesystem MCP server(s)`);
+      const totalFixed = githubFixed + ddgFixed + fsFixed;
+      if (totalFixed > 0) {
+        console.log(`   Fixed ${totalFixed} MCP server package name(s)`);
       }
-
-      if (githubFixed === 0 && ddgFixed === 0 && fsFixed === 0) {
-        console.log("   No MCP servers needed fixing");
-      }
-    } catch (error: any) {
-      console.warn(
-        `   Warning: Could not fix MCP package names: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`   Warning: Could not fix MCP package names: ${message}`);
     }
-    console.log("");
 
-    // Step 4.7: Fix secret categories for known secrets
-    console.log("4.7. Fixing secret categories...");
+    // Fix secret categories for known secrets
     try {
-      // Update GitHub-related secrets to DEV_TOOLS category
       const githubSecretsFixed = await prisma.$executeRaw`
         UPDATE "secrets"
         SET category = 'DEV_TOOLS'
@@ -889,15 +333,12 @@ async function deploy(): Promise<void> {
       `;
       if (githubSecretsFixed > 0) {
         console.log(`   Fixed ${githubSecretsFixed} GitHub secret(s) category`);
-      } else {
-        console.log("   No GitHub secrets needed category fix");
       }
-    } catch (error: any) {
-      console.warn(
-        `   Warning: Could not fix secret categories: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`   Warning: Could not fix secret categories: ${message}`);
     }
-    console.log("");
+    console.log("   Data migrations completed\n");
 
     // Step 5: Verify critical tables
     console.log("5. Verifying critical tables...");

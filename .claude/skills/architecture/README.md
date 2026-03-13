@@ -4,12 +4,13 @@
 
 ## Skills Overview
 
-| Skill                                               | Description                      | Trigger Keywords          |
-| --------------------------------------------------- | -------------------------------- | ------------------------- |
-| [document-processor](document-processor/SKILL.md)   | Document parsing and generation  | document, parser, export  |
-| [mcp-builder](mcp-builder/SKILL.md)                 | MCP server development           | mcp, tool, server         |
-| [schema-architect](schema-architect/SKILL.md)       | Database schema design           | schema, prisma, migration |
-| [security-specialist](security-specialist/SKILL.md) | Authentication and authorization | auth, jwt, rbac, security |
+| Skill                                                       | Description                        | Trigger Keywords                  |
+| ----------------------------------------------------------- | ---------------------------------- | --------------------------------- |
+| [document-processor](document-processor/SKILL.md)           | Document parsing and generation    | document, parser, export          |
+| [mcp-builder](mcp-builder/SKILL.md)                         | MCP server development             | mcp, tool, server                 |
+| [schema-architect](schema-architect/SKILL.md)               | Database schema design             | schema, prisma, migration         |
+| [secret-tool-integration](secret-tool-integration/SKILL.md) | Secret + Tool + binding full-stack | secret, tool, api key, credential |
+| [security-specialist](security-specialist/SKILL.md)         | Authentication and authorization   | auth, jwt, rbac, security         |
 
 ## Quick Reference
 
@@ -20,6 +21,7 @@
 2. Auth/Security? → security-specialist
 3. Document handling? → document-processor
 4. MCP integration? → mcp-builder
+5. Add secret/tool/API key? → secret-tool-integration
 ```
 
 ### Key Patterns
