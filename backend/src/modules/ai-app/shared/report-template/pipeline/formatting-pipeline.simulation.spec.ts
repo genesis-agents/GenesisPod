@@ -22,6 +22,7 @@ import {
   sanitizeHeadingLevels,
   repairMarkdownTables,
   wrapBareInlineLatex,
+  repairLatexCommands,
 } from "./report-formatting.utils";
 
 // ============================================================
@@ -565,6 +566,24 @@ describe("Scenario 4: LaTeX delimiter fixing", () => {
     expect(result).toBe(content);
   });
 
+  it("wrapBareInlineLatex wraps single-command expressions like n \\times n", () => {
+    const content = "矩阵维度为 n \\times n，其中 n 为正整数。";
+    const result = wrapBareInlineLatex(content);
+    expect(result).toMatch(/\$.*\\times.*\$/);
+  });
+
+  it("wrapBareInlineLatex wraps \\frac standalone", () => {
+    const content = "比率为 \\frac{a}{b}，表示分数。";
+    const result = wrapBareInlineLatex(content);
+    expect(result).toMatch(/\$.*\\frac\{a\}\{b\}.*\$/);
+  });
+
+  it("wrapBareInlineLatex wraps \\sum standalone", () => {
+    const content = "总和为 \\sum_{i=1}^{n} x_i。";
+    const result = wrapBareInlineLatex(content);
+    expect(result).toMatch(/\$.*\\sum.*\$/);
+  });
+
   // ── Pipeline interaction (wrapBare → fixUnbalanced) ──
   it("full pipeline: bare LaTeX wrapped then balanced check passes", () => {
     const content = [
@@ -777,5 +796,50 @@ describe("Scenario 6: Regression safety checks", () => {
         expect(cols).toBe(2);
       }
     }
+  });
+});
+
+// ============================================================
+// Scenario 5: repairLatexCommands — Fix KaTeX parse errors
+// ============================================================
+describe("Scenario 5: repairLatexCommands fixes KaTeX parse errors", () => {
+  it("should add braces to \\bar followed by bare letter", () => {
+    const input = "$x_k=\\bar A x_{k-1}+\\bar B u_k$";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$x_k=\\bar{A} x_{k-1}+\\bar{B} u_k$");
+  });
+
+  it("should add braces to \\hat, \\vec, \\tilde with bare letter", () => {
+    expect(repairLatexCommands("$\\hat x$")).toBe("$\\hat{x}$");
+    expect(repairLatexCommands("$\\vec v$")).toBe("$\\vec{v}$");
+    expect(repairLatexCommands("$\\tilde n$")).toBe("$\\tilde{n}$");
+  });
+
+  it("should not double-brace already braced commands", () => {
+    const input = "$\\bar{A}$";
+    expect(repairLatexCommands(input)).toBe(input);
+  });
+
+  it("should fix broken $$ delimiter mid-line", () => {
+    const input = "$L = \\frac{C}{N}$，其中 $$\\alpha \\approx 0.07$";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$L = \\frac{C}{N}$，其中 $\\alpha \\approx 0.07$");
+  });
+
+  it("should fix stray double-closing braces in \\text{}", () => {
+    const input = "$\\text{align}} = \\lambda$";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$\\text{align} = \\lambda$");
+  });
+
+  it("should not modify display math $$...$$", () => {
+    const input = "$$\\alpha + \\beta$$";
+    expect(repairLatexCommands(input)).toBe(input);
+  });
+
+  it("should handle \\bar with subscripted argument", () => {
+    const input = "$\\bar x_{k}$";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$\\bar{x_{k}}$");
   });
 });

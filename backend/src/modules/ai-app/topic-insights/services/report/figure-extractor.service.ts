@@ -32,8 +32,8 @@ const MIN_URL_DIMENSION_WIDTH = 400;
 /** 图片下载超时（毫秒） */
 const DOWNLOAD_TIMEOUT_MS = 10_000;
 
-/** 内联 base64 的最大图片大小（字节）：超过此大小保留原始 URL */
-const MAX_INLINE_IMAGE_BYTES = 500_000;
+/** 最大允许的图片文件大小（字节）：超过此大小的图片视为超大文件 */
+const MAX_IMAGE_BYTES = 5_000_000;
 
 /**
  * Figure Extractor Service
@@ -709,27 +709,49 @@ export class FigureExtractorService {
   }
 
   /**
-   * 校验单个图片：尝试升级 URL → GET 下载内联（单次请求完成校验和内联）
+   * 校验单个图片：尝试升级 URL → HEAD 请求校验可访问性 → 保留原始 HTTP URL
    * 返回 null 表示该图片应被丢弃
    *
-   * ★ v5: 单次 GET 请求校验头信息 + 下载转 base64，避免 HEAD+HEAD+GET 三次请求
+   * ★ v6: 不再将图片转为 base64 data URL（根因修复）
+   * - base64 嵌入导致 LLM prompt token 爆炸（148K-916K tokens）
+   * - base64 存入数据库后前端无法正常展示
+   * - 正确做法：保留原始 HTTP URL 给前端，需离线时走 R2 存储
    */
   private async validateSingleFigure(
     figure: ExtractedFigure,
   ): Promise<ExtractedFigure | null> {
     const originalUrl = figure.imageUrl;
 
-    // 已经是 data URL，直接通过
+    // ★ 防护网 1: 拒绝 data URL — 永远不应出现在 figureReferences 中
     if (originalUrl.startsWith("data:")) {
-      return figure;
+      this.logger.debug(
+        `[validateFigure] REJECTED data URL (${(originalUrl.length / 1024).toFixed(0)}KB): should not appear in figureReferences`,
+      );
+      return null;
+    }
+
+    // ★ 防护网 2: 拒绝非 HTTP URL
+    if (
+      !originalUrl.startsWith("http://") &&
+      !originalUrl.startsWith("https://")
+    ) {
+      this.logger.debug(
+        `[validateFigure] REJECTED non-HTTP URL: ${originalUrl.substring(0, 120)}`,
+      );
+      return null;
+    }
+
+    // ★ 防护网 3: 拒绝 PDF 链接
+    if (/\.pdf(\?|$)/i.test(originalUrl)) {
+      this.logger.debug(
+        `[validateFigure] REJECTED PDF URL: ${originalUrl.substring(0, 120)}`,
+      );
+      return null;
     }
 
     // 1. 尝试 CDN URL 升级（获取更高分辨率版本）
     const upgradedUrl = this.tryUpgradeImageUrl(originalUrl);
     const candidateUrl = upgradedUrl ?? originalUrl;
-    const candidateFigure = upgradedUrl
-      ? { ...figure, imageUrl: upgradedUrl }
-      : figure;
 
     if (upgradedUrl) {
       this.logger.debug(
@@ -737,40 +759,40 @@ export class FigureExtractorService {
       );
     }
 
-    // 2. 单次 GET 请求：校验头信息 + 下载内联（如可用）
-    const inlined = await this.downloadAndInlineImage(candidateUrl);
-    if (inlined) {
-      return { ...candidateFigure, imageUrl: inlined };
+    // 2. HEAD 请求校验图片可访问性（不下载完整内容）
+    const isValid = await this.validateImageUrl(candidateUrl);
+    if (isValid) {
+      return { ...figure, imageUrl: candidateUrl };
     }
 
-    // 下载失败时（网络错误、尺寸不符等），若升级 URL 失败则回退原始 URL 重试
+    // 升级 URL 校验失败时回退原始 URL
     if (upgradedUrl) {
-      const fallbackInlined = await this.downloadAndInlineImage(originalUrl);
-      if (fallbackInlined) {
-        return { ...figure, imageUrl: fallbackInlined };
+      const fallbackValid = await this.validateImageUrl(originalUrl);
+      if (fallbackValid) {
+        return figure;
       }
     }
 
     this.logger.debug(
-      `[validateFigure] REJECTED (download failed): ${originalUrl.substring(0, 120)}`,
+      `[validateFigure] REJECTED (validation failed): ${originalUrl.substring(0, 120)}`,
     );
     return null;
   }
 
   /**
-   * ★ v5: 下载图片并转为 base64 data URL
+   * ★ v6: HEAD 请求校验图片 URL 可访问性
    *
-   * 确保报告中的图片永久可用，不依赖外部 URL 的持续有效性。
-   * 超过 MAX_INLINE_IMAGE_BYTES 的图片返回 null（保留原始 URL）。
+   * 只做校验，不下载完整内容。返回 true 表示图片可访问。
+   * 检查项：HTTP 状态码、Content-Type 是否为 image/*、Content-Length 在合理范围内
    */
-  private async downloadAndInlineImage(url: string): Promise<string | null> {
+  private async validateImageUrl(url: string): Promise<boolean> {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
 
       try {
         const response = await fetch(url, {
-          method: "GET",
+          method: "HEAD",
           signal: controller.signal,
           redirect: "follow",
           headers: {
@@ -783,48 +805,43 @@ export class FigureExtractorService {
 
         if (!response.ok) {
           this.logger.debug(
-            `[downloadImage] HTTP ${response.status}: ${url.substring(0, 100)}`,
+            `[validateImageUrl] HTTP ${response.status}: ${url.substring(0, 100)}`,
           );
-          return null;
+          return false;
         }
 
         const contentType = response.headers.get("content-type") || "";
         if (!contentType.startsWith("image/")) {
           this.logger.debug(
-            `[downloadImage] Not an image (${contentType}): ${url.substring(0, 100)}`,
+            `[validateImageUrl] Not an image (${contentType}): ${url.substring(0, 100)}`,
           );
-          return null;
+          return false;
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        const bytes = Buffer.from(arrayBuffer);
-
-        if (bytes.length > MAX_INLINE_IMAGE_BYTES) {
-          this.logger.debug(
-            `[downloadImage] Too large to inline (${(bytes.length / 1024).toFixed(0)}KB > ${(MAX_INLINE_IMAGE_BYTES / 1024).toFixed(0)}KB): ${url.substring(0, 100)}`,
-          );
-          return null;
-        }
-
-        if (bytes.length < MIN_IMAGE_BYTES) {
-          this.logger.debug(
-            `[downloadImage] Downloaded image too small (${bytes.length} bytes), likely placeholder: ${url.substring(0, 100)}`,
-          );
-          return null;
-        }
-
-        const base64 = bytes.toString("base64");
-        // 规范化 MIME 类型
-        const mime = contentType.split(";")[0].trim();
-        this.logger.debug(
-          `[downloadImage] Inlined ${(bytes.length / 1024).toFixed(0)}KB image as ${mime}: ${url.substring(0, 80)}`,
+        // 检查 Content-Length（如果可用）
+        const contentLength = parseInt(
+          response.headers.get("content-length") || "0",
+          10,
         );
-        return `data:${mime};base64,${base64}`;
+        if (contentLength > 0 && contentLength < MIN_IMAGE_BYTES) {
+          this.logger.debug(
+            `[validateImageUrl] Too small (${contentLength} bytes): ${url.substring(0, 100)}`,
+          );
+          return false;
+        }
+        if (contentLength > MAX_IMAGE_BYTES) {
+          this.logger.debug(
+            `[validateImageUrl] Too large (${(contentLength / 1024).toFixed(0)}KB): ${url.substring(0, 100)}`,
+          );
+          return false;
+        }
+
+        return true;
       } finally {
         clearTimeout(timer);
       }
     } catch {
-      return null;
+      return false;
     }
   }
 

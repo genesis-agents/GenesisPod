@@ -1,4 +1,4 @@
-import { sanitizeImageUrl } from "../../utils/sanitize-image-url.utils";
+import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import type {
   EvidenceData,
   EnrichedEvidenceData,
@@ -48,16 +48,17 @@ export function buildFiguresSummary(
       for (let j = 0; j < evidence.extractedFigures.length; j++) {
         const fig = evidence.extractedFigures[j];
         const rawUrl = fig.imageUrl || "";
-        // 跳过已见过的 imageUrl（base64 除外，因为 base64 显示为占位符无法比较）
-        if (rawUrl && !rawUrl.startsWith("data:") && seenUrls.has(rawUrl)) {
+        // ★ 跳过无效 URL（base64、placeholder、PDF 等）— 不应呈现给 LLM
+        if (!isValidFigureUrl(rawUrl)) {
           continue;
         }
-        if (rawUrl && !rawUrl.startsWith("data:")) {
-          seenUrls.add(rawUrl);
+        // 跳过已见过的 imageUrl（去重）
+        if (seenUrls.has(rawUrl)) {
+          continue;
         }
-        const safeUrl = sanitizeImageUrl(rawUrl) || "无URL";
+        seenUrls.add(rawUrl);
         entries.push(
-          `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${safeUrl}`,
+          `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${rawUrl}`,
         );
       }
     }

@@ -894,6 +894,15 @@ describe("ReportAssemblerService", () => {
       expect(result.content).toBeDefined();
       expect(result.warnings).toBeInstanceOf(Array);
     });
+
+    it("should preserve <!-- chart:xxx --> markers in final report (regression: c3e7ad75f)", () => {
+      // chart comments are positioning markers used by frontend — MUST survive post-processing
+      const content =
+        "段落内容\n\n<!-- chart:d0-chart-001 -->\n\n更多内容\n\n<!-- chart:d1-chart-002 -->\n\n结尾";
+      const result = service.postProcessFinalReport(content);
+      expect(result.content).toContain("<!-- chart:d0-chart-001 -->");
+      expect(result.content).toContain("<!-- chart:d1-chart-002 -->");
+    });
   });
 
   // ============================================================

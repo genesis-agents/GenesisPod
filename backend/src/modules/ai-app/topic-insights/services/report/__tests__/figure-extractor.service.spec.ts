@@ -491,7 +491,7 @@ describe("FigureExtractorService", () => {
       expect(result).toEqual([]);
     });
 
-    it("should pass through data URL figures without fetching", async () => {
+    it("should REJECT data URL figures (v6: never store base64 in figureReferences)", async () => {
       const dataFigure = {
         imageUrl: "data:image/png;base64,abc123",
         caption: "Test chart",
@@ -500,8 +500,7 @@ describe("FigureExtractorService", () => {
 
       const result = await service.validateAndUpgradeFigures([dataFigure]);
 
-      expect(result).toHaveLength(1);
-      expect(result[0].imageUrl).toBe("data:image/png;base64,abc123");
+      expect(result).toHaveLength(0);
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
@@ -523,45 +522,52 @@ describe("FigureExtractorService", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("should inline image when download succeeds within size limits", async () => {
+    it("should preserve original HTTP URL when HEAD validation succeeds (v6: no base64)", async () => {
       const figure = {
         imageUrl: "https://example.com/chart.png",
         caption: "Test chart",
         type: "chart" as const,
       };
 
-      // Create a buffer of 20KB (within 15KB min and 500KB max)
-      const imageBuffer = Buffer.alloc(20_000, 0xff);
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         headers: {
-          get: jest.fn().mockReturnValue("image/png"),
+          get: jest.fn((h: string) =>
+            h === "content-type"
+              ? "image/png"
+              : h === "content-length"
+                ? "20000"
+                : null,
+          ),
         },
-        arrayBuffer: jest.fn().mockResolvedValue(imageBuffer.buffer),
       });
 
       const result = await service.validateAndUpgradeFigures([figure]);
 
       expect(result).toHaveLength(1);
-      expect(result[0].imageUrl).toMatch(/^data:image\/png;base64,/);
+      expect(result[0].imageUrl).toBe("https://example.com/chart.png");
     });
 
-    it("should reject image larger than 500KB", async () => {
+    it("should reject image larger than 5MB via Content-Length header", async () => {
       const figure = {
         imageUrl: "https://example.com/large.png",
         caption: "Large chart",
         type: "chart" as const,
       };
 
-      const largeBuffer = Buffer.alloc(600_000, 0xff);
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         headers: {
-          get: jest.fn().mockReturnValue("image/png"),
+          get: jest.fn((h: string) =>
+            h === "content-type"
+              ? "image/png"
+              : h === "content-length"
+                ? "6000000"
+                : null,
+          ),
         },
-        arrayBuffer: jest.fn().mockResolvedValue(largeBuffer.buffer),
       });
 
       const result = await service.validateAndUpgradeFigures([figure]);
@@ -569,21 +575,25 @@ describe("FigureExtractorService", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("should reject image smaller than 15KB (placeholder)", async () => {
+    it("should reject image smaller than 15KB via Content-Length header (placeholder)", async () => {
       const figure = {
         imageUrl: "https://example.com/tiny.png",
         caption: "Tiny chart",
         type: "chart" as const,
       };
 
-      const tinyBuffer = Buffer.alloc(5_000, 0xff);
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         headers: {
-          get: jest.fn().mockReturnValue("image/png"),
+          get: jest.fn((h: string) =>
+            h === "content-type"
+              ? "image/png"
+              : h === "content-length"
+                ? "5000"
+                : null,
+          ),
         },
-        arrayBuffer: jest.fn().mockResolvedValue(tinyBuffer.buffer),
       });
 
       const result = await service.validateAndUpgradeFigures([figure]);
@@ -640,26 +650,32 @@ describe("FigureExtractorService", () => {
         type: "chart" as const,
       };
 
-      const imageBuffer = Buffer.alloc(20_000, 0xff);
-
       // First call (upgraded URL) fails, second call (original) succeeds
       mockFetch
         .mockResolvedValueOnce({
           ok: false,
           status: 404,
-          headers: { get: jest.fn().mockReturnValue("image/png") },
+          headers: { get: jest.fn().mockReturnValue(null) },
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          headers: { get: jest.fn().mockReturnValue("image/png") },
-          arrayBuffer: jest.fn().mockResolvedValue(imageBuffer.buffer),
+          headers: {
+            get: jest.fn((h: string) =>
+              h === "content-type"
+                ? "image/png"
+                : h === "content-length"
+                  ? "20000"
+                  : null,
+            ),
+          },
         });
 
       const result = await service.validateAndUpgradeFigures([figure]);
 
       expect(result).toHaveLength(1);
-      expect(result[0].imageUrl).toMatch(/^data:image\/png;base64,/);
+      // v6: preserves original HTTP URL, no base64 conversion
+      expect(result[0].imageUrl).toBe("https://example.com/image?w=200");
     });
 
     it("should handle fetch throwing an exception gracefully", async () => {
@@ -676,7 +692,7 @@ describe("FigureExtractorService", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("should process multiple figures and log rejection count", async () => {
+    it("should process multiple figures: reject data URL, keep valid HTTP", async () => {
       const figures = [
         {
           imageUrl: "data:image/png;base64,abc",
@@ -691,16 +707,24 @@ describe("FigureExtractorService", () => {
       ];
 
       mockFetch.mockResolvedValue({
-        ok: false,
-        status: 404,
-        headers: { get: jest.fn().mockReturnValue(null) },
+        ok: true,
+        status: 200,
+        headers: {
+          get: jest.fn((h: string) =>
+            h === "content-type"
+              ? "image/png"
+              : h === "content-length"
+                ? "20000"
+                : null,
+          ),
+        },
       });
 
       const result = await service.validateAndUpgradeFigures(figures);
 
-      // data URL passes, https fails
+      // v6: data URL rejected, https passes validation
       expect(result).toHaveLength(1);
-      expect(result[0].imageUrl).toMatch(/^data:/);
+      expect(result[0].imageUrl).toBe("https://example.com/chart1.png");
     });
 
     it("should use upgraded URL in returned figure when upgrade succeeds", async () => {
@@ -710,43 +734,63 @@ describe("FigureExtractorService", () => {
         type: "chart" as const,
       };
 
-      const imageBuffer = Buffer.alloc(20_000, 0xff);
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        headers: { get: jest.fn().mockReturnValue("image/png") },
-        arrayBuffer: jest.fn().mockResolvedValue(imageBuffer.buffer),
-      });
-
-      const result = await service.validateAndUpgradeFigures([figure]);
-
-      expect(result).toHaveLength(1);
-      // The URL should be inlined as base64
-      expect(result[0].imageUrl).toMatch(/^data:image\/png;base64,/);
-    });
-
-    it("should strip content-type parameters from MIME in base64 data URL", async () => {
-      const figure = {
-        imageUrl: "https://example.com/chart.png",
-        caption: "Chart",
-        type: "chart" as const,
-      };
-
-      const imageBuffer = Buffer.alloc(20_000, 0xff);
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         headers: {
-          get: jest.fn().mockReturnValue("image/png; charset=utf-8"),
+          get: jest.fn((h: string) =>
+            h === "content-type"
+              ? "image/png"
+              : h === "content-length"
+                ? "20000"
+                : null,
+          ),
         },
-        arrayBuffer: jest.fn().mockResolvedValue(imageBuffer.buffer),
       });
 
       const result = await service.validateAndUpgradeFigures([figure]);
 
       expect(result).toHaveLength(1);
-      expect(result[0].imageUrl).toMatch(/^data:image\/png;base64,/);
-      expect(result[0].imageUrl).not.toContain("charset");
+      // v6: upgraded URL preserved as HTTP, not converted to base64
+      expect(result[0].imageUrl).toContain("resize/1200x800!");
+    });
+
+    it("should reject non-HTTP URLs (relative paths, file:// etc)", async () => {
+      const figures = [
+        {
+          imageUrl: "evidence_1_chart.png",
+          caption: "Chart",
+          type: "chart" as const,
+        },
+        {
+          imageUrl: "file:///tmp/chart.png",
+          caption: "Chart",
+          type: "chart" as const,
+        },
+        {
+          imageUrl: "/images/chart.png",
+          caption: "Chart",
+          type: "chart" as const,
+        },
+      ];
+
+      const result = await service.validateAndUpgradeFigures(figures);
+
+      expect(result).toHaveLength(0);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should reject PDF URLs", async () => {
+      const figure = {
+        imageUrl: "https://example.com/report.pdf",
+        caption: "Report",
+        type: "chart" as const,
+      };
+
+      const result = await service.validateAndUpgradeFigures([figure]);
+
+      expect(result).toHaveLength(0);
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 

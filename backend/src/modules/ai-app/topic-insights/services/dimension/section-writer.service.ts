@@ -28,7 +28,7 @@ import {
   getLanguageInstruction,
 } from "../../prompts/dimension-research.prompt";
 import { getWritingStandards } from "@/modules/ai-app/shared/report-template";
-import { sanitizeImageUrl } from "../../utils/sanitize-image-url.utils";
+import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import type {
   EvidenceData,
   GeneratedChart,
@@ -1189,11 +1189,14 @@ export class SectionWriterService {
   ): string {
     // ★ 优先使用 Leader 预分配的图表
     if (allocatedFigures && allocatedFigures.length > 0) {
-      const entries = allocatedFigures.map((fig) => {
-        // ★ 过滤 base64 data URL，避免将数十万字符的图片数据注入 LLM prompt
-        const safeUrl = sanitizeImageUrl(fig.imageUrl) || "无URL";
-        return `- 【已分配】证据[${fig.evidenceIndex}] 图${fig.figureIndex}: "${fig.caption}" (URL: ${safeUrl})\n  分配原因: ${fig.relevanceReason}`;
-      });
+      const entries = allocatedFigures
+        .filter((fig) => isValidFigureUrl(fig.imageUrl))
+        .map((fig) => {
+          return `- 【已分配】证据[${fig.evidenceIndex}] 图${fig.figureIndex}: "${fig.caption}" (URL: ${fig.imageUrl})\n  分配原因: ${fig.relevanceReason}`;
+        });
+      if (entries.length === 0) {
+        return "无可用图片资源";
+      }
       return `Leader 已为本章节分配以下图表（请优先使用）：\n${entries.join("\n")}`;
     }
 
@@ -1206,10 +1209,10 @@ export class SectionWriterService {
       if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
         for (let j = 0; j < evidence.extractedFigures.length; j++) {
           const fig = evidence.extractedFigures[j];
-          // ★ 过滤 base64 data URL
-          const safeUrl = sanitizeImageUrl(fig.imageUrl) || "无URL";
+          // ★ 跳过无效 URL（base64、placeholder 等不传给 LLM）
+          if (!isValidFigureUrl(fig.imageUrl)) continue;
           figureEntries.push(
-            `- 证据[${i + 1}] 图${j}: ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (URL: ${safeUrl})`,
+            `- 证据[${i + 1}] 图${j}: ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (URL: ${fig.imageUrl})`,
           );
         }
       }
@@ -1356,8 +1359,8 @@ export class SectionWriterService {
       );
     }
 
-    // 过滤掉仍然没有 imageUrl 的引用（无法渲染）
-    const result = figureRefs.filter((ref) => ref.imageUrl);
+    // ★ 过滤掉无效 URL 的引用（空、base64、placeholder、PDF 等）
+    const result = figureRefs.filter((ref) => isValidFigureUrl(ref.imageUrl));
     if (result.length < figureRefs.length) {
       this.logger.warn(
         `[backfillFigureUrls] Dropped ${figureRefs.length - result.length} figure refs without imageUrl`,

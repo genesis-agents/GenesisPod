@@ -67,6 +67,7 @@ import {
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { ReportQualityTraceService } from "../quality/report-quality-trace.service";
 import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
+import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 
 /**
  * Report Synthesis Service
@@ -1102,19 +1103,8 @@ export class ReportSynthesisService {
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
           if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
-          // ★ Skip figures with invalid URLs
-          if (
-            !fig.imageUrl ||
-            fig.imageUrl.startsWith("[base64-image") ||
-            fig.imageUrl.startsWith("base64-image") ||
-            // Skip base64 data URLs — too large for report storage, often low quality
-            fig.imageUrl.startsWith("data:") ||
-            // Skip fabricated/placeholder URLs (LLM sometimes invents fake URLs)
-            fig.imageUrl.includes("xxxx") ||
-            // Skip PDF links misidentified as images
-            /\.pdf(\?|$)/i.test(fig.imageUrl)
-          )
-            return;
+          // ★ 统一 URL 校验（单一真相源：isValidFigureUrl）
+          if (!isValidFigureUrl(fig.imageUrl)) return;
           const chartId = `${dimPrefix}${fig.id}`;
           // ★ 按 ID 去重，防止同维度内重复 ID
           if (seenIds.has(chartId)) return;

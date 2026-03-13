@@ -4068,4 +4068,105 @@ describe("ReportSynthesisService", () => {
   // ============================================================
   // resolveChartPlaceholders (#36)
   // ============================================================
+
+  // ============================================================
+  // collectAllCharts - URL filtering (regression: base64 / fabricated)
+  // ============================================================
+
+  describe("synthesizeReport - collectAllCharts URL filtering", () => {
+    function setupChartCollectionFromPrisma(dataPoints: object) {
+      const analysisWithCharts = {
+        ...mockDimensionAnalysis,
+        dataPoints,
+      };
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([
+        analysisWithCharts,
+      ]);
+      mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockFacade.chatWithSkills.mockResolvedValueOnce({
+        content: JSON.stringify({
+          executiveSummary: "摘要",
+          highlights: [],
+          charts: [],
+        }),
+      });
+      mockReportEditor.editDimensionInputs.mockResolvedValue({
+        dimensions: [
+          {
+            dimensionId: "dim-001",
+            dimensionName: "维度1",
+            summary: "摘要",
+            keyFindings: [],
+            trends: [],
+            challenges: [],
+            opportunities: [],
+            detailedContent: "",
+            sourcesUsed: 0,
+            figureReferences: [],
+            generatedCharts: [],
+          },
+        ],
+        deduplicationStats: {
+          removedParagraphs: 0,
+          duplicateClaims: 0,
+          affectedDimensions: [],
+        },
+      });
+      mockPrisma.topicReport.update.mockResolvedValue({ id: "report-001" });
+    }
+
+    it("should filter out base64 data URLs from charts", async () => {
+      setupChartCollectionFromPrisma({
+        trends: [],
+        challenges: [],
+        opportunities: [],
+        detailedContent: "",
+        figureReferences: [
+          {
+            id: "fig-base64",
+            caption: "Base64 Image",
+            imageUrl: "data:image/png;base64,iVBORw0KGgoAAAANS",
+            source: "src",
+          },
+        ],
+        generatedCharts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const charts = updateCall.data.charts as Array<{ imageUrl?: string }>;
+      // No chart should have a data: URL — base64 figures must be filtered out
+      const base64Charts = charts.filter((c) =>
+        c.imageUrl?.startsWith("data:"),
+      );
+      expect(base64Charts.length).toBe(0);
+    });
+
+    it("should filter out fabricated URLs containing xxxx", async () => {
+      setupChartCollectionFromPrisma({
+        trends: [],
+        challenges: [],
+        opportunities: [],
+        detailedContent: "",
+        figureReferences: [
+          {
+            id: "fig-fake",
+            caption: "Fabricated Chart",
+            imageUrl: "https://example.com/images/xxxxabcde.png",
+            source: "src",
+          },
+        ],
+        generatedCharts: [],
+      });
+
+      await service.synthesizeReport(mockTopic, "report-001");
+
+      const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
+      const charts = updateCall.data.charts as Array<{ imageUrl?: string }>;
+      // No chart should have an xxxx fabricated URL
+      const fakeCharts = charts.filter((c) => c.imageUrl?.includes("xxxx"));
+      expect(fakeCharts.length).toBe(0);
+    });
+  });
 });

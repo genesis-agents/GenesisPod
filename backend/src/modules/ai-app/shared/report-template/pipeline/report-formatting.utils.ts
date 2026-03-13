@@ -982,6 +982,40 @@ export function stripInternalFigureNotation(content: string): string {
 /**
  * Fix common LLM LaTeX subscript omissions.
  *
+ * Repair broken LaTeX commands that cause KaTeX parse errors.
+ *
+ * Fixes:
+ * 1. Commands requiring braced arguments: `\bar X` → `\bar{X}`, `\hat x` → `\hat{x}`
+ *    KaTeX requires `\bar{A}` form; bare `\bar A` causes "Unexpected end of input".
+ * 2. Broken `$` delimiter pairing: `$...$，其中 $$\alpha$` → `$...$，其中 $\alpha$`
+ *    LLM sometimes outputs `$...$` followed by `$$` as a new inline math block.
+ * 3. Extra/missing braces: `\text{align}}` → `\text{align}`
+ */
+export function repairLatexCommands(content: string): string {
+  let result = content;
+
+  // Fix 1: LaTeX commands that require braced arguments but got a bare letter/word
+  // e.g. \bar A → \bar{A}, \hat x → \hat{x}, \vec v → \vec{v}, \tilde n → \tilde{n}
+  const BRACE_REQUIRED_CMDS =
+    "bar|hat|vec|tilde|dot|ddot|overline|underline|widetilde|widehat|acute|grave|breve|check";
+  const braceFixRe = new RegExp(
+    `(\\\\(?:${BRACE_REQUIRED_CMDS}))\\s+([A-Za-z](?:_\\{[^}]*\\}|_[A-Za-z0-9])?)(?![{])`,
+    "g",
+  );
+  result = result.replace(braceFixRe, "$1{$2}");
+
+  // Fix 2: Broken inline $$ that should be separate $ delimiters
+  // Pattern: `$...$，其中 $$\alpha` → `$...$，其中 $\alpha`
+  // When $$ appears mid-line (not at line start) preceded by non-$ char + text, it's a broken delimiter
+  result = result.replace(/(\$[^$\n]+\$)([^$\n]{1,20})\$\$(?![\n$])/g, "$1$2$");
+
+  // Fix 3: Stray double-closing braces after \text{...}} → \text{...}
+  result = result.replace(/\\text\{([^}]*)\}\}/g, "\\text{$1}");
+
+  return result;
+}
+
+/**
  * LLMs frequently drop the `_` before `{` in subscript expressions:
  * - `\sum{i=1}` → `\sum_{i=1}`
  * - `\prod{k}` → `\prod_{k}`
@@ -1061,6 +1095,9 @@ export function mergeAdjacentMathBlocks(content: string): string {
     inlineCodes.push(m);
     return `__INLINE_CODE_${inlineCodes.length - 1}__`;
   });
+
+  // ── Phase -2: Fix broken LaTeX commands that cause KaTeX parse errors ──
+  result = repairLatexCommands(result);
 
   // ── Phase -1: Fix LLM subscript omissions BEFORE wrapping ──
   result = fixLatexSubscripts(result);

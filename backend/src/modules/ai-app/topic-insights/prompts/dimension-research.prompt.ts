@@ -12,7 +12,7 @@ import {
   CHART_STANDARDS,
   CHAPTER_HIGHLIGHTS,
 } from "@/modules/ai-app/shared/report-template";
-import { sanitizeImageUrl } from "../utils/sanitize-image-url.utils";
+import { isValidFigureUrl } from "../utils/sanitize-image-url.utils";
 
 /**
  * 维度研究系统提示词
@@ -421,19 +421,26 @@ function formatFiguresForEvidence(
     return "";
   }
 
-  const figuresList = figures
-    .map((fig, idx) => {
+  // ★ 只展示有效 HTTP URL 的图表给 LLM（base64/placeholder/PDF 等不展示）
+  const validFigures = figures
+    .map((fig, idx) => ({ fig, idx }))
+    .filter(({ fig }) => isValidFigureUrl(fig.imageUrl));
+
+  if (validFigures.length === 0) {
+    return "";
+  }
+
+  const figuresList = validFigures
+    .map(({ fig, idx }) => {
       const typeLabel = getFigureTypeLabel(fig.type);
-      // ★ 过滤 base64 data URL，避免将数十万字符的图片数据注入 LLM prompt
-      const safeUrl = sanitizeImageUrl(fig.imageUrl) || "无URL";
       return `  - 图表 [${evidenceIndex}:${idx}]: ${typeLabel} - "${fig.caption || fig.alt || "无标题"}"
     引用格式: <!-- figure:${evidenceIndex}:${idx} -->
-    URL: ${safeUrl}`;
+    URL: ${fig.imageUrl}`;
     })
     .join("\n");
 
   return `
-**可用图表** (共 ${figures.length} 个):
+**可用图表** (共 ${validFigures.length} 个):
 ${figuresList}`;
 }
 
