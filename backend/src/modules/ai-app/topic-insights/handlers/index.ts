@@ -11,6 +11,9 @@ export type { SearchPhaseInput } from "./search-phase.handler";
 export { GlobalOutlineHandler } from "./global-outline.handler";
 export type { GlobalOutlineInput } from "./global-outline.handler";
 
+export { AssembleWriteInputsHandler } from "./assemble-write-inputs.handler";
+export type { AssembleWriteInputsInput } from "./assemble-write-inputs.handler";
+
 export { DimensionWriteHandler } from "./dimension-write.handler";
 export type {
   DimensionWriteInput,

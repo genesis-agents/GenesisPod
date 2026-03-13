@@ -132,6 +132,7 @@ import { TopicAccessGuard } from "./guards";
 import {
   SearchPhaseHandler,
   GlobalOutlineHandler,
+  AssembleWriteInputsHandler,
   DimensionWriteHandler,
   RevisionHandler,
   QualityReviewHandler,
@@ -333,6 +334,7 @@ export class TopicInsightsModule implements OnModuleInit {
         this.handlerRegistry.register(
           new GlobalOutlineHandler(this.researchLeaderService),
         );
+        this.handlerRegistry.register(new AssembleWriteInputsHandler());
         this.handlerRegistry.register(
           new DimensionWriteHandler(
             this.dimensionMissionService,

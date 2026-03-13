@@ -62,34 +62,21 @@ export const REFRESH_PIPELINE_WORKFLOW: Workflow = {
     // Phase 2.5: Assemble write inputs from search results + global outline
     {
       id: "assemble-write-inputs",
-      type: "transform",
-      executor: "",
+      type: "handler",
+      executor: "ti:assemble-write-inputs",
       name: "Assemble Write Inputs",
       description:
         "Combine per-dimension search results with global outline into DimensionWriteInput[]",
       dependsOn: ["global-outline"],
       input: {
-        expression: `(function() {
-          var dims = state.dimensions || [];
-          var searchResults = state.searchResults || [];
-          var globalOutline = state.globalOutline || null;
-          var agentAssignments = state.agentAssignments || [];
-          var allDims = dims.map(function(d) { return { name: d.name, description: d.description }; });
-          return dims.map(function(dim, i) {
-            var assignment = agentAssignments.find(function(a) {
-              return a.assignedDimensions && (a.assignedDimensions.indexOf(dim.id) >= 0 || a.assignedDimensions.indexOf(dim.name) >= 0);
-            });
-            return {
-              topic: state.topic,
-              dimension: dim,
-              searchResult: searchResults[i] || null,
-              globalOutline: globalOutline,
-              assignment: assignment || undefined,
-              allDimensions: allDims,
-              reportId: state.reportId
-            };
-          });
-        })()`,
+        fromContext: {
+          topic: "topic",
+          dimensions: "dimensions",
+          searchResults: "searchResults",
+          reportId: "reportId",
+          globalOutline: "globalOutline",
+          agentAssignments: "agentAssignments",
+        },
       },
       output: { toContext: "writeInputs" },
       onError: { strategy: "skip" },
