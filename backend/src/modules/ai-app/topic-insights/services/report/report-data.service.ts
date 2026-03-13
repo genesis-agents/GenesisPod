@@ -9,6 +9,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
 import { preprocessDimensionContent } from "@/modules/ai-app/shared/report-template";
+import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import type {
   TopicReport,
   DimensionAnalysis,
@@ -299,13 +300,8 @@ export class ReportDataService {
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
           if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
-          // ★ Skip figures with placeholder URLs leaked from LLM prompt context
-          if (
-            !fig.imageUrl ||
-            fig.imageUrl.startsWith("[base64-image") ||
-            fig.imageUrl.startsWith("base64-image")
-          )
-            return;
+          // ★ 统一 URL 校验（单一真相源：isValidFigureUrl）
+          if (!isValidFigureUrl(fig.imageUrl)) return;
           const chartId = `${dimPrefix}${fig.id}`;
           // ★ 按 ID 去重，防止同维度内重复 ID
           if (seenIds.has(chartId)) return;
