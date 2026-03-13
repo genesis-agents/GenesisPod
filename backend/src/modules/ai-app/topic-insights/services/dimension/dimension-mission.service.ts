@@ -70,6 +70,7 @@ import {
   createEvidenceSummary,
   buildFiguresSummary,
 } from "./evidence-summary.utils";
+import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import {
   ContextCompressionService,
   type AICapabilityContext,
@@ -1914,6 +1915,13 @@ export class DimensionMissionService {
             );
             continue;
           }
+        }
+        // ★ 回填后统一校验 URL 有效性（拦截 base64/PDF/伪造 URL）
+        if (!isValidFigureUrl(fig.imageUrl)) {
+          this.logger.warn(
+            `[validateAllocatedFigures] Section "${section.title}": invalid URL for [${fig.evidenceIndex}:${fig.figureIndex}], skipping`,
+          );
+          continue;
         }
         // 全局去重 (by evidence:figure index)
         const key = `${fig.evidenceIndex}:${fig.figureIndex}`;

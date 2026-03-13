@@ -45,6 +45,7 @@ import type {
 import { AgentActivityType } from "@prisma/client";
 import type { SearchPhaseResult } from "./dimension-search.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
+import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 
 /**
  * 维度写作阶段执行结果
@@ -1008,6 +1009,13 @@ export class DimensionWritingService {
             continue;
           }
         }
+        // ★ 回填后统一校验 URL 有效性（拦截 base64/PDF/伪造 URL）
+        if (!isValidFigureUrl(fig.imageUrl)) {
+          this.logger.warn(
+            `[validateAllocatedFigures] Section "${section.title}": invalid URL for [${fig.evidenceIndex}:${fig.figureIndex}], skipping`,
+          );
+          continue;
+        }
         // 全局去重
         const key = `${fig.evidenceIndex}:${fig.figureIndex}`;
         if (globalSeen.has(key)) {
@@ -1044,8 +1052,13 @@ export class DimensionWritingService {
         }
         const allKeywords = [...bigrams, ...latinWords];
 
-        // Skip filter if caption has no extractable keywords (empty/generic caption)
-        if (allKeywords.length === 0) return true;
+        // ★ 宁缺勿滥：caption 无关键词（空或纯数字如 "Figure 1"）→ 拒绝
+        if (allKeywords.length === 0) {
+          this.logger.warn(
+            `[validateAllocatedFigures] Rejecting figure with empty/generic caption "${fig.caption}" from section "${section.title}"`,
+          );
+          return false;
+        }
 
         // At least one keyword must appear in section context
         const hasOverlap = allKeywords.some((kw) => sectionText.includes(kw));
