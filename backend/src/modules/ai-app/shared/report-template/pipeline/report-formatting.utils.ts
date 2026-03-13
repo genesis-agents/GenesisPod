@@ -1156,8 +1156,9 @@ export function mergeAdjacentMathBlocks(content: string): string {
   // 0c. Inline bare LaTeX: expressions containing \commands outside of $ delimiters
   // Match sequences like: h^{(m)} \in \mathbb{R}^{d_m} or O_i = \phi(Q_i) S
   // Strategy: find runs of LaTeX-like tokens not already inside $...$
+  // ★ {1,} not {2,}: single-command expressions like "n \times n" must also be wrapped
   result = result.replace(
-    /(?<!\$)(?:[A-Za-z_]\^?\{[^}]*\}|\\(?:text|frac|sqrt|left|right|mathbb|phi|in|approx|times|quad|cdot|top|sum|infty|operatorname|mathcal|log|exp|max|min|lim|sup|inf|neq|leq|geq|sim|propto|forall|exists|partial|nabla|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|pi|omega|theta|eta|tau|Phi|psi|rho|xi|zeta|kappa)\b[^$\n]*){2,}(?!\$)/g,
+    /(?<!\$)(?:[A-Za-z_]\^?\{[^}]*\}|\\(?:text|frac|sqrt|left|right|mathbb|phi|in|approx|times|quad|cdot|top|sum|infty|operatorname|mathcal|log|exp|max|min|lim|sup|inf|neq|leq|geq|sim|propto|forall|exists|partial|nabla|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|pi|omega|theta|eta|tau|Phi|psi|rho|xi|zeta|kappa)\b[^$\n]*){1,}(?!\$)/g,
     (match) => {
       // Skip if it's inside a markdown link or heading marker
       if (/^\[|^#/.test(match.trim())) return match;

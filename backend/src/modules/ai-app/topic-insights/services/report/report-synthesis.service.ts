@@ -1102,11 +1102,17 @@ export class ReportSynthesisService {
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
           if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
-          // ★ Skip figures with placeholder URLs leaked from LLM prompt context
+          // ★ Skip figures with invalid URLs
           if (
             !fig.imageUrl ||
             fig.imageUrl.startsWith("[base64-image") ||
-            fig.imageUrl.startsWith("base64-image")
+            fig.imageUrl.startsWith("base64-image") ||
+            // Skip base64 data URLs — too large for report storage, often low quality
+            fig.imageUrl.startsWith("data:") ||
+            // Skip fabricated/placeholder URLs (LLM sometimes invents fake URLs)
+            fig.imageUrl.includes("xxxx") ||
+            // Skip PDF links misidentified as images
+            /\.pdf(\?|$)/i.test(fig.imageUrl)
           )
             return;
           const chartId = `${dimPrefix}${fig.id}`;
