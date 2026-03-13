@@ -368,8 +368,8 @@ export class DataEnrichmentService {
                 (f) => f.imageUrl && f.imageUrl.trim(),
               );
 
-              // ★ v4.5: 异步校验图片可访问性 + 质量（宁缺毋滥）
-              // HEAD 请求验证 URL 200、Content-Length >= 15KB、srcset 升级
+              // ★ v4.5→v7: GET+Range 校验图片可访问性 + magic bytes 验证
+              // 验证失败/网络错误 → 丢弃（质量第一）
               if (extractedFigures.length > 0) {
                 extractedFigures =
                   await this.figureExtractor.validateAndUpgradeFigures(

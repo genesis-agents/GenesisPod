@@ -649,6 +649,14 @@ export function stripLLMMetaNotes(content: string): string {
         /\s*[（(]\s*注[：:][^）)]{0,150}引用分布[^）)]{0,100}[）)]\s*/g,
         "",
       )
+      // ── LLM 内部推理泄露（字数+引用统计组合） ──
+      // Pattern: （字数约1250字，引用 [279] [284] 多次，结合前置数据构建模型，确保至少6处引用实例。）
+      // Key: contains 字数 + 引用 in the same parenthetical
+      .replace(/\s*[（(][^）)]*字数[^）)]*引用[^）)]*[）)]\s*/g, "")
+      // Pattern: （...确保至少N处引用...）or （...引用分布...）
+      .replace(/\s*[（(][^）)]*确保[^）)]*引用[^）)]*[）)]\s*/g, "")
+      // Pattern: （...结合前置数据...）
+      .replace(/\s*[（(][^）)]*结合前置[^）)]*[）)]\s*/g, "")
   );
 }
 
@@ -935,12 +943,34 @@ export function stripInternalFigureNotation(content: string): string {
       // Negative lookbehind: don't match if preceded by [ (which would be standard [N])
       .replace(/(?<!\[)证据\s*\[[\d,\s]+\]/g, "")
 
+      // ── figureReferences JSON leak ──
+      // LLM outputs raw internal metadata: "figureReferences:" followed by figure list
+      // e.g. "figureReferences:\n- [145] 图0：事实性错误示例"
+      // Remove the label and following list items (until next paragraph/heading)
+      .replace(
+        /(?:^|\n)\s*figureReferences\s*[：:]\s*(?:\n(?:[-*]\s*[^\n]+|\s*\[[^\]]+\]\s*[^\n]+))+/gim,
+        "",
+      )
+      // Also handle inline variant: "figureReferences: [145] 图0：..."
+      .replace(/figureReferences\s*[：:]\s*/gi, "")
+
+      // ── 图表引用 section label ──
+      // LLM outputs "图表引用 ：" or "图表引用：" as a section label before figure references
+      .replace(/(?:^|\n)\s*图表引用\s*[：:]\s*/gm, "\n")
+
       // ── Leader/Agent role name leakage in prose ──
       .replace(/Leader\s*提供的[""「]?/g, "")
       .replace(/(?:研究员?|分析员?)\s*提供的[""「]?/g, "")
 
       // ── 图片不存在标注 ──
       .replace(/^\s*(?:图片没有|没有图片|图片缺失|无图片)[：:][^\n]*$/gm, "")
+
+      // ── 图0 references (0-based figure index leak) ──
+      // LLM uses 0-based indexing: "图0：事实性错误示例" or "图0，佐证审查周期缩短"
+      // These are internal figure indices, not rendered figure numbers.
+      // Remove "图0" + following description (up to sentence boundary)
+      .replace(/图0[：:][^\n。.]{0,60}[。.]?\s*/g, "")
+      .replace(/图0[，,][^\n。.]{0,60}[。.]?\s*/g, "")
 
       // ── Orphan figure references ──
       // "图N:M..." — leaked evidence:figure index notation in prose (e.g., "图8:2直观描绘...")
@@ -1004,11 +1034,23 @@ export function repairLatexCommands(content: string): string {
   );
   result = result.replace(braceFixRe, "$1{$2}");
 
-  // Fix 2a: Inline math with extra closing $ — `$formula$$` → `$formula$`
+  // Fix 2d: `$mathContent $$\command rest$` → `$mathContent \command rest$`
+  // LLM splits one formula into `$L(N)$ $\propto N^{-\alpha}$` which concatenates
+  // into `$L(N) $$\propto ...` — the $$ before \command must be removed entirely.
+  // Must run BEFORE Fix 2a to prevent 2a from partially processing these cases.
+  // ★ Only match when content between $ and $$ looks like math (ASCII letters,
+  //   digits, parens, spaces, LaTeX commands, operators). CJK text between $ and $$
+  //   means it's a text gap between two formulas — handled by Fix 2b/2c instead.
+  result = result.replace(
+    /(\$[A-Za-z0-9(),.+\-=\s\\^_{}\[\]|]+)\$\$(\\[a-zA-Z])/g,
+    "$1$2",
+  );
+
+  // Fix 2a: Inline math with extra closing $ — `$formula$$,` → `$formula$,`
   // LLM writes `$\frac{QK^T}{\sqrt{d_k}}$$` with an accidental double-$
-  // Pattern: `$<content>$$<followed by non-$ non-newline char>` → remove the extra $
-  // Safety: require a non-$ char after $$ to avoid matching display math `$$...$$`
-  result = result.replace(/(\$[^$\n]+)\$\$([^$\n])/g, "$1$$$2");
+  // Pattern: `$<content>$$<followed by non-$ non-newline non-backslash char>`
+  // Safety: exclude \ after $$ (handled by Fix 2d), exclude $ (display math)
+  result = result.replace(/(\$[^$\n]+)\$\$([^$\n\\])/g, "$1$$$2");
 
   // Fix 2b: `$...$<text>$$\alpha` → `$...$<text>$\alpha`
   // When $$ appears mid-line after a closed inline math + some text

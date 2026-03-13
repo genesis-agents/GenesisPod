@@ -69,41 +69,19 @@ export class FigureRelevanceService {
       return figures;
     }
 
-    // ★ 分离 base64 图片和 URL 图片：base64 无法发送给 Vision API
-    const base64Figures: ExtractedFigure[] = [];
-    const urlFigures: ExtractedFigure[] = [];
-    for (const fig of figures) {
-      if (fig.imageUrl?.startsWith("data:")) {
-        base64Figures.push(fig);
-      } else {
-        urlFigures.push(fig);
-      }
-    }
+    // ★ v7: 上游 validateSingleFigure 已丢弃所有 data: URL，
+    //   到达此处的全部是 HTTP/HTTPS URL，可直接发送给 Vision API。
 
-    // base64 图片走 type-based 自动接受（已成功下载 = 有效图片）
-    const base64Accepted = base64Figures.filter((f) => f.type !== "photo");
-    if (base64Figures.length > 0) {
-      this.logger.log(
-        `[filterRelevantFigures] ${base64Accepted.length}/${base64Figures.length} base64 figures auto-accepted by type filter`,
-      );
-    }
-
-    // URL 图片发送给 Vision LLM 审查
-    if (urlFigures.length === 0) {
-      return base64Accepted;
-    }
-
-    // ★ v6.0: 分批处理所有候选图片，不再截断
-    // 旧逻辑 slice(0, 8) 直接丢弃第 9 张之后的图片
+    // ★ 分批处理所有候选图片，不再截断
     const allAccepted: ExtractedFigure[] = [];
     const allRejected: string[] = [];
 
     for (
       let batchStart = 0;
-      batchStart < urlFigures.length;
+      batchStart < figures.length;
       batchStart += MAX_FIGURES_PER_BATCH
     ) {
-      const batch = urlFigures.slice(
+      const batch = figures.slice(
         batchStart,
         batchStart + MAX_FIGURES_PER_BATCH,
       );
@@ -148,11 +126,11 @@ export class FigureRelevanceService {
 
     if (allRejected.length > 0) {
       this.logger.log(
-        `[filterRelevantFigures] Rejected ${allRejected.length}/${urlFigures.length} URL figures for "${topicTitle}":\n${allRejected.join("\n")}`,
+        `[filterRelevantFigures] Rejected ${allRejected.length}/${figures.length} figures for "${topicTitle}":\n${allRejected.join("\n")}`,
       );
     }
 
-    return [...base64Accepted, ...allAccepted];
+    return allAccepted;
   }
 
   /**
@@ -179,17 +157,11 @@ export class FigureRelevanceService {
         text: `\n--- 图片 ${i} ---\nCaption: ${fig.caption || "(无)"}\nType hint: ${fig.type}\nAlt: ${fig.alt || "(无)"}`,
       } satisfies TextContentPart);
 
-      if (fig.imageUrl.startsWith("data:")) {
-        contentParts.push({
-          type: "text",
-          text: `[图片 ${i} 为 base64 内嵌数据，无法通过 Vision API 审查，已跳过]`,
-        } satisfies TextContentPart);
-      } else {
-        contentParts.push({
-          type: "image_url",
-          image_url: { url: fig.imageUrl, detail: "low" },
-        } satisfies ImageUrlContentPart);
-      }
+      // ★ v7: 所有 data: URL 已在上游丢弃，此处只有 HTTP/HTTPS URL
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: fig.imageUrl, detail: "low" },
+      } satisfies ImageUrlContentPart);
     }
 
     // 要求 JSON 输出

@@ -39,12 +39,34 @@ const MAX_IMAGE_BYTES = 5_000_000;
 /**
  * Figure Extractor Service
  *
- * 从 HTML 内容中提取图片和图表：
- * 1. 提取 <img> 和 <figure> 标签
- * 2. 过滤非图表图片（logo、icon、avatar 等）
- * 3. 分类图表类型
- * 4. 解析相对 URL 为绝对 URL
- * 5. ★ v4.5: 异步校验图片可访问性 + 分辨率（宁缺毋滥）
+ * 从 HTML 内容中提取图片和图表。本服务负责 Pipeline 的 Stage 1 和 Stage 2。
+ *
+ * ★ Figure Pipeline 全链路（质量第一，合理数量）：
+ *
+ *   Stage 1: extractFigures(HTML) — 本服务
+ *     解析 <img>/<figure>/<picture>，isLikelyChart 过滤装饰图，classifyFigureType 分类
+ *
+ *   Stage 2: validateAndUpgradeFigures(GET+Range) — 本服务
+ *     只允许 HTTP/HTTPS URL（data:/file:/相对路径/PDF → 全部丢弃）
+ *     GET+Range 请求前 8KB → magic bytes 验证图片格式
+ *     验证失败/网络错误 → 丢弃（绝不保留无法加载的图片）
+ *
+ *   Stage 3: filterRelevantFigures(Vision LLM) — FigureRelevanceService
+ *     多模态 LLM 审查图片是否与主题相关、有信息价值
+ *     排除纯装饰图、广告横幅、与章节无关的图片
+ *     API 故障时保留已验证图片（不因 LLM 故障丢图）
+ *
+ *   Stage 4: Leader 分配 — evidence-summary.utils.ts
+ *     FIGURE_ALLOCATION_GUIDANCE: 质量第一，合理数量
+ *     每章节 1-3 张高度相关图表，无相关图表宁可不分配
+ *
+ *   Stage 5: SectionWriter 关键词过滤 — section-writer.service.ts
+ *     threshold=1，仅防 LLM 幻觉分配，不做过度过滤
+ *
+ *   Stage 6: ReportAssembler → ReportSynthesis — 收集/组装
+ *     isValidFigureUrl（URL 格式校验） + isGarbageFigureUrl（QR码/tracking pixel 等）
+ *
+ * 调用方：data-enrichment.service.ts（Stage 1→2→3 串联调用）
  */
 @Injectable()
 export class FigureExtractorService {
@@ -649,7 +671,7 @@ export class FigureExtractorService {
   }
 
   /**
-   * 校验单个图片：尝试升级 URL → HEAD 请求校验可访问性 → 保留原始 HTTP URL
+   * 校验单个图片：尝试升级 URL → GET+Range 校验可访问性 → 保留原始 HTTP URL
    * 返回 null 表示该图片应被丢弃
    *
    * ★ v6: 不再将图片转为 base64 data URL（根因修复）
@@ -699,7 +721,7 @@ export class FigureExtractorService {
       );
     }
 
-    // 2. HEAD 请求校验图片可访问性（不下载完整内容）
+    // 2. GET+Range 校验图片可访问性（请求前 8KB）
     const isValid = await this.validateImageUrl(candidateUrl);
     if (isValid) {
       return { ...figure, imageUrl: candidateUrl };
@@ -713,6 +735,7 @@ export class FigureExtractorService {
       }
     }
 
+    // ★ v7: 验证失败 → 丢弃（质量第一，不保留无法加载的图片）
     this.logger.debug(
       `[validateFigure] REJECTED (validation failed): ${originalUrl.substring(0, 120)}`,
     );
@@ -720,14 +743,11 @@ export class FigureExtractorService {
   }
 
   /**
-   * ★ v6.0: HEAD 请求校验图片 URL 可访问性
+   * ★ v7: GET+Range 轻量校验图片 URL 可访问性
    *
-   * 只做校验，不下载完整内容。返回 true 表示图片可访问。
-   *
-   * ★ 关键改进：
-   *   - HEAD 请求返回 405/403 时，视为 CDN 不支持 HEAD，乐观放行
-   *   - 网络错误/超时时，乐观放行（宁可多一张可能失效的图，不要少一张好图）
-   *   - Content-Type 不是 image/* 时才拒绝（有些 CDN HEAD 不返回 Content-Type）
+   * HEAD 请求在很多 CDN 上不可靠（返回错误 Content-Type、不返回 Content-Length）。
+   * 改用 GET + Range 头请求前 8KB，通过实际响应头和 magic bytes 验证。
+   * 不存储下载内容（避免 base64 问题），只用于校验。
    */
   private async validateImageUrl(url: string): Promise<boolean> {
     try {
@@ -736,24 +756,22 @@ export class FigureExtractorService {
 
       try {
         const response = await fetch(url, {
-          method: "HEAD",
+          method: "GET",
           signal: controller.signal,
           redirect: "follow",
           headers: {
             "User-Agent":
               "Mozilla/5.0 (compatible; GenesisBot/1.0; +https://genesis-ai-labs.org)",
             Accept: "image/*",
+            Range: "bytes=0-8191",
           },
         });
         clearTimeout(timer);
 
-        // 4xx/5xx（除了 405 Method Not Allowed 和 403 Forbidden）→ 拒绝
-        // 405/403 常见于不支持 HEAD 的 CDN → 乐观放行
-        if (!response.ok) {
-          if (response.status === 405 || response.status === 403) {
-            this.logger.debug(
-              `[validateImageUrl] HEAD ${response.status} (CDN likely doesn't support HEAD, accepting): ${url.substring(0, 100)}`,
-            );
+        // 200 或 206 (Partial Content) 都接受
+        if (!response.ok && response.status !== 206) {
+          // 405 Method Not Allowed → 极少见于 GET，但仍然乐观放行
+          if (response.status === 405) {
             return true;
           }
           this.logger.debug(
@@ -762,40 +780,147 @@ export class FigureExtractorService {
           return false;
         }
 
+        // 检查 Content-Type
         const contentType = response.headers.get("content-type") || "";
-        // 只在明确不是图片时拒绝（空 Content-Type 放行）
+
+        // Content-Length 检查（从 response header 或 content-range 获取真实大小）
+        let fullSize = 0;
+        const contentRange = response.headers.get("content-range");
+        if (contentRange) {
+          // Content-Range: bytes 0-8191/123456
+          const rangeMatch = contentRange.match(/\/(\d+)/);
+          if (rangeMatch) fullSize = parseInt(rangeMatch[1], 10);
+        }
+        if (fullSize === 0) {
+          fullSize = parseInt(
+            response.headers.get("content-length") || "0",
+            10,
+          );
+        }
+
+        if (fullSize > 0 && fullSize > MAX_IMAGE_BYTES) {
+          this.logger.debug(
+            `[validateImageUrl] Too large (${(fullSize / 1024).toFixed(0)}KB): ${url.substring(0, 100)}`,
+          );
+          // 消费 response body 防止连接泄漏
+          try {
+            await response.arrayBuffer();
+          } catch {
+            /* ignore */
+          }
+          return false;
+        }
+
+        // 读取前 8KB 用于 magic bytes 检查
+        let bytes: Buffer | null = null;
+        try {
+          const ab = await response.arrayBuffer();
+          bytes = Buffer.from(ab);
+        } catch {
+          // 读取失败 → 无法验证 → 拒绝
+          return false;
+        }
+
+        // 如果 Content-Type 明确是 image/* → 直接通过（再检查大小）
+        if (contentType.startsWith("image/")) {
+          // 仅在知道完整大小时检查下限
+          if (fullSize > 0 && fullSize < MIN_IMAGE_BYTES) {
+            this.logger.debug(
+              `[validateImageUrl] Too small (${fullSize} bytes): ${url.substring(0, 100)}`,
+            );
+            return false;
+          }
+          return true;
+        }
+
+        // Content-Type 不是 image/* 或为空 → 用 magic bytes 兜底
+        if (bytes && bytes.length >= 4) {
+          if (this.isImageByMagicBytes(bytes)) {
+            return true;
+          }
+        }
+
+        // Content-Type 明确是非图片类型 → 拒绝
         if (contentType && !contentType.startsWith("image/")) {
           this.logger.debug(
-            `[validateImageUrl] Not an image (${contentType}): ${url.substring(0, 100)}`,
+            `[validateImageUrl] Not an image (${contentType}), no image magic bytes: ${url.substring(0, 100)}`,
           );
           return false;
         }
 
-        const contentLength = parseInt(
-          response.headers.get("content-length") || "0",
-          10,
+        // Content-Type 为空 + magic bytes 检查也失败 → 拒绝
+        this.logger.debug(
+          `[validateImageUrl] No Content-Type, no image magic bytes: ${url.substring(0, 100)}`,
         );
-        if (contentLength > 0 && contentLength < MIN_IMAGE_BYTES) {
-          this.logger.debug(
-            `[validateImageUrl] Too small (${contentLength} bytes): ${url.substring(0, 100)}`,
-          );
-          return false;
-        }
-        if (contentLength > MAX_IMAGE_BYTES) {
-          this.logger.debug(
-            `[validateImageUrl] Too large (${(contentLength / 1024).toFixed(0)}KB): ${url.substring(0, 100)}`,
-          );
-          return false;
-        }
-
-        return true;
+        return false;
       } finally {
         clearTimeout(timer);
       }
     } catch {
-      // 网络错误/超时 → 拒绝（放上去用户看到的是破图）
+      // 网络错误/超时 → 拒绝（质量第一，无法验证的图片不保留）
+      this.logger.debug(
+        `[validateImageUrl] Network error/timeout (rejected): ${url.substring(0, 100)}`,
+      );
       return false;
     }
+  }
+
+  /**
+   * 通过 magic bytes 判断是否为图片文件
+   */
+  private isImageByMagicBytes(bytes: Buffer): boolean {
+    if (bytes.length < 4) return false;
+
+    // PNG: 89 50 4E 47
+    if (
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47
+    ) {
+      return true;
+    }
+    // JPEG: FF D8 FF
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+      return true;
+    }
+    // GIF: 47 49 46 38
+    if (
+      bytes[0] === 0x47 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x46 &&
+      bytes[3] === 0x38
+    ) {
+      return true;
+    }
+    // WebP: 52 49 46 46 ... 57 45 42 50
+    if (
+      bytes[0] === 0x52 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x46 &&
+      bytes[3] === 0x46 &&
+      bytes.length >= 12 &&
+      bytes[8] === 0x57 &&
+      bytes[9] === 0x45 &&
+      bytes[10] === 0x42 &&
+      bytes[11] === 0x50
+    ) {
+      return true;
+    }
+    // BMP: 42 4D
+    if (bytes[0] === 0x42 && bytes[1] === 0x4d) {
+      return true;
+    }
+    // SVG: starts with < (could be <?xml or <svg)
+    if (bytes[0] === 0x3c) {
+      const prefix = bytes
+        .subarray(0, Math.min(bytes.length, 256))
+        .toString("utf-8")
+        .toLowerCase();
+      if (prefix.includes("<svg")) return true;
+    }
+
+    return false;
   }
 
   /**

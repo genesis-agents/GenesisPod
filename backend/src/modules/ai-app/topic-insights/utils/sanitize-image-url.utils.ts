@@ -6,20 +6,24 @@
  * - ReportSynthesisService.collectAllCharts (收集阶段)
  * - SectionWriterService.buildChartAllocations (写作阶段)
  *
- * 拒绝的 URL 类型（基于数据库真实数据分析 2026-03-13）：
- * - base64 data URLs: 占异常数据的 93%，来自 FigureExtractor v5 的 downloadAndInlineImage
+ * ★ 只允许 HTTP/HTTPS URL，拒绝其他所有格式：
+ * - data: URL（包括 data:image/）：不再生成也不再保留 base64 图片
  * - placeholder strings: LLM 幻觉的 "[base64-image:chart]" 等
  * - fabricated URLs: LLM 伪造的含 "xxxx" 的假 URL
  * - PDF links: 论文 PDF 被误识别为图片
- * - non-HTTP URLs: 相对路径、file:// 等
+ * - Substack CDN 损坏: $s! / %24s! 编码错误
+ * - 非 HTTP 协议: 相对路径、file://、ftp:// 等
  */
 export function isValidFigureUrl(url: string | undefined | null): boolean {
   if (!url) return false;
-  if (url.startsWith("data:")) return false;
   if (url.startsWith("[base64-image") || url.startsWith("base64-image"))
     return false;
+  // ★ v7: 所有 data: URL 一律拒绝（不再兼容 base64 图片）
+  if (url.startsWith("data:")) return false;
   if (url.includes("xxxx")) return false;
   if (/\.pdf(\?|$)/i.test(url)) return false;
+  // ★ Substack CDN 编码损坏（$s! 或 %24s!）— 这些 URL 无法加载
+  if (/\$s!|%24s!/i.test(url)) return false;
   if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
   return true;
 }

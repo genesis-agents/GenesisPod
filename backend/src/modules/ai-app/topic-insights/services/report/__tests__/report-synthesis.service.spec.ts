@@ -4136,7 +4136,7 @@ describe("ReportSynthesisService", () => {
 
       const updateCall = mockPrisma.topicReport.update.mock.calls[0][0];
       const charts = updateCall.data.charts as Array<{ imageUrl?: string }>;
-      // No chart should have a data: URL — base64 figures must be filtered out
+      // ★ v7: 所有 data: URL 一律拒绝（不再保留 base64 图片）
       const base64Charts = charts.filter((c) =>
         c.imageUrl?.startsWith("data:"),
       );

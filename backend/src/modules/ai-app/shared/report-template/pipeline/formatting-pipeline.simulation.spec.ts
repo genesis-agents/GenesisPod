@@ -23,6 +23,8 @@ import {
   repairMarkdownTables,
   wrapBareInlineLatex,
   repairLatexCommands,
+  stripInternalFigureNotation,
+  stripLLMMetaNotes,
 } from "./report-formatting.utils";
 
 // ============================================================
@@ -875,5 +877,105 @@ describe("Scenario 5: repairLatexCommands fixes KaTeX parse errors", () => {
   it("should not modify already balanced inline math", () => {
     const input = "$\\mathbb{R}^{n \\times d}$";
     expect(repairLatexCommands(input)).toBe(input);
+  });
+
+  it("should remove $$ before LaTeX command inside inline math (Fix 2d)", () => {
+    // Real production errors from export (48).htm:
+    // KaTeX parse error: Can't use function '$' in math mode at position 6: L(N) $$\propto
+    expect(repairLatexCommands("$L(N) $$\\propto N^{-\\alpha}$")).toBe(
+      "$L(N) \\propto N^{-\\alpha}$",
+    );
+    expect(repairLatexCommands("$L(N,D) $$\\propto N^{-\\alpha}$")).toBe(
+      "$L(N,D) \\propto N^{-\\alpha}$",
+    );
+    expect(repairLatexCommands("$1.4 $$\\times 10^{12}$")).toBe(
+      "$1.4 \\times 10^{12}$",
+    );
+    expect(repairLatexCommands("$2 $$\\times 10^{13}$")).toBe(
+      "$2 \\times 10^{13}$",
+    );
+    expect(repairLatexCommands("$L $$\\propto N^{-\\alpha}$")).toBe(
+      "$L \\propto N^{-\\alpha}$",
+    );
+  });
+
+  it("Fix 2a should still handle extra closing $ before non-LaTeX char", () => {
+    // Original Fix 2a purpose: $formula$$ followed by non-math char
+    const input = "$\\frac{QK^T}{\\sqrt{d_k}}$$，接着";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$\\frac{QK^T}{\\sqrt{d_k}}$，接着");
+  });
+});
+
+// ============================================================
+// Scenario 6: Internal metadata leaks — figureReferences & LLM reasoning
+// ============================================================
+describe("Scenario 6: Internal metadata leak stripping", () => {
+  it("should strip figureReferences: label and following list", () => {
+    const input = [
+      "两者共同构成主要障碍。",
+      "",
+      "figureReferences:",
+      "- [145] 图0：事实性错误示例",
+      "- [145] 图1：忠实性错误示例",
+      "",
+      "### 下一节",
+    ].join("\n");
+    const result = stripInternalFigureNotation(input);
+    expect(result).not.toContain("figureReferences");
+    expect(result).toContain("两者共同构成主要障碍");
+    expect(result).toContain("### 下一节");
+  });
+
+  it("should strip inline figureReferences: label", () => {
+    const input = "figureReferences: [145] 图0：事实性错误示例";
+    const result = stripInternalFigureNotation(input);
+    expect(result).not.toContain("figureReferences");
+  });
+
+  it("should strip 图0 references (0-based figure indexing)", () => {
+    const input1 = "AI专利审查加速 [284] 图0，佐证审查周期缩短与全球布局加速。";
+    const result1 = stripInternalFigureNotation(input1);
+    expect(result1).not.toContain("图0");
+    expect(result1).toContain("AI专利审查加速");
+
+    const input2 = "[145] 图0：事实性错误示例，模型虚构不存在的引用来源";
+    const result2 = stripInternalFigureNotation(input2);
+    expect(result2).not.toContain("图0");
+  });
+
+  it("should strip 图表引用 section label", () => {
+    const input = "图表引用 ：2026年知识产权趋势概述";
+    const result = stripInternalFigureNotation(input);
+    expect(result).not.toContain("图表引用");
+  });
+
+  it("should strip LLM meta-reasoning with word count + citation stats", () => {
+    const input =
+      "数据分析完毕。（字数约1250字，引用 [279] [284] 多次，结合前置数据构建模型，确保至少6处引用实例。）后续分析";
+    const result = stripLLMMetaNotes(input);
+    expect(result).not.toContain("字数约1250字");
+    expect(result).not.toContain("确保至少6处引用实例");
+    expect(result).toContain("数据分析完毕");
+    expect(result).toContain("后续分析");
+  });
+
+  it("full pipeline should strip all metadata leaks", () => {
+    const input = [
+      "分析结论完毕。",
+      "",
+      "figureReferences:",
+      "- [145] 图0：事实性错误示例",
+      "",
+      "图表引用 ：2026年趋势概述",
+      "",
+      "（字数约1250字，引用 [279] 多次，确保至少6处引用实例。）",
+    ].join("\n");
+    const result = formatDimensionContent(input);
+    expect(result).not.toContain("figureReferences");
+    expect(result).not.toContain("图表引用");
+    expect(result).not.toContain("字数约1250字");
+    expect(result).not.toContain("图0");
+    expect(result).toContain("分析结论完毕");
   });
 });

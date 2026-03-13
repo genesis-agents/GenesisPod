@@ -521,8 +521,9 @@ export class SectionWriterService {
       const matchCount = keywords.filter((kw) =>
         sectionCtx.includes(kw),
       ).length;
-      // Auto-injected 只需 1 个匹配（已过 validateAllocatedFigures），LLM 输出需 2 个
-      const threshold = isAutoInjected ? 1 : 2;
+      // ★ v7: LLM 输出阈值从 2 降为 1 — LLM 已做语义相关性判断，关键词匹配仅防幻觉
+      // 数据库证据：matchCount>=2 在中英文混合 caption 下误杀率过高
+      const threshold = 1;
       const relevant = matchCount >= threshold;
       if (!relevant) {
         this.logger.warn(

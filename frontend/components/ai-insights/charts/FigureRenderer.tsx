@@ -398,12 +398,11 @@ export function FigureRenderer({
   evidenceInfo,
   onRetry,
 }: FigureRendererProps) {
-  // ★ Guard: skip figures with invalid URLs (base64, placeholders, PDF, fabricated)
+  // ★ Guard: skip figures with invalid URLs — only HTTP/HTTPS allowed
   const hasValidImageUrl =
     chart.imageUrl &&
     !chart.imageUrl.startsWith('[base64-image') &&
     !chart.imageUrl.startsWith('base64-image') &&
-    !chart.imageUrl.startsWith('data:') &&
     !chart.imageUrl.includes('xxxx') &&
     !/\.pdf(\?|$)/i.test(chart.imageUrl) &&
     (chart.imageUrl.startsWith('http://') ||
