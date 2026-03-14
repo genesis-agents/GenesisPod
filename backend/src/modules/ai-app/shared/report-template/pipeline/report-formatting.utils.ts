@@ -568,6 +568,12 @@ export function stripLLMMetaNotes(content: string): string {
       )
       // HTML bold word count: <strong>字数统计</strong>：约1120字 (appears in rendered output)
       .replace(/\*{2}字数统计\*{2}[：:]\s*[约共]?\d+字\s*/g, "")
+      // Bold-wrapped word count with internal note: **字数统计（内部参考）**: 约860字
+      .replace(/\*{2}字数统计[^*]*\*{2}[：:]\s*[约共]?\d+字[^\n]*/g, "")
+      // Fully bold-wrapped word count: **字数统计：约1150字（中文）** or **字数统计：约860字**
+      .replace(/\*{2}字数统计[：:][^*]*\*{2}/g, "")
+      // Bold word count with any label: **字数：约1200字** / **字数约1350字**
+      .replace(/\*{2}字数[：:约][^*]*\*{2}/g, "")
       // Bare word count at line end: （当前字数: 1350）or [当前字数: 1350]
       .replace(/[（(【\[]?\s*当前字数\s*[：:]\s*\d+\s*[)）】\]]?/g, "")
       // Standalone word count line: 字数：约1350字 / 字数统计：约1050字
@@ -1029,6 +1035,36 @@ export function stripInternalFigureNotation(content: string): string {
       // ── 图表引用 section label ──
       // LLM outputs "图表引用 ：" or "图表引用：" as a section label before figure references
       .replace(/(?:^|\n)\s*图表引用\s*[：:]\s*/gm, "\n")
+      // Standalone "图表引用" or "**图表引用**" without colon (bold or plain, full line)
+      .replace(/^\s*\*{0,2}图表引用\*{0,2}\s*$/gm, "")
+      // Standalone "CHARTS" or "**CHARTS**" placeholder (bold or plain, full line)
+      .replace(/^\s*\*{0,2}CHARTS\*{0,2}\s*$/gm, "")
+      // Inline "**CHARTS**" or "**图表引用**" within a line (remove the token)
+      .replace(/\*{2}CHARTS\*{2}/g, "")
+      .replace(/\*{2}图表引用\*{2}/g, "")
+
+      // ── FIG-N internal figure ID references ──
+      // LLM leaks internal figure registry IDs: FIG-1, FIG-15 etc.
+      // "FIG-N所示" / "FIG-N展示" / "FIG-N显示" — figure ref with verb
+      .replace(
+        /FIG-\d+(?:所示|展示了?|显示了?|呈现了?|描绘了?|说明了?|中可[见知])[，,。.；;]?\s*/g,
+        "",
+      )
+      // "（FIG-N）" / "(FIG-N)" — parenthesized FIG refs
+      .replace(/[（(]FIG-\d+[)）]/g, "")
+      // "见FIG-N" / "参见FIG-N" / "详见FIG-N"
+      .replace(/(?:见|参见|详见)FIG-\d+[，,。.；;]?\s*/g, "")
+      // "如FIG-N所示" — natural language ref
+      .replace(/如FIG-\d+所示[，,。.；;]?\s*/g, "")
+      // Standalone FIG-N at line boundaries or surrounded by punctuation
+      .replace(/(?:^|\s)FIG-\d+(?=[，,。.；;：:\s]|$)/gm, "")
+      // "FIG-N: afterparagraph_4" — placement metadata (FIG-N + position hint)
+      .replace(
+        /^\s*FIG-\d+\s*[：:]\s*(?:after|before|inside|near|next)[\w_]*\s*$/gim,
+        "",
+      )
+      // "图像 FIG-N 适合对应本节关于..." — editorial image placement notes (full line)
+      .replace(/^\s*图像\s*FIG-\d+\s*(?:适合|对应|用于|放在|插入)[^\n]*$/gm, "")
 
       // ── Leader/Agent role name leakage in prose ──
       .replace(/Leader\s*提供的[""「]?/g, "")
@@ -1081,6 +1117,15 @@ export function stripInternalFigureNotation(content: string): string {
       // ── "Source:证据[N] 图M" — internal evidence+figure source notation leaked to caption ──
       // e.g. "Source: 证据[4] 图8" or "Source:证据[2] 图3"
       .replace(/^[ \t]*Source\s*[：:]\s*证据\s*\[[\d,\s]+\]\s*图\d+\s*$/gm, "")
+
+      // ── "Source:分配图表[N]" — allocation metadata leaked as figure source ──
+      // e.g. "Source:分配图表[127]" or "来源: 分配图表"
+      .replace(
+        /^[ \t]*(?:Source|来源)\s*[：:]\s*分配图表\s*(?:\[\d+\])?\s*$/gm,
+        "",
+      )
+      // Inline "分配图表" in caption/alt text
+      .replace(/(?:来源|Source)\s*[：:]\s*分配图表/g, "")
 
       // ── "已分配图片/已分配的" — internal allocation language in prose ──
       // Only match when followed by figure/chart context words to avoid false positives

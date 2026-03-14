@@ -1277,6 +1277,11 @@ export class SectionWriterService {
       /\s*[-–—]\s*(?:arXiv|Medium|Substack|Wikipedia|YouTube|GitHub)\s*$/i,
       "",
     );
+    // Remove internal allocation metadata (e.g., "来源: 分配图表" or "- 来源: 分配图表")
+    cleaned = cleaned.replace(
+      /\s*[-–—]?\s*(?:来源|Source)\s*[：:]\s*分配图表\s*(?:\[\d+\])?\s*/g,
+      "",
+    );
     return cleaned.trim();
   }
 

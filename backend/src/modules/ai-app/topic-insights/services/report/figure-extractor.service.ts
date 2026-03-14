@@ -523,20 +523,53 @@ export class FigureExtractorService {
       /pattern[-_]?bg/i,
       /background[-_]?image/i,
       /bg[-_]?image/i,
-      // 人物头像（非内容）
+      // 人物头像/肖像（非内容）
       /gravatar\.com/i,
       /author[-_]?photo/i,
       /headshot/i,
+      /portrait/i,
+      /profile[-_]?(?:pic|photo|image|img)/i,
+      /staff[-_]?photo/i,
+      /team[-_]?photo/i,
+      /contributor[-_]?(?:photo|image|img|avatar|pic)/i,
+      /mugshot/i,
+      // CDN 头像路径（sanity.io, cloudinary 等）
+      /cdn\.sanity\.io\/.*(?:author|person|avatar|headshot|profile)/i,
+      /res\.cloudinary\.com\/.*(?:author|person|avatar|headshot|profile)/i,
       // 页面元素
       /newsletter/i,
       /subscribe/i,
       /signup/i,
       // WordPress 缩略图
       /wp-content\/uploads.*-\d+x\d+\./i,
+      // 博客封面/文章横幅（非研究图表）
+      /blog[-_]?cover/i,
+      /cover[-_]?image/i,
+      /hero[-_]?image/i,
+      /banner[-_]?image/i,
+      /header[-_]?image/i,
+      /featured[-_]?image/i,
+      /main(?:[-_]|%20)?visual/i,
+      /blogs[-_]?ninja/i,
+      // 站点装饰/资产路径
+      /\/customization\//i,
+      /\/default-source\//i,
+      /sfimages/i,
     ];
 
     if (excludePatterns.some((pattern) => pattern.test(combinedText))) {
       return false;
+    }
+
+    // ── URL 内嵌尺寸检测：路径中含 NxN 且尺寸极小（头像/图标）──
+    // e.g. "/images/author-100x100.jpg" or "?w=48&h=48"
+    const urlDimMatch = url.match(/[-_/](\d{2,3})x(\d{2,3})[-_./]/);
+    if (urlDimMatch) {
+      const urlW = parseInt(urlDimMatch[1], 10);
+      const urlH = parseInt(urlDimMatch[2], 10);
+      if (urlW <= 200 && urlH <= 200) {
+        return false;
+      }
     }
 
     // ── 尺寸异常排除（但不要求尺寸必须存在）──
