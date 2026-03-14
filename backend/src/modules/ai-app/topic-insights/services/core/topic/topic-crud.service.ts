@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
+import { EventSourceParsingService } from "./event-source-parsing.service";
 import {
   CreateTopicDto,
   UpdateTopicDto,
@@ -29,7 +30,10 @@ import {
 export class TopicCrudService {
   private readonly logger = new Logger(TopicCrudService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventSourceParsing: EventSourceParsingService,
+  ) {}
 
   /**
    * 创建专题
@@ -55,7 +59,7 @@ export class TopicCrudService {
       dto.dimensions && dto.dimensions.length > 0 ? dto.dimensions : [];
 
     // 使用事务创建专题和维度
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // 创建专题
       const topic = await tx.researchTopic.create({
         data: {
@@ -107,6 +111,13 @@ export class TopicCrudService {
         dimensions,
       };
     });
+
+    // ★ EVENT 类型：异步解析锚定文章（fire-and-forget，不阻塞响应）
+    if (dto.type === "EVENT") {
+      void this.eventSourceParsing.parseEventSourceAsync(result.id);
+    }
+
+    return result;
   }
 
   /**

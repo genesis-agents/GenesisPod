@@ -24,13 +24,13 @@ export const FRAMEWORK_SKILLS_BY_TOPIC_TYPE: Record<string, string[]> = {
  * EVENT 子类型 -> 附加技能映射（预留，EVENT 上线时启用）
  */
 export const EVENT_SUBTYPE_SKILLS: Record<string, string[]> = {
-  merger_acquisition: ["event-ma"],
-  policy_regulation: ["event-policy"],
-  product_launch: ["event-product-launch"],
-  crisis_security: ["event-crisis"],
-  funding_ipo: ["event-funding"],
-  geopolitical_trade: ["event-geopolitical"],
-  leadership_change: ["event-leadership"],
+  acquisition: ["event-ma"],
+  policy: ["event-policy"],
+  product: ["event-product-launch"],
+  incident: ["event-crisis"],
+  funding: ["event-funding"],
+  geopolitical: ["event-geopolitical"],
+  leadership: ["event-leadership"],
   tech_breakthrough: ["event-tech-breakthrough"],
 };
 
@@ -91,7 +91,7 @@ export function detectEventSubType(
   const patterns: Array<{ keywords: string[]; subType: string }> = [
     {
       keywords: ["收购", "并购", "合并", "acquisition", "merger", "m&a"],
-      subType: "merger_acquisition",
+      subType: "acquisition",
     },
     {
       keywords: [
@@ -104,19 +104,19 @@ export function detectEventSubType(
         "act",
         "compliance",
       ],
-      subType: "policy_regulation",
+      subType: "policy",
     },
     {
       keywords: ["发布", "发售", "launch", "release", "unveil"],
-      subType: "product_launch",
+      subType: "product",
     },
     {
       keywords: ["危机", "事故", "泄露", "breach", "crisis", "incident"],
-      subType: "crisis_security",
+      subType: "incident",
     },
     {
       keywords: ["融资", "ipo", "估值", "funding", "fundraise"],
-      subType: "funding_ipo",
+      subType: "funding",
     },
     {
       keywords: [
@@ -128,11 +128,11 @@ export function detectEventSubType(
         "tariff",
         "sanction",
       ],
-      subType: "geopolitical_trade",
+      subType: "geopolitical",
     },
     {
       keywords: ["ceo", "cto", "离职", "任命", "resignation", "appoint"],
-      subType: "leadership_change",
+      subType: "leadership",
     },
     {
       keywords: ["突破", "里程碑", "breakthrough", "milestone"],

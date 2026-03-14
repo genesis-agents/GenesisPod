@@ -4,6 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { TopicCrudService } from "../topic-crud.service";
+import { EventSourceParsingService } from "../event-source-parsing.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchTopicStatus } from "@prisma/client";
@@ -40,12 +41,10 @@ function buildMocks() {
     topicRefreshLog: {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
-      aggregate: jest
-        .fn()
-        .mockResolvedValue({
-          _count: 0,
-          _avg: { dimensionsRefreshed: 0, sourcesFound: 0 },
-        }),
+      aggregate: jest.fn().mockResolvedValue({
+        _count: 0,
+        _avg: { dimensionsRefreshed: 0, sourcesFound: 0 },
+      }),
     },
     $transaction: jest.fn(async (cb: (tx: unknown) => Promise<unknown>) =>
       cb(mockPrisma),
@@ -89,6 +88,10 @@ describe("TopicCrudService", () => {
       providers: [
         TopicCrudService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
+        {
+          provide: EventSourceParsingService,
+          useValue: { parseEventSourceAsync: jest.fn() },
+        },
       ],
     }).compile();
 

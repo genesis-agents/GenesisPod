@@ -44,7 +44,7 @@ describe("framework-skills.config", () => {
     });
 
     it("should return base + subtype skills for EVENT with subtype", () => {
-      const skills = resolveFrameworkSkills("EVENT", "merger_acquisition");
+      const skills = resolveFrameworkSkills("EVENT", "acquisition");
       expect(skills).toEqual(["event-analysis", "event-ma"]);
     });
 
@@ -59,7 +59,7 @@ describe("framework-skills.config", () => {
     });
 
     it("should not add subtype skills for non-EVENT types even if subtype is provided", () => {
-      const skills = resolveFrameworkSkills("MACRO", "merger_acquisition");
+      const skills = resolveFrameworkSkills("MACRO", "acquisition");
       expect(skills).toEqual(["macro-analysis"]);
     });
 
@@ -78,56 +78,46 @@ describe("framework-skills.config", () => {
   // ===========================================================================
 
   describe("detectEventSubType", () => {
-    it("should detect merger_acquisition from Chinese keywords", () => {
-      expect(detectEventSubType("微软收购动视暴雪")).toBe("merger_acquisition");
-      expect(detectEventSubType("两家公司合并")).toBe("merger_acquisition");
+    it("should detect acquisition from Chinese keywords", () => {
+      expect(detectEventSubType("微软收购动视暴雪")).toBe("acquisition");
+      expect(detectEventSubType("两家公司合并")).toBe("acquisition");
     });
 
-    it("should detect merger_acquisition from English keywords", () => {
+    it("should detect acquisition from English keywords", () => {
       expect(detectEventSubType("Microsoft Acquisition of Activision")).toBe(
-        "merger_acquisition",
+        "acquisition",
       );
-      expect(detectEventSubType("Major M&A deal")).toBe("merger_acquisition");
+      expect(detectEventSubType("Major M&A deal")).toBe("acquisition");
     });
 
-    it("should detect policy_regulation", () => {
-      expect(detectEventSubType("欧盟新数据保护法规")).toBe(
-        "policy_regulation",
-      );
-      expect(detectEventSubType("EU AI Regulation Act")).toBe(
-        "policy_regulation",
-      );
+    it("should detect policy", () => {
+      expect(detectEventSubType("欧盟新数据保护法规")).toBe("policy");
+      expect(detectEventSubType("EU AI Regulation Act")).toBe("policy");
     });
 
-    it("should detect product_launch", () => {
-      expect(detectEventSubType("Apple 发布新产品")).toBe("product_launch");
-      expect(detectEventSubType("Product Launch Event")).toBe("product_launch");
+    it("should detect product", () => {
+      expect(detectEventSubType("Apple 发布新产品")).toBe("product");
+      expect(detectEventSubType("Product Launch Event")).toBe("product");
     });
 
-    it("should detect crisis_security", () => {
-      expect(detectEventSubType("数据泄露事故")).toBe("crisis_security");
-      expect(detectEventSubType("Security Breach Incident")).toBe(
-        "crisis_security",
-      );
+    it("should detect incident", () => {
+      expect(detectEventSubType("数据泄露事故")).toBe("incident");
+      expect(detectEventSubType("Security Breach Incident")).toBe("incident");
     });
 
-    it("should detect funding_ipo", () => {
-      expect(detectEventSubType("公司完成 B 轮融资")).toBe("funding_ipo");
-      expect(detectEventSubType("IPO filing")).toBe("funding_ipo");
+    it("should detect funding", () => {
+      expect(detectEventSubType("公司完成 B 轮融资")).toBe("funding");
+      expect(detectEventSubType("IPO filing")).toBe("funding");
     });
 
-    it("should detect geopolitical_trade", () => {
-      expect(detectEventSubType("美中贸易关税升级")).toBe("geopolitical_trade");
-      expect(detectEventSubType("New Tariff Sanctions")).toBe(
-        "geopolitical_trade",
-      );
+    it("should detect geopolitical", () => {
+      expect(detectEventSubType("美中贸易关税升级")).toBe("geopolitical");
+      expect(detectEventSubType("New Tariff Sanctions")).toBe("geopolitical");
     });
 
-    it("should detect leadership_change", () => {
-      expect(detectEventSubType("CEO 离职")).toBe("leadership_change");
-      expect(detectEventSubType("New CTO Appointment")).toBe(
-        "leadership_change",
-      );
+    it("should detect leadership", () => {
+      expect(detectEventSubType("CEO 离职")).toBe("leadership");
+      expect(detectEventSubType("New CTO Appointment")).toBe("leadership");
     });
 
     it("should detect tech_breakthrough", () => {
@@ -144,7 +134,7 @@ describe("framework-skills.config", () => {
 
     it("should use description when name has no keywords", () => {
       expect(detectEventSubType("Some Topic", "这涉及一次重大收购交易")).toBe(
-        "merger_acquisition",
+        "acquisition",
       );
     });
 

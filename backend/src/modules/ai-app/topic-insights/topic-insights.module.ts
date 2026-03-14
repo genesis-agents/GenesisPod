@@ -75,6 +75,7 @@ import {
   MissionNotificationService,
   // ★ Facade sub-services
   TopicCrudService,
+  EventSourceParsingService,
   TopicDimensionService,
   TopicExportService,
   TopicScheduleService,
@@ -187,6 +188,7 @@ const services = [
   ReportEditorService,
   // ★ Facade sub-services
   TopicCrudService,
+  EventSourceParsingService,
   TopicDimensionService,
   TopicExportService,
   TopicScheduleService,

@@ -33,6 +33,7 @@ export { MissionNotificationService } from "./core/mission/mission-notification.
 // Topic
 export { TopicTeamOrchestratorService } from "./core/topic/topic-team-orchestrator.service";
 export { TopicCrudService } from "./core/topic/topic-crud.service";
+export { EventSourceParsingService } from "./core/topic/event-source-parsing.service";
 export { TopicDimensionService } from "./core/topic/topic-dimension.service";
 export { TopicExportService } from "./core/topic/topic-export.service";
 export { TopicScheduleService } from "./core/topic/topic-schedule.service";

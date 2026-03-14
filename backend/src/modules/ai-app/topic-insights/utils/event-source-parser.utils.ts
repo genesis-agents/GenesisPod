@@ -83,6 +83,9 @@ const TIER_2_DOMAINS = new Set([
   "36kr.com",
   "jiemian.com",
   "yicai.com",
+  "mp.weixin.qq.com",
+  "weixin.qq.com",
+  "news.qq.com",
 ]);
 
 /**
