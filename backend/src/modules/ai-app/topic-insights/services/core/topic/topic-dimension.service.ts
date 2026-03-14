@@ -21,6 +21,7 @@ import {
   MACRO_INSIGHT_DIMENSIONS,
   TECH_INSIGHT_DIMENSIONS,
   COMPANY_INSIGHT_DIMENSIONS,
+  EVENT_INSIGHT_REFERENCE_DIMENSIONS,
 } from "../../../config/dimension-templates.config";
 
 /**
@@ -274,6 +275,8 @@ export class TopicDimensionService {
         return TECH_INSIGHT_DIMENSIONS;
       case ResearchTopicType.COMPANY:
         return COMPANY_INSIGHT_DIMENSIONS;
+      case ResearchTopicType.EVENT:
+        return EVENT_INSIGHT_REFERENCE_DIMENSIONS;
       default:
         throw new BadRequestException(`Unknown topic type: ${topicType}`);
     }
