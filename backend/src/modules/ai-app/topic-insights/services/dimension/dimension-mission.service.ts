@@ -570,6 +570,24 @@ export class DimensionMissionService {
     // 6. 准备证据数据
     const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
 
+    // ★ EVENT 类型：将锚定文章作为一级证据注入（前置到最前面）
+    if (
+      topic.type === "EVENT" &&
+      topic.topicConfig &&
+      typeof topic.topicConfig === "object"
+    ) {
+      const topicConfig = topic.topicConfig as Record<string, unknown>;
+      if (topicConfig.sourceContent || topicConfig.sourceUrl) {
+        const { buildAnchorEvidence } =
+          await import("../../utils/event-source-parser.utils");
+        const anchorEvidence = buildAnchorEvidence(topicConfig);
+        evidenceData.unshift(anchorEvidence as unknown as EnrichedEvidenceData);
+        this.logger.log(
+          `${logPrefix} [EVENT] Injected anchor evidence: "${anchorEvidence.title}" (${anchorEvidence.fullContent.length} chars)`,
+        );
+      }
+    }
+
     // ★ 诊断：记录证据数据的实际大小
     const evidenceDataTotalChars = evidenceData.reduce((sum, e) => {
       return (

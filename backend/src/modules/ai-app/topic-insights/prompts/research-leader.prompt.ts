@@ -49,6 +49,23 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 - ⚠️ **禁止出现宏观维度**：不要规划"行业政策""宏观经济""国际动态""人才生态"等宏观级维度
 - 示例："特斯拉企业研究" → 公司概况、产品服务、商业模式、财务表现、技术研发、市场地位
 
+### 如果类型为 EVENT（事件洞察）：
+- 围绕事件的来龙去脉展开，通常 5-7 个维度
+- ⚠️ **必须先完成因果推理**：在规划维度之前，基于锚定文章完成三层因果分析
+- 维度应覆盖事件核心、结构性背景、触发时机、利益格局、连锁反应、历史对标、情景推演
+- ⚠️ **搜索策略差异**：不搜事件本身（锚定文章已有），搜事件的背景、影响、各方反应
+- 示例："英伟达收购 Run:ai" → 事件核心、结构性背景（AI算力格局）、触发时机（ROCm竞争）、利益格局、连锁反应、情景推演
+
+#### EVENT 因果推理（必须在 taskUnderstanding 中输出）
+基于锚定文章，完成以下推理并写入 taskUnderstanding.causalHypotheses：
+1. **远因**（Structural Cause）：什么长期趋势/结构性矛盾导致这件事可能发生？
+2. **近因**（Proximate Cause）：什么具体条件在近期成熟，使这件事变为可能？
+3. **导火索**（Trigger）：为什么是现在？什么触发了行动？
+4. **本质判断**（一句话）：这个事件的本质是什么？
+
+#### 锚定文章内容
+{anchorArticleContent}
+
 ## 可用 AI 模型（动态选择）
 {availableModels}
 
@@ -121,7 +138,13 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
     "topic": "研究主题的准确表述",
     "scope": "研究范围说明",
     "objectives": ["目标1", "目标2", "目标3"],
-    "constraints": ["约束1"]
+    "constraints": ["约束1"],
+    "causalHypotheses": {
+      "structuralCause": "远因：长期趋势/结构性矛盾（仅 EVENT 类型需要填写）",
+      "proximateCause": "近因：近期成熟的具体条件",
+      "trigger": "导火索：为什么是现在",
+      "essenceStatement": "一句话本质判断（30字以内）"
+    }
   },
   "dimensions": [
     {
@@ -184,8 +207,8 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 \`\`\`
 
 ## 注意事项
-1. ⚠️ **维度必须匹配类型**（最重要）：MACRO 广覆盖；TECHNOLOGY 聚焦技术生命周期；COMPANY 聚焦企业经营分析
-2. 维度数量：MACRO 6-10 个，TECHNOLOGY 5-8 个，COMPANY 5-8 个。宁可多一个视角也不要遗漏重要维度。
+1. ⚠️ **维度必须匹配类型**（最重要）：MACRO 广覆盖；TECHNOLOGY 聚焦技术生命周期；COMPANY 聚焦企业经营分析；EVENT 聚焦因果推理和影响传导
+2. 维度数量：MACRO 6-10 个，TECHNOLOGY 5-8 个，COMPANY 5-8 个，EVENT 5-7 个。宁可多一个视角也不要遗漏重要维度。
 3. ⚠️⚠️ **搜索词必须中英文双语**（强制）：每个维度的 searchQueries 必须至少包含 1 条中文 + 1 条英文搜索词。学术论文数据库（OpenAlex、Semantic Scholar、ArXiv）以英文为主，纯中文搜索词会导致 0 结果。示例：["大模型推理能力 测试时计算 2026", "LLM reasoning test-time compute 2026", "chain of thought scaling inference"]。如果 searchQueries 中没有英文搜索词，规划将被退回。
 4. 数据源选择要与维度内容匹配
 5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式
@@ -245,7 +268,7 @@ export const GLOBAL_OUTLINE_PROMPT = `你是资深的研究协调专家（Resear
 - **专题类型**: {topicType}
 - **专题描述**: {topicDescription}
 
-⚠️ 大纲规划必须符合专题类型 {topicType} 的维度范围要求。TECHNOLOGY 类型的所有维度章节必须围绕技术本身；COMPANY 类型必须围绕企业本身。不要在任何维度中扩展到宏观层面。
+⚠️ 大纲规划必须符合专题类型 {topicType} 的维度范围要求。TECHNOLOGY 类型的所有维度章节必须围绕技术本身；COMPANY 类型必须围绕企业本身；EVENT 类型必须围绕事件的因果链和影响传导。不要在任何维度中扩展到宏观层面。
 
 ## 所有维度的搜索结果
 
@@ -377,6 +400,11 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
 **企业洞察（COMPANY）**：
 - 建议包含：商业模式解析 → 竞争优势与护城河 → 财务/运营分析 → 战略方向评估 → 风险因素
 - 重点：商业逻辑的深层分析，避免表面财报解读
+
+**事件洞察（EVENT）**：
+- 建议包含：事件全貌还原 → 结构性根因分析 → 利益相关方博弈 → 影响传导路径 → 反共识验证 → 情景推演
+- 重点：因果推理的严谨性，区分相关性和因果性，避免新闻式信息罗列
+- ⚠️ 每个章节必须有明确的核心分析问题（analyticalQuestion），章节结尾必须给出判断
 
 ## 当前维度
 - **维度名称**: {dimensionName}

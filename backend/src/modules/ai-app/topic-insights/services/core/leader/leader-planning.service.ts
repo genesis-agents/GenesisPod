@@ -23,6 +23,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { sanitize } from "../../../utils/prompt-sanitizer";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
+import { formatAnchorContentForPrompt } from "../../../utils/event-source-parser.utils";
 import {
   LEADER_PLAN_PROMPT,
   GLOBAL_OUTLINE_PROMPT,
@@ -271,6 +272,15 @@ export class LeaderPlanningService {
     const recommendedDepth =
       RECOMMENDED_DEPTH_BY_TOPIC_TYPE[topic.type] || "standard";
 
+    const anchorArticleContent =
+      topic.type === "EVENT" &&
+      topic.topicConfig &&
+      typeof topic.topicConfig === "object"
+        ? formatAnchorContentForPrompt(
+            topic.topicConfig as Record<string, unknown>,
+          )
+        : "";
+
     const prompt = LEADER_PLAN_PROMPT.replace("{topic}", topic.name)
       .replace(/{topicType}/g, topic.type)
       .replace("{description}", topic.description || "无")
@@ -280,6 +290,7 @@ export class LeaderPlanningService {
       .replace(/{currentDate}/g, currentDate)
       .replace(/{currentYear}/g, currentYear)
       .replace("{recommendedDepth}", recommendedDepth)
+      .replace("{anchorArticleContent}", anchorArticleContent)
       .replace(
         "{languageInstruction}",
         getLanguageInstruction(topic.language || "zh"),

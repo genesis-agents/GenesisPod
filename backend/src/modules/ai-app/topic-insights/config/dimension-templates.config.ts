@@ -380,3 +380,106 @@ export const COMPANY_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
     minSources: 5,
   },
 ];
+
+/**
+ * 事件洞察维度参考框架（分析驱动型）
+ *
+ * 不作为固定模板使用，仅作为 Leader AI 的规划参考。
+ * EVENT 类型的维度完全由 Leader 从文章内容和因果假设推导。
+ */
+export const EVENT_INSIGHT_REFERENCE_DIMENSIONS: DimensionTemplate[] = [
+  {
+    id: "event_core",
+    name: "事件核心：发生了什么",
+    description:
+      "事件全貌还原：5W1H（谁、什么、何时、何地、为何、如何），关键时间线",
+    sortOrder: 1,
+    searchQueries: [
+      "{topic} 事件全貌 时间线",
+      "{topic} event timeline what happened",
+      "{topic} key facts overview",
+    ],
+    searchSources: ["web", "news"],
+    minSources: 5,
+  },
+  {
+    id: "structural_context",
+    name: "结构性背景：为什么会发生",
+    description:
+      "事件发生的深层结构性原因：行业周期、技术成熟度、政策窗口、竞争格局演变",
+    sortOrder: 2,
+    searchQueries: [
+      "{topic} 深层原因 结构性背景",
+      "{topic} root cause structural factors",
+      "{topic} industry context background",
+    ],
+    searchSources: ["web", "academic"],
+    minSources: 5,
+  },
+  {
+    id: "trigger_and_timing",
+    name: "触发与时机：为什么是现在",
+    description: "直接触发因素、时间窗口分析、催化事件、竞争压力",
+    sortOrder: 3,
+    searchQueries: [
+      "{topic} 触发因素 时机分析",
+      "{topic} trigger timing catalyst",
+      "{topic} why now precipitating factors",
+    ],
+    searchSources: ["web", "news"],
+    minSources: 5,
+  },
+  {
+    id: "stakeholder_map",
+    name: "利益格局：谁受益谁受损",
+    description: "关键利益相关方的立场、动机、博弈关系、权力不对称分析",
+    sortOrder: 4,
+    searchQueries: [
+      "{topic} 利益相关方 受益 受损",
+      "{topic} stakeholders winners losers",
+      "{topic} impact analysis who benefits",
+    ],
+    searchSources: ["web", "news"],
+    minSources: 5,
+  },
+  {
+    id: "ripple_effects",
+    name: "连锁反应：影响如何传导",
+    description:
+      "一阶影响（直接）→ 二阶影响（间接）→ 三阶影响（系统性），跨行业传导路径",
+    sortOrder: 5,
+    searchQueries: [
+      "{topic} 影响 连锁反应 行业影响",
+      "{topic} ripple effects industry impact",
+      "{topic} second order effects implications",
+    ],
+    searchSources: ["web", "news"],
+    minSources: 5,
+  },
+  {
+    id: "historical_parallel",
+    name: "历史对标：有无先例可循",
+    description: "历史上类似事件的对比分析、结局复盘、经验教训、关键差异",
+    sortOrder: 6,
+    searchQueries: [
+      "{topic} 历史先例 类似事件",
+      "{topic} historical precedent similar events",
+      "{topic} comparison past cases lessons",
+    ],
+    searchSources: ["web", "academic"],
+    minSources: 5,
+  },
+  {
+    id: "future_scenarios",
+    name: "情景推演：接下来会怎样",
+    description: "基准/乐观/悲观三种情景分析，关键变量识别，WWNBT 可证伪预测",
+    sortOrder: 7,
+    searchQueries: [
+      "{topic} 未来展望 情景分析",
+      "{topic} future scenarios outlook prediction",
+      "{topic} what happens next forecast",
+    ],
+    searchSources: ["web", "news"],
+    minSources: 5,
+  },
+];
