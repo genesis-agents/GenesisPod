@@ -122,6 +122,7 @@ export function renumberHeadings(content: string): string {
     // Re-number #### N.M.K. headings (three-part — check BEFORE two-part)
     const h4ThreePartMatch = line.match(/^####\s+\d+\.\d+\.\d+\.?\s+(.+)$/);
     if (h4ThreePartMatch) {
+      if (h3Count === 0) h3Count = 1; // implicit parent when #### appears before any ###
       h4Count++;
       boldListCounter = 0;
       lines[i] =
@@ -129,7 +130,9 @@ export function renumberHeadings(content: string): string {
       continue;
     }
 
-    // Re-number #### N.M. headings (two-part — demoted from ### by collapseExcessSubHeadings)
+    // Re-number #### N.M. headings (two-part — continues the same h3 counter as ###)
+    // Note: #### N.M. format can appear when LLM uses #### with only dim.sub numbering.
+    // h3Count++ treats it as a sequential sub-section (sibling to ### headings).
     const h4TwoPartMatch = line.match(/^####\s+\d+\.\d+\.?\s+(.+)$/);
     if (h4TwoPartMatch) {
       h3Count++; // continues the same counter as ### headings
@@ -1860,6 +1863,17 @@ export function wrapBareInlineLatex(content: string): string {
     "g",
   );
 
+  // ── Big-O / Theta / Omega complexity notation ──
+  // Matches: O(n log n), O(n^2), Θ(n), Ω(log n), o(1)
+  // These use math letters but no backslash, so they bypass CMD_DETECT_RE.
+  const BIG_O_RE = /(?<![$\w])([OΘΩo])\(([^)]{1,60})\)(?![$\w])/g;
+
+  // ── Bare exponent with curly braces in plain text ──
+  // Matches: 10^{-3}, 2^{32}, n^{k+1} that appear outside math spans.
+  // These are distinguishable from footnote markers like "text^1" by the braces.
+  const BARE_BRACE_EXPONENT_RE =
+    /(?<![$\\])(\b[A-Za-z0-9]+\^)\{([^}]{1,30})\}(?![{$])/g;
+
   return content
     .split("\n")
     .map((line) => {
@@ -1874,17 +1888,50 @@ export function wrapBareInlineLatex(content: string): string {
         return line;
       }
 
+      let result = line;
+
+      // ── Wrap Big-O complexity notation ──
+      // Run unconditionally (no backslash check needed)
+      if (BIG_O_RE.test(result) && !result.includes("$")) {
+        BIG_O_RE.lastIndex = 0;
+        result = result.replace(
+          BIG_O_RE,
+          (_m, letter: string, inner: string) => {
+            // Only wrap if inner contains a math-like token (letter, digit, log, etc.)
+            if (!/[a-zA-Z0-9]/.test(inner)) return _m;
+            // Normalize "log n" → "\log n" inside big-O for proper KaTeX rendering
+            const normalized = inner
+              .replace(/\blog\b/g, "\\log")
+              .replace(/\bln\b/g, "\\ln");
+            return `$${letter}(${normalized})$`;
+          },
+        );
+      } else {
+        BIG_O_RE.lastIndex = 0;
+      }
+
+      // ── Wrap bare brace exponents ──
+      if (BARE_BRACE_EXPONENT_RE.test(result) && !result.includes("$")) {
+        BARE_BRACE_EXPONENT_RE.lastIndex = 0;
+        result = result.replace(
+          BARE_BRACE_EXPONENT_RE,
+          (_m, base: string, exp: string) => `$${base}{${exp}}$`,
+        );
+      } else {
+        BARE_BRACE_EXPONENT_RE.lastIndex = 0;
+      }
+
       // Skip lines with no known LaTeX commands at all
-      if (!CMD_DETECT_RE.test(line)) return line;
+      if (!CMD_DETECT_RE.test(result)) return result;
 
       // ★ For lines WITH existing $ delimiters: only wrap bare LaTeX outside math spans
       // For lines WITHOUT $: wrap all bare LaTeX spans
-      if (line.includes("$")) {
-        return wrapBareLatexOutsideMath(line, CMD_DETECT_RE, LATEX_SPAN_RE);
+      if (result.includes("$")) {
+        return wrapBareLatexOutsideMath(result, CMD_DETECT_RE, LATEX_SPAN_RE);
       }
 
       // Find LaTeX spans and wrap each in $...$
-      return line.replace(LATEX_SPAN_RE, (match) => {
+      return result.replace(LATEX_SPAN_RE, (match) => {
         const inner = match.trim();
         if (inner.length < 3) return match; // too short to be meaningful
         // Only wrap if it actually contains a backslash (not a stray letter match)
@@ -3226,7 +3273,89 @@ export function splitEnumerationToList(content: string): string {
     }
   }
 
-  return result.join("\n\n");
+  // ── Pass 2: Split inline numeric lists ──────────────────────────────────
+  // Handles paragraphs where LLM embeds ordered items as inline text:
+  //   "分析角度：1. 技术可行性 2. 商业化路径 3. 竞争格局"
+  // → "分析角度：\n1. 技术可行性\n2. 商业化路径\n3. 竞争格局"
+  //
+  // Pattern: a single paragraph line (no existing newlines) that contains
+  // "1. text 2. text 3. text" with >= 2 inline numeric markers.
+  //
+  // Guards:
+  // - Only splits when >= 2 consecutive numeric markers (1. ... 2. ...)
+  // - Each item must have at least 3 chars of content
+  // - Skips headings, code blocks, blockquotes, table rows, list-starting lines
+  const inlineNumericResult: string[] = [];
+  for (const para of result) {
+    const trimmed = para.trim();
+
+    // Skip structural elements and multi-line paragraphs (they were already processed)
+    if (
+      /^[#>`|]/.test(trimmed) ||
+      trimmed.includes("\n") ||
+      trimmed.length < 15
+    ) {
+      inlineNumericResult.push(para);
+      continue;
+    }
+
+    // Detect inline numeric markers: "1. xxx 2. xxx" pattern
+    // Match positions of "N. " (number dot space) that appear mid-sentence
+    // Require at least 2 markers after position 0 (position 0 items are already proper list items)
+    const inlineMarkerRe = /(?<=[^\n])\s+(\d+)\.\s+(?=[^\n]{3,})/g;
+    const markerMatches = [...trimmed.matchAll(inlineMarkerRe)];
+
+    if (markerMatches.length < 1) {
+      inlineNumericResult.push(para);
+      continue;
+    }
+
+    // Verify markers are consecutive (1, 2, 3... or 2, 3, 4...)
+    const markerNums = markerMatches.map((m) => parseInt(m[1]));
+    const isConsecutive = markerNums.every(
+      (n, i) => i === 0 || n === markerNums[i - 1] + 1,
+    );
+    if (!isConsecutive) {
+      inlineNumericResult.push(para);
+      continue;
+    }
+
+    // Split: text before first marker becomes lead sentence, then numbered items
+    const firstMarkerMatch = markerMatches[0];
+    const firstMarkerPos =
+      firstMarkerMatch.index + firstMarkerMatch[0].indexOf(firstMarkerMatch[1]);
+
+    const leadText = trimmed.slice(0, firstMarkerPos).trim();
+
+    // Reconstruct items by splitting at each marker position
+    const items: string[] = [];
+    const allPositions = markerMatches.map((m) => ({
+      start: m.index + m[0].indexOf(m[1]),
+      end: m.index + m[0].length,
+      num: parseInt(m[1]),
+    }));
+
+    for (let i = 0; i < allPositions.length; i++) {
+      const { end, num } = allPositions[i];
+      const nextStart =
+        i < allPositions.length - 1
+          ? allPositions[i + 1].start
+          : trimmed.length;
+      const itemContent = trimmed.slice(end, nextStart).trim();
+      if (itemContent.length > 0) {
+        items.push(`${num}. ${itemContent}`);
+      }
+    }
+
+    if (items.length >= 2) {
+      const parts = leadText ? [leadText, ...items] : items;
+      inlineNumericResult.push(parts.join("\n"));
+    } else {
+      inlineNumericResult.push(para);
+    }
+  }
+
+  return inlineNumericResult.join("\n\n");
 }
 
 /**

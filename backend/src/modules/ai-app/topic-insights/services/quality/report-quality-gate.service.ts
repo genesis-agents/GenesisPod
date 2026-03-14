@@ -356,6 +356,10 @@ export class ReportQualityGateService {
           currentValue: count,
           threshold: 8,
         });
+        rewriteGuidance.push(
+          `引用集中：${cite} 在维度内出现 ${count} 次，严重超过建议阈值 5 次。` +
+            `请分散引用来源，尝试寻找同类观点的其他来源，或减少对该来源的重复引用。`,
+        );
       } else if (count > 5) {
         violations.push({
           rule: "citation_concentration",
@@ -364,6 +368,10 @@ export class ReportQualityGateService {
           currentValue: count,
           threshold: 5,
         });
+        rewriteGuidance.push(
+          `引用集中：${cite} 在维度内出现 ${count} 次，请分散引用来源。` +
+            `尝试寻找同类观点的其他来源，或减少对该来源的重复引用。`,
+        );
       }
     }
 

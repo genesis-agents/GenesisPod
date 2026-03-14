@@ -64,7 +64,18 @@ export const NARRATIVE_STRUCTURE = `## 叙事结构规范
 ### 时间锚定
 - 预测性判断须标注时间窗口："预计 2025-2027 年..."、"中期（3-5 年）..."
 - 禁止无时间限定的断言："必将取代..."、"未来一定..."
-- 历史数据标注年份："2024 年市场规模达 XX（IDC, 2024Q4）"`;
+- 历史数据标注年份："2024 年市场规模达 XX（IDC, 2024Q4）"
+
+### 维度独立性
+- 每个维度必须聚焦自己的核心主题，不要重复其他维度的内容
+- 如需引用其他维度的结论，用一句话概述并注明"详见XX维度分析"
+- 同一数据点、案例、论据不要在多个维度中详细展开
+
+### 禁止教科书式写作
+- 报告是洞察分析，不是概念介绍。禁止大段解释基础概念（如"什么是大模型"、"Transformer 架构原理"等）
+- 假设读者已有领域基本知识，直接进入分析和判断
+- 如需提及技术背景，用一句话带过即可，不要展开教学
+- 第一个维度尤其容易退化为"概述/背景介绍"，请确保第一个维度也是有独立洞察的分析`;
 
 /**
  * Professional tone, language, and expression standards.
@@ -159,7 +170,12 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 ### 枚举拆分
 - 段落内出现"一是...二是..."、"一方面...另一方面..."、"首先...其次..."、"第一...第二..."等枚举模式时，必须拆分为无序列表
 - 枚举前的引导句保留为段落，每个枚举项变为 \`- \` 列表项
-- 禁止在段落中用中文枚举标记串联多个并列观点`;
+- 禁止在段落中用中文枚举标记串联多个并列观点
+
+### 章节字数均衡
+- 同一报告中各维度章节字数应相对均衡，最长章节不超过最短章节的 2 倍
+- 每个维度建议 1500-3000 字（中文），过短说明分析不够深入
+- 每个 ### 子节建议 300-800 字，过短则缺乏论证，过长则应拆分`;
 
 /**
  * Chapter highlights format (Stanford HAI Chapter Highlights pattern).
@@ -406,7 +422,18 @@ export const NARRATIVE_STRUCTURE_EN = `## Narrative Structure Standards
 ### Time Anchoring
 - Predictive statements must include time windows: "expected in 2025-2027...", "medium-term (3-5 years)..."
 - Do NOT make unqualified assertions: "will inevitably replace...", "will definitely..."
-- Historical data must include year: "2024 market size reached XX (IDC, 2024Q4)"`;
+- Historical data must include year: "2024 market size reached XX (IDC, 2024Q4)"
+
+### Dimension Independence
+- Each dimension must focus on its own core theme — do not repeat content from other dimensions
+- When referencing another dimension's conclusions, summarize in one sentence and note "see [Dimension X] for details"
+- The same data point, case study, or argument must not be elaborated in multiple dimensions
+
+### No Textbook-Style Writing
+- This report is analytical insight, not a concept introduction. Do not write lengthy explanations of basic concepts (e.g., "what is a large language model", "how Transformer architecture works")
+- Assume readers have foundational domain knowledge — go directly to analysis and judgment
+- If technical background is needed, one sentence is sufficient; do not expand into tutorial content
+- The first dimension is especially prone to devolving into "overview/background introduction" — ensure the first dimension also delivers independent analytical insight`;
 
 export const PROFESSIONAL_TONE_EN = `## Writing Style Standards
 
@@ -484,7 +511,12 @@ export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 
 ### Enumeration Splitting
 - When paragraphs contain enumeration patterns like "firstly...secondly...", "on one hand...on the other hand...", split them into bullet lists
-- Keep the introductory sentence as a paragraph, each enumerated point becomes a \`- \` list item`;
+- Keep the introductory sentence as a paragraph, each enumerated point becomes a \`- \` list item
+
+### Section Word Count Balance
+- Word counts across dimensions in the same report should be relatively balanced — the longest section must not exceed twice the shortest
+- Each dimension should target 1500-3000 words; falling short indicates insufficient depth of analysis
+- Each ### sub-section should target 300-800 words; too short means insufficient argumentation, too long should be split`;
 
 export const CHAPTER_HIGHLIGHTS_EN = `## Chapter Highlights (required at start of each dimension's detailedContent)
 
