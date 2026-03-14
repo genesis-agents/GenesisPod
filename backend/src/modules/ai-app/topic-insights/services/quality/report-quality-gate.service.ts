@@ -136,18 +136,14 @@ export class ReportQualityGateService {
       });
     }
 
-    // 4. 引用块密度检查 + 自动限制（规范：每维度最多 1 个，不含章节要点）
+    // 4. 引用块密度检查 + 自动限制（规范：每维度最多 1 个）
     const blockquoteLines = fixedContent.match(/^>\s*.+$/gm) || [];
-    // Exclude chapter highlights blockquotes (本章要点/Chapter Highlights)
-    const nonHighlightBlockquotes = blockquoteLines.filter(
-      (line) => !/本章要点|Chapter Highlights/i.test(line),
-    );
-    const blockquoteCount = nonHighlightBlockquotes.length;
+    const blockquoteCount = blockquoteLines.length;
     if (blockquoteCount > 1) {
       violations.push({
         rule: "blockquote_density",
         severity: "warning",
-        message: `引用块数量 ${blockquoteCount} 超过阈值 1/维度（不含章节要点），已自动限制`,
+        message: `引用块数量 ${blockquoteCount} 超过阈值 1/维度，已自动限制`,
         currentValue: blockquoteCount,
         threshold: 1,
       });
@@ -233,21 +229,19 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
-    // 4.95 ★ 本章要点（Chapter Highlights）存在性检查
-    // 规范要求每个维度应有 "> **本章要点**" blockquote
-    const hasChapterHighlights =
-      />\s*\*{0,2}本章要点\*{0,2}/i.test(fixedContent) ||
-      />\s*\*{0,2}Chapter Highlights\*{0,2}/i.test(fixedContent);
-    if (!hasChapterHighlights) {
+    // 4.95 ★ H3 子节数量上限检查（防止粒度过细）
+    const h3Count = (fixedContent.match(/^### /gm) || []).length;
+    if (h3Count > 10) {
       violations.push({
-        rule: "chapter_highlights_missing",
+        rule: "h3_count_exceeded",
         severity: "warning",
-        message:
-          "缺少「本章要点」（Chapter Highlights）blockquote，请在维度开头添加 3-5 条核心要点",
+        message: `### 子节数量 ${h3Count} 超过上限 10，粒度过细，请合并相关主题`,
+        currentValue: h3Count,
+        threshold: 10,
       });
       rewriteGuidance.push(
-        "缺少本章要点：请在维度内容开头添加 blockquote 格式的「本章要点」，包含 3-5 条核心发现，" +
-          '格式为 "> **本章要点**\\n> - 要点1\\n> - 要点2\\n> - 要点3"',
+        `子节过多：当前 ${h3Count} 个 ### 子节，严格上限为 10 个。` +
+          `请将相关主题合并到同一个 ### 子节下，用段落分隔而非创建新子节。每个维度 6-8 个 ### 子节为宜。`,
       );
     }
 

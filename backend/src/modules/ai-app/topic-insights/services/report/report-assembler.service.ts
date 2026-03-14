@@ -36,7 +36,6 @@ import {
   stripFigureComments,
   escapeLatexPipeInTables,
   normalizeInlineDoubleDollar,
-  normalizeHighlightsInPlace,
   renumberHeadings,
   ensureBlankLineAfterTables,
   stripHtmlCitationLinks,
@@ -762,9 +761,6 @@ export class ReportAssemblerService {
 
     // Repair broken bold markers (**，text or ** [N])
     content = repairBrokenBoldMarkers(content);
-
-    // Normalize 本章要点 headers in-place (> 本章要点 → > **本章要点**, add > prefix to bullets)
-    content = normalizeHighlightsInPlace(content);
 
     // Strip residual figure placeholders (catch any missed by per-dimension pass)
     content = stripFigureComments(content);

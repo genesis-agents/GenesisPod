@@ -354,17 +354,6 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       children?: React.ReactNode;
       node?: unknown;
     }) => {
-      const text = extractText(children);
-      const isChapterHighlights = /本章要点|Chapter Highlights/i.test(text);
-
-      if (isChapterHighlights) {
-        return (
-          <div className="my-4 rounded-xl border-l-4 border-blue-400 bg-blue-50/60 px-5 py-4">
-            {processChildrenSimple(children, processText)}
-          </div>
-        );
-      }
-
       return (
         <blockquote {...props}>
           {processChildrenSimple(children, processText)}

@@ -160,107 +160,53 @@ function stripFigureComments(input: string): string {
 }
 
 /**
- * Header pattern for 本章要点 / Chapter Highlights in various LLM output formats:
- *   > **本章要点**
- *   **本章要点**
- *   本章要点
- *   > **Chapter Highlights**
- *   - **本章要点**
+ * Header pattern for 本章要点 / Chapter Highlights in various LLM output formats.
+ * Used to detect and strip these blocks (no longer rendered).
  */
 const CHAPTER_HIGHLIGHTS_RE =
   /^(?:>\s*)?[-*]*\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\**\s*$/i;
 
 /**
- * Normalizes 本章要点 blocks to consistent blockquote card format.
- *
- * Raw detailedContent from LLM has inconsistent formats:
- *   Chapter 1: > **本章要点** + > - bullet (correct)
- *   Chapter 2: **本章要点** + - bullet (missing > prefix)
- *   Chapter 3: 本章要点 + - bullet (no bold, no blockquote)
- *
- * This function normalizes ALL to:
- *   > **本章要点**
- *   > - bullet point 1
- *   > - bullet point 2
+ * Strips 本章要点 blocks entirely from content.
+ * These blocks are no longer rendered in the chapter view.
  */
-function normalizeChapterHighlights(content: string): string {
+function stripChapterHighlightsFromContent(content: string): string {
   const lines = content.split('\n');
-
-  let firstBlockLines: string[] | null = null;
-  let currentBlockLines: string[] = [];
   let insideBlock = false;
   const bodyLines: string[] = [];
-
-  const flushBlock = () => {
-    if (currentBlockLines.length > 0 && firstBlockLines === null) {
-      firstBlockLines = currentBlockLines;
-    }
-    // Discard duplicate blocks (LLM sometimes repeats)
-    currentBlockLines = [];
-    insideBlock = false;
-  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
     if (CHAPTER_HIGHLIGHTS_RE.test(line)) {
-      if (insideBlock) {
-        flushBlock();
-      }
       insideBlock = true;
-      const isEn = /Chapter Highlights/i.test(line);
-      const label = isEn ? 'Chapter Highlights' : '本章要点';
-      currentBlockLines = [`> **${label}**`];
       continue;
     }
 
     if (insideBlock) {
-      const trimmed = line.replace(/^>\s*/, '').trim();
-
-      // Blockquote bullet or plain bullet continuation
+      // Blockquote bullet or plain bullet continuation — skip
       if (/^>\s*[-*]/.test(line) || /^\s*[-*]\s/.test(line)) {
-        const pointText = trimmed.replace(/^[-*]\s*/, '').trim();
-        if (pointText) {
-          currentBlockLines.push(`> - ${pointText}`);
-        }
         continue;
       }
-
-      // Empty line or bare blockquote marker ends the block
+      // Empty line or bare blockquote marker — end block
       if (line.trim() === '' || line.trim() === '>') {
-        flushBlock();
-        bodyLines.push(line);
+        insideBlock = false;
         continue;
       }
-
-      // Non-blockquote, non-list line ends the block
+      // Non-blockquote line — end block, keep this line
       if (!/^>/.test(line)) {
-        flushBlock();
+        insideBlock = false;
         bodyLines.push(line);
         continue;
       }
-
-      // Blockquote line without list marker — treat as continuation point
-      if (trimmed) {
-        currentBlockLines.push(`> - ${trimmed}`);
-        continue;
-      }
+      // Blockquote continuation line — skip
+      continue;
     }
 
     bodyLines.push(line);
   }
 
-  // Flush any block still open at EOF
-  flushBlock();
-
-  if (firstBlockLines === null) {
-    return content;
-  }
-
-  // Prepend the first block at the very top, separated from body by a blank line
-  const blockText = (firstBlockLines as string[]).join('\n');
-  const bodyText = bodyLines.join('\n').replace(/^\n+/, '');
-  return `${blockText}\n\n${bodyText}`;
+  return bodyLines.join('\n');
 }
 
 /**
@@ -641,8 +587,8 @@ export function preprocessLatex(markdown: string): string {
   // Step 1: Strip unresolved figure placeholders
   result = stripFigureComments(result);
 
-  // Step 2: Normalize 本章要点 to consistent blockquote format
-  result = normalizeChapterHighlights(result);
+  // Step 2: Strip 本章要点 blocks (no longer rendered)
+  result = stripChapterHighlightsFromContent(result);
 
   // Step 3: Repair broken bold markers (**，text or ** [N])
   result = repairBrokenBoldMarkers(result);

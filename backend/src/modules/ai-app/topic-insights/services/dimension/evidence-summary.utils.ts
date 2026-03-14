@@ -86,12 +86,12 @@ export function buildFiguresSummary(
         seenUrls.add(rawUrl);
         // 生成唯一 figureId（基于全局递增序号）
         const figureId = `FIG-${entries.length + 1}`;
-        // ★ v10: 增强 caption fallback — 空 caption 用证据标题生成描述性标题
+        // ★ v10→v11: caption fallback — photo 类型不生成虚假标题（防止 Leader 误分配装饰图）
         const figCaption =
           fig.caption ||
           fig.alt ||
-          (evidence.title
-            ? `${evidence.title} — ${fig.type === "photo" ? "配图" : "图表"}`
+          (fig.type !== "photo" && evidence.title
+            ? `${evidence.title} — 图表`
             : "");
         entries.push(
           `图表 ${figureId}: ${fig.type} - "${figCaption || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) (URL: ${rawUrl})`,

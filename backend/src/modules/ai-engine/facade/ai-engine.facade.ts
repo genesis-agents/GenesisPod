@@ -607,7 +607,7 @@ export class AIEngineFacade {
 
     if (fallbackResult.fallbackUsed) {
       this.logger.warn(
-        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" → ")} (${fallbackResult.attempts} attempts, ${duration}ms)`,
+        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" → ") || fallbackResult.modelUsed} → final=${fallbackResult.modelUsed} (${fallbackResult.attempts} attempts, ${duration}ms)`,
       );
     }
 

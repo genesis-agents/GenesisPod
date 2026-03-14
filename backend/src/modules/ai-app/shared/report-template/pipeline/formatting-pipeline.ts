@@ -11,7 +11,7 @@
  */
 
 import {
-  normalizeChapterHighlights,
+  stripChapterHighlights,
   convertChineseNumeralHeadings,
   detectAndPromoteHeadings,
   sanitizeHeadingLevels,
@@ -109,7 +109,7 @@ export function formatDimensionContent(
   let processed = content;
 
   // ── Phase 1: Structure normalization ──────────────────────────────────
-  processed = normalizeChapterHighlights(processed);
+  processed = stripChapterHighlights(processed);
   processed = removeHallucinatedImages(processed);
   processed = convertChineseNumeralHeadings(processed);
   processed = detectAndPromoteHeadings(processed);

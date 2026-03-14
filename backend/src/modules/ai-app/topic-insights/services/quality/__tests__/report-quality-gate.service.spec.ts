@@ -121,21 +121,6 @@ describe("ReportQualityGateService", () => {
       expect(result.wasAutoFixed).toBe(true);
     });
 
-    it("should not count chapter highlights blockquotes against the limit", () => {
-      const content =
-        "> 本章要点：AI技术快速发展\n" +
-        "> Regular blockquote\n\n" +
-        "A".repeat(900);
-
-      const result = service.validateDimensionContent(content, "zh");
-
-      // Only 1 non-highlight blockquote, should not trigger
-      const violation = result.violations.find(
-        (v) => v.rule === "blockquote_density",
-      );
-      expect(violation).toBeUndefined();
-    });
-
     it("should flag and auto-fix content when char count < 800", () => {
       const shortContent = "A".repeat(200); // well under 800
 
@@ -368,7 +353,7 @@ describe("ReportQualityGateService", () => {
     });
 
     it("should NOT append quality checklist when no rewrite issues exist", () => {
-      // Clean content: >800 chars (stripped), diverse citations, no empty sections, has chapter highlights
+      // Clean content: >800 chars (stripped), diverse citations, no empty sections
       const filler =
         "量子计算技术持续进步，多个维度的研究成果表明其具有巨大潜力";
       const paragraphs = Array.from(
@@ -376,8 +361,7 @@ describe("ReportQualityGateService", () => {
         (_, i) =>
           `${filler}，阶段${i + 1}的数据证实了这一点 [${i + 1}][${i + 2}]。`,
       ).join("\n");
-      const highlights = `> **本章要点**\n> - 量子计算技术持续进步\n> - 多维度研究成果证实潜力\n> - 各阶段数据验证一致\n`;
-      const content = `${highlights}\n### 技术现状\n\n${paragraphs}`;
+      const content = `### 技术现状\n\n${paragraphs}`;
 
       const result = service.validateDimensionContent(content, "zh");
 
