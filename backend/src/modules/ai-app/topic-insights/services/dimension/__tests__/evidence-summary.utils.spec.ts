@@ -12,7 +12,6 @@
 import {
   createEvidenceSummary,
   buildFiguresSummary,
-  type FigureRegistryEntry,
 } from "../evidence-summary.utils";
 import type {
   EnrichedEvidenceData,
@@ -240,7 +239,7 @@ describe("buildFiguresSummary", () => {
       );
     });
 
-    it("should fall back to evidence.title + '配图' for photo type", () => {
+    it("should return empty caption for photo type with no caption/alt (v11)", () => {
       const evidences = [
         makeEvidence({
           title: "White House AI Policy Briefing",
@@ -258,7 +257,7 @@ describe("buildFiguresSummary", () => {
       const { figureRegistry } = buildFiguresSummary(evidences);
 
       const entry = figureRegistry.get("FIG-1");
-      expect(entry?.caption).toBe("White House AI Policy Briefing — 配图");
+      expect(entry?.caption).toBe(""); // v11: photo type with empty caption+alt → empty string
     });
 
     it("should produce empty caption when evidence title is also empty", () => {
@@ -324,10 +323,8 @@ describe("buildFiguresSummary", () => {
       // Verify caption quality
       const fig1 = figureRegistry.get("FIG-1")!;
       expect(fig1.type).toBe("photo");
-      // Empty caption+alt → falls back to evidence title + "配图"
-      expect(fig1.caption).toBe(
-        "White House Executive Order on AI Safety — 配图",
-      );
+      // v11: photo type with empty caption+alt → empty string (no fake "配图" caption)
+      expect(fig1.caption).toBe("");
 
       const fig2 = figureRegistry.get("FIG-2")!;
       expect(fig2.type).toBe("chart");
@@ -557,9 +554,7 @@ describe("buildFiguresSummary", () => {
       expect(summary).toContain("Interest Rate Trends");
       expect(summary).toContain("来源: 证据[1]");
       expect(summary).toContain("Fed Analysis Report");
-      expect(summary).toContain(
-        "URL: https://fred.stlouisfed.org/chart.png",
-      );
+      expect(summary).toContain("URL: https://fred.stlouisfed.org/chart.png");
     });
 
     it("should show '无标题' when all caption fallbacks are empty", () => {
