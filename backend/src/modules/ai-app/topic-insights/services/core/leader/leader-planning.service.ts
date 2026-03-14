@@ -96,14 +96,46 @@ const VALID_SKILLS = new Set([
   "event-tech-breakthrough",
 ]);
 
+/**
+ * 并发信号量：限制同时执行的 planDimensionOutline 数量
+ * 防止多维度同时请求 reasoning 模型时触发 rate limit
+ */
+const MAX_CONCURRENT_OUTLINES = 3;
+
 @Injectable()
 export class LeaderPlanningService {
   private readonly logger = new Logger(LeaderPlanningService.name);
+
+  /** outline 并发信号量：排队中的 resolve 回调 */
+  private outlineQueue: Array<() => void> = [];
+  /** 当前正在执行的 outline 数量 */
+  private outlineRunning = 0;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatFacade: ChatFacade,
   ) {}
+
+  /** 获取 outline 信号量许可（超过并发上限时排队等待） */
+  private acquireOutlineSlot(): Promise<void> {
+    if (this.outlineRunning < MAX_CONCURRENT_OUTLINES) {
+      this.outlineRunning++;
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      this.outlineQueue.push(resolve);
+    });
+  }
+
+  /** 释放 outline 信号量许可 */
+  private releaseOutlineSlot(): void {
+    if (this.outlineQueue.length > 0) {
+      const next = this.outlineQueue.shift()!;
+      next(); // 不减 running，直接移交给下一个
+    } else {
+      this.outlineRunning--;
+    }
+  }
 
   /**
    * 获取推理模型信息
@@ -524,10 +556,44 @@ export class LeaderPlanningService {
     figuresSummary?: string, // ★ 新增：可用图表列表
     otherDimensions?: Array<{ name: string; description?: string | null }>,
   ): Promise<DimensionOutline> {
+    // ★ 并发控制：最多同时 3 个 outline 请求，避免 rate limit 雪崩
+    await this.acquireOutlineSlot();
     this.logger.log(
-      `[planDimensionOutline] Planning outline for dimension: ${dimension.name}`,
+      `[planDimensionOutline] Planning outline for dimension: ${dimension.name} (running=${this.outlineRunning}, queued=${this.outlineQueue.length})`,
     );
 
+    try {
+      return await this.planDimensionOutlineInner(
+        topic,
+        dimension,
+        evidenceSummary,
+        figuresSummary,
+        otherDimensions,
+      );
+    } finally {
+      this.releaseOutlineSlot();
+    }
+  }
+
+  /**
+   * planDimensionOutline 的内部实现（被信号量包裹）
+   */
+  private async planDimensionOutlineInner(
+    topic: {
+      name: string;
+      type: string;
+      description?: string | null;
+      language?: string | null;
+    },
+    dimension: {
+      name: string;
+      description?: string | null;
+      searchQueries?: string[] | unknown;
+    },
+    evidenceSummary: string,
+    figuresSummary?: string,
+    otherDimensions?: Array<{ name: string; description?: string | null }>,
+  ): Promise<DimensionOutline> {
     const focusAreas = Array.isArray(dimension.searchQueries)
       ? (dimension.searchQueries as string[]).join(", ")
       : "无";
@@ -578,9 +644,10 @@ export class LeaderPlanningService {
       );
     }
 
-    // ★ 添加重试机制，处理 API 临时故障
+    // ★ 重试机制：指数退避，处理 API 临时故障和 rate limit
     const MAX_RETRIES = 3;
-    const RETRY_DELAY_MS = 2000;
+    const BASE_DELAY_MS = 2000; // 基础延迟 2s
+    const BACKOFF_FACTOR = 4; // 指数因子：2s → 8s → 32s
     let lastError: Error | null = null;
     const failedModelIds = new Set<string>();
 
@@ -711,8 +778,14 @@ export class LeaderPlanningService {
           }
           lastError = new Error(`API error: ${rawContent.slice(0, 100)}`);
           if (attempt < MAX_RETRIES) {
-            // 配额错误不需要等太久，快速切换到下一个模型
-            await this.delay(isQuotaError ? 500 : RETRY_DELAY_MS * attempt);
+            // ★ 指数退避：rate limit 场景用更长延迟避免在同一窗口内重试
+            const backoffMs = isQuotaError
+              ? BASE_DELAY_MS * Math.pow(BACKOFF_FACTOR, attempt - 1) // 2s → 8s → 32s
+              : BASE_DELAY_MS * attempt; // 2s → 4s → 6s
+            this.logger.log(
+              `[planDimensionOutline] Retrying in ${backoffMs}ms (${isQuotaError ? "exponential backoff" : "linear"})`,
+            );
+            await this.delay(backoffMs);
             continue;
           }
           // ★ 通用兜底：最后一次重试仍为 API 错误，跳出循环避免错误内容被当 JSON 解析
@@ -726,7 +799,7 @@ export class LeaderPlanningService {
           );
           lastError = new Error("API returned HTML error page instead of JSON");
           if (attempt < MAX_RETRIES) {
-            await this.delay(RETRY_DELAY_MS * attempt);
+            await this.delay(BASE_DELAY_MS * attempt);
             continue;
           }
           // ★ 最后一次重试仍为 HTML，跳出循环避免 HTML 被当 JSON 解析
@@ -746,7 +819,7 @@ export class LeaderPlanningService {
           );
           lastError = new Error("Failed to parse dimension outline JSON");
           if (attempt < MAX_RETRIES) {
-            await this.delay(RETRY_DELAY_MS * attempt);
+            await this.delay(BASE_DELAY_MS * attempt);
             continue;
           }
         } else {
@@ -804,9 +877,14 @@ export class LeaderPlanningService {
           error instanceof Error ? error : new Error("Unknown API error");
 
         if (attempt < MAX_RETRIES) {
-          await this.delay(
-            failedModelIds.has(currentModelId) ? 500 : RETRY_DELAY_MS * attempt,
+          const isQuotaRelated = failedModelIds.has(currentModelId);
+          const backoffMs = isQuotaRelated
+            ? BASE_DELAY_MS * Math.pow(BACKOFF_FACTOR, attempt - 1)
+            : BASE_DELAY_MS * attempt;
+          this.logger.log(
+            `[planDimensionOutline] Retrying in ${backoffMs}ms (${isQuotaRelated ? "exponential backoff" : "linear"})`,
           );
+          await this.delay(backoffMs);
         }
       }
     }

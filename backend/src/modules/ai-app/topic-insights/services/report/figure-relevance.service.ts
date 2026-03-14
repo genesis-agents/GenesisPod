@@ -18,6 +18,12 @@
  *   "如果不确定请拒绝" 双重保守指令 → 大量有价值图片被杀。
  *   新原则："只拒绝明确不合格的图片" — 倾向保留，让后续 Leader 分配环节做相关性筛选。
  *
+ * ★ v10.0 根因修复：v9 的"全类型倾向保留"导致大量装饰性新闻配图（文章头图、
+ *   新闻缩略图、stock photo）通过审查，最终报告图片与内容无关。
+ *   新原则：按图片类型分层审核 — chart/table/diagram 保持倾向保留，
+ *   photo 类型要求图片本身包含可辨识的信息元素（数据、文字、产品细节、技术内容）。
+ *   纯场景照、文章头图、新闻配图等装饰性照片予以拒绝。
+ *
  * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
  */
 
@@ -47,6 +53,9 @@ interface FigureRelevanceBatchResult {
 /** 批量审查的最大图片数（控制 token 消耗） */
 const MAX_FIGURES_PER_BATCH = 8;
 
+/** ★ v10: 信息性图片类型（fallback 时仅保留这些类型，photo 需要 Vision LLM 验证） */
+const INFORMATIONAL_FIGURE_TYPES = new Set(["chart", "table", "diagram"]);
+
 @Injectable()
 export class FigureRelevanceService {
   private readonly logger = new Logger(FigureRelevanceService.name);
@@ -71,13 +80,15 @@ export class FigureRelevanceService {
       AIModelType.MULTIMODAL,
     );
     if (!multimodalModel?.modelId) {
-      // ★ v9: 无 Vision 模型时，保留全部图片（上游已做基本质量关卡）
-      // ExtractedFigure.type 仅有 chart/table/diagram/photo 4 种，全部属于有效类型
+      // ★ v10: 无 Vision 模型时，仅保留 chart/table/diagram 类型（photo 类无法验证信息价值）
+      const filtered = figures.filter((f) =>
+        INFORMATIONAL_FIGURE_TYPES.has(f.type),
+      );
       this.logger.warn(
         `[filterRelevantFigures] No MULTIMODAL model configured, ` +
-          `keeping all ${figures.length} figures (v9 倾向保留)`,
+          `keeping ${filtered.length}/${figures.length} informational figures (v10 type-based fallback)`,
       );
-      return figures;
+      return filtered;
     }
 
     // ★ v7: 上游 validateSingleFigure 已丢弃所有 data: URL，
@@ -115,28 +126,39 @@ export class FigureRelevanceService {
           }
         }
 
-        // ★ v9: LLM 遗漏的 index → 视为接受（倾向保留原则）
+        // ★ v10: LLM 遗漏的 index → chart/table/diagram 保留，photo 拒绝
         const missingCount = batch.length - seenIndices.size;
         if (missingCount > 0) {
           const missingIndices = Array.from(
             { length: batch.length },
             (_, i) => i,
           ).filter((i) => !seenIndices.has(i));
+          let keptCount = 0;
           for (const idx of missingIndices) {
-            allAccepted.push(batch[idx]);
+            if (INFORMATIONAL_FIGURE_TYPES.has(batch[idx].type)) {
+              allAccepted.push(batch[idx]);
+              keptCount++;
+            } else {
+              allRejected.push(
+                `[${batchStart + idx}] ${batch[idx].imageUrl.substring(0, 60)}... → LLM omitted, photo type rejected`,
+              );
+            }
           }
           this.logger.warn(
-            `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1}: LLM omitted ${missingCount} indices (${missingIndices.join(",")}), treating as accepted (v9 倾向保留)`,
+            `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1}: LLM omitted ${missingCount} indices, kept ${keptCount} informational types (v10)`,
           );
         }
       } catch (error) {
-        // ★ v9: 单批失败 → 保留全部图片（上游已做基本质量关卡）
+        // ★ v10: 单批失败 → 仅保留 chart/table/diagram 类型（photo 无法验证信息价值）
+        const safeBatch = batch.filter((f) =>
+          INFORMATIONAL_FIGURE_TYPES.has(f.type),
+        );
         this.logger.warn(
           `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1} Vision check failed, ` +
-            `keeping all ${batch.length} figures (v9 倾向保留): ` +
+            `keeping ${safeBatch.length}/${batch.length} informational figures (v10 type-based fallback): ` +
             `${error instanceof Error ? error.message : error}`,
         );
-        allAccepted.push(...batch);
+        allAccepted.push(...safeBatch);
       }
     }
 
@@ -159,32 +181,40 @@ export class FigureRelevanceService {
     // 构建多模态 contentParts：交替 text + image
     const contentParts: ContentPart[] = [];
 
-    // 开头说明 — ★ v9: 倾向保留，只拒绝明确不合格的图片
+    // 开头说明 — ★ v10: 按图片类型分层审核
     contentParts.push({
       type: "text",
       text: [
         `请审查以下 ${figures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。`,
         "",
-        "★ 核心原则：倾向保留 — 只拒绝明确不合格的图片。有信息价值就保留，让后续环节做精选。",
+        "★ 核心原则：按类型分层审核。图表类（chart/table/diagram）倾向保留；照片类（photo）需要包含具体信息元素才保留。",
         "",
-        "仅在以下情况拒绝图片（必须明确命中才拒绝）：",
+        "## 一、对所有类型都拒绝的情况：",
         "1. **损坏/不可用**：图片损坏无法显示、纯色占位符、完全无法辨认的极度模糊图",
-        "2. **明确无关**：图片内容与研究主题「" +
-          topicTitle +
-          "」完全无关（如一篇AI文章配了一张美食照片）。注意：只要与主题领域沾边就应保留",
-        "3. **明确垃圾**：纯广告横幅、网站 UI 元素（导航栏/按钮截图）、meme/表情包、tracking pixel",
-        "4. **人物肖像/头像**：个人头像照、证件照式肖像、演讲者单人照（无信息增量，不属于研究配图）",
-        "5. **AI生成装饰图**：AI生成的抽象概念插画、科幻风装饰图、stock photo 风格的AI生成配图（特征：过度光滑、无具体数据、纯装饰目的）",
+        "2. **明确垃圾**：纯广告横幅、网站 UI 元素（导航栏/按钮截图）、meme/表情包、tracking pixel",
+        "3. **人物肖像/头像**：个人头像照、证件照式肖像、演讲者单人照",
+        "4. **AI生成装饰图**：AI生成的抽象概念插画、科幻风装饰图、过度光滑的 stock photo 风格AI生成配图",
         "",
-        "以下类型应当保留：",
-        "- 数据图表、趋势图、对比图、架构图（高价值）",
-        "- 产品截图、技术演示图、新闻配图（中价值）",
-        "- 与主题相关的活动场景照片（多人/场景/事件，可接受）",
-        "- 略有模糊但内容可辨识的图片（可接受）",
+        "## 二、chart/table/diagram 类型 → 倾向保留：",
+        "- 数据图表、趋势图、对比图、架构图、流程图 → 直接保留",
+        "- 略有模糊但内容可辨识 → 保留",
+        "- 不确定是否相关 → 保留",
         "",
-        "注意区分：活动/会议/发布会全景照 → 保留 vs 个人头像/肖像照 → 拒绝",
+        "## 三、photo 类型 → 需要信息价值才保留（这是关键判断）：",
+        "photo 类图片必须满足以下至少一项才保留：",
+        "- 图中包含**可读文字**（幻灯片、白板、标语、告示）",
+        "- 图中包含**产品实物/硬件/设备**的细节展示",
+        "- 图中包含**技术演示画面**（软件界面、代码运行、系统架构）",
+        "- 图中是**带有信息标注的照片**（标注了数据、名称、结构的实景照）",
         "",
-        "★ 如果不确定，请保留。后续环节会进一步筛选。",
+        "photo 类图片如果属于以下类型则拒绝：",
+        "- **文章头图/封面图**：新闻网站文章顶部的装饰性大图（通常是建筑物、城市天际线、会议室等场景照）",
+        "- **新闻缩略图**：新闻列表中的小配图，通常是记者会、签约仪式、领导人合影等泛场景照",
+        "- **Stock photo**：专业摄影的通用场景（握手、会议桌、服务器机房外景等），没有包含具体的数据或技术细节",
+        "- **纯场景/建筑照**：政府大楼、公司总部、会场外景等，没有包含图表、文字、产品等信息元素",
+        "- **泛活动照片**：大型会议全景、签约仪式、颁奖典礼等，图中没有可辨识的信息内容",
+        "",
+        `关键问题：这张图片是否能为「${topicTitle}」的读者提供超越文字描述的信息增量？如果只是"配图"而非"信息图"，请拒绝。`,
       ].join("\n"),
     } satisfies TextContentPart);
 
@@ -267,7 +297,7 @@ export class FigureRelevanceService {
 
       return response.data;
     } catch (error) {
-      // ★ v9: 结构验证失败 → 向上抛出，让 filterRelevantFigures 走 fallback 保留全部
+      // ★ v10: 结构验证失败 → 向上抛出，让 filterRelevantFigures 走 type-based fallback
       // API/网络错误 → 同样向上抛出
       this.logger.warn(
         `[evaluateBatch] Vision LLM call failed: ${error instanceof Error ? error.message : error}`,

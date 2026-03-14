@@ -1236,6 +1236,11 @@ export class SectionWriterService {
         );
       }
 
+      // ★ v10: 最终 caption fallback — 如果 caption 仍然为空，用 source（证据标题）生成
+      if (!ref.caption && ref.source) {
+        ref.caption = ref.source;
+      }
+
       // Clean up caption and source
       if (ref.caption) ref.caption = this.cleanFigureCaption(ref.caption);
       if (ref.source) {

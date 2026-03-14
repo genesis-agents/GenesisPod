@@ -1045,9 +1045,27 @@ export function stripInternalFigureNotation(content: string): string {
 
       // ── FIG-N internal figure ID references ──
       // LLM leaks internal figure registry IDs: FIG-1, FIG-15 etc.
+
+      // ★ "FIG-N置于此处" placement notes — full line removal (must run before verb patterns)
+      // e.g. "FIG-12置于此处，揭示美国公众对AI总体看法分化..."
+      // Also handles bold-wrapped: "**FIG-13置于此处，直观呈现...**"
+      .replace(/^\s*\*{0,2}FIG-\d+\s*置于此处[^\n]*\*{0,2}\s*$/gm, "")
+
+      // ★ "*图：...（figureId: FIG-N）*" — italic figure description with figureId metadata
+      .replace(/\*图[：:][^*]*?figureId\s*[：:]\s*FIG-\d+[^*]*\*/g, "")
+      // ★ "（figureId: FIG-N）" / "(figureId: FIG-N)" — inline figureId metadata
+      .replace(/[（(]figureId\s*[：:]\s*FIG-\d+[)）]/g, "")
+
+      // ★ "**FIG-N**" — bold-wrapped standalone FIG refs (full line)
+      .replace(/^\s*\*{2}FIG-\d+\*{2}\s*$/gm, "")
+
+      // ★ "FIG-N和FIG-M共同说明" / "FIG-N与FIG-M" — conjunctive FIG refs
+      // Remove "FIG-N和" or "FIG-N与" or "FIG-N及" prefix before another FIG ref
+      .replace(/FIG-\d+(?:和|与|及)(?=FIG-\d+)/g, "")
+
       // "FIG-N所示" / "FIG-N展示" / "FIG-N显示" / "FIG-N反映" — figure ref with verb
       .replace(
-        /FIG-\d+(?:所示|展示了?|显示了?|呈现了?|描绘了?|说明了?|中可[见知]|反映了?|揭示了?|强化了?|将)[，,。.；;]?\s*/g,
+        /FIG-\d+(?:所示|展示了?|显示了?|呈现了?|描绘了?|说明了?|中可[见知]|反映了?|揭示了?|强化了?|将|共同说明了?|共同展示了?|调查显示|汇总[^\s，,。.]*|评估[^\s，,。.]*|直观[^\s，,。.]*)[，,。.；;]?\s*/g,
         "",
       )
       // "（FIG-N）" / "(FIG-N)" — parenthesized FIG refs
