@@ -136,8 +136,8 @@ describe("ReportQualityGateService", () => {
       expect(result.rewriteGuidance.some((g) => g.includes("800"))).toBe(true);
     });
 
-    it("should flag citation_coverage when unique citations < 2", () => {
-      // Only one unique citation
+    it("should flag citation_coverage when unique citations < 100", () => {
+      // Only one unique citation — far below 100 threshold
       const content = "Analysis text [1][1][1] " + "A".repeat(900);
 
       const result = service.validateDimensionContent(content, "zh");
@@ -353,13 +353,12 @@ describe("ReportQualityGateService", () => {
     });
 
     it("should NOT append quality checklist when no rewrite issues exist", () => {
-      // Clean content: >800 chars (stripped), diverse citations, no empty sections
+      // Clean content: >800 chars (stripped), 100+ diverse citations, no empty sections
       const filler =
         "量子计算技术持续进步，多个维度的研究成果表明其具有巨大潜力";
       const paragraphs = Array.from(
-        { length: 30 },
-        (_, i) =>
-          `${filler}，阶段${i + 1}的数据证实了这一点 [${i + 1}][${i + 2}]。`,
+        { length: 120 },
+        (_, i) => `${filler}，阶段${i + 1}的数据证实了这一点 [${i + 1}]。`,
       ).join("\n");
       const content = `### 技术现状\n\n${paragraphs}`;
 
