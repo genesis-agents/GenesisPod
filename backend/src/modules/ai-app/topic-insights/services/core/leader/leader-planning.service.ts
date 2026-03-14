@@ -750,7 +750,22 @@ export class LeaderPlanningService {
             continue;
           }
         } else {
-          // ★ 成功
+          // ★ 补全 executionPlan（LLM 可能遗漏此字段）
+          if (!outline.executionPlan?.parallelGroups) {
+            outline.executionPlan = {
+              parallelGroups: [outline.sections.map((s) => s.id)],
+              estimatedTotalWords:
+                outline.executionPlan?.estimatedTotalWords ??
+                outline.sections.reduce(
+                  (sum, s) => sum + (s.targetWords || 800),
+                  0,
+                ),
+            };
+            this.logger.warn(
+              `[planDimensionOutline] LLM omitted executionPlan, auto-generated: ${outline.executionPlan.parallelGroups.length} group(s)`,
+            );
+          }
+
           // ★ 诊断日志：记录每个 section 的 allocatedFigures 分配情况
           const figSummary = outline.sections
             .map((s) => `${s.title}:${s.allocatedFigures?.length ?? 0}figs`)
