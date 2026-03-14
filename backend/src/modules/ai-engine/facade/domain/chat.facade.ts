@@ -304,7 +304,7 @@ export class ChatFacade {
 
     if (fallbackResult.fallbackUsed) {
       this.logger.warn(
-        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" → ")} (${fallbackResult.attempts} attempts, ${duration}ms)`,
+        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" → ") || fallbackResult.modelUsed} → final=${fallbackResult.modelUsed} (${fallbackResult.attempts} attempts, ${duration}ms)`,
       );
     }
 
@@ -709,6 +709,20 @@ export class ChatFacade {
 
       if (response.isError) {
         lastError = new Error(response.content);
+        // ★ Rate limit: 从 content 中提取等待时间，await 后再重试
+        const rateLimitMatch = response.content.match(
+          /Rate limit exceeded.*?(\d+)\s*seconds/i,
+        );
+        if (rateLimitMatch && attempt < maxRetries) {
+          const waitMs = Math.min(
+            parseInt(rateLimitMatch[1], 10) * 1000,
+            10_000,
+          );
+          this.logger.warn(
+            `[chatStructured] Rate limited, waiting ${waitMs}ms before retry (attempt ${attempt + 1}/${maxRetries + 1})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+        }
         continue;
       }
 

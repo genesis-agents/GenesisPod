@@ -24,6 +24,13 @@
  *   photo 类型要求图片本身包含可辨识的信息元素（数据、文字、产品细节、技术内容）。
  *   纯场景照、文章头图、新闻配图等装饰性照片予以拒绝。
  *
+ * ★ v11.0 根因修复：v10 大面积 "Invalid response structure" 错误。
+ *   根因：8 维度并发 Vision API 调用触发内部 rate limiter → chatStructured
+ *   收到 isError=true 后立即重试（不等待）→ 再次被限流 → 返回空对象 {} as T。
+ *   修复：(1) chatStructured 检测 rate limit 错误并 await retryAfter 后重试；
+ *   (2) evaluateBatch 改 throwOnParseError=true + maxRetries=2，
+ *   所有失败直接走 filterRelevantFigures 的 type-based fallback。
+ *
  * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
  */
 
@@ -250,6 +257,7 @@ export class FigureRelevanceService {
     } satisfies TextContentPart);
 
     // ★ 通过 ChatFacade.chatStructured 调用 Vision LLM（内置 JSON 提取 + 重试）
+    // ★ v11: throwOnParseError=true + maxRetries=2 — rate limit 时 chatStructured 会等待后重试
     try {
       const response =
         await this.chatFacade.chatStructured<FigureRelevanceBatchResult>({
@@ -284,8 +292,8 @@ export class FigureRelevanceService {
             },
           },
           strictMode: true,
-          throwOnParseError: false,
-          maxRetries: 1,
+          throwOnParseError: true,
+          maxRetries: 2,
         });
 
       // 验证结构
@@ -297,8 +305,7 @@ export class FigureRelevanceService {
 
       return response.data;
     } catch (error) {
-      // ★ v10: 结构验证失败 → 向上抛出，让 filterRelevantFigures 走 type-based fallback
-      // API/网络错误 → 同样向上抛出
+      // ★ v11: 所有失败向上抛出，让 filterRelevantFigures 走 type-based fallback
       this.logger.warn(
         `[evaluateBatch] Vision LLM call failed: ${error instanceof Error ? error.message : error}`,
       );
