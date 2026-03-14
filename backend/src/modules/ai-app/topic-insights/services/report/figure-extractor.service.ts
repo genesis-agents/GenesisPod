@@ -744,6 +744,14 @@ export class FigureExtractorService {
       return null;
     }
 
+    // ★ 防护网 4: 拒绝 SVG — Vision API 不支持矢量格式（仅支持 png/jpeg/gif/webp）
+    if (/\.svg(\?|$)/i.test(originalUrl)) {
+      this.logger.debug(
+        `[validateFigure] REJECTED SVG URL: ${originalUrl.substring(0, 120)}`,
+      );
+      return null;
+    }
+
     // 1. 尝试 CDN URL 升级（获取更高分辨率版本）
     const upgradedUrl = this.tryUpgradeImageUrl(originalUrl);
     const candidateUrl = upgradedUrl ?? originalUrl;
@@ -854,6 +862,14 @@ export class FigureExtractorService {
           return false;
         }
 
+        // ★ SVG 拒绝：Vision API 不支持矢量格式，Content-Type 可能是 image/svg+xml
+        if (contentType.includes("svg")) {
+          this.logger.debug(
+            `[validateImageUrl] SVG Content-Type rejected (${contentType}): ${url.substring(0, 100)}`,
+          );
+          return false;
+        }
+
         // 如果 Content-Type 明确是 image/* → 直接通过（再检查大小）
         if (contentType.startsWith("image/")) {
           // 仅在知道完整大小时检查下限
@@ -944,14 +960,8 @@ export class FigureExtractorService {
     if (bytes[0] === 0x42 && bytes[1] === 0x4d) {
       return true;
     }
-    // SVG: starts with < (could be <?xml or <svg)
-    if (bytes[0] === 0x3c) {
-      const prefix = bytes
-        .subarray(0, Math.min(bytes.length, 256))
-        .toString("utf-8")
-        .toLowerCase();
-      if (prefix.includes("<svg")) return true;
-    }
+    // ★ SVG 不再视为有效图片格式 — Vision API 仅支持 png/jpeg/gif/webp
+    // SVG 作为矢量格式无法被 Vision LLM 处理，需在此拦截
 
     return false;
   }
