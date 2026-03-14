@@ -1045,19 +1045,25 @@ export function stripInternalFigureNotation(content: string): string {
 
       // ── FIG-N internal figure ID references ──
       // LLM leaks internal figure registry IDs: FIG-1, FIG-15 etc.
-      // "FIG-N所示" / "FIG-N展示" / "FIG-N显示" — figure ref with verb
+      // "FIG-N所示" / "FIG-N展示" / "FIG-N显示" / "FIG-N反映" — figure ref with verb
       .replace(
-        /FIG-\d+(?:所示|展示了?|显示了?|呈现了?|描绘了?|说明了?|中可[见知])[，,。.；;]?\s*/g,
+        /FIG-\d+(?:所示|展示了?|显示了?|呈现了?|描绘了?|说明了?|中可[见知]|反映了?|揭示了?|强化了?|将)[，,。.；;]?\s*/g,
         "",
       )
       // "（FIG-N）" / "(FIG-N)" — parenthesized FIG refs
       .replace(/[（(]FIG-\d+[)）]/g, "")
+      // "[FIG-N]" — square-bracketed FIG refs (common in captions and inline)
+      .replace(/\[FIG-\d+\]/g, "")
+      // "[FIG-N]: https://..." — Markdown reference-link definition for FIG-N
+      .replace(/^\s*\[FIG-\d+\]:\s*https?:\/\/[^\s]+\s*$/gm, "")
+      // "*图：FIG-N。描述...*" — italic-wrapped figure description lines
+      .replace(/\*图[：:]FIG-\d+[^*]*\*/g, "")
       // "见FIG-N" / "参见FIG-N" / "详见FIG-N"
       .replace(/(?:见|参见|详见)FIG-\d+[，,。.；;]?\s*/g, "")
       // "如FIG-N所示" — natural language ref
       .replace(/如FIG-\d+所示[，,。.；;]?\s*/g, "")
-      // Standalone FIG-N at line boundaries or surrounded by punctuation
-      .replace(/(?:^|\s)FIG-\d+(?=[，,。.；;：:\s]|$)/gm, "")
+      // Standalone FIG-N at line boundaries or surrounded by CJK/Latin punctuation
+      .replace(/(?:^|[\s。.！!？?；;，,])FIG-\d+(?=[，,。.；;：:\s]|$)/gm, "")
       // "FIG-N: afterparagraph_4" — placement metadata (FIG-N + position hint)
       .replace(
         /^\s*FIG-\d+\s*[：:]\s*(?:after|before|inside|near|next)[\w_]*\s*$/gim,
