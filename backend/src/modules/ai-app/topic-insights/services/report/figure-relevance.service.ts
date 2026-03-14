@@ -13,6 +13,11 @@
  * ★ v8.0 强化：detail "low" → "auto"，增加模糊/质量检测指令，
  *   API 失败时仅保留 chart/diagram/table 类型（不再全部放行）。
  *
+ * ★ v9.0 根因修复：v8 的"宁缺毋滥"prompt 导致 Vision LLM 过度保守，
+ *   8 个维度 393 条证据仅存活 3 张图片。根因：4 项审查"任一不通过即拒绝" +
+ *   "如果不确定请拒绝" 双重保守指令 → 大量有价值图片被杀。
+ *   新原则："只拒绝明确不合格的图片" — 倾向保留，让后续 Leader 分配环节做相关性筛选。
+ *
  * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
  */
 
@@ -66,19 +71,13 @@ export class FigureRelevanceService {
       AIModelType.MULTIMODAL,
     );
     if (!multimodalModel?.modelId) {
-      // ★ v8: 无 Vision 模型时，仅保留 chart/diagram/table（高置信度类型）
-      // photo 类型在没有 Vision 审查的情况下风险太高
-      const safeFigures = figures.filter(
-        (fig) =>
-          fig.type === "chart" ||
-          fig.type === "diagram" ||
-          fig.type === "table",
-      );
+      // ★ v9: 无 Vision 模型时，保留全部图片（上游已做基本质量关卡）
+      // ExtractedFigure.type 仅有 chart/table/diagram/photo 4 种，全部属于有效类型
       this.logger.warn(
         `[filterRelevantFigures] No MULTIMODAL model configured, ` +
-          `type-based fallback: keeping ${safeFigures.length}/${figures.length} (chart/diagram/table only)`,
+          `keeping all ${figures.length} figures (v9 倾向保留)`,
       );
-      return safeFigures;
+      return figures;
     }
 
     // ★ v7: 上游 validateSingleFigure 已丢弃所有 data: URL，
@@ -116,32 +115,28 @@ export class FigureRelevanceService {
           }
         }
 
-        // LLM 遗漏的 index → 视为拒绝
+        // ★ v9: LLM 遗漏的 index → 视为接受（倾向保留原则）
         const missingCount = batch.length - seenIndices.size;
         if (missingCount > 0) {
           const missingIndices = Array.from(
             { length: batch.length },
             (_, i) => i,
           ).filter((i) => !seenIndices.has(i));
+          for (const idx of missingIndices) {
+            allAccepted.push(batch[idx]);
+          }
           this.logger.warn(
-            `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1}: LLM omitted ${missingCount} indices (${missingIndices.join(",")}), treating as rejected`,
+            `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1}: LLM omitted ${missingCount} indices (${missingIndices.join(",")}), treating as accepted (v9 倾向保留)`,
           );
         }
       } catch (error) {
-        // ★ v8: 单批失败 → 仅保留 chart/diagram/table 类型（高置信度图片），photo 丢弃
-        // 不再全部放行，避免低质量 photo 绕过质量关卡
-        const safeFallback = batch.filter(
-          (fig) =>
-            fig.type === "chart" ||
-            fig.type === "diagram" ||
-            fig.type === "table",
-        );
+        // ★ v9: 单批失败 → 保留全部图片（上游已做基本质量关卡）
         this.logger.warn(
           `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1} Vision check failed, ` +
-            `keeping ${safeFallback.length}/${batch.length} (chart/diagram/table only): ` +
+            `keeping all ${batch.length} figures (v9 倾向保留): ` +
             `${error instanceof Error ? error.message : error}`,
         );
-        allAccepted.push(...safeFallback);
+        allAccepted.push(...batch);
       }
     }
 
@@ -164,21 +159,28 @@ export class FigureRelevanceService {
     // 构建多模态 contentParts：交替 text + image
     const contentParts: ContentPart[] = [];
 
-    // 开头说明 — ★ v8: 强化质量标准，增加模糊/低质量检测指令
+    // 开头说明 — ★ v9: 倾向保留，只拒绝明确不合格的图片
     contentParts.push({
       type: "text",
       text: [
-        `请严格审查以下 ${figures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。`,
+        `请审查以下 ${figures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。`,
         "",
-        "对每张图片判断以下 4 项（任一不通过即拒绝）：",
-        "1. **可辨识性**：图片是否清晰可读？拒绝：损坏、纯色占位符、严重模糊/马赛克、文字无法辨认的低分辨率图",
-        "2. **内容相关性**：图片内容是否与研究主题「" +
+        "★ 核心原则：倾向保留 — 只拒绝明确不合格的图片。有信息价值就保留，让后续环节做精选。",
+        "",
+        "仅在以下情况拒绝图片（必须明确命中才拒绝）：",
+        "1. **损坏/不可用**：图片损坏无法显示、纯色占位符、完全无法辨认的极度模糊图",
+        "2. **明确无关**：图片内容与研究主题「" +
           topicTitle +
-          "」有直接实质关联？仅主题词巧合不算相关。拒绝：虽含相关关键词但实际内容无关的配图（如一篇AI文章配了一张无关的城市风景照）",
-        "3. **信息价值**：图片是否传递了对读者有用的信息？数据图表、趋势图、对比图、技术架构图、产品截图、关键人物照片 > 新闻配图 > 一般活动照片",
-        "4. **专业性**：图片是否适合出现在专业研究报告中？拒绝：纯广告横幅、stock photo（明显摆拍的素材图）、社交媒体截图、meme/表情包、装饰性背景图、网站 UI 元素",
+          "」完全无关（如一篇AI文章配了一张美食照片）。注意：只要与主题领域沾边就应保留",
+        "3. **明确垃圾**：纯广告横幅、网站 UI 元素（导航栏/按钮截图）、meme/表情包、tracking pixel",
         "",
-        "★ 宁缺毋滥 — 报告不配图好过配低质量图。如果不确定，请拒绝。",
+        "以下类型应当保留：",
+        "- 数据图表、趋势图、对比图、架构图（高价值）",
+        "- 产品截图、技术演示图、新闻配图（中价值）",
+        "- 与主题相关的活动照片、人物照片（可接受）",
+        "- 略有模糊但内容可辨识的图片（可接受）",
+        "",
+        "★ 如果不确定，请保留。后续环节会进一步筛选。",
       ].join("\n"),
     } satisfies TextContentPart);
 
@@ -261,23 +263,11 @@ export class FigureRelevanceService {
 
       return response.data;
     } catch (error) {
-      // 结构验证失败（chatStructured 成功但返回格式不对）→ 宁缺毋滥，全部拒绝
-      // API/网络错误 → 向上抛出，让 filterRelevantFigures 走 type-based fallback
-      if (
-        error instanceof Error &&
-        error.message.startsWith("Invalid response structure")
-      ) {
-        this.logger.warn(
-          `[evaluateBatch] Vision LLM response validation failed: ${error.message}`,
-        );
-        return {
-          results: figures.map((_, i) => ({
-            index: i,
-            accepted: false,
-            reason: "Vision LLM 响应结构无效",
-          })),
-        };
-      }
+      // ★ v9: 结构验证失败 → 向上抛出，让 filterRelevantFigures 走 fallback 保留全部
+      // API/网络错误 → 同样向上抛出
+      this.logger.warn(
+        `[evaluateBatch] Vision LLM call failed: ${error instanceof Error ? error.message : error}`,
+      );
       throw error;
     }
   }

@@ -387,8 +387,8 @@ describe("DataEnrichmentService", () => {
     });
 
     it("should NOT trigger image search when enough figures already extracted", async () => {
-      // Return 5 figures from web extraction (above threshold of 3)
-      const figures = Array.from({ length: 5 }, (_, i) => ({
+      // Return 12 figures from web extraction (above threshold of 10)
+      const figures = Array.from({ length: 12 }, (_, i) => ({
         imageUrl: `https://example.com/fig${i}.png`,
         caption: `Figure ${i}`,
         type: "chart" as const,
@@ -404,7 +404,7 @@ describe("DataEnrichmentService", () => {
       });
 
       expect(mockImageSearchTool.execute).not.toHaveBeenCalled();
-      expect(enriched[0].extractedFigures).toHaveLength(5);
+      expect(enriched[0].extractedFigures).toHaveLength(12);
     });
 
     it("should NOT trigger image search when enableFigures=false", async () => {

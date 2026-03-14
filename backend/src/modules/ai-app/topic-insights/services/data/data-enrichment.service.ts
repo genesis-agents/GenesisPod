@@ -37,8 +37,8 @@ import { LruMap } from "@/common/utils/lru-map";
  * - 每次最多补充 MAX_SEARCH_SUPPLEMENT_FIGURES 张
  * - 搜图结果同样经过 validateAndUpgradeFigures + filterRelevantFigures 质量关卡
  */
-const MIN_FIGURES_THRESHOLD = 3;
-const MAX_SEARCH_SUPPLEMENT_FIGURES = 6;
+const MIN_FIGURES_THRESHOLD = 10;
+const MAX_SEARCH_SUPPLEMENT_FIGURES = 20;
 const IMAGE_SEARCH_TIMEOUT = 15000;
 
 /**

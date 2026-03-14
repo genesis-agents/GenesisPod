@@ -93,9 +93,9 @@ describe("FigureRelevanceService", () => {
         "AI Research",
       );
 
-      // ★ v8: Fallback now keeps only chart/diagram/table (photo filtered out for safety)
-      expect(result).toHaveLength(2);
-      expect(result.every((f) => f.type !== "photo")).toBe(true);
+      // ★ v9: Fallback now keeps all non-decorative types (including photo)
+      expect(result).toHaveLength(3);
+      expect(result.map((f) => f.type)).toEqual(["chart", "photo", "diagram"]);
     });
 
     // ============================================================
@@ -152,8 +152,8 @@ describe("FigureRelevanceService", () => {
       const warnSpy = jest.spyOn(service["logger"], "warn");
       const result = await service.filterRelevantFigures(figures, "Test Topic");
 
-      // Only index 0 accepted, index 1 missing (treated as rejected), index 2 rejected
-      expect(result).toHaveLength(1);
+      // ★ v9: index 0 accepted, index 1 missing (treated as accepted), index 2 rejected → 2 accepted
+      expect(result).toHaveLength(2);
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining("omitted 1 indices"),
       );
@@ -233,7 +233,7 @@ describe("FigureRelevanceService", () => {
       expect(batch2ImageCount).toBe(4);
     });
 
-    it("should reject all when chatStructured returns invalid structure", async () => {
+    it("should keep all when chatStructured returns invalid structure (v9 倾向保留)", async () => {
       const figures = [
         makeFigure("https://example.com/1.png"),
         makeFigure("https://example.com/2.png"),
@@ -250,9 +250,8 @@ describe("FigureRelevanceService", () => {
 
       const result = await service.filterRelevantFigures(figures, "Test Topic");
 
-      // Invalid structure is caught by evaluateBatch's inner catch → all-rejected
-      // (宁缺毋滥: malformed response = reject all)
-      expect(result).toHaveLength(0);
+      // ★ v9: Invalid structure → evaluateBatch throws → outer catch keeps all (倾向保留)
+      expect(result).toHaveLength(2);
     });
   });
 });
