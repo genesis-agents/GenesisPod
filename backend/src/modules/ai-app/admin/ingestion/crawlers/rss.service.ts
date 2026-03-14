@@ -421,7 +421,9 @@ export class RssService {
           // 准备完整原始数据（存储到 MongoDB）
           const rawData = {
             // 外部 ID (RSS GUID 用于去重)
-            externalId: item.guid || item.link,
+            // Some feeds return guid as object { $: { isPermaLink: "false" } } instead of string
+            externalId:
+              typeof item.guid === "string" ? item.guid : item.link || null,
 
             // 完整的原始数据
             ...item,
