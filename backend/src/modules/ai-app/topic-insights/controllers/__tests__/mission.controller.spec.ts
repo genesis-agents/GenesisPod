@@ -70,6 +70,8 @@ const mockQueryService = {
 const mockExecutionService = {
   addAgentToLeaderPlan: jest.fn(),
   startExecution: jest.fn(),
+  resumeExecution: jest.fn().mockResolvedValue(undefined),
+  resumeExecutionForNewTask: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockLeaderService = {
