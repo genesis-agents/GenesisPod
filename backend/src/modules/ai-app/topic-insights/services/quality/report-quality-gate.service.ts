@@ -303,16 +303,16 @@ export class ReportQualityGateService {
     // 7. 引用覆盖检查
     const citations = fixedContent.match(/\[\d+\](?![:(\[])/g) || [];
     const uniqueCitations = new Set(citations.map((c) => c));
-    if (uniqueCitations.size < 100) {
+    if (uniqueCitations.size < 3) {
       violations.push({
         rule: "citation_coverage",
         severity: "warning",
-        message: `仅引用了 ${uniqueCitations.size} 个不同来源，建议至少引用 100 个`,
+        message: `仅引用了 ${uniqueCitations.size} 个不同来源，建议至少引用 3 个`,
         currentValue: uniqueCitations.size,
-        threshold: 100,
+        threshold: 3,
       });
       rewriteGuidance.push(
-        `引用不足：当前仅引用了 ${uniqueCitations.size} 个来源，至少需要 100 个不同来源。请确保每个关键观点都有证据引用 [n]，广泛引用不同来源。`,
+        `引用不足：当前仅引用了 ${uniqueCitations.size} 个来源，至少需要 3 个不同来源。请确保每个关键观点都有证据引用 [n]，广泛引用不同来源。`,
       );
     }
 

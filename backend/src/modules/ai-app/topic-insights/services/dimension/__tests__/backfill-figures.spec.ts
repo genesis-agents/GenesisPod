@@ -20,7 +20,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { buildFiguresSummary } from "../evidence-summary.utils";
-import type { FigureReference, ExtractedFigure, EnrichedEvidenceData } from "../../../types/research.types";
+import type {
+  FigureReference,
+  ExtractedFigure,
+  EnrichedEvidenceData,
+} from "../../../types/research.types";
 import type { FigureRegistryEntry } from "../evidence-summary.utils";
 
 // ============================================================
@@ -36,14 +40,21 @@ const mockAiFacade = {
 type PrivateMethods = {
   backfillFigureUrls: (
     refs: FigureReference[],
-    allocated?: Array<{ figureId: string; imageUrl: string; caption: string; relevanceReason: string }>,
+    allocated?: Array<{
+      figureId: string;
+      imageUrl: string;
+      caption: string;
+      relevanceReason: string;
+    }>,
     registry?: Map<string, FigureRegistryEntry>,
   ) => FigureReference[];
   cleanFigureCaption: (s: string) => string;
   sanitizeFigureSource: (s: string | undefined) => string | undefined;
 };
 
-const makeEvidence = (overrides: Partial<EnrichedEvidenceData> = {}): EnrichedEvidenceData => ({
+const makeEvidence = (
+  overrides: Partial<EnrichedEvidenceData> = {},
+): EnrichedEvidenceData => ({
   id: `ev-${Math.random().toString(36).slice(2, 8)}`,
   title: "",
   url: "https://example.com",
@@ -55,14 +66,18 @@ const makeEvidence = (overrides: Partial<EnrichedEvidenceData> = {}): EnrichedEv
   ...overrides,
 });
 
-const makeFigure = (overrides: Partial<ExtractedFigure> = {}): ExtractedFigure => ({
+const makeFigure = (
+  overrides: Partial<ExtractedFigure> = {},
+): ExtractedFigure => ({
   imageUrl: "https://example.com/image.png",
   caption: "",
   type: "chart",
   ...overrides,
 });
 
-const makeRef = (overrides: Partial<FigureReference> = {}): FigureReference => ({
+const makeRef = (
+  overrides: Partial<FigureReference> = {},
+): FigureReference => ({
   id: "ref-1",
   figureId: "FIG-1",
   caption: "",
@@ -302,7 +317,9 @@ describe("图片管线业务仿真", () => {
     });
 
     it("LLM 回吐 '【已分配】' 标记 → 去除标记保留正文", () => {
-      const cleaned = priv.sanitizeFigureSource("【已分配】Pew Research Survey");
+      const cleaned = priv.sanitizeFigureSource(
+        "【已分配】Pew Research Survey",
+      );
       expect(cleaned).toBe("Pew Research Survey");
     });
 
@@ -335,7 +352,9 @@ describe("图片管线业务仿真", () => {
     });
 
     it("正常的来源信息不应被误清理", () => {
-      const cleaned = priv.sanitizeFigureSource("Federal Reserve Economic Data");
+      const cleaned = priv.sanitizeFigureSource(
+        "Federal Reserve Economic Data",
+      );
       expect(cleaned).toBe("Federal Reserve Economic Data");
     });
   });
@@ -527,8 +546,8 @@ describe("图片管线业务仿真", () => {
       });
 
       const refs = [
-        makeRef({ id: "ref-1", figureId: "FIG-1" }),        // 存在
-        makeRef({ id: "ref-2", figureId: "FIG-999" }),       // LLM 编造的
+        makeRef({ id: "ref-1", figureId: "FIG-1" }), // 存在
+        makeRef({ id: "ref-2", figureId: "FIG-999" }), // LLM 编造的
       ];
       const result = priv.backfillFigureUrls(refs, undefined, registry);
 
@@ -617,21 +636,23 @@ describe("图片管线业务仿真", () => {
       expect(figureRegistry.size).toBe(5);
 
       // 验证类型标注正确
-      expect(figureRegistry.get("FIG-1")?.type).toBe("photo");   // 白宫横幅
-      expect(figureRegistry.get("FIG-2")?.type).toBe("chart");   // Fed 利率图
-      expect(figureRegistry.get("FIG-3")?.type).toBe("chart");   // Pew 调查
+      expect(figureRegistry.get("FIG-1")?.type).toBe("photo"); // 白宫横幅
+      expect(figureRegistry.get("FIG-2")?.type).toBe("chart"); // Fed 利率图
+      expect(figureRegistry.get("FIG-3")?.type).toBe("chart"); // Pew 调查
       expect(figureRegistry.get("FIG-4")?.type).toBe("diagram"); // 方法论图
-      expect(figureRegistry.get("FIG-5")?.type).toBe("photo");   // CFR 建筑照
+      expect(figureRegistry.get("FIG-5")?.type).toBe("photo"); // CFR 建筑照
 
       // 验证 caption fallback 链正确
-      expect(figureRegistry.get("FIG-1")?.caption).toBe(
-        "White House AI Executive Order 2026 — 配图",
-      ); // 空 caption + 空 alt → 证据标题 + "配图"
-      expect(figureRegistry.get("FIG-2")?.caption).toBe("Federal Funds Rate 2020-2026");
+      expect(figureRegistry.get("FIG-1")?.caption).toBe(""); // 空 caption + 空 alt + photo 类型 → 空字符串（v11: photo 不生成虚假标题）
+      expect(figureRegistry.get("FIG-2")?.caption).toBe(
+        "Federal Funds Rate 2020-2026",
+      );
       expect(figureRegistry.get("FIG-3")?.caption).toBe(
         "Public Opinion on AI Regulation | Pew Research",
       ); // 带平台后缀，cleanFigureCaption 在 backfill 阶段清理
-      expect(figureRegistry.get("FIG-4")?.caption).toBe("Survey methodology diagram"); // alt fallback
+      expect(figureRegistry.get("FIG-4")?.caption).toBe(
+        "Survey methodology diagram",
+      ); // alt fallback
 
       // Leader 指引包含正确信息
       expect(summary).toContain("共 5 个可用图表");
@@ -639,22 +660,40 @@ describe("图片管线业务仿真", () => {
 
       // Step 3: backfillFigureUrls — 模拟 LLM 选择了 FIG-2 和 FIG-3
       const llmRefs: FigureReference[] = [
-        makeRef({ id: "r1", figureId: "FIG-2", caption: "", position: "after_paragraph_1" }),
-        makeRef({ id: "r2", figureId: "FIG-3", caption: "", position: "after_paragraph_3" }),
+        makeRef({
+          id: "r1",
+          figureId: "FIG-2",
+          caption: "",
+          position: "after_paragraph_1",
+        }),
+        makeRef({
+          id: "r2",
+          figureId: "FIG-3",
+          caption: "",
+          position: "after_paragraph_3",
+        }),
       ];
 
-      const result = priv.backfillFigureUrls(llmRefs, undefined, figureRegistry);
+      const result = priv.backfillFigureUrls(
+        llmRefs,
+        undefined,
+        figureRegistry,
+      );
 
       // 两张都成功回填
       expect(result).toHaveLength(2);
 
       // FIG-2: Fed 利率图 — caption 完整，source 正确
-      expect(result[0].imageUrl).toBe("https://fred.stlouisfed.org/graph/fredgraph.png?g=abc");
+      expect(result[0].imageUrl).toBe(
+        "https://fred.stlouisfed.org/graph/fredgraph.png?g=abc",
+      );
       expect(result[0].caption).toBe("Federal Funds Rate 2020-2026");
       expect(result[0].source).toBe("Federal Reserve Economic Data");
 
       // FIG-3: Pew 调查图 — caption 的平台后缀被清理
-      expect(result[1].imageUrl).toBe("https://pewresearch.org/survey-results.png");
+      expect(result[1].imageUrl).toBe(
+        "https://pewresearch.org/survey-results.png",
+      );
       // "Public Opinion on AI Regulation | Pew Research" 中的 " | Pew Research" 不在
       // cleanFigureCaption 的已知平台列表中，所以不会被清理。这是正确的行为 —
       // 只清理已知的低价值平台后缀（Medium, Substack, arXiv 等）
@@ -684,10 +723,8 @@ describe("图片管线业务仿真", () => {
       const result = priv.backfillFigureUrls(refs, undefined, figureRegistry);
 
       expect(result).toHaveLength(1);
-      // caption 有兜底值（比"无标题"好）
-      expect(result[0].caption).toBe(
-        "White House AI Executive Order 2026 — 配图",
-      );
+      // caption 有兜底值 — registry caption 为空，backfill 最终 fallback 用 evidence title
+      expect(result[0].caption).toBe("White House AI Executive Order 2026");
     });
   });
 });
