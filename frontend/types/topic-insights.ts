@@ -10,6 +10,7 @@ export enum ResearchTopicType {
   MACRO = 'MACRO',
   TECHNOLOGY = 'TECHNOLOGY',
   COMPANY = 'COMPANY',
+  EVENT = 'EVENT',
 }
 
 export enum ResearchTopicStatus {

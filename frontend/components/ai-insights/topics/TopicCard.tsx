@@ -253,6 +253,25 @@ const getTopicTypeConfig = (
     gradient: 'from-emerald-500 to-teal-600',
     label: t('topicResearch.researchTypes.company'),
   },
+  [ResearchTopicType.EVENT]: {
+    icon: (
+      <svg
+        className="h-6 w-6 text-white"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
+        />
+      </svg>
+    ),
+    gradient: 'from-orange-500 to-red-500',
+    label: t('topicResearch.researchTypes.event'),
+  },
 });
 
 export function TopicCard({

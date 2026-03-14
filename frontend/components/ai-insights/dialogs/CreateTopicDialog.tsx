@@ -91,6 +91,21 @@ const topicTypeIcons = {
       />
     </svg>
   ),
+  [ResearchTopicType.EVENT]: (
+    <svg
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
+      />
+    </svg>
+  ),
 };
 
 const topicTypeStyles = {
@@ -108,6 +123,11 @@ const topicTypeStyles = {
     gradient: 'from-emerald-500 to-teal-600',
     borderColor: 'border-emerald-500',
     bgColor: 'bg-emerald-50',
+  },
+  [ResearchTopicType.EVENT]: {
+    gradient: 'from-orange-500 to-red-500',
+    borderColor: 'border-orange-500',
+    bgColor: 'bg-orange-50',
   },
 };
 
@@ -167,6 +187,10 @@ export function CreateTopicDialog({
   const [researchDepth, setResearchDepth] = useState<
     'quick' | 'standard' | 'thorough'
   >('standard');
+  // ★ EVENT 类型专属状态
+  const [eventInputMode, setEventInputMode] = useState<'url' | 'paste'>('url');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [sourceContent, setSourceContent] = useState('');
 
   // ★ 可见性选项 (使用 i18n)
   const visibilityOptions = useMemo(
@@ -252,6 +276,11 @@ export function CreateTopicDialog({
         type: ResearchTopicType.COMPANY,
         label: t('topicResearch.types.company'),
         description: t('topicResearch.types.companyDesc'),
+      },
+      {
+        type: ResearchTopicType.EVENT,
+        label: t('topicResearch.types.event'),
+        description: t('topicResearch.types.eventDesc'),
       },
     ],
     [t]
@@ -384,6 +413,10 @@ export function CreateTopicDialog({
         setResearchDepth('standard');
         setShowAdvanced(false);
         setError(null);
+        // ★ 重置 EVENT 状态
+        setEventInputMode('url');
+        setSourceUrl('');
+        setSourceContent('');
       }
     }
   }, [isOpen, defaultType, editTopic, initialName]);
@@ -421,6 +454,15 @@ export function CreateTopicDialog({
         topicConfig.enableFigures = false;
       }
       topicConfig.researchDepth = researchDepth;
+
+      // ★ EVENT 类型：注入锚定文章信息
+      if (selectedType === ResearchTopicType.EVENT) {
+        if (eventInputMode === 'url' && sourceUrl.trim()) {
+          topicConfig.sourceUrl = sourceUrl.trim();
+        } else if (eventInputMode === 'paste' && sourceContent.trim()) {
+          topicConfig.sourceContent = sourceContent.trim().slice(0, 5000);
+        }
+      }
 
       if (isEditMode && editTopic) {
         // ★ 编辑模式：更新专题
@@ -495,7 +537,7 @@ export function CreateTopicDialog({
         <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
           {step === 'type' ? (
             // Step 1: Select Type
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               {topicTypeOptions.map((option) => {
                 const styles = topicTypeStyles[option.type];
                 return (
@@ -559,6 +601,65 @@ export function CreateTopicDialog({
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+
+              {/* ★ EVENT 类型专属：URL/粘贴输入 */}
+              {selectedType === ResearchTopicType.EVENT && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    {t('topicResearch.createDialog.eventSource')}
+                    <span className="text-red-500"> *</span>
+                  </label>
+                  {/* 输入模式切换 */}
+                  <div className="mb-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEventInputMode('url')}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                        eventInputMode === 'url'
+                          ? 'border-orange-500 bg-orange-50 text-orange-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      {t('topicResearch.createDialog.eventInputUrl')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventInputMode('paste')}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                        eventInputMode === 'paste'
+                          ? 'border-orange-500 bg-orange-50 text-orange-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      {t('topicResearch.createDialog.eventInputPaste')}
+                    </button>
+                  </div>
+                  {eventInputMode === 'url' ? (
+                    <input
+                      type="url"
+                      value={sourceUrl}
+                      onChange={(e) => setSourceUrl(e.target.value)}
+                      placeholder={t(
+                        'topicResearch.createDialog.eventUrlPlaceholder'
+                      )}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    />
+                  ) : (
+                    <textarea
+                      value={sourceContent}
+                      onChange={(e) => setSourceContent(e.target.value)}
+                      placeholder={t(
+                        'topicResearch.createDialog.eventPastePlaceholder'
+                      )}
+                      rows={4}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    />
+                  )}
+                  <p className="mt-1 text-xs text-gray-400">
+                    {t('topicResearch.createDialog.eventSourceHint')}
+                  </p>
+                </div>
+              )}
 
               {/* Research Depth Selector */}
               <div>
@@ -882,7 +983,15 @@ export function CreateTopicDialog({
             {step === 'details' && (
               <button
                 onClick={handleSubmit}
-                disabled={!name.trim() || loading}
+                disabled={
+                  !name.trim() ||
+                  loading ||
+                  (selectedType === ResearchTopicType.EVENT &&
+                    !isEditMode &&
+                    (eventInputMode === 'url'
+                      ? !sourceUrl.trim()
+                      : !sourceContent.trim()))
+                }
                 className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}

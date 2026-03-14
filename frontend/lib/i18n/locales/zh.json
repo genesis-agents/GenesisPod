@@ -4391,7 +4391,8 @@
       "all": "全部",
       "macro": "宏观洞察",
       "technology": "技术趋势",
-      "company": "企业追踪"
+      "company": "企业追踪",
+      "event": "事件洞察"
     },
     "types": {
       "macro": "宏观洞察",
@@ -4399,7 +4400,9 @@
       "technology": "技术趋势",
       "technologyDesc": "跟踪技术发展、学术研究、开源项目",
       "company": "企业追踪",
-      "companyDesc": "监控企业动态、竞争对手、投融资信息"
+      "companyDesc": "监控企业动态、竞争对手、投融资信息",
+      "event": "事件洞察",
+      "eventDesc": "基于新闻线索，深挖事件来龙去脉与本质"
     },
     "createDialog": {
       "selectType": "选择专题类型",
@@ -4429,7 +4432,13 @@
       "operationFailed": "操作失败，请重试",
       "saveChanges": "保存修改",
       "aiPlanningTitle": "AI 智能规划研究维度",
-      "aiPlanningDesc": "开始研究后，Leader AI 将根据您的主题名称自动规划最相关的研究维度，确保研究内容精准聚焦。"
+      "aiPlanningDesc": "开始研究后，Leader AI 将根据您的主题名称自动规划最相关的研究维度，确保研究内容精准聚焦。",
+      "eventSource": "事件来源",
+      "eventInputUrl": "新闻链接",
+      "eventInputPaste": "粘贴内容",
+      "eventUrlPlaceholder": "粘贴新闻文章的 URL...",
+      "eventPastePlaceholder": "粘贴新闻内容或事件描述...",
+      "eventSourceHint": "系统将自动分析事件来龙去脉，深挖本质原因和影响"
     },
     "frequency": {
       "daily": "每日",
@@ -5446,7 +5455,8 @@
     "researchTypes": {
       "macro": "宏观洞察",
       "technology": "技术趋势",
-      "company": "企业追踪"
+      "company": "企业追踪",
+      "event": "事件洞察"
     },
     "changeTypes": {
       "added": "新增",

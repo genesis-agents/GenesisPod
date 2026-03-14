@@ -82,6 +82,11 @@ const topicTypeConfig: Record<
     label: '企业追踪',
     color: 'emerald',
   },
+  [ResearchTopicType.EVENT]: {
+    gradient: 'from-orange-500 to-red-500',
+    label: '事件洞察',
+    color: 'orange',
+  },
 };
 
 // ★ 目录项类型（v2.0 增强）

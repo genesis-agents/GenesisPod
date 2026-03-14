@@ -4391,7 +4391,8 @@
       "all": "All",
       "macro": "Macro Insights",
       "technology": "Tech Trends",
-      "company": "Company Tracking"
+      "company": "Company Tracking",
+      "event": "Event Insights"
     },
     "types": {
       "macro": "Macro Insights",
@@ -4399,7 +4400,9 @@
       "technology": "Tech Trends",
       "technologyDesc": "Follow tech developments, academic research, open source projects",
       "company": "Company Tracking",
-      "companyDesc": "Monitor company activities, competitors, investments"
+      "companyDesc": "Monitor company activities, competitors, investments",
+      "event": "Event Insights",
+      "eventDesc": "Deep-dive into news events, uncover root causes and impacts"
     },
     "createDialog": {
       "selectType": "Select Topic Type",
@@ -4429,7 +4432,13 @@
       "operationFailed": "Operation failed, please try again",
       "saveChanges": "Save Changes",
       "aiPlanningTitle": "AI Auto-Plans Research Dimensions",
-      "aiPlanningDesc": "After starting research, the Leader AI will automatically plan the most relevant research dimensions based on your topic name, ensuring precise and focused research content."
+      "aiPlanningDesc": "After starting research, the Leader AI will automatically plan the most relevant research dimensions based on your topic name, ensuring precise and focused research content.",
+      "eventSource": "Event Source",
+      "eventInputUrl": "News URL",
+      "eventInputPaste": "Paste Content",
+      "eventUrlPlaceholder": "Paste the news article URL...",
+      "eventPastePlaceholder": "Paste the news content or event description...",
+      "eventSourceHint": "The system will automatically analyze the event's causes, context, and implications"
     },
     "frequency": {
       "daily": "Daily",
@@ -5413,7 +5422,8 @@
     "researchTypes": {
       "macro": "Macro Insights",
       "technology": "Tech Trends",
-      "company": "Company Tracking"
+      "company": "Company Tracking",
+      "event": "Event Insights"
     },
     "changeTypes": {
       "added": "Added",

@@ -6487,6 +6487,7 @@ enum ResearchTopicType {
   MACRO // 宏观洞察：国家/行业/领域分析 (如"美国 AI 宏观洞察")
   TECHNOLOGY // 技术专项：技术深度分析 (如"空芯光纤技术洞察")
   COMPANY // 企业洞察：企业/初创分析 (如"OpenAI 企业洞察")
+  EVENT // 事件洞察：基于新闻/线索深挖事件来龙去脉 (如"英伟达收购 Run:ai")
 }
 
 /// 研究专题状态
