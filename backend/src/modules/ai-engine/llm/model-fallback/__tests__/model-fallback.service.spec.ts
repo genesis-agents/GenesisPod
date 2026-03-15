@@ -656,15 +656,17 @@ describe("ModelFallbackService", () => {
       expect(service.isModelBlocked("gpt-4o")).toBe(false);
     });
 
-    it("should use different TTL for INVALID_API_KEY vs QUOTA_EXCEEDED", async () => {
+    it("should use same TTL for INVALID_API_KEY and QUOTA_EXCEEDED (both 5 min)", async () => {
       // Arrange
       const blockModel = service["blockModel"];
+      const now = Date.now();
+      jest.spyOn(Date, "now").mockReturnValue(now);
 
       // Block with quota error (5 min TTL)
       blockModel.call(service, "gpt-4o", AIErrorType.QUOTA_EXCEEDED);
       const quotaExpiry = service["modelBlocklist"].get("gpt-4o")?.until;
 
-      // Block with API key error (10 min TTL)
+      // Block with API key error (also 5 min TTL after reducing from 10 min)
       blockModel.call(
         service,
         "claude-3-5-sonnet-20241022",
@@ -674,8 +676,9 @@ describe("ModelFallbackService", () => {
         "claude-3-5-sonnet-20241022",
       )?.until;
 
-      // Assert - API key error should have longer TTL
-      expect(apiKeyExpiry).toBeGreaterThan(quotaExpiry!);
+      // Assert - both use the same 5-minute TTL
+      expect(apiKeyExpiry).toBe(quotaExpiry!);
+      expect(apiKeyExpiry).toBe(now + 5 * 60 * 1000);
     });
   });
 

@@ -280,7 +280,7 @@ export class DataEnrichmentService {
       }
     }
 
-    return allResults;
+    return allResults.filter((r) => r.urlValid !== false);
   }
 
   /**

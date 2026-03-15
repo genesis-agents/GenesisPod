@@ -47,19 +47,20 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     HttpModule.register({
       timeout: 120000,
       maxRedirects: 3,
-      // Custom agents with increased maxHeaderSize (default is 16KB)
       httpAgent: new http.Agent({
         keepAlive: true,
         keepAliveMsecs: 30000,
         maxSockets: 50,
         maxFreeSockets: 10,
-      }),
+        maxHeaderSize: 64 * 1024,
+      } as http.AgentOptions & { maxHeaderSize: number }),
       httpsAgent: new https.Agent({
         keepAlive: true,
         keepAliveMsecs: 30000,
         maxSockets: 50,
         maxFreeSockets: 10,
-      }),
+        maxHeaderSize: 64 * 1024,
+      } as https.AgentOptions & { maxHeaderSize: number }),
       // Axios config for large responses
       maxContentLength: 10 * 1024 * 1024, // 10MB
       maxBodyLength: 10 * 1024 * 1024, // 10MB

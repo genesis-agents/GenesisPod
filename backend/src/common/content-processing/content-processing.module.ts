@@ -14,6 +14,8 @@
  * - ai-studio (深度研究)
  */
 
+import * as http from "http";
+import * as https from "https";
 import { Module, Global } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
@@ -32,6 +34,12 @@ import { SystemSettingModule } from "../settings/system-setting.module";
     HttpModule.register({
       timeout: 30000,
       maxRedirects: 5,
+      httpAgent: new http.Agent({
+        maxHeaderSize: 64 * 1024,
+      } as http.AgentOptions & { maxHeaderSize: number }),
+      httpsAgent: new https.Agent({
+        maxHeaderSize: 64 * 1024,
+      } as https.AgentOptions & { maxHeaderSize: number }),
     }),
     ConfigModule,
     ExploreModule,

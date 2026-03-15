@@ -63,6 +63,23 @@ const MAX_FIGURES_PER_BATCH = 8;
 /** ★ v10: 信息性图片类型（fallback 时仅保留这些类型，photo 需要 Vision LLM 验证） */
 const INFORMATIONAL_FIGURE_TYPES = new Set(["chart", "table", "diagram"]);
 
+/**
+ * ★ v12: Vision API 不可达的 CDN 域名黑名单
+ * 这些域名要求登录或使用签名鉴权，Vision LLM 下载时会超时或 403，导致整 batch 失败。
+ */
+const VISION_INCOMPATIBLE_DOMAINS: RegExp[] = [
+  /fbcdn\.net/i,
+  /scontent.*\.xx\./i,
+  /cdninstagram\.com/i,
+  /media\.licdn\.com/i,
+  /pinimg\.com/i,
+  /tiktokcdn\.com/i,
+];
+
+function isVisionCompatibleUrl(url: string): boolean {
+  return !VISION_INCOMPATIBLE_DOMAINS.some((re) => re.test(url));
+}
+
 @Injectable()
 export class FigureRelevanceService {
   private readonly logger = new Logger(FigureRelevanceService.name);
@@ -185,6 +202,20 @@ export class FigureRelevanceService {
     figures: ExtractedFigure[],
     topicTitle: string,
   ): Promise<FigureRelevanceBatchResult> {
+    // ★ v12: 预过滤已知 Vision API 不可达的 CDN 域名，避免下载超时导致整 batch 失败
+    const compatibleFigures = figures.filter((fig) =>
+      isVisionCompatibleUrl(fig.imageUrl),
+    );
+    if (compatibleFigures.length < figures.length) {
+      this.logger.debug(
+        `[evaluateBatch] Skipped ${figures.length - compatibleFigures.length} incompatible CDN URLs`,
+      );
+    }
+    if (compatibleFigures.length === 0) {
+      // 全部不兼容，跳过 Vision 调用，返回空结果
+      return { results: [] };
+    }
+
     // 构建多模态 contentParts：交替 text + image
     const contentParts: ContentPart[] = [];
 
@@ -192,7 +223,7 @@ export class FigureRelevanceService {
     contentParts.push({
       type: "text",
       text: [
-        `请审查以下 ${figures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。`,
+        `请审查以下 ${compatibleFigures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。`,
         "",
         "★ 核心原则：按类型分层审核。图表类（chart/table/diagram）倾向保留；照片类（photo）需要包含具体信息元素才保留。",
         "",
@@ -225,9 +256,9 @@ export class FigureRelevanceService {
       ].join("\n"),
     } satisfies TextContentPart);
 
-    // 逐张图片
-    for (let i = 0; i < figures.length; i++) {
-      const fig = figures[i];
+    // 逐张图片（使用已过滤的 compatibleFigures）
+    for (let i = 0; i < compatibleFigures.length; i++) {
+      const fig = compatibleFigures[i];
       contentParts.push({
         type: "text",
         text: `\n--- 图片 ${i} ---\nCaption: ${fig.caption || "(无)"}\nType hint: ${fig.type}\nAlt: ${fig.alt || "(无)"}`,
@@ -264,7 +295,7 @@ export class FigureRelevanceService {
           messages: [
             {
               role: "user",
-              content: `审查 ${figures.length} 张图片是否适合研究报告「${topicTitle}」`,
+              content: `审查 ${compatibleFigures.length} 张图片是否适合研究报告「${topicTitle}」`,
               contentParts,
             },
           ],
@@ -303,7 +334,33 @@ export class FigureRelevanceService {
         );
       }
 
-      return response.data;
+      // ★ v12: 将 compatibleFigures 的索引映射回原始 figures 索引
+      // 同时为被 CDN 黑名单过滤掉的图片生成拒绝条目
+      const originalIndexOf = compatibleFigures.map((fig) =>
+        figures.indexOf(fig),
+      );
+      const remappedResults = response.data.results.map((r) => ({
+        ...r,
+        index:
+          r.index >= 0 && r.index < originalIndexOf.length
+            ? originalIndexOf[r.index]
+            : -1,
+      }));
+
+      // 为 CDN 黑名单过滤掉的图片补充 rejected 条目
+      const compatibleSet = new Set(compatibleFigures);
+      const incompatibleRejections = figures
+        .map((fig, idx) => ({ fig, idx }))
+        .filter(({ fig }) => !compatibleSet.has(fig))
+        .map(({ idx }) => ({
+          index: idx,
+          accepted: false as const,
+          reason: "incompatible CDN domain, Vision API cannot access",
+        }));
+
+      return {
+        results: [...remappedResults, ...incompatibleRejections],
+      };
     } catch (error) {
       // ★ v11: 所有失败向上抛出，让 filterRelevantFigures 走 type-based fallback
       this.logger.warn(

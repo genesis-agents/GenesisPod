@@ -241,9 +241,26 @@ export class AIErrorClassifier {
             data,
           );
         }
+        // 速率限制（xAI 等 provider 用 403 而非 429 表示限流）
+        if (
+          String(errorMessage).includes("rate") ||
+          String(errorMessage).includes("limit") ||
+          String(errorMessage).includes("too many") ||
+          String(errorMessage).includes("quota")
+        ) {
+          return new AIError(
+            AIErrorType.RATE_LIMIT,
+            String(errorMessage),
+            status,
+            error,
+            provider,
+            data,
+          );
+        }
+        // 其他 403：访问被拒（权限不足、地域限制等），不等同于 Key 无效
         return new AIError(
-          AIErrorType.INVALID_API_KEY,
-          "Access forbidden",
+          AIErrorType.RATE_LIMIT,
+          `Access denied (HTTP 403): ${String(errorMessage)}`,
           status,
           error,
           provider,

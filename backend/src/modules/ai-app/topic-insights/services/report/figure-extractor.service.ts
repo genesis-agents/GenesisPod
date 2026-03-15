@@ -752,6 +752,14 @@ export class FigureExtractorService {
       return null;
     }
 
+    // ★ 防护网 5: 拒绝带认证参数的签名 URL — CDN 签名会过期，Vision API 下载时可能已失效
+    if (/[?&](oh=|oe=|_nc_|token=|signature=|auth=)/i.test(originalUrl)) {
+      this.logger.debug(
+        `[validateFigure] REJECTED signed URL: ${originalUrl.substring(0, 80)}...`,
+      );
+      return null;
+    }
+
     // 1. 尝试 CDN URL 升级（获取更高分辨率版本）
     const upgradedUrl = this.tryUpgradeImageUrl(originalUrl);
     const candidateUrl = upgradedUrl ?? originalUrl;
