@@ -132,6 +132,8 @@ export interface EvidenceData {
   publishedAt: Date | string | null;
   /** 可信度评分 */
   credibilityScore: number | null;
+  /** 全局引用编号（1-based，在维度全量 evidence 中的位置）— 由 filterEvidenceForSection 设置 */
+  promptIndex?: number;
 }
 
 // ==================== Figure Reference Types ====================

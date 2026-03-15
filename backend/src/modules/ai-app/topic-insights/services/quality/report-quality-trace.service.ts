@@ -614,13 +614,20 @@ export class ReportQualityTraceService {
   }
 
   private computeStructureScore(ctx: QualityTraceContext): number {
-    let score = 100;
+    if (ctx.dimensionOutputs.length === 0) return 100;
+
+    // Per-dimension scoring: each dimension contributes equally
+    let totalScore = 0;
     for (const dim of ctx.dimensionOutputs) {
-      score -= dim.defects.missingHeadings * 5;
-      score -= dim.defects.headingEchoes * 3;
-      score -= dim.defects.trappedConclusions * 3;
+      let dimScore = 100;
+      // Cap missingHeadings penalty at 30 per dimension (6 × 5 = 30)
+      dimScore -= Math.min(dim.defects.missingHeadings, 6) * 5;
+      dimScore -= Math.min(dim.defects.headingEchoes, 3) * 3;
+      dimScore -= Math.min(dim.defects.trappedConclusions, 3) * 3;
+      totalScore += Math.max(0, dimScore);
     }
-    return Math.max(0, Math.min(100, score));
+
+    return Math.round(totalScore / ctx.dimensionOutputs.length);
   }
 
   private computeLanguageScore(ctx: QualityTraceContext): number {

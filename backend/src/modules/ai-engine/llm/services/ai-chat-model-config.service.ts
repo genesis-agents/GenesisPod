@@ -60,11 +60,10 @@ export class AiChatModelConfigService {
 
   /**
    * 获取模型的 API Key
-   * 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
+   * 从 Secret Manager 获取（通过 secretKey 引用），不回退到明文 apiKey
    * ★ 对返回值做 trim 处理，避免空格导致 API 调用失败
    */
   async getApiKeyForModel(model: AIModelConfig): Promise<string | null> {
-    // 优先使用 secretKey 从 Secret Manager 获取
     if (model.secretKey) {
       const secretValue = await this.secretsService.getValueInternal(
         model.secretKey,
@@ -72,12 +71,15 @@ export class AiChatModelConfigService {
       if (secretValue) {
         return secretValue.trim();
       }
-      this.logger.warn(
-        `Secret '${model.secretKey}' not found for model ${model.name}, falling back to apiKey`,
+      this.logger.error(
+        `[getApiKeyForModel] Secret '${model.secretKey}' not found for model ${model.name}. Check Secret Manager configuration.`,
       );
+      return null;
     }
-    // 回退到直接存储的 apiKey
-    return model.apiKey?.trim() || null;
+    this.logger.warn(
+      `[getApiKeyForModel] Model ${model.name} has no secretKey configured. Configure it in Admin → Models.`,
+    );
+    return null;
   }
 
   /**

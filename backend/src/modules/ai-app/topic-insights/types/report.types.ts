@@ -112,6 +112,12 @@ export interface ComprehensiveReport {
   sections: ReportSection[];
   /** 结束语/建议 (Markdown 格式) */
   conclusion: string;
+  /** 跨维度关联分析 (Markdown 格式) */
+  crossDimensionAnalysis?: string;
+  /** 风险评估 (Markdown 格式) */
+  riskAssessment?: string;
+  /** 战略建议 (Markdown 格式) */
+  strategicRecommendations?: string;
   /** 附录列表 */
   appendices: ReportAppendix[];
   /** 参考文献列表 */

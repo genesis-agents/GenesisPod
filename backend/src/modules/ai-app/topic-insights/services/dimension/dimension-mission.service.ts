@@ -1709,15 +1709,18 @@ export class DimensionMissionService {
   }
 
   /**
-   * 根据 section 标题/关键词过滤相关 evidence
-   * 使用简单关键词匹配，不需要 LLM 调用
+   * 过滤与 section 相关的 evidence
+   *
+   * ★ v3.1: 返回的 evidence 保留 promptIndex（在全量 evidenceData 中的 1-based 位置），
+   * 确保不同 section 引用同一来源时使用相同的编号，避免 citation index 冲突。
    */
   private filterEvidenceForSection(
     section: SectionPlan,
     evidenceData: EvidenceData[],
   ): EvidenceData[] {
     if (evidenceData.length <= 5) {
-      return evidenceData; // 证据太少，全部保留
+      // 给每条 evidence 标记全局 promptIndex
+      return evidenceData.map((e, i) => ({ ...e, promptIndex: i + 1 }));
     }
 
     // 提取 section 关键词：标题分词 + keyPoints
@@ -1726,10 +1729,10 @@ export class DimensionMissionService {
     );
 
     if (sectionKeywords.length === 0) {
-      return evidenceData; // 无法提取关键词，全部保留
+      return evidenceData.map((e, i) => ({ ...e, promptIndex: i + 1 }));
     }
 
-    // 对每条 evidence 计算相关度分数
+    // 对每条 evidence 计算相关度分数，保留原始位置
     const scored = evidenceData.map((e, index) => {
       const evidenceText = `${e.title || ""} ${e.snippet || ""}`.toLowerCase();
       let score = 0;
@@ -1744,26 +1747,19 @@ export class DimensionMissionService {
     // 按相关度排序
     scored.sort((a, b) => b.score - a.score);
 
-    // 保留相关度 > 0 的 evidence，按分数排序
-    const relevant = scored.filter((s) => s.score > 0);
-    if (relevant.length >= 5) {
-      return relevant.map((s) => s.evidence);
+    // 保留相关度 > 0 的 evidence
+    let selected = scored.filter((s) => s.score > 0);
+    if (selected.length < 5) {
+      // 不足 5 条时补充到 5 条
+      const remaining = scored.filter((s) => s.score === 0);
+      selected = [...selected, ...remaining.slice(0, 5 - selected.length)];
     }
 
-    // 不足 5 条时，补充低分 evidence 到 5 条上限
-    // ★ 不再无限制保留完全无关的 evidence
-    const result = scored.slice(0, 5);
-
-    // ★ 如果大量 evidence 完全不相关（score=0），记录 warning
-    const zeroScoreCount = result.filter((s) => s.score === 0).length;
-    if (zeroScoreCount > result.length * 0.5) {
-      // 超过一半无关 — 优先返回有分的，限制无关项
-      const withScore = result.filter((s) => s.score > 0);
-      const withoutScore = result.filter((s) => s.score === 0).slice(0, 2);
-      return [...withScore, ...withoutScore].map((s) => s.evidence);
-    }
-
-    return result.map((s) => s.evidence);
+    // ★ 保留全局 promptIndex（1-based，与 evidenceData 数组位置一致）
+    return selected.map((s) => ({
+      ...s.evidence,
+      promptIndex: s.originalIndex + 1,
+    }));
   }
 
   /**

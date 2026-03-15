@@ -189,6 +189,10 @@ function countLeakedFigureNotes(content: string): number {
     /No image/gi,
     /\[图片\]/g,
     /\[Image\]/gi,
+    // JSON 字段名泄漏（LLM 有时将内部字段名输出到正文）
+    /\*{0,2}figureReferences\*{0,2}\s*[：:]/gi,
+    /\*{0,2}generatedCharts\*{0,2}\s*[：:]/gi,
+    /\*{0,2}keyFindings\*{0,2}\s*[：:]/gi,
   ];
   let count = 0;
   for (const pattern of patterns) {

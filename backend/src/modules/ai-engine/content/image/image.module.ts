@@ -83,7 +83,7 @@ export class ImageModule implements OnModuleInit {
       for (const model of imageModels) {
         const provider = model.provider.toLowerCase();
 
-        // ★ 统一密钥获取：优先 Secret Manager，回退 apiKey
+        // ★ 从 Secret Manager 获取密钥（不回退到明文 apiKey）
         let apiKey: string | null = null;
         if (model.secretKey) {
           apiKey = await this.secretsService.getValueInternal(model.secretKey);
@@ -92,9 +92,6 @@ export class ImageModule implements OnModuleInit {
               `Loaded API key from Secret Manager for ${model.name}`,
             );
           }
-        }
-        if (!apiKey) {
-          apiKey = model.apiKey?.trim() || null;
         }
 
         if (!apiKey) continue;

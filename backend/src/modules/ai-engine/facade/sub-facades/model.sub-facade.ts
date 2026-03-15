@@ -275,6 +275,8 @@ export class ModelSubFacade {
 
     if (!config) return null;
 
+    // ★ v3.1: 通过 Secret Manager 解析 apiKey
+    const resolved = await this.modelConfigService.resolveApiKey(config);
     return {
       id: config.id,
       modelId: config.modelId,
@@ -283,7 +285,7 @@ export class ModelSubFacade {
       maxTokens: config.maxTokens,
       apiEndpoint: config.apiEndpoint,
       isReasoning: config.isReasoning ?? false,
-      apiKey: config.apiKey,
+      apiKey: resolved?.apiKey || null,
       secretKey: config.secretKey,
     };
   }
@@ -320,6 +322,8 @@ export class ModelSubFacade {
 
     if (!config) return null;
 
+    // ★ v3.1: 通过 Secret Manager 解析 apiKey
+    const resolved = await this.modelConfigService.resolveApiKey(config);
     this.logger.debug(
       `[getFullModelConfig] Found model ${config.modelId} via AiModelConfigService`,
     );
@@ -329,7 +333,7 @@ export class ModelSubFacade {
       displayName: config.displayName || config.modelId,
       name: config.name || config.modelId,
       provider: config.provider,
-      apiKey: config.apiKey || "",
+      apiKey: resolved?.apiKey || "",
       secretKey: config.secretKey || null,
       apiEndpoint: config.apiEndpoint || null,
       maxTokens: config.maxTokens || null,

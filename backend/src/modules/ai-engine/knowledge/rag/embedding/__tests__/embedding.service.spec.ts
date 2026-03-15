@@ -38,8 +38,8 @@ const MOCK_EMBEDDING_RESULT = {
 const mockOpenAIModel = {
   modelId: "text-embedding-3-small",
   embeddingDimensions: 1536,
-  apiKey: "sk-test-key",
-  secretKey: null,
+  apiKey: null,
+  secretKey: "EMBEDDING_API_KEY",
   apiEndpoint: null,
   provider: "openai",
   apiFormat: "openai",
@@ -53,6 +53,8 @@ describe("EmbeddingService", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Default: secretKey resolves to "sk-test-key" for mockOpenAIModel
+    mockSecretsService.getValueInternal.mockResolvedValue("sk-test-key");
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -70,7 +72,7 @@ describe("EmbeddingService", () => {
   // ─── getEmbeddingConfig() ─────────────────────────────
 
   describe("getEmbeddingConfig()", () => {
-    it("loads config from database when model exists with apiKey", async () => {
+    it("loads config from database when model exists with secretKey", async () => {
       mockPrisma.aIModel.findFirst.mockResolvedValue(mockOpenAIModel);
 
       const config = await service.getEmbeddingConfig();
@@ -100,17 +102,18 @@ describe("EmbeddingService", () => {
       expect(config.apiKey).toBe("resolved-secret-key");
     });
 
-    it("falls back to apiKey when secretKey lookup returns null", async () => {
+    it("falls back to env var when secretKey lookup returns null", async () => {
       mockPrisma.aIModel.findFirst.mockResolvedValue({
         ...mockOpenAIModel,
-        apiKey: "fallback-key",
         secretKey: "missing-secret",
       });
       mockSecretsService.getValueInternal.mockResolvedValue(null);
+      mockConfigService.get.mockReturnValue("env-fallback-key");
 
       const config = await service.getEmbeddingConfig();
 
-      expect(config.apiKey).toBe("fallback-key");
+      // No apiKey fallback — falls through to env var
+      expect(config.apiKey).toBe("env-fallback-key");
     });
 
     it("falls back to OPENAI_API_KEY env when no database model", async () => {
@@ -197,6 +200,9 @@ describe("EmbeddingService", () => {
         provider: "google",
         apiFormat: "google",
       });
+      mockSecretsService.getValueInternal.mockResolvedValue(
+        "google-secret-key",
+      );
 
       const config = await service.getEmbeddingConfig();
       expect(config.apiFormat).toBe("google");
@@ -208,6 +214,9 @@ describe("EmbeddingService", () => {
         provider: "cohere",
         apiFormat: "cohere",
       });
+      mockSecretsService.getValueInternal.mockResolvedValue(
+        "cohere-secret-key",
+      );
 
       const config = await service.getEmbeddingConfig();
       expect(config.apiFormat).toBe("cohere");
@@ -219,6 +228,9 @@ describe("EmbeddingService", () => {
         provider: "gemini",
         apiFormat: null,
       });
+      mockSecretsService.getValueInternal.mockResolvedValue(
+        "gemini-secret-key",
+      );
 
       const config = await service.getEmbeddingConfig();
       expect(config.apiFormat).toBe("google");
@@ -231,6 +243,9 @@ describe("EmbeddingService", () => {
         provider: "google",
         apiFormat: "openai", // wrong format, should be overridden
       });
+      mockSecretsService.getValueInternal.mockResolvedValue(
+        "google-secret-key",
+      );
 
       const config = await service.getEmbeddingConfig();
       expect(config.apiFormat).toBe("google"); // should use inferred
@@ -274,8 +289,9 @@ describe("EmbeddingService", () => {
         ...mockOpenAIModel,
         provider: "google",
         apiFormat: "google",
-        apiKey: "google-key",
+        secretKey: "GOOGLE_API_KEY",
       });
+      mockSecretsService.getValueInternal.mockResolvedValue("google-key");
       mockAiApiCallerService.callGoogleEmbeddingAPI.mockResolvedValue(
         MOCK_EMBEDDING_RESULT,
       );
@@ -291,8 +307,9 @@ describe("EmbeddingService", () => {
         ...mockOpenAIModel,
         provider: "cohere",
         apiFormat: "cohere",
-        apiKey: "cohere-key",
+        secretKey: "COHERE_API_KEY",
       });
+      mockSecretsService.getValueInternal.mockResolvedValue("cohere-key");
       mockAiApiCallerService.callCohereEmbeddingAPI.mockResolvedValue(
         MOCK_EMBEDDING_RESULT,
       );
@@ -382,8 +399,9 @@ describe("EmbeddingService", () => {
         ...mockOpenAIModel,
         provider: "cohere",
         apiFormat: "cohere",
-        apiKey: "cohere-key",
+        secretKey: "COHERE_API_KEY",
       });
+      mockSecretsService.getValueInternal.mockResolvedValue("cohere-key");
 
       const texts = Array.from({ length: 200 }, (_, i) => `text ${i}`);
       mockAiApiCallerService.callCohereEmbeddingAPI

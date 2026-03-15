@@ -13,16 +13,16 @@
  * - 消费者仍通过 AIEngineFacade 调用
  */
 
-import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
-import { AIModelType } from '@prisma/client';
-import { AiChatService } from '../llm/services/ai-chat.service';
-import { AiModelConfigService } from '../llm/services/ai-model-config.service';
-import { ModelFallbackService } from '../llm/model-fallback/model-fallback.service';
-import type { ModelInfo, ModelSelectionOptions } from './types/facade.types';
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
+import { AiChatService } from "../llm/services/ai-chat.service";
+import { AiModelConfigService } from "../llm/services/ai-model-config.service";
+import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
+import type { ModelInfo, ModelSelectionOptions } from "./types/facade.types";
 import {
   OrchestrationFeature,
   ORCHESTRATION_FEATURE,
-} from './facade.providers';
+} from "./facade.providers";
 
 @Injectable()
 export class ModelResolverService {
@@ -54,7 +54,7 @@ export class ModelResolverService {
     );
 
     if (models.length === 0) {
-      this.logger.error('[selectModel] No models available!');
+      this.logger.error("[selectModel] No models available!");
       return null;
     }
 
@@ -67,7 +67,7 @@ export class ModelResolverService {
         candidates = reasoningModels;
       } else {
         this.logger.warn(
-          '[selectModel] No reasoning models found, falling back to all models',
+          "[selectModel] No reasoning models found, falling back to all models",
         );
       }
     }
@@ -110,7 +110,7 @@ export class ModelResolverService {
         this.orchestration.circuitBreaker.selectBest(entityIds);
 
       if (bestEntityId) {
-        const modelId = bestEntityId.replace('chat:', '');
+        const modelId = bestEntityId.replace("chat:", "");
         const selected = candidates.find((m) => m.id === modelId);
         if (selected) {
           this.logger.log(
@@ -122,7 +122,7 @@ export class ModelResolverService {
     }
 
     const selected = candidates[0] || null;
-    this.logger.log(`[selectModel] Selected ${selected?.id || 'NONE'}`);
+    this.logger.log(`[selectModel] Selected ${selected?.id || "NONE"}`);
     return selected;
   }
 
@@ -169,9 +169,7 @@ export class ModelResolverService {
   /**
    * 获取简化模型列表（供 UI 展示）
    */
-  async getAvailableModels(
-    modelType: AIModelType = AIModelType.CHAT,
-  ): Promise<
+  async getAvailableModels(modelType: AIModelType = AIModelType.CHAT): Promise<
     Array<{
       id: string;
       dbId?: string;
@@ -238,6 +236,8 @@ export class ModelResolverService {
     const config = await this.modelConfigService.getModelById(idOrModelId);
     if (!config) return null;
 
+    // ★ v3.1: 通过 Secret Manager 解析 apiKey，不直接暴露明文
+    const resolved = await this.modelConfigService.resolveApiKey(config);
     return {
       id: config.id,
       modelId: config.modelId,
@@ -246,7 +246,7 @@ export class ModelResolverService {
       maxTokens: config.maxTokens,
       apiEndpoint: config.apiEndpoint,
       isReasoning: config.isReasoning ?? false,
-      apiKey: config.apiKey,
+      apiKey: resolved?.apiKey || null,
       secretKey: config.secretKey,
     };
   }
@@ -282,13 +282,15 @@ export class ModelResolverService {
     const config = await this.modelConfigService.getModelById(modelId);
     if (!config) return null;
 
+    // ★ v3.1: 通过 Secret Manager 解析 apiKey
+    const resolved = await this.modelConfigService.resolveApiKey(config);
     return {
       id: config.id || config.modelId,
       modelId: config.modelId,
       displayName: config.displayName || config.modelId,
       name: config.name || config.modelId,
       provider: config.provider,
-      apiKey: config.apiKey || '',
+      apiKey: resolved?.apiKey || "",
       secretKey: config.secretKey || null,
       apiEndpoint: config.apiEndpoint || null,
       maxTokens: config.maxTokens || null,

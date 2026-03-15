@@ -115,7 +115,7 @@ describe("OutputReviewerService", () => {
     });
 
     it("should return failing result for bad output", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: failingReviewJsonResponse,
         tokensUsed: 100,
       });
@@ -148,7 +148,7 @@ describe("OutputReviewerService", () => {
       };
 
       // First call will be summarization, second will be review
-      mockAiChatService.chat
+      mockAiChatService.generateChatCompletion
         .mockResolvedValueOnce({
           content: "【摘要】\n Short summary\n\n【关键片段】\nKey excerpt",
           tokensUsed: 80,
@@ -161,11 +161,13 @@ describe("OutputReviewerService", () => {
       const result = await service.reviewOutput(requestWithLongContent);
 
       expect(result).toHaveProperty("passed");
-      expect(mockAiChatService.chat).toHaveBeenCalledTimes(2);
+      expect(mockAiChatService.generateChatCompletion).toHaveBeenCalledTimes(2);
     });
 
     it("should default to passed=true when review fails", async () => {
-      mockAiChatService.chat.mockRejectedValue(new Error("AI Error"));
+      mockAiChatService.generateChatCompletion.mockRejectedValue(
+        new Error("AI Error"),
+      );
 
       const result = await service.reviewOutput(mockReviewRequest);
 
@@ -192,7 +194,8 @@ describe("OutputReviewerService", () => {
 
       await service.reviewOutput(requestWithConstraints);
 
-      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      const callArgs =
+        mockAiChatService.generateChatCompletion.mock.calls[0][0];
       const prompt = callArgs.messages[callArgs.messages.length - 1].content;
       expect(prompt).toContain("硬约束要求");
     });
@@ -204,7 +207,7 @@ describe("OutputReviewerService", () => {
       };
 
       // Score 8.3 should fail with threshold 9
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: `\`\`\`json
 {
   "totalScore": 8.3,
@@ -228,9 +231,8 @@ describe("OutputReviewerService", () => {
 
   describe("summarizeForReview", () => {
     it("should return summary and excerpts from AI", async () => {
-      mockAiChatService.chat.mockResolvedValue({
-        content:
-          "【摘要】\n核心内容摘要\n\n【关键片段】\n关键段落1\n关键段落2",
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
+        content: "【摘要】\n核心内容摘要\n\n【关键片段】\n关键段落1\n关键段落2",
         tokensUsed: 80,
       });
 
@@ -263,7 +265,9 @@ describe("OutputReviewerService", () => {
     });
 
     it("should fall back to truncated content on failure", async () => {
-      mockAiChatService.chat.mockRejectedValue(new Error("API Error"));
+      mockAiChatService.generateChatCompletion.mockRejectedValue(
+        new Error("API Error"),
+      );
 
       const content = "Short content";
       const result = await service.summarizeForReview(
@@ -278,7 +282,7 @@ describe("OutputReviewerService", () => {
     });
 
     it("should truncate very long content", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: "【摘要】\nSummary\n\n【关键片段】\nexcerpt",
         tokensUsed: 100,
       });
@@ -291,7 +295,8 @@ describe("OutputReviewerService", () => {
         "mission-123",
       );
 
-      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      const callArgs =
+        mockAiChatService.generateChatCompletion.mock.calls[0][0];
       const prompt = callArgs.messages[callArgs.messages.length - 1].content;
       expect(prompt).toContain("内容已截断");
     });
@@ -319,7 +324,7 @@ describe("OutputReviewerService", () => {
     };
 
     it("should execute revision successfully", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: "Revised content here",
         tokensUsed: 100,
       });
@@ -348,7 +353,9 @@ describe("OutputReviewerService", () => {
     });
 
     it("should return failure when AI call fails", async () => {
-      mockAiChatService.chat.mockRejectedValue(new Error("Revision failed"));
+      mockAiChatService.generateChatCompletion.mockRejectedValue(
+        new Error("Revision failed"),
+      );
 
       const result = await service.executeRevision(revisionRequest);
 
@@ -358,14 +365,15 @@ describe("OutputReviewerService", () => {
     });
 
     it("should include revision count in prompt", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: "Revised",
         tokensUsed: 50,
       });
 
       await service.executeRevision({ ...revisionRequest, revisionCount: 3 });
 
-      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      const callArgs =
+        mockAiChatService.generateChatCompletion.mock.calls[0][0];
       const userMsg = callArgs.messages.find((m: any) => m.role === "user");
       expect(userMsg.content).toContain("第 3 次");
     });
@@ -375,18 +383,15 @@ describe("OutputReviewerService", () => {
 
   describe("executeAICall", () => {
     it("should execute AI call with messages", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: "AI response",
         tokensUsed: 60,
       });
 
-      const result = await service.executeAICall(
-        "gpt-4o",
-        [
-          { role: "system", content: "System prompt" },
-          { role: "user", content: "User message" },
-        ],
-      );
+      const result = await service.executeAICall("gpt-4o", [
+        { role: "system", content: "System prompt" },
+        { role: "user", content: "User message" },
+      ]);
 
       expect(result.content).toBe("AI response");
       expect(result.tokensUsed).toBe(60);
@@ -410,7 +415,7 @@ describe("OutputReviewerService", () => {
     });
 
     it("should pass taskProfile when provided", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: "OK",
         tokensUsed: 50,
       });
@@ -421,12 +426,13 @@ describe("OutputReviewerService", () => {
         { taskProfile: { creativity: "high", outputLength: "long" } },
       );
 
-      // With taskProfile, should use chat() not generateChatCompletion()
-      expect(mockAiChatService.chat).toHaveBeenCalled();
+      expect(mockAiChatService.generateChatCompletion).toHaveBeenCalled();
     });
 
     it("should throw when AI call fails", async () => {
-      mockAiChatService.chat.mockRejectedValue(new Error("AI unavailable"));
+      mockAiChatService.generateChatCompletion.mockRejectedValue(
+        new Error("AI unavailable"),
+      );
 
       await expect(
         service.executeAICall("gpt-4o", [{ role: "user", content: "test" }]),
@@ -438,7 +444,7 @@ describe("OutputReviewerService", () => {
 
   describe("parseReviewResult edge cases", () => {
     it("should handle direct JSON without code block markers", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: `{"totalScore": 8, "passed": true, "feedback": "Good", "issues": [], "suggestions": []}`,
         tokensUsed: 80,
       });
@@ -450,7 +456,7 @@ describe("OutputReviewerService", () => {
     });
 
     it("should handle non-JSON response with keyword detection", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: "内容质量良好，符合要求，建议通过审核。",
         tokensUsed: 40,
       });
@@ -461,7 +467,7 @@ describe("OutputReviewerService", () => {
     });
 
     it("should handle negative keyword detection", async () => {
-      mockAiChatService.chat.mockResolvedValue({
+      mockAiChatService.generateChatCompletion.mockResolvedValue({
         content: "内容存在问题较多，需要修改，建议不通过。",
         tokensUsed: 40,
       });

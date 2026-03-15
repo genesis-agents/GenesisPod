@@ -275,7 +275,7 @@ export class AiModelConfigService {
       );
     }
 
-    // Priority 3: Secret Manager 系统 Key
+    // Priority 3: Secret Manager 系统 Key（不回退到明文 apiKey）
     if (model.secretKey) {
       const secretValue = await this.secretsService.getValueInternal(
         model.secretKey,
@@ -283,14 +283,9 @@ export class AiModelConfigService {
       if (secretValue) {
         return { apiKey: secretValue.trim(), source: "system" };
       }
-      this.logger.warn(
-        `Secret '${model.secretKey}' not found for model ${model.name}, falling back to apiKey`,
+      this.logger.error(
+        `[resolveApiKey] Secret '${model.secretKey}' not found for model ${model.name}. Check Secret Manager configuration.`,
       );
-    }
-
-    // Priority 4: Legacy apiKey
-    if (model.apiKey?.trim()) {
-      return { apiKey: model.apiKey.trim(), source: "system" };
     }
 
     return null;

@@ -132,14 +132,10 @@ export class EmbeddingService {
             `Resolved API key from Secret Manager for embedding model: ${model.modelId}`,
           );
         } else {
-          this.logger.warn(
-            `Secret '${model.secretKey}' not found for embedding model ${model.modelId}, falling back to apiKey`,
+          this.logger.error(
+            `Secret '${model.secretKey}' not found for embedding model ${model.modelId}. Check Secret Manager configuration.`,
           );
         }
-      }
-      // 回退到直接存储的 apiKey
-      if (!apiKey && model.apiKey) {
-        apiKey = model.apiKey.trim();
       }
 
       if (apiKey) {

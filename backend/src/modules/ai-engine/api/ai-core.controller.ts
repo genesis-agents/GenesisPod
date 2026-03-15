@@ -165,7 +165,7 @@ export class AiCoreController {
     }> = [];
 
     for (const model of geminiModels) {
-      // ★ 优先从 Secret Manager 获取 API Key
+      // ★ 从 Secret Manager 获取 API Key（不回退到明文 apiKey）
       let apiKey: string | null = null;
       if (model.secretKey && this.secretsService) {
         const secretValue = await this.secretsService.getValueInternal(
@@ -175,12 +175,8 @@ export class AiCoreController {
           apiKey = secretValue.trim();
         }
       }
-      // 回退到直接存储的 apiKey 或环境变量
       if (!apiKey) {
-        apiKey =
-          model.apiKey?.trim() ||
-          this.configService.get<string>("GOOGLE_AI_API_KEY") ||
-          null;
+        apiKey = this.configService.get<string>("GOOGLE_AI_API_KEY") || null;
       }
 
       if (!apiKey) {

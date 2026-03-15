@@ -369,7 +369,7 @@ export class AgentExecutorService implements IAgentExecutorService {
       taskProfile?: ExecutionConfig["taskProfile"];
       missionId?: string;
     },
-    modelConfig: Awaited<ReturnType<typeof this.getModelConfig>>,
+    _modelConfig?: Awaited<ReturnType<typeof this.getModelConfig>>,
   ): Promise<{ content: string; tokensUsed: number }> {
     const isLargeModel =
       aiModel.includes("gpt-4") ||
@@ -380,46 +380,23 @@ export class AgentExecutorService implements IAgentExecutorService {
       aiModel.startsWith("o3");
     const defaultMaxTokens = isLargeModel ? 6000 : 4000;
 
-    let result;
-    if (modelConfig?.apiKey) {
-      result = await this.aiChatService.chat({
-        provider: modelConfig.provider || "openai",
-        model: modelConfig.modelId || aiModel,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ] as Array<{ role: "system" | "user" | "assistant"; content: string }>,
-        maxTokens: options.maxTokens || defaultMaxTokens,
-        taskProfile: options.taskProfile ?? {
-          creativity: "medium",
-          outputLength: "medium",
-        },
-        apiKey: modelConfig.apiKey,
-        apiEndpoint: modelConfig.apiEndpoint || undefined,
-      });
-    } else {
-      result = await this.aiChatService.generateChatCompletion({
-        model: aiModel,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ] as Array<{ role: "system" | "user" | "assistant"; content: string }>,
-        maxTokens: options.maxTokens || defaultMaxTokens,
-        taskProfile: options.taskProfile ?? {
-          creativity: "medium",
-          outputLength: "medium",
-        },
-      });
-    }
+    // 统一走 generateChatCompletion，由下游通过 Secret Manager 解析 API Key
+    const result = await this.aiChatService.generateChatCompletion({
+      model: aiModel,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ] as Array<{ role: "system" | "user" | "assistant"; content: string }>,
+      maxTokens: options.maxTokens || defaultMaxTokens,
+      taskProfile: options.taskProfile ?? {
+        creativity: "medium",
+        outputLength: "medium",
+      },
+    });
 
-    // Handle both chat() return type (usage.totalTokens) and generateChatCompletion() (tokensUsed)
-    const tokensUsed =
-      "tokensUsed" in result
-        ? result.tokensUsed
-        : result.usage?.totalTokens || 0;
     return {
       content: result.content,
-      tokensUsed,
+      tokensUsed: result.tokensUsed || 0,
     };
   }
 

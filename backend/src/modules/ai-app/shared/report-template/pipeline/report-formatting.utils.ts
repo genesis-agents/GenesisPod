@@ -1029,8 +1029,12 @@ export function stripInternalFigureNotation(content: string): string {
         /(?:^|\n)\s*figureReferences\s*[：:]\s*(?:\n(?:[-*]\s*[^\n]+|\s*\[[^\]]+\]\s*[^\n]+))+/gim,
         "",
       )
-      // Also handle inline variant: "figureReferences: [145] 图0：..."
-      .replace(/figureReferences\s*[：:]\s*/gi, "")
+      // Also handle inline/bold variant: "figureReferences: ..." or "**figureReferences**:"
+      // Delete the entire line to prevent residual content
+      .replace(/\*{0,2}figureReferences\*{0,2}\s*[：:]\s*[^\n]*/gi, "")
+      // Same for other leaked JSON field names
+      .replace(/\*{0,2}generatedCharts\*{0,2}\s*[：:]\s*[^\n]*/gi, "")
+      .replace(/\*{0,2}keyFindings\*{0,2}\s*[：:]\s*[^\n]*/gi, "")
 
       // ── 图表引用 section label ──
       // LLM outputs "图表引用 ：" or "图表引用：" as a section label before figure references

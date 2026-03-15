@@ -69,7 +69,7 @@ describe("AiChatModelConfigService", () => {
   // ==================== getApiKeyForModel ====================
 
   describe("getApiKeyForModel", () => {
-    it("should return apiKey when no secretKey", async () => {
+    it("should return null when no secretKey (direct apiKey no longer supported)", async () => {
       const model = {
         id: "test-id",
         name: "test",
@@ -86,10 +86,14 @@ describe("AiChatModelConfigService", () => {
       } as any;
 
       const key = await service.getApiKeyForModel(model);
-      expect(key).toBe("direct-api-key");
+      expect(key).toBeNull();
     });
 
-    it("should trim whitespace from apiKey", async () => {
+    it("should trim whitespace from secretKey value", async () => {
+      mockSecretsService.getValueInternal.mockResolvedValue(
+        "  key-with-spaces  ",
+      );
+
       const model = {
         id: "test-id",
         name: "test",
@@ -97,8 +101,8 @@ describe("AiChatModelConfigService", () => {
         provider: "openai",
         modelId: "gpt-4o",
         apiEndpoint: "",
-        apiKey: "  key-with-spaces  ",
-        secretKey: null,
+        apiKey: null,
+        secretKey: "MY_API_KEY",
         maxTokens: 4000,
         temperature: 0.7,
         isEnabled: true,
@@ -134,7 +138,7 @@ describe("AiChatModelConfigService", () => {
       );
     });
 
-    it("should fallback to apiKey if secret not found", async () => {
+    it("should return null if secretKey configured but not found in secrets manager", async () => {
       mockSecretsService.getValueInternal.mockResolvedValue(null);
 
       const model = {
@@ -153,7 +157,7 @@ describe("AiChatModelConfigService", () => {
       } as any;
 
       const key = await service.getApiKeyForModel(model);
-      expect(key).toBe("fallback-key");
+      expect(key).toBeNull();
     });
 
     it("should return null when no key available", async () => {

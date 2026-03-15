@@ -106,6 +106,13 @@ describe("ModelResolverService", () => {
           MOCK_MODELS.find((m) => m.modelId === id || m.id === id) || null,
         );
       }),
+      resolveApiKey: jest
+        .fn()
+        .mockImplementation((model: { apiKey?: string }) => {
+          return Promise.resolve(
+            model?.apiKey ? { apiKey: model.apiKey, source: "system" } : null,
+          );
+        }),
     };
 
     mockFallbackService = {

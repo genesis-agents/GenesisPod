@@ -129,18 +129,10 @@ export class OpenAlexSearchTool extends BaseTool<
 > {
   private readonly logger = new Logger(OpenAlexSearchTool.name);
 
-  /** 最大并发请求数 */
-  private static readonly MAX_CONCURRENT = 2;
-  /** 最小请求间隔 (ms) — polite pool 无限制，但保守设置 200ms */
-  private static readonly MIN_REQUEST_INTERVAL = 200;
+  // ★ 并发控制由 GlobalSourceThrottleService 统一管理（openalex-search: 5 并发）
+  // 本 tool 仅保留 429 冷却逻辑
   /** 全局 429 冷却截止时间戳 */
   private static cooldownUntil = 0;
-  /** 当前活跃请求数 */
-  private static activeRequests = 0;
-  /** 上次请求时间戳 */
-  private static lastRequestTime = 0;
-  /** 等待槽位的回调队列 */
-  private static readonly requestQueue: Array<() => void> = [];
 
   readonly id = "openalex-search";
   readonly name = "OpenAlex Search";
@@ -264,17 +256,25 @@ export class OpenAlexSearchTool extends BaseTool<
       let responseData: OpenAlexApiResponse | undefined;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        await this.acquireSlot();
+        // 等待 429 全局冷却
+        const cooldownRemaining = OpenAlexSearchTool.cooldownUntil - Date.now();
+        if (cooldownRemaining > 0) {
+          this.logger.debug(
+            `[doExecute] Waiting ${cooldownRemaining}ms for global 429 cooldown`,
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, cooldownRemaining),
+          );
+        }
+
         try {
           responseData =
             await this.policyDataService.httpGet<OpenAlexApiResponse>(
               baseUrl,
               params,
             );
-          this.releaseSlot();
           break;
         } catch (err) {
-          this.releaseSlot();
           const is429 = err instanceof Error && err.message.includes("429");
           if (is429 && attempt < maxRetries) {
             const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
@@ -399,50 +399,6 @@ export class OpenAlexSearchTool extends BaseTool<
     }
     words.sort((a, b) => a[0] - b[0]);
     return words.map(([, word]) => word).join(" ");
-  }
-
-  /**
-   * 获取并发槽位，等待全局冷却 + 最小请求间隔
-   */
-  private async acquireSlot(): Promise<void> {
-    // 等待并发槽位
-    while (
-      OpenAlexSearchTool.activeRequests >= OpenAlexSearchTool.MAX_CONCURRENT
-    ) {
-      await new Promise<void>((resolve) => {
-        OpenAlexSearchTool.requestQueue.push(resolve);
-      });
-    }
-    OpenAlexSearchTool.activeRequests++;
-
-    // 等待全局 429 冷却结束
-    const cooldownRemaining = OpenAlexSearchTool.cooldownUntil - Date.now();
-    if (cooldownRemaining > 0) {
-      this.logger.debug(
-        `[acquireSlot] Waiting ${cooldownRemaining}ms for global 429 cooldown`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, cooldownRemaining));
-    }
-
-    // 强制最小请求间隔
-    const now = Date.now();
-    const timeSinceLastRequest = now - OpenAlexSearchTool.lastRequestTime;
-    if (timeSinceLastRequest < OpenAlexSearchTool.MIN_REQUEST_INTERVAL) {
-      const waitTime =
-        OpenAlexSearchTool.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
-      this.logger.debug(`[acquireSlot] Waiting ${waitTime}ms for rate limit`);
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
-    }
-    OpenAlexSearchTool.lastRequestTime = Date.now();
-  }
-
-  /**
-   * 释放并发槽位，并唤醒队列中下一个等待者
-   */
-  private releaseSlot(): void {
-    OpenAlexSearchTool.activeRequests--;
-    const next = OpenAlexSearchTool.requestQueue.shift();
-    if (next) next();
   }
 
   validateInput(input: OpenAlexSearchInput): boolean {

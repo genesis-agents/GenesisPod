@@ -98,20 +98,11 @@ describe("OpenAlexSearchTool", () => {
   let mockPolicyDataService: jest.Mocked<PolicyDataServiceMock>;
 
   beforeEach(async () => {
-    // Reset static rate limiter state
+    // Reset static rate limiter state (only cooldownUntil remains after
+    // acquireSlot/releaseSlot and related concurrency fields were removed)
     (OpenAlexSearchTool as unknown as Record<string, unknown>)[
       "cooldownUntil"
     ] = 0;
-    (OpenAlexSearchTool as unknown as Record<string, unknown>)[
-      "activeRequests"
-    ] = 0;
-    (OpenAlexSearchTool as unknown as Record<string, unknown>)[
-      "lastRequestTime"
-    ] = 0;
-    const queue = (OpenAlexSearchTool as unknown as Record<string, unknown>)[
-      "requestQueue"
-    ] as unknown[];
-    queue.length = 0;
 
     mockPolicyDataService = createMockPolicyDataService();
 

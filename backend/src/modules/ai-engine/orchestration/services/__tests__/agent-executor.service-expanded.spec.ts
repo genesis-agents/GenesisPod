@@ -106,7 +106,7 @@ describe("AgentExecutorService (expanded)", () => {
       expect(mockAiChatService.generateChatCompletion).toHaveBeenCalled();
     });
 
-    it("should use chat() when DB model has apiKey", async () => {
+    it("should always use generateChatCompletion() regardless of DB model apiKey", async () => {
       mockPrisma.aIModel.findFirst.mockResolvedValueOnce({
         modelId: "gpt-4o",
         name: "GPT-4o",
@@ -118,12 +118,9 @@ describe("AgentExecutorService (expanded)", () => {
 
       const result = await service.executeTask(makeExecutionContext());
 
-      expect(mockAiChatService.chat).toHaveBeenCalledWith(
-        expect.objectContaining({
-          apiKey: "sk-test-key",
-          provider: "openai",
-        }),
-      );
+      // chat() is no longer called — all paths go through generateChatCompletion()
+      expect(mockAiChatService.chat).not.toHaveBeenCalled();
+      expect(mockAiChatService.generateChatCompletion).toHaveBeenCalled();
       expect(result.success).toBe(true);
     });
 
@@ -139,17 +136,10 @@ describe("AgentExecutorService (expanded)", () => {
       );
     });
 
-    it("should handle tokensUsed from chat() format (usage.totalTokens)", async () => {
-      mockAiChatService.chat.mockResolvedValueOnce({
-        content: "Response via chat()",
-        usage: { totalTokens: 200 },
-        isError: false,
-      });
-      mockPrisma.aIModel.findFirst.mockResolvedValueOnce({
-        modelId: "gpt-4o",
-        provider: "openai",
-        apiKey: "sk-key",
-        isEnabled: true,
+    it("should handle tokensUsed from generateChatCompletion() format (tokensUsed field)", async () => {
+      mockAiChatService.generateChatCompletion.mockResolvedValueOnce({
+        content: "Response via generateChatCompletion()",
+        tokensUsed: 200,
       });
 
       const result = await service.executeTask(makeExecutionContext());
@@ -291,7 +281,10 @@ describe("AgentExecutorService (expanded)", () => {
     it("should retry on timeout error", async () => {
       mockAiChatService.generateChatCompletion
         .mockRejectedValueOnce(new Error("Request timeout"))
-        .mockResolvedValueOnce({ content: "After timeout retry", tokensUsed: 80 });
+        .mockResolvedValueOnce({
+          content: "After timeout retry",
+          tokensUsed: 80,
+        });
 
       const result = await service.executeTask(makeExecutionContext(), {
         maxRetries: 1,
@@ -373,9 +366,7 @@ describe("AgentExecutorService (expanded)", () => {
 
       const chatCall =
         mockAiChatService.generateChatCompletion.mock.calls[0][0];
-      const userMessage = chatCall.messages.find(
-        (m: any) => m.role === "user",
-      );
+      const userMessage = chatCall.messages.find((m: any) => m.role === "user");
       expect(userMessage.content).toContain("搜索结果参考");
     });
   });
@@ -385,9 +376,15 @@ describe("AgentExecutorService (expanded)", () => {
   describe("executeTasks", () => {
     it("should execute multiple tasks concurrently", async () => {
       const contexts = [
-        makeExecutionContext({ executor: { id: "a1", agentName: "A1", aiModel: "gpt-4o" } }),
-        makeExecutionContext({ executor: { id: "a2", agentName: "A2", aiModel: "gpt-4o" } }),
-        makeExecutionContext({ executor: { id: "a3", agentName: "A3", aiModel: "gpt-4o" } }),
+        makeExecutionContext({
+          executor: { id: "a1", agentName: "A1", aiModel: "gpt-4o" },
+        }),
+        makeExecutionContext({
+          executor: { id: "a2", agentName: "A2", aiModel: "gpt-4o" },
+        }),
+        makeExecutionContext({
+          executor: { id: "a3", agentName: "A3", aiModel: "gpt-4o" },
+        }),
       ];
 
       const results = await service.executeTasks(contexts);
@@ -410,7 +407,11 @@ describe("AgentExecutorService (expanded)", () => {
 
       const contexts = Array.from({ length: 6 }, (_, i) =>
         makeExecutionContext({
-          executor: { id: `agent-${i}`, agentName: `Agent ${i}`, aiModel: "gpt-4o" },
+          executor: {
+            id: `agent-${i}`,
+            agentName: `Agent ${i}`,
+            aiModel: "gpt-4o",
+          },
         }),
       );
 
@@ -426,9 +427,15 @@ describe("AgentExecutorService (expanded)", () => {
         .mockResolvedValueOnce({ content: "OK again", tokensUsed: 50 });
 
       const contexts = [
-        makeExecutionContext({ executor: { id: "ok-1", agentName: "OK1", aiModel: "gpt-4o" } }),
-        makeExecutionContext({ executor: { id: "fail", agentName: "Fail", aiModel: "gpt-4o" } }),
-        makeExecutionContext({ executor: { id: "ok-2", agentName: "OK2", aiModel: "gpt-4o" } }),
+        makeExecutionContext({
+          executor: { id: "ok-1", agentName: "OK1", aiModel: "gpt-4o" },
+        }),
+        makeExecutionContext({
+          executor: { id: "fail", agentName: "Fail", aiModel: "gpt-4o" },
+        }),
+        makeExecutionContext({
+          executor: { id: "ok-2", agentName: "OK2", aiModel: "gpt-4o" },
+        }),
       ];
 
       const results = await service.executeTasks(contexts);
@@ -629,9 +636,7 @@ describe("AgentExecutorService (expanded)", () => {
 
       const chatCall =
         mockAiChatService.generateChatCompletion.mock.calls[0][0];
-      const userMessage = chatCall.messages.find(
-        (m: any) => m.role === "user",
-      );
+      const userMessage = chatCall.messages.find((m: any) => m.role === "user");
 
       // Should only include first 5 results
       let countedResults = 0;

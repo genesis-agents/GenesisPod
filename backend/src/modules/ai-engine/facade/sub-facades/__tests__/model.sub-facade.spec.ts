@@ -9,16 +9,18 @@ import { AIModelType } from "@prisma/client";
 // Helpers / Factories
 // ============================================================================
 
-function buildModel(overrides: Partial<{
-  id: string;
-  dbId: string;
-  name: string;
-  provider: string;
-  isReasoning: boolean;
-  isAvailable: boolean;
-  maxTokens: number;
-  isDefault: boolean;
-}> = {}) {
+function buildModel(
+  overrides: Partial<{
+    id: string;
+    dbId: string;
+    name: string;
+    provider: string;
+    isReasoning: boolean;
+    isAvailable: boolean;
+    maxTokens: number;
+    isDefault: boolean;
+  }> = {},
+) {
   return {
     id: overrides.id ?? "gpt-4o",
     dbId: overrides.dbId ?? "db-1",
@@ -47,11 +49,13 @@ let mockOrchestration: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mockModelResolver: any;
 
-function createFacade(options: {
-  withFallback?: boolean;
-  withOrchestration?: boolean;
-  withResolver?: boolean;
-} = {}): ModelSubFacade {
+function createFacade(
+  options: {
+    withFallback?: boolean;
+    withOrchestration?: boolean;
+    withResolver?: boolean;
+  } = {},
+): ModelSubFacade {
   return new ModelSubFacade(
     mockAiChatService,
     mockModelConfigService,
@@ -76,6 +80,13 @@ describe("ModelSubFacade", () => {
       getAllEnabledModelsByType: jest.fn().mockResolvedValue([]),
       getEnabledModelsForFrontend: jest.fn().mockResolvedValue([]),
       getModelById: jest.fn().mockResolvedValue(null),
+      resolveApiKey: jest
+        .fn()
+        .mockImplementation((model: { apiKey?: string }) =>
+          Promise.resolve(
+            model?.apiKey ? { apiKey: model.apiKey, source: "system" } : null,
+          ),
+        ),
     };
 
     mockModelFallbackService = {
@@ -117,7 +128,9 @@ describe("ModelSubFacade", () => {
       const facade = createFacade({ withResolver: true });
       const result = await facade.selectModel({ requireReasoning: true });
 
-      expect(mockModelResolver.selectModel).toHaveBeenCalledWith({ requireReasoning: true });
+      expect(mockModelResolver.selectModel).toHaveBeenCalledWith({
+        requireReasoning: true,
+      });
       expect(result?.id).toBe("resolver-model");
     });
   });
@@ -138,9 +151,19 @@ describe("ModelSubFacade", () => {
 
     it("should return first model when no filters applied", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.selectModel();
@@ -150,10 +173,28 @@ describe("ModelSubFacade", () => {
 
     it("should filter reasoning models when requireReasoning=true", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
-        { modelId: "o3", id: "db-2", displayName: "O3", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: true },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
+        {
+          modelId: "o3",
+          id: "db-2",
+          displayName: "O3",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: true,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.selectModel({ requireReasoning: true });
@@ -163,9 +204,19 @@ describe("ModelSubFacade", () => {
 
     it("should fall back to all models if no reasoning models found", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.selectModel({ requireReasoning: true });
@@ -176,36 +227,88 @@ describe("ModelSubFacade", () => {
 
     it("should filter by preferredProvider", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
-        { modelId: "claude-3", id: "db-2", displayName: "Claude 3", provider: "anthropic", maxTokens: 200000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
+        {
+          modelId: "claude-3",
+          id: "db-2",
+          displayName: "Claude 3",
+          provider: "anthropic",
+          maxTokens: 200000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
-      const result = await facade.selectModel({ preferredProvider: "anthropic" });
+      const result = await facade.selectModel({
+        preferredProvider: "anthropic",
+      });
 
       expect(result?.id).toBe("claude-3");
     });
 
     it("should keep all models when preferredProvider not found", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
-      const result = await facade.selectModel({ preferredProvider: "nonexistent" });
+      const result = await facade.selectModel({
+        preferredProvider: "nonexistent",
+      });
 
       expect(result?.id).toBe("gpt-4o");
     });
 
     it("should filter blocked models when fallbackService available", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
-        { modelId: "gpt-3.5", id: "db-2", displayName: "GPT-3.5", provider: "openai", maxTokens: 16000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
+        {
+          modelId: "gpt-3.5",
+          id: "db-2",
+          displayName: "GPT-3.5",
+          provider: "openai",
+          maxTokens: 16000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
-      mockModelFallbackService.isModelBlocked.mockImplementation((id: string) => id === "gpt-4o");
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
+      mockModelFallbackService.isModelBlocked.mockImplementation(
+        (id: string) => id === "gpt-4o",
+      );
 
       const facade = createFacade({ withFallback: true });
       const result = await facade.selectModel();
@@ -215,9 +318,19 @@ describe("ModelSubFacade", () => {
 
     it("should keep original list when all models are blocked", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
       mockModelFallbackService.isModelBlocked.mockReturnValue(true);
 
       const facade = createFacade({ withFallback: true });
@@ -229,10 +342,28 @@ describe("ModelSubFacade", () => {
 
     it("should filter by minMaxTokens", async () => {
       const dbModels = [
-        { modelId: "small-model", id: "db-1", displayName: "Small", provider: "openai", maxTokens: 4000, isDefault: false, isReasoning: false },
-        { modelId: "large-model", id: "db-2", displayName: "Large", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "small-model",
+          id: "db-1",
+          displayName: "Small",
+          provider: "openai",
+          maxTokens: 4000,
+          isDefault: false,
+          isReasoning: false,
+        },
+        {
+          modelId: "large-model",
+          id: "db-2",
+          displayName: "Large",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.selectModel({ minMaxTokens: 100000 });
@@ -242,11 +373,31 @@ describe("ModelSubFacade", () => {
 
     it("should use circuit breaker selection when available", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
-        { modelId: "claude-3", id: "db-2", displayName: "Claude 3", provider: "anthropic", maxTokens: 200000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
+        {
+          modelId: "claude-3",
+          id: "db-2",
+          displayName: "Claude 3",
+          provider: "anthropic",
+          maxTokens: 200000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
-      mockOrchestration.circuitBreaker.selectBest.mockReturnValue("chat:claude-3");
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
+      mockOrchestration.circuitBreaker.selectBest.mockReturnValue(
+        "chat:claude-3",
+      );
       mockOrchestration.circuitBreaker.canExecute.mockReturnValue(true);
 
       const facade = createFacade({ withOrchestration: true });
@@ -257,10 +408,22 @@ describe("ModelSubFacade", () => {
 
     it("should fall back to first model when circuit breaker returns unknown id", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
-      mockOrchestration.circuitBreaker.selectBest.mockReturnValue("chat:nonexistent-model");
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
+      mockOrchestration.circuitBreaker.selectBest.mockReturnValue(
+        "chat:nonexistent-model",
+      );
       mockOrchestration.circuitBreaker.canExecute.mockReturnValue(true);
 
       const facade = createFacade({ withOrchestration: true });
@@ -275,9 +438,9 @@ describe("ModelSubFacade", () => {
       const facade = createFacade();
       await facade.selectModel({});
 
-      expect(mockModelConfigService.getAllEnabledModelsByType).toHaveBeenCalledWith(
-        AIModelType.CHAT,
-      );
+      expect(
+        mockModelConfigService.getAllEnabledModelsByType,
+      ).toHaveBeenCalledWith(AIModelType.CHAT);
     });
 
     it("should pass modelType to getAllEnabledModelsByType", async () => {
@@ -286,9 +449,9 @@ describe("ModelSubFacade", () => {
       const facade = createFacade();
       await facade.selectModel({ modelType: AIModelType.IMAGE_GENERATION });
 
-      expect(mockModelConfigService.getAllEnabledModelsByType).toHaveBeenCalledWith(
-        AIModelType.IMAGE_GENERATION,
-      );
+      expect(
+        mockModelConfigService.getAllEnabledModelsByType,
+      ).toHaveBeenCalledWith(AIModelType.IMAGE_GENERATION);
     });
   });
 
@@ -299,9 +462,19 @@ describe("ModelSubFacade", () => {
   describe("getReasoningModel", () => {
     it("should delegate to selectModel with requireReasoning=true", async () => {
       const dbModels = [
-        { modelId: "o3", id: "db-1", displayName: "O3", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: true },
+        {
+          modelId: "o3",
+          id: "db-1",
+          displayName: "O3",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: true,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.getReasoningModel();
@@ -317,7 +490,9 @@ describe("ModelSubFacade", () => {
   describe("getAvailableModelsExtended", () => {
     it("should delegate to modelResolver when available", async () => {
       const resolverModels = [buildModel({ id: "resolver-model" })];
-      mockModelResolver.getAvailableModelsExtended.mockResolvedValue(resolverModels);
+      mockModelResolver.getAvailableModelsExtended.mockResolvedValue(
+        resolverModels,
+      );
 
       const facade = createFacade({ withResolver: true });
       const result = await facade.getAvailableModelsExtended();
@@ -338,7 +513,9 @@ describe("ModelSubFacade", () => {
           isReasoning: null, // null — should fall back to aiChatService.isReasoningModel
         },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
       mockAiChatService.isReasoningModel.mockReturnValue(false);
 
       const facade = createFacade();
@@ -353,9 +530,19 @@ describe("ModelSubFacade", () => {
 
     it("should use model isReasoning flag when available", async () => {
       const dbModels = [
-        { modelId: "o3", id: "db-1", displayName: "O3", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: true },
+        {
+          modelId: "o3",
+          id: "db-1",
+          displayName: "O3",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: true,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.getAvailableModelsExtended();
@@ -367,9 +554,19 @@ describe("ModelSubFacade", () => {
 
     it("should mark models as unavailable when blocked", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
       mockModelFallbackService.isModelBlocked.mockReturnValue(true);
 
       const facade = createFacade({ withFallback: true });
@@ -380,9 +577,19 @@ describe("ModelSubFacade", () => {
 
     it("should mark models as unavailable when circuit breaker denies execution", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: "GPT-4o", provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: "GPT-4o",
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
       mockOrchestration.circuitBreaker.canExecute.mockReturnValue(false);
 
       const facade = createFacade({ withOrchestration: true });
@@ -393,9 +600,19 @@ describe("ModelSubFacade", () => {
 
     it("should use modelId as name when displayName is null", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", displayName: null, provider: "openai", maxTokens: 128000, isDefault: false, isReasoning: false },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          displayName: null,
+          provider: "openai",
+          maxTokens: 128000,
+          isDefault: false,
+          isReasoning: false,
+        },
       ];
-      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(dbModels);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.getAvailableModelsExtended();
@@ -410,7 +627,9 @@ describe("ModelSubFacade", () => {
 
   describe("getAvailableModels", () => {
     it("should delegate to modelResolver when available", async () => {
-      const resolverModels = [{ id: "m1", name: "Model 1", provider: "openai", dbId: "db-1" }];
+      const resolverModels = [
+        { id: "m1", name: "Model 1", provider: "openai", dbId: "db-1" },
+      ];
       mockModelResolver.getAvailableModels.mockResolvedValue(resolverModels);
 
       const facade = createFacade({ withResolver: true });
@@ -421,9 +640,18 @@ describe("ModelSubFacade", () => {
 
     it("should map frontend models to simplified format", async () => {
       const dbModels = [
-        { modelId: "gpt-4o", id: "db-1", name: "GPT-4o", provider: "openai", icon: null, isDefault: true },
+        {
+          modelId: "gpt-4o",
+          id: "db-1",
+          name: "GPT-4o",
+          provider: "openai",
+          icon: null,
+          isDefault: true,
+        },
       ];
-      mockModelConfigService.getEnabledModelsForFrontend.mockResolvedValue(dbModels);
+      mockModelConfigService.getEnabledModelsForFrontend.mockResolvedValue(
+        dbModels,
+      );
 
       const facade = createFacade();
       const result = await facade.getAvailableModels(AIModelType.CHAT);
@@ -441,9 +669,9 @@ describe("ModelSubFacade", () => {
       const facade = createFacade();
       await facade.getAvailableModels();
 
-      expect(mockModelConfigService.getEnabledModelsForFrontend).toHaveBeenCalledWith(
-        AIModelType.CHAT,
-      );
+      expect(
+        mockModelConfigService.getEnabledModelsForFrontend,
+      ).toHaveBeenCalledWith(AIModelType.CHAT);
     });
   });
 
@@ -453,7 +681,12 @@ describe("ModelSubFacade", () => {
 
   describe("getDefaultTextModel", () => {
     it("should delegate to modelResolver when available", async () => {
-      const resolverModel = { id: "gpt-4o", modelId: "gpt-4o", displayName: "GPT-4o", provider: "openai" };
+      const resolverModel = {
+        id: "gpt-4o",
+        modelId: "gpt-4o",
+        displayName: "GPT-4o",
+        provider: "openai",
+      };
       mockModelResolver.getDefaultTextModel.mockResolvedValue(resolverModel);
 
       const facade = createFacade({ withResolver: true });
@@ -486,7 +719,9 @@ describe("ModelSubFacade", () => {
 
       expect(result?.modelId).toBe("gpt-4o");
       expect(result?.provider).toBe("openai");
-      expect(mockAiChatService.getDefaultModelByType).toHaveBeenCalledWith(AIModelType.CHAT);
+      expect(mockAiChatService.getDefaultModelByType).toHaveBeenCalledWith(
+        AIModelType.CHAT,
+      );
     });
 
     it("should use modelId as id when id is not present", async () => {
@@ -511,7 +746,12 @@ describe("ModelSubFacade", () => {
 
   describe("getDefaultImageModel", () => {
     it("should delegate to modelResolver when available", async () => {
-      const resolverModel = { id: "dall-e-3", modelId: "dall-e-3", displayName: "DALL-E 3", provider: "openai" };
+      const resolverModel = {
+        id: "dall-e-3",
+        modelId: "dall-e-3",
+        displayName: "DALL-E 3",
+        provider: "openai",
+      };
       mockModelResolver.getDefaultImageModel.mockResolvedValue(resolverModel);
 
       const facade = createFacade({ withResolver: true });
@@ -555,7 +795,12 @@ describe("ModelSubFacade", () => {
 
   describe("getModelById", () => {
     it("should delegate to modelResolver when available", async () => {
-      const resolverModel = { id: "gpt-4o", modelId: "gpt-4o", displayName: "GPT-4o", provider: "openai" };
+      const resolverModel = {
+        id: "gpt-4o",
+        modelId: "gpt-4o",
+        displayName: "GPT-4o",
+        provider: "openai",
+      };
       mockModelResolver.getModelById.mockResolvedValue(resolverModel);
 
       const facade = createFacade({ withResolver: true });
@@ -729,14 +974,21 @@ describe("ModelSubFacade", () => {
 
   describe("getDefaultModelByType", () => {
     it("should delegate to modelResolver when available", async () => {
-      const resolverModel = { id: "gpt-4o", modelId: "gpt-4o", displayName: "GPT-4o", provider: "openai" };
+      const resolverModel = {
+        id: "gpt-4o",
+        modelId: "gpt-4o",
+        displayName: "GPT-4o",
+        provider: "openai",
+      };
       mockModelResolver.getDefaultModelByType.mockResolvedValue(resolverModel);
 
       const facade = createFacade({ withResolver: true });
       const result = await facade.getDefaultModelByType(AIModelType.CHAT);
 
       expect(result).toBe(resolverModel);
-      expect(mockModelResolver.getDefaultModelByType).toHaveBeenCalledWith(AIModelType.CHAT);
+      expect(mockModelResolver.getDefaultModelByType).toHaveBeenCalledWith(
+        AIModelType.CHAT,
+      );
     });
 
     it("should return null when no default model found", async () => {
@@ -759,7 +1011,9 @@ describe("ModelSubFacade", () => {
       mockAiChatService.getDefaultModelByType.mockResolvedValue(modelConfig);
 
       const facade = createFacade();
-      const result = await facade.getDefaultModelByType(AIModelType.IMAGE_GENERATION);
+      const result = await facade.getDefaultModelByType(
+        AIModelType.IMAGE_GENERATION,
+      );
 
       expect(result?.modelId).toBe("stable-diffusion");
       expect(mockAiChatService.getDefaultModelByType).toHaveBeenCalledWith(

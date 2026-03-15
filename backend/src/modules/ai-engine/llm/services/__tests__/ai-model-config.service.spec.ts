@@ -317,10 +317,12 @@ describe("AiModelConfigService", () => {
       expect(apiKey).toBe("secret-api-key-value");
     });
 
-    it("should trim API key value", async () => {
-      // Arrange
-      const model = mockChatModel;
-      model.apiKey = "  sk-test-key  ";
+    it("should trim API key value from secretKey", async () => {
+      // Arrange - model with secretKey that returns a value with whitespace
+      (secretsService.getValueInternal as jest.Mock).mockResolvedValue(
+        "  sk-test-key  ",
+      );
+      const model = { ...mockGeminiModel }; // has secretKey: "GEMINI_API_KEY"
 
       // Act
       const apiKey = await service.getApiKeyForModel(model as any);
@@ -329,7 +331,7 @@ describe("AiModelConfigService", () => {
       expect(apiKey).toBe("sk-test-key");
     });
 
-    it("should fallback to apiKey if secretKey not found", async () => {
+    it("should return null if secretKey not found (no apiKey fallback)", async () => {
       // Arrange
       const modelWithSecret = { ...mockGeminiModel, apiKey: "fallback-key" };
       (secretsService.getValueInternal as jest.Mock).mockResolvedValue(null);
@@ -337,8 +339,8 @@ describe("AiModelConfigService", () => {
       // Act
       const apiKey = await service.getApiKeyForModel(modelWithSecret as any);
 
-      // Assert
-      expect(apiKey).toBe("fallback-key");
+      // Assert - Priority 4 (plain apiKey) removed; returns null when secret not found
+      expect(apiKey).toBeNull();
     });
 
     it("should return null if no API key available", async () => {
@@ -736,7 +738,7 @@ describe("AiModelConfigService", () => {
       expect(userApiKeysService.getPersonalKey).not.toHaveBeenCalled();
     });
 
-    it("should warn and fallback when secretKey not found in secrets manager", async () => {
+    it("should return null when secretKey not found in secrets manager (no apiKey fallback)", async () => {
       (userApiKeysService.getDonatedKey as jest.Mock).mockResolvedValue(null);
       (secretsService.getValueInternal as jest.Mock).mockResolvedValue(null);
 
@@ -748,12 +750,11 @@ describe("AiModelConfigService", () => {
         modelWithSecretAndFallbackKey as any,
       );
 
-      // Falls back to apiKey after secretKey not found
-      expect(result?.apiKey).toBe("fallback-key-xyz");
-      expect(result?.source).toBe("system");
+      // Priority 4 (plain apiKey) removed: returns null when secretKey not found
+      expect(result).toBeNull();
     });
 
-    it("should handle donated key fetch error gracefully", async () => {
+    it("should handle donated key fetch error gracefully and return null when no secretKey", async () => {
       (userApiKeysService.getDonatedKey as jest.Mock).mockRejectedValue(
         new Error("Donated DB error"),
       );
@@ -761,9 +762,8 @@ describe("AiModelConfigService", () => {
       const model = { ...mockChatModel, secretKey: null };
       const result = await service.resolveApiKey(model as any);
 
-      // Falls through to apiKey
-      expect(result?.source).toBe("system");
-      expect(result?.apiKey).toBe("sk-test-key");
+      // Donated key failed, no secretKey configured → null (no plain apiKey fallback)
+      expect(result).toBeNull();
     });
   });
 

@@ -391,6 +391,8 @@ export function formatEvidenceForPrompt(
 ): string {
   return evidence
     .map((e, i) => {
+      // ★ v3.1: 使用全局 promptIndex（如果设置），否则回退到数组位置索引
+      const citationIdx = (e as { promptIndex?: number }).promptIndex || i + 1;
       // 优先使用 fullContent，否则降级到 snippet
       const content = e.fullContent || e.snippet || "暂无内容";
       const contentLabel =
@@ -400,12 +402,12 @@ export function formatEvidenceForPrompt(
       // 格式化可用图表列表
       const figuresSection = formatFiguresForEvidence(
         e.extractedFigures,
-        i + 1,
+        citationIdx,
       );
 
       return `
-### 证据 [${i + 1}]
-- 引用格式: [${i + 1}]
+### 证据 [${citationIdx}]
+- 引用格式: [${citationIdx}]
 - 标题: ${e.title}
 - 来源: ${e.domain || "未知"} (${e.sourceType || "未知类型"})
 - 发布日期: ${safeFormatDate(e.publishedAt)}${freshnessLabel ? ` (${freshnessLabel})` : ""}

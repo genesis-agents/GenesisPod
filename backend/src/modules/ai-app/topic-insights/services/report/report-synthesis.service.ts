@@ -542,25 +542,12 @@ export class ReportSynthesisService {
       {
         preface: structuredReport?.preface || "",
         executiveSummary: synthesisResult.executiveSummary || "",
-        // ★ v3.0: 从 conclusion 中提取跨维度分析等内容（已在 normalizeReportResponse 中合并）
-        crossDimensionAnalysis: this.extractSectionFromConclusion(
-          structuredReport?.conclusion || "",
-          topic.language === "en"
-            ? "Cross-Dimension Analysis"
-            : "跨维度关联分析",
-        ),
-        riskAssessment: this.extractSectionFromConclusion(
-          structuredReport?.conclusion || "",
-          topic.language === "en" ? "Risk Assessment" : "风险评估",
-        ),
-        strategicRecommendations: this.extractSectionFromConclusion(
-          structuredReport?.conclusion || "",
-          topic.language === "en" ? "Strategic Recommendations" : "战略建议",
-        ),
-        conclusion: this.extractFinalConclusion(
-          structuredReport?.conclusion || "",
-          topic.language || "zh",
-        ),
+        // ★ v3.1: 直接使用独立字段，不再从 conclusion 中 extract
+        crossDimensionAnalysis: structuredReport?.crossDimensionAnalysis || "",
+        riskAssessment: structuredReport?.riskAssessment || "",
+        strategicRecommendations:
+          structuredReport?.strategicRecommendations || "",
+        conclusion: structuredReport?.conclusion || "",
       },
     );
 
@@ -650,9 +637,16 @@ export class ReportSynthesisService {
     // ★ Citation index remap (populated by reference cleanup pipeline)
     let citationIndexMapping = new Map<number, number>();
     if (allEvidences.length > 0) {
-      // ★ Reference cleanup pipeline: filter junk → decode entities → upgrade HTTP → dedup URLs
+      // ★ v3.1: Only include references that are actually cited in the report body
+      const citedIndices = new Set(
+        (fullReportFromDimensions.match(/\[(\d+)\]/g) || []).map((m) =>
+          parseInt(m.replace(/[[\]]/g, ""), 10),
+        ),
+      );
+
+      // ★ Reference cleanup pipeline: filter cited → junk → decode → upgrade → dedup
       let refEntries = allEvidences
-        .filter((e) => e.citationIndex)
+        .filter((e) => e.citationIndex && citedIndices.has(e.citationIndex))
         .sort((a, b) => (a.citationIndex || 0) - (b.citationIndex || 0))
         .map((e) => ({
           index: e.citationIndex || 0,
@@ -661,6 +655,10 @@ export class ReportSynthesisService {
           domain: e.domain,
           accessedAt: e.accessedAt,
         }));
+
+      this.logger.log(
+        `[synthesizeReport] References: ${allEvidences.length} total evidences → ${citedIndices.size} cited indices → ${refEntries.length} matched references`,
+      );
 
       const beforeCount = refEntries.length;
       refEntries = filterJunkReferences(refEntries);
@@ -1378,67 +1376,38 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    */
   private normalizeReportResponse(
     parsed: AIReportSynthesisResponse,
-    language: string = "zh",
+    _language: string = "zh",
   ): ComprehensiveReport {
     // ★ 处理 executiveSummary（支持对象或字符串格式）
     const executiveSummary = this.normalizeExecutiveSummary(
       parsed.executiveSummary,
     );
 
-    // ★ v3.0: 处理跨维度分析、风险评估、战略建议
-    // 这些内容将被添加到 conclusion，按正确顺序 append（跨维度→风险→战略→原结语）
-    const originalConclusion = parsed.conclusion || "";
-    const conclusionParts: string[] = [];
-
-    // 添加跨维度分析内容（类型安全访问）
+    // ★ v3.1: 跨维度分析、风险评估、战略建议作为独立字段存储
+    // 不再拼入 conclusion（之前的 merge→extract→reassemble 模式导致重复）
     const crossDimensionText = this.extractFullTextWithFallback(
       parsed.crossDimensionAnalysis,
       "crossDimensionAnalysis",
     );
-    const isEn = language === "en";
-    const sectionLabels = {
-      crossDimension: isEn ? "Cross-Dimension Analysis" : "跨维度关联分析",
-      riskAssessment: isEn ? "Risk Assessment" : "风险评估",
-      strategicRec: isEn ? "Strategic Recommendations" : "战略建议",
-    };
-
-    if (crossDimensionText) {
-      conclusionParts.push(
-        `## ${sectionLabels.crossDimension}\n\n${crossDimensionText}`,
-      );
-    }
-
-    // 添加风险评估内容
     const riskText = this.extractFullTextWithFallback(
       parsed.riskAssessment,
       "riskAssessment",
     );
-    if (riskText) {
-      conclusionParts.push(`## ${sectionLabels.riskAssessment}\n\n${riskText}`);
-    }
-
-    // 添加战略建议内容
     const stratText = this.extractFullTextWithFallback(
       parsed.strategicRecommendations,
       "strategicRecommendations",
     );
-    if (stratText) {
-      conclusionParts.push(`## ${sectionLabels.strategicRec}\n\n${stratText}`);
-    }
-
-    // 原始结语放在最后
-    if (originalConclusion) {
-      conclusionParts.push(originalConclusion);
-    }
-
-    const conclusion = conclusionParts.join("\n\n");
+    const conclusion = parsed.conclusion || "";
 
     return {
       preface: parsed.preface || "",
       tableOfContents: parsed.tableOfContents || "",
       executiveSummary,
-      sections: parsed.sections || [], // ★ v3.0: 可能为空，由 buildFullReportFromDimensions 填充
+      sections: parsed.sections || [],
       conclusion,
+      crossDimensionAnalysis: crossDimensionText || undefined,
+      riskAssessment: riskText || undefined,
+      strategicRecommendations: stratText || undefined,
       appendices: parsed.appendices || [],
       references: parsed.references || [],
       metadata: {
@@ -1534,149 +1503,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     }
 
     return "";
-  }
-
-  /**
-   * 从合并的 conclusion 中提取特定章节
-   * ★ v3.0: normalizeReportResponse 将跨维度分析等合并到 conclusion 中
-   */
-  private extractSectionFromConclusion(
-    conclusion: string,
-    sectionTitle: string,
-  ): string {
-    if (!conclusion) return "";
-
-    // 尝试多种匹配模式（从严格到宽松）
-    const patterns = [
-      // ## 标题\n\n内容
-      new RegExp(`## ${sectionTitle}\\n{1,3}([\\s\\S]*?)(?=\\n## |$)`, "i"),
-      // # 标题（单#）
-      new RegExp(`# ${sectionTitle}\\n{1,3}([\\s\\S]*?)(?=\\n#+ |$)`, "i"),
-      // 纯标题行（不带#）
-      new RegExp(
-        `(?:^|\\n)${sectionTitle}\\n{1,3}([\\s\\S]*?)(?=\\n## |\\n# |$)`,
-        "i",
-      ),
-    ];
-
-    for (const pattern of patterns) {
-      const match = conclusion.match(pattern);
-      if (match && match[1]?.trim()) {
-        return match[1].trim();
-      }
-    }
-    return "";
-  }
-
-  /**
-   * 从合并的 conclusion 中提取最终结语
-   * ★ v3.0: 移除已提取的跨维度分析等章节，保留原始结语
-   */
-  private extractFinalConclusion(
-    conclusion: string,
-    language: string = "zh",
-  ): string {
-    if (!conclusion) return "";
-
-    const isEn = language === "en";
-    const sectionsToRemove = isEn
-      ? [
-          "Cross-Dimension Analysis",
-          "Cross-Dimensional Analysis",
-          "Risk Assessment",
-          "Strategic Recommendations",
-          "Risk Matrix",
-        ]
-      : [
-          "跨维度关联分析",
-          "跨维度分析",
-          "风险评估",
-          "风险矩阵",
-          "战略建议",
-          "企业决策者",
-          "投资者",
-          "政策研究者",
-        ];
-
-    let result = conclusion;
-
-    // 移除已作为独立 ## 渲染的章节（避免结语中重复）
-    // Strategy: normalize spaces in heading titles for robust matching
-    for (const section of sectionsToRemove) {
-      // Escape regex special chars, then allow flexible whitespace between chars
-      const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      // Allow optional spaces between CJK characters (LLM may insert/omit spaces)
-      const flexiblePattern = escaped.replace(/\s+/g, "\\s*");
-      const patterns = [
-        // ## 标题 + 内容（到下一个 ## 或文末）
-        new RegExp(
-          `#{1,3}\\s*${flexiblePattern}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
-          "gi",
-        ),
-        // 纯标题行（不带#）+ 内容
-        new RegExp(
-          `(?:^|\\n)${flexiblePattern}\\s*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
-          "gi",
-        ),
-      ];
-      for (const pattern of patterns) {
-        result = result.replace(pattern, "\n");
-      }
-    }
-
-    // Additional pass: remove ### sub-sections that clearly belong to supplementary chapters
-    // (e.g. "### 关键因果链", "### 维度成熟度对比", "### 反馈回路", "### 系统效应",
-    //  "### 风险矩阵", "### 企业决策者", "### 投资者/分析师", "### 技术从业者")
-    const supplementarySubSections = isEn
-      ? [
-          "Key Causal Chains",
-          "Key Linkage Points",
-          "Dimension Maturity",
-          "Dimension Comparison",
-          "Feedback Loops",
-          "System Effects",
-          "Systemic Effects",
-          "Risk Matrix",
-        ]
-      : [
-          "关键因果链",
-          "关键联动点",
-          "维度成熟度对比",
-          "维度对比",
-          "反馈回路",
-          "系统效应",
-          "系统性效应",
-          "风险矩阵",
-          "企业决策者",
-          "投资者",
-          "政策研究者",
-          "技术从业者",
-        ];
-    for (const sub of supplementarySubSections) {
-      const subEscaped = sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      result = result.replace(
-        new RegExp(
-          `#{1,3}\\s*${subEscaped}[^\\n]*\\n[\\s\\S]*?(?=\\n#{1,3}\\s|$)`,
-          "gi",
-        ),
-        "\n",
-      );
-    }
-
-    // Safety: if section removal stripped everything, return original (minus section headers only)
-    if (!result.trim()) {
-      return conclusion
-        .replace(/^#{1,3}\s+(结论|结语|Conclusion)\s*\n+/gim, "")
-        .trim();
-    }
-
-    // 剥离结论/结语标题（仅标题，保留内容；buildFullReportFromDimensions 会添加自己的 ## 结语）
-    result = result.replace(/^#{1,3}\s+(结论|结语|Conclusion)\s*\n+/gim, "");
-
-    // 清理多余空行
-    result = result.replace(/\n{3,}/g, "\n\n");
-
-    return result.trim();
   }
 
   /**

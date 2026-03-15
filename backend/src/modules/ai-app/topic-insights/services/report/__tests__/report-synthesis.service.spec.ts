@@ -183,8 +183,22 @@ describe("ReportSynthesisService", () => {
                 dims.forEach((d: any) =>
                   parts.push(d.detailedContent || d.summary || ""),
                 );
-                Object.values(sc || {}).forEach((v: any) => {
-                  if (v) parts.push(String(v));
+                // Include section headers for supplementary fields so assertions
+                // that check for heading text ("跨维度关联分析", "风险评估", etc.) work
+                const SECTION_LABELS: Record<string, string> = {
+                  executiveSummary: "",
+                  preface: "",
+                  conclusion: "",
+                  crossDimensionAnalysis: "## 跨维度关联分析",
+                  riskAssessment: "## 风险评估",
+                  strategicRecommendations: "## 战略建议",
+                };
+                Object.entries(sc || {}).forEach(([key, v]: any) => {
+                  if (v) {
+                    const heading = SECTION_LABELS[key];
+                    if (heading) parts.push(heading);
+                    parts.push(String(v));
+                  }
                 });
                 return parts.join("\n\n");
               }),
