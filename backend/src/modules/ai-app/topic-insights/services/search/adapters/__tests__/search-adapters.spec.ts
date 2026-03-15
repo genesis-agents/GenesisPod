@@ -14,6 +14,7 @@
 // ---------------------------------------------------------------------------
 jest.mock("@prisma/client", () => ({
   AIModelType: { CHAT: "CHAT" },
+  PrismaClient: class {},
 }));
 
 jest.mock("@/modules/ai-kernel/facade", () => ({
@@ -42,6 +43,7 @@ import { SocialSearchAdapter } from "../social-search.adapter";
 import { PolicySearchAdapter } from "../policy-search.adapter";
 import { LocalSearchAdapter } from "../local-search.adapter";
 import { AcademicSearchAdapter } from "../academic-search.adapter";
+import { IndustryReportSearchAdapter } from "../industry-report-search.adapter";
 import { SearchExecutorService } from "../../search-executor.service";
 import { GlobalSourceThrottleService } from "../../global-source-throttle.service";
 
@@ -1846,6 +1848,10 @@ describe("SearchExecutorService", () => {
       DataSourceType.WEATHER_API,
     );
     const localAdapter = buildMockAdapter("local-search", DataSourceType.LOCAL);
+    const industryReportAdapter = buildMockAdapter(
+      "industry-report",
+      DataSourceType.INDUSTRY_REPORT,
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1866,6 +1872,10 @@ describe("SearchExecutorService", () => {
           useValue: weatherAdapter,
         },
         { provide: LocalSearchAdapter, useValue: localAdapter },
+        {
+          provide: IndustryReportSearchAdapter,
+          useValue: industryReportAdapter,
+        },
       ],
     })
       .overrideProvider(SearchExecutorService)
@@ -1882,6 +1892,7 @@ describe("SearchExecutorService", () => {
             financeAdapter as any,
             weatherAdapter as any,
             localAdapter as any,
+            industryReportAdapter as any,
           ),
       })
       .compile();
