@@ -1135,12 +1135,25 @@ export class DimensionMissionService {
       });
 
       // ★ Calculate paragraph offset per section so figure positions become global
-      // Each section is joined as "### title\n\ncontent", so count paragraphs
-      // (blocks separated by blank lines) to compute cumulative offset.
-      const sectionParagraphCounts = sectionResults.map((r) => {
-        const text = `### ${r.title}\n\n${r.content}`;
-        return text.split(/\n\n+/).filter((p) => p.trim().length > 0).length;
-      });
+      // Uses the same paragraph boundary definition as injectChartsByPosition:
+      // a non-empty line followed by a blank line (or end of text), excluding
+      // code fences and table separator rows.
+      const countParagraphBoundaries = (text: string): number => {
+        const lines = text.split("\n");
+        let count = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const trimmed = lines[i].trim();
+          if (!trimmed) continue;
+          if (trimmed.startsWith("```")) continue;
+          if (/^[\|\s\-:]+$/.test(trimmed) && trimmed.includes("-")) continue;
+          const nextLine = lines[i + 1];
+          if (nextLine === undefined || nextLine.trim() === "") count++;
+        }
+        return count;
+      };
+      const sectionParagraphCounts = sectionResults.map((r) =>
+        countParagraphBoundaries(`### ${r.title}\n\n${r.content}`),
+      );
 
       let paragraphOffset = 0;
       const allFigureReferencesRaw = sectionResults.flatMap((r, sectionIdx) => {
