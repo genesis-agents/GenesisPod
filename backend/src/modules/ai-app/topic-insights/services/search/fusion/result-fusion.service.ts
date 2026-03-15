@@ -25,6 +25,7 @@ const SOURCE_TYPE_SCORES: Partial<Record<DataSourceType, number>> = {
   [DataSourceType.OPENALEX]: 0.9,
   [DataSourceType.PUBMED]: 0.9,
   [DataSourceType.SEMANTIC_SCHOLAR]: 0.85,
+  [DataSourceType.INDUSTRY_REPORT]: 0.85,
   [DataSourceType.GITHUB]: 0.7,
   [DataSourceType.WEB]: 0.6,
   [DataSourceType.HACKERNEWS]: 0.5,

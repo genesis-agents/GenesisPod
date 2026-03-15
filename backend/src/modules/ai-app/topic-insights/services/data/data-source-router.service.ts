@@ -197,6 +197,7 @@ export class DataSourceRouterService {
             [DataSourceType.OPENALEX]: 0,
             [DataSourceType.FINANCE_API]: 0,
             [DataSourceType.WEATHER_API]: 0,
+            [DataSourceType.INDUSTRY_REPORT]: 0,
           },
         },
       };
@@ -2463,6 +2464,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       [DataSourceType.OPENALEX]: 100,
       [DataSourceType.FINANCE_API]: 85,
       [DataSourceType.WEATHER_API]: 75,
+      [DataSourceType.INDUSTRY_REPORT]: 88,
     };
 
     return scores[sourceType] || 50;

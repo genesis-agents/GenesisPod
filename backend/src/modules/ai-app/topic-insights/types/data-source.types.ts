@@ -26,6 +26,8 @@ export enum DataSourceType {
   OPENALEX = "openalex", // OpenAlex 开放学术数据库 (2.5亿+作品)
   FINANCE_API = "finance-api", // 金融数据 API (Alpha Vantage)
   WEATHER_API = "weather-api", // 天气数据 API (Open-Meteo)
+  // ★ 行业报告数据源
+  INDUSTRY_REPORT = "industry-report", // 行业报告 (SemiAnalysis, McKinsey, a16z 等)
 }
 
 /**

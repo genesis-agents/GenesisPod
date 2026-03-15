@@ -28,6 +28,7 @@ export const DATA_SOURCE_TO_TOOL_ID: Partial<Record<DataSourceType, string>> = {
   [DataSourceType.OPENALEX]: "openalex-search",
   [DataSourceType.FINANCE_API]: "finance-api",
   [DataSourceType.WEATHER_API]: "weather-api",
+  [DataSourceType.INDUSTRY_REPORT]: "industry-report",
   // RSS, LOCAL 暂未映射工具
 };
 
@@ -64,6 +65,9 @@ export const TOOL_ID_TO_DATA_SOURCE: Record<string, DataSourceType> = {
   finance: DataSourceType.FINANCE_API,
   "weather-api": DataSourceType.WEATHER_API,
   weather: DataSourceType.WEATHER_API,
+  "industry-report": DataSourceType.INDUSTRY_REPORT,
+  "industry-reports": DataSourceType.INDUSTRY_REPORT,
+  industryreport: DataSourceType.INDUSTRY_REPORT,
   web: DataSourceType.WEB,
   academic: DataSourceType.ACADEMIC,
   github: DataSourceType.GITHUB,

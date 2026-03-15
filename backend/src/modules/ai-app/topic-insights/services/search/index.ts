@@ -27,6 +27,7 @@ export {
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
+  IndustryReportSearchAdapter,
   SearchAdapterBase,
 } from "./adapters";
 

@@ -119,4 +119,5 @@ export {
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
+  IndustryReportSearchAdapter,
 } from "./search";

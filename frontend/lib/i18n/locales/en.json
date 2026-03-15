@@ -3709,7 +3709,8 @@
         "mcp": "MCP Servers",
         "capabilities": "AI Capabilities",
         "otherTools": "Other Tools",
-        "aiTools": "AI Tools"
+        "aiTools": "AI Tools",
+        "reportSources": "Industry Report Sources"
       },
       "capability": {
         "ready": "Ready",

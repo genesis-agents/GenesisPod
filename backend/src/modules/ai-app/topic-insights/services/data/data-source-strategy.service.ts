@@ -295,6 +295,7 @@ export class DataSourceStrategyService {
       [DataSourceType.OPENALEX]: 100,
       [DataSourceType.FINANCE_API]: 85,
       [DataSourceType.WEATHER_API]: 75,
+      [DataSourceType.INDUSTRY_REPORT]: 88,
     };
 
     return scores[sourceType] || 50;

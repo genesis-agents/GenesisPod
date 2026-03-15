@@ -12,12 +12,14 @@ import {
   RefreshCw,
   Zap,
   Server,
+  BookOpen,
 } from 'lucide-react';
 
 import type { BuiltinTool, ExternalTool } from './tools/types';
 import MCPMarketplaceTab, { MCPServer } from './tools/MCPMarketplaceTab';
 import ConfigureModal from './tools/ConfigureModal';
 import CapabilitiesTab from './tools/CapabilitiesTab';
+import IndustryReportSourcesTab from './tools/IndustryReportSourcesTab';
 import {
   CAPABILITY_DEFINITIONS,
   getIndependentProviderIds,
@@ -232,7 +234,7 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
   },
 ];
 
-type TabType = 'ai-tools' | 'mcp';
+type TabType = 'ai-tools' | 'mcp' | 'report-sources';
 
 export default function ToolsManagement() {
   const { t } = useTranslation();
@@ -1094,6 +1096,18 @@ export default function ToolsManagement() {
               {stats.mcp.total}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('report-sources')}
+            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'report-sources'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <BookOpen className="h-5 w-5" />
+            {t('admin.tools.tabs.reportSources')}
+          </button>
         </nav>
       </div>
 
@@ -1165,6 +1179,10 @@ export default function ToolsManagement() {
           deletingServer={deletingServer}
           loading={loading}
         />
+      )}
+
+      {activeTab === 'report-sources' && (
+        <IndustryReportSourcesTab loading={loading} />
       )}
 
       {/* Configure Modal for External Tools */}

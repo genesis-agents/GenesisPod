@@ -127,6 +127,7 @@ import {
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
+  IndustryReportSearchAdapter,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -232,6 +233,7 @@ const services = [
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
+  IndustryReportSearchAdapter,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];

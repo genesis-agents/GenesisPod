@@ -27,6 +27,7 @@ import {
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
+  IndustryReportSearchAdapter,
 } from "./adapters";
 
 @Injectable()
@@ -45,6 +46,7 @@ export class SearchExecutorService {
     financeAdapter: FinanceSearchAdapter,
     weatherAdapter: WeatherSearchAdapter,
     localAdapter: LocalSearchAdapter,
+    industryReportAdapter: IndustryReportSearchAdapter,
   ) {
     this.adapterMap = new Map<DataSourceType, ISearchAdapter>();
 
@@ -58,6 +60,7 @@ export class SearchExecutorService {
       financeAdapter,
       weatherAdapter,
       localAdapter,
+      industryReportAdapter,
     ];
 
     for (const adapter of allAdapters) {

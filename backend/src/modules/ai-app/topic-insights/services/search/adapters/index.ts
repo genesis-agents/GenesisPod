@@ -7,4 +7,5 @@ export { PolicySearchAdapter } from "./policy-search.adapter";
 export { FinanceSearchAdapter } from "./finance-search.adapter";
 export { WeatherSearchAdapter } from "./weather-search.adapter";
 export { LocalSearchAdapter } from "./local-search.adapter";
+export { IndustryReportSearchAdapter } from "./industry-report-search.adapter";
 export { SearchAdapterBase } from "./search-adapter.base";

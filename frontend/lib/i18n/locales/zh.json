@@ -3709,7 +3709,8 @@
         "mcp": "MCP 服务器",
         "capabilities": "AI 能力",
         "otherTools": "其他工具",
-        "aiTools": "AI 工具"
+        "aiTools": "AI 工具",
+        "reportSources": "行业报告来源"
       },
       "capability": {
         "ready": "可用",
