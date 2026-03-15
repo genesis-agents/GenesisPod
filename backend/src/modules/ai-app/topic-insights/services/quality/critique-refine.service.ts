@@ -10,8 +10,6 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { PrismaService } from "@/common/prisma/prisma.service";
-import type { Prisma } from "@prisma/client";
 import {
   CritiqueCategory,
   CritiqueSeverity,
@@ -104,10 +102,7 @@ const REFINE_SCHEMA = {
 export class CritiqueRefineService {
   private readonly logger = new Logger(CritiqueRefineService.name);
 
-  constructor(
-    private readonly chatFacade: ChatFacade,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly chatFacade: ChatFacade) {}
 
   /**
    * 执行完整的批评-改进循环
@@ -221,39 +216,6 @@ export class CritiqueRefineService {
     );
 
     return result;
-  }
-
-  async runCritiqueRefineAndPersist(
-    request: CritiqueRefineRequest,
-    persistContext: { dimensionId: string; reportId: string },
-  ): Promise<{ revised: boolean; totalChanges: number; finalContent: string }> {
-    const result = await this.runCritiqueRefineLoop(request);
-
-    if (result.finalContent !== request.content) {
-      const existingAnalysis = await this.prisma.dimensionAnalysis.findFirst({
-        where: {
-          dimensionId: persistContext.dimensionId,
-          reportId: persistContext.reportId,
-        },
-        orderBy: { createdAt: "desc" },
-      });
-      if (existingAnalysis) {
-        const dataPoints =
-          (existingAnalysis.dataPoints as Record<string, unknown>) || {};
-        dataPoints.detailedContent = result.finalContent;
-        await this.prisma.dimensionAnalysis.update({
-          where: { id: existingAnalysis.id },
-          data: { dataPoints: dataPoints as Prisma.InputJsonValue },
-        });
-      }
-      return {
-        revised: true,
-        totalChanges: result.totalChanges,
-        finalContent: result.finalContent,
-      };
-    }
-
-    return { revised: false, totalChanges: 0, finalContent: request.content };
   }
 
   /**

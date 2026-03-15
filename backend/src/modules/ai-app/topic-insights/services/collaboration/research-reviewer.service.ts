@@ -245,45 +245,6 @@ export class ResearchReviewerService {
     }
   }
 
-  async reviewAllDimensions(
-    topic: ResearchTopic,
-    dimensions: TopicDimension[],
-    analysisResults: PromiseSettledResult<{
-      dimensionId: string;
-      analysisResult: DimensionAnalysisResult;
-      evidenceIds: string[];
-    }>[],
-  ): Promise<OverallReviewResult> {
-    const successfulAnalyses: Array<{
-      dimension: TopicDimension;
-      analysis: DimensionAnalysisResult;
-      evidenceCount: number;
-    }> = [];
-
-    for (const result of analysisResults) {
-      if (result.status === "fulfilled") {
-        const dimension = dimensions.find(
-          (d) => d.id === result.value.dimensionId,
-        );
-        if (dimension) {
-          successfulAnalyses.push({
-            dimension,
-            analysis: result.value.analysisResult,
-            evidenceCount: result.value.evidenceIds.length,
-          });
-        }
-      }
-    }
-
-    const dimensionReviews = await Promise.all(
-      successfulAnalyses.map(async ({ dimension, analysis, evidenceCount }) =>
-        this.reviewDimension(topic, dimension, analysis, evidenceCount),
-      ),
-    );
-
-    return this.reviewOverall(topic, dimensions, dimensionReviews);
-  }
-
   /**
    * 审核整体研究质量
    */
