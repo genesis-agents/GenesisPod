@@ -1151,6 +1151,14 @@ export function stripInternalFigureNotation(content: string): string {
       // Inline "分配图表" in caption/alt text
       .replace(/(?:来源|Source)\s*[：:]\s*分配图表/g, "")
 
+      // ── Raw figure/chart JSON arrays leaked into prose ──
+      // LLM outputs complete JSON arrays like:
+      //   [ { "figureId": "FIG-5", "position": "afterparagraph_1", "caption": "...", "url": "..." } ]
+      //   [ { "figureId": "FIG-10", "type": "line", "title": "...", "data": {...} } ]
+      // These should have been consumed by the chart resolver but may leak through.
+      // Match: line starting with [ { "figureId" ... ending with } ]
+      .replace(/\[\s*\{\s*"figureId"\s*:\s*"FIG-\d+"[\s\S]*?\}\s*\]/g, "")
+
       // ── "已分配图片/已分配的" — internal allocation language in prose ──
       // Only match when followed by figure/chart context words to avoid false positives
       // e.g. "已分配图片所示的..." or "已分配的架构图显示"

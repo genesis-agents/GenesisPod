@@ -481,12 +481,12 @@ export function TopicTeamPanel({
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
       <div className="border-b border-gray-100 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <h3 className="truncate text-sm font-semibold text-gray-800">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="min-w-0 truncate text-sm font-semibold text-gray-800">
             {topicName}
           </h3>
           <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
               currentPhase === 'completed'
                 ? 'bg-green-100 text-green-700'
                 : currentPhase === 'failed'
