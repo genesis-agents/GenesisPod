@@ -717,6 +717,15 @@ export class ReportAssemblerService {
       (_match, _full, inner: string) => `### ${inner.trim()}`,
     );
 
+    // ★ v3.2: Fix double ### headings (### 2.1. ### Title → ### 2.1. Title)
+    content = content.replace(/^(###\s+\d+\.\d+\.?\s+)###\s+/gm, "$1");
+
+    // ★ v3.2: Remove empty citations []
+    content = content.replace(/\[\s*\]/g, "");
+
+    // ★ v3.2: Compress triple+ blank lines
+    content = content.replace(/\n{3,}/g, "\n\n");
+
     // Wrap pseudocode blocks in fenced code blocks
     content = wrapPseudoCodeBlocks(content);
 

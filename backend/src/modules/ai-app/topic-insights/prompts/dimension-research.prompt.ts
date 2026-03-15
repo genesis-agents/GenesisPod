@@ -664,7 +664,8 @@ export const SECTION_WRITING_USER_PROMPT_TEMPLATE = `请撰写以下研究报告
 - **目标字数**: {{targetWords}} 字
 - **最少引用数**: {{minReferences}} 条
 
-## 必须覆盖的要点
+## 分析方向（必须全部融入正文段落，严禁以列表形式输出）
+以下方向必须在正文的段落论述中自然覆盖，严禁在章节开头或任何位置以 bullet list 形式罗列这些方向。每个方向应作为段落中的论点展开，配合证据分析：
 {{keyPoints}}
 
 ## Leader 分析指导
@@ -684,9 +685,9 @@ export const SECTION_WRITING_USER_PROMPT_TEMPLATE = `请撰写以下研究报告
 ## 任务要求
 
 1. 请撰写约 {{targetWords}} 字的章节内容
-2. 必须覆盖所有列出的要点
+2. 所有分析方向必须融入段落论述中，**严禁在开头以 bullet list 罗列要点**
 3. **严格按照 Leader 的分析指导进行分析**
-4. 至少引用 {{minReferences}} 条证据
+4. 引用证据时**每句话最多标注 2 个引用**（如 [1][2]），禁止堆积 3 个以上
 5. **使用数字引用格式 [1], [2], [3]**，数字对应证据列表中的序号
 6. 如果有前置章节，保持与之的逻辑连贯性
 7. 输出 Markdown 内容（如有图表数据，在末尾附加 ---CHARTS--- 分隔的 JSON）

@@ -231,7 +231,9 @@ export class ReportQualityGateService {
     const beforeImages = fixedContent;
     fixedContent = fixedContent
       .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
-      .replace(/!\[([^\]]*)\]\[[^\]]+\]/g, "");
+      .replace(/!\[([^\]]*)\]\[[^\]]+\]/g, "")
+      // LLM 有时输出 !(url) 格式（缺少 alt 文本括号）
+      .replace(/^!\(https?:\/\/[^)]+\)\s*$/gm, "");
     if (fixedContent !== beforeImages) {
       violations.push({
         rule: "inline_images",
@@ -289,6 +291,46 @@ export class ReportQualityGateService {
               `问题不只是数字不匹配 — 多出的条目可能与声明的主题（如"改进"）不在同一维度。` +
               `请重写该段落：要么调整声明与列表严格对应，要么将不同维度的内容拆分为独立段落，不要混在同一个列表中。`,
           );
+        }
+      }
+    }
+
+    // 4.93 ★ 引用堆积自动拆分（单句 3+ 引用 → 保留前 2 个）
+    const beforeCitationFix = fixedContent;
+    fixedContent = fixedContent.replace(/(\[\d+\]\[\d+\])(\[\d+\])+/g, "$1");
+    if (fixedContent !== beforeCitationFix) {
+      violations.push({
+        rule: "citation_stacking",
+        severity: "warning",
+        message: "检测到引用堆积（单句 3+ 引用），已保留前 2 个",
+      });
+      wasAutoFixed = true;
+    }
+
+    // 4.94 ★ 裸 keyPoints 检测（标题后紧跟 3+ bullets → 触发 rewrite）
+    {
+      const cLines = fixedContent.split("\n");
+      for (let i = 0; i < cLines.length; i++) {
+        if (/^### /.test(cLines[i].trim())) {
+          let bullets = 0;
+          for (let j = i + 1; j < cLines.length && j < i + 10; j++) {
+            const t = cLines[j].trim();
+            if (t === "") continue;
+            if (/^[-*•]\s/.test(t)) bullets++;
+            else break;
+          }
+          if (bullets >= 3) {
+            violations.push({
+              rule: "bare_keypoints",
+              severity: "warning",
+              message: `标题"${cLines[i].trim().substring(0, 40)}"后直接列出 ${bullets} 条要点`,
+            });
+            rewriteGuidance.push(
+              `内容结构问题：标题"${cLines[i].trim().substring(4, 40)}"后直接列出了 ${bullets} 条 bullet point 要点。` +
+                `这些要点必须融入段落论述中，不能以列表形式开头。请将 bullet list 改写为连贯的分析段落。`,
+            );
+            break; // 只报告第一个（避免 rewriteGuidance 过长）
+          }
         }
       }
     }

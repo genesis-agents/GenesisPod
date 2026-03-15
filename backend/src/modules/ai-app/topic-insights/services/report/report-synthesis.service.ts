@@ -677,7 +677,12 @@ export class ReportSynthesisService {
 
       const refLines = refEntries.map((e) => {
         // Escape brackets in title to avoid breaking markdown link syntax
-        const safeTitle = e.title.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+        // Truncate overly long titles (some evidence has full abstracts as title)
+        const truncTitle =
+          e.title.length > 150 ? e.title.substring(0, 147) + "..." : e.title;
+        const safeTitle = truncTitle
+          .replace(/\[/g, "\\[")
+          .replace(/\]/g, "\\]");
         return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}`;
       });
       if (refLines.length > 0) {

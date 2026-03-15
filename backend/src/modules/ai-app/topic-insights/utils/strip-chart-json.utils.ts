@@ -90,47 +90,99 @@ export function stripChartJsonFromContent(content: string): string {
     result = result.substring(0, stripStart) + result.substring(stripEnd);
   }
 
-  // Fallback: bare JSON block with known chart/figure field names at end of content
-  const bareJsonPattern =
-    /\n\s*\{\s*"(?:generatedCharts|figureReferences|figures|data|FIG-\d+)"[\s\S]*$/;
-  const m2 = result.match(bareJsonPattern);
-  if (m2?.index !== undefined) {
-    const before = result.substring(0, m2.index).trim();
-    if (before.length > 100) {
-      result = before;
-    }
-  }
-
-  // ★ Strip FIG-N as JSON key inline: "FIG-6": { "after_paragraph": 2, ... }
-  // This happens when LLM uses figure ID as JSON key instead of array format
-  result = result.replace(/\n?\s*"FIG-\d+":\s*\{[^}]*\}\s*\}?\s*/g, "");
+  // ★ v3.2: 通用 JSON 块清理 — markdown 正文中不应出现任何 JSON
+  // 不再按字段名逐个匹配，而是检测所有 "key": value 模式的 JSON 块
+  result = stripAllJsonBlocks(result);
 
   // ★ 移除 AI 错误输出的 "图表数据" 章节标题
-  // 匹配模式：前后可能有分隔线(---) + "图表数据" 标题（可能是 ###、##、或纯文本）
-  // 示例: ---\n### 图表数据\n--- 或 \n图表数据\n
   result = result.replace(
     /\n*-{3,}\s*\n*#{0,3}\s*图表数据\s*\n*-{3,}\s*\n*/g,
     "\n\n",
   );
-  // 单独的 "图表数据" 标题行（无分隔线）
   result = result.replace(/\n#{1,3}\s*图表数据\s*\n/g, "\n");
 
-  // ★ Strip inline JSON figure reference arrays/objects leaked mid-content
-  // Pattern: { "type": "image" or { "type": "table" followed by JSON properties
-  // These are raw figureReferences objects that LLM failed to separate
-  result = result.replace(
-    /\{[^{}]*"type"\s*:\s*"(?:image|table)"[^}]*\}(?:\s*,\s*\{[^{}]*"type"\s*:\s*"(?:image|table)"[^}]*\})*/g,
-    "",
-  );
-
-  // ★ Strip leaked chart config JSON (Chart.js options)
-  // Pattern: "y1": { "type": "linear", ... } — chart axis configuration
-  result = result.replace(
-    /"\w+"\s*:\s*\{\s*"type"\s*:\s*"(?:linear|logarithmic|category|time)"[^}]*\}/g,
-    "",
-  );
-
   return result.trim();
+}
+
+/**
+ * 通用 JSON 块清理 — 从 markdown 正文中移除所有泄漏的 JSON 内容
+ *
+ * Markdown 正文中不应出现 JSON。检测逻辑：
+ * 1. 独立行以 `"key":` 开头 → JSON 属性泄漏
+ * 2. `{` 或 `[` 开头后跟 `"key":` → JSON 对象/数组泄漏
+ * 3. `"figureReferences":`、`"generatedCharts":` 等已知标签 + 后续多行
+ *
+ * 不处理 ``` 代码块内的内容。
+ */
+function stripAllJsonBlocks(content: string): string {
+  const lines = content.split("\n");
+  const cleaned: string[] = [];
+  let inCodeBlock = false;
+  let inJsonBlock = false;
+  let jsonBraceDepth = 0;
+  let jsonBracketDepth = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // 代码块内不处理
+    if (/^```/.test(trimmed)) {
+      inCodeBlock = !inCodeBlock;
+      cleaned.push(line);
+      continue;
+    }
+    if (inCodeBlock) {
+      cleaned.push(line);
+      continue;
+    }
+
+    // 正在跟踪 JSON 块
+    if (inJsonBlock) {
+      for (const ch of trimmed) {
+        if (ch === "{") jsonBraceDepth++;
+        else if (ch === "}") jsonBraceDepth--;
+        else if (ch === "[") jsonBracketDepth++;
+        else if (ch === "]") jsonBracketDepth--;
+      }
+      if (jsonBraceDepth <= 0 && jsonBracketDepth <= 0) {
+        inJsonBlock = false;
+        jsonBraceDepth = 0;
+        jsonBracketDepth = 0;
+      }
+      continue; // 跳过 JSON 块内的所有行
+    }
+
+    // 检测 JSON 块开始
+    const isJsonLine =
+      // "key": value 格式的独立行
+      /^\s*"[a-zA-Z_]\w*"\s*:/.test(line) ||
+      // { 开头后跟 "key": — JSON 对象开始
+      /^\s*\{\s*"[a-zA-Z_]/.test(line) ||
+      // [ 开头后跟 { 或 "key" — JSON 数组开始
+      (/^\s*\[\s*\{?\s*"?[a-zA-Z_]/.test(line) && /"\s*:/.test(line));
+
+    if (isJsonLine) {
+      // 开始跟踪 JSON 块深度
+      inJsonBlock = true;
+      jsonBraceDepth = 0;
+      jsonBracketDepth = 0;
+      for (const ch of trimmed) {
+        if (ch === "{") jsonBraceDepth++;
+        else if (ch === "}") jsonBraceDepth--;
+        else if (ch === "[") jsonBracketDepth++;
+        else if (ch === "]") jsonBracketDepth--;
+      }
+      if (jsonBraceDepth <= 0 && jsonBracketDepth <= 0) {
+        inJsonBlock = false; // 单行 JSON，已闭合
+      }
+      continue; // 跳过这行
+    }
+
+    cleaned.push(line);
+  }
+
+  return cleaned.join("\n");
 }
 
 /**
