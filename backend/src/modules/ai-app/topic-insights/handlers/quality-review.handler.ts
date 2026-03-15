@@ -28,9 +28,10 @@ export interface QualityReviewInput {
   }>[];
 }
 
-export class QualityReviewHandler
-  implements WorkflowNodeHandler<QualityReviewInput, OverallReviewResult>
-{
+export class QualityReviewHandler implements WorkflowNodeHandler<
+  QualityReviewInput,
+  OverallReviewResult
+> {
   readonly handlerId = "ti:quality-review";
   private readonly logger = new Logger(QualityReviewHandler.name);
 
@@ -42,58 +43,21 @@ export class QualityReviewHandler
     input: QualityReviewInput,
     _context: ExecutionContext,
   ): Promise<OverallReviewResult> {
-    const { topic, dimensions, analysisResults } = input;
-
     this.logger.log(
-      `[execute] Reviewing quality for topic: ${topic.name}`,
+      `[execute] Reviewing quality for topic: ${input.topic.name}`,
     );
 
-    // Collect successful analyses
-    const successfulAnalyses: Array<{
-      dimension: TopicDimension;
-      analysis: DimensionAnalysisResult;
-      evidenceCount: number;
-    }> = [];
-
-    for (const result of analysisResults) {
-      if (result.status === "fulfilled") {
-        const dimension = dimensions.find(
-          (d) => d.id === result.value.dimensionId,
-        );
-        if (dimension) {
-          successfulAnalyses.push({
-            dimension,
-            analysis: result.value.analysisResult,
-            evidenceCount: result.value.evidenceIds.length,
-          });
-        }
-      }
-    }
-
-    // Per-dimension review
-    const dimensionReviews = await Promise.all(
-      successfulAnalyses.map(async ({ dimension, analysis, evidenceCount }) =>
-        this.researchReviewerService.reviewDimension(
-          topic,
-          dimension,
-          analysis,
-          evidenceCount,
-        ),
-      ),
-    );
-
-    // Overall review
-    const overallReview = await this.researchReviewerService.reviewOverall(
-      topic,
-      dimensions,
-      dimensionReviews,
+    const result = await this.researchReviewerService.reviewAllDimensions(
+      input.topic,
+      input.dimensions,
+      input.analysisResults,
     );
 
     this.logger.log(
-      `[execute] Quality review completed: ${overallReview.dimensionReviews.length} dimensions reviewed`,
+      `[execute] Quality review completed: ${result.dimensionReviews.length} dimensions reviewed`,
     );
 
-    return overallReview;
+    return result;
   }
 
   async onError(

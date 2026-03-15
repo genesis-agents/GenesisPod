@@ -2,14 +2,13 @@
  * Revision Handler
  *
  * WorkflowNodeHandler for TI failed dimension revision (critique-refine loop).
- * Delegates to CritiqueRefineService.runCritiqueRefineLoop().
+ * Delegates to CritiqueRefineService.runCritiqueRefineAndPersist().
  *
  * Input: { topic, dimensions, analysisResults, reviewResult, reportId }
  * Output: { revisedCount }
  */
 
 import { Logger } from "@nestjs/common";
-import { PrismaService } from "@/common/prisma/prisma.service";
 import type {
   WorkflowNodeHandler,
   ExecutionContext,
@@ -21,7 +20,6 @@ import type {
 import type { OverallReviewResult } from "../types/collaboration.types";
 import type { DimensionAnalysisResult } from "../types/research.types";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
 
 export interface RevisionInput {
   topic: ResearchTopic;
@@ -40,32 +38,27 @@ export interface RevisionOutput {
   totalTargeted: number;
 }
 
-export class RevisionHandler
-  implements WorkflowNodeHandler<RevisionInput, RevisionOutput>
-{
+export class RevisionHandler implements WorkflowNodeHandler<
+  RevisionInput,
+  RevisionOutput
+> {
   readonly handlerId = "ti:revision";
   private readonly logger = new Logger(RevisionHandler.name);
 
-  constructor(
-    private readonly critiqueRefineService: CritiqueRefineService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly critiqueRefineService: CritiqueRefineService) {}
 
   async execute(
     input: RevisionInput,
     _context: ExecutionContext,
   ): Promise<RevisionOutput> {
-    const { topic, dimensions, analysisResults, reviewResult, reportId } =
-      input;
+    const { dimensions, analysisResults, reviewResult, reportId } = input;
     const dimensionIds = new Set(reviewResult.dimensionsToReresearch);
 
     if (dimensionIds.size === 0) {
       return { revisedCount: 0, totalTargeted: 0 };
     }
 
-    this.logger.log(
-      `[execute] Revising ${dimensionIds.size} dimensions`,
-    );
+    this.logger.log(`[execute] Revising ${dimensionIds.size} dimensions`);
 
     let revisedCount = 0;
 
@@ -85,46 +78,23 @@ export class RevisionHandler
         : reviewResult.recommendations.join("; ");
 
       try {
-        const critiqueRequest: CritiqueRefineRequest = {
-          content: analysisResult.detailedContent,
-          context: {
-            topicName: topic.name,
-            dimensionName: dimension.name,
-            qualityExpectation: qualityFeedback,
-          },
-          config: { maxIterations: 1 },
-        };
-
-        const refineResult =
-          await this.critiqueRefineService.runCritiqueRefineLoop(
-            critiqueRequest,
-          );
-
-        if (refineResult.finalContent !== analysisResult.detailedContent) {
-          analysisResult.detailedContent = refineResult.finalContent;
-
-          // Sync to DB
-          const existingAnalysis =
-            await this.prisma.dimensionAnalysis.findFirst({
-              where: { dimensionId, reportId },
-              orderBy: { createdAt: "desc" },
-            });
-          if (existingAnalysis) {
-            const dataPoints =
-              (existingAnalysis.dataPoints as Record<string, unknown>) || {};
-            dataPoints.detailedContent = refineResult.finalContent;
-            await this.prisma.dimensionAnalysis.update({
-              where: { id: existingAnalysis.id },
-              data: {
-                dataPoints: dataPoints as Prisma.InputJsonValue,
+        const { revised } =
+          await this.critiqueRefineService.runCritiqueRefineAndPersist(
+            {
+              content: analysisResult.detailedContent,
+              context: {
+                topicName: input.topic.name,
+                dimensionName: dimension.name,
+                qualityExpectation: qualityFeedback,
               },
-            });
-          }
-
-          revisedCount++;
-          this.logger.log(
-            `[execute] Revised ${dimension.name} (${refineResult.totalChanges} changes)`,
+              config: { maxIterations: 1 },
+            } satisfies CritiqueRefineRequest,
+            { dimensionId, reportId },
           );
+
+        if (revised) {
+          revisedCount++;
+          this.logger.log(`[execute] Revised ${dimension.name}`);
         }
       } catch (revisionError) {
         this.logger.warn(

@@ -1,8 +1,8 @@
 /**
  * DimensionWriteHandler unit tests
  *
- * Covers: prepare passthrough, execute outline resolution logic,
- * validate, onError DB update and skip.
+ * Covers: execute outline resolution logic (via outlineResolver.resolve),
+ * validate, onError skip.
  */
 
 import { DimensionWriteHandler } from "../dimension-write.handler";
@@ -146,14 +146,8 @@ const mockDimensionMissionService = {
   executeWritingPhase: jest.fn(),
 };
 
-const mockResearchLeaderService = {
-  planDimensionOutline: jest.fn(),
-};
-
-const mockPrisma = {
-  topicDimension: {
-    update: jest.fn(),
-  },
+const mockOutlineResolver = {
+  resolve: jest.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -167,8 +161,7 @@ describe("DimensionWriteHandler", () => {
     jest.clearAllMocks();
     handler = new DimensionWriteHandler(
       mockDimensionMissionService as any,
-      mockResearchLeaderService as any,
-      mockPrisma as any,
+      mockOutlineResolver as any,
     );
   });
 
@@ -177,36 +170,13 @@ describe("DimensionWriteHandler", () => {
   });
 
   // -------------------------------------------------------------------------
-  // prepare
-  // -------------------------------------------------------------------------
-
-  describe("prepare", () => {
-    it("returns the input unchanged", async () => {
-      const input = makeWriteInput();
-      const result = await handler.prepare(input, makeContext());
-      expect(result).toBe(input);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // execute – outline resolution
   // -------------------------------------------------------------------------
 
   describe("execute", () => {
-    it("uses global outline when available and matching by dimensionId", async () => {
-      const coordinatedOutline = makeDimensionOutline();
-      const globalOutline: GlobalOutline = {
-        dimensions: [
-          {
-            dimensionId: "dim-1",
-            dimensionName: "技术趋势",
-            outline: coordinatedOutline,
-            crossDimensionNotes: "",
-          },
-        ],
-        globalThemes: [],
-        deduplicationRules: [],
-      };
+    it("calls outlineResolver.resolve and passes result to executeWritingPhase", async () => {
+      const resolvedOutline = makeDimensionOutline();
+      mockOutlineResolver.resolve.mockResolvedValue(resolvedOutline);
 
       const analysisResult = makeAnalysisResult();
       mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
@@ -216,22 +186,17 @@ describe("DimensionWriteHandler", () => {
         extractedClaims: [],
       });
 
-      const input = makeWriteInput({ globalOutline });
+      const input = makeWriteInput();
       await handler.execute(input, makeContext());
 
-      // planDimensionOutline should NOT have been called
-      expect(
-        mockResearchLeaderService.planDimensionOutline,
-      ).not.toHaveBeenCalled();
-
-      // executeWritingPhase called with the coordinated outline
+      expect(mockOutlineResolver.resolve).toHaveBeenCalledTimes(1);
       expect(
         mockDimensionMissionService.executeWritingPhase,
       ).toHaveBeenCalledWith(
         expect.anything(), // topic
         expect.anything(), // dimension
         expect.anything(), // searchResult
-        coordinatedOutline, // the global outline
+        resolvedOutline, // outline from resolver
         "report-123",
         undefined,
         undefined,
@@ -243,22 +208,9 @@ describe("DimensionWriteHandler", () => {
       );
     });
 
-    it("uses global outline when matched by dimensionName", async () => {
-      const coordinatedOutline = makeDimensionOutline();
-      // dimensionId does not match but name does
-      const globalOutline: GlobalOutline = {
-        dimensions: [
-          {
-            dimensionId: "dim-OTHER",
-            dimensionName: "技术趋势", // matches by name
-            outline: coordinatedOutline,
-            crossDimensionNotes: "",
-          },
-        ],
-        globalThemes: [],
-        deduplicationRules: [],
-      };
-
+    it("passes globalOutline to outlineResolver.resolve", async () => {
+      const globalOutline = makeGlobalOutline("dim-1", "技术趋势");
+      mockOutlineResolver.resolve.mockResolvedValue(makeDimensionOutline());
       mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
         success: true,
         analysisResult: makeAnalysisResult(),
@@ -269,16 +221,18 @@ describe("DimensionWriteHandler", () => {
       const input = makeWriteInput({ globalOutline });
       await handler.execute(input, makeContext());
 
-      expect(
-        mockResearchLeaderService.planDimensionOutline,
-      ).not.toHaveBeenCalled();
+      expect(mockOutlineResolver.resolve).toHaveBeenCalledWith(
+        globalOutline,
+        expect.objectContaining({ name: "AI Healthcare" }),
+        expect.objectContaining({ id: "dim-1", name: "技术趋势" }),
+        "summary text",
+        "figures text",
+        expect.any(Array),
+      );
     });
 
-    it("falls back to local planning when globalOutline is null", async () => {
-      const localOutline = makeDimensionOutline();
-      mockResearchLeaderService.planDimensionOutline.mockResolvedValue(
-        localOutline,
-      );
+    it("passes null globalOutline to outlineResolver.resolve when absent", async () => {
+      mockOutlineResolver.resolve.mockResolvedValue(makeDimensionOutline());
       mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
         success: true,
         analysisResult: makeAnalysisResult(),
@@ -289,48 +243,18 @@ describe("DimensionWriteHandler", () => {
       const input = makeWriteInput({ globalOutline: null });
       await handler.execute(input, makeContext());
 
-      expect(
-        mockResearchLeaderService.planDimensionOutline,
-      ).toHaveBeenCalledTimes(1);
-    });
-
-    it("falls back to local planning when no matching dimension in global outline", async () => {
-      const globalOutline: GlobalOutline = {
-        dimensions: [
-          {
-            dimensionId: "dim-OTHER",
-            dimensionName: "竞争格局", // different name
-            outline: makeDimensionOutline(),
-            crossDimensionNotes: "",
-          },
-        ],
-        globalThemes: [],
-        deduplicationRules: [],
-      };
-
-      const localOutline = makeDimensionOutline();
-      mockResearchLeaderService.planDimensionOutline.mockResolvedValue(
-        localOutline,
+      expect(mockOutlineResolver.resolve).toHaveBeenCalledWith(
+        null,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
       );
-      mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
-        success: true,
-        analysisResult: makeAnalysisResult(),
-        evidenceIds: [],
-        extractedClaims: [],
-      });
-
-      const input = makeWriteInput({ globalOutline });
-      await handler.execute(input, makeContext());
-
-      expect(
-        mockResearchLeaderService.planDimensionOutline,
-      ).toHaveBeenCalledTimes(1);
     });
 
     it("returns correct output shape on success", async () => {
-      mockResearchLeaderService.planDimensionOutline.mockResolvedValue(
-        makeDimensionOutline(),
-      );
+      mockOutlineResolver.resolve.mockResolvedValue(makeDimensionOutline());
       const analysisResult = makeAnalysisResult();
       mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
         success: true,
@@ -351,9 +275,7 @@ describe("DimensionWriteHandler", () => {
     });
 
     it("throws when executeWritingPhase returns success: false", async () => {
-      mockResearchLeaderService.planDimensionOutline.mockResolvedValue(
-        makeDimensionOutline(),
-      );
+      mockOutlineResolver.resolve.mockResolvedValue(makeDimensionOutline());
       mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
         success: false,
         error: "Section writer failed",
@@ -367,9 +289,7 @@ describe("DimensionWriteHandler", () => {
     });
 
     it("throws with fallback message when success: false and no error message", async () => {
-      mockResearchLeaderService.planDimensionOutline.mockResolvedValue(
-        makeDimensionOutline(),
-      );
+      mockOutlineResolver.resolve.mockResolvedValue(makeDimensionOutline());
       mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
         success: false,
         evidenceIds: [],
@@ -383,6 +303,7 @@ describe("DimensionWriteHandler", () => {
 
     it("passes assignment model and tools to executeWritingPhase", async () => {
       const globalOutline = makeGlobalOutline("dim-1", "技术趋势");
+      mockOutlineResolver.resolve.mockResolvedValue(makeDimensionOutline());
       mockDimensionMissionService.executeWritingPhase.mockResolvedValue({
         success: true,
         analysisResult: makeAnalysisResult(),
@@ -458,39 +379,19 @@ describe("DimensionWriteHandler", () => {
   // -------------------------------------------------------------------------
 
   describe("onError", () => {
-    it("marks dimension as FAILED in DB and returns 'skip'", async () => {
-      mockPrisma.topicDimension.update.mockResolvedValue({});
-
-      const context = makeContext({
-        dimension: makeDimension({ id: "dim-1" }),
-      });
-      const result = await handler.onError(new Error("write failed"), context);
-
-      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith({
-        where: { id: "dim-1" },
-        data: { status: "FAILED" },
-      });
-      expect(result).toBe("skip");
-    });
-
-    it("still returns 'skip' when Prisma update throws", async () => {
-      mockPrisma.topicDimension.update.mockRejectedValue(
-        new Error("DB connection lost"),
+    it("returns 'skip' for any error", async () => {
+      const result = await handler.onError(
+        new Error("write failed"),
+        makeContext(),
       );
-
-      const context = makeContext({
-        dimension: makeDimension({ id: "dim-1" }),
-      });
-      const result = await handler.onError(new Error("write failed"), context);
-
       expect(result).toBe("skip");
     });
 
-    it("returns 'skip' when context has no dimension", async () => {
-      const context = makeContext({});
-      const result = await handler.onError(new Error("write failed"), context);
-
-      expect(mockPrisma.topicDimension.update).not.toHaveBeenCalled();
+    it("returns 'skip' even when context has no dimension", async () => {
+      const result = await handler.onError(
+        new Error("write failed"),
+        makeContext({}),
+      );
       expect(result).toBe("skip");
     });
   });

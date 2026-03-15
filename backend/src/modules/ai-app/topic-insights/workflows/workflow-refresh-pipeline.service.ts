@@ -19,7 +19,8 @@ import {
 import { DAGExecutor } from "@/modules/ai-engine/facade";
 import type { ExecutionContext, JsonObject } from "@/modules/ai-engine/facade";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
-import type { AgentAssignment } from "../types/leader.types";
+import type { AgentAssignment, SkillBindings } from "../types/leader.types";
+import { resolveFrameworkSkills } from "../config/framework-skills.config";
 import type { DimensionAnalysisResult } from "../types/research.types";
 import type {
   ResearchDepthConfig,
@@ -100,6 +101,26 @@ export class WorkflowRefreshPipelineService {
       depthConfig,
     } as unknown as JsonObject;
 
+    // 2b. Build skill bindings — framework skills + per-dimension leader assignments
+    const skillBindings: SkillBindings = {
+      framework: resolveFrameworkSkills(topic.type),
+      perDimension: {},
+    };
+    for (const assignment of agentAssignments) {
+      if (
+        assignment.skills &&
+        assignment.skills.length > 0 &&
+        assignment.assignedDimensions
+      ) {
+        for (const dimRef of assignment.assignedDimensions) {
+          skillBindings.perDimension[dimRef] = [
+            ...(skillBindings.perDimension[dimRef] || []),
+            ...assignment.skills,
+          ];
+        }
+      }
+    }
+
     const executionContext: ExecutionContext = {
       executionId: uuid(),
       workflowId: REFRESH_PIPELINE_WORKFLOW.id,
@@ -114,6 +135,7 @@ export class WorkflowRefreshPipelineService {
           roomType: "topic",
           entityId: topic.id,
         },
+        skillBindings,
       } as unknown as JsonObject,
     };
 

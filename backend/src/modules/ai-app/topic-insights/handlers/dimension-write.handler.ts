@@ -9,16 +9,14 @@
  */
 
 import { Logger } from "@nestjs/common";
-import { PrismaService } from "@/common/prisma/prisma.service";
 import type {
   WorkflowNodeHandler,
   ExecutionContext,
 } from "@/modules/ai-engine/facade";
 import type { DimensionMissionService } from "../services/dimension/dimension-mission.service";
 import type { SearchPhaseResult } from "../services/dimension/dimension-mission.service";
-import type { ResearchLeaderService } from "../services/core/research/research-leader.service";
 import type { GlobalOutline } from "../services/core/research/research-leader.service";
-import type { DimensionOutline } from "../types/leader.types";
+import type { OutlineResolverService } from "../services/dimension/outline-resolver.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
 import type { ExtractedClaim } from "../types/research-depth.types";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
@@ -50,63 +48,34 @@ export class DimensionWriteHandler implements WorkflowNodeHandler<
 
   constructor(
     private readonly dimensionMissionService: DimensionMissionService,
-    private readonly researchLeaderService: ResearchLeaderService,
-    private readonly prisma: PrismaService,
+    private readonly outlineResolver: OutlineResolverService,
   ) {}
-
-  /**
-   * Resolve outline: use global outline if available, fallback to local planning
-   */
-  async prepare(
-    input: DimensionWriteInput,
-    _context: ExecutionContext,
-  ): Promise<DimensionWriteInput> {
-    return input; // outline resolution happens in execute
-  }
 
   async execute(
     input: DimensionWriteInput,
     _context: ExecutionContext,
   ): Promise<DimensionWriteOutput> {
-    const { topic, dimension, searchResult, globalOutline } = input;
+    const { topic, dimension, searchResult } = input;
 
-    // 1. Resolve outline — global coordinated or local fallback
-    let outline: DimensionOutline | null = null;
-
-    if (globalOutline) {
-      const coordinated = globalOutline.dimensions.find(
-        (d) =>
-          d.dimensionId === dimension.id || d.dimensionName === dimension.name,
-      );
-      if (coordinated) {
-        outline = coordinated.outline;
-        this.logger.log(
-          `[execute] Using global coordinated outline for: ${dimension.name}`,
-        );
-      }
-    }
-
-    if (!outline) {
-      this.logger.log(
-        `[execute] Falling back to local outline planning for: ${dimension.name}`,
-      );
-      outline = await this.researchLeaderService.planDimensionOutline(
-        {
-          name: topic.name,
-          type: topic.type,
-          description: topic.description,
-          language: topic.language,
-        },
-        {
-          name: dimension.name,
-          description: dimension.description,
-          searchQueries: dimension.searchQueries,
-        },
-        searchResult.evidenceSummary,
-        searchResult.figuresSummary || undefined,
-        input.allDimensions,
-      );
-    }
+    // 1. Resolve outline (global coordinated or local fallback)
+    const outline = await this.outlineResolver.resolve(
+      input.globalOutline,
+      {
+        name: topic.name,
+        type: topic.type,
+        description: topic.description,
+        language: topic.language,
+      },
+      {
+        id: dimension.id,
+        name: dimension.name,
+        description: dimension.description,
+        searchQueries: dimension.searchQueries,
+      },
+      searchResult.evidenceSummary,
+      searchResult.figuresSummary || undefined,
+      input.allDimensions,
+    );
 
     // 2. Execute writing phase
     const missionResult =
@@ -116,12 +85,12 @@ export class DimensionWriteHandler implements WorkflowNodeHandler<
         searchResult,
         outline,
         input.reportId,
-        undefined, // missionId
+        undefined,
         input.assignment?.modelId,
-        undefined, // taskId
+        undefined,
         input.assignment?.tools,
         input.assignment?.skills,
-        undefined, // validationContext
+        undefined,
         input.maxRevisionRounds,
       );
 
@@ -149,25 +118,9 @@ export class DimensionWriteHandler implements WorkflowNodeHandler<
 
   async onError(
     error: Error,
-    context: ExecutionContext,
+    _context: ExecutionContext,
   ): Promise<"retry" | "skip" | "abort"> {
     this.logger.error(`[onError] Dimension write failed: ${error.message}`);
-
-    // Mark dimension as FAILED in DB
-    const input = context.input as unknown as DimensionWriteInput;
-    if (input?.dimension?.id) {
-      try {
-        await this.prisma.topicDimension.update({
-          where: { id: input.dimension.id },
-          data: { status: "FAILED" },
-        });
-      } catch (err) {
-        this.logger.warn(
-          `[onError] Failed to mark dimension as FAILED: ${(err as Error).message}`,
-        );
-      }
-    }
-
     return "skip";
   }
 }

@@ -2,7 +2,6 @@ import { Module, OnModuleInit, Logger, Optional } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { PrismaService } from "../../../common/prisma/prisma.service";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
@@ -88,6 +87,7 @@ import {
   // ★ Dimension sub-services
   DimensionSearchService,
   DimensionWritingService,
+  OutlineResolverService,
   // ★ Report sub-services
   ReportGeneratorService,
   ReportAssemblerService,
@@ -199,6 +199,7 @@ const services = [
   // ★ Dimension sub-services
   DimensionSearchService,
   DimensionWritingService,
+  OutlineResolverService,
   // ★ Report sub-services
   ReportGeneratorService,
   ReportAssemblerService,
@@ -290,10 +291,10 @@ export class TopicInsightsModule implements OnModuleInit {
     private readonly weatherApiConnector: WeatherApiConnector,
     private readonly topicInsightsAgent: TopicInsightsAgent,
     private readonly dimensionMissionService: DimensionMissionService,
+    private readonly outlineResolverService: OutlineResolverService,
     private readonly researchLeaderService: ResearchLeaderService,
     private readonly researchReviewerService: ResearchReviewerService,
     private readonly critiqueRefineService: CritiqueRefineService,
-    private readonly prismaService: PrismaService,
     @Optional() private readonly agentRegistry?: AgentRegistry,
     @Optional() private readonly teamRegistry?: TeamRegistry,
     @Optional() private readonly handlerRegistry?: WorkflowHandlerRegistry,
@@ -340,12 +341,11 @@ export class TopicInsightsModule implements OnModuleInit {
         this.handlerRegistry.register(
           new DimensionWriteHandler(
             this.dimensionMissionService,
-            this.researchLeaderService,
-            this.prismaService,
+            this.outlineResolverService,
           ),
         );
         this.handlerRegistry.register(
-          new RevisionHandler(this.critiqueRefineService, this.prismaService),
+          new RevisionHandler(this.critiqueRefineService),
         );
         this.handlerRegistry.register(
           new QualityReviewHandler(this.researchReviewerService),

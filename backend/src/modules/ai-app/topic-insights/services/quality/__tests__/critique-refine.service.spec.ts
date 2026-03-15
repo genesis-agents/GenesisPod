@@ -4,6 +4,7 @@ import {
   CritiqueRefineRequest,
 } from "../critique-refine.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   CritiqueCategory,
   CritiqueSeverity,
@@ -13,6 +14,13 @@ import {
 const mockFacade = {
   chatWithSkills: jest.fn(),
   chatStructured: jest.fn(),
+};
+
+const mockPrisma = {
+  dimensionAnalysis: {
+    findFirst: jest.fn(),
+    update: jest.fn(),
+  },
 };
 
 const baseContext: CritiqueRefineRequest["context"] = {
@@ -91,6 +99,7 @@ describe("CritiqueRefineService", () => {
       providers: [
         CritiqueRefineService,
         { provide: ChatFacade, useValue: mockFacade },
+        { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 

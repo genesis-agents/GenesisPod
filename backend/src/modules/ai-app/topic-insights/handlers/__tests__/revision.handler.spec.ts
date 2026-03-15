@@ -1,14 +1,17 @@
 /**
  * RevisionHandler unit tests
  *
- * Covers: short-circuit on empty targets, critique-refine loop, DB update
- * when content changes, error resilience, onError.
+ * Covers: short-circuit on empty targets, critique-refine-and-persist loop,
+ * error resilience, onError.
  */
 
 import { RevisionHandler } from "../revision.handler";
-import type { RevisionInput, RevisionOutput } from "../revision.handler";
+import type { RevisionInput } from "../revision.handler";
 import type { ExecutionContext } from "@/modules/ai-engine/facade";
-import type { OverallReviewResult, DimensionReviewResult } from "../../types/collaboration.types";
+import type {
+  OverallReviewResult,
+  DimensionReviewResult,
+} from "../../types/collaboration.types";
 import { ReviewQualityLevel } from "../../types/collaboration.types";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
@@ -74,17 +77,26 @@ function makeAnalysisResult(
   };
 }
 
-function makeDimReview(
-  dimensionId: string,
-  score = 60,
-): DimensionReviewResult {
+function makeDimReview(dimensionId: string, score = 60): DimensionReviewResult {
   return {
     dimensionId,
     dimensionName: "技术趋势",
     qualityLevel: ReviewQualityLevel.NEEDS_REVISION,
     overallScore: score,
-    scores: { breadth: 60, depth: 55, evidence: 65, coherence: 60, currency: 58 },
-    issues: [{ type: "shallow_analysis", severity: "major", description: "Too shallow" }],
+    scores: {
+      breadth: 60,
+      depth: 55,
+      evidence: 65,
+      coherence: 60,
+      currency: 58,
+    },
+    issues: [
+      {
+        type: "shallow_analysis",
+        severity: "major",
+        description: "Too shallow",
+      },
+    ],
     suggestions: ["Expand key sections"],
     needsReresearch: true,
   };
@@ -117,14 +129,7 @@ function makeOverallResult(
 // ---------------------------------------------------------------------------
 
 const mockCritiqueRefineService = {
-  runCritiqueRefineLoop: jest.fn(),
-};
-
-const mockPrisma = {
-  dimensionAnalysis: {
-    findFirst: jest.fn(),
-    update: jest.fn(),
-  },
+  runCritiqueRefineAndPersist: jest.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -136,10 +141,7 @@ describe("RevisionHandler", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    handler = new RevisionHandler(
-      mockCritiqueRefineService as any,
-      mockPrisma as any,
-    );
+    handler = new RevisionHandler(mockCritiqueRefineService as any);
   });
 
   it("has the correct handlerId", () => {
@@ -172,35 +174,44 @@ describe("RevisionHandler", () => {
       const result = await handler.execute(input, makeContext());
 
       expect(result).toEqual({ revisedCount: 0, totalTargeted: 0 });
-      expect(mockCritiqueRefineService.runCritiqueRefineLoop).not.toHaveBeenCalled();
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).not.toHaveBeenCalled();
     });
 
-    it("runs critique-refine only for targeted dimensions", async () => {
+    it("runs critique-refine-and-persist only for targeted dimensions", async () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
       const dim2 = makeDimension("dim-2", "市场分析");
 
       const analysis1 = makeAnalysisResult("dim-1", "Original dim1 content");
       const analysis2 = makeAnalysisResult("dim-2", "Original dim2 content");
 
-      mockCritiqueRefineService.runCritiqueRefineLoop.mockResolvedValue({
-        finalContent: "Improved dim1 content",
+      mockCritiqueRefineService.runCritiqueRefineAndPersist.mockResolvedValue({
+        revised: true,
         totalChanges: 3,
-        iterations: [],
-        wasImproved: true,
+        finalContent: "Improved dim1 content",
       });
-
-      mockPrisma.dimensionAnalysis.findFirst.mockResolvedValue({
-        id: "analysis-1",
-        dataPoints: {},
-      });
-      mockPrisma.dimensionAnalysis.update.mockResolvedValue({});
 
       const input: RevisionInput = {
         topic: makeTopic(),
         dimensions: [dim1, dim2],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: [] } },
-          { status: "fulfilled", value: { dimensionId: "dim-2", analysisResult: analysis2, evidenceIds: [] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: [],
+            },
+          },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-2",
+              analysisResult: analysis2,
+              evidenceIds: [],
+            },
+          },
         ],
         reviewResult: makeOverallResult(["dim-1"], [makeDimReview("dim-1")]), // only dim-1 targeted
         reportId: "report-1",
@@ -209,8 +220,12 @@ describe("RevisionHandler", () => {
       const result = await handler.execute(input, makeContext());
 
       // Only dim-1 processed
-      expect(mockCritiqueRefineService.runCritiqueRefineLoop).toHaveBeenCalledTimes(1);
-      expect(mockCritiqueRefineService.runCritiqueRefineLoop).toHaveBeenCalledWith(
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           content: "Original dim1 content",
           context: expect.objectContaining({
@@ -219,73 +234,72 @@ describe("RevisionHandler", () => {
           }),
           config: { maxIterations: 1 },
         }),
+        { dimensionId: "dim-1", reportId: "report-1" },
       );
 
       expect(result).toEqual({ revisedCount: 1, totalTargeted: 1 });
     });
 
-    it("updates DB when content is improved", async () => {
+    it("counts revised when runCritiqueRefineAndPersist returns revised: true", async () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
       const analysis1 = makeAnalysisResult("dim-1", "Old content");
 
-      mockCritiqueRefineService.runCritiqueRefineLoop.mockResolvedValue({
-        finalContent: "New improved content", // different from original
+      mockCritiqueRefineService.runCritiqueRefineAndPersist.mockResolvedValue({
+        revised: true,
         totalChanges: 2,
-        iterations: [],
-        wasImproved: true,
+        finalContent: "New improved content",
       });
-
-      const existingAnalysis = { id: "db-analysis-1", dataPoints: { someField: "value" } };
-      mockPrisma.dimensionAnalysis.findFirst.mockResolvedValue(existingAnalysis);
-      mockPrisma.dimensionAnalysis.update.mockResolvedValue({});
 
       const input: RevisionInput = {
         topic: makeTopic(),
         dimensions: [dim1],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: [] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: [],
+            },
+          },
         ],
         reviewResult: makeOverallResult(["dim-1"]),
         reportId: "report-42",
       };
 
-      await handler.execute(input, makeContext());
+      const result = await handler.execute(input, makeContext());
 
-      expect(mockPrisma.dimensionAnalysis.findFirst).toHaveBeenCalledWith({
-        where: { dimensionId: "dim-1", reportId: "report-42" },
-        orderBy: { createdAt: "desc" },
-      });
-
-      expect(mockPrisma.dimensionAnalysis.update).toHaveBeenCalledWith({
-        where: { id: "db-analysis-1" },
-        data: {
-          dataPoints: expect.objectContaining({
-            detailedContent: "New improved content",
-          }),
-        },
-      });
-
-      // analysisResult.detailedContent mutated in-place
-      expect(analysis1.detailedContent).toBe("New improved content");
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "Old content" }),
+        { dimensionId: "dim-1", reportId: "report-42" },
+      );
+      expect(result).toEqual({ revisedCount: 1, totalTargeted: 1 });
     });
 
-    it("does not update DB when content is unchanged", async () => {
+    it("does not count revised when runCritiqueRefineAndPersist returns revised: false", async () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
-      const originalContent = "Same content";
-      const analysis1 = makeAnalysisResult("dim-1", originalContent);
+      const analysis1 = makeAnalysisResult("dim-1", "Same content");
 
-      mockCritiqueRefineService.runCritiqueRefineLoop.mockResolvedValue({
-        finalContent: originalContent, // same as original — no change
+      mockCritiqueRefineService.runCritiqueRefineAndPersist.mockResolvedValue({
+        revised: false,
         totalChanges: 0,
-        iterations: [],
-        wasImproved: false,
+        finalContent: "Same content",
       });
 
       const input: RevisionInput = {
         topic: makeTopic(),
         dimensions: [dim1],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: [] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: [],
+            },
+          },
         ],
         reviewResult: makeOverallResult(["dim-1"]),
         reportId: "report-1",
@@ -293,8 +307,6 @@ describe("RevisionHandler", () => {
 
       const result = await handler.execute(input, makeContext());
 
-      expect(mockPrisma.dimensionAnalysis.findFirst).not.toHaveBeenCalled();
-      expect(mockPrisma.dimensionAnalysis.update).not.toHaveBeenCalled();
       expect(result).toEqual({ revisedCount: 0, totalTargeted: 1 });
     });
 
@@ -302,7 +314,7 @@ describe("RevisionHandler", () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
       const analysis1 = makeAnalysisResult("dim-1", "Content");
 
-      mockCritiqueRefineService.runCritiqueRefineLoop.mockRejectedValue(
+      mockCritiqueRefineService.runCritiqueRefineAndPersist.mockRejectedValue(
         new Error("LLM timeout"),
       );
 
@@ -310,7 +322,14 @@ describe("RevisionHandler", () => {
         topic: makeTopic(),
         dimensions: [dim1],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: [] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: [],
+            },
+          },
         ],
         reviewResult: makeOverallResult(["dim-1"]),
         reportId: "report-1",
@@ -337,7 +356,9 @@ describe("RevisionHandler", () => {
 
       const result = await handler.execute(input, makeContext());
 
-      expect(mockCritiqueRefineService.runCritiqueRefineLoop).not.toHaveBeenCalled();
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).not.toHaveBeenCalled();
       expect(result).toEqual({ revisedCount: 0, totalTargeted: 1 });
     });
 
@@ -362,7 +383,9 @@ describe("RevisionHandler", () => {
 
       const result = await handler.execute(input, makeContext());
 
-      expect(mockCritiqueRefineService.runCritiqueRefineLoop).not.toHaveBeenCalled();
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).not.toHaveBeenCalled();
       expect(result).toEqual({ revisedCount: 0, totalTargeted: 1 });
     });
 
@@ -374,7 +397,14 @@ describe("RevisionHandler", () => {
         topic: makeTopic(),
         dimensions: [dim1],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: [] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: [],
+            },
+          },
         ],
         reviewResult: makeOverallResult(["dim-1"]),
         reportId: "report-1",
@@ -382,7 +412,9 @@ describe("RevisionHandler", () => {
 
       const result = await handler.execute(input, makeContext());
 
-      expect(mockCritiqueRefineService.runCritiqueRefineLoop).not.toHaveBeenCalled();
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).not.toHaveBeenCalled();
       expect(result).toEqual({ revisedCount: 0, totalTargeted: 1 });
     });
 
@@ -390,14 +422,11 @@ describe("RevisionHandler", () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
       const analysis1 = makeAnalysisResult("dim-1", "Content to improve");
 
-      mockCritiqueRefineService.runCritiqueRefineLoop.mockResolvedValue({
-        finalContent: "Improved content",
+      mockCritiqueRefineService.runCritiqueRefineAndPersist.mockResolvedValue({
+        revised: true,
         totalChanges: 1,
-        iterations: [],
-        wasImproved: true,
+        finalContent: "Improved content",
       });
-
-      mockPrisma.dimensionAnalysis.findFirst.mockResolvedValue(null); // no DB record
 
       const reviewResult = makeOverallResult(["dim-1"]);
       // dimensionReviews is empty — no match for dim-1 → falls back to recommendations
@@ -406,7 +435,14 @@ describe("RevisionHandler", () => {
         topic: makeTopic(),
         dimensions: [dim1],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: [] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: [],
+            },
+          },
         ],
         reviewResult,
         reportId: "report-1",
@@ -414,12 +450,15 @@ describe("RevisionHandler", () => {
 
       await handler.execute(input, makeContext());
 
-      expect(mockCritiqueRefineService.runCritiqueRefineLoop).toHaveBeenCalledWith(
+      expect(
+        mockCritiqueRefineService.runCritiqueRefineAndPersist,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           context: expect.objectContaining({
             qualityExpectation: "Improve depth", // from recommendations
           }),
         }),
+        expect.anything(),
       );
     });
   });

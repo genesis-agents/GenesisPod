@@ -1,8 +1,8 @@
 /**
  * QualityReviewHandler unit tests
  *
- * Covers: execute processes only fulfilled results, calls reviewDimension
- * for each success, calls reviewOverall, handles empty results, onError.
+ * Covers: execute delegates to reviewAllDimensions, handles empty results,
+ * onError returns skip.
  */
 
 import { QualityReviewHandler } from "../quality-review.handler";
@@ -47,10 +47,7 @@ function makeTopic(overrides: Partial<ResearchTopic> = {}): ResearchTopic {
   } as ResearchTopic;
 }
 
-function makeDimension(
-  id: string,
-  name: string,
-): TopicDimension {
+function makeDimension(id: string, name: string): TopicDimension {
   return {
     id,
     topicId: "topic-1",
@@ -78,7 +75,10 @@ function makeAnalysisResult(dimensionId: string): DimensionAnalysisResult {
   };
 }
 
-function makeDimReviewResult(dimensionId: string, name: string): DimensionReviewResult {
+function makeDimReviewResult(
+  dimensionId: string,
+  name: string,
+): DimensionReviewResult {
   return {
     dimensionId,
     dimensionName: name,
@@ -123,8 +123,7 @@ function makeOverallResult(
 // ---------------------------------------------------------------------------
 
 const mockResearchReviewerService = {
-  reviewDimension: jest.fn(),
-  reviewOverall: jest.fn(),
+  reviewAllDimensions: jest.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -148,7 +147,7 @@ describe("QualityReviewHandler", () => {
   // -------------------------------------------------------------------------
 
   describe("execute", () => {
-    it("calls reviewDimension for each fulfilled result", async () => {
+    it("calls reviewAllDimensions with topic, dimensions, and analysisResults", async () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
       const dim2 = makeDimension("dim-2", "市场分析");
 
@@ -157,122 +156,90 @@ describe("QualityReviewHandler", () => {
 
       const review1 = makeDimReviewResult("dim-1", "技术趋势");
       const review2 = makeDimReviewResult("dim-2", "市场分析");
-
-      mockResearchReviewerService.reviewDimension
-        .mockResolvedValueOnce(review1)
-        .mockResolvedValueOnce(review2);
-
       const overallResult = makeOverallResult([review1, review2]);
-      mockResearchReviewerService.reviewOverall.mockResolvedValue(overallResult);
+
+      mockResearchReviewerService.reviewAllDimensions.mockResolvedValue(
+        overallResult,
+      );
 
       const input: QualityReviewInput = {
         topic: makeTopic(),
         dimensions: [dim1, dim2],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: ["e1"] } },
-          { status: "fulfilled", value: { dimensionId: "dim-2", analysisResult: analysis2, evidenceIds: ["e2", "e3"] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: ["e1"],
+            },
+          },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-2",
+              analysisResult: analysis2,
+              evidenceIds: ["e2", "e3"],
+            },
+          },
         ],
       };
 
       const result = await handler.execute(input, makeContext());
 
-      expect(mockResearchReviewerService.reviewDimension).toHaveBeenCalledTimes(2);
-      expect(mockResearchReviewerService.reviewDimension).toHaveBeenCalledWith(
-        input.topic,
-        dim1,
-        analysis1,
-        1, // evidenceIds.length
-      );
-      expect(mockResearchReviewerService.reviewDimension).toHaveBeenCalledWith(
-        input.topic,
-        dim2,
-        analysis2,
-        2,
-      );
+      expect(
+        mockResearchReviewerService.reviewAllDimensions,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockResearchReviewerService.reviewAllDimensions,
+      ).toHaveBeenCalledWith(input.topic, [dim1, dim2], input.analysisResults);
       expect(result).toBe(overallResult);
     });
 
-    it("skips rejected results and only processes fulfilled ones", async () => {
+    it("passes rejected analysisResults as-is to reviewAllDimensions", async () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
       const dim2 = makeDimension("dim-2", "市场分析");
 
       const analysis1 = makeAnalysisResult("dim-1");
       const review1 = makeDimReviewResult("dim-1", "技术趋势");
-
-      mockResearchReviewerService.reviewDimension.mockResolvedValue(review1);
-
       const overallResult = makeOverallResult([review1]);
-      mockResearchReviewerService.reviewOverall.mockResolvedValue(overallResult);
+
+      mockResearchReviewerService.reviewAllDimensions.mockResolvedValue(
+        overallResult,
+      );
 
       const input: QualityReviewInput = {
         topic: makeTopic(),
         dimensions: [dim1, dim2],
         analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: analysis1, evidenceIds: [] } },
+          {
+            status: "fulfilled",
+            value: {
+              dimensionId: "dim-1",
+              analysisResult: analysis1,
+              evidenceIds: [],
+            },
+          },
           { status: "rejected", reason: new Error("dim-2 failed") },
         ],
       };
 
       const result = await handler.execute(input, makeContext());
 
-      // Only 1 reviewDimension call — dim-2 was rejected
-      expect(mockResearchReviewerService.reviewDimension).toHaveBeenCalledTimes(1);
+      expect(
+        mockResearchReviewerService.reviewAllDimensions,
+      ).toHaveBeenCalledWith(input.topic, [dim1, dim2], input.analysisResults);
       expect(result).toBe(overallResult);
     });
 
-    it("calls reviewOverall with all dimension reviews and all dimensions", async () => {
+    it("returns the result of reviewAllDimensions directly", async () => {
       const dim1 = makeDimension("dim-1", "技术趋势");
       const review1 = makeDimReviewResult("dim-1", "技术趋势");
-
-      mockResearchReviewerService.reviewDimension.mockResolvedValue(review1);
       const overallResult = makeOverallResult([review1]);
-      mockResearchReviewerService.reviewOverall.mockResolvedValue(overallResult);
 
-      const input: QualityReviewInput = {
-        topic: makeTopic(),
-        dimensions: [dim1],
-        analysisResults: [
-          { status: "fulfilled", value: { dimensionId: "dim-1", analysisResult: makeAnalysisResult("dim-1"), evidenceIds: [] } },
-        ],
-      };
-
-      await handler.execute(input, makeContext());
-
-      expect(mockResearchReviewerService.reviewOverall).toHaveBeenCalledWith(
-        input.topic,
-        [dim1], // all dimensions (not just successful ones)
-        [review1],
+      mockResearchReviewerService.reviewAllDimensions.mockResolvedValue(
+        overallResult,
       );
-    });
-
-    it("handles empty analysisResults (all rejected or empty)", async () => {
-      const dim1 = makeDimension("dim-1", "技术趋势");
-      const overallResult = makeOverallResult([]);
-      mockResearchReviewerService.reviewOverall.mockResolvedValue(overallResult);
-
-      const input: QualityReviewInput = {
-        topic: makeTopic(),
-        dimensions: [dim1],
-        analysisResults: [
-          { status: "rejected", reason: new Error("failed") },
-        ],
-      };
-
-      const result = await handler.execute(input, makeContext());
-
-      expect(mockResearchReviewerService.reviewDimension).not.toHaveBeenCalled();
-      expect(mockResearchReviewerService.reviewOverall).toHaveBeenCalledWith(
-        input.topic,
-        [dim1],
-        [], // no dimension reviews
-      );
-      expect(result).toBe(overallResult);
-    });
-
-    it("skips fulfilled result when dimension id not found in dimensions array", async () => {
-      const dim1 = makeDimension("dim-1", "技术趋势");
-      const overallResult = makeOverallResult([]);
-      mockResearchReviewerService.reviewOverall.mockResolvedValue(overallResult);
 
       const input: QualityReviewInput = {
         topic: makeTopic(),
@@ -281,18 +248,58 @@ describe("QualityReviewHandler", () => {
           {
             status: "fulfilled",
             value: {
-              dimensionId: "dim-UNKNOWN", // not in dimensions
-              analysisResult: makeAnalysisResult("dim-UNKNOWN"),
+              dimensionId: "dim-1",
+              analysisResult: makeAnalysisResult("dim-1"),
               evidenceIds: [],
             },
           },
         ],
       };
 
-      await handler.execute(input, makeContext());
+      const result = await handler.execute(input, makeContext());
 
-      // No reviewDimension call because dimension not found
-      expect(mockResearchReviewerService.reviewDimension).not.toHaveBeenCalled();
+      expect(result).toBe(overallResult);
+    });
+
+    it("handles empty analysisResults (all rejected)", async () => {
+      const dim1 = makeDimension("dim-1", "技术趋势");
+      const overallResult = makeOverallResult([]);
+      mockResearchReviewerService.reviewAllDimensions.mockResolvedValue(
+        overallResult,
+      );
+
+      const input: QualityReviewInput = {
+        topic: makeTopic(),
+        dimensions: [dim1],
+        analysisResults: [{ status: "rejected", reason: new Error("failed") }],
+      };
+
+      const result = await handler.execute(input, makeContext());
+
+      expect(
+        mockResearchReviewerService.reviewAllDimensions,
+      ).toHaveBeenCalledWith(input.topic, [dim1], input.analysisResults);
+      expect(result).toBe(overallResult);
+    });
+
+    it("works with empty dimensions and analysisResults", async () => {
+      const overallResult = makeOverallResult([]);
+      mockResearchReviewerService.reviewAllDimensions.mockResolvedValue(
+        overallResult,
+      );
+
+      const input: QualityReviewInput = {
+        topic: makeTopic(),
+        dimensions: [],
+        analysisResults: [],
+      };
+
+      const result = await handler.execute(input, makeContext());
+
+      expect(
+        mockResearchReviewerService.reviewAllDimensions,
+      ).toHaveBeenCalledWith(input.topic, [], []);
+      expect(result).toBe(overallResult);
     });
   });
 
