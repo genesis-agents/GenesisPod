@@ -43,6 +43,7 @@ import {
 import { LruMap } from "@/common/utils/lru-map";
 import { RAGFusionService } from "./rag-fusion.service";
 import type { RAGFusionConfig } from "../../types/rag-fusion.types";
+import { IndustryReportSearchAdapter } from "../search/adapters/industry-report-search.adapter";
 
 /**
  * 数据获取选项
@@ -111,6 +112,9 @@ export class DataSourceRouterService {
     // ★ RAG-Fusion: 多查询融合检索（可选，standard/thorough 深度启用）
     @Optional()
     private readonly ragFusionService?: RAGFusionService,
+    // ★ Industry Report: 行业报告聚合搜索
+    @Optional()
+    private readonly industryReportAdapter?: IndustryReportSearchAdapter,
   ) {}
 
   /**
@@ -989,6 +993,18 @@ export class DataSourceRouterService {
         return this.searchViaTool("finance-api", source, query, maxResults);
       case DataSourceType.WEATHER_API:
         return this.searchViaTool("weather-api", source, query, maxResults);
+
+      case DataSourceType.INDUSTRY_REPORT:
+        if (this.industryReportAdapter) {
+          const adapterResult = await this.industryReportAdapter.search({
+            query,
+            maxResults,
+            timeoutMs: 20000,
+            metadata: { topicType: topic?.type },
+          });
+          return adapterResult.items;
+        }
+        return [];
 
       default:
         // 尝试通过 ConnectorRegistry fallback（未来扩展的自定义连接器）

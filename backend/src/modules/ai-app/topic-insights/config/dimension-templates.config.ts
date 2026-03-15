@@ -49,7 +49,7 @@ export const MACRO_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} industry analysis",
       "{topic} market segmentation",
     ],
-    searchSources: ["web", "local"],
+    searchSources: ["web", "industry-report", "local"],
     minSources: 6,
   },
   {
@@ -63,7 +63,7 @@ export const MACRO_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} key players analysis",
       "{topic} market share",
     ],
-    searchSources: ["web", "local"],
+    searchSources: ["web", "industry-report", "local"],
     minSources: 5,
   },
   {
@@ -77,7 +77,13 @@ export const MACRO_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} innovation breakthroughs",
       "{topic} R&D direction",
     ],
-    searchSources: ["academic", "github", "web", "hackernews"],
+    searchSources: [
+      "academic",
+      "github",
+      "web",
+      "hackernews",
+      "industry-report",
+    ],
     minSources: 6,
   },
   {
@@ -91,7 +97,7 @@ export const MACRO_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} investment trends",
       "{topic} venture capital",
     ],
-    searchSources: ["web", "local"],
+    searchSources: ["web", "industry-report", "local"],
     minSources: 5,
   },
   {
@@ -172,7 +178,7 @@ export const TECH_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} latest capabilities",
       "{topic} technical specifications",
     ],
-    searchSources: ["academic", "github", "web"],
+    searchSources: ["academic", "github", "web", "industry-report"],
     minSources: 6,
   },
   {
@@ -186,7 +192,7 @@ export const TECH_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} research labs",
       "{topic} companies developing",
     ],
-    searchSources: ["academic", "github", "web"],
+    searchSources: ["academic", "github", "web", "industry-report"],
     minSources: 5,
   },
   {
@@ -214,7 +220,7 @@ export const TECH_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} real world deployment",
       "{topic} industry applications",
     ],
-    searchSources: ["web", "github", "hackernews"],
+    searchSources: ["web", "github", "hackernews", "industry-report"],
     minSources: 5,
   },
   {
@@ -228,7 +234,7 @@ export const TECH_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} products available",
       "{topic} technology readiness level",
     ],
-    searchSources: ["web", "github"],
+    searchSources: ["web", "github", "industry-report"],
     minSources: 5,
   },
   {
@@ -256,7 +262,7 @@ export const TECH_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{topic} next generation",
       "{topic} future outlook",
     ],
-    searchSources: ["academic", "web"],
+    searchSources: ["academic", "web", "industry-report"],
     minSources: 5,
   },
 ];
@@ -319,7 +325,7 @@ export const COMPANY_INSIGHT_DIMENSIONS: DimensionTemplate[] = [
       "{company} valuation",
       "{company} financial performance",
     ],
-    searchSources: ["web", "local"],
+    searchSources: ["web", "industry-report", "local"],
     minSources: 5,
   },
   {
