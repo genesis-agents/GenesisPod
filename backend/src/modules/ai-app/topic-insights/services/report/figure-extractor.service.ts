@@ -752,10 +752,14 @@ export class FigureExtractorService {
       return null;
     }
 
-    // ★ 防护网 5: 拒绝带认证参数的签名 URL — CDN 签名会过期，Vision API 下载时可能已失效
-    if (/[?&](oh=|oe=|_nc_|token=|signature=|auth=)/i.test(originalUrl)) {
+    // ★ 防护网 5: 拒绝 Facebook/Instagram 签名 URL（_nc_ 参数是 FB CDN 专属标识）
+    // 仅过滤 fbcdn.net 和 cdninstagram.com 域名的签名 URL，不过滤 Substack 等合法 CDN 的 token 参数
+    if (
+      /fbcdn\.net|cdninstagram\.com/i.test(originalUrl) &&
+      /[?&](_nc_|oh=|oe=)/i.test(originalUrl)
+    ) {
       this.logger.debug(
-        `[validateFigure] REJECTED signed URL: ${originalUrl.substring(0, 80)}...`,
+        `[validateFigure] REJECTED Facebook/Instagram signed URL: ${originalUrl.substring(0, 80)}...`,
       );
       return null;
     }
