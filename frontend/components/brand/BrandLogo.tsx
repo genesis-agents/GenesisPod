@@ -33,7 +33,7 @@ export function BrandLogo({
         }}
       >
         <Image
-          src="/logo.png"
+          src="/favicon.svg"
           alt={config.brand.name}
           width={32}
           height={32}
