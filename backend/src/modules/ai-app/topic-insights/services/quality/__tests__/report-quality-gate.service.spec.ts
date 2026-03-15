@@ -549,9 +549,9 @@ describe("ReportQualityGateService", () => {
       expect(violation?.message).toContain("三层因果分析");
     });
 
-    it("should NOT warn EVENT content with Chinese causal keywords", () => {
+    it("should NOT warn EVENT content with Chinese causal keywords and table", () => {
       const content = longContent(
-        "远因是产业结构失衡，近因是监管政策收紧，导火索是一次供应链中断",
+        "远因是产业结构失衡，近因是监管政策收紧，导火索是一次供应链中断\n\n| 时间 | 事件 | 影响 |\n|------|------|------|\n| 2024 | 政策收紧 | 供应链中断 |",
       );
 
       const result = service.validateDimensionContent(content, "zh", "EVENT");
@@ -562,9 +562,9 @@ describe("ReportQualityGateService", () => {
       expect(violation).toBeUndefined();
     });
 
-    it("should NOT warn EVENT content with English causal keywords", () => {
+    it("should NOT warn EVENT content with English causal keywords and table", () => {
       const content = longContent(
-        "The structural cause was market saturation, the proximate cause was regulatory action",
+        "The structural cause was market saturation, the proximate cause was regulatory action\n\n| Phase | Event | Impact |\n|-------|-------|--------|\n| 2024 | Regulation | Disruption |",
       );
 
       const result = service.validateDimensionContent(content, "en", "EVENT");
