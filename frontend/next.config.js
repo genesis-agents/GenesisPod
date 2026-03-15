@@ -160,7 +160,7 @@ const nextConfig = {
     const apiUrl = ensureProtocol(
       process.env.API_INTERNAL_URL ||
         process.env.NEXT_PUBLIC_API_URL ||
-        'https://genesis-ai-backend.up.railway.app'
+        'https://api.gens.team'
     );
     const aiUrl = ensureProtocol(
       process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000'

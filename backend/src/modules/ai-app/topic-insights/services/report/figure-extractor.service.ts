@@ -810,7 +810,7 @@ export class FigureExtractorService {
           redirect: "follow",
           headers: {
             "User-Agent":
-              "Mozilla/5.0 (compatible; GenesisBot/1.0; +https://genesis-ai-labs.org)",
+              "Mozilla/5.0 (compatible; GenesisBot/1.0; +https://gens.team)",
             Accept: "image/*",
             Range: "bytes=0-8191",
           },

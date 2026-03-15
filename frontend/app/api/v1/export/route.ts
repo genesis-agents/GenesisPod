@@ -17,7 +17,7 @@ const getBackendUrl = () => {
   return (
     process.env.BACKEND_INTERNAL_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
-    'https://genesis-ai-backend.up.railway.app'
+    'https://api.gens.team'
   );
 };
 
