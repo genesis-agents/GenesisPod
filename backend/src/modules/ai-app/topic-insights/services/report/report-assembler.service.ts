@@ -710,6 +710,13 @@ export class ReportAssemblerService {
     // Demote headings that contain pseudocode (e.g., "### if mask is not None")
     content = collapsePseudoCodeHeadings(content);
 
+    // ★ v3.1: Convert bold-only lines to ### headings in supplementary sections
+    // e.g., "**因果链 1：模块化架构推动生产部署**" → "### 因果链 1：模块化架构推动生产部署"
+    content = content.replace(
+      /^(\*\*([^*]+)\*\*)\s*$/gm,
+      (_match, _full, inner: string) => `### ${inner.trim()}`,
+    );
+
     // Wrap pseudocode blocks in fenced code blocks
     content = wrapPseudoCodeBlocks(content);
 
@@ -1123,8 +1130,8 @@ export class ReportAssemblerService {
   private buildReferencesSection(
     references: ReportReference[],
     referencesLabel: string,
-    accessedLabel: string,
-    locale: string,
+    _accessedLabel: string,
+    _locale: string,
   ): string {
     if (references.length === 0) return "";
 
@@ -1159,13 +1166,9 @@ export class ReportAssemblerService {
     if (refEntries.length === 0) return "";
 
     const refLines = refEntries.map((e) => {
-      const accessDate = e.accessedAt
-        ? new Date(e.accessedAt).toLocaleDateString(locale)
-        : new Date().toLocaleDateString(locale);
-      // Title is the hyperlink; domain and raw URL are hidden
       // Escape brackets in title to avoid breaking markdown link syntax
       const safeTitle = e.title.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
-      return `[${e.index}] [${safeTitle}](${e.url}). ${accessedLabel}: ${accessDate}`;
+      return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}`;
     });
 
     let section = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;

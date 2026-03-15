@@ -275,14 +275,13 @@ describe("SearchService", () => {
     });
 
     it("uses longer timeout for PDF URLs", async () => {
-      const html =
-        "<html><head><title>PDF</title></head><body>content</body></html>";
-      httpService.get.mockReturnValue(mockAxiosResponse(html));
-
-      await service.fetchUrlContent("https://example.com/doc.pdf");
-      expect(httpService.get).toHaveBeenCalledWith(
+      const result = await service.fetchUrlContent(
         "https://example.com/doc.pdf",
-        expect.objectContaining({ timeout: 45000 }),
+      );
+      expect(result.success).toBe(false);
+      expect(httpService.get).not.toHaveBeenCalledWith(
+        "https://example.com/doc.pdf",
+        expect.anything(),
       );
     });
 

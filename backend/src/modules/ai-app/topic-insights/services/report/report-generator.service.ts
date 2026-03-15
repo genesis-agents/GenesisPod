@@ -929,7 +929,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       parts.push(`\n# ${labels.references}\n`);
       deduplicated.forEach((ref) => {
         parts.push(
-          `[${ref.index}] ${ref.title}. ${(ref as { domain?: string }).domain || ""}. ${ref.url}. ${labels.accessDate}: ${(ref as { accessDate?: string }).accessDate || ""}`,
+          `[${ref.index}] ${ref.title}. ${(ref as { domain?: string }).domain || ""}. ${ref.url}`,
         );
       });
 

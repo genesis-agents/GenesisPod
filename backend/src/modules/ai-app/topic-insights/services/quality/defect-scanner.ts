@@ -171,6 +171,14 @@ function countLeakedMetaNotes(content: string): number {
     /本报告/g,
     /作为.*?助手/g,
     /作为AI/g,
+    // LLM 内部编辑指令残留
+    /[（(]\s*不含[^）)]{0,30}[）)]/g,
+    // chart JSON 残留
+    /"after_paragraph"\s*:/g,
+    /"FIG-\d+"\s*:\s*\{/g,
+    // 营销话术
+    /(?:势必|必将|注定|必然)(?:引发|带来|改写|颠覆|重塑)/g,
+    /(?:不可忽视|不容忽视)的(?:机遇|趋势|方向)/g,
   ];
   let count = 0;
   for (const pattern of patterns) {

@@ -735,6 +735,15 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/\s*[（(][^）)]*确保[^）)]*引用[^）)]*[）)]\s*/g, "")
       // Pattern: （...结合前置数据...）
       .replace(/\s*[（(][^）)]*结合前置[^）)]*[）)]\s*/g, "")
+      // ── LLM 内部编辑指令残留 ──
+      // Leader outline 的 section description 中的元注释被 section writer 照搬到正文
+      // Pattern: （不含要点和参考）、（不含要点和标题）、（不含图表）等
+      .replace(/[（(]\s*不含[^）)]{0,30}[）)][。.]?\s*/g, "")
+      // ── 孤立 JSON 符号（chart JSON 清理不完全的残留） ──
+      .replace(/^\s*[\]})]\s*$/gm, "")
+      .replace(/^\s*\{\s*$/gm, "")
+      // ── 三连空行压缩 ──
+      .replace(/\n{3,}/g, "\n\n")
   );
 }
 

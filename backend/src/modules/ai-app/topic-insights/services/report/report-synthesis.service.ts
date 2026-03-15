@@ -632,7 +632,6 @@ export class ReportSynthesisService {
     // 9.5 ★ 构建参考文献部分（从数据库证据构建，而非依赖 AI 返回）
     const isEn = topic.language === "en";
     const referencesLabel = isEn ? "References" : "参考文献";
-    const accessDateLabel = isEn ? "Accessed" : "访问日期";
     let referencesSection = "";
     // ★ Citation index remap (populated by reference cleanup pipeline)
     let citationIndexMapping = new Map<number, number>();
@@ -677,12 +676,9 @@ export class ReportSynthesisService {
       }
 
       const refLines = refEntries.map((e) => {
-        const accessDate = e.accessedAt
-          ? new Date(e.accessedAt).toLocaleDateString(isEn ? "en-US" : "zh-CN")
-          : new Date().toLocaleDateString(isEn ? "en-US" : "zh-CN");
         // Escape brackets in title to avoid breaking markdown link syntax
         const safeTitle = e.title.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
-        return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}. ${accessDateLabel}: ${accessDate}`;
+        return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}`;
       });
       if (refLines.length > 0) {
         referencesSection = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;
@@ -1937,7 +1933,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       parts.push("\n# 参考文献\n");
       report.references.forEach((ref) => {
         parts.push(
-          `[${ref.index}] ${ref.title}. ${ref.domain || ""}. ${ref.url}. 访问日期: ${ref.accessDate}`,
+          `[${ref.index}] ${ref.title}. ${ref.domain || ""}. ${ref.url}`,
         );
       });
     }

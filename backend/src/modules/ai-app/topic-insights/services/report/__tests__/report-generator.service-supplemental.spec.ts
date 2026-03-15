@@ -393,7 +393,7 @@ describe("ReportGeneratorService (supplemental)", () => {
       );
 
       expect(result.fullReport).toContain("References");
-      expect(result.fullReport).toContain("Access Date");
+      expect(result.fullReport).not.toContain("Access Date");
     });
   });
 

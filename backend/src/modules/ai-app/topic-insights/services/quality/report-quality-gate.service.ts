@@ -242,6 +242,57 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
+    // 4.92 ★ 数量声明与列表项不一致检测 → 触发 AI 重写
+    {
+      const numMap: Record<string, number> = {
+        两: 2,
+        三: 3,
+        四: 4,
+        五: 5,
+        六: 6,
+        七: 7,
+        八: 8,
+        九: 9,
+        十: 10,
+      };
+      const contentLines = fixedContent.split("\n");
+      for (let i = 0; i < contentLines.length; i++) {
+        const m = contentLines[i].match(
+          /(?:有|出|为|含|分为|呈现|体现出?|包括|涵盖)\s*([两三四五六七八九十])\s*(?:个|项|点|条|类|层|种|方面|维度|阶段|特[点征]|原因|改[进善]|趋势|挑战|优势)/,
+        );
+        if (!m) continue;
+        const declared = numMap[m[1]] || 0;
+        if (declared === 0) continue;
+        let listItems = 0;
+        for (let j = i + 1; j < contentLines.length && j < i + 30; j++) {
+          const lt = contentLines[j].trim();
+          if (
+            /^[-*•]\s/.test(lt) ||
+            /^\d+[.)]\s/.test(lt) ||
+            /^其[一二三四五六七八九十]/.test(lt)
+          ) {
+            listItems++;
+          } else if (lt === "") {
+            continue;
+          } else if (listItems > 0) {
+            break;
+          }
+        }
+        if (listItems > 0 && listItems !== declared) {
+          violations.push({
+            rule: "number_claim_mismatch",
+            severity: "warning",
+            message: `声明"${m[0]}"但实际列出 ${listItems} 条，内容维度可能不一致`,
+          });
+          rewriteGuidance.push(
+            `逻辑一致性问题：文中声明"${m[0]}"但后续列出了 ${listItems} 个条目。` +
+              `问题不只是数字不匹配 — 多出的条目可能与声明的主题（如"改进"）不在同一维度。` +
+              `请重写该段落：要么调整声明与列表严格对应，要么将不同维度的内容拆分为独立段落，不要混在同一个列表中。`,
+          );
+        }
+      }
+    }
+
     // 4.95 ★ H3 子节数量上限检查（防止粒度过细）
     const h3Count = (fixedContent.match(/^### /gm) || []).length;
     if (h3Count > 10) {
@@ -259,6 +310,32 @@ export class ReportQualityGateService {
     }
 
     // ========== 检测但不自动修复的规则（需要 AI 重写） ==========
+
+    // 4.96 ★ 营销话术检测 + 自动清理
+    const marketingPatterns = [
+      /将?(?:势必|必将|注定|必然)(?:引发|带来|改写|颠覆|重塑)/g,
+      /(?:不可忽视|不容忽视|值得高度关注)的(?:机遇|趋势|方向|变革)/g,
+      /(?:关键|核心|重要)(?:投资|布局|战略)(?:方向|机会|窗口)/g,
+      /(?:将|势必)(?:改写|颠覆|重塑)(?:行业|产业|市场)格局/g,
+    ];
+    const beforeMarketing = fixedContent;
+    for (const pattern of marketingPatterns) {
+      fixedContent = fixedContent.replace(pattern, (matched) => {
+        // 替换为中性表述
+        return matched
+          .replace(/势必|必将|注定|必然/, "可能")
+          .replace(/不可忽视|不容忽视|值得高度关注/, "值得关注")
+          .replace(/改写|颠覆|重塑/, "影响");
+      });
+    }
+    if (fixedContent !== beforeMarketing) {
+      violations.push({
+        rule: "marketing_language",
+        severity: "warning",
+        message: "检测到营销/咨询话术，已替换为中性研究语气",
+      });
+      wasAutoFixed = true;
+    }
 
     // 5. 语言一致性检查
     const langCheck = detectForeignLanguageBlocks(fixedContent, targetLanguage);

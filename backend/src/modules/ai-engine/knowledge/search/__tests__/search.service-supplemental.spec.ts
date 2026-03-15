@@ -815,15 +815,13 @@ describe("SearchService (supplemental)", () => {
   // ─────────────────────────────────────────────
   describe("fetchUrlContent - timeout by URL pattern", () => {
     it("uses 45s timeout for /pdf/ path", async () => {
-      const html =
-        "<html><head><title>PDF Page</title></head><body>content</body></html>";
-      httpService.get.mockReturnValue(makeAxiosResponse(html));
-
-      await service.fetchUrlContent("https://example.com/pdf/doc1");
-
-      expect(httpService.get).toHaveBeenCalledWith(
+      const result = await service.fetchUrlContent(
         "https://example.com/pdf/doc1",
-        expect.objectContaining({ timeout: 45000 }),
+      );
+      expect(result.success).toBe(false);
+      expect(httpService.get).not.toHaveBeenCalledWith(
+        "https://example.com/pdf/doc1",
+        expect.anything(),
       );
     });
 

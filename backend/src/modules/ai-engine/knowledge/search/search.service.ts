@@ -1312,12 +1312,24 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     try {
       this.logger.debug(`Fetching URL content: ${url}`);
 
-      // ★ PDF 和大文件使用更长的超时时间
-      const isPdfOrLargeFile =
-        url.toLowerCase().endsWith(".pdf") ||
-        url.toLowerCase().includes("/pdf/") ||
-        url.toLowerCase().includes(".gov/"); // 政府网站通常较慢
-      const timeout = isPdfOrLargeFile ? 45000 : 30000;
+      // ★ 跳过 PDF URL：PDF 文件通常超过 5MB 限制，下载后也会被截断到 3000 字符
+      // 使用搜索引擎返回的 snippet 即可，避免浪费请求时间和错误日志噪音
+      const lowerUrl = url.toLowerCase();
+      if (
+        lowerUrl.endsWith(".pdf") ||
+        lowerUrl.includes("/pdf/") ||
+        lowerUrl.includes(".pdf?")
+      ) {
+        this.logger.debug(`Skipping PDF URL (use snippet instead): ${url}`);
+        return {
+          success: false,
+          error: "PDF skipped — using snippet",
+        };
+      }
+
+      // ★ 大文件使用更长的超时时间
+      const isLargeFile = lowerUrl.includes(".gov/"); // 政府网站通常较慢
+      const timeout = isLargeFile ? 45000 : 30000;
 
       const response = await firstValueFrom(
         this.httpService.get(url, {

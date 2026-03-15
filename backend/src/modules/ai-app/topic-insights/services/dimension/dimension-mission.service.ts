@@ -1465,10 +1465,19 @@ export class DimensionMissionService {
         group.includes(s.id),
       );
 
+      // ★ v3.1: 跨 section 多样性分配 evidence
+      // 先为所有 section 分配相关 evidence，然后补充未被选中的 evidence 到各 section
+      const sectionEvidenceMap = this.distributeDiverseEvidence(
+        groupSections,
+        evidenceData,
+      );
+
       // 并行写作
       const writeInputs = groupSections.map((section) => ({
         section,
-        evidenceData: this.filterEvidenceForSection(section, evidenceData),
+        evidenceData:
+          sectionEvidenceMap.get(section.id) ||
+          this.filterEvidenceForSection(section, evidenceData),
         previousSections: this.getPreviousSections(
           section,
           sectionMap,
@@ -1706,6 +1715,103 @@ export class DimensionMissionService {
     result = result.replace(/\n{3,}/g, "\n\n").trim();
 
     return result;
+  }
+
+  /**
+   * 跨 section 多样性分配 evidence
+   *
+   * 确保不同 section 使用不同的 evidence，提高整个维度的引用多样性。
+   * 策略：
+   * 1. 每个 section 先获取 top-3 最相关的 evidence（允许共享）
+   * 2. 剩余 evidence 按轮转分配给各 section（不重复）
+   * 3. 每个 section 最终获得 5-8 条 evidence
+   */
+  private distributeDiverseEvidence(
+    sections: SectionPlan[],
+    evidenceData: EvidenceData[],
+  ): Map<string, EvidenceData[]> {
+    const result = new Map<string, EvidenceData[]>();
+    if (evidenceData.length === 0 || sections.length === 0) return result;
+
+    // 为每条 evidence 标记 promptIndex
+    const indexedEvidence = evidenceData.map((e, i) => ({
+      ...e,
+      promptIndex: i + 1,
+    }));
+
+    // Step 1: 每个 section 获取 top-3 最相关的（允许跨 section 共享）
+    const sectionCoreEvidence = new Map<string, EvidenceData[]>();
+    for (const section of sections) {
+      const scored = this.scoreEvidenceForSection(section, indexedEvidence);
+      const top3 = scored.slice(0, 3);
+      sectionCoreEvidence.set(
+        section.id,
+        top3.map((s) => s.evidence),
+      );
+    }
+
+    // Step 2: 收集已被选为 core 的 evidence indices
+    const coreIndices = new Set<number>();
+    for (const core of sectionCoreEvidence.values()) {
+      for (const e of core) {
+        if (e.promptIndex) coreIndices.add(e.promptIndex);
+      }
+    }
+
+    // Step 3: 剩余 evidence 按轮转分配（每个 section 获得独占的 evidence）
+    const remaining = indexedEvidence.filter(
+      (e) => !coreIndices.has(e.promptIndex),
+    );
+    const sectionIds = sections.map((s) => s.id);
+    const extraEvidence = new Map<string, EvidenceData[]>(
+      sectionIds.map((id) => [id, []]),
+    );
+    for (let i = 0; i < remaining.length; i++) {
+      const targetSection = sectionIds[i % sectionIds.length];
+      const extras = extraEvidence.get(targetSection)!;
+      if (extras.length < 5) {
+        // 每个 section 最多补充 5 条独占 evidence
+        extras.push(remaining[i]);
+      }
+    }
+
+    // Step 4: 合并 core + extra
+    for (const section of sections) {
+      const core = sectionCoreEvidence.get(section.id) || [];
+      const extra = extraEvidence.get(section.id) || [];
+      result.set(section.id, [...core, ...extra]);
+    }
+
+    this.logger.log(
+      `[distributeDiverseEvidence] ${sections.length} sections, ${evidenceData.length} evidence → ${coreIndices.size} shared + ${remaining.length} distributed`,
+    );
+
+    return result;
+  }
+
+  /**
+   * 为 evidence 打分（按与 section 的相关度排序）
+   */
+  private scoreEvidenceForSection(
+    section: SectionPlan,
+    evidenceData: EvidenceData[],
+  ): Array<{ evidence: EvidenceData; score: number }> {
+    const keywords = this.extractKeywords(
+      `${section.title} ${section.keyPoints.join(" ")} ${section.description || ""}`,
+    );
+    if (keywords.length === 0)
+      return evidenceData.map((e) => ({ evidence: e, score: 0 }));
+
+    return evidenceData
+      .map((e) => {
+        const text = `${e.title || ""} ${e.snippet || ""}`.toLowerCase();
+        let score = 0;
+        for (const kw of keywords) {
+          if (text.includes(kw)) score++;
+        }
+        return { evidence: e, score };
+      })
+      .sort((a, b) => b.score - a.score);
   }
 
   /**

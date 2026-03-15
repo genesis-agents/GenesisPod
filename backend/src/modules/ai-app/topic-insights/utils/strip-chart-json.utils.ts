@@ -90,9 +90,9 @@ export function stripChartJsonFromContent(content: string): string {
     result = result.substring(0, stripStart) + result.substring(stripEnd);
   }
 
-  // Fallback: bare JSON block with generatedCharts at end of content
+  // Fallback: bare JSON block with known chart/figure field names at end of content
   const bareJsonPattern =
-    /\n\s*\{\s*"(?:generatedCharts|figureReferences)"[\s\S]*$/;
+    /\n\s*\{\s*"(?:generatedCharts|figureReferences|figures|data|FIG-\d+)"[\s\S]*$/;
   const m2 = result.match(bareJsonPattern);
   if (m2?.index !== undefined) {
     const before = result.substring(0, m2.index).trim();
@@ -100,6 +100,10 @@ export function stripChartJsonFromContent(content: string): string {
       result = before;
     }
   }
+
+  // ★ Strip FIG-N as JSON key inline: "FIG-6": { "after_paragraph": 2, ... }
+  // This happens when LLM uses figure ID as JSON key instead of array format
+  result = result.replace(/\n?\s*"FIG-\d+":\s*\{[^}]*\}\s*\}?\s*/g, "");
 
   // ★ 移除 AI 错误输出的 "图表数据" 章节标题
   // 匹配模式：前后可能有分隔线(---) + "图表数据" 标题（可能是 ###、##、或纯文本）
