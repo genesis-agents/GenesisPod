@@ -291,9 +291,18 @@ export class AiEngineModule implements OnModuleInit {
         this.toolRegistry.getAll().map((t) => t.id),
       );
 
-      // 检查孤立配置：数据库有配置但 ToolRegistry 中没有对应工具
+      // Provider ID → Registry Tool ID 别名映射
+      // 前端用 provider ID（如 openalex）保存配置，代码用 registry ID（如 openalex-search）注册工具
+      const providerAliases: Record<string, string> = {
+        openalex: "openalex-search",
+        "alpha-vantage": "finance-api",
+      };
+
+      // 检查孤立配置：数据库有配置但 ToolRegistry 中没有对应工具（考虑别名）
       const orphanedConfigs = dbConfigs.filter(
-        (config) => !registeredToolIds.has(config.toolId),
+        (config) =>
+          !registeredToolIds.has(config.toolId) &&
+          !registeredToolIds.has(providerAliases[config.toolId] ?? ""),
       );
 
       if (orphanedConfigs.length > 0) {
@@ -305,12 +314,6 @@ export class AiEngineModule implements OnModuleInit {
         }
         this.logger.warn(
           `  → These configs will be ignored. Consider removing them from the database.`,
-        );
-
-        // ★ 不自动删除：这些可能是前端 Provider ID 配置（如 openalex vs openalex-search）
-        // Provider ID 与 Registry ID 不一致是正常的，删除会导致用户配置丢失
-        this.logger.log(
-          `[T4] Skipping auto-cleanup: orphaned configs may be valid provider-level configurations`,
         );
       }
 
