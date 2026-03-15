@@ -154,10 +154,7 @@ export class ReportDataService {
           opportunities: result.opportunities,
           confidenceLevel: result.confidenceLevel,
           detailedContent: result.detailedContent
-            ? preprocessDimensionContent(
-                result.detailedContent,
-                result.dimIndex,
-              )
+            ? preprocessDimensionContent(result.detailedContent)
             : "",
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],

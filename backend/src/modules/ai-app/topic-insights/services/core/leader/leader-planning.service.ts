@@ -850,6 +850,30 @@ export class LeaderPlanningService {
             );
           }
 
+          // ★ 强制 targetWords 均匀化：防止 outline 分配极度不均
+          if (outline.sections && outline.sections.length > 0) {
+            const targetWordsList = outline.sections.map(
+              (s) => s.targetWords || 1000,
+            );
+            const sorted = [...targetWordsList].sort((a, b) => a - b);
+            const median = sorted[Math.floor(sorted.length / 2)];
+            const minAllowed = Math.max(500, Math.round(median * 0.5));
+            const maxAllowed = Math.max(2000, Math.round(median * 2));
+
+            for (const section of outline.sections) {
+              if (!section.targetWords || section.targetWords < minAllowed) {
+                section.targetWords = Math.max(800, median);
+              }
+              if (section.targetWords > maxAllowed) {
+                section.targetWords = maxAllowed;
+              }
+            }
+
+            this.logger.log(
+              `[planDimensionOutline] targetWords normalized: median=${median}, allowed=[${minAllowed}, ${maxAllowed}], final=[${outline.sections.map((s) => s.targetWords).join(", ")}]`,
+            );
+          }
+
           // ★ 诊断日志：记录每个 section 的 allocatedFigures 分配情况
           const figSummary = outline.sections
             .map((s) => `${s.title}:${s.allocatedFigures?.length ?? 0}figs`)

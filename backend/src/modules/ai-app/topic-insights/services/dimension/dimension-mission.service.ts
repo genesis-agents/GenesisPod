@@ -1512,6 +1512,15 @@ export class DimensionMissionService {
         const section = groupSections[i];
         let result = groupResults[i];
 
+        // ★ 后处理：清理 SectionWriter 输出中的结构问题
+        if (result.content) {
+          result = {
+            ...result,
+            content: this.cleanSectionOutput(result.content),
+          };
+          groupResults[i] = result;
+        }
+
         // ★ 发送研究员章节完成事件
         const progressPercent =
           30 +
@@ -1640,6 +1649,63 @@ export class DimensionMissionService {
     }
 
     return sectionResults;
+  }
+
+  /**
+   * 清理 SectionWriter 输出中的结构问题
+   * - 剥离 LLM 输出中的 ### 标题（section 内不应有 ### 标题）
+   * - 合并独占加粗行到下一段（**标题** 单独一行 → 和下一段合并）
+   * - 删除开头的 keyPoints 列表（≤5行短列表紧跟在开头）
+   */
+  private cleanSectionOutput(content: string): string {
+    let result = content;
+
+    // 1. 剥离 ### 和 #### 标题 — section 内不应有这些，标题由 integrateDimensionResults 统一添加
+    result = result.replace(/^#{3,4}\s+.+$/gm, "");
+
+    // 2. 删除开头的 keyPoints 列表（连续的短列表项，每行 < 80 字符）
+    const lines = result.split("\n");
+    let skipUntil = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed) continue; // 跳过空行
+      if (/^[-*]\s/.test(trimmed) && trimmed.length < 80) {
+        skipUntil = i + 1;
+      } else {
+        break; // 遇到非列表行，停止
+      }
+    }
+    if (skipUntil > 0 && skipUntil <= 6) {
+      // 只删开头的短列表（最多 6 行），保留后面的内容
+      result = lines.slice(skipUntil).join("\n");
+    }
+
+    // 3. 合并独占加粗行到下一段
+    const blocks = result.split(/\n\n+/);
+    const merged: string[] = [];
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i].trim();
+      if (!block) continue;
+      // 检测独占加粗行: 只有一行，且整行是 **xxx**
+      if (/^\*\*[^*]+\*\*[：:.]?\s*$/.test(block) && !block.includes("\n")) {
+        // 和下一个非空 block 合并
+        if (i + 1 < blocks.length) {
+          const nextBlock = blocks[i + 1].trim();
+          if (nextBlock) {
+            merged.push(block + " " + nextBlock);
+            i++; // 跳过下一个 block（已合并）
+            continue;
+          }
+        }
+      }
+      merged.push(block);
+    }
+    result = merged.join("\n\n");
+
+    // 4. 清理多余空行
+    result = result.replace(/\n{3,}/g, "\n\n").trim();
+
+    return result;
   }
 
   /**

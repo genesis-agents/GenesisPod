@@ -2748,28 +2748,6 @@ export function detectAndPromoteHeadings(content: string): string {
       continue;
     }
 
-    // Pattern 1: Standalone bold line "**标题文字**" (< 40 chars, not a sentence)
-    const boldMatch = trimmed.match(/^\*\*([^*]{2,40})\*\*[：:]?\s*$/);
-    if (boldMatch) {
-      const text = boldMatch[1].trim();
-      // Only promote if text looks like a real heading (contains Chinese chars + action/noun)
-      // Skip generic short labels like "反馈回路", "维度对比", "系统性效应" etc.
-      const looksLikeHeading =
-        text.length >= 4 &&
-        /[\u4e00-\u9fff]{2,}/.test(text) &&
-        !/^[\u4e00-\u9fff]{2,4}$/.test(text); // skip 2-4 char generic labels
-      // Only promote if next non-empty line exists and is content (not another heading/bold)
-      const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
-      if (
-        looksLikeHeading &&
-        nextContent &&
-        !/^\*\*|^#/.test(nextContent.trim())
-      ) {
-        result.push(`### ${text}`);
-        continue;
-      }
-    }
-
     // Pattern 2: Short line ending with ：or : (Chinese heading pattern)
     // Only if 6-25 chars and followed by a content paragraph
     if (

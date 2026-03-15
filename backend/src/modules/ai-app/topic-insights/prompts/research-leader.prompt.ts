@@ -307,7 +307,7 @@ export const GLOBAL_OUTLINE_PROMPT = `你是资深的研究协调专家（Resear
             "title": "章节标题",
             "description": "章节目标",
             "keyPoints": ["要点1", "要点2"],
-            "targetWords": 1000,
+            "targetWords": 1500,
             "evidenceRequirements": {
               "minReferences": 3,
               "preferredSources": ["来源类型"]
@@ -426,6 +426,7 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
 - 判断标准：如果一个 section 的标题去掉后内容可以自然并入上一个 section，说明粒度过细，应合并
 - 错误示例：把"商业化概述"、"演进路径"、"产品框架"、"商业结构"拆成 4 个 section — 这些是同一主题"商业化现状"的不同段落，应合并为 1 个 section
 - 正确示例："商业化现状与产品框架演进"作为 1 个 section，内部用多段落展开不同方面
+- **targetWords 均匀分配（严格执行）**：所有 section 的 targetWords 必须在 800-2000 之间。禁止任何 section 低于 500 或超过 2500。如果维度总目标字数为 10000 字，6 个 section 应各约 1600 字，不允许出现 500+500+500+500+500+7000 的极端分配
 
 ## 输出要求
 
@@ -457,7 +458,7 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
       "title": "章节标题",
       "description": "这个章节要回答什么问题",
       "keyPoints": ["完整独立的陈述句要点1", "完整独立的陈述句要点2", "完整独立的陈述句要点3"],
-      "targetWords": 1000,
+      "targetWords": 1500,
       "evidenceRequirements": {
         "minReferences": 3,
         "preferredSources": ["优先使用的来源类型"]
