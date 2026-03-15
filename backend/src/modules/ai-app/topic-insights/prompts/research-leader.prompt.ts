@@ -104,6 +104,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 
 ## 可用研究工具（根据任务动态选择）
 - web-search（网络搜索）: 获取最新信息
+- industry-report（行业报告）: 搜索权威行业分析报告（SemiAnalysis、Stratechery、McKinsey、Stanford HAI 等）
 - data-analysis（数据分析）: 处理数字信息
 - rag-search（知识库搜索）: 搜索内部知识库
 - federal-register（联邦公报）: 美国行政命令、法规
@@ -152,7 +153,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
       "name": "维度名称",
       "description": "维度描述",
       "searchQueries": ["中文搜索词1", "English search query 1", "中文搜索词2"],
-      "dataSources": ["web", "arxiv", "news"],
+      "dataSources": ["web", "industry-report", "academic"],
       "priority": 1
     }
   ],
