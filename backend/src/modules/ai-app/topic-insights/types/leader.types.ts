@@ -311,38 +311,3 @@ export interface GlobalOutline {
   /** V5: 研究设计 */
   researchDesign?: import("./research-depth.types").ResearchDesign;
 }
-
-/**
- * Workflow Skills 绑定
- *
- * 集中管理各阶段的 Skill 配置，替代逐层参数穿透。
- * 存储在 ExecutionContext.metadata.skillBindings 中，任何 Handler/Service 均可读取。
- */
-export interface SkillBindings {
-  /** 框架技能（由 TopicType 决定，全维度共享） */
-  framework: string[];
-  /** 各维度的 Leader 分配技能（dimensionId → skill IDs） */
-  perDimension: Record<string, string[]>;
-}
-
-/**
- * 从 ExecutionContext.metadata 中读取 SkillBindings
- * 如果不存在则返回空绑定（向后兼容）
- */
-export function getSkillBindings(
-  metadata?: Record<string, unknown>,
-): SkillBindings {
-  const bindings = metadata?.skillBindings as SkillBindings | undefined;
-  return bindings ?? { framework: [], perDimension: {} };
-}
-
-/**
- * 解析维度的最终 Skill 列表：framework + perDimension 合并去重
- */
-export function resolveSkillsForDimension(
-  bindings: SkillBindings,
-  dimensionId: string,
-): string[] {
-  const perDim = bindings.perDimension[dimensionId] || [];
-  return [...new Set([...bindings.framework, ...perDim])];
-}

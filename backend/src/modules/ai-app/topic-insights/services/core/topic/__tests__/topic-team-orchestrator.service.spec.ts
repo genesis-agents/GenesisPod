@@ -14,7 +14,6 @@ import { ResearchCheckpointService } from "../../../monitoring/research-checkpoi
 import { DataSourceRouterService } from "../../../data/data-source-router.service";
 import { ResearchTodoService } from "../../../collaboration/research-todo.service";
 import { CritiqueRefineService } from "../../../quality/critique-refine.service";
-import { WorkflowRefreshPipelineService } from "../../../../workflows";
 import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 const mockPrisma = {
@@ -159,7 +158,6 @@ describe("TopicTeamOrchestratorService", () => {
         },
         { provide: ResearchTodoService, useValue: mockResearchTodoService },
         { provide: CritiqueRefineService, useValue: mockCritiqueRefineService },
-        { provide: WorkflowRefreshPipelineService, useValue: { execute: jest.fn().mockResolvedValue({ results: [], researchDesign: null }) } },
         { provide: AgentFacade, useValue: mockFacade },
       ],
     }).compile();

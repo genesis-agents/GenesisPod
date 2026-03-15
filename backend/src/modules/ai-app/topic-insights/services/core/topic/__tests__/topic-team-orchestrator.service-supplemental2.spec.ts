@@ -109,7 +109,6 @@ import { ResearchCheckpointService } from "../../../monitoring/research-checkpoi
 import { DataSourceRouterService } from "../../../data/data-source-router.service";
 import { ResearchTodoService } from "../../../collaboration/research-todo.service";
 import { CritiqueRefineService } from "../../../quality/critique-refine.service";
-import { WorkflowRefreshPipelineService } from "../../../../workflows";
 import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -214,6 +213,13 @@ function makeDimensionMissionService() {
     executeWritingPhase: jest.fn().mockResolvedValue(makeWritingResult()),
     executeAnalysisPhase: jest.fn(),
     clearEvidenceCache: jest.fn(),
+    executeDimensionMission: jest.fn().mockResolvedValue({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult: makeWritingResult().analysisResult,
+      evidenceIds: [],
+      extractedClaims: [],
+    }),
   };
 }
 
@@ -350,14 +356,6 @@ function makeAgentFacade() {
   };
 }
 
-function makeWorkflowRefreshPipelineService() {
-  return {
-    execute: jest
-      .fn()
-      .mockResolvedValue({ results: [], researchDesign: null }),
-  };
-}
-
 async function buildModule(
   prisma = makePrisma(),
   facade = makeAgentFacade(),
@@ -368,7 +366,6 @@ async function buildModule(
   checkpointSvc = makeResearchCheckpointService(),
   dataSvc = makeDataSourceRouterService(),
   todoSvc = makeResearchTodoService(),
-  workflowPipelineSvc = makeWorkflowRefreshPipelineService(),
 ) {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
@@ -386,7 +383,6 @@ async function buildModule(
         provide: CritiqueRefineService,
         useValue: { critiqueAndRefine: jest.fn() },
       },
-      { provide: WorkflowRefreshPipelineService, useValue: workflowPipelineSvc },
       { provide: AgentFacade, useValue: facade },
     ],
   }).compile();
@@ -403,7 +399,6 @@ async function buildModule(
     checkpointSvc,
     dataSvc,
     todoSvc,
-    workflowPipelineSvc,
   };
 }
 
@@ -412,20 +407,20 @@ async function buildModule(
 // ---------------------------------------------------------------------------
 
 describe("TopicTeamOrchestratorService executeRefresh() — abort signal", () => {
-  it("throws 'Refresh cancelled' when signal is aborted after searches complete", async () => {
+  it("marks refresh log as FAILED when synthesizeReport throws after dimension phase", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const dimensionSvc = makeDimensionMissionService();
     const reportSvc = makeReportSynthesisService();
     reportSvc.createDraftReport.mockResolvedValue({ id: "r1" });
+    // Make synthesizeReport fail so the refresh fails
+    reportSvc.synthesizeReport.mockRejectedValue(
+      new Error("Synthesis failed after search"),
+    );
 
-    // Make executeSearchPhase succeed
-    dimensionSvc.executeSearchPhase.mockResolvedValue(makeSearchPhaseResult());
-    // Make planGlobalOutline succeed but then synthesizeReport checks abort
     const leaderSvc = makeResearchLeaderService();
 
-    // We'll abort the controller mid-flight by hooking into synthesizeReport
     const { service } = await buildModule(
       prisma,
       undefined,
@@ -433,18 +428,6 @@ describe("TopicTeamOrchestratorService executeRefresh() — abort signal", () =>
       reportSvc,
       undefined,
       leaderSvc,
-    );
-
-    // Intercept the abort by making synthesizeReport check and throw
-    reportSvc.synthesizeReport.mockImplementation(async () => {
-      throw new Error("Stop after searches");
-    });
-
-    // Manually abort the controller by patching activeRefreshes AFTER the refresh starts
-    // We can simulate signal abort by making saveDimensionAnalysis hook into abort
-    // Instead, let's trigger from the search phase - make all searches fail
-    dimensionSvc.executeSearchPhase.mockRejectedValue(
-      new Error("Search timed out"),
     );
 
     await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow();
@@ -749,38 +732,37 @@ describe("TopicTeamOrchestratorService executeRefresh() — planResearch error",
 });
 
 // ---------------------------------------------------------------------------
-// Tests: executeRefresh — delegates to WorkflowRefreshPipelineService
+// Tests: executeRefresh — delegates to DimensionMissionService
 // ---------------------------------------------------------------------------
 
-describe("TopicTeamOrchestratorService executeRefresh() — WorkflowRefreshPipelineService delegation", () => {
-  it("propagates error thrown by execute", async () => {
+describe("TopicTeamOrchestratorService executeRefresh() — DimensionMissionService delegation", () => {
+  it("propagates error thrown by executeDimensionMission (all dimensions fail)", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const reportSvc = makeReportSynthesisService();
     reportSvc.createDraftReport.mockResolvedValue({ id: "r1" });
-
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
-    workflowPipelineSvc.execute.mockRejectedValue(
+    reportSvc.synthesizeReport.mockRejectedValue(
       new Error("All dimension searches failed"),
     );
+
+    const dimensionSvc = makeDimensionMissionService();
+    dimensionSvc.executeDimensionMission.mockResolvedValue({
+      success: false,
+      error: "All dimension searches failed",
+      analysisResult: null,
+      evidenceIds: [],
+      extractedClaims: [],
+    });
 
     const { service } = await buildModule(
       prisma,
       undefined,
-      undefined,
+      dimensionSvc,
       reportSvc,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      workflowPipelineSvc,
     );
 
-    await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow(
-      "All dimension searches failed",
-    );
+    await expect(service.executeRefresh(mockTopic as never)).rejects.toThrow();
 
     expect(prisma.topicRefreshLog.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -789,35 +771,26 @@ describe("TopicTeamOrchestratorService executeRefresh() — WorkflowRefreshPipel
     );
   });
 
-  it("calls execute with topic and dimensions", async () => {
+  it("calls executeDimensionMission with topic and dimension", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
+    const dimensionSvc = makeDimensionMissionService();
 
-    const { service } = await buildModule(
-      prisma,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      workflowPipelineSvc,
-    );
+    const { service } = await buildModule(prisma, undefined, dimensionSvc);
 
     await service.executeRefresh(mockTopic as never);
 
-    expect(workflowPipelineSvc.execute).toHaveBeenCalledWith(
+    expect(dimensionSvc.executeDimensionMission).toHaveBeenCalledWith(
       expect.objectContaining({ id: "topic-1" }),
-      expect.any(Array),
+      expect.objectContaining({ id: "dim-1" }),
       expect.any(String),
-      expect.any(AbortSignal),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
       expect.anything(),
-      expect.anything(),
-      expect.any(Number),
     );
   });
 });
@@ -869,32 +842,20 @@ describe("TopicTeamOrchestratorService executeRefresh() — save analysis result
     reportSvc.createDraftReport.mockResolvedValue({ id: "report-1" });
 
     const analysisResult = makeWritingResult().analysisResult;
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [
-        {
-          status: "fulfilled",
-          value: {
-            dimensionId: "dim-1",
-            analysisResult,
-            evidenceIds: [],
-          },
-        },
-      ],
-      researchDesign: null,
+    const dimensionSvc = makeDimensionMissionService();
+    dimensionSvc.executeDimensionMission.mockResolvedValue({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult,
+      evidenceIds: [],
+      extractedClaims: [],
     });
 
     const { service } = await buildModule(
       prisma,
       undefined,
-      undefined,
+      dimensionSvc,
       reportSvc,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      workflowPipelineSvc,
     );
 
     await service.executeRefresh(mockTopic as never);
@@ -914,32 +875,20 @@ describe("TopicTeamOrchestratorService executeRefresh() — save analysis result
     reportSvc.createDraftReport.mockResolvedValue({ id: "report-1" });
 
     const analysisResult = makeWritingResult().analysisResult;
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [
-        {
-          status: "fulfilled",
-          value: {
-            dimensionId: "dim-1",
-            analysisResult,
-            evidenceIds: ["ev-1", "ev-2"],
-          },
-        },
-      ],
-      researchDesign: null,
+    const dimensionSvc = makeDimensionMissionService();
+    dimensionSvc.executeDimensionMission.mockResolvedValue({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult,
+      evidenceIds: ["ev-1", "ev-2"],
+      extractedClaims: [],
     });
 
     const { service } = await buildModule(
       prisma,
       undefined,
-      undefined,
+      dimensionSvc,
       reportSvc,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      workflowPipelineSvc,
     );
 
     await service.executeRefresh(mockTopic as never);

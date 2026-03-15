@@ -50,7 +50,6 @@ export { DimensionProgressService } from "./dimension/dimension-progress.service
 export { SectionWriterService } from "./dimension/section-writer.service";
 export { DimensionSearchService } from "./dimension/dimension-search.service";
 export { DimensionWritingService } from "./dimension/dimension-writing.service";
-export { OutlineResolverService } from "./dimension/outline-resolver.service";
 
 // ==================== Report ====================
 export { ReportSynthesisService } from "./report/report-synthesis.service";

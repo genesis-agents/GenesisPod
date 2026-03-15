@@ -120,7 +120,6 @@ import { ResearchCheckpointService } from "../../../monitoring/research-checkpoi
 import { DataSourceRouterService } from "../../../data/data-source-router.service";
 import { ResearchTodoService } from "../../../collaboration/research-todo.service";
 import { CritiqueRefineService } from "../../../quality/critique-refine.service";
-import { WorkflowRefreshPipelineService } from "../../../../workflows";
 import { DimensionStatus, RefreshLogStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -235,9 +234,12 @@ function makeDimensionMissionService() {
     clearEvidenceCache: jest.fn(),
     executeDimensionMission: jest.fn().mockResolvedValue({
       success: true,
+      dimensionId: "dim-1",
       analysisResult: {
         summary: "Dimension result",
       },
+      evidenceIds: [],
+      extractedClaims: [],
     }),
   };
 }
@@ -369,12 +371,6 @@ function makeAgentFacade() {
   };
 }
 
-function makeWorkflowRefreshPipelineService() {
-  return {
-    execute: jest.fn().mockResolvedValue({ results: [], researchDesign: null }),
-  };
-}
-
 async function buildModule(
   overrides: {
     prisma?: ReturnType<typeof makePrisma>;
@@ -386,7 +382,6 @@ async function buildModule(
     checkpointSvc?: ReturnType<typeof makeResearchCheckpointService>;
     dataSvc?: ReturnType<typeof makeDataSourceRouterService>;
     todoSvc?: ReturnType<typeof makeResearchTodoService>;
-    workflowPipelineSvc?: ReturnType<typeof makeWorkflowRefreshPipelineService>;
   } = {},
 ) {
   const prisma = overrides.prisma ?? makePrisma();
@@ -399,8 +394,6 @@ async function buildModule(
     overrides.checkpointSvc ?? makeResearchCheckpointService();
   const dataSvc = overrides.dataSvc ?? makeDataSourceRouterService();
   const todoSvc = overrides.todoSvc ?? makeResearchTodoService();
-  const workflowPipelineSvc =
-    overrides.workflowPipelineSvc ?? makeWorkflowRefreshPipelineService();
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
@@ -417,10 +410,6 @@ async function buildModule(
       {
         provide: CritiqueRefineService,
         useValue: { critiqueAndRefine: jest.fn() },
-      },
-      {
-        provide: WorkflowRefreshPipelineService,
-        useValue: workflowPipelineSvc,
       },
       { provide: AgentFacade, useValue: facade },
     ],
@@ -439,7 +428,6 @@ async function buildModule(
     checkpointSvc,
     dataSvc,
     todoSvc,
-    workflowPipelineSvc,
   };
 }
 
@@ -448,92 +436,43 @@ async function buildModule(
 // ---------------------------------------------------------------------------
 
 describe("TopicTeamOrchestratorService — hypothesis-driven queries", () => {
-  it("calls searchForHypothesis when hypothesisTestingEnabled is true via researchDepth=thorough", async () => {
+  it("does NOT call searchForHypothesis (hypothesis path reserved for future integration)", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const dataSvc = makeDataSourceRouterService();
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
-
-    // Return a researchDesign with hypotheses
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [],
-      researchDesign: {
-        hypotheses: [
-          { statement: "AI market grows 40% YoY", id: "h1" },
-          { statement: "Enterprise adoption accelerates", id: "h2" },
-        ],
-      },
-    });
 
     const { service } = await buildModule({
       prisma,
       dataSvc,
-      workflowPipelineSvc,
     });
 
-    // thorough depth enables hypothesisTesting
-    const options: RefreshOptions = { researchDepth: "thorough" };
-    await service.executeRefresh(mockTopic as never, options);
-
-    expect(dataSvc.searchForHypothesis).toHaveBeenCalled();
-  });
-
-  it("does NOT call searchForHypothesis when hypotheses array is empty", async () => {
-    const prisma = makePrisma();
-    prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
-
-    const dataSvc = makeDataSourceRouterService();
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
-
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [],
-      researchDesign: {
-        hypotheses: [], // empty
-      },
-    });
-
-    const { service } = await buildModule({
-      prisma,
-      dataSvc,
-      workflowPipelineSvc,
-    });
-
+    // thorough depth — hypothesis path is reserved (if false), so searchForHypothesis is not called
     const options: RefreshOptions = { researchDepth: "thorough" };
     await service.executeRefresh(mockTopic as never, options);
 
     expect(dataSvc.searchForHypothesis).not.toHaveBeenCalled();
   });
 
-  it("continues normally even when searchForHypothesis throws (non-fatal)", async () => {
+  it("completes successfully with thorough depth even when searchForHypothesis is not called", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const dataSvc = makeDataSourceRouterService();
-    dataSvc.searchForHypothesis.mockRejectedValue(new Error("Search failed"));
-
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [],
-      researchDesign: {
-        hypotheses: [{ statement: "Hypothesis A", id: "h1" }],
-      },
-    });
-
     const reportSvc = makeReportSynthesisService();
 
     const { service } = await buildModule({
       prisma,
       dataSvc,
-      workflowPipelineSvc,
       reportSvc,
     });
 
     const options: RefreshOptions = { researchDepth: "thorough" };
-    // Should not throw
     await expect(
       service.executeRefresh(mockTopic as never, options),
     ).resolves.toBeDefined();
+
+    expect(reportSvc.synthesizeReport).toHaveBeenCalled();
   });
 });
 
@@ -542,40 +481,33 @@ describe("TopicTeamOrchestratorService — hypothesis-driven queries", () => {
 // ---------------------------------------------------------------------------
 
 describe("TopicTeamOrchestratorService — V5 cognitive loop", () => {
-  it("calls validateClaims when there are extractedClaims in fulfilled results (standard depth)", async () => {
+  it("calls validateClaims when extractedClaims returned from executeDimensionMission (standard depth)", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const reviewerSvc = makeResearchReviewerService();
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
+    const dimensionSvc = makeDimensionMissionService();
 
-    // Return a result with extractedClaims so the cognitive loop runs
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [
+    // Return extractedClaims from executeDimensionMission so the cognitive loop runs
+    dimensionSvc.executeDimensionMission.mockResolvedValue({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult: { summary: "Analysis here" },
+      evidenceIds: [],
+      extractedClaims: [
         {
-          status: "fulfilled",
-          value: {
-            dimensionId: "dim-1",
-            analysisResult: { summary: "Analysis here" },
-            evidenceIds: [],
-            extractedClaims: [
-              {
-                claim: "Market grows 40% YoY",
-                source: "source-1",
-                confidence: 0.9,
-                supportingEvidence: [],
-              },
-            ],
-          },
+          claim: "Market grows 40% YoY",
+          source: "source-1",
+          confidence: 0.9,
+          supportingEvidence: [],
         },
       ],
-      researchDesign: null,
     });
 
     const { service } = await buildModule({
       prisma,
       reviewerSvc,
-      workflowPipelineSvc,
+      dimensionSvc,
     });
 
     // standard depth has maxCognitiveLoops > 0
@@ -585,80 +517,63 @@ describe("TopicTeamOrchestratorService — V5 cognitive loop", () => {
     expect(reviewerSvc.validateClaims).toHaveBeenCalled();
   });
 
-  it("calls verifyHypotheses in cognitive loop when hypothesisTestingEnabled + hypotheses present", async () => {
+  it("does NOT call verifyHypotheses (hypothesis verification reserved for future integration)", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const reviewerSvc = makeResearchReviewerService();
     const leaderSvc = makeResearchLeaderService();
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
+    const dimensionSvc = makeDimensionMissionService();
 
-    // Hypotheses in research design
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [
+    dimensionSvc.executeDimensionMission.mockResolvedValue({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult: { summary: "Relevant summary" },
+      evidenceIds: [],
+      extractedClaims: [
         {
-          status: "fulfilled",
-          value: {
-            dimensionId: "dim-1",
-            analysisResult: { summary: "Relevant summary" },
-            evidenceIds: [],
-            extractedClaims: [
-              {
-                claim: "AI accelerates",
-                source: "d1",
-                confidence: 0.8,
-                supportingEvidence: [],
-              },
-            ],
-          },
+          claim: "AI accelerates",
+          source: "d1",
+          confidence: 0.8,
+          supportingEvidence: [],
         },
       ],
-      researchDesign: {
-        hypotheses: [{ statement: "AI market will grow", id: "h1" }],
-      },
     });
 
     const { service } = await buildModule({
       prisma,
       reviewerSvc,
       leaderSvc,
-      workflowPipelineSvc,
+      dimensionSvc,
     });
 
-    // thorough depth enables hypothesisTesting
+    // thorough depth — verifyHypotheses is behind if (false), not called
     const options: RefreshOptions = { researchDepth: "thorough" };
     await service.executeRefresh(mockTopic as never, options);
 
-    expect(leaderSvc.verifyHypotheses).toHaveBeenCalled();
+    expect(leaderSvc.verifyHypotheses).not.toHaveBeenCalled();
   });
 
-  it("does NOT call validateClaims when there are no extractedClaims", async () => {
+  it("does NOT call validateClaims when executeDimensionMission returns no extractedClaims", async () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
     const reviewerSvc = makeResearchReviewerService();
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
+    const dimensionSvc = makeDimensionMissionService();
 
-    // No extractedClaims
-    workflowPipelineSvc.execute.mockResolvedValue({
-      results: [
-        {
-          status: "fulfilled",
-          value: {
-            dimensionId: "dim-1",
-            analysisResult: { summary: "Clean analysis" },
-            evidenceIds: [],
-            // No extractedClaims field
-          },
-        },
-      ],
-      researchDesign: null,
+    // No extractedClaims in result
+    dimensionSvc.executeDimensionMission.mockResolvedValue({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult: { summary: "Clean analysis" },
+      evidenceIds: [],
+      // No extractedClaims field
     });
 
     const { service } = await buildModule({
       prisma,
       reviewerSvc,
-      workflowPipelineSvc,
+      dimensionSvc,
     });
 
     const options: RefreshOptions = { researchDepth: "standard" };
@@ -891,17 +806,17 @@ describe("TopicTeamOrchestratorService — cancelRefresh", () => {
     const prisma = makePrisma();
     prisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
 
-    // Make the pipeline take some time (but cancelRefresh won't wait for it)
-    const workflowPipelineSvc = makeWorkflowRefreshPipelineService();
-    let resolveExecute: (value: unknown) => void;
-    workflowPipelineSvc.execute.mockImplementation(
+    // Make executeDimensionMission hang so we can cancel mid-flight
+    const dimensionSvc = makeDimensionMissionService();
+    let resolveMission: (value: unknown) => void;
+    dimensionSvc.executeDimensionMission.mockImplementation(
       () =>
         new Promise((resolve) => {
-          resolveExecute = resolve;
+          resolveMission = resolve;
         }),
     );
 
-    const { service } = await buildModule({ prisma, workflowPipelineSvc });
+    const { service } = await buildModule({ prisma, dimensionSvc });
 
     // Start refresh without awaiting
     const refreshPromise = service
@@ -915,8 +830,14 @@ describe("TopicTeamOrchestratorService — cancelRefresh", () => {
 
     const cancelled = await service.cancelRefresh("topic-1");
 
-    // Resolve the hanging pipeline to let the refresh complete
-    resolveExecute!({ results: [], researchDesign: null });
+    // Resolve the hanging mission to let the refresh complete
+    resolveMission!({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult: { summary: "done" },
+      evidenceIds: [],
+      extractedClaims: [],
+    });
     await refreshPromise;
 
     expect(cancelled).toBe(true);

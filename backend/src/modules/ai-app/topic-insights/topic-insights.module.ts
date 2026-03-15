@@ -9,7 +9,6 @@ import {
   PromptSkillBridge,
   AgentRegistry,
   TeamRegistry,
-  WorkflowHandlerRegistry,
 } from "../../ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
@@ -88,7 +87,6 @@ import {
   // ★ Dimension sub-services
   DimensionSearchService,
   DimensionWritingService,
-  OutlineResolverService,
   // ★ Report sub-services
   ReportGeneratorService,
   ReportAssemblerService,
@@ -131,15 +129,6 @@ import {
   LocalSearchAdapter,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
-import {
-  SearchPhaseHandler,
-  GlobalOutlineHandler,
-  AssembleWriteInputsHandler,
-  DimensionWriteHandler,
-  RevisionHandler,
-  QualityReviewHandler,
-} from "./handlers";
-import { WorkflowRefreshPipelineService } from "./workflows";
 
 const services = [
   TopicInsightsService,
@@ -201,7 +190,6 @@ const services = [
   // ★ Dimension sub-services
   DimensionSearchService,
   DimensionWritingService,
-  OutlineResolverService,
   // ★ Report sub-services
   ReportGeneratorService,
   ReportAssemblerService,
@@ -244,8 +232,6 @@ const services = [
   FinanceSearchAdapter,
   WeatherSearchAdapter,
   LocalSearchAdapter,
-  // ★ Workflow-based refresh pipeline
-  WorkflowRefreshPipelineService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];
@@ -292,14 +278,8 @@ export class TopicInsightsModule implements OnModuleInit {
     private readonly financeApiConnector: FinanceApiConnector,
     private readonly weatherApiConnector: WeatherApiConnector,
     private readonly topicInsightsAgent: TopicInsightsAgent,
-    private readonly dimensionMissionService: DimensionMissionService,
-    private readonly outlineResolverService: OutlineResolverService,
-    private readonly researchLeaderService: ResearchLeaderService,
-    private readonly researchReviewerService: ResearchReviewerService,
-    private readonly critiqueRefineService: CritiqueRefineService,
     @Optional() private readonly agentRegistry?: AgentRegistry,
     @Optional() private readonly teamRegistry?: TeamRegistry,
-    @Optional() private readonly handlerRegistry?: WorkflowHandlerRegistry,
   ) {}
 
   async onModuleInit() {
@@ -329,32 +309,6 @@ export class TopicInsightsModule implements OnModuleInit {
       if (this.teamRegistry) {
         this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
         this.logger.log("Registered TOPIC_INSIGHTS team config");
-      }
-
-      // ★ Workflow Handlers — register TI handlers for DAG-based pipeline
-      if (this.handlerRegistry) {
-        this.handlerRegistry.register(
-          new SearchPhaseHandler(this.dimensionMissionService),
-        );
-        this.handlerRegistry.register(
-          new GlobalOutlineHandler(this.researchLeaderService),
-        );
-        this.handlerRegistry.register(new AssembleWriteInputsHandler());
-        this.handlerRegistry.register(
-          new DimensionWriteHandler(
-            this.dimensionMissionService,
-            this.outlineResolverService,
-          ),
-        );
-        this.handlerRegistry.register(
-          new RevisionHandler(this.critiqueRefineService),
-        );
-        this.handlerRegistry.register(
-          new QualityReviewHandler(this.researchReviewerService),
-        );
-        this.logger.log(
-          `Workflow handlers registered: ${this.handlerRegistry.listIds().filter((id) => id.startsWith("ti:")).length} TI handlers`,
-        );
       }
     } catch (error) {
       this.logger.error(

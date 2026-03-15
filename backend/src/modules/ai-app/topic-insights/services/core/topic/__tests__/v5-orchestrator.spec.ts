@@ -7,7 +7,6 @@ import {
   jest,
 } from "@jest/globals";
 import { TopicTeamOrchestratorService } from "../topic-team-orchestrator.service";
-import { WorkflowRefreshPipelineService } from "../../../../workflows";
 
 /** Helper: create a mock function that accepts any resolved value */
 const fn = () => jest.fn<() => Promise<unknown>>();
@@ -59,6 +58,17 @@ function createMockServices() {
   const eventEmitter = { emit: jest.fn() };
 
   const dimensionMissionService = {
+    executeDimensionMission: jest.fn().mockResolvedValue({
+      success: true,
+      dimensionId: "dim-1",
+      analysisResult: {
+        detailedContent: "test content",
+        keyFindings: ["finding1"],
+        summary: "test summary",
+      },
+      evidenceIds: ["ev-1"],
+      extractedClaims: [],
+    }),
     executeSearchPhase: fn().mockResolvedValue({
       success: true,
       evidenceSummary: "summary",
@@ -181,10 +191,6 @@ function createMockServices() {
     }),
   };
 
-  const workflowRefreshPipelineService = {
-    execute: jest.fn().mockResolvedValue({ results: [], researchDesign: null }),
-  };
-
   return {
     prisma,
     eventEmitter,
@@ -194,7 +200,6 @@ function createMockServices() {
     researchLeaderService,
     researchCheckpointService,
     dataSourceRouterService,
-    workflowRefreshPipelineService,
     mockDimension,
   };
 }
@@ -223,7 +228,6 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
       mocks.researchCheckpointService as any,
       mocks.dataSourceRouterService as any,
       {} as any, // researchTodoService
-      mocks.workflowRefreshPipelineService as unknown as WorkflowRefreshPipelineService,
     );
   });
 
@@ -243,19 +247,19 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("standard → delegates to workflowRefreshPipelineService.execute", async () => {
+  it("standard → delegates to dimensionMissionService", async () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
     expect(
-      mocks.workflowRefreshPipelineService.execute,
+      mocks.dimensionMissionService.executeDimensionMission,
     ).toHaveBeenCalled();
   });
 
-  it("thorough → delegates to workflowRefreshPipelineService.execute", async () => {
+  it("thorough → delegates to dimensionMissionService", async () => {
     await service.executeRefresh(topic, { researchDepth: "thorough" });
 
     expect(
-      mocks.workflowRefreshPipelineService.execute,
+      mocks.dimensionMissionService.executeDimensionMission,
     ).toHaveBeenCalled();
   });
 
@@ -285,19 +289,21 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
     ).resolves.toBeDefined();
   });
 
-  it("should call workflowRefreshPipelineService with correct researchDepth config", async () => {
+  it("should call dimensionMissionService.executeDimensionMission with dimension and topic", async () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
     expect(
-      mocks.workflowRefreshPipelineService.execute,
+      mocks.dimensionMissionService.executeDimensionMission,
     ).toHaveBeenCalledWith(
-      expect.anything(), // topic
-      expect.any(Array), // dimensions
+      expect.objectContaining({ id: "t1" }), // topic
+      expect.objectContaining({ id: "dim-1" }), // dimension
       expect.any(String), // reportId
-      expect.any(AbortSignal), // signal
-      expect.anything(), // agentAssignments
-      expect.anything(), // depthConfig
-      expect.any(Number), // parallelism
+      undefined, // missionId
+      undefined, // modelId
+      undefined, // taskId
+      undefined, // tools
+      undefined, // skills
+      expect.anything(), // maxRevisionRounds
     );
   });
 
@@ -316,5 +322,14 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
       }),
     );
     expect(mocks.researchReviewerService.factCheckReport).toHaveBeenCalled();
+  });
+
+  it("hypothesis verification queries are not called (behind if(false) guard)", async () => {
+    await service.executeRefresh(topic, { researchDepth: "thorough" });
+
+    expect(mocks.researchLeaderService.verifyHypotheses).not.toHaveBeenCalled();
+    expect(
+      mocks.dataSourceRouterService.searchForHypothesis,
+    ).not.toHaveBeenCalled();
   });
 });

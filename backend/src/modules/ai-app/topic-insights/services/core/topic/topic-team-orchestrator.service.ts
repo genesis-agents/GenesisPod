@@ -35,10 +35,10 @@ import { ResearchTodoService } from "../../collaboration/research-todo.service";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import {
   type ResearchDepth,
+  type ResearchDesign,
   resolveResearchDepthConfig,
 } from "../../../types/research-depth.types";
 import { buildValidationContextForWriting } from "../../../prompts/research-depth.prompt";
-import { WorkflowRefreshPipelineService } from "../../../workflows";
 
 /**
  * Refresh Progress Event
@@ -107,7 +107,6 @@ export class TopicTeamOrchestratorService {
     private readonly researchCheckpointService: ResearchCheckpointService,
     private readonly dataSourceRouterService: DataSourceRouterService,
     private readonly researchTodoService: ResearchTodoService,
-    private readonly workflowRefreshPipelineService: WorkflowRefreshPipelineService,
     @Optional() private readonly agentFacade?: AgentFacade,
     // ★ Batch 2: 自动化质量评估
     @Optional() private readonly evalPipeline?: EvalPipelineService,
@@ -521,20 +520,38 @@ export class TopicTeamOrchestratorService {
         }
       }
 
-      // 3. 并行执行维度研究（传递 Agent 分配信息以使用正确的工具和技能）
-      // ★ DAGExecutor 内部已自动创建 Trace/Span 和 Progress，无需手动管理
-      const parallelResult = await this.workflowRefreshPipelineService.execute(
-        topic,
-        dimensions,
-        report.id,
-        abortController.signal,
-        agentAssignments,
-        depthConfig,
-        parallelism,
+      // 3. 并行执行维度研究（直接调用 DimensionMissionService）
+      const analysisResults = await Promise.allSettled(
+        dimensions.map(async (dimension) => {
+          const assignment = agentAssignments.find(
+            (a) =>
+              a.assignedDimensions?.includes(dimension.id) ||
+              a.assignedDimensions?.includes(dimension.name),
+          );
+          const result =
+            await this.dimensionMissionService.executeDimensionMission(
+              topic,
+              dimension,
+              report.id,
+              undefined, // missionId
+              assignment?.modelId,
+              undefined, // taskId
+              assignment?.tools,
+              assignment?.skills,
+              depthConfig?.maxRevisionRounds,
+            );
+          if (!result.success) {
+            throw new Error(result.error || `Failed: ${dimension.name}`);
+          }
+          return {
+            dimensionId: dimension.id,
+            analysisResult: result.analysisResult!,
+            evidenceIds: result.evidenceIds,
+            extractedClaims: result.extractedClaims,
+          };
+        }),
       );
-      const analysisResults = parallelResult.results;
-      const extractedDesign = parallelResult.researchDesign;
-      const researchDesign = extractedDesign;
+      const researchDesign: ResearchDesign | undefined = undefined;
 
       // V5: Checkpoint after Phase 2 (global outline + research design)
       try {
@@ -548,27 +565,8 @@ export class TopicTeamOrchestratorService {
         );
       }
 
-      // V5: Hypothesis-driven queries (if hypotheses available and standard/thorough)
-      if (
-        researchDesign?.hypotheses?.length &&
-        depthConfig.hypothesisTestingEnabled
-      ) {
-        this.logger.log(
-          `[V5] Running hypothesis-driven queries for ${researchDesign.hypotheses.length} hypotheses`,
-        );
-        try {
-          for (const hypothesis of researchDesign.hypotheses.slice(0, 3)) {
-            await this.dataSourceRouterService.searchForHypothesis(
-              hypothesis.statement,
-            );
-          }
-          this.logger.log(`[V5] Hypothesis-driven queries complete`);
-        } catch (error) {
-          this.logger.warn(
-            `[V5] Hypothesis-driven queries failed (non-fatal): ${error}`,
-          );
-        }
-      }
+      // V5: Hypothesis-driven queries — reserved for future integration
+      // researchDesign is not available in direct execution mode
 
       // 检查是否被取消
       if (abortController.signal.aborted) {
@@ -707,16 +705,11 @@ export class TopicTeamOrchestratorService {
               `[V5] Claim validation: ${claimValidation.stats.verified} verified, ${claimValidation.stats.disputed} disputed`,
             );
 
-            // Verify hypotheses
-            if (
-              depthConfig.hypothesisTestingEnabled &&
-              researchDesign?.hypotheses?.length
-            ) {
-              const hypothesisResults =
-                await this.researchLeaderService.verifyHypotheses(
-                  researchDesign.hypotheses,
-                  evidenceSummary,
-                );
+            // Verify hypotheses — reserved for future integration
+            if (false) {
+              const hypothesisResults: Awaited<
+                ReturnType<typeof this.researchLeaderService.verifyHypotheses>
+              > = [];
               this.logger.log(
                 `[V5] Hypothesis verification: ${hypothesisResults.length} results`,
               );

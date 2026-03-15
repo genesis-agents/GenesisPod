@@ -109,7 +109,6 @@ import { ResearchCheckpointService } from "../../../monitoring/research-checkpoi
 import { DataSourceRouterService } from "../../../data/data-source-router.service";
 import { ResearchTodoService } from "../../../collaboration/research-todo.service";
 import { CritiqueRefineService } from "../../../quality/critique-refine.service";
-import { WorkflowRefreshPipelineService } from "../../../../workflows";
 import { RefreshLogStatus, DimensionStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -371,7 +370,6 @@ async function buildModule(
         provide: CritiqueRefineService,
         useValue: { critiqueAndRefine: jest.fn() },
       },
-      { provide: WorkflowRefreshPipelineService, useValue: { execute: jest.fn().mockResolvedValue({ results: [], researchDesign: null }) } },
       { provide: AgentFacade, useValue: facade },
     ],
   }).compile();
