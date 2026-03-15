@@ -257,9 +257,9 @@ export class AIErrorClassifier {
             data,
           );
         }
-        // 其他 403：访问被拒（权限不足、地域限制等），不等同于 Key 无效
+        // 其他 403：访问被拒 — 立即切换模型，避免重试浪费 rate limit 配额
         return new AIError(
-          AIErrorType.RATE_LIMIT,
+          AIErrorType.INVALID_API_KEY,
           `Access denied (HTTP 403): ${String(errorMessage)}`,
           status,
           error,

@@ -32,8 +32,8 @@ export class IndustryReportSearchAdapter extends SearchAdapterBase {
 
   readonly sourceId = "industry-report";
   readonly sourceType = DataSourceType.INDUSTRY_REPORT;
-  readonly concurrency = 5;
-  readonly defaultTimeoutMs = 20000;
+  readonly concurrency = 1;
+  readonly defaultTimeoutMs = 15000;
 
   private cachedSources: IndustryReportSource[] | null = null;
   private cacheExpiry = 0;

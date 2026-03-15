@@ -772,6 +772,7 @@ export class DataSourceRouterService {
         taskProfile: { creativity: "deterministic", outputLength: "minimal" },
       });
 
+      if (response?.isError) return null;
       const result = response?.content?.trim();
       if (!result || result.length < 3) return null;
       this.logger.log(`[translateToEnglish] "${query}" → "${result}"`);

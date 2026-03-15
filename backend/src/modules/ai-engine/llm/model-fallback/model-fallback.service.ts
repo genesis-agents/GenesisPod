@@ -92,8 +92,8 @@ const UNRECOVERABLE_ERROR_TYPES = new Set<AIErrorType>([
   AIErrorType.INVALID_API_KEY,
 ]);
 
-/** 不可恢复错误的黑名单持续时间（5 分钟） */
-const UNRECOVERABLE_BLOCK_DURATION_MS = 5 * 60 * 1000;
+/** 不可恢复错误的黑名单持续时间（10 分钟） */
+const UNRECOVERABLE_BLOCK_DURATION_MS = 10 * 60 * 1000;
 
 /** 配额/限速错误的黑名单持续时间（5 分钟） */
 const QUOTA_BLOCK_DURATION_MS = 5 * 60 * 1000;
