@@ -15,6 +15,7 @@ import { PublishSchedulerService } from "./services/publish-scheduler.service";
 import { WechatAdapter } from "./adapters/wechat.adapter";
 import { XhsMcpAdapter } from "./adapters/xiaohongshu.adapter";
 import { MCPClientService } from "./core/mcp-client.service";
+import { WechatArticleFormatterService } from "./services/wechat-article-formatter.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { CacheModule } from "../../../common/cache/cache.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
@@ -52,6 +53,7 @@ import { initSessionCrypto } from "./utils/session-crypto";
     XhsMcpAdapter,
     // ★ MCP Client Service (refactored to use MCPManager)
     MCPClientService,
+    WechatArticleFormatterService,
   ],
   exports: [AiSocialService],
 })

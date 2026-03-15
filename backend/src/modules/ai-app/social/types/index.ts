@@ -31,6 +31,7 @@ export enum SocialContentSourceType {
   AI_RESEARCH = "AI_RESEARCH",
   AI_OFFICE = "AI_OFFICE",
   AI_WRITING = "AI_WRITING",
+  AI_TOPIC_INSIGHTS = "AI_TOPIC_INSIGHTS",
 }
 
 export enum SocialReviewStatus {

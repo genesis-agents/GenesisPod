@@ -10,6 +10,7 @@ import { ContentFetcherService } from "./content-fetcher.service";
 import { ContentTransformerService } from "./content-transformer.service";
 import { ContentCheckerService } from "./content-checker.service";
 import { ContentVersionService } from "./content-version.service";
+import { WechatArticleFormatterService } from "./wechat-article-formatter.service";
 import { ProcessUrlDto } from "../dto/process-url.dto";
 import { ProcessSourceDto } from "../dto/process-source.dto";
 import {
@@ -168,6 +169,7 @@ export class SocialLeaderService {
     private readonly contentTransformer: ContentTransformerService,
     private readonly contentChecker: ContentCheckerService,
     private readonly contentVersionService: ContentVersionService,
+    private readonly wechatFormatter: WechatArticleFormatterService,
   ) {}
 
   // Expose chat facade for advanced operations
@@ -348,6 +350,11 @@ export class SocialLeaderService {
       dto.sourceId,
       userId,
     );
+
+    // keepFormat 模式：保留原格式，跳过 AI 改写（用于 Topic Insights 报告原格式发布）
+    if (dto.keepFormat && dto.targetType === SocialContentType.WECHAT_ARTICLE) {
+      return this.processKeepFormatSource(userId, dto, sourceContent);
+    }
 
     // 2. AI 转换为目标平台格式（支持双语）
     const transformedContent = await this.contentTransformer.transform({
@@ -539,6 +546,154 @@ export class SocialLeaderService {
       };
     } catch (error) {
       this.logger.error(`[processSource] Insert failed: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 保留原格式处理来源内容（跳过 AI 改写）
+   * 用于将 Topic Insights 报告以原始格式发布到微信公众号
+   */
+  private async processKeepFormatSource(
+    userId: string,
+    dto: ProcessSourceDto,
+    sourceContent: {
+      title: string;
+      content: string;
+      metadata?: Record<string, unknown>;
+      images?: string[];
+      coverImage?: string;
+      url?: string;
+    },
+  ) {
+    this.logger.log(
+      `[processKeepFormatSource] Formatting report for WeChat (keepFormat mode)`,
+    );
+
+    // 将 Markdown 转为微信兼容 HTML
+    const wechatHtml = this.wechatFormatter.formatForWechat(
+      sourceContent.content,
+      {
+        executiveSummary: sourceContent.metadata?.executiveSummary as
+          | string
+          | undefined,
+        charts: sourceContent.metadata?.charts as unknown[] | undefined,
+        title: sourceContent.title,
+      },
+    );
+
+    // 生成摘要
+    const digest = this.wechatFormatter.generateDigest(sourceContent.content);
+
+    // 内容合规检测
+    const checkResult = await this.contentChecker.check(wechatHtml);
+
+    // 准备数据
+    const safeImages = ensureJsonArray(sourceContent.images);
+    const safeTags: string[] = [];
+    const safeComplianceCheck = safeJsonSerialize(checkResult, {
+      passed: false,
+      score: 0,
+      issues: [],
+      suggestions: ["Compliance check data was invalid"],
+    });
+
+    const safeContent = sanitizeString(wechatHtml);
+    const safeTitle = truncateString(sourceContent.title, 200);
+    const safeDigest = truncateString(digest, 200) || null;
+    const safeSourceUrl = sanitizeString(sourceContent.url) || null;
+    const safeCoverImageUrl = sanitizeString(sourceContent.coverImage) || null;
+
+    try {
+      const results = await this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          user_id: string;
+          content_type: string;
+          source_type: string;
+          source_id: string;
+          title: string;
+          content: string;
+          digest: string | null;
+          source_url: string | null;
+          cover_image_url: string | null;
+          images: string[];
+          tags: string[];
+          compliance_check: unknown;
+          status: string;
+          review_status: string;
+          created_at: Date;
+          updated_at: Date;
+        }>
+      >`
+        INSERT INTO "social_contents" (
+          "id", "user_id", "content_type", "source_type", "source_id",
+          "title", "content", "digest", "source_url", "cover_image_url",
+          "images", "tags", "compliance_check", "status", "review_status",
+          "created_at", "updated_at"
+        ) VALUES (
+          gen_random_uuid(),
+          ${userId}::uuid,
+          ${dto.targetType}::"SocialContentType",
+          ${dto.sourceType}::"SocialContentSourceType",
+          ${dto.sourceId},
+          ${safeTitle},
+          ${safeContent},
+          ${safeDigest},
+          ${safeSourceUrl},
+          ${safeCoverImageUrl},
+          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeImages)}::jsonb)),
+          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeTags)}::jsonb)),
+          ${JSON.stringify(safeComplianceCheck)}::jsonb,
+          'DRAFT'::"SocialContentStatus",
+          'PENDING'::"SocialReviewStatus",
+          NOW(),
+          NOW()
+        )
+        RETURNING *
+      `;
+
+      const row = results[0];
+      if (!row) {
+        throw new Error("Insert succeeded but no data returned");
+      }
+
+      this.logger.log(`[processKeepFormatSource] Created content ${row.id}`);
+
+      const content = {
+        id: row.id,
+        userId: row.user_id,
+        contentType: row.content_type as SocialContentType,
+        sourceType: row.source_type as SocialContentSourceType,
+        sourceId: row.source_id,
+        title: row.title,
+        content: row.content,
+        digest: row.digest,
+        sourceUrl: row.source_url,
+        coverImageUrl: row.cover_image_url,
+        images: row.images,
+        tags: row.tags,
+        complianceCheck: row.compliance_check,
+        status: row.status as SocialContentStatus,
+        reviewStatus: row.review_status as SocialReviewStatus,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+
+      // 不生成平台版本（keepFormat 模式下内容已经是微信格式，不需要 AI 重新生成版本）
+      const message = checkResult.passed
+        ? "报告已转为微信公众号格式，请确认后发布"
+        : "内容存在合规问题，请修改后再发布";
+
+      return {
+        content,
+        checkResult,
+        message,
+        versionCount: 0,
+        versionGenerationFailed: false,
+      };
+    } catch (error) {
+      this.logger.error(`[processKeepFormatSource] Insert failed: ${error}`);
       throw error;
     }
   }

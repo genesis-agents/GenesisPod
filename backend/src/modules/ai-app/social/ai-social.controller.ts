@@ -364,6 +364,11 @@ export class AiSocialController {
     return this.aiSocialService.getWritingSources(req.user.id);
   }
 
+  @Get("sources/topic-insights")
+  async getTopicInsightsSources(@Request() req: AuthenticatedRequest) {
+    return this.aiSocialService.getTopicInsightsSources(req.user.id);
+  }
+
   // ==================== AI Engine ====================
 
   @Post("ai/process-url")

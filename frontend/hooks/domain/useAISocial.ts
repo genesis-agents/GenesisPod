@@ -55,6 +55,7 @@ import {
   getResearchSources,
   getOfficeSources,
   getWritingSources,
+  getTopicInsightsSources,
   // XHS MCP
   XhsLoginStatus,
   XhsFeed,
@@ -739,6 +740,26 @@ export function useSocialSources() {
     []
   );
 
+  const fetchTopicInsights = useCallback(
+    async (options?: { limit?: number; offset?: number }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        return await getTopicInsightsSources(options);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch topic insights sources';
+        setError(message);
+        return { items: [], total: 0 };
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   return {
     loading,
     error,
@@ -746,6 +767,7 @@ export function useSocialSources() {
     fetchResearch,
     fetchOffice,
     fetchWriting,
+    fetchTopicInsights,
   };
 }
 

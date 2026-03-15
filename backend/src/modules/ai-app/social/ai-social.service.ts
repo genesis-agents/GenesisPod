@@ -1280,6 +1280,54 @@ export class AiSocialService {
     return projects;
   }
 
+  async getTopicInsightsSources(userId: string) {
+    const topics = await this.prisma.researchTopic.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        updatedAt: true,
+        reports: {
+          orderBy: { version: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            version: true,
+            executiveSummary: true,
+            generatedAt: true,
+          },
+        },
+      },
+    });
+
+    // 只返回有报告的 topics
+    return topics
+      .filter((topic) => topic.reports.length > 0)
+      .map((topic) => ({
+        id: topic.id,
+        name: topic.name,
+        description: topic.description,
+        status: topic.status,
+        updatedAt: topic.updatedAt,
+        latestReport:
+          topic.reports[0] != null
+            ? {
+                id: topic.reports[0].id,
+                version: topic.reports[0].version,
+                executiveSummary: topic.reports[0].executiveSummary?.substring(
+                  0,
+                  200,
+                ),
+                generatedAt: topic.reports[0].generatedAt,
+              }
+            : null,
+      }));
+  }
+
   // ==================== 批量操作 ====================
 
   /**
