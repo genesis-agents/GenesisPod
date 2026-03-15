@@ -35,6 +35,59 @@ import {
   SecurityEventType,
 } from "./utils/security-audit-logger";
 
+// ==================== Rate Limiting ====================
+
+/**
+ * ★ Security: Per-user event rate limiter for WebSocket messages
+ *
+ * HTTP 层有全局 ThrottlerGuard，但 WebSocket 事件不受其保护。
+ * 此限制器为每个用户维护滑动窗口计数器，防止事件刷屏。
+ */
+class WsRateLimiter {
+  /** userId -> { timestamps[] } */
+  private readonly windows = new Map<string, number[]>();
+  private readonly maxRequests: number;
+  private readonly windowMs: number;
+
+  constructor(maxRequests = 30, windowMs = 60_000) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+  }
+
+  /**
+   * Check if the user is allowed to proceed. Returns true if allowed.
+   */
+  allow(userId: string): boolean {
+    const now = Date.now();
+    let timestamps = this.windows.get(userId);
+
+    if (!timestamps) {
+      timestamps = [];
+      this.windows.set(userId, timestamps);
+    }
+
+    // Evict expired entries
+    const cutoff = now - this.windowMs;
+    while (timestamps.length > 0 && timestamps[0] < cutoff) {
+      timestamps.shift();
+    }
+
+    if (timestamps.length >= this.maxRequests) {
+      return false;
+    }
+
+    timestamps.push(now);
+    return true;
+  }
+
+  /**
+   * Clean up data for disconnected users
+   */
+  cleanup(userId: string): void {
+    this.windows.delete(userId);
+  }
+}
+
 // ==================== Types ====================
 
 /**
@@ -95,6 +148,31 @@ type ResearchPhase =
   | "failed"
   | "recovering";
 
+/**
+ * ★ Security: CORS 白名单构建
+ * 生产环境使用 CORS_ORIGINS + RAILWAY_FRONTEND_URL 精确域名匹配
+ * 开发环境额外允许 localhost
+ */
+const buildWsCorsAllowedOrigins = (): Set<string> => {
+  const origins = new Set<string>();
+  const corsEnv = process.env.CORS_ORIGINS;
+  if (corsEnv) {
+    corsEnv
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean)
+      .forEach((o) => origins.add(o));
+  }
+  const railwayFrontend = process.env.RAILWAY_FRONTEND_URL;
+  if (railwayFrontend) {
+    origins.add(railwayFrontend);
+  }
+  return origins;
+};
+
+const wsAllowedOrigins = buildWsCorsAllowedOrigins();
+const wsIsDev = process.env.NODE_ENV !== "production";
+
 @Injectable()
 @WebSocketGateway({
   namespace: "/topic-insights",
@@ -103,16 +181,22 @@ type ResearchPhase =
       origin: string,
       callback: (err: Error | null, allow?: boolean) => void,
     ) => {
-      // 允许所有 localhost 端口（开发环境）
+      // 无 Origin（服务端调用、健康检查）始终放行
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // 开发环境允许 localhost
       const isLocalhost =
-        !origin ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+        wsIsDev &&
+        (/^http:\/\/localhost:\d+$/.test(origin) ||
+          /^http:\/\/127\.0\.0\.1:\d+$/.test(origin));
 
-      // 允许 Railway 域名（生产环境）— 使用 endsWith 防止子域名绕过
-      const isRailway = origin?.endsWith(".railway.app");
+      // 生产环境：精确匹配 CORS_ORIGINS + RAILWAY_FRONTEND_URL
+      const isAllowed = wsAllowedOrigins.has(origin);
 
-      if (isLocalhost || isRailway) {
+      if (isLocalhost || isAllowed) {
         callback(null, true);
       } else {
         callback(null, false);
@@ -134,6 +218,9 @@ export class TopicInsightsGateway
   // ★ 修复：限制每个用户的 WebSocket 连接数
   private readonly userConnections = new Map<string, Set<string>>(); // userId -> Set<socketId>
   private readonly MAX_CONNECTIONS_PER_USER = 5;
+
+  // ★ Security: 事件级速率限制（30 请求/分钟/用户）
+  private readonly rateLimiter = new WsRateLimiter(30, 60_000);
 
   constructor(
     private readonly eventEmitter: ResearchEventEmitterService,
@@ -300,7 +387,7 @@ export class TopicInsightsGateway
   }
 
   handleDisconnect(client: Socket) {
-    // ★ 修复：清理用户连接计数
+    // ★ 修复：清理用户连接计数 + 速率限制器
     const authClient = client as AuthenticatedSocket;
     const userId = authClient.data?.user?.id;
     if (userId) {
@@ -309,6 +396,7 @@ export class TopicInsightsGateway
         userSockets.delete(client.id);
         if (userSockets.size === 0) {
           this.userConnections.delete(userId);
+          this.rateLimiter.cleanup(userId);
         }
       }
     }
@@ -332,6 +420,12 @@ export class TopicInsightsGateway
         `Unauthenticated client ${client.id} tried to join topic`,
       );
       return { success: false, error: "Authentication required" };
+    }
+
+    // ★ Security: 事件级速率限制
+    if (!this.rateLimiter.allow(user.id)) {
+      this.logger.warn(`Rate limit exceeded for user ${user.id} on join:topic`);
+      return { success: false, error: "Rate limit exceeded" };
     }
 
     // ★ Security: 验证 topic 访问权限
@@ -376,6 +470,15 @@ export class TopicInsightsGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { topicId: string },
   ) {
+    // ★ Security: 事件级速率限制
+    const leaveUser = client.data.user;
+    if (leaveUser && !this.rateLimiter.allow(leaveUser.id)) {
+      this.logger.warn(
+        `Rate limit exceeded for user ${leaveUser.id} on leave:topic`,
+      );
+      return { success: false, error: "Rate limit exceeded" };
+    }
+
     try {
       const roomName = `research:${data.topicId}`;
       await client.leave(roomName);
@@ -431,6 +534,19 @@ export class TopicInsightsGateway
         needsRecovery: false,
         currentState: null,
         error: "Authentication required",
+      };
+    }
+
+    // ★ Security: 事件级速率限制
+    if (!this.rateLimiter.allow(user.id)) {
+      this.logger.warn(
+        `Rate limit exceeded for user ${user.id} on sync:request`,
+      );
+      return {
+        success: false,
+        needsRecovery: false,
+        currentState: null,
+        error: "Rate limit exceeded",
       };
     }
 

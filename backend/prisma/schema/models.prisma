@@ -7042,6 +7042,7 @@ model ResearchMemory {
 
   // ========== 索引 ==========
   @@index([topicId])
+  @@index([missionId])
   @@index([entity])
   @@index([category])
   @@index([tags])
