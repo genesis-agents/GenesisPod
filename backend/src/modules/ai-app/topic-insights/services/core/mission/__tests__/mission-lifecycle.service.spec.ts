@@ -5,7 +5,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionLifecycleService } from "../mission-lifecycle.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchLeaderService } from "../../research/research-leader.service";
 import { LeaderPlanningService } from "../../leader/leader-planning.service";
 import { LeaderIntentService } from "../../leader/leader-intent.service";
 import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
@@ -13,11 +12,7 @@ import { TopicCollaboratorService } from "../../../collaboration/topic-collabora
 import { AgentActivityService } from "../../../monitoring/agent-activity.service";
 import { MissionQueryService } from "../mission-query.service";
 import { MissionExecutionService } from "../mission-execution.service";
-import {
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from "@nestjs/common";
+import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import {
   ResearchMissionStatus,
   ResearchTaskStatus,
@@ -75,7 +70,9 @@ function buildMocks() {
 
   const mockLeaderPlanningService = {
     planResearch: jest.fn(),
-    getReasoningModel: jest.fn().mockResolvedValue({ modelId: "gpt-4o", modelName: "GPT-4o" }),
+    getReasoningModel: jest
+      .fn()
+      .mockResolvedValue({ modelId: "gpt-4o", modelName: "GPT-4o" }),
     planDimensionOutline: jest.fn(),
   };
 
@@ -181,7 +178,9 @@ describe("MissionLifecycleService", () => {
   let service: MissionLifecycleService;
   let prisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let leaderService: ReturnType<typeof buildMocks>["mockLeaderPlanningService"];
-  let leaderIntentService: ReturnType<typeof buildMocks>["mockLeaderIntentService"];
+  let leaderIntentService: ReturnType<
+    typeof buildMocks
+  >["mockLeaderIntentService"];
   let collaboratorService: ReturnType<
     typeof buildMocks
   >["mockCollaboratorService"];
@@ -601,7 +600,9 @@ describe("MissionLifecycleService", () => {
         topic: { userId: "user-1" },
         status: ResearchMissionStatus.EXECUTING,
       });
-      leaderIntentService.handleUserMessage.mockResolvedValue({ response: "OK" });
+      leaderIntentService.handleUserMessage.mockResolvedValue({
+        response: "OK",
+      });
       prisma.leaderDecision.create.mockResolvedValue({});
       prisma.researchMission.findUniqueOrThrow.mockResolvedValue(mockMission);
 
@@ -1008,6 +1009,267 @@ describe("MissionLifecycleService", () => {
     });
   });
 
+  // ─── createMission - async planning catch handler ────────────────────────────
+
+  describe("createMission - async planning failure catch handler", () => {
+    it("should update mission to FAILED when executePlanningAsync rejects (fire-and-forget catch)", async () => {
+      // Set up mission creation to succeed
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      prisma.researchMission.findFirst.mockResolvedValue(null);
+      const newMission = {
+        id: "mission-async-fail",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      };
+      prisma.researchMission.create.mockResolvedValue(newMission);
+      prisma.researchMission.update.mockResolvedValue({});
+
+      // Make planResearch reject immediately so executePlanningAsync throws
+      leaderService.planResearch.mockRejectedValue(
+        new Error("Planning timeout triggered"),
+      );
+      // executePlanningAsync catch path: findUnique returns null so no update
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-async-fail",
+      });
+
+      await service.createMission({ topicId: "topic-1" });
+
+      // Allow the fire-and-forget catch to run
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+
+      // The catch block in createMission should have called researchMission.update to FAILED
+      const updateCalls = prisma.researchMission.update.mock.calls;
+      const failedCall = updateCalls.find(
+        (c) =>
+          c[0]?.where?.id === "mission-async-fail" &&
+          c[0]?.data?.status === ResearchMissionStatus.FAILED,
+      );
+      expect(failedCall).toBeDefined();
+    });
+
+    it("should handle update error inside createMission async catch gracefully", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      prisma.researchMission.findFirst.mockResolvedValue(null);
+      prisma.researchMission.create.mockResolvedValue({
+        id: "mission-update-err",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      });
+
+      // Make planning fail
+      leaderService.planResearch.mockRejectedValue(new Error("AI timeout"));
+      // executePlanningAsync catch: findUnique OK, then update throws in executePlanningAsync
+      // Then createMission catch: researchMission.update also throws
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-update-err",
+      });
+      prisma.researchMission.update.mockRejectedValue(
+        new Error("DB update failed"),
+      );
+
+      await service.createMission({ topicId: "topic-1" });
+
+      // Let all microtasks settle
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+
+      // Should not throw - error handled gracefully
+      expect(prisma.researchMission.update).toHaveBeenCalled();
+    });
+  });
+
+  // ─── executePlanningAsync - execution startExecution failure ─────────────────
+
+  describe("executePlanningAsync - startExecution failure fire-and-forget", () => {
+    it("should handle startExecution failure by updating mission to FAILED (fire-and-forget)", async () => {
+      leaderService.planResearch.mockResolvedValue(mockLeaderPlan);
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-db-1",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
+
+      // Make startExecution fail
+      executionService.startExecution.mockRejectedValue(
+        new Error("Execution failed"),
+      );
+
+      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
+
+      // Let the fire-and-forget catch run
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+
+      // Should have called update to FAILED + updateMany for tasks and todos
+      const updateCalls = prisma.researchMission.update.mock.calls;
+      const failedCall = updateCalls.find(
+        (c) => c[0]?.data?.status === ResearchMissionStatus.FAILED,
+      );
+      expect(failedCall).toBeDefined();
+    });
+
+    it("should handle updateMany errors gracefully in execution failure catch", async () => {
+      leaderService.planResearch.mockResolvedValue(mockLeaderPlan);
+      prisma.leaderDecision.create.mockResolvedValue({});
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-db-1",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+      prisma.researchMission.update.mockResolvedValue({});
+      // Make updateMany fail to cover the .catch branches on lines 488-491, 506-509
+      prisma.researchTask.updateMany.mockRejectedValue(
+        new Error("updateMany failed"),
+      );
+      prisma.researchTodo.updateMany.mockRejectedValue(
+        new Error("updateMany failed"),
+      );
+
+      executionService.startExecution.mockRejectedValue(
+        new Error("Execution failed"),
+      );
+
+      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
+
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+
+      // Should not throw - handled gracefully
+      expect(executionService.startExecution).toHaveBeenCalled();
+    });
+  });
+
+  // ─── executePlanningAsync - update error in catch ────────────────────────────
+
+  describe("executePlanningAsync - catch block update error", () => {
+    it("should handle update error when mission exists but update fails in catch", async () => {
+      leaderService.planResearch.mockRejectedValue(
+        new Error("Planning failed"),
+      );
+
+      // mission exists
+      prisma.researchMission.findUnique.mockResolvedValue({ id: "mission-1" });
+      // update throws
+      prisma.researchMission.update.mockRejectedValue(
+        new Error("Update failed"),
+      );
+
+      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
+
+      // Should not throw
+      expect(prisma.researchMission.findUnique).toHaveBeenCalled();
+    });
+  });
+
+  // ─── approvePlanAndExecute - execution failure catch ─────────────────────────
+
+  describe("approvePlanAndExecute - startExecution failure fire-and-forget", () => {
+    it("should handle startExecution failure and update mission to FAILED", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-1",
+        leaderPlan: mockLeaderPlan,
+      });
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-db",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+      prisma.researchMission.update.mockResolvedValue({
+        id: "mission-1",
+        status: ResearchMissionStatus.EXECUTING,
+      });
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
+
+      // Make startExecution fail
+      executionService.startExecution.mockRejectedValue(
+        new Error("startExecution failed"),
+      );
+
+      await service.approvePlanAndExecute("mission-1", "topic-1");
+
+      // Let fire-and-forget catch run
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+
+      // update to FAILED should be called
+      const updateCalls = prisma.researchMission.update.mock.calls;
+      const failedCall = updateCalls.find(
+        (c) => c[0]?.data?.status === ResearchMissionStatus.FAILED,
+      );
+      expect(failedCall).toBeDefined();
+    });
+
+    it("should handle update and updateMany errors gracefully in approvePlanAndExecute catch", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-1",
+        leaderPlan: mockLeaderPlan,
+      });
+      prisma.topicDimension.findFirst.mockResolvedValue(null);
+      prisma.topicDimension.findMany.mockResolvedValue([]);
+      prisma.topicDimension.create.mockResolvedValue({
+        id: "dim-db",
+        name: "Market Analysis",
+      });
+      prisma.researchTask.create.mockImplementation(
+        (args: { data: { taskType: string; title: string } }) =>
+          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
+      );
+      // First update (EXECUTING) succeeds, subsequent (FAILED + updateMany) fail
+      prisma.researchMission.update
+        .mockResolvedValueOnce({
+          id: "mission-1",
+          status: ResearchMissionStatus.EXECUTING,
+        })
+        .mockRejectedValue(new Error("FAILED update failed"));
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.researchTask.updateMany.mockRejectedValue(
+        new Error("updateMany failed"),
+      );
+      prisma.researchTodo.updateMany.mockRejectedValue(
+        new Error("updateMany failed"),
+      );
+
+      executionService.startExecution.mockRejectedValue(
+        new Error("startExecution failed"),
+      );
+
+      await service.approvePlanAndExecute("mission-1", "topic-1");
+
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+
+      // Should not throw - all errors handled gracefully
+      expect(executionService.startExecution).toHaveBeenCalled();
+    });
+  });
+
   // ─── executePlanningAsync BillingContext propagation ────────────────────────
 
   describe("executePlanningAsync - BillingContext propagation", () => {
@@ -1073,7 +1335,9 @@ describe("MissionLifecycleService", () => {
       const svc2 = module2.get<MissionLifecycleService>(
         MissionLifecycleService,
       );
-      mocks.mockLeaderPlanningService.planResearch.mockResolvedValue(mockLeaderPlan);
+      mocks.mockLeaderPlanningService.planResearch.mockResolvedValue(
+        mockLeaderPlan,
+      );
       mocks.mockPrisma.leaderDecision.create.mockResolvedValue({});
       mocks.mockPrisma.topicDimension.findFirst.mockResolvedValue(null);
       mocks.mockPrisma.topicDimension.findMany.mockResolvedValue([]);

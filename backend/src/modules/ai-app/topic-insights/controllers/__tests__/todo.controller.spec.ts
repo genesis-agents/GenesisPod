@@ -1,3 +1,6 @@
+// Break the ai-engine/facade import chain (transitively imports @nestjs/cache-manager)
+jest.mock("@/modules/ai-engine/facade", () => ({}));
+
 import { NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { TodoController } from "../todo.controller";
 import type {

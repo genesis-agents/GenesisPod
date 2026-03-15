@@ -703,7 +703,7 @@ export function stripLLMMetaNotes(content: string): string {
       )
       // ── "图表说明" 冗余叙述（LLM 为被删图片生成的解说段落） ──
       .replace(
-        /^\s*(?:上述图表?|该图表?|此图表?)\s*(?:展示了|显示了|呈现了|描述了|说明了|反映了|概括了|揭示了)[^。]*。\s*$/gm,
+        /^\s*(?:上述图表?|该图表?|此图表?)\s*(?:展示了|显示了|呈现了|描述了|说明了|反映了|概括了|揭示了|对比了?|突出了?|表明了?|印证了?|佐证了?|确认了?|证实了?|验证了?)[^。]*。\s*$/gm,
         "",
       )
       // ── 残留图片 URL 片段（如 ".avif)" ".webp)" ".png)" 单独出现在行尾） ──
@@ -1043,6 +1043,23 @@ export function stripInternalFigureNotation(content: string): string {
       .replace(/\*{2}CHARTS\*{2}/g, "")
       .replace(/\*{2}图表引用\*{2}/g, "")
 
+      // ── "[FIG-N]: https://..." — Markdown reference-link definition ──
+      // Must run BEFORE the broadened [FIG-N...] pattern below, which would
+      // strip only the [FIG-N] part and leave an orphaned "]: url" residual.
+      .replace(/^\s*\[FIG-\d+\]:\s*https?:\/\/[^\s]+\s*$/gm, "")
+
+      // ── [figure: ...] internal figure allocation notation ──
+      // LLM leaks allocation markers in various forms:
+      //   [figure: FIG-5]  /  [figure: FIG-6]
+      //   [figure:, position: afterparagraph_1]  /  [figure:, position: after$paragraph_1$]
+      // Must run before FIG-N patterns below since [figure: FIG-N] contains FIG-N.
+      .replace(/\[figure:[^\]]*\]/g, "")
+
+      // ── [FIG-N...] with suffixes inside brackets ──
+      // LLM sometimes adds Chinese text inside: [FIG-7后插入], [FIG-9后插入]
+      // Broadened from exact [FIG-N] to allow any suffix before closing bracket.
+      .replace(/\[FIG-\d+[^\]]*\]/g, "")
+
       // ── FIG-N internal figure ID references ──
       // LLM leaks internal figure registry IDs: FIG-1, FIG-15 etc.
 
@@ -1070,10 +1087,10 @@ export function stripInternalFigureNotation(content: string): string {
       )
       // "（FIG-N）" / "(FIG-N)" — parenthesized FIG refs
       .replace(/[（(]FIG-\d+[)）]/g, "")
-      // "[FIG-N]" — square-bracketed FIG refs (common in captions and inline)
-      .replace(/\[FIG-\d+\]/g, "")
-      // "[FIG-N]: https://..." — Markdown reference-link definition for FIG-N
-      .replace(/^\s*\[FIG-\d+\]:\s*https?:\/\/[^\s]+\s*$/gm, "")
+      // NOTE: "[FIG-N]" and "[FIG-N后插入]" are handled above by the broadened
+      // \[FIG-\d+[^\]]*\] pattern near the top of the FIG-N section.
+      // NOTE: "[FIG-N]: https://..." reference-link definition is also handled
+      // above (before the broadened pattern) to prevent orphaned "]: url" residual.
       // "*图：FIG-N。描述...*" — italic-wrapped figure description lines
       .replace(/\*图[：:]FIG-\d+[^*]*\*/g, "")
       // "见FIG-N" / "参见FIG-N" / "详见FIG-N"
@@ -1243,6 +1260,14 @@ export function repairLatexCommands(content: string): string {
     }
     return _match;
   });
+
+  // Fix 5: \frac{...}${...} — LLM closed inline math before \frac's denominator
+  // e.g. `$P(H|E) = \frac{P(E|H) P(H)}${P(E)}` → `$P(H|E) = \frac{P(E|H) P(H)}{P(E)}$`
+  // Also handles \binom, \overset, \underset which take two brace arguments.
+  result = result.replace(
+    /(\$[^$\n]*\\(?:frac|binom|overset|underset)\{[^}]*\})\$\{([^}]*)\}/g,
+    "$1{$2}$",
+  );
 
   return result;
 }
@@ -2200,6 +2225,75 @@ export function deduplicateTerminalSections(content: string): string {
     }
 
     result.push(line);
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Remove duplicate heading blocks that have identical title AND content.
+ *
+ * LLMs sometimes output the same subsection twice in a row (e.g. "### WWNBT情景"
+ * with identical scenario text). This function detects consecutive sections with
+ * the same heading title and removes the duplicate.
+ *
+ * Works for ##, ###, and #### level headings.
+ */
+export function deduplicateIdenticalSections(content: string): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+
+  // Parse into section blocks: { heading, headingLine, bodyLines }
+  interface SectionBlock {
+    headingLine: number;
+    heading: string;
+    bodyLines: string[];
+  }
+
+  const sections: SectionBlock[] = [];
+  let currentSection: SectionBlock | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const headingMatch = lines[i].match(/^(#{2,4})\s+(.+)$/);
+    if (headingMatch) {
+      if (currentSection) sections.push(currentSection);
+      currentSection = {
+        headingLine: i,
+        heading: headingMatch[2].trim(),
+        bodyLines: [],
+      };
+    } else if (currentSection) {
+      currentSection.bodyLines.push(lines[i]);
+    } else {
+      result.push(lines[i]);
+    }
+  }
+  if (currentSection) sections.push(currentSection);
+
+  // Detect and skip duplicates
+  const skipIndices = new Set<number>();
+  for (let i = 1; i < sections.length; i++) {
+    if (
+      sections[i].heading === sections[i - 1].heading &&
+      !skipIndices.has(i - 1)
+    ) {
+      const bodyA = sections[i - 1].bodyLines.join("\n").trim();
+      const bodyB = sections[i].bodyLines.join("\n").trim();
+      // Exact or near-exact match (allow minor whitespace diff)
+      if (
+        bodyA === bodyB ||
+        bodyA.replace(/\s+/g, "") === bodyB.replace(/\s+/g, "")
+      ) {
+        skipIndices.add(i);
+      }
+    }
+  }
+
+  // Rebuild
+  for (let i = 0; i < sections.length; i++) {
+    if (skipIndices.has(i)) continue;
+    result.push(lines[sections[i].headingLine]);
+    result.push(...sections[i].bodyLines);
   }
 
   return result.join("\n");

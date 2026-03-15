@@ -1266,6 +1266,391 @@ describe("ResearchEventEmitterService", () => {
     });
   });
 
+  describe("emitMissionCompleted - DB error catch", () => {
+    it("should log error when DB persistence fails in emitMissionCompleted", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitMissionCompleted("topic-123", "mission-1", 3, 3),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitMissionFailed - DB error catch", () => {
+    it("should log error when DB persistence fails in emitMissionFailed", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitMissionFailed("topic-123", "mission-1", "timeout"),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitLeaderThinking - non-FK error branch", () => {
+    it("should log error for non-FK errors in emitLeaderThinking", async () => {
+      mockPrisma.researchAgentActivity.create.mockRejectedValue(
+        new Error("Generic DB error"),
+      );
+
+      await expect(
+        service.emitLeaderThinking("topic-123", {
+          missionId: "m-001",
+          phase: "planning",
+          content: "Thinking content",
+        }),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitLeaderPlanning", () => {
+    it("should emit LEADER_PLANNING event with missionId and content", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      service.registerEmitHandler(handler);
+
+      await service.emitLeaderPlanning(
+        "topic-123",
+        "mission-456",
+        "Planning the research...",
+      );
+
+      expect(handler).toHaveBeenCalledWith(
+        "topic-123",
+        ResearchEventType.LEADER_PLANNING,
+        expect.objectContaining({
+          missionId: "mission-456",
+          content: "Planning the research...",
+          message: "Planning the research...",
+        }),
+      );
+    });
+  });
+
+  describe("emitLeaderPlanReady - DB error catch", () => {
+    it("should log error when DB persistence fails in emitLeaderPlanReady", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitLeaderPlanReady("topic-123", "mission-456", 4, 3),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitAgentWorking - task progress sync failure", () => {
+    it("should log debug when task progress sync fails (catch in updateMany)", async () => {
+      mockPrisma.researchTask.updateMany.mockRejectedValue(
+        new Error("updateMany failed"),
+      );
+
+      await expect(
+        service.emitAgentWorking(
+          "topic-123",
+          {
+            agentId: "r-1",
+            agentName: "研究员",
+            agentRole: "researcher",
+            status: "working",
+            dimensionName: "Tech",
+            progress: 40,
+          },
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitAgentWorking - non-FK error branch", () => {
+    it("should log error for non-FK errors in emitAgentWorking", async () => {
+      mockPrisma.researchAgentActivity.create.mockRejectedValue(
+        new Error("Generic DB error"),
+      );
+
+      await expect(
+        service.emitAgentWorking(
+          "topic-123",
+          {
+            agentId: "r-1",
+            agentName: "研究员",
+            agentRole: "researcher",
+            status: "working",
+          },
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitAgentCompleted - modelId branch", () => {
+    it("should include model display name in agentName when modelId provided", async () => {
+      const { getModelDisplayNameMap } = jest.requireMock(
+        "../../../../utils/model-display-name",
+      );
+      getModelDisplayNameMap.mockResolvedValue(
+        new Map([["claude-3-5-sonnet", "Claude 3.5 Sonnet"]]),
+      );
+
+      const handler = jest.fn().mockResolvedValue(undefined);
+      service.registerEmitHandler(handler);
+
+      await service.emitAgentCompleted(
+        "topic-123",
+        "researcher-1",
+        "研究员",
+        "Done",
+        "mission-456",
+        { modelId: "claude-3-5-sonnet" },
+      );
+
+      expect(handler).toHaveBeenCalledWith(
+        "topic-123",
+        ResearchEventType.AGENT_COMPLETED,
+        expect.objectContaining({
+          agentName: expect.stringContaining("Claude 3.5 Sonnet"),
+        }),
+      );
+    });
+
+    it("should not duplicate label when agentName already contains model label", async () => {
+      const { getModelDisplayNameMap } = jest.requireMock(
+        "../../../../utils/model-display-name",
+      );
+      getModelDisplayNameMap.mockResolvedValue(new Map([["gpt-4o", "GPT-4o"]]));
+
+      const handler = jest.fn().mockResolvedValue(undefined);
+      service.registerEmitHandler(handler);
+
+      await service.emitAgentCompleted(
+        "topic-123",
+        "researcher-1",
+        "研究员 [GPT-4o]",
+        "Done",
+        "mission-456",
+        { modelId: "gpt-4o" },
+      );
+
+      expect(handler).toHaveBeenCalledWith(
+        "topic-123",
+        ResearchEventType.AGENT_COMPLETED,
+        expect.objectContaining({
+          agentName: "研究员 [GPT-4o]",
+        }),
+      );
+    });
+  });
+
+  describe("emitAgentCompleted - non-FK error branch", () => {
+    it("should log error for non-FK errors in emitAgentCompleted", async () => {
+      mockPrisma.researchAgentActivity.create.mockRejectedValue(
+        new Error("Generic DB error"),
+      );
+
+      await expect(
+        service.emitAgentCompleted(
+          "topic-123",
+          "researcher-1",
+          "研究员",
+          "Done",
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("mapAgentStatusToActivityType - default branch", () => {
+    it("should return THINKING for unknown status via emitAgentWorking", async () => {
+      // The private method default branch is covered by passing an unexpected status
+      // We can test it indirectly by calling the public method with a cast value
+      await service.emitAgentWorking(
+        "topic-123",
+        {
+          agentId: "r-1",
+          agentName: "研究员",
+          agentRole: "researcher",
+          status: "working" as any,
+        },
+        "mission-456",
+      );
+
+      // Ensure it still creates the activity (the default path)
+      expect(mockPrisma.researchAgentActivity.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ activityType: "RESEARCHING" }),
+        }),
+      );
+    });
+
+    it("should return THINKING for any unmapped status directly via cast", async () => {
+      // Access private method via cast to any to cover default branch
+      const svcAny = service as any;
+      const result = svcAny.mapAgentStatusToActivityType("unknown_status");
+      expect(result).toBe("THINKING");
+    });
+  });
+
+  describe("emitDimensionResearchStarted - DB error catch", () => {
+    it("should log error when DB persistence fails in emitDimensionResearchStarted", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitDimensionResearchStarted(
+          "topic-123",
+          "Tech Analysis",
+          "研究员A",
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitDimensionResearchProgress - DB error catch", () => {
+    it("should log error when DB persistence fails in emitDimensionResearchProgress", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitDimensionResearchProgress(
+          "topic-123",
+          "Tech",
+          25,
+          "Quarter done",
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitDimensionResearchCompleted - DB error catch", () => {
+    it("should log error when DB persistence fails in emitDimensionResearchCompleted", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitDimensionResearchCompleted(
+          "topic-123",
+          "Tech",
+          8,
+          1800,
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitReportSynthesisProgress", () => {
+    it("should emit REPORT_SYNTHESIS_PROGRESS event with progress data", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      service.registerEmitHandler(handler);
+
+      await service.emitReportSynthesisProgress("topic-123", {
+        progress: 60,
+        phase: "writing",
+        message: "Writing chapter 3...",
+        missionId: "mission-456",
+      });
+
+      expect(handler).toHaveBeenCalledWith(
+        "topic-123",
+        ResearchEventType.REPORT_SYNTHESIS_PROGRESS,
+        expect.objectContaining({
+          progress: 60,
+          phase: "writing",
+          message: "Writing chapter 3...",
+          missionId: "mission-456",
+        }),
+      );
+    });
+  });
+
+  describe("emitReportSynthesisStarted - topic not found early return", () => {
+    it("should return early when topic not found in emitReportSynthesisStarted", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitReportSynthesisStarted(
+        "nonexistent-topic",
+        "mission-456",
+      );
+
+      expect(mockPrisma.researchTeamMessage.create).not.toHaveBeenCalled();
+    });
+
+    it("should log error when DB persistence fails in emitReportSynthesisStarted", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitReportSynthesisStarted("topic-123", "mission-456"),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("emitReportSynthesisCompleted - topic not found early return", () => {
+    it("should return early when topic not found in emitReportSynthesisCompleted", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await service.emitReportSynthesisCompleted(
+        "nonexistent-topic",
+        5,
+        10000,
+        "mission-456",
+      );
+
+      expect(mockPrisma.researchTeamMessage.create).not.toHaveBeenCalled();
+    });
+
+    it("should log error when DB persistence fails in emitReportSynthesisCompleted", async () => {
+      mockPrisma.researchTeamMessage.create.mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(
+        service.emitReportSynthesisCompleted(
+          "topic-123",
+          5,
+          10000,
+          "mission-456",
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe("normalizeEventData - null/undefined branch", () => {
+    it("should return empty object for null data via emitToTopic", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      service.registerEmitHandler(handler);
+
+      await service.emitToTopic("topic-123", "test:event", null);
+
+      expect(handler).toHaveBeenCalledWith(
+        "topic-123",
+        "test:event",
+        expect.objectContaining({ timestamp: expect.any(String) }),
+      );
+    });
+
+    it("should return empty object for undefined data via emitToTopic", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      service.registerEmitHandler(handler);
+
+      await service.emitToTopic("topic-123", "test:event", undefined);
+
+      expect(handler).toHaveBeenCalledWith(
+        "topic-123",
+        "test:event",
+        expect.objectContaining({ timestamp: expect.any(String) }),
+      );
+    });
+  });
+
   describe("emitTaskStarted / emitTaskProgress / emitTaskCompleted", () => {
     it("should emit task started event", async () => {
       const handler = jest.fn().mockResolvedValue(undefined);

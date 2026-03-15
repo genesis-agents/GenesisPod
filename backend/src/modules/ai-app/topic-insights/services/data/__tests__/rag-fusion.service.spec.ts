@@ -1,3 +1,15 @@
+// Must be before any imports that trigger the @nestjs/cache-manager chain
+jest.mock("@prisma/client", () => ({
+  AIModelType: { CHAT: "CHAT" },
+}));
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: class {},
+  RAGFacade: class {},
+  ToolRegistry: class {},
+  AgentFacade: class {},
+  EvalPipelineService: class {},
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { RAGFusionService } from "../rag-fusion.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
@@ -76,7 +88,8 @@ describe("RAGFusionService", () => {
           ],
           overallRationale: "Mixed strategy",
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -101,7 +114,8 @@ describe("RAGFusionService", () => {
           ],
           overallRationale: "Comprehensive coverage",
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -137,7 +151,8 @@ describe("RAGFusionService", () => {
           ],
           overallRationale: "test",
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -157,7 +172,8 @@ describe("RAGFusionService", () => {
     it("should include generationTimeMs in result", async () => {
       mockAiFacade.chatStructured.mockResolvedValue({
         data: { variants: [], overallRationale: "test" },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const result = await service.generateQueryVariants({
@@ -341,7 +357,8 @@ describe("RAGFusionService", () => {
           ],
           overallRationale: "Temporal search",
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const mockSearchFn = jest
@@ -368,7 +385,8 @@ describe("RAGFusionService", () => {
           ],
           overallRationale: "test",
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const mockSearchFn = jest

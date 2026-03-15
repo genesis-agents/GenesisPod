@@ -359,5 +359,115 @@ describe("SemanticScholarConnector", () => {
       expect(health.available).toBe(false);
       expect(health.error).toContain("Connection refused");
     });
+
+    it("should include API key header in healthCheck when available", async () => {
+      mockConfigService.get.mockReturnValue("health-check-api-key");
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          SemanticScholarConnector,
+          { provide: ConfigService, useValue: mockConfigService },
+          { provide: PrismaService, useValue: mockPrismaService },
+          { provide: SecretsService, useValue: mockSecretsService },
+        ],
+      }).compile();
+
+      const connectorWithKey = module.get<SemanticScholarConnector>(
+        SemanticScholarConnector,
+      );
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+
+      await connectorWithKey.healthCheck();
+
+      const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
+      expect(
+        (callOptions.headers as Record<string, string>)?.["x-api-key"],
+      ).toBe("health-check-api-key");
+    });
+  });
+
+  describe("getApiKey - cache and secretsService branches", () => {
+    it("should use cached API key on second call (cache hit)", async () => {
+      mockConfigService.get.mockReturnValue("cached-api-key");
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ data: [] }),
+      });
+
+      // First call - loads from config
+      await connector.search("test1", 5);
+      // Second call - should use cache (no second DB lookup)
+      await connector.search("test2", 5);
+
+      // toolConfig.findUnique should be called only once (first load)
+      expect(mockPrismaService.toolConfig.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it("should use secretKey from SecretsService when available", async () => {
+      mockPrismaService.toolConfig.findUnique.mockResolvedValueOnce({
+        secretKey: "secret-ref-key",
+      });
+      mockSecretsService.getValue.mockResolvedValueOnce("decrypted-api-key");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ data: [] }),
+      });
+
+      await connector.search("test", 5);
+
+      const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
+      expect(
+        (callOptions.headers as Record<string, string>)?.["x-api-key"],
+      ).toBe("decrypted-api-key");
+    });
+
+    it("should fall back to env var when secretsService returns null", async () => {
+      mockPrismaService.toolConfig.findUnique.mockResolvedValueOnce({
+        secretKey: "secret-ref-key",
+      });
+      mockSecretsService.getValue.mockResolvedValueOnce(null);
+      mockConfigService.get.mockReturnValue("env-fallback-key");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ data: [] }),
+      });
+
+      await connector.search("test", 5);
+
+      const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
+      expect(
+        (callOptions.headers as Record<string, string>)?.["x-api-key"],
+      ).toBe("env-fallback-key");
+    });
+
+    it("should include API key header in isAvailable when configured", async () => {
+      mockConfigService.get.mockReturnValue("is-available-key");
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          SemanticScholarConnector,
+          { provide: ConfigService, useValue: mockConfigService },
+          { provide: PrismaService, useValue: mockPrismaService },
+          { provide: SecretsService, useValue: mockSecretsService },
+        ],
+      }).compile();
+
+      const connectorWithKey = module.get<SemanticScholarConnector>(
+        SemanticScholarConnector,
+      );
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+
+      await connectorWithKey.isAvailable();
+
+      const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
+      expect(
+        (callOptions.headers as Record<string, string>)?.["x-api-key"],
+      ).toBe("is-available-key");
+    });
   });
 });

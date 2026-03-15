@@ -10,6 +10,11 @@
  * - Error handling wraps exception in ExportResult
  */
 
+// Break the ai-infra/facade import chain (transitively imports @nestjs/cache-manager)
+jest.mock("@/modules/ai-infra/facade", () => ({
+  R2StorageService: jest.fn(),
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import {
   ResearchExportService,
@@ -177,9 +182,7 @@ describe("ResearchExportService", () => {
       });
 
       expect(result.size).toBeGreaterThan(0);
-      expect(result.size).toBe(
-        Buffer.byteLength(result.content, "utf-8"),
-      );
+      expect(result.size).toBe(Buffer.byteLength(result.content, "utf-8"));
     });
   });
 

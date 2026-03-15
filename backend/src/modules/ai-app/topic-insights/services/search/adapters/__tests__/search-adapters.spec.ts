@@ -664,7 +664,7 @@ describe("SocialSearchAdapter", () => {
   it("should fall back to web-search when Grok returns empty array", async () => {
     chatFacade.chat.mockResolvedValue({ isError: false, content: "[]" });
 
-    const result = await adapter.search(BASE_REQUEST);
+    const _result = await adapter.search(BASE_REQUEST);
 
     // Empty from Grok → try web-search fallback
     expect(toolRegistry.tryGet).toHaveBeenCalledWith("web-search");
@@ -892,12 +892,10 @@ describe("PolicySearchAdapter", () => {
               .mockRejectedValue(new Error("Fed Register down")),
           };
         return {
-          execute: jest
-            .fn()
-            .mockResolvedValue({
-              success: true,
-              data: { success: true, bills: [], items: [] },
-            }),
+          execute: jest.fn().mockResolvedValue({
+            success: true,
+            data: { success: true, bills: [], items: [] },
+          }),
         };
       }),
     };
@@ -1088,6 +1086,672 @@ describe("AcademicSearchAdapter - formatQuery", () => {
   it("should return empty results when throttle returns empty for all phases", async () => {
     throttle.execute.mockResolvedValue([]);
     const result = await adapter.search(BASE_REQUEST);
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("formatQuery should pass through query without noise words unchanged", () => {
+    const result = adapter.formatQuery("machine learning neural networks");
+    expect(result).toBe("machine learning neural networks");
+  });
+
+  it("formatQuery should accept optional context parameter without error", () => {
+    expect(() => adapter.formatQuery("AI trends", {} as any)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AcademicSearchAdapter - phased search strategy
+// ---------------------------------------------------------------------------
+
+describe("AcademicSearchAdapter - phased search strategy", () => {
+  const makeOpenAlexItem = (i: number): DataSourceResult => ({
+    sourceType: DataSourceType.OPENALEX,
+    title: `OpenAlex Paper ${i}`,
+    url: `https://openalex.org/W${i}`,
+    snippet: `Abstract ${i}`,
+  });
+
+  const makePubMedItem = (i: number): DataSourceResult => ({
+    sourceType: DataSourceType.PUBMED,
+    title: `PubMed Article ${i}`,
+    url: `https://pubmed.ncbi.nlm.nih.gov/${i}`,
+    snippet: `Abstract ${i}`,
+  });
+
+  const _makeSemanticScholarItem = (i: number): DataSourceResult => ({
+    sourceType: DataSourceType.SEMANTIC_SCHOLAR,
+    title: `SS Paper ${i}`,
+    url: `https://semanticscholar.org/paper/${i}`,
+    snippet: `Abstract ${i}`,
+  });
+
+  const _makeArXivItem = (i: number): DataSourceResult => ({
+    sourceType: DataSourceType.ACADEMIC,
+    title: `ArXiv Paper ${i}`,
+    url: `https://arxiv.org/abs/${i}`,
+    snippet: `Abstract ${i}`,
+  });
+
+  function buildAcademicAdapter(toolMocks: Record<string, jest.Mock>) {
+    const toolRegistry = makeToolRegistry(toolMocks);
+    // throttle wraps the sub-source calls; execute immediately calls the fn
+    const throttle = {
+      execute: jest.fn(
+        (
+          _id: string,
+          fn: () => Promise<DataSourceResult[]>,
+          _signal?: AbortSignal,
+        ) => fn(),
+      ),
+    };
+    return new AcademicSearchAdapter(toolRegistry as any, throttle as any);
+  }
+
+  it("should return phase 1 results without entering phase 2 when sufficient results", async () => {
+    // 5 from OpenAlex + 5 from PubMed = 10 >= SUFFICIENT_RESULTS(10)
+    const openAlexResults = Array.from({ length: 5 }, (_, i) =>
+      makeOpenAlexItem(i),
+    );
+    const pubMedResults = Array.from({ length: 5 }, (_, i) =>
+      makePubMedItem(i),
+    );
+
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: openAlexResults.map((r, i) => ({
+          title: r.title,
+          openAccessUrl: r.url,
+          abstract: r.snippet,
+          doi: `10.000/${i}`,
+          publicationDate: "2024-01-01",
+          citationCount: 5,
+          authors: ["Author A"],
+        })),
+      },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        articles: pubMedResults.map((r) => ({
+          title: r.title,
+          url: r.url,
+          abstract: r.snippet,
+          publishedDate: "2024-01-01",
+          authors: ["Author B"],
+          journal: "Journal X",
+        })),
+      },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { data: [] },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    expect(result.items.length).toBe(10);
+    // Semantic Scholar should NOT have been called
+    expect(ssTool).not.toHaveBeenCalled();
+  });
+
+  it("should enter phase 2 (Semantic Scholar) when phase 1 results < 10", async () => {
+    // Only 2 results from phase 1
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: [
+          {
+            title: "OA Paper 1",
+            openAccessUrl: "https://openalex.org/W1",
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        articles: [
+          {
+            title: "PM Article 1",
+            url: "https://pubmed.ncbi.nlm.nih.gov/1",
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        data: [
+          {
+            title: "SS Paper 1",
+            url: "https://semanticscholar.org/1",
+            abstract: "abs",
+            year: 2023,
+            citationCount: 10,
+          },
+        ],
+      },
+    });
+    const arxivTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { papers: [] },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    expect(ssTool).toHaveBeenCalled();
+    // Should have 3 results total (1 OA + 1 PM + 1 SS)
+    expect(result.items.length).toBe(3);
+  });
+
+  it("should enter phase 2b (ArXiv) when still < 10 results after Semantic Scholar", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: [
+          {
+            title: "OA Paper",
+            openAccessUrl: "https://openalex.org/1",
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { data: [] },
+    });
+    const arxivTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        papers: [
+          {
+            title: "ArXiv Paper",
+            url: "https://arxiv.org/abs/2401.0001",
+            abstract: "abs",
+            published: "2024-01-01",
+            authors: ["Author C"],
+            categories: ["cs.AI"],
+          },
+        ],
+      },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    expect(arxivTool).toHaveBeenCalled();
+    expect(result.items.length).toBe(2);
+    const arxivItem = result.items.find((i) => i.url.includes("arxiv.org"));
+    expect(arxivItem).toBeDefined();
+    expect(arxivItem?.metadata?.["categories"]).toContain("cs.AI");
+  });
+
+  it("should handle OpenAlex failure gracefully and still return PubMed results", async () => {
+    const openAlexTool = jest
+      .fn()
+      .mockRejectedValue(new Error("OpenAlex API error"));
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        articles: [
+          {
+            title: "PM Article",
+            url: "https://pubmed.ncbi.nlm.nih.gov/1",
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].sourceType).toBe(DataSourceType.PUBMED);
+  });
+
+  it("should handle PubMed failure gracefully and still return OpenAlex results", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: [
+          {
+            title: "OA Paper",
+            openAccessUrl: "https://openalex.org/1",
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+    const pubMedTool = jest.fn().mockRejectedValue(new Error("PubMed down"));
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].sourceType).toBe(DataSourceType.OPENALEX);
+  });
+
+  it("should handle Semantic Scholar failure gracefully", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { results: [] },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+    const ssTool = jest
+      .fn()
+      .mockRejectedValue(new Error("Semantic Scholar error"));
+    const arxivTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { papers: [] },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    // Should not throw — gracefully skips SS
+    expect(result).toBeDefined();
+  });
+
+  it("should handle ArXiv failure gracefully", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { results: [] },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { data: [] },
+    });
+    const arxivTool = jest
+      .fn()
+      .mockRejectedValue(new Error("ArXiv deadline exceeded"));
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    expect(result).toBeDefined();
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("should deduplicate results with same URL across phases", async () => {
+    const sharedUrl = "https://openalex.org/W999";
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: [
+          {
+            title: "Shared Paper",
+            openAccessUrl: sharedUrl,
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        articles: [
+          // Same URL, different source type
+          {
+            title: "Shared Paper Duplicate",
+            url: sharedUrl,
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    // URL dedup: only 1 unique URL
+    const urlMatches = result.items.filter((i) => i.url === sharedUrl);
+    expect(urlMatches).toHaveLength(1);
+  });
+
+  it("should deduplicate results with same title across phases", async () => {
+    const sharedTitle = "Identical Paper Title";
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: [
+          {
+            title: sharedTitle,
+            openAccessUrl: "https://openalex.org/W1",
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        articles: [
+          {
+            title: sharedTitle,
+            url: "https://pubmed.ncbi.nlm.nih.gov/2",
+            abstract: "abs",
+          },
+        ],
+      },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    const titleMatches = result.items.filter((i) => i.title === sharedTitle);
+    expect(titleMatches).toHaveLength(1);
+  });
+
+  it("should map OpenAlex results correctly including doi fallback URL", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: [
+          {
+            title: "DOI-only Paper",
+            // no openAccessUrl
+            doi: "10.1000/test.2024",
+            abstract: "Abstract text",
+            publicationDate: "2024-03-01",
+            citationCount: 42,
+            authors: ["Smith, J.", "Doe, J."],
+          },
+        ],
+      },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].url).toBe("https://doi.org/10.1000/test.2024");
+    expect(result.items[0].metadata?.["citationCount"]).toBe(42);
+    expect(result.items[0].publishedAt).toBeInstanceOf(Date);
+  });
+
+  it("should map Semantic Scholar results correctly", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { results: [] },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        data: [
+          {
+            title: "SS Research Paper",
+            url: "https://semanticscholar.org/paper/abc123",
+            abstract: "SS abstract",
+            year: 2023,
+            citationCount: 15,
+          },
+        ],
+      },
+    });
+    const arxivTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { papers: [] },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    const ssItem = result.items.find(
+      (i) => i.sourceType === DataSourceType.SEMANTIC_SCHOLAR,
+    );
+    expect(ssItem).toBeDefined();
+    expect(ssItem?.title).toBe("SS Research Paper");
+    expect(ssItem?.publishedAt?.getUTCFullYear()).toBe(2023);
+    expect(ssItem?.metadata?.["citationCount"]).toBe(15);
+  });
+
+  it("should handle OpenAlex returning non-array results gracefully", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { results: null },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: null },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("should handle Semantic Scholar returning non-array data gracefully", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { results: [] },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { data: "not-an-array" },
+    });
+    const arxivTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { papers: [] },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("should handle ArXiv returning non-array papers gracefully", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { results: [] },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { data: [] },
+    });
+    const arxivTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { papers: null },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("should stop at phase 2 (skip ArXiv) when sufficient results after SS", async () => {
+    // Build 10 unique items from OpenAlex+PubMed+SS combined
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        results: Array.from({ length: 3 }, (_, i) => ({
+          title: `OA ${i}`,
+          openAccessUrl: `https://openalex.org/W${i}`,
+          abstract: `abs${i}`,
+        })),
+      },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        articles: Array.from({ length: 3 }, (_, i) => ({
+          title: `PM ${i}`,
+          url: `https://pubmed.ncbi.nlm.nih.gov/${i + 100}`,
+          abstract: `abs${i}`,
+        })),
+      },
+    });
+    const ssTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        data: Array.from({ length: 4 }, (_, i) => ({
+          title: `SS ${i}`,
+          url: `https://semanticscholar.org/paper/${i + 200}`,
+          abstract: `abs${i}`,
+          year: 2023,
+          citationCount: i,
+        })),
+      },
+    });
+    const arxivTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { papers: [{ title: "ArXiv", url: "https://arxiv.org/abs/1" }] },
+    });
+
+    const adapter = buildAcademicAdapter({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+      "semantic-scholar": ssTool,
+      "arxiv-search": arxivTool,
+    });
+
+    const result = await adapter.search(BASE_REQUEST);
+
+    // After phase1(6) + SS(4) = 10 which >= SUFFICIENT_RESULTS, ArXiv should be skipped
+    expect(arxivTool).not.toHaveBeenCalled();
+    expect(result.items.length).toBe(10);
+  });
+
+  it("should abort when signal is already set before search", async () => {
+    const openAlexTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { results: [] },
+    });
+    const pubMedTool = jest.fn().mockResolvedValue({
+      success: true,
+      data: { articles: [] },
+    });
+
+    const throttle = {
+      execute: jest.fn(
+        (
+          _id: string,
+          fn: () => Promise<DataSourceResult[]>,
+          signal?: AbortSignal,
+        ) => {
+          if (signal?.aborted) return Promise.resolve([]);
+          return fn();
+        },
+      ),
+    };
+
+    const toolRegistry = makeToolRegistry({
+      "openalex-search": openAlexTool,
+      pubmed: pubMedTool,
+    });
+    const adapter = new AcademicSearchAdapter(
+      toolRegistry as any,
+      throttle as any,
+    );
+
+    const ac = new AbortController();
+    ac.abort();
+
+    const result = await adapter.search({ ...BASE_REQUEST, signal: ac.signal });
     expect(result.items).toHaveLength(0);
   });
 });

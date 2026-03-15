@@ -5,6 +5,18 @@
  * Type checking is disabled due to Jest mock compatibility issues.
  */
 
+// Must mock before any import that triggers the @nestjs/cache-manager chain
+jest.mock("@prisma/client", () => ({
+  AIModelType: { CHAT: "CHAT" },
+}));
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: class {},
+  RAGFacade: class {},
+  ToolRegistry: class {},
+  AgentFacade: class {},
+  EvalPipelineService: class {},
+}));
+
 import {
   describe,
   it,
@@ -511,6 +523,244 @@ describe("ReportEditorService", () => {
       expect(result.transitions).toHaveLength(1);
       expect(result.transitions[0].transitionText).toContain("市场规模");
       expect(result.transitions[0].transitionText).toContain("技术创新");
+    });
+  });
+
+  // ==================== V5 terminology/data consistency Tests ====================
+
+  describe("V5 terminology and data consistency issues", () => {
+    it("should include terminologyIssues in result when AI returns them", async () => {
+      const dimensionInputs = [
+        {
+          dimensionId: "dim-1",
+          dimensionName: "Dimension A",
+          dimensionDescription: null,
+          summary: "Summary A",
+          keyFindings: [],
+          detailedContent: "Content about AI/ML",
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+        {
+          dimensionId: "dim-2",
+          dimensionName: "Dimension B",
+          dimensionDescription: null,
+          summary: "Summary B",
+          keyFindings: [],
+          detailedContent: "Content about machine learning",
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+      ];
+
+      const dedupResponse = {
+        duplicates: [],
+        suggestions: [],
+        terminologyIssues: [
+          {
+            term: "AI",
+            variants: ["AI", "Artificial Intelligence", "机器智能"],
+            standardForm: "AI（人工智能）",
+            affectedDimensions: ["Dimension A", "Dimension B"],
+          },
+        ],
+        dataConsistencyIssues: [
+          {
+            dataPoint: "Market size",
+            values: [
+              { dimension: "Dimension A", value: "$10B", source: "source1" },
+              { dimension: "Dimension B", value: "$12B", source: "source2" },
+            ],
+            resolution: "Use $10B from the 2024 market report",
+          },
+        ],
+      };
+
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: JSON.stringify(dedupResponse),
+        usage: { promptTokens: 200, completionTokens: 100, totalTokens: 300 },
+      });
+
+      const result = await service.editDimensionInputs(
+        dimensionInputs,
+        "AI Market",
+      );
+
+      expect(result.terminologyIssues).toBeDefined();
+      expect(result.terminologyIssues).toHaveLength(1);
+      expect(result.terminologyIssues![0].term).toBe("AI");
+      expect(result.dataConsistencyIssues).toBeDefined();
+      expect(result.dataConsistencyIssues).toHaveLength(1);
+    });
+
+    it("should detect duplicate statistics in claim and log warning", async () => {
+      const dimensionInputs = [
+        {
+          dimensionId: "dim-1",
+          dimensionName: "Market Overview",
+          dimensionDescription: null,
+          summary: "Market growing 25%",
+          keyFindings: [],
+          detailedContent: "Market grew 25% in 2024.\n\nOther insights here.",
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+        {
+          dimensionId: "dim-2",
+          dimensionName: "Competition",
+          dimensionDescription: null,
+          summary: "Competition is intense",
+          keyFindings: [],
+          detailedContent:
+            "Market grew 25% in 2024.\n\nOther competitive data.",
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+      ];
+
+      const dedupResponse = {
+        duplicates: [
+          {
+            claim: "Market grew 25% in 2024",
+            dimensions: ["Market Overview", "Competition"],
+            keepIn: "Market Overview",
+            removeFrom: ["Competition"],
+            paragraphHints: ["Market grew 25% in 2024"],
+          },
+        ],
+        suggestions: [],
+      };
+
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: JSON.stringify(dedupResponse),
+        usage: { promptTokens: 200, completionTokens: 100, totalTokens: 300 },
+      });
+
+      const result = await service.editDimensionInputs(
+        dimensionInputs,
+        "AI Market",
+      );
+
+      // Should detect and remove the duplicate stat
+      expect(result.deduplicationStats.duplicateClaims).toBe(1);
+      expect(result.deduplicationStats.removedParagraphs).toBe(1);
+    });
+
+    it("should skip paragraph hints shorter than 10 chars", async () => {
+      const dimensionInputs = [
+        {
+          dimensionId: "dim-1",
+          dimensionName: "Dim A",
+          dimensionDescription: null,
+          summary: "Summary A",
+          keyFindings: [],
+          detailedContent: "Short para",
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+        {
+          dimensionId: "dim-2",
+          dimensionName: "Dim B",
+          dimensionDescription: null,
+          summary: "Summary B",
+          keyFindings: [],
+          detailedContent: "Short para\n\nAnother paragraph here.",
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+      ];
+
+      const dedupResponse = {
+        duplicates: [
+          {
+            claim: "Short",
+            dimensions: ["Dim A", "Dim B"],
+            keepIn: "Dim A",
+            removeFrom: ["Dim B"],
+            paragraphHints: ["ab"], // too short, should be skipped
+          },
+        ],
+        suggestions: [],
+      };
+
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: JSON.stringify(dedupResponse),
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      });
+
+      const result = await service.editDimensionInputs(
+        dimensionInputs,
+        "Topic",
+      );
+
+      // Hint too short, so no paragraphs removed
+      expect(result.deduplicationStats.removedParagraphs).toBe(0);
+    });
+
+    it("should handle dim with no detailedContent gracefully", async () => {
+      const dimensionInputs = [
+        {
+          dimensionId: "dim-1",
+          dimensionName: "Dim A",
+          dimensionDescription: null,
+          summary: "Summary A",
+          keyFindings: [],
+          detailedContent: "Some content",
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+        {
+          dimensionId: "dim-2",
+          dimensionName: "Dim B",
+          dimensionDescription: null,
+          summary: "Summary B",
+          keyFindings: [],
+          detailedContent: null as unknown as string,
+          sourcesUsed: 1,
+          trends: [],
+          challenges: [],
+          opportunities: [],
+        },
+      ];
+
+      const dedupResponse = {
+        duplicates: [
+          {
+            claim: "Duplicate content",
+            dimensions: ["Dim A", "Dim B"],
+            keepIn: "Dim A",
+            removeFrom: ["Dim B"],
+            paragraphHints: ["Some content"],
+          },
+        ],
+        suggestions: [],
+      };
+
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: JSON.stringify(dedupResponse),
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      });
+
+      // Should not throw even when detailedContent is null
+      const result = await service.editDimensionInputs(
+        dimensionInputs,
+        "Topic",
+      );
+      expect(result.deduplicationStats.removedParagraphs).toBe(0);
     });
   });
 });

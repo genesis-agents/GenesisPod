@@ -42,6 +42,7 @@ import {
   stripCitationsFromHeadings,
   wrapBareDisplayMath,
   deduplicateTerminalSections,
+  deduplicateIdenticalSections,
   stripChapterHighlights,
   cleanupEmptyBullets,
   normalizeInformalTerms,
@@ -799,6 +800,9 @@ export class ReportAssemblerService {
 
     // Remove duplicate terminal sections (结语 repeating 跨维度关联分析 sub-sections)
     content = deduplicateTerminalSections(content);
+
+    // Remove identical consecutive sections (e.g. duplicated WWNBT scenario blocks)
+    content = deduplicateIdenticalSections(content);
 
     const deepHeadingCount = (content.match(/^#{5,6}\s+/gm) ?? []).length;
     if (deepHeadingCount > 0) {

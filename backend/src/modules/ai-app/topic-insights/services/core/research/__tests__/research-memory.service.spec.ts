@@ -2,6 +2,11 @@
  * ResearchMemoryService Unit Tests
  */
 
+// Break the ai-engine/facade import chain (transitively imports @nestjs/cache-manager)
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchMemoryService } from "../research-memory.service";
 import { PrismaService } from "@/common/prisma/prisma.service";

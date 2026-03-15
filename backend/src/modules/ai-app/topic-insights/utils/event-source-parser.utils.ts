@@ -47,6 +47,7 @@ export interface EventTopicConfig {
 const TIER_1_PATTERNS = [
   /\.gov($|\/)/i,
   /\.gov\.\w+($|\/)/i,
+  /^gov\.\w+$/i,
   /newsroom\./i,
   /press\./i,
   /investor\./i,

@@ -11,6 +11,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   detectForeignLanguageBlocks,
   limitBlockquotes,
+  limitBoldFormatting,
   removeHorizontalRules,
   sanitizeHeadingLevels,
   deduplicateHeadings,
@@ -111,17 +112,19 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
-    // 3. 加粗密度检查（仅记录，不强制限制 — 用户指示放宽）
-    // ★ 极端情况（>30）加入 rewriteGuidance 引导 AI 收敛
+    // 3. 加粗密度检查 + 极端情况自动限制
+    // ★ 极端情况（>30）自动限制每子章节 2 处 + 引导 AI 收敛
     const boldCount = (fixedContent.match(/\*\*[^*]+\*\*/g) || []).length;
     if (boldCount > 30) {
       violations.push({
         rule: "bold_density",
         severity: "warning",
-        message: `加粗处数量 ${boldCount} 严重超标（建议 ≤12/维度），请精简`,
+        message: `加粗处数量 ${boldCount} 严重超标（建议 ≤12/维度），已自动限制`,
         currentValue: boldCount,
         threshold: 12,
       });
+      fixedContent = limitBoldFormatting(fixedContent, 2);
+      wasAutoFixed = true;
       rewriteGuidance.push(
         `加粗过度：当前 ${boldCount} 处加粗，远超建议阈值 12 处/维度。` +
           `请仅对核心结论和关键数据加粗，每个子章节不超过 2 处加粗。`,

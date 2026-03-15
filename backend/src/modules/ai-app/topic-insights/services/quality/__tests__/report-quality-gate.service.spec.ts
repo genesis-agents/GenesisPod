@@ -107,6 +107,31 @@ describe("ReportQualityGateService", () => {
       expect(violation).toBeUndefined();
     });
 
+    it("should auto-fix bold when count > 30 (extreme density)", () => {
+      // Generate 35 bolds across multiple ### sections
+      const sections = Array.from({ length: 7 }, (_, i) => {
+        const sectionBolds = Array.from(
+          { length: 5 },
+          (_, j) => `**Bold${i}_${j}** text here`,
+        ).join("\n");
+        return `### Section ${i}\n${sectionBolds}`;
+      }).join("\n\n");
+      const content = sections + "\n\n" + "A".repeat(900);
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "bold_density",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.message).toContain("已自动限制");
+      expect(result.wasAutoFixed).toBe(true);
+      // After limitBoldFormatting(content, 2), each section keeps max 2 bolds
+      const remainingBolds = (result.fixedContent.match(/\*\*[^*]+\*\*/g) || [])
+        .length;
+      expect(remainingBolds).toBeLessThanOrEqual(14); // 7 sections × 2
+    });
+
     it("should auto-limit non-highlight blockquotes when count > 1", () => {
       const content =
         "> First blockquote content here\n> Second blockquote content here\n> Third blockquote\n\n" +
@@ -828,6 +853,206 @@ describe("ReportQualityGateService", () => {
         (v) => v.rule === "citation_orphans",
       );
       expect(orphan).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
+  // validateDimensionContent — LaTeX checks (lines 184-193, 712-783)
+  // =========================================================================
+
+  describe("validateDimensionContent — LaTeX checks", () => {
+    const baseContent = "\n\n" + "A".repeat(900) + " [1][2][3]";
+
+    it("should auto-merge split LaTeX expressions like $A$ $\\in$ $B$", () => {
+      const content = "公式示例：$x$ $=$ $y + z$" + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      expect(result.wasAutoFixed).toBe(true);
+      const violation = result.violations.find(
+        (v) => v.rule === "latex_split_expressions",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.severity).toBe("warning");
+    });
+
+    it("should push latex violations into dimension violations (lines 189)", () => {
+      // Unbalanced $ will produce a latex violation that gets pushed
+      const content = "单个美元符号 $unbalanced" + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "latex_unbalanced_delimiters",
+      );
+      expect(violation).toBeDefined();
+    });
+
+    it("should push latex rewriteGuidance into dimension guidance (lines 192) when > 3 unbalanced lines", () => {
+      // Need > 3 lines with unbalanced $
+      const unbalancedLines = [
+        "$a unmatched",
+        "$b unmatched",
+        "$c unmatched",
+        "$d unmatched",
+      ].join("\n");
+      const content = unbalancedLines + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const hasLatexGuidance = result.rewriteGuidance.some((g) =>
+        g.includes("公式定界符不平衡"),
+      );
+      expect(hasLatexGuidance).toBe(true);
+    });
+
+    it("should detect unbalanced $ delimiter (line 743) and flag violation (lines 747-753)", () => {
+      // Single unbalanced $ on one line (odd count)
+      const content = "文本 $unbalanced formula" + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "latex_unbalanced_delimiters",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.severity).toBe("warning");
+      expect(violation?.threshold).toBe(0);
+      expect(violation?.currentValue).toBeGreaterThan(0);
+    });
+
+    it("should add rewriteGuidance when unbalanced delimiter count > 3 (lines 754-758)", () => {
+      // 4 lines each with a single unmatched $
+      const lines = Array.from({ length: 4 }, (_, i) => `行${i} $lone`).join(
+        "\n",
+      );
+      const content = lines + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      expect(
+        result.rewriteGuidance.some((g) => g.includes("公式定界符不平衡")),
+      ).toBe(true);
+    });
+
+    it("should skip lines inside code blocks when checking $ delimiters (lines 733-734)", () => {
+      // Unbalanced $ inside a code block (```python opening preserved by stripLLMMetaNotes)
+      // should NOT be counted as unbalanced
+      const content =
+        "```python\n$unbalanced inside code fence\n```\n正常文本" + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "latex_unbalanced_delimiters",
+      );
+      // The $ inside the code block should not trigger the unbalanced delimiter rule
+      expect(violation).toBeUndefined();
+    });
+
+    it("should detect incomplete \\frac command (lines 768-779)", () => {
+      // \frac{a} with only one argument (missing second {})
+      const content = "公式 $\\frac{x}$ 缺少分母" + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "latex_incomplete_commands",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.severity).toBe("warning");
+      expect(violation?.message).toContain("\\frac");
+    });
+
+    it("should detect incomplete \\sqrt command (lines 768-779)", () => {
+      // \sqrt without any argument
+      const content = "公式 \\sqrt 缺少参数" + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "latex_incomplete_commands",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.message).toContain("\\sqrt");
+      expect(
+        result.rewriteGuidance.some((g) => g.includes("LaTeX 命令不完整")),
+      ).toBe(true);
+    });
+
+    it("should detect both \\frac and \\sqrt incomplete commands and combine details", () => {
+      const content = "公式1 $\\frac{x}$ 公式2 \\sqrt 都有问题" + baseContent;
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "latex_incomplete_commands",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.message).toContain("\\frac");
+      expect(violation?.message).toContain("\\sqrt");
+    });
+  });
+
+  // =========================================================================
+  // validateDimensionContent — duplicate headings and h3 count (lines 199-204, 238-245)
+  // =========================================================================
+
+  describe("validateDimensionContent — duplicate headings and h3 count", () => {
+    it("should auto-deduplicate headings when same heading appears twice (lines 199-204)", () => {
+      // "### 1. Title" followed later by "### Title" — same normalized text
+      const content =
+        "### 1. 技术现状\n\n" +
+        "A".repeat(300) +
+        " [1]\n\n" +
+        "### 技术现状\n\n" +
+        "B".repeat(300) +
+        " [2][3]";
+
+      const result = service.validateDimensionContent(content, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "duplicate_headings",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.severity).toBe("warning");
+      expect(violation?.message).toContain("已自动去重");
+      expect(result.wasAutoFixed).toBe(true);
+    });
+
+    it("should flag h3_count_exceeded when more than 10 ### headings exist (lines 238-248)", () => {
+      // Build content with 11 h3 headings
+      const sections = Array.from(
+        { length: 11 },
+        (_, i) => `### Section ${i + 1}\n\n${"内容".repeat(20)} [${i + 1}]`,
+      ).join("\n\n");
+
+      const result = service.validateDimensionContent(sections, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "h3_count_exceeded",
+      );
+      expect(violation).toBeDefined();
+      expect(violation?.severity).toBe("warning");
+      expect(violation?.currentValue).toBeGreaterThan(10);
+      expect(violation?.threshold).toBe(10);
+      expect(result.rewriteGuidance.some((g) => g.includes("子节过多"))).toBe(
+        true,
+      );
+    });
+
+    it("should NOT flag h3_count_exceeded when h3 count is exactly 10", () => {
+      const sections = Array.from(
+        { length: 10 },
+        (_, i) => `### Section ${i + 1}\n\n${"内容".repeat(20)} [${i + 1}]`,
+      ).join("\n\n");
+
+      const result = service.validateDimensionContent(sections, "zh");
+
+      const violation = result.violations.find(
+        (v) => v.rule === "h3_count_exceeded",
+      );
+      expect(violation).toBeUndefined();
     });
   });
 });

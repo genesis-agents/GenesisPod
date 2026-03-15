@@ -14,11 +14,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchCheckpointService } from "../research-checkpoint.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  ResearchMissionStatus,
-  ResearchTaskStatus,
-  ResearchTodoStatus,
-} from "@prisma/client";
+import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Mock fixtures
@@ -35,8 +31,20 @@ const makeMission = (overrides: Record<string, unknown> = {}) => ({
   createdAt: new Date(),
   startedAt: new Date(),
   tasks: [
-    { id: "task-001", status: ResearchTaskStatus.COMPLETED, dimensionId: "dim-001", taskType: "dimension_research", updatedAt: new Date() },
-    { id: "task-002", status: ResearchTaskStatus.FAILED, dimensionId: null, taskType: "synthesis", updatedAt: new Date() },
+    {
+      id: "task-001",
+      status: ResearchTaskStatus.COMPLETED,
+      dimensionId: "dim-001",
+      taskType: "dimension_research",
+      updatedAt: new Date(),
+    },
+    {
+      id: "task-002",
+      status: ResearchTaskStatus.FAILED,
+      dimensionId: null,
+      taskType: "synthesis",
+      updatedAt: new Date(),
+    },
   ],
   topic: { name: "AI Market Research" },
   ...overrides,
@@ -112,8 +120,20 @@ describe("ResearchCheckpointService", () => {
     it("should identify current executing task", async () => {
       const mission = makeMission({
         tasks: [
-          { id: "task-001", status: ResearchTaskStatus.COMPLETED, dimensionId: "dim-001", taskType: "dimension_research", updatedAt: new Date() },
-          { id: "task-002", status: ResearchTaskStatus.EXECUTING, dimensionId: "dim-002", taskType: "dimension_research", updatedAt: new Date() },
+          {
+            id: "task-001",
+            status: ResearchTaskStatus.COMPLETED,
+            dimensionId: "dim-001",
+            taskType: "dimension_research",
+            updatedAt: new Date(),
+          },
+          {
+            id: "task-002",
+            status: ResearchTaskStatus.EXECUTING,
+            dimensionId: "dim-002",
+            taskType: "dimension_research",
+            updatedAt: new Date(),
+          },
         ],
       });
       mockPrisma.researchMission.findUnique.mockResolvedValue(mission);
@@ -211,7 +231,13 @@ describe("ResearchCheckpointService", () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(
         makeMission({
           tasks: [
-            { id: "task-001", status: ResearchTaskStatus.FAILED, dimensionId: null, taskType: "synthesis", updatedAt: new Date() },
+            {
+              id: "task-001",
+              status: ResearchTaskStatus.FAILED,
+              dimensionId: null,
+              taskType: "synthesis",
+              updatedAt: new Date(),
+            },
           ],
         }),
       );
@@ -226,7 +252,13 @@ describe("ResearchCheckpointService", () => {
       mockPrisma.researchMission.findUnique.mockResolvedValue(
         makeMission({
           tasks: [
-            { id: "task-001", status: ResearchTaskStatus.COMPLETED, dimensionId: "dim-001", taskType: "dimension_research", updatedAt: new Date() },
+            {
+              id: "task-001",
+              status: ResearchTaskStatus.COMPLETED,
+              dimensionId: "dim-001",
+              taskType: "dimension_research",
+              updatedAt: new Date(),
+            },
           ],
         }),
       );
@@ -308,6 +340,94 @@ describe("ResearchCheckpointService", () => {
           }),
         }),
       );
+    });
+  });
+
+  // ─────────────────────────── getResumableMissions ─────────────────────────
+
+  describe("getResumableMissions", () => {
+    it("should return empty array when no missions found", async () => {
+      mockPrisma.researchMission.findMany.mockResolvedValue([]);
+
+      const result = await service.getResumableMissions("user-001");
+
+      expect(result).toEqual([]);
+    });
+
+    it("should exclude missions with no completed tasks", async () => {
+      const missionNoCompleted = makeMission({
+        tasks: [
+          {
+            id: "task-001",
+            status: "FAILED",
+            dimensionId: null,
+            taskType: "synthesis",
+            updatedAt: new Date(),
+          },
+        ],
+      });
+      mockPrisma.researchMission.findMany.mockResolvedValue([
+        missionNoCompleted,
+      ]);
+
+      const result = await service.getResumableMissions("user-001");
+
+      expect(result).toHaveLength(0);
+    });
+
+    it("should include missions with partial progress (some completed tasks)", async () => {
+      const missionWithProgress = makeMission(); // has 1 completed task by default
+      mockPrisma.researchMission.findMany.mockResolvedValue([
+        missionWithProgress,
+      ]);
+
+      const result = await service.getResumableMissions("user-001");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].missionId).toBe("mission-001");
+      expect(result[0].topicName).toBe("AI Market Research");
+    });
+
+    it("should return multiple missions with partial progress", async () => {
+      const mission1 = makeMission({ id: "mission-001" });
+      const mission2 = makeMission({
+        id: "mission-002",
+        topicId: "topic-002",
+        tasks: [
+          {
+            id: "task-010",
+            status: "COMPLETED",
+            dimensionId: "dim-001",
+            taskType: "dimension_research",
+            updatedAt: new Date(),
+          },
+          {
+            id: "task-011",
+            status: "PENDING",
+            dimensionId: null,
+            taskType: "synthesis",
+            updatedAt: new Date(),
+          },
+        ],
+      });
+      mockPrisma.researchMission.findMany.mockResolvedValue([
+        mission1,
+        mission2,
+      ]);
+
+      const result = await service.getResumableMissions("user-001");
+
+      expect(result).toHaveLength(2);
+    });
+
+    it("should call canResume for each mission with partial progress", async () => {
+      const mission = makeMission();
+      mockPrisma.researchMission.findMany.mockResolvedValue([mission]);
+
+      await service.getResumableMissions("user-001");
+
+      // canResume is called internally — it calls findUnique again
+      expect(mockPrisma.researchMission.findUnique).toHaveBeenCalled();
     });
   });
 

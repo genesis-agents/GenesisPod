@@ -1,3 +1,6 @@
+// Break the ai-engine/facade import chain (transitively imports @nestjs/cache-manager)
+jest.mock("@/modules/ai-engine/facade", () => ({}));
+
 import { UnauthorizedException } from "@nestjs/common";
 import { ReportReviewController } from "../report-review.controller";
 import type { TopicInsightsService } from "../../topic-insights.service";
@@ -9,7 +12,9 @@ function createMockTopicService() {
     createAnnotation: jest.fn().mockResolvedValue({ id: "ann-1" }),
     updateAnnotation: jest.fn().mockResolvedValue({ id: "ann-1" }),
     deleteAnnotation: jest.fn().mockResolvedValue({ deleted: true }),
-    resolveAnnotation: jest.fn().mockResolvedValue({ id: "ann-1", status: "RESOLVED" }),
+    resolveAnnotation: jest
+      .fn()
+      .mockResolvedValue({ id: "ann-1", status: "RESOLVED" }),
     resolveAllAnnotations: jest.fn().mockResolvedValue({ resolved: 3 }),
   } as unknown as jest.Mocked<TopicInsightsService>;
 }
@@ -18,7 +23,9 @@ function createMockReviewWorkflowService() {
   return {
     getReviewTasks: jest.fn().mockResolvedValue([]),
     createReviewTasksForReport: jest.fn().mockResolvedValue([{ id: "rt-1" }]),
-    assignTask: jest.fn().mockResolvedValue({ id: "rt-1", assigneeId: "user-2" }),
+    assignTask: jest
+      .fn()
+      .mockResolvedValue({ id: "rt-1", assigneeId: "user-2" }),
     completeTask: jest.fn().mockResolvedValue({ id: "rt-1", approved: true }),
     getTaskStats: jest.fn().mockResolvedValue({ total: 5, completed: 3 }),
     canPublishReport: jest.fn().mockResolvedValue({ canPublish: true }),
@@ -208,15 +215,14 @@ describe("ReportReviewController", () => {
 
   describe("createReviewTasks", () => {
     it("should create review tasks for report", async () => {
-      const result = await controller.createReviewTasks(
+      const _result = await controller.createReviewTasks(
         mockReq as never,
         "topic-1",
         "report-1",
       );
-      expect(mockReviewWorkflowService.createReviewTasksForReport).toHaveBeenCalledWith(
-        "report-1",
-        "user-review",
-      );
+      expect(
+        mockReviewWorkflowService.createReviewTasksForReport,
+      ).toHaveBeenCalledWith("report-1", "user-review");
     });
   });
 
@@ -227,7 +233,7 @@ describe("ReportReviewController", () => {
         assigneeName: "Reviewer Name",
         dueAt: "2026-03-01T10:00:00Z",
       } as never;
-      const result = await controller.assignReviewTask(
+      const _result = await controller.assignReviewTask(
         mockReq as never,
         "topic-1",
         "report-1",
@@ -268,7 +274,7 @@ describe("ReportReviewController", () => {
         comments: "Looks good!",
         score: 90,
       } as never;
-      const result = await controller.completeReviewTask(
+      const _result = await controller.completeReviewTask(
         mockReq as never,
         "topic-1",
         "report-1",

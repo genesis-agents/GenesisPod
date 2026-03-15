@@ -23,6 +23,10 @@ function createMockTopicService() {
     regenerateReportContent: jest.fn().mockResolvedValue(undefined),
     regenerateCredibilityReport: jest.fn().mockResolvedValue({ score: 90 }),
     recalculateEvidenceCredibility: jest.fn().mockResolvedValue({ updated: 5 }),
+    reprocessReportFormatting: jest.fn().mockResolvedValue({ success: true }),
+    getReportQualityTrace: jest.fn().mockResolvedValue({ traces: [] }),
+    getReportQualitySummary: jest.fn().mockResolvedValue({ score: 90 }),
+    getReportQualityDetails: jest.fn().mockResolvedValue({ defects: [] }),
   } as unknown as jest.Mocked<TopicInsightsService>;
 }
 
@@ -68,7 +72,10 @@ describe("ReportController", () => {
 
   describe("getLatestReport", () => {
     it("should get latest report", async () => {
-      const result = await controller.getLatestReport(mockReq as never, "topic-1");
+      const _result = await controller.getLatestReport(
+        mockReq as never,
+        "topic-1",
+      );
       expect(mockTopicService.getLatestReport).toHaveBeenCalledWith(
         "user-abc",
         "topic-1",
@@ -101,7 +108,12 @@ describe("ReportController", () => {
   describe("exportReport", () => {
     it("should export a report", async () => {
       const dto = { format: "PDF" } as never;
-      await controller.exportReport(mockReq as never, "topic-1", "report-1", dto);
+      await controller.exportReport(
+        mockReq as never,
+        "topic-1",
+        "report-1",
+        dto,
+      );
       expect(mockTopicService.exportReport).toHaveBeenCalledWith(
         "user-abc",
         "topic-1",
@@ -327,9 +339,287 @@ describe("ReportController", () => {
         "topic-1",
         "report-1",
       );
-      expect(mockTopicService.recalculateEvidenceCredibility).toHaveBeenCalledWith(
+      expect(
+        mockTopicService.recalculateEvidenceCredibility,
+      ).toHaveBeenCalledWith("report-1");
+    });
+  });
+
+  describe("getLatestReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getLatestReport(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("getReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getReport(reqNoUser as never, "topic-1", "report-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("deleteReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.deleteReport(reqNoUser as never, "topic-1", "report-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("exportReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.exportReport(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          {} as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("compareReports - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.compareReports(reqNoUser as never, "topic-1", {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("updateReportContent - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.updateReportContent(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          {} as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("aiEditReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.aiEditReport(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          {} as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("getReportRevisions - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getReportRevisions(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("rollbackReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.rollbackReport(reqNoUser as never, "topic-1", "report-1", {
+          revisionNumber: 1,
+        } as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("checkinChange - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.checkinChange(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          "change-1",
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("checkinAllChanges - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.checkinAllChanges(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          {},
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("listEvidence - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.listEvidence(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          {} as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("getEvidence - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getEvidence(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          "ev-1",
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("getCredibilityReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getCredibilityReport(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("reprocessReportFormatting", () => {
+    it("should call reprocessReportFormatting service", async () => {
+      const result = await controller.reprocessReportFormatting(
+        mockReq as never,
+        "topic-1",
         "report-1",
       );
+      expect(mockTopicService.reprocessReportFormatting).toHaveBeenCalledWith(
+        "user-abc",
+        "report-1",
+      );
+      expect(result).toEqual({ success: true });
+    });
+
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.reprocessReportFormatting(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("getQualityTrace", () => {
+    it("should get quality trace data", async () => {
+      const result = await controller.getQualityTrace("report-1");
+      expect(mockTopicService.getReportQualityTrace).toHaveBeenCalledWith(
+        "report-1",
+      );
+      expect(result).toEqual({ traces: [] });
+    });
+  });
+
+  describe("getQualitySummary", () => {
+    it("should get quality summary", async () => {
+      const result = await controller.getQualitySummary("report-1");
+      expect(mockTopicService.getReportQualitySummary).toHaveBeenCalledWith(
+        "report-1",
+      );
+      expect(result).toEqual({ score: 90 });
+    });
+  });
+
+  describe("getQualityDetails", () => {
+    it("should get quality details without rule filter", async () => {
+      const _result = await controller.getQualityDetails("report-1");
+      expect(mockTopicService.getReportQualityDetails).toHaveBeenCalledWith(
+        "report-1",
+        undefined,
+      );
+    });
+
+    it("should get quality details with rule filter", async () => {
+      const _result = await controller.getQualityDetails(
+        "report-1",
+        "word_count",
+      );
+      expect(mockTopicService.getReportQualityDetails).toHaveBeenCalledWith(
+        "report-1",
+        "word_count",
+      );
+    });
+  });
+
+  describe("regenerateCredibilityReport - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.regenerateCredibilityReport(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("recalculateEvidenceCredibility - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.recalculateEvidenceCredibility(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe("regenerateReportContent - unauthorized", () => {
+    it("should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.regenerateReportContent(
+          reqNoUser as never,
+          "topic-1",
+          "report-1",
+          {},
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 

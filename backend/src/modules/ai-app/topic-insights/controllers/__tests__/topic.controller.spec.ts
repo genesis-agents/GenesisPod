@@ -5,7 +5,9 @@ import { of } from "rxjs";
 
 function createMockTopicService() {
   return {
-    getSharedTopic: jest.fn().mockResolvedValue({ id: "topic-1", isPublic: true }),
+    getSharedTopic: jest
+      .fn()
+      .mockResolvedValue({ id: "topic-1", isPublic: true }),
     getSharedTopicLatestReport: jest.fn().mockResolvedValue({ id: "report-1" }),
     createTopic: jest.fn().mockResolvedValue({ id: "topic-1" }),
     listTopics: jest.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -13,13 +15,17 @@ function createMockTopicService() {
     updateTopic: jest.fn().mockResolvedValue({ id: "topic-1" }),
     deleteTopic: jest.fn().mockResolvedValue({ deleted: true }),
     triggerRefresh: jest.fn().mockResolvedValue({ jobId: "job-1" }),
-    getResearchStrategy: jest.fn().mockResolvedValue({ strategy: "incremental" }),
-    quickCheckResearchStatus: jest.fn().mockResolvedValue({ needsRefresh: false }),
+    getResearchStrategy: jest
+      .fn()
+      .mockResolvedValue({ strategy: "incremental" }),
+    quickCheckResearchStatus: jest
+      .fn()
+      .mockResolvedValue({ needsRefresh: false }),
     smartStartResearch: jest.fn().mockResolvedValue({ taskId: "task-1" }),
     getRefreshStatus: jest.fn().mockResolvedValue({ status: "idle" }),
-    streamRefreshProgress: jest.fn().mockReturnValue(
-      of({ data: { progress: 50 }, type: "message" })
-    ),
+    streamRefreshProgress: jest
+      .fn()
+      .mockReturnValue(of({ data: { progress: 50 }, type: "message" })),
     cancelRefresh: jest.fn().mockResolvedValue({ cancelled: true }),
     listDimensions: jest.fn().mockResolvedValue([]),
     addDimension: jest.fn().mockResolvedValue({ id: "dim-1" }),
@@ -67,7 +73,7 @@ describe("TopicController", () => {
     });
 
     it("should get shared topic latest report without auth", async () => {
-      const result = await controller.getSharedTopicLatestReport("topic-1");
+      const _result = await controller.getSharedTopicLatestReport("topic-1");
       expect(mockTopicService.getSharedTopicLatestReport).toHaveBeenCalledWith(
         "topic-1",
       );
@@ -78,7 +84,10 @@ describe("TopicController", () => {
     it("should create a topic", async () => {
       const dto = { name: "AI Topic", type: "RESEARCH" } as never;
       const result = await controller.createTopic(mockReq as never, dto);
-      expect(mockTopicService.createTopic).toHaveBeenCalledWith("user-xyz", dto);
+      expect(mockTopicService.createTopic).toHaveBeenCalledWith(
+        "user-xyz",
+        dto,
+      );
       expect(result).toEqual({ id: "topic-1" });
     });
 
@@ -94,7 +103,10 @@ describe("TopicController", () => {
     it("should list topics for user", async () => {
       const query = { type: "RESEARCH" } as never;
       await controller.listTopics(mockReq as never, query);
-      expect(mockTopicService.listTopics).toHaveBeenCalledWith("user-xyz", query);
+      expect(mockTopicService.listTopics).toHaveBeenCalledWith(
+        "user-xyz",
+        query,
+      );
     });
 
     it("should throw UnauthorizedException when user is missing", async () => {
@@ -107,7 +119,7 @@ describe("TopicController", () => {
 
   describe("getTopic", () => {
     it("should get topic by id", async () => {
-      const result = await controller.getTopic(mockReq as never, "topic-1");
+      const _result = await controller.getTopic(mockReq as never, "topic-1");
       expect(mockTopicService.getTopic).toHaveBeenCalledWith(
         "user-xyz",
         "topic-1",
@@ -315,6 +327,183 @@ describe("TopicController", () => {
         "topic-1",
         dto,
       );
+    });
+  });
+
+  describe("Unauthorized branches", () => {
+    it("getTopic should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getTopic(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("updateTopic should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.updateTopic(reqNoUser as never, "topic-1", {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("deleteTopic should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.deleteTopic(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("triggerRefresh should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.triggerRefresh(reqNoUser as never, "topic-1", {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("getResearchStrategy should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getResearchStrategy(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("quickCheckResearchStatus should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.quickCheckResearchStatus(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("smartStartResearch should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.smartStartResearch(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("getRefreshStatus should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getRefreshStatus(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("cancelRefresh should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.cancelRefresh(reqNoUser as never, "topic-1", {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("listDimensions should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.listDimensions(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("addDimension should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.addDimension(reqNoUser as never, "topic-1", {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("updateDimension should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.updateDimension(
+          reqNoUser as never,
+          "topic-1",
+          "dim-1",
+          {} as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("deleteDimension should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.deleteDimension(reqNoUser as never, "topic-1", "dim-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("refreshDimension should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.refreshDimension(
+          reqNoUser as never,
+          "topic-1",
+          "dim-1",
+          {} as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("reorderDimensions should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.reorderDimensions(
+          reqNoUser as never,
+          "topic-1",
+          {} as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("getTemplates should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getTemplates(reqNoUser as never, {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("createFromTemplate should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.createFromTemplate(reqNoUser as never, {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("getSchedule should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getSchedule(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("updateSchedule should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.updateSchedule(reqNoUser as never, "topic-1", {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("getLogs should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getLogs(reqNoUser as never, "topic-1", {} as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("getStats should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getStats(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("recalculateTopicStats should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.recalculateTopicStats(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("getResearchHistory should throw UnauthorizedException when user is missing", async () => {
+      const reqNoUser = createMockRequest(undefined);
+      await expect(
+        controller.getResearchHistory(reqNoUser as never, "topic-1"),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 

@@ -431,4 +431,103 @@ describe("KnowledgeGraphService", () => {
       expect(stats.totalRelations).toBe(0);
     });
   });
+
+  // ============================================================
+  // addEntity - alias-based deduplication (lines 107-110)
+  // ============================================================
+
+  describe("addEntity - alias index deduplication", () => {
+    it("should match entity by alias index and merge into it", () => {
+      // Register entity with an alias so the alias goes into entityNameIndex
+      const entity1 = makeEntity("e-base", "Artificial Intelligence");
+      entity1.aliases = ["AI", "A.I."];
+      service.addEntity(entity1);
+
+      // Now add new entity whose NAME matches an existing alias key
+      const entity2 = makeEntity("e-incoming", "AI");
+      entity2.aliases = [];
+      const returnedId = service.addEntity(entity2);
+
+      // Should merge into e-base, not create e-incoming
+      expect(returnedId).toBe("e-base");
+      // Only one entity should exist
+      const result = service.query({});
+      expect(result.entities).toHaveLength(1);
+    });
+
+    it("should merge evidenceIds from incoming entity", () => {
+      const entity1 = makeEntity("e1", "TensorFlow");
+      entity1.evidenceIds = ["ev-1"];
+      service.addEntity(entity1);
+
+      const entity2 = makeEntity("e2", "TensorFlow");
+      entity2.evidenceIds = ["ev-1", "ev-2"]; // ev-1 duplicate, ev-2 new
+      service.addEntity(entity2);
+
+      const result = service.query({});
+      const tf = result.entities.find((e) => e.name === "TensorFlow");
+      expect(tf?.evidenceIds).toContain("ev-1");
+      expect(tf?.evidenceIds).toContain("ev-2");
+      // No duplicates
+      expect(tf?.evidenceIds.filter((e) => e === "ev-1")).toHaveLength(1);
+    });
+
+    it("should merge aliases from incoming entity and update index", () => {
+      const entity1 = makeEntity("e1", "PyTorch");
+      entity1.aliases = ["torch"];
+      service.addEntity(entity1);
+
+      const entity2 = makeEntity("e2", "PyTorch");
+      entity2.aliases = ["torch", "pytorch-framework"]; // torch duplicate, pytorch-framework new
+      service.addEntity(entity2);
+
+      const result = service.query({});
+      const pt = result.entities.find((e) => e.name === "PyTorch");
+      expect(pt?.aliases).toContain("torch");
+      expect(pt?.aliases).toContain("pytorch-framework");
+      // No duplicates
+      expect(pt?.aliases.filter((a) => a === "torch")).toHaveLength(1);
+    });
+  });
+
+  // ============================================================
+  // findRelatedKnowledge - alias-based matching (line 214)
+  // ============================================================
+
+  describe("findRelatedKnowledge - alias matching", () => {
+    it("should match entity by alias when name does not match query", () => {
+      const entity = makeEntity(
+        "e-alias",
+        "Generative Pre-trained Transformer",
+        EntityType.TECHNOLOGY,
+        ["t1"],
+      );
+      entity.aliases = ["GPT", "large language model"];
+      service.addEntity(entity);
+
+      // Query by alias, not by name
+      const result = service.findRelatedKnowledge("GPT model");
+      expect(result.entities.length).toBeGreaterThan(0);
+      expect(result.entities[0].id).toBe("e-alias");
+    });
+  });
+
+  // ============================================================
+  // extractEntities - parseExtractionResult JSON parse error (line 421)
+  // ============================================================
+
+  describe("extractEntities - parse error branches", () => {
+    it("should return empty result when AI response contains invalid JSON in code block", async () => {
+      mockAiFacade.chatWithSkills.mockResolvedValue({
+        content: "```json\nnot-valid-json\n```",
+      });
+
+      const result = await service.extractEntities({
+        content: "Some content",
+        topicId: "t1",
+      });
+
+      expect(result.entities).toHaveLength(0);
+    });
+  });
 });

@@ -662,4 +662,160 @@ describe("TopicCrudService", () => {
       expect(result.totalMissions).toBe(0);
     });
   });
+
+  // ─── createTopic - transaction callback coverage ─────────────────────────────
+
+  describe("createTopic - transaction callback", () => {
+    let eventSourceParsing: { parseEventSourceAsync: jest.Mock };
+
+    beforeEach(async () => {
+      const mocks = buildMocks();
+      prisma = mocks.mockPrisma;
+      eventSourceParsing = { parseEventSourceAsync: jest.fn() };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TopicCrudService,
+          { provide: PrismaService, useValue: mocks.mockPrisma },
+          {
+            provide: EventSourceParsingService,
+            useValue: eventSourceParsing,
+          },
+        ],
+      }).compile();
+
+      service = module.get<TopicCrudService>(TopicCrudService);
+    });
+
+    it("should create topic with dimensions in transaction and log with dimensions count", async () => {
+      const topicBase = { ...mockTopic, id: "tx-topic-1" };
+      const dimResult = { id: "dim-tx-1", name: "Market" };
+
+      // Make $transaction execute the real callback
+      prisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => {
+          const tx = {
+            researchTopic: {
+              create: jest.fn().mockResolvedValue(topicBase),
+            },
+            topicDimension: {
+              create: jest.fn().mockResolvedValue(dimResult),
+            },
+          };
+          return cb(tx);
+        },
+      );
+
+      const result = await service.createTopic("user-1", {
+        name: "AI Research",
+        type: "TECHNOLOGY" as any,
+        dimensions: [{ name: "Market Analysis", description: "Market study" }],
+      } as any);
+
+      expect(result.dimensions).toHaveLength(1);
+    });
+
+    it("should create topic without dimensions in transaction and log without dimensions", async () => {
+      const topicBase = { ...mockTopic, id: "tx-topic-2" };
+
+      prisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => {
+          const tx = {
+            researchTopic: {
+              create: jest.fn().mockResolvedValue(topicBase),
+            },
+            topicDimension: {
+              create: jest.fn(),
+            },
+          };
+          return cb(tx);
+        },
+      );
+
+      const result = await service.createTopic("user-1", {
+        name: "AI Research",
+        type: "TECHNOLOGY" as any,
+      } as any);
+
+      expect(result.dimensions).toHaveLength(0);
+    });
+
+    it("should trigger parseEventSourceAsync for EVENT type topic", async () => {
+      const topicBase = { ...mockTopic, id: "event-topic-1", type: "EVENT" };
+
+      prisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => {
+          const tx = {
+            researchTopic: {
+              create: jest.fn().mockResolvedValue(topicBase),
+            },
+            topicDimension: {
+              create: jest.fn(),
+            },
+          };
+          return cb(tx);
+        },
+      );
+
+      await service.createTopic("user-1", {
+        name: "Event Topic",
+        type: "EVENT" as any,
+      } as any);
+
+      expect(eventSourceParsing.parseEventSourceAsync).toHaveBeenCalledWith(
+        "event-topic-1",
+      );
+    });
+  });
+
+  // ─── getResearchHistory - task with no dimensionName ──────────────────────
+
+  describe("getResearchHistory - task filter branches", () => {
+    it("should filter out tasks with no dimensionName from dimensionResults", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.researchMission.findMany.mockResolvedValue([
+        {
+          id: "mission-1",
+          createdAt: new Date(),
+          completedAt: new Date(),
+          status: "COMPLETED",
+          tasks: [
+            {
+              id: "task-no-dim",
+              status: "COMPLETED",
+              dimensionName: null, // No dimensionName
+              result: { summary: "Done", keyFindings: [] },
+              resultSummary: "Done",
+            },
+            {
+              id: "task-with-dim",
+              status: "COMPLETED",
+              dimensionName: "Market",
+              result: { summary: "Market done" },
+              resultSummary: "Done",
+            },
+          ],
+        },
+      ]);
+      prisma.topicReport.findMany.mockResolvedValue([]);
+
+      const result = await service.getResearchHistory("user-1", "topic-1");
+      expect(result.totalMissions).toBe(1);
+    });
+  });
+
+  // ─── verifyTopicOwnership (called via deleteTopic / updateTopic) ──────────
+
+  describe("verifyTopicOwnership - NotFoundException when topic deleted concurrently", () => {
+    it("should throw NotFoundException when topic not found in verifyTopicOwnership", async () => {
+      // The method is private but called by updateTopic and deleteTopic.
+      // deleteTopic calls verifyTopicOwnership then deletes.
+      // Make findUnique return null to simulate topic disappearing.
+      prisma.researchTopic.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteTopic("user-1", "topic-1")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 });

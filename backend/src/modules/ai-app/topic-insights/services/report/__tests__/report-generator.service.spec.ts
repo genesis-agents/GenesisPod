@@ -7,6 +7,11 @@
  * - generateExecutiveSummary: delegates to generateComprehensiveReport
  */
 
+// Break the ai-engine/facade import chain (transitively imports @nestjs/cache-manager)
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportGeneratorService } from "../report-generator.service";
 import { ReportAssemblerService } from "../report-assembler.service";

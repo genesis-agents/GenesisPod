@@ -1,3 +1,8 @@
+// Break the ai-engine/facade import chain (transitively imports @nestjs/cache-manager)
+jest.mock("@/modules/ai-engine/facade", () => ({
+  ToolRegistry: jest.fn(),
+}));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataEnrichmentService } from "../data-enrichment.service";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
