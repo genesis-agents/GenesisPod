@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { SecretsService } from "@/modules/ai-infra/facade";
 import { SemanticScholarConnector } from "../semantic-scholar.connector";
 import { DataSourceType } from "../../../../types/data-source.types";
 
