@@ -360,3 +360,110 @@ describe("Production Defense: reference title truncation", () => {
     expect(truncated).toBe(title);
   });
 });
+
+// ============================================================================
+// 11. New Leak Patterns (from report 39080e1b)
+// ============================================================================
+
+describe("Production Defense: new leak patterns", () => {
+  it("should strip [字数约1520字]", () => {
+    const cleaned = stripLLMMetaNotes("分析完毕。[字数约1520字]");
+    expect(cleaned).not.toContain("字数约");
+  });
+
+  it("should strip [约800字]", () => {
+    const cleaned = stripLLMMetaNotes("概述。[约800字]");
+    expect(cleaned).not.toContain("约800字");
+  });
+
+  it("should strip **以下是本维度使用的图表引用配置**：", () => {
+    const cleaned = stripLLMMetaNotes(
+      "正文。\n**以下是本维度使用的图表引用配置**：\n后续。",
+    );
+    expect(cleaned).not.toContain("图表引用配置");
+    expect(cleaned).toContain("正文");
+  });
+
+  it("should strip [图表引用待定]", () => {
+    const cleaned = stripLLMMetaNotes(
+      "系统面临兼容性[图表引用待定]和延迟压力。",
+    );
+    expect(cleaned).not.toContain("图表引用待定");
+    expect(cleaned).toContain("兼容性");
+  });
+
+  it("should strip [待补充]", () => {
+    const cleaned = stripLLMMetaNotes("数据来源[待补充]。");
+    expect(cleaned).not.toContain("待补充");
+  });
+
+  it("should strip 总之 summary sentences", () => {
+    const cleaned = stripLLMMetaNotes(
+      "前段。\n总之，2026年的专利创新将以问题导向驱动。\n后段。",
+    );
+    expect(cleaned).not.toContain("总之");
+    expect(cleaned).toContain("前段");
+    expect(cleaned).toContain("后段");
+  });
+
+  it("should NOT strip 总之 in report conclusion section", () => {
+    // The regex only matches standalone paragraph lines, not mid-sentence
+    const cleaned = stripLLMMetaNotes("根据分析总之判断是积极的");
+    expect(cleaned).toContain("总之");
+  });
+});
+
+// ============================================================================
+// 12. Junk Reference Title Filtering
+// ============================================================================
+
+describe("Production Defense: junk reference title filtering", () => {
+  it("should filter Microalgae reference", () => {
+    const refs = [
+      {
+        title: "Multi-Agent Systems 2026",
+        url: "https://example.com/1",
+        domain: "example.com",
+      },
+      {
+        title: "Microalgae-Derived Pigments: A 10-Year Bibliometric Review",
+        url: "https://example.com/2",
+        domain: "example.com",
+      },
+    ];
+    const {
+      filterJunkReferences,
+    } = require("../ai-app/shared/report-template/pipeline/report-formatting.utils");
+    const filtered = filterJunkReferences(refs);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toContain("Multi-Agent");
+  });
+
+  it("should filter Biopolymer reference", () => {
+    const refs = [
+      {
+        title: "Biopolymer: A Sustainable Material for Food",
+        url: "https://a.com",
+        domain: "a.com",
+      },
+    ];
+    const {
+      filterJunkReferences,
+    } = require("../ai-app/shared/report-template/pipeline/report-formatting.utils");
+    expect(filterJunkReferences(refs)).toHaveLength(0);
+  });
+
+  it("should keep relevant AI reference", () => {
+    const refs = [
+      {
+        title: "Top 10 AI Agent Software Companies for Enterprise 2026",
+        url: "https://b.com",
+        domain: "b.com",
+      },
+    ];
+    const {
+      filterJunkReferences,
+    } = require("../ai-app/shared/report-template/pipeline/report-formatting.utils");
+    expect(filterJunkReferences(refs)).toHaveLength(1);
+  });
+});

@@ -145,21 +145,21 @@ export class SectionWriterService {
     // 格式化证据列表
     let evidenceFormatted = formatEvidenceForPrompt(evidenceData);
 
-    // 格式化要点列表（★ 规范化：去除截断的序号前缀）
-    const keyPointsFormatted = section.keyPoints
-      .map((p) => {
-        // Strip truncated ordinal prefixes: "第一类是..." → "...", "一是..." → "..."
-        // Also strip bare fragments: "类是...", "层是...", "点是...", "是..."
-        let normalized = p
-          .replace(/^[第]?[一二三四五六七八九十]+[类层点条项]?[是：:]\s*/u, "")
-          .replace(/^[类层点条项][是：:]\s*/u, "")
-          .replace(/^[是][：:]\s*/u, "");
-        // If normalization emptied the string, use original
-        if (normalized.trim().length < 5) normalized = p;
-        return normalized;
-      })
-      .map((p, i) => `${i + 1}. ${p}`)
-      .join("\n");
+    // ★ v3.2: 格式化要点为自然语言段落（不使用列表格式，防止 LLM mirror 输入列表）
+    const keyPointsFormatted =
+      section.keyPoints
+        .map((p) => {
+          let normalized = p
+            .replace(
+              /^[第]?[一二三四五六七八九十]+[类层点条项]?[是：:]\s*/u,
+              "",
+            )
+            .replace(/^[类层点条项][是：:]\s*/u, "")
+            .replace(/^[是][：:]\s*/u, "");
+          if (normalized.trim().length < 5) normalized = p;
+          return normalized.trim();
+        })
+        .join("；") + "。";
 
     // 格式化前置章节：传入所有已写 section，但智能截断控制总量
     let previousContent = "无";

@@ -310,30 +310,63 @@ export class ReportQualityGateService {
       wasAutoFixed = true;
     }
 
-    // 4.94 ★ 裸 keyPoints 检测（标题后紧跟 3+ bullets → 触发 rewrite）
+    // 4.94 ★ 裸 keyPoints 自动删除（标题后紧跟 3+ bullets → 直接移除）
     {
       const cLines = fixedContent.split("\n");
-      for (let i = 0; i < cLines.length; i++) {
+      const cleanedLines: string[] = [];
+      let i = 0;
+      let stripped = false;
+      while (i < cLines.length) {
         if (/^### /.test(cLines[i].trim())) {
+          // 检查后续是否是裸 bullet list
+          let bulletStart = -1;
+          let bulletEnd = -1;
           let bullets = 0;
-          for (let j = i + 1; j < cLines.length && j < i + 10; j++) {
+          for (let j = i + 1; j < cLines.length && j < i + 12; j++) {
             const t = cLines[j].trim();
             if (t === "") continue;
-            if (/^[-*•]\s/.test(t)) bullets++;
-            else break;
+            if (/^[-*•]\s/.test(t)) {
+              if (bulletStart === -1) bulletStart = j;
+              bulletEnd = j;
+              bullets++;
+            } else break;
           }
-          if (bullets >= 3) {
-            violations.push({
-              rule: "bare_keypoints",
-              severity: "warning",
-              message: `标题"${cLines[i].trim().substring(0, 40)}"后直接列出 ${bullets} 条要点`,
-            });
-            rewriteGuidance.push(
-              `内容结构问题：标题"${cLines[i].trim().substring(4, 40)}"后直接列出了 ${bullets} 条 bullet point 要点。` +
-                `这些要点必须融入段落论述中，不能以列表形式开头。请将 bullet list 改写为连贯的分析段落。`,
-            );
-            break; // 只报告第一个（避免 rewriteGuidance 过长）
+          if (bullets >= 3 && bulletStart > -1) {
+            // 保留标题，跳过 bullet list
+            cleanedLines.push(cLines[i]);
+            i = bulletEnd + 1;
+            stripped = true;
+            continue;
           }
+        }
+        cleanedLines.push(cLines[i]);
+        i++;
+      }
+      if (stripped) {
+        fixedContent = cleanedLines.join("\n");
+        violations.push({
+          rule: "bare_keypoints",
+          severity: "warning",
+          message: "检测到标题后直接列出的裸要点列表，已自动删除",
+        });
+        wasAutoFixed = true;
+      }
+    }
+
+    // 4.945 ★ 结论性语句混入 bullet list → 触发 rewrite
+    {
+      const cLines2 = fixedContent.split("\n");
+      for (const line of cLines2) {
+        if (
+          /^[-*•]\s*(?:据此|由此|因此|综上|总之|整体来看|总体而言|可以[看认判]为)/.test(
+            line.trim(),
+          )
+        ) {
+          rewriteGuidance.push(
+            `逻辑层次混乱：bullet list 中出现了结论性语句（"${line.trim().substring(2, 30)}..."）。` +
+              `列表中每条应在同一逻辑维度，结论应独立成段落。`,
+          );
+          break;
         }
       }
     }

@@ -736,10 +736,25 @@ export function stripLLMMetaNotes(content: string): string {
       // Pattern: （...结合前置数据...）
       .replace(/\s*[（(][^）)]*结合前置[^）)]*[）)]\s*/g, "")
       // ── LLM 内部编辑指令残留 ──
-      // Leader outline 的 section description 中的元注释被 section writer 照搬到正文
-      // Pattern: （不含要点和参考）、（不含要点和标题）、（不含图表）等
       .replace(/[（(]\s*不含[^）)]{0,30}[）)][。.]?\s*/g, "")
-      // ── 孤立 JSON 符号（chart JSON 清理不完全的残留） ──
+      // ── 字数统计泄漏（圆括号和方括号变体）──
+      .replace(/\[字数约?\d+字?\]/g, "")
+      .replace(/\[约?\d+字\]/g, "")
+      // ── 图表/证据内部标签泄漏 ──
+      .replace(
+        /^\s*\*{0,2}以下是.*(?:图表|配置|证据|引用)[^。\n]*\*{0,2}[：:。.]?\s*$/gm,
+        "",
+      )
+      // ── 占位符泄漏 ──
+      .replace(/\[图表引用[^\]]*\]/g, "")
+      .replace(/\[待[补定完][^\]]*\]/g, "")
+      .replace(/\[TODO[^\]]*\]/gi, "")
+      // ── 维度内总结句（段落开头的 "总之" "综上"） ──
+      .replace(
+        /^(?:总之|综上所述|总的来说|总而言之)[，,][^\n]{0,200}[。.]\s*$/gm,
+        "",
+      )
+      // ── 孤立 JSON 符号 ──
       .replace(/^\s*[\]})]\s*$/gm, "")
       .replace(/^\s*\{\s*$/gm, "")
       // ── 三连空行压缩 ──
@@ -783,18 +798,43 @@ const JUNK_REFERENCE_DOMAINS: ReadonlySet<string> = new Set([
  * Filter out junk references whose domain matches known irrelevant sites.
  * Generic: works for any topic by checking against a domain blacklist.
  */
+// Titles containing these keywords are likely irrelevant to tech/AI research
+const JUNK_TITLE_KEYWORDS = [
+  "biopolymer",
+  "microalgae",
+  "agri-food",
+  "brachytherapy",
+  "petroleum",
+  "drug discovery",
+  "wearable body",
+  "food packaging",
+  "protein structure",
+  "coral reef",
+  "gene editing",
+  "clinical trial",
+  "hydrocarbon",
+];
+
 export function filterJunkReferences<
-  T extends { domain?: string | null; url?: string },
+  T extends { domain?: string | null; url?: string; title?: string },
 >(references: T[]): T[] {
   return references.filter((ref) => {
+    // Domain-based filtering
     const domain = (
       ref.domain || extractDomainFromUrl(ref.url || "")
     )?.toLowerCase();
-    if (!domain) return true;
-    // Check exact match or subdomain match (e.g. "www.dollskill.com" matches "dollskill.com")
-    for (const junk of JUNK_REFERENCE_DOMAINS) {
-      if (domain === junk || domain.endsWith(`.${junk}`)) {
-        return false;
+    if (domain) {
+      for (const junk of JUNK_REFERENCE_DOMAINS) {
+        if (domain === junk || domain.endsWith(`.${junk}`)) {
+          return false;
+        }
+      }
+    }
+    // Title-based filtering (catch irrelevant academic papers)
+    const titleLower = (ref.title || "").toLowerCase();
+    if (titleLower.length > 10) {
+      for (const keyword of JUNK_TITLE_KEYWORDS) {
+        if (titleLower.includes(keyword)) return false;
       }
     }
     return true;
