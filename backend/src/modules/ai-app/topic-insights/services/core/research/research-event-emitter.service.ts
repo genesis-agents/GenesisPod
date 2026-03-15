@@ -901,6 +901,24 @@ export class ResearchEventEmitterService {
       },
     );
 
+    // ★ 同步更新 ResearchTask.progress 以便任务栏显示正确进度
+    if (missionId && dimensionName && typeof progress === "number") {
+      await this.prisma.researchTask
+        .updateMany({
+          where: {
+            missionId,
+            dimensionName,
+            status: "EXECUTING",
+          },
+          data: { progress },
+        })
+        .catch((err) => {
+          this.logger.debug(
+            `[emitDimensionResearchProgress] Failed to sync task progress: ${err}`,
+          );
+        });
+    }
+
     // ★ 保存到数据库（只保存关键进度点：0%, 25%, 50%, 75%, 100%）
     if (
       missionId &&
