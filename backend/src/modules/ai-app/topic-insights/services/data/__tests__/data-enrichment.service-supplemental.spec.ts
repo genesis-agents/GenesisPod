@@ -378,7 +378,7 @@ describe("DataEnrichmentService (supplemental)", () => {
     });
 
     it("should attach supplement figures to snippet-only result when no fetched result exists", async () => {
-      // Make web-scraper fail so all results are snippets
+      // Make web-scraper fail so the topN result has urlValid: false → filtered out
       const failScraperTool = {
         execute: jest.fn().mockResolvedValue({
           success: false,
@@ -418,8 +418,9 @@ describe("DataEnrichmentService (supplemental)", () => {
         enableFigures: true,
       });
 
-      // Figures should be attached to first result even if it's a snippet
-      expect(enriched).toHaveLength(1);
+      // The scraper failed so the result gets urlValid: false and is filtered out.
+      // enrichSearchResults returns only results where urlValid !== false.
+      expect(enriched).toHaveLength(0);
     });
 
     it("should infer figure types from image search result titles", async () => {

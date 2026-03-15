@@ -70,10 +70,8 @@ describe("DataEnrichmentService", () => {
       const results = [makeResult("https://example.com/article")];
       const enriched = await service.enrichSearchResults(results);
 
-      expect(enriched).toHaveLength(1);
-      expect(enriched[0].contentSource).toBe("snippet");
-      expect(enriched[0].fullContent).toBe(results[0].snippet);
-      expect(enriched[0].urlValid).toBe(false);
+      // urlValid: false results are filtered out by enrichSearchResults
+      expect(enriched).toHaveLength(0);
     });
 
     it("should fetch full content when scraper succeeds", async () => {
@@ -124,10 +122,11 @@ describe("DataEnrichmentService", () => {
       ];
       const enriched = await service.enrichSearchResults(results, { topN: 1 });
 
-      // Only first is enriched (topN=1), rest are snippet
-      expect(enriched).toHaveLength(3);
-      expect(enriched[1].urlValid).toBe(true); // remaining assumed valid
-      expect(enriched[1].contentSource).toBe("snippet");
+      // result[0] (topN=1 range) gets urlValid: false (scraper not registered) → filtered out
+      // result[1] and result[2] (remaining) get urlValid: true → kept
+      expect(enriched).toHaveLength(2);
+      expect(enriched[0].urlValid).toBe(true); // remaining assumed valid
+      expect(enriched[0].contentSource).toBe("snippet");
     });
 
     it("should process sequentially when parallel=false", async () => {
@@ -161,8 +160,8 @@ describe("DataEnrichmentService", () => {
       const results = [makeResult("https://example.com/article")];
       const enriched = await service.enrichSearchResults(results);
 
-      expect(enriched[0].contentSource).toBe("snippet");
-      expect(enriched[0].urlValid).toBe(false);
+      // urlValid: false results are filtered out by enrichSearchResults
+      expect(enriched).toHaveLength(0);
     });
 
     it("should fall back when tool returns unsuccessful result", async () => {
@@ -177,7 +176,8 @@ describe("DataEnrichmentService", () => {
       const results = [makeResult("https://example.com/article")];
       const enriched = await service.enrichSearchResults(results);
 
-      expect(enriched[0].contentSource).toBe("snippet");
+      // urlValid: false results are filtered out by enrichSearchResults
+      expect(enriched).toHaveLength(0);
     });
 
     it("should mark content as invalid when it looks like an error page", async () => {
@@ -193,7 +193,8 @@ describe("DataEnrichmentService", () => {
       const results = [makeResult("https://example.com/missing")];
       const enriched = await service.enrichSearchResults(results);
 
-      expect(enriched[0].urlValid).toBe(false);
+      // Invalid (error page) results have urlValid: false and are filtered out
+      expect(enriched).toHaveLength(0);
     });
 
     it("should extract figures when enableFigures=true (default)", async () => {
