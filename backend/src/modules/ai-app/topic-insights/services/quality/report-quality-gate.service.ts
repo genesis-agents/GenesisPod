@@ -157,6 +157,16 @@ export class ReportQualityGateService {
     // 4.5 LLM meta-notes 清理（字数统计、角色名泄露、内部标注等）
     const beforeMetaNotes = fixedContent;
     fixedContent = stripLLMMetaNotes(fixedContent);
+    // ★ 去除 LLM 自我身份声明
+    fixedContent = fixedContent
+      .replace(
+        /作为(?:一个)?(?:AI|人工智能|语言模型|算法|机器学习模型)[，,。.：:…]*\s*/g,
+        "",
+      )
+      .replace(
+        /\bas an? (?:AI|artificial intelligence|language model|algorithm|machine learning model)[,.\s]*/gi,
+        "",
+      );
     if (fixedContent !== beforeMetaNotes) {
       violations.push({
         rule: "llm_meta_notes",
@@ -668,7 +678,7 @@ export class ReportQualityGateService {
         }
         break;
 
-      case "EVENT":
+      case "EVENT": {
         // 事件分析应有因果分层
         if (
           !/远因|近因|导火索|structural.?cause|proximate.?cause|trigger/i.test(
@@ -681,7 +691,18 @@ export class ReportQualityGateService {
             message: "事件分析建议包含三层因果分析（远因/近因/导火索）",
           });
         }
+        // ★ 事件分析应有对比表格
+        const eventTableRows = (content.match(/^\s*\|.+\|.+\|/gm) || []).length;
+        if (eventTableRows === 0) {
+          warnings.push({
+            rule: "type_specific",
+            severity: "warning" as const,
+            message:
+              "事件分析建议包含对比表格（时间线、参与方角色、结果对比等）",
+          });
+        }
         break;
+      }
     }
 
     return warnings;

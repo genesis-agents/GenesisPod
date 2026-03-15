@@ -606,7 +606,9 @@ export class ReportAssemblerService {
       }
     }
 
-    return sanitizeMarkdownContent(parts.join("\n"));
+    let fullReport = sanitizeMarkdownContent(parts.join("\n"));
+    fullReport = removeHorizontalRules(fullReport);
+    return fullReport;
   }
 
   /**
