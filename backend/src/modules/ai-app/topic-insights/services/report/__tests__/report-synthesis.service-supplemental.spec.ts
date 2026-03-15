@@ -1739,7 +1739,7 @@ describe("ReportSynthesisService (supplemental)", () => {
             trends: [],
             challenges: [],
             opportunities: [],
-            detailedContent: "content",
+            detailedContent: "content [1]",
             sourcesUsed: 1,
             figureReferences: [],
             generatedCharts: [],
