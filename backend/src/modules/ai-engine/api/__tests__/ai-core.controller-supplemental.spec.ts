@@ -147,10 +147,11 @@ describe("AiCoreController (supplemental)", () => {
         {
           modelId: "gemini-flash",
           name: "Gemini Flash",
-          secretKey: null,
-          apiKey: "api-key",
+          secretKey: "gemini-key",
+          apiKey: null,
         },
       ]);
+      mockSecretsService.getValueInternal.mockResolvedValue("api-key");
       mockConfigService.get.mockReturnValue(null);
 
       global.fetch = jest.fn().mockResolvedValue({
@@ -174,10 +175,11 @@ describe("AiCoreController (supplemental)", () => {
         {
           modelId: "gemini-flash",
           name: "Gemini Flash",
-          secretKey: null,
-          apiKey: "api-key",
+          secretKey: "gemini-key",
+          apiKey: null,
         },
       ]);
+      mockSecretsService.getValueInternal.mockResolvedValue("api-key");
       mockConfigService.get.mockReturnValue(null);
 
       global.fetch = jest.fn().mockResolvedValue({
@@ -196,10 +198,11 @@ describe("AiCoreController (supplemental)", () => {
         {
           modelId: "gemini-flash",
           name: "Gemini Flash",
-          secretKey: null,
-          apiKey: "api-key",
+          secretKey: "gemini-key",
+          apiKey: null,
         },
       ]);
+      mockSecretsService.getValueInternal.mockResolvedValue("api-key");
       mockConfigService.get.mockReturnValue(null);
 
       global.fetch = jest.fn().mockResolvedValue({
@@ -221,10 +224,11 @@ describe("AiCoreController (supplemental)", () => {
         {
           modelId: "gemini-flash",
           name: "Gemini Flash",
-          secretKey: null,
-          apiKey: "api-key",
+          secretKey: "gemini-key",
+          apiKey: null,
         },
       ]);
+      mockSecretsService.getValueInternal.mockResolvedValue("api-key");
       mockConfigService.get.mockReturnValue(null);
 
       global.fetch = jest

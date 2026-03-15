@@ -67,6 +67,13 @@ function makeMockModelConfigService(overrides: Record<string, unknown> = {}) {
   return {
     getDefaultModel: jest.fn().mockResolvedValue(null),
     getModelById: jest.fn().mockResolvedValue(null),
+    resolveApiKey: jest
+      .fn()
+      .mockImplementation((model: { apiKey?: string }) =>
+        Promise.resolve(
+          model?.apiKey ? { apiKey: model.apiKey, source: "system" } : null,
+        ),
+      ),
     refreshModelConfigCache: jest.fn(),
     getEnabledModelsForFrontend: jest.fn().mockResolvedValue([
       {
