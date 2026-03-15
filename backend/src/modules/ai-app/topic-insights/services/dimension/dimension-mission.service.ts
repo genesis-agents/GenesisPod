@@ -1134,16 +1134,44 @@ export class DimensionMissionService {
         return true;
       });
 
-      const allFigureReferencesRaw = sectionResults.flatMap((r, sectionIdx) =>
-        (r.figureReferences || []).map((fig) => ({
+      // ★ Calculate paragraph offset per section so figure positions become global
+      // Each section is joined as "### title\n\ncontent", so count paragraphs
+      // (blocks separated by blank lines) to compute cumulative offset.
+      const sectionParagraphCounts = sectionResults.map((r) => {
+        const text = `### ${r.title}\n\n${r.content}`;
+        return text.split(/\n\n+/).filter((p) => p.trim().length > 0).length;
+      });
+
+      let paragraphOffset = 0;
+      const allFigureReferencesRaw = sectionResults.flatMap((r, sectionIdx) => {
+        const offset = paragraphOffset;
+        paragraphOffset += sectionParagraphCounts[sectionIdx];
+
+        return (r.figureReferences || []).map((fig) => ({
           ...fig,
-          // ★ Prefix id with section index to avoid cross-section id collisions (e.g., both "fig-0")
+          // ★ Prefix id with section index to avoid cross-section id collisions
           id:
             fig.id && String(fig.id).startsWith(`s${sectionIdx}-`)
               ? String(fig.id)
               : `s${sectionIdx}-${fig.id || "fig"}`,
-        })),
-      );
+          // ★ Convert section-local paragraph position to dimension-global
+          position: (() => {
+            const pos = fig.position ?? "";
+            if (/after_paragraph_(\d+)/i.test(pos)) {
+              return pos.replace(
+                /after_paragraph_(\d+)/i,
+                (_: string, n: string) =>
+                  `after_paragraph_${parseInt(n, 10) + offset}`,
+              );
+            }
+            if (/end_of_section/i.test(pos)) {
+              // Convert to last paragraph of this section
+              return `after_paragraph_${offset + sectionParagraphCounts[sectionIdx]}`;
+            }
+            return pos;
+          })(),
+        }));
+      });
       // ★ Dedup by figureId (preferred) or imageUrl fallback — preserve one ref per figure
       const seenFigKeys = new Set<string>();
       const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
