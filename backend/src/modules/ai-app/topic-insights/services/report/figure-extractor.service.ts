@@ -752,14 +752,14 @@ export class FigureExtractorService {
       return null;
     }
 
-    // ★ 防护网 5: 拒绝 Facebook/Instagram 签名 URL（_nc_ 参数是 FB CDN 专属标识）
-    // 仅过滤 fbcdn.net 和 cdninstagram.com 域名的签名 URL，不过滤 Substack 等合法 CDN 的 token 参数
+    // ★ 防护网 5: 拒绝带认证参数的签名 URL — Vision API 无法下载这些 URL，会触发重试消耗 rate limit
+    // Substack CDN 的 token 参数是公开可访问的，不过滤
     if (
-      /fbcdn\.net|cdninstagram\.com/i.test(originalUrl) &&
-      /[?&](_nc_|oh=|oe=)/i.test(originalUrl)
+      !/substackcdn\.com/i.test(originalUrl) &&
+      /[?&](oh=|oe=|_nc_|token=|signature=|auth=)/i.test(originalUrl)
     ) {
       this.logger.debug(
-        `[validateFigure] REJECTED Facebook/Instagram signed URL: ${originalUrl.substring(0, 80)}...`,
+        `[validateFigure] REJECTED signed URL: ${originalUrl.substring(0, 80)}...`,
       );
       return null;
     }
