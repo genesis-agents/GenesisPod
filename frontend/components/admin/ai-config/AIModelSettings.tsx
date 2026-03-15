@@ -101,7 +101,7 @@ interface AIModel {
   embeddingDimensions?: number;
   maxInputTokens?: number;
   // ★ 模型能力配置 - 消除硬编码，完全由数据库驱动
-  apiFormat?: string; // openai | anthropic | google | xai
+  apiFormat?: string; // openai | anthropic | google | xai | cohere
   supportsTemperature?: boolean;
   supportsStreaming?: boolean;
   supportsFunctionCalling?: boolean;
@@ -2055,6 +2055,7 @@ function EditModelModal({
                   <option value="anthropic">Anthropic 格式</option>
                   <option value="google">Google 格式</option>
                   <option value="xai">xAI 格式</option>
+                  <option value="cohere">Cohere 格式</option>
                 </select>
               </div>
 
@@ -2343,6 +2344,7 @@ function AddModelModal({
                     Anthropic: 'anthropic',
                     Google: 'google',
                     xAI: 'xai',
+                    Cohere: 'cohere',
                   };
                   setFormData({
                     ...formData,
@@ -2772,6 +2774,7 @@ function AddModelModal({
                   <option value="anthropic">Anthropic 格式</option>
                   <option value="google">Google 格式</option>
                   <option value="xai">xAI 格式</option>
+                  <option value="cohere">Cohere 格式</option>
                 </select>
               </div>
 
