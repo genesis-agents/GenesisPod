@@ -33,6 +33,7 @@ import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
 import { MissionObservabilityService } from "../../core/mission/mission-observability.service";
+import { DimensionProgressService } from "../dimension-progress.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import {
   ContextCompressionService,
@@ -346,6 +347,13 @@ async function buildModule(
     { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
     { provide: DataEnrichmentService, useValue: mocks.mockDataEnrichment },
     { provide: LeaderToolService, useValue: mocks.mockLeaderTool },
+    {
+      provide: DimensionProgressService,
+      useValue: {
+        updateDimensionStatus: jest.fn().mockResolvedValue(undefined),
+        emitProgress: jest.fn().mockResolvedValue(undefined),
+      },
+    },
     { provide: MissionObservabilityService, useValue: mocks.mockObservability },
     { provide: ReportQualityGateService, useValue: mocks.mockQualityGate },
   ];
@@ -376,6 +384,7 @@ async function buildModule(
   }).compile();
 
   return {
+    module,
     service: module.get<DimensionMissionService>(DimensionMissionService),
     mockContextCompression,
     mockContextEvolution,
@@ -1317,20 +1326,17 @@ describe("DimensionMissionService (supplemental)", () => {
 
     it("should update dimension to COMPLETED status after successful writing", async () => {
       const mocks = buildBaseMocks();
-      const { service } = await buildModule(mocks);
+      const { service, module } = await buildModule(mocks);
 
       setupSearchPhase(mocks);
-      mocks.mockPrisma.topicDimension.update.mockResolvedValue({
-        id: "dim-001",
-      });
 
       await service.executeDimensionMission(mockTopic, mockDimension);
 
-      expect(mocks.mockPrisma.topicDimension.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "dim-001" },
-          data: expect.objectContaining({ status: DimensionStatus.COMPLETED }),
-        }),
+      const progressMock = module.get(DimensionProgressService);
+      expect(progressMock.updateDimensionStatus).toHaveBeenCalledWith(
+        "dim-001",
+        DimensionStatus.COMPLETED,
+        expect.objectContaining({ lastResearchedAt: expect.any(Date) }),
       );
     });
   });

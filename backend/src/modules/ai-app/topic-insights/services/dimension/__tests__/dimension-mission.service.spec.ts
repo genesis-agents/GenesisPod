@@ -21,6 +21,7 @@ import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
 import { MissionObservabilityService } from "../../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
+import { DimensionProgressService } from "../dimension-progress.service";
 import { DimensionStatus } from "@prisma/client";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
 
@@ -271,6 +272,10 @@ describe("DimensionMissionService", () => {
   let mockAgentActivity: ReturnType<typeof buildMocks>["mockAgentActivity"];
   let mockDataEnrichment: ReturnType<typeof buildMocks>["mockDataEnrichment"];
   let mockLeaderTool: ReturnType<typeof buildMocks>["mockLeaderTool"];
+  let mockProgress: {
+    updateDimensionStatus: jest.Mock;
+    emitProgress: jest.Mock;
+  };
 
   beforeEach(async () => {
     const mocks = buildMocks();
@@ -324,6 +329,13 @@ describe("DimensionMissionService", () => {
           },
         },
         {
+          provide: DimensionProgressService,
+          useValue: {
+            updateDimensionStatus: jest.fn().mockResolvedValue(undefined),
+            emitProgress: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
           provide: MissionObservabilityService,
           useValue: {
             recordResearchCost: jest.fn(),
@@ -340,6 +352,7 @@ describe("DimensionMissionService", () => {
     }).compile();
 
     service = module.get<DimensionMissionService>(DimensionMissionService);
+    mockProgress = module.get(DimensionProgressService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -377,10 +390,10 @@ describe("DimensionMissionService", () => {
 
       await service.executeSearchPhase(mockTopic, mockDimension, "mission-001");
 
-      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith({
-        where: { id: "dim-001" },
-        data: { status: DimensionStatus.RESEARCHING },
-      });
+      expect(mockProgress.updateDimensionStatus).toHaveBeenCalledWith(
+        "dim-001",
+        DimensionStatus.RESEARCHING,
+      );
     });
 
     it("should call fetchDataForDimension with dimension and topic", async () => {
@@ -576,23 +589,15 @@ describe("DimensionMissionService", () => {
     it("should update dimension status to RESEARCHING at start", async () => {
       setupFullMission();
 
-      mockPrisma.topicDimension.update
-        .mockResolvedValueOnce({ id: "dim-001", status: "RESEARCHING" })
-        .mockResolvedValueOnce({ id: "dim-001", status: "COMPLETED" });
-
       await service.executeDimensionMission(mockTopic, mockDimension);
 
-      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "dim-001" },
-          data: { status: DimensionStatus.RESEARCHING },
-        }),
+      expect(mockProgress.updateDimensionStatus).toHaveBeenCalledWith(
+        "dim-001",
+        DimensionStatus.RESEARCHING,
       );
     });
 
     it("should update dimension status to FAILED on error", async () => {
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-
       mockDataSourceRouter.fetchDataForDimension.mockRejectedValue(
         new Error("Search service unavailable"),
       );
@@ -605,18 +610,14 @@ describe("DimensionMissionService", () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain("Search service unavailable");
 
-      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "dim-001" },
-          data: { status: DimensionStatus.FAILED },
-        }),
+      expect(mockProgress.updateDimensionStatus).toHaveBeenCalledWith(
+        "dim-001",
+        DimensionStatus.FAILED,
       );
     });
 
     it("should return DimensionMissionResult with success=true on happy path", async () => {
       setupFullMission();
-
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
 
       const result = await service.executeDimensionMission(
         mockTopic,
@@ -821,15 +822,13 @@ describe("DimensionMissionService", () => {
 
     it("should update dimension status to COMPLETED on success", async () => {
       setupFullMission();
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
 
       await service.executeDimensionMission(mockTopic, mockDimension);
 
-      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "dim-001" },
-          data: expect.objectContaining({ status: "COMPLETED" }),
-        }),
+      expect(mockProgress.updateDimensionStatus).toHaveBeenCalledWith(
+        "dim-001",
+        DimensionStatus.COMPLETED,
+        expect.objectContaining({ lastResearchedAt: expect.any(Date) }),
       );
     });
 
@@ -849,7 +848,6 @@ describe("DimensionMissionService", () => {
 
     it("should pass missionId to emitProgress (emitDimensionResearchProgress)", async () => {
       setupFullMission();
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
 
       await service.executeDimensionMission(
         mockTopic,
@@ -858,13 +856,16 @@ describe("DimensionMissionService", () => {
         "mission-123",
       );
 
-      expect(mockEventEmitter.emitDimensionResearchProgress).toHaveBeenCalled();
+      // At least one emitProgress call should include missionId
+      const calls = mockProgress.emitProgress.mock.calls;
+      const hasCallWithMissionId = calls.some(
+        (args: unknown[]) => args[3] === "mission-123",
+      );
+      expect(hasCallWithMissionId).toBe(true);
     });
 
     it("should update mission heartbeat when missionId provided", async () => {
       setupFullMission();
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-      mockPrisma.researchMission = { update: jest.fn().mockResolvedValue({}) };
 
       await service.executeDimensionMission(
         mockTopic,
@@ -873,7 +874,8 @@ describe("DimensionMissionService", () => {
         "mission-123",
       );
 
-      expect(mockPrisma.researchMission.update).toHaveBeenCalled();
+      // Heartbeat is now handled inside DimensionProgressService.emitProgress
+      expect(mockProgress.emitProgress).toHaveBeenCalled();
     });
 
     it("should handle revision failure gracefully in writeSectionsWithReview", async () => {
@@ -1391,10 +1393,9 @@ describe("DimensionMissionService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("Integrate failed");
-      expect(mockPrisma.topicDimension.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { status: "FAILED" },
-        }),
+      expect(mockProgress.updateDimensionStatus).toHaveBeenCalledWith(
+        "dim-001",
+        DimensionStatus.FAILED,
       );
     });
 
@@ -1600,8 +1601,6 @@ describe("DimensionMissionService", () => {
 
     it("should attempt mission heartbeat update when missionId provided", async () => {
       setupFullMission();
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-      mockPrisma.researchMission = { update: jest.fn().mockResolvedValue({}) };
 
       await service.executeDimensionMission(
         mockTopic,
@@ -1610,17 +1609,18 @@ describe("DimensionMissionService", () => {
         "mission-xyz",
       );
 
-      expect(mockPrisma.researchMission.update).toHaveBeenCalled();
+      // Heartbeat is now delegated to DimensionProgressService.emitProgress
+      const calls = mockProgress.emitProgress.mock.calls;
+      const hasCallWithMissionId = calls.some(
+        (args: unknown[]) => args[3] === "mission-xyz",
+      );
+      expect(hasCallWithMissionId).toBe(true);
     });
 
     it("should handle mission heartbeat failure gracefully (non-fatal)", async () => {
       setupFullMission();
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
-      mockPrisma.researchMission = {
-        update: jest.fn().mockRejectedValue(new Error("Mission not found")),
-      };
 
-      // Should not throw despite heartbeat failure
+      // Should not throw — heartbeat failures are handled in DimensionProgressService
       const result = await service.executeDimensionMission(
         mockTopic,
         mockDimension,
@@ -1631,22 +1631,12 @@ describe("DimensionMissionService", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should compute progress from stageProgress override when provided", async () => {
+    it("should delegate progress to DimensionProgressService during search phase", async () => {
       setupFullMission();
-      mockPrisma.topicDimension.update.mockResolvedValue({ id: "dim-001" });
 
-      // Passing stageProgress=5 in emitProgress (via planning stage) — just verify no crash
-      await service.executeSearchPhase(
-        mockTopic,
-        mockDimension,
-        "mission-001",
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-      );
+      await service.executeSearchPhase(mockTopic, mockDimension, "mission-001");
 
-      expect(mockEventEmitter.emitDimensionResearchProgress).toHaveBeenCalled();
+      expect(mockProgress.emitProgress).toHaveBeenCalled();
     });
   });
 

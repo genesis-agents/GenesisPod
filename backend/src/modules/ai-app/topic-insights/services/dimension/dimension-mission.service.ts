@@ -19,6 +19,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { DimensionProgressService } from "./dimension-progress.service";
 import {
   DimensionStatus,
   type ResearchTopic,
@@ -103,22 +104,7 @@ export interface DimensionMissionResult {
   extractedFacts?: EstablishedFact[];
 }
 
-/**
- * Mission 执行进度
- */
-export interface MissionProgress {
-  stage:
-    | "planning"
-    | "writing"
-    | "reviewing"
-    | "integrating"
-    | "completed"
-    | "failed";
-  sectionsTotal: number;
-  sectionsCompleted: number;
-  currentSection?: string;
-  message: string;
-}
+export type { MissionProgress } from "./dimension-progress.service";
 
 /**
  * 搜索阶段结果（Phase 1）
@@ -162,6 +148,7 @@ export class DimensionMissionService {
     private readonly observability: MissionObservabilityService,
     // ★ v4: 质量门控
     private readonly qualityGate: ReportQualityGateService,
+    private readonly progress: DimensionProgressService,
     // ★ Phase 5: 长研究上下文压缩
     @Optional() private readonly contextCompression?: ContextCompressionService,
     // ★ Batch 2: 跨维度事实提取
@@ -213,10 +200,10 @@ export class DimensionMissionService {
     );
 
     // Update dimension status to RESEARCHING
-    await this.prisma.topicDimension.update({
-      where: { id: dimension.id },
-      data: { status: DimensionStatus.RESEARCHING },
-    });
+    await this.progress.updateDimensionStatus(
+      dimension.id,
+      DimensionStatus.RESEARCHING,
+    );
 
     const researcherAgentId = `researcher_${dimId}`;
     const researcherAgentName = "研究员";
@@ -227,7 +214,7 @@ export class DimensionMissionService {
     void researcherAgentName;
 
     // 1. 获取搜索结果
-    void this.emitProgress(
+    void this.progress.emitProgress(
       topic.id,
       dimension.name,
       {
@@ -736,10 +723,10 @@ export class DimensionMissionService {
     );
 
     // ★ 更新维度状态为 RESEARCHING
-    await this.prisma.topicDimension.update({
-      where: { id: dimension.id },
-      data: { status: DimensionStatus.RESEARCHING },
-    });
+    await this.progress.updateDimensionStatus(
+      dimension.id,
+      DimensionStatus.RESEARCHING,
+    );
 
     const leaderAgentId = "leader-" + dimId;
     const leaderAgentName = "研究组长";
@@ -783,7 +770,7 @@ export class DimensionMissionService {
         progress: 10,
       });
 
-      void this.emitProgress(
+      void this.progress.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -867,12 +854,12 @@ export class DimensionMissionService {
       );
 
       // ★ 更新维度状态为 FAILED
-      await this.prisma.topicDimension.update({
-        where: { id: dimension.id },
-        data: { status: DimensionStatus.FAILED },
-      });
+      await this.progress.updateDimensionStatus(
+        dimension.id,
+        DimensionStatus.FAILED,
+      );
 
-      void this.emitProgress(
+      void this.progress.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -986,7 +973,7 @@ export class DimensionMissionService {
       });
 
       // 2. Agent 写作各章节
-      void this.emitProgress(
+      void this.progress.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -1083,7 +1070,7 @@ export class DimensionMissionService {
       }
 
       // 3. Leader 整合结果
-      void this.emitProgress(
+      void this.progress.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -1243,17 +1230,15 @@ export class DimensionMissionService {
       );
 
       // 7. 更新维度状态为 COMPLETED
-      await this.prisma.topicDimension.update({
-        where: { id: dimension.id },
-        data: {
-          status: DimensionStatus.COMPLETED,
-          lastResearchedAt: new Date(),
-        },
-      });
+      await this.progress.updateDimensionStatus(
+        dimension.id,
+        DimensionStatus.COMPLETED,
+        { lastResearchedAt: new Date() },
+      );
       this.logger.log(`${logPrefix} Status updated to COMPLETED`);
 
       // 8. 完成
-      void this.emitProgress(
+      void this.progress.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -1369,12 +1354,12 @@ export class DimensionMissionService {
         error instanceof Error ? error.stack : error,
       );
 
-      await this.prisma.topicDimension.update({
-        where: { id: dimension.id },
-        data: { status: DimensionStatus.FAILED },
-      });
+      await this.progress.updateDimensionStatus(
+        dimension.id,
+        DimensionStatus.FAILED,
+      );
 
-      void this.emitProgress(
+      void this.progress.emitProgress(
         topic.id,
         dimension.name,
         {
@@ -1596,7 +1581,7 @@ export class DimensionMissionService {
         sectionResults.push(result);
 
         // 发送进度
-        void this.emitProgress(
+        void this.progress.emitProgress(
           topicId,
           dimension.name,
           {
@@ -2197,59 +2182,4 @@ export class DimensionMissionService {
   // ★ Extracted: extractTrendsFromContent, extractChallengesFromContent,
   //   extractOpportunitiesFromContent, extractSectionItems, extractFromHeaders,
   //   extractFromBoldPatterns, extractFromSentences → content-analysis.utils.ts
-
-  /**
-   * 发送进度事件
-   * @param dimensionName - 维度名称（用于前端显示）
-   * @param stageProgress - 当前阶段的进度百分比（可选，如果提供则使用此值）
-   * @param taskId - 研究任务ID（可选，用于前端精确匹配进度更新）
-   *
-   * ★ v7.3: 同时更新 ResearchTask.progress，确保前端能正确显示实时进度
-   * ★ 同时更新 mission.updatedAt 作为心跳，防止被健康检测误判为卡死
-   */
-  private async emitProgress(
-    topicId: string,
-    dimensionName: string,
-    progress: MissionProgress,
-    missionId?: string,
-    stageProgress?: number,
-    taskId?: string,
-  ): Promise<void> {
-    // 计算进度：优先使用 stageProgress，否则根据 section 完成比例计算
-    let calculatedProgress: number;
-    if (stageProgress !== undefined) {
-      calculatedProgress = stageProgress;
-    } else if (progress.sectionsTotal > 0) {
-      // 写作阶段：30% - 80% 之间根据 section 完成比例
-      const sectionRatio = progress.sectionsCompleted / progress.sectionsTotal;
-      calculatedProgress = Math.round(30 + sectionRatio * 50);
-    } else {
-      // 规划阶段默认 10%
-      calculatedProgress = 10;
-    }
-
-    // 使用维度研究进度事件（前端通过 WebSocket 接收实时进度）
-    void this.eventEmitter.emitDimensionResearchProgress(
-      topicId,
-      dimensionName,
-      calculatedProgress,
-      progress.message,
-      missionId,
-      taskId, // ★ 传递 taskId 用于前端精确匹配
-    );
-
-    // ★ 心跳更新：更新关联的 mission.updatedAt，防止被健康检测误判为卡死
-    if (missionId) {
-      try {
-        await this.prisma.researchMission.update({
-          where: { id: missionId },
-          data: { updatedAt: new Date() },
-        });
-      } catch (error) {
-        this.logger.debug(
-          `[emitProgressUpdate] Non-fatal: Failed to update mission heartbeat: ${error}`,
-        );
-      }
-    }
-  }
 }

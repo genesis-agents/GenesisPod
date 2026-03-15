@@ -46,6 +46,7 @@ export { GenericTaskExecutor } from "./core/task-executors/generic-task.executor
 
 // ==================== Dimension ====================
 export { DimensionMissionService } from "./dimension/dimension-mission.service";
+export { DimensionProgressService } from "./dimension/dimension-progress.service";
 export { SectionWriterService } from "./dimension/section-writer.service";
 export { DimensionSearchService } from "./dimension/dimension-search.service";
 export { DimensionWritingService } from "./dimension/dimension-writing.service";

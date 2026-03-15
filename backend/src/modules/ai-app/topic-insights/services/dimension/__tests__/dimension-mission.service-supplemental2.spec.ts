@@ -32,6 +32,7 @@ import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
 import { MissionObservabilityService } from "../../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
+import { DimensionProgressService } from "../dimension-progress.service";
 import {
   ContextCompressionService,
   ContextEvolutionService,
@@ -332,6 +333,13 @@ async function buildModule(
     { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
     { provide: DataEnrichmentService, useValue: mocks.mockDataEnrichment },
     { provide: LeaderToolService, useValue: mocks.mockLeaderTool },
+    {
+      provide: DimensionProgressService,
+      useValue: {
+        updateDimensionStatus: jest.fn().mockResolvedValue(undefined),
+        emitProgress: jest.fn().mockResolvedValue(undefined),
+      },
+    },
     {
       provide: MissionObservabilityService,
       useValue: mocks.mockObservability,
