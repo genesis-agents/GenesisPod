@@ -219,7 +219,12 @@ describe("ReportQualityGateService", () => {
     });
 
     it("should flag citation_concentration when a citation appears > 8 times", () => {
-      const citations = Array.from({ length: 10 }, () => "[1]").join(" ");
+      // Spread citations across separate sentences to avoid triggering citation_stacking auto-fix
+      // (which strips 3+ consecutive same-ref citations down to 2 before concentration is checked)
+      const citations = Array.from(
+        { length: 10 },
+        (_, i) => `句子${i + 1} [1].`,
+      ).join(" ");
       const content = citations + "\n\n" + "A".repeat(800);
 
       const result = service.validateDimensionContent(content, "zh");
@@ -233,7 +238,11 @@ describe("ReportQualityGateService", () => {
 
     it("should flag citation_concentration with warning threshold > 5 times", () => {
       // 7 times — crosses the 5 threshold but not the 8 threshold
-      const citations = Array.from({ length: 7 }, () => "[1]").join(" ");
+      // Spread citations across separate sentences to avoid citation_stacking auto-fix
+      const citations = Array.from(
+        { length: 7 },
+        (_, i) => `句子${i + 1} [1].`,
+      ).join(" ");
       const content = citations + "\n\n" + "A".repeat(800);
 
       const result = service.validateDimensionContent(content, "zh");
@@ -248,8 +257,10 @@ describe("ReportQualityGateService", () => {
     it("should flag source_diversity when top citation dominates", () => {
       // 3+ unique citations but one dominates (> 40%)
       // [1] appears 5 times, [2] appears 2, [3] appears 2 → total 9, top = 5/9 = 55%
+      // Spread citations across separate sentences to avoid citation_stacking auto-fix
       const content =
-        "[1] [1] [1] [1] [1] [2] [2] [3] [3]\n\n" + "A".repeat(900);
+        "句子A [1]. 句子B [1]. 句子C [2]. 句子D [1]. 句子E [2]. 句子F [3]. 句子G [1]. 句子H [3]. 句子I [1].\n\n" +
+        "A".repeat(900);
 
       const result = service.validateDimensionContent(content, "zh");
 

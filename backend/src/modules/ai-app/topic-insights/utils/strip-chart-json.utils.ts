@@ -90,8 +90,18 @@ export function stripChartJsonFromContent(content: string): string {
     result = result.substring(0, stripStart) + result.substring(stripEnd);
   }
 
-  // ★ v3.2: 通用 JSON 块清理 — markdown 正文中不应出现任何 JSON
-  // 不再按字段名逐个匹配，而是检测所有 "key": value 模式的 JSON 块
+  // Fallback: bare JSON block at end of content (may contain nested braces)
+  const bareJsonPattern =
+    /\n\s*\{[\s\S]*"(?:generatedCharts|figureReferences|figures|data|FIG-\d+)"[\s\S]*\}[\s\n]*$/;
+  const m2 = result.match(bareJsonPattern);
+  if (m2?.index !== undefined) {
+    const before = result.substring(0, m2.index).trim();
+    if (before.length > 100) {
+      result = before;
+    }
+  }
+
+  // ★ v3.2: 通用 JSON 块清理 — 清理内容中间泄漏的 JSON 行
   result = stripAllJsonBlocks(result);
 
   // ★ 移除 AI 错误输出的 "图表数据" 章节标题
@@ -118,9 +128,22 @@ function stripAllJsonBlocks(content: string): string {
   const lines = content.split("\n");
   const cleaned: string[] = [];
   let inCodeBlock = false;
-  let inJsonBlock = false;
-  let jsonBraceDepth = 0;
-  let jsonBracketDepth = 0;
+
+  // 判断一行是否是 JSON 属性行（或空行、孤立符号行）
+  function looksLikeJson(line: string): boolean {
+    const t = line.trim();
+    if (t === "" || /^\s*[\]}{,]\s*$/.test(t) || /^\s*"\s*,?\s*$/.test(t))
+      return true; // 空行、孤立符号
+    return (
+      // "key": value 格式（含 FIG-6 等连字符键名，含行首有编号的情况）
+      (/"\s*[a-zA-Z_][\w-]*"\s*:/.test(line) &&
+        /^\s*(?:#{0,4}\s*)?(?:\d+\.?\d*\.?\s*)?"\s*[a-zA-Z_]/.test(line)) ||
+      // { 开头后跟 "key":
+      /^\s*\{\s*"[a-zA-Z_]/.test(line) ||
+      // [ 开头后跟 { 或 "key"
+      (/^\s*\[\s*\{?\s*"?[a-zA-Z_]/.test(line) && /"\s*:/.test(line))
+    );
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -137,46 +160,21 @@ function stripAllJsonBlocks(content: string): string {
       continue;
     }
 
-    // 正在跟踪 JSON 块
-    if (inJsonBlock) {
-      for (const ch of trimmed) {
-        if (ch === "{") jsonBraceDepth++;
-        else if (ch === "}") jsonBraceDepth--;
-        else if (ch === "[") jsonBracketDepth++;
-        else if (ch === "]") jsonBracketDepth--;
+    // 检测当前行是否是 JSON — 如果是，连续跳过后续所有 JSON 行
+    if (looksLikeJson(line) && trimmed !== "") {
+      // 确认后续至少还有 1 行也是 JSON（防止误判单行正文）
+      const nextNonEmpty = lines.slice(i + 1).find((l) => l.trim() !== "");
+      if (nextNonEmpty && looksLikeJson(nextNonEmpty)) {
+        // 跳过连续的 JSON 行
+        while (
+          i < lines.length &&
+          (looksLikeJson(lines[i]) || lines[i].trim() === "")
+        ) {
+          i++;
+        }
+        i--; // for 循环会 i++
+        continue;
       }
-      if (jsonBraceDepth <= 0 && jsonBracketDepth <= 0) {
-        inJsonBlock = false;
-        jsonBraceDepth = 0;
-        jsonBracketDepth = 0;
-      }
-      continue; // 跳过 JSON 块内的所有行
-    }
-
-    // 检测 JSON 块开始
-    const isJsonLine =
-      // "key": value 格式的独立行
-      /^\s*"[a-zA-Z_]\w*"\s*:/.test(line) ||
-      // { 开头后跟 "key": — JSON 对象开始
-      /^\s*\{\s*"[a-zA-Z_]/.test(line) ||
-      // [ 开头后跟 { 或 "key" — JSON 数组开始
-      (/^\s*\[\s*\{?\s*"?[a-zA-Z_]/.test(line) && /"\s*:/.test(line));
-
-    if (isJsonLine) {
-      // 开始跟踪 JSON 块深度
-      inJsonBlock = true;
-      jsonBraceDepth = 0;
-      jsonBracketDepth = 0;
-      for (const ch of trimmed) {
-        if (ch === "{") jsonBraceDepth++;
-        else if (ch === "}") jsonBraceDepth--;
-        else if (ch === "[") jsonBracketDepth++;
-        else if (ch === "]") jsonBracketDepth--;
-      }
-      if (jsonBraceDepth <= 0 && jsonBracketDepth <= 0) {
-        inJsonBlock = false; // 单行 JSON，已闭合
-      }
-      continue; // 跳过这行
     }
 
     cleaned.push(line);

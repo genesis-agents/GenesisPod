@@ -297,7 +297,10 @@ export class ReportQualityGateService {
 
     // 4.93 ★ 引用堆积自动拆分（单句 3+ 引用 → 保留前 2 个）
     const beforeCitationFix = fixedContent;
-    fixedContent = fixedContent.replace(/(\[\d+\]\[\d+\])(\[\d+\])+/g, "$1");
+    fixedContent = fixedContent.replace(
+      /(\[\d+\]\s*\[\d+\])(\s*\[\d+\])+/g,
+      "$1",
+    );
     if (fixedContent !== beforeCitationFix) {
       violations.push({
         rule: "citation_stacking",

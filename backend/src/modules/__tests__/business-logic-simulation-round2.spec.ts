@@ -58,12 +58,13 @@ describe("stripChartJsonFromContent — bareJsonPattern extensions + FIG-N inlin
   });
 
   describe("FIG-N inline JSON key cleanup", () => {
-    it('scenario 4 (FIG-N inline): "FIG-6": {...} mid-content → stripped', () => {
-      // Inline occurrence that the new regex targets
+    it("scenario 4 (FIG-N inline): multi-line FIG JSON mid-content → stripped", () => {
+      // Real pattern: multiple JSON property lines from production reports
       const content =
-        '## 分析\n\n正文内容。\n\n"FIG-6": {"after_paragraph": 2, "type": "line"}\n\n结论段落。';
+        '## 分析\n\n正文内容。\n\n"FIG-6": {\n"after_paragraph": 2,\n"type": "line"\n}\n\n结论段落。';
       const result = stripChartJsonFromContent(content);
       expect(result).not.toContain('"FIG-6"');
+      expect(result).not.toContain('"after_paragraph"');
       expect(result).toContain("正文内容");
       expect(result).toContain("结论段落");
     });
@@ -532,15 +533,13 @@ function buildDimensionMissionMocks() {
     },
     mockDataEnrichment: {
       enrichSearchResults: jest.fn().mockResolvedValue([]),
-      getEnrichmentStats: jest
-        .fn()
-        .mockReturnValue({
-          total: 0,
-          fetched: 0,
-          avgContentLength: 0,
-          invalidUrls: 0,
-          validUrls: 0,
-        }),
+      getEnrichmentStats: jest.fn().mockReturnValue({
+        total: 0,
+        fetched: 0,
+        avgContentLength: 0,
+        invalidUrls: 0,
+        validUrls: 0,
+      }),
       clearFetchCache: jest.fn(),
     },
     mockLeaderTool: {
@@ -559,24 +558,20 @@ function buildDimensionMissionMocks() {
       endMissionTrace: jest.fn(),
     },
     mockQualityGate: {
-      validateDimensionContent: jest
-        .fn()
-        .mockReturnValue({
-          passed: true,
-          violations: [],
-          fixedContent: "",
-          wasAutoFixed: false,
-          rewriteGuidance: [],
-        }),
-      validateFullReport: jest
-        .fn()
-        .mockReturnValue({
-          passed: true,
-          violations: [],
-          fixedContent: "",
-          wasAutoFixed: false,
-          rewriteGuidance: [],
-        }),
+      validateDimensionContent: jest.fn().mockReturnValue({
+        passed: true,
+        violations: [],
+        fixedContent: "",
+        wasAutoFixed: false,
+        rewriteGuidance: [],
+      }),
+      validateFullReport: jest.fn().mockReturnValue({
+        passed: true,
+        violations: [],
+        fixedContent: "",
+        wasAutoFixed: false,
+        rewriteGuidance: [],
+      }),
     },
   };
 }
