@@ -930,6 +930,21 @@ export class DataSourceRouterService {
     since?: Date,
     topic?: ResearchTopic,
   ): Promise<DataSourceResult[]> {
+    // ★ Industry Report: 使用 SearchAdapter 而非 ToolRegistry，跳过 isToolEnabled 检查
+    // adapter 内部通过 ToolConfig.enabled 自行管理启用状态
+    if (source === DataSourceType.INDUSTRY_REPORT) {
+      if (this.industryReportAdapter) {
+        const adapterResult = await this.industryReportAdapter.search({
+          query,
+          maxResults,
+          timeoutMs: 20000,
+          metadata: { topicType: topic?.type },
+        });
+        return adapterResult.items;
+      }
+      return [];
+    }
+
     // ★ 检查特殊工具是否被 Admin 启用
     const toolId = this.dataSourceToToolId(source);
     if (toolId) {
@@ -993,18 +1008,6 @@ export class DataSourceRouterService {
         return this.searchViaTool("finance-api", source, query, maxResults);
       case DataSourceType.WEATHER_API:
         return this.searchViaTool("weather-api", source, query, maxResults);
-
-      case DataSourceType.INDUSTRY_REPORT:
-        if (this.industryReportAdapter) {
-          const adapterResult = await this.industryReportAdapter.search({
-            query,
-            maxResults,
-            timeoutMs: 20000,
-            metadata: { topicType: topic?.type },
-          });
-          return adapterResult.items;
-        }
-        return [];
 
       default:
         // 尝试通过 ConnectorRegistry fallback（未来扩展的自定义连接器）
