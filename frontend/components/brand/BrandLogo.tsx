@@ -14,7 +14,7 @@ interface BrandLogoProps {
 
 export function BrandLogo({
   variant = 'icon',
-  iconClassName = 'h-8 w-8',
+  iconClassName = 'h-10 w-10',
   className = '',
   nameAddon,
   subtitle,
@@ -46,7 +46,7 @@ export function BrandLogo({
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span
-              className="logo-shimmer text-[16px] font-extrabold tracking-tight"
+              className="logo-shimmer text-[18px] font-extrabold tracking-tight"
               style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
             >
               {config.brand.name}
