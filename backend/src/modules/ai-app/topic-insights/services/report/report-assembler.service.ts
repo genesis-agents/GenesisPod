@@ -62,6 +62,7 @@ import {
   stripCitationStacking,
   replaceMarketingLanguage,
   repairBrokenBoldPairs,
+  normalizeBoldStyle,
 } from "../../utils/sanitize-output.utils";
 import {
   stripChartJsonFromContent,
@@ -855,6 +856,7 @@ export class ReportAssemblerService {
     content = stripCitationStacking(content); // 引用堆积拆分
     content = replaceMarketingLanguage(content); // 营销话术替换
     content = repairBrokenBoldPairs(content); // 修复 **** markdown 语法错误
+    content = normalizeBoldStyle(content); // 修复 Bold 枚举无逗号 + 引导词去粗
 
     // ★ removeOrphanCitations 不在此处执行——postProcessFinalReport 时报告尚无参考文献。
     // 孤儿引用清理在 synthesizeReport 中参考文献追加后执行。

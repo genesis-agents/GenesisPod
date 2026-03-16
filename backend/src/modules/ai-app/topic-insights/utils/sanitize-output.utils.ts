@@ -253,6 +253,28 @@ export function repairBrokenBoldPairs(content: string): string {
 }
 
 /**
+ * 修复 Bold 枚举无逗号：**第一**建 → **第一，**建
+ * 同时去除正文引导词的多余加粗：**这意味着，** → 这意味着，
+ */
+export function normalizeBoldStyle(content: string): string {
+  let result = content;
+
+  // 1. Bold 枚举无逗号：**第一**X → **第一，**X（X 为非标点中文字符）
+  result = result.replace(
+    /\*\*(第[一二三四五六七八九十]|其[一二三四五六七八九十])\*\*([^\s,，。：:*\n])/g,
+    "**$1，**$2",
+  );
+
+  // 2. 正文引导词去掉加粗（这些短语不需要 bold，过度加粗影响阅读）
+  result = result.replace(
+    /\*\*(这意味着|核心原因在于|值得警惕的是|值得注意的是|更关键的是|换言之|具体而言|总体而言|简言之)[，,：:]\*\*/g,
+    (_, phrase) => phrase + "，",
+  );
+
+  return result;
+}
+
+/**
  * 清理正文中的孤儿引用：引用编号 [N] 不在参考文献列表范围内则删除。
  */
 export function removeOrphanCitations(
