@@ -208,9 +208,38 @@ export class ReportSynthesisService {
     // ★ Preprocess detailedContent before storing — applies all context-free
     // formatting pipeline steps so chapter view (which reads raw detailedContent)
     // receives properly formatted content identical to what fullReport contains.
-    const processedContent = result.detailedContent
+    let processedContent = result.detailedContent
       ? preprocessDimensionContent(result.detailedContent, result.dimIndex)
       : "";
+
+    // ★ 插入 chart 占位符：根据 figureReferences 的 position 在内容中标记图片位置
+    // 章节视图需要这些占位符来渲染图片
+    if (processedContent && result.figureReferences?.length) {
+      const paragraphs = processedContent.split("\n\n");
+      const insertions = new Map<number, string[]>();
+
+      for (const fig of result.figureReferences) {
+        const posMatch = fig.position?.match(/after_paragraph_(\d+)/);
+        const paraIdx = posMatch ? parseInt(posMatch[1], 10) : -1;
+        if (paraIdx > 0 && paraIdx <= paragraphs.length) {
+          const chartId = `d${result.dimIndex ?? 0}-${fig.id}`;
+          if (!insertions.has(paraIdx)) insertions.set(paraIdx, []);
+          insertions.get(paraIdx)!.push(`<!-- chart:${chartId} -->`);
+        }
+      }
+
+      if (insertions.size > 0) {
+        const result2: string[] = [];
+        paragraphs.forEach((p, i) => {
+          result2.push(p);
+          const markers = insertions.get(i + 1); // 1-based
+          if (markers) {
+            markers.forEach((m) => result2.push("\n" + m));
+          }
+        });
+        processedContent = result2.join("\n\n");
+      }
+    }
 
     const analysis = await this.prisma.dimensionAnalysis.create({
       data: {

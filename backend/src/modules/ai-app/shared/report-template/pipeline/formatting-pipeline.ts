@@ -210,6 +210,20 @@ export function formatDimensionContent(
     processed = renumberHeadings(processed);
   }
 
+  // ── Phase 5.8: Bold style normalization ─────────────────────────────
+  // Strip bold from enumeration markers (第一/其一) and verbose leading phrases
+  // (这意味着/核心原因在于) — runs at dimension level so chapter view also benefits.
+  // Enumeration markers: **第一，** → 第一，
+  processed = processed.replace(
+    /\*\*(第[一二三四五六七八九十]|其[一二三四五六七八九十])[，,]?\*\*/g,
+    (_, marker) => marker + "，",
+  );
+  // Verbose leading phrases: **这意味着，** → 这意味着，
+  processed = processed.replace(
+    /\*\*(这意味着|核心原因在于|值得警惕的是|值得注意的是|更关键的是|换言之|具体而言|总体而言|简言之)[，,：:]\*\*/g,
+    (_, phrase) => phrase + "，",
+  );
+
   // ── Phase 6: Final cleanup ───────────────────────────────────────────
   processed = processed.replace(/\n{3,}/g, "\n\n");
 

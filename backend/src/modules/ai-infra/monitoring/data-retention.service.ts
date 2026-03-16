@@ -74,7 +74,7 @@ const RETENTION_RULES: RetentionRule[] = [
   {
     table: "secret_access_logs",
     retentionDays: 30,
-    timestampColumn: "created_at",
+    timestampColumn: "timestamp",
     action: "delete",
     description: "密钥访问日志",
   },
