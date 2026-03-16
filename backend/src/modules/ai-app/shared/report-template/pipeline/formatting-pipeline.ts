@@ -108,6 +108,11 @@ export function formatDimensionContent(
 ): string {
   let processed = content;
 
+  // ── Phase 0: Content-level cleanup (before structure normalization) ──
+  processed = stripHeadingSummaryBullets(processed);
+  processed = convertOrdinalBulletsToText(processed);
+  processed = fixLLMLatexCorruption(processed);
+
   // ── Phase 1: Structure normalization ──────────────────────────────────
   processed = stripChapterHighlights(processed);
   processed = removeHallucinatedImages(processed);
@@ -228,6 +233,70 @@ export function formatDimensionContent(
   processed = processed.replace(/\n{3,}/g, "\n\n");
 
   return processed;
+}
+
+// ============ Phase 0 Functions ============
+
+/**
+ * Strip bullet-list summaries that immediately follow ### or #### headings.
+ * LLMs generate 3-6 "key point" bullets before the actual prose content.
+ *
+ * Pattern detected:
+ *   ### 1.1. Heading Title
+ *
+ *   - Short summary point 1。
+ *   - Short summary point 2。
+ *   - Short summary point 3。
+ *
+ *   Actual detailed content starts here...
+ */
+export function stripHeadingSummaryBullets(content: string): string {
+  return content.replace(
+    /^(#{3,4}\s+[^\n]+\n)\n?((?:[-*]\s+[^\n]{5,80}[。.]\n){2,8})\n/gm,
+    "$1\n",
+  );
+}
+
+/**
+ * Convert bullets starting with ordinal markers (其一/其二/第一/第二)
+ * or transition phrases (这意味着/值得...的是/换言之/因此) to plain paragraphs.
+ * These are continuous prose that the LLM incorrectly formatted as bullet items.
+ */
+export function convertOrdinalBulletsToText(content: string): string {
+  return content.replace(
+    /^[-*]\s+((?:其[一二三四五六七八九十]|第[一二三四五六七八九十]|这意味着|值得[^\s，]{0,4}的是|换言之|因此)[，,：:])/gm,
+    "$1",
+  );
+}
+
+/**
+ * Fix common LLM LaTeX corruption patterns:
+ * 1. \$arg\max → \arg\max (escaped dollar before LaTeX command)
+ * 2. \text{s.t.$ → \text{s.t.}$$ (incomplete text command)
+ * 3. $U_i$($s_i$^*,...) → $U_i(s_i^*,...)$ (fragmented inline math)
+ * 4. $$$ → $$ (triple dollar sign)
+ */
+export function fixLLMLatexCorruption(content: string): string {
+  let result = content;
+  // 1. Escaped dollar before LaTeX commands: \$arg → \arg, \$max → \max
+  result = result.replace(
+    /\\\$(arg|max|min|lim|sup|inf|log|exp|sin|cos|tan)/g,
+    "\\$1",
+  );
+  // 2. Fix $$$ → $$ (triple dollar → display math delimiter)
+  result = result.replace(/\${3}(?!\$)/g, "$$");
+  // 3. Fix fragmented inline math: $X$($Y$^*,$Z$^*) → $X(Y^*, Z^*)$
+  // Pattern: $var$( or $var$^ outside of $...$
+  result = result.replace(
+    /\$([A-Za-z_][A-Za-z0-9_{}\\]*)\$\((\$[^$]+\$(?:\^\*)?(?:,\s*\$[^$]+\$(?:\^\*)?)*)\)/g,
+    (_, head, args) => {
+      const cleanArgs = args.replace(/\$/g, "");
+      return `$${head}(${cleanArgs})$`;
+    },
+  );
+  // 4. Fix $)$ → )$  (closing paren trapped inside dollar)
+  result = result.replace(/\$\)\$/g, ")$");
+  return result;
 }
 
 // ============ Legacy Wrapper ============

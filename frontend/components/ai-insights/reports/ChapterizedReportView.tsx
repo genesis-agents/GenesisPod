@@ -238,7 +238,13 @@ function injectChartPlaceholders(
     for (let i = 0; i < lines.length; i++) {
       result.push(lines[i]);
       // Count paragraph boundaries (blank line after non-blank line)
-      if (lines[i].trim() === '' && i > 0 && lines[i - 1].trim() !== '') {
+      // Skip math blocks to avoid placing charts inside formula sequences
+      if (
+        lines[i].trim() === '' &&
+        i > 0 &&
+        lines[i - 1].trim() !== '' &&
+        !lines[i - 1].trim().includes('$$')
+      ) {
         paraCount++;
         if (paraCount % interval === 0 && chartIdx < charts.length) {
           result.push(`<!-- chart:${charts[chartIdx].id} -->`);
@@ -260,9 +266,25 @@ function injectChartPlaceholders(
   placements.sort((a, b) => b.paragraphIdx - a.paragraphIdx);
 
   // Find paragraph boundaries: line indices where a blank line follows a non-blank line
+  // Skip boundaries inside/adjacent to math blocks to avoid placing charts mid-formula
   const paragraphEnds: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].trim() === '' && i > 0 && lines[i - 1].trim() !== '') {
+      const prevLine = lines[i - 1].trim();
+      const nextLine =
+        lines
+          .slice(i + 1)
+          .find((l) => l.trim() !== '')
+          ?.trim() || '';
+      // Skip if previous line is display math or next line starts display math
+      if (
+        prevLine.includes('$$') ||
+        nextLine.startsWith('$$') ||
+        prevLine.startsWith('\\[') ||
+        nextLine.startsWith('\\[')
+      ) {
+        continue;
+      }
       paragraphEnds.push(i);
     }
   }
