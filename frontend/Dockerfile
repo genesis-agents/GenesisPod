@@ -14,11 +14,8 @@ ENV NEXT_PUBLIC_AI_URL=$NEXT_PUBLIC_AI_URL
 
 WORKDIR /app
 
-COPY package.json .npmrc ./
-RUN npm install && \
-    echo "=== Verifying @tiptap packages ===" && \
-    ls node_modules/@tiptap/ && \
-    echo "=== @tiptap verification OK ==="
+COPY package.json package-lock.json .npmrc ./
+RUN npm install
 
 COPY . .
 RUN npm run build

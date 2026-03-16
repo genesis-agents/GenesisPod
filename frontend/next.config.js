@@ -29,6 +29,16 @@ const packageJson = require('./package.json');
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  transpilePackages: [
+    '@tiptap/react',
+    '@tiptap/starter-kit',
+    '@tiptap/core',
+    '@tiptap/pm',
+    '@tiptap/extension-placeholder',
+    '@tiptap/extension-typography',
+    '@tiptap/extension-highlight',
+    '@tiptap/extension-code-block-lowlight',
+  ],
   images: {
     remotePatterns: [
       {
