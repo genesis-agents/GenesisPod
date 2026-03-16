@@ -12,6 +12,8 @@ ARG NEXT_PUBLIC_AI_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_AI_URL=$NEXT_PUBLIC_AI_URL
 
+RUN apk add --no-cache git
+
 WORKDIR /app
 
 COPY package.json package-lock.json .npmrc ./
