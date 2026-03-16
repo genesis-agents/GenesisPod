@@ -175,6 +175,9 @@ export class ReportAssemblerService {
     // Pre-steps that need external imports not available in the shared pipeline
     let processed = stripLeadingHeading(content);
     processed = stripChartJsonFromContent(processed);
+    // ★ 铁墙清理必须在 resolveChartPlaceholders 之前执行，否则删除 bullets 会导致图片位置偏移
+    processed = stripLeadingBulletLists(processed);
+    processed = sanitizeSectionOutput(processed);
 
     // Delegate to the unified formatting pipeline with full context
     return formatDimensionContent(processed, {
@@ -357,11 +360,8 @@ export class ReportAssemblerService {
 
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
-      // ★ 第二道铁墙：删除维度内容开头的裸 bullet list + 白名单清理
-      let cleanedDim = stripLeadingBulletLists(processed);
-      cleanedDim = sanitizeSectionOutput(cleanedDim);
-
-      parts.push(cleanedDim);
+      // ★ 第二道铁墙已在 processDimensionContent 中执行（在 resolveChartPlaceholders 之前）
+      parts.push(processed);
       parts.push("\n\n");
     });
 
