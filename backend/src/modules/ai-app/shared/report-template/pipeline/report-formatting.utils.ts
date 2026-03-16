@@ -1414,9 +1414,10 @@ export function mergeAdjacentMathBlocks(content: string): string {
 
   // ── Phase -0.5: Convert bracket display math \[...\] → $$...$$ ──
   // LLMs output display math as \[ ... \] on separate lines (LaTeX standard)
+  // ★ 必须以 \ 开头（\\[）才匹配，否则会吞掉普通 [引用] 和 ## 标题
   // Multi-line variant: \[\n formula \n\]
   result = result.replace(
-    /^\\?\[\s*\n([\s\S]*?)\n\s*\\?\]\s*$/gm,
+    /^\\\[\s*\n([\s\S]*?)\n\s*\\\]\s*$/gm,
     (_match, inner: string) => {
       // Only convert if content contains LaTeX commands
       if (/\\[a-zA-Z]/.test(inner)) {
@@ -1427,8 +1428,8 @@ export function mergeAdjacentMathBlocks(content: string): string {
   );
 
   // Single-line variant: \[ formula \]
-  // Only convert when content contains LaTeX commands to avoid matching markdown links [text](url) or citations [1]
-  result = result.replace(/\\?\[\s*(.+?)\s*\\?\]/g, (_match, inner: string) => {
+  // ★ 必须以 \ 开头（\\[）才匹配
+  result = result.replace(/\\\[\s*(.+?)\s*\\\]/g, (_match, inner: string) => {
     if (/\\[a-zA-Z]/.test(inner) && !/\]\s*\(/.test(_match)) {
       return `$$${inner.trim()}$$`;
     }
