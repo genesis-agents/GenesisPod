@@ -235,3 +235,28 @@ export function replaceMarketingLanguage(content: string): string {
       (m) => m.replace(/不可忽视|不容忽视|值得高度关注/, "值得关注"),
     );
 }
+
+/**
+ * 修复 markdown 语法错误：**** 两对 bold 粘连。
+ *
+ * `**第一****内容**` 是 markdown 渲染错误，合并为一对 bold：`**第一，内容**`
+ * 风格问题（如 **第一** 后缺逗号）由 prompt 引导 LLM 自行修正，不在后处理枚举。
+ */
+export function repairBrokenBoldPairs(content: string): string {
+  // ****（两对 bold 粘连）是 markdown 语法错误，修复为一对 bold + 逗号
+  return content.replace(/\*\*\*\*([^*\n])/g, "，$1");
+}
+
+/**
+ * 清理正文中的孤儿引用：引用编号 [N] 不在参考文献列表范围内则删除。
+ */
+export function removeOrphanCitations(
+  content: string,
+  maxCitationIndex: number,
+): string {
+  if (maxCitationIndex <= 0) return content;
+  return content.replace(/\[(\d+)\]/g, (match, numStr) => {
+    const num = parseInt(numStr, 10);
+    return num > maxCitationIndex ? "" : match;
+  });
+}

@@ -1946,7 +1946,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // 6. 参考文献
     if (report.references && report.references.length > 0) {
-      parts.push("\n# 参考文献\n");
+      parts.push("\n## 参考文献\n");
       report.references.forEach((ref) => {
         parts.push(
           `[${ref.index}] ${ref.title}. ${ref.domain || ""}. ${ref.url}`,

@@ -61,6 +61,8 @@ import {
   stripLeadingBulletLists,
   stripCitationStacking,
   replaceMarketingLanguage,
+  repairBrokenBoldPairs,
+  removeOrphanCitations,
 } from "../../utils/sanitize-output.utils";
 import {
   stripChartJsonFromContent,
@@ -839,6 +841,18 @@ export class ReportAssemblerService {
     content = sanitizeSectionOutput(content); // 白名单过滤
     content = stripCitationStacking(content); // 引用堆积拆分
     content = replaceMarketingLanguage(content); // 营销话术替换
+    content = repairBrokenBoldPairs(content); // 修复 **** markdown 语法错误
+
+    // 删除超出参考文献范围的孤儿引用（白名单：引用 [N] 必须 N <= 参考文献总数）
+    const refEntryMatches = content.match(/^\[\d+\]\s+\[/gm);
+    if (refEntryMatches && refEntryMatches.length > 0) {
+      const maxIdx = Math.max(
+        ...refEntryMatches.map((r) => parseInt(r.match(/\d+/)?.[0] || "0", 10)),
+      );
+      if (maxIdx > 0) {
+        content = removeOrphanCitations(content, maxIdx);
+      }
+    }
 
     if (warnings.length > 0) {
       this.logger.warn(
@@ -1191,7 +1205,7 @@ export class ReportAssemblerService {
       return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}`;
     });
 
-    let section = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;
+    let section = `\n\n---\n\n## ${referencesLabel}\n\n${refLines.join("\n\n")}`;
 
     // Apply citation index remapping to the references section itself
     if (indexMapping.size > 0) {

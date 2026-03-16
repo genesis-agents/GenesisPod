@@ -2827,25 +2827,31 @@ export function detectAndPromoteHeadings(content: string): string {
     // Pattern 3: Standalone short Chinese line WITHOUT ending punctuation
     // e.g. "网络作战与信号情报中的速度竞争" or "制度瓶颈为何拖慢规模化列装"
     // These are sub-headings the LLM forgot to format.
-    // Criteria: 5-30 chars, contains Chinese, no ending punctuation (。！？；，、),
-    // not a sentence fragment (no comma/period mid-text), followed by content paragraph.
+    //
+    // 白名单条件（全部满足才提升为标题）：
+    // 1. 5-30 字符，含 3+ 中文字符
+    // 2. 无句中/句末标点（不是句子）
+    // 3. 前一行是空行（标题前必有段落分隔）
+    // 4. 后面紧跟实质段落内容（不是列表/标题/引用）
+    // 5. 不是 bold 标记行
     if (
       trimmed.length >= 5 &&
       trimmed.length <= 30 &&
       /[\u4e00-\u9fff]{3,}/.test(trimmed) &&
       !/[，。；！？、）)》」】]$/.test(trimmed) &&
       !/[，。；！？]/.test(trimmed) && // no mid-sentence punctuation → not a sentence
-      !/^\[?\d+\]/.test(trimmed) // not a citation
+      !/^\[?\d+\]/.test(trimmed) && // not a citation
+      !/^\*\*/.test(trimmed) // not a bold line
     ) {
       const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
-      const prevContent =
-        result.length > 0 ? result[result.length - 1].trim() : "";
-      // Only promote if: preceded by blank/content (not another heading), followed by content paragraph
+      const prevLine =
+        result.length > 0 ? result[result.length - 1].trim() : null;
+      // 白名单：前一行必须是空行（null=文档开头，不算空行），后面是段落内容
       if (
+        prevLine === "" && // ★ 标题前必须有空行分隔（null 不通过）
         nextContent &&
         !/^[#>|\-*]/.test(nextContent.trim()) &&
-        !/^\d+[.)]\s/.test(nextContent.trim()) &&
-        !/^#{1,4}\s/.test(prevContent)
+        !/^\d+[.)]\s/.test(nextContent.trim())
       ) {
         result.push(`### ${trimmed}`);
         continue;
@@ -3637,6 +3643,9 @@ export function stripFigureComments(content: string): string {
  */
 export function stripChapterHighlights(content: string): string {
   const HEADER_RE = /^>\s*\**(?:本章要点|Chapter Highlights)\**[：:]*\s*$/i;
+  // ★ 同时匹配 ### 本章要点 heading 格式（LLM 可能直接输出 H3）
+  const HEADING_RE =
+    /^#{1,4}\s+\**(?:本章要点|本节小结|小结|Chapter Highlights)\**[：:]*\s*$/i;
 
   const lines = content.split("\n");
   const result: string[] = [];
@@ -3644,7 +3653,7 @@ export function stripChapterHighlights(content: string): string {
   let trailingBlanks = 0; // count trailing blank lines after block ends
 
   for (const line of lines) {
-    if (HEADER_RE.test(line)) {
+    if (HEADER_RE.test(line) || HEADING_RE.test(line.trim())) {
       skipping = true;
       trailingBlanks = 0;
       continue;
