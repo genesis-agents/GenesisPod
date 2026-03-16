@@ -351,8 +351,18 @@ export class SocialLeaderService {
       userId,
     );
 
-    // keepFormat 模式：保留原格式，跳过 AI 改写（用于 Topic Insights 报告原格式发布）
-    if (dto.keepFormat && dto.targetType === SocialContentType.WECHAT_ARTICLE) {
+    // keepFormat 模式：保留原格式，跳过 AI 改写
+    // Topic Insights 自动启用（报告格式必须保留），其他来源可通过 dto.keepFormat 手动启用
+    const shouldKeepFormat =
+      dto.sourceType === SocialContentSourceType.AI_TOPIC_INSIGHTS ||
+      dto.keepFormat;
+    if (
+      shouldKeepFormat &&
+      dto.targetType === SocialContentType.WECHAT_ARTICLE
+    ) {
+      this.logger.log(
+        `[processSource] Using keepFormat mode for ${dto.sourceType}`,
+      );
       return this.processKeepFormatSource(userId, dto, sourceContent);
     }
 
