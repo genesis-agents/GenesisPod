@@ -637,7 +637,11 @@ function ReportEditorInner({
       const looksLikeMarkdown =
         resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
       if (hasChartPlaceholders || looksLikeMarkdown) {
-        return resolvedFullReport;
+        // Strip the ## 参考文献/References section — rendered separately as React component
+        return resolvedFullReport.replace(
+          /\n*---\n*\n*##\s*(?:参考文献|References)\n[\s\S]*$/,
+          ''
+        );
       }
     }
 
@@ -1208,6 +1212,43 @@ function ReportEditorInner({
 
             {/* Markdown content with React Controlled annotation highlighting */}
             {memoizedMarkdownContent}
+
+            {/* ★ References section — rendered as React component to match chapter view style */}
+            {evidence.length > 0 && (
+              <div className="mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
+                <h4 className="mb-4 text-base font-semibold text-gray-700 dark:text-gray-300">
+                  {t('topicResearch.reportEditor.references') || '参考文献'}
+                </h4>
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  {evidence
+                    .filter((ev) => ev.citationIndex)
+                    .sort(
+                      (a, b) => (a.citationIndex || 0) - (b.citationIndex || 0)
+                    )
+                    .map((ev) => (
+                      <div key={ev.id} className="flex gap-2.5 leading-relaxed">
+                        <span className="font-mono shrink-0 text-xs text-gray-400 dark:text-gray-500">
+                          [{ev.citationIndex}]
+                        </span>
+                        {ev.url ? (
+                          <a
+                            href={ev.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            {ev.title || ev.domain || ev.url}
+                          </a>
+                        ) : (
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {ev.title || 'Unknown source'}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* Context menu for preview mode */}
             <TextSelectionContextMenu
