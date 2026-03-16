@@ -562,8 +562,15 @@ function ChapterizedReportViewInner({
         // ★ v3.0: Get charts for this chapter by sectionNumber
         const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
 
+        // ★ Runtime cleanup for legacy data saved before pipeline fixes
+        // Strip bullet markers from ordinal/transition text (其一/其二/第一/这意味着)
+        const cleanedContent = content.replace(
+          /^[-*]\s+((?:其[一二三四五六七八九十]|第[一二三四五六七八九十]|这意味着|值得[^\s，]{0,4}的是|换言之|因此)[，,：:])/gm,
+          '$1'
+        );
+
         // Chart placeholders are embedded at save time by the backend
-        const finalContent = content;
+        const finalContent = cleanedContent;
 
         // ★ Extract top 3 key findings for takeaways card
         const topFindings = (analysis.keyFindings || [])
