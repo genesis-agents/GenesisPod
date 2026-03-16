@@ -2676,7 +2676,9 @@ export function repairMarkdownTables(content: string): string {
           const sep = "| " + Array(headerCols).fill("---").join(" | ") + " |";
           result = [lines[0], sep, ...lines.slice(2)];
         } else {
-          result = lines;
+          // Normalize alignment: replace ---: or :--- or :---: with plain ---
+          const normalizedSep = lines[1].replace(/:?-{2,}:?/g, "---");
+          result = [lines[0], normalizedSep, ...lines.slice(2)];
         }
       }
 
@@ -2842,7 +2844,8 @@ export function detectAndPromoteHeadings(content: string): string {
       !/[，。；！？、）)》」】]$/.test(trimmed) &&
       !/[，。；！？]/.test(trimmed) && // no mid-sentence punctuation → not a sentence
       !/^\[?\d+\]/.test(trimmed) && // not a citation
-      !/^\*\*/.test(trimmed) // not a bold line
+      !/^\*\*/.test(trimmed) && // not a bold line
+      !/图示|展示|对比/.test(trimmed) // not a chart caption / description keyword
     ) {
       const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
       const prevLine =

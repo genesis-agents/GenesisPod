@@ -56,8 +56,12 @@ export function sanitizeSectionOutput(content: string): string {
       continue;
     }
 
-    // 标题 — 保留
+    // 标题 — 保留，但过滤掉包含 JSON 对象的标题（H3/H4 被 JSON 污染）
     if (/^#{1,4}\s/.test(t)) {
+      // 黑名单：标题文本中含有 JSON 对象 { ... } 的行
+      if (/\{[^}]{3,}\}/.test(t)) {
+        continue;
+      }
       cleaned.push(line);
       continue;
     }
@@ -119,8 +123,12 @@ export function sanitizeSectionOutput(content: string): string {
       continue;
     }
 
-    // 圆括号元注释：（注：...）（不含...）（图表...）（内部...）
-    if (/^[（(]\s*(?:注[：:]|不含|图表|内部|此处|待补|请[参见]|说明)/.test(t)) {
+    // 圆括号元注释：（注：...）（不含...）（图表...）（内部...）（本维度约...）
+    if (
+      /^[（(]\s*(?:注[：:]|不含|图表|内部|此处|待补|请[参见]|说明|本维度约|本章约|本节约)/.test(
+        t,
+      )
+    ) {
       continue;
     }
 
