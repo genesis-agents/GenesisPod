@@ -1080,12 +1080,37 @@ export class ReportSynthesisService {
       dimensionInputs,
       supplementaryContent,
     );
+
+    // ★ 诊断：assembleFullReport 输出后维度标题数
+    const assembledDims = (assembled.match(/^## \d+\./gm) || []).length;
+    this.logger.log(
+      `[buildFullReportFromDimensions] assembleFullReport: ${assembled.length}c, ${assembledDims} dims`,
+    );
+
     const sanitized = this.teamFacade.sanitizeReport(assembled);
+
+    // ★ 诊断：sanitizeReport 后维度标题数
+    const sanitizedDims = (sanitized.match(/^## \d+\./gm) || []).length;
+    if (sanitizedDims !== assembledDims) {
+      this.logger.warn(
+        `[buildFullReportFromDimensions] sanitizeReport dropped dims: ${assembledDims} → ${sanitizedDims}`,
+      );
+    }
+
     const { content } = this.assembler.postProcessFinalReport(
       sanitized,
       topic.language || "zh",
       this.qualityGate,
     );
+
+    // ★ 诊断：postProcess 后维度标题数
+    const postDims = (content.match(/^## \d+\./gm) || []).length;
+    if (postDims !== sanitizedDims) {
+      this.logger.warn(
+        `[buildFullReportFromDimensions] postProcess dropped dims: ${sanitizedDims} → ${postDims}`,
+      );
+    }
+
     return content;
   }
 
