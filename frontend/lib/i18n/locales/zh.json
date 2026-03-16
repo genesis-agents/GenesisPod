@@ -2583,7 +2583,9 @@
       "ai_office": "AI 办公",
       "aiOfficeDesc": "选择办公文档",
       "ai_writing": "AI 写作",
-      "aiWritingDesc": "选择写作项目"
+      "aiWritingDesc": "选择写作项目",
+      "ai_topic_insights": "话题洞察",
+      "aiTopicInsightsDesc": "导入话题洞察报告"
     },
     "steps": {
       "source": "选择来源",
