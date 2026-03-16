@@ -292,36 +292,9 @@ export class ReportAssemblerService {
       parts.push("\n");
     }
 
-    // ── 4. Table of contents ──────────────────────────────────────────────
-    parts.push(`## ${labels.toc}\n`);
-    let tocIndex = 0;
-    sortedDimensions.forEach((dim, idx) => {
-      const dimName = dim.dimensionName || `${labels.dimension}${idx + 1}`;
-      tocIndex = idx + 1;
-      // Anchor matches CommonMark slug for "## N. DimName" → "#n-dimname"
-      const anchor = `${tocIndex}-${dimName.toLowerCase().replace(/\s+/g, "-")}`;
-      parts.push(`${tocIndex}. [${dimName}](#${anchor})`);
-    });
-    // Only add TOC entries for non-empty supplementary sections
-    if (sc.crossDimensionAnalysis) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.crossDimension}](#${labels.crossDimension.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    if (sc.riskAssessment) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.riskAssessment}](#${labels.riskAssessment.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    if (sc.strategicRecommendations) {
-      tocIndex++;
-      parts.push(
-        `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
-      );
-    }
-    parts.push("\n\n");
+    // ── 4. Table of contents (built after dimension filtering) ──
+    const tocInsertIndex = parts.length;
+    // Placeholder — actual TOC entries inserted after pass 1 determines non-empty dims
 
     // ── 5. Dimension sections ─────────────────────────────────────────────
     // ★ 不再使用跨维度共享的 globalSeenParagraphs。
@@ -338,28 +311,30 @@ export class ReportAssemblerService {
       `[assembleFullReport] Dimension content lengths (detailed/summary): ${dimContentLengths.join(", ")}`,
     );
 
-    sortedDimensions.forEach((dim, idx) => {
+    // ★ D1: Two-pass processing — ensures H2 numbering stays continuous (1, 2, 3...)
+    // even when some dimensions are empty and skipped.
+    // Pass 1: Process all dimensions, filter out empty ones
+    const nonEmptyDims: Array<{
+      dim: (typeof sortedDimensions)[number];
+      processed: string;
+    }> = [];
+    for (const dim of sortedDimensions) {
       const rawContent = dim.detailedContent || dim.summary || "";
 
-      // 每个维度独立去重（不跨维度共享）
       const dimensionSeenParagraphs = new Set<string>();
       const processed = this.processDimensionContent(
         rawContent,
-        idx,
+        nonEmptyDims.length, // use current non-empty index for sub-heading numbering
         dimensionSeenParagraphs,
         dim.dimensionName,
         dim.figureReferences as FigureReference[] | undefined,
         dim.generatedCharts as GeneratedChart[] | undefined,
       );
 
-      // ★ Skip empty dimensions: if processed content is blank after all pipeline
-      // steps (e.g. all sub-headings removed by removeEmptyHeadings), don't emit
-      // the ## heading at all — avoids consecutive empty section headers.
       const contentBody = processed
         .replace(/^\s*#{1,6}\s+[^\n]*\n?/gm, "")
         .trim();
 
-      // ★ 诊断日志：记录每个维度处理前后的字符数
       this.logger.log(
         `[assembleFullReport] Dimension "${dim.dimensionName}": raw=${rawContent.length} → processed=${processed.length} → contentBody=${contentBody.length}`,
       );
@@ -368,15 +343,52 @@ export class ReportAssemblerService {
         this.logger.warn(
           `[assembleFullReport] Skipping empty dimension: ${dim.dimensionName} (raw=${rawContent.length}, processed=${processed.length})`,
         );
-        return; // forEach continue
+        continue;
       }
 
-      parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
+      nonEmptyDims.push({ dim, processed });
+    }
 
-      // ★ 第二道铁墙已在 processDimensionContent 中执行（在 resolveChartPlaceholders 之前）
+    // Pass 2: Emit with continuous numbering
+    for (let i = 0; i < nonEmptyDims.length; i++) {
+      const { dim, processed } = nonEmptyDims[i];
+      parts.push(`## ${i + 1}. ${dim.dimensionName}\n`);
       parts.push(processed);
       parts.push("\n\n");
-    });
+    }
+
+    // ── 4b. Build TOC from non-empty dimensions ──
+    const tocParts: string[] = [];
+    tocParts.push(`## ${labels.toc}\n`);
+    let tocIndex = 0;
+    for (const { dim } of nonEmptyDims) {
+      tocIndex++;
+      const dimName = dim.dimensionName || `${labels.dimension}${tocIndex}`;
+      const anchor = `${tocIndex}-${dimName.toLowerCase().replace(/\s+/g, "-")}`;
+      tocParts.push(`${tocIndex}. [${dimName}](#${anchor})`);
+    }
+    // Only add TOC entries for non-empty supplementary sections
+    if (sc.crossDimensionAnalysis) {
+      tocIndex++;
+      tocParts.push(
+        `${tocIndex}. [${labels.crossDimension}](#${labels.crossDimension.toLowerCase().replace(/\s+/g, "-")})`,
+      );
+    }
+    if (sc.riskAssessment) {
+      tocIndex++;
+      tocParts.push(
+        `${tocIndex}. [${labels.riskAssessment}](#${labels.riskAssessment.toLowerCase().replace(/\s+/g, "-")})`,
+      );
+    }
+    if (sc.strategicRecommendations) {
+      tocIndex++;
+      tocParts.push(
+        `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
+      );
+    }
+    tocParts.push("\n\n");
+    // Splice TOC into the correct position
+    parts.splice(tocInsertIndex, 0, ...tocParts);
 
     // ── Collect existing H2 titles for duplicate guard ────────────────────
     const existingH2Titles = new Set(
@@ -857,6 +869,19 @@ export class ReportAssemblerService {
     content = replaceMarketingLanguage(content); // 营销话术替换
     content = repairBrokenBoldPairs(content); // 修复 **** markdown 语法错误
     content = normalizeBoldStyle(content); // 修复 Bold 枚举无逗号 + 引导词去粗
+
+    // ★ C4: LaTeX/table/spacing fixes
+    // Fix `1 1$` LaTeX residuals and ensure bare LaTeX commands are wrapped
+    content = content.replace(/(\d)\s+(\d)\$/g, "$1$2");
+    // Fix common bare LaTeX: \times, \approx, \pm, \geq, \leq etc.
+    content = content.replace(
+      /(?<!\$)\\(times|approx|pm|geq|leq|sim|neq|infty|alpha|beta|gamma|delta|sum|prod|int|frac\{[^}]*\}\{[^}]*\})(?!\$)/g,
+      (_, cmd) => `$\\${cmd}$`,
+    );
+    // Fix text-column right-alignment in markdown tables → left-align
+    content = content.replace(/^(\|[\s:]*-+):\s*\|/gm, "$1 |");
+    // Compress 4+ consecutive blank lines → 2
+    content = content.replace(/\n{4,}/g, "\n\n\n");
 
     // ★ removeOrphanCitations 不在此处执行——postProcessFinalReport 时报告尚无参考文献。
     // 孤儿引用清理在 synthesizeReport 中参考文献追加后执行。

@@ -152,11 +152,14 @@ export class TopicTeamOrchestratorService {
     let missionId: string | undefined;
     // ★ TraceCollector: hoist traceId so it's accessible in catch block
     let traceId: string | undefined;
+    // ★ B2: Hoist reportId so catch block can check partial-success
+    let reportId: string | undefined;
 
     try {
       // 1. 创建草稿报告
       const report =
         await this.reportSynthesisService.createDraftReport(topicId);
+      reportId = report.id;
 
       // V5: Resolve research depth config
       const researchDepth: ResearchDepth = options.researchDepth || "standard";
@@ -979,15 +982,56 @@ export class TopicTeamOrchestratorService {
         throw error;
       }
 
-      // 更新刷新日志为失败
-      await this.prisma.topicRefreshLog.update({
-        where: { id: refreshLog.id },
-        data: {
-          status: RefreshLogStatus.FAILED,
-          completedAt: new Date(),
-          error: errorMessage,
-        },
-      });
+      // ★ B1: Partial-success 兜底 — 如果 report 已生成但后续步骤失败，仍标记 topic 为 ACTIVE
+      let reportSavedSuccessfully = false;
+      if (reportId) {
+        try {
+          const savedReport = await this.prisma.topicReport.findFirst({
+            where: { id: reportId },
+            select: { fullReport: true },
+          });
+          if (savedReport?.fullReport && savedReport.fullReport.length > 1000) {
+            reportSavedSuccessfully = true;
+            this.logger.log(
+              `[executeRefresh] Partial success: report ${reportId} already saved (${savedReport.fullReport.length} chars). Marking topic as ACTIVE.`,
+            );
+            await this.prisma.researchTopic.update({
+              where: { id: topicId },
+              data: {
+                status: ResearchTopicStatus.ACTIVE,
+                lastRefreshAt: new Date(),
+                totalReports: { increment: 1 },
+              },
+            });
+            // Update refresh log to partial success
+            await this.prisma.topicRefreshLog.update({
+              where: { id: refreshLog.id },
+              data: {
+                status: RefreshLogStatus.COMPLETED,
+                completedAt: new Date(),
+                reportId,
+                error: `Partial success: ${errorMessage}`,
+              },
+            });
+          }
+        } catch (partialErr) {
+          this.logger.warn(
+            `[executeRefresh] Partial-success check failed: ${partialErr}`,
+          );
+        }
+      }
+
+      // 更新刷新日志为失败（仅在非 partial-success 时）
+      if (!reportSavedSuccessfully) {
+        await this.prisma.topicRefreshLog.update({
+          where: { id: refreshLog.id },
+          data: {
+            status: RefreshLogStatus.FAILED,
+            completedAt: new Date(),
+            error: errorMessage,
+          },
+        });
+      }
 
       // 发送失败事件
       this.emitProgress({
@@ -1002,7 +1046,7 @@ export class TopicTeamOrchestratorService {
       });
 
       // ★ C4 fix: 中止/失败时清理所有未完成的 Todo、Task、Mission
-      if (missionId) {
+      if (missionId && !reportSavedSuccessfully) {
         try {
           await this.prisma.researchTodo.updateMany({
             where: {

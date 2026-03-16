@@ -347,6 +347,58 @@ export class ReportSynthesisService {
       );
     }
 
+    // ★ A1: 回填 orphan evidences（analysisId 为 null 的证据链接到对应维度分析）
+    const orphanEvidences = await this.prisma.topicEvidence.findMany({
+      where: { reportId, analysisId: null },
+      orderBy: { citationIndex: "asc" },
+      select: { id: true, citationIndex: true },
+    });
+    if (orphanEvidences.length > 0) {
+      this.logger.log(
+        `[synthesizeReport] Found ${orphanEvidences.length} orphan evidences, attempting backfill`,
+      );
+      try {
+        // Build citation index ranges for each dimension analysis
+        const analysesByOrder = [...dimensionAnalyses].sort(
+          (a, b) =>
+            (a.dimension?.sortOrder ?? 0) - (b.dimension?.sortOrder ?? 0),
+        );
+        for (let i = 0; i < analysesByOrder.length; i++) {
+          const analysis = analysesByOrder[i];
+          const ownEvidences = analysis.evidences || [];
+          if (ownEvidences.length === 0) continue;
+
+          const minIdx = Math.min(
+            ...ownEvidences.map((e) => e.citationIndex ?? Infinity),
+          );
+          const maxIdx = Math.max(
+            ...ownEvidences.map((e) => e.citationIndex ?? 0),
+          );
+
+          // Find orphans whose citationIndex falls within this analysis's range
+          const orphansInRange = orphanEvidences.filter(
+            (e) =>
+              e.citationIndex !== null &&
+              e.citationIndex >= minIdx &&
+              e.citationIndex <= maxIdx,
+          );
+          if (orphansInRange.length > 0) {
+            await this.prisma.topicEvidence.updateMany({
+              where: { id: { in: orphansInRange.map((e) => e.id) } },
+              data: { analysisId: analysis.id },
+            });
+            this.logger.log(
+              `[synthesizeReport] Backfilled ${orphansInRange.length} orphan evidences to analysis ${analysis.id}`,
+            );
+          }
+        }
+      } catch (backfillErr) {
+        this.logger.warn(
+          `[synthesizeReport] Orphan evidence backfill failed (non-fatal): ${backfillErr}`,
+        );
+      }
+    }
+
     // 2. 获取报告关联的所有证据
     const allEvidences = await this.prisma.topicEvidence.findMany({
       where: { reportId },
@@ -498,9 +550,10 @@ export class ReportSynthesisService {
         {
           executiveSummary: synthesisResult.executiveSummary || "",
           preface: sr?.preface || "",
-          crossDimensionAnalysis: sr?.conclusion || "",
-          riskAssessment: "",
-          strategicRecommendations: "",
+          crossDimensionAnalysis:
+            sr?.crossDimensionAnalysis || sr?.conclusion || "",
+          riskAssessment: sr?.riskAssessment || "",
+          strategicRecommendations: sr?.strategicRecommendations || "",
           conclusion: sr?.conclusion || "",
         },
         0, // fallbackLevel: 0 = normal
@@ -632,6 +685,13 @@ export class ReportSynthesisService {
 
     // 9. 计算统计数据
     const totalSources = allEvidences.length;
+
+    // ★ E2: Estimate total tokens from content length (rough: 1 token ≈ 1.5 Chinese chars)
+    const estimatedTokens = Math.round(
+      (fullReportFromDimensions.length +
+        (synthesisResult.executiveSummary || "").length) /
+        1.5,
+    );
 
     // 9.5 ★ 构建参考文献部分（从数据库证据构建，而非依赖 AI 返回）
     const isEn = topic.language === "en";
@@ -861,6 +921,7 @@ export class ReportSynthesisService {
           ? `, quality=${reportQualityScore}`
           : ""),
     );
+    this.logger.log(`[synthesizeReport] Estimated tokens: ${estimatedTokens}`);
 
     return updatedReport;
   }

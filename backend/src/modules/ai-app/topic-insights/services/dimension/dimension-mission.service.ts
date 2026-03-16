@@ -2276,6 +2276,7 @@ export class DimensionMissionService {
     // ★ 使用 interactive transaction 保证原子性
     // 所有操作在同一事务内，防止并发竞态
     let created: { id: string; citationIndex: number | null }[];
+    let startIndex = 0; // ★ A2: hoisted so fallback query can reference it
     try {
       created = await this.prisma.$transaction(
         async (tx) => {
@@ -2284,7 +2285,7 @@ export class DimensionMissionService {
             where: { reportId },
             _max: { citationIndex: true },
           });
-          const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
+          startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
 
           // 步骤2：批量插入（createMany 比循环插入快得多）
           await tx.topicEvidence.createMany({
@@ -2328,6 +2329,36 @@ export class DimensionMissionService {
         return { savedIds: [], idMapping: new Map(), indexMapping: new Map() };
       }
       throw err;
+    }
+
+    // ★ A2: Fallback — 如果事务返回空但有证据数据，事务外重新查询
+    if (created.length === 0 && evidenceWithCredibility.length > 0) {
+      this.logger.warn(
+        `[saveEvidence] Transaction returned empty created array for ${evidenceWithCredibility.length} evidences. Attempting fallback query.`,
+      );
+      try {
+        const fallbackResults = await this.prisma.topicEvidence.findMany({
+          where: {
+            reportId,
+            citationIndex: {
+              gte: startIndex,
+              lt: startIndex + evidenceWithCredibility.length,
+            },
+          },
+          orderBy: { citationIndex: "asc" },
+          select: { id: true, citationIndex: true },
+        });
+        if (fallbackResults.length > 0) {
+          created = fallbackResults;
+          this.logger.log(
+            `[saveEvidence] Fallback query recovered ${created.length} evidences`,
+          );
+        }
+      } catch (fallbackErr) {
+        this.logger.warn(
+          `[saveEvidence] Fallback query failed: ${fallbackErr}`,
+        );
+      }
     }
 
     // 构建 tempId -> actualId 映射

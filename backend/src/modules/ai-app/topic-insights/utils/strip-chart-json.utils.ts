@@ -111,6 +111,29 @@ export function stripChartJsonFromContent(content: string): string {
   );
   result = result.replace(/\n#{1,3}\s*图表数据\s*\n/g, "\n");
 
+  // ★ C1: 清理 H3 标题后跟 JSON 对象（如 `### 6.6. {"情景": ...`）
+  result = result.replace(/^(#{1,4}\s+[\d.]*\s*)\{[^}]*\}.*$/gm, "");
+
+  // ★ C1: 清理独立行的裸 JSON 对象（如 `{"情景": "乐观", "采用率 (%)": 60},`）
+  // Skip lines inside fenced code blocks (```...```)
+  {
+    const codeBlockRanges: Array<[number, number]> = [];
+    const cbRegex = /^```[^\n]*\n[\s\S]*?^```\s*$/gm;
+    let cbMatch: RegExpExecArray | null;
+    while ((cbMatch = cbRegex.exec(result)) !== null) {
+      codeBlockRanges.push([cbMatch.index, cbMatch.index + cbMatch[0].length]);
+    }
+    const isInCodeBlock = (idx: number) =>
+      codeBlockRanges.some(([s, e]) => idx >= s && idx < e);
+    result = result.replace(
+      /^\s*\{"[^"]+"\s*:\s*"[^"]*"(?:\s*,\s*"[^"]+"\s*:\s*[^}]*)?\}\s*,?\s*$/gm,
+      (match, offset) => (isInCodeBlock(offset) ? match : ""),
+    );
+  }
+
+  // ★ C1: 清理 position 指令泄露（如 `paragraph_4$（置于...）`）
+  result = result.replace(/\b\w+_\d+\$\s*[（(][^）)]*[）)]/g, "");
+
   return result.trim();
 }
 
