@@ -504,7 +504,7 @@ export class DimensionMissionService {
         taskDescription: `维度「${dimension.name}」搜索完成：${searchResultsRecord.searchTool || "网络"} 找到 ${searchResultsRecord.total} 条${searchResultsRecord.knowledgeBaseInfo?.matchedCount ? `，知识库匹配 ${searchResultsRecord.knowledgeBaseInfo.matchedCount} 条` : ""}`,
         dimensionId: dimension.id,
         dimensionName: dimension.name,
-        progress: 20,
+        progress: 10,
         modelId,
         searchResults: searchResultsRecord,
       },
@@ -1493,10 +1493,10 @@ export class DimensionMissionService {
       }));
 
       // ★ 发送研究员开始写作事件
-      // 进度 = 已完成章节比例映射到 [30, 80] 区间（与 emitProgress 一致）
+      // 进度 = 已完成章节比例映射到 [15, 75] 区间（与 DimensionProgressService writing 阶段一致）
       const researcherAgentId = `researcher_${dimId}`;
       const groupStartProgress =
-        30 + Math.round((sectionResults.length / outline.sections.length) * 50);
+        15 + Math.round((sectionResults.length / outline.sections.length) * 60);
       await this.eventEmitter.emitAgentWorking(
         topicId,
         {
@@ -1532,8 +1532,8 @@ export class DimensionMissionService {
 
         // ★ 发送研究员章节完成事件
         const progressPercent =
-          30 +
-          Math.round((sectionResults.length / outline.sections.length) * 50);
+          15 +
+          Math.round((sectionResults.length / outline.sections.length) * 60);
         await this.eventEmitter.emitAgentWorking(
           topicId,
           {

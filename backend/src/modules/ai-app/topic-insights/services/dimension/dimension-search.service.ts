@@ -358,7 +358,7 @@ export class DimensionSearchService {
         taskDescription: `维度「${dimension.name}」搜索完成：${searchResultsRecord.searchTool || "网络"} 找到 ${searchResultsRecord.total} 条${searchResultsRecord.knowledgeBaseInfo?.matchedCount ? `，知识库匹配 ${searchResultsRecord.knowledgeBaseInfo.matchedCount} 条` : ""}`,
         dimensionId: dimension.id,
         dimensionName: dimension.name,
-        progress: 20,
+        progress: 10,
         modelId,
         searchResults: searchResultsRecord,
       },

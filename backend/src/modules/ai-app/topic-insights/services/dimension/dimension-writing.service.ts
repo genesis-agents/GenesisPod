@@ -600,10 +600,10 @@ export class DimensionWritingService {
       }));
 
       // 发送研究员开始写作事件
-      // 进度 = 已完成章节比例映射到 [30, 80] 区间（与 emitProgress 一致）
+      // 进度 = 已完成章节比例映射到 [15, 75] 区间（与 DimensionProgressService writing 阶段一致）
       const researcherAgentId = `researcher_${dimId}`;
       const groupStartProgress =
-        30 + Math.round((sectionResults.length / outline.sections.length) * 50);
+        15 + Math.round((sectionResults.length / outline.sections.length) * 60);
       await this.eventEmitter.emitAgentWorking(
         topicId,
         {
@@ -630,8 +630,8 @@ export class DimensionWritingService {
 
         // 发送研究员章节完成事件
         const progressPercent =
-          30 +
-          Math.round((sectionResults.length / outline.sections.length) * 50);
+          15 +
+          Math.round((sectionResults.length / outline.sections.length) * 60);
         await this.eventEmitter.emitAgentWorking(
           topicId,
           {
