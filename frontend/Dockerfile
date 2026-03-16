@@ -14,8 +14,8 @@ ENV NEXT_PUBLIC_AI_URL=$NEXT_PUBLIC_AI_URL
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 RUN npm run build
