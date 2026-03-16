@@ -1709,12 +1709,11 @@ describe("ReportAssemblerService", () => {
         },
       ];
 
-      // Call injectChartsByPosition directly
-      const result = (service as any).injectChartsByPosition(
-        "```\ncode line\n```",
-        refs,
-        "d0-",
-      );
+      // Call resolveChartPlaceholders which delegates to injectChartsByPosition
+      const {
+        resolveChartPlaceholders,
+      } = require("../../../utils/chart-placeholder.utils");
+      const result = resolveChartPlaceholders("```\ncode line\n```", 0, refs);
 
       // Chart should be appended at the end (fallback path)
       expect(result).toContain("<!-- chart:");

@@ -190,139 +190,6 @@ function stripChartJsonBlock(content: string): string {
 }
 
 /**
- * Inject <!-- chart:ID --> placeholders into content based on chart position hints.
- * Used when backend didn't embed placeholders in detailedContent (chapter view).
- */
-function injectChartPlaceholders(
-  content: string,
-  charts: ReportChart[]
-): string {
-  if (!charts.length) return content;
-
-  const lines = content.split('\n');
-
-  // Parse position hints
-  const placements: Array<{ chartId: string; paragraphIdx: number }> = [];
-
-  for (const chart of charts) {
-    const pos = chart.position;
-    const match = pos?.match(/after_paragraph_(\d+)/);
-    if (match) {
-      placements.push({
-        chartId: chart.id,
-        paragraphIdx: parseInt(match[1], 10),
-      });
-    }
-  }
-
-  if (placements.length === 0) {
-    // No position hints — distribute evenly across paragraph boundaries
-    const totalParagraphs = lines.filter(
-      (l, i) => l.trim() === '' && i > 0 && lines[i - 1].trim() !== ''
-    ).length;
-
-    if (totalParagraphs === 0) {
-      // Just append all charts at the end
-      const markers = charts.map((c) => `\n<!-- chart:${c.id} -->\n`).join('');
-      return content + markers;
-    }
-
-    const interval = Math.max(
-      1,
-      Math.floor(totalParagraphs / (charts.length + 1))
-    );
-    let paraCount = 0;
-    let chartIdx = 0;
-    const result: string[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      result.push(lines[i]);
-      // Count paragraph boundaries (blank line after non-blank line)
-      // Skip math blocks to avoid placing charts inside formula sequences
-      if (
-        lines[i].trim() === '' &&
-        i > 0 &&
-        lines[i - 1].trim() !== '' &&
-        !lines[i - 1].trim().includes('$$')
-      ) {
-        paraCount++;
-        if (paraCount % interval === 0 && chartIdx < charts.length) {
-          result.push(`<!-- chart:${charts[chartIdx].id} -->`);
-          result.push('');
-          chartIdx++;
-        }
-      }
-    }
-    // Append remaining charts at end
-    while (chartIdx < charts.length) {
-      result.push('');
-      result.push(`<!-- chart:${charts[chartIdx].id} -->`);
-      chartIdx++;
-    }
-    return result.join('\n');
-  }
-
-  // Sort by paragraph index descending for safe insertion (bottom-up prevents index shifting)
-  placements.sort((a, b) => b.paragraphIdx - a.paragraphIdx);
-
-  // Find paragraph boundaries: line indices where a blank line follows a non-blank line
-  // Skip boundaries inside/adjacent to math blocks to avoid placing charts mid-formula
-  const paragraphEnds: number[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() === '' && i > 0 && lines[i - 1].trim() !== '') {
-      const prevLine = lines[i - 1].trim();
-      const nextLine =
-        lines
-          .slice(i + 1)
-          .find((l) => l.trim() !== '')
-          ?.trim() || '';
-      // Skip if previous line is display math or next line starts display math
-      if (
-        prevLine.includes('$$') ||
-        nextLine.startsWith('$$') ||
-        prevLine.startsWith('\\[') ||
-        nextLine.startsWith('\\[')
-      ) {
-        continue;
-      }
-      paragraphEnds.push(i);
-    }
-  }
-
-  // Insert placeholders at paragraph boundaries
-  const usedChartIds = new Set<string>();
-  for (const { chartId, paragraphIdx } of placements) {
-    if (usedChartIds.has(chartId)) continue;
-    usedChartIds.add(chartId);
-
-    // paragraphIdx is 1-based, paragraphEnds is 0-based array
-    const targetEnd = paragraphEnds[paragraphIdx - 1];
-    if (targetEnd !== undefined) {
-      lines.splice(targetEnd + 1, 0, `<!-- chart:${chartId} -->`, '');
-      // Adjust subsequent paragraph end indices
-      for (let j = 0; j < paragraphEnds.length; j++) {
-        if (paragraphEnds[j] > targetEnd) {
-          paragraphEnds[j] += 2; // 2 lines inserted
-        }
-      }
-    } else {
-      // Paragraph index out of range — append at end
-      lines.push('', `<!-- chart:${chartId} -->`);
-    }
-  }
-
-  // Append charts that had no position hint
-  const placedIds = new Set(placements.map((p) => p.chartId));
-  for (const chart of charts) {
-    if (!placedIds.has(chart.id)) {
-      lines.push('', `<!-- chart:${chart.id} -->`);
-    }
-  }
-
-  return lines.join('\n');
-}
-
-/**
  * Calculate word count for mixed Chinese/English content
  * Counts Chinese characters individually and English words as units
  */
@@ -695,11 +562,8 @@ function ChapterizedReportViewInner({
         // ★ v3.0: Get charts for this chapter by sectionNumber
         const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
 
-        // ★ Issue 1 fix: Inject chart placeholders if content has no markers but charts exist
-        let finalContent = content;
-        if (chapterCharts.length > 0 && !content.includes('<!-- chart:')) {
-          finalContent = injectChartPlaceholders(content, chapterCharts);
-        }
+        // Chart placeholders are embedded at save time by the backend
+        const finalContent = content;
 
         // ★ Extract top 3 key findings for takeaways card
         const topFindings = (analysis.keyFindings || [])
