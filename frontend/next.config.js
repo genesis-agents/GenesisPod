@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const { execSync } = require('child_process');
-const path = require('path');
 
 // Get git commit hash at build time
 function getGitCommitHash() {
@@ -30,16 +29,6 @@ const packageJson = require('./package.json');
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  transpilePackages: [
-    '@tiptap/react',
-    '@tiptap/starter-kit',
-    '@tiptap/core',
-    '@tiptap/pm',
-    '@tiptap/extension-placeholder',
-    '@tiptap/extension-typography',
-    '@tiptap/extension-highlight',
-    '@tiptap/extension-code-block-lowlight',
-  ],
   images: {
     remotePatterns: [
       {
@@ -270,24 +259,6 @@ const nextConfig = {
         ],
       },
     ];
-  },
-  webpack: (config) => {
-    // Fix tiptap v3 ESM module resolution in Docker builds
-    // Packages are installed but webpack can't resolve them via exports field
-    const tiptapPackages = [
-      '@tiptap/react',
-      '@tiptap/starter-kit',
-      '@tiptap/core',
-      '@tiptap/pm',
-      '@tiptap/extension-placeholder',
-      '@tiptap/extension-typography',
-      '@tiptap/extension-highlight',
-      '@tiptap/extension-code-block-lowlight',
-    ];
-    tiptapPackages.forEach((pkg) => {
-      config.resolve.alias[pkg] = path.resolve(__dirname, 'node_modules', pkg);
-    });
-    return config;
   },
 };
 

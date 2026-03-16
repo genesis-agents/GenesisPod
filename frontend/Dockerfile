@@ -20,14 +20,6 @@ COPY package.json package-lock.json .npmrc ./
 RUN npm install
 
 COPY . .
-
-# Diagnostic: verify tiptap packages survive COPY and are resolvable
-RUN echo "=== POST-COPY DIAGNOSTIC ===" && \
-    ls node_modules/@tiptap/react/ && \
-    cat node_modules/@tiptap/react/package.json | head -20 && \
-    node -e "console.log('resolve:', require.resolve('@tiptap/react'))" && \
-    echo "=== DIAGNOSTIC OK ==="
-
 RUN npm run build
 
 # ── Runtime stage (standalone mode) ──────────────────────────────
