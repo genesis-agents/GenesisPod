@@ -24,9 +24,7 @@ import { ReportSynthesisService } from "../../../report/report-synthesis.service
 import { ResearchTaskStatus } from "@prisma/client";
 import { ReviewQualityLevel } from "../../../../types/collaboration.types";
 import { resolveResearchDepthConfig } from "../../../../types/research-depth.types";
-import type {
-  TaskExecutionContext,
-} from "../task-executor.interface";
+import type { TaskExecutionContext } from "../task-executor.interface";
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -167,7 +165,7 @@ describe("DimensionResearchExecutor", () => {
       ).toHaveBeenCalledWith(
         "topic-1",
         "Market Analysis",
-        30,
+        5,
         "正在采集相关数据...",
         "mission-1",
         "task-1",
@@ -187,7 +185,13 @@ describe("DimensionResearchExecutor", () => {
       );
       expect(
         mockResearchEventEmitter.emitDimensionResearchCompleted,
-      ).toHaveBeenCalledWith("topic-1", "Market Analysis", 2, expect.any(Number), "mission-1");
+      ).toHaveBeenCalledWith(
+        "topic-1",
+        "Market Analysis",
+        2,
+        expect.any(Number),
+        "mission-1",
+      );
       expect(result).toBe(analysisResult);
     });
   });
@@ -697,7 +701,13 @@ describe("ReviewDimensionExecutor", () => {
         coherence: 70,
         currency: 78,
       },
-      issues: [{ type: "missing_coverage", severity: "minor", description: "Coverage gap" }],
+      issues: [
+        {
+          type: "missing_coverage",
+          severity: "minor",
+          description: "Coverage gap",
+        },
+      ],
       suggestions: ["Add more sources"],
       needsReresearch: false,
       reresearchFocus: [],
@@ -967,7 +977,9 @@ describe("SynthesisReportExecutor", () => {
       expect(
         mockResearchEventEmitter.emitReportSynthesisStarted,
       ).toHaveBeenCalledWith("topic-1", "mission-1");
-      expect(mockReportSynthesisService.saveDimensionAnalysis).toHaveBeenCalledWith(
+      expect(
+        mockReportSynthesisService.saveDimensionAnalysis,
+      ).toHaveBeenCalledWith(
         "report-1",
         "dim-1",
         expect.objectContaining({ summary: "Market summary", dimIndex: 0 }),
@@ -1000,11 +1012,23 @@ describe("SynthesisReportExecutor", () => {
 
     it("should skip saving dimension analysis if result or dimensionId is missing", async () => {
       const dimensionTasksWithGaps = [
-        { id: "task-no-result", dimensionId: "dim-1", dimensionName: "Dim 1", result: null },
-        { id: "task-no-dim", dimensionId: null, dimensionName: "Dim 2", result: { summary: "ok" } },
+        {
+          id: "task-no-result",
+          dimensionId: "dim-1",
+          dimensionName: "Dim 1",
+          result: null,
+        },
+        {
+          id: "task-no-dim",
+          dimensionId: null,
+          dimensionName: "Dim 2",
+          result: { summary: "ok" },
+        },
       ];
 
-      mockPrisma.researchTask.findMany.mockResolvedValue(dimensionTasksWithGaps);
+      mockPrisma.researchTask.findMany.mockResolvedValue(
+        dimensionTasksWithGaps,
+      );
       mockReportSynthesisService.synthesizeReport.mockResolvedValue({
         executiveSummary: "Brief summary",
         fullReport: "Content",
@@ -1023,7 +1047,9 @@ describe("SynthesisReportExecutor", () => {
 
       await executor.execute(context);
 
-      expect(mockReportSynthesisService.saveDimensionAnalysis).not.toHaveBeenCalled();
+      expect(
+        mockReportSynthesisService.saveDimensionAnalysis,
+      ).not.toHaveBeenCalled();
     });
   });
 
