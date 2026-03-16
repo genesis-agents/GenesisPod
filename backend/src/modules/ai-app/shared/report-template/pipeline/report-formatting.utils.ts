@@ -56,6 +56,20 @@ export function numberSubHeadings(content: string, dimIndex: number): string {
         .replace(/^[A-Z][.、)]\s*/, "") // Letter prefixes: A. / B、/ C)
         .trim();
 
+      // ★ C3: Guard — filter out non-title content incorrectly using heading syntax
+      // 1. JSON content masquerading as heading → remove entire line
+      if (/^\s*[\[{]/.test(cleanTitle)) {
+        return "";
+      }
+      // 2. Long text with periods → not a title, demote to bold paragraph
+      if (cleanTitle.length > 40 && /[。.]/.test(cleanTitle)) {
+        return `**${cleanTitle}**`;
+      }
+      // 3. Chart/figure caption (starts with 图/表 + long text) → italic
+      if (/^[图表]/.test(cleanTitle) && cleanTitle.length > 30) {
+        return `*${cleanTitle}*`;
+      }
+
       if (hashes === "###") {
         h3Count++;
         h4Count = 0;
@@ -757,6 +771,10 @@ export function stripLLMMetaNotes(content: string): string {
       // ── 孤立 JSON 符号 ──
       .replace(/^\s*[\]})]\s*$/gm, "")
       .replace(/^\s*\{\s*$/gm, "")
+      // ── C2: 维度字数注释泄漏 ──
+      .replace(/[（(]本维度[约共]?\d+字[)）]/g, "")
+      // ── C2: LaTeX/JSON 位置碎片泄漏（如 `3paragraph_4$`） ──
+      .replace(/\d*paragraph_\d+\$/g, "")
       // ── 三连空行压缩 ──
       .replace(/\n{3,}/g, "\n\n")
   );
@@ -2845,7 +2863,7 @@ export function detectAndPromoteHeadings(content: string): string {
       !/[，。；！？]/.test(trimmed) && // no mid-sentence punctuation → not a sentence
       !/^\[?\d+\]/.test(trimmed) && // not a citation
       !/^\*\*/.test(trimmed) && // not a bold line
-      !/图示|展示|对比/.test(trimmed) // not a chart caption / description keyword
+      !/^(?:图示|以下图表|上图|下图|图\d+)/.test(trimmed) // not a chart caption line
     ) {
       const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "");
       const prevLine =

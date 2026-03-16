@@ -56,10 +56,10 @@ export function sanitizeSectionOutput(content: string): string {
       continue;
     }
 
-    // 标题 — 保留，但过滤掉包含 JSON 对象的标题（H3/H4 被 JSON 污染）
+    // 标题 — 保留，但过滤掉本身是 JSON 对象的标题
     if (/^#{1,4}\s/.test(t)) {
-      // 黑名单：标题文本中含有 JSON 对象 { ... } 的行
-      if (/\{[^}]{3,}\}/.test(t)) {
+      // 黑名单：标题以 { 开头且含 "key": 模式（JSON 泄漏到标题）
+      if (/^#{1,4}\s+\{/.test(t) && /"[a-zA-Z_][\w-]*"\s*:/.test(t)) {
         continue;
       }
       cleaned.push(line);
