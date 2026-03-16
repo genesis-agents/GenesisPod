@@ -3960,6 +3960,9 @@ export function normalizeInlineDoubleDollar(content: string): string {
       }
       if (inCodeBlock) return line;
 
+      // ★ 先将 3+ 连续 $ 归约为单个 $（LLM 常见错乱）
+      line = line.replace(/\${3,}/g, "$");
+
       // Skip lines that are pure display math (start and end with $$)
       if (
         trimmed.startsWith("$$") &&

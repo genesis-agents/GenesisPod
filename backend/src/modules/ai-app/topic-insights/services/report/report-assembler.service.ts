@@ -589,7 +589,10 @@ export class ReportAssemblerService {
             `[assembleFullReport] Conclusion is fully duplicate (overlap=${(overlapRatio * 100).toFixed(0)}%, h3=${(h3Overlap * 100).toFixed(0)}%), skipping`,
           );
         }
-      } else if (conclusionText.length > 0) {
+      } else if (
+        conclusionText.length > 10 &&
+        !/^(无|暂无|N\/A|None|无内容|待补充)$/i.test(conclusionText.trim())
+      ) {
         parts.push(`## ${labels.conclusion}\n`);
         parts.push(conclusionText);
         parts.push("\n");
