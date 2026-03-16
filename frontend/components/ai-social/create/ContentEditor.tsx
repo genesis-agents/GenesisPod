@@ -51,6 +51,7 @@ export function ContentEditor() {
     sourceType,
     sourceId,
     externalUrl,
+    keepFormat,
     title,
     content,
     digest,
@@ -251,6 +252,7 @@ export function ContentEditor() {
           sourceType,
           sourceId,
           targetType: platform,
+          keepFormat: keepFormat || undefined,
         });
       } else if (sourceType === 'MANUAL') {
         // Manual mode - just continue with empty content
