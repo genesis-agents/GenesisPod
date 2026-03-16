@@ -2596,7 +2596,9 @@
       "ai_office": "AI Office",
       "aiOfficeDesc": "Select office documents",
       "ai_writing": "AI Writing",
-      "aiWritingDesc": "Select writing projects"
+      "aiWritingDesc": "Select writing projects",
+      "ai_topic_insights": "Topic Insights",
+      "aiTopicInsightsDesc": "Import reports from Topic Insights"
     },
     "steps": {
       "source": "Select Source",

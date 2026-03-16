@@ -61,7 +61,8 @@ type SourceType =
   | 'AI_EXPLORE'
   | 'AI_RESEARCH'
   | 'AI_OFFICE'
-  | 'AI_WRITING';
+  | 'AI_WRITING'
+  | 'AI_TOPIC_INSIGHTS';
 
 const STATUS_CONFIG: Record<
   ContentStatus,
@@ -935,6 +936,7 @@ export default function ContentsTab() {
                           'AI_RESEARCH',
                           'AI_OFFICE',
                           'AI_WRITING',
+                          'AI_TOPIC_INSIGHTS',
                         ] as SourceType[]
                       ).map((source) => (
                         <button
