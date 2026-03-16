@@ -324,7 +324,10 @@ export class ReportAssemblerService {
     parts.push("\n\n");
 
     // ── 5. Dimension sections ─────────────────────────────────────────────
-    const globalSeenParagraphs = new Set<string>();
+    // ★ 不再使用跨维度共享的 globalSeenParagraphs。
+    // 跨维度去重已在 editor 阶段（语义层面）完成。
+    // 字符级去重（前120字符匹配）在同主题报告中会大量误杀不同维度的正常段落，
+    // 导致维度内容被全部删除。每个维度用独立的 Set 只去维度内部重复。
 
     // Diagnostic log: record content lengths for observability
     const dimContentLengths = sortedDimensions.map(
@@ -338,10 +341,12 @@ export class ReportAssemblerService {
     sortedDimensions.forEach((dim, idx) => {
       const rawContent = dim.detailedContent || dim.summary || "";
 
+      // 每个维度独立去重（不跨维度共享）
+      const dimensionSeenParagraphs = new Set<string>();
       const processed = this.processDimensionContent(
         rawContent,
         idx,
-        globalSeenParagraphs,
+        dimensionSeenParagraphs,
         dim.dimensionName,
         dim.figureReferences as FigureReference[] | undefined,
         dim.generatedCharts as GeneratedChart[] | undefined,

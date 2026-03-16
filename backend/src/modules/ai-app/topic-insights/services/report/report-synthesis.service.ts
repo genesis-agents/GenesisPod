@@ -687,7 +687,7 @@ export class ReportSynthesisService {
         return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}`;
       });
       if (refLines.length > 0) {
-        referencesSection = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;
+        referencesSection = `\n\n---\n\n## ${referencesLabel}\n\n${refLines.join("\n\n")}`;
         this.logger.log(
           `[synthesizeReport] Built references section with ${refLines.length} citations`,
         );
