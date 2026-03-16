@@ -270,7 +270,7 @@ export class ReviewWorkflowService {
       .map((t) => t.score as number);
     const averageScore =
       scores.length > 0
-        ? scores.reduce((a, b) => a + b, 0) / scores.length
+        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
         : null;
 
     return {

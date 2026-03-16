@@ -3650,7 +3650,7 @@ function TeamInteractionTabContent({
                       : rawLevel;
           if (score) {
             contentParts.push(
-              `${t('topicResearch.contentPanel.qualityScore')}: ${score}/100 (${levelLabel})`
+              `${t('topicResearch.contentPanel.qualityScore')}: ${Math.round(score)}/100 (${levelLabel})`
             );
           }
         }

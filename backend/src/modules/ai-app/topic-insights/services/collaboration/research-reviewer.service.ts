@@ -255,11 +255,13 @@ export class ResearchReviewerService {
   ): Promise<OverallReviewResult> {
     this.logger.log(`Performing overall review for topic: ${topic.name}`);
 
-    // 计算整体分数
+    // 计算整体分数（取整，避免显示长小数）
     const overallScore =
       dimensionReviews.length > 0
-        ? dimensionReviews.reduce((sum, r) => sum + r.overallScore, 0) /
-          dimensionReviews.length
+        ? Math.round(
+            dimensionReviews.reduce((sum, r) => sum + r.overallScore, 0) /
+              dimensionReviews.length,
+          )
         : 0;
 
     // 检查跨维度问题

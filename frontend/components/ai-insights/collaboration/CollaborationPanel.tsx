@@ -305,7 +305,8 @@ function ReviewTaskList({
                 )}
                 {task.score !== undefined && (
                   <p className="text-sm text-gray-600">
-                    {t('topicResearch.collaboration.score')}: {task.score}/100
+                    {t('topicResearch.collaboration.score')}:{' '}
+                    {Math.round(task.score)}/100
                   </p>
                 )}
 

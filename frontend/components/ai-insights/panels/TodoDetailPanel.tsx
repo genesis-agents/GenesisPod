@@ -548,7 +548,7 @@ function QualityReviewResultDisplay({
               getScoreColor(overallReview.score)
             )}
           >
-            {overallReview.score}
+            {Math.round(overallReview.score)}
             <span className="text-sm font-normal text-gray-400">/100</span>
           </span>
         </div>
