@@ -3961,11 +3961,10 @@ export function normalizeInlineDoubleDollar(content: string): string {
       }
       if (inCodeBlock) return line;
 
-      // ★ 删除包含 3+ 连续 $ 的损坏数学片段（LLM 公式分隔符错乱，无法正则还原）
-      if (/\${3,}/.test(line)) {
-        line = line.replace(/\$[^$]*\${2,}[^$]*\$(?:[^$]*\$)*/g, "");
-        line = line.replace(/\$\$/g, "");
-      }
+      // ★ 修复 LLM 的 $ 分隔符粘连（不删除公式，而是还原正确配对）
+      // $$$  → $ $（拆分粘连的结尾$和下一个开头$）
+      // $$$$ → $ $（同上）
+      line = line.replace(/\${3,}/g, "$ $");
 
       // Skip lines that are pure display math (start and end with $$)
       if (
