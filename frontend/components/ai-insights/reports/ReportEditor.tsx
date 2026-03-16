@@ -41,6 +41,7 @@ import type { AIEditOperation } from '../types';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
 import { preprocessLatex } from '@/lib/report/preprocessLatex';
+import { stripProseBullets } from '@/lib/report/stripProseBullets';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
@@ -638,10 +639,12 @@ function ReportEditorInner({
         resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
       if (hasChartPlaceholders || looksLikeMarkdown) {
         // Strip the ## 参考文献/References section — rendered separately as React component
-        return resolvedFullReport.replace(
+        const stripped = resolvedFullReport.replace(
           /\n*---\n*\n*##\s*(?:参考文献|References)\n[\s\S]*$/,
           ''
         );
+        // ★ Runtime cleanup: strip prose bullets (shared with chapter view)
+        return stripProseBullets(stripped);
       }
     }
 

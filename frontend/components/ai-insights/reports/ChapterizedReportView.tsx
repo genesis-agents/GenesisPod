@@ -46,6 +46,7 @@ import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
 import { preprocessLatex } from '@/lib/report/preprocessLatex';
+import { stripProseBullets } from '@/lib/report/stripProseBullets';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
 import { useI18n } from '@/lib/i18n';
@@ -562,12 +563,8 @@ function ChapterizedReportViewInner({
         // ★ v3.0: Get charts for this chapter by sectionNumber
         const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
 
-        // ★ Runtime cleanup for legacy data saved before pipeline fixes
-        // Strip bullet markers from ordinal/transition text (其一/其二/第一/这意味着)
-        const cleanedContent = content.replace(
-          /^[-*]\s+((?:其[一二三四五六七八九十]|第[一二三四五六七八九十]|这意味着|值得[^\s，]{0,4}的是|换言之|因此)[，,：:])/gm,
-          '$1'
-        );
+        // ★ Runtime cleanup: strip prose bullets (shared function)
+        const cleanedContent = stripProseBullets(content);
 
         // Chart placeholders are embedded at save time by the backend
         const finalContent = cleanedContent;
