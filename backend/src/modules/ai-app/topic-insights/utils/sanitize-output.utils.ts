@@ -253,16 +253,18 @@ export function repairBrokenBoldPairs(content: string): string {
 }
 
 /**
- * 修复 Bold 枚举无逗号：**第一**建 → **第一，**建
- * 同时去除正文引导词的多余加粗：**这意味着，** → 这意味着，
+ * 去除枚举标记和引导词的多余加粗。
+ *
+ * 枚举标记（第一/其一）在 bullet list 中不需要 bold，`-` 已提供结构。
+ * 引导词（这意味着/核心原因在于）是正文语气，不是关键术语，不该加粗。
  */
 export function normalizeBoldStyle(content: string): string {
   let result = content;
 
-  // 1. Bold 枚举无逗号：**第一**X → **第一，**X（X 为非标点中文字符）
+  // 1. 枚举标记去掉 bold：**第一，**X → 第一，X / **第一**X → 第一，X
   result = result.replace(
-    /\*\*(第[一二三四五六七八九十]|其[一二三四五六七八九十])\*\*([^\s,，。：:*\n])/g,
-    "**$1，**$2",
+    /\*\*(第[一二三四五六七八九十]|其[一二三四五六七八九十])[，,]?\*\*/g,
+    (_, marker) => marker + "，",
   );
 
   // 2. 正文引导词去掉加粗（这些短语不需要 bold，过度加粗影响阅读）
