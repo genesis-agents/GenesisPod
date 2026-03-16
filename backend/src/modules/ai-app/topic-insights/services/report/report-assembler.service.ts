@@ -358,9 +358,15 @@ export class ReportAssemblerService {
       const contentBody = processed
         .replace(/^\s*#{1,6}\s+[^\n]*\n?/gm, "")
         .trim();
+
+      // ★ 诊断日志：记录每个维度处理前后的字符数
+      this.logger.log(
+        `[assembleFullReport] Dimension "${dim.dimensionName}": raw=${rawContent.length} → processed=${processed.length} → contentBody=${contentBody.length}`,
+      );
+
       if (!contentBody) {
         this.logger.warn(
-          `[assembleFullReport] Skipping empty dimension: ${dim.dimensionName}`,
+          `[assembleFullReport] Skipping empty dimension: ${dim.dimensionName} (raw=${rawContent.length}, processed=${processed.length})`,
         );
         return; // forEach continue
       }
