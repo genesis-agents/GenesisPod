@@ -311,9 +311,9 @@ export class ReportAssemblerService {
       `[assembleFullReport] Dimension content lengths (detailed/summary): ${dimContentLengths.join(", ")}`,
     );
 
-    // ★ D1: Two-pass processing — ensures H2 numbering stays continuous (1, 2, 3...)
-    // even when some dimensions are empty and skipped.
-    // Pass 1: Process all dimensions, filter out empty ones
+    // ★ Two-pass processing — reuses already-formatted detailedContent from DB.
+    // Content was formatted by formatDimensionContent() at save time (saveDimensionAnalysis).
+    // Only chart placeholder injection is applied here; no re-processing of text.
     const nonEmptyDims: Array<{
       dim: (typeof sortedDimensions)[number];
       processed: string;
@@ -321,27 +321,28 @@ export class ReportAssemblerService {
     for (const dim of sortedDimensions) {
       const rawContent = dim.detailedContent || dim.summary || "";
 
-      const dimensionSeenParagraphs = new Set<string>();
-      const processed = this.processDimensionContent(
-        rawContent,
-        nonEmptyDims.length, // use current non-empty index for sub-heading numbering
-        dimensionSeenParagraphs,
-        dim.dimensionName,
-        dim.figureReferences as FigureReference[] | undefined,
-        dim.generatedCharts as GeneratedChart[] | undefined,
-      );
+      // ★ Only inject chart placeholders — skip full formatting pipeline (already done at save time)
+      let processed = rawContent;
+      if (dim.figureReferences || dim.generatedCharts) {
+        processed = this.resolveChartPlaceholders(
+          processed,
+          nonEmptyDims.length,
+          dim.figureReferences as FigureReference[] | undefined,
+          dim.generatedCharts as GeneratedChart[] | undefined,
+        );
+      }
 
       const contentBody = processed
         .replace(/^\s*#{1,6}\s+[^\n]*\n?/gm, "")
         .trim();
 
       this.logger.log(
-        `[assembleFullReport] Dimension "${dim.dimensionName}": raw=${rawContent.length} → processed=${processed.length} → contentBody=${contentBody.length}`,
+        `[assembleFullReport] Dimension "${dim.dimensionName}": content=${rawContent.length} → withCharts=${processed.length} → body=${contentBody.length}`,
       );
 
       if (!contentBody) {
         this.logger.warn(
-          `[assembleFullReport] Skipping empty dimension: ${dim.dimensionName} (raw=${rawContent.length}, processed=${processed.length})`,
+          `[assembleFullReport] Skipping empty dimension: ${dim.dimensionName} (content=${rawContent.length})`,
         );
         continue;
       }

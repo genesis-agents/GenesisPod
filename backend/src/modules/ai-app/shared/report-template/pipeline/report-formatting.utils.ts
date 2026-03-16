@@ -581,7 +581,10 @@ export function stripLLMMetaNotes(content: string): string {
         "",
       )
       // HTML bold word count: <strong>字数统计</strong>：约1120字 (appears in rendered output)
-      .replace(/\*{2}字数统计\*{2}[：:]\s*[约共]?\d+字\s*/g, "")
+      // Also handles: **字数统计**：约 1250 字### (with trailing heading markers)
+      .replace(/\*{2}字数统计\*{2}[：:]\s*[约共]?\d+\s*字[^\n]*\n?/g, "")
+      // Bold total word count: **总字数约1050字** (standalone bold line)
+      .replace(/^\s*\*{2}总字数[约共]?\d+字\*{2}\s*$/gm, "")
       // Bold-wrapped word count with internal note: **字数统计（内部参考）**: 约860字
       .replace(/\*{2}字数统计[^*]*\*{2}[：:]\s*[约共]?\d+字[^\n]*/g, "")
       // Fully bold-wrapped word count: **字数统计：约1150字（中文）** or **字数统计：约860字**
