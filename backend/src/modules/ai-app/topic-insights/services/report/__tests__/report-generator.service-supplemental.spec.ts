@@ -136,8 +136,16 @@ async function buildModule(
       .mockImplementation((_topic: unknown, dims: unknown[], sc: unknown) => {
         const t = _topic as { name: string };
         const parts = [`# ${t.name}`];
-        (dims as Array<{ detailedContent?: string; summary?: string }>).forEach(
-          (d) => parts.push(d.detailedContent || d.summary || ""),
+        (
+          dims as Array<{
+            detailedContent?: string;
+            summary?: string;
+            dimensionName?: string;
+          }>
+        ).forEach((d, idx) =>
+          parts.push(
+            `## ${idx + 1}. ${d.dimensionName || "Dimension"}\n\n${d.detailedContent || d.summary || ""}`,
+          ),
         );
         const s = sc as Record<string, string | undefined>;
         Object.values(s || {}).forEach((v) => {

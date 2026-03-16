@@ -149,8 +149,10 @@ describe("ReportGeneratorService", () => {
               .fn()
               .mockImplementation((_topic: any, dims: any[], sc: any) => {
                 const parts = [`# ${_topic.name}`];
-                dims.forEach((d: any) =>
-                  parts.push(d.detailedContent || d.summary || ""),
+                dims.forEach((d: any, idx: number) =>
+                  parts.push(
+                    `## ${idx + 1}. ${d.dimensionName || "Dimension"}\n\n${d.detailedContent || d.summary || ""}`,
+                  ),
                 );
                 Object.values(sc || {}).forEach((v: any) => {
                   if (v) parts.push(String(v));

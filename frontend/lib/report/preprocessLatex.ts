@@ -550,10 +550,17 @@ function wrapBareLatexExpressions(input: string): string {
 
   // Step 3: Merge adjacent $...$ that are separated by only spaces/operators
   // e.g. $\mathbb{R}$ $\times$ $\mathbb{R}$ → $\mathbb{R} \times \mathbb{R}$
-  // This prevents visual fragmentation
+  // This prevents visual fragmentation.
+  // Only merge when separator is empty or a single space, and keep as
+  // inline math ($...$) — NOT display math ($$...$$).
   for (let i = 0; i < 5; i++) {
     const before = text;
-    text = text.replace(/\$([^$]+)\$\s*\$([^$]+)\$/g, '$$$1 $2$$');
+    text = text.replace(/\$([^$]+)\$(\s*)\$([^$]+)\$/g, (_, a, sep, b) => {
+      if (sep.trim() === '' && sep.length <= 1) {
+        return `$${a} ${b}$`;
+      }
+      return `$${a}$${sep}$${b}$`;
+    });
     if (text === before) break;
   }
 

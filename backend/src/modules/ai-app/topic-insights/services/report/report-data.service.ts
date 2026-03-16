@@ -10,6 +10,7 @@ import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
 import { preprocessDimensionContent } from "@/modules/ai-app/shared/report-template";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
+import { stripChartJsonFromContent } from "../../utils/strip-chart-json.utils";
 import type {
   TopicReport,
   DimensionAnalysis,
@@ -154,7 +155,9 @@ export class ReportDataService {
           opportunities: result.opportunities,
           confidenceLevel: result.confidenceLevel,
           detailedContent: result.detailedContent
-            ? preprocessDimensionContent(result.detailedContent)
+            ? stripChartJsonFromContent(
+                preprocessDimensionContent(result.detailedContent),
+              )
             : "",
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],

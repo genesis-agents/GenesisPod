@@ -179,7 +179,19 @@ function buildMocks() {
         ) => {
           const t = _topic as { name: string };
           const parts = [`# ${t.name}`];
-          dims.forEach((d) => parts.push(d.detailedContent || d.summary || ""));
+          dims.forEach(
+            (
+              d: {
+                detailedContent?: string;
+                summary?: string;
+                dimensionName?: string;
+              },
+              idx: number,
+            ) =>
+              parts.push(
+                `## ${idx + 1}. ${d.dimensionName || "Dimension"}\n\n${d.detailedContent || d.summary || ""}`,
+              ),
+          );
           return parts.join("\n\n");
         },
       ),

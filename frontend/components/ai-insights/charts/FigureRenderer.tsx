@@ -317,9 +317,12 @@ function UnknownChartPlaceholder({ chart }: { chart: ReportChart }) {
  * 生成学术规范的图表编号标签
  * APA/IEEE 格式: "图 N." / "Figure N."
  */
-function getFigureLabel(figureNumber: number | undefined): string | null {
+function getFigureLabel(
+  figureNumber: number | undefined,
+  language?: string
+): string | null {
   if (!figureNumber) return null;
-  return `图 ${figureNumber}.`;
+  return language === 'en' ? `Figure ${figureNumber}.` : `图 ${figureNumber}.`;
 }
 
 /**
@@ -402,6 +405,7 @@ export function FigureRenderer({
   evidenceInfo,
   onRetry,
 }: FigureRendererProps) {
+  const { locale } = useI18n();
   // ★ Track image load failures to hide the entire figure frame
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
@@ -443,7 +447,7 @@ export function FigureRenderer({
     return null;
   }
 
-  const figureLabel = getFigureLabel(chart.figureNumber);
+  const figureLabel = getFigureLabel(chart.figureNumber, locale);
 
   return (
     <figure

@@ -184,9 +184,120 @@ function stripChartJsonBlock(content: string): string {
       stripStart--;
     result =
       result.substring(0, stripStart) +
-      result.substring(jsonEnd > 0 ? jsonEnd : result.length);
+      result.substring(jsonEnd > 0 ? jsonEnd : sep.index + sep.length);
   }
   return result;
+}
+
+/**
+ * Inject <!-- chart:ID --> placeholders into content based on chart position hints.
+ * Used when backend didn't embed placeholders in detailedContent (chapter view).
+ */
+function injectChartPlaceholders(
+  content: string,
+  charts: ReportChart[]
+): string {
+  if (!charts.length) return content;
+
+  const lines = content.split('\n');
+
+  // Parse position hints
+  const placements: Array<{ chartId: string; paragraphIdx: number }> = [];
+
+  for (const chart of charts) {
+    const pos = chart.position;
+    const match = pos?.match(/after_paragraph_(\d+)/);
+    if (match) {
+      placements.push({
+        chartId: chart.id,
+        paragraphIdx: parseInt(match[1], 10),
+      });
+    }
+  }
+
+  if (placements.length === 0) {
+    // No position hints — distribute evenly across paragraph boundaries
+    const totalParagraphs = lines.filter(
+      (l, i) => l.trim() === '' && i > 0 && lines[i - 1].trim() !== ''
+    ).length;
+
+    if (totalParagraphs === 0) {
+      // Just append all charts at the end
+      const markers = charts.map((c) => `\n<!-- chart:${c.id} -->\n`).join('');
+      return content + markers;
+    }
+
+    const interval = Math.max(
+      1,
+      Math.floor(totalParagraphs / (charts.length + 1))
+    );
+    let paraCount = 0;
+    let chartIdx = 0;
+    const result: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      result.push(lines[i]);
+      // Count paragraph boundaries (blank line after non-blank line)
+      if (lines[i].trim() === '' && i > 0 && lines[i - 1].trim() !== '') {
+        paraCount++;
+        if (paraCount % interval === 0 && chartIdx < charts.length) {
+          result.push(`<!-- chart:${charts[chartIdx].id} -->`);
+          result.push('');
+          chartIdx++;
+        }
+      }
+    }
+    // Append remaining charts at end
+    while (chartIdx < charts.length) {
+      result.push('');
+      result.push(`<!-- chart:${charts[chartIdx].id} -->`);
+      chartIdx++;
+    }
+    return result.join('\n');
+  }
+
+  // Sort by paragraph index descending for safe insertion (bottom-up prevents index shifting)
+  placements.sort((a, b) => b.paragraphIdx - a.paragraphIdx);
+
+  // Find paragraph boundaries: line indices where a blank line follows a non-blank line
+  const paragraphEnds: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '' && i > 0 && lines[i - 1].trim() !== '') {
+      paragraphEnds.push(i);
+    }
+  }
+
+  // Insert placeholders at paragraph boundaries
+  const usedChartIds = new Set<string>();
+  for (const { chartId, paragraphIdx } of placements) {
+    if (usedChartIds.has(chartId)) continue;
+    usedChartIds.add(chartId);
+
+    // paragraphIdx is 1-based, paragraphEnds is 0-based array
+    const targetEnd = paragraphEnds[paragraphIdx - 1];
+    if (targetEnd !== undefined) {
+      lines.splice(targetEnd + 1, 0, `<!-- chart:${chartId} -->`, '');
+      // Adjust subsequent paragraph end indices
+      for (let j = 0; j < paragraphEnds.length; j++) {
+        if (paragraphEnds[j] > targetEnd) {
+          paragraphEnds[j] += 2; // 2 lines inserted
+        }
+      }
+    } else {
+      // Paragraph index out of range — append at end
+      lines.push('', `<!-- chart:${chartId} -->`);
+    }
+  }
+
+  // Append charts that had no position hint
+  const placedIds = new Set(placements.map((p) => p.chartId));
+  for (const chart of charts) {
+    if (!placedIds.has(chart.id)) {
+      lines.push('', `<!-- chart:${chart.id} -->`);
+    }
+  }
+
+  return lines.join('\n');
 }
 
 /**
@@ -462,9 +573,6 @@ function ChapterizedReportViewInner({
           // It already contains numbered headings (N.M.), citations, and
           // all structured data (keyFindings, trends, challenges, etc.)
           // processed by the backend assembler pipeline.
-          if (analysis.summary && analysis.summary.trim().length > 5) {
-            parts.push(analysis.summary);
-          }
           parts.push('\n' + stripChartJsonBlock(analysis.detailedContent));
         } else {
           // Fallback: build content from structured data (old reports)
@@ -565,6 +673,12 @@ function ChapterizedReportViewInner({
         // ★ v3.0: Get charts for this chapter by sectionNumber
         const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
 
+        // ★ Issue 1 fix: Inject chart placeholders if content has no markers but charts exist
+        let finalContent = content;
+        if (chapterCharts.length > 0 && !content.includes('<!-- chart:')) {
+          finalContent = injectChartPlaceholders(content, chapterCharts);
+        }
+
         // ★ Extract top 3 key findings for takeaways card
         const topFindings = (analysis.keyFindings || [])
           .filter((f) => f.finding && f.finding.trim().length > 3)
@@ -582,14 +696,61 @@ function ChapterizedReportViewInner({
           type: 'dimension',
           status,
           outline,
-          content,
-          wordCount: countWords(content),
+          content: finalContent,
+          wordCount: countWords(finalContent),
           charts: chapterCharts,
           keyFindings: topFindings.length > 0 ? topFindings : undefined,
         });
 
         chapterNum++;
       });
+    }
+
+    // Add supplementary chapters from report-level v2.0 fields
+    const supplementarySections: Array<{
+      key: keyof TopicReport;
+      titleKey: string;
+      fallbackTitle: string;
+    }> = [
+      {
+        key: 'crossDimensionAnalysis',
+        titleKey: 'topicResearch.reportEditor.crossDimensionAnalysis',
+        fallbackTitle: '跨维度关联分析',
+      },
+      {
+        key: 'riskAssessment',
+        titleKey: 'topicResearch.reportEditor.riskAssessment',
+        fallbackTitle: '风险评估',
+      },
+      {
+        key: 'strategicRecommendations',
+        titleKey: 'topicResearch.reportEditor.strategicRecommendations',
+        fallbackTitle: '战略建议',
+      },
+    ];
+    for (const section of supplementarySections) {
+      const fieldValue = report[section.key];
+      // These fields are structured objects with a fullText property
+      const content =
+        fieldValue != null &&
+        typeof fieldValue === 'object' &&
+        'fullText' in fieldValue
+          ? (fieldValue as { fullText: string }).fullText
+          : undefined;
+      if (content && content.trim().length > 10) {
+        result.push({
+          id: section.key as string,
+          chapterNumber: chapterNum,
+          title: t(section.titleKey) || section.fallbackTitle,
+          type: 'conclusion',
+          status: 'completed' as ChapterStatus,
+          outline: content.slice(0, 100),
+          content: preprocessLatex(content),
+          wordCount: countWords(content),
+          charts: [],
+        });
+        chapterNum++;
+      }
     }
 
     return result;
@@ -847,6 +1008,10 @@ function ChapterizedReportViewInner({
                     t('topicResearch.reportEditor.noContent');
                   const charts = selectedChapter.charts || [];
 
+                  // Create markdown components once so slugCounts is shared
+                  // across all ReactMarkdown instances in this chapter render.
+                  const mdComponents = createMarkdownComponents(processText);
+
                   // If no charts, strip any orphaned chart markers and render as-is
                   if (
                     charts.length === 0 ||
@@ -860,7 +1025,7 @@ function ChapterizedReportViewInner({
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
-                        components={createMarkdownComponents(processText)}
+                        components={mdComponents}
                       >
                         {cleanContent}
                       </ReactMarkdown>
@@ -887,7 +1052,7 @@ function ChapterizedReportViewInner({
                             key={`md-${i}`}
                             remarkPlugins={[remarkGfm, remarkMath]}
                             rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
-                            components={createMarkdownComponents(processText)}
+                            components={mdComponents}
                           >
                             {text}
                           </ReactMarkdown>
@@ -919,6 +1084,57 @@ function ChapterizedReportViewInner({
                   return <>{elements}</>;
                 })()}
               </article>
+
+              {/* References for this chapter */}
+              {(() => {
+                const citedIndices = new Set(
+                  (selectedChapter.content.match(/\[(\d+)\]/g) || [])
+                    .map((m) => parseInt(m.replace(/[[\]]/g, ''), 10))
+                    .filter((n) => n > 0 && n <= 500)
+                );
+                if (citedIndices.size === 0) return null;
+
+                const refs = Array.from(citedIndices)
+                  .sort((a, b) => a - b)
+                  .map((idx) => {
+                    const ev = evidence.find((e) => e.citationIndex === idx);
+                    return ev
+                      ? { idx, title: ev.title, url: ev.url, domain: ev.domain }
+                      : null;
+                  })
+                  .filter(Boolean);
+
+                if (refs.length === 0) return null;
+
+                return (
+                  <div className="mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
+                    <h4 className="mb-3 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                      {t('topicResearch.reportEditor.references') || '参考文献'}
+                    </h4>
+                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {refs.map((ref) => (
+                        <div key={ref!.idx} className="flex gap-2">
+                          <span className="shrink-0 text-gray-400">
+                            [{ref!.idx}]
+                          </span>
+                          {ref!.url ? (
+                            <a
+                              href={ref!.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="truncate text-blue-500 hover:underline"
+                            >
+                              {ref!.title || ref!.domain || ref!.url}
+                            </a>
+                          ) : (
+                            <span>{ref!.title || 'Unknown source'}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ★ 右键菜单 - 与连续视图保持一致 */}
               <TextSelectionContextMenu

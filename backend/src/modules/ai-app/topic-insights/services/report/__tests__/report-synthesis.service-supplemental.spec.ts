@@ -161,8 +161,16 @@ function buildMocks() {
       .fn()
       .mockImplementation((_topic: unknown, dims: unknown[], _sc: unknown) => {
         const parts = [`# ${(_topic as { name: string }).name}`];
-        (dims as Array<{ detailedContent?: string; summary?: string }>).forEach(
-          (d) => parts.push(d.detailedContent || d.summary || ""),
+        (
+          dims as Array<{
+            detailedContent?: string;
+            summary?: string;
+            dimensionName?: string;
+          }>
+        ).forEach((d, idx) =>
+          parts.push(
+            `## ${idx + 1}. ${d.dimensionName || "Dimension"}\n\n${d.detailedContent || d.summary || ""}`,
+          ),
         );
         return parts.join("\n\n");
       }),

@@ -363,13 +363,14 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     ul: ({
       children,
       node: _node,
+      depth: depthProp,
       ...props
     }: React.HTMLAttributes<HTMLUListElement> & {
       children?: React.ReactNode;
       node?: unknown;
       depth?: number;
     }) => {
-      const depth = props.depth ?? 0;
+      const depth = depthProp ?? 0;
       const listStyle = depth > 0 ? 'circle' : 'disc';
       return (
         <ul {...props} style={{ listStyleType: listStyle, ...props.style }}>
@@ -380,13 +381,14 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     ol: ({
       children,
       node: _node,
+      depth: depthProp,
       ...props
     }: React.OlHTMLAttributes<HTMLOListElement> & {
       children?: React.ReactNode;
       node?: unknown;
       depth?: number;
     }) => {
-      const depth = props.depth ?? 0;
+      const depth = depthProp ?? 0;
       const listStyle = depth > 0 ? 'lower-alpha' : 'decimal';
       return (
         <ol {...props} style={{ listStyleType: listStyle, ...props.style }}>

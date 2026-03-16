@@ -196,19 +196,17 @@ export function useReportTextProcessor({
                 })
               );
             } else {
-              // ★ Still render CitationBadge with minimal info (purple, consistent style)
-              // instead of gray <sup> fallback — maintains visual consistency
+              // Unresolved citation — render as plain text
               parts.push(
-                React.createElement(CitationBadge, {
-                  key: `cite-${match!.index}-${idx}-${i}`,
-                  index: idx,
-                  evidence: {
-                    id: `unknown-${idx}`,
-                    title: `Source ${idx}`,
-                    url: '',
-                    snippet: '',
+                React.createElement(
+                  'sup',
+                  {
+                    key: `cite-${match!.index}-${idx}-${i}`,
+                    className: 'text-gray-400 cursor-default',
+                    title: `Citation [${idx}] not found`,
                   },
-                })
+                  `[${idx}]`
+                )
               );
             }
           });

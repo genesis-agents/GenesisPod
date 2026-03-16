@@ -180,8 +180,10 @@ describe("ReportSynthesisService", () => {
               .fn()
               .mockImplementation((_topic: any, dims: any[], sc: any) => {
                 const parts = [`# ${_topic.name}`];
-                dims.forEach((d: any) =>
-                  parts.push(d.detailedContent || d.summary || ""),
+                dims.forEach((d: any, idx: number) =>
+                  parts.push(
+                    `## ${idx + 1}. ${d.dimensionName || "Dimension"}\n\n${d.detailedContent || d.summary || ""}`,
+                  ),
                 );
                 // Include section headers for supplementary fields so assertions
                 // that check for heading text ("跨维度关联分析", "风险评估", etc.) work

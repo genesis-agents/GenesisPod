@@ -931,7 +931,7 @@ export class ReportSynthesisService {
     this.logger.log(
       `[synthesizeReport] Writing to DB: finalReport=${finalReport.length}c, ${finalDims} dims`,
     );
-    if (finalDims < dimensionAnalyses.length) {
+    if (finalDims < dimensionAnalyses.length && finalReport.length > 200) {
       this.logger.error(
         `[synthesizeReport] ★ DIMENSION LOSS: expected ${dimensionAnalyses.length} dims but finalReport has ${finalDims}. ` +
           `fullReportFromDimensions=${fullReportFromDimensions.length}c, cleanedReport=${cleanedReport.length}c`,
