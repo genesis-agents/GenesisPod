@@ -1130,7 +1130,7 @@ export function TodoDetailPanel({
                         {t('topicResearch.todoDetail.keyFindings')}
                       </div>
                       <ul className="space-y-1">
-                        {todo.result.keyFindings.slice(0, 5).map(
+                        {todo.result.keyFindings.map(
                           (
                             finding: {
                               finding?: string;
@@ -1165,18 +1165,13 @@ export function TodoDetailPanel({
                                       )}
                               </span>
                               <span className="text-gray-700">
-                                {finding.finding ||
-                                  t('topicResearch.todoDetail.unknownFinding')}
+                                {(
+                                  finding.finding ||
+                                  t('topicResearch.todoDetail.unknownFinding')
+                                ).replace(/[（(]\s*\d+\s*字\s*[)）]/g, '')}
                               </span>
                             </li>
                           )
-                        )}
-                        {todo.result.keyFindings.length > 5 && (
-                          <li className="text-xs text-muted-foreground">
-                            {t('topicResearch.todoDetail.moreFindings', {
-                              count: todo.result.keyFindings.length - 5,
-                            })}
-                          </li>
                         )}
                       </ul>
                     </div>
