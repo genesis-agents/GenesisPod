@@ -18,6 +18,7 @@ import {
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
+import { sanitizeSectionOutput } from "../../utils/sanitize-output.utils";
 import {
   getMinDataPoints,
   filterJunkReferences,
@@ -1400,15 +1401,25 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     );
     const conclusion = parsed.conclusion || "";
 
+    // ★ 铁墙清理：补充内容在存入前执行 sanitize
     return {
-      preface: parsed.preface || "",
+      preface: sanitizeSectionOutput(parsed.preface || ""),
       tableOfContents: parsed.tableOfContents || "",
-      executiveSummary,
-      sections: parsed.sections || [],
-      conclusion,
-      crossDimensionAnalysis: crossDimensionText || undefined,
-      riskAssessment: riskText || undefined,
-      strategicRecommendations: stratText || undefined,
+      executiveSummary: sanitizeSectionOutput(executiveSummary),
+      sections: (parsed.sections || []).map((section) => ({
+        ...section,
+        content: section.content
+          ? sanitizeSectionOutput(section.content)
+          : section.content,
+      })),
+      conclusion: sanitizeSectionOutput(conclusion),
+      crossDimensionAnalysis: crossDimensionText
+        ? sanitizeSectionOutput(crossDimensionText)
+        : undefined,
+      riskAssessment: riskText ? sanitizeSectionOutput(riskText) : undefined,
+      strategicRecommendations: stratText
+        ? sanitizeSectionOutput(stratText)
+        : undefined,
       appendices: parsed.appendices || [],
       references: parsed.references || [],
       metadata: {

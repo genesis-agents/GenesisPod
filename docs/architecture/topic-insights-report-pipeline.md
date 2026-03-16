@@ -1,10 +1,13 @@
 # Topic Insights 报告生成管线 — 全链路基线文档
 
-> 版本: 1.0 | 日期: 2026-03-16 | 维护者: Claude Code
+> 版本: 2.0 | 日期: 2026-03-16 | 维护者: Claude Code
+> 基于代码 commit: `790ca01a2`
 
 ## 概览
 
-Topic Insights 报告生成是一个多阶段、多 LLM 调用的管线，从用户创建话题到最终报告输出共 9 个环节、15+ 个处理步骤。
+Topic Insights 报告生成是一个多阶段、多 LLM 调用的管线，从用户创建话题到最终报告输出共 7 个环节。
+
+**三道铁墙架构**：在管线中设置三道清理关卡，无论 LLM 输出什么内容，最终报告不会包含垃圾。
 
 ```
 用户创建话题
@@ -13,9 +16,11 @@ Topic Insights 报告生成是一个多阶段、多 LLM 调用的管线，从用
     ↓
 [环节2] 多维度并行执行
     ├─ [2.1] 搜索 → evidence 收集
-    ├─ [2.2] Leader 规划维度 outline（keyPoints, sections）
+    ├─ [2.2] Leader 规划 outline（keyPoints, sections）
     ├─ [2.3] Section Writer 生成各章节
-    │   ├─ parseChartOutput 分离 markdown/JSON
+    │   ├─ extractContent() → 去除 markdown 代码块包装
+    │   ├─ parseChartOutput() → 分离 markdown/JSON
+    │   ├─ ★ 第一道铁墙: sanitizeSectionOutput() → 清理 JSON/元注释/指令泄漏
     │   ├─ QualityGate 检查/修复
     │   └─ Section revision（如需）
     ├─ [2.4] Leader 整合维度内容
@@ -23,174 +28,191 @@ Topic Insights 报告生成是一个多阶段、多 LLM 调用的管线，从用
     └─ [2.6] 分析结果转换
     ↓
 [环节3] Report Synthesis（跨维度合成）
-    ├─ 前言、执行摘要
-    ├─ 跨维度分析、风险评估、战略建议
-    └─ 结语
     ↓
 [环节4] 报告组装 assembleFullReport
     ├─ processDimensionContent（每维度规范化）
-    ├─ 拼接所有内容
+    │   ├─ stripLeadingHeading
+    │   ├─ stripChartJsonFromContent
+    │   ├─ ★ 第二道铁墙: stripLeadingBulletLists() + sanitizeSectionOutput()
+    │   ├─ formatDimensionContent（标题编号、去重、截断）
+    │   └─ resolveChartPlaceholders（图片位置插入）← 在铁墙之后执行
+    ├─ 拼接所有维度 + 补充内容
     └─ 参考文献生成
     ↓
 [环节5] postProcessFinalReport 后处理
+    ├─ 20+ 步格式修复
+    └─ ★ 第三道铁墙: stripLeadingBulletLists() + sanitizeSectionOutput()
+         + stripCitationStacking() + replaceMarketingLanguage()
     ↓
-[环节6] outputReview 质量审查
+[环节6] outputReview 质量审查（只评分不修改）
     ↓
 [环节7] 保存到数据库
 ```
 
 ---
 
+## 铁墙架构详解
+
+### 铁墙函数（`utils/sanitize-output.utils.ts`）
+
+| 函数                         | 作用                                         | 策略                                      |
+| ---------------------------- | -------------------------------------------- | ----------------------------------------- |
+| `sanitizeSectionOutput()`    | 清理 JSON 残留、元注释、指令泄漏、错误图片等 | **黑名单过滤**：匹配已知的垃圾模式并删除  |
+| `stripLeadingBulletLists()`  | 删除 H2/H3 标题后紧跟的 3+ bullet list       | **结构检测**：识别 heading → bullets 模式 |
+| `stripCitationStacking()`    | 单句 3+ 连续引用 → 保留前 2 个               | **正则替换**                              |
+| `replaceMarketingLanguage()` | 营销话术替换为中性表述                       | **正则替换**                              |
+
+### `sanitizeSectionOutput` 黑名单规则
+
+| 规则                   | 匹配模式                           | 示例                                   |
+| ---------------------- | ---------------------------------- | -------------------------------------- |
+| JSON 属性行            | `"key": value`（不含 5+ 中文字符） | `"figureId": "FIG-8"`                  |
+| 孤立 JSON 符号         | `^[\]}{,]+$`                       | `}` `]`                                |
+| 方括号元注释           | `[字数...] [图表...] [待定...]`    | `[字数约1520字]`                       |
+| 字数统计行             | `字数统计：约N字`                  | `字数统计：约 1580 字`                 |
+| 圆括号元注释           | `（注：...） （不含...）`          | `（注：本输出严格基于...）`            |
+| 内部配置说明           | `以下是...图表/配置/引用`          | `**以下是本维度使用的图表引用配置**：` |
+| Figure References 标签 | `Figure References [`              | `figureReferences [`                   |
+| 错误图片格式           | `!(url)`                           | `!(https://example.com/img.png)`       |
+| 裸 URL 行              | `^https://...`                     | 独立行的 URL                           |
+
+### 三道铁墙执行位置
+
+| 铁墙       | 执行位置                                              | 代码文件:行号                       | 输入                           |
+| ---------- | ----------------------------------------------------- | ----------------------------------- | ------------------------------ |
+| **第一道** | section-writer.service.ts parseChartOutput 之后       | section-writer.service.ts:336-337   | 单个 section 的 LLM 原始输出   |
+| **第二道** | processDimensionContent resolveChartPlaceholders 之前 | report-assembler.service.ts:179-180 | 维度完整内容（含所有 section） |
+| **第三道** | postProcessFinalReport 最后                           | report-assembler.service.ts:837-841 | 完整报告 markdown              |
+
+**关键约束**：第二道铁墙必须在 `resolveChartPlaceholders` 之前执行，因为删除 bullets 会改变段落编号，影响图片插入位置。
+
+---
+
 ## 环节详解
 
-### 环节1: Leader 规划全局维度
+### 环节1: Leader 规划维度
 
-| 项目         | 内容                                                                 |
-| ------------ | -------------------------------------------------------------------- |
-| **Service**  | `services/core/leader/leader-planning.service.ts` → `planResearch()` |
-| **Prompt**   | `prompts/research-leader.prompt.ts` → `LEADER_PLAN_PROMPT`           |
-| **输入**     | topic name, description, type, language                              |
-| **输出**     | `LeaderPlan { dimensions[], globalOutline }`                         |
-| **清理**     | 无                                                                   |
-| **污染风险** | 低 — LLM 输出结构化 JSON                                             |
+| 项目        | 内容                                                                 |
+| ----------- | -------------------------------------------------------------------- |
+| **Service** | `services/core/leader/leader-planning.service.ts` → `planResearch()` |
+| **Prompt**  | `prompts/research-leader.prompt.ts` → `LEADER_PLAN_PROMPT`           |
+| **输入**    | topic name, description, type, language                              |
+| **输出**    | `LeaderPlan { dimensions[], globalOutline }`                         |
+| **铁墙**    | 无（低风险）                                                         |
 
 ### 环节2.1: 搜索阶段
 
-| 项目         | 内容                                                                      |
-| ------------ | ------------------------------------------------------------------------- |
-| **Service**  | `services/dimension/dimension-search.service.ts` → `executeSearchPhase()` |
-| **输入**     | topic, dimension, searchQueries                                           |
-| **输出**     | `SearchPhaseResult { evidenceData[], evidenceSummary, figureRegistry }`   |
-| **清理**     | `DataEnrichmentService` 抓取全文时过滤 HTML/二进制                        |
-| **污染风险** | 中 — fullContent 可能含 HTML 残留、过大 PDF 内容                          |
+| 项目        | 内容                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------- |
+| **Service** | `services/dimension/dimension-search.service.ts`                                      |
+| **输入**    | topic, dimension, searchQueries                                                       |
+| **输出**    | `SearchPhaseResult { evidenceData[], figureRegistry }`                                |
+| **清理**    | PDF URL 跳过抓取（search.service.ts）；无关来源标题关键词过滤（filterJunkReferences） |
 
-**子步骤**:
+### 环节2.2: Leader 规划 Outline
 
-1. `DataSourceRouterService.fetchDataForDimension()` → 执行 web/academic/github 等多源搜索
-2. `DataEnrichmentService.enrichSearchResults()` → 抓取 top-N 结果的完整页面内容
-3. `FigureExtractorService` → Vision LLM 提取图表
-4. `createEvidenceSummary()` → 生成证据摘要供 Leader 规划使用
-
-### 环节2.2: Leader 规划维度 Outline
-
-| 项目         | 内容                                                                                                                     |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| **Service**  | `services/core/leader/leader-planning.service.ts` → `planDimensionOutline()`                                             |
-| **Prompt**   | `prompts/research-leader.prompt.ts` → `DIMENSION_OUTLINE_PROMPT`                                                         |
-| **输入**     | topic, dimension, evidenceSummary, figuresSummary, otherDimensions                                                       |
-| **输出**     | `DimensionOutline { sections[{ id, title, description, keyPoints[], targetWords, allocatedFigures[] }], executionPlan }` |
-| **清理**     | `validateAllocatedFigures()` 校验图表 ID 合法性                                                                          |
-| **污染风险** | 中 — keyPoints 可能含序号前缀、description 可能含元注释                                                                  |
+| 项目        | 内容                                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| **Service** | `services/core/leader/leader-planning.service.ts` → `planDimensionOutline()`                          |
+| **输出**    | `DimensionOutline { sections[{ title, description, keyPoints[], targetWords, allocatedFigures[] }] }` |
+| **清理**    | `validateAllocatedFigures()` 校验图表 ID                                                              |
 
 **keyPoints 数据流**:
 
 ```
 Leader LLM → outline.sections[].keyPoints (字符串数组)
     ↓
-SectionWriterService.writeSection() 行 148-162
-    → 格式化为 "point1；point2；point3。"
+section-writer.service.ts 行 149-159
+    → 去除序号前缀 + 格式化为编号列表 "1. xxx\n2. yyy\n3. zzz"
     ↓
 渲染到 SECTION_WRITING_USER_PROMPT_TEMPLATE 的 {{keyPoints}}
+    → prompt 说明"以下方向应自然融入段落论述，不要在开头罗列"
     ↓
-Section Writer LLM 看到 keyPoints 并生成内容
+Section Writer LLM 生成内容
+    → LLM 可能仍然输出 bullets（由铁墙清理）
 ```
 
-### 环节2.3: Section Writer 生成章节
+### 环节2.3: Section Writer 生成章节 ★ 最高风险
 
-| 项目         | 内容                                                                                                              |
-| ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| **Service**  | `services/dimension/section-writer.service.ts` → `writeSection()`                                                 |
-| **Prompt**   | `prompts/dimension-research.prompt.ts` → `SECTION_WRITING_SYSTEM_PROMPT` + `SECTION_WRITING_USER_PROMPT_TEMPLATE` |
-| **输入**     | section (title, keyPoints, targetWords), evidenceData[], previousSections, allocatedFigures, temporalContext      |
-| **输出**     | `SectionWriteResult { content, figureReferences[], generatedCharts[] }`                                           |
-| **清理**     | `extractContent()` 去除 ```markdown 包装; `parseChartOutput()` 分离 JSON                                          |
-| **污染风险** | **高** — LLM 输出最不可控的环节                                                                                   |
+| 项目        | 内容                                                                    |
+| ----------- | ----------------------------------------------------------------------- |
+| **Service** | `services/dimension/section-writer.service.ts` → `writeSection()`       |
+| **Prompt**  | 精简版（6 条正面规则，无禁止规则）                                      |
+| **输出**    | `SectionWriteResult { content, figureReferences[], generatedCharts[] }` |
 
-**LLM 可能输出的污染内容**:
+**Prompt 设计原则**：只保留 LLM 能遵守的正面指令，不再使用"禁止"规则。
 
-- Chart JSON 块未使用 `---CHARTS---` 分隔符
-- 裸 keyPoints bullet list
-- 字数统计 `[字数约1520字]`
-- 内部指令回显 `（注：本输出严格基于...）`
-- 图表配置说明 `以下是本维度使用的图表引用配置`
-- 占位符 `[图表引用待定]`
-- 营销话术
-- 引用堆积 `[1][2][3][4][5]`
-- 孤立 JSON 符号 `]` `}` `{`
+当前写作风格规则（6 条）：
 
-### 环节2.3.1: parseChartOutput
+```
+- 专业、客观、简洁
+- 用具体数据和事实说话，用 [N] 格式引用证据
+- 全文以段落论述为主体，每段 100-300 字
+- 有序列表用 1. 2. 3. 格式，无序列表用 - 格式
+- 段落中可适当使用加粗强调关键术语
+- 禁止使用 HTML 标签、HTML 实体、伪代码
+```
 
-| 项目         | 内容                                                                 |
-| ------------ | -------------------------------------------------------------------- |
-| **函数**     | `section-writer.service.ts` 行 990-1063 → `parseChartOutput()`       |
-| **输入**     | LLM 原始输出                                                         |
-| **输出**     | `{ markdown, charts }`                                               |
-| **清理**     | 按 `---CHARTS---` 分隔符分离; `stripChartJsonFromContent()` 兜底清理 |
-| **污染风险** | **高** — LLM 不使用分隔符时，JSON 会残留在 markdown 中               |
+**LLM 输出处理链**：
 
-### 环节2.3.2: QualityGate 检查
+````
+LLM 原始输出
+  ↓ extractContent() — 去除 ```markdown 包装
+  ↓ parseChartOutput() — 分离 markdown 和 chart JSON
+  ↓ ★ 第一道铁墙: sanitizeSectionOutput() — 清理垃圾行
+  ↓ 内容长度检查（< minLength 则抛异常触发重试）
+  ↓ 返回 SectionWriteResult
+````
+
+### 环节2.3.1: QualityGate 检查
 
 | 项目         | 内容                                                                             |
 | ------------ | -------------------------------------------------------------------------------- |
 | **Service**  | `services/quality/report-quality-gate.service.ts` → `validateDimensionContent()` |
-| **输入**     | section content (单个 section 的 markdown)                                       |
-| **输出**     | `QualityCheckResult { passed, violations[], fixedContent, rewriteGuidance[] }`   |
+| **输入**     | 第一道铁墙清理后的 section content                                               |
 | **调用位置** | `dimension-mission.service.ts` 行 1554                                           |
 
-**清理步骤（按顺序）**:
+**QualityGate 职责（精简后）**：
 
-1. `sanitizeHeadingLevels()` — H1/H2 → H3
-2. `removeHorizontalRules()` — 删除 `---`
-3. `limitBoldFormatting()` — 限制加粗数量
-4. `limitBlockquotes()` — 限制引用块
-5. `stripLLMMetaNotes()` — 清理字数统计、角色声明等
-6. `stripInternalFigureNotation()` — 清理图表标注
-7. `validateAndFixLatex()` — 修复 LaTeX
-8. `deduplicateHeadings()` — 去重标题
-9. `stripChartJsonFromContent()` — 清理 JSON 残留
-10. 内联图片清理 — `![alt](url)` 和 `!(url)`
-11. 引用堆积拆分 — 3+ 连续引用保留前 2 个
-12. 裸 keyPoints 删除 — ### 后 3+ bullets 自动删除
-13. 数量声明不匹配检测 — 触发 rewrite
-14. 营销话术替换 — 替换为中性表述
+- **格式规范化**：标题层级、分割线、加粗密度、引用块
+- **清理**：stripLLMMetaNotes、stripInternalFigureNotation、stripChartJsonFromContent
+- **检测并触发 rewrite**：数量声明不匹配、语言一致性、内容过短
+- **自动删除**：裸 keyPoints（### 后 3+ bullets）、引用堆积（3+ → 保留前 2）、营销话术
 
-**⚠️ 已知盲区**:
-
-- 只检查 `### ` 标题后的 bullets，不检查 `## ` 标题后的
-- `validateDimensionContent` 处理的是单个 section 内容，**不含 section 标题**（标题在 assembler 中拼入）
-- dimension 级别的 keyFindings bullets 不经过 QualityGate
+**注意**：QualityGate 处理的是单个 section 内容。dimension 级别的 bullets 由第二道铁墙处理。
 
 ### 环节2.4: Leader 整合维度内容
 
-| 项目         | 内容                                                                                |
-| ------------ | ----------------------------------------------------------------------------------- |
-| **Service**  | `services/core/research/research-leader.service.ts` → `integrateDimensionResults()` |
-| **输入**     | dimension info, sectionResults[]                                                    |
-| **输出**     | `IntegratedDimensionResult { content, metadata { summary, keyFindings[] } }`        |
-| **清理**     | 无                                                                                  |
-| **污染风险** | 中 — LLM 可能在整合时引入新的格式问题                                               |
-
-**关键**: `keyFindings` 是一个字符串数组，在 assembler 中可能被拼为 bullet list。
+| 项目        | 内容                                                                                |
+| ----------- | ----------------------------------------------------------------------------------- |
+| **Service** | `services/core/research/research-leader.service.ts` → `integrateDimensionResults()` |
+| **输入**    | sectionResults[]                                                                    |
+| **输出**    | `IntegratedDimensionResult { content, metadata { summary, keyFindings[] } }`        |
+| **铁墙**    | ✅ `sanitizeSectionOutput()` on fullContent（所有 3 个返回路径）                    |
 
 ### 环节2.5: 证据保存 + 引用重映射
 
-| 项目         | 内容                                                                       |
-| ------------ | -------------------------------------------------------------------------- |
-| **函数**     | `dimension-mission.service.ts` → `saveEvidence()` + `replaceEvidenceIds()` |
-| **输入**     | evidenceData[], integratedResult.content                                   |
-| **输出**     | 内容中 `[promptIndex]` → `[dbCitationIndex]`                               |
-| **清理**     | 无（纯数字替换）                                                           |
-| **污染风险** | 低 — 但如果 promptIndex 体系与实际 evidence 不一致，引用会错位             |
+| 项目     | 内容                                      |
+| -------- | ----------------------------------------- |
+| **函数** | `saveEvidence()` + `replaceEvidenceIds()` |
+| **作用** | `[promptIndex]` → `[dbCitationIndex]`     |
+| **清理** | 无（纯数字替换）                          |
+
+**引用编号体系**：
+
+- 每个 section 的 evidence 通过 `filterEvidenceForSection` 过滤，保留 `promptIndex`（全局位置）
+- `formatEvidenceForPrompt` 使用 `promptIndex` 编号（不再从 1 重新编号）
+- `replaceEvidenceIds` 将 promptIndex 映射到 DB citationIndex
 
 ### 环节3: Report Synthesis
 
-| 项目         | 内容                                                                                                                               |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Service**  | `services/report/report-synthesis.service.ts` → `synthesizeReport()`                                                               |
-| **输入**     | 所有维度的 DimensionAnalysisInput[]                                                                                                |
-| **输出**     | `SupplementaryContent { preface, executiveSummary, crossDimensionAnalysis, riskAssessment, strategicRecommendations, conclusion }` |
-| **清理**     | `normalizeReportResponse()` 将补充内容独立存储（不拼入 conclusion）                                                                |
-| **污染风险** | 中 — 每个补充部分都是 LLM 生成，可能含元注释/格式问题                                                                              |
+| 项目        | 内容                                                                                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Service** | `services/report/report-synthesis.service.ts` → `synthesizeReport()`                                                                    |
+| **输出**    | `SupplementaryContent { preface, executiveSummary, crossDimensionAnalysis, riskAssessment, strategicRecommendations, conclusion }`      |
+| **铁墙**    | ✅ `sanitizeSectionOutput()` on preface, executiveSummary, conclusion, crossDimensionAnalysis, riskAssessment, strategicRecommendations |
+
+**补充内容独立存储**：crossDimensionAnalysis、riskAssessment、strategicRecommendations 作为 ComprehensiveReport 的独立字段，不再拼入 conclusion（防止重复）。
 
 ### 环节4: 报告组装
 
@@ -198,172 +220,120 @@ Section Writer LLM 看到 keyPoints 并生成内容
 | ----------- | ---------------------------------------------------------------------- |
 | **Service** | `services/report/report-assembler.service.ts` → `assembleFullReport()` |
 | **输入**    | topic, dimensionInputs[], supplementaryContent                         |
-| **输出**    | 完整 markdown 报告                                                     |
 
-**组装顺序**:
+**processDimensionContent 管道**（当前实际执行顺序）：
 
 ```
-# 标题
-> 生成时间
-## 前言
-## 执行摘要
-## 目录
-## 1. 维度1
-  [keyFindings bullets]    ← ⚠️ 从 dimensionInput.keyFindings 生成
-  [detailedContent]        ← 经过 processDimensionContent 处理
-## 2. 维度2
-  ...
-## 跨维度关联分析
-## 风险评估
-## 战略建议
-## 结语
-# 参考文献
+1. stripLeadingHeading — 去除前导标题
+2. stripChartJsonFromContent — 去除 Chart JSON
+3. ★ 第二道铁墙:
+   a. stripLeadingBulletLists — 删除 heading 后的裸 bullets
+   b. sanitizeSectionOutput — 黑名单清理
+4. formatDimensionContent（委托给共享管道）:
+   a. sanitizeHeadingLevels
+   b. deduplicateHeadings
+   c. numberSubHeadings
+   d. hierarchicalNumberBoldListItems
+   e. deduplicateParagraphs
+   f. 截断（MAX_DIMENSION_CHARS）
+   g. resolveChartPlaceholders ← 在铁墙之后，段落编号正确
+   h. stripInternalFigureNotation
+   i. stripLLMMetaNotes
 ```
 
-**processDimensionContent 管道**（12 步清理）:
+**图片位置规则**：
 
-1. stripLeadingHeading
-2. stripChartJsonFromContent
-3. stripLLMMetaNotes
-4. sanitizeHeadingLevels
-5. deduplicateHeadings
-6. numberSubHeadings
-7. hierarchicalNumberBoldListItems
-8. deduplicateParagraphs
-9. 截断（MAX_DIMENSION_CHARS）
-10. resolveChartPlaceholders
-11. stripInternalFigureNotation
-12. stripLLMMetaNotes（二次清理）
+- `figureReferences[].position` 格式为 `"after_paragraph_N"`（1-based）
+- `injectChartsByPosition` 扫描段落结束点（非空行后跟空行的位置）
+- 在第 N 个段落结束点后插入 `<!-- chart:dimX-secY-figZ -->`
+- 无明确位置时均匀分布
 
-**⚠️ 关键盲区**: `## N. 维度名` 后面拼入的 keyFindings bullets **不经过任何清理**。
+**参考文献生成**：
+
+- 只包含 fullReport 中被 `[N]` 引用的来源
+- `filterJunkReferences`：域名黑名单 + 标题关键词黑名单（biopolymer、microalgae 等）
+- 标题截断 150 字
+- 无访问日期
 
 ### 环节5: postProcessFinalReport
 
-| 项目        | 内容                                                                       |
-| ----------- | -------------------------------------------------------------------------- |
-| **Service** | `services/report/report-assembler.service.ts` → `postProcessFinalReport()` |
-| **输入**    | 完整 markdown                                                              |
-| **输出**    | 最终 markdown                                                              |
+| 项目        | 内容                                                       |
+| ----------- | ---------------------------------------------------------- |
+| **Service** | `report-assembler.service.ts` → `postProcessFinalReport()` |
 
-**处理步骤**:
+**处理步骤**（关键步骤）：
 
 1. 移除残余 figure 占位符
 2. stripInternalFigureNotation
 3. stripLLMMetaNotes
 4. repairTruncatedBlockquoteBullets
 5. decodeHtmlEntities
-6. fixDoubleSourceLabels
-7. repairBrokenListItems
-8. clearBrokenMediaAndEmptyBlocks
-9. repairMarkdownTables
-10. ensureBlankLineAfterTables
-11. extractTableFootnotes
-12. splitWallOfText
-13. detectAndPromoteHeadings
-14. deduplicateHeadingEcho
-15. repairOrderedListContinuity
-16. collapsePseudoCodeHeadings
-17. bold-only → ### 标题转换
-18. 双重 ### 修复
-19. 空引用 [] 清理
-20. 三连空行压缩
-21. wrapPseudoCodeBlocks
-22. collapseExcessSubHeadings
-23. removeEmptyHeadings
+6. repairBrokenListItems / clearBrokenMediaAndEmptyBlocks
+7. repairMarkdownTables / ensureBlankLineAfterTables
+8. splitWallOfText（拆分超长段落）
+9. detectAndPromoteHeadings / deduplicateHeadingEcho
+10. bold-only → ### 标题转换
+11. 双重 ### 修复
+12. 空引用 `[]` 清理
+13. 三连空行压缩
+14. wrapPseudoCodeBlocks / collapseExcessSubHeadings / removeEmptyHeadings
+15. **★ 第三道铁墙**：
+    - `stripLeadingBulletLists()` — 全文删除 heading 后裸 bullets
+    - `sanitizeSectionOutput()` — 黑名单清理
+    - `stripCitationStacking()` — 引用堆积拆分
+    - `replaceMarketingLanguage()` — 营销话术替换
 
-### 环节6: outputReview
+### 环节6-7: outputReview + 保存
 
-| 项目        | 内容                                                          |
-| ----------- | ------------------------------------------------------------- |
-| **Service** | `ai-engine/orchestration/services/output-reviewer.service.ts` |
-| **输入**    | 报告前 5000 字符                                              |
-| **输出**    | `ReviewResult { score, passed, feedback }`                    |
-| **清理**    | 无 — 只评分不修改                                             |
-
-### 环节7: 保存到数据库
-
-| 项目        | 内容                                                           |
-| ----------- | -------------------------------------------------------------- |
-| **Service** | `services/report/report-synthesis.service.ts`                  |
-| **数据**    | fullReport, executiveSummary, highlights, qualityTrace, charts |
+- outputReview 通过 `generateChatCompletion` 统一走 Secret Manager 获取 API key
+- 报告保存到 `topic_reports` 表的 `full_report` 字段
 
 ---
 
-## 清理函数调用矩阵
+## 清理函数调用矩阵（当前实际状态）
 
-| 清理函数                    | 环节2.3 QualityGate | 环节4 processDimContent | 环节5 postProcess |
-| --------------------------- | ------------------- | ----------------------- | ----------------- |
-| stripChartJsonFromContent   | ✅                  | ✅                      | ❌                |
-| stripLLMMetaNotes           | ✅                  | ✅×2                    | ✅                |
-| stripInternalFigureNotation | ✅                  | ✅                      | ✅                |
-| sanitizeHeadingLevels       | ✅                  | ✅                      | ❌                |
-| deduplicateHeadings         | ❌                  | ✅                      | ❌                |
-| numberSubHeadings           | ❌                  | ✅                      | ❌                |
-| deduplicateParagraphs       | ❌                  | ✅                      | ❌                |
-| bold-only → ###             | ❌                  | ❌                      | ✅                |
-| 双重 ### 修复               | ❌                  | ❌                      | ✅                |
-| 空引用清理                  | ❌                  | ❌                      | ✅                |
-| 裸 keyPoints 删除           | ✅ (仅 ###)         | ❌                      | ❌                |
-| 引用堆积拆分                | ✅                  | ❌                      | ❌                |
-| 营销话术替换                | ✅                  | ❌                      | ❌                |
-
----
-
-## 已知污染路径
-
-### 路径 A: keyFindings bullets 绕过清理
-
-```
-环节2.4 integrateDimensionResults
-  → metadata.keyFindings = ["finding1", "finding2", ...]
-    ↓
-环节4 assembleFullReport
-  → parts.push(`## N. 维度名\n`)
-  → parts.push(processed)   ← detailedContent 已清理
-    但 keyFindings 如果在 detailedContent 开头作为 bullets，
-    它们经过了 processDimensionContent 清理（包含 stripLLMMetaNotes）
-    但 processDimensionContent 不删除 bullets
-```
-
-### 路径 B: Section Writer LLM 输出不可控
-
-```
-环节2.3 Section Writer LLM
-  → 输出包含裸 keyPoints, JSON, 字数统计, 指令回显等
-    ↓
-环节2.3.1 parseChartOutput
-  → 只处理 ---CHARTS--- 分隔的 JSON
-  → 内联 JSON 残留
-    ↓
-环节2.3.2 QualityGate
-  → 清理已知模式，但 LLM 变体无穷
-  → 裸 keyPoints 自动删除只查 ### 不查内容开头
-```
-
-### 路径 C: Synthesis 补充内容未清理
-
-```
-环节3 Report Synthesis LLM
-  → crossDimensionAnalysis, riskAssessment 等
-  → 可能含 bold-only 标题、元注释
-    ↓
-环节4 assembleFullReport
-  → supplementary 内容通过 extractMarkdownFromJsonString + stripLLMMetaNotes
-  → 但不经过完整的 processDimensionContent 管道
-```
+| 清理函数                    | 第一道铁墙（section） | 第二道铁墙（dimension） | processDimContent | 第三道铁墙（report） |
+| --------------------------- | --------------------- | ----------------------- | ----------------- | -------------------- |
+| sanitizeSectionOutput       | ✅                    | ✅                      | —                 | ✅                   |
+| stripLeadingBulletLists     | —                     | ✅                      | —                 | ✅                   |
+| stripCitationStacking       | —                     | —                       | —                 | ✅                   |
+| replaceMarketingLanguage    | —                     | —                       | —                 | ✅                   |
+| stripChartJsonFromContent   | —                     | —                       | ✅                | —                    |
+| stripLLMMetaNotes           | —                     | —                       | ✅×2              | ✅                   |
+| stripInternalFigureNotation | —                     | —                       | ✅                | ✅                   |
+| sanitizeHeadingLevels       | —                     | —                       | ✅                | —                    |
+| numberSubHeadings           | —                     | —                       | ✅                | —                    |
+| resolveChartPlaceholders    | —                     | —                       | ✅（在铁墙后）    | —                    |
+| deduplicateParagraphs       | —                     | —                       | ✅                | —                    |
+| bold-only → ###             | —                     | —                       | —                 | ✅                   |
+| 双重 ### 修复               | —                     | —                       | —                 | ✅                   |
+| 空引用清理                  | —                     | —                       | —                 | ✅                   |
 
 ---
 
-## 质量改进方向
+## 铁墙覆盖完整性
 
-基于以上链路分析，质量改进应聚焦以下环节：
+所有环节均已集成铁墙清理，无遗漏：
 
-1. **环节2.3 Section Writer** — 这是污染的源头，LLM 输出最不可控
-2. **环节4 assembleFullReport** — keyFindings bullets 拼入时缺少清理
-3. **环节5 postProcessFinalReport** — 最后一道防线，应该是铁墙
-
-**核心原则**: 不试图控制 LLM 行为（prompt 规则越多 LLM 表现越差），而是在 postProcess 铁墙中兜底清理所有已知污染模式。
+| 环节                          | 清理函数                                                                                                                        | 状态      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2.2 planDimensionOutline      | `stripLLMMetaNotes()` on section.description                                                                                    | ✅ 已集成 |
+| 2.3 Section Writer            | `sanitizeSectionOutput()` — 第一道铁墙                                                                                          | ✅ 已集成 |
+| 2.4 integrateDimensionResults | `sanitizeSectionOutput()` on fullContent                                                                                        | ✅ 已集成 |
+| 3 normalizeReportResponse     | `sanitizeSectionOutput()` on preface/executiveSummary/conclusion/crossDimension/risk/strat                                      | ✅ 已集成 |
+| 4 processDimensionContent     | `stripLeadingBulletLists()` + `sanitizeSectionOutput()` — 第二道铁墙                                                            | ✅ 已集成 |
+| 5 postProcessFinalReport      | `stripLeadingBulletLists()` + `sanitizeSectionOutput()` + `stripCitationStacking()` + `replaceMarketingLanguage()` — 第三道铁墙 | ✅ 已集成 |
 
 ---
 
-_最后更新: 2026-03-16_
+## API Key 解析架构
+
+所有 LLM 调用统一通过 Secret Manager 获取 API key：
+
+- `AiChatModelConfigService.getApiKeyForModel()` — 优先 secretKey → Secret Manager
+- `ai_models.api_key` 明文字段已清空（migration `20260315_clear_plaintext_api_keys`）
+- Facade 层 `getModelById()` / `getFullModelConfig()` 通过 `resolveApiKey()` 解析
+
+---
+
+_最后更新: 2026-03-16 v2.0_

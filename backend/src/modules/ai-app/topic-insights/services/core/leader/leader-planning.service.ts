@@ -22,6 +22,7 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { sanitize } from "../../../utils/prompt-sanitizer";
+import { stripLLMMetaNotes } from "../../../../shared/report-template/pipeline/report-formatting.utils";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
 import { formatAnchorContentForPrompt } from "../../../utils/event-source-parser.utils";
 import {
@@ -872,6 +873,13 @@ export class LeaderPlanningService {
             this.logger.log(
               `[planDimensionOutline] targetWords normalized: median=${median}, allowed=[${minAllowed}, ${maxAllowed}], final=[${outline.sections.map((s) => s.targetWords).join(", ")}]`,
             );
+          }
+
+          // ★ 清理 section.description 中的元注释（如「不含要点和参考」）
+          for (const section of outline.sections) {
+            if (section.description) {
+              section.description = stripLLMMetaNotes(section.description);
+            }
           }
 
           // ★ 诊断日志：记录每个 section 的 allocatedFigures 分配情况

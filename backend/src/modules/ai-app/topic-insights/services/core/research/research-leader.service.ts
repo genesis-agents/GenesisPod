@@ -18,6 +18,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
+import { sanitizeSectionOutput } from "../../../utils/sanitize-output.utils";
 import { LeaderActionResult } from "../../data/leader-tool.service";
 import { LeaderPlanningService } from "../leader/leader-planning.service";
 import { LeaderIntentService } from "../leader/leader-intent.service";
@@ -276,7 +277,7 @@ export class ResearchLeaderService {
 
     // 如果只有一个章节，直接返回（但仍提取关键发现）
     if (sectionResults.length === 1) {
-      const content = sectionResults[0].content;
+      const content = sanitizeSectionOutput(sectionResults[0].content);
       const keyFindings = this.extractKeyFindingsFromContent(content);
       return {
         content,
@@ -299,9 +300,10 @@ export class ResearchLeaderService {
 
     // 如果没有推理模型，使用简单拼接（但仍提取关键发现）
     if (!leaderModel) {
-      const keyFindings = this.extractKeyFindingsFromContent(sectionsContent);
+      const cleaned = sanitizeSectionOutput(sectionsContent);
+      const keyFindings = this.extractKeyFindingsFromContent(cleaned);
       return {
-        content: sectionsContent,
+        content: cleaned,
         metadata: {
           summary: `关于"${dimension.name}"的分析报告。`,
           keyFindings,
@@ -313,7 +315,8 @@ export class ResearchLeaderService {
     }
 
     // ★ 保留完整章节内容（不压缩），仅用AI提取摘要和关键发现
-    const fullContent = sectionsContent;
+    // ★ 铁墙清理：整合后的内容再执行一次清理
+    const fullContent = sanitizeSectionOutput(sectionsContent);
     const totalWords = fullContent.length;
 
     // 用AI提取摘要和关键发现（但不重写正文）
@@ -463,5 +466,4 @@ ${fullContent.substring(0, 8000)}
     // 去重并限制数量
     return [...new Set(findings)].slice(0, 5);
   }
-
 }

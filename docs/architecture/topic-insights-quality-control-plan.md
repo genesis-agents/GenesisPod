@@ -49,12 +49,12 @@
 **输入**: topic, dimension, evidenceSummary
 **输出**: outline.sections[{ title, description, keyPoints[], targetWords }]
 
-| 控制点           | 要求               | 现状                               | 措施                                                                             |
-| ---------------- | ------------------ | ---------------------------------- | -------------------------------------------------------------------------------- |
-| keyPoints 格式   | 短句，无序号前缀   | ⚠️ 偶有序号                        | **措施 B1**: 已有 normalize（去序号前缀），保留                                  |
-| keyPoints 数量   | 3-6 个/section     | ✅ prompt 已约束                   | 无需修改                                                                         |
-| description 内容 | 分析问题，无元注释 | ❌ 偶含 `（不含要点和参考）`       | **措施 B2**: outline 解析后对每个 section.description 执行 `stripLLMMetaNotes()` |
-| allocatedFigures | figureId 合法      | ✅ validateAllocatedFigures 已校验 | 无需修改                                                                         |
+| 控制点           | 要求               | 现状                               | 措施                                                                                |
+| ---------------- | ------------------ | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| keyPoints 格式   | 短句，无序号前缀   | ✅ normalize 去序号前缀            | 已实现                                                                              |
+| keyPoints 数量   | 3-6 个/section     | ✅ prompt 已约束                   | 无需修改                                                                            |
+| description 内容 | 分析问题，无元注释 | ✅ 已集成 `stripLLMMetaNotes()`    | **措施 B2**: outline 解析后对每个 section.description 执行 `stripLLMMetaNotes()` ✅ |
+| allocatedFigures | figureId 合法      | ✅ validateAllocatedFigures 已校验 | 无需修改                                                                            |
 
 ---
 
@@ -160,10 +160,10 @@ function sanitizeSectionOutput(content: string): string {
 **输入**: sectionResults[]
 **输出**: integratedResult { content, metadata.keyFindings[] }
 
-| 控制点           | 要求              | 现状                    | 措施                                                    |
-| ---------------- | ----------------- | ----------------------- | ------------------------------------------------------- |
-| content 质量     | 各 section 已清理 | ⚠️ 整合时可能引入新问题 | **措施 E1**: 整合后再执行一次 `sanitizeSectionOutput()` |
-| keyFindings 格式 | 字符串数组        | ✅                      | 无需修改                                                |
+| 控制点           | 要求              | 现状                                | 措施                                                           |
+| ---------------- | ----------------- | ----------------------------------- | -------------------------------------------------------------- |
+| content 质量     | 各 section 已清理 | ✅ 已集成 `sanitizeSectionOutput()` | **措施 E1**: 3 个返回路径均已执行 `sanitizeSectionOutput()` ✅ |
+| keyFindings 格式 | 字符串数组        | ✅                                  | 无需修改                                                       |
 
 ---
 
@@ -185,10 +185,10 @@ function sanitizeSectionOutput(content: string): string {
 **输入**: dimensionInputs[]
 **输出**: supplementaryContent { preface, executiveSummary, crossDimensionAnalysis, ... }
 
-| 控制点            | 要求                        | 现状                      | 措施                                                                                  |
-| ----------------- | --------------------------- | ------------------------- | ------------------------------------------------------------------------------------- |
-| 每个补充内容质量  | 纯 markdown，无 JSON/元注释 | ❌ 偶有 bold-only、元注释 | **措施 F1**: 每个补充内容在存入 SupplementaryContent 前执行 `sanitizeSectionOutput()` |
-| conclusion 独立性 | 不含跨维度/风险/建议内容    | ✅ 已修复                 | 无需修改                                                                              |
+| 控制点            | 要求                        | 现状                                | 措施                                                                                   |
+| ----------------- | --------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------- |
+| 每个补充内容质量  | 纯 markdown，无 JSON/元注释 | ✅ 已集成 `sanitizeSectionOutput()` | **措施 F1**: preface/executiveSummary/conclusion/crossDimension/risk/strat 均已清理 ✅ |
+| conclusion 独立性 | 不含跨维度/风险/建议内容    | ✅ 已修复                           | 无需修改                                                                               |
 
 ---
 
