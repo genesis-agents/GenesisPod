@@ -33,6 +33,7 @@ import {
   getDimensionResearchStandards,
 } from "@/modules/ai-app/shared/report-template";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
+import { sanitizeSectionOutput } from "../../utils/sanitize-output.utils";
 import type {
   EvidenceData,
   GeneratedChart,
@@ -145,21 +146,17 @@ export class SectionWriterService {
     // 格式化证据列表
     let evidenceFormatted = formatEvidenceForPrompt(evidenceData);
 
-    // ★ v3.2: 格式化要点为自然语言段落（不使用列表格式，防止 LLM mirror 输入列表）
-    const keyPointsFormatted =
-      section.keyPoints
-        .map((p) => {
-          let normalized = p
-            .replace(
-              /^[第]?[一二三四五六七八九十]+[类层点条项]?[是：:]\s*/u,
-              "",
-            )
-            .replace(/^[类层点条项][是：:]\s*/u, "")
-            .replace(/^[是][：:]\s*/u, "");
-          if (normalized.trim().length < 5) normalized = p;
-          return normalized.trim();
-        })
-        .join("；") + "。";
+    // 格式化要点为编号列表（LLM 理解编号列表更好，裸 bullets 由后处理铁墙删除）
+    const keyPointsFormatted = section.keyPoints
+      .map((p, i) => {
+        let normalized = p
+          .replace(/^[第]?[一二三四五六七八九十]+[类层点条项]?[是：:]\s*/u, "")
+          .replace(/^[类层点条项][是：:]\s*/u, "")
+          .replace(/^[是][：:]\s*/u, "");
+        if (normalized.trim().length < 5) normalized = p;
+        return `${i + 1}. ${normalized.trim()}`;
+      })
+      .join("\n");
 
     // 格式化前置章节：传入所有已写 section，但智能截断控制总量
     let previousContent = "无";
@@ -336,7 +333,8 @@ export class SectionWriterService {
 
     // 解析图表数据
     const { markdown, charts } = this.parseChartOutput(rawContent);
-    const content = markdown;
+    // ★ 第一道铁墙：白名单清理 LLM 输出中的 JSON 残留、元注释、指令泄漏等
+    const content = sanitizeSectionOutput(markdown);
 
     // ★ 检查内容质量（长度检查）
     const minLength = Math.max(

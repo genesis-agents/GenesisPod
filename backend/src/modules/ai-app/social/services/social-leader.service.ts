@@ -341,7 +341,7 @@ export class SocialLeaderService {
    */
   async processSource(userId: string, dto: ProcessSourceDto) {
     this.logger.log(
-      `Processing source: ${dto.sourceType}/${dto.sourceId} for user ${userId}`,
+      `Processing source: ${dto.sourceType}/${dto.sourceId} for user ${userId}, keepFormat=${dto.keepFormat}, targetType=${dto.targetType}`,
     );
 
     // 1. 获取来源内容

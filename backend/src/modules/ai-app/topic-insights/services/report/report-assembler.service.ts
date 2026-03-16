@@ -57,6 +57,12 @@ import {
   collapseExcessSubHeadings,
 } from "@/modules/ai-app/shared/report-template";
 import {
+  sanitizeSectionOutput,
+  stripLeadingBulletLists,
+  stripCitationStacking,
+  replaceMarketingLanguage,
+} from "../../utils/sanitize-output.utils";
+import {
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
 } from "../../utils/strip-chart-json.utils";
@@ -351,12 +357,11 @@ export class ReportAssemblerService {
 
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
-      // ★ Chapter Highlights: LLM is instructed to generate "本章要点" in detailedContent.
-      // Previously the assembler also injected one from keyFindings, causing duplication.
-      // Now we only rely on LLM-generated highlights; normalizeChapterHighlights()
-      // handles dedup if the LLM accidentally produces multiple blocks.
+      // ★ 第二道铁墙：删除维度内容开头的裸 bullet list + 白名单清理
+      let cleanedDim = stripLeadingBulletLists(processed);
+      cleanedDim = sanitizeSectionOutput(cleanedDim);
 
-      parts.push(processed);
+      parts.push(cleanedDim);
       parts.push("\n\n");
     });
 
@@ -828,6 +833,12 @@ export class ReportAssemblerService {
         `Deep headings (h5/h6) count ${deepHeadingCount}, should be 0`,
       );
     }
+
+    // ★ 第三道铁墙：终极兜底清理
+    content = stripLeadingBulletLists(content); // 全文删除 heading 后的裸 bullets
+    content = sanitizeSectionOutput(content); // 白名单过滤
+    content = stripCitationStacking(content); // 引用堆积拆分
+    content = replaceMarketingLanguage(content); // 营销话术替换
 
     if (warnings.length > 0) {
       this.logger.warn(

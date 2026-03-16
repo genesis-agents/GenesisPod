@@ -402,7 +402,7 @@ export class AiSocialController {
     // Log at entry point to verify request reaches backend
     this.logger.log(
       `[process-source] Request received: sourceType=${dto.sourceType}, ` +
-        `sourceId=${dto.sourceId?.substring(0, 8)}..., targetType=${dto.targetType}`,
+        `sourceId=${dto.sourceId?.substring(0, 8)}..., targetType=${dto.targetType}, keepFormat=${dto.keepFormat}`,
     );
     const startTime = Date.now();
 
