@@ -65,8 +65,9 @@ function convertDisplayMath(input: string): string {
   let result = input;
 
   // Phase 1: Multi-line display math starting at line beginning: \[\n formula \n\]
+  // ★ Backslash is mandatory (\[...\]) — plain [ ] must NOT match (breaks \big[...])
   result = result.replace(
-    /^\\?\[\s*\n([\s\S]*?)\n\s*\\?\]\s*$/gm,
+    /^\\\[\s*\n([\s\S]*?)\n\s*\\\]\s*$/gm,
     (_m, inner) => {
       if (/\\[a-zA-Z]/.test(inner)) return `$$\n${inner.trim()}\n$$`;
       return _m;
@@ -82,9 +83,12 @@ function convertDisplayMath(input: string): string {
     return _m;
   });
 
-  // Phase 3: Single-line display math with optional backslash: [ formula ] or \[ formula \]
+  // Phase 3: Single-line display math: \[ formula \]
+  // ★ Backslash is mandatory (\[...\]) — plain [ ] must NOT match.
+  // Without this, \big[...] and other LaTeX bracket constructs get corrupted
+  // into broken $$...$$ display math, causing downstream placeholder leaks.
   // Guard: must contain \command, must not match [text](url) or citation [1]
-  result = result.replace(/\\?\[\s*(.+?)\s*\\?\]/g, (_m, inner) => {
+  result = result.replace(/\\\[\s*(.+?)\s*\\\]/g, (_m, inner) => {
     if (/\\[a-zA-Z]/.test(inner) && !/\]\s*\(/.test(_m)) {
       // Skip citation-like patterns [N] where inner is just digits
       if (/^\d+$/.test(inner.trim())) return _m;
@@ -554,10 +558,15 @@ function wrapBareLatexExpressions(input: string): string {
   }
 
   // Step 4: Restore protected math/code blocks
-  text = text.replace(
-    /\uE010M(\d+)\uE011/g,
-    (_, idx) => mathSlots[parseInt(idx, 10)] ?? _
-  );
+  // ★ Loop to handle nested placeholders: when a restored slot itself contains
+  // another placeholder (e.g. $...\uE010M0\uE011...$), a single pass won't
+  // resolve inner placeholders. Re-scan until no more markers remain.
+  const slotRe = /\uE010M(\d+)\uE011/g;
+  for (let pass = 0; pass < mathSlots.length + 1; pass++) {
+    const before = text;
+    text = text.replace(slotRe, (_, idx) => mathSlots[parseInt(idx, 10)] ?? _);
+    if (text === before) break;
+  }
 
   return text;
 }
