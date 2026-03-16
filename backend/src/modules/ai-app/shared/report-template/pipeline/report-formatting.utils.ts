@@ -3413,8 +3413,9 @@ export function splitEnumerationToList(content: string): string {
   const allMarkers = markerGroups.flat();
 
   // Build a single regex that matches any marker preceded by a boundary
+  // ★ 支持 bold 包裹的枚举：**第一，** 或 **第一层，**
   const markerPattern = new RegExp(
-    `([；;，,。：:！!？?\\s]|^)(${allMarkers.join("|")})`,
+    `([；;，,。：:！!？?\\s]|^)\\*{0,2}(${allMarkers.join("|")})[层，,]?\\*{0,2}`,
     "g",
   );
 
@@ -3459,10 +3460,10 @@ export function splitEnumerationToList(content: string): string {
       const endPos =
         i < matches.length - 1 ? matches[i + 1].index : trimmed.length;
 
-      // Get content after marker, trim leading/trailing punctuation
+      // Get content after marker, trim leading/trailing punctuation and bold markers
       const itemContent = trimmed
         .substring(startAfterMarker, endPos)
-        .replace(/^[，,；;：:]\s*/, "")
+        .replace(/^[，,；;：:\s]*\*{0,2}\s*/, "") // strip bold + punctuation
         .replace(/[；;，,]\s*$/, "")
         .trim();
 
