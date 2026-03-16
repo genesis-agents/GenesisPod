@@ -76,11 +76,11 @@ export class DimensionResearchExecutor implements ITaskExecutor {
         `[DimensionResearchExecutor] Found dimension: ${dimension.name} (${dimension.id})${assignedModelId ? `, model: ${assignedModelId}` : ""}`,
       );
 
-      // ★ 发送进度事件：正在采集数据
+      // ★ 发送进度事件：正在采集数据（planning 阶段 5-15%）
       await this.researchEventEmitter.emitDimensionResearchProgress(
         topic.id,
         dimensionName,
-        30,
+        5,
         "正在采集相关数据...",
         missionId,
         task.id, // ★ 传递 taskId 用于前端精确匹配
