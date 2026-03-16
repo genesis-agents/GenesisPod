@@ -48,11 +48,42 @@ export class DimensionProgressService {
     let calculatedProgress: number;
     if (stageProgress !== undefined) {
       calculatedProgress = stageProgress;
-    } else if (progress.sectionsTotal > 0) {
-      const sectionRatio = progress.sectionsCompleted / progress.sectionsTotal;
-      calculatedProgress = Math.round(30 + sectionRatio * 50);
     } else {
-      calculatedProgress = 10;
+      // Stage-aware progress ranges:
+      // planning:     5-15%
+      // writing:     15-75% (proportional to sections completed)
+      // reviewing:   75-85% (proportional to sections completed)
+      // integrating: 85-95%
+      // completed:   100%
+      // failed:      keep last value or 0
+      const sectionRatio =
+        progress.sectionsTotal > 0
+          ? progress.sectionsCompleted / progress.sectionsTotal
+          : 0;
+
+      switch (progress.stage) {
+        case "planning":
+          calculatedProgress = Math.round(5 + sectionRatio * 10);
+          break;
+        case "writing":
+          calculatedProgress = Math.round(15 + sectionRatio * 60);
+          break;
+        case "reviewing":
+          calculatedProgress = Math.round(75 + sectionRatio * 10);
+          break;
+        case "integrating":
+          calculatedProgress = Math.round(85 + sectionRatio * 10);
+          break;
+        case "completed":
+          calculatedProgress = 100;
+          break;
+        case "failed":
+          calculatedProgress = 0;
+          break;
+        default:
+          calculatedProgress = 5;
+          break;
+      }
     }
 
     void this.eventEmitter.emitDimensionResearchProgress(

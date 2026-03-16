@@ -779,17 +779,16 @@ export function TodoDetailPanel({
                 taskResponse.task.status as string
               ] || 'PENDING') as ResearchTodoStatus;
 
-              // ★ 修复：根据状态计算真实进度
-              // COMPLETED = 100%, FAILED = 100% (已结束), EXECUTING = 使用活动计数估算, PENDING = 0%
-              let progress = 0;
-              if (taskResponse.task.status === 'COMPLETED') {
+              // ★ 使用后端同步到 DB 的 progress 值（与列表视图保持一致）
+              // 仅在终态时覆盖为 100%
+              const taskProgress = (taskResponse.task as { progress?: number })
+                .progress;
+              let progress = taskProgress || 0;
+              if (
+                taskResponse.task.status === 'COMPLETED' ||
+                taskResponse.task.status === 'FAILED'
+              ) {
                 progress = 100;
-              } else if (taskResponse.task.status === 'FAILED') {
-                progress = 100; // 失败也是结束状态
-              } else if (taskResponse.task.status === 'EXECUTING') {
-                // 根据活动数量估算进度（如果有活动记录）
-                const activityCount = taskResponse.activities?.length || 0;
-                progress = Math.min(90, 10 + activityCount * 20); // 10-90% 范围
               }
 
               const task = taskResponse.task as {
