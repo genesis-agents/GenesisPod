@@ -2,6 +2,7 @@ import {
   IsString,
   IsEnum,
   IsOptional,
+  IsBoolean,
   MaxLength,
   IsNotEmpty,
 } from "class-validator";
@@ -23,4 +24,8 @@ export class ProcessSourceDto {
   @IsString()
   @MaxLength(10000)
   additionalInstructions?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  keepFormat?: boolean;
 }

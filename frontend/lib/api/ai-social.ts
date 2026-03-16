@@ -30,7 +30,8 @@ export type SocialContentSourceType =
   | 'AI_EXPLORE'
   | 'AI_RESEARCH'
   | 'AI_OFFICE'
-  | 'AI_WRITING';
+  | 'AI_WRITING'
+  | 'AI_TOPIC_INSIGHTS';
 
 export type SocialReviewStatus =
   | 'PENDING'
@@ -149,6 +150,7 @@ export interface ProcessSourceDto {
   sourceId: string;
   targetType: SocialContentType;
   additionalInstructions?: string;
+  keepFormat?: boolean;
 }
 
 export interface PublishContentDto {
@@ -788,6 +790,61 @@ export async function getWritingSources(options?: {
       title: item.title || item.name || 'Untitled',
       type: item.type,
       createdAt: item.createdAt || item.updatedAt,
+    })),
+    total: items.length,
+  };
+}
+
+/**
+ * Get available sources from Topic Insights
+ * Returns topics that have at least one generated report
+ */
+export async function getTopicInsightsSources(options?: {
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  items: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    type?: string;
+    createdAt?: string;
+    latestReport?: {
+      id: string;
+      version: number;
+      executiveSummary?: string;
+      generatedAt?: string;
+    };
+  }>;
+  total: number;
+}> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set('limit', options.limit.toString());
+  const query = params.toString();
+  const data = await fetchWithAuth<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      status?: string;
+      updatedAt?: string;
+      latestReport?: {
+        id: string;
+        version: number;
+        executiveSummary?: string;
+        generatedAt?: string;
+      };
+    }>
+  >(`/api/v1/ai-social/sources/topic-insights${query ? `?${query}` : ''}`);
+  const items = Array.isArray(data) ? data : [];
+  return {
+    items: items.map((item) => ({
+      id: item.id,
+      title: item.name || 'Untitled',
+      description: item.latestReport?.executiveSummary || item.description,
+      type: item.status,
+      createdAt: item.updatedAt,
+      latestReport: item.latestReport,
     })),
     total: items.length,
   };

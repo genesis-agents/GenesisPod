@@ -17,6 +17,7 @@ interface SocialCreateState {
   sourceId: string | null;
   sourceTitle: string | null;
   externalUrl: string;
+  keepFormat: boolean;
 
   // Step 2: 平台
   platform: SocialContentType | null;
@@ -59,6 +60,7 @@ interface SocialCreateState {
   setIsSaving: (isSaving: boolean) => void;
   setIsPublishing: (isPublishing: boolean) => void;
   setCurrentContentId: (id: string | null) => void;
+  setKeepFormat: (keepFormat: boolean) => void;
   setContentFromAI: (data: {
     title: string;
     content: string;
@@ -76,6 +78,7 @@ const initialState = {
   sourceId: null,
   sourceTitle: null,
   externalUrl: '',
+  keepFormat: false,
   platform: null,
   connectionId: null,
   connectionName: null,
@@ -106,6 +109,7 @@ export const useSocialCreateStore = create<SocialCreateState>((set, get) => ({
       sourceType: type,
       sourceId: id,
       sourceTitle: title,
+      keepFormat: type === 'AI_TOPIC_INSIGHTS',
       // Reset downstream selections when source changes
       platform: null,
       connectionId: null,
@@ -145,6 +149,8 @@ export const useSocialCreateStore = create<SocialCreateState>((set, get) => ({
   setIsPublishing: (isPublishing) => set({ isPublishing }),
 
   setCurrentContentId: (id) => set({ currentContentId: id }),
+
+  setKeepFormat: (keepFormat) => set({ keepFormat }),
 
   setContentFromAI: (data) =>
     set({

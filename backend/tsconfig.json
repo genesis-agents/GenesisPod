@@ -45,6 +45,7 @@
     "src/learning-paths/**",
     "src/recommendations/**",
     "**/*.spec.ts",
+    "**/*.test.ts",
     "**/__tests__/**"
   ]
 }

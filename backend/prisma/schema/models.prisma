@@ -7944,6 +7944,7 @@ enum SocialContentSourceType {
   AI_RESEARCH // 从 AI Research 导入
   AI_OFFICE // 从 AI Office 导入
   AI_WRITING // 从 AI Writing 导入
+  AI_TOPIC_INSIGHTS // 从 Topic Insights 导入
 }
 
 enum SocialReviewStatus {

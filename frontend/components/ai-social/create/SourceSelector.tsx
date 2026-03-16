@@ -22,6 +22,7 @@ import {
   FileText,
   ExternalLink,
   Image as ImageIcon,
+  Lightbulb,
 } from 'lucide-react';
 import { ClientDate } from '@/components/common/ClientDate';
 
@@ -51,6 +52,7 @@ export function SourceSelector() {
     fetchResearch,
     fetchOffice,
     fetchWriting,
+    fetchTopicInsights,
     loading: sourcesLoading,
   } = useSocialSources();
 
@@ -124,6 +126,15 @@ export function SourceSelector() {
       desc: t('aiSocial.sources.aiWritingDesc'),
       gradient: 'from-indigo-500 to-blue-600',
     },
+    {
+      id: 'AI_TOPIC_INSIGHTS' as SocialContentSourceType,
+      icon: Lightbulb,
+      label: t('aiSocial.sources.ai_topic_insights') || 'Topic Insights',
+      desc:
+        t('aiSocial.sources.aiTopicInsightsDesc') ||
+        'Import reports from Topic Insights',
+      gradient: 'from-sky-500 to-blue-600',
+    },
   ];
 
   // Load source items when source type or type filter changes
@@ -152,6 +163,9 @@ export function SourceSelector() {
           break;
         case 'AI_WRITING':
           result = await fetchWriting({ limit: 50 });
+          break;
+        case 'AI_TOPIC_INSIGHTS':
+          result = await fetchTopicInsights({ limit: 50 });
           break;
       }
 

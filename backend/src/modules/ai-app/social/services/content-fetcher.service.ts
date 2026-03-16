@@ -70,6 +70,9 @@ export class ContentFetcherService {
       case SocialContentSourceType.AI_WRITING:
         return this.fetchFromWritingChapter(sourceId, userId);
 
+      case SocialContentSourceType.AI_TOPIC_INSIGHTS:
+        return this.fetchFromTopicInsightsReport(sourceId, userId);
+
       default:
         throw new Error(`不支持的来源类型: ${sourceType}`);
     }
@@ -299,6 +302,53 @@ export class ContentFetcherService {
       metadata: {
         projectName: sanitizeForDb(chapter.volume.project.name),
         wordCount: chapter.wordCount,
+      },
+    };
+  }
+
+  private async fetchFromTopicInsightsReport(
+    topicId: string,
+    userId: string,
+  ): Promise<FetchedContent> {
+    const topic = await this.prisma.researchTopic.findFirst({
+      where: { id: topicId, userId },
+      include: {
+        reports: {
+          orderBy: { version: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            version: true,
+            fullReport: true,
+            executiveSummary: true,
+            charts: true,
+            totalDimensions: true,
+            totalSources: true,
+          },
+        },
+      },
+    });
+
+    if (!topic) {
+      throw new Error("话题不存在");
+    }
+
+    const latestReport = topic.reports[0];
+    if (!latestReport?.fullReport) {
+      throw new Error("该话题还没有生成报告，请先生成报告后再导入");
+    }
+
+    return {
+      title: sanitizeForDb(topic.name),
+      content: sanitizeForDb(latestReport.fullReport),
+      metadata: {
+        topicId,
+        reportId: latestReport.id,
+        reportVersion: latestReport.version,
+        executiveSummary: latestReport.executiveSummary,
+        charts: latestReport.charts,
+        totalDimensions: latestReport.totalDimensions,
+        totalSources: latestReport.totalSources,
       },
     };
   }
