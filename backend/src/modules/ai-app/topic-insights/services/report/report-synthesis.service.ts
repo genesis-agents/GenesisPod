@@ -18,7 +18,10 @@ import {
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
-import { sanitizeSectionOutput } from "../../utils/sanitize-output.utils";
+import {
+  sanitizeSectionOutput,
+  removeOrphanCitations,
+} from "../../utils/sanitize-output.utils";
 import {
   getMinDataPoints,
   filterJunkReferences,
@@ -799,9 +802,20 @@ export class ReportSynthesisService {
         ? remapCitationIndices(cleanedReport, citationIndexMapping)
         : cleanedReport;
     // ★ Finalize: wrap bare LaTeX, add reference anchors, linkify citations
-    const finalReport = this.assembler.finalizeReportWithCitations(
+    let finalReport = this.assembler.finalizeReportWithCitations(
       remappedReport + referencesSection,
     );
+
+    // ★ 孤儿引用清理（必须在参考文献追加后执行）
+    const refEntryMatches = finalReport.match(/^\[\d+\]\s+\[/gm);
+    if (refEntryMatches && refEntryMatches.length > 0) {
+      const maxIdx = Math.max(
+        ...refEntryMatches.map((r) => parseInt(r.match(/\d+/)?.[0] || "0", 10)),
+      );
+      if (maxIdx > 0) {
+        finalReport = removeOrphanCitations(finalReport, maxIdx);
+      }
+    }
 
     // ★ Probe 3: 后处理修复统计（从 assembler 的 postProcessFinalReport 获取）
     // 在 buildFullReportFromDimensions 中已经包含了 postProcess

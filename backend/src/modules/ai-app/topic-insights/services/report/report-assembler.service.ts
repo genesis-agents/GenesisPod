@@ -62,7 +62,6 @@ import {
   stripCitationStacking,
   replaceMarketingLanguage,
   repairBrokenBoldPairs,
-  removeOrphanCitations,
 } from "../../utils/sanitize-output.utils";
 import {
   stripChartJsonFromContent,
@@ -857,16 +856,8 @@ export class ReportAssemblerService {
     content = replaceMarketingLanguage(content); // 营销话术替换
     content = repairBrokenBoldPairs(content); // 修复 **** markdown 语法错误
 
-    // 删除超出参考文献范围的孤儿引用（白名单：引用 [N] 必须 N <= 参考文献总数）
-    const refEntryMatches = content.match(/^\[\d+\]\s+\[/gm);
-    if (refEntryMatches && refEntryMatches.length > 0) {
-      const maxIdx = Math.max(
-        ...refEntryMatches.map((r) => parseInt(r.match(/\d+/)?.[0] || "0", 10)),
-      );
-      if (maxIdx > 0) {
-        content = removeOrphanCitations(content, maxIdx);
-      }
-    }
+    // ★ removeOrphanCitations 不在此处执行——postProcessFinalReport 时报告尚无参考文献。
+    // 孤儿引用清理在 synthesizeReport 中参考文献追加后执行。
 
     if (warnings.length > 0) {
       this.logger.warn(

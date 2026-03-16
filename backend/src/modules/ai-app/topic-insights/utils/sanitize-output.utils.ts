@@ -104,8 +104,8 @@ export function sanitizeSectionOutput(content: string): string {
       continue;
     }
 
-    // 孤立 JSON 符号
-    if (/^[\]}{,]+$/.test(t)) {
+    // 孤立 JSON/markdown 符号
+    if (/^[\[\]}{,]+$/.test(t)) {
       continue;
     }
 
@@ -119,13 +119,18 @@ export function sanitizeSectionOutput(content: string): string {
       continue;
     }
 
-    // 圆括号元注释：（注：...）（不含...）
-    if (/^[（(]\s*(?:注[：:]|不含)/.test(t)) {
+    // 圆括号元注释：（注：...）（不含...）（图表...）（内部...）
+    if (/^[（(]\s*(?:注[：:]|不含|图表|内部|此处|待补|请[参见]|说明)/.test(t)) {
       continue;
     }
 
     // 内部配置说明行
     if (/^(?:\*{2})?以下是.*(?:图表|配置|证据|引用)/.test(t)) {
+      continue;
+    }
+
+    // figureReference position 泄漏：position: afterparagraph_N
+    if (/^position:\s*(?:after|before|end|start)/i.test(t)) {
       continue;
     }
 
