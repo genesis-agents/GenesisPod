@@ -897,6 +897,18 @@ export class ReportSynthesisService {
       `[QualityTrace] Report ${reportId}: grade=${traceData.finalAssessment.grade}, score=${traceData.finalAssessment.overallScore}`,
     );
 
+    // ★ 诊断：最终写入 DB 前的 finalReport 状态
+    const finalDims = (finalReport.match(/^## \d+\./gm) || []).length;
+    this.logger.log(
+      `[synthesizeReport] Writing to DB: finalReport=${finalReport.length}c, ${finalDims} dims`,
+    );
+    if (finalDims < dimensionAnalyses.length) {
+      this.logger.error(
+        `[synthesizeReport] ★ DIMENSION LOSS: expected ${dimensionAnalyses.length} dims but finalReport has ${finalDims}. ` +
+          `fullReportFromDimensions=${fullReportFromDimensions.length}c, cleanedReport=${cleanedReport.length}c`,
+      );
+    }
+
     const updatedReport = await this.prisma.topicReport.update({
       where: { id: reportId },
       data: {
