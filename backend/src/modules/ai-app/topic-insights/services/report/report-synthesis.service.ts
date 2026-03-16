@@ -776,7 +776,7 @@ export class ReportSynthesisService {
         const safeTitle = truncTitle
           .replace(/\[/g, "\\[")
           .replace(/\]/g, "\\]");
-        return `[${e.index}] [${safeTitle}](${e.url})${e.domain ? `. ${e.domain}` : ""}`;
+        return `[${e.index}] [${safeTitle}](${e.url})`;
       });
       if (refLines.length > 0) {
         referencesSection = `\n\n---\n\n## ${referencesLabel}\n\n${refLines.join("\n\n")}`;

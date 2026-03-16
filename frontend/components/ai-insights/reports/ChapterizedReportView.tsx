@@ -997,23 +997,23 @@ function ChapterizedReportViewInner({
               {/* ★ Key Takeaways card */}
               {selectedChapter.keyFindings &&
                 selectedChapter.keyFindings.length > 0 && (
-                  <div className="mb-5 rounded-xl border-l-4 border-blue-400 bg-blue-50/60 p-4">
-                    <h4 className="mb-2 text-sm font-semibold text-blue-800">
+                  <div className="mb-6 rounded-lg border border-gray-200 bg-gradient-to-r from-slate-50 to-gray-50 p-5 shadow-sm dark:border-gray-700 dark:from-gray-800/50 dark:to-gray-900/30">
+                    <h4 className="mb-3 text-base font-semibold text-gray-800 dark:text-gray-200">
                       {t('topicResearch.reportEditor.keyTakeaways')}
                     </h4>
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-2.5">
                       {selectedChapter.keyFindings.map((kf, idx) => (
                         <li
                           key={idx}
-                          className="flex items-start gap-2 text-sm text-blue-900/80"
+                          className="flex items-start gap-3 text-[15px] leading-relaxed text-gray-700 dark:text-gray-300"
                         >
                           <span
-                            className={`mt-1 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
+                            className={`mt-1.5 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
                               kf.significance === 'high'
-                                ? 'bg-red-400'
+                                ? 'bg-red-500'
                                 : kf.significance === 'medium'
-                                  ? 'bg-amber-400'
-                                  : 'bg-blue-400'
+                                  ? 'bg-amber-500'
+                                  : 'bg-blue-500'
                             }`}
                           />
                           <span>{processText(kf.finding)}</span>
@@ -1130,13 +1130,16 @@ function ChapterizedReportViewInner({
 
                 return (
                   <div className="mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
-                    <h4 className="mb-3 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                    <h4 className="mb-4 text-base font-semibold text-gray-700 dark:text-gray-300">
                       {t('topicResearch.reportEditor.references') || '参考文献'}
                     </h4>
-                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                       {refs.map((ref) => (
-                        <div key={ref!.idx} className="flex gap-2">
-                          <span className="shrink-0 text-gray-400">
+                        <div
+                          key={ref!.idx}
+                          className="flex gap-2.5 leading-relaxed"
+                        >
+                          <span className="font-mono shrink-0 text-xs text-gray-400 dark:text-gray-500">
                             [{ref!.idx}]
                           </span>
                           {ref!.url ? (
@@ -1144,12 +1147,14 @@ function ChapterizedReportViewInner({
                               href={ref!.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="truncate text-blue-500 hover:underline"
+                              className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                             >
                               {ref!.title || ref!.domain || ref!.url}
                             </a>
                           ) : (
-                            <span>{ref!.title || 'Unknown source'}</span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {ref!.title || 'Unknown source'}
+                            </span>
                           )}
                         </div>
                       ))}
