@@ -357,7 +357,7 @@ describe("AIEngineFacade - chatStructured", () => {
   // =========================================================================
 
   describe("ModelResolver delegation", () => {
-    it("should pass strictMode=true to chat for structured output", async () => {
+    it("should default strictMode=false when caller does not specify", async () => {
       mockAiChatService.chat.mockResolvedValue({
         content: '{"name": "Strict", "score": 100}',
         model: "gpt-4o",
@@ -368,6 +368,24 @@ describe("AIEngineFacade - chatStructured", () => {
       await facade.chatStructured({
         messages: [{ role: "user", content: "Test" }],
         schema: testSchema,
+      });
+
+      const chatCall = mockAiChatService.chat.mock.calls[0][0];
+      expect(chatCall.strictMode).toBe(false);
+    });
+
+    it("should pass strictMode=true to chat when caller explicitly sets it", async () => {
+      mockAiChatService.chat.mockResolvedValue({
+        content: '{"name": "Strict", "score": 100}',
+        model: "gpt-4o",
+        usage: { totalTokens: 50 },
+        isError: false,
+      });
+
+      await facade.chatStructured({
+        messages: [{ role: "user", content: "Test" }],
+        schema: testSchema,
+        strictMode: true,
       });
 
       const chatCall = mockAiChatService.chat.mock.calls[0][0];
