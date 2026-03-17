@@ -25,8 +25,17 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
     below?: boolean;
   } | null>(null);
   const triggerRef = useRef<HTMLElement>(null);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelHideTimeout = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  }, []);
 
   const handleMouseEnter = useCallback(() => {
+    cancelHideTimeout();
     setIsHovered(true);
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
@@ -41,6 +50,12 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
         below: showBelow,
       });
     }
+  }, [cancelHideTimeout]);
+
+  const handleMouseLeave = useCallback(() => {
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 150);
   }, []);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -55,7 +70,7 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
     <span
       className="relative inline-block"
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={handleMouseLeave}
     >
       <sup
         ref={triggerRef}
@@ -79,8 +94,11 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
                 ? 'translate(-50%, 0)'
                 : 'translate(-50%, -100%)',
             }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseEnter={() => {
+              cancelHideTimeout();
+              setIsHovered(true);
+            }}
+            onMouseLeave={handleMouseLeave}
           >
             <div className="flex items-start gap-2 border-b border-gray-100 p-3">
               <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">

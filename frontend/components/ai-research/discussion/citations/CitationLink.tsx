@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ExternalLink, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Citation } from './types';
 import { useCitationOptional } from './CitationContext';
@@ -32,6 +32,25 @@ export function CitationLink({
   >('center');
   const tooltipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement>(null);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelHideTimeout = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    cancelHideTimeout();
+    setShowTooltip(true);
+  }, [cancelHideTimeout]);
+
+  const handleMouseLeave = useCallback(() => {
+    hideTimeoutRef.current = setTimeout(() => {
+      setShowTooltip(false);
+    }, 150);
+  }, []);
 
   // Get source content from context
   const source = citationContext?.sources.find(
@@ -148,8 +167,8 @@ export function CitationLink({
       <sup
         ref={triggerRef}
         onClick={handleClick}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={`
           cursor-pointer rounded px-0.5
           font-medium
@@ -178,8 +197,8 @@ export function CitationLink({
             shadow-xl
             ${getTooltipPositionClasses()}
           `}
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         >
           {/* Header */}
           <div className="flex items-start gap-2 border-b border-gray-100 px-3 py-2">
