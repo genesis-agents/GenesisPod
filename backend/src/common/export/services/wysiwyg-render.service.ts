@@ -80,11 +80,13 @@ export class WysiwygRenderService {
       await page.setRequestInterception(true);
       page.on("request", (request) => {
         const url = request.url();
+        const resourceType = request.resourceType();
         if (
           url.startsWith("data:") ||
           url === "about:blank" ||
           url.includes("fonts.googleapis.com") ||
-          url.includes("fonts.gstatic.com")
+          url.includes("fonts.gstatic.com") ||
+          resourceType === "image"
         ) {
           void request.continue();
         } else {
@@ -94,7 +96,7 @@ export class WysiwygRenderService {
 
       const fullHtml = this.wrapHtml(html, css, {});
       await page.setContent(fullHtml, {
-        waitUntil: "domcontentloaded",
+        waitUntil: "networkidle0",
         timeout: 30000,
       });
       // Wait for fonts to load (max 5s); fall back to system fonts on timeout
@@ -151,11 +153,13 @@ export class WysiwygRenderService {
       await page.setRequestInterception(true);
       page.on("request", (request) => {
         const url = request.url();
+        const resourceType = request.resourceType();
         if (
           url.startsWith("data:") ||
           url === "about:blank" ||
           url.includes("fonts.googleapis.com") ||
-          url.includes("fonts.gstatic.com")
+          url.includes("fonts.gstatic.com") ||
+          resourceType === "image"
         ) {
           void request.continue();
         } else {

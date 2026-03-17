@@ -588,6 +588,12 @@ export function preprocessLatex(markdown: string): string {
   // Step -1: Strip orphaned LATEX slot markers from backend sanitization
   result = stripOrphanedLatexSlots(result);
 
+  // Step -0.5: Fix misplaced comma in ordinals: 第一，位是 → 第一位，是
+  result = result.replace(
+    /第([一二三四五六七八九十])，位(是|在|为)/g,
+    '第$1位，$2'
+  );
+
   // Step 0: Strip HTML citation links (ReactMarkdown has no rehypeRaw)
   result = stripHtmlCitationLinks(result);
 
