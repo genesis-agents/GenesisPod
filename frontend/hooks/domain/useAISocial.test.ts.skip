@@ -68,7 +68,7 @@ vi.mock('@/lib/api/ai-social', () => ({
 const mockConnection = {
   id: 'conn-1',
   userId: 'user-1',
-  platformType: 'WECHAT_MP' as const,
+  platformType: 'WECHAT_MP',
   accountName: 'Test Account',
   accountId: 'test-123',
   avatarUrl: 'https://example.com/avatar.jpg',
@@ -84,8 +84,8 @@ const mockContent = {
   id: 'content-1',
   userId: 'user-1',
   connectionId: 'conn-1',
-  contentType: 'WECHAT_ARTICLE' as const,
-  sourceType: 'MANUAL' as const,
+  contentType: 'WECHAT_ARTICLE',
+  sourceType: 'MANUAL',
   sourceId: null,
   sourceUrl: null,
   title: 'Test Article',
@@ -96,10 +96,10 @@ const mockContent = {
   images: [],
   tags: ['test'],
   location: null,
-  status: 'DRAFT' as const,
+  status: 'DRAFT',
   aiProcessLog: null,
   aiSuggestions: null,
-  reviewStatus: 'PENDING' as const,
+  reviewStatus: 'PENDING',
   reviewedById: null,
   reviewedAt: null,
   reviewNote: null,
@@ -441,7 +441,7 @@ describe('useSocialConnections', () => {
   describe('startConnection', () => {
     it('should start OAuth flow', async () => {
       const initResponse = {
-        status: 'pending' as const,
+        status: 'pending',
         sessionKey: 'test-session-key',
         screenshot: 'data:image/png;base64,...',
         message: 'Please scan QR code',
@@ -458,7 +458,7 @@ describe('useSocialConnections', () => {
 
     it('should handle existing connection', async () => {
       const initResponse = {
-        status: 'existing' as const,
+        status: 'existing',
         connection: mockConnection,
         message: 'Connection already exists',
       };
@@ -478,7 +478,7 @@ describe('useSocialConnections', () => {
   describe('checkConnection', () => {
     it('should verify connection successfully', async () => {
       const verifyResponse = {
-        status: 'success' as const,
+        status: 'success',
         connection: mockConnection,
         message: 'Connection verified successfully',
       };
@@ -628,8 +628,8 @@ describe('useSocialContents', () => {
   describe('addContent', () => {
     it('should create content successfully', async () => {
       const dto = {
-        contentType: 'WECHAT_ARTICLE' as const,
-        sourceType: 'MANUAL' as const,
+        contentType: 'WECHAT_ARTICLE',
+        sourceType: 'MANUAL',
         title: 'New Article',
         content: 'Content body',
       };
@@ -786,7 +786,7 @@ describe('useSocialAIEngine', () => {
     it('should process URL successfully', async () => {
       const dto = {
         url: 'https://example.com/article',
-        targetType: 'WECHAT_ARTICLE' as const,
+        targetType: 'WECHAT_ARTICLE',
       };
       vi.mocked(apiSocial.processUrl).mockResolvedValue(mockProcessResponse);
 
@@ -804,7 +804,7 @@ describe('useSocialAIEngine', () => {
     it('should handle processing error and re-throw', async () => {
       const dto = {
         url: 'https://invalid.com',
-        targetType: 'WECHAT_ARTICLE' as const,
+        targetType: 'WECHAT_ARTICLE',
       };
       vi.mocked(apiSocial.processUrl).mockRejectedValue(
         new Error('Invalid URL')
@@ -830,7 +830,7 @@ describe('useSocialAIEngine', () => {
     it('should set loading state during processing', async () => {
       const dto = {
         url: 'https://example.com',
-        targetType: 'WECHAT_ARTICLE' as const,
+        targetType: 'WECHAT_ARTICLE',
       };
       vi.mocked(apiSocial.processUrl).mockImplementation(
         () =>
@@ -866,9 +866,9 @@ describe('useSocialAIEngine', () => {
 
     it('should process source successfully', async () => {
       const dto = {
-        sourceType: 'AI_RESEARCH' as const,
+        sourceType: 'AI_RESEARCH',
         sourceId: 'research-1',
-        targetType: 'WECHAT_ARTICLE' as const,
+        targetType: 'WECHAT_ARTICLE',
       };
       vi.mocked(apiSocial.processSource).mockResolvedValue(mockSourceResponse);
 
@@ -884,9 +884,9 @@ describe('useSocialAIEngine', () => {
 
     it('should handle processing error', async () => {
       const dto = {
-        sourceType: 'AI_RESEARCH' as const,
+        sourceType: 'AI_RESEARCH',
         sourceId: 'invalid',
-        targetType: 'WECHAT_ARTICLE' as const,
+        targetType: 'WECHAT_ARTICLE',
       };
       vi.mocked(apiSocial.processSource).mockRejectedValue(
         new Error('Source not found')
@@ -992,7 +992,7 @@ describe('useSocialReview', () => {
     it('should approve content successfully', async () => {
       const approvedContent = {
         ...mockContent,
-        reviewStatus: 'APPROVED' as const,
+        reviewStatus: 'APPROVED',
       };
       vi.mocked(apiSocial.approveContent).mockResolvedValue(approvedContent);
 
@@ -1014,7 +1014,7 @@ describe('useSocialReview', () => {
     it('should reject content successfully', async () => {
       const rejectedContent = {
         ...mockContent,
-        reviewStatus: 'REJECTED' as const,
+        reviewStatus: 'REJECTED',
       };
       vi.mocked(apiSocial.rejectContent).mockResolvedValue(rejectedContent);
 
@@ -1039,7 +1039,7 @@ describe('useSocialReview', () => {
     it('should request revision successfully', async () => {
       const revisionContent = {
         ...mockContent,
-        reviewStatus: 'REVISION_REQUESTED' as const,
+        reviewStatus: 'REVISION_REQUESTED',
       };
       vi.mocked(apiSocial.requestRevision).mockResolvedValue(revisionContent);
 
@@ -1059,7 +1059,7 @@ describe('useSocialReview', () => {
     it('should resubmit for review successfully', async () => {
       const resubmittedContent = {
         ...mockContent,
-        reviewStatus: 'PENDING' as const,
+        reviewStatus: 'PENDING',
       };
       vi.mocked(apiSocial.resubmitForReview).mockResolvedValue(
         resubmittedContent

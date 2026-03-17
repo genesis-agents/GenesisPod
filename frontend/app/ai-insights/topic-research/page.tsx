@@ -6,7 +6,7 @@
  * 专题研究列表页面
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
@@ -168,7 +168,9 @@ export default function TopicResearchPage() {
   } = useTopicInsightsStore();
 
   const [activeType, setActiveType] = useState<ResearchTopicType | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<ResearchTopic | null>(
     null
@@ -202,6 +204,18 @@ export default function TopicResearchPage() {
       icon: <CompanyIcon />,
     },
   ];
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setSearchQuery(value), 400);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   // Load topics
   const loadTopics = useCallback(async () => {
@@ -341,8 +355,8 @@ export default function TopicResearchPage() {
               <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={t('topicResearch.searchPlaceholder')}
                 className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
@@ -375,16 +389,16 @@ export default function TopicResearchPage() {
           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
             <FolderOpenIcon className="h-16 w-16 text-gray-300" />
             <h3 className="mt-4 text-lg font-medium text-gray-900">
-              {searchQuery
+              {searchInput
                 ? t('topicResearch.noMatchingTopics')
                 : t('topicResearch.noTopics')}
             </h3>
             <p className="mt-1 text-gray-500">
-              {searchQuery
+              {searchInput
                 ? t('topicResearch.noMatchingTopicsDesc')
                 : t('topicResearch.noTopicsDesc')}
             </p>
-            {!searchQuery && (
+            {!searchInput && (
               <button
                 onClick={() => setShowCreateDialog(true)}
                 className="mt-6 flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700"
