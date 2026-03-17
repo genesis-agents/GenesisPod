@@ -25,6 +25,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -626,19 +627,14 @@ function ReportEditorInner({
         /[（(][^）)]*(?:约?\d+字|字数[：:]\d+)[）)]/g,
         ''
       );
-      // ★ Fix CommonMark bold+CJK: CJK chars are not "punctuation" in CommonMark,
-      // so **bold** adjacent to CJK fails. Insert ZWSP to make ** valid delimiters.
-      // Opening: CJK** → CJK\u200B** (left-flanking)
-      resolvedFullReport = resolvedFullReport.replace(
-        /([\u4e00-\u9fff\u3400-\u4dbf])\*\*(?=[^\s*])/g,
-        '$1\u200B**'
-      );
-      // Closing: **CJK → **\u200BCJK (right-flanking)
-      resolvedFullReport = resolvedFullReport.replace(
-        /(?<=[^\s*])\*\*([\u4e00-\u9fff\u3400-\u4dbf])/g,
-        '**\u200B$1'
-      );
       resolvedFullReport = preprocessLatex(resolvedFullReport);
+      // ★ Fix CommonMark bold+CJK: Convert **text** to <strong>text</strong>
+      // MUST run AFTER preprocessLatex (which generates new ** via promotePhaseListItems
+      // and repairBrokenBoldMarkers). Direct HTML + rehypeRaw bypasses CommonMark issues.
+      resolvedFullReport = resolvedFullReport.replace(
+        /\*\*([^*\n]+?)\*\*/g,
+        '<strong>$1</strong>'
+      );
     }
 
     // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)
@@ -1034,7 +1030,7 @@ function ReportEditorInner({
       <ReactMarkdown
         key={key}
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
+        rehypePlugins={[rehypeRaw, [rehypeKatex, { output: 'html' }]]}
         components={createMarkdownComponents(processText)}
       >
         {content}
@@ -1368,7 +1364,7 @@ function ReportEditorInner({
               <article className="prose prose-gray prose-sm max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
+                  rehypePlugins={[rehypeRaw, [rehypeKatex, { output: 'html' }]]}
                   components={{
                     a: ({ href, children }) => (
                       <a

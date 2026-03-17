@@ -658,19 +658,12 @@ function ChapterizedReportViewInner({
           }
         }
 
-        // ★ Fix CommonMark bold+CJK: CJK chars adjacent to ** break delimiter detection.
-        // Insert ZWSP so CommonMark recognizes ** as valid bold delimiters.
-        const content = preprocessLatex(
-          parts
-            .join('\n')
-            .replace(
-              /([\u4e00-\u9fff\u3400-\u4dbf])\*\*(?=[^\s*])/g,
-              '$1\u200B**'
-            )
-            .replace(
-              /(?<=[^\s*])\*\*([\u4e00-\u9fff\u3400-\u4dbf])/g,
-              '**\u200B$1'
-            )
+        // preprocessLatex first (generates new ** via promotePhaseListItems etc.)
+        // then convert **text** → <strong>text</strong> to bypass CommonMark CJK issues
+        const joined = preprocessLatex(parts.join('\n'));
+        const content = joined.replace(
+          /\*\*([^*\n]+?)\*\*/g,
+          '<strong>$1</strong>'
         );
         const outline = analysis.summary?.slice(0, 100) || dimName;
 
