@@ -621,6 +621,11 @@ function ReportEditorInner({
     if (resolvedFullReport) {
       resolvedFullReport = extractMarkdownFromJsonReport(resolvedFullReport);
       resolvedFullReport = stripChartJsonFromReport(resolvedFullReport);
+      // ★ Strip word count annotations leaked from LLM (e.g. （78字）, （本维度约2500字）)
+      resolvedFullReport = resolvedFullReport.replace(
+        /[（(][^）)]*(?:约?\d+字|字数[：:]\d+)[）)]/g,
+        ''
+      );
       // ★ Fix CommonMark bold+Chinese-quote parsing failure:
       // "word**"text"**" fails because ** followed by Unicode punctuation (") requires
       // ** to be preceded by whitespace/punctuation — Chinese letters don't qualify.
@@ -1199,7 +1204,7 @@ function ReportEditorInner({
       )}
 
       {/* Content area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {viewMode === 'preview' && (
           <div
             ref={previewRef}

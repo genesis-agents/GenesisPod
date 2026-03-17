@@ -8,12 +8,6 @@
  */
 
 import { useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
-import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
 import type { TopicReport, TopicEvidence } from '@/types/topic-insights';
 import { useI18n } from '@/lib/i18n';
 
@@ -39,6 +33,14 @@ function cleanQuickViewText(text: string): string {
   cleaned = cleaned.replace(/[{}\\^_]/g, '');
   // Remove citation references [N] and [N][M]
   cleaned = cleaned.replace(/(?:\[\d+\])+/g, '');
+  // Remove word count patterns (e.g. （约3000字）, （本维度约2500字）)
+  cleaned = cleaned.replace(/[（(][^）)]*约?\d+字[）)]/g, '');
+  // Strip markdown bold **text** → text
+  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '$1');
+  // Strip markdown italic *text* → text
+  cleaned = cleaned.replace(/\*([^*]+)\*/g, '$1');
+  // Strip remaining bullet markers at line start
+  cleaned = cleaned.replace(/^[-*]\s+/gm, '');
   // Collapse multiple spaces
   cleaned = cleaned.replace(/\s{2,}/g, ' ');
   return cleaned.trim();
@@ -56,18 +58,6 @@ export function QuickViewReport({
   isLoading = false,
 }: QuickViewReportProps) {
   const { t } = useI18n();
-
-  const { processText } = useReportTextProcessor({
-    evidence,
-    preprocessorAnnotations: [],
-    highlightedAnnotationId: null,
-    onAnnotationClick: () => {},
-  });
-
-  const markdownComponents = useMemo(
-    () => createMarkdownComponents(processText),
-    [processText]
-  );
 
   // Extract top findings per dimension
   const dimensionFindings = useMemo(() => {
@@ -159,15 +149,9 @@ export function QuickViewReport({
           <section>
             <h2 className="mb-3 text-lg font-bold text-gray-900">执行摘要</h2>
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5">
-              <article className="prose prose-sm prose-gray max-w-none leading-relaxed">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
-                  components={markdownComponents}
-                >
-                  {report.executiveSummary}
-                </ReactMarkdown>
-              </article>
+              <p className="text-sm leading-relaxed text-gray-700">
+                {cleanQuickViewText(report.executiveSummary)}
+              </p>
             </div>
           </section>
         )}
@@ -202,7 +186,7 @@ export function QuickViewReport({
                                 : 'bg-green-400'
                           }`}
                         />
-                        <span>{processText(f.finding)}</span>
+                        <span>{cleanQuickViewText(f.finding)}</span>
                       </li>
                     ))}
                   </ul>
@@ -227,7 +211,7 @@ export function QuickViewReport({
                     </span>
                     <div className="leading-relaxed">
                       <span className="font-medium text-gray-800">
-                        {tr.trend}
+                        {cleanQuickViewText(tr.trend)}
                       </span>
                       <span className="ml-1.5 text-xs text-gray-400">
                         {tr.dimensionName} · {tr.timeframe}
@@ -392,7 +376,7 @@ export function QuickViewReport({
                               key={i}
                               className="text-sm leading-relaxed text-gray-600"
                             >
-                              - {s}
+                              {cleanQuickViewText(s)}
                             </li>
                           )
                         )}
@@ -412,7 +396,7 @@ export function QuickViewReport({
                               key={i}
                               className="text-sm leading-relaxed text-gray-600"
                             >
-                              - {s}
+                              {cleanQuickViewText(s)}
                             </li>
                           )
                         )}
@@ -440,7 +424,7 @@ export function QuickViewReport({
                                 key={i}
                                 className="text-sm leading-relaxed text-gray-600"
                               >
-                                - {s}
+                                {cleanQuickViewText(s)}
                               </li>
                             )
                           )}
@@ -460,7 +444,7 @@ export function QuickViewReport({
                                 key={i}
                                 className="text-sm leading-relaxed text-gray-600"
                               >
-                                - {s}
+                                {cleanQuickViewText(s)}
                               </li>
                             )
                           )}

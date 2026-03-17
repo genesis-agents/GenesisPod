@@ -488,10 +488,10 @@ export function ReportEditPanel({
       )}
 
       {/* Content area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Main editor */}
         <div
-          className={`flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
+          className={`min-h-0 flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
         >
           <ReportEditor
             report={report}
