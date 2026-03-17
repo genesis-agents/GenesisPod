@@ -85,8 +85,8 @@ export interface SocialContent {
   externalUrl: string | null;
   errorMessage: string | null;
   retryCount: number;
-  seriesId: string | null;
-  seriesOrder: number | null;
+  seriesId?: string | null;
+  seriesOrder?: number | null;
   createdAt: string;
   updatedAt: string;
   connection?: SocialPlatformConnection;
