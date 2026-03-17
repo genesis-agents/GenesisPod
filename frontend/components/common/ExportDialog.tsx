@@ -66,6 +66,7 @@ interface FormatConfig {
   icon: React.ElementType;
   supportsEditable: boolean;
   description: string;
+  comingSoon?: boolean;
 }
 
 const FORMAT_CONFIGS: FormatConfig[] = [
@@ -77,11 +78,19 @@ const FORMAT_CONFIGS: FormatConfig[] = [
     description: 'export.formats.pdfDesc',
   },
   {
+    key: 'HTML',
+    label: 'HTML',
+    icon: Globe,
+    supportsEditable: false,
+    description: 'export.formats.htmlDesc',
+  },
+  {
     key: 'DOCX',
     label: 'Word',
     icon: FileSpreadsheet,
     supportsEditable: true,
     description: 'export.formats.docxDesc',
+    comingSoon: true,
   },
   {
     key: 'PPTX',
@@ -89,13 +98,7 @@ const FORMAT_CONFIGS: FormatConfig[] = [
     icon: Presentation,
     supportsEditable: true,
     description: 'export.formats.pptxDesc',
-  },
-  {
-    key: 'HTML',
-    label: 'HTML',
-    icon: Globe,
-    supportsEditable: false,
-    description: 'export.formats.htmlDesc',
+    comingSoon: true,
   },
 ];
 
@@ -391,23 +394,31 @@ export function ExportDialog({
             {formats.map((fmt) => {
               const Icon = fmt.icon;
               const isSelected = selectedFormat === fmt.key;
+              const disabled = isExporting || fmt.comingSoon;
               return (
                 <button
                   key={fmt.key}
                   role="radio"
                   aria-checked={isSelected}
-                  onClick={() => handleFormatChange(fmt.key)}
-                  disabled={isExporting}
+                  onClick={() => !fmt.comingSoon && handleFormatChange(fmt.key)}
+                  disabled={disabled}
                   className={cn(
-                    'flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all',
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50',
-                    isExporting && 'opacity-50'
+                    'relative flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all',
+                    fmt.comingSoon
+                      ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300'
+                      : isSelected
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50',
+                    isExporting && !fmt.comingSoon && 'opacity-50'
                   )}
                 >
                   <Icon className="h-6 w-6" />
                   <span className="text-xs font-medium">{fmt.label}</span>
+                  {fmt.comingSoon && (
+                    <span className="absolute -right-1 -top-1 rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+                      Soon
+                    </span>
+                  )}
                 </button>
               );
             })}
