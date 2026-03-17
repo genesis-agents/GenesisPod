@@ -76,8 +76,15 @@ const VISION_INCOMPATIBLE_DOMAINS: RegExp[] = [
   /tiktokcdn\.com/i,
 ];
 
+/** Vision API 支持的图片格式 */
+const VISION_SUPPORTED_EXTENSIONS = /\.(png|jpe?g|gif|webp)(\?|$)/i;
+
 function isVisionCompatibleUrl(url: string): boolean {
-  return !VISION_INCOMPATIBLE_DOMAINS.some((re) => re.test(url));
+  if (VISION_INCOMPATIBLE_DOMAINS.some((re) => re.test(url))) return false;
+  // If URL has a recognizable image extension, it must be a supported format
+  const hasExtension = /\.[a-z]{2,5}(\?|$)/i.test(url);
+  if (hasExtension && !VISION_SUPPORTED_EXTENSIONS.test(url)) return false;
+  return true;
 }
 
 @Injectable()
