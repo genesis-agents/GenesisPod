@@ -10,6 +10,9 @@ import { ChapterImportService } from "./services/writing/chapter-import.service"
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
 import { WritingMissionService } from "./services/mission/writing-mission.service";
+import { WritingMissionLifecycleService } from "./services/mission/writing-mission-lifecycle.service";
+import { WritingMissionQueryService } from "./services/mission/writing-mission-query.service";
+import { WritingTextProcessorService } from "./services/mission/writing-text-processor.service";
 import { StoryCompletionDetectorService } from "./services/quality/story-completion-detector.service";
 import { TemporalConflictAnalyzerService } from "./services/consistency/temporal-conflict-analyzer.service";
 import { HierarchicalSummaryService } from "./services/writing/hierarchical-summary.service";
@@ -58,8 +61,12 @@ export class WritingCoordinatorService {
     private readonly parallelOrchestrator: ParallelOrchestratorService,
     // 一致性
     private readonly consistencyEngine: ConsistencyEngineService,
-    // 任务协调
+    // 任务协调 (legacy god service - kept for backward compat during migration)
     private readonly writingMissionService: WritingMissionService,
+    // 新拆分的任务服务
+    private readonly missionLifecycle: WritingMissionLifecycleService,
+    private readonly missionQuery: WritingMissionQueryService,
+    private readonly textProcessor: WritingTextProcessorService,
     // 质量分析
     private readonly storyCompletionDetector: StoryCompletionDetectorService,
     private readonly temporalConflictAnalyzer: TemporalConflictAnalyzerService,
@@ -302,6 +309,7 @@ export class WritingCoordinatorService {
       }
     }
 
+    // TODO: Replace with this.missionLifecycle.startMissionAsync() once god service is fully removed
     const missionInfo = await this.writingMissionService.startMissionAsync(
       {
         projectId,
@@ -326,26 +334,23 @@ export class WritingCoordinatorService {
   }
 
   async getMissionStatus(missionId: string, userId: string) {
-    return this.writingMissionService.getMissionStatus(missionId, userId);
+    return this.missionQuery.getMissionStatus(missionId, userId);
   }
 
   async cancelMission(missionId: string, userId: string) {
-    return this.writingMissionService.cancelMission(missionId, userId);
+    return this.missionLifecycle.cancelMission(missionId, userId);
   }
 
   async forceCleanupStuckMissions(projectId: string, userId: string) {
     // Verify project ownership
     await this.projectService.findOne(projectId, userId);
-    return this.writingMissionService.forceCleanupStuckMissions(
-      projectId,
-      userId,
-    );
+    return this.missionLifecycle.forceCleanupStuckMissions(projectId, userId);
   }
 
   async getProjectMissions(projectId: string, userId: string, status?: string) {
     // Verify project ownership
     await this.projectService.findOne(projectId, userId);
-    return this.writingMissionService.getProjectMissions(projectId, status);
+    return this.missionQuery.getProjectMissions(projectId, status);
   }
 
   async getMissionLogs(
@@ -354,16 +359,15 @@ export class WritingCoordinatorService {
     limit?: number,
     offset?: number,
   ) {
-    return this.writingMissionService.getMissionLogs(
-      missionId,
-      userId,
-      limit,
-      offset,
-    );
+    return this.missionQuery.getMissionLogs(missionId, userId, limit, offset);
   }
 
   async reExtractChapterTitles(projectId: string, userId: string) {
-    return this.writingMissionService.reExtractChapterTitles(projectId, userId);
+    return this.missionLifecycle.reExtractChapterTitles(
+      projectId,
+      userId,
+      this.textProcessor,
+    );
   }
 
   // ==================== Chapter Revision ====================
@@ -653,8 +657,7 @@ export class WritingCoordinatorService {
 
     try {
       // Find the most recent active mission
-      const recentMission =
-        await this.writingMissionService.getLatestMission(projectId);
+      const recentMission = await this.missionQuery.getLatestMission(projectId);
 
       if (!recentMission) {
         return {
@@ -720,8 +723,7 @@ export class WritingCoordinatorService {
 
     // 2. Get scratchpad entries (DB only, no LLM)
     try {
-      const recentMission =
-        await this.writingMissionService.getLatestMission(projectId);
+      const recentMission = await this.missionQuery.getLatestMission(projectId);
       if (recentMission) {
         const entries = await this.sharedScratchpadService.getEntries(
           recentMission.id,

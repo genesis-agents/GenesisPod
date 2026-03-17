@@ -53,6 +53,26 @@ import { WritingContentGeneratorService } from "./services/mission/writing-conte
 import { SharedScratchpadService } from "./services/mission/shared-scratchpad.service";
 import { WritingTextProcessorService } from "./services/mission/writing-text-processor.service";
 
+// NEW: Refactored mission services (Phase 4)
+import { WritingMissionLifecycleService } from "./services/mission/writing-mission-lifecycle.service";
+import { WritingMissionQueryService } from "./services/mission/writing-mission-query.service";
+import { WritingMissionExecutionService } from "./services/mission/writing-mission-execution.service";
+
+// NEW: Task Executors
+import { FullStoryExecutor } from "./services/task-executors/full-story.executor";
+import { ContinueStoryExecutor } from "./services/task-executors/continue-story.executor";
+import { SingleChapterExecutor } from "./services/task-executors/single-chapter.executor";
+import { OutlineExecutor } from "./services/task-executors/outline.executor";
+import { LeaderCommandExecutor } from "./services/task-executors/leader-command.executor";
+import { RevisionExecutor } from "./services/task-executors/revision.executor";
+import { ConsistencyCheckExecutor } from "./services/task-executors/consistency-check.executor";
+
+// NEW: Quality Pipeline
+import { WritingQualityPipelineService } from "./services/quality/writing-quality-pipeline.service";
+import { WritingStructuralGateService } from "./services/quality/writing-structural-gate.service";
+import { WritingContentGateService } from "./services/quality/writing-content-gate.service";
+import { WritingCritiqueRefineService } from "./services/quality/writing-critique-refine.service";
+
 // Consistency services
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { PreWriteInjectionService } from "./services/consistency/pre-write-injection.service";
@@ -160,6 +180,23 @@ import {
     // v4-DOME: Agent 共享便签板
     SharedScratchpadService,
     WritingTextProcessorService,
+    // NEW: Refactored mission services
+    WritingMissionLifecycleService,
+    WritingMissionQueryService,
+    WritingMissionExecutionService,
+    // NEW: Task Executors
+    FullStoryExecutor,
+    ContinueStoryExecutor, // Internal only: delegated by FullStoryExecutor, NOT in executorMap
+    SingleChapterExecutor,
+    OutlineExecutor,
+    LeaderCommandExecutor,
+    RevisionExecutor,
+    ConsistencyCheckExecutor,
+    // NEW: Quality Pipeline
+    WritingQualityPipelineService,
+    WritingStructuralGateService,
+    WritingContentGateService,
+    WritingCritiqueRefineService,
     // Consistency services
     ConsistencyEngineService,
     PreWriteInjectionService,
@@ -222,9 +259,28 @@ export class AiWritingModule implements OnModuleInit {
   constructor(
     private readonly styleTemplateService: StyleTemplateService,
     private readonly promptSkillBridge: PromptSkillBridge,
+    // Task executor wiring
+    private readonly executionService: WritingMissionExecutionService,
+    private readonly fullStoryExecutor: FullStoryExecutor,
+    private readonly singleChapterExecutor: SingleChapterExecutor,
+    private readonly outlineExecutor: OutlineExecutor,
+    private readonly leaderCommandExecutor: LeaderCommandExecutor,
+    private readonly revisionExecutor: RevisionExecutor,
+    private readonly consistencyCheckExecutor: ConsistencyCheckExecutor,
   ) {}
 
   async onModuleInit() {
+    // Register task executors into execution service's executorMap
+    // NOTE: ContinueStoryExecutor is NOT registered - it shares taskType "full_story"
+    // and is delegated to internally by FullStoryExecutor
+    this.executionService.registerExecutor(this.fullStoryExecutor);
+    this.executionService.registerExecutor(this.singleChapterExecutor);
+    this.executionService.registerExecutor(this.outlineExecutor);
+    this.executionService.registerExecutor(this.leaderCommandExecutor);
+    this.executionService.registerExecutor(this.revisionExecutor);
+    this.executionService.registerExecutor(this.consistencyCheckExecutor);
+    this.logger.log("  Task executors registered (6)");
+
     // Writing Agents are managed internally by WritingMissionService
     // They don't need to be registered with the global AgentRegistry
     // because they use a different interface (BaseAgent/IAgent vs IPlanBasedAgent)
