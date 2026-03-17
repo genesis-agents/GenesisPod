@@ -199,15 +199,15 @@ describe("PolicyDataService", () => {
       });
       mockSecrets.getValue.mockResolvedValue("key-a,key-b");
 
-      // Mark both keys as quota exhausted
-      service.markKeyFailed("serper", "key-a", 401);
-      service.markKeyFailed("serper", "key-b", 401);
+      // Mark both keys as quota exhausted (429 = rate limit)
+      service.markKeyFailed("serper", "key-a", 429);
+      service.markKeyFailed("serper", "key-b", 429);
 
       const result = await service.getApiKey("serper");
       expect(result).toBeNull();
     });
 
-    it("returns oldest-failed key when all have temp errors (429/5xx)", async () => {
+    it("returns oldest-failed key when all have temp errors (5xx)", async () => {
       mockPrisma.toolConfig.findUnique.mockResolvedValue({
         toolId: "serper",
         secretKey: "SERPER_KEYS",
@@ -215,10 +215,10 @@ describe("PolicyDataService", () => {
       });
       mockSecrets.getValue.mockResolvedValue("key-a,key-b");
 
-      // Mark both keys with 429 (temp errors)
-      service.markKeyFailed("serper", "key-a", 429);
+      // Mark both keys with 500 (temp errors, not quota exhausted)
+      service.markKeyFailed("serper", "key-a", 500);
       // Wait a tiny bit to ensure different timestamps
-      service.markKeyFailed("serper", "key-b", 429);
+      service.markKeyFailed("serper", "key-b", 500);
 
       // Should return key-a (oldest failed)
       const result = await service.getApiKey("serper");

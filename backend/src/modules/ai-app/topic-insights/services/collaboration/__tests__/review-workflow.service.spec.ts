@@ -57,9 +57,15 @@ describe("ReviewWorkflowService", () => {
       mockPrisma.reviewTask.create
         .mockResolvedValueOnce({ id: "task-0", sectionName: "执行摘要" })
         .mockResolvedValueOnce({ id: "task-1", sectionName: "Market Analysis" })
-        .mockResolvedValueOnce({ id: "task-2", sectionName: "Competitor Analysis" });
+        .mockResolvedValueOnce({
+          id: "task-2",
+          sectionName: "Competitor Analysis",
+        });
 
-      const result = await service.createReviewTasksForReport("report-1", "user-1");
+      const result = await service.createReviewTasksForReport(
+        "report-1",
+        "user-1",
+      );
 
       expect(result.created).toBe(3);
       expect(result.tasks[0].sectionName).toBe("执行摘要");
@@ -79,7 +85,10 @@ describe("ReviewWorkflowService", () => {
         ...mockReport,
         dimensionAnalyses: [],
       });
-      mockPrisma.reviewTask.create.mockResolvedValue({ id: "task-0", sectionName: "执行摘要" });
+      mockPrisma.reviewTask.create.mockResolvedValue({
+        id: "task-0",
+        sectionName: "执行摘要",
+      });
 
       await service.createReviewTasksForReport("report-1", "user-1");
 
@@ -110,7 +119,11 @@ describe("ReviewWorkflowService", () => {
 
   describe("assignTask", () => {
     it("should update task to IN_PROGRESS with assignee info", async () => {
-      const updatedTask = { id: "t1", status: ReviewTaskStatus.IN_PROGRESS, assigneeId: "user-2" };
+      const updatedTask = {
+        id: "t1",
+        status: ReviewTaskStatus.IN_PROGRESS,
+        assigneeId: "user-2",
+      };
       mockPrisma.reviewTask.update.mockResolvedValue(updatedTask);
 
       const result = await service.assignTask(
@@ -132,7 +145,10 @@ describe("ReviewWorkflowService", () => {
 
   describe("assignTasksBatch", () => {
     it("should assign multiple tasks in parallel", async () => {
-      mockPrisma.reviewTask.update.mockResolvedValue({ id: "t1", status: ReviewTaskStatus.IN_PROGRESS });
+      mockPrisma.reviewTask.update.mockResolvedValue({
+        id: "t1",
+        status: ReviewTaskStatus.IN_PROGRESS,
+      });
 
       const result = await service.assignTasksBatch(
         [
@@ -154,13 +170,18 @@ describe("ReviewWorkflowService", () => {
         assigneeId: "user-1",
         status: ReviewTaskStatus.PENDING,
       });
-      mockPrisma.reviewTask.update.mockResolvedValue({ id: "t1", status: ReviewTaskStatus.IN_PROGRESS });
+      mockPrisma.reviewTask.update.mockResolvedValue({
+        id: "t1",
+        status: ReviewTaskStatus.IN_PROGRESS,
+      });
 
       const result = await service.startTask("t1", "user-1");
 
       expect(mockPrisma.reviewTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: ReviewTaskStatus.IN_PROGRESS }),
+          data: expect.objectContaining({
+            status: ReviewTaskStatus.IN_PROGRESS,
+          }),
         }),
       );
       expect(result.status).toBe(ReviewTaskStatus.IN_PROGRESS);
@@ -173,7 +194,10 @@ describe("ReviewWorkflowService", () => {
         status: ReviewTaskStatus.PENDING,
       });
       mockPrisma.user.findUnique.mockResolvedValue({ fullName: "John Doe" });
-      mockPrisma.reviewTask.update.mockResolvedValue({ id: "t1", status: ReviewTaskStatus.IN_PROGRESS });
+      mockPrisma.reviewTask.update.mockResolvedValue({
+        id: "t1",
+        status: ReviewTaskStatus.IN_PROGRESS,
+      });
 
       await service.startTask("t1", "user-1");
 
@@ -193,7 +217,9 @@ describe("ReviewWorkflowService", () => {
     it("should throw NotFoundException when task not found", async () => {
       mockPrisma.reviewTask.findUnique.mockResolvedValue(null);
 
-      await expect(service.startTask("bad-task", "user-1")).rejects.toThrow(NotFoundException);
+      await expect(service.startTask("bad-task", "user-1")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -274,7 +300,7 @@ describe("ReviewWorkflowService", () => {
       expect(stats.completed).toBe(2);
       expect(stats.approved).toBe(1);
       expect(stats.rejected).toBe(1);
-      expect(stats.averageScore).toBe(62.5);
+      expect(stats.averageScore).toBe(63); // Math.round((85+40)/2)
     });
 
     it("should return null averageScore when no tasks have scores", async () => {
