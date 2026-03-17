@@ -8,6 +8,8 @@
  */
 
 import { useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { TopicReport, TopicEvidence } from '@/types/topic-insights';
 import { useI18n } from '@/lib/i18n';
 
@@ -44,6 +46,22 @@ function cleanQuickViewText(text: string): string {
   // Collapse multiple spaces
   cleaned = cleaned.replace(/\s{2,}/g, ' ');
   return cleaned.trim();
+}
+
+/**
+ * Strip citations [N] and word counts from markdown content while preserving
+ * markdown structure (headers, lists, bold, etc.) for ReactMarkdown rendering.
+ */
+function stripCitationsAndWordCount(text: string): string {
+  if (!text) return text;
+  let result = text;
+  // Remove citation references [N] and [N][M]
+  result = result.replace(/(?:\[\d+\])+/g, '');
+  // Remove word count patterns
+  result = result.replace(/[（(][^）)]*约?\d+字[）)]/g, '');
+  // Collapse multiple spaces
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
 }
 
 interface QuickViewReportProps {
@@ -149,9 +167,11 @@ export function QuickViewReport({
           <section>
             <h2 className="mb-3 text-lg font-bold text-gray-900">执行摘要</h2>
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5">
-              <p className="text-sm leading-relaxed text-gray-700">
-                {cleanQuickViewText(report.executiveSummary)}
-              </p>
+              <article className="prose prose-sm prose-gray max-w-none leading-relaxed">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {stripCitationsAndWordCount(report.executiveSummary)}
+                </ReactMarkdown>
+              </article>
             </div>
           </section>
         )}
