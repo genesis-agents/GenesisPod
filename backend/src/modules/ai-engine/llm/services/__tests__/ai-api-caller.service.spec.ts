@@ -176,9 +176,7 @@ describe("AiApiCallerService", () => {
 
     it("should throw on API refusal", async () => {
       const apiResponse = {
-        choices: [
-          { message: { refusal: "I cannot help with that" } },
-        ],
+        choices: [{ message: { refusal: "I cannot help with that" } }],
         usage: { total_tokens: 10 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -198,9 +196,7 @@ describe("AiApiCallerService", () => {
 
     it("should throw on empty content with finish_reason=length", async () => {
       const apiResponse = {
-        choices: [
-          { message: { content: null }, finish_reason: "length" },
-        ],
+        choices: [{ message: { content: null }, finish_reason: "length" }],
         usage: { total_tokens: 4000, prompt_tokens: 3990 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -220,9 +216,7 @@ describe("AiApiCallerService", () => {
 
     it("should throw for reasoning model token exhaustion", async () => {
       const apiResponse = {
-        choices: [
-          { message: { content: "" }, finish_reason: "length" },
-        ],
+        choices: [{ message: { content: "" }, finish_reason: "length" }],
         usage: {
           total_tokens: 1000,
           prompt_tokens: 100,
@@ -331,6 +325,184 @@ describe("AiApiCallerService", () => {
 
       expect(result.content).toBe("Text response");
     });
+
+    // ==================== reasoningDepth tests ====================
+
+    it("should use reasoningDepth='deep' as reasoning_effort='high' for o3 models", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "deep reasoning" } }],
+        usage: { total_tokens: 500 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o3-mini",
+        messages,
+        32000,
+        undefined,
+        120000,
+        "max_tokens",
+        undefined,
+        "deep",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "high");
+    });
+
+    it("should use reasoningDepth='moderate' as reasoning_effort='medium'", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "moderate" } }],
+        usage: { total_tokens: 300 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o1",
+        messages,
+        25000,
+        undefined,
+        120000,
+        "max_tokens",
+        undefined,
+        "moderate",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "medium");
+    });
+
+    it("should fallback to reasoning_effort='low' when no reasoningDepth for o-series", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "low" } }],
+        usage: { total_tokens: 200 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o3",
+        messages,
+        25000,
+        undefined,
+        120000,
+        "max_tokens",
+        undefined,
+        undefined, // no reasoningDepth
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+    });
+
+    it("should support o4 models for reasoning_effort", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "o4" } }],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o4-mini",
+        messages,
+        25000,
+        undefined,
+        120000,
+        "max_tokens",
+        undefined,
+        "deep",
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "high");
+    });
+
+    // ==================== outputSchema (Strict Structured Output) tests ====================
+
+    it("should use json_schema response_format when outputSchema is provided", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: '{"name":"test"}' } }],
+        usage: { total_tokens: 20 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const schema = {
+        type: "object",
+        properties: { name: { type: "string" } },
+        required: ["name"],
+        additionalProperties: false,
+      };
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+        0.7,
+        120000,
+        "max_tokens",
+        undefined, // responseFormat
+        undefined, // reasoningDepth
+        { type: "json_schema", schema },
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1].response_format).toEqual({
+        type: "json_schema",
+        json_schema: {
+          name: "structured_output",
+          schema,
+          strict: true,
+        },
+      });
+    });
+
+    it("should prefer outputSchema over responseFormat='json'", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: '{"k":"v"}' } }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      const schema = { type: "object", properties: {} };
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        messages,
+        4000,
+        0.7,
+        120000,
+        "max_tokens",
+        "json", // responseFormat
+        undefined,
+        { type: "json_schema", schema }, // outputSchema takes precedence
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1].response_format.type).toBe("json_schema");
+    });
   });
 
   // ==================== callAnthropicAPI ====================
@@ -407,9 +579,7 @@ describe("AiApiCallerService", () => {
       const body = callArgs[1];
       expect(body.system).toBe("You are a helper");
       expect(body.messages).not.toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ role: "system" }),
-        ]),
+        expect.arrayContaining([expect.objectContaining({ role: "system" })]),
       );
     });
 
@@ -455,6 +625,64 @@ describe("AiApiCallerService", () => {
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
       expect(callArgs[1]).not.toHaveProperty("temperature");
+    });
+
+    // ==================== cachePolicy tests ====================
+
+    it("should wrap system message with cache_control when cachePolicy is auto", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: "cached response" }],
+        usage: { input_tokens: 5, output_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callAnthropicAPI(
+        "https://api.anthropic.com/v1/messages",
+        "test-key",
+        "claude-sonnet-4-20250514",
+        messages,
+        4000,
+        0.7,
+        120000,
+        undefined, // responseFormat
+        undefined, // reasoningDepth
+        "auto", // cachePolicy
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      const body = callArgs[1];
+      expect(Array.isArray(body.system)).toBe(true);
+      expect(body.system[0]).toEqual({
+        type: "text",
+        text: "You are a helper",
+        cache_control: { type: "ephemeral" },
+      });
+    });
+
+    it("should use plain string system when cachePolicy is not set", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: "no cache" }],
+        usage: { input_tokens: 5, output_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callAnthropicAPI(
+        "https://api.anthropic.com/v1/messages",
+        "test-key",
+        "claude-sonnet-4-20250514",
+        messages,
+        4000,
+        0.7,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      const body = callArgs[1];
+      expect(typeof body.system).toBe("string");
+      expect(body.system).toBe("You are a helper");
     });
   });
 
@@ -678,10 +906,7 @@ describe("AiApiCallerService", () => {
   describe("callOpenAICompatibleEmbeddingAPI", () => {
     it("should return embeddings", async () => {
       const apiResponse = {
-        data: [
-          { embedding: [0.1, 0.2, 0.3] },
-          { embedding: [0.4, 0.5, 0.6] },
-        ],
+        data: [{ embedding: [0.1, 0.2, 0.3] }, { embedding: [0.4, 0.5, 0.6] }],
         usage: { total_tokens: 20 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -783,7 +1008,10 @@ describe("AiApiCallerService", () => {
   describe("callCohereEmbeddingAPI", () => {
     it("should return Cohere embeddings", async () => {
       const apiResponse = {
-        embeddings: [[0.1, 0.2], [0.3, 0.4]],
+        embeddings: [
+          [0.1, 0.2],
+          [0.3, 0.4],
+        ],
         meta: { billed_units: { input_tokens: 15 } },
       };
       mockHttpService.post.mockReturnValueOnce(

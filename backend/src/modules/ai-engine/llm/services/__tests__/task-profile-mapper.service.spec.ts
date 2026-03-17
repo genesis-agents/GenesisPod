@@ -197,4 +197,101 @@ describe("TaskProfileMapperService", () => {
       expect(result.temperature).toBe(0.9);
     });
   });
+
+  // ==================== Reasoning Depth 测试 ====================
+
+  describe("Reasoning Depth Mapping", () => {
+    it("should pass through reasoningDepth for reasoning models", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: true,
+        maxTokens: 50000,
+      });
+
+      const result = service.mapToParameters(
+        {
+          creativity: "medium",
+          outputLength: "medium",
+          reasoningDepth: "deep",
+        },
+        modelConfig,
+      );
+
+      expect(result.reasoningDepth).toBe("deep");
+    });
+
+    it("should NOT set reasoningDepth for non-reasoning models", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: false,
+        maxTokens: 8000,
+      });
+
+      const result = service.mapToParameters(
+        {
+          creativity: "medium",
+          outputLength: "medium",
+          reasoningDepth: "deep",
+        },
+        modelConfig,
+      );
+
+      expect(result.reasoningDepth).toBeUndefined();
+    });
+
+    it("should NOT set reasoningDepth when profile has no reasoningDepth", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: true,
+        maxTokens: 50000,
+      });
+
+      const result = service.mapToParameters(
+        { creativity: "medium", outputLength: "medium" },
+        modelConfig,
+      );
+
+      expect(result.reasoningDepth).toBeUndefined();
+    });
+
+    it("should boost tokens to 32000 for deep reasoning when below threshold", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: true,
+        maxTokens: 50000,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "medium", reasoningDepth: "deep" },
+        modelConfig,
+      );
+
+      expect(result.maxTokens).toBeGreaterThanOrEqual(32000);
+    });
+
+    it("should NOT boost tokens for light/moderate reasoning", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: true,
+        maxTokens: 50000,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "medium", reasoningDepth: "light" },
+        modelConfig,
+      );
+
+      // Should not get the 32K deep boost (still gets reasoning model boost)
+      expect(result.reasoningDepth).toBe("light");
+    });
+
+    it("should cap deep reasoning boost at model maxTokens", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: true,
+        maxTokens: 16384, // Model can't do 32000
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "medium", reasoningDepth: "deep" },
+        modelConfig,
+      );
+
+      expect(result.maxTokens).toBeLessThanOrEqual(16384);
+    });
+  });
 });
