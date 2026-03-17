@@ -626,13 +626,17 @@ function ReportEditorInner({
         /[（(][^）)]*(?:约?\d+字|字数[：:]\d+)[）)]/g,
         ''
       );
-      // ★ Fix CommonMark bold+Chinese-quote parsing failure:
-      // "word**"text"**" fails because ** followed by Unicode punctuation (") requires
-      // ** to be preceded by whitespace/punctuation — Chinese letters don't qualify.
-      // Adding U+200B (zero-width space) makes ** a valid left-flanking delimiter.
+      // ★ Fix CommonMark bold+CJK: CJK chars are not "punctuation" in CommonMark,
+      // so **bold** adjacent to CJK fails. Insert ZWSP to make ** valid delimiters.
+      // Opening: CJK** → CJK\u200B** (left-flanking)
       resolvedFullReport = resolvedFullReport.replace(
-        /([\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9])\*\*(["""])/g,
-        '$1\u200B**$2'
+        /([\u4e00-\u9fff\u3400-\u4dbf])\*\*(?=[^\s*])/g,
+        '$1\u200B**'
+      );
+      // Closing: **CJK → **\u200BCJK (right-flanking)
+      resolvedFullReport = resolvedFullReport.replace(
+        /(?<=[^\s*])\*\*([\u4e00-\u9fff\u3400-\u4dbf])/g,
+        '**\u200B$1'
       );
       resolvedFullReport = preprocessLatex(resolvedFullReport);
     }

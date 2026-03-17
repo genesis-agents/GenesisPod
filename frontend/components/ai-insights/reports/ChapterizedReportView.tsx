@@ -658,14 +658,18 @@ function ChapterizedReportViewInner({
           }
         }
 
-        // ★ Fix CommonMark bold+Chinese-quote: "word**"text"**" fails bold detection
-        // U+200B (zero-width space) before ** makes it a valid left-flanking delimiter
+        // ★ Fix CommonMark bold+CJK: CJK chars adjacent to ** break delimiter detection.
+        // Insert ZWSP so CommonMark recognizes ** as valid bold delimiters.
         const content = preprocessLatex(
           parts
             .join('\n')
             .replace(
-              /([\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9])\*\*(["""])/g,
-              '$1\u200B**$2'
+              /([\u4e00-\u9fff\u3400-\u4dbf])\*\*(?=[^\s*])/g,
+              '$1\u200B**'
+            )
+            .replace(
+              /(?<=[^\s*])\*\*([\u4e00-\u9fff\u3400-\u4dbf])/g,
+              '**\u200B$1'
             )
         );
         const outline = analysis.summary?.slice(0, 100) || dimName;

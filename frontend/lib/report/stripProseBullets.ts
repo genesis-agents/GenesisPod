@@ -1,10 +1,18 @@
 /**
- * Strip bullet markers from ordinal/transition prose incorrectly formatted as list items.
+ * Strip bullet markers from prose incorrectly formatted as list items.
  *
- * Strategy: find consecutive bullet blocks where at least one bullet starts with
- * an ordinal marker (其一/第一/一方面 etc.). Convert the ENTIRE block to paragraphs,
- * because the non-ordinal bullets in the same block are continuations (这意味着...)
- * or conclusions (对于...) that should also be plain text.
+ * Strategy: structural analysis of bullet blocks, NOT keyword enumeration.
+ *
+ * A genuine list has 3+ short items with parallel structure.
+ * Everything else (single bullets, long prose paragraphs, ordinal transitions)
+ * should be plain text.
+ *
+ * Rules (applied to each consecutive bullet block):
+ * 1. Single bullet → always strip (a single item is never a "list")
+ * 2. 2-item block with ANY item >50 chars → strip (long sentence = prose)
+ * 3. 3+ item block with ALL items >60 chars → strip (all long = prose paragraphs)
+ * 4. ANY bullet has ordinal/transition marker → strip entire block
+ * 5. Otherwise → keep (genuine short list)
  *
  * Shared by chapter view and continuous view.
  */
@@ -12,13 +20,18 @@ export function stripProseBullets(content: string): string {
   const lines = content.split('\n');
   const result: string[] = [];
 
-  // Ordinal / transition patterns that identify a bullet block as "prose, not a real list"
+  // Ordinal / transition patterns (broad coverage)
   const ordinalPattern =
-    /^[-*]\s+\*{0,2}(?:其[一二三四五六七八九十]|第[一二三四五六七八九十百]|[一二三四五六七八九十][，,、是]|一方面|另一方面|首先|其次|再次|最后|此外|然而|因此|总之|综上|总体而言|整体来看)/;
+    /^[-*]\s+\*{0,2}(?:其[一二三四五六七八九十]|第[一二三四五六七八九十百]|[一二三四五六七八九十][，,、是]|一方面|另一方面|首先|其次|再次|最后|此外|然而|因此|总之|综上|总体而言|整体来看|推论\d|结论\d|启示|但[是此]|不过|尽管|虽然)/;
 
-  // Prose-start patterns: single/double long bullets that are clearly prose, not list items
+  // Prose-start patterns: clearly not list items
   const proseStartPattern =
-    /^[-*]\s+\*{0,2}(?:对[^，,]{1,8}[来而](?:说|言)|这[一些种项]|从[^，,]{1,8}(?:角度|层面|来看|来说|而言)|综[上合]|整体|总[的之体]|值得[注关]|需要[注指强])/;
+    /^[-*]\s+\*{0,2}(?:对[^，,]{1,8}[来而](?:说|言)|这[一些种项意]|从[^，,]{1,8}(?:角度|层面|来看|来说|而言)|综[上合]|整体|总[的之体]|值得|需要|通过|上述|以上|换[言句]|也就是|简[而言]|具体|事实上)/;
+
+  /** Get text length after stripping bullet marker and bold markers */
+  function textLen(bullet: string): number {
+    return bullet.replace(/^[-*]\s+/, '').replace(/\*{1,2}/g, '').length;
+  }
 
   let i = 0;
   while (i < lines.length) {
@@ -47,18 +60,23 @@ export function stripProseBullets(content: string): string {
         }
       }
 
-      // Check if ANY bullet in this block has an ordinal/transition marker
-      const hasOrdinal = block.some((b) => ordinalPattern.test(b));
-      // Check if ANY bullet starts with a prose indicator
-      const hasProse = block.some((b) => proseStartPattern.test(b));
-      // Heuristic: a block of 1-2 long bullets (>80 chars each) is prose, not a list
       const bulletLines = block.filter((b) => /^[-*]\s+/.test(b));
-      const isLongProse =
-        bulletLines.length <= 2 &&
-        bulletLines.length > 0 &&
-        bulletLines.every((b) => b.replace(/^[-*]\s+/, '').length > 80);
+      const count = bulletLines.length;
 
-      if (hasOrdinal || hasProse || isLongProse) {
+      // Rule 4: ANY bullet has ordinal/transition marker → strip entire block
+      const hasOrdinal = block.some((b) => ordinalPattern.test(b));
+      const hasProse = block.some((b) => proseStartPattern.test(b));
+
+      // Rule 1: Single bullet → always strip
+      const isSingle = count === 1;
+
+      // Rule 2: 2-item block with ANY item >50 chars → strip
+      const isTwoLong = count === 2 && bulletLines.some((b) => textLen(b) > 50);
+
+      // Rule 3: 3+ items ALL >60 chars → strip (all long = prose paragraphs)
+      const isAllLong = count >= 3 && bulletLines.every((b) => textLen(b) > 60);
+
+      if (hasOrdinal || hasProse || isSingle || isTwoLong || isAllLong) {
         // Strip bullet markers from ALL bullets in this block
         for (const b of block) {
           result.push(/^[-*]\s+/.test(b) ? b.replace(/^[-*]\s+/, '') : b);
