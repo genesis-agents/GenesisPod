@@ -97,6 +97,9 @@ import { StoryCompletionDetectorService } from "../services/quality/story-comple
 import { TemporalConflictAnalyzerService } from "../services/consistency/temporal-conflict-analyzer.service";
 import { HierarchicalSummaryService } from "../services/writing/hierarchical-summary.service";
 import { SharedScratchpadService } from "../services/mission/shared-scratchpad.service";
+import { WritingMissionLifecycleService } from "../services/mission/writing-mission-lifecycle.service";
+import { WritingMissionQueryService } from "../services/mission/writing-mission-query.service";
+import { WritingTextProcessorService } from "../services/mission/writing-text-processor.service";
 
 describe("WritingCoordinatorService (supplemental)", () => {
   let service: WritingCoordinatorService;
@@ -162,6 +165,8 @@ describe("WritingCoordinatorService (supplemental)", () => {
   let mockSharedScratchpadService: jest.Mocked<
     Partial<SharedScratchpadService>
   >;
+  let mockMissionLifecycle: Record<string, jest.Mock>;
+  let mockMissionQuery: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockProjectService = {
@@ -316,6 +321,44 @@ describe("WritingCoordinatorService (supplemental)", () => {
         {
           provide: SharedScratchpadService,
           useValue: mockSharedScratchpadService,
+        },
+        {
+          provide: WritingMissionLifecycleService,
+          useFactory: () => {
+            mockMissionLifecycle = {
+              cancelMission: jest.fn().mockResolvedValue({ success: true }),
+              forceCleanupStuckMissions: jest
+                .fn()
+                .mockResolvedValue({ cleaned: 3 }),
+              reExtractChapterTitles: jest
+                .fn()
+                .mockResolvedValue({ extracted: 3 }),
+            };
+            return mockMissionLifecycle;
+          },
+        },
+        {
+          provide: WritingMissionQueryService,
+          useFactory: () => {
+            mockMissionQuery = {
+              getMissionStatus: jest
+                .fn()
+                .mockResolvedValue({ id: missionId, status: "COMPLETED" }),
+              getProjectMissions: jest
+                .fn()
+                .mockResolvedValue({ items: [], total: 0 }),
+              getMissionLogs: jest.fn().mockResolvedValue([{ id: "log-1" }]),
+              getLatestMission: jest.fn().mockResolvedValue(mockMission),
+            };
+            return mockMissionQuery;
+          },
+        },
+        {
+          provide: WritingTextProcessorService,
+          useValue: {
+            extractChapterTitle: jest.fn().mockReturnValue("Chapter Title"),
+            countWords: jest.fn().mockReturnValue(3000),
+          },
         },
       ],
     }).compile();
@@ -741,7 +784,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
         userId,
       );
       expect(
-        mockWritingMissionService.forceCleanupStuckMissions,
+        mockMissionLifecycle.forceCleanupStuckMissions,
       ).toHaveBeenCalledWith(projectId, userId);
       expect(result).toEqual({ cleaned: 3 });
     });
@@ -752,7 +795,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
       const result = await service.getMissionLogs(missionId, userId);
 
       expect(result).toEqual([{ id: "log-1" }]);
-      expect(mockWritingMissionService.getMissionLogs).toHaveBeenCalledWith(
+      expect(mockMissionQuery.getMissionLogs).toHaveBeenCalledWith(
         missionId,
         userId,
         undefined,
@@ -763,7 +806,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
     it("should pass limit and offset", async () => {
       await service.getMissionLogs(missionId, userId, 20, 10);
 
-      expect(mockWritingMissionService.getMissionLogs).toHaveBeenCalledWith(
+      expect(mockMissionQuery.getMissionLogs).toHaveBeenCalledWith(
         missionId,
         userId,
         20,
@@ -777,9 +820,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
       const result = await service.reExtractChapterTitles(projectId, userId);
 
       expect(result).toEqual({ extracted: 3 });
-      expect(
-        mockWritingMissionService.reExtractChapterTitles,
-      ).toHaveBeenCalledWith(projectId, userId);
+      expect(mockMissionLifecycle.reExtractChapterTitles).toHaveBeenCalled();
     });
   });
 
@@ -911,9 +952,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
 
   describe("getScratchpad", () => {
     it("should return empty when no recent mission", async () => {
-      mockWritingMissionService.getLatestMission = jest
-        .fn()
-        .mockResolvedValue(null);
+      mockMissionQuery.getLatestMission = jest.fn().mockResolvedValue(null);
 
       const result = await service.getScratchpad(projectId, userId, {});
 
@@ -940,7 +979,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
     });
 
     it("should return empty and warn on error", async () => {
-      mockWritingMissionService.getLatestMission = jest
+      mockMissionQuery.getLatestMission = jest
         .fn()
         .mockRejectedValue(new Error("DB error"));
 

@@ -29,6 +29,9 @@ import { StoryCompletionDetectorService } from "../services/quality/story-comple
 import { TemporalConflictAnalyzerService } from "../services/consistency/temporal-conflict-analyzer.service";
 import { HierarchicalSummaryService } from "../services/writing/hierarchical-summary.service";
 import { SharedScratchpadService } from "../services/mission/shared-scratchpad.service";
+import { WritingMissionLifecycleService } from "../services/mission/writing-mission-lifecycle.service";
+import { WritingMissionQueryService } from "../services/mission/writing-mission-query.service";
+import { WritingTextProcessorService } from "../services/mission/writing-text-processor.service";
 
 describe("WritingCoordinatorService", () => {
   let service: WritingCoordinatorService;
@@ -46,6 +49,8 @@ describe("WritingCoordinatorService", () => {
   let mockTemporalConflictAnalyzer: any;
   let mockHierarchicalSummaryService: any;
   let mockSharedScratchpadService: any;
+  let mockMissionLifecycle: any;
+  let mockMissionQuery: any;
 
   const userId = "user-123";
   const projectId = "project-456";
@@ -275,6 +280,51 @@ describe("WritingCoordinatorService", () => {
           provide: SharedScratchpadService,
           useValue: mockSharedScratchpadService,
         },
+        {
+          provide: WritingMissionLifecycleService,
+          useFactory: () => {
+            mockMissionLifecycle = {
+              cancelMission: jest.fn().mockResolvedValue({ success: true }),
+              forceCleanupStuckMissions: jest
+                .fn()
+                .mockResolvedValue({ success: true, cleanedCount: 0 }),
+              reExtractChapterTitles: jest
+                .fn()
+                .mockResolvedValue({ updated: 0, chapters: [] }),
+            };
+            return mockMissionLifecycle;
+          },
+        },
+        {
+          provide: WritingMissionQueryService,
+          useFactory: () => {
+            mockMissionQuery = {
+              getMissionStatus: jest
+                .fn()
+                .mockResolvedValue({ id: "m1", status: "COMPLETED" }),
+              getProjectMissions: jest
+                .fn()
+                .mockResolvedValue({ items: [], total: 0 }),
+              getMissionLogs: jest
+                .fn()
+                .mockResolvedValue({ items: [], total: 0 }),
+              getLatestMission: jest.fn().mockResolvedValue({
+                id: "mission-1",
+                status: "COMPLETED",
+                missionType: "CHAPTER",
+                createdAt: new Date(),
+              }),
+            };
+            return mockMissionQuery;
+          },
+        },
+        {
+          provide: WritingTextProcessorService,
+          useValue: {
+            extractChapterTitle: jest.fn().mockReturnValue("Chapter Title"),
+            countWords: jest.fn().mockReturnValue(3000),
+          },
+        },
       ],
     }).compile();
 
@@ -490,8 +540,8 @@ describe("WritingCoordinatorService", () => {
     it("should return mission status", async () => {
       const result = await service.getMissionStatus(missionId, userId);
 
-      expect(result.status).toBe("running");
-      expect(mockWritingMissionService.getMissionStatus).toHaveBeenCalledWith(
+      expect(result.status).toBe("COMPLETED");
+      expect(mockMissionQuery.getMissionStatus).toHaveBeenCalledWith(
         missionId,
         userId,
       );
@@ -503,7 +553,7 @@ describe("WritingCoordinatorService", () => {
       const result = await service.cancelMission(missionId, userId);
 
       expect(result.success).toBe(true);
-      expect(mockWritingMissionService.cancelMission).toHaveBeenCalledWith(
+      expect(mockMissionLifecycle.cancelMission).toHaveBeenCalledWith(
         missionId,
         userId,
       );
@@ -518,17 +568,19 @@ describe("WritingCoordinatorService", () => {
         projectId,
         userId,
       );
-      expect(
-        mockWritingMissionService.getProjectMissions,
-      ).toHaveBeenCalledWith(projectId, undefined);
+      expect(mockMissionQuery.getProjectMissions).toHaveBeenCalledWith(
+        projectId,
+        undefined,
+      );
     });
 
     it("should filter missions by status", async () => {
       await service.getProjectMissions(projectId, userId, "running");
 
-      expect(
-        mockWritingMissionService.getProjectMissions,
-      ).toHaveBeenCalledWith(projectId, "running");
+      expect(mockMissionQuery.getProjectMissions).toHaveBeenCalledWith(
+        projectId,
+        "running",
+      );
     });
   });
 
@@ -590,9 +642,9 @@ describe("WritingCoordinatorService", () => {
         projectId,
         userId,
       );
-      expect(mockStoryCompletionDetector.analyzeCompletion).toHaveBeenCalledWith(
-        projectId,
-      );
+      expect(
+        mockStoryCompletionDetector.analyzeCompletion,
+      ).toHaveBeenCalledWith(projectId);
       expect(result).toBeDefined();
     });
   });
@@ -614,10 +666,7 @@ describe("WritingCoordinatorService", () => {
 
   describe("getChapterTimelineConflicts", () => {
     it("should analyze chapter timeline conflicts", async () => {
-      await service.getChapterTimelineConflicts(
-        chapterId,
-        userId,
-      );
+      await service.getChapterTimelineConflicts(chapterId, userId);
 
       expect(mockChapterWritingService.getChapter).toHaveBeenCalledWith(
         chapterId,
@@ -643,7 +692,9 @@ describe("WritingCoordinatorService", () => {
       );
 
       expect(result).toEqual({ conflicts: [] });
-      expect(mockTemporalConflictAnalyzer.analyzeChapter).not.toHaveBeenCalled();
+      expect(
+        mockTemporalConflictAnalyzer.analyzeChapter,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -726,7 +777,7 @@ describe("WritingCoordinatorService", () => {
     });
 
     it("should handle scratchpad failure gracefully", async () => {
-      mockWritingMissionService.getLatestMission.mockRejectedValue(
+      mockMissionQuery.getLatestMission.mockRejectedValue(
         new Error("No mission"),
       );
 
@@ -736,7 +787,7 @@ describe("WritingCoordinatorService", () => {
     });
 
     it("should return empty activity if no recent mission", async () => {
-      mockWritingMissionService.getLatestMission.mockResolvedValue(null);
+      mockMissionQuery.getLatestMission.mockResolvedValue(null);
 
       const result = await service.getAnalysisDashboard(projectId, userId);
 
