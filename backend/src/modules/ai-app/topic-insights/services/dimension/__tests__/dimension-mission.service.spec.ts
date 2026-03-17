@@ -1118,11 +1118,11 @@ describe("DimensionMissionService", () => {
       expect(result.figuresSummary).toContain("Market Share Chart");
     });
 
-    it("should build figuresSummary with over 20 figures (truncate + suffix)", async () => {
-      // 25 figures to test > 20 truncation
+    it("should build figuresSummary with over 40 figures (truncate + suffix)", async () => {
+      // 45 figures to test > 40 truncation
       const enrichedWith25Figs = {
         ...mockEnrichedResult,
-        extractedFigures: Array.from({ length: 25 }, (_, i) => ({
+        extractedFigures: Array.from({ length: 45 }, (_, i) => ({
           type: "image",
           imageUrl: `https://img.com/fig${i}.png`,
           caption: `Caption ${i}`,

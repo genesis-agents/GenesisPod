@@ -3,6 +3,7 @@ import { FigureRelevanceService } from "../figure-relevance.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { ExtractedFigure } from "../../../types/research.types";
 
+/** Figure with caption + alt (default for most tests) */
 const makeFigure = (
   url: string,
   type: ExtractedFigure["type"] = "chart",
@@ -11,6 +12,35 @@ const makeFigure = (
   caption: `Caption for ${url}`,
   type,
   alt: `Alt for ${url}`,
+});
+
+/** Figure with NO caption/alt — photos will be rejected in Vision fallback */
+const makeBareFigure = (
+  url: string,
+  type: ExtractedFigure["type"] = "photo",
+): ExtractedFigure => ({
+  imageUrl: url,
+  caption: "",
+  type,
+  alt: "",
+});
+
+/** chatStructured response: single-figure accepted */
+const accepted = () => ({
+  data: { accepted: true },
+  rawContent: "{}",
+  model: "test",
+  tokensUsed: 50,
+  retriedParse: false,
+});
+
+/** chatStructured response: single-figure rejected */
+const rejected = (reason = "decorative") => ({
+  data: { accepted: false, reason },
+  rawContent: "{}",
+  model: "test",
+  tokensUsed: 50,
+  retriedParse: false,
 });
 
 const mockChatFacade = {
@@ -48,26 +78,18 @@ describe("FigureRelevanceService", () => {
       expect(mockChatFacade.chatStructured).not.toHaveBeenCalled();
     });
 
-    it("should return accepted figures from LLM response", async () => {
+    it("should accept/reject figures per individual LLM call (v13)", async () => {
       const figures = [
         makeFigure("https://example.com/chart1.png"),
-        makeFigure("https://example.com/photo.jpg", "photo"),
+        makeBareFigure("https://example.com/photo.jpg", "photo"),
         makeFigure("https://example.com/chart2.png"),
       ];
 
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: [
-            { index: 0, accepted: true },
-            { index: 1, accepted: false, reason: "decorative photo" },
-            { index: 2, accepted: true },
-          ],
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
+      // One chatStructured call per figure (3 calls total)
+      mockChatFacade.chatStructured
+        .mockResolvedValueOnce(accepted())
+        .mockResolvedValueOnce(rejected("decorative photo"))
+        .mockResolvedValueOnce(accepted());
 
       const result = await service.filterRelevantFigures(
         figures,
@@ -79,11 +101,34 @@ describe("FigureRelevanceService", () => {
       expect(result[1].imageUrl).toBe("https://example.com/chart2.png");
     });
 
-    it("should fall back to type-based filter when Vision call fails", async () => {
+    it("should call chatStructured once per vision-compatible figure (v13)", async () => {
+      const figures = [
+        makeFigure("https://example.com/chart1.png"),
+        makeFigure("https://example.com/chart2.png"),
+        makeFigure("https://example.com/chart3.png"),
+      ];
+
+      mockChatFacade.chatStructured.mockResolvedValue(accepted());
+
+      await service.filterRelevantFigures(figures, "Test Topic");
+
+      // Each figure gets its own Vision call
+      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(3);
+      // Each call contains exactly 1 image_url content part
+      for (const call of mockChatFacade.chatStructured.mock.calls) {
+        const args = call[0];
+        const imageCount = args.messages[0].contentParts.filter(
+          (p: { type: string }) => p.type === "image_url",
+        ).length;
+        expect(imageCount).toBe(1);
+      }
+    });
+
+    it("should fall back to type-based filter when Vision call fails (v13)", async () => {
       const figures = [
         makeFigure("https://example.com/chart.png", "chart"),
-        makeFigure("https://example.com/photo.jpg", "photo"),
-        makeFigure("https://example.com/diagram.svg", "diagram"),
+        makeBareFigure("https://example.com/photo.jpg", "photo"), // no caption → rejected in fallback
+        makeFigure("https://example.com/diagram.png", "diagram"),
       ];
 
       mockChatFacade.chatStructured.mockRejectedValue(new Error("API timeout"));
@@ -93,210 +138,97 @@ describe("FigureRelevanceService", () => {
         "AI Research",
       );
 
-      // ★ v10: Fallback keeps only informational types (chart/table/diagram), not photo
+      // ★ v13: chart/diagram always kept in fallback, photo without caption rejected
       expect(result).toHaveLength(2);
       expect(result.map((f) => f.type)).toEqual(["chart", "diagram"]);
     });
 
-    // ============================================================
-    // Edge cases
-    // ============================================================
-
-    it("should deduplicate when LLM returns duplicate indices", async () => {
-      const figures = [
-        makeFigure("https://example.com/1.png"),
-        makeFigure("https://example.com/2.png"),
-      ];
-
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: [
-            { index: 0, accepted: true },
-            { index: 0, accepted: true }, // duplicate
-            { index: 1, accepted: false, reason: "blurry" },
-          ],
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
-
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      expect(result).toHaveLength(1);
-      expect(result[0].imageUrl).toBe("https://example.com/1.png");
-    });
-
-    it("should keep missing chart-type indices and reject missing photo-type indices (v10)", async () => {
-      const figures = [
-        makeFigure("https://example.com/1.png"),
-        makeFigure("https://example.com/2.png"),
-        makeFigure("https://example.com/3.png"),
-      ];
-
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: [
-            { index: 0, accepted: true },
-            // index 1 missing
-            { index: 2, accepted: false, reason: "irrelevant" },
-          ],
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
-
-      const warnSpy = jest.spyOn(service["logger"], "warn");
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      // ★ v10: index 0 accepted, index 1 missing (chart type → kept), index 2 rejected → 2 accepted
-      expect(result).toHaveLength(2);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("omitted 1 indices"),
-      );
-    });
-
-    it("should skip out-of-bounds indices from LLM response", async () => {
-      const figures = [makeFigure("https://example.com/1.png")];
-
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: [
-            { index: 0, accepted: true },
-            { index: 99, accepted: true }, // out of bounds
-          ],
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
-
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      expect(result).toHaveLength(1);
-    });
-
-    it("should process all candidates in batches of MAX_FIGURES_PER_BATCH", async () => {
-      // Create 12 figures (exceeds MAX_FIGURES_PER_BATCH = 8, needs 2 batches)
-      const figures = Array.from({ length: 12 }, (_, i) =>
-        makeFigure(`https://example.com/${i}.png`),
-      );
-
-      // Mock: batch 1 (8 figures) all accepted, batch 2 (4 figures) all accepted
-      mockChatFacade.chatStructured
-        .mockResolvedValueOnce({
-          data: {
-            results: Array.from({ length: 8 }, (_, i) => ({
-              index: i,
-              accepted: true,
-            })),
-          },
-          rawContent: "{}",
-          model: "test",
-          tokensUsed: 100,
-          retriedParse: false,
-        })
-        .mockResolvedValueOnce({
-          data: {
-            results: Array.from({ length: 4 }, (_, i) => ({
-              index: i,
-              accepted: true,
-            })),
-          },
-          rawContent: "{}",
-          model: "test",
-          tokensUsed: 100,
-          retriedParse: false,
-        });
-
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      // ★ v6.0: All 12 figures processed in 2 batches, all accepted
-      expect(result).toHaveLength(12);
-      // chatStructured called twice (2 batches)
-      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(2);
-      // First batch: 8 images
-      const batch1Args = mockChatFacade.chatStructured.mock.calls[0][0];
-      const batch1ImageCount = batch1Args.messages[0].contentParts.filter(
-        (p: { type: string }) => p.type === "image_url",
-      ).length;
-      expect(batch1ImageCount).toBe(8);
-      // Second batch: 4 images
-      const batch2Args = mockChatFacade.chatStructured.mock.calls[1][0];
-      const batch2ImageCount = batch2Args.messages[0].contentParts.filter(
-        (p: { type: string }) => p.type === "image_url",
-      ).length;
-      expect(batch2ImageCount).toBe(4);
-    });
-
-    it("should keep informational types and reject photos when chatStructured throws parse error (v11)", async () => {
+    it("should keep informational types and reject uncaptioned photos on parse error (v13)", async () => {
       const figures = [
         makeFigure("https://example.com/1.png", "chart"),
-        makeFigure("https://example.com/2.jpg", "photo"),
+        makeBareFigure("https://example.com/2.jpg", "photo"),
         makeFigure("https://example.com/3.png", "table"),
       ];
 
-      // ★ v11: throwOnParseError=true → chatStructured throws on parse failure
       mockChatFacade.chatStructured.mockRejectedValue(
-        new Error(
-          "Structured output parse failed after 3 attempts: Unexpected token",
-        ),
+        new Error("Structured output parse failed after 3 attempts"),
       );
 
       const result = await service.filterRelevantFigures(figures, "Test Topic");
 
-      // ★ v10: Parse error → evaluateBatch throws → outer catch keeps chart/table/diagram only
+      // chart + table kept (informational), photo without caption rejected
       expect(result).toHaveLength(2);
       expect(result.map((f) => f.type)).toEqual(["chart", "table"]);
     });
 
-    it("should reject photo-type figures when no MULTIMODAL model is configured (v10)", async () => {
+    it("should keep photos with caption/alt in Vision fallback (v13)", async () => {
+      const figures = [
+        makeFigure("https://example.com/photo-with-caption.jpg", "photo"), // has caption → kept
+        makeBareFigure("https://example.com/bare-photo.jpg", "photo"), // no caption → rejected
+      ];
+
+      mockChatFacade.chatStructured.mockRejectedValue(
+        new Error("Vision timeout"),
+      );
+
+      const result = await service.filterRelevantFigures(figures, "Tech Topic");
+
+      // Captioned photo kept, bare photo rejected
+      expect(result).toHaveLength(1);
+      expect(result[0].imageUrl).toContain("photo-with-caption");
+    });
+
+    it("should reject photo-type figures when no MULTIMODAL model is configured (v13)", async () => {
       mockChatFacade.getDefaultModelByType.mockResolvedValueOnce(null);
 
       const figures = [
         makeFigure("https://example.com/chart.png", "chart"),
-        makeFigure("https://example.com/photo.jpg", "photo"),
+        makeBareFigure("https://example.com/photo.jpg", "photo"),
         makeFigure("https://example.com/table.png", "table"),
-        makeFigure("https://example.com/diagram.svg", "diagram"),
-        makeFigure("https://example.com/photo2.jpg", "photo"),
+        makeFigure("https://example.com/diagram.png", "diagram"),
+        makeFigure("https://example.com/photo2.jpg", "photo"), // has caption → kept in v13
       ];
 
       const result = await service.filterRelevantFigures(figures, "Test Topic");
 
-      // ★ v10: No Vision model → only keep chart/table/diagram, reject all photos
-      expect(result).toHaveLength(3);
-      expect(result.map((f) => f.type)).toEqual(["chart", "table", "diagram"]);
-      // chatStructured should NOT be called
+      // ★ v13: No Vision model → chart/table/diagram kept, bare photos rejected, captioned photos kept
+      expect(result).toHaveLength(4);
       expect(mockChatFacade.chatStructured).not.toHaveBeenCalled();
     });
 
-    it("should reject omitted photo-type indices but keep omitted chart-type (v10)", async () => {
+    it("should skip Vision for SVG/BMP/ICO and auto-decide by type", async () => {
       const figures = [
-        makeFigure("https://example.com/1.png", "chart"),
-        makeFigure("https://example.com/2.jpg", "photo"),
-        makeFigure("https://example.com/3.png", "diagram"),
+        makeFigure("https://example.com/diagram.svg", "diagram"), // SVG → no Vision → diagram=kept
+        makeFigure("https://example.com/icon.ico", "photo"), // ICO → no Vision → photo type → rejected (only INFORMATIONAL_FIGURE_TYPES kept)
+        makeFigure("https://example.com/chart.png", "chart"), // PNG → Vision call
       ];
 
-      // LLM only returns result for index 0, omits 1 and 2
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: [{ index: 0, accepted: true }],
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
+      mockChatFacade.chatStructured.mockResolvedValue(accepted());
 
       const result = await service.filterRelevantFigures(figures, "Test Topic");
 
-      // ★ v10: index 0 accepted, index 1 omitted (photo → rejected), index 2 omitted (diagram → kept)
+      // Only 1 Vision call (for chart.png); SVG and ICO bypass Vision
+      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(1);
+      // diagram.svg → auto-kept (informational), icon.ico photo → rejected (not informational type), chart.png → accepted
       expect(result).toHaveLength(2);
-      expect(result.map((f) => f.type)).toEqual(["chart", "diagram"]);
+      expect(result.map((f) => f.type)).toEqual(["diagram", "chart"]);
+    });
+
+    it("should skip Vision for blacklisted CDN domains and auto-decide by type", async () => {
+      const figures = [
+        makeFigure("https://fbcdn.net/v/chart.jpg", "chart"), // Facebook CDN → blacklisted → informational → kept
+        makeBareFigure("https://media.licdn.com/photo.jpg", "photo"), // LinkedIn CDN → blacklisted → photo no caption → rejected
+        makeFigure("https://example.com/chart.png", "chart"), // normal → Vision call
+      ];
+
+      mockChatFacade.chatStructured.mockResolvedValue(accepted());
+
+      const result = await service.filterRelevantFigures(figures, "Test Topic");
+
+      // Only 1 Vision call (for example.com chart); CDN blacklisted URLs skip Vision
+      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(1);
+      // fbcdn chart → kept (informational type), linkedin photo → rejected (no caption)
+      expect(result).toHaveLength(2);
     });
   });
 
@@ -312,32 +244,22 @@ describe("FigureRelevanceService", () => {
       // 模拟真实证据中抽取的图片：白宫横幅、新闻配图 vs Fed 数据图、Pew 调查图
       const figures = [
         makeFigure("https://fred.stlouisfed.org/graph/fredgraph.png", "chart"),
-        makeFigure("https://www.whitehouse.gov/Wire-Banner.jpg", "photo"),
+        makeBareFigure("https://www.whitehouse.gov/Wire-Banner.jpg", "photo"),
         makeFigure("https://pewresearch.org/survey-chart.png", "chart"),
-        makeFigure("https://cdn.cfr.org/champagne-celebration.jpg", "photo"),
-        makeFigure("https://example.com/architecture.svg", "diagram"),
+        makeBareFigure(
+          "https://cdn.cfr.org/champagne-celebration.jpg",
+          "photo",
+        ),
+        makeFigure("https://example.com/architecture.svg", "diagram"), // SVG → auto-kept
       ];
 
-      // 模拟 Vision LLM 的判断结果 — 对装饰性照片返回 rejected
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: [
-            { index: 0, accepted: true }, // Fed 利率图 ✅
-            {
-              index: 1,
-              accepted: false,
-              reason: "文章头图/封面图，装饰性横幅",
-            },
-            { index: 2, accepted: true }, // Pew 调查图 ✅
-            { index: 3, accepted: false, reason: "新闻缩略图，庆祝场景照" },
-            { index: 4, accepted: true }, // 架构图 ✅
-          ],
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
+      // architecture.svg is SVG → no Vision call (auto-kept as diagram)
+      // 4 Vision calls for the remaining figures
+      mockChatFacade.chatStructured
+        .mockResolvedValueOnce(accepted()) // Fed 利率图 ✅
+        .mockResolvedValueOnce(rejected("文章头图/封面图，装饰性横幅")) // photo ❌
+        .mockResolvedValueOnce(accepted()) // Pew 调查图 ✅
+        .mockResolvedValueOnce(rejected("新闻缩略图，庆祝场景照")); // photo ❌
 
       const result = await service.filterRelevantFigures(
         figures,
@@ -354,17 +276,17 @@ describe("FigureRelevanceService", () => {
       ]);
     });
 
-    it("Vision API 超时: 应保留 chart/diagram 但丢弃 photo（安全降级）", async () => {
-      // 模拟: 8 张图片中混合了有价值的图表和装饰性照片
+    it("Vision API 超时: 应保留 chart/diagram 但丢弃无标题 photo（安全降级）", async () => {
+      // 模拟: 5 张图片中混合了有价值的图表和无标题装饰性照片
       const figures = [
         makeFigure("https://fred.stlouisfed.org/chart1.png", "chart"),
-        makeFigure("https://whitehouse.gov/hero-image.jpg", "photo"),
+        makeBareFigure("https://whitehouse.gov/hero-image.jpg", "photo"), // no caption
         makeFigure("https://pewresearch.org/table1.png", "table"),
-        makeFigure("https://cdn.reuters.com/reporter-photo.jpg", "photo"),
-        makeFigure("https://example.com/flow-diagram.svg", "diagram"),
+        makeBareFigure("https://cdn.reuters.com/reporter-photo.jpg", "photo"), // no caption
+        makeFigure("https://example.com/flow-diagram.svg", "diagram"), // SVG → auto-kept
       ];
 
-      // Vision API 完全不可用
+      // Vision API 完全不可用（flow-diagram.svg 是 SVG，直接 auto-kept，不走 Vision）
       mockChatFacade.chatStructured.mockRejectedValue(
         new Error("429 Too Many Requests"),
       );
@@ -374,127 +296,43 @@ describe("FigureRelevanceService", () => {
         "AI 监管政策分析",
       );
 
-      // 安全降级: 只保留 chart/table/diagram（确定有信息价值），丢弃 photo（无法验证）
+      // 安全降级: 只保留 chart/table/diagram，无标题照片被丢弃
       expect(result).toHaveLength(3);
       expect(result.map((f) => f.type)).toEqual(["chart", "table", "diagram"]);
-      // 用户不会看到白宫英雄图和路透社记者照片
+      // 白宫英雄图和路透社记者照片不出现
       expect(result.find((f) => f.type === "photo")).toBeUndefined();
     });
 
-    it("Vision LLM 漏审部分图片: chart 类型倾向保留，photo 类型倾向拒绝", async () => {
-      // 模拟: 5 张图片，其中 tech-architecture.svg 被格式过滤（SVG），自动保留（diagram 类型）
-      // 剩余 4 张发给 Vision，LLM 只审了其中 2 张（漏了 index 1）
+    it("单张图片失败不影响其他图片（v13 个体隔离）", async () => {
+      // 5 张图片，第 2 张 Vision 调用失败（慢速 CDN）
       const figures = [
-        makeFigure("https://example.com/gdp-chart.png", "chart"), // index 0
-        makeFigure("https://example.com/ceo-portrait.jpg", "photo"), // index 1: 被 LLM 遗漏
-        makeFigure("https://example.com/market-share.png", "chart"), // index 2
-        makeFigure("https://example.com/tech-architecture.svg", "diagram"), // index 3: SVG → auto-kept
-        makeFigure("https://example.com/press-conference.jpg", "photo"), // index 4
+        makeFigure("https://example.com/chart1.png", "chart"),
+        makeBareFigure("https://slow-cdn.example.com/photo.jpg", "photo"),
+        makeFigure("https://example.com/chart2.png", "chart"),
+        makeFigure("https://example.com/table.png", "table"),
+        makeFigure("https://example.com/chart3.png", "chart"),
       ];
 
-      // LLM 只看到 4 张（SVG 被过滤），漏审 index 1 (ceo-portrait)
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: {
-          results: [
-            { index: 0, accepted: true }, // gdp-chart ✅
-            // index 1 (ceo-portrait) — 遗漏
-            { index: 2, accepted: true }, // market-share ✅
-            { index: 3, accepted: false, reason: "新闻发布会场景照" }, // press-conference ❌
-          ],
-        },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 100,
-        retriedParse: false,
-      });
-
-      const result = await service.filterRelevantFigures(
-        figures,
-        "全球 AI 市场分析",
-      );
-
-      // 业务规则: chart/diagram 保留（宁可多不可少），photo 丢弃（宁缺毋滥）
-      // gdp-chart(LLM ✅) + market-share(LLM ✅) + tech-architecture(SVG auto-kept) = 3
-      expect(result).toHaveLength(3);
-      expect(result.map((f) => f.type)).toEqual(["chart", "chart", "diagram"]);
-      // CEO 肖像照（photo 被遗漏）不出现
-      expect(
-        result.find((f) => f.imageUrl.includes("ceo-portrait")),
-      ).toBeUndefined();
-      // 架构图（diagram SVG 自动保留）保留
-      expect(
-        result.find((f) => f.imageUrl.includes("tech-architecture")),
-      ).toBeDefined();
-    });
-
-    it("多批处理: 第一批成功第二批失败 → 第一批按 LLM 结果，第二批安全降级", async () => {
-      // 模拟: 12 张图片分 2 批（8+4），第二批 API 失败
-      const figures = [
-        // Batch 1: 8 张 — Vision 正常返回
-        makeFigure("https://example.com/chart-1.png", "chart"),
-        makeFigure("https://example.com/photo-1.jpg", "photo"),
-        makeFigure("https://example.com/chart-2.png", "chart"),
-        makeFigure("https://example.com/photo-2.jpg", "photo"),
-        makeFigure("https://example.com/diagram-1.svg", "diagram"),
-        makeFigure("https://example.com/chart-3.png", "chart"),
-        makeFigure("https://example.com/photo-3.jpg", "photo"),
-        makeFigure("https://example.com/table-1.png", "table"),
-        // Batch 2: 4 张 — API 失败
-        makeFigure("https://example.com/chart-4.png", "chart"),
-        makeFigure("https://example.com/photo-4.jpg", "photo"),
-        makeFigure("https://example.com/diagram-2.svg", "diagram"),
-        makeFigure("https://example.com/photo-5.jpg", "photo"),
-      ];
-
-      // Batch 1: 正常返回
-      // diagram-1.svg 被格式过滤（SVG 不支持 Vision API），自动保留（informational 类型）
-      // 剩余 7 张发给 Vision API
       mockChatFacade.chatStructured
-        .mockResolvedValueOnce({
-          data: {
-            results: [
-              { index: 0, accepted: true }, // chart-1 ✅
-              { index: 1, accepted: false, reason: "装饰照片" }, // photo-1 ❌
-              { index: 2, accepted: true }, // chart-2 ✅
-              { index: 3, accepted: false, reason: "stock photo" }, // photo-2 ❌
-              { index: 4, accepted: true }, // chart-3 ✅ (diagram-1.svg skipped)
-              { index: 5, accepted: false, reason: "新闻配图" }, // photo-3 ❌
-              { index: 6, accepted: true }, // table-1 ✅
-            ],
-          },
-          rawContent: "{}",
-          model: "test",
-          tokensUsed: 200,
-          retriedParse: false,
-        })
-        // Batch 2: API 失败 — diagram-2.svg 格式过滤后自动保留，chart-4 走 fallback 保留
-        .mockRejectedValueOnce(new Error("500 Internal Server Error"));
+        .mockResolvedValueOnce(accepted()) // chart1 ✅
+        .mockRejectedValueOnce(new Error("CDN timeout")) // photo → fallback (no caption → rejected)
+        .mockResolvedValueOnce(accepted()) // chart2 ✅
+        .mockResolvedValueOnce(accepted()) // table ✅
+        .mockResolvedValueOnce(accepted()); // chart3 ✅
 
-      const result = await service.filterRelevantFigures(
-        figures,
-        "AI 行业深度报告",
-      );
+      const result = await service.filterRelevantFigures(figures, "AI 研究");
 
-      // Batch 1: 3 chart + 1 diagram(SVG auto-kept) + 1 table = 5
-      // Batch 2: chart-4(fallback) + diagram-2(SVG auto-kept) = 2
-      // Total: 7
-      expect(result).toHaveLength(7);
-      // 所有结果都不包含 photo
+      // chart1 + chart2 + table + chart3 = 4（photo 失败且无 caption → rejected）
+      expect(result).toHaveLength(4);
       expect(result.every((f) => f.type !== "photo")).toBe(true);
-      // chatStructured 被调用 2 次（batch 2 的 compatible 只有 chart-4 + photo-4 + photo-5）
-      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(2);
+      // All 5 Vision calls were attempted
+      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(5);
     });
 
     it("Vision prompt 应包含话题名称用于相关性判断", async () => {
       const figures = [makeFigure("https://example.com/chart.png", "chart")];
 
-      mockChatFacade.chatStructured.mockResolvedValue({
-        data: { results: [{ index: 0, accepted: true }] },
-        rawContent: "{}",
-        model: "test",
-        tokensUsed: 50,
-        retriedParse: false,
-      });
+      mockChatFacade.chatStructured.mockResolvedValue(accepted());
 
       await service.filterRelevantFigures(figures, "中国半导体产业政策");
 

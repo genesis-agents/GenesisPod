@@ -173,12 +173,12 @@ describe("图片管线业务仿真", () => {
 
       const { summary } = buildFiguresSummary(evidences);
 
-      // 指引中明确说"允许 0 张"
-      expect(summary).toContain("允许 0 张");
-      // 指引中说"宁缺毋滥"
-      expect(summary).toContain("宁缺毋滥");
-      // 指引中要求"直接相关"
-      expect(summary).toContain("直接相关");
+      // 指引中说明 0 张的条件
+      expect(summary).toContain("才分配 0 张");
+      // 指引中说明不分配装饰性配图
+      expect(summary).toContain("纯装饰性新闻配图不分配");
+      // 指引中要求"相关"
+      expect(summary).toContain("相关");
     });
   });
 
@@ -656,7 +656,7 @@ describe("图片管线业务仿真", () => {
 
       // Leader 指引包含正确信息
       expect(summary).toContain("共 5 个可用图表");
-      expect(summary).toContain("允许 0 张");
+      expect(summary).toContain("才分配 0 张");
 
       // Step 3: backfillFigureUrls — 模拟 LLM 选择了 FIG-2 和 FIG-3
       const llmRefs: FigureReference[] = [

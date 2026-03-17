@@ -340,7 +340,7 @@ describe("buildFiguresSummary", () => {
 
       // Summary should contain allocation guidance
       expect(summary).toContain("图表分配原则");
-      expect(summary).toContain("质量优先");
+      expect(summary).toContain("数据图表");
       expect(summary).toContain("共 4 个可用图表");
     });
 
@@ -405,11 +405,11 @@ describe("buildFiguresSummary", () => {
       );
     });
 
-    it("should cap displayed entries at MAX_FIGURES_FOR_LEADER (20)", () => {
+    it("should cap displayed entries at MAX_FIGURES_FOR_LEADER (40)", () => {
       const evidences: EnrichedEvidenceData[] = [
         makeEvidence({
           title: "Many Figures Evidence",
-          extractedFigures: Array.from({ length: 25 }, (_, i) =>
+          extractedFigures: Array.from({ length: 45 }, (_, i) =>
             makeFigure({
               imageUrl: `https://example.com/chart-${i}.png`,
               caption: `Chart ${i + 1}`,
@@ -421,8 +421,10 @@ describe("buildFiguresSummary", () => {
 
       const { summary, figureRegistry } = buildFiguresSummary(evidences);
 
-      expect(figureRegistry.size).toBe(25);
-      expect(summary).toContain("共 25 个可用图表（展示前 20 个）");
+      expect(figureRegistry.size).toBe(45);
+      expect(summary).toContain(
+        "共 45 个可用图表（展示前 40 个，数据图表优先）",
+      );
       expect(summary).toContain("还有 5 个图表未列出");
     });
   });
@@ -514,8 +516,8 @@ describe("buildFiguresSummary", () => {
       const { summary } = buildFiguresSummary(evidenceWithFigure);
 
       expect(summary).toContain("图表分配原则");
-      expect(summary).toContain("允许 0 张");
-      expect(summary).toContain("宁缺毋滥");
+      expect(summary).toContain("才分配 0 张");
+      expect(summary).toContain("纯装饰性新闻配图不分配");
     });
 
     it("should exclude guidance when includeGuidance=false", () => {
