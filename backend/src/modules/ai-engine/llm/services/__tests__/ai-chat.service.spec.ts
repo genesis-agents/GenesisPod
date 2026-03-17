@@ -563,6 +563,8 @@ describe("AiChatService", () => {
         expect.any(Number),
         expect.any(String),
         undefined, // responseFormat
+        undefined, // reasoningDepth
+        undefined, // outputSchema
       );
     });
 
@@ -590,6 +592,8 @@ describe("AiChatService", () => {
         expect.any(Number),
         expect.any(String),
         undefined, // responseFormat
+        undefined, // reasoningDepth
+        undefined, // outputSchema
       );
     });
 
@@ -613,6 +617,8 @@ describe("AiChatService", () => {
         expect.any(Number),
         expect.any(String),
         "json", // responseFormat threaded through
+        undefined, // reasoningDepth
+        undefined, // outputSchema
       );
     });
 
@@ -1633,6 +1639,8 @@ describe("AiChatService", () => {
         expect.anything(),
         expect.anything(),
         undefined, // responseFormat not passed
+        undefined, // reasoningDepth
+        undefined, // outputSchema
       );
     });
 
@@ -1659,6 +1667,8 @@ describe("AiChatService", () => {
         expect.anything(),
         expect.anything(),
         undefined, // responseFormat not passed
+        undefined, // reasoningDepth
+        undefined, // outputSchema
       );
     });
 
@@ -1710,6 +1720,8 @@ describe("AiChatService", () => {
         expect.anything(),
         expect.anything(),
         undefined, // responseFormat not passed
+        undefined, // reasoningDepth
+        undefined, // outputSchema
       );
     });
   });
