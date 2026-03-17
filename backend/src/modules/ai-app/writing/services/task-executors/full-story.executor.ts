@@ -184,7 +184,8 @@ export class FullStoryExecutor implements IWritingTaskExecutor {
       this.logger.log(
         `[${missionId}] Heartbeat: world building in progress... (${worldHeartbeatCount * 30}s elapsed)`,
       );
-      const heartbeatProgress = Math.min(5 + worldHeartbeatCount, 9);
+      // Progress must keep incrementing to prevent frontend stuck detection (3 min threshold)
+      const heartbeatProgress = Math.min(5 + worldHeartbeatCount, 14);
       void this.lifecycleService.updateMissionProgress(
         missionId,
         heartbeatProgress,
@@ -280,16 +281,33 @@ export class FullStoryExecutor implements IWritingTaskExecutor {
       (await this.lifecycleService.getModelForRole("story-architect")) ||
       modelId;
 
-    const outlineResult = await this.generateOutline(
-      missionId,
-      input.projectId,
-      effectiveUserPrompt,
-      worldSettings,
-      totalVolumes,
-      totalChapters,
-      architectModel,
-      context.kernelProcessId,
-    );
+    // Outline heartbeat to prevent frontend stuck detection
+    let outlineHeartbeatCount = 0;
+    const outlineHeartbeatInterval = setInterval(() => {
+      outlineHeartbeatCount++;
+      const p = Math.min(10 + outlineHeartbeatCount, 14);
+      void this.lifecycleService.updateMissionProgress(
+        missionId,
+        p,
+        `故事架构师正在规划章节... (${outlineHeartbeatCount * 30}s)`,
+      );
+    }, WRITING_DEFAULTS.HEARTBEAT_INTERVAL);
+
+    let outlineResult;
+    try {
+      outlineResult = await this.generateOutline(
+        missionId,
+        input.projectId,
+        effectiveUserPrompt,
+        worldSettings,
+        totalVolumes,
+        totalChapters,
+        architectModel,
+        context.kernelProcessId,
+      );
+    } finally {
+      clearInterval(outlineHeartbeatInterval);
+    }
 
     // Create outline structure in DB
     if (outlineResult.chapters.length > 0) {
