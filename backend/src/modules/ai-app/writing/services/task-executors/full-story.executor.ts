@@ -314,6 +314,17 @@ export class FullStoryExecutor implements IWritingTaskExecutor {
       await this.createOutlineStructure(input.projectId, outlineResult);
     }
 
+    // Update project name with generated book title
+    if (outlineResult.bookTitle) {
+      await this.prisma.writingProject.update({
+        where: { id: input.projectId },
+        data: { name: outlineResult.bookTitle },
+      });
+      this.logger.log(
+        `[${missionId}] Project name updated to: ${outlineResult.bookTitle}`,
+      );
+    }
+
     await this.eventEmitter.emitAgentWorking(input.projectId, {
       agentId: "story-architect",
       agentName: "故事架构师",
@@ -644,6 +655,7 @@ ${storyCreativitySection}
     modelId: string,
     kernelProcessId?: string,
   ): Promise<{
+    bookTitle: string;
     core: { summary: string; genre: string; theme: string };
     volumes: Array<{
       title: string;
@@ -690,6 +702,7 @@ ${JSON.stringify(worldSummary, null, 2)}
 
 请输出 JSON：
 {
+  "bookTitle": "书名（4-10字，不加书名号）",
   "core": { "summary": "故事概要", "genre": "类型", "theme": "主题" },
   "volumes": [{ "title": "卷名", "conflict": "矛盾", "plot": "情节", "emotion": "情感" }],
   "chapters": [{ "volumeIndex": 0, "title": "章名", "plot": "情节要点", "keyPoint": "转折点" }]
@@ -731,6 +744,7 @@ ${JSON.stringify(worldSummary, null, 2)}
       );
 
       return {
+        bookTitle: parsed.bookTitle || "",
         core: (parsed.core as {
           summary: string;
           genre: string;
@@ -764,6 +778,7 @@ ${JSON.stringify(worldSummary, null, 2)}
         }),
       );
       return {
+        bookTitle: "",
         core: {
           summary: userPrompt.slice(0, 100),
           genre: "通用",
