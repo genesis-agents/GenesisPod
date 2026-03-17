@@ -139,7 +139,7 @@ export class FullStoryExecutor implements IWritingTaskExecutor {
       "设定守护者正在建立世界观...",
     );
 
-    this.teamFacade.missionOrchestrator!.updateState(missionId, {
+    this.teamFacade.missionOrchestrator?.updateState(missionId, {
       phase: "executing",
       currentSteps: ["world-building"],
       completedSteps: [],

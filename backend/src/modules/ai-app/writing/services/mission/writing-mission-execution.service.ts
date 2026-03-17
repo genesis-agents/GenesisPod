@@ -266,78 +266,72 @@ export class WritingMissionExecutionService {
       }
     } catch (error) {
       clearInterval(heartbeatInterval);
-      this.logger.error(
-        `Mission ${missionId} failed: ${(error as Error).message}`,
-      );
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Mission ${missionId} failed: ${errMsg}`);
 
-      // Kernel process failure
-      this.lifecycleService.failKernelProcess(
-        missionId,
-        (error as Error).message,
-      );
-
-      // Fail progress tracker
-      if (this.progressTracker) {
-        const task = this.progressTracker.getTask(missionId);
-        if (task) {
-          for (const phase of task.phases) {
-            if (phase.status === "in_progress") {
-              this.progressTracker.failPhase(
-                missionId,
-                phase.id,
-                (error as Error).message,
-              );
+      // All cleanup wrapped to prevent double-fault leaving mission stuck in IN_PROGRESS
+      try {
+        this.lifecycleService.failKernelProcess(missionId, errMsg);
+        if (this.progressTracker) {
+          const task = this.progressTracker.getTask(missionId);
+          if (task) {
+            for (const phase of task.phases) {
+              if (phase.status === "in_progress") {
+                this.progressTracker.failPhase(missionId, phase.id, errMsg);
+              }
             }
           }
+          this.progressTracker.fail(missionId, errMsg);
         }
-        this.progressTracker.fail(missionId, (error as Error).message);
+        if (generationSpanId) {
+          this.agentFacade.endSpan(generationSpanId, {
+            status: "error",
+            error: errMsg,
+          });
+        }
+        if (traceId) {
+          this.agentFacade.endTrace(traceId, { status: "error" });
+        }
+        await this.eventEmitter.emitMissionFailed(
+          input.projectId,
+          missionId,
+          errMsg,
+        );
+      } catch (cleanupErr) {
+        this.logger.warn(
+          `Mission ${missionId} error cleanup failed: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`,
+        );
       }
 
-      // End spans with error
-      if (generationSpanId) {
-        this.agentFacade.endSpan(generationSpanId, {
-          status: "error",
-          error: (error as Error).message,
+      // Critical: must mark mission as FAILED (separate try-catch to guarantee execution)
+      try {
+        await this.lifecycleService.updateMissionRecord(missionId, {
+          missionId,
+          success: false,
+          deliverables: [],
+          summary: `写作任务失败: ${errMsg}`,
+          tokensUsed: 0,
+          costUsed: 0,
+          duration: 0,
+          error: { code: "WRITING_ERROR", message: errMsg, retryable: true },
+          statistics: {
+            totalSteps: 0,
+            completedSteps: 0,
+            failedSteps: 1,
+            skippedSteps: 0,
+            reworkCount: 0,
+            membersInvolved: 0,
+            toolCalls: 0,
+            skillCalls: 0,
+            reviewCount: 0,
+            reviewPassRate: 0,
+          },
         });
+      } catch (recordErr) {
+        this.logger.error(
+          `Mission ${missionId} CRITICAL: failed to mark as FAILED: ${recordErr instanceof Error ? recordErr.message : String(recordErr)}`,
+        );
       }
-      if (traceId) {
-        this.agentFacade.endTrace(traceId, { status: "error" });
-      }
-
-      // Emit failure event
-      await this.eventEmitter.emitMissionFailed(
-        input.projectId,
-        missionId,
-        (error as Error).message,
-      );
-
-      // Update mission record as failed
-      await this.lifecycleService.updateMissionRecord(missionId, {
-        missionId,
-        success: false,
-        deliverables: [],
-        summary: `写作任务失败: ${(error as Error).message}`,
-        tokensUsed: 0,
-        costUsed: 0,
-        duration: 0,
-        error: {
-          code: "WRITING_ERROR",
-          message: (error as Error).message,
-          retryable: true,
-        },
-        statistics: {
-          totalSteps: 0,
-          completedSteps: 0,
-          failedSteps: 1,
-          skippedSteps: 0,
-          reworkCount: 0,
-          membersInvolved: 0,
-          toolCalls: 0,
-          skillCalls: 0,
-          reviewCount: 0,
-          reviewPassRate: 0,
-        },
-      });
     }
   }
 
