@@ -76,8 +76,13 @@ const VISION_INCOMPATIBLE_DOMAINS: RegExp[] = [
   /tiktokcdn\.com/i,
 ];
 
+/** Vision API 支持的图片格式（不支持 SVG/BMP/TIFF 等） */
+const VISION_UNSUPPORTED_EXTENSIONS = /\.(?:svg|bmp|tiff?|ico|eps|ai)(?:\?|$)/i;
+
 function isVisionCompatibleUrl(url: string): boolean {
-  return !VISION_INCOMPATIBLE_DOMAINS.some((re) => re.test(url));
+  if (VISION_INCOMPATIBLE_DOMAINS.some((re) => re.test(url))) return false;
+  if (VISION_UNSUPPORTED_EXTENSIONS.test(url)) return false;
+  return true;
 }
 
 @Injectable()
@@ -347,19 +352,24 @@ export class FigureRelevanceService {
             : -1,
       }));
 
-      // 为 CDN 黑名单过滤掉的图片补充 rejected 条目
+      // 为不兼容的图片生成条目：informational 类型自动保留（有语义价值），其余拒绝
       const compatibleSet = new Set(compatibleFigures);
-      const incompatibleRejections = figures
+      const incompatibleResults = figures
         .map((fig, idx) => ({ fig, idx }))
         .filter(({ fig }) => !compatibleSet.has(fig))
-        .map(({ idx }) => ({
-          index: idx,
-          accepted: false as const,
-          reason: "incompatible CDN domain, Vision API cannot access",
-        }));
+        .map(({ fig, idx }) =>
+          INFORMATIONAL_FIGURE_TYPES.has(fig.type)
+            ? { index: idx, accepted: true as const }
+            : {
+                index: idx,
+                accepted: false as const,
+                reason:
+                  "incompatible format/CDN, Vision API cannot access" as const,
+              },
+        );
 
       return {
-        results: [...remappedResults, ...incompatibleRejections],
+        results: [...remappedResults, ...incompatibleResults],
       };
     } catch (error) {
       // ★ v11: 所有失败向上抛出，让 filterRelevantFigures 走 type-based fallback

@@ -382,23 +382,24 @@ describe("FigureRelevanceService", () => {
     });
 
     it("Vision LLM 漏审部分图片: chart 类型倾向保留，photo 类型倾向拒绝", async () => {
-      // 模拟: Vision LLM 只审了 5 张中的 3 张（漏了 index 1 和 3）
+      // 模拟: 5 张图片，其中 tech-architecture.svg 被格式过滤（SVG），自动保留（diagram 类型）
+      // 剩余 4 张发给 Vision，LLM 只审了其中 2 张（漏了 index 1）
       const figures = [
         makeFigure("https://example.com/gdp-chart.png", "chart"), // index 0
         makeFigure("https://example.com/ceo-portrait.jpg", "photo"), // index 1: 被 LLM 遗漏
         makeFigure("https://example.com/market-share.png", "chart"), // index 2
-        makeFigure("https://example.com/tech-architecture.svg", "diagram"), // index 3: 被 LLM 遗漏
+        makeFigure("https://example.com/tech-architecture.svg", "diagram"), // index 3: SVG → auto-kept
         makeFigure("https://example.com/press-conference.jpg", "photo"), // index 4
       ];
 
+      // LLM 只看到 4 张（SVG 被过滤），漏审 index 1 (ceo-portrait)
       mockChatFacade.chatStructured.mockResolvedValue({
         data: {
           results: [
-            { index: 0, accepted: true },
-            // index 1 (photo) — 遗漏
-            { index: 2, accepted: true },
-            // index 3 (diagram) — 遗漏
-            { index: 4, accepted: false, reason: "新闻发布会场景照" },
+            { index: 0, accepted: true }, // gdp-chart ✅
+            // index 1 (ceo-portrait) — 遗漏
+            { index: 2, accepted: true }, // market-share ✅
+            { index: 3, accepted: false, reason: "新闻发布会场景照" }, // press-conference ❌
           ],
         },
         rawContent: "{}",
@@ -412,14 +413,15 @@ describe("FigureRelevanceService", () => {
         "全球 AI 市场分析",
       );
 
-      // 业务规则: 被遗漏的 chart/diagram 保留（宁可多不可少），被遗漏的 photo 丢弃（宁缺毋滥）
+      // 业务规则: chart/diagram 保留（宁可多不可少），photo 丢弃（宁缺毋滥）
+      // gdp-chart(LLM ✅) + market-share(LLM ✅) + tech-architecture(SVG auto-kept) = 3
       expect(result).toHaveLength(3);
       expect(result.map((f) => f.type)).toEqual(["chart", "chart", "diagram"]);
       // CEO 肖像照（photo 被遗漏）不出现
       expect(
         result.find((f) => f.imageUrl.includes("ceo-portrait")),
       ).toBeUndefined();
-      // 架构图（diagram 被遗漏）保留
+      // 架构图（diagram SVG 自动保留）保留
       expect(
         result.find((f) => f.imageUrl.includes("tech-architecture")),
       ).toBeDefined();
@@ -444,19 +446,20 @@ describe("FigureRelevanceService", () => {
         makeFigure("https://example.com/photo-5.jpg", "photo"),
       ];
 
-      // Batch 1: 正常返回 — 保留 chart/diagram/table，拒绝所有 photo
+      // Batch 1: 正常返回
+      // diagram-1.svg 被格式过滤（SVG 不支持 Vision API），自动保留（informational 类型）
+      // 剩余 7 张发给 Vision API
       mockChatFacade.chatStructured
         .mockResolvedValueOnce({
           data: {
             results: [
-              { index: 0, accepted: true }, // chart ✅
-              { index: 1, accepted: false, reason: "装饰照片" }, // photo ❌
-              { index: 2, accepted: true }, // chart ✅
-              { index: 3, accepted: false, reason: "stock photo" }, // photo ❌
-              { index: 4, accepted: true }, // diagram ✅
-              { index: 5, accepted: true }, // chart ✅
-              { index: 6, accepted: false, reason: "新闻配图" }, // photo ❌
-              { index: 7, accepted: true }, // table ✅
+              { index: 0, accepted: true }, // chart-1 ✅
+              { index: 1, accepted: false, reason: "装饰照片" }, // photo-1 ❌
+              { index: 2, accepted: true }, // chart-2 ✅
+              { index: 3, accepted: false, reason: "stock photo" }, // photo-2 ❌
+              { index: 4, accepted: true }, // chart-3 ✅ (diagram-1.svg skipped)
+              { index: 5, accepted: false, reason: "新闻配图" }, // photo-3 ❌
+              { index: 6, accepted: true }, // table-1 ✅
             ],
           },
           rawContent: "{}",
@@ -464,7 +467,7 @@ describe("FigureRelevanceService", () => {
           tokensUsed: 200,
           retriedParse: false,
         })
-        // Batch 2: API 失败
+        // Batch 2: API 失败 — diagram-2.svg 格式过滤后自动保留，chart-4 走 fallback 保留
         .mockRejectedValueOnce(new Error("500 Internal Server Error"));
 
       const result = await service.filterRelevantFigures(
@@ -472,12 +475,13 @@ describe("FigureRelevanceService", () => {
         "AI 行业深度报告",
       );
 
-      // Batch 1: 5 张（3 chart + 1 diagram + 1 table）
-      // Batch 2: 2 张安全降级（chart-4 + diagram-2），photo-4 和 photo-5 被丢弃
+      // Batch 1: 3 chart + 1 diagram(SVG auto-kept) + 1 table = 5
+      // Batch 2: chart-4(fallback) + diagram-2(SVG auto-kept) = 2
+      // Total: 7
       expect(result).toHaveLength(7);
       // 所有结果都不包含 photo
       expect(result.every((f) => f.type !== "photo")).toBe(true);
-      // chatStructured 被调用 2 次
+      // chatStructured 被调用 2 次（batch 2 的 compatible 只有 chart-4 + photo-4 + photo-5）
       expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(2);
     });
 
