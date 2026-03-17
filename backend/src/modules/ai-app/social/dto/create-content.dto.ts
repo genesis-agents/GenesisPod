@@ -32,7 +32,7 @@ export class CreateContentDto {
   title!: string;
 
   @IsString()
-  @MaxLength(200000, { message: "内容过长（最大 200000 字符）" })
+  @MaxLength(500000, { message: "内容过长（最大 500000 字符）" })
   content!: string;
 
   @IsOptional()

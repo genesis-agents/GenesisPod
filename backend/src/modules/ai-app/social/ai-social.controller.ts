@@ -130,6 +130,15 @@ export class AiSocialController {
     return this.reviewService.getPendingReviewContents(req.user.id);
   }
 
+  // Note: This specific route MUST come before @Get("contents/:id") to avoid route conflict
+  @Get("series/:seriesId/contents")
+  async getSeriesContents(
+    @Request() req: AuthenticatedRequest,
+    @Param("seriesId") seriesId: string,
+  ) {
+    return this.aiSocialService.getSeriesContents(req.user.id, seriesId);
+  }
+
   @Get("contents/:id")
   async getContent(
     @Request() req: AuthenticatedRequest,

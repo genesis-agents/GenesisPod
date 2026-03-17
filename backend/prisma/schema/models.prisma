@@ -8039,6 +8039,10 @@ model SocialContent {
   errorMessage String? @map("error_message") @db.Text
   retryCount   Int     @default(0) @map("retry_count")
 
+  // 系列发布
+  seriesId    String? @map("series_id")    // UUID grouping series articles together
+  seriesOrder Int?    @map("series_order") // 1-based order within the series
+
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -8057,6 +8061,7 @@ model SocialContent {
   @@index([status, scheduledAt])
   @@index([contentType])
   @@index([reviewStatus])
+  @@index([seriesId])
   @@map("social_contents")
 }
 

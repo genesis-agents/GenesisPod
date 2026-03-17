@@ -49,6 +49,110 @@ export class WechatArticleFormatterService {
   };
 
   /**
+   * 将 Markdown 报告按 ## 标题拆分为多个 section
+   * 用于系列发布：每个 section 对应一篇文章
+   */
+  splitMarkdownIntoSections(fullMarkdown: string): Array<{
+    heading: string;
+    markdown: string;
+    chartIds: string[];
+  }> {
+    const sections: Array<{
+      heading: string;
+      markdown: string;
+      chartIds: string[];
+    }> = [];
+
+    // Split by ## headings (not ### or deeper)
+    const lines = fullMarkdown.split("\n");
+    let currentHeading = "";
+    let currentLines: string[] = [];
+    const introLines: string[] = [];
+    let foundFirstH2 = false;
+
+    for (const line of lines) {
+      const h2Match = line.match(/^## (.+)/);
+      if (h2Match) {
+        // Save previous section
+        if (foundFirstH2 && currentLines.length > 0) {
+          sections.push(this.buildSection(currentHeading, currentLines));
+        }
+        currentHeading = h2Match[1].trim();
+        currentLines = [];
+        foundFirstH2 = true;
+      } else if (!foundFirstH2) {
+        // Content before first ## heading = intro
+        introLines.push(line);
+      } else {
+        currentLines.push(line);
+      }
+    }
+
+    // Push last section
+    if (foundFirstH2 && currentLines.length > 0) {
+      sections.push(this.buildSection(currentHeading, currentLines));
+    }
+
+    // If we have intro content, prepend it to the first section or make it its own
+    if (introLines.length > 0) {
+      const introContent = introLines.join("\n").trim();
+      if (introContent && sections.length > 0) {
+        // Prepend intro to first section
+        sections[0].markdown = introContent + "\n\n" + sections[0].markdown;
+        // Re-extract chart IDs
+        sections[0].chartIds = this.extractChartIds(sections[0].markdown);
+      } else if (introContent && sections.length === 0) {
+        // No sections found, entire content is one section
+        sections.push({
+          heading: "Content",
+          markdown: introContent,
+          chartIds: this.extractChartIds(introContent),
+        });
+      }
+    }
+
+    // If no sections found at all (no ## headings), return single section
+    if (sections.length === 0) {
+      sections.push({
+        heading: "Content",
+        markdown: fullMarkdown,
+        chartIds: this.extractChartIds(fullMarkdown),
+      });
+    }
+
+    this.logger.log(
+      `Split report into ${sections.length} sections: ${sections.map((s) => s.heading).join(", ")}`,
+    );
+    return sections;
+  }
+
+  private buildSection(
+    heading: string,
+    lines: string[],
+  ): {
+    heading: string;
+    markdown: string;
+    chartIds: string[];
+  } {
+    const markdown = lines.join("\n").trim();
+    return {
+      heading,
+      markdown,
+      chartIds: this.extractChartIds(markdown),
+    };
+  }
+
+  private extractChartIds(markdown: string): string[] {
+    const ids: string[] = [];
+    const regex = /<!-- chart:([^\s]+?) -->/g;
+    let match;
+    while ((match = regex.exec(markdown)) !== null) {
+      ids.push(match[1]);
+    }
+    return ids;
+  }
+
+  /**
    * 将 Markdown 报告转换为微信公众号兼容 HTML
    */
   formatForWechat(

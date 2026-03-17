@@ -563,6 +563,7 @@ export class SocialLeaderService {
   /**
    * 保留原格式处理来源内容（跳过 AI 改写）
    * 用于将 Topic Insights 报告以原始格式发布到微信公众号
+   * 当报告包含多个 ## 章节时，自动拆分为系列文章
    */
   private async processKeepFormatSource(
     userId: string,
@@ -576,136 +577,220 @@ export class SocialLeaderService {
       url?: string;
     },
   ) {
-    this.logger.log(
-      `[processKeepFormatSource] Formatting report for WeChat (keepFormat mode)`,
-    );
-
-    // 将 Markdown 转为微信兼容 HTML
-    const wechatHtml = this.wechatFormatter.formatForWechat(
+    // 按 ## 标题拆分报告
+    const sections = this.wechatFormatter.splitMarkdownIntoSections(
       sourceContent.content,
-      {
-        executiveSummary: sourceContent.metadata?.executiveSummary as
-          | string
-          | undefined,
-        charts: sourceContent.metadata?.charts as unknown[] | undefined,
-        title: sourceContent.title,
-      },
     );
 
-    // 生成摘要
-    const digest = this.wechatFormatter.generateDigest(sourceContent.content);
+    const isSeries = sections.length > 1;
+    const seriesId = isSeries ? crypto.randomUUID() : null;
 
-    // 内容合规检测
-    const checkResult = await this.contentChecker.check(wechatHtml);
+    this.logger.log(
+      `[processKeepFormatSource] ${isSeries ? `Series mode: ${sections.length} parts, seriesId=${seriesId}` : "Single article mode"}`,
+    );
 
-    // 准备数据
-    const safeImages = ensureJsonArray(sourceContent.images);
-    const safeTags: string[] = [];
-    const safeComplianceCheck = safeJsonSerialize(checkResult, {
-      passed: false,
-      score: 0,
+    const allContents: Array<{
+      id: string;
+      userId: string;
+      contentType: string;
+      sourceType: string;
+      sourceId: string;
+      title: string;
+      content: string;
+      digest: string | null;
+      seriesId: string | null;
+      seriesOrder: number | null;
+      status: string;
+      createdAt: Date;
+    }> = [];
+
+    let firstCheckResult: {
+      passed: boolean;
+      issues: unknown[];
+      suggestions: unknown[];
+    } = {
+      passed: true,
       issues: [],
-      suggestions: ["Compliance check data was invalid"],
-    });
+      suggestions: [],
+    };
 
-    const safeContent = sanitizeString(wechatHtml);
-    const safeTitle = truncateString(sourceContent.title, 200);
-    const safeDigest = truncateString(digest, 200) || null;
-    const safeSourceUrl = sanitizeString(sourceContent.url) || null;
-    const safeCoverImageUrl = sanitizeString(sourceContent.coverImage) || null;
+    // TODO: wrap in $transaction for atomicity (MVP: partial inserts are acceptable as DRAFT)
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
 
-    try {
-      const results = await this.prisma.$queryRaw<
-        Array<{
-          id: string;
-          user_id: string;
-          content_type: string;
-          source_type: string;
-          source_id: string;
-          title: string;
-          content: string;
-          digest: string | null;
-          source_url: string | null;
-          cover_image_url: string | null;
-          images: string[];
-          tags: string[];
-          compliance_check: unknown;
-          status: string;
-          review_status: string;
-          created_at: Date;
-          updated_at: Date;
-        }>
-      >`
-        INSERT INTO "social_contents" (
-          "id", "user_id", "content_type", "source_type", "source_id",
-          "title", "content", "digest", "source_url", "cover_image_url",
-          "images", "tags", "compliance_check", "status", "review_status",
-          "created_at", "updated_at"
-        ) VALUES (
-          gen_random_uuid(),
-          ${userId}::uuid,
-          ${dto.targetType}::"SocialContentType",
-          ${dto.sourceType}::"SocialContentSourceType",
-          ${dto.sourceId},
-          ${safeTitle},
-          ${safeContent},
-          ${safeDigest},
-          ${safeSourceUrl},
-          ${safeCoverImageUrl},
-          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeImages)}::jsonb)),
-          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeTags)}::jsonb)),
-          ${JSON.stringify(safeComplianceCheck)}::jsonb,
-          'DRAFT'::"SocialContentStatus",
-          'PENDING'::"SocialReviewStatus",
-          NOW(),
-          NOW()
-        )
-        RETURNING *
-      `;
+      // 第一篇包含 Executive Summary
+      const executiveSummary =
+        i === 0
+          ? (sourceContent.metadata?.executiveSummary as string | undefined)
+          : undefined;
 
-      const row = results[0];
-      if (!row) {
-        throw new Error("Insert succeeded but no data returned");
+      // 将 section Markdown 转为微信 HTML
+      const wechatHtml = this.wechatFormatter.formatForWechat(
+        section.markdown,
+        {
+          executiveSummary,
+          charts: sourceContent.metadata?.charts as unknown[] | undefined,
+          title: section.heading,
+        },
+      );
+
+      // 生成标题（系列模式带序号）
+      const sectionTitle = isSeries
+        ? `${sourceContent.title}（${i + 1}/${sections.length}）${section.heading}`
+        : sourceContent.title;
+
+      // 生成摘要
+      const digest = this.wechatFormatter.generateDigest(section.markdown);
+
+      // 内容合规检测（只检测第一篇，避免重复消耗）
+      const checkResult =
+        i === 0
+          ? await this.contentChecker.check(wechatHtml)
+          : { passed: true, issues: [], suggestions: [] };
+
+      if (i === 0) {
+        firstCheckResult = checkResult;
       }
 
-      this.logger.log(`[processKeepFormatSource] Created content ${row.id}`);
+      const safeImages = ensureJsonArray(sourceContent.images);
+      const safeTags: string[] = [];
+      const safeComplianceCheck = safeJsonSerialize(checkResult, {
+        passed: false,
+        score: 0,
+        issues: [],
+        suggestions: ["Compliance check data was invalid"],
+      });
 
-      const content = {
-        id: row.id,
-        userId: row.user_id,
-        contentType: row.content_type as SocialContentType,
-        sourceType: row.source_type as SocialContentSourceType,
-        sourceId: row.source_id,
-        title: row.title,
-        content: row.content,
-        digest: row.digest,
-        sourceUrl: row.source_url,
-        coverImageUrl: row.cover_image_url,
-        images: row.images,
-        tags: row.tags,
-        complianceCheck: row.compliance_check,
-        status: row.status as SocialContentStatus,
-        reviewStatus: row.review_status as SocialReviewStatus,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      };
+      const safeContent = sanitizeString(wechatHtml);
+      const safeTitle = truncateString(sectionTitle, 200);
+      const safeDigest = truncateString(digest, 200) || null;
+      const safeSourceUrl = sanitizeString(sourceContent.url) || null;
+      const safeCoverImageUrl =
+        i === 0 ? sanitizeString(sourceContent.coverImage) || null : null;
 
-      // 不生成平台版本（keepFormat 模式下内容已经是微信格式，不需要 AI 重新生成版本）
-      const message = checkResult.passed
-        ? "报告已转为微信公众号格式，请确认后发布"
-        : "内容存在合规问题，请修改后再发布";
+      try {
+        const results = await this.prisma.$queryRaw<
+          Array<{
+            id: string;
+            user_id: string;
+            content_type: string;
+            source_type: string;
+            source_id: string;
+            title: string;
+            content: string;
+            digest: string | null;
+            series_id: string | null;
+            series_order: number | null;
+            status: string;
+            created_at: Date;
+          }>
+        >`
+          INSERT INTO "social_contents" (
+            "id", "user_id", "content_type", "source_type", "source_id",
+            "title", "content", "digest", "source_url", "cover_image_url",
+            "images", "tags", "compliance_check", "status", "review_status",
+            "series_id", "series_order",
+            "created_at", "updated_at"
+          ) VALUES (
+            gen_random_uuid(),
+            ${userId}::uuid,
+            ${dto.targetType}::"SocialContentType",
+            ${dto.sourceType}::"SocialContentSourceType",
+            ${dto.sourceId},
+            ${safeTitle},
+            ${safeContent},
+            ${safeDigest},
+            ${safeSourceUrl},
+            ${safeCoverImageUrl},
+            ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeImages)}::jsonb)),
+            ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeTags)}::jsonb)),
+            ${JSON.stringify(safeComplianceCheck)}::jsonb,
+            'DRAFT'::"SocialContentStatus",
+            'PENDING'::"SocialReviewStatus",
+            ${seriesId},
+            ${isSeries ? i + 1 : null}::integer,
+            NOW(),
+            NOW()
+          )
+          RETURNING id, user_id, content_type, source_type, source_id,
+                    title, content, digest, series_id, series_order, status, created_at
+        `;
 
-      return {
-        content,
-        checkResult,
-        message,
-        versionCount: 0,
-        versionGenerationFailed: false,
-      };
-    } catch (error) {
-      this.logger.error(`[processKeepFormatSource] Insert failed: ${error}`);
-      throw error;
+        const row = results[0];
+        if (!row) {
+          throw new Error("Insert succeeded but no data returned");
+        }
+
+        this.logger.log(
+          `[processKeepFormatSource] Created ${isSeries ? `part ${i + 1}/${sections.length}` : "content"}: ${row.id}`,
+        );
+
+        allContents.push({
+          id: row.id,
+          userId: row.user_id,
+          contentType: row.content_type,
+          sourceType: row.source_type,
+          sourceId: row.source_id,
+          title: row.title,
+          content: row.content,
+          digest: row.digest,
+          seriesId: row.series_id,
+          seriesOrder: row.series_order,
+          status: row.status,
+          createdAt: row.created_at,
+        });
+      } catch (error) {
+        this.logger.error(
+          `[processKeepFormatSource] Insert failed for part ${i + 1}: ${error}`,
+        );
+        throw error;
+      }
     }
+
+    // Build response (first content for backward compatibility)
+    const firstRow = allContents[0];
+    const content = {
+      id: firstRow.id,
+      userId: firstRow.userId,
+      contentType: firstRow.contentType as SocialContentType,
+      sourceType: firstRow.sourceType as SocialContentSourceType,
+      sourceId: firstRow.sourceId,
+      title: firstRow.title,
+      content: firstRow.content,
+      digest: firstRow.digest,
+      sourceUrl: sanitizeString(sourceContent.url) || null,
+      coverImageUrl: sanitizeString(sourceContent.coverImage) || null,
+      images: ensureJsonArray(sourceContent.images),
+      tags: [] as string[],
+      complianceCheck: null,
+      status: firstRow.status as SocialContentStatus,
+      reviewStatus: "PENDING" as SocialReviewStatus,
+      createdAt: firstRow.createdAt,
+      updatedAt: firstRow.createdAt,
+    };
+
+    const message = isSeries
+      ? `报告已拆分为 ${sections.length} 篇系列文章，请确认后发布`
+      : "报告已转为微信公众号格式，请确认后发布";
+
+    return {
+      content,
+      seriesId,
+      seriesContents: isSeries
+        ? allContents.map((row) => ({
+            id: row.id,
+            title: row.title,
+            content: row.content,
+            digest: row.digest,
+            seriesOrder: row.seriesOrder,
+            status: row.status,
+          }))
+        : undefined,
+      checkResult: firstCheckResult,
+      message,
+      versionCount: 0,
+      versionGenerationFailed: false,
+    };
   }
 
   /**

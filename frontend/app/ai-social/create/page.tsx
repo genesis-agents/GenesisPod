@@ -20,6 +20,7 @@ import { SourceSelector } from '@/components/ai-social/create/SourceSelector';
 import { PlatformSelector } from '@/components/ai-social/create/PlatformSelector';
 import { AccountSelector } from '@/components/ai-social/create/AccountSelector';
 import { ContentEditor } from '@/components/ai-social/create/ContentEditor';
+import { SeriesEditor } from '@/components/ai-social/create/SeriesEditor';
 
 function CreateSocialContentForm() {
   const { t } = useTranslation();
@@ -41,6 +42,8 @@ function CreateSocialContentForm() {
     digest,
     tags,
     currentContentId,
+    isSeriesMode,
+    seriesParts,
     setSource,
     setExternalUrl,
     setStep,
@@ -90,6 +93,40 @@ function CreateSocialContentForm() {
 
   // Save draft handler
   const handleSaveDraft = async () => {
+    // Series mode: save all parts
+    if (isSeriesMode && seriesParts.length > 0) {
+      setIsSaving(true);
+      try {
+        let allSuccess = true;
+        for (const part of seriesParts) {
+          const updated = await editContent(part.id, {
+            title: part.title,
+            content: part.content,
+            digest: part.digest || undefined,
+            connectionId: connectionId || undefined,
+          });
+          if (!updated) {
+            allSuccess = false;
+            break;
+          }
+        }
+        if (allSuccess) {
+          toast.success(
+            t('aiSocial.series.allSaved') ||
+              `${seriesParts.length} articles saved`
+          );
+          router.push('/ai-social');
+        } else {
+          toast.error(t('aiSocial.create.saveFailed'));
+        }
+      } catch {
+        toast.error(t('aiSocial.create.saveFailed'));
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
     if (!platform || !title || !content) return;
 
     setIsSaving(true);
@@ -161,6 +198,57 @@ function CreateSocialContentForm() {
 
   // Publish handler
   const handlePublish = async () => {
+    // Series mode: publish all parts sequentially
+    if (isSeriesMode && seriesParts.length > 0) {
+      if (!connectionId && !skipAccount) {
+        toast.error(
+          t('aiSocial.create.selectAccountFirst') ||
+            'Please select a publishing account first'
+        );
+        setStep(3);
+        return;
+      }
+
+      setIsPublishing(true);
+      try {
+        let successCount = 0;
+        for (const part of seriesParts) {
+          // Update content before publishing
+          await editContent(part.id, {
+            title: part.title,
+            content: part.content,
+            digest: part.digest || undefined,
+            connectionId: connectionId || undefined,
+          });
+
+          const result = await publish(part.id, connectionId || undefined);
+          if (result.success) {
+            successCount++;
+          }
+        }
+
+        if (successCount === seriesParts.length) {
+          toast.success(
+            t('aiSocial.series.allPublished') ||
+              `${seriesParts.length} articles published`
+          );
+          router.push('/ai-social');
+        } else {
+          toast.error(
+            t('aiSocial.series.partialPublish', {
+              success: successCount,
+              total: seriesParts.length,
+            }) || `${successCount}/${seriesParts.length} published`
+          );
+        }
+      } catch {
+        toast.error(t('aiSocial.create.publishFailed'));
+      } finally {
+        setIsPublishing(false);
+      }
+      return;
+    }
+
     if (!platform || !title || !content) return;
 
     // Check if account is required
@@ -273,6 +361,9 @@ function CreateSocialContentForm() {
       case 3:
         return <AccountSelector />;
       case 4:
+        if (isSeriesMode && seriesParts.length > 0) {
+          return <SeriesEditor />;
+        }
         return <ContentEditor />;
       default:
         return <SourceSelector />;
@@ -280,7 +371,7 @@ function CreateSocialContentForm() {
   };
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex min-h-0 flex-1">
       {/* Left sidebar - Step navigation */}
       <StepNavigation onSaveDraft={handleSaveDraft} onPublish={handlePublish} />
 

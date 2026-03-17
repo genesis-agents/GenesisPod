@@ -111,6 +111,8 @@ const mockContent = {
   externalUrl: null,
   errorMessage: null,
   retryCount: 0,
+  seriesId: null,
+  seriesOrder: null,
   createdAt: '2025-01-01T00:00:00Z',
   updatedAt: '2025-01-25T00:00:00Z',
 };

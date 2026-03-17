@@ -65,6 +65,7 @@ export function ContentEditor() {
     setCoverImage,
     setIsProcessing,
     setContentFromAI,
+    setSeriesFromAI,
     setStep,
   } = useSocialCreateStore();
 
@@ -262,7 +263,47 @@ export function ContentEditor() {
         return;
       }
 
-      if (result?.content) {
+      // Check for series response (only from processFromSource)
+      const seriesResult = result as
+        | {
+            seriesId?: string | null;
+            seriesContents?: Array<{
+              id: string;
+              title: string;
+              content: string;
+              digest: string | null;
+              seriesOrder: number | null;
+              status: string;
+            }>;
+            content?: {
+              id: string;
+              title: string;
+              content: string;
+              digest: string | null;
+              tags: string[];
+            };
+          }
+        | undefined;
+
+      if (
+        seriesResult?.seriesId &&
+        seriesResult.seriesContents &&
+        seriesResult.seriesContents.length > 1
+      ) {
+        // Series mode: multiple articles from Topic Insights
+        setSeriesFromAI({
+          seriesId: seriesResult.seriesId,
+          parts: seriesResult.seriesContents.map((sc) => ({
+            id: sc.id,
+            title: sc.title,
+            content: sc.content,
+            digest: sc.digest || '',
+            seriesOrder: sc.seriesOrder || 0,
+            status: sc.status,
+          })),
+        });
+        setHasGenerated(true);
+      } else if (result?.content) {
         const generatedContent = result.content;
         setContentFromAI({
           title: generatedContent.title || '',

@@ -1328,6 +1328,43 @@ export class AiSocialService {
       }));
   }
 
+  async getSeriesContents(userId: string, seriesId: string) {
+    const results = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        title: string;
+        content: string;
+        digest: string | null;
+        series_id: string;
+        series_order: number;
+        status: string;
+        cover_image_url: string | null;
+        created_at: Date;
+        updated_at: Date;
+      }>
+    >`
+      SELECT id, title, content, digest, series_id, series_order, status,
+             cover_image_url, created_at, updated_at
+      FROM social_contents
+      WHERE user_id = ${userId}::uuid AND series_id = ${seriesId}
+        AND series_order IS NOT NULL
+      ORDER BY series_order ASC
+    `;
+
+    return results.map((row) => ({
+      id: row.id,
+      title: row.title,
+      content: row.content,
+      digest: row.digest,
+      seriesId: row.series_id,
+      seriesOrder: row.series_order,
+      status: row.status,
+      coverImageUrl: row.cover_image_url,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
   // ==================== 批量操作 ====================
 
   /**

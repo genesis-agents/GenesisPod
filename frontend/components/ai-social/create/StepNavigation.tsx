@@ -36,6 +36,8 @@ export function StepNavigation({
     isSaving,
     isPublishing,
     isProcessing,
+    isSeriesMode,
+    seriesParts,
     canGoToStep,
   } = useSocialCreateStore();
 
@@ -78,8 +80,13 @@ export function StepNavigation({
     {
       step: 4,
       icon: Edit3,
-      label: t('aiSocial.steps.edit'),
+      label: isSeriesMode
+        ? t('aiSocial.steps.series') || 'Series'
+        : t('aiSocial.steps.edit'),
       getValue: () => {
+        if (isSeriesMode && seriesParts.length > 0) {
+          return `${seriesParts.length} ${t('aiSocial.series.articles') || 'articles'}`;
+        }
         if (title && content) return t('aiSocial.create.ready') || 'Ready';
         return null;
       },
@@ -193,7 +200,10 @@ export function StepNavigation({
         <div className="flex flex-col gap-2">
           <button
             onClick={onSaveDraft}
-            disabled={!title || !content || isLoading}
+            disabled={
+              isLoading ||
+              (isSeriesMode ? seriesParts.length === 0 : !title || !content)
+            }
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving ? (
@@ -201,11 +211,16 @@ export function StepNavigation({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            {t('aiSocial.create.saveDraft')}
+            {isSeriesMode
+              ? t('aiSocial.series.saveAll') || 'Save all'
+              : t('aiSocial.create.saveDraft')}
           </button>
           <button
             onClick={onPublish}
-            disabled={!title || !content || isLoading}
+            disabled={
+              isLoading ||
+              (isSeriesMode ? seriesParts.length === 0 : !title || !content)
+            }
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:from-rose-600 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPublishing ? (
@@ -213,7 +228,9 @@ export function StepNavigation({
             ) : (
               <Send className="h-4 w-4" />
             )}
-            {t('aiSocial.create.publish')}
+            {isSeriesMode
+              ? t('aiSocial.series.publishAll') || 'Publish all'
+              : t('aiSocial.create.publish')}
           </button>
         </div>
       </div>

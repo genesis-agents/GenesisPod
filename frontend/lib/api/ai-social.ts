@@ -85,9 +85,23 @@ export interface SocialContent {
   externalUrl: string | null;
   errorMessage: string | null;
   retryCount: number;
+  seriesId: string | null;
+  seriesOrder: number | null;
   createdAt: string;
   updatedAt: string;
   connection?: SocialPlatformConnection;
+}
+
+export interface SeriesPartSummary {
+  id: string;
+  title: string;
+  content: string;
+  digest: string | null;
+  seriesOrder: number;
+  status: SocialContentStatus;
+  coverImageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SocialPublishLog {
@@ -490,6 +504,15 @@ export async function processUrl(dto: ProcessUrlDto): Promise<{
  */
 export async function processSource(dto: ProcessSourceDto): Promise<{
   content: SocialContent;
+  seriesId?: string | null;
+  seriesContents?: Array<{
+    id: string;
+    title: string;
+    content: string;
+    digest: string | null;
+    seriesOrder: number | null;
+    status: string;
+  }>;
   checkResult: ComplianceCheckResult;
   message: string;
 }> {
@@ -497,6 +520,15 @@ export async function processSource(dto: ProcessSourceDto): Promise<{
     method: 'POST',
     body: JSON.stringify(dto),
   });
+}
+
+/**
+ * Get all contents in a series
+ */
+export async function getSeriesContents(
+  seriesId: string
+): Promise<SeriesPartSummary[]> {
+  return fetchWithAuth(`/api/v1/ai-social/series/${seriesId}/contents`);
 }
 
 /**
