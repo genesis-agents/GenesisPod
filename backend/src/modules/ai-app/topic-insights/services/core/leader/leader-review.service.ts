@@ -161,11 +161,14 @@ export class LeaderReviewService {
         systemPrompt: "你是事实核查专家，精确提取可验证的事实断言。",
         schema: {
           type: "object",
+          required: ["claims"],
+          additionalProperties: false,
           properties: {
             claims: {
               type: "array",
               items: {
                 type: "object",
+                additionalProperties: false,
                 properties: {
                   id: { type: "string" },
                   statement: { type: "string" },
@@ -189,7 +192,6 @@ export class LeaderReviewService {
               },
             },
           },
-          required: ["claims"],
         },
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true,
@@ -251,11 +253,14 @@ export class LeaderReviewService {
         systemPrompt: "你是研究方法论专家，严谨验证研究假设。",
         schema: {
           type: "object",
+          required: ["results"],
+          additionalProperties: false,
           properties: {
             results: {
               type: "array",
               items: {
                 type: "object",
+                additionalProperties: false,
                 properties: {
                   hypothesisId: { type: "string" },
                   status: {
@@ -282,7 +287,6 @@ export class LeaderReviewService {
               },
             },
           },
-          required: ["results"],
         },
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true,

@@ -109,11 +109,15 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
           throwOnParseError: false,
           schema: {
             type: "object",
+            required: ["variants"],
+            additionalProperties: false,
             properties: {
               variants: {
                 type: "array",
                 items: {
                   type: "object",
+                  required: ["query", "type"],
+                  additionalProperties: false,
                   properties: {
                     query: { type: "string" },
                     type: { type: "string" },
@@ -121,12 +125,10 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
                     rationale: { type: "string" },
                     targetAspect: { type: "string" },
                   },
-                  required: ["query", "type"],
                 },
               },
               overallRationale: { type: "string" },
             },
-            required: ["variants"],
           },
         });
 

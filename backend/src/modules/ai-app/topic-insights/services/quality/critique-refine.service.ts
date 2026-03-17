@@ -77,12 +77,19 @@ type StopReason =
 const CRITIQUE_SCHEMA = {
   type: "object" as const,
   required: ["overallScore", "items", "summary"],
+  additionalProperties: false as const,
   properties: {
     overallScore: { type: "number" as const },
-    categoryScores: { type: "object" as const },
-    items: { type: "array" as const },
-    strengths: { type: "array" as const },
-    improvementPriorities: { type: "array" as const },
+    categoryScores: {
+      type: "object" as const,
+      additionalProperties: { type: "number" as const },
+    },
+    items: { type: "array" as const, items: { type: "string" as const } },
+    strengths: { type: "array" as const, items: { type: "string" as const } },
+    improvementPriorities: {
+      type: "array" as const,
+      items: { type: "string" as const },
+    },
     summary: { type: "string" as const },
   },
 };
@@ -90,10 +97,17 @@ const CRITIQUE_SCHEMA = {
 const REFINE_SCHEMA = {
   type: "object" as const,
   required: ["refinedContent", "changesApplied"],
+  additionalProperties: false as const,
   properties: {
     refinedContent: { type: "string" as const },
-    changesApplied: { type: "array" as const },
-    remainingIssues: { type: "array" as const },
+    changesApplied: {
+      type: "array" as const,
+      items: { type: "string" as const },
+    },
+    remainingIssues: {
+      type: "array" as const,
+      items: { type: "string" as const },
+    },
     refinementSummary: { type: "string" as const },
   },
 };

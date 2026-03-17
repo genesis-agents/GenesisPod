@@ -749,6 +749,8 @@ export interface JsonSchemaDefinition {
   required?: string[];
   items?: JsonSchemaProperty;
   description?: string;
+  /** OpenAI Structured Outputs: object schema must declare additionalProperties: false */
+  additionalProperties?: boolean | JsonSchemaProperty;
 }
 
 export interface JsonSchemaProperty {
@@ -759,6 +761,8 @@ export interface JsonSchemaProperty {
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
   default?: unknown;
+  /** OpenAI Structured Outputs: object schema must declare additionalProperties: false */
+  additionalProperties?: boolean | JsonSchemaProperty;
 }
 
 /**

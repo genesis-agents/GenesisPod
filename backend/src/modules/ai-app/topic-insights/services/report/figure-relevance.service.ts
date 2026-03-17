@@ -313,11 +313,14 @@ export class FigureRelevanceService {
           schema: {
             type: "object",
             required: ["results"],
+            additionalProperties: false,
             properties: {
               results: {
                 type: "array",
                 items: {
                   type: "object",
+                  required: ["index", "accepted", "reason"],
+                  additionalProperties: false,
                   properties: {
                     index: { type: "number" },
                     accepted: { type: "boolean" },

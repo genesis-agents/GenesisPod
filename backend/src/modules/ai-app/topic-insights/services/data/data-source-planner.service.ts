@@ -63,34 +63,40 @@ export class DataSourcePlannerService {
       const prompt = this.buildPlanningPrompt(input, availableSources);
 
       // 3. 调用 AI 进行规划（chatStructured 自动处理 JSON 解析）
-      const response = await this.chatFacade.chatStructured<DataSourcePlanResponse>({
-        systemPrompt: this.getSystemPrompt(),
-        messages: [{ role: "user", content: prompt }],
-        modelType: AIModelType.CHAT,
-        skipGuardrails: true,
-        taskProfile: { creativity: "low", outputLength: "medium" },
-        throwOnParseError: false,
-        schema: {
-          type: "object",
-          properties: {
-            recommendedSources: { type: "array", items: { type: "string" } },
-            sourceRationales: { type: "object" },
-            overallRationale: { type: "string" },
-            fallbackSources: { type: "array", items: { type: "string" } },
-            searchStrategy: {
-              type: "object",
-              properties: {
-                suggestedMaxResults: { type: "number" },
-                needsTimeFilter: { type: "boolean" },
-                suggestedTimeRangeDays: { type: "number" },
-                needsEnrichment: { type: "boolean" },
+      const response =
+        await this.chatFacade.chatStructured<DataSourcePlanResponse>({
+          systemPrompt: this.getSystemPrompt(),
+          messages: [{ role: "user", content: prompt }],
+          modelType: AIModelType.CHAT,
+          skipGuardrails: true,
+          taskProfile: { creativity: "low", outputLength: "medium" },
+          throwOnParseError: false,
+          schema: {
+            type: "object",
+            required: ["recommendedSources"],
+            additionalProperties: false,
+            properties: {
+              recommendedSources: { type: "array", items: { type: "string" } },
+              sourceRationales: {
+                type: "object",
+                additionalProperties: { type: "string" },
               },
+              overallRationale: { type: "string" },
+              fallbackSources: { type: "array", items: { type: "string" } },
+              searchStrategy: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  suggestedMaxResults: { type: "number" },
+                  needsTimeFilter: { type: "boolean" },
+                  suggestedTimeRangeDays: { type: "number" },
+                  needsEnrichment: { type: "boolean" },
+                },
+              },
+              confidence: { type: "number" },
             },
-            confidence: { type: "number" },
           },
-          required: ["recommendedSources"],
-        },
-      });
+        });
 
       // 4. 验证并构建规划结果
       const plan = this.buildPlanFromResponse(response.data, availableSources);
@@ -283,8 +289,8 @@ ${sourcesDescription}
       (s: string) => validSourceTypes.includes(s as DataSourceType),
     ) as DataSourceType[];
 
-    const fallbackSources = (parsed.fallbackSources || []).filter(
-      (s: string) => validSourceTypes.includes(s as DataSourceType),
+    const fallbackSources = (parsed.fallbackSources || []).filter((s: string) =>
+      validSourceTypes.includes(s as DataSourceType),
     ) as DataSourceType[];
 
     return {
