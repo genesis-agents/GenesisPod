@@ -1048,6 +1048,10 @@ for await (const chunk of stream) {
 
 ---
 
+# 第三部分：长期能力建设
+
+> 以下优化是长期投资，TI 首创，其他模块可复用。
+
 ## P3-1: 评估体系
 
 ### 当前状态
@@ -1177,27 +1181,42 @@ async startResearch(topicId: string) {
 | `topic-insights/services/quality/critique-refine.service.ts`     | 参数调整             | P0-1       |
 | `topic-insights/prompts/*.ts`                                    | XML 重构             | P2-2       |
 
+### 其他 AI App 模块受益示例（平台级增强上线后）
+
+| 模块            | 可直接使用的平台能力        | 使用方式                                              |
+| --------------- | --------------------------- | ----------------------------------------------------- |
+| **AI Research** | reasoningDepth, cachePolicy | Deep Dive 报告生成时启用 `reasoningDepth: "deep"`     |
+| **AI Teams**    | reasoningDepth              | 辩论评审、共识总结时启用 `reasoningDepth: "moderate"` |
+| **AI Writing**  | cachePolicy, outputSchema   | 长文写作时缓存 system prompt；大纲生成用 strict JSON  |
+| **AI Office**   | cachePolicy                 | PPT/Doc 生成时同一模板多 slide 共享缓存               |
+| **AI Ask**      | reasoningDepth              | 复杂问答时自动启用深度推理                            |
+
+> 以上模块仅需在调用 `chatFacade.chat()` / `chatWithSkills()` 时添加对应参数，无需其他改动。
+
 ### 实施顺序建议
 
 ```
-Phase 1（1-2 周）: P0-1 + P0-2
+Phase 1（1-2 周）: P0-1 + P0-2 [平台级]
   → AI Engine 类型扩展 + Mapper + API Caller
   → Topic Insights 3 处调用添加 reasoningDepth
   → Topic Insights 所有 chatWithSkills 添加 cachePolicy
+  → ★ 完成后，所有 AI App 模块即可使用 reasoningDepth + cachePolicy
 
-Phase 2（2-3 周）: P1-1 + P1-2
+Phase 2（2-3 周）: P1-2 [平台级] + P1-1 [TI 专属]
+  → chatStructured strict mode (平台级，所有模块受益)
   → ContentPart 扩展 DocumentContentPart
   → API Caller 处理 document / strict schema
   → Section Writer 使用 document-based citations
 
-Phase 3（3-4 周）: P2-1 + P2-2 + P2-3
+Phase 3（3-4 周）: P2-1 + P2-2 + P2-3 [TI 专属]
   → Tool Use 定义 + agentic loop
   → Prompt XML 重构（逐文件，需要 eval 验证）
   → Report Synthesis 流式输出
 
-Phase 4（持续）: P3-1 + P3-2
+Phase 4（持续）: P3-1 + P3-2 [TI 首创，可复用]
   → Eval dataset 构建
   → Complexity routing 实现
+  → 其他模块按需接入
 ```
 
 ---

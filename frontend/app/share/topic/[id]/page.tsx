@@ -354,24 +354,76 @@ export default function SharedTopicPage() {
               </h1>
             </header>
 
-            {/* Chapter Content - same rendering as ChapterizedReportView */}
+            {/* Chapter Content with inline charts (same as ChapterizedReportView) */}
             <article className="prose prose-gray prose-headings:font-bold prose-h3:text-lg prose-h4:text-base prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-li:text-gray-700 max-w-none leading-relaxed">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeRaw, [rehypeKatex, { output: 'html' }]]}
-              >
-                {selectedChapter.content}
-              </ReactMarkdown>
-            </article>
+              {(() => {
+                const rawContent = selectedChapter.content;
+                const charts = selectedChapter.charts;
+                const chartMap = new Map(charts.map((c) => [c.id, c]));
 
-            {/* Inline Charts */}
-            {selectedChapter.charts.length > 0 && (
-              <div className="mt-8 space-y-6">
-                {selectedChapter.charts.map((chart) => (
-                  <ReportChartRenderer key={chart.id} chart={chart} />
-                ))}
-              </div>
-            )}
+                // If no chart placeholders, render as single block
+                if (!rawContent.includes('<!-- chart:')) {
+                  return (
+                    <>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[
+                          rehypeRaw,
+                          [rehypeKatex, { output: 'html' }],
+                        ]}
+                      >
+                        {rawContent}
+                      </ReactMarkdown>
+                      {/* Append charts at end if any */}
+                      {charts.map((chart) => (
+                        <div key={chart.id} className="my-6">
+                          <ReportChartRenderer chart={chart} />
+                        </div>
+                      ))}
+                    </>
+                  );
+                }
+
+                // Split at chart placeholders: <!-- chart:chartId -->
+                const segments = rawContent.split(
+                  /<!--\s*chart:([^\s]+?)\s*-->/
+                );
+                const elements: React.ReactNode[] = [];
+
+                for (let si = 0; si < segments.length; si++) {
+                  if (si % 2 === 0) {
+                    // Text segment
+                    const text = segments[si].trim();
+                    if (text) {
+                      elements.push(
+                        <ReactMarkdown
+                          key={`md-${si}`}
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[
+                            rehypeRaw,
+                            [rehypeKatex, { output: 'html' }],
+                          ]}
+                        >
+                          {text}
+                        </ReactMarkdown>
+                      );
+                    }
+                  } else {
+                    // Chart ID segment
+                    const chart = chartMap.get(segments[si]);
+                    if (chart) {
+                      elements.push(
+                        <div key={`chart-${segments[si]}`} className="my-6">
+                          <ReportChartRenderer chart={chart} />
+                        </div>
+                      );
+                    }
+                  }
+                }
+
+                return elements;
+              })()}
+            </article>
 
             {/* Chapter Navigation */}
             <nav className="mt-12 flex items-center justify-between border-t border-gray-100 pt-6">
