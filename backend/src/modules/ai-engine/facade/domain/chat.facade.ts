@@ -704,7 +704,7 @@ export class ChatFacade {
           creativity: "deterministic",
           outputLength: "medium",
         },
-        strictMode: true,
+        strictMode: request.strictMode ?? false,
         // Pass schema for native structured output (supported providers use it)
         outputSchema: {
           type: "json_schema",

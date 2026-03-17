@@ -107,6 +107,7 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
           skipGuardrails: true,
           taskProfile: { creativity: "medium", outputLength: "medium" },
           throwOnParseError: false,
+          strictMode: false,
           schema: {
             type: "object",
             required: ["variants"],

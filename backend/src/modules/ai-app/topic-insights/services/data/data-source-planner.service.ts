@@ -71,6 +71,7 @@ export class DataSourcePlannerService {
           skipGuardrails: true,
           taskProfile: { creativity: "low", outputLength: "medium" },
           throwOnParseError: false,
+          strictMode: false,
           schema: {
             type: "object",
             required: ["recommendedSources"],

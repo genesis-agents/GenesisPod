@@ -290,6 +290,7 @@ export class LeaderReviewService {
         },
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true,
+        strictMode: false,
         throwOnParseError: false,
         taskProfile: {
           creativity: "low",

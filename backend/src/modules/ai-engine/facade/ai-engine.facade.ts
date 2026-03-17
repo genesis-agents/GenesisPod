@@ -821,7 +821,7 @@ export class AIEngineFacade {
           creativity: "deterministic",
           outputLength: "medium",
         },
-        strictMode: true,
+        strictMode: request.strictMode ?? false,
       };
 
       const response = await this.chat(chatRequest);
