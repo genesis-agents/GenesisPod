@@ -184,8 +184,8 @@ export class FullStoryExecutor implements IWritingTaskExecutor {
       this.logger.log(
         `[${missionId}] Heartbeat: world building in progress... (${worldHeartbeatCount * 30}s elapsed)`,
       );
-      // Progress must keep incrementing to prevent frontend stuck detection (3 min threshold)
-      const heartbeatProgress = Math.min(5 + worldHeartbeatCount, 14);
+      // Must keep incrementing — frontend detects "stuck" if progress unchanged for 3 min
+      const heartbeatProgress = Math.min(5 + worldHeartbeatCount, 95);
       void this.lifecycleService.updateMissionProgress(
         missionId,
         heartbeatProgress,
@@ -285,7 +285,7 @@ export class FullStoryExecutor implements IWritingTaskExecutor {
     let outlineHeartbeatCount = 0;
     const outlineHeartbeatInterval = setInterval(() => {
       outlineHeartbeatCount++;
-      const p = Math.min(10 + outlineHeartbeatCount, 14);
+      const p = Math.min(10 + outlineHeartbeatCount, 95);
       void this.lifecycleService.updateMissionProgress(
         missionId,
         p,
