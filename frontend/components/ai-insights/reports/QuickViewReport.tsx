@@ -167,7 +167,7 @@ export function QuickViewReport({
           <section>
             <h2 className="mb-3 text-lg font-bold text-gray-900">执行摘要</h2>
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5">
-              <article className="prose prose-sm prose-gray max-w-none leading-relaxed">
+              <article className="prose prose-sm prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 max-w-none leading-relaxed">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {stripCitationsAndWordCount(report.executiveSummary)}
                 </ReactMarkdown>

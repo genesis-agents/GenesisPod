@@ -659,9 +659,21 @@ function ChapterizedReportViewInner({
         }
 
         // preprocessLatex first (generates new ** via promotePhaseListItems etc.)
-        // then convert **text** → <strong>text</strong> to bypass CommonMark CJK issues
         const joined = preprocessLatex(parts.join('\n'));
-        const content = joined.replace(
+
+        // ★ Normalize abused headings: LLM sometimes outputs ### 一方面 / ### 另一方面
+        // as section headings. Strip heading markers so they render as inline text.
+        const noAbusedHeadings = joined.replace(
+          /^#{1,4}\s+\*{0,2}(一方面|另一方面|此外|首先|其次|再次|最后|然而|因此|总之|综上|不过|尽管|虽然|同时|接着)\*{0,2}[，,：:。]?\s*$/gm,
+          '\n$1'
+        );
+
+        // ★ Strip prose bullets BEFORE bold conversion — ordinalPattern requires ** syntax,
+        // not <strong> HTML tags. Running after conversion causes silent miss.
+        const noBullets = stripProseBullets(noAbusedHeadings);
+
+        // ★ Convert **text** → <strong>text</strong> to bypass CommonMark CJK issues
+        const content = noBullets.replace(
           /\*\*([^*\n]+?)\*\*/g,
           '<strong>$1</strong>'
         );
@@ -670,8 +682,7 @@ function ChapterizedReportViewInner({
         // ★ v3.0: Get charts for this chapter by sectionNumber
         const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
 
-        // ★ Runtime cleanup: strip prose bullets (shared function)
-        const cleanedContent = stripProseBullets(content);
+        const cleanedContent = content;
 
         // Chart placeholders are embedded at save time by the backend.
         // Fallback: inject at runtime for old reports without markers.
@@ -962,7 +973,7 @@ function ChapterizedReportViewInner({
               {/* Apply same prose styling as preview mode for consistent appearance */}
               <EditorContent
                 editor={tiptapEditor}
-                className="prose prose-gray prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none"
+                className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none"
               />
               {/* ★ 右键菜单 - 编辑模式 */}
               <TextSelectionContextMenu
@@ -976,43 +987,7 @@ function ChapterizedReportViewInner({
           ) : (
             // ★ Preview mode - 与连续视图（ReportEditor）完全一致的渲染管线
             <div ref={previewRef} className="p-6">
-              {/* ★ Key Takeaways card */}
-              {selectedChapter.keyFindings &&
-                selectedChapter.keyFindings.length > 0 && (
-                  <div className="mb-6 rounded-lg border border-gray-200 bg-gradient-to-r from-slate-50 to-gray-50 p-5 shadow-sm dark:border-gray-700 dark:from-gray-800/50 dark:to-gray-900/30">
-                    <h4 className="mb-3 text-base font-semibold text-gray-800 dark:text-gray-200">
-                      {t('topicResearch.reportEditor.keyTakeaways')}
-                    </h4>
-                    <ul className="space-y-2.5">
-                      {selectedChapter.keyFindings.map((kf, idx) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-3 text-[15px] leading-relaxed text-gray-700 dark:text-gray-300"
-                        >
-                          <span
-                            className={`mt-1.5 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
-                              kf.significance === 'high'
-                                ? 'bg-red-500'
-                                : kf.significance === 'medium'
-                                  ? 'bg-amber-500'
-                                  : 'bg-blue-500'
-                            }`}
-                          />
-                          <span>
-                            {processText(
-                              kf.finding.replace(
-                                /[（(][^）)]*(?:约?\d+字|字数[：:]\d+)[）)]/g,
-                                ''
-                              )
-                            )}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-              <article className="prose prose-gray max-w-none">
+              <article className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 max-w-none">
                 {(() => {
                   const rawContent =
                     selectedChapter.content ||

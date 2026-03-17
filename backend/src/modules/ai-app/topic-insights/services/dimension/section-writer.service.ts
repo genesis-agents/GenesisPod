@@ -42,6 +42,7 @@ import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import {
   sanitizeSectionOutput,
   stripAnalyticalInlineBullets,
+  normalizeTransitionHeadings,
 } from "../../utils/sanitize-output.utils";
 import type {
   EvidenceData,
@@ -347,6 +348,8 @@ export class SectionWriterService {
     const { markdown, charts } = this.parseChartOutput(rawContent);
     // ★ 第一道铁墙：白名单清理 LLM 输出中的 JSON 残留、元注释、指令泄漏等
     let content = sanitizeSectionOutput(markdown);
+    // ★ 过渡词标题降级：### 一方面 / ### 首先 等不应作为章节标题
+    content = normalizeTransitionHeadings(content);
     // ★ 分析性 bullet 清理：将正文中被错误列表化的分析段落还原为段落
     content = stripAnalyticalInlineBullets(content);
 

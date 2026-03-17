@@ -350,6 +350,20 @@ export function repairBrokenBoldPairs(content: string): string {
 }
 
 /**
+ * 修复 LLM 将过渡词误用为标题的问题。
+ *
+ * LLM 有时用 ### 一方面 / ### 另一方面 / ### 首先 等作为段落分隔标题，
+ * 这些词是过渡连接词，不应作为章节标题渲染（会显示为紫色加粗标题）。
+ * 统一降级为内联文本。
+ */
+export function normalizeTransitionHeadings(content: string): string {
+  return content.replace(
+    /^#{1,4}\s+\*{0,2}(一方面|另一方面|此外|首先|其次|再次|最后|然而|因此|总之|综上|不过|尽管|虽然|同时|接着|总结|小结)\*{0,2}[，,：:。]?\s*$/gm,
+    "\n$1",
+  );
+}
+
+/**
  * 去除枚举标记和引导词的多余加粗。
  *
  * 原则：加粗只保留核心观点/核心论点。
