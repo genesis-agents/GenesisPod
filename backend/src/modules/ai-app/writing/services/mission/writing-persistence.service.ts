@@ -16,7 +16,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import type {
   WritingMissionInput,
   WritingMissionResult,
-} from "./writing-mission.service";
+} from "./writing-mission.types";
 
 @Injectable()
 export class WritingPersistence {
@@ -335,9 +335,7 @@ export class WritingPersistence {
     wordCount: number,
   ): Promise<void> {
     const splitChapters = this.splitIntoChapters(content);
-    this.logger.log(
-      `Split content into ${splitChapters.length} chapters`,
-    );
+    this.logger.log(`Split content into ${splitChapters.length} chapters`);
 
     const existingChapters = await this.prisma.writingChapter.findMany({
       where: { volume: { projectId } },
@@ -351,7 +349,10 @@ export class WritingPersistence {
         const chapterContent = splitChapters[i];
         const chapterWordCount = this.countWords(chapterContent);
         const chapterNumber = i + 1;
-        const chapterTitle = this.extractChapterTitle(chapterContent, chapterNumber);
+        const chapterTitle = this.extractChapterTitle(
+          chapterContent,
+          chapterNumber,
+        );
 
         const existingChapter = existingChapters.find(
           (ch) => ch.chapterNumber === chapterNumber,
@@ -409,7 +410,10 @@ export class WritingPersistence {
       const chapterContent = splitChapters[i];
       const chapterWordCount = this.countWords(chapterContent);
       const chapterNumber = i + 1;
-      const chapterTitle = this.extractChapterTitle(chapterContent, chapterNumber);
+      const chapterTitle = this.extractChapterTitle(
+        chapterContent,
+        chapterNumber,
+      );
 
       await this.prisma.writingChapter.create({
         data: {
@@ -556,8 +560,14 @@ export class WritingPersistence {
         startedAt: m.startedAt,
         completedAt: m.completedAt,
         result: m.result,
-        progress: (m.result as Record<string, unknown> | null)?.["progress"] as number || 0,
-        currentStep: (m.result as Record<string, unknown> | null)?.["currentStep"] as string || "",
+        progress:
+          ((m.result as Record<string, unknown> | null)?.[
+            "progress"
+          ] as number) || 0,
+        currentStep:
+          ((m.result as Record<string, unknown> | null)?.[
+            "currentStep"
+          ] as string) || "",
       })),
       total,
     };
@@ -661,11 +671,7 @@ export class WritingPersistence {
   /**
    * 获取任务日志
    */
-  async getMissionLogs(
-    missionId: string,
-    userId: string,
-    limit: number = 100,
-  ) {
+  async getMissionLogs(missionId: string, userId: string, limit: number = 100) {
     await this.getMissionStatus(missionId, userId);
 
     const logs = await this.prisma.writingMissionLog.findMany({

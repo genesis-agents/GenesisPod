@@ -19,7 +19,7 @@ import {
   ProgressTrackerService,
 } from "../../../../ai-engine/facade";
 
-import type { WritingMissionInput } from "./writing-mission.service";
+import type { WritingMissionInput } from "./writing-mission.types";
 import type {
   RoleModelAssignment,
   IWritingTaskExecutor,

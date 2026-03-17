@@ -1,7 +1,7 @@
 /**
  * Mission Services
  */
-export * from "./writing-mission.service";
+export * from "./writing-mission.types";
 export * from "./checkpoint.service";
 export * from "./writing-agent-coordinator.service";
 export * from "./writing-context.service";

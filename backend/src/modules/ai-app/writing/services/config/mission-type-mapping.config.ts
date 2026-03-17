@@ -5,7 +5,7 @@
  * and validation rules.
  */
 
-import type { WritingMissionType } from "../mission/writing-mission.service";
+import type { WritingMissionType } from "../mission/writing-mission.types";
 
 /**
  * Mission type execution strategy

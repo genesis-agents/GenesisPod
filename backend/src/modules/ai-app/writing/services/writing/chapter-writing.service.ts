@@ -11,11 +11,10 @@ import {
   UpdateChapterDto,
   StartWritingDto,
 } from "../../dto/chapter.dto";
-import {
-  WritingMissionService,
-  WritingMissionInput,
-} from "../mission/writing-mission.service";
+import type { WritingMissionInput } from "../mission/writing-mission.types";
 import type { MissionEvent } from "../../../../ai-engine/facade";
+import { WritingMissionLifecycleService } from "../mission/writing-mission-lifecycle.service";
+import { WritingMissionQueryService } from "../mission/writing-mission-query.service";
 
 @Injectable()
 export class ChapterWritingService {
@@ -23,7 +22,8 @@ export class ChapterWritingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly writingMissionService: WritingMissionService,
+    private readonly missionLifecycle: WritingMissionLifecycleService,
+    private readonly missionQuery: WritingMissionQueryService,
   ) {}
 
   async createChapter(volumeId: string, userId: string, dto: CreateChapterDto) {
@@ -145,63 +145,32 @@ export class ChapterWritingService {
   ): AsyncGenerator<MissionEvent> {
     this.logger.log(`Executing writing mission for chapter ${id}`);
 
-    // 执行写作任务
-    const generator = this.writingMissionService.execute(missionInput, userId);
+    // Fire-and-forget: start mission in background
+    // Content persistence is handled by the executor and WritingPersistence
+    const { missionId: newMissionId } =
+      await this.missionLifecycle.startMissionAsync(missionInput, userId);
 
-    for await (const event of generator) {
-      yield event;
-
-      // 如果是步骤完成事件，检查是否是写作步骤
-      if (event.type === "step_completed" && event.data?.stepId === "write") {
-        // 更新章节内容
-        const output = event.data?.output as { output?: string };
-        if (output?.output) {
-          await this.prisma.writingChapter.update({
-            where: { id },
-            data: {
-              content: output.output,
-              wordCount: this.countWords(output.output),
-              status: "DRAFT",
-            },
-          });
-        }
-      }
-
-      // 如果任务完成
-      if (event.type === "mission_completed") {
-        await this.prisma.writingChapter.update({
-          where: { id },
-          data: {
-            status: "CHECKING",
-            revisedAt: new Date(),
-          },
-        });
-      }
-
-      // 如果任务失败
-      if (event.type === "mission_failed") {
-        await this.prisma.writingChapter.update({
-          where: { id },
-          data: {
-            status: "DRAFT", // 回退到草稿状态
-          },
-        });
-      }
-    }
+    // Yield a single started event for backward compatibility
+    yield {
+      missionId: newMissionId,
+      type: "mission_started",
+      timestamp: new Date().toISOString(),
+      data: { missionId: newMissionId },
+    } as unknown as MissionEvent;
   }
 
   /**
    * 获取任务状态
    */
   async getMissionStatus(missionId: string, userId: string) {
-    return this.writingMissionService.getMissionStatus(missionId, userId);
+    return this.missionQuery.getMissionStatus(missionId, userId);
   }
 
   /**
    * 取消任务
    */
   async cancelMission(missionId: string, userId: string) {
-    return this.writingMissionService.cancelMission(missionId, userId);
+    return this.missionLifecycle.cancelMission(missionId, userId);
   }
 
   private async verifyVolumeAccess(volumeId: string, userId: string) {

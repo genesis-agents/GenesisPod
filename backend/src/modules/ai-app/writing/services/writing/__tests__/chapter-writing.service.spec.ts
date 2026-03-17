@@ -3,13 +3,11 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
+import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ChapterWritingService } from "../chapter-writing.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { WritingMissionService } from "../../mission/writing-mission.service";
+import { WritingMissionLifecycleService } from "../../mission/writing-mission-lifecycle.service";
+import { WritingMissionQueryService } from "../../mission/writing-mission-query.service";
 
 function buildMockPrisma() {
   return {
@@ -71,7 +69,17 @@ describe("ChapterWritingService", () => {
       providers: [
         ChapterWritingService,
         { provide: PrismaService, useValue: prisma },
-        { provide: WritingMissionService, useValue: missionService },
+        {
+          provide: WritingMissionLifecycleService,
+          useValue: {
+            startMissionAsync: jest.fn().mockResolvedValue({ missionId: "m1" }),
+            cancelMission: missionService.cancelMission,
+          },
+        },
+        {
+          provide: WritingMissionQueryService,
+          useValue: { getMissionStatus: missionService.getMissionStatus },
+        },
       ],
     }).compile();
 
@@ -151,9 +159,9 @@ describe("ChapterWritingService", () => {
         project: { ownerId: "other-user" },
       });
 
-      await expect(
-        service.getChapters("volume-1", "user-1"),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.getChapters("volume-1", "user-1")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -182,9 +190,9 @@ describe("ChapterWritingService", () => {
         },
       });
 
-      await expect(
-        service.getChapter("chapter-1", "user-1"),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.getChapter("chapter-1", "user-1")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 

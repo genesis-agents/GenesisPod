@@ -45,7 +45,7 @@ import type {
   WritingTaskContext,
   WritingTaskResult,
 } from "./task-executor.interface";
-import type { WritingMissionType } from "../mission/writing-mission.service";
+import type { WritingMissionType } from "../mission/writing-mission.types";
 import { WRITING_DEFAULTS } from "../config";
 
 @Injectable()

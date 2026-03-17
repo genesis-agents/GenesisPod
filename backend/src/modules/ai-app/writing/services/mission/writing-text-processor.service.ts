@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { MissionResult } from "../../../../ai-engine/facade";
-import type { WritingMissionInput } from "./writing-mission.service";
+import type { WritingMissionInput } from "./writing-mission.types";
 
 /**
  * Writing Text Processor Service

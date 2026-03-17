@@ -92,7 +92,7 @@ import { ChapterAnnotationService } from "../services/writing/chapter-annotation
 import { ChapterImportService } from "../services/writing/chapter-import.service";
 import { ConsistencyEngineService } from "../services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "../services/parallel/parallel-orchestrator.service";
-import { WritingMissionService } from "../services/mission/writing-mission.service";
+// WritingMissionService removed - replaced by WritingMissionLifecycleService + WritingMissionQueryService
 import { StoryCompletionDetectorService } from "../services/quality/story-completion-detector.service";
 import { TemporalConflictAnalyzerService } from "../services/consistency/temporal-conflict-analyzer.service";
 import { HierarchicalSummaryService } from "../services/writing/hierarchical-summary.service";
@@ -152,7 +152,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
   let mockParallelOrchestrator: jest.Mocked<
     Partial<ParallelOrchestratorService>
   >;
-  let mockWritingMissionService: jest.Mocked<Partial<WritingMissionService>>;
+  // mockWritingMissionService removed - startMissionAsync now on mockMissionLifecycle
   let mockStoryCompletionDetector: jest.Mocked<
     Partial<StoryCompletionDetectorService>
   >;
@@ -251,17 +251,6 @@ describe("WritingCoordinatorService (supplemental)", () => {
       orchestrateParallelWriting: jest.fn(),
     };
 
-    mockWritingMissionService = {
-      startMissionAsync: jest.fn().mockResolvedValue({ missionId }),
-      getMissionStatus: jest.fn(),
-      cancelMission: jest.fn(),
-      forceCleanupStuckMissions: jest.fn().mockResolvedValue({ cleaned: 3 }),
-      getProjectMissions: jest.fn(),
-      getMissionLogs: jest.fn().mockResolvedValue([{ id: "log-1" }]),
-      reExtractChapterTitles: jest.fn().mockResolvedValue({ extracted: 3 }),
-      getLatestMission: jest.fn().mockResolvedValue(mockMission),
-    };
-
     mockStoryCompletionDetector = {
       analyzeCompletion: jest.fn(),
     };
@@ -303,10 +292,6 @@ describe("WritingCoordinatorService (supplemental)", () => {
           useValue: mockParallelOrchestrator,
         },
         {
-          provide: WritingMissionService,
-          useValue: mockWritingMissionService,
-        },
-        {
           provide: StoryCompletionDetectorService,
           useValue: mockStoryCompletionDetector,
         },
@@ -326,6 +311,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
           provide: WritingMissionLifecycleService,
           useFactory: () => {
             mockMissionLifecycle = {
+              startMissionAsync: jest.fn().mockResolvedValue({ missionId }),
               cancelMission: jest.fn().mockResolvedValue({ success: true }),
               forceCleanupStuckMissions: jest
                 .fn()
@@ -842,7 +828,7 @@ describe("WritingCoordinatorService (supplemental)", () => {
         99,
       );
       // chapterId should be undefined because the chapter was not found
-      expect(mockWritingMissionService.startMissionAsync).toHaveBeenCalledWith(
+      expect(mockMissionLifecycle.startMissionAsync).toHaveBeenCalledWith(
         expect.objectContaining({ chapterId: undefined }),
         userId,
       );

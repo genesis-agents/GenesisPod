@@ -24,7 +24,7 @@ import { ChapterAnnotationService } from "../services/writing/chapter-annotation
 import { ChapterImportService } from "../services/writing/chapter-import.service";
 import { ConsistencyEngineService } from "../services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "../services/parallel/parallel-orchestrator.service";
-import { WritingMissionService } from "../services/mission/writing-mission.service";
+// WritingMissionService removed - replaced by WritingMissionLifecycleService + WritingMissionQueryService
 import { StoryCompletionDetectorService } from "../services/quality/story-completion-detector.service";
 import { TemporalConflictAnalyzerService } from "../services/consistency/temporal-conflict-analyzer.service";
 import { HierarchicalSummaryService } from "../services/writing/hierarchical-summary.service";
@@ -44,7 +44,6 @@ describe("WritingCoordinatorService", () => {
   let mockChapterImportService: any;
   let mockConsistencyEngine: any;
   let mockParallelOrchestrator: any;
-  let mockWritingMissionService: any;
   let mockStoryCompletionDetector: any;
   let mockTemporalConflictAnalyzer: any;
   let mockHierarchicalSummaryService: any;
@@ -76,7 +75,7 @@ describe("WritingCoordinatorService", () => {
     projectId,
   };
 
-  const mockMission = {
+  const _mockMission = {
     id: missionId,
     projectId,
     status: "running",
@@ -183,23 +182,6 @@ describe("WritingCoordinatorService", () => {
       }),
     };
 
-    mockWritingMissionService = {
-      startMissionAsync: jest.fn().mockResolvedValue({
-        missionId,
-        projectId,
-      }),
-      getMissionStatus: jest.fn().mockResolvedValue({
-        id: missionId,
-        status: "running",
-      }),
-      cancelMission: jest.fn().mockResolvedValue({ success: true }),
-      forceCleanupStuckMissions: jest.fn().mockResolvedValue({ cleaned: 1 }),
-      getProjectMissions: jest.fn().mockResolvedValue([mockMission]),
-      getMissionLogs: jest.fn().mockResolvedValue([]),
-      reExtractChapterTitles: jest.fn().mockResolvedValue({ extracted: 5 }),
-      getLatestMission: jest.fn().mockResolvedValue(mockMission),
-    };
-
     mockStoryCompletionDetector = {
       analyzeCompletion: jest.fn().mockResolvedValue({
         completionScore: 0.85,
@@ -261,10 +243,6 @@ describe("WritingCoordinatorService", () => {
           useValue: mockParallelOrchestrator,
         },
         {
-          provide: WritingMissionService,
-          useValue: mockWritingMissionService,
-        },
-        {
           provide: StoryCompletionDetectorService,
           useValue: mockStoryCompletionDetector,
         },
@@ -284,6 +262,9 @@ describe("WritingCoordinatorService", () => {
           provide: WritingMissionLifecycleService,
           useFactory: () => {
             mockMissionLifecycle = {
+              startMissionAsync: jest
+                .fn()
+                .mockResolvedValue({ missionId: "mission-789" }),
               cancelMission: jest.fn().mockResolvedValue({ success: true }),
               forceCleanupStuckMissions: jest
                 .fn()
@@ -501,7 +482,7 @@ describe("WritingCoordinatorService", () => {
 
       expect(result.success).toBe(true);
       expect(result.missionId).toBe(missionId);
-      expect(mockWritingMissionService.startMissionAsync).toHaveBeenCalledWith(
+      expect(mockMissionLifecycle.startMissionAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           projectId,
           missionType: "chapter",
@@ -527,7 +508,7 @@ describe("WritingCoordinatorService", () => {
         projectId,
         1,
       );
-      expect(mockWritingMissionService.startMissionAsync).toHaveBeenCalledWith(
+      expect(mockMissionLifecycle.startMissionAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           chapterId,
         }),

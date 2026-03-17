@@ -32,7 +32,7 @@ import type {
   WritingTaskResult,
   ExistingContentState,
 } from "./task-executor.interface";
-import type { WritingMissionType } from "../mission/writing-mission.service";
+import type { WritingMissionType } from "../mission/writing-mission.types";
 import { STORY_COMPLETION_MARKERS, WRITING_DEFAULTS } from "../config";
 
 @Injectable()

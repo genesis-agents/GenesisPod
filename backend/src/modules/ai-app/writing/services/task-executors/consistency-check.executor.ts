@@ -13,7 +13,7 @@ import type {
   WritingTaskContext,
   WritingTaskResult,
 } from "./task-executor.interface";
-import type { WritingMissionType } from "../mission/writing-mission.service";
+import type { WritingMissionType } from "../mission/writing-mission.types";
 
 @Injectable()
 export class ConsistencyCheckExecutor implements IWritingTaskExecutor {

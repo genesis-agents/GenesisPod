@@ -14,7 +14,7 @@ import {
   generateStylePrompt,
   recommendStyleByGenre,
 } from "../../constants/writing-style-presets";
-import type { WritingMissionInput } from "./writing-mission.service";
+import type { WritingMissionInput } from "./writing-mission.types";
 
 /**
  * 最小 prompt 长度常量（与前端保持一致）

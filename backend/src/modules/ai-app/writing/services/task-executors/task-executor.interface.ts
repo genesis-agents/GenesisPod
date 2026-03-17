@@ -13,7 +13,7 @@
 import type {
   WritingMissionType,
   WritingMissionInput,
-} from "../mission/writing-mission.service";
+} from "../mission/writing-mission.types";
 
 /**
  * Context passed to every task executor

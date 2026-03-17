@@ -37,7 +37,6 @@ import { HierarchicalSummaryService } from "./services/writing/hierarchical-summ
 import { DynamicOutlineService } from "./services/writing/dynamic-outline.service";
 
 // Mission services
-import { WritingMissionService } from "./services/mission/writing-mission.service";
 import { WritingMissionHealthCheckService } from "./services/mission/writing-mission-health-check.service";
 import { WritingAgentCoordinator } from "./services/mission/writing-agent-coordinator.service";
 import { WritingContextService } from "./services/mission/writing-context.service";
@@ -47,7 +46,7 @@ import { CheckpointService } from "./services/mission/checkpoint.service";
 import { WritingJsonParserService } from "./services/mission/writing-json-parser.service";
 import { WritingModelManager } from "./services/mission/writing-model-manager.service";
 import { WritingPersistence } from "./services/mission/writing-persistence.service";
-import { WritingExecutionService } from "./services/mission/writing-execution.service";
+// WritingExecutionService removed (replaced by WritingMissionExecutionService)
 import { WritingContentGeneratorService } from "./services/mission/writing-content-generator.service";
 // v4-DOME: Agent 共享便签板
 import { SharedScratchpadService } from "./services/mission/shared-scratchpad.service";
@@ -164,8 +163,7 @@ import {
     // v4-DOME: 层次摘要和动态大纲
     HierarchicalSummaryService,
     DynamicOutlineService,
-    // Mission services (integrates AI Teams mechanism)
-    WritingMissionService,
+    // Mission services
     WritingMissionHealthCheckService,
     WritingAgentCoordinator,
     WritingContextService,
@@ -175,7 +173,6 @@ import {
     WritingJsonParserService,
     WritingModelManager,
     WritingPersistence,
-    WritingExecutionService,
     WritingContentGeneratorService,
     // v4-DOME: Agent 共享便签板
     SharedScratchpadService,

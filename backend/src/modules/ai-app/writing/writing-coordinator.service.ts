@@ -9,7 +9,6 @@ import { ChapterAnnotationService } from "./services/writing/chapter-annotation.
 import { ChapterImportService } from "./services/writing/chapter-import.service";
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
-import { WritingMissionService } from "./services/mission/writing-mission.service";
 import { WritingMissionLifecycleService } from "./services/mission/writing-mission-lifecycle.service";
 import { WritingMissionQueryService } from "./services/mission/writing-mission-query.service";
 import { WritingTextProcessorService } from "./services/mission/writing-text-processor.service";
@@ -61,9 +60,7 @@ export class WritingCoordinatorService {
     private readonly parallelOrchestrator: ParallelOrchestratorService,
     // 一致性
     private readonly consistencyEngine: ConsistencyEngineService,
-    // 任务协调 (legacy god service - kept for backward compat during migration)
-    private readonly writingMissionService: WritingMissionService,
-    // 新拆分的任务服务
+    // 任务协调（新拆分的服务）
     private readonly missionLifecycle: WritingMissionLifecycleService,
     private readonly missionQuery: WritingMissionQueryService,
     private readonly textProcessor: WritingTextProcessorService,
@@ -309,8 +306,7 @@ export class WritingCoordinatorService {
       }
     }
 
-    // TODO: Replace with this.missionLifecycle.startMissionAsync() once god service is fully removed
-    const missionInfo = await this.writingMissionService.startMissionAsync(
+    const missionInfo = await this.missionLifecycle.startMissionAsync(
       {
         projectId,
         missionType: dto.missionType ?? "full_story",
