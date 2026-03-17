@@ -106,6 +106,7 @@ export class ResearchReviewerService {
         additionalSkills: ["dimension-review"],
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，研究内容审核
+        cachePolicy: "auto",
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
@@ -359,6 +360,7 @@ export class ResearchReviewerService {
             additionalSkills: ["fact-verification"],
             modelType: AIModelType.CHAT_FAST,
             skipGuardrails: true, // 内部系统调用，事实核查含外部数据
+            cachePolicy: "auto",
             taskProfile: {
               creativity: "deterministic",
               outputLength: "medium",
@@ -457,6 +459,7 @@ export class ResearchReviewerService {
         ],
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true, // 内部系统调用
+        cachePolicy: "auto",
         taskProfile: { creativity: "low", outputLength: "short" },
         responseFormat: "json",
       });
@@ -566,6 +569,7 @@ export class ResearchReviewerService {
         additionalSkills: ["fact-check"],
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true, // 内部系统调用，事实核查
+        cachePolicy: "auto",
         taskProfile: {
           creativity: "deterministic",
           outputLength: "medium",

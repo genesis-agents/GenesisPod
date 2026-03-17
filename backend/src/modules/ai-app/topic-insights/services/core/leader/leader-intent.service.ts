@@ -226,6 +226,7 @@ export class LeaderIntentService {
       taskProfile: {
         creativity: "medium",
         outputLength: "medium",
+        reasoningDepth: "moderate",
       },
     });
     const latencyMs = Date.now() - startTime;

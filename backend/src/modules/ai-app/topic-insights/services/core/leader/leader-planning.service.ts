@@ -314,6 +314,7 @@ export class LeaderPlanningService {
         taskProfile: {
           creativity: "medium",
           outputLength: "extended",
+          reasoningDepth: "deep",
         },
         responseFormat: "json",
       });
@@ -737,6 +738,7 @@ export class LeaderPlanningService {
           taskProfile: {
             creativity: "medium",
             outputLength: "long",
+            reasoningDepth: "moderate",
           },
         });
         const latencyMs = Date.now() - startTime;

@@ -527,6 +527,7 @@ export class ChatFacade {
       responseFormat: request.responseFormat,
       strictMode: request.strictMode,
       skipGuardrails: request.skipGuardrails,
+      cachePolicy: request.cachePolicy,
     });
 
     const duration = Date.now() - startTime;

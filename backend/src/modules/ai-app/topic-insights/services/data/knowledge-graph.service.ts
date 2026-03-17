@@ -66,6 +66,7 @@ export class KnowledgeGraphService {
         additionalSkills: ["entity-extraction"],
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，知识图谱提取
+        cachePolicy: "auto",
         taskProfile: { creativity: "deterministic", outputLength: "medium" },
         responseFormat: "json",
       });

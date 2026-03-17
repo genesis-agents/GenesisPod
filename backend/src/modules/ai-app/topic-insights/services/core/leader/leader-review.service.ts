@@ -18,7 +18,10 @@ import { LeaderDecisionType, AIModelType } from "@prisma/client";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { LEADER_REVIEW_PROMPT } from "../../../prompts";
-import { type ReviewDecision, type LeaderModelInfo } from "../../../types/leader.types";
+import {
+  type ReviewDecision,
+  type LeaderModelInfo,
+} from "../../../types/leader.types";
 
 @Injectable()
 export class LeaderReviewService {
@@ -73,6 +76,7 @@ export class LeaderReviewService {
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
+          reasoningDepth: "moderate",
         },
       });
     } catch (reviewError) {
@@ -193,6 +197,7 @@ export class LeaderReviewService {
         taskProfile: {
           creativity: "deterministic",
           outputLength: "medium",
+          reasoningDepth: "moderate",
         },
       });
 
@@ -285,6 +290,7 @@ export class LeaderReviewService {
         taskProfile: {
           creativity: "low",
           outputLength: "medium",
+          reasoningDepth: "moderate",
         },
       });
 
@@ -351,5 +357,4 @@ export class LeaderReviewService {
       isReasoning: modelInfo.isReasoning ?? false,
     };
   }
-
 }
