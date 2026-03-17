@@ -48,22 +48,48 @@ export class WechatArticleFormatterService {
       "margin: 16px 0; padding: 20px; background: #f9f9f9; border-radius: 8px; border: 1px dashed #ddd; text-align: center; color: #999;",
   };
 
+  // 结构性章节关键词 — 合并到相邻正文章节，不独立成篇
+  private static readonly STRUCTURAL_HEADINGS = [
+    /^前言$/,
+    /^引言$/,
+    /^导言$/,
+    /^执行摘要/,
+    /^executive\s*summary/i,
+    /^目录$/,
+    /^table\s*of\s*contents/i,
+    /^结[语论]$/,
+    /^总结$/,
+    /^conclusion/i,
+    /^参考文献/,
+    /^references?$/i,
+    /^附录/,
+    /^appendix/i,
+    /^跨维度关联/,
+    /^风险评估$/,
+    /^战略建议$/,
+  ];
+
+  /**
+   * 判断标题是否为结构性章节（不应独立成篇）
+   */
+  private isStructuralHeading(heading: string): boolean {
+    const trimmed = heading.replace(/^[\d.]+\s*/, "").trim();
+    return WechatArticleFormatterService.STRUCTURAL_HEADINGS.some((re) =>
+      re.test(trimmed),
+    );
+  }
+
   /**
    * 将 Markdown 报告按 ## 标题拆分为多个 section
-   * 用于系列发布：每个 section 对应一篇文章
+   * 只保留正文维度章节，结构性章节（前言、目录、结语等）合并到相邻章节
    */
   splitMarkdownIntoSections(fullMarkdown: string): Array<{
     heading: string;
     markdown: string;
     chartIds: string[];
   }> {
-    const sections: Array<{
-      heading: string;
-      markdown: string;
-      chartIds: string[];
-    }> = [];
-
-    // Split by ## headings (not ### or deeper)
+    // Step 1: Parse all ## sections
+    const rawSections: Array<{ heading: string; lines: string[] }> = [];
     const lines = fullMarkdown.split("\n");
     let currentHeading = "";
     let currentLines: string[] = [];
@@ -73,36 +99,83 @@ export class WechatArticleFormatterService {
     for (const line of lines) {
       const h2Match = line.match(/^## (.+)/);
       if (h2Match) {
-        // Save previous section
         if (foundFirstH2 && currentLines.length > 0) {
-          sections.push(this.buildSection(currentHeading, currentLines));
+          rawSections.push({
+            heading: currentHeading,
+            lines: [...currentLines],
+          });
         }
         currentHeading = h2Match[1].trim();
         currentLines = [];
         foundFirstH2 = true;
       } else if (!foundFirstH2) {
-        // Content before first ## heading = intro
         introLines.push(line);
       } else {
         currentLines.push(line);
       }
     }
-
-    // Push last section
     if (foundFirstH2 && currentLines.length > 0) {
-      sections.push(this.buildSection(currentHeading, currentLines));
+      rawSections.push({ heading: currentHeading, lines: [...currentLines] });
     }
 
-    // If we have intro content, prepend it to the first section or make it its own
+    // Step 2: Merge structural sections into adjacent content sections
+    // - Leading structural sections (前言, 执行摘要, 目录) → prepend to first content section
+    // - Trailing structural sections (结语, 参考文献) → append to last content section
+    // - Middle structural sections (跨维度关联, 风险评估, 战略建议) → append to previous content section
+    const sections: Array<{
+      heading: string;
+      markdown: string;
+      chartIds: string[];
+    }> = [];
+    const leadingBuffer: string[] = [];
+
+    for (let i = 0; i < rawSections.length; i++) {
+      const raw = rawSections[i];
+      const isStructural = this.isStructuralHeading(raw.heading);
+
+      if (isStructural) {
+        const sectionMd = `## ${raw.heading}\n${raw.lines.join("\n")}`;
+        if (sections.length === 0) {
+          // Before any content section → buffer to prepend
+          leadingBuffer.push(sectionMd);
+        } else {
+          // After a content section → append to previous
+          sections[sections.length - 1].markdown += "\n\n" + sectionMd;
+          sections[sections.length - 1].chartIds = this.extractChartIds(
+            sections[sections.length - 1].markdown,
+          );
+        }
+      } else {
+        // Content section
+        let markdown = raw.lines.join("\n").trim();
+
+        // Prepend any buffered leading sections
+        if (leadingBuffer.length > 0) {
+          markdown = leadingBuffer.join("\n\n") + "\n\n" + markdown;
+          leadingBuffer.length = 0;
+        }
+
+        sections.push(this.buildSection(raw.heading, markdown.split("\n")));
+      }
+    }
+
+    // If all sections were structural (unlikely), create one section from buffers
+    if (sections.length === 0 && leadingBuffer.length > 0) {
+      const allContent = leadingBuffer.join("\n\n");
+      sections.push({
+        heading: "Content",
+        markdown: allContent,
+        chartIds: this.extractChartIds(allContent),
+      });
+    }
+
+    // Prepend intro content to first section
     if (introLines.length > 0) {
       const introContent = introLines.join("\n").trim();
       if (introContent && sections.length > 0) {
-        // Prepend intro to first section
         sections[0].markdown = introContent + "\n\n" + sections[0].markdown;
-        // Re-extract chart IDs
         sections[0].chartIds = this.extractChartIds(sections[0].markdown);
       } else if (introContent && sections.length === 0) {
-        // No sections found, entire content is one section
         sections.push({
           heading: "Content",
           markdown: introContent,
@@ -111,7 +184,7 @@ export class WechatArticleFormatterService {
       }
     }
 
-    // If no sections found at all (no ## headings), return single section
+    // Fallback: no ## headings at all
     if (sections.length === 0) {
       sections.push({
         heading: "Content",
@@ -121,7 +194,7 @@ export class WechatArticleFormatterService {
     }
 
     this.logger.log(
-      `Split report into ${sections.length} sections: ${sections.map((s) => s.heading).join(", ")}`,
+      `Split report into ${sections.length} content sections (filtered structural): ${sections.map((s) => s.heading).join(", ")}`,
     );
     return sections;
   }

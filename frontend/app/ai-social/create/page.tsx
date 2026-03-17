@@ -198,51 +198,26 @@ function CreateSocialContentForm() {
 
   // Publish handler
   const handlePublish = async () => {
-    // Series mode: publish all parts sequentially
+    // Series mode: save all drafts first, then redirect to list for per-article publishing
+    // (batch publish via Playwright would exhaust browser resources)
     if (isSeriesMode && seriesParts.length > 0) {
-      if (!connectionId && !skipAccount) {
-        toast.error(
-          t('aiSocial.create.selectAccountFirst') ||
-            'Please select a publishing account first'
-        );
-        setStep(3);
-        return;
-      }
-
       setIsPublishing(true);
       try {
-        let successCount = 0;
         for (const part of seriesParts) {
-          // Update content before publishing
           await editContent(part.id, {
             title: part.title,
             content: part.content,
             digest: part.digest || undefined,
             connectionId: connectionId || undefined,
           });
-
-          const result = await publish(part.id, connectionId || undefined);
-          if (result.success) {
-            successCount++;
-          }
         }
-
-        if (successCount === seriesParts.length) {
-          toast.success(
-            t('aiSocial.series.allPublished') ||
-              `${seriesParts.length} articles published`
-          );
-          router.push('/ai-social');
-        } else {
-          toast.error(
-            t('aiSocial.series.partialPublish', {
-              success: successCount,
-              total: seriesParts.length,
-            }) || `${successCount}/${seriesParts.length} published`
-          );
-        }
+        toast.success(
+          t('aiSocial.series.savedForPublish') ||
+            `${seriesParts.length} articles saved. Please publish them one by one from the list.`
+        );
+        router.push('/ai-social');
       } catch {
-        toast.error(t('aiSocial.create.publishFailed'));
+        toast.error(t('aiSocial.create.saveFailed'));
       } finally {
         setIsPublishing(false);
       }

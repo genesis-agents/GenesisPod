@@ -229,7 +229,7 @@ export function StepNavigation({
               <Send className="h-4 w-4" />
             )}
             {isSeriesMode
-              ? t('aiSocial.series.publishAll') || 'Publish all'
+              ? t('aiSocial.series.saveAndPublish') || 'Save & go to list'
               : t('aiSocial.create.publish')}
           </button>
         </div>
