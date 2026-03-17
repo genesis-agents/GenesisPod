@@ -282,7 +282,7 @@ export class FigureRelevanceService {
             reason: { type: "string" },
           },
         },
-        strictMode: true,
+        strictMode: false,
         throwOnParseError: true,
         maxRetries: 1,
       }),
