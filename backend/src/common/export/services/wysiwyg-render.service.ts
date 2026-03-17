@@ -96,9 +96,25 @@ export class WysiwygRenderService {
 
       const fullHtml = this.wrapHtml(html, css, {});
       await page.setContent(fullHtml, {
-        waitUntil: "networkidle0",
+        waitUntil: "domcontentloaded",
         timeout: 30000,
       });
+      // Wait for images to load (max 10s); continue with broken images on timeout
+      await page
+        .evaluate(() =>
+          Promise.all(
+            Array.from(document.images)
+              .filter((img) => !img.complete)
+              .map(
+                (img) =>
+                  new Promise((resolve) => {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                  }),
+              ),
+          ),
+        )
+        .catch(() => {});
       // Wait for fonts to load (max 5s); fall back to system fonts on timeout
       await page.evaluate(() => document.fonts.ready).catch(() => {});
 
