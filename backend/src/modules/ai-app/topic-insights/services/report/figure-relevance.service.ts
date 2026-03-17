@@ -34,11 +34,7 @@
  * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
  */
 
-import {
-  Injectable,
-  Logger,
-  InternalServerErrorException,
-} from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import type {
@@ -48,17 +44,13 @@ import type {
 } from "@/modules/ai-engine/facade";
 import type { ExtractedFigure } from "../../types/research.types";
 
-/** 批量审查的返回结构 */
-interface FigureRelevanceBatchResult {
-  results: Array<{
-    index: number;
-    accepted: boolean;
-    reason?: string;
-  }>;
-}
-
-/** 批量审查的最大图片数（控制 token 消耗） */
-const MAX_FIGURES_PER_BATCH = 8;
+/**
+ * ★ v13: Vision 单批外部超时（30s）
+ * 根因：Vision 需要下载每张图片 URL，慢速/受限 CDN 导致整 batch 挂起 150s（chatStructured 内部超时）。
+ * 8 维度并发 × 多 batch × 3 次重试 = 潜在 450s/batch，引发 rate limit 连锁超时。
+ * 外部 Promise.race 30s 截断：失败快速走 v13 fallback，不阻塞整个 dimension pipeline。
+ */
+const VISION_BATCH_TIMEOUT_MS = 30_000;
 
 /** ★ v10: 信息性图片类型（fallback 时仅保留这些类型，photo 需要 Vision LLM 验证） */
 const INFORMATIONAL_FIGURE_TYPES = new Set(["chart", "table", "diagram"]);
@@ -85,11 +77,35 @@ function isVisionCompatibleUrl(url: string): boolean {
   return true;
 }
 
+/**
+ * ★ v13: 全局并发信号量 — 限制同时进行的 Vision API 调用数
+ * 根因：8 维度并发各自发起 Vision batch → 大量并发请求 → rate limit / 超时连锁
+ * 限制全局最大并发数，防止 Vision provider 被同时轰炸
+ */
+const MAX_CONCURRENT_VISION_CALLS = 3;
+
 @Injectable()
 export class FigureRelevanceService {
   private readonly logger = new Logger(FigureRelevanceService.name);
+  /** 当前正在进行的 Vision API 调用数（实例级信号量） */
+  private visionConcurrency = 0;
 
   constructor(private readonly chatFacade: ChatFacade) {}
+
+  /**
+   * 信号量：等待当前并发数低于上限后执行 fn
+   */
+  private async withVisionSemaphore<T>(fn: () => Promise<T>): Promise<T> {
+    while (this.visionConcurrency >= MAX_CONCURRENT_VISION_CALLS) {
+      await new Promise<void>((r) => setTimeout(r, 200));
+    }
+    this.visionConcurrency++;
+    try {
+      return await fn();
+    } finally {
+      this.visionConcurrency--;
+    }
+  }
 
   /**
    * 对候选图片列表进行多模态 LLM 相关性审查
@@ -127,89 +143,47 @@ export class FigureRelevanceService {
       return filtered;
     }
 
-    // ★ v7: 上游 validateSingleFigure 已丢弃所有 data: URL，
-    //   到达此处的全部是 HTTP/HTTPS URL，可直接发送给 Vision API。
+    // ★ v13: 逐张评估 + 全局并发控制
+    // 根因：batch 模式下单张坏图（慢速 CDN / 403）导致整批 8 张图全部失败。
+    // 改为逐张处理：每张图独立调用 Vision，失败只影响自身，其他图正常处理。
+    // 并发控制（MAX_CONCURRENT_VISION_CALLS=3）防止 8 维度同时轰炸 Vision provider。
 
-    // ★ 分批处理所有候选图片，不再截断
-    const allAccepted: ExtractedFigure[] = [];
-    const allRejected: string[] = [];
-
-    for (
-      let batchStart = 0;
-      batchStart < figures.length;
-      batchStart += MAX_FIGURES_PER_BATCH
-    ) {
-      const batch = figures.slice(
-        batchStart,
-        batchStart + MAX_FIGURES_PER_BATCH,
-      );
-
-      try {
-        const batchResult = await this.evaluateBatch(batch, topicTitle);
-
-        const seenIndices = new Set<number>();
-        for (const result of batchResult.results) {
-          if (result.index < 0 || result.index >= batch.length) continue;
-          if (seenIndices.has(result.index)) continue;
-          seenIndices.add(result.index);
-
-          if (result.accepted) {
-            allAccepted.push(batch[result.index]);
-          } else {
-            allRejected.push(
-              `[${batchStart + result.index}] ${batch[result.index].imageUrl.substring(0, 60)}... → ${result.reason}`,
+    const evalPromises = figures.map((fig, idx) =>
+      this.withVisionSemaphore(
+        async (): Promise<{
+          fig: ExtractedFigure;
+          accepted: boolean;
+          reason?: string;
+        }> => {
+          try {
+            const result = await this.evaluateSingle(fig, topicTitle);
+            return { fig, accepted: result.accepted, reason: result.reason };
+          } catch (error) {
+            // 单张失败 → type-based fallback（不影响其他图）
+            const fallback = this.typeBasedFallback(fig);
+            this.logger.warn(
+              `[filterRelevantFigures] [${idx}] ${fig.imageUrl.substring(0, 60)}... Vision failed, fallback=${fallback} (v13): ` +
+                `${error instanceof Error ? error.message : error}`,
             );
+            return { fig, accepted: fallback };
           }
-        }
+        },
+      ),
+    );
 
-        // ★ v10: LLM 遗漏的 index → chart/table/diagram 保留，photo 拒绝
-        const missingCount = batch.length - seenIndices.size;
-        if (missingCount > 0) {
-          const missingIndices = Array.from(
-            { length: batch.length },
-            (_, i) => i,
-          ).filter((i) => !seenIndices.has(i));
-          let keptCount = 0;
-          for (const idx of missingIndices) {
-            if (INFORMATIONAL_FIGURE_TYPES.has(batch[idx].type)) {
-              allAccepted.push(batch[idx]);
-              keptCount++;
-            } else {
-              allRejected.push(
-                `[${batchStart + idx}] ${batch[idx].imageUrl.substring(0, 60)}... → LLM omitted, photo type rejected`,
-              );
-            }
-          }
-          this.logger.warn(
-            `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1}: LLM omitted ${missingCount} indices, kept ${keptCount} informational types (v10)`,
-          );
-        }
-      } catch (error) {
-        // ★ v13: 单批失败 → 保留 chart/table/diagram（无条件）+ 有描述性 caption/alt 的 photo
-        // caption/alt 存在是信息价值的强信号（有人为图片写了说明 → 通常是数据图或产品截图）
-        // 无 caption/alt 的 photo 极可能是装饰性新闻配图，安全丢弃
-        const safeBatch = batch.filter((f) => {
-          if (INFORMATIONAL_FIGURE_TYPES.has(f.type)) return true;
-          if (f.type === "photo") {
-            const hasDescriptive =
-              (f.caption?.trim().length ?? 0) > 0 ||
-              (f.alt?.trim().length ?? 0) > 0;
-            return hasDescriptive;
-          }
-          return false;
-        });
-        this.logger.warn(
-          `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1} Vision check failed, ` +
-            `keeping ${safeBatch.length}/${batch.length} figures (v13: informational + captioned photos): ` +
-            `${error instanceof Error ? error.message : error}`,
-        );
-        allAccepted.push(...safeBatch);
-      }
-    }
+    const results = await Promise.all(evalPromises);
 
-    if (allRejected.length > 0) {
+    const allAccepted = results.filter((r) => r.accepted).map((r) => r.fig);
+    const rejected = results.filter((r) => !r.accepted);
+    if (rejected.length > 0) {
       this.logger.log(
-        `[filterRelevantFigures] Rejected ${allRejected.length}/${figures.length} figures for "${topicTitle}":\n${allRejected.join("\n")}`,
+        `[filterRelevantFigures] Rejected ${rejected.length}/${figures.length} figures for "${topicTitle}":\n` +
+          rejected
+            .map(
+              (r) =>
+                `  ${r.fig.imageUrl.substring(0, 60)}... → ${r.reason ?? "fallback rejected"}`,
+            )
+            .join("\n"),
       );
     }
 
@@ -217,185 +191,107 @@ export class FigureRelevanceService {
   }
 
   /**
-   * 批量评估图片：构造多模态消息发送给 Vision LLM
+   * type-based fallback：Vision 失败时按类型和元数据决定是否保留
    */
-  private async evaluateBatch(
-    figures: ExtractedFigure[],
+  private typeBasedFallback(fig: ExtractedFigure): boolean {
+    if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) return true;
+    if (fig.type === "photo") {
+      return (
+        (fig.caption?.trim().length ?? 0) > 0 ||
+        (fig.alt?.trim().length ?? 0) > 0
+      );
+    }
+    return false;
+  }
+
+  /**
+   * ★ v13: 逐张评估单张图片（替代原来的 evaluateBatch）
+   * 每张图片独立调用 Vision，失败只影响本图，不连累同批其他图。
+   */
+  private async evaluateSingle(
+    fig: ExtractedFigure,
     topicTitle: string,
-  ): Promise<FigureRelevanceBatchResult> {
-    // ★ v12: 预过滤已知 Vision API 不可达的 CDN 域名，避免下载超时导致整 batch 失败
-    const compatibleFigures = figures.filter((fig) =>
-      isVisionCompatibleUrl(fig.imageUrl),
-    );
-    if (compatibleFigures.length < figures.length) {
-      this.logger.debug(
-        `[evaluateBatch] Skipped ${figures.length - compatibleFigures.length} incompatible CDN URLs`,
-      );
-    }
-    if (compatibleFigures.length === 0) {
-      // 全部不兼容，跳过 Vision 调用，返回空结果
-      return { results: [] };
-    }
-
-    // 构建多模态 contentParts：交替 text + image
-    const contentParts: ContentPart[] = [];
-
-    // 开头说明 — ★ v10: 按图片类型分层审核
-    contentParts.push({
-      type: "text",
-      text: [
-        `请审查以下 ${compatibleFigures.length} 张候选图片是否适合用于研究报告「${topicTitle}」。`,
-        "",
-        "★ 核心原则：按类型分层审核。图表类（chart/table/diagram）倾向保留；照片类（photo）需要包含具体信息元素才保留。",
-        "",
-        "## 一、对所有类型都拒绝的情况：",
-        "1. **损坏/不可用**：图片损坏无法显示、纯色占位符、完全无法辨认的极度模糊图",
-        "2. **明确垃圾**：纯广告横幅、网站 UI 元素（导航栏/按钮截图）、meme/表情包、tracking pixel",
-        "3. **人物肖像/头像**：个人头像照、证件照式肖像、演讲者单人照",
-        "4. **AI生成装饰图**：AI生成的抽象概念插画、科幻风装饰图、过度光滑的 stock photo 风格AI生成配图",
-        "",
-        "## 二、chart/table/diagram 类型 → 倾向保留：",
-        "- 数据图表、趋势图、对比图、架构图、流程图 → 直接保留",
-        "- 略有模糊但内容可辨识 → 保留",
-        "- 不确定是否相关 → 保留",
-        "",
-        "## 三、photo 类型 → 需要信息价值才保留（这是关键判断）：",
-        "photo 类图片必须满足以下至少一项才保留：",
-        "- 图中包含**可读文字**（幻灯片、白板、标语、告示）",
-        "- 图中包含**产品实物/硬件/设备**的细节展示",
-        "- 图中包含**技术演示画面**（软件界面、代码运行、系统架构）",
-        "- 图中是**带有信息标注的照片**（标注了数据、名称、结构的实景照）",
-        "",
-        "photo 类图片如果属于以下类型则拒绝：",
-        "- **文章头图/封面图**：新闻网站文章顶部的装饰性大图（通常是建筑物、城市天际线、会议室等场景照）",
-        "- **新闻缩略图**：新闻列表中的小配图，通常是记者会、签约仪式、领导人合影等泛场景照",
-        "- **Stock photo**：专业摄影的通用场景（握手、会议桌、服务器机房外景等），没有包含具体的数据或技术细节",
-        "- **纯场景/建筑照**：政府大楼、公司总部、会场外景等，没有包含图表、文字、产品等信息元素",
-        "- **泛活动照片**：大型会议全景、签约仪式、颁奖典礼等，图中没有可辨识的信息内容",
-        "",
-        `关键问题：这张图片是否能为「${topicTitle}」的读者提供超越文字描述的信息增量？如果只是"配图"而非"信息图"，请拒绝。`,
-      ].join("\n"),
-    } satisfies TextContentPart);
-
-    // 逐张图片（使用已过滤的 compatibleFigures）
-    for (let i = 0; i < compatibleFigures.length; i++) {
-      const fig = compatibleFigures[i];
-      contentParts.push({
-        type: "text",
-        text: `\n--- 图片 ${i} ---\nCaption: ${fig.caption || "(无)"}\nType hint: ${fig.type}\nAlt: ${fig.alt || "(无)"}`,
-      } satisfies TextContentPart);
-
-      // ★ v7: 所有 data: URL 已在上游丢弃，此处只有 HTTP/HTTPS URL
-      // ★ v8: detail "low" → "auto" — 让模型根据图片大小选择分辨率，
-      //   低分辨率下无法检测模糊和细节质量问题
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: fig.imageUrl, detail: "auto" },
-      } satisfies ImageUrlContentPart);
-    }
-
-    // 要求 JSON 输出
-    contentParts.push({
-      type: "text",
-      text: `\n请以 JSON 格式返回审查结果。对于拒绝的图片，reason 必须说明具体原因类别（模糊/低质量/无关/装饰/广告/stock photo）。格式：
-{
-  "results": [
-    { "index": 0, "accepted": true },
-    { "index": 1, "accepted": false, "reason": "模糊不清，文字无法辨认" },
-    { "index": 2, "accepted": false, "reason": "stock photo，与主题无实质关联" }
-  ]
-}
-仅返回 JSON，不要其他文字。`,
-    } satisfies TextContentPart);
-
-    // ★ 通过 ChatFacade.chatStructured 调用 Vision LLM（内置 JSON 提取 + 重试）
-    // ★ v11: throwOnParseError=true + maxRetries=2 — rate limit 时 chatStructured 会等待后重试
-    try {
-      const response =
-        await this.chatFacade.chatStructured<FigureRelevanceBatchResult>({
-          messages: [
-            {
-              role: "user",
-              content: `审查 ${compatibleFigures.length} 张图片是否适合研究报告「${topicTitle}」`,
-              contentParts,
-            },
-          ],
-          modelType: AIModelType.MULTIMODAL,
-          skipGuardrails: true, // 内部系统调用，图片审查
-          taskProfile: {
-            creativity: "deterministic",
-            outputLength: "short",
-          },
-          schema: {
-            type: "object",
-            required: ["results"],
-            additionalProperties: false,
-            properties: {
-              results: {
-                type: "array",
-                items: {
-                  type: "object",
-                  required: ["index", "accepted", "reason"],
-                  additionalProperties: false,
-                  properties: {
-                    index: { type: "number" },
-                    accepted: { type: "boolean" },
-                    reason: { type: "string" },
-                  },
-                },
-              },
-            },
-          },
-          strictMode: true,
-          throwOnParseError: true,
-          maxRetries: 2,
-        });
-
-      // 验证结构
-      if (!response.data?.results || !Array.isArray(response.data.results)) {
-        throw new InternalServerErrorException(
-          "Invalid response structure: missing results array",
-        );
-      }
-
-      // ★ v12: 将 compatibleFigures 的索引映射回原始 figures 索引
-      // 同时为被 CDN 黑名单过滤掉的图片生成拒绝条目
-      const originalIndexOf = compatibleFigures.map((fig) =>
-        figures.indexOf(fig),
-      );
-      const remappedResults = response.data.results.map((r) => ({
-        ...r,
-        index:
-          r.index >= 0 && r.index < originalIndexOf.length
-            ? originalIndexOf[r.index]
-            : -1,
-      }));
-
-      // 为不兼容的图片生成条目：informational 类型自动保留（有语义价值），其余拒绝
-      const compatibleSet = new Set(compatibleFigures);
-      const incompatibleResults = figures
-        .map((fig, idx) => ({ fig, idx }))
-        .filter(({ fig }) => !compatibleSet.has(fig))
-        .map(({ fig, idx }) =>
-          INFORMATIONAL_FIGURE_TYPES.has(fig.type)
-            ? { index: idx, accepted: true as const }
-            : {
-                index: idx,
-                accepted: false as const,
-                reason:
-                  "incompatible format/CDN, Vision API cannot access" as const,
-              },
-        );
-
+  ): Promise<{ accepted: boolean; reason?: string }> {
+    if (!isVisionCompatibleUrl(fig.imageUrl)) {
+      // CDN 黑名单/不支持格式 → type-based fallback
+      const accepted = INFORMATIONAL_FIGURE_TYPES.has(fig.type);
       return {
-        results: [...remappedResults, ...incompatibleResults],
+        accepted,
+        reason: accepted ? undefined : "incompatible CDN/format",
       };
-    } catch (error) {
-      // ★ v11: 所有失败向上抛出，让 filterRelevantFigures 走 type-based fallback
-      this.logger.warn(
-        `[evaluateBatch] Vision LLM call failed: ${error instanceof Error ? error.message : error}`,
-      );
-      throw error;
     }
+
+    const contentParts: ContentPart[] = [
+      {
+        type: "text",
+        text: [
+          `请审查以下图片是否适合用于研究报告「${topicTitle}」。`,
+          "",
+          "★ 核心原则：按类型分层审核。图表类（chart/table/diagram）倾向保留；照片类（photo）需要包含具体信息元素才保留。",
+          "",
+          "对所有类型都拒绝的情况：损坏/不可用、纯广告横幅、网站UI元素、meme、人物头像照、AI生成装饰图。",
+          "",
+          "chart/table/diagram → 倾向保留（数据图表、趋势图、架构图等直接保留）。",
+          "",
+          "photo → 需满足以下之一才保留：图中有可读文字（幻灯片/白板）、产品实物细节、技术演示画面、带信息标注的照片。",
+          "photo 拒绝：文章头图/封面图、新闻缩略图、Stock photo、纯场景照、泛活动照。",
+          "",
+          `图片信息：Caption="${fig.caption || "(无)"}", Type="${fig.type}", Alt="${fig.alt || "(无)"}"`,
+        ].join("\n"),
+      } satisfies TextContentPart,
+      {
+        type: "image_url",
+        image_url: { url: fig.imageUrl, detail: "low" },
+      } satisfies ImageUrlContentPart,
+      {
+        type: "text",
+        text: `请以 JSON 格式返回审查结果：{"accepted": true} 或 {"accepted": false, "reason": "具体原因"}`,
+      } satisfies TextContentPart,
+    ];
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Vision single timeout after ${VISION_BATCH_TIMEOUT_MS / 1000}s`,
+            ),
+          ),
+        VISION_BATCH_TIMEOUT_MS,
+      ),
+    );
+
+    const response = await Promise.race([
+      this.chatFacade.chatStructured<{ accepted: boolean; reason?: string }>({
+        messages: [
+          {
+            role: "user",
+            content: `审查图片是否适合研究报告「${topicTitle}」`,
+            contentParts,
+          },
+        ],
+        modelType: AIModelType.MULTIMODAL,
+        skipGuardrails: true,
+        taskProfile: { creativity: "deterministic", outputLength: "minimal" },
+        schema: {
+          type: "object",
+          required: ["accepted"],
+          additionalProperties: false,
+          properties: {
+            accepted: { type: "boolean" },
+            reason: { type: "string" },
+          },
+        },
+        strictMode: true,
+        throwOnParseError: true,
+        maxRetries: 1,
+      }),
+      timeoutPromise,
+    ]);
+
+    if (response.data == null) {
+      throw new Error("Empty response from Vision LLM");
+    }
+    return { accepted: response.data.accepted, reason: response.data.reason };
   }
 }
