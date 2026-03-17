@@ -77,7 +77,26 @@ export function stripProseBullets(content: string): string {
       // Rule 3: 3+ items ALL >60 chars → strip (all long = prose paragraphs)
       const isAllLong = count >= 3 && bulletLines.every((b) => textLen(b) > 60);
 
-      if (hasOrdinal || hasProse || isSingle || isTwoLong || isAllLong) {
+      // Rule 5: Section summary — bullet block right after a heading, all short
+      // These are LLM-generated "key points" at the start of each section
+      const prevContentLine = result
+        .slice()
+        .reverse()
+        .find((l) => l.trim() !== '');
+      const afterHeading = prevContentLine
+        ? /^#{1,4}\s/.test(prevContentLine)
+        : false;
+      const allVeryShort =
+        count >= 3 && bulletLines.every((b) => textLen(b) < 35);
+
+      if (
+        hasOrdinal ||
+        hasProse ||
+        isSingle ||
+        isTwoLong ||
+        isAllLong ||
+        (afterHeading && allVeryShort)
+      ) {
         // Strip bullet markers and insert blank lines between items
         // so markdown treats them as separate paragraphs (not merged text)
         for (let j = 0; j < block.length; j++) {

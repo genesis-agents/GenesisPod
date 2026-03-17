@@ -298,7 +298,7 @@ export default function SharedTopicPage() {
               href="/ai-insights"
               className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
-              开始研究
+              开始洞察
             </Link>
             <p className="mt-2 text-center text-[10px] text-gray-400">
               由 {config.brand.fullName} 生成
