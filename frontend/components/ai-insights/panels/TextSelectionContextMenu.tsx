@@ -140,53 +140,6 @@ export function TextSelectionContextMenu({
     [containerRef]
   );
 
-  // Handle text selection (mouseup)
-  const handleMouseUp = useCallback(
-    (e: MouseEvent) => {
-      // Don't show on right-click (handled by contextmenu)
-      if (e.button === 2) return;
-
-      // Small delay to ensure selection is complete
-      setTimeout(() => {
-        const selection = window.getSelection();
-        const text = selection?.toString().trim();
-
-        if (!text || !containerRef.current?.contains(e.target as Node)) {
-          return;
-        }
-
-        // Get selection rect
-        const range = selection?.getRangeAt(0);
-        if (!range) return;
-
-        const rect = range.getBoundingClientRect();
-
-        // Calculate relative offset within container
-        let startOffset = 0;
-        let endOffset = 0;
-        if (containerRef.current) {
-          const preSelectionRange = document.createRange();
-          preSelectionRange.selectNodeContents(containerRef.current);
-          preSelectionRange.setEnd(range.startContainer, range.startOffset);
-          startOffset = preSelectionRange.toString().length;
-          endOffset = startOffset + text.length;
-        }
-
-        setSelectedText(text);
-        setSelectionRange({ start: startOffset, end: endOffset });
-        // Position above selection
-        setPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top - 10,
-        });
-        setVisible(true);
-        setShowAnnotationColors(false);
-        setShowAIMenu(false);
-      }, 10);
-    },
-    [containerRef]
-  );
-
   // Close menu when clicking outside
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -207,23 +160,15 @@ export function TextSelectionContextMenu({
     if (!container) return;
 
     container.addEventListener('contextmenu', handleContextMenu);
-    container.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       container.removeEventListener('contextmenu', handleContextMenu);
-      container.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [
-    containerRef,
-    handleContextMenu,
-    handleMouseUp,
-    handleClickOutside,
-    handleKeyDown,
-  ]);
+  }, [containerRef, handleContextMenu, handleClickOutside, handleKeyDown]);
 
   // Handle opening AI edit modal
   const handleOpenAIEdit = useCallback(() => {
