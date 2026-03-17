@@ -998,7 +998,14 @@ function ChapterizedReportViewInner({
                                   : 'bg-blue-500'
                             }`}
                           />
-                          <span>{processText(kf.finding)}</span>
+                          <span>
+                            {processText(
+                              kf.finding.replace(
+                                /[（(][^）)]*(?:约?\d+字|字数[：:]\d+)[）)]/g,
+                                ''
+                              )
+                            )}
+                          </span>
                         </li>
                       ))}
                     </ul>

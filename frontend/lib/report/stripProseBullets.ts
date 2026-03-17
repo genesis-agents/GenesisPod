@@ -77,17 +77,17 @@ export function stripProseBullets(content: string): string {
       // Rule 3: 3+ items ALL >60 chars → strip (all long = prose paragraphs)
       const isAllLong = count >= 3 && bulletLines.every((b) => textLen(b) > 60);
 
-      // Rule 5: Section summary — bullet block right after a heading, all short
-      // These are LLM-generated "key points" at the start of each section
+      // Rule 5: Section summary — short bullet block right after a heading
+      // Always strip for visual consistency (content is expanded in prose below)
       const prevContentLine = result
         .slice()
         .reverse()
         .find((l) => l.trim() !== '');
-      const afterHeading = prevContentLine
-        ? /^#{1,4}\s/.test(prevContentLine)
-        : false;
-      const allVeryShort =
-        count >= 3 && bulletLines.every((b) => textLen(b) < 35);
+      const isSummaryBlock =
+        prevContentLine !== undefined &&
+        /^#{1,4}\s/.test(prevContentLine) &&
+        count >= 3 &&
+        bulletLines.every((b) => textLen(b) < 50);
 
       if (
         hasOrdinal ||
@@ -95,7 +95,7 @@ export function stripProseBullets(content: string): string {
         isSingle ||
         isTwoLong ||
         isAllLong ||
-        (afterHeading && allVeryShort)
+        isSummaryBlock
       ) {
         // Strip bullet markers and insert blank lines between items
         // so markdown treats them as separate paragraphs (not merged text)
