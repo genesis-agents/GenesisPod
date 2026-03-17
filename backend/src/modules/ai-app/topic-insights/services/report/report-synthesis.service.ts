@@ -72,6 +72,10 @@ import { ReportQualityGateService } from "../quality/report-quality-gate.service
 import { ReportQualityTraceService } from "../quality/report-quality-trace.service";
 import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
+import {
+  verifyCitations,
+  type EvidenceForVerification,
+} from "../../utils/citation-verifier.utils";
 
 /**
  * Report Synthesis Service
@@ -1425,6 +1429,38 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       response.content,
       topic.language || "zh",
     );
+
+    // ★ 引用后验证：对综合报告的核心字段做引用准确性校验
+    // 已知限制：EvidenceInput 没有 snippet/content，验证仅依赖 title + domain + numbers，
+    // 信号弱于 section-writer 中的验证（后者有完整 snippet）。仍可拦截明显错位引用。
+    const synthEvidenceForVerify: EvidenceForVerification[] =
+      evidenceInputs.map((e) => ({
+        index: e.citationIndex,
+        title: e.title,
+        domain: e.domain,
+      }));
+    if (synthEvidenceForVerify.length > 0) {
+      const fieldsToVerify: Array<keyof typeof structuredReport> = [
+        "executiveSummary",
+        "crossDimensionAnalysis",
+        "strategicRecommendations",
+      ];
+      for (const field of fieldsToVerify) {
+        const fieldValue = structuredReport[field];
+        if (typeof fieldValue === "string" && fieldValue.length > 0) {
+          const vr = verifyCitations(fieldValue, synthEvidenceForVerify);
+          if (vr.stats.corrected > 0 || vr.stats.removed > 0) {
+            this.logger.warn(
+              `[generateStructuredReport] Citation verification for "${field}": ` +
+                `${vr.stats.corrected} corrected, ${vr.stats.removed} removed`,
+            );
+            // ComprehensiveReport fields are readonly after construction — we cast to apply
+            (structuredReport as unknown as Record<string, unknown>)[field] =
+              vr.content;
+          }
+        }
+      }
+    }
 
     // 构建完整的 Markdown 报告
     const fullReport = this.buildFullReport(

@@ -25,9 +25,15 @@ import {
   SECTION_WRITING_USER_PROMPT_TEMPLATE,
   SECTION_REVISION_USER_PROMPT_TEMPLATE,
   formatEvidenceForPrompt,
+  formatEvidenceForPromptContiguous,
   renderPromptTemplate,
   getLanguageInstruction,
 } from "../../prompts/dimension-research.prompt";
+import {
+  restoreGlobalIndices,
+  verifyCitations,
+  type EvidenceForVerification,
+} from "../../utils/citation-verifier.utils";
 import {
   getWritingStandards,
   getDimensionResearchStandards,
@@ -143,8 +149,10 @@ export class SectionWriterService {
       `[writeSection] Writing section: ${section.title} (${section.targetWords} words)${modelId ? `, model: ${modelId}` : ""}`,
     );
 
-    // 格式化证据列表
-    let evidenceFormatted = formatEvidenceForPrompt(evidenceData);
+    // ★ 连续编号：将不连续的全局编号映射为 1, 2, 3...，降低 LLM 混淆概率
+    const { formatted: evidenceContiguous, localToGlobalMap } =
+      formatEvidenceForPromptContiguous(evidenceData);
+    let evidenceFormatted = evidenceContiguous;
 
     // 格式化要点为编号列表（LLM 理解编号列表更好，裸 bullets 由后处理铁墙删除）
     const keyPointsFormatted = section.keyPoints
@@ -335,7 +343,32 @@ export class SectionWriterService {
     // 解析图表数据
     const { markdown, charts } = this.parseChartOutput(rawContent);
     // ★ 第一道铁墙：白名单清理 LLM 输出中的 JSON 残留、元注释、指令泄漏等
-    const content = sanitizeSectionOutput(markdown);
+    let content = sanitizeSectionOutput(markdown);
+
+    // ★ 连续编号还原：将 LLM 使用的连续编号 [1],[2],[3]... 还原为全局编号
+    if (localToGlobalMap.size > 0) {
+      content = restoreGlobalIndices(content, localToGlobalMap);
+    }
+
+    // ★ 引用后验证：用文本相似度独立校验每个引用是否匹配上下文
+    const evidenceForVerification: EvidenceForVerification[] = evidenceData.map(
+      (e, i) => ({
+        index: e.promptIndex || i + 1,
+        title: e.title,
+        domain: e.domain,
+        content:
+          (e as { fullContent?: string | null }).fullContent || e.snippet,
+      }),
+    );
+    const verifyResult = verifyCitations(content, evidenceForVerification);
+    if (verifyResult.stats.corrected > 0 || verifyResult.stats.removed > 0) {
+      this.logger.warn(
+        `[writeSection] Citation verification for "${section.title}": ` +
+          `${verifyResult.stats.corrected} corrected, ${verifyResult.stats.removed} removed ` +
+          `(out of ${verifyResult.stats.total} total)`,
+      );
+      content = verifyResult.content;
+    }
 
     // ★ 检查内容质量（长度检查）
     const minLength = Math.max(
