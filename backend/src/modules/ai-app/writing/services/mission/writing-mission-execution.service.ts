@@ -144,6 +144,9 @@ export class WritingMissionExecutionService {
         this.progressTracker.startPhase(missionId, "preparation");
       }
 
+      // Stop external heartbeat — executor manages its own progress updates
+      clearInterval(heartbeatInterval);
+
       // Execute via executor map
       let result = await this.executeWithExecutorMap(
         missionId,
