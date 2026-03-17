@@ -167,10 +167,10 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 - **每条列表项不超过 100 字**：超长列表项应拆分为多条，或改用段落展开
 - 列表不是段落的替代品：每条列表项应是独立的点，不要把结论性段落放在列表末尾
 
-### 枚举拆分
-- 段落内出现"一是...二是..."、"一方面...另一方面..."、"首先...其次..."、"第一...第二..."等枚举模式时，必须拆分为无序列表
-- 枚举前的引导句保留为段落，每个枚举项变为 \`- \` 列表项
-- 禁止在段落中用中文枚举标记串联多个并列观点
+### 列表与段落的边界（重要）
+- **列表只用于真正并列的具体事项**：公司/机构名称、技术工具、操作步骤、关键指标名称等——每条项目是独立名词短语，不含完整的论证
+- **分析性并列观点必须写成段落**：如果列表项含有动词、因果推理、趋势判断、影响评估（即"完整的分析判断句"），它就不是列表项，必须扩写为段落，用"一方面...另一方面..."、"首先...其次..."等过渡词在段落内自然衔接
+- 判断标准：把列表项单独拿出来，如果读起来是"一句话结论"，就改成段落；如果读起来是"一个具体的名字/步骤"，就保留列表
 
 ### 章节字数均衡
 - 同一报告中各维度章节字数应相对均衡，最长章节不超过最短章节的 2 倍
@@ -509,9 +509,10 @@ export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 - **Each list item max 100 characters**: Split long items into multiple items or use paragraphs
 - Lists are not paragraph substitutes: Do not put concluding paragraphs as list items
 
-### Enumeration Splitting
-- When paragraphs contain enumeration patterns like "firstly...secondly...", "on one hand...on the other hand...", split them into bullet lists
-- Keep the introductory sentence as a paragraph, each enumerated point becomes a \`- \` list item
+### Lists vs Paragraphs (Important)
+- **Lists are only for truly parallel concrete items**: company/organization names, technical tools, operational steps, key metric names — each item is an independent noun phrase with no full argument
+- **Analytical parallel arguments must be written as paragraphs**: if a list item contains a verb, causal reasoning, trend judgment, or impact assessment (i.e., a "complete analytical sentence"), it is not a list item — expand it into a paragraph and connect with "on one hand...on the other hand...", "firstly...secondly..." as natural transitions within prose
+- Decision rule: extract the item on its own — if it reads as a "one-sentence conclusion", convert to paragraph; if it reads as "a specific name/step", keep as list item
 
 ### Section Word Count Balance
 - Word counts across dimensions in the same report should be relatively balanced — the longest section must not exceed twice the shortest

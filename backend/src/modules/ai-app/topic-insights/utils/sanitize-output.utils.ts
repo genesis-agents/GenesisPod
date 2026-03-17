@@ -229,6 +229,95 @@ export function stripLeadingBulletLists(content: string): string {
 }
 
 /**
+ * 移除正文中任意位置的"分析性 bullet"。
+ *
+ * LLM 倾向于把包含因果推理、趋势判断的分析段落错误地拆成 bullet list。
+ * 识别标准（两条同时满足才 strip，缺一不可）：
+ *   1. 连续 3+ 条 bullet
+ *   2. 所有条目文本长度 > 30 字符
+ *
+ * 核心逻辑：真正的专有名词列表项（Google、OpenAI、GPT-4 Turbo 等）长度均 < 25 字符；
+ * 分析性判断句无论是否含技术名词（Stanford、SMAC、Raft、miRNA 等）长度必然 > 30 字符。
+ * 因此单一的长度阈值足以区分两者，大小写检测反而引入误判（使 Stanford/SMAC/miRNA 等漏网）。
+ *
+ * 与 stripLeadingBulletLists 的区别：
+ *   - stripLeadingBulletLists：只处理紧跟在标题后的 bullets（LLM 回显 keyPoints 的情形）
+ *   - stripAnalyticalInlineBullets：处理正文中间的分析性 bullets（枚举拆分滥用的情形）
+ */
+export function stripAnalyticalInlineBullets(content: string): string {
+  const BULLET_RE = /^\s*[-*]\s+/;
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!BULLET_RE.test(line)) {
+      result.push(line);
+      i++;
+      continue;
+    }
+
+    // 收集连续 bullet block（含中间空行）
+    const block: string[] = [];
+    while (i < lines.length) {
+      const current = lines[i];
+      if (BULLET_RE.test(current)) {
+        block.push(current);
+        i++;
+      } else if (current.trim() === "") {
+        const nextNonBlank = lines.slice(i + 1).find((l) => l.trim() !== "");
+        if (nextNonBlank && BULLET_RE.test(nextNonBlank)) {
+          block.push(current);
+          i++;
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    const bulletLines = block.filter((b) => BULLET_RE.test(b));
+
+    // 判断是否为"分析性 bullet"：长度 > 30 字符即为分析句，非专有名词列表
+    const isAnalytical =
+      bulletLines.length >= 3 &&
+      bulletLines.every((b) => {
+        const text = b
+          .replace(BULLET_RE, "")
+          .replace(/\*{1,2}/g, "")
+          .trim();
+        return text.length > 30;
+      });
+
+    if (isAnalytical) {
+      // 转为段落：去掉 bullet marker，条目间插入空行
+      for (let j = 0; j < block.length; j++) {
+        const b = block[j];
+        if (BULLET_RE.test(b)) {
+          if (
+            j > 0 &&
+            result.length > 0 &&
+            result[result.length - 1].trim() !== ""
+          ) {
+            result.push("");
+          }
+          result.push(b.replace(BULLET_RE, ""));
+        } else {
+          result.push(b);
+        }
+      }
+    } else {
+      result.push(...block);
+    }
+  }
+
+  return result.join("\n");
+}
+
+/**
  * 引用堆积拆分：单句 3+ 连续引用 → 保留前 2 个
  */
 export function stripCitationStacking(content: string): string {

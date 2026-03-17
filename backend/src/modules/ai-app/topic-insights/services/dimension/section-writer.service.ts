@@ -39,7 +39,10 @@ import {
   getDimensionResearchStandards,
 } from "@/modules/ai-app/shared/report-template";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
-import { sanitizeSectionOutput } from "../../utils/sanitize-output.utils";
+import {
+  sanitizeSectionOutput,
+  stripAnalyticalInlineBullets,
+} from "../../utils/sanitize-output.utils";
 import type {
   EvidenceData,
   GeneratedChart,
@@ -344,6 +347,8 @@ export class SectionWriterService {
     const { markdown, charts } = this.parseChartOutput(rawContent);
     // ★ 第一道铁墙：白名单清理 LLM 输出中的 JSON 残留、元注释、指令泄漏等
     let content = sanitizeSectionOutput(markdown);
+    // ★ 分析性 bullet 清理：将正文中被错误列表化的分析段落还原为段落
+    content = stripAnalyticalInlineBullets(content);
 
     // ★ 连续编号还原：将 LLM 使用的连续编号 [1],[2],[3]... 还原为全局编号
     if (localToGlobalMap.size > 0) {
