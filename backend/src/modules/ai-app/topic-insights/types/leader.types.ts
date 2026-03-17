@@ -259,6 +259,16 @@ export interface DimensionOutline {
     parallelGroups: string[][];
     estimatedTotalWords: number;
   };
+  /**
+   * ★ 动态证据权重提示
+   * Leader 根据维度特征指定证据来源偏好，用于 filterEvidenceForSection 阶段的加权排序
+   */
+  evidenceWeightHint?: {
+    freshnessSensitivity: "high" | "medium" | "low";
+    preferredSources: string[];
+    deprioritizedSources?: string[];
+    reason: string;
+  };
 }
 
 /**

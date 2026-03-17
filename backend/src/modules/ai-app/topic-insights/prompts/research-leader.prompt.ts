@@ -483,9 +483,29 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
   "executionPlan": {
     "parallelGroups": [["section_1", "section_2"], ["section_3"]],
     "estimatedTotalWords": 6000
+  },
+  "evidenceWeightHint": {
+    "freshnessSensitivity": "medium",
+    "preferredSources": ["academic", "industry"],
+    "deprioritizedSources": ["social"],
+    "reason": "该维度聚焦技术原理，学术和行业报告更权威；社交媒体噪音多"
   }
 }
 \`\`\`
+
+**evidenceWeightHint 填写指南**：
+- \`freshnessSensitivity\`：时效敏感度。"high" = 最新数据优先（市场动态/事件/政策），"medium" = 均衡，"low" = 历史积累优先（技术原理/学术研究）
+- \`preferredSources\`：优先来源标签，从以下选择（可多选）：
+  - "academic" — 学术论文（Semantic Scholar / PubMed / OpenAlex / ArXiv）
+  - "government" — 政府文件（Federal Register / Congress / White House）
+  - "industry" — 行业报告（Industry Report）
+  - "technical" — 技术社区（GitHub / HackerNews）
+  - "financial" — 金融数据（Finance API）
+  - "news" — 新闻/RSS
+  - "social" — 社交媒体（Twitter/X）
+  - "web" — 通用网页
+- \`deprioritizedSources\`：降权来源标签（同上，可空）
+- \`reason\`：一句话说明理由（用于日志追溯）
 
 {languageInstruction}`;
 

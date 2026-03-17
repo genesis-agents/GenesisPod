@@ -73,6 +73,8 @@ import {
   type FigureRegistryEntry,
 } from "./evidence-summary.utils";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
+import { hintToWeightProfile } from "../../config/evidence-weight-profiles.config";
+import type { EvidenceWeightProfile } from "../../types/evidence-weight-profile.types";
 import {
   ContextCompressionService,
   type AICapabilityContext,
@@ -1454,6 +1456,16 @@ export class DimensionMissionService {
     const dimId = dimension.id.slice(0, 8);
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
+    // ★ 动态证据权重：Leader evidenceWeightHint → 数值 profile
+    const weightProfile = outline.evidenceWeightHint
+      ? hintToWeightProfile(outline.evidenceWeightHint)
+      : undefined;
+    if (weightProfile) {
+      this.logger.log(
+        `${logPrefix} [EvidenceWeight] Applied: preferredSources=[${outline.evidenceWeightHint!.preferredSources.join(",")}] freshness=${outline.evidenceWeightHint!.freshnessSensitivity} reason="${outline.evidenceWeightHint!.reason}"`,
+      );
+    }
+
     // 按并行组执行
     for (const group of outline.executionPlan.parallelGroups) {
       this.logger.log(
@@ -1470,6 +1482,7 @@ export class DimensionMissionService {
       const sectionEvidenceMap = this.distributeDiverseEvidence(
         groupSections,
         evidenceData,
+        weightProfile,
       );
 
       // 并行写作
@@ -1477,7 +1490,7 @@ export class DimensionMissionService {
         section,
         evidenceData:
           sectionEvidenceMap.get(section.id) ||
-          this.filterEvidenceForSection(section, evidenceData),
+          this.filterEvidenceForSection(section, evidenceData, weightProfile),
         previousSections: this.getPreviousSections(
           section,
           sectionMap,
@@ -1729,6 +1742,7 @@ export class DimensionMissionService {
   private distributeDiverseEvidence(
     sections: SectionPlan[],
     evidenceData: EvidenceData[],
+    weightProfile?: EvidenceWeightProfile,
   ): Map<string, EvidenceData[]> {
     const result = new Map<string, EvidenceData[]>();
     if (evidenceData.length === 0 || sections.length === 0) return result;
@@ -1742,7 +1756,11 @@ export class DimensionMissionService {
     // Step 1: 每个 section 获取 top-3 最相关的（允许跨 section 共享）
     const sectionCoreEvidence = new Map<string, EvidenceData[]>();
     for (const section of sections) {
-      const scored = this.scoreEvidenceForSection(section, indexedEvidence);
+      const scored = this.scoreEvidenceForSection(
+        section,
+        indexedEvidence,
+        weightProfile,
+      );
       const top3 = scored.slice(0, 3);
       sectionCoreEvidence.set(
         section.id,
@@ -1791,10 +1809,13 @@ export class DimensionMissionService {
 
   /**
    * 为 evidence 打分（按与 section 的相关度排序）
+   * ★ 支持动态权重：weightProfile 由 Leader evidenceWeightHint 派生，
+   *   对不同来源类型施加乘数，并调整时效性贡献权重。
    */
   private scoreEvidenceForSection(
     section: SectionPlan,
     evidenceData: EvidenceData[],
+    weightProfile?: EvidenceWeightProfile,
   ): Array<{ evidence: EvidenceData; score: number }> {
     const keywords = this.extractKeywords(
       `${section.title} ${section.keyPoints.join(" ")} ${section.description || ""}`,
@@ -1802,13 +1823,39 @@ export class DimensionMissionService {
     if (keywords.length === 0)
       return evidenceData.map((e) => ({ evidence: e, score: 0 }));
 
+    const now = Date.now();
+    const THREE_MONTHS_MS = 90 * 24 * 60 * 60 * 1000;
+    const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
+
     return evidenceData
       .map((e) => {
         const text = `${e.title || ""} ${e.snippet || ""}`.toLowerCase();
-        let score = 0;
+        let relevanceScore = 0;
         for (const kw of keywords) {
-          if (text.includes(kw)) score++;
+          if (text.includes(kw)) relevanceScore++;
         }
+
+        let score = relevanceScore;
+
+        if (weightProfile) {
+          // 来源类型乘数
+          const sourceKey = (e.sourceType ?? "").toUpperCase();
+          const multiplier =
+            weightProfile.sourceTypeMultipliers[sourceKey] ?? 1.0;
+          score *= multiplier;
+
+          // 时效性加成
+          const publishedAt = e.publishedAt
+            ? new Date(e.publishedAt).getTime()
+            : null;
+          if (publishedAt) {
+            const age = now - publishedAt;
+            const freshnessBonus =
+              age <= THREE_MONTHS_MS ? 2 : age <= SIX_MONTHS_MS ? 1 : 0;
+            score += freshnessBonus * weightProfile.freshnessBoostFactor;
+          }
+        }
+
         return { evidence: e, score };
       })
       .sort((a, b) => b.score - a.score);
@@ -1823,6 +1870,7 @@ export class DimensionMissionService {
   private filterEvidenceForSection(
     section: SectionPlan,
     evidenceData: EvidenceData[],
+    weightProfile?: EvidenceWeightProfile,
   ): EvidenceData[] {
     if (evidenceData.length <= 5) {
       // 给每条 evidence 标记全局 promptIndex
@@ -1838,6 +1886,10 @@ export class DimensionMissionService {
       return evidenceData.map((e, i) => ({ ...e, promptIndex: i + 1 }));
     }
 
+    const now = Date.now();
+    const THREE_MONTHS_MS = 90 * 24 * 60 * 60 * 1000;
+    const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
+
     // 对每条 evidence 计算相关度分数，保留原始位置
     const scored = evidenceData.map((e, index) => {
       const evidenceText = `${e.title || ""} ${e.snippet || ""}`.toLowerCase();
@@ -1847,10 +1899,28 @@ export class DimensionMissionService {
           score++;
         }
       }
+
+      if (weightProfile) {
+        const sourceKey = (e.sourceType ?? "").toUpperCase();
+        const multiplier =
+          weightProfile.sourceTypeMultipliers[sourceKey] ?? 1.0;
+        score *= multiplier;
+
+        const publishedAt = e.publishedAt
+          ? new Date(e.publishedAt).getTime()
+          : null;
+        if (publishedAt) {
+          const age = now - publishedAt;
+          const freshnessBonus =
+            age <= THREE_MONTHS_MS ? 2 : age <= SIX_MONTHS_MS ? 1 : 0;
+          score += freshnessBonus * weightProfile.freshnessBoostFactor;
+        }
+      }
+
       return { evidence: e, score, originalIndex: index };
     });
 
-    // 按相关度排序
+    // 按加权得分排序
     scored.sort((a, b) => b.score - a.score);
 
     // 保留相关度 > 0 的 evidence
