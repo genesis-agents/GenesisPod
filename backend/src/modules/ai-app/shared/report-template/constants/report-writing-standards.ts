@@ -142,10 +142,11 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 
 ### 加粗（**bold**）— 建议性指导，不作硬性约束
 - 建议每个子节（### 标题下）不超过 2 处加粗
-- 仅加粗核心判断性语句（如"开源模型已逼近闭源 90% 性能"）
+- **仅加粗核心观点或核心论点**（如"开源模型已逼近闭源 90% 性能"、"这意味着中小企业首次具备了自建专属模型的经济可行性"）
 - 避免加粗：单独的数字/百分比/倍数（如 ~~**68倍**~~、~~**25%**~~）
 - 避免加粗：整句（超过 30 字的内容不应整体加粗）
-- 加粗文本应构成"扫描层"：读者仅看加粗内容即可获取核心论点
+- **严禁加粗过渡词、连接词、枚举标记**：~~**首先**~~、~~**其次**~~、~~**最后**~~、~~**一是**~~、~~**二是**~~、~~**一方面**~~、~~**另一方面**~~、~~**此外**~~——这些是结构词，不是核心内容
+- 加粗文本应构成"扫描层"：读者仅看加粗内容即可获取核心论点，而非扫到一堆无意义的连接词
 
 ### 引用块（> blockquote）
 - 全文（含所有维度）最多 8 个引用块（不含"本章要点"）
@@ -487,9 +488,10 @@ export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 
 ### Bold (**bold**) — Advisory guideline, not enforced
 - Suggest max 2 bold items per sub-section (### heading)
-- Only bold core judgment statements
+- **Only bold core arguments or key conclusions** (e.g., "open-source models now match 90% of closed-source performance")
 - Avoid bolding: standalone numbers/percentages, entire sentences (>30 words)
-- Bold text should form a "scan layer": reader gets core points from bold alone
+- **Never bold transition words or enumeration markers**: ~~**First**~~, ~~**Second**~~, ~~**Finally**~~, ~~**On one hand**~~, ~~**On the other hand**~~ — these are structural connectors, not core content
+- Bold text should form a "scan layer": reader gets core insights from bold alone, not a sequence of meaningless connectors
 
 ### Blockquotes (> blockquote)
 - Max 8 blockquotes across entire report (excluding Chapter Highlights)

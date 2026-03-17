@@ -5,13 +5,14 @@ import type {
 } from "../../types/research.types";
 
 const MAX_EVIDENCE_ITEMS = 10;
-const MAX_FIGURES_FOR_LEADER = 20;
+/** ★ v2: 由 20 提升至 40，确保更多高价值图表对 Leader 可见（参考文献图表不再因截断而消失） */
+const MAX_FIGURES_FOR_LEADER = 40;
 
-const FIGURE_ALLOCATION_GUIDANCE = `【重要】图表分配原则（质量优先，宁缺毋滥）：
-1. 仅分配与章节内容**直接相关**的图表 — 图表必须能补充或印证章节中讨论的具体论点/数据
-2. 优先选择：数据图表 > 趋势图 > 对比图 > 架构图 > 产品截图。纯装饰性新闻配图不分配
-3. 每个章节分配 0-3 张图表。**允许 0 张** — 没有直接相关的图表时，不分配好过强行配图
-4. 分配前请自问：这张图表是否能为该章节的读者提供超越文字的信息增量？如果只是"主题沾边"而非"内容互补"，不分配
+const FIGURE_ALLOCATION_GUIDANCE = `【重要】图表分配原则（优先使用参考文献中的高价值图表）：
+1. **参考文献图表优先**：来自已引用证据的数据图表（chart/table/diagram）必须优先分配给引用该证据的章节。这些图表直接支撑报告的数据论点，必须展示
+2. 优先选择：数据图表 > 趋势图 > 对比图 > 架构图 > 产品截图 > 技术演示图。纯装饰性新闻配图不分配
+3. 每个章节目标分配 **1-4 张图表**。如果有相关的 chart/table/diagram 类图表，必须分配至少 1 张。仅当确实没有任何相关图表时才分配 0 张
+4. 分配前请自问：这张图表是否能为该章节的读者提供超越文字的信息增量？数据图表和信息图通常应该分配
 5. figureId 必须从下方图片资源列表中选择（如 FIG-1、FIG-2），禁止编造 figureId
 6. relevanceReason 必须具体说明图表与章节**哪个论点/数据**相关，禁止泛泛的"与主题相关"`;
 
@@ -113,12 +114,29 @@ export function buildFiguresSummary(
   if (entries.length === 0) {
     return { summary: "", figureRegistry };
   }
-  const displayEntries = entries.slice(0, MAX_FIGURES_FOR_LEADER);
+
+  // ★ v2: 按信息价值排序——chart/table/diagram 优先，photo 类后置
+  // 确保在截断时 Leader 优先看到高价值图表，参考文献数据图不因排名靠后而消失
+  const CHART_TYPES = new Set(["chart", "table", "diagram"]);
+  const entryIds = Array.from(figureRegistry.keys()); // entries 与 figureRegistry 插入顺序一致
+  const sortedIndices = Array.from(
+    { length: entries.length },
+    (_, i) => i,
+  ).sort((a, b) => {
+    const typeA = figureRegistry.get(entryIds[a])?.type ?? "";
+    const typeB = figureRegistry.get(entryIds[b])?.type ?? "";
+    const scoreA = CHART_TYPES.has(typeA) ? 0 : 1;
+    const scoreB = CHART_TYPES.has(typeB) ? 0 : 1;
+    return scoreA - scoreB;
+  });
+  const sortedEntries = sortedIndices.map((i) => entries[i]);
+
+  const displayEntries = sortedEntries.slice(0, MAX_FIGURES_FOR_LEADER);
   const suffix =
-    entries.length > MAX_FIGURES_FOR_LEADER
-      ? `\n...还有 ${entries.length - MAX_FIGURES_FOR_LEADER} 个图表未列出`
+    sortedEntries.length > MAX_FIGURES_FOR_LEADER
+      ? `\n...还有 ${sortedEntries.length - MAX_FIGURES_FOR_LEADER} 个图表未列出`
       : "";
   const prefix = includeGuidance ? `${FIGURE_ALLOCATION_GUIDANCE}\n\n` : "";
-  const summary = `${prefix}共 ${entries.length} 个可用图表（展示前 ${displayEntries.length} 个）：\n${displayEntries.join("\n")}${suffix}`;
+  const summary = `${prefix}共 ${sortedEntries.length} 个可用图表（展示前 ${displayEntries.length} 个，数据图表优先）：\n${displayEntries.join("\n")}${suffix}`;
   return { summary, figureRegistry };
 }

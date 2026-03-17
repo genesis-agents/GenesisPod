@@ -193,7 +193,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
         );
       }
       return (
-        <strong {...props}>
+        <strong className="text-blue-600 dark:text-blue-400" {...props}>
           {processChildrenSimple(children, processText)}
         </strong>
       );
