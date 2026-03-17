@@ -497,15 +497,18 @@ export class SectionWriterService {
         bigrams.push(cjkChars.substring(bi, bi + 2));
       }
       const keywords = [...bigrams, ...latinWords];
-      // No keywords → reject (empty/generic caption)
+      // ★ v8: auto-injected 图表（Leader 分配但 LLM 遗漏）直接信任 Leader 的相关性判断
+      // Leader 已在 validateAllocatedFigures 中做过语义相关性验证，关键词匹配不再需要
+      // 绕过关键词过滤，避免中英文 caption/section 语言不同时误杀高价值图表
+      if (isAutoInjected) {
+        this.logger.log(
+          `[writeSection] Keeping auto-injected figure "${ref.caption}" — pre-validated by Leader, skip keyword filter`,
+        );
+        return true;
+      }
+      // LLM 输出的 figureReferences：关键词匹配防幻觉
+      // No keywords → reject (empty/generic caption from LLM hallucination)
       if (keywords.length === 0) {
-        if (isAutoInjected) {
-          // Auto-injected 无关键词但 Leader 已验证过，保留
-          this.logger.log(
-            `[writeSection] Keeping auto-injected figure "${ref.caption}" despite no keywords (pre-validated by Leader)`,
-          );
-          return true;
-        }
         return false;
       }
       const matchCount = keywords.filter((kw) =>
@@ -517,7 +520,7 @@ export class SectionWriterService {
       const relevant = matchCount >= threshold;
       if (!relevant) {
         this.logger.warn(
-          `[writeSection] Removing irrelevant figure "${ref.caption}" from section "${section.title}" — matchCount=${matchCount} < ${threshold} (${isAutoInjected ? "auto-inject" : "LLM"})`,
+          `[writeSection] Removing irrelevant figure "${ref.caption}" from section "${section.title}" — matchCount=${matchCount} < ${threshold} (LLM output)`,
         );
       }
       return relevant;

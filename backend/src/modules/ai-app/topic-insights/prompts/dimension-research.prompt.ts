@@ -754,7 +754,7 @@ export const SECTION_WRITING_USER_PROMPT_TEMPLATE = `请撰写以下研究报告
 1. 撰写约 {{targetWords}} 字的章节内容，以连贯的段落论述展开
 2. 用 [N] 格式引用证据。N 必须与上方"可用证据"中的编号完全匹配——讨论证据 [3] 的数据就写 [3]，不要写其他编号
 3. 如果有前置章节，保持逻辑连贯
-4. 如有图表数据，在末尾附加 ---CHARTS--- 分隔的 JSON
+4. **图表引用（重要）**：如果上方"证据中的图片资源"列出了 Leader 分配的图表，**必须**在末尾 ---CHARTS--- 分隔符后的 JSON 中引用这些图表（figureReferences 列表），每张分配图表对应一条条目。figureId 直接用列表中的 FIG-N 编号。不要遗漏 Leader 已分配的图表。
 
 开始撰写：`;
 
