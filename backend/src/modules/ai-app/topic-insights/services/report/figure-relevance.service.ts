@@ -109,13 +109,20 @@ export class FigureRelevanceService {
       AIModelType.MULTIMODAL,
     );
     if (!multimodalModel?.modelId) {
-      // ★ v10: 无 Vision 模型时，仅保留 chart/table/diagram 类型（photo 类无法验证信息价值）
-      const filtered = figures.filter((f) =>
-        INFORMATIONAL_FIGURE_TYPES.has(f.type),
-      );
+      // ★ v13: 无 Vision 模型时，保留 chart/table/diagram + 有描述性 caption/alt 的 photo
+      const filtered = figures.filter((f) => {
+        if (INFORMATIONAL_FIGURE_TYPES.has(f.type)) return true;
+        if (f.type === "photo") {
+          return (
+            (f.caption?.trim().length ?? 0) > 0 ||
+            (f.alt?.trim().length ?? 0) > 0
+          );
+        }
+        return false;
+      });
       this.logger.warn(
         `[filterRelevantFigures] No MULTIMODAL model configured, ` +
-          `keeping ${filtered.length}/${figures.length} informational figures (v10 type-based fallback)`,
+          `keeping ${filtered.length}/${figures.length} figures (v13: informational + captioned photos)`,
       );
       return filtered;
     }
@@ -178,13 +185,22 @@ export class FigureRelevanceService {
           );
         }
       } catch (error) {
-        // ★ v10: 单批失败 → 仅保留 chart/table/diagram 类型（photo 无法验证信息价值）
-        const safeBatch = batch.filter((f) =>
-          INFORMATIONAL_FIGURE_TYPES.has(f.type),
-        );
+        // ★ v13: 单批失败 → 保留 chart/table/diagram（无条件）+ 有描述性 caption/alt 的 photo
+        // caption/alt 存在是信息价值的强信号（有人为图片写了说明 → 通常是数据图或产品截图）
+        // 无 caption/alt 的 photo 极可能是装饰性新闻配图，安全丢弃
+        const safeBatch = batch.filter((f) => {
+          if (INFORMATIONAL_FIGURE_TYPES.has(f.type)) return true;
+          if (f.type === "photo") {
+            const hasDescriptive =
+              (f.caption?.trim().length ?? 0) > 0 ||
+              (f.alt?.trim().length ?? 0) > 0;
+            return hasDescriptive;
+          }
+          return false;
+        });
         this.logger.warn(
           `[filterRelevantFigures] Batch ${batchStart / MAX_FIGURES_PER_BATCH + 1} Vision check failed, ` +
-            `keeping ${safeBatch.length}/${batch.length} informational figures (v10 type-based fallback): ` +
+            `keeping ${safeBatch.length}/${batch.length} figures (v13: informational + captioned photos): ` +
             `${error instanceof Error ? error.message : error}`,
         );
         allAccepted.push(...safeBatch);
