@@ -41,6 +41,7 @@ export type {
   TaskProfile,
   CreativityLevel,
   OutputLengthLevel,
+  ReasoningDepth,
   ContentPart,
   TextContentPart,
   ImageUrlContentPart,

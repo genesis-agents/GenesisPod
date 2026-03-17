@@ -9,6 +9,7 @@ export {
   TaskProfile,
   CreativityLevel,
   OutputLengthLevel,
+  ReasoningDepth,
   TaskType,
   OutputFormat,
   ChatMessage,

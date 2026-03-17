@@ -3,6 +3,7 @@ import {
   TaskProfile,
   CreativityLevel,
   OutputLengthLevel,
+  ReasoningDepth,
   CREATIVITY_TO_TEMPERATURE,
   OUTPUT_LENGTH_TO_TOKENS,
   getReasoningMinTokens,
@@ -17,6 +18,8 @@ import { AIModelConfig } from "./ai-chat.service";
 export interface MappedParameters {
   temperature: number;
   maxTokens: number;
+  /** Mapped reasoning depth for API callers (only set when model isReasoning AND profile has reasoningDepth) */
+  reasoningDepth?: ReasoningDepth;
 }
 
 /**
@@ -163,9 +166,27 @@ export class TaskProfileMapperService {
         `(profile: ${JSON.stringify(profile)}, isReasoning=${isReasoning})`,
     );
 
+    // 7. Pass through reasoning depth (only meaningful for reasoning models)
+    const mappedReasoningDepth =
+      isReasoning && profile.reasoningDepth
+        ? profile.reasoningDepth
+        : undefined;
+
+    // If deep reasoning requested, ensure sufficient tokens
+    if (mappedReasoningDepth === "deep" && effectiveMaxTokens < 32000) {
+      const boosted = Math.min(32000, modelMaxTokens || 32000);
+      if (boosted > effectiveMaxTokens) {
+        this.logger.log(
+          `[mapToParameters] Deep reasoning token boost: ${effectiveMaxTokens} -> ${boosted}`,
+        );
+        effectiveMaxTokens = boosted;
+      }
+    }
+
     return {
       temperature: effectiveTemperature,
       maxTokens: effectiveMaxTokens,
+      reasoningDepth: mappedReasoningDepth,
     };
   }
 

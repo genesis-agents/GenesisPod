@@ -43,6 +43,12 @@ export interface ChatCompletionOptions {
   responseFormat?: string;
   /** AI Kernel 进程 ID（用于 Journal/Cost/Metrics 追踪） */
   processId?: string;
+  /** Reasoning depth for reasoning models (mapped from TaskProfile) */
+  reasoningDepth?: import("../types").ReasoningDepth;
+  /** Prompt cache policy */
+  cachePolicy?: "auto";
+  /** Native structured output schema */
+  outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
 }
 
 export interface ChatCompletionResult {
@@ -405,6 +411,9 @@ export class AiChatService {
       strictMode: optionStrictMode,
       userId,
       responseFormat,
+      reasoningDepth,
+      cachePolicy,
+      outputSchema,
     } = options;
 
     this.logger.debug(`Generating chat completion with model: ${model}`);
@@ -429,6 +438,9 @@ export class AiChatService {
         optionStrictMode,
         userId,
         responseFormat,
+        reasoningDepth,
+        cachePolicy,
+        outputSchema,
       );
     }
 
@@ -479,6 +491,9 @@ export class AiChatService {
     optionStrictMode?: boolean,
     userId?: string,
     responseFormat?: string,
+    reasoningDepth?: import("../types").ReasoningDepth,
+    cachePolicy?: "auto",
+    outputSchema?: { type: "json_schema"; schema: Record<string, unknown> },
   ): Promise<ChatCompletionResult> {
     const { modelId, apiEndpoint, provider } = config;
 
@@ -552,6 +567,8 @@ export class AiChatService {
               timeout,
               tokenParamName,
               responseFormat,
+              reasoningDepth,
+              outputSchema,
             );
 
           case "anthropic":
@@ -564,6 +581,8 @@ export class AiChatService {
               effectiveTemperature,
               timeout,
               responseFormat,
+              reasoningDepth,
+              cachePolicy,
             );
 
           case "google":
@@ -576,6 +595,7 @@ export class AiChatService {
               effectiveTemperature,
               timeout,
               responseFormat,
+              reasoningDepth,
             );
 
           case "xai":
@@ -589,6 +609,8 @@ export class AiChatService {
               timeout,
               tokenParamName,
               responseFormat,
+              reasoningDepth,
+              outputSchema,
             );
 
           default:
@@ -602,6 +624,8 @@ export class AiChatService {
               timeout,
               tokenParamName,
               responseFormat,
+              reasoningDepth,
+              outputSchema,
             );
         }
       };
@@ -804,6 +828,10 @@ export class AiChatService {
     processId?: string;
     /** Skip input/output guardrails for internal system calls */
     skipGuardrails?: boolean;
+    /** Prompt cache policy */
+    cachePolicy?: "auto";
+    /** Native structured output schema */
+    outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
   }): Promise<{
     content: string;
     usage?: { totalTokens: number };
@@ -831,6 +859,8 @@ export class AiChatService {
       responseFormat,
       processId: explicitProcessId,
       skipGuardrails,
+      cachePolicy,
+      outputSchema,
     } = options;
 
     // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
@@ -983,6 +1013,7 @@ export class AiChatService {
     // ★ 参数解析优先级链
     let effectiveMaxTokens: number;
     let effectiveTemperature: number;
+    let effectiveReasoningDepth: import("../types").ReasoningDepth | undefined;
 
     if (providedMaxTokens !== undefined || providedTemperature !== undefined) {
       effectiveMaxTokens = providedMaxTokens ?? modelConfig?.maxTokens ?? 4096;
@@ -999,6 +1030,7 @@ export class AiChatService {
       );
       effectiveMaxTokens = mappedParams.maxTokens;
       effectiveTemperature = mappedParams.temperature;
+      effectiveReasoningDepth = mappedParams.reasoningDepth;
 
       this.logger.debug(
         `[chat] TaskProfile mapped: ${JSON.stringify(taskProfile)} → ` +
@@ -1065,6 +1097,9 @@ export class AiChatService {
         strictMode,
         userId,
         responseFormat,
+        reasoningDepth: effectiveReasoningDepth,
+        cachePolicy,
+        outputSchema,
       });
       const duration = Date.now() - startTime;
 

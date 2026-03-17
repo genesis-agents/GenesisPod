@@ -101,6 +101,12 @@ const OVERSIZED_REQUEST_TOKEN_THRESHOLD = 100_000;
 const CHARS_TO_TOKENS_RATIO = 4;
 /** 错误诊断日志中堆栈帧数量 */
 const STACK_CONTEXT_LINES = 5;
+/** reasoningDepth → OpenAI reasoning_effort 映射 */
+const REASONING_DEPTH_TO_EFFORT: Record<string, string> = {
+  light: "low",
+  moderate: "medium",
+  deep: "high",
+};
 
 @Injectable()
 export class AiApiCallerService {
@@ -151,6 +157,8 @@ export class AiApiCallerService {
     timeout: number = 120000,
     tokenParamName: string = "max_tokens",
     responseFormat?: string,
+    reasoningDepth?: string,
+    outputSchema?: { type: string; schema: Record<string, unknown> },
   ): Promise<ChatCompletionResult> {
     // ★ 关键修复：确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -159,16 +167,24 @@ export class AiApiCallerService {
     // ★ 数据库驱动：使用配置的 tokenParamName，无需硬编码判断
     const tokenParam = { [tokenParamName]: maxTokens };
 
-    // ★ 自适应：只有 o1/o3 系列需要 reasoning_effort 参数
+    // ★ 自适应：只有 o1/o3/o4 系列需要 reasoning_effort 参数
     // GPT-5 系列虽然是推理模型，但不需要此参数（默认 none）
     const modelLower = modelId.toLowerCase();
-    const isO1O3Model =
-      modelLower.startsWith("o1") || modelLower.startsWith("o3");
-    const reasoningParam = isO1O3Model ? { reasoning_effort: "low" } : {};
+    const isO1O3O4Model =
+      modelLower.startsWith("o1") ||
+      modelLower.startsWith("o3") ||
+      modelLower.startsWith("o4");
+    const reasoningParam = isO1O3O4Model
+      ? {
+          reasoning_effort: reasoningDepth
+            ? (REASONING_DEPTH_TO_EFFORT[reasoningDepth] ?? "low")
+            : "low",
+        }
+      : {};
 
-    if (isO1O3Model) {
+    if (isO1O3O4Model) {
       this.logger.debug(
-        `[callOpenAICompatibleAPI] o1/o3 model detected, adding reasoning_effort=low`,
+        `[callOpenAICompatibleAPI] o1/o3/o4 model detected, adding reasoning_effort=${reasoningParam.reasoning_effort ?? "low"}`,
       );
     }
 
@@ -211,7 +227,16 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    if (responseFormat === "json") {
+    if (outputSchema) {
+      requestBody["response_format"] = {
+        type: "json_schema",
+        json_schema: {
+          name: "structured_output",
+          schema: outputSchema.schema,
+          strict: true,
+        },
+      };
+    } else if (responseFormat === "json") {
       requestBody["response_format"] = { type: "json_object" };
     }
 
@@ -304,6 +329,8 @@ export class AiApiCallerService {
     temperature?: number,
     timeout: number = 120000,
     responseFormat?: string,
+    _reasoningDepth?: string,
+    cachePolicy?: string,
   ): Promise<ChatCompletionResult> {
     if (responseFormat === "json") {
       this.logger.warn(
@@ -331,7 +358,17 @@ export class AiApiCallerService {
 
     // 只有当 system 有内容时才包含（system 仅支持纯文本）
     if (systemMessage?.content) {
-      requestBody.system = systemMessage.content;
+      if (cachePolicy === "auto") {
+        requestBody.system = [
+          {
+            type: "text",
+            text: systemMessage.content,
+            cache_control: { type: "ephemeral" },
+          },
+        ];
+      } else {
+        requestBody.system = systemMessage.content;
+      }
     }
 
     // 只有当 temperature 有值时才包含
@@ -375,6 +412,7 @@ export class AiApiCallerService {
     temperature?: number,
     timeout: number = 120000,
     responseFormat?: string,
+    _reasoningDepth?: string,
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -486,6 +524,8 @@ export class AiApiCallerService {
     timeout: number = 120000,
     tokenParamName: string = "max_tokens",
     responseFormat?: string,
+    _reasoningDepth?: string,
+    outputSchema?: { type: string; schema: Record<string, unknown> },
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -543,7 +583,16 @@ export class AiApiCallerService {
 
     // ★ xAI reasoning models DO support response_format (unlike temperature)
     // Without it, reasoning models produce interleaved/malformed JSON output
-    if (responseFormat === "json") {
+    if (outputSchema) {
+      requestBody["response_format"] = {
+        type: "json_schema",
+        json_schema: {
+          name: "structured_output",
+          schema: outputSchema.schema,
+          strict: true,
+        },
+      };
+    } else if (responseFormat === "json") {
       requestBody["response_format"] = { type: "json_object" };
     }
 

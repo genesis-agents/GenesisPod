@@ -284,6 +284,8 @@ export class ChatFacade {
           userId: request.billing?.userId ?? RequestContext.getUserId(),
           processId: request.processId,
           skipGuardrails: request.skipGuardrails,
+          cachePolicy: request.cachePolicy,
+          outputSchema: request.outputSchema,
         });
 
         if (result.isError) {
@@ -391,6 +393,8 @@ export class ChatFacade {
         userId: request.billing?.userId ?? RequestContext.getUserId(),
         processId: request.processId,
         skipGuardrails: request.skipGuardrails,
+        cachePolicy: request.cachePolicy,
+        outputSchema: request.outputSchema,
       });
 
       const duration = Date.now() - startTime;
@@ -700,6 +704,11 @@ export class ChatFacade {
           outputLength: "medium",
         },
         strictMode: true,
+        // Pass schema for native structured output (supported providers use it)
+        outputSchema: {
+          type: "json_schema",
+          schema: request.schema as unknown as Record<string, unknown>,
+        },
       };
 
       const response = await this.chat(chatRequest);

@@ -76,6 +76,22 @@ export interface ChatRequest {
   /** JSON 模式：告诉 LLM 输出严格 JSON（支持 OpenAI json_object、Google JSON mode 等） */
   responseFormat?: "json" | "text";
 
+  /**
+   * Prompt 缓存策略
+   * - "auto": 自动缓存 system prompt（Anthropic: cache_control, OpenAI: 已自动生效）
+   * - undefined: 不主动缓存（默认，向后兼容）
+   */
+  cachePolicy?: "auto";
+
+  /**
+   * 原生结构化输出 — 支持的 provider 会使用原生 JSON Schema 约束
+   * 不支持的 provider 会降级为 system prompt 文本指令
+   */
+  outputSchema?: {
+    type: "json_schema";
+    schema: Record<string, unknown>;
+  };
+
   // ==================== 积分计费 ====================
 
   /**

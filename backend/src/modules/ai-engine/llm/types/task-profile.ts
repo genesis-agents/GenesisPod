@@ -78,6 +78,17 @@ export type OutputFormat =
   | "text"; // 纯文本（别名，兼容 facade.types.ts）
 
 /**
+ * 推理深度等级
+ *
+ * | 等级 | OpenAI reasoning_effort | 适用场景 |
+ * |------|------------------------|----------|
+ * | light | low | 简单分类、快速判断 |
+ * | moderate | medium | 分析、审核、规划 |
+ * | deep | high | 复杂推理、多步骤规划、因果分析 |
+ */
+export type ReasoningDepth = "light" | "moderate" | "deep";
+
+/**
  * 多模态内容部分 — 用于 Vision 场景（图片审查、多模态分析）
  *
  * 兼容 OpenAI / Anthropic / Google / xAI 的多模态消息格式：
@@ -160,6 +171,17 @@ export interface TaskProfile {
    * @deprecated 使用 outputFormat 替代
    */
   responseFormat?: OutputFormat;
+
+  /**
+   * 推理深度 — AI Engine 自动映射到各提供商参数：
+   * - OpenAI o1/o3/o4: reasoning_effort
+   * - xAI Grok reasoning: (no param needed, but affects maxTokens)
+   * - Anthropic Claude: thinking config (future)
+   * - Google Gemini: thinkingConfig (future)
+   *
+   * undefined = 不启用深度推理（默认，向后兼容）
+   */
+  reasoningDepth?: ReasoningDepth;
 }
 
 /**
