@@ -94,8 +94,12 @@ export function buildFiguresSummary(
           (fig.type !== "photo" && evidence.title
             ? `${evidence.title} — 图表`
             : "");
+        // ★ v12: 附加证据摘要片段（150字），帮助 Leader 判断图表与章节的相关性
+        const snippetHint = evidence.snippet
+          ? ` | 内容摘要: "${evidence.snippet.slice(0, 150)}"`
+          : "";
         entries.push(
-          `图表 ${figureId}: ${fig.type} - "${figCaption || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) (URL: ${rawUrl})`,
+          `图表 ${figureId}: ${fig.type} - "${figCaption || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}${snippetHint}) (URL: ${rawUrl})`,
         );
         figureRegistry.set(figureId, {
           figureId,

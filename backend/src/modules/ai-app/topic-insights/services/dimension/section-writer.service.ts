@@ -399,6 +399,54 @@ export class SectionWriterService {
     // ★ 用 allocatedFigures + evidenceData 补全 figureReferences 中缺失的 imageUrl
     let figureRefsToBackfill = charts.figureReferences;
 
+    // ★ v9: 引用驱动图表注入 — 扫描 figureRegistry，找到与已引用证据匹配的图表并自动注入
+    // 背景：Leader 在写作前分配图表，仅基于文本元数据（caption/type/title），无法预知章节会引用哪些证据。
+    // 本机制在写作完成后，根据章节实际引用的证据索引 [N]，将 figureRegistry 中 evidenceIndex===N 的图表注入。
+    // 相比 Leader 分配，citation-driven 注入精确匹配引用，每章节最多补充 2 张，且不重复 Leader 已分配的图表。
+    if (
+      input.figureRegistry &&
+      input.figureRegistry.size > 0 &&
+      referencesUsed.length > 0
+    ) {
+      const citedIndices = new Set(
+        referencesUsed.map(Number).filter((n) => !isNaN(n)),
+      );
+      const alreadyAssignedFigureIds = new Set<string>(
+        (input.allocatedFigures || []).map((f) => f.figureId),
+      );
+      // 当前 LLM 已输出的 figureId 集合
+      for (const ref of figureRefsToBackfill) {
+        if (ref.figureId) alreadyAssignedFigureIds.add(ref.figureId);
+      }
+
+      const citationInjected: typeof figureRefsToBackfill = [];
+      for (const [figureId, entry] of input.figureRegistry.entries()) {
+        if (citationInjected.length >= 2) break; // 每章节最多补充 2 张
+        if (alreadyAssignedFigureIds.has(figureId)) continue; // 已分配，跳过
+        if (!citedIndices.has(entry.evidenceIndex)) continue; // 未引用此证据，跳过
+        if (!entry.imageUrl || !isValidFigureUrl(entry.imageUrl)) continue; // URL 无效，跳过
+
+        citationInjected.push({
+          id: `citation-fig-${figureId}`,
+          figureId,
+          evidenceCitationIndex: entry.evidenceIndex,
+          figureIndex: entry.figureIndex,
+          imageUrl: entry.imageUrl,
+          caption: entry.caption || "",
+          position: "end_of_section",
+          source: entry.evidenceTitle || entry.evidenceDomain || figureId,
+          relevance: `来自已引用证据[${entry.evidenceIndex}]`,
+        });
+      }
+
+      if (citationInjected.length > 0) {
+        figureRefsToBackfill = [...figureRefsToBackfill, ...citationInjected];
+        this.logger.log(
+          `[writeSection] Citation-driven injection: +${citationInjected.length} figures from cited evidence [${[...citedIndices].join(",")}] (${section.title})`,
+        );
+      }
+    }
+
     // ★ 诊断日志：记录 allocatedFigures 状态
     this.logger.log(
       `[writeSection] ${section.title}: allocatedFigures=${input.allocatedFigures?.length ?? 0}, ` +
@@ -486,7 +534,8 @@ export class SectionWriterService {
       .toLowerCase();
     const finalFigureRefs = backfilledRefs.filter((ref) => {
       const isAutoInjected =
-        typeof ref.id === "string" && ref.id.startsWith("auto-fig-");
+        typeof ref.id === "string" &&
+        (ref.id.startsWith("auto-fig-") || ref.id.startsWith("citation-fig-"));
       const refText =
         `${ref.caption || ""} ${ref.relevance || ""}`.toLowerCase();
       // Extract CJK bigrams + latin words for matching
