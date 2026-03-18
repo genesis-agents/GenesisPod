@@ -60,6 +60,15 @@ import type { ExtractedFigure } from "../../types/research.types";
  * (1) MAX_IMAGE_BYTES: 5MB → 500KB — 5MB base64 ≈ 6.7MB HTTP 载荷导致超时
  * (2) MIME 白名单过滤: 仅允许 png/jpeg/gif/webp，拒绝 avif/heic 等 Vision 无法解码的格式
  * (3) VISION_UNSUPPORTED_EXTENSIONS 补充 avif/heic/heif/jxl
+ *
+ * ★ v16: 彻底修复 OVERSIZED REQUEST retry storm
+ * 根因：500KB 图片 → base64 ~667K chars → AiApiCallerService token 估算器把 base64 chars
+ * 当 text tokens 算（chars/4 = 167K tokens > 100K 阈值）→ 触发 ERROR 日志；
+ * 同时 HTTP 请求体 ~700KB 在弱网环境下传输超时 → withExponentialBackoff 重试 → 重试风暴。
+ * 修复：MAX_IMAGE_BYTES: 500KB → 100KB。
+ * detail:"low" 下 OpenAI 内部压缩到 512×512，100KB 完全满足质量需求。
+ * 100KB → base64 ~133K chars → 估算 ~33K tokens → 不触发 OVERSIZED；
+ * HTTP 请求体 ~150KB → 无超时风险。
  */
 const VISION_BATCH_TIMEOUT_MS = 30_000;
 const FETCH_IMAGE_TIMEOUT_MS = 8_000;
@@ -92,7 +101,7 @@ const VISION_SUPPORTED_MIME_TYPES = new Set([
  * 原 5MB 上限导致单次 Vision API 请求携带 4-7MB base64 载荷，引发 HTTP 超时。
  * 500KB → base64 ~667KB → HTTP 请求体 ~680KB，在 30s 内可靠传输。
  */
-const MAX_IMAGE_BYTES = 500 * 1024; // 500KB 上限（避免 HTTP 超时 + 防止 OVERSIZED REQUEST）
+const MAX_IMAGE_BYTES = 100 * 1024; // ★ v16: 100KB 上限（detail:"low" 下 512×512 完全够用；100KB→base64 ~133K chars→~33K tokens，不触发 OVERSIZED 告警）
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   if (VISION_UNSUPPORTED_EXTENSIONS.test(url)) return null;
