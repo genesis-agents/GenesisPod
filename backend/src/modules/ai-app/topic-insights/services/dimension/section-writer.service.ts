@@ -628,7 +628,7 @@ export class SectionWriterService {
       return relevant;
     });
 
-    // Direction B 诊断：验证第一节的核心判断是否成功生成并存活
+    // Direction B：验证第一节核心判断，缺失时自动 fallback prepend
     if (isFirstSection) {
       const hasOpeningConclusion = OPENING_CONCLUSION_RE.test(content);
       if (hasOpeningConclusion) {
@@ -641,9 +641,14 @@ export class SectionWriterService {
           `[writeSection][Direction-B] ✅ Opening conclusion present: "${preview}"`,
         );
       } else {
+        // 模型未遵循指令 → 从正文自动提取并强制 prepend（无需 LLM 调用）
+        const fallback = this.extractFallbackConclusion(content, lang);
+        const label = lang.startsWith("en")
+          ? "**Key Finding**"
+          : "**核心判断**";
+        content = `> ${label}：${fallback}\n\n${content}`;
         this.logger.warn(
-          `[writeSection][Direction-B] ⚠️ MISSING opening conclusion in first section "${section.title}". ` +
-            `Content starts: "${content.substring(0, 200).replace(/\n/g, "\\n")}"`,
+          `[writeSection][Direction-B] ⚠️ MISSING — auto-prepended fallback for "${section.title}": "${fallback}"`,
         );
       }
     }
@@ -1475,6 +1480,64 @@ export class SectionWriterService {
       "",
     );
     return cleaned.trim();
+  }
+
+  /**
+   * Direction B fallback：从正文中提取第一条有实质内容的判断句
+   *
+   * 策略：跳过标题行，找第一个含有数字或具体事实的段落句子，截取 ≤50 字。
+   * 不依赖 LLM，纯文本提取，保证零延迟。
+   */
+  private extractFallbackConclusion(content: string, lang: string): string {
+    const isEn = lang.startsWith("en");
+    const lines = content.split("\n");
+    const paragraphs: string[] = [];
+    let cur = "";
+
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t) {
+        if (cur.trim()) {
+          paragraphs.push(cur.trim());
+          cur = "";
+        }
+      } else if (t.startsWith("#") || t.startsWith(">") || t.startsWith("|")) {
+        // skip headings, blockquotes, tables
+      } else if (!t.startsWith("-") && !t.startsWith("*")) {
+        cur += (cur ? " " : "") + t;
+      }
+    }
+    if (cur.trim()) paragraphs.push(cur.trim());
+
+    // 优先选含数字的段落（有量化数据的判断更有价值）
+    const withData = paragraphs.find((p) => /\d/.test(p) && p.length > 15);
+    const src = withData || paragraphs.find((p) => p.length > 15) || "";
+
+    if (!src) {
+      return isEn
+        ? "Key insights from this dimension."
+        : "本维度核心结论见正文。";
+    }
+
+    // 提取第一句话
+    const sentenceRe = isEn ? /[.!?](?:\s|$)/ : /[。！？]/;
+    const match = src.match(sentenceRe);
+    const firstSentence = match
+      ? src.substring(0, (match.index ?? 0) + 1).trim()
+      : src;
+
+    // 截断到 50 字（中文字符计 1，英文单词计约 5 字符/词）
+    const MAX = 50;
+    if (firstSentence.length <= MAX) return firstSentence;
+
+    // 在 MAX 处找最近的断句符或逗号
+    const cut = Math.max(
+      firstSentence.lastIndexOf("，", MAX),
+      firstSentence.lastIndexOf("、", MAX),
+      firstSentence.lastIndexOf(",", MAX),
+    );
+    if (cut > 15) return firstSentence.substring(0, cut) + "…";
+    return firstSentence.substring(0, MAX) + "…";
   }
 
   /**
