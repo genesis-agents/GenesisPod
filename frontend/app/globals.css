@@ -336,10 +336,10 @@ body {
   overflow: hidden;
 }
 
-/* Inline bold: blue-600 (#2563eb) for emphasis in research reports */
+/* Inline bold: dark text for emphasis in research reports */
 .prose strong {
-  color: #2563eb;
-  font-weight: 600;
+  color: #111827;
+  font-weight: 700;
 }
 
 /* Chart containers inside prose - contain sr-only elements */
@@ -439,10 +439,8 @@ body {
 
 /* Key term labels - bold text followed by colon */
 .prose strong {
-  color: #2563eb; /* blue-600 — 核心观点蓝色强调 */
-  font-weight: 600;
-  background: linear-gradient(to bottom, transparent 60%, rgba(139, 92, 246, 0.15) 60%);
-  padding: 0 2px;
+  color: #111827;
+  font-weight: 700;
 }
 
 /* Section numbers (1. 2. etc at start of headings) - highlight with badge style */
