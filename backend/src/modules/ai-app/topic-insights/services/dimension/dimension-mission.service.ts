@@ -16,7 +16,9 @@
  * - 支持多轮质量审核
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import type { Cache } from "cache-manager";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { DimensionProgressService } from "./dimension-progress.service";
@@ -138,11 +140,16 @@ export class DimensionMissionService {
   private readonly logger = new Logger(DimensionMissionService.name);
 
   /**
-   * ★ Per-report mutex: serializes saveEvidence calls so concurrent dimensions
-   * don't race on citationIndex assignment (no unique constraint on citationIndex).
-   * Key = reportId, value = tail of the pending-promise chain for that report.
+   * ★ In-process fallback mutex（Redis 不可用时使用）
+   * Key = reportId, value = pending-promise chain tail for that report.
    */
   private readonly saveEvidenceLocks = new Map<string, Promise<void>>();
+
+  /**
+   * Lazy-resolved raw ioredis client (null when Redis not configured or unavailable).
+   * Accessed via `this.getRedisClient()`.
+   */
+  private _redisClient: unknown = undefined; // undefined = not yet resolved, null = unavailable
 
   constructor(
     private readonly prisma: PrismaService,
@@ -167,23 +174,153 @@ export class DimensionMissionService {
     @Optional() private readonly chatFacade?: ChatFacade,
     // ★ Batch 3: Token 预算智能截断
     @Optional() private readonly tokenBudgetService?: TokenBudgetService,
+    // ★ Redis 分布式锁（multi-instance 安全；Redis 不可用时自动降级到内存锁）
+    @Optional()
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager?: Cache,
   ) {}
 
   /**
-   * Runs fn exclusively for reportId — queues concurrent callers so citationIndex
-   * is assigned sequentially and never duplicated across parallel dimensions.
+   * Minimal ioredis command interface needed for the distributed lock.
+   * Avoids importing all of ioredis while keeping the call sites type-safe.
+   */
+  private readonly LOCK_TTL_MS = 150_000; // must exceed Prisma tx timeout (120s)
+  private readonly LOCK_RETRY_MS = 200;
+  private readonly LOCK_MAX_WAIT_MS = 60_000;
+  private readonly LOCK_LUA = `if redis.call("get",KEYS[1])==ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end`;
+
+  /**
+   * Returns the raw ioredis client if Redis is configured and the connection is live,
+   * otherwise null. Lazily resolved on first call and cached.
+   */
+  private getRedisClient(): {
+    set(
+      key: string,
+      value: string,
+      nx: "NX",
+      px: "PX",
+      ttl: number,
+    ): Promise<"OK" | null>;
+    eval(
+      script: string,
+      numkeys: number,
+      key: string,
+      arg: string,
+    ): Promise<unknown>;
+  } | null {
+    if (this._redisClient === undefined) {
+      try {
+        const cm = this.cacheManager as unknown as {
+          stores?: Array<{ client?: unknown }>;
+          store?: { client?: unknown };
+        };
+        const store = cm?.stores?.[0] ?? cm?.store;
+        const client = (store as { client?: unknown } | undefined)?.client;
+        type LockClient = ReturnType<typeof this.getRedisClient>;
+        this._redisClient =
+          client &&
+          typeof (client as NonNullable<LockClient>).set === "function" &&
+          typeof (client as NonNullable<LockClient>).eval === "function"
+            ? (client as NonNullable<LockClient>)
+            : null;
+      } catch {
+        this._redisClient = null;
+      }
+    }
+    return this._redisClient as ReturnType<typeof this.getRedisClient>;
+  }
+
+  /**
+   * Runs fn exclusively for reportId — serializes concurrent saveEvidence calls so
+   * citationIndex is assigned without race conditions across parallel dimensions.
+   *
+   * Strategy:
+   * - Redis available → distributed lock via SET NX PX (safe across multiple instances)
+   * - Redis unavailable or error → in-process promise-chain mutex (safe within single instance)
    */
   private withReportLock<T>(
     reportId: string,
     fn: () => Promise<T>,
   ): Promise<T> {
+    const redis = this.getRedisClient();
+    if (redis) {
+      return this.withRedisLock(reportId, fn);
+    }
+    return this.withInProcessLock(reportId, fn);
+  }
+
+  /**
+   * Redis distributed lock using SET NX PX.
+   * TTL = 150s (> Prisma tx timeout 120s) to ensure the lock outlives fn().
+   * Spins with 200ms intervals (max 60s wait) before fail-open.
+   * Falls back to in-process lock on transient Redis errors.
+   * Releases atomically via Lua to guard against TTL-expired token mismatch.
+   */
+  private async withRedisLock<T>(
+    reportId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const redis = this.getRedisClient()!; // caller (withReportLock) already verified non-null
+    const lockKey = `lock:citation-index:${reportId}`;
+    const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const started = Date.now();
+
+    // Spin-acquire
+    while (true) {
+      try {
+        const acquired = await redis.set(
+          lockKey,
+          token,
+          "NX",
+          "PX",
+          this.LOCK_TTL_MS,
+        );
+        if (acquired === "OK") break;
+      } catch (err) {
+        // Transient Redis error → fall back to in-process lock
+        this.logger.warn(
+          `[withRedisLock] Redis error during acquire for reportId=${reportId}, falling back to in-process lock: ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        );
+        return this.withInProcessLock(reportId, fn);
+      }
+      if (Date.now() - started > this.LOCK_MAX_WAIT_MS) {
+        this.logger.warn(
+          `[withRedisLock] Timeout waiting for lock on reportId=${reportId}, proceeding without lock (fail-open)`,
+        );
+        break;
+      }
+      await new Promise<void>((r) => setTimeout(r, this.LOCK_RETRY_MS));
+    }
+
+    try {
+      return await fn();
+    } finally {
+      // Atomic release: only delete our own token
+      try {
+        await redis.eval(this.LOCK_LUA, 1, lockKey, token);
+      } catch (err) {
+        this.logger.warn(
+          `[withRedisLock] Failed to release lock for reportId=${reportId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * In-process promise-chain mutex (fallback when Redis is unavailable).
+   * Guarantees sequential execution within a single Node.js process.
+   */
+  private withInProcessLock<T>(
+    reportId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
     const prev = this.saveEvidenceLocks.get(reportId) ?? Promise.resolve();
-    // Chain: wait for previous, then run fn, then resolve the gate
     let resolveCurrent!: () => void;
     const current = new Promise<void>((r) => (resolveCurrent = r));
     this.saveEvidenceLocks.set(reportId, current);
     const result = prev.then(fn).finally(resolveCurrent);
-    // Clean up map entry once this is the last pending operation (fire-and-forget)
     void result.finally(() => {
       if (this.saveEvidenceLocks.get(reportId) === current) {
         this.saveEvidenceLocks.delete(reportId);
