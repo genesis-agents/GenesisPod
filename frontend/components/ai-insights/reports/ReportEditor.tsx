@@ -598,11 +598,13 @@ function ReportEditorInner({
   );
 
   // ★ Build evidence info map for figure citation hover tooltips
+  // Uses ev.citationIndex (global DB field) to match chart.evidenceCitationIndex
   const figureEvidenceMap = useMemo(() => {
     const map = new Map<number, FigureEvidenceInfo>();
     if (evidence.length > 0) {
       evidence.forEach((ev, idx) => {
-        map.set(idx + 1, {
+        const key = ev.citationIndex ?? idx + 1;
+        map.set(key, {
           id: ev.id,
           title: ev.title,
           url: ev.url,

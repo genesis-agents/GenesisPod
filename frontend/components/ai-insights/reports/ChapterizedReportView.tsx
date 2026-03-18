@@ -502,12 +502,14 @@ function ChapterizedReportViewInner({
   );
 
   // ★ Build evidence info map for figure citation hover tooltips
-  // Maps 1-based citation index → evidence info (title, url, snippet, domain)
+  // Maps DB citationIndex → evidence info (title, url, snippet, domain)
+  // Uses ev.citationIndex (global DB field) to match chart.evidenceCitationIndex
   const figureEvidenceMap = useMemo(() => {
     const map = new Map<number, FigureEvidenceInfo>();
     if (evidence && evidence.length > 0) {
       evidence.forEach((ev, idx) => {
-        map.set(idx + 1, {
+        const key = ev.citationIndex ?? idx + 1; // fallback to position if citationIndex is null
+        map.set(key, {
           id: ev.id,
           title: ev.title,
           url: ev.url,
