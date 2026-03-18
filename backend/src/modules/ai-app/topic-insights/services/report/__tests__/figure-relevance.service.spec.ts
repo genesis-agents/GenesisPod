@@ -51,11 +51,32 @@ const mockChatFacade = {
     .mockResolvedValue({ modelId: "test-vision-model" }),
 };
 
+/** Helper: create a mock fetch Response that returns a valid image */
+const mockFetchOk = () =>
+  ({
+    ok: true,
+    headers: {
+      get: (header: string) => {
+        if (header === "content-type") return "image/jpeg";
+        if (header === "content-length") return "1024";
+        return null;
+      },
+    },
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
+  }) as unknown as Response;
+
+/** Helper: create a mock fetch Response that fails (non-OK) */
+const mockFetchFail = () => ({ ok: false }) as unknown as Response;
+
 describe("FigureRelevanceService", () => {
   let service: FigureRelevanceService;
+  let fetchSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    // ★ v14: mock global fetch — by default all URLs return a valid image
+    fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue(mockFetchOk());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -65,6 +86,10 @@ describe("FigureRelevanceService", () => {
     }).compile();
 
     service = module.get<FigureRelevanceService>(FigureRelevanceService);
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
   });
 
   // ============================================================
@@ -214,20 +239,29 @@ describe("FigureRelevanceService", () => {
       expect(result.map((f) => f.type)).toEqual(["diagram", "chart"]);
     });
 
-    it("should skip Vision for blacklisted CDN domains and auto-decide by type", async () => {
+    it("should fall back to type-based filter when image fetch fails (v14)", async () => {
+      // ★ v14: CDN 域名黑名单已移除，改为: Railway fetch 失败 → type-based fallback
+      fetchSpy
+        .mockResolvedValueOnce(mockFetchFail()) // chart (informational) → fetch fails → kept
+        .mockResolvedValueOnce(mockFetchFail()) // photo no caption → fetch fails → rejected
+        .mockResolvedValue(mockFetchOk()); // example.com chart → fetch ok → Vision call
+
       const figures = [
-        makeFigure("https://fbcdn.net/v/chart.jpg", "chart"), // Facebook CDN → blacklisted → informational → kept
-        makeBareFigure("https://media.licdn.com/photo.jpg", "photo"), // LinkedIn CDN → blacklisted → photo no caption → rejected
-        makeFigure("https://example.com/chart.png", "chart"), // normal → Vision call
+        makeFigure("https://inaccessible-cdn.example.com/chart.jpg", "chart"),
+        makeBareFigure(
+          "https://inaccessible-cdn.example.com/photo.jpg",
+          "photo",
+        ),
+        makeFigure("https://example.com/chart.png", "chart"),
       ];
 
       mockChatFacade.chatStructured.mockResolvedValue(accepted());
 
       const result = await service.filterRelevantFigures(figures, "Test Topic");
 
-      // Only 1 Vision call (for example.com chart); CDN blacklisted URLs skip Vision
+      // Only 1 Vision call (for example.com chart); failed-fetch URLs skip Vision
       expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(1);
-      // fbcdn chart → kept (informational type), linkedin photo → rejected (no caption)
+      // inaccessible chart → kept (informational type), inaccessible photo → rejected (no caption)
       expect(result).toHaveLength(2);
     });
   });

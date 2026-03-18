@@ -233,10 +233,19 @@ export class FigureRelevanceService {
     fig: ExtractedFigure,
     topicTitle: string,
   ): Promise<{ accepted: boolean; reason?: string }> {
+    // 不支持的格式（SVG/BMP/ICO 等）Vision 无法解析 → 严格按类型决定，不走 fetch
+    if (VISION_UNSUPPORTED_EXTENSIONS.test(fig.imageUrl)) {
+      const accepted = INFORMATIONAL_FIGURE_TYPES.has(fig.type);
+      return {
+        accepted,
+        reason: accepted ? undefined : "unsupported image format",
+      };
+    }
+
     // ★ v14: 代理下载 — Railway 先 fetch 图片转 base64，规避 OpenAI 服务器 CDN 封锁
     const imageData = await fetchImageAsBase64(fig.imageUrl);
     if (!imageData) {
-      // Railway 也访问不到（超时/403/格式不支持）→ type-based fallback
+      // Railway 也访问不到（超时/403）→ type-based fallback
       const accepted = this.typeBasedFallback(fig);
       this.logger.warn(
         `[evaluateSingle] ${fig.imageUrl.substring(0, 80)}... fetch failed, typeBasedFallback=${accepted}`,
