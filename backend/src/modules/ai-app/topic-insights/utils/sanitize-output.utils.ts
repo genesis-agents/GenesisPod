@@ -332,48 +332,79 @@ export function stripAnalyticalInlineBullets(content: string): string {
  * 处理：直接删除此类"伪摘要"块，不保留。
  */
 export function stripSectionOpeningShortLines(content: string): string {
-  const CITATION_RE = /\[\d+\]/g;
-  const SHORT_CHAR_MAX = 60; // 去掉引用后的最大字符数（约 30 汉字）
-  const MAX_CHECK_PARAS = 6; // 最多检测开头 6 个段落
+  /**
+   * ★ v2 重写：修复两个 bug
+   * Bug1: 遇到 `#` 标题直接 break → 标题后面的短引用行检测不到
+   * Bug2: 按 \n{2,} 分段 → 单换行分隔的短行被算作一个"段落"，
+   *       textOnly 长度是多行合并，满足 ≤60 chars，但 stripUntil 只加 1，
+   *       永远不满足 stripUntil >= 2 的条件
+   *
+   * 新逻辑：按 \n 逐行检测
+   * 1. 跳过开头的标题行和空行（保留，不删除）
+   * 2. 从第一个内容行开始，连续检测短引用行
+   * 3. 连续 ≥2 行 → 全部删除，保留标题和后续正文
+   */
+  const SHORT_CHAR_MAX = 60;
+  const MIN_STRIP_COUNT = 2;
+  const MAX_CHECK = 10;
 
-  const paragraphs = content.split(/\n{2,}/);
-  let stripUntil = 0;
+  const lines = content.split("\n");
 
-  for (let i = 0; i < Math.min(paragraphs.length, MAX_CHECK_PARAS); i++) {
-    const para = paragraphs[i].trim();
-    if (!para) continue;
+  // 1. 找到第一个非标题、非空的内容行位置
+  let contentStart = 0;
+  while (contentStart < lines.length) {
+    const l = lines[contentStart].trim();
+    if (!l || l.startsWith("#")) {
+      contentStart++;
+    } else {
+      break;
+    }
+  }
 
-    // 跳过标题、bullet、代码块
+  // 2. 从 contentStart 开始，连续检测短引用行
+  let shortEnd = contentStart; // 短行块结束位置（exclusive）
+  let shortCount = 0;
+  for (
+    let i = contentStart;
+    i < Math.min(lines.length, contentStart + MAX_CHECK);
+    i++
+  ) {
+    const line = lines[i].trim();
+    // 空行不中断计数（短行之间可能夹空行）
+    if (!line) continue;
+    // 遇到 bullet / blockquote / code 停止
     if (
-      para.startsWith("#") ||
-      para.startsWith("-") ||
-      para.startsWith("*") ||
-      para.startsWith(">") ||
-      para.startsWith("```")
+      line.startsWith("-") ||
+      line.startsWith("*") ||
+      line.startsWith(">") ||
+      line.startsWith("```")
     )
       break;
 
-    const textOnly = para.replace(CITATION_RE, "").trim();
-    // 必须带引用且短（纯短句但无引用不删）
-    const hasCitation = CITATION_RE.test(para);
-    CITATION_RE.lastIndex = 0; // reset
+    const hasCitation = /\[\d+\]/.test(line);
+    const textOnly = line.replace(/\[\d+\]/g, "").trim();
 
     if (
       hasCitation &&
       textOnly.length > 0 &&
       textOnly.length <= SHORT_CHAR_MAX
     ) {
-      stripUntil = i + 1;
+      shortCount++;
+      shortEnd = i + 1;
     } else {
       break;
     }
   }
 
-  if (stripUntil >= 2) {
-    // 删除开头的短句块
-    return paragraphs.slice(stripUntil).join("\n\n").trimStart();
-  }
-  return content;
+  if (shortCount < MIN_STRIP_COUNT) return content;
+
+  // 3. 保留标题行，跳过短引用块及其后的空行，拼接正文
+  const headingLines = lines.slice(0, contentStart);
+  let bodyStart = shortEnd;
+  while (bodyStart < lines.length && !lines[bodyStart].trim()) bodyStart++;
+  const bodyLines = lines.slice(bodyStart);
+
+  return [...headingLines, ...bodyLines].join("\n").trimStart();
 }
 
 /**
