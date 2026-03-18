@@ -336,6 +336,12 @@ body {
   overflow: hidden;
 }
 
+/* Inline bold: blue-600 (#2563eb) for emphasis in research reports */
+.prose strong {
+  color: #2563eb;
+  font-weight: 600;
+}
+
 /* Chart containers inside prose - contain sr-only elements */
 .prose .rounded-xl {
   overflow: hidden;

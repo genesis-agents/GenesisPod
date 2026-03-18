@@ -9,8 +9,14 @@
  * - 简洁进度统计 + 底部状态栏
  */
 
-import { useMemo } from 'react';
-import { CheckCircle2, XCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import {
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  AlertTriangle,
+  Clock,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import {
@@ -477,6 +483,40 @@ export function TopicTeamPanel({
 
   const hasMission = !!missionStatus && (missionStatus.tasks?.length || 0) > 0;
 
+  // ★ 用时计算：进行中时每秒更新，完成后显示总用时
+  const [elapsedDisplay, setElapsedDisplay] = useState<string>('');
+  useEffect(() => {
+    const startTime = missionStatus?.startedAt ?? missionStatus?.createdAt;
+    if (!startTime || !hasMission) {
+      setElapsedDisplay('');
+      return;
+    }
+    const isActive = ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(
+      missionStatus?.status ?? ''
+    );
+    const format = (ms: number) => {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      const h = Math.floor(m / 60);
+      if (h > 0) return `${h}h ${m % 60}m`;
+      if (m > 0) return `${m}m ${s % 60}s`;
+      return `${s}s`;
+    };
+    const update = () => {
+      const elapsed = Date.now() - new Date(startTime).getTime();
+      setElapsedDisplay(format(elapsed));
+    };
+    update();
+    if (!isActive) return;
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [
+    missionStatus?.startedAt,
+    missionStatus?.createdAt,
+    missionStatus?.status,
+    hasMission,
+  ]);
+
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
@@ -519,6 +559,11 @@ export function TopicTeamPanel({
             <span className="text-gray-400">
               {t('topicResearch.common.totalTasks', { count: stats.total })}
             </span>
+            {elapsedDisplay && (
+              <span className="ml-auto flex items-center gap-1 text-gray-400">
+                <Clock className="h-3 w-3" /> {elapsedDisplay}
+              </span>
+            )}
           </div>
         )}
 

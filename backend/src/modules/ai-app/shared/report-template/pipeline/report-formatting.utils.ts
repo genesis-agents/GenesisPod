@@ -4083,3 +4083,64 @@ export function stripOrphanedChartComments(content: string): string {
   result = result.replace(/&lt;!--\s*chart:[^\s]+?\s*--&gt;/g, "");
   return result;
 }
+
+/**
+ * Merge "telegram-style" short isolated paragraphs into bullet lists.
+ *
+ * Problem: LLMs (especially GPT) sometimes break key points into a series of
+ * very short standalone paragraphs (10-60 chars each), each ending with a CJK
+ * sentence-ending punctuation mark. Each line becomes its own paragraph block,
+ * creating a visually poor "telegram" appearance.
+ *
+ * Solution: Detect runs of 3+ consecutive short paragraphs that match the
+ * pattern (single line, < 80 chars, ends with 。！？…) and convert them into
+ * a `- ` bullet list for visual clarity and structural intent.
+ *
+ * Uses a 3-paragraph minimum to avoid converting legitimate short transitions.
+ */
+export function mergeTelegramParagraphs(content: string): string {
+  // Split into paragraph blocks (separated by blank lines)
+  const blocks = content.split(/\n{2,}/);
+
+  /** True if a block looks like a "telegram-style" short sentence */
+  const isTelegram = (block: string): boolean => {
+    const t = block.trim();
+    // Must be a single line (no embedded newlines after trim)
+    if (t.includes("\n")) return false;
+    // Length: 5–80 chars
+    if (t.length < 5 || t.length > 80) return false;
+    // Must end with CJK sentence-ending punctuation
+    if (!/[。！？…]$/.test(t)) return false;
+    // Must not be a Markdown structural element
+    if (/^(#{1,6}|[-*+]|\d+\.|>|\||<!--)/.test(t)) return false;
+    // Must not contain a citation marker mid-sentence (those are real paragraphs)
+    if (/\[\d+\]/.test(t)) return false;
+    return true;
+  };
+
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < blocks.length) {
+    if (isTelegram(blocks[i])) {
+      // Collect a contiguous run of telegram blocks
+      const group: string[] = [blocks[i].trim()];
+      while (i + 1 < blocks.length && isTelegram(blocks[i + 1])) {
+        i++;
+        group.push(blocks[i].trim());
+      }
+      if (group.length >= 3) {
+        // Convert the group into a bullet list
+        result.push(group.map((p) => `- ${p}`).join("\n"));
+      } else {
+        // 1–2 short paragraphs: keep as-is (likely a legitimate short transition)
+        result.push(...group);
+      }
+    } else {
+      result.push(blocks[i]);
+    }
+    i++;
+  }
+
+  return result.join("\n\n");
+}

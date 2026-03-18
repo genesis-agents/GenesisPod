@@ -1077,6 +1077,8 @@ export interface MissionStatus {
   researchDepth?: 'quick' | 'standard' | 'thorough';
   leaderModelId?: string;
   leaderModelName?: string;
+  startedAt?: string;
+  createdAt?: string;
 }
 
 export interface TaskStatus {

@@ -412,11 +412,47 @@ export class DataEnrichmentService {
           // ★ 仅当 enableFigures=true 时提取图表
           let extractedFigures: ExtractedFigure[] = [];
           if (enableFigures) {
-            const htmlContent = scraperData.html || scraperData.content;
-            if (htmlContent) {
+            // ★ arXiv 修复：/abs/ 页面不含图片，改爬 /html/ 版本来提取图表
+            let figureHtmlContent = scraperData.html || scraperData.content;
+            let figureSourceUrl = result.url;
+            const arxivAbsMatch = result.url.match(/arxiv\.org\/abs\/([\w.]+)/);
+            if (arxivAbsMatch && webScraperTool) {
+              const arxivHtmlUrl = `https://arxiv.org/html/${arxivAbsMatch[1]}`;
+              try {
+                const htmlResult = await withTimeoutFallback(
+                  webScraperTool.execute(
+                    { url: arxivHtmlUrl, maxLength: 500_000 },
+                    this.createToolContext("web-scraper"),
+                  ),
+                  15_000,
+                  {
+                    success: false,
+                    error: { code: "TIMEOUT", message: "arXiv HTML timeout" },
+                  } as Awaited<ReturnType<typeof webScraperTool.execute>>,
+                );
+                if (htmlResult.success && htmlResult.data) {
+                  const d = htmlResult.data as {
+                    html?: string;
+                    content?: string;
+                    success: boolean;
+                  };
+                  if (d.success && (d.html || d.content)) {
+                    figureHtmlContent =
+                      d.html || d.content || figureHtmlContent;
+                    figureSourceUrl = arxivHtmlUrl;
+                    this.logger.log(
+                      `[enrichSingleResult] arXiv HTML fetched for figures: ${arxivHtmlUrl}`,
+                    );
+                  }
+                }
+              } catch {
+                // Fallback to abstract page if HTML version unavailable
+              }
+            }
+            if (figureHtmlContent) {
               extractedFigures = this.figureExtractor.extractFigures(
-                result.url,
-                htmlContent,
+                figureSourceUrl,
+                figureHtmlContent,
               );
               // ★ 过滤掉没有有效 imageUrl 的图表
               const beforeFilter = extractedFigures.length;

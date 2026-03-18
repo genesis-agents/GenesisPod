@@ -79,6 +79,8 @@ export interface MissionStatus {
   researchDepth?: string;
   leaderModelId?: string;
   leaderModelName?: string;
+  startedAt?: string;
+  createdAt?: string;
 }
 
 export interface TaskStatus {

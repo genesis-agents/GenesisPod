@@ -58,6 +58,7 @@ import {
   escapeLatexPipeInTables,
   normalizeInlineDoubleDollar,
   normalizeChapterToSection,
+  mergeTelegramParagraphs,
 } from "./report-formatting.utils";
 
 // ============ Context Interface ============
@@ -134,6 +135,7 @@ export function formatDimensionContent(
   processed = convertDescriptiveListsToBullets(processed);
   processed = convertPlainNumberedListsUnderH3ToBullets(processed);
   processed = stripLLMMetaNotes(processed);
+  processed = mergeTelegramParagraphs(processed);
   processed = stripLeakedHtmlComments(processed);
   processed = stripInternalFigureNotation(processed);
   processed = normalizeArrowNotation(processed);

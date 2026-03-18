@@ -148,6 +148,8 @@ export class MissionQueryService {
       leaderPlan: mission.leaderPlan as unknown as LeaderPlan | undefined,
       leaderModelId: mission.leaderModelId ?? undefined,
       leaderModelName: mission.leaderModelName ?? undefined,
+      startedAt: mission.startedAt?.toISOString() ?? undefined,
+      createdAt: mission.createdAt.toISOString(),
     };
   }
 
