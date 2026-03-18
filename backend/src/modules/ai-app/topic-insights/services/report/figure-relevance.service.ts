@@ -1,171 +1,63 @@
 /**
  * Figure Relevance Service
  *
- * 使用多模态 LLM（Vision）对候选图片进行内容审查：
- * 1. 图片是否可辨识（非损坏、非纯色占位符、非模糊不清）
- * 2. 图片是否与研究主题有直接信息关联（不仅是主题词匹配，需内容实质相关）
- * 3. 排除：纯装饰、横幅广告、stock photo、模糊/低质量、与主题无实质关联的配图
+ * ★ v17.0 彻底替换 Vision LLM → Embedding 方案
  *
- * ★ v6.0 根因修复：旧 prompt 要求"必须是信息图(chart/diagram/table)"，
- *   导致有价值的新闻照片、产品截图、技术演示图全被杀。
- *   新原则："有信息价值就保留" — photo 类型不再自动拒绝。
+ * 问题根因（Vision 方案）：
+ * - 每张图 8s fetch + 30s Vision LLM = 最坏 38s；80 张图约 50 分钟
+ * - CDN 封锁（中国 CDN / 签名 CDN）导致 Vision 无法访问图片 URL
+ * - Rate limit / 超时连锁（8 维度并发 × 多 batch × 3 次重试）
+ * - Vision 过保守（v9）或过宽（v10）：难以调优
  *
- * ★ v8.0 强化：detail "low" → "auto"，增加模糊/质量检测指令，
- *   API 失败时仅保留 chart/diagram/table 类型（不再全部放行）。
+ * 新方案（Embedding）：
+ * ① type = chart/table/diagram → 直接保留（0 次 API 调用）
+ * ② type = photo, caption.trim().length < 10 → 直接拒绝（无有效描述）
+ * ③ type = photo, caption 有效 → cosine(embed(caption), embed(topicTitle)) >= 0.35 → 保留
+ * ④ Embedding 失败 → type-based fallback（chart 保留，photo caption >= 10 字符保留）
  *
- * ★ v9.0 根因修复：v8 的"宁缺毋滥"prompt 导致 Vision LLM 过度保守，
- *   8 个维度 393 条证据仅存活 3 张图片。根因：4 项审查"任一不通过即拒绝" +
- *   "如果不确定请拒绝" 双重保守指令 → 大量有价值图片被杀。
- *   新原则："只拒绝明确不合格的图片" — 倾向保留，让后续 Leader 分配环节做相关性筛选。
- *
- * ★ v10.0 根因修复：v9 的"全类型倾向保留"导致大量装饰性新闻配图（文章头图、
- *   新闻缩略图、stock photo）通过审查，最终报告图片与内容无关。
- *   新原则：按图片类型分层审核 — chart/table/diagram 保持倾向保留，
- *   photo 类型要求图片本身包含可辨识的信息元素（数据、文字、产品细节、技术内容）。
- *   纯场景照、文章头图、新闻配图等装饰性照片予以拒绝。
- *
- * ★ v11.0 根因修复：v10 大面积 "Invalid response structure" 错误。
- *   根因：8 维度并发 Vision API 调用触发内部 rate limiter → chatStructured
- *   收到 isError=true 后立即重试（不等待）→ 再次被限流 → 返回空对象 {} as T。
- *   修复：(1) chatStructured 检测 rate limit 错误并 await retryAfter 后重试；
- *   (2) evaluateBatch 改 throwOnParseError=true + maxRetries=2，
- *   所有失败直接走 filterRelevantFigures 的 type-based fallback。
- *
- * ★ 通过 ChatFacade（AI Engine Facade）调用 Vision LLM，不直接调用 API。
+ * 性能提升：80 张图 ~50 分钟 → ~1 分钟（embedding 批量并发，无图片下载）
+ * 多语言支持：text-embedding-3-small 跨语言语义对齐（中英文 caption vs 英文 topicTitle）
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIModelType } from "@prisma/client";
-import { ChatFacade } from "@/modules/ai-engine/facade";
-import type {
-  ContentPart,
-  TextContentPart,
-  ImageUrlContentPart,
-} from "@/modules/ai-engine/facade";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import type { ExtractedFigure } from "../../types/research.types";
 
-/**
- * ★ v13: Vision 单批外部超时（30s）
- * 根因：Vision 需要下载每张图片 URL，慢速/受限 CDN 导致整 batch 挂起 150s（chatStructured 内部超时）。
- * 8 维度并发 × 多 batch × 3 次重试 = 潜在 450s/batch，引发 rate limit 连锁超时。
- * 外部 Promise.race 30s 截断：失败快速走 v13 fallback，不阻塞整个 dimension pipeline。
- *
- * ★ v14: 代理下载 base64 — 根治 CDN 封锁问题
- * 根因：OpenAI Vision 服务器直接下载图片 URL，被中国 CDN / 签名 CDN 封锁或超时。
- * 新方案：Railway 先下载图片（8s timeout），转 base64 data URI 再发给 Vision。
- * OpenAI 收到内联数据，不需要自己访问外部 CDN，彻底绕过所有 CDN 封锁。
- * fetch 失败（Railway 也访问不到）→ 直接 type-based fallback，不浪费 Vision 调用。
- *
- * ★ v15: 修复 OVERSIZED REQUEST + AVIF/HEIC 不支持问题
- * (1) MAX_IMAGE_BYTES: 5MB → 500KB — 5MB base64 ≈ 6.7MB HTTP 载荷导致超时
- * (2) MIME 白名单过滤: 仅允许 png/jpeg/gif/webp，拒绝 avif/heic 等 Vision 无法解码的格式
- * (3) VISION_UNSUPPORTED_EXTENSIONS 补充 avif/heic/heif/jxl
- *
- * ★ v16: 彻底修复 OVERSIZED REQUEST retry storm
- * 根因：500KB 图片 → base64 ~667K chars → AiApiCallerService token 估算器把 base64 chars
- * 当 text tokens 算（chars/4 = 167K tokens > 100K 阈值）→ 触发 ERROR 日志；
- * 同时 HTTP 请求体 ~700KB 在弱网环境下传输超时 → withExponentialBackoff 重试 → 重试风暴。
- * 修复：MAX_IMAGE_BYTES: 500KB → 100KB。
- * detail:"low" 下 OpenAI 内部压缩到 512×512，100KB 完全满足质量需求。
- * 100KB → base64 ~133K chars → 估算 ~33K tokens → 不触发 OVERSIZED；
- * HTTP 请求体 ~150KB → 无超时风险。
- */
-const VISION_BATCH_TIMEOUT_MS = 30_000;
-const FETCH_IMAGE_TIMEOUT_MS = 8_000;
-
-/** ★ v10: 信息性图片类型（fallback 时仅保留这些类型，photo 需要 Vision LLM 验证） */
+/** 信息性图片类型：chart/table/diagram 直接保留，无需 Embedding 判断 */
 const INFORMATIONAL_FIGURE_TYPES = new Set(["chart", "table", "diagram"]);
 
-/** Vision API 不支持的格式（SVG/BMP/TIFF/AVIF/HEIC 等无法被 Vision 解析） */
-const VISION_UNSUPPORTED_EXTENSIONS =
-  /\.(?:svg|bmp|tiff?|ico|eps|ai|avif|heic|heif|jxl|webp2)(?:\?|$)/i;
+/** Stage 2 全局相关性阈值：photo caption 与研究主题的 cosine 相似度下限 */
+const STAGE2_COSINE_THRESHOLD = 0.35;
 
-/**
- * OpenAI Vision 仅支持的 MIME 类型白名单
- * AVIF/HEIC 等现代格式 Vision 无法解码（返回 INVALID_REQUEST）
- */
-const VISION_SUPPORTED_MIME_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/gif",
-  "image/webp",
-]);
+/** photo 有效 caption 最小长度（< 10 字符视为无描述，直接拒绝） */
+const MIN_CAPTION_LENGTH = 10;
 
-/**
- * ★ v14: 代理下载图片并转为 base64 data URI
- * 由 Railway 服务器下载图片，规避 OpenAI Vision 服务器被 CDN 封锁的问题。
- * 返回 null 表示无法访问（直接走 type-based fallback）。
- *
- * ★ v15: 严格限制图片大小 500KB（约 667KB base64），防止 OVERSIZED REQUEST。
- * 原 5MB 上限导致单次 Vision API 请求携带 4-7MB base64 载荷，引发 HTTP 超时。
- * 500KB → base64 ~667KB → HTTP 请求体 ~680KB，在 30s 内可靠传输。
- */
-const MAX_IMAGE_BYTES = 100 * 1024; // ★ v16: 100KB 上限（detail:"low" 下 512×512 完全够用；100KB→base64 ~133K chars→~33K tokens，不触发 OVERSIZED 告警）
-
-async function fetchImageAsBase64(url: string): Promise<string | null> {
-  if (VISION_UNSUPPORTED_EXTENSIONS.test(url)) return null;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_IMAGE_TIMEOUT_MS);
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)" },
-    });
-    clearTimeout(timer);
-    if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") ?? "image/jpeg";
-    const mimeType = contentType.split(";")[0].trim().toLowerCase();
-    // ★ v15: 白名单过滤 — 仅允许 Vision 支持的格式，拒绝 AVIF/HEIC 等现代格式
-    if (!VISION_SUPPORTED_MIME_TYPES.has(mimeType)) return null;
-    // ★ v15: Content-Length 预检 — 超过 500KB 直接拒绝，不读取 body
-    const contentLength = response.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > MAX_IMAGE_BYTES)
-      return null;
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > MAX_IMAGE_BYTES) return null;
-    const base64 = Buffer.from(buffer).toString("base64");
-    return `data:${mimeType};base64,${base64}`;
-  } catch {
-    return null;
+/** Cosine 相似度计算 */
+function cosine(a: number[], b: number[]): number {
+  let dot = 0,
+    magA = 0,
+    magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
   }
+  return magA === 0 || magB === 0
+    ? 0
+    : dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }
-
-/**
- * ★ v13: 全局并发信号量 — 限制同时进行的 Vision API 调用数
- * 根因：8 维度并发各自发起 Vision batch → 大量并发请求 → rate limit / 超时连锁
- * 限制全局最大并发数，防止 Vision provider 被同时轰炸
- */
-const MAX_CONCURRENT_VISION_CALLS = 3;
 
 @Injectable()
 export class FigureRelevanceService {
   private readonly logger = new Logger(FigureRelevanceService.name);
-  /** 当前正在进行的 Vision API 调用数（实例级信号量） */
-  private visionConcurrency = 0;
 
-  constructor(private readonly chatFacade: ChatFacade) {}
+  constructor(private readonly engineFacade: AIEngineFacade) {}
 
   /**
-   * 信号量：等待当前并发数低于上限后执行 fn
-   */
-  private async withVisionSemaphore<T>(fn: () => Promise<T>): Promise<T> {
-    while (this.visionConcurrency >= MAX_CONCURRENT_VISION_CALLS) {
-      await new Promise<void>((r) => setTimeout(r, 200));
-    }
-    this.visionConcurrency++;
-    try {
-      return await fn();
-    } finally {
-      this.visionConcurrency--;
-    }
-  }
-
-  /**
-   * 对候选图片列表进行多模态 LLM 相关性审查
+   * 对候选图片列表进行 Embedding 相关性过滤（替代原 Vision LLM 方案）
    *
    * @param figures - 经过 validateAndUpgradeFigures 后的候选图片
-   * @param topicTitle - 研究主题标题（用于判断相关性）
+   * @param topicTitle - 研究主题标题（用于语义相似度对比）
    * @returns 通过审查的图片子集
    */
   async filterRelevantFigures(
@@ -174,189 +66,123 @@ export class FigureRelevanceService {
   ): Promise<ExtractedFigure[]> {
     if (figures.length === 0) return [];
 
-    // ★ 前置检查：是否有可用的 MULTIMODAL 模型，没有则直接走 type-based fallback
-    const multimodalModel = await this.chatFacade.getDefaultModelByType(
-      AIModelType.MULTIMODAL,
-    );
-    if (!multimodalModel?.modelId) {
-      // ★ v13: 无 Vision 模型时，保留 chart/table/diagram + 有描述性 caption/alt 的 photo
-      const filtered = figures.filter((f) => {
-        if (INFORMATIONAL_FIGURE_TYPES.has(f.type)) return true;
-        if (f.type === "photo") {
-          return (
-            (f.caption?.trim().length ?? 0) > 0 ||
-            (f.alt?.trim().length ?? 0) > 0
+    // topicTitle embedding：懒计算 Promise 缓存，整个调用只算一次
+    let topicEmbeddingPromise: Promise<number[] | null> | null = null;
+    const getTopicEmbedding = (): Promise<number[] | null> => {
+      if (topicEmbeddingPromise === null) {
+        topicEmbeddingPromise = this.engineFacade
+          .embeddingGenerate(topicTitle)
+          .then((r) => r?.embedding ?? null)
+          .catch(() => null);
+      }
+      return topicEmbeddingPromise;
+    };
+
+    const evalResults = await Promise.all(
+      figures.map(async (fig, idx) => {
+        try {
+          const accepted = await this.evaluateSingleByEmbedding(
+            fig,
+            getTopicEmbedding,
           );
+          return { fig, accepted };
+        } catch (error) {
+          // Embedding 失败 → type-based fallback
+          const accepted = this.typeBasedFallback(fig);
+          this.logger.warn(
+            `[filterRelevantFigures] [${idx}] ${fig.imageUrl.substring(0, 60)}... ` +
+              `embedding failed, fallback=${accepted}: ` +
+              `${error instanceof Error ? error.message : String(error)}`,
+          );
+          return { fig, accepted };
         }
-        return false;
-      });
-      this.logger.warn(
-        `[filterRelevantFigures] No MULTIMODAL model configured, ` +
-          `keeping ${filtered.length}/${figures.length} figures (v13: informational + captioned photos)`,
-      );
-      return filtered;
-    }
-
-    // ★ v13: 逐张评估 + 全局并发控制
-    // 根因：batch 模式下单张坏图（慢速 CDN / 403）导致整批 8 张图全部失败。
-    // 改为逐张处理：每张图独立调用 Vision，失败只影响自身，其他图正常处理。
-    // 并发控制（MAX_CONCURRENT_VISION_CALLS=3）防止 8 维度同时轰炸 Vision provider。
-
-    const evalPromises = figures.map((fig, idx) =>
-      this.withVisionSemaphore(
-        async (): Promise<{
-          fig: ExtractedFigure;
-          accepted: boolean;
-          reason?: string;
-        }> => {
-          try {
-            const result = await this.evaluateSingle(fig, topicTitle);
-            return { fig, accepted: result.accepted, reason: result.reason };
-          } catch (error) {
-            // 单张失败 → type-based fallback（不影响其他图）
-            const fallback = this.typeBasedFallback(fig);
-            this.logger.warn(
-              `[filterRelevantFigures] [${idx}] ${fig.imageUrl.substring(0, 60)}... Vision failed, fallback=${fallback} (v13): ` +
-                `${error instanceof Error ? error.message : error}`,
-            );
-            return { fig, accepted: fallback };
-          }
-        },
-      ),
+      }),
     );
 
-    const results = await Promise.all(evalPromises);
+    const allAccepted = evalResults.filter((r) => r.accepted).map((r) => r.fig);
+    const rejected = evalResults.filter((r) => !r.accepted);
 
-    const allAccepted = results.filter((r) => r.accepted).map((r) => r.fig);
-    const rejected = results.filter((r) => !r.accepted);
     if (rejected.length > 0) {
       this.logger.log(
         `[filterRelevantFigures] Rejected ${rejected.length}/${figures.length} figures for "${topicTitle}":\n` +
           rejected
             .map(
               (r) =>
-                `  ${r.fig.imageUrl.substring(0, 60)}... → ${r.reason ?? "fallback rejected"}`,
+                `  ${r.fig.type} | caption="${(r.fig.caption ?? "").substring(0, 60)}" | ${r.fig.imageUrl.substring(0, 60)}...`,
             )
             .join("\n"),
       );
     }
 
+    this.logger.log(
+      `[filterRelevantFigures] Accepted ${allAccepted.length}/${figures.length} figures for "${topicTitle}" (embedding v17)`,
+    );
+
     return allAccepted;
   }
 
   /**
-   * type-based fallback：Vision 失败时按类型和元数据决定是否保留
+   * 单张图片 Embedding 评估
+   *
+   * ① chart/table/diagram → 直接保留
+   * ② photo, caption < 10 chars → 直接拒绝
+   * ③ photo, valid caption → cosine(caption, topicTitle) >= 0.35 → 保留
+   * ④ Embedding 失败 → typeBasedFallback（抛出错误由上层处理）
+   */
+  private async evaluateSingleByEmbedding(
+    fig: ExtractedFigure,
+    getTopicEmbedding: () => Promise<number[] | null>,
+  ): Promise<boolean> {
+    // ① 信息性图表类型：直接保留，无需语义判断
+    if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) {
+      return true;
+    }
+
+    // ② photo：无有效 caption → 直接拒绝
+    const caption = (fig.caption ?? fig.alt ?? "").trim();
+    if (caption.length < MIN_CAPTION_LENGTH) {
+      this.logger.debug(
+        `[evaluateSingleByEmbedding] Rejected (no caption): ${fig.imageUrl.substring(0, 80)}`,
+      );
+      return false;
+    }
+
+    // ③ photo：有效 caption → Embedding 语义相似度判断
+    const [topicEmb, captionResult] = await Promise.all([
+      getTopicEmbedding(),
+      this.engineFacade.embeddingGenerate(caption.substring(0, 300)),
+    ]);
+
+    if (topicEmb === null || captionResult?.embedding == null) {
+      // Embedding API 不可用 → fail-open（caption 已 >= 10 chars，保留）
+      this.logger.warn(
+        `[evaluateSingleByEmbedding] Embedding unavailable, fail-open for: ${fig.imageUrl.substring(0, 80)}`,
+      );
+      return true;
+    }
+
+    const similarity = cosine(topicEmb, captionResult.embedding);
+    const accepted = similarity >= STAGE2_COSINE_THRESHOLD;
+
+    if (!accepted) {
+      this.logger.debug(
+        `[evaluateSingleByEmbedding] Rejected (cosine=${similarity.toFixed(3)} < ${STAGE2_COSINE_THRESHOLD}): ` +
+          `caption="${caption.substring(0, 60)}" | ${fig.imageUrl.substring(0, 60)}`,
+      );
+    }
+
+    return accepted;
+  }
+
+  /**
+   * Embedding 失败时的 type-based fallback（B2 修复：photo 需要 caption >= 10 chars）
    */
   private typeBasedFallback(fig: ExtractedFigure): boolean {
     if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) return true;
     if (fig.type === "photo") {
-      return (
-        (fig.caption?.trim().length ?? 0) > 0 ||
-        (fig.alt?.trim().length ?? 0) > 0
-      );
+      const caption = (fig.caption ?? fig.alt ?? "").trim();
+      return caption.length >= MIN_CAPTION_LENGTH;
     }
     return false;
-  }
-
-  /**
-   * ★ v13: 逐张评估单张图片（替代原来的 evaluateBatch）
-   * 每张图片独立调用 Vision，失败只影响本图，不连累同批其他图。
-   */
-  private async evaluateSingle(
-    fig: ExtractedFigure,
-    topicTitle: string,
-  ): Promise<{ accepted: boolean; reason?: string }> {
-    // 不支持的格式（SVG/BMP/ICO 等）Vision 无法解析 → 严格按类型决定，不走 fetch
-    if (VISION_UNSUPPORTED_EXTENSIONS.test(fig.imageUrl)) {
-      const accepted = INFORMATIONAL_FIGURE_TYPES.has(fig.type);
-      return {
-        accepted,
-        reason: accepted ? undefined : "unsupported image format",
-      };
-    }
-
-    // ★ v14: 代理下载 — Railway 先 fetch 图片转 base64，规避 OpenAI 服务器 CDN 封锁
-    const imageData = await fetchImageAsBase64(fig.imageUrl);
-    if (!imageData) {
-      // Railway 也访问不到（超时/403）→ type-based fallback
-      const accepted = this.typeBasedFallback(fig);
-      this.logger.warn(
-        `[evaluateSingle] ${fig.imageUrl.substring(0, 80)}... fetch failed, typeBasedFallback=${accepted}`,
-      );
-      return { accepted, reason: accepted ? undefined : "image fetch failed" };
-    }
-
-    const contentParts: ContentPart[] = [
-      {
-        type: "text",
-        text: [
-          `请审查以下图片是否适合用于研究报告「${topicTitle}」。`,
-          "",
-          "★ 核心原则：按类型分层审核。图表类（chart/table/diagram）倾向保留；照片类（photo）需要包含具体信息元素才保留。",
-          "",
-          "对所有类型都拒绝的情况：损坏/不可用、纯广告横幅、网站UI元素、meme、人物头像照、AI生成装饰图。",
-          "",
-          "chart/table/diagram → 直接保留（数据图表、趋势图、架构图、系统结构图、网络拓扑图等）。",
-          "",
-          "photo → 满足以下任一条即保留：图中有可读文字（幻灯片/白板）、产品实物细节、技术演示画面、带信息标注的照片、视觉上呈现架构图/流程图/关系图/框架图的图像（即使被分类为photo类型）。",
-          "photo 拒绝：文章头图/封面图、新闻缩略图、Stock photo、纯场景照、泛活动照、人物合照。",
-          "",
-          `图片信息：Caption="${fig.caption || "(无)"}", Type="${fig.type}", Alt="${fig.alt || "(无)"}"`,
-        ].join("\n"),
-      } satisfies TextContentPart,
-      {
-        type: "image_url",
-        image_url: { url: imageData, detail: "low" },
-      } satisfies ImageUrlContentPart,
-      {
-        type: "text",
-        text: `请以 JSON 格式返回审查结果：{"accepted": true} 或 {"accepted": false, "reason": "具体原因"}`,
-      } satisfies TextContentPart,
-    ];
-
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () =>
-          reject(
-            new Error(
-              `Vision single timeout after ${VISION_BATCH_TIMEOUT_MS / 1000}s`,
-            ),
-          ),
-        VISION_BATCH_TIMEOUT_MS,
-      ),
-    );
-
-    const response = await Promise.race([
-      this.chatFacade.chatStructured<{ accepted: boolean; reason?: string }>({
-        messages: [
-          {
-            role: "user",
-            content: `审查图片是否适合研究报告「${topicTitle}」`,
-            contentParts,
-          },
-        ],
-        modelType: AIModelType.MULTIMODAL,
-        skipGuardrails: true,
-        taskProfile: { creativity: "deterministic", outputLength: "minimal" },
-        schema: {
-          type: "object",
-          required: ["accepted"],
-          additionalProperties: false,
-          properties: {
-            accepted: { type: "boolean" },
-            reason: { type: "string" },
-          },
-        },
-        strictMode: false,
-        throwOnParseError: true,
-        maxRetries: 1,
-      }),
-      timeoutPromise,
-    ]);
-
-    if (response.data == null) {
-      throw new Error("Empty response from Vision LLM");
-    }
-    return { accepted: response.data.accepted, reason: response.data.reason };
   }
 }

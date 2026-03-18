@@ -15,7 +15,7 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { InsufficientCreditsException } from "../../types/research.exceptions";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { inferIsReasoning } from "@/modules/ai-engine/facade";
 import type { SectionPlan } from "../core/research/research-leader.service";
@@ -158,7 +158,10 @@ export interface SectionRevisionInput {
 export class SectionWriterService {
   private readonly logger = new Logger(SectionWriterService.name);
 
-  constructor(private readonly chatFacade: ChatFacade) {}
+  constructor(
+    private readonly chatFacade: ChatFacade,
+    private readonly engineFacade: AIEngineFacade,
+  ) {}
 
   /**
    * 撰写单个章节
@@ -572,9 +575,10 @@ export class SectionWriterService {
       input.figureRegistry,
     );
 
-    // ★ 最终相关性校验：
-    // - LLM 输出的 figureReferences 严格过滤（matchCount >= 2）防止 LLM 幻觉
-    // - auto-inject 的 allocatedFigures 宽松过滤（matchCount >= 1），因为已过 validateAllocatedFigures
+    // ★ 最终相关性校验（v10）：
+    // 1. 关键词匹配（同步，快）：bigram + latin word
+    // 2. Embedding fallback（异步，仅当 matchCount=0 且 keywords 存在时触发）
+    //    解决跨语言误杀：英文 caption（"AI agent adoption"）vs 中文 section（"AI智能体采用率"）
     const sectionCtx = [
       section.title,
       ...section.keyPoints,
@@ -582,62 +586,102 @@ export class SectionWriterService {
     ]
       .join(" ")
       .toLowerCase();
-    const finalFigureRefs = backfilledRefs.filter((ref) => {
-      const isAutoInjected =
-        typeof ref.id === "string" &&
-        (ref.id.startsWith("auto-fig-") || ref.id.startsWith("citation-fig-"));
-      const refText =
-        `${ref.caption || ""} ${ref.relevance || ""}`.toLowerCase();
-      // Extract CJK bigrams + latin words for matching
-      const cjkChars = refText.replace(/[^\u4e00-\u9fff]/g, "");
-      const latinWords = refText
-        .replace(/[\u4e00-\u9fff]+/g, " ")
-        .split(/[\s\W]+/)
-        .filter((w) => w.length >= 3);
-      const bigrams: string[] = [];
-      for (let bi = 0; bi < cjkChars.length - 1; bi++) {
-        bigrams.push(cjkChars.substring(bi, bi + 2));
+
+    // Cosine similarity helper
+    const cosine = (a: number[], b: number[]): number => {
+      let dot = 0,
+        magA = 0,
+        magB = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        magA += a[i] * a[i];
+        magB += b[i] * b[i];
       }
-      const keywords = [...bigrams, ...latinWords];
-      const matchCount = keywords.filter((kw) =>
-        sectionCtx.includes(kw),
-      ).length;
-      // ★ v9: auto-injected 图表仍需通过关键词过滤（threshold=1）
-      // 原因：citation-fig-* 的 relevance 仅为通用文本"来自已引用证据[N]"，
-      // 且 Leader 分配可能包含股票图片/作者头像等无关图片。
-      // 例外：keywords 为空时（真实跨语言不匹配场景）才放行。
-      if (isAutoInjected) {
-        if (keywords.length === 0) {
-          // True language mismatch: no extractable keywords → allow
-          this.logger.log(
-            `[writeSection] Keeping auto-injected figure "${ref.caption}" — no extractable keywords (language mismatch)`,
+      return magA === 0 || magB === 0
+        ? 0
+        : dot / (Math.sqrt(magA) * Math.sqrt(magB));
+    };
+
+    // Section embedding：Promise 缓存（修复 B1 竞态：memoize Promise 本身，而非结果值）
+    // 原 null-based 缓存在 Promise.all 并发下不生效：多个 map 回调在首个 await 返回前
+    // 同时读到 null，重复发起 N 次 embeddingGenerate 请求。
+    let sectionEmbeddingPromise: Promise<number[] | null> | null = null;
+    const getSectionEmbedding = (): Promise<number[] | null> => {
+      if (sectionEmbeddingPromise === null) {
+        sectionEmbeddingPromise = this.engineFacade
+          .embeddingGenerate(sectionCtx.substring(0, 500))
+          .then((r) => r?.embedding ?? null)
+          .catch(() => null);
+      }
+      return sectionEmbeddingPromise;
+    };
+
+    const keepFlags = await Promise.all(
+      backfilledRefs.map(async (ref) => {
+        const refText =
+          `${ref.caption || ""} ${ref.relevance || ""}`.toLowerCase();
+        // Extract CJK bigrams + latin words for matching
+        const cjkChars = refText.replace(/[^\u4e00-\u9fff]/g, "");
+        const latinWords = refText
+          .replace(/[\u4e00-\u9fff]+/g, " ")
+          .split(/[\s\W]+/)
+          .filter((w) => w.length >= 3);
+        const bigrams: string[] = [];
+        for (let bi = 0; bi < cjkChars.length - 1; bi++) {
+          bigrams.push(cjkChars.substring(bi, bi + 2));
+        }
+        const keywords = [...bigrams, ...latinWords];
+        const matchCount = keywords.filter((kw) =>
+          sectionCtx.includes(kw),
+        ).length;
+
+        // Embedding fallback：matchCount=0 且 keywords 存在时触发（跨语言场景）
+        const embeddingFallback = async (): Promise<boolean> => {
+          try {
+            const [secEmb, figResult] = await Promise.all([
+              getSectionEmbedding(),
+              this.engineFacade.embeddingGenerate(refText.substring(0, 300)),
+            ]);
+            if (!secEmb || !figResult?.embedding) return false;
+            const sim = cosine(secEmb, figResult.embedding);
+            const keep = sim >= 0.3;
+            this.logger.log(
+              `[writeSection] Embedding fallback for "${ref.caption?.substring(0, 50)}" — sim=${sim.toFixed(3)} → ${keep ? "keep" : "remove"}`,
+            );
+            return keep;
+          } catch {
+            // Embedding 失败时宁可放行，不误删
+            this.logger.warn(
+              `[writeSection] Embedding fallback failed for "${ref.caption?.substring(0, 50)}" — allowing (fail-open)`,
+            );
+            return true;
+          }
+        };
+
+        // ★ v10: Embedding 主力方案
+        // 关键词命中 → 快速放行（跳过 embedding，节省调用）
+        if (matchCount >= 1) return true;
+
+        // 无有效文本 → 无法判断，拒绝
+        if (refText.trim().length < 5) {
+          this.logger.warn(
+            `[writeSection] Removing figure with empty caption from section "${section.title}"`,
           );
-          return true;
+          return false;
         }
-        if (matchCount >= 1) {
-          return true;
+
+        // Embedding 主力判断（涵盖：跨语言、关键词不重叠、短 caption 等所有场景）
+        const keep = await embeddingFallback();
+        if (!keep) {
+          this.logger.warn(
+            `[writeSection] Removing irrelevant figure "${ref.caption?.substring(0, 60)}" from section "${section.title}" — embedding sim < 0.3`,
+          );
         }
-        this.logger.warn(
-          `[writeSection] Removing auto-injected figure "${ref.caption?.substring(0, 60)}" from section "${section.title}" — matchCount=${matchCount} < 1 (irrelevant image)`,
-        );
-        return false;
-      }
-      // LLM 输出的 figureReferences：关键词匹配防幻觉
-      // No keywords → reject (empty/generic caption from LLM hallucination)
-      if (keywords.length === 0) {
-        return false;
-      }
-      // ★ v7: LLM 输出阈值从 2 降为 1 — LLM 已做语义相关性判断，关键词匹配仅防幻觉
-      // 数据库证据：matchCount>=2 在中英文混合 caption 下误杀率过高
-      const threshold = 1;
-      const relevant = matchCount >= threshold;
-      if (!relevant) {
-        this.logger.warn(
-          `[writeSection] Removing irrelevant figure "${ref.caption}" from section "${section.title}" — matchCount=${matchCount} < ${threshold} (LLM output)`,
-        );
-      }
-      return relevant;
-    });
+        return keep;
+      }),
+    );
+
+    const finalFigureRefs = backfilledRefs.filter((_, i) => keepFlags[i]);
 
     // Direction B：验证第一节核心判断，缺失时自动 fallback prepend
     if (isFirstSection) {
