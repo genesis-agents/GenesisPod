@@ -583,7 +583,7 @@ export class AIEngineFacade {
           model: modelConfig.modelId,
           maxTokens: request.maxTokens,
           temperature: request.temperature,
-          strictMode: true, // fallback 模式下使用严格模式，让错误冒泡给 fallback 处理
+          strictMode: request.strictMode,
           userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId 用于 Key 优先级解析
           processId: request.processId,
           skipGuardrails: request.skipGuardrails,

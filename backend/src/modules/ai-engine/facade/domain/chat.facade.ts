@@ -280,7 +280,7 @@ export class ChatFacade {
           maxTokens: request.maxTokens,
           temperature: request.temperature,
           responseFormat: request.responseFormat,
-          strictMode: true,
+          strictMode: request.strictMode,
           userId: request.billing?.userId ?? RequestContext.getUserId(),
           processId: request.processId,
           skipGuardrails: request.skipGuardrails,
