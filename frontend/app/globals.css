@@ -568,11 +568,6 @@ body {
   margin-top: 0.25em;
 }
 
-/* Definition-like patterns (bold followed by colon) */
-.prose p > strong:first-child {
-  display: inline-block;
-}
-
 /* Inverted (dark) prose styles */
 .prose-invert h1,
 .prose-invert h2 {
@@ -629,9 +624,6 @@ body {
   border-top-color: rgba(139, 92, 246, 0.3);
 }
 
-.prose-invert p > strong:first-child {
-  /* no override — inherits .prose-invert strong color */
-}
 
 /* ============================================
    AI Message Special Formatting

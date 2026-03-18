@@ -24,6 +24,10 @@ import {
   detectForeignLanguageBlocks,
 } from "@/modules/ai-app/shared/report-template";
 import { ReportQualityGateService } from "../../services/quality/report-quality-gate.service";
+import {
+  normalizeBoldStyle,
+  convertOrdinalBulletsToParagraphs,
+} from "../sanitize-output.utils";
 
 // ============================================================
 // 2. Markdown 残留问题防护
@@ -515,5 +519,159 @@ ${"这是填充内容。".repeat(60)}`;
     expect(result.fixedContent).toContain("### 1.1.");
     expect(result.fixedContent).not.toMatch(/^# /m);
     expect(result.fixedContent).not.toMatch(/^## /m);
+  });
+});
+
+// ============================================================
+// normalizeBoldStyle — Rule 5: 段落开头导语句去粗
+// ============================================================
+
+describe("normalizeBoldStyle: strip paragraph-opening bold connector phrases", () => {
+  it("should strip bold from paragraph-opening intro sentence ending with Chinese colon", () => {
+    const input =
+      "**图1所示的工作流程正体现了这一点**：规划代理通过多轮回传形成闭环。";
+    const result = normalizeBoldStyle(input);
+    expect(result).toBe(
+      "图1所示的工作流程正体现了这一点：规划代理通过多轮回传形成闭环。",
+    );
+  });
+
+  it("should strip bold from summary intro sentence ending with colon", () => {
+    const input =
+      "**综合现有证据，可以得出一个较明确的判断**：多智能体已越过概念验证阶段。";
+    const result = normalizeBoldStyle(input);
+    expect(result).toBe(
+      "综合现有证据，可以得出一个较明确的判断：多智能体已越过概念验证阶段。",
+    );
+  });
+
+  it("should NOT strip bold from inline mid-sentence bold", () => {
+    const input =
+      "这一趋势的**核心驱动力**是成本大幅下降，使中小企业首次具备了自建专属模型的经济可行性。";
+    const result = normalizeBoldStyle(input);
+    // Mid-sentence bold should remain
+    expect(result).toContain("**核心驱动力**");
+  });
+
+  it("should NOT strip bold from short labels (< 8 chars)", () => {
+    const input = "**结论**：这是一个判断。";
+    const result = normalizeBoldStyle(input);
+    // Too short for the 8-char minimum, but let's verify behavior
+    // "结论" is 2 chars, below 8-char threshold → should NOT be stripped
+    expect(result).toBe("**结论**：这是一个判断。");
+  });
+
+  it("should strip bold from figure reference openers", () => {
+    const input =
+      "**上述判断可由控制流程图进一步理解**：多智能体的核心工作机制通常围绕任务分解展开。";
+    const result = normalizeBoldStyle(input);
+    expect(result).not.toMatch(/^\*\*/);
+    expect(result).toContain("上述判断可由控制流程图进一步理解：");
+  });
+
+  it("should strip bold ending with ASCII colon", () => {
+    const input =
+      "**This analysis shows a key conclusion**: the system performs well.";
+    const result = normalizeBoldStyle(input);
+    expect(result).toBe(
+      "This analysis shows a key conclusion: the system performs well.",
+    );
+  });
+
+  it("should handle multiple lines — only strip bold at line start", () => {
+    const input = [
+      "第一段普通内容，**核心论点**在这里。",
+      "**综合以上分析，结论如下**：系统设计须优先治理层。",
+      "第三段普通内容。",
+    ].join("\n");
+    const result = normalizeBoldStyle(input);
+    const lines = result.split("\n");
+    expect(lines[0]).toContain("**核心论点**"); // mid-sentence: preserved
+    expect(lines[1]).not.toMatch(/^\*\*/); // line-start opener: stripped
+    expect(lines[1]).toContain("综合以上分析，结论如下：");
+    expect(lines[2]).toBe("第三段普通内容。");
+  });
+
+  it("should also strip ordinal markers (existing rules 1-4)", () => {
+    const input = "**其一，**代理可基于局部上下文理解当前状态";
+    const result = normalizeBoldStyle(input);
+    expect(result).not.toContain("**其一，**");
+    expect(result).toContain("其一，");
+  });
+});
+
+// ============================================================
+// convertOrdinalBulletsToParagraphs — 序数词 bullet → 段落
+// ============================================================
+
+describe("convertOrdinalBulletsToParagraphs: convert 其一/第一 bullet lists to prose", () => {
+  it("should convert 其一/其二/其三 bullet list to paragraphs", () => {
+    const input = [
+      "- 其一，代理可基于局部上下文理解当前状态",
+      "- 其二，代理可按角色目标选择行动",
+      "- 其三，代理可通过工具调用完成闭环执行",
+    ].join("\n");
+    const result = convertOrdinalBulletsToParagraphs(input);
+    expect(result).not.toMatch(/^-/m);
+    expect(result).toContain("其一，代理可基于局部上下文理解当前状态");
+    expect(result).toContain("其二，代理可按角色目标选择行动");
+    expect(result).toContain("其三，代理可通过工具调用完成闭环执行");
+  });
+
+  it("should convert 第一/第二/第三 bullet list to paragraphs", () => {
+    const input = [
+      "- 第一，以自治代理作为最小执行单元，使各实体能够在局部信息下独立行动",
+      "- 第二，以通信、共享状态和反馈回路作为协作协议，使多个代理走向协同推理",
+      "- 第三，以模块化分层架构承载这种协作，使系统具备扩展能力",
+    ].join("\n");
+    const result = convertOrdinalBulletsToParagraphs(input);
+    expect(result).not.toMatch(/^-/m);
+    expect(result).toContain("第一，以自治代理");
+    expect(result).toContain("第二，以通信");
+    expect(result).toContain("第三，以模块化");
+  });
+
+  it("should NOT convert non-ordinal bullet lists", () => {
+    const input = ["- Google", "- Microsoft", "- OpenAI"].join("\n");
+    const result = convertOrdinalBulletsToParagraphs(input);
+    // No ordinal markers → should remain as bullets
+    expect(result).toMatch(/^- Google/m);
+    expect(result).toMatch(/^- Microsoft/m);
+  });
+
+  it("should NOT convert single ordinal item (< 2 ordinals)", () => {
+    const input = [
+      "- 其一，代理可基于局部上下文理解当前状态",
+      "- 普通列表项",
+    ].join("\n");
+    const result = convertOrdinalBulletsToParagraphs(input);
+    // Only 1 ordinal item → stays as bullets
+    expect(result).toMatch(/^- 其一，/m);
+    expect(result).toMatch(/^- 普通列表项/m);
+  });
+
+  it("should preserve non-bullet lines before and after the block", () => {
+    const input = [
+      "这是前置段落内容，通常包含三层：",
+      "- 其一，代理可基于局部上下文理解当前状态",
+      "- 其二，代理可按角色目标选择行动",
+      "- 其三，代理可通过工具调用完成闭环执行",
+      "后续分析继续。",
+    ].join("\n");
+    const result = convertOrdinalBulletsToParagraphs(input);
+    expect(result).toContain("这是前置段落内容，通常包含三层：");
+    expect(result).toContain("后续分析继续。");
+    expect(result).not.toMatch(/^-/m);
+  });
+
+  it("should handle * bullet marker as well as -", () => {
+    const input = [
+      "* 其一，代理可基于局部上下文理解当前状态",
+      "* 其二，代理可按角色目标选择行动",
+    ].join("\n");
+    const result = convertOrdinalBulletsToParagraphs(input);
+    expect(result).not.toMatch(/^\*/m);
+    expect(result).toContain("其一，");
+    expect(result).toContain("其二，");
   });
 });
