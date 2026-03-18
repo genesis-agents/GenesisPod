@@ -75,7 +75,7 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
       <sup
         ref={triggerRef}
         onClick={handleClick}
-        className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
+        className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-[10px] font-medium text-purple-700 transition-colors hover:bg-purple-200"
         title={t('topicResearch.citation.jumpToReference')}
       >
         [{index}]
