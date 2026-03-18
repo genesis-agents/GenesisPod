@@ -223,6 +223,8 @@ export class ReportSynthesisService {
       const insertions = new Map<number, string[]>();
 
       for (const fig of result.figureReferences) {
+        // ★ Only embed placeholder for figures with valid URLs — mirrors collectAllCharts filter
+        if (!isValidFigureUrl(fig.imageUrl)) continue;
         const posMatch = fig.position?.match(/after_paragraph_(\d+)/);
         const paraIdx = posMatch ? parseInt(posMatch[1], 10) : -1;
         if (paraIdx > 0 && paraIdx <= paragraphs.length) {
@@ -665,11 +667,50 @@ export class ReportSynthesisService {
     });
 
     // 8.5 ★ 清理孤儿图表占位符（markdown 中引用但 charts 数组中不存在的）
+    // ★ Recovery-first: before stripping, try to find the figure in editedDimensionInputs
+    // and add it to allCharts. This handles the case where cross-imageUrl dedup in
+    // collectAllCharts dropped a figure that already has a placeholder in content.
     const chartIdSet = new Set(allCharts.map((c) => c.id));
     const cleanedReport = fullReportFromDimensions.replace(
       /<!-- chart:([^\s]+?) -->/g,
       (match, chartId) => {
         if (chartIdSet.has(chartId)) return match;
+
+        // Try to recover from editedDimensionInputs before stripping
+        // chartId format: d{dimIndex}-{fig.id}
+        const dimMatch = /^d(\d+)-(.+)$/.exec(chartId);
+        if (dimMatch) {
+          const dimIdx = parseInt(dimMatch[1], 10);
+          const figId = dimMatch[2];
+          const dim = editedDimensionInputs[dimIdx];
+          if (dim) {
+            const fig = dim.figureReferences?.find((f) => f.id === figId);
+            if (fig && isValidFigureUrl(fig.imageUrl)) {
+              allCharts.push({
+                id: chartId,
+                chartType: "reference",
+                title: fig.caption,
+                position: fig.position,
+                sectionId: String(dimIdx + 1),
+                dimensionId: dim.dimensionId,
+                dimensionName: dim.dimensionName,
+                imageUrl: fig.imageUrl,
+                evidenceCitationIndex: fig.evidenceCitationIndex,
+                source:
+                  fig.source &&
+                  !/^(source\s*:?\s*)?(\[?\d+\]?\s*)+$/i.test(fig.source.trim())
+                    ? fig.source
+                    : undefined,
+              });
+              chartIdSet.add(chartId);
+              this.logger.log(
+                `[synthesizeReport] Recovered orphan chart: ${chartId} (cross-dedup bypass)`,
+              );
+              return match; // keep placeholder
+            }
+          }
+        }
+
         this.logger.warn(
           `[synthesizeReport] Removing orphan chart placeholder: ${chartId}`,
         );
