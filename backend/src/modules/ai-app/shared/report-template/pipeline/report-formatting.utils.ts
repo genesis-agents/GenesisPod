@@ -597,6 +597,8 @@ export function stripLLMMetaNotes(content: string): string {
       .replace(/^\s*字数[统计]*[：:]\s*[约共]?\d+[字词]?\s*$/gm, "")
       // Standalone 字数统计 line with extra text: 字数统计：约1050字（含引用）
       .replace(/^[ \t]*字数统计[：:][^\n]*/gm, "")
+      // Editorial word count compliance note (Gemini format): （字数统计已严格控制在要求范围内，...）
+      .replace(/（字数统计已严格控制在[^）]{0,300}）/g, "")
       // Inline word count before closing paren: ...风险[49]。字数：128） → ...风险[49]）
       .replace(/[。.，,]?\s*字数[：:]\s*\d+(?=[)）])/g, "")
       // English variants
@@ -3672,22 +3674,33 @@ export function stripChapterHighlights(content: string): string {
   // ★ 同时匹配 ### 本章要点 heading 格式（LLM 可能直接输出 H3）
   const HEADING_RE =
     /^#{1,4}\s+\**(?:本章要点|本节小结|小结|Chapter Highlights)\**[：:]*\s*$/i;
+  // ★ Gemini 输出的 standalone bold paragraph 格式（无 > 前缀，无 # heading）
+  const BOLD_PARA_RE = /^\*{2}(?:本章要点|Chapter Highlights)\*{2}[：:]*\s*$/i;
 
   const lines = content.split("\n");
   const result: string[] = [];
-  let skipping = false;
+  // "blockquote" = > lines block; "bulletpara" = standalone bold + bullet list
+  let skippingMode: "blockquote" | "bulletpara" | null = null;
   let trailingBlanks = 0; // count trailing blank lines after block ends
 
   for (const line of lines) {
     if (HEADER_RE.test(line) || HEADING_RE.test(line.trim())) {
-      skipping = true;
+      skippingMode = "blockquote";
       trailingBlanks = 0;
       continue;
     }
-    if (skipping) {
-      // Continue skipping blockquote continuation lines
-      if (/^>\s/.test(line) || line.trim() === ">") {
-        continue;
+    if (BOLD_PARA_RE.test(line.trim())) {
+      skippingMode = "bulletpara";
+      trailingBlanks = 0;
+      continue;
+    }
+    if (skippingMode) {
+      if (skippingMode === "blockquote") {
+        // Continue skipping blockquote continuation lines
+        if (/^>\s/.test(line) || line.trim() === ">") continue;
+      } else {
+        // Skip bullet list items following the bold paragraph header
+        if (/^\s*[-*]\s/.test(line)) continue;
       }
       // Allow skipping at most 1 blank line after the block (the separator)
       if (line.trim() === "") {
@@ -3695,7 +3708,7 @@ export function stripChapterHighlights(content: string): string {
         if (trailingBlanks <= 1) continue; // skip one blank line
         // Additional blank lines: stop skipping, keep them
       }
-      skipping = false;
+      skippingMode = null;
       trailingBlanks = 0;
     }
     result.push(line);
