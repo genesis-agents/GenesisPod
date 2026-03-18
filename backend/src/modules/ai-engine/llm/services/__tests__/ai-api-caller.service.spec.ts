@@ -462,6 +462,7 @@ describe("AiApiCallerService", () => {
         undefined, // responseFormat
         undefined, // reasoningDepth
         { type: "json_schema", schema },
+        true, // schemaStrict
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
