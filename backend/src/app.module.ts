@@ -1,13 +1,11 @@
 import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { ServeStaticModule } from "@nestjs/serve-static";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ResponseTransformInterceptor } from "./common/interceptors/response-transform.interceptor";
 import { RequestLoggerInterceptor } from "./common/interceptors/request-logger.interceptor";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
-import { join } from "path";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { CommonModule } from "./common/common.module";
@@ -117,12 +115,6 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
           limit: config.get("THROTTLE_LIMIT", 60), // 限制：60次请求
         },
       ],
-    }),
-
-    // 静态文件服务
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, "..", "public"),
-      serveRoot: "/",
     }),
 
     // 公共基础模块
