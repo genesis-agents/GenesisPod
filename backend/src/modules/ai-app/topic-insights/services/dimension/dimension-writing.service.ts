@@ -571,7 +571,10 @@ export class DimensionWritingService {
     });
 
     // 按并行组执行
-    for (const group of outline.executionPlan.parallelGroups) {
+    for (const [
+      groupIndex,
+      group,
+    ] of outline.executionPlan.parallelGroups.entries()) {
       this.logger.log(
         `${logPrefix} Writing group: ${group.join(", ")}${modelId ? ` with model: ${modelId}` : ""}`,
       );
@@ -582,7 +585,7 @@ export class DimensionWritingService {
       );
 
       // 并行写作
-      const writeInputs = groupSections.map((section) => ({
+      const writeInputs = groupSections.map((section, sectionIndex) => ({
         section,
         evidenceData: this.filterEvidenceForSection(section, evidenceData),
         previousSections: this.getPreviousSections(
@@ -597,6 +600,8 @@ export class DimensionWritingService {
         topicLanguage: topic?.language, // ★ 传递语言设置
         assignedSkills, // ★ Leader 分配的任务级技能
         figureRegistry, // ★ 图表注册表用于 figureId 回填
+        // Direction B: 只有第一并行组的第一个章节才是维度绝对第一节
+        isFirstDimensionSection: groupIndex === 0 && sectionIndex === 0,
       }));
 
       // 发送研究员开始写作事件

@@ -293,9 +293,27 @@ export class ResearchLeaderService {
 
     const leaderModel = await this.getReasoningModel();
 
+    // Direction B：维度核心结论检测 regex（与 section-writer.service.ts 保持一致）
+    const OPENING_CONCLUSION_RE =
+      /^(>\s*\*{1,4}(?:核心判断|Key Finding)\*{1,4}[：:][^\n]*)\n*/;
+
     // 构建章节内容（不添加编号和分割线——编号由 numberSubHeadings 统一处理）
+    // Direction B：第一节若以 > **核心判断**：开头，需提升到 ### 标题之前（维度级别）
+    // 否则拼接后核心判断会出现在 ### 背景概述 之后，违反"开篇即结论"原则
     const sectionsContent = sectionResults
-      .map((s) => `### ${s.title}\n\n${s.content}`)
+      .map((s, index) => {
+        if (index === 0) {
+          const conclusionMatch = s.content.match(OPENING_CONCLUSION_RE);
+          if (conclusionMatch) {
+            const conclusionLine = conclusionMatch[1];
+            const remaining = s.content
+              .slice(conclusionMatch[0].length)
+              .trimStart();
+            return `${conclusionLine}\n\n### ${s.title}\n\n${remaining}`;
+          }
+        }
+        return `### ${s.title}\n\n${s.content}`;
+      })
       .join("\n\n");
 
     // 如果没有推理模型，使用简单拼接（但仍提取关键发现）

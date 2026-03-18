@@ -62,6 +62,21 @@ const MIN_CONTENT_LENGTH = 200; // 最小内容长度（字符）
 const MIN_CONTENT_LENGTH_RATIO = 0.1; // 最小内容长度比例（相对于目标字数）
 
 /**
+ * Direction B：维度核心结论检测 regex
+ *
+ * 匹配范围：
+ *   > **核心判断**：      ← 标准中文（ChatGPT / Grok / Deepseek）
+ *   > ***核心判断***：    ← 强调三星号（Gemini 偶发）
+ *   > **Key Finding**:   ← 英文标准
+ *   >**核心判断**：       ← 无空格（Grok 偶发）
+ *   > **核心判断**: 英文冒号
+ *
+ * \*{1,4} 覆盖 1-4 个星号，容忍 Gemini/Deepseek 格式漂移
+ */
+const OPENING_CONCLUSION_RE =
+  /^>\s*\*{1,4}(?:核心判断|Key Finding)\*{1,4}[：:]/m;
+
+/**
  * 提示词最大字符数安全上限
  * ~80K chars ≈ ~20K tokens，为推理模型保留足够的 completion token 空间
  * 防止 reasoning model 将所有 completion token 用于 CoT 而输出空内容
@@ -114,6 +129,12 @@ export interface SectionWriteInput {
   assignedSkills?: string[];
   /** ★ 图表注册表（figureId → 元数据），用于 backfillFigureUrls 的单一可信来源 */
   figureRegistry?: Map<string, FigureRegistryEntry>;
+  /**
+   * Direction B: 标记该章节是否为整个维度的绝对第一节（需要生成核心判断）
+   * 由 dimension-writing.service.ts 在并行组遍历时精确设置，
+   * 避免同一并行组内所有无依赖章节都被误判为"第一节"
+   */
+  isFirstDimensionSection?: boolean;
 }
 
 /**
@@ -276,10 +297,24 @@ export class SectionWriterService {
       promptVariables,
     );
 
+    // Direction B: 第一节强制注入核心判断指令（代码保证，不依赖 LLM 推理）
+    // 使用 isFirstDimensionSection 精确标记（由 dimension-writing.service 设置），
+    // 避免同一并行组多个无依赖章节都注入核心判断指令
+    const isFirstSection = input.isFirstDimensionSection === true;
+    const lang = input.topicLanguage || "zh";
+    const openingInstruction = isFirstSection
+      ? lang.startsWith("en")
+        ? `\n\n⚠️ **You are writing the FIRST section of this dimension.** Your output must begin (before any ### heading) with:\n> **Key Finding**: [The single most important conclusion of this dimension, ≤50 words, must include specific data or a verifiable fact]`
+        : `\n\n⚠️ **你是本维度的第一节**：输出内容的绝对第一行（在任何 ### 标题之前）必须是：\n> **核心判断**：[本维度最重要的结论，≤50字，必须包含具体数据或可验证的事实，禁止泛化描述]`
+      : lang.startsWith("en")
+        ? `\n\n⚠️ **You are NOT the first section of this dimension.** Do NOT add a "> **Key Finding**" line. Start directly with your ### heading or content.`
+        : `\n\n⚠️ **你不是本维度的第一节**：禁止在输出中添加 > **核心判断** 行，直接从 ### 标题或正文内容开始。`;
+
     // V5: Inject validation context if available
-    const finalUserPrompt = input.validationContext
-      ? `${userPrompt}\n\n${input.validationContext}`
-      : userPrompt;
+    const finalUserPrompt =
+      (input.validationContext
+        ? `${userPrompt}\n\n${input.validationContext}`
+        : userPrompt) + openingInstruction;
 
     // 调用 AI 写作
     // ★ 支持指定模型实现 Agent 多元化
@@ -593,6 +628,26 @@ export class SectionWriterService {
       return relevant;
     });
 
+    // Direction B 诊断：验证第一节的核心判断是否成功生成并存活
+    if (isFirstSection) {
+      const hasOpeningConclusion = OPENING_CONCLUSION_RE.test(content);
+      if (hasOpeningConclusion) {
+        const matchLine = content.match(OPENING_CONCLUSION_RE);
+        const lineStart = matchLine ? (matchLine.index ?? 0) : 0;
+        const preview = content
+          .substring(lineStart, lineStart + 80)
+          .replace(/\n/g, "\\n");
+        this.logger.log(
+          `[writeSection][Direction-B] ✅ Opening conclusion present: "${preview}"`,
+        );
+      } else {
+        this.logger.warn(
+          `[writeSection][Direction-B] ⚠️ MISSING opening conclusion in first section "${section.title}". ` +
+            `Content starts: "${content.substring(0, 200).replace(/\n/g, "\\n")}"`,
+        );
+      }
+    }
+
     this.logger.log(
       `[writeSection] Completed ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${finalFigureRefs.length} figRefs (${backfilledRefs.length - finalFigureRefs.length} filtered), ${charts.generatedCharts.length} charts, ${latencyMs}ms`,
     );
@@ -677,6 +732,15 @@ export class SectionWriterService {
       promptVariables,
     );
 
+    // Direction B：若原始内容包含核心判断，修订时必须保留
+    const originalHasConclusion = OPENING_CONCLUSION_RE.test(originalContent);
+    const conclusionPreservationInstruction = originalHasConclusion
+      ? (input.topicLanguage || "zh").startsWith("en")
+        ? `\n\n⚠️ **Direction B — PRESERVE opening conclusion**: The original content starts with a "Key Finding" blockquote. Your revised output MUST keep this line as the absolute first line, unchanged. Only revise the content that follows it.`
+        : `\n\n⚠️ **Direction B — 必须保留核心判断**：原始内容以 \`> **核心判断**：\` 开头。修订后输出的绝对第一行必须保留此行不变，只修订其后的正文内容。`
+      : "";
+    const finalRevisionPrompt = userPrompt + conclusionPreservationInstruction;
+
     // 调用 AI 修订
     // ★ 支持指定模型实现 Agent 多元化
     const revisionLanguageInstruction = getLanguageInstruction(
@@ -711,7 +775,7 @@ export class SectionWriterService {
     const response = await this.chatFacade.chatWithSkills({
       messages: [
         { role: "system", content: effectiveRevisionSystemPrompt },
-        { role: "user", content: userPrompt },
+        { role: "user", content: finalRevisionPrompt },
       ],
       additionalSkills: skillIds,
       modelType: AIModelType.CHAT,
@@ -768,6 +832,21 @@ export class SectionWriterService {
     // 统计字数和引用
     const wordCount = content.length;
     const referencesUsed = this.extractReferences(content);
+
+    // Direction B 诊断：修订后验证核心判断是否存活
+    if (originalHasConclusion) {
+      const revisedHasConclusion = OPENING_CONCLUSION_RE.test(content);
+      if (revisedHasConclusion) {
+        this.logger.log(
+          `[reviseSection][Direction-B] ✅ Opening conclusion preserved after revision: "${section.title}"`,
+        );
+      } else {
+        this.logger.warn(
+          `[reviseSection][Direction-B] ⚠️ Opening conclusion LOST during revision of "${section.title}". ` +
+            `Revised content starts: "${content.substring(0, 200).replace(/\n/g, "\\n")}"`,
+        );
+      }
+    }
 
     this.logger.log(
       `[reviseSection] Revised ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${latencyMs}ms`,

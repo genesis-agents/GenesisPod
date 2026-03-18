@@ -189,23 +189,32 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 - 每个 ### 子节建议 300-800 字，过短则缺乏论证，过长则应拆分`;
 
 /**
- * Chapter highlights format (Stanford HAI Chapter Highlights pattern).
+ * Direction B: Dimension opening conclusion (one-line core thesis).
+ * Replaces the multi-bullet Chapter Highlights pattern.
+ * Benchmarked against Gartner Research Note "Key Finding" pattern.
  */
-export const CHAPTER_HIGHLIGHTS = `## 章节要点速览（每个维度 detailedContent 开头必须包含）
+export const DIMENSION_OPENING_CONCLUSION = `## 维度核心结论（Direction B — 首节必须包含）
 
-在 detailedContent 最开头，第一个 ### 标题之前，插入一个引用块作为本章要点速览：
+detailedContent 的**绝对第一行**（在任何 ### 标题之前）必须写一行核心结论：
 
-> **本章要点**
-> - 要点 1：一句话核心发现（含关键数据）
-> - 要点 2：一句话核心发现
-> - 要点 3：一句话核心发现
+> **核心判断**：[本维度最重要的结论，≤50字，具体可验证，包含关键数据或事实]
 
 约束（严格执行）：
-- 3-5 条要点，每条**严格不超过 30 字**（含标点）
-- 要点必须是完整句子，不能半截结尾。如果发现自己要写超过 30 字，就缩短描述
-- 不要在要点中包含数学公式或技术细节，只写结论性判断
-- 这是全文中该维度唯一允许的"开头引用块"
-- 对标 Stanford HAI 的 Chapter Highlights 模式`;
+- **只允许一行**，不得扩展为列表或多个要点
+- **禁止泛化描述**：如"XX领域正在快速发展"、"各方面都有重要进展"等是不合格的
+- **必须包含至少一个具体数据点**或可验证的事实（数字、公司名、事件等）
+- 这一行是读者阅读本维度的第一印象，必须让读者立刻掌握核心结论
+- 若为第一节（前置章节为"无"），必须写；后续节直接进入正文
+- 对标 Gartner Research Note 的 "Key Finding" 模式
+
+正确示例：
+> **核心判断**：2025年大模型推理成本同比下降73%，开源模型在80%企业任务上达到闭源90%性能，商业壁垒实质消失。
+
+错误示例（过于泛化）：
+> **核心判断**：AI领域正在快速发展，各方面都有重要进展值得关注。`;
+
+/** @deprecated Use DIMENSION_OPENING_CONCLUSION instead. Kept for backward compatibility. */
+export const CHAPTER_HIGHLIGHTS = DIMENSION_OPENING_CONCLUSION;
 
 // ============ Dimension Research Standards (injected directly into dimension-research.prompt) ============
 
@@ -533,19 +542,24 @@ export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 - Each dimension should target 1500-3000 words; falling short indicates insufficient depth of analysis
 - Each ### sub-section should target 300-800 words; too short means insufficient argumentation, too long should be split`;
 
-export const CHAPTER_HIGHLIGHTS_EN = `## Chapter Highlights (required at start of each dimension's detailedContent)
+export const DIMENSION_OPENING_CONCLUSION_EN = `## Dimension Core Conclusion (Direction B — required at start of first section)
 
-At the very beginning of detailedContent, before the first ### heading, insert a blockquote:
+The **absolute first line** of detailedContent (before any ### heading) must be a single core judgment:
 
-> **Chapter Highlights**
-> - Point 1: One-sentence core finding (with key data)
-> - Point 2: One-sentence core finding
-> - Point 3: One-sentence core finding
+> **Key Finding**: [The most important conclusion of this dimension, ≤50 words, specific and verifiable, includes key data]
 
 Constraints:
-- 3-5 points, each max 30 words
-- This is the only "opening blockquote" allowed for each dimension
-- Benchmarked: Stanford HAI Chapter Highlights pattern`;
+- **One line only** — do not expand into a bullet list
+- **No generic statements**: "The field is evolving rapidly" is not acceptable
+- **Must include at least one specific data point** or verifiable fact (number, company, event)
+- If this is the first section (no previous sections), this line is mandatory; subsequent sections go straight into content
+- Benchmarked against Gartner Research Note "Key Finding" pattern
+
+Good example:
+> **Key Finding**: LLM inference costs fell 73% YoY in 2025; open-source models match closed-source performance on 80% of enterprise tasks, effectively eliminating the commercial moat.`;
+
+/** @deprecated Use DIMENSION_OPENING_CONCLUSION_EN instead. Kept for backward compatibility. */
+export const CHAPTER_HIGHLIGHTS_EN = DIMENSION_OPENING_CONCLUSION_EN;
 
 export const EXECUTIVE_SUMMARY_FORMAT_EN = `## Executive Summary (McKinsey SCR Framework)
 
@@ -698,7 +712,7 @@ export const QUALITY_CHECKLIST_EN = `## Pre-Output Self-Check
  * in the appropriate language. Used by section-writer for each section.
  *
  * Includes: heading hierarchy, narrative structure, professional tone,
- * formatting limits, chapter highlights.
+ * formatting limits, dimension opening conclusion (Direction B).
  *
  * Does NOT include: analysis depth, citation standards, chart standards
  * (these are injected separately in dimension-research prompts).
@@ -712,7 +726,7 @@ export function getWritingStandards(language: string = "zh"): string {
       NARRATIVE_STRUCTURE_EN,
       PROFESSIONAL_TONE_EN,
       FORMATTING_LIMITS_EN,
-      CHAPTER_HIGHLIGHTS_EN,
+      DIMENSION_OPENING_CONCLUSION_EN,
     ].join("\n\n");
   }
   return [
@@ -720,7 +734,7 @@ export function getWritingStandards(language: string = "zh"): string {
     NARRATIVE_STRUCTURE,
     PROFESSIONAL_TONE,
     FORMATTING_LIMITS,
-    CHAPTER_HIGHLIGHTS,
+    DIMENSION_OPENING_CONCLUSION,
   ].join("\n\n");
 }
 

@@ -17,8 +17,8 @@ import {
   PROFESSIONAL_TONE_EN,
   FORMATTING_LIMITS,
   FORMATTING_LIMITS_EN,
-  CHAPTER_HIGHLIGHTS,
-  CHAPTER_HIGHLIGHTS_EN,
+  DIMENSION_OPENING_CONCLUSION,
+  DIMENSION_OPENING_CONCLUSION_EN,
   ANALYSIS_DEPTH,
   ANALYSIS_DEPTH_EN,
   CITATION_STANDARDS,
@@ -44,7 +44,7 @@ describe("getWritingStandards", () => {
     expect(result).toContain(NARRATIVE_STRUCTURE);
     expect(result).toContain(PROFESSIONAL_TONE);
     expect(result).toContain(FORMATTING_LIMITS);
-    expect(result).toContain(CHAPTER_HIGHLIGHTS);
+    expect(result).toContain(DIMENSION_OPENING_CONCLUSION);
   });
 
   it("should return Chinese standards for zh", () => {
@@ -60,7 +60,7 @@ describe("getWritingStandards", () => {
     expect(result).toContain(NARRATIVE_STRUCTURE_EN);
     expect(result).toContain(PROFESSIONAL_TONE_EN);
     expect(result).toContain(FORMATTING_LIMITS_EN);
-    expect(result).toContain(CHAPTER_HIGHLIGHTS_EN);
+    expect(result).toContain(DIMENSION_OPENING_CONCLUSION_EN);
   });
 
   it("should return English standards for en-US prefix", () => {
@@ -102,7 +102,7 @@ describe("getDimensionResearchStandards", () => {
     const result = getDimensionResearchStandards("zh");
     expect(result).not.toContain(HEADING_HIERARCHY);
     expect(result).not.toContain(PROFESSIONAL_TONE);
-    expect(result).not.toContain(CHAPTER_HIGHLIGHTS);
+    expect(result).not.toContain(DIMENSION_OPENING_CONCLUSION);
   });
 
   it("should contain analysis depth keywords", () => {
