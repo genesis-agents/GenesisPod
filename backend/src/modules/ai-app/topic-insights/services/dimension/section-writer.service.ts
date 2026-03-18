@@ -599,23 +599,34 @@ export class SectionWriterService {
         bigrams.push(cjkChars.substring(bi, bi + 2));
       }
       const keywords = [...bigrams, ...latinWords];
-      // ★ v8: auto-injected 图表（Leader 分配但 LLM 遗漏）直接信任 Leader 的相关性判断
-      // Leader 已在 validateAllocatedFigures 中做过语义相关性验证，关键词匹配不再需要
-      // 绕过关键词过滤，避免中英文 caption/section 语言不同时误杀高价值图表
+      const matchCount = keywords.filter((kw) =>
+        sectionCtx.includes(kw),
+      ).length;
+      // ★ v9: auto-injected 图表仍需通过关键词过滤（threshold=1）
+      // 原因：citation-fig-* 的 relevance 仅为通用文本"来自已引用证据[N]"，
+      // 且 Leader 分配可能包含股票图片/作者头像等无关图片。
+      // 例外：keywords 为空时（真实跨语言不匹配场景）才放行。
       if (isAutoInjected) {
-        this.logger.log(
-          `[writeSection] Keeping auto-injected figure "${ref.caption}" — pre-validated by Leader, skip keyword filter`,
+        if (keywords.length === 0) {
+          // True language mismatch: no extractable keywords → allow
+          this.logger.log(
+            `[writeSection] Keeping auto-injected figure "${ref.caption}" — no extractable keywords (language mismatch)`,
+          );
+          return true;
+        }
+        if (matchCount >= 1) {
+          return true;
+        }
+        this.logger.warn(
+          `[writeSection] Removing auto-injected figure "${ref.caption?.substring(0, 60)}" from section "${section.title}" — matchCount=${matchCount} < 1 (irrelevant image)`,
         );
-        return true;
+        return false;
       }
       // LLM 输出的 figureReferences：关键词匹配防幻觉
       // No keywords → reject (empty/generic caption from LLM hallucination)
       if (keywords.length === 0) {
         return false;
       }
-      const matchCount = keywords.filter((kw) =>
-        sectionCtx.includes(kw),
-      ).length;
       // ★ v7: LLM 输出阈值从 2 降为 1 — LLM 已做语义相关性判断，关键词匹配仅防幻觉
       // 数据库证据：matchCount>=2 在中英文混合 caption 下误杀率过高
       const threshold = 1;

@@ -671,6 +671,11 @@ export class ReportSynthesisService {
     // and add it to allCharts. This handles the case where cross-imageUrl dedup in
     // collectAllCharts dropped a figure that already has a placeholder in content.
     const chartIdSet = new Set(allCharts.map((c) => c.id));
+    // ★ URL-level dedup set to prevent recovery from re-introducing duplicate images
+    // (same imageUrl appearing in multiple dimensions under different chart IDs)
+    const seenRecoveryUrls = new Set(
+      allCharts.map((c) => c.imageUrl).filter((u): u is string => Boolean(u)),
+    );
     const cleanedReport = fullReportFromDimensions.replace(
       /<!-- chart:([^\s]+?) -->/g,
       (match, chartId) => {
@@ -686,6 +691,15 @@ export class ReportSynthesisService {
           if (dim) {
             const fig = dim.figureReferences?.find((f) => f.id === figId);
             if (fig && isValidFigureUrl(fig.imageUrl)) {
+              // ★ URL dedup: skip if same imageUrl already exists in allCharts
+              // (prevents duplicates from the same stock photo injected across multiple sections)
+              if (seenRecoveryUrls.has(fig.imageUrl!)) {
+                this.logger.warn(
+                  `[synthesizeReport] Removing orphan chart placeholder: ${chartId} (URL already in report)`,
+                );
+                return "";
+              }
+              seenRecoveryUrls.add(fig.imageUrl!);
               allCharts.push({
                 id: chartId,
                 chartType: "reference",
