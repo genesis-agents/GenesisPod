@@ -49,32 +49,53 @@ import type { ExtractedFigure } from "../../types/research.types";
  * 根因：Vision 需要下载每张图片 URL，慢速/受限 CDN 导致整 batch 挂起 150s（chatStructured 内部超时）。
  * 8 维度并发 × 多 batch × 3 次重试 = 潜在 450s/batch，引发 rate limit 连锁超时。
  * 外部 Promise.race 30s 截断：失败快速走 v13 fallback，不阻塞整个 dimension pipeline。
+ *
+ * ★ v14: 代理下载 base64 — 根治 CDN 封锁问题
+ * 根因：OpenAI Vision 服务器直接下载图片 URL，被中国 CDN / 签名 CDN 封锁或超时。
+ * 新方案：Railway 先下载图片（8s timeout），转 base64 data URI 再发给 Vision。
+ * OpenAI 收到内联数据，不需要自己访问外部 CDN，彻底绕过所有 CDN 封锁。
+ * fetch 失败（Railway 也访问不到）→ 直接 type-based fallback，不浪费 Vision 调用。
  */
 const VISION_BATCH_TIMEOUT_MS = 30_000;
+const FETCH_IMAGE_TIMEOUT_MS = 8_000;
 
 /** ★ v10: 信息性图片类型（fallback 时仅保留这些类型，photo 需要 Vision LLM 验证） */
 const INFORMATIONAL_FIGURE_TYPES = new Set(["chart", "table", "diagram"]);
 
-/**
- * ★ v12: Vision API 不可达的 CDN 域名黑名单
- * 这些域名要求登录或使用签名鉴权，Vision LLM 下载时会超时或 403，导致整 batch 失败。
- */
-const VISION_INCOMPATIBLE_DOMAINS: RegExp[] = [
-  /fbcdn\.net/i,
-  /scontent.*\.xx\./i,
-  /cdninstagram\.com/i,
-  /media\.licdn\.com/i,
-  /pinimg\.com/i,
-  /tiktokcdn\.com/i,
-];
-
-/** Vision API 支持的图片格式（不支持 SVG/BMP/TIFF 等） */
+/** Vision API 不支持的格式（SVG/BMP/TIFF 等无法被 Vision 解析） */
 const VISION_UNSUPPORTED_EXTENSIONS = /\.(?:svg|bmp|tiff?|ico|eps|ai)(?:\?|$)/i;
 
-function isVisionCompatibleUrl(url: string): boolean {
-  if (VISION_INCOMPATIBLE_DOMAINS.some((re) => re.test(url))) return false;
-  if (VISION_UNSUPPORTED_EXTENSIONS.test(url)) return false;
-  return true;
+/**
+ * ★ v14: 代理下载图片并转为 base64 data URI
+ * 由 Railway 服务器下载图片，规避 OpenAI Vision 服务器被 CDN 封锁的问题。
+ * 返回 null 表示无法访问（直接走 type-based fallback）。
+ */
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB 上限，防止超大图片占用内存
+
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+  if (VISION_UNSUPPORTED_EXTENSIONS.test(url)) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_IMAGE_TIMEOUT_MS);
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)" },
+    });
+    clearTimeout(timer);
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") ?? "image/jpeg";
+    const mimeType = contentType.split(";")[0].trim();
+    if (!mimeType.startsWith("image/")) return null;
+    const contentLength = response.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_IMAGE_BYTES)
+      return null;
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_IMAGE_BYTES) return null;
+    const base64 = Buffer.from(buffer).toString("base64");
+    return `data:${mimeType};base64,${base64}`;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -212,13 +233,15 @@ export class FigureRelevanceService {
     fig: ExtractedFigure,
     topicTitle: string,
   ): Promise<{ accepted: boolean; reason?: string }> {
-    if (!isVisionCompatibleUrl(fig.imageUrl)) {
-      // CDN 黑名单/不支持格式 → type-based fallback
-      const accepted = INFORMATIONAL_FIGURE_TYPES.has(fig.type);
-      return {
-        accepted,
-        reason: accepted ? undefined : "incompatible CDN/format",
-      };
+    // ★ v14: 代理下载 — Railway 先 fetch 图片转 base64，规避 OpenAI 服务器 CDN 封锁
+    const imageData = await fetchImageAsBase64(fig.imageUrl);
+    if (!imageData) {
+      // Railway 也访问不到（超时/403/格式不支持）→ type-based fallback
+      const accepted = this.typeBasedFallback(fig);
+      this.logger.warn(
+        `[evaluateSingle] ${fig.imageUrl.substring(0, 80)}... fetch failed, typeBasedFallback=${accepted}`,
+      );
+      return { accepted, reason: accepted ? undefined : "image fetch failed" };
     }
 
     const contentParts: ContentPart[] = [
@@ -241,7 +264,7 @@ export class FigureRelevanceService {
       } satisfies TextContentPart,
       {
         type: "image_url",
-        image_url: { url: fig.imageUrl, detail: "low" },
+        image_url: { url: imageData, detail: "low" },
       } satisfies ImageUrlContentPart,
       {
         type: "text",
