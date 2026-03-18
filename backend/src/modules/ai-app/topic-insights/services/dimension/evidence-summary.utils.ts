@@ -115,19 +115,32 @@ export function buildFiguresSummary(
     return { summary: "", figureRegistry };
   }
 
-  // ★ v2: 按信息价值排序——chart/table/diagram 优先，photo 类后置
-  // 确保在截断时 Leader 优先看到高价值图表，参考文献数据图不因排名靠后而消失
+  // ★ v3: 双维度排序 — 先按图表类型（chart/table/diagram > photo），再按来源可信度（高分优先）
+  // 确保在截断时 Leader 优先看到高价值图表（arXiv/政府/行业报告的数据图表 > 低质量博客的装饰图）
   const CHART_TYPES = new Set(["chart", "table", "diagram"]);
   const entryIds = Array.from(figureRegistry.keys()); // entries 与 figureRegistry 插入顺序一致
   const sortedIndices = Array.from(
     { length: entries.length },
     (_, i) => i,
   ).sort((a, b) => {
-    const typeA = figureRegistry.get(entryIds[a])?.type ?? "";
-    const typeB = figureRegistry.get(entryIds[b])?.type ?? "";
-    const scoreA = CHART_TYPES.has(typeA) ? 0 : 1;
-    const scoreB = CHART_TYPES.has(typeB) ? 0 : 1;
-    return scoreA - scoreB;
+    const regA = figureRegistry.get(entryIds[a]);
+    const regB = figureRegistry.get(entryIds[b]);
+    const typeA = regA?.type ?? "";
+    const typeB = regB?.type ?? "";
+    // Primary: informational type wins (0) over photo (1)
+    const typeScoreA = CHART_TYPES.has(typeA) ? 0 : 1;
+    const typeScoreB = CHART_TYPES.has(typeB) ? 0 : 1;
+    if (typeScoreA !== typeScoreB) return typeScoreA - typeScoreB;
+    // Secondary: higher credibility score wins (sort DESC)
+    const credA =
+      regA && regA.evidenceIndex > 0
+        ? (evidenceData[regA.evidenceIndex - 1]?.credibilityScore ?? 0)
+        : 0;
+    const credB =
+      regB && regB.evidenceIndex > 0
+        ? (evidenceData[regB.evidenceIndex - 1]?.credibilityScore ?? 0)
+        : 0;
+    return credB - credA;
   });
   const sortedEntries = sortedIndices.map((i) => entries[i]);
 

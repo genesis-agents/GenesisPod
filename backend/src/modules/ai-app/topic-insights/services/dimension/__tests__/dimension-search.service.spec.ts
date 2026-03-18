@@ -212,7 +212,7 @@ describe("DimensionSearchService", () => {
           expect.objectContaining({ title: "AI Diagnostics Breakthrough" }),
         ]),
         expect.objectContaining({
-          topN: 5,
+          topN: 15,
           maxContentLength: 3000,
           enableFigures: true,
         }),

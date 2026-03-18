@@ -958,8 +958,8 @@ function normalizeUrl(url: string): string {
   try {
     const u = new URL(url.replace(/&amp;/g, "&"));
     // Normalize: lowercase host, remove trailing slash, remove www prefix
-    let normalized = `${u.protocol}//${u.host.replace(/^www\./, "")}${u.pathname.replace(/\/$/, "")}`;
-    if (u.search) normalized += u.search;
+    // ★ 故意忽略 query string：utm_source/ocid 等追踪参数不影响文章唯一性
+    const normalized = `${u.protocol}//${u.host.replace(/^www\./, "")}${u.pathname.replace(/\/$/, "")}`;
     return normalized.toLowerCase();
   } catch {
     return url

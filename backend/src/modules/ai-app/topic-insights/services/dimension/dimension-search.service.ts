@@ -195,7 +195,7 @@ export class DimensionSearchService {
 
     // 2. 数据增强
     const topicConfig = topic.topicConfig as Record<string, unknown> | null;
-    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 5;
+    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 15;
     const enrichmentMaxLength =
       (topicConfig?.enrichmentMaxLength as number) || 3000;
     const enableFigures = topicConfig?.enableFigures !== false;
