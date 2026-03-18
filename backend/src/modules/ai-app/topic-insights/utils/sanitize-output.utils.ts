@@ -404,6 +404,11 @@ export function stripSectionOpeningShortLines(content: string): string {
   while (bodyStart < lines.length && !lines[bodyStart].trim()) bodyStart++;
   const bodyLines = lines.slice(bodyStart);
 
+  // 兜底：如果短引用块后面没有任何正文，说明整个章节只有短引用句——不删，保留原内容
+  if (bodyLines.length === 0 || bodyLines.every((l) => !l.trim())) {
+    return content;
+  }
+
   return [...headingLines, ...bodyLines].join("\n").trimStart();
 }
 
