@@ -137,6 +137,13 @@ export interface SearchPhaseResult {
 export class DimensionMissionService {
   private readonly logger = new Logger(DimensionMissionService.name);
 
+  /**
+   * ★ Per-report mutex: serializes saveEvidence calls so concurrent dimensions
+   * don't race on citationIndex assignment (no unique constraint on citationIndex).
+   * Key = reportId, value = tail of the pending-promise chain for that report.
+   */
+  private readonly saveEvidenceLocks = new Map<string, Promise<void>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly leaderPlanning: LeaderPlanningService,
@@ -161,6 +168,29 @@ export class DimensionMissionService {
     // ★ Batch 3: Token 预算智能截断
     @Optional() private readonly tokenBudgetService?: TokenBudgetService,
   ) {}
+
+  /**
+   * Runs fn exclusively for reportId — queues concurrent callers so citationIndex
+   * is assigned sequentially and never duplicated across parallel dimensions.
+   */
+  private withReportLock<T>(
+    reportId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const prev = this.saveEvidenceLocks.get(reportId) ?? Promise.resolve();
+    // Chain: wait for previous, then run fn, then resolve the gate
+    let resolveCurrent!: () => void;
+    const current = new Promise<void>((r) => (resolveCurrent = r));
+    this.saveEvidenceLocks.set(reportId, current);
+    const result = prev.then(fn).finally(resolveCurrent);
+    // Clean up map entry once this is the last pending operation (fire-and-forget)
+    void result.finally(() => {
+      if (this.saveEvidenceLocks.get(reportId) === current) {
+        this.saveEvidenceLocks.delete(reportId);
+      }
+    });
+    return result;
+  }
 
   /**
    * ★ v4: 清空全局 URL 抓取缓存（每次报告生成前调用）
@@ -1229,9 +1259,12 @@ export class DimensionMissionService {
         `${logPrefix} Saving evidence: ${searchPhaseResult.evidenceData.length} items, reportId=${reportId || "NONE"}`,
       );
       if (reportId) {
-        const { savedIds, indexMapping } = await this.saveEvidence(
-          searchPhaseResult.evidenceData,
+        // ★ Serialize per-reportId: prevents concurrent dimensions from racing on
+        // citationIndex assignment (aggregate max → createMany has no atomicity guarantee
+        // when multiple dimensions call saveEvidence in parallel for the same report).
+        const { savedIds, indexMapping } = await this.withReportLock(
           reportId,
+          () => this.saveEvidence(searchPhaseResult.evidenceData, reportId),
         );
         savedEvidenceIds = savedIds;
         this.logger.log(
