@@ -459,6 +459,53 @@ export function normalizeBoldStyle(content: string): string {
 }
 
 /**
+ * 修复序数词在 ** 外面的错误加粗位置。
+ *
+ * LLM 有时生成 `- 第一**类是底层基础设施**` 这类错误格式，
+ * 序数词游离在加粗标记外面。将其修复为 `- **第一类**是底层基础设施`。
+ *
+ * 匹配模式：列表行中，中文序数词 + ** + 内容 + **
+ */
+export function fixOrdinalBoldPosition(content: string): string {
+  return content.replace(
+    /([-•]\s*)(第[一二三四五六七八九十百\d]+)\*\*([^*\n]+)\*\*/g,
+    "$1**$2$3**",
+  );
+}
+
+/**
+ * 将超长列表项（>120字）转为段落。
+ *
+ * 列表项超过 120 字通常意味着内容应以段落形式呈现，而非 bullet。
+ * 转换时在前方插入空行，保持段落间距。
+ */
+export function convertLongListItemsToParagraphs(content: string): string {
+  const LONG_LIST_ITEM_THRESHOLD = 120;
+  const BULLET_RE = /^([-*])\s+/;
+  const lines = content.split("\n");
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (BULLET_RE.test(line)) {
+      const text = line.replace(BULLET_RE, "");
+      if (text.length > LONG_LIST_ITEM_THRESHOLD) {
+        // 前面加空行（如果不是第一行且上一行非空）
+        if (result.length > 0 && result[result.length - 1].trim() !== "") {
+          result.push("");
+        }
+        result.push(text);
+      } else {
+        result.push(line);
+      }
+    } else {
+      result.push(line);
+    }
+  }
+  return result.join("\n");
+}
+
+/**
  * 清理正文中的孤儿引用：引用编号 [N] 不在参考文献列表范围内则删除。
  */
 export function removeOrphanCitations(

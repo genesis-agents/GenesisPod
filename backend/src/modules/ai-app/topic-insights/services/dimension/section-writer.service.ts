@@ -44,6 +44,8 @@ import {
   stripAnalyticalInlineBullets,
   stripSectionOpeningShortLines,
   normalizeTransitionHeadings,
+  fixOrdinalBoldPosition,
+  convertLongListItemsToParagraphs,
 } from "../../utils/sanitize-output.utils";
 import type {
   EvidenceData,
@@ -355,6 +357,10 @@ export class SectionWriterService {
     content = stripSectionOpeningShortLines(content);
     // ★ 分析性 bullet 清理：将正文中被错误列表化的分析段落还原为段落
     content = stripAnalyticalInlineBullets(content);
+    // ★ 序数词加粗位置修复：第一**类是...** → **第一类**是...
+    content = fixOrdinalBoldPosition(content);
+    // ★ 超长列表项转段落：>120字的 bullet 项转为段落
+    content = convertLongListItemsToParagraphs(content);
 
     // ★ 连续编号还原：将 LLM 使用的连续编号 [1],[2],[3]... 还原为全局编号
     if (localToGlobalMap.size > 0) {
