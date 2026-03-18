@@ -569,6 +569,7 @@ export class AiChatService {
               responseFormat,
               reasoningDepth,
               outputSchema,
+              useStrictMode,
             );
 
           case "anthropic":
@@ -611,6 +612,7 @@ export class AiChatService {
               responseFormat,
               reasoningDepth,
               outputSchema,
+              useStrictMode,
             );
 
           default:
@@ -626,6 +628,7 @@ export class AiChatService {
               responseFormat,
               reasoningDepth,
               outputSchema,
+              useStrictMode,
             );
         }
       };

@@ -159,6 +159,7 @@ export class AiApiCallerService {
     responseFormat?: string,
     reasoningDepth?: string,
     outputSchema?: { type: string; schema: Record<string, unknown> },
+    schemaStrict?: boolean,
   ): Promise<ChatCompletionResult> {
     // ★ 关键修复：确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -233,7 +234,7 @@ export class AiApiCallerService {
         json_schema: {
           name: "structured_output",
           schema: outputSchema.schema,
-          strict: true,
+          strict: schemaStrict ?? false,
         },
       };
     } else if (responseFormat === "json") {
@@ -526,6 +527,7 @@ export class AiApiCallerService {
     responseFormat?: string,
     _reasoningDepth?: string,
     outputSchema?: { type: string; schema: Record<string, unknown> },
+    schemaStrict?: boolean,
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -589,7 +591,7 @@ export class AiApiCallerService {
         json_schema: {
           name: "structured_output",
           schema: outputSchema.schema,
-          strict: true,
+          strict: schemaStrict ?? false,
         },
       };
     } else if (responseFormat === "json") {
