@@ -571,8 +571,6 @@ body {
 /* Definition-like patterns (bold followed by colon) */
 .prose p > strong:first-child {
   display: inline-block;
-  min-width: 3em;
-  color: #6d28d9;
 }
 
 /* Inverted (dark) prose styles */
@@ -632,7 +630,7 @@ body {
 }
 
 .prose-invert p > strong:first-child {
-  color: #c4b5fd;
+  /* no override — inherits .prose-invert strong color */
 }
 
 /* ============================================
@@ -644,11 +642,9 @@ body {
   position: relative;
 }
 
-/* Key term styling - when bold text appears at start of paragraph */
-.prose p > strong:only-child,
+/* Key term styling - list item bold stays neutral */
 .prose li > strong:first-child {
-  color: #6d28d9;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Special heading patterns: numbered items like "1. 定制你的设置" */

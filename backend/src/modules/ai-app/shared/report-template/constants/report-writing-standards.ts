@@ -142,14 +142,16 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 
 ### 加粗（**bold**）— 硬性格式要求
 
-**核心规则：加粗只能内联出现在句子中间，绝不单独占一行。**
+**核心规则：加粗只能内联出现在句子中间，绝不单独占一行，绝不出现在句子开头。**
 
 - **必须**：每个 ### 子节正文中必须有 1-2 处内联加粗，标注该子节最核心的观点或论断
   - 正确示例：\`这一趋势的**核心驱动力**是成本大幅下降，使中小企业首次具备了自建专属模型的经济可行性\`
   - 正确示例：\`实验数据表明，**开源模型已逼近闭源 90% 的性能**，竞争格局正在重塑\`
+  - 正确示例：\`通信机制不仅是传输管道，更是**决定系统稳定性的核心基础设施**，缺乏结构化设计会导致任务失稳\`
 - 每个子节加粗不超过 2 处（过多加粗失去强调效果）
 - **严禁**：单独一行只写加粗内容（如 \`**核心观点：**\` 独占一行，再换行写正文）
-- **严禁**：加粗过渡词、连接词、枚举标记：~~**首先**~~、~~**其次**~~、~~**最后**~~、~~**一是**~~、~~**一方面**~~、~~**此外**~~——这些是结构词，不是核心内容
+- **严禁**：用加粗文本开头一个段落，再加冒号引出正文，如：\`**图 1 所示的工作流程正体现了这一点**：...\` 或 \`**综合现有证据，可以得出一个较明确的判断**：...\`——这类句式应直接从分析内容写起，无需加粗导语
+- **严禁**：加粗序数词、过渡词、连接词、枚举标记：~~**首先**~~、~~**其次**~~、~~**最后**~~、~~**一是**~~、~~**其一**~~、~~**其二**~~、~~**第一**~~、~~**第二**~~、~~**一方面**~~、~~**另一方面**~~、~~**此外**~~——这些是结构词，不是核心内容
 - 避免加粗：单独的数字/百分比（如 ~~**68倍**~~、~~**25%**~~）
 - 避免加粗：整句（超过 30 字不应整体加粗）
 - 加粗文本应构成"扫描层"：读者仅看加粗内容即可获取核心论点
@@ -178,6 +180,8 @@ export const FORMATTING_LIMITS = `## 格式元素限额（硬性约束）
 - **列表只用于真正并列的具体事项**：公司/机构名称、技术工具、操作步骤、关键指标名称等——每条项目是独立名词短语，不含完整的论证
 - **分析性并列观点必须写成段落**：如果列表项含有动词、因果推理、趋势判断、影响评估（即"完整的分析判断句"），它就不是列表项，必须扩写为段落，用"一方面...另一方面..."、"首先...其次..."等过渡词在段落内自然衔接
 - 判断标准：把列表项单独拿出来，如果读起来是"一句话结论"，就改成段落；如果读起来是"一个具体的名字/步骤"，就保留列表
+- **严禁"其一/其二/其三"bullet**：如果你要用"其一...其二...其三..."或"第一...第二...第三..."并列，必须写成段落（用"...包含三层：首先...其次...第三..."连续行文），不能拆成列表项
+- **严禁在标题下方用 bullet 作"速览摘要"**：### 标题后第一段必须是实质性分析段落，不得用 bullet 列出本节要点总结；章节末尾同样禁止用 bullet 做小结
 
 ### 章节字数均衡
 - 同一报告中各维度章节字数应相对均衡，最长章节不超过最短章节的 2 倍
@@ -492,12 +496,14 @@ export const PROFESSIONAL_TONE_EN = `## Writing Style Standards
 
 export const FORMATTING_LIMITS_EN = `## Formatting Limits (Hard Constraints)
 
-### Bold (**bold**) — Advisory guideline, not enforced
-- Suggest max 2 bold items per sub-section (### heading)
-- **Only bold core arguments or key conclusions** (e.g., "open-source models now match 90% of closed-source performance")
+### Bold (**bold**) — Hard constraints
+- Max 2 bold items per sub-section (### heading)
+- **Only bold core arguments inline within a sentence** (e.g., "open-source models now match **90% of closed-source performance**")
+- **Never bold the opening phrase of a paragraph** (e.g., ~~**"The chart above illustrates this point":**~~ content... — just write the analysis directly)
+- **Never bold ordinal/transition markers**: ~~**First**~~, ~~**Second**~~, ~~**Finally**~~, ~~**On one hand**~~, ~~**On the other hand**~~, ~~**Moreover**~~ — these are structural connectors, not core content
 - Avoid bolding: standalone numbers/percentages, entire sentences (>30 words)
-- **Never bold transition words or enumeration markers**: ~~**First**~~, ~~**Second**~~, ~~**Finally**~~, ~~**On one hand**~~, ~~**On the other hand**~~ — these are structural connectors, not core content
-- Bold text should form a "scan layer": reader gets core insights from bold alone, not a sequence of meaningless connectors
+- Bold text should form a "scan layer": reader gets core insights from bold alone
+- **Never use "First/Second/Third" as bullet items** for analytical parallel points — write them as connected paragraphs instead
 
 ### Blockquotes (> blockquote)
 - Max 8 blockquotes across entire report (excluding Chapter Highlights)
