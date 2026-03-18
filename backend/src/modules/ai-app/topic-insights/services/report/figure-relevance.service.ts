@@ -55,6 +55,11 @@ import type { ExtractedFigure } from "../../types/research.types";
  * 新方案：Railway 先下载图片（8s timeout），转 base64 data URI 再发给 Vision。
  * OpenAI 收到内联数据，不需要自己访问外部 CDN，彻底绕过所有 CDN 封锁。
  * fetch 失败（Railway 也访问不到）→ 直接 type-based fallback，不浪费 Vision 调用。
+ *
+ * ★ v15: 修复 OVERSIZED REQUEST + AVIF/HEIC 不支持问题
+ * (1) MAX_IMAGE_BYTES: 5MB → 500KB — 5MB base64 ≈ 6.7MB HTTP 载荷导致超时
+ * (2) MIME 白名单过滤: 仅允许 png/jpeg/gif/webp，拒绝 avif/heic 等 Vision 无法解码的格式
+ * (3) VISION_UNSUPPORTED_EXTENSIONS 补充 avif/heic/heif/jxl
  */
 const VISION_BATCH_TIMEOUT_MS = 30_000;
 const FETCH_IMAGE_TIMEOUT_MS = 8_000;
@@ -62,15 +67,32 @@ const FETCH_IMAGE_TIMEOUT_MS = 8_000;
 /** ★ v10: 信息性图片类型（fallback 时仅保留这些类型，photo 需要 Vision LLM 验证） */
 const INFORMATIONAL_FIGURE_TYPES = new Set(["chart", "table", "diagram"]);
 
-/** Vision API 不支持的格式（SVG/BMP/TIFF 等无法被 Vision 解析） */
-const VISION_UNSUPPORTED_EXTENSIONS = /\.(?:svg|bmp|tiff?|ico|eps|ai)(?:\?|$)/i;
+/** Vision API 不支持的格式（SVG/BMP/TIFF/AVIF/HEIC 等无法被 Vision 解析） */
+const VISION_UNSUPPORTED_EXTENSIONS =
+  /\.(?:svg|bmp|tiff?|ico|eps|ai|avif|heic|heif|jxl|webp2)(?:\?|$)/i;
+
+/**
+ * OpenAI Vision 仅支持的 MIME 类型白名单
+ * AVIF/HEIC 等现代格式 Vision 无法解码（返回 INVALID_REQUEST）
+ */
+const VISION_SUPPORTED_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+  "image/webp",
+]);
 
 /**
  * ★ v14: 代理下载图片并转为 base64 data URI
  * 由 Railway 服务器下载图片，规避 OpenAI Vision 服务器被 CDN 封锁的问题。
  * 返回 null 表示无法访问（直接走 type-based fallback）。
+ *
+ * ★ v15: 严格限制图片大小 500KB（约 667KB base64），防止 OVERSIZED REQUEST。
+ * 原 5MB 上限导致单次 Vision API 请求携带 4-7MB base64 载荷，引发 HTTP 超时。
+ * 500KB → base64 ~667KB → HTTP 请求体 ~680KB，在 30s 内可靠传输。
  */
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB 上限，防止超大图片占用内存
+const MAX_IMAGE_BYTES = 500 * 1024; // 500KB 上限（避免 HTTP 超时 + 防止 OVERSIZED REQUEST）
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   if (VISION_UNSUPPORTED_EXTENSIONS.test(url)) return null;
@@ -84,8 +106,10 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
     clearTimeout(timer);
     if (!response.ok) return null;
     const contentType = response.headers.get("content-type") ?? "image/jpeg";
-    const mimeType = contentType.split(";")[0].trim();
-    if (!mimeType.startsWith("image/")) return null;
+    const mimeType = contentType.split(";")[0].trim().toLowerCase();
+    // ★ v15: 白名单过滤 — 仅允许 Vision 支持的格式，拒绝 AVIF/HEIC 等现代格式
+    if (!VISION_SUPPORTED_MIME_TYPES.has(mimeType)) return null;
+    // ★ v15: Content-Length 预检 — 超过 500KB 直接拒绝，不读取 body
     const contentLength = response.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > MAX_IMAGE_BYTES)
       return null;
