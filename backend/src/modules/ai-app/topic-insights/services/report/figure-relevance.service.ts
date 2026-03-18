@@ -153,15 +153,16 @@ export class FigureRelevanceService {
       this.engineFacade.embeddingGenerate(caption.substring(0, 300)),
     ]);
 
-    if (topicEmb === null || captionResult?.embedding == null) {
-      // Embedding API 不可用 → fail-open（caption 已 >= 10 chars，保留）
+    const captionEmb = captionResult?.embedding;
+    if (!topicEmb?.length || !captionEmb?.length) {
+      // Embedding API 不可用或返回空向量 → fail-open（caption 已 >= 10 chars，保留）
       this.logger.warn(
         `[evaluateSingleByEmbedding] Embedding unavailable, fail-open for: ${fig.imageUrl.substring(0, 80)}`,
       );
       return true;
     }
 
-    const similarity = cosine(topicEmb, captionResult.embedding);
+    const similarity = cosine(topicEmb, captionEmb);
     const accepted = similarity >= STAGE2_COSINE_THRESHOLD;
 
     if (!accepted) {

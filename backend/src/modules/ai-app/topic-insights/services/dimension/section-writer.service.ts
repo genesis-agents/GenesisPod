@@ -642,7 +642,13 @@ export class SectionWriterService {
               getSectionEmbedding(),
               this.engineFacade.embeddingGenerate(refText.substring(0, 300)),
             ]);
-            if (!secEmb || !figResult?.embedding) return false;
+            // fail-open：任一 embedding 不可用时放行（宁可保留，不误删）
+            if (!secEmb?.length || !figResult?.embedding?.length) {
+              this.logger.warn(
+                `[writeSection] Embedding unavailable for "${ref.caption?.substring(0, 50)}" — allowing (fail-open)`,
+              );
+              return true;
+            }
             const sim = cosine(secEmb, figResult.embedding);
             const keep = sim >= 0.3;
             this.logger.log(
