@@ -439,7 +439,7 @@ body {
 
 /* Key term labels - bold text followed by colon */
 .prose strong {
-  color: #1f2937; /* gray-800 */
+  color: #2563eb; /* blue-600 — 核心观点蓝色强调 */
   font-weight: 600;
   background: linear-gradient(to bottom, transparent 60%, rgba(139, 92, 246, 0.15) 60%);
   padding: 0 2px;
