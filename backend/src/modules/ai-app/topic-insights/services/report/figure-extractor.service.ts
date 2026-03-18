@@ -649,6 +649,12 @@ export class FigureExtractorService {
       return "photo";
     }
 
+    // ★ 带 Figure/Fig/图 编号前缀的学术图片，倾向归类为 diagram（架构图、示意图等）
+    // 例如 "Figure 2" "Fig. 3a" "图4" 等 — 学术论文图片默认非照片
+    if (/\b(figure|fig\.?|图)\s*\d/i.test(lowerText)) {
+      return "diagram";
+    }
+
     // 无法识别的默认为照片（研究报告中无关键词的图片多为实物照片）
     return "photo";
   }
