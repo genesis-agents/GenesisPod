@@ -566,7 +566,8 @@ function ReportEditorInner({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-gray max-w-none focus:outline-none min-h-full p-6',
+        class:
+          'prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 max-w-none focus:outline-none min-h-full p-6',
       },
     },
   });
@@ -1044,7 +1045,7 @@ function ReportEditorInner({
   // This eliminates DOM manipulation conflicts that caused React error #310
   const memoizedMarkdownContent = useMemo(
     () => (
-      <article className="prose prose-gray max-w-none">
+      <article className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 max-w-none">
         {contentSegments.map((segment, index) => {
           if (segment.type === 'markdown') {
             return renderMarkdownSegment(segment.content, `md-${index}`);
@@ -1285,7 +1286,7 @@ function ReportEditorInner({
             {/* Apply same prose styling as preview mode for consistent appearance */}
             <EditorContent
               editor={tiptapEditor}
-              className="prose prose-gray prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none"
+              className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none"
             />
 
             {/* Context menu for richtext mode */}
@@ -1361,7 +1362,7 @@ function ReportEditorInner({
               </button>
             </div>
             <div className="max-h-[calc(80vh-48px)] overflow-auto p-4">
-              <article className="prose prose-gray prose-sm max-w-none">
+              <article className="prose prose-gray prose-sm prose-strong:text-blue-600 dark:prose-strong:text-blue-400 max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeRaw, [rehypeKatex, { output: 'html' }]]}
