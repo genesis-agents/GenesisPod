@@ -46,6 +46,8 @@ import {
   normalizeTransitionHeadings,
   fixOrdinalBoldPosition,
   convertLongListItemsToParagraphs,
+  normalizeBoldStyle,
+  convertOrdinalBulletsToParagraphs,
 } from "../../utils/sanitize-output.utils";
 import type {
   EvidenceData,
@@ -361,6 +363,10 @@ export class SectionWriterService {
     content = fixOrdinalBoldPosition(content);
     // ★ 超长列表项转段落：>120字的 bullet 项转为段落
     content = convertLongListItemsToParagraphs(content);
+    // ★ Bold 枚举/引导词/段落开头导语句去粗
+    content = normalizeBoldStyle(content);
+    // ★ 序数词 bullet（其一/其二/第一/第二）转段落
+    content = convertOrdinalBulletsToParagraphs(content);
 
     // ★ 连续编号还原：将 LLM 使用的连续编号 [1],[2],[3]... 还原为全局编号
     if (localToGlobalMap.size > 0) {

@@ -491,7 +491,91 @@ export function normalizeBoldStyle(content: string): string {
     (_, phrase) => phrase + "，",
   );
 
+  // 5. 段落开头导语句去掉加粗：**[图表/总结引导语]**[：:] → 去掉加粗保留文字
+  //    例：**图1所示的工作流程正体现了这一点**：... → 图1所示的工作流程正体现了这一点：...
+  //    例：**综合现有证据，可以得出一个较明确的判断**：... → 综合...：...
+  //    条件：行首加粗，加粗文本8-80字，紧跟中/英冒号
+  result = result.replace(
+    /^(\*\*)([^*\n]{8,80})(\*\*)([：:])/gm,
+    (_, _open, text, _close, colon) => `${text}${colon}`,
+  );
+
   return result;
+}
+
+/**
+ * 将"其一/其二/其三"或"第一/第二/第三"开头的 bullet 列表转换为段落。
+ *
+ * 这类 bullet 是分析性枚举，不是真正的并列名词项，应写成段落行文。
+ * 与 convertLongListItemsToParagraphs 区别：此函数基于语义（序数词开头），
+ * 不依赖字数，能捕捉短句序数枚举。
+ *
+ * 处理规则：
+ * 1. 检测连续 bullet 中有 ≥2 条以序数词开头
+ * 2. 将该 bullet 块整体转为段落（去掉 `-` 前缀，条目间空行分隔）
+ */
+export function convertOrdinalBulletsToParagraphs(content: string): string {
+  const BULLET_RE = /^\s*[-*]\s+/;
+  const ORDINAL_RE =
+    /^(其[一二三四五六七八九十]|第[一二三四五六七八九十])[，,、]/;
+
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!BULLET_RE.test(line)) {
+      result.push(line);
+      i++;
+      continue;
+    }
+
+    // 收集连续 bullet block（允许空行间隔）
+    const block: string[] = [];
+    while (i < lines.length) {
+      const cur = lines[i];
+      if (BULLET_RE.test(cur)) {
+        block.push(cur);
+        i++;
+      } else if (cur.trim() === "") {
+        const nextNonBlank = lines.slice(i + 1).find((l) => l.trim() !== "");
+        if (nextNonBlank && BULLET_RE.test(nextNonBlank)) {
+          block.push(cur);
+          i++;
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    const bulletLines = block.filter((b) => BULLET_RE.test(b));
+    const ordinalCount = bulletLines.filter((b) =>
+      ORDINAL_RE.test(b.replace(BULLET_RE, "")),
+    ).length;
+
+    if (ordinalCount >= 2) {
+      // 转段落：去掉 bullet marker，条目间插入空行
+      for (let j = 0; j < block.length; j++) {
+        const b = block[j];
+        if (BULLET_RE.test(b)) {
+          if (result.length > 0 && result[result.length - 1].trim() !== "") {
+            result.push("");
+          }
+          result.push(b.replace(BULLET_RE, ""));
+        } else {
+          result.push(b);
+        }
+      }
+    } else {
+      result.push(...block);
+    }
+  }
+
+  return result.join("\n");
 }
 
 /**

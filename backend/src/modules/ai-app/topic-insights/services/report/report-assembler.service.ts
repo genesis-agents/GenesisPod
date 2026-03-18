@@ -63,6 +63,7 @@ import {
   replaceMarketingLanguage,
   repairBrokenBoldPairs,
   normalizeBoldStyle,
+  convertOrdinalBulletsToParagraphs,
 } from "../../utils/sanitize-output.utils";
 import {
   stripChartJsonFromContent,
@@ -862,7 +863,8 @@ export class ReportAssemblerService {
     content = stripCitationStacking(content); // 引用堆积拆分
     content = replaceMarketingLanguage(content); // 营销话术替换
     content = repairBrokenBoldPairs(content); // 修复 **** markdown 语法错误
-    content = normalizeBoldStyle(content); // 修复 Bold 枚举无逗号 + 引导词去粗
+    content = normalizeBoldStyle(content); // 修复 Bold 枚举无逗号 + 引导词去粗 + 段落开头导语句去粗
+    content = convertOrdinalBulletsToParagraphs(content); // 其一/其二/第一/第二 bullet → 段落
 
     // ★ C4: LaTeX/table/spacing fixes
     // Fix `1 1$` LaTeX residuals and ensure bare LaTeX commands are wrapped
