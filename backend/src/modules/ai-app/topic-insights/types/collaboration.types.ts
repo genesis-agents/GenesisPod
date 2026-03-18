@@ -65,6 +65,7 @@ export interface TodoResult {
   sourcesFound?: number;
   wordCount?: number;
   keyFindings?: number;
+  figuresUsed?: number;
   error?: string;
 }
 

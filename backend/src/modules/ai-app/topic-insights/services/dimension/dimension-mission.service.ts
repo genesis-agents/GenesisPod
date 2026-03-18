@@ -104,6 +104,8 @@ export interface DimensionMissionResult {
   extractedClaims?: import("../../types/research-depth.types").ExtractedClaim[];
   /** Batch 2: 跨维度事实（用于报告一致性） */
   extractedFacts?: EstablishedFact[];
+  /** ★ 最终写入内容的图片数（来自 allFigureReferences） */
+  figuresCount?: number;
 }
 
 export type { MissionProgress } from "./dimension-progress.service";
@@ -1387,6 +1389,7 @@ export class DimensionMissionService {
         actualModelId: lastActualModel, // ★ 记录实际使用的模型
         extractedClaims, // V5: 提取的事实断言
         extractedFacts, // Batch 2: 跨维度事实
+        figuresCount: allFigureReferences.length, // ★ 最终写入内容的图片数
       };
     } catch (error) {
       const errorMessage =

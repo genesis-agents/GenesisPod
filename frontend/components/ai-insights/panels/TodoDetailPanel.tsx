@@ -1088,6 +1088,14 @@ export function TodoDetailPanel({
                       </span>
                     </div>
                   )}
+                  {todo.result.figuresUsed !== undefined &&
+                    todo.result.figuresUsed > 0 && (
+                      <div className="rounded-md bg-orange-50 px-2 py-1">
+                        <span className="text-orange-600">
+                          {todo.result.figuresUsed} 张图片
+                        </span>
+                      </div>
+                    )}
                   {/* Show count if keyFindings is array */}
                   {Array.isArray(todo.result.keyFindings) && (
                     <div className="rounded-md bg-purple-50 px-2 py-1">

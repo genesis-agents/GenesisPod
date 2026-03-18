@@ -804,6 +804,7 @@ export interface ResearchTodo {
 export interface TodoResult {
   sourcesFound?: number;
   wordCount?: number;
+  figuresUsed?: number;
   // keyFindings 可以是数量(number)或完整的发现列表
   keyFindings?: number | KeyFinding[];
   // 完整分析数据

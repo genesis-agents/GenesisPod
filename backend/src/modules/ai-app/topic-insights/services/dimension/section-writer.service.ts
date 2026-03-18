@@ -42,6 +42,7 @@ import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import {
   sanitizeSectionOutput,
   stripAnalyticalInlineBullets,
+  stripSectionOpeningShortLines,
   normalizeTransitionHeadings,
 } from "../../utils/sanitize-output.utils";
 import type {
@@ -350,6 +351,8 @@ export class SectionWriterService {
     let content = sanitizeSectionOutput(markdown);
     // ★ 过渡词标题降级：### 一方面 / ### 首先 等不应作为章节标题
     content = normalizeTransitionHeadings(content);
+    // ★ 开头短句块清理：删除 GPT 在章节开头生成的无 marker 短句罗列（keyPoints 伪摘要）
+    content = stripSectionOpeningShortLines(content);
     // ★ 分析性 bullet 清理：将正文中被错误列表化的分析段落还原为段落
     content = stripAnalyticalInlineBullets(content);
 

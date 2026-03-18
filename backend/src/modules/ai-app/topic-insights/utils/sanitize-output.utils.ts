@@ -318,6 +318,65 @@ export function stripAnalyticalInlineBullets(content: string): string {
 }
 
 /**
+ * 清理章节开头的短句罗列块（无 bullet marker 的独行短句）
+ *
+ * GPT 有时将 Leader 分配的 keyPoints 逐条单独输出为短段落（无 `-`/`*` 前缀），
+ * 形成：
+ *   多智能体通信开销随规模急增。[5]
+ *
+ *   高并发下实时性常先于智能失效。[5][10]
+ *
+ *   弱网络会放大协同失误与任务失败。[5]
+ *
+ * 特征：出现在章节开头，连续 2+ 段，每段去掉引用后 ≤ 30 汉字。
+ * 处理：直接删除此类"伪摘要"块，不保留。
+ */
+export function stripSectionOpeningShortLines(content: string): string {
+  const CITATION_RE = /\[\d+\]/g;
+  const SHORT_CHAR_MAX = 60; // 去掉引用后的最大字符数（约 30 汉字）
+  const MAX_CHECK_PARAS = 6; // 最多检测开头 6 个段落
+
+  const paragraphs = content.split(/\n{2,}/);
+  let stripUntil = 0;
+
+  for (let i = 0; i < Math.min(paragraphs.length, MAX_CHECK_PARAS); i++) {
+    const para = paragraphs[i].trim();
+    if (!para) continue;
+
+    // 跳过标题、bullet、代码块
+    if (
+      para.startsWith("#") ||
+      para.startsWith("-") ||
+      para.startsWith("*") ||
+      para.startsWith(">") ||
+      para.startsWith("```")
+    )
+      break;
+
+    const textOnly = para.replace(CITATION_RE, "").trim();
+    // 必须带引用且短（纯短句但无引用不删）
+    const hasCitation = CITATION_RE.test(para);
+    CITATION_RE.lastIndex = 0; // reset
+
+    if (
+      hasCitation &&
+      textOnly.length > 0 &&
+      textOnly.length <= SHORT_CHAR_MAX
+    ) {
+      stripUntil = i + 1;
+    } else {
+      break;
+    }
+  }
+
+  if (stripUntil >= 2) {
+    // 删除开头的短句块
+    return paragraphs.slice(stripUntil).join("\n\n").trimStart();
+  }
+  return content;
+}
+
+/**
  * 引用堆积拆分：单句 3+ 连续引用 → 保留前 2 个
  */
 export function stripCitationStacking(content: string): string {

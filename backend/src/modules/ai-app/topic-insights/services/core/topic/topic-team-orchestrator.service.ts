@@ -551,6 +551,7 @@ export class TopicTeamOrchestratorService {
             analysisResult: result.analysisResult!,
             evidenceIds: result.evidenceIds,
             extractedClaims: result.extractedClaims,
+            figuresCount: result.figuresCount,
           };
         }),
       );
@@ -621,6 +622,7 @@ export class TopicTeamOrchestratorService {
                     content?: { length?: number };
                   }
                 )?.content?.length,
+                figuresUsed: result.value.figuresCount,
               });
             }
             if (missionId) {
