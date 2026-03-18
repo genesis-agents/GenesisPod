@@ -3676,12 +3676,22 @@ export function stripChapterHighlights(content: string): string {
     /^#{1,4}\s+\**(?:本章要点|本节小结|小结|Chapter Highlights)\**[：:]*\s*$/i;
   // ★ Gemini 输出的 standalone bold paragraph 格式（无 > 前缀，无 # heading）
   const BOLD_PARA_RE = /^\*{2}(?:本章要点|Chapter Highlights)\*{2}[：:]*\s*$/i;
+  // ★ 独占一行的加粗标题（Gemini 用作子节分隔符，应升级为 ### heading）
+  const BOLD_HEADING_RE = /^\*{2}([^*\n]{3,60})\*{2}\s*$/;
 
   const lines = content.split("\n");
   const result: string[] = [];
   // "blockquote" = > lines block; "bulletpara" = standalone bold + bullet list
   let skippingMode: "blockquote" | "bulletpara" | null = null;
   let trailingBlanks = 0; // count trailing blank lines after block ends
+
+  /** 回看 result，找最后一个非空行的索引 */
+  const lastNonBlankIdx = () => {
+    for (let i = result.length - 1; i >= 0; i--) {
+      if (result[i].trim() !== "") return i;
+    }
+    return -1;
+  };
 
   for (const line of lines) {
     if (HEADER_RE.test(line) || HEADING_RE.test(line.trim())) {
@@ -3690,6 +3700,12 @@ export function stripChapterHighlights(content: string): string {
       continue;
     }
     if (BOLD_PARA_RE.test(line.trim())) {
+      // ★ 若前一个非空行是独占一行加粗标题，升级为 ### heading
+      const prevIdx = lastNonBlankIdx();
+      if (prevIdx >= 0) {
+        const m = result[prevIdx].match(BOLD_HEADING_RE);
+        if (m) result[prevIdx] = `### ${m[1].trim()}`;
+      }
       skippingMode = "bulletpara";
       trailingBlanks = 0;
       continue;
