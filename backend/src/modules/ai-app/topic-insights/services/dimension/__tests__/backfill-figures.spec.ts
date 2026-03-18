@@ -18,7 +18,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
 import { buildFiguresSummary } from "../evidence-summary.utils";
 import type {
   FigureReference,
@@ -34,6 +34,10 @@ import type { FigureRegistryEntry } from "../evidence-summary.utils";
 const mockAiFacade = {
   chatWithSkills: jest.fn(),
   selectModel: jest.fn(),
+};
+
+const mockEngineFacade = {
+  embeddingGenerate: jest.fn().mockResolvedValue(null),
 };
 
 /** 辅助：快速访问 SectionWriterService 的私有方法 */
@@ -95,6 +99,7 @@ describe("图片管线业务仿真", () => {
       providers: [
         SectionWriterService,
         { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: AIEngineFacade, useValue: mockEngineFacade },
       ],
     }).compile();
     service = module.get<SectionWriterService>(SectionWriterService);

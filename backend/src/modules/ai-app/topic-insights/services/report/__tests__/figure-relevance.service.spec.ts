@@ -1,379 +1,421 @@
+/**
+ * FigureRelevanceService Tests (v17 — Embedding 方案)
+ *
+ * 替换原 Vision LLM 测试 → 测试新 Embedding 过滤逻辑
+ *
+ * 核心行为：
+ * ① chart/table/diagram → 直接保留（0 API 调用）
+ * ② photo, caption < 10 chars → 直接拒绝
+ * ③ photo, 有效 caption → cosine(caption, topicTitle) >= 0.35 → 保留
+ * ④ Embedding 失败 → fail-open（保留有效 caption 的 photo）
+ */
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { FigureRelevanceService } from "../figure-relevance.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import type { ExtractedFigure } from "../../../types/research.types";
 
-/** Figure with caption + alt (default for most tests) */
-const makeFigure = (
-  url: string,
-  type: ExtractedFigure["type"] = "chart",
-): ExtractedFigure => ({
+// ============================================================
+// Helpers
+// ============================================================
+
+const makeChart = (url = "https://example.com/chart.png"): ExtractedFigure => ({
   imageUrl: url,
-  caption: `Caption for ${url}`,
-  type,
-  alt: `Alt for ${url}`,
+  caption: "Chart showing AI adoption rates over time",
+  type: "chart",
+  alt: "AI adoption chart",
 });
 
-/** Figure with NO caption/alt — photos will be rejected in Vision fallback */
-const makeBareFigure = (
-  url: string,
-  type: ExtractedFigure["type"] = "photo",
+const makeTable = (url = "https://example.com/table.png"): ExtractedFigure => ({
+  imageUrl: url,
+  caption: "Table of model performance benchmarks",
+  type: "table",
+  alt: "Performance table",
+});
+
+const makeDiagram = (
+  url = "https://example.com/diagram.png",
 ): ExtractedFigure => ({
   imageUrl: url,
-  caption: "",
-  type,
+  caption: "Architecture diagram of the AI pipeline",
+  type: "diagram",
+  alt: "Pipeline architecture",
+});
+
+const makePhoto = (
+  caption: string,
+  url = "https://example.com/photo.jpg",
+): ExtractedFigure => ({
+  imageUrl: url,
+  caption,
+  type: "photo",
   alt: "",
 });
 
-/** chatStructured response: single-figure accepted */
-const accepted = () => ({
-  data: { accepted: true },
-  rawContent: "{}",
-  model: "test",
-  tokensUsed: 50,
-  retriedParse: false,
-});
-
-/** chatStructured response: single-figure rejected */
-const rejected = (reason = "decorative") => ({
-  data: { accepted: false, reason },
-  rawContent: "{}",
-  model: "test",
-  tokensUsed: 50,
-  retriedParse: false,
-});
-
-const mockChatFacade = {
-  chat: jest.fn(),
-  chatStructured: jest.fn(),
-  getDefaultModelByType: jest
-    .fn()
-    .mockResolvedValue({ modelId: "test-vision-model" }),
+/** 生成长度为 n 的随机浮点数向量（单位化） */
+const makeVec = (n = 1536, seed = 1): number[] => {
+  const arr: number[] = Array.from({ length: n }, (_, i) => Math.sin(i * seed));
+  const mag = Math.sqrt(arr.reduce((s, v) => s + v * v, 0));
+  return arr.map((v) => v / mag);
 };
 
-/** Helper: create a mock fetch Response that returns a valid image */
-const mockFetchOk = () =>
-  ({
-    ok: true,
-    headers: {
-      get: (header: string) => {
-        if (header === "content-type") return "image/jpeg";
-        if (header === "content-length") return "1024";
-        return null;
-      },
-    },
-    arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
-  }) as unknown as Response;
+/** 高相似度向量（cosine ≈ 1） */
+const TOPIC_VEC = makeVec(1536, 1);
+const HIGH_SIM_VEC = makeVec(1536, 1); // 同 seed → cosine = 1.0
 
-/** Helper: create a mock fetch Response that fails (non-OK) */
-const mockFetchFail = () => ({ ok: false }) as unknown as Response;
+/** 低相似度向量（cosine ≈ 0.1） */
+const LOW_SIM_VEC = makeVec(1536, 999);
 
-describe("FigureRelevanceService", () => {
+// ============================================================
+// Mocks
+// ============================================================
+
+const mockEngineFacade = {
+  embeddingGenerate: jest.fn(),
+};
+
+// ============================================================
+// Test Suite
+// ============================================================
+
+describe("FigureRelevanceService (v17 Embedding)", () => {
   let service: FigureRelevanceService;
-  let fetchSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    // ★ v14: mock global fetch — by default all URLs return a valid image
-    fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue(mockFetchOk());
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FigureRelevanceService,
-        { provide: ChatFacade, useValue: mockChatFacade },
+        { provide: AIEngineFacade, useValue: mockEngineFacade },
       ],
     }).compile();
 
     service = module.get<FigureRelevanceService>(FigureRelevanceService);
   });
 
-  afterEach(() => {
-    fetchSpy.mockRestore();
-  });
-
   // ============================================================
-  // filterRelevantFigures — basic
+  // 基础行为
   // ============================================================
 
-  describe("filterRelevantFigures", () => {
-    it("should return empty array when given empty figures", async () => {
-      const result = await service.filterRelevantFigures([], "Test Topic");
+  describe("filterRelevantFigures — 基础", () => {
+    it("should return empty array for empty input", async () => {
+      const result = await service.filterRelevantFigures([], "AI Research");
       expect(result).toEqual([]);
-      expect(mockChatFacade.chatStructured).not.toHaveBeenCalled();
+      expect(mockEngineFacade.embeddingGenerate).not.toHaveBeenCalled();
     });
 
-    it("should accept/reject figures per individual LLM call (v13)", async () => {
-      const figures = [
-        makeFigure("https://example.com/chart1.png"),
-        makeBareFigure("https://example.com/photo.jpg", "photo"),
-        makeFigure("https://example.com/chart2.png"),
-      ];
-
-      // One chatStructured call per figure (3 calls total)
-      mockChatFacade.chatStructured
-        .mockResolvedValueOnce(accepted())
-        .mockResolvedValueOnce(rejected("decorative photo"))
-        .mockResolvedValueOnce(accepted());
-
+    it("should keep all charts without any embedding calls", async () => {
+      const figures = [makeChart(), makeTable(), makeDiagram()];
       const result = await service.filterRelevantFigures(
         figures,
         "AI Research",
       );
-
-      expect(result).toHaveLength(2);
-      expect(result[0].imageUrl).toBe("https://example.com/chart1.png");
-      expect(result[1].imageUrl).toBe("https://example.com/chart2.png");
+      expect(result).toHaveLength(3);
+      expect(mockEngineFacade.embeddingGenerate).not.toHaveBeenCalled();
     });
 
-    it("should call chatStructured once per vision-compatible figure (v13)", async () => {
+    it("should reject photo with no caption (undefined/empty)", async () => {
       const figures = [
-        makeFigure("https://example.com/chart1.png"),
-        makeFigure("https://example.com/chart2.png"),
-        makeFigure("https://example.com/chart3.png"),
+        makePhoto(""), // empty string
+        {
+          ...makePhoto(""),
+          caption: undefined,
+          alt: undefined,
+        } as unknown as ExtractedFigure, // undefined
       ];
-
-      mockChatFacade.chatStructured.mockResolvedValue(accepted());
-
-      await service.filterRelevantFigures(figures, "Test Topic");
-
-      // Each figure gets its own Vision call
-      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(3);
-      // Each call contains exactly 1 image_url content part
-      for (const call of mockChatFacade.chatStructured.mock.calls) {
-        const args = call[0];
-        const imageCount = args.messages[0].contentParts.filter(
-          (p: { type: string }) => p.type === "image_url",
-        ).length;
-        expect(imageCount).toBe(1);
-      }
-    });
-
-    it("should fall back to type-based filter when Vision call fails (v13)", async () => {
-      const figures = [
-        makeFigure("https://example.com/chart.png", "chart"),
-        makeBareFigure("https://example.com/photo.jpg", "photo"), // no caption → rejected in fallback
-        makeFigure("https://example.com/diagram.png", "diagram"),
-      ];
-
-      mockChatFacade.chatStructured.mockRejectedValue(new Error("API timeout"));
-
       const result = await service.filterRelevantFigures(
         figures,
         "AI Research",
       );
-
-      // ★ v13: chart/diagram always kept in fallback, photo without caption rejected
-      expect(result).toHaveLength(2);
-      expect(result.map((f) => f.type)).toEqual(["chart", "diagram"]);
+      expect(result).toHaveLength(0);
+      expect(mockEngineFacade.embeddingGenerate).not.toHaveBeenCalled();
     });
 
-    it("should keep informational types and reject uncaptioned photos on parse error (v13)", async () => {
+    it("should reject photo with caption shorter than 10 chars", async () => {
       const figures = [
-        makeFigure("https://example.com/1.png", "chart"),
-        makeBareFigure("https://example.com/2.jpg", "photo"),
-        makeFigure("https://example.com/3.png", "table"),
+        makePhoto("AI"), // 2 chars
+        makePhoto("Graph"), // 5 chars
+        makePhoto("Short"), // 5 chars
       ];
-
-      mockChatFacade.chatStructured.mockRejectedValue(
-        new Error("Structured output parse failed after 3 attempts"),
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
       );
-
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      // chart + table kept (informational), photo without caption rejected
-      expect(result).toHaveLength(2);
-      expect(result.map((f) => f.type)).toEqual(["chart", "table"]);
+      expect(result).toHaveLength(0);
+      expect(mockEngineFacade.embeddingGenerate).not.toHaveBeenCalled();
     });
 
-    it("should keep photos with caption/alt in Vision fallback (v13)", async () => {
+    it("should keep photo with cosine >= 0.35 (high similarity)", async () => {
+      // topicTitle embedding → TOPIC_VEC, caption embedding → HIGH_SIM_VEC (cosine=1.0)
+      mockEngineFacade.embeddingGenerate
+        .mockResolvedValueOnce({ embedding: TOPIC_VEC }) // topicTitle
+        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }); // caption
+
       const figures = [
-        makeFigure("https://example.com/photo-with-caption.jpg", "photo"), // has caption → kept
-        makeBareFigure("https://example.com/bare-photo.jpg", "photo"), // no caption → rejected
+        makePhoto("AI agent adoption rates by enterprise sector"),
       ];
-
-      mockChatFacade.chatStructured.mockRejectedValue(
-        new Error("Vision timeout"),
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI adoption",
       );
-
-      const result = await service.filterRelevantFigures(figures, "Tech Topic");
-
-      // Captioned photo kept, bare photo rejected
       expect(result).toHaveLength(1);
-      expect(result[0].imageUrl).toContain("photo-with-caption");
     });
 
-    it("should reject photo-type figures when no MULTIMODAL model is configured (v13)", async () => {
-      mockChatFacade.getDefaultModelByType.mockResolvedValueOnce(null);
+    it("should reject photo with cosine < 0.35 (low similarity)", async () => {
+      mockEngineFacade.embeddingGenerate
+        .mockResolvedValueOnce({ embedding: TOPIC_VEC })
+        .mockResolvedValueOnce({ embedding: LOW_SIM_VEC }); // very different
 
       const figures = [
-        makeFigure("https://example.com/chart.png", "chart"),
-        makeBareFigure("https://example.com/photo.jpg", "photo"),
-        makeFigure("https://example.com/table.png", "table"),
-        makeFigure("https://example.com/diagram.png", "diagram"),
-        makeFigure("https://example.com/photo2.jpg", "photo"), // has caption → kept in v13
+        makePhoto("Celebration photo from the conference dinner gala"),
       ];
-
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      // ★ v13: No Vision model → chart/table/diagram kept, bare photos rejected, captioned photos kept
-      expect(result).toHaveLength(4);
-      expect(mockChatFacade.chatStructured).not.toHaveBeenCalled();
-    });
-
-    it("should skip Vision for SVG/BMP/ICO and auto-decide by type", async () => {
-      const figures = [
-        makeFigure("https://example.com/diagram.svg", "diagram"), // SVG → no Vision → diagram=kept
-        makeFigure("https://example.com/icon.ico", "photo"), // ICO → no Vision → photo type → rejected (only INFORMATIONAL_FIGURE_TYPES kept)
-        makeFigure("https://example.com/chart.png", "chart"), // PNG → Vision call
-      ];
-
-      mockChatFacade.chatStructured.mockResolvedValue(accepted());
-
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      // Only 1 Vision call (for chart.png); SVG and ICO bypass Vision
-      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(1);
-      // diagram.svg → auto-kept (informational), icon.ico photo → rejected (not informational type), chart.png → accepted
-      expect(result).toHaveLength(2);
-      expect(result.map((f) => f.type)).toEqual(["diagram", "chart"]);
-    });
-
-    it("should fall back to type-based filter when image fetch fails (v14)", async () => {
-      // ★ v14: CDN 域名黑名单已移除，改为: Railway fetch 失败 → type-based fallback
-      fetchSpy
-        .mockResolvedValueOnce(mockFetchFail()) // chart (informational) → fetch fails → kept
-        .mockResolvedValueOnce(mockFetchFail()) // photo no caption → fetch fails → rejected
-        .mockResolvedValue(mockFetchOk()); // example.com chart → fetch ok → Vision call
-
-      const figures = [
-        makeFigure("https://inaccessible-cdn.example.com/chart.jpg", "chart"),
-        makeBareFigure(
-          "https://inaccessible-cdn.example.com/photo.jpg",
-          "photo",
-        ),
-        makeFigure("https://example.com/chart.png", "chart"),
-      ];
-
-      mockChatFacade.chatStructured.mockResolvedValue(accepted());
-
-      const result = await service.filterRelevantFigures(figures, "Test Topic");
-
-      // Only 1 Vision call (for example.com chart); failed-fetch URLs skip Vision
-      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(1);
-      // inaccessible chart → kept (informational type), inaccessible photo → rejected (no caption)
-      expect(result).toHaveLength(2);
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI chip market analysis",
+      );
+      expect(result).toHaveLength(0);
     });
   });
 
   // ============================================================
-  // 业务场景仿真 — 模拟真实报告的 Vision 过滤
-  //
-  // 场景来自用户反馈: "报告里图片和内容没有关系"
-  // 根因: 装饰性新闻头图、stock photo 通过了 Vision 审查
+  // topicTitle embedding 缓存（只调用一次）
   // ============================================================
 
-  describe("业务场景: 模拟真实话题的图片过滤", () => {
-    it("美国 AI 政策话题: 3 chart + 2 photo → Vision 拒绝装饰性 photo，保留 chart", async () => {
-      // 模拟真实证据中抽取的图片：白宫横幅、新闻配图 vs Fed 数据图、Pew 调查图
+  describe("topicTitle embedding 缓存", () => {
+    it("should call embeddingGenerate for topicTitle only once for multiple photos", async () => {
+      // 3 photos with valid captions → topic embedding should be called once, 3 caption embeddings
+      mockEngineFacade.embeddingGenerate.mockResolvedValue({
+        embedding: TOPIC_VEC,
+      });
+
       const figures = [
-        makeFigure("https://fred.stlouisfed.org/graph/fredgraph.png", "chart"),
-        makeBareFigure("https://www.whitehouse.gov/Wire-Banner.jpg", "photo"),
-        makeFigure("https://pewresearch.org/survey-chart.png", "chart"),
-        makeBareFigure(
-          "https://cdn.cfr.org/champagne-celebration.jpg",
-          "photo",
+        makePhoto(
+          "AI agent adoption rates by enterprise",
+          "https://ex.com/1.jpg",
         ),
-        makeFigure("https://example.com/architecture.svg", "diagram"), // SVG → auto-kept
+        makePhoto(
+          "Machine learning model performance benchmark",
+          "https://ex.com/2.jpg",
+        ),
+        makePhoto(
+          "Generative AI revenue forecast chart data",
+          "https://ex.com/3.jpg",
+        ),
       ];
 
-      // architecture.svg is SVG → no Vision call (auto-kept as diagram)
-      // 4 Vision calls for the remaining figures
-      mockChatFacade.chatStructured
-        .mockResolvedValueOnce(accepted()) // Fed 利率图 ✅
-        .mockResolvedValueOnce(rejected("文章头图/封面图，装饰性横幅")) // photo ❌
-        .mockResolvedValueOnce(accepted()) // Pew 调查图 ✅
-        .mockResolvedValueOnce(rejected("新闻缩略图，庆祝场景照")); // photo ❌
+      await service.filterRelevantFigures(figures, "AI Research");
+
+      // 1 topicTitle + 3 captions = 4 total
+      expect(mockEngineFacade.embeddingGenerate).toHaveBeenCalledTimes(4);
+      // First call is for the topicTitle
+      expect(mockEngineFacade.embeddingGenerate.mock.calls[0][0]).toBe(
+        "AI Research",
+      );
+    });
+
+    it("should not call embeddingGenerate at all when all figures are chart/table/diagram", async () => {
+      const figures = [makeChart(), makeTable(), makeDiagram(), makeChart()];
+      await service.filterRelevantFigures(figures, "AI Research");
+      expect(mockEngineFacade.embeddingGenerate).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // Fail-open 行为
+  // ============================================================
+
+  describe("fail-open 行为", () => {
+    it("should fail-open when topicTitle embedding returns null (API unavailable)", async () => {
+      mockEngineFacade.embeddingGenerate
+        .mockResolvedValueOnce(null) // topicTitle → null
+        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }); // caption → fine
+
+      const figures = [
+        makePhoto("AI agent adoption rates by enterprise sector"),
+      ];
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
+      );
+      // fail-open: can't compute cosine → keep
+      expect(result).toHaveLength(1);
+    });
+
+    it("should fail-open when caption embedding throws", async () => {
+      mockEngineFacade.embeddingGenerate
+        .mockResolvedValueOnce({ embedding: TOPIC_VEC }) // topicTitle OK
+        .mockRejectedValueOnce(new Error("API timeout")); // caption throws
+
+      const figures = [
+        makePhoto("AI agent adoption rates by enterprise sector"),
+      ];
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
+      );
+      // typeBasedFallback: photo + caption >= 10 chars → keep
+      expect(result).toHaveLength(1);
+    });
+
+    it("should fail-open when embedding returns empty vector []", async () => {
+      mockEngineFacade.embeddingGenerate
+        .mockResolvedValueOnce({ embedding: [] }) // topicTitle → empty vector
+        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }); // caption
+
+      const figures = [
+        makePhoto("AI agent adoption rates by enterprise sector"),
+      ];
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
+      );
+      // empty vector → fail-open
+      expect(result).toHaveLength(1);
+    });
+
+    it("should keep informational types even when all embedding calls fail", async () => {
+      mockEngineFacade.embeddingGenerate.mockRejectedValue(new Error("outage"));
+
+      const figures = [
+        makeChart(),
+        makeTable(),
+        makeDiagram(),
+        makePhoto("Stock market celebration photo from annual gala event"), // caption >= 10
+      ];
+
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
+      );
+      // chart/table/diagram: no embedding needed → kept (3)
+      // photo: embedding fails → typeBasedFallback(caption >= 10) → kept (1)
+      expect(result).toHaveLength(4);
+    });
+  });
+
+  // ============================================================
+  // typeBasedFallback (B2 fix)
+  // ============================================================
+
+  describe("typeBasedFallback (B2 fix)", () => {
+    it("should keep photo with caption >= 10 chars in fallback", async () => {
+      mockEngineFacade.embeddingGenerate.mockRejectedValue(new Error("outage"));
+      const figures = [makePhoto("AI adoption rates enterprise data 2024")];
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it("should reject photo with caption < 10 chars in fallback", async () => {
+      // Caption < 10 chars is rejected at path 2 BEFORE embedding, so fallback never reached
+      // but confirm behavior is consistent
+      const figures = [makePhoto("AI")];
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
+      );
+      expect(result).toHaveLength(0);
+      expect(mockEngineFacade.embeddingGenerate).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // 业务场景仿真
+  // ============================================================
+
+  describe("业务场景仿真", () => {
+    it("AI 政策话题: chart 全保留，无 caption photo 全拒绝，有效 photo 按相似度过滤", async () => {
+      // topicTitle + 2 valid-caption photos
+      mockEngineFacade.embeddingGenerate
+        .mockResolvedValueOnce({ embedding: TOPIC_VEC }) // topicTitle
+        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }) // "AI regulation policy data" → high sim → keep
+        .mockResolvedValueOnce({ embedding: LOW_SIM_VEC }); // "Celebration dinner photo annual" → low sim → reject
+
+      const figures = [
+        makeChart("https://fred.stlouisfed.org/chart.png"), // chart → keep (no embedding)
+        makePhoto(""), // empty caption → reject (no embedding)
+        makeChart("https://pewresearch.org/chart.png"), // chart → keep (no embedding)
+        makePhoto(
+          "AI regulation policy data enforcement report",
+          "https://example.com/policy.jpg",
+        ), // keep
+        makePhoto(
+          "Celebration dinner photo annual gala event award ceremony",
+          "https://cdn.reuters.com/dinner.jpg",
+        ), // reject
+      ];
 
       const result = await service.filterRelevantFigures(
         figures,
         "美国 AI 政策与监管趋势",
       );
 
-      // 用户期望：只有数据图表和架构图进入报告，新闻配图被过滤
       expect(result).toHaveLength(3);
-      expect(result.map((f) => f.type)).toEqual(["chart", "chart", "diagram"]);
-      expect(result.map((f) => f.imageUrl)).toEqual([
-        "https://fred.stlouisfed.org/graph/fredgraph.png",
-        "https://pewresearch.org/survey-chart.png",
-        "https://example.com/architecture.svg",
-      ]);
+      // charts kept
+      expect(result.filter((f) => f.type === "chart")).toHaveLength(2);
+      // policy photo kept, celebration photo rejected
+      expect(result.find((f) => f.imageUrl.includes("policy"))).toBeDefined();
+      expect(result.find((f) => f.imageUrl.includes("dinner"))).toBeUndefined();
+      // topicTitle embedding called once
+      expect(mockEngineFacade.embeddingGenerate).toHaveBeenCalledTimes(3);
     });
 
-    it("Vision API 超时: 应保留 chart/diagram 但丢弃无标题 photo（安全降级）", async () => {
-      // 模拟: 5 张图片中混合了有价值的图表和无标题装饰性照片
-      const figures = [
-        makeFigure("https://fred.stlouisfed.org/chart1.png", "chart"),
-        makeBareFigure("https://whitehouse.gov/hero-image.jpg", "photo"), // no caption
-        makeFigure("https://pewresearch.org/table1.png", "table"),
-        makeBareFigure("https://cdn.reuters.com/reporter-photo.jpg", "photo"), // no caption
-        makeFigure("https://example.com/flow-diagram.svg", "diagram"), // SVG → auto-kept
-      ];
-
-      // Vision API 完全不可用（flow-diagram.svg 是 SVG，直接 auto-kept，不走 Vision）
-      mockChatFacade.chatStructured.mockRejectedValue(
-        new Error("429 Too Many Requests"),
+    it("Embedding 完全不可用时: chart/table/diagram 保留，有效 caption photo 保留（fail-open）", async () => {
+      mockEngineFacade.embeddingGenerate.mockRejectedValue(
+        new Error("service down"),
       );
+
+      const figures = [
+        makeChart(),
+        makePhoto(""), // no caption → path 2 reject (before embedding)
+        makeTable(),
+        makePhoto("Annual summit keynote celebrating innovation"), // valid caption → fail-open
+        makeDiagram(),
+      ];
 
       const result = await service.filterRelevantFigures(
         figures,
-        "AI 监管政策分析",
+        "AI Research",
       );
 
-      // 安全降级: 只保留 chart/table/diagram，无标题照片被丢弃
-      expect(result).toHaveLength(3);
-      expect(result.map((f) => f.type)).toEqual(["chart", "table", "diagram"]);
-      // 白宫英雄图和路透社记者照片不出现
-      expect(result.find((f) => f.type === "photo")).toBeUndefined();
+      // chart + table + diagram = 3, photo no-caption = 0, photo valid = 1 (fail-open)
+      expect(result).toHaveLength(4);
+      expect(result.filter((f) => f.type === "photo")).toHaveLength(1);
     });
 
-    it("单张图片失败不影响其他图片（v13 个体隔离）", async () => {
-      // 5 张图片，第 2 张 Vision 调用失败（慢速 CDN）
+    it("单张 photo embedding 失败不影响其他图片", async () => {
+      mockEngineFacade.embeddingGenerate
+        .mockResolvedValueOnce({ embedding: TOPIC_VEC }) // topicTitle
+        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }) // photo 1 caption → keep
+        .mockRejectedValueOnce(new Error("timeout")) // photo 2 caption throws → typeBasedFallback → keep
+        .mockResolvedValueOnce({ embedding: LOW_SIM_VEC }); // photo 3 caption → reject
+
       const figures = [
-        makeFigure("https://example.com/chart1.png", "chart"),
-        makeBareFigure("https://slow-cdn.example.com/photo.jpg", "photo"),
-        makeFigure("https://example.com/chart2.png", "chart"),
-        makeFigure("https://example.com/table.png", "table"),
-        makeFigure("https://example.com/chart3.png", "chart"),
+        makePhoto(
+          "AI agent deployment enterprise adoption data 2024",
+          "https://ex.com/1.jpg",
+        ),
+        makePhoto(
+          "Technology adoption rate market analysis report",
+          "https://ex.com/2.jpg",
+        ),
+        makePhoto(
+          "Award ceremony gala dinner celebration annual event",
+          "https://ex.com/3.jpg",
+        ),
       ];
 
-      mockChatFacade.chatStructured
-        .mockResolvedValueOnce(accepted()) // chart1 ✅
-        .mockRejectedValueOnce(new Error("CDN timeout")) // photo → fallback (no caption → rejected)
-        .mockResolvedValueOnce(accepted()) // chart2 ✅
-        .mockResolvedValueOnce(accepted()) // table ✅
-        .mockResolvedValueOnce(accepted()); // chart3 ✅
+      const result = await service.filterRelevantFigures(
+        figures,
+        "AI Research",
+      );
 
-      const result = await service.filterRelevantFigures(figures, "AI 研究");
-
-      // chart1 + chart2 + table + chart3 = 4（photo 失败且无 caption → rejected）
-      expect(result).toHaveLength(4);
-      expect(result.every((f) => f.type !== "photo")).toBe(true);
-      // All 5 Vision calls were attempted
-      expect(mockChatFacade.chatStructured).toHaveBeenCalledTimes(5);
-    });
-
-    it("Vision prompt 应包含话题名称用于相关性判断", async () => {
-      const figures = [makeFigure("https://example.com/chart.png", "chart")];
-
-      mockChatFacade.chatStructured.mockResolvedValue(accepted());
-
-      await service.filterRelevantFigures(figures, "中国半导体产业政策");
-
-      // prompt 中应包含话题名称，让 Vision LLM 据此判断图片与话题的相关性
-      const callArgs = mockChatFacade.chatStructured.mock.calls[0][0];
-      const promptText = callArgs.messages[0].contentParts[0].text;
-      expect(promptText).toContain("中国半导体产业政策");
+      // photo1: high sim → keep; photo2: throws → typeBasedFallback (caption>=10) → keep; photo3: low sim → reject
+      expect(result).toHaveLength(2);
+      expect(result.find((f) => f.imageUrl.includes("3.jpg"))).toBeUndefined();
     });
   });
 });

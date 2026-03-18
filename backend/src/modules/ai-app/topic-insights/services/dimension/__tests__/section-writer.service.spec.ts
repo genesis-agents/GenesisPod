@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { InsufficientCreditsException } from "../../../types/research.exceptions";
 
@@ -61,6 +61,10 @@ const mockAiFacade = {
   selectModel: jest.fn(),
 };
 
+const mockEngineFacade = {
+  embeddingGenerate: jest.fn().mockResolvedValue(null),
+};
+
 // ============================================================
 // Test suite
 // ============================================================
@@ -75,6 +79,7 @@ describe("SectionWriterService", () => {
       providers: [
         SectionWriterService,
         { provide: ChatFacade, useValue: mockAiFacade },
+        { provide: AIEngineFacade, useValue: mockEngineFacade },
       ],
     }).compile();
 
