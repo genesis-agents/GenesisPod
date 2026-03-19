@@ -41,7 +41,6 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     fetchLatestReport,
     fetchReports,
     fetchReport,
-    fetchEvidence,
     fetchMissionStatus,
     fetchTeamInfo,
     fetchTeamData,
@@ -98,16 +97,9 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     fetchTeamData,
   ]);
 
-  // Load evidence when report is available
-  // ★ 从 store 直接读取 currentReport，避免 resetTopicData 与本 effect 的竞态：
-  // 当 topic.id 变化时，Effect 1 的 resetTopicData() 已将 currentReport 设为 null，
-  // 但本 effect 闭包捕获的是渲染时的旧值，导致用旧 reportId 请求新 topicId → 404
-  useEffect(() => {
-    const report = useTopicInsightsStore.getState().currentReport;
-    if (report?.id) {
-      fetchEvidence(topic.id, report.id, { pageSize: 500 });
-    }
-  }, [topic.id, currentReport?.id, fetchEvidence]);
+  // ★ Evidence 加载已移至 store.fetchLatestReport 内部链式调用，
+  // 确保 topicId 与 reportId 始终一致，消除切换 topic 时的竞态条件。
+  // 当 mission 完成后 fetchLatestReport 被再次调用时，evidence 也会自动刷新。
 
   // ★ H5: 轮询已由 store.startMissionPolling 统一管理（2s 间隔），
   // 此处仅在 isRefreshing 变化时获取一次 teamInfo

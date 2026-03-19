@@ -926,6 +926,11 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
     try {
       const report = await api.getLatestReport(topicId);
       set({ currentReport: report });
+      // ★ 报告加载成功后立即拉取 evidence，确保 topicId 与 reportId 一致
+      // 消除 TopicDetail useEffect 竞态：切换 topic 时旧 reportId 污染新 topic 的请求
+      if (report?.id) {
+        get().fetchEvidence(topicId, report.id, { pageSize: 500 });
+      }
     } catch (error) {
       // ★ 新专题没有报告是正常情况，不应设置 error 状态
       set({
