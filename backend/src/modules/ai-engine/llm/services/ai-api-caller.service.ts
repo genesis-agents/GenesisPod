@@ -228,7 +228,11 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    if (outputSchema) {
+    // ★ deepseek-reasoner does NOT support response_format (INVALID_REQUEST error)
+    // Skip setting it entirely for this model to prevent circuit breaker trips
+    const supportsResponseFormat = !modelLower.includes("deepseek-reasoner");
+
+    if (supportsResponseFormat && outputSchema) {
       requestBody["response_format"] = {
         type: "json_schema",
         json_schema: {
@@ -237,7 +241,7 @@ export class AiApiCallerService {
           strict: schemaStrict ?? false,
         },
       };
-    } else if (responseFormat === "json") {
+    } else if (supportsResponseFormat && responseFormat === "json") {
       requestBody["response_format"] = { type: "json_object" };
     }
 
