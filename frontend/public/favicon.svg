@@ -1,94 +1,86 @@
 <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    节点坐标：中心(32,32)，半径R=22，正六边形间隔60°
+    Top    (0°):   (32, 10)
+    TR    (60°):   (51, 21)
+    BR   (120°):   (51, 43)
+    Bottom(180°):  (32, 54)
+    BL   (240°):   (13, 43)
+    TL   (300°):   (13, 21)
+  -->
   <defs>
-    <!-- Outer node gradient: sky → ocean blue -->
     <radialGradient id="gN" cx="35%" cy="25%" r="75%">
       <stop offset="0%"   stop-color="#BAE6FD"/>
       <stop offset="50%"  stop-color="#38BDF8"/>
       <stop offset="100%" stop-color="#0284C7"/>
     </radialGradient>
-
-    <!-- Center orchestrator gradient: indigo → blue -->
     <radialGradient id="gC" cx="40%" cy="30%" r="70%">
       <stop offset="0%"   stop-color="#A5B4FC"/>
       <stop offset="45%"  stop-color="#6366F1"/>
       <stop offset="100%" stop-color="#4338CA"/>
     </radialGradient>
-
-    <!-- Hex ring gradient -->
     <linearGradient id="gR" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%"   stop-color="#0EA5E9"/>
       <stop offset="50%"  stop-color="#6366F1"/>
       <stop offset="100%" stop-color="#7C3AED"/>
     </linearGradient>
-
-    <!-- Drop shadow for outer nodes (visible on light bg) -->
     <filter id="fN" x="-50%" y="-50%" width="200%" height="200%">
       <feDropShadow dx="0" dy="1.5" stdDeviation="2"
         flood-color="#0284C7" flood-opacity="0.35"/>
     </filter>
-
-    <!-- Drop shadow for center node -->
     <filter id="fC" x="-50%" y="-50%" width="200%" height="200%">
       <feDropShadow dx="0" dy="2" stdDeviation="3"
         flood-color="#4338CA" flood-opacity="0.4"/>
     </filter>
   </defs>
 
-  <!-- ── Hexagonal ring outline ── -->
+  <!-- Hexagonal ring — 正六边形，所有顶点等距中心 -->
   <polygon
-    points="32,9 49,19 49,45 32,55 15,45 15,19"
+    points="32,10 51,21 51,43 32,54 13,43 13,21"
     stroke="url(#gR)" stroke-width="1.4" fill="none" opacity="0.75"/>
 
-  <!-- ── Spoke connections (center → each node) ── -->
-  <line x1="32" y1="32" x2="32" y2="9"  stroke="#0EA5E9" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="49" y2="19" stroke="#6366F1" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="49" y2="45" stroke="#7C3AED" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="32" y2="55" stroke="#0EA5E9" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="15" y2="45" stroke="#7C3AED" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="15" y2="19" stroke="#6366F1" stroke-width="1.1" stroke-opacity="0.55"/>
+  <!-- Spokes: center → each node -->
+  <line x1="32" y1="32" x2="32" y2="10" stroke="#0EA5E9" stroke-width="1.1" stroke-opacity="0.55"/>
+  <line x1="32" y1="32" x2="51" y2="21" stroke="#6366F1" stroke-width="1.1" stroke-opacity="0.55"/>
+  <line x1="32" y1="32" x2="51" y2="43" stroke="#7C3AED" stroke-width="1.1" stroke-opacity="0.55"/>
+  <line x1="32" y1="32" x2="32" y2="54" stroke="#0EA5E9" stroke-width="1.1" stroke-opacity="0.55"/>
+  <line x1="32" y1="32" x2="13" y2="43" stroke="#7C3AED" stroke-width="1.1" stroke-opacity="0.55"/>
+  <line x1="32" y1="32" x2="13" y2="21" stroke="#6366F1" stroke-width="1.1" stroke-opacity="0.55"/>
 
-  <!-- ── Outer nodes — 6 agents ── -->
-  <!-- White backing circle makes nodes pop on any background -->
+  <!-- Top (32, 10) -->
+  <circle cx="32" cy="10" r="5.5" fill="white"/>
+  <circle cx="32" cy="10" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
+  <circle cx="30.6" cy="8.8" r="1.5" fill="white" opacity="0.6"/>
 
-  <!-- Top -->
-  <circle cx="32" cy="9"  r="5.5" fill="white"/>
-  <circle cx="32" cy="9"  r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="30.6" cy="7.8" r="1.5" fill="white" opacity="0.6"/>
+  <!-- Top-right (51, 21) -->
+  <circle cx="51" cy="21" r="5.5" fill="white"/>
+  <circle cx="51" cy="21" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
+  <circle cx="49.6" cy="19.8" r="1.5" fill="white" opacity="0.6"/>
 
-  <!-- Top-right -->
-  <circle cx="49" cy="19" r="5.5" fill="white"/>
-  <circle cx="49" cy="19" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="47.6" cy="17.8" r="1.5" fill="white" opacity="0.6"/>
+  <!-- Bottom-right (51, 43) -->
+  <circle cx="51" cy="43" r="5.5" fill="white"/>
+  <circle cx="51" cy="43" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
+  <circle cx="49.6" cy="41.8" r="1.5" fill="white" opacity="0.6"/>
 
-  <!-- Bottom-right -->
-  <circle cx="49" cy="45" r="5.5" fill="white"/>
-  <circle cx="49" cy="45" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="47.6" cy="43.8" r="1.5" fill="white" opacity="0.6"/>
+  <!-- Bottom (32, 54) -->
+  <circle cx="32" cy="54" r="5.5" fill="white"/>
+  <circle cx="32" cy="54" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
+  <circle cx="30.6" cy="52.8" r="1.5" fill="white" opacity="0.6"/>
 
-  <!-- Bottom -->
-  <circle cx="32" cy="55" r="5.5" fill="white"/>
-  <circle cx="32" cy="55" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="30.6" cy="53.8" r="1.5" fill="white" opacity="0.6"/>
+  <!-- Bottom-left (13, 43) -->
+  <circle cx="13" cy="43" r="5.5" fill="white"/>
+  <circle cx="13" cy="43" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
+  <circle cx="11.6" cy="41.8" r="1.5" fill="white" opacity="0.6"/>
 
-  <!-- Bottom-left -->
-  <circle cx="15" cy="45" r="5.5" fill="white"/>
-  <circle cx="15" cy="45" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="13.6" cy="43.8" r="1.5" fill="white" opacity="0.6"/>
+  <!-- Top-left (13, 21) -->
+  <circle cx="13" cy="21" r="5.5" fill="white"/>
+  <circle cx="13" cy="21" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
+  <circle cx="11.6" cy="19.8" r="1.5" fill="white" opacity="0.6"/>
 
-  <!-- Top-left -->
-  <circle cx="15" cy="19" r="5.5" fill="white"/>
-  <circle cx="15" cy="19" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="13.6" cy="17.8" r="1.5" fill="white" opacity="0.6"/>
-
-  <!-- ── Center orchestrator node ── -->
-  <!-- Ambient halo -->
+  <!-- Center orchestrator (32, 32) -->
   <circle cx="32" cy="32" r="11" fill="#6366F1" opacity="0.08"/>
-  <!-- White backing -->
   <circle cx="32" cy="32" r="9"  fill="white"/>
-  <!-- Gradient fill -->
   <circle cx="32" cy="32" r="8.5" fill="url(#gC)" filter="url(#fC)"/>
-  <!-- Inner highlight -->
   <circle cx="29.8" cy="29.8" r="2.8" fill="white" opacity="0.25"/>
-  <!-- Bright core dot -->
-  <circle cx="32" cy="32" r="3"  fill="white" opacity="0.9"/>
+  <circle cx="32"   cy="32"   r="3"   fill="white" opacity="0.9"/>
 </svg>
