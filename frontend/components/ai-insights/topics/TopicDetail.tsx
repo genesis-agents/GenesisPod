@@ -99,10 +99,13 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
   ]);
 
   // Load evidence when report is available
+  // ★ 从 store 直接读取 currentReport，避免 resetTopicData 与本 effect 的竞态：
+  // 当 topic.id 变化时，Effect 1 的 resetTopicData() 已将 currentReport 设为 null，
+  // 但本 effect 闭包捕获的是渲染时的旧值，导致用旧 reportId 请求新 topicId → 404
   useEffect(() => {
-    if (currentReport?.id) {
-      // Request all evidence (backend max limit is 500)
-      fetchEvidence(topic.id, currentReport.id, { pageSize: 500 });
+    const report = useTopicInsightsStore.getState().currentReport;
+    if (report?.id) {
+      fetchEvidence(topic.id, report.id, { pageSize: 500 });
     }
   }, [topic.id, currentReport?.id, fetchEvidence]);
 
