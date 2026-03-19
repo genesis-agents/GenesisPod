@@ -6172,7 +6172,7 @@
       }
     },
     "teamPanel": {
-      "title": "研究团队",
+      "title": "洞察团队",
       "leaderModel": "Leader: {{model}}",
       "legend": {
         "inProgress": "进行中",

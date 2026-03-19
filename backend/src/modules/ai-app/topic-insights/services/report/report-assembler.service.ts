@@ -48,6 +48,7 @@ import {
   normalizeInformalTerms,
   normalizeSourceLabels,
   formatDimensionContent,
+  mergeUndersizedSections,
   // Used by postProcessFinalReport
   stripLLMMetaNotes,
   detectAndPromoteHeadings,
@@ -759,6 +760,11 @@ export class ReportAssemblerService {
 
     // Collapse excess sub-headings (> 8 per dimension → demote to ####)
     content = collapseExcessSubHeadings(content, 8);
+
+    // ★ Merge undersized sections (< 500 chars) with the next section.
+    // Fixes LLM splitting a single topic into multiple tiny sections
+    // (e.g., section 4.3 having only a 核心判断 blockquote, with 4.4-4.6 as sub-aspects)
+    content = mergeUndersizedSections(content, 500);
 
     // Remove empty headings (heading → next heading with no content between)
     content = removeEmptyHeadings(content);

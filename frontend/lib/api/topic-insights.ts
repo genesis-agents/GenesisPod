@@ -1078,6 +1078,7 @@ export interface MissionStatus {
   leaderModelId?: string;
   leaderModelName?: string;
   startedAt?: string;
+  completedAt?: string;
   createdAt?: string;
 }
 

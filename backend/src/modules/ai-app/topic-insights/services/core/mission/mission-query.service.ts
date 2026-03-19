@@ -91,6 +91,9 @@ export class MissionQueryService {
       tasks,
       leaderPlan: mission.leaderPlan as unknown as LeaderPlan | undefined,
       researchDepth: mission.researchDepth ?? undefined,
+      startedAt: mission.startedAt?.toISOString(),
+      completedAt: mission.completedAt?.toISOString(),
+      createdAt: mission.createdAt?.toISOString(),
     };
   }
 

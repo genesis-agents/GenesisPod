@@ -2985,6 +2985,96 @@ export function collapseExcessSubHeadings(
 }
 
 /**
+ * Merge undersized ### sections within numbered ## dimensions.
+ *
+ * When an LLM splits a topic into too many granular sections, some sections end up
+ * with very little content (e.g., only a blockquote 核心判断). This function detects
+ * sections with < MIN_SECTION_CHARS of content and merges them with the next section
+ * by demoting the next section's heading to a bold inline header.
+ *
+ * After merging, call `renumberHeadings` to fix the numbering.
+ *
+ * @param minChars  Minimum content chars for a section to stand alone (default 500)
+ */
+export function mergeUndersizedSections(
+  content: string,
+  minChars: number = 500,
+): string {
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Only process ### headings within numbered dimensions (### N.M. Title)
+    const h3Match = line.match(/^###\s+(\d+)\.(\d+)\.?\s+(.+)$/);
+    if (!h3Match) {
+      result.push(line);
+      i++;
+      continue;
+    }
+
+    // Found a ### heading — measure content until next ### or ## heading
+    let contentChars = 0;
+    let nextHeadingIdx = -1;
+
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^#{2,3}\s+/.test(lines[j]) && !/^####/.test(lines[j])) {
+        nextHeadingIdx = j;
+        break;
+      }
+      // Count non-blank, non-heading content chars
+      const trimmed = lines[j].trim();
+      if (trimmed) {
+        contentChars += trimmed.length;
+      }
+    }
+
+    // If section is large enough or there's no next heading, keep as-is
+    if (contentChars >= minChars || nextHeadingIdx === -1) {
+      result.push(line);
+      i++;
+      continue;
+    }
+
+    // Check if next heading is also a ### within the same dimension
+    const nextH3Match = lines[nextHeadingIdx]?.match(
+      /^###\s+(\d+)\.(\d+)\.?\s+(.+)$/,
+    );
+    if (!nextH3Match || nextH3Match[1] !== h3Match[1]) {
+      // Next heading is a different dimension or ## level — keep current section
+      result.push(line);
+      i++;
+      continue;
+    }
+
+    // Merge: keep current ### heading, copy content lines, then demote next heading
+    result.push(line);
+    i++;
+
+    // Copy content lines between current heading and next heading
+    while (i < nextHeadingIdx) {
+      result.push(lines[i]);
+      i++;
+    }
+
+    // Demote next section's ### heading to bold inline header
+    const nextTitle = nextH3Match[3].trim();
+    // Strip any existing number prefix from title for clean display
+    const cleanTitle = nextTitle
+      .replace(/^(?!\d{4}[年\-])[\d.]+\s*/, "")
+      .trim();
+    result.push("");
+    result.push(`**${cleanTitle || nextTitle}**`);
+    result.push("");
+    i++; // skip the demoted heading
+  }
+
+  return result.join("\n");
+}
+
+/**
  * Remove headings that have no content before the next heading or end of document.
  * A heading is "empty" if between it and the next heading (or EOF) there are only
  * blank lines, no substantive text.

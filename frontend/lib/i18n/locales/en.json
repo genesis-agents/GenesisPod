@@ -5866,7 +5866,7 @@
       "openOriginal": "Open original ↗"
     },
     "teamPanel": {
-      "title": "Research Team",
+      "title": "Insights Team",
       "leaderModel": "Leader: {{model}}",
       "legend": {
         "inProgress": "In Progress",

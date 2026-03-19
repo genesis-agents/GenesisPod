@@ -483,7 +483,7 @@ export function TopicTeamPanel({
 
   const hasMission = !!missionStatus && (missionStatus.tasks?.length || 0) > 0;
 
-  // ★ 用时计算：进行中时每秒更新，完成后显示总用时
+  // ★ 用时计算：进行中时每秒更新，完成后显示实际耗时（completedAt - startedAt）
   const [elapsedDisplay, setElapsedDisplay] = useState<string>('');
   useEffect(() => {
     const startTime = missionStatus?.startedAt ?? missionStatus?.createdAt;
@@ -502,6 +502,16 @@ export function TopicTeamPanel({
       if (m > 0) return `${m}m ${s % 60}s`;
       return `${s}s`;
     };
+
+    // ★ 已完成：用 completedAt - startedAt 显示实际报告耗时，不随时间增长
+    if (!isActive && missionStatus?.completedAt) {
+      const elapsed =
+        new Date(missionStatus.completedAt).getTime() -
+        new Date(startTime).getTime();
+      setElapsedDisplay(format(Math.max(0, elapsed)));
+      return;
+    }
+
     const update = () => {
       const elapsed = Date.now() - new Date(startTime).getTime();
       setElapsedDisplay(format(elapsed));
@@ -512,6 +522,7 @@ export function TopicTeamPanel({
     return () => clearInterval(timer);
   }, [
     missionStatus?.startedAt,
+    missionStatus?.completedAt,
     missionStatus?.createdAt,
     missionStatus?.status,
     hasMission,
