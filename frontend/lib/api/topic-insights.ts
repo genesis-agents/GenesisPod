@@ -105,9 +105,15 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const contentLength = response.headers.get('content-length');
   const contentType = response.headers.get('content-type');
 
-  // 204 No Content 或空响应
-  if (response.status === 204 || contentLength === '0') {
+  // 204 No Content — 有意的空响应
+  if (response.status === 204) {
     return null;
+  }
+
+  // ★ 代理失败检测：200 但 content-length=0 或无 content-type 且无 body
+  // 这通常是 Next.js rewrite proxy 在后端不可用时返回的空壳响应
+  if (contentLength === '0' && !contentType) {
+    throw new Error('服务暂时不可用，请稍后刷新重试');
   }
 
   // 非 JSON 响应
@@ -118,7 +124,8 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   // ★ 安全解析 JSON
   const text = await response.text();
   if (!text || text.trim() === '') {
-    return null;
+    // 200 + 空 body = 异常（代理失败或后端重启），不应静默返回 null
+    throw new Error('服务暂时不可用，请稍后刷新重试');
   }
 
   try {

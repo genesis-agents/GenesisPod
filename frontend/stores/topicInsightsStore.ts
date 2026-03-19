@@ -1037,8 +1037,8 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
     try {
       const response = await api.getEvidence(topicId, reportId, options);
       set({
-        evidence: response.evidence,
-        evidenceTotal: response.total,
+        evidence: response?.evidence ?? [],
+        evidenceTotal: response?.total ?? 0,
         isLoadingEvidence: false,
       });
     } catch (error) {
