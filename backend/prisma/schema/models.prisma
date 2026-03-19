@@ -2409,6 +2409,9 @@ enum AIModelType {
   // === 向量和检索 Tier ===
   EMBEDDING // 向量嵌入模型 (text-embedding-3-small, text-embedding-3-large)
   RERANK // 重排序模型 (Cohere rerank)
+
+  // === 评估 Tier ===
+  EVALUATOR // 报告质量评审模型 - 专用于 10 维评审，确保跨报告评分可比性
 }
 
 model AIModel {
@@ -7299,6 +7302,12 @@ model CredibilityReport {
   timeBreakdown    Json @map("time_breakdown") // { within1Month, within3Months, older }
   coverageDetails  Json @map("coverage_details") // { dimensionId: { count, target, status } }
   aiQualityMetrics Json @map("ai_quality_metrics") // { planningRounds, revisionAvg, approvalRate }
+
+  // ========== AI 评审结果 (10 维) ==========
+  aiEvaluation  Json?    @map("ai_evaluation")    // 10 维评审结果 { dimensions: [...], overallScore, feedback }
+  combinedScore Float?   @map("combined_score")    // 综合评分 (来源可信度 ×0.4 + AI评审 ×0.6)
+  combinedGrade String?  @map("combined_grade") @db.VarChar(2) // A/B/C/D/F
+  summaryText   String?  @map("summary_text")      // 一句话总评
 
   // ========== 局限性声明 ==========
   limitations String[] // 局限性列表

@@ -253,6 +253,13 @@ export interface ReviewCriteria {
   logicWeight?: number;
   /** 专业性权重 */
   professionalismWeight?: number;
+  // ★ v2: 扩展评审维度（10 维）
+  evidenceCoverageWeight?: number;    // 证据覆盖度权重
+  informationDensityWeight?: number;  // 信息密度权重
+  visualQualityWeight?: number;       // 图表专业度权重
+  originalityWeight?: number;         // 独创性权重
+  timelinessWeight?: number;          // 时效性权重
+  actionabilityWeight?: number;       // 可操作性权重
   /** 通过分数阈值（默认 7） */
   passThreshold?: number;
   /** 最大返工次数 */

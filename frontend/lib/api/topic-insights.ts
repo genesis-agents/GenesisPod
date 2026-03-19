@@ -1338,6 +1338,55 @@ export async function leaderChat(
 // ==================== Credibility Report (Phase 2) ====================
 
 /**
+ * AI 评审维度
+ */
+export interface EvaluationDimension {
+  id: string;
+  name: string;
+  nameEn: string;
+  weight: number;
+  score?: number;
+  comment?: string;
+}
+
+/**
+ * 单章节评审结果
+ */
+export interface ChapterEvaluation {
+  chapterId: string;
+  chapterTitle: string;
+  writerModel: string;
+  dimensions: EvaluationDimension[];
+  chapterScore: number;
+  grade: string;
+  feedback: string;
+}
+
+/**
+ * 模型对比条目
+ */
+export interface ModelComparisonEntry {
+  modelId: string;
+  chapterCount: number;
+  avgScore: number;
+  bestDimension: string;
+  weakestDimension: string;
+}
+
+/**
+ * AI 评审结果（按章节）
+ */
+export interface AIEvaluation {
+  chapters: ChapterEvaluation[];
+  overallScore: number;
+  grade: string;
+  feedback: string;
+  modelComparison: ModelComparisonEntry[];
+  evaluatorModel: string;
+  evaluatedAt: string;
+}
+
+/**
  * 可信度报告数据
  */
 export interface CredibilityReportData {
@@ -1380,6 +1429,14 @@ export interface CredibilityReportData {
     totalAgentActivities: number;
   };
   limitations: string[];
+  // AI 评审结果（新增字段，旧报告可能没有）
+  aiEvaluation?: AIEvaluation;
+  // 综合评分（来源 ×0.4 + AI评审 ×0.6）
+  combinedScore?: number;
+  // 综合等级
+  combinedGrade?: string;
+  // 摘要文本
+  summaryText?: string;
 }
 
 /**

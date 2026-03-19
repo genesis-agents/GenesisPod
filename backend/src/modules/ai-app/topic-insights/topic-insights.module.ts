@@ -107,6 +107,7 @@ import {
   CritiqueRefineService,
   ReportQualityGateService,
   ReportQualityTraceService,
+  ReportEvaluationService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
@@ -214,6 +215,8 @@ const services = [
   ReportQualityGateService,
   // ★ v5: 全链路质量追踪
   ReportQualityTraceService,
+  // ★ 10 维报告质量评审
+  ReportEvaluationService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,

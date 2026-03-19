@@ -11,8 +11,12 @@
  * 5. 识别并声明局限性
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import {
+  ReportEvaluationService,
+  type EvaluationResult,
+} from "../quality/report-evaluation.service";
 
 /**
  * 来源类型分布
@@ -77,13 +81,21 @@ export interface CredibilityReportData {
   coverageDetails: DimensionCoverageDetail[];
   aiQualityMetrics: AIQualityMetrics;
   limitations: string[];
+  // AI 评审结果 (10 维)
+  aiEvaluation?: EvaluationResult;
+  combinedScore?: number;
+  combinedGrade?: string;
+  summaryText?: string;
 }
 
 @Injectable()
 export class CredibilityReportService {
   private readonly logger = new Logger(CredibilityReportService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly evaluationService?: ReportEvaluationService,
+  ) {}
 
   /**
    * 生成或更新报告的可信度评估
@@ -155,7 +167,54 @@ export class CredibilityReportService {
       aiQualityMetrics,
     });
 
-    // 9. 保存到数据库
+    // 9. AI 10 维评审 — 按章节评审（多模型对比）
+    let aiEvaluation: EvaluationResult | undefined;
+    let combinedScore: number | undefined;
+    let combinedGrade: string | undefined;
+    let summaryText: string | undefined;
+
+    if (this.evaluationService) {
+      try {
+        // 从 dimensionAnalyses 构建章节输入
+        const chapters = report.dimensionAnalyses.map((da) => {
+          const dataPoints = da.dataPoints as Record<string, unknown> | null;
+          const detailedContent =
+            typeof dataPoints?.detailedContent === "string"
+              ? (dataPoints.detailedContent as string)
+              : da.summary ?? "";
+          return {
+            chapterId: da.dimensionId ?? da.id,
+            chapterTitle: da.dimension?.name ?? "未知维度",
+            writerModel: da.modelUsed ?? "unknown",
+            content: detailedContent,
+            sourcesUsed: da.sourcesUsed ?? 0,
+          };
+        });
+
+        aiEvaluation = await this.evaluationService.evaluateReport({
+          reportTitle: report.topic.name,
+          topicType: report.topic.type,
+          chapters,
+        });
+
+        // 综合评分：来源可信度 ×0.4 + AI 评审 ×0.6
+        if (aiEvaluation.overallScore > 0) {
+          combinedScore = Math.round(
+            overallScore * 0.4 + aiEvaluation.overallScore * 0.6,
+          );
+          combinedGrade = this.scoreToGrade(combinedScore);
+          summaryText = aiEvaluation.feedback
+            ? aiEvaluation.feedback.split(/[。.！!]/)[0] + "。"
+            : undefined;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `AI evaluation skipped: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    // 10. 保存到数据库
     const credibilityData: CredibilityReportData = {
       overallScore,
       authorityScore,
@@ -167,6 +226,10 @@ export class CredibilityReportService {
       coverageDetails,
       aiQualityMetrics,
       limitations,
+      aiEvaluation,
+      combinedScore,
+      combinedGrade,
+      summaryText,
     };
 
     await this.saveCredibilityReport(reportId, credibilityData);
@@ -205,6 +268,12 @@ export class CredibilityReportService {
       aiQualityMetrics:
         existing.aiQualityMetrics as unknown as AIQualityMetrics,
       limitations: existing.limitations,
+      aiEvaluation: existing.aiEvaluation
+        ? (existing.aiEvaluation as unknown as EvaluationResult)
+        : undefined,
+      combinedScore: existing.combinedScore ?? undefined,
+      combinedGrade: existing.combinedGrade ?? undefined,
+      summaryText: existing.summaryText ?? undefined,
     };
   }
 
@@ -219,6 +288,17 @@ export class CredibilityReportService {
       return existing;
     }
     return this.generateCredibilityReport(reportId);
+  }
+
+  /**
+   * 综合分数转等级
+   */
+  private scoreToGrade(score: number): string {
+    if (score >= 90) return "A";
+    if (score >= 80) return "B";
+    if (score >= 70) return "C";
+    if (score >= 60) return "D";
+    return "F";
   }
 
   /**
@@ -832,6 +912,10 @@ export class CredibilityReportService {
       JSON.stringify(data.aiQualityMetrics),
     );
 
+    const aiEvaluationJson = data.aiEvaluation
+      ? JSON.parse(JSON.stringify(data.aiEvaluation))
+      : undefined;
+
     await this.prisma.credibilityReport.upsert({
       where: { reportId },
       create: {
@@ -846,6 +930,10 @@ export class CredibilityReportService {
         coverageDetails: coverageDetailsJson,
         aiQualityMetrics: aiQualityMetricsJson,
         limitations: data.limitations,
+        ...(aiEvaluationJson !== undefined && { aiEvaluation: aiEvaluationJson }),
+        ...(data.combinedScore !== undefined && { combinedScore: data.combinedScore }),
+        ...(data.combinedGrade !== undefined && { combinedGrade: data.combinedGrade }),
+        ...(data.summaryText !== undefined && { summaryText: data.summaryText }),
       },
       update: {
         overallScore: data.overallScore,
@@ -858,6 +946,10 @@ export class CredibilityReportService {
         coverageDetails: coverageDetailsJson,
         aiQualityMetrics: aiQualityMetricsJson,
         limitations: data.limitations,
+        ...(aiEvaluationJson !== undefined && { aiEvaluation: aiEvaluationJson }),
+        ...(data.combinedScore !== undefined && { combinedScore: data.combinedScore }),
+        ...(data.combinedGrade !== undefined && { combinedGrade: data.combinedGrade }),
+        ...(data.summaryText !== undefined && { summaryText: data.summaryText }),
         updatedAt: new Date(),
       },
     });
