@@ -257,6 +257,8 @@ export interface ExtractedFigure {
   width?: number;
   /** 图片高度 */
   height?: number;
+  /** 标记此图片来自图片搜索补充（非从证据页面抓取），不得继承文本证据的 citationIndex */
+  isImageSearchSupplement?: boolean;
 }
 
 /**

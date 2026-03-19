@@ -414,7 +414,12 @@ export class DataEnrichmentService {
           if (enableFigures) {
             // ★ arXiv 修复：/abs/ 页面不含图片，改爬 /html/ 版本来提取图表
             let figureHtmlContent = scraperData.html || scraperData.content;
-            let figureSourceUrl = result.url;
+            // ★ arxiv HTML URL 尾部斜杠修复：arxiv HTML 页面中图片使用相对路径，
+            // 若 baseUrl 无尾部斜杠，new URL("img.png", baseUrl) 会解析到父目录（404）
+            // 直接访问 /html/{id} 时同样需要补斜杠
+            let figureSourceUrl = /arxiv\.org\/html\/[\w.]+$/.test(result.url)
+              ? result.url + "/"
+              : result.url;
             const arxivAbsMatch = result.url.match(/arxiv\.org\/abs\/([\w.]+)/);
             if (arxivAbsMatch && webScraperTool) {
               const arxivHtmlUrl = `https://arxiv.org/html/${arxivAbsMatch[1]}`;
@@ -439,9 +444,14 @@ export class DataEnrichmentService {
                   if (d.success && (d.html || d.content)) {
                     figureHtmlContent =
                       d.html || d.content || figureHtmlContent;
-                    figureSourceUrl = arxivHtmlUrl;
+                    // ★ 必须加尾部斜杠：arxiv HTML 中图片用相对路径（如 "Figure1.png"），
+                    // new URL("Figure1.png", "https://arxiv.org/html/2601.13671v1") 会错误解析到
+                    // /html/Figure1.png（父目录）而非 /html/2601.13671v1/Figure1.png（正确路径）
+                    figureSourceUrl = arxivHtmlUrl.endsWith("/")
+                      ? arxivHtmlUrl
+                      : arxivHtmlUrl + "/";
                     this.logger.log(
-                      `[enrichSingleResult] arXiv HTML fetched for figures: ${arxivHtmlUrl}`,
+                      `[enrichSingleResult] arXiv HTML fetched for figures: ${figureSourceUrl}`,
                     );
                   }
                 }
@@ -747,6 +757,7 @@ export class DataEnrichmentService {
       );
 
       // ★ 转换 ImageSearchResult → ExtractedFigure
+      // isImageSearchSupplement=true 标记此图片来自图片搜索，不得继承文本证据的 citationIndex
       let candidates: ExtractedFigure[] = searchOutput.results
         .filter(
           (r: ImageSearchResult) => r.imageUrl && r.imageUrl.startsWith("http"),
@@ -758,6 +769,7 @@ export class DataEnrichmentService {
           alt: r.title || "",
           width: r.width,
           height: r.height,
+          isImageSearchSupplement: true as const,
         }));
 
       // ★ 质量关卡 1：URL 可访问性 + magic bytes 验证

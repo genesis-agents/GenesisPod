@@ -98,8 +98,12 @@ export function buildFiguresSummary(
         const snippetHint = evidence.snippet
           ? ` | 内容摘要: "${evidence.snippet.slice(0, 150)}"`
           : "";
+        // ★ 图片搜索补充图片不继承宿主证据的来源索引（避免图片与来源错误匹配）
+        const isSearchSupplement = fig.isImageSearchSupplement === true;
         entries.push(
-          `图表 ${figureId}: ${fig.type} - "${figCaption || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}${snippetHint}) (URL: ${rawUrl})`,
+          isSearchSupplement
+            ? `图表 ${figureId}: ${fig.type} - "${figCaption || "无标题"}" (来源: 图片搜索) (URL: ${rawUrl})`
+            : `图表 ${figureId}: ${fig.type} - "${figCaption || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}${snippetHint}) (URL: ${rawUrl})`,
         );
         figureRegistry.set(figureId, {
           figureId,
@@ -107,10 +111,13 @@ export function buildFiguresSummary(
           caption: figCaption,
           type: fig.type,
           alt: fig.alt,
-          evidenceIndex: i + 1,
+          // evidenceIndex=0 表示无文本证据来源（图片搜索补充），前端不显示来源引用链接
+          evidenceIndex: isSearchSupplement ? 0 : i + 1,
           figureIndex: j,
-          evidenceTitle: evidence.title || "",
-          evidenceDomain: evidence.domain || undefined,
+          evidenceTitle: isSearchSupplement ? "" : evidence.title || "",
+          evidenceDomain: isSearchSupplement
+            ? undefined
+            : evidence.domain || undefined,
         });
       }
     }
