@@ -619,6 +619,77 @@ function generateChartSummary(
 }
 
 /**
+ * 引用图表渲染（chartType === 'reference'）
+ * 直接展示来自证据的原始图片
+ */
+function ReferenceFigureRenderer({
+  chart,
+  className = '',
+}: {
+  chart: ReportChart;
+  className?: string;
+}) {
+  if (!chart.imageUrl) {
+    return (
+      <div
+        className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm ${className}`}
+      >
+        <div className="mb-2">
+          {chart.figureNumber != null && (
+            <span className="text-xs font-semibold text-purple-600">
+              图 {chart.figureNumber}
+            </span>
+          )}
+          <h4 className="text-base font-semibold text-gray-900">
+            {chart.title}
+          </h4>
+        </div>
+        <div className="flex min-h-[160px] items-center justify-center text-sm text-gray-400">
+          图片暂不可用
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm ${className}`}
+      role="figure"
+      aria-label={chart.title}
+    >
+      {/* 图号 + 标题 */}
+      <div className="mb-3">
+        {chart.figureNumber != null && (
+          <span className="mb-1 block text-xs font-semibold text-purple-600">
+            图 {chart.figureNumber}
+          </span>
+        )}
+        <h4 className="text-base font-semibold text-gray-900">{chart.title}</h4>
+        {chart.description && (
+          <p className="mt-1 text-sm text-gray-500">{chart.description}</p>
+        )}
+      </div>
+
+      {/* 图片 */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={chart.imageUrl}
+        alt={chart.title}
+        className="mx-auto max-h-[480px] w-full rounded-lg object-contain"
+        loading="lazy"
+      />
+
+      {/* 来源 */}
+      {chart.source && (
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <p className="text-xs text-gray-400">来源：{chart.source}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * 主渲染组件
  */
 export function ReportChartRenderer({
@@ -628,7 +699,7 @@ export function ReportChartRenderer({
 }: ReportChartRendererProps) {
   const { t } = useI18n();
 
-  // ★ 处理 data 为空的情况
+  // ★ 所有 hooks 必须无条件调用，early return 在 hooks 之后
   const chartData = chart.data || [];
   const chartType = chart.type || 'bar';
 
@@ -651,6 +722,11 @@ export function ReportChartRenderer({
     () => generateChartSummary(chart, chartData, t),
     [chart, chartData, t]
   );
+
+  // ★ reference 类型：hooks 调用完毕后再 early return
+  if (chart.chartType === 'reference') {
+    return <ReferenceFigureRenderer chart={chart} className={className} />;
+  }
 
   // ★ 如果没有数据，显示空状态
   if (chartData.length === 0) {
