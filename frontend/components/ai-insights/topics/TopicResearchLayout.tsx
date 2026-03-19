@@ -345,7 +345,7 @@ export function TopicResearchLayout({
                   className="writing-mode-vertical text-xs text-gray-500"
                   style={{ writingMode: 'vertical-rl' }}
                 >
-                  {t('topicInsights.teamPanel.title')}
+                  {t('topicResearch.teamPanel.title')}
                 </span>
               </div>
             </div>
@@ -355,7 +355,7 @@ export function TopicResearchLayout({
               {/* 面板头部 */}
               <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  {t('topicInsights.teamPanel.title')}
+                  {t('topicResearch.teamPanel.title')}
                 </span>
                 <button
                   onClick={() => setLeftPanelCollapsed(true)}
