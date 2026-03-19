@@ -229,10 +229,10 @@ export class AiApiCallerService {
     }
 
     // ★ deepseek-reasoner does NOT support response_format (INVALID_REQUEST error)
-    // Skip setting it entirely for this model to prevent circuit breaker trips
-    const supportsResponseFormat = !modelLower.includes("deepseek-reasoner");
+    // Instead of response_format, inject a JSON constraint into the system prompt
+    const isDeepseekReasoner = modelLower.includes("deepseek-reasoner");
 
-    if (supportsResponseFormat && outputSchema) {
+    if (!isDeepseekReasoner && outputSchema) {
       requestBody["response_format"] = {
         type: "json_schema",
         json_schema: {
@@ -241,8 +241,29 @@ export class AiApiCallerService {
           strict: schemaStrict ?? false,
         },
       };
-    } else if (supportsResponseFormat && responseFormat === "json") {
+    } else if (!isDeepseekReasoner && responseFormat === "json") {
       requestBody["response_format"] = { type: "json_object" };
+    } else if (
+      isDeepseekReasoner &&
+      (outputSchema || responseFormat === "json")
+    ) {
+      // ★ deepseek-reasoner: 用 system prompt 替代 response_format 约束 JSON 输出
+      // 在第一条 system message 末尾追加 JSON 约束指令
+      const jsonConstraint =
+        "\n\n[CRITICAL OUTPUT FORMAT] You MUST output ONLY a valid JSON object. " +
+        "Do NOT wrap it in ```json code blocks. Do NOT add any text before or after the JSON. " +
+        "The response must start with { and end with }. No markdown, no explanations.";
+      const msgs = requestBody["messages"] as Array<{
+        role: string;
+        content: unknown;
+      }>;
+      const systemMsg = msgs.find((m) => m.role === "system");
+      if (systemMsg && typeof systemMsg.content === "string") {
+        systemMsg.content += jsonConstraint;
+      } else {
+        // No system message or multimodal contentParts — inject as new system message
+        msgs.unshift({ role: "system", content: jsonConstraint.trim() });
+      }
     }
 
     this.logger.debug(
