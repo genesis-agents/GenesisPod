@@ -29,6 +29,7 @@ import type {
 } from "../../types/research.types";
 import { FigureExtractorService } from "../report/figure-extractor.service";
 import { FigureRelevanceService } from "../report/figure-relevance.service";
+import { assessCredibility } from "../dimension/credibility.utils";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**
@@ -36,9 +37,12 @@ import { LruMap } from "@/common/utils/lru-map";
  * - 触发阈值：总 extractedFigures < MIN_FIGURES_THRESHOLD
  * - 每次最多补充 MAX_SEARCH_SUPPLEMENT_FIGURES 张
  * - 搜图结果同样经过 validateAndUpgradeFigures + filterRelevantFigures 质量关卡
+ *
+ * ★ v7: 大幅降低补充量 — 搜索引擎图片质量低（营销图/博客头图居多），
+ *   宁可少图也不引入垃圾图。仅在完全无图时少量补充。
  */
-const MIN_FIGURES_THRESHOLD = 10;
-const MAX_SEARCH_SUPPLEMENT_FIGURES = 20;
+const MIN_FIGURES_THRESHOLD = 3;
+const MAX_SEARCH_SUPPLEMENT_FIGURES = 5;
 const IMAGE_SEARCH_TIMEOUT = 15000;
 
 /**
@@ -192,9 +196,35 @@ export class DataEnrichmentService {
 
     const startTime = Date.now();
 
-    // 分离需要增强的结果和不需要增强的结果
-    const toEnrich = results.slice(0, topN);
-    const remaining = results.slice(topN);
+    // ★ v7: 双通道选取 — 保相关性 + 保质量
+    // 第一组：搜索排名前 topN（保持搜索引擎的相关性信号）
+    // 第二组：剩余结果中高可信度来源（确保权威来源的图表被提取）
+    // 使用 assessCredibility() 统一评分，不硬编码域名列表
+    const HIGH_CREDIBILITY_THRESHOLD = 55; // domain 40 + sourceType 15+ = 55+
+    const MAX_EXTRA_HIGH_CRED = 10; // 额外抓取的高可信度来源上限
+
+    const topNSet = new Set(results.slice(0, topN).map((r) => r.url));
+    const extraHighCred = results
+      .slice(topN)
+      .filter((r) => {
+        const preScore = assessCredibility(r);
+        return preScore >= HIGH_CREDIBILITY_THRESHOLD;
+      })
+      .slice(0, MAX_EXTRA_HIGH_CRED);
+
+    if (extraHighCred.length > 0) {
+      this.logger.log(
+        `[Enrichment] Adding ${extraHighCred.length} high-credibility sources beyond topN (domains: ${extraHighCred.map((r) => r.domain).join(", ")})`,
+      );
+    }
+
+    // 合并去重
+    const toEnrich = [
+      ...results.slice(0, topN),
+      ...extraHighCred.filter((r) => !topNSet.has(r.url)),
+    ];
+    const enrichedUrls = new Set(toEnrich.map((r) => r.url));
+    const remaining = results.filter((r) => !enrichedUrls.has(r.url));
 
     // 抓取完整内容
     let enrichedTop: EnrichedResult[];

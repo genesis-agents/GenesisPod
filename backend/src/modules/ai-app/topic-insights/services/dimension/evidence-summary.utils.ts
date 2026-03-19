@@ -126,9 +126,20 @@ export function buildFiguresSummary(
     return { summary: "", figureRegistry };
   }
 
-  // ★ v3: 双维度排序 — 先按图表类型（chart/table/diagram > photo），再按来源可信度（高分优先）
-  // 确保在截断时 Leader 优先看到高价值图表（arXiv/政府/行业报告的数据图表 > 低质量博客的装饰图）
+  // ★ v7: 三维度排序 — 证据可信度（统一权重源） + 图表类型 + caption 质量
+  // 图片从证据中提取，证据的 credibilityScore 已包含来源域名的可信度评估，
+  // 不需要单独再做域名权重，保持与证据权重体系统一。
   const CHART_TYPES = new Set(["chart", "table", "diagram"]);
+
+  // ★ v7: 检测 caption 是否为文章标题的 fallback（非真实图表说明）
+  // 如果 caption 与 evidenceTitle 完全相同，或 evidenceTitle 以 caption 开头
+  // （说明 caption 是文章标题或其前缀，而非真实图表说明），很可能是博客头图/装饰图，应降级。
+  function isFallbackCaption(caption: string, evidenceTitle: string): boolean {
+    if (!caption || !evidenceTitle) return false;
+    const c = caption.replace(/\s*—\s*图表$/, "").trim();
+    return c === evidenceTitle.trim() || evidenceTitle.trim().startsWith(c);
+  }
+
   const entryIds = Array.from(figureRegistry.keys()); // entries 与 figureRegistry 插入顺序一致
   const sortedIndices = Array.from(
     { length: entries.length },
@@ -138,11 +149,9 @@ export function buildFiguresSummary(
     const regB = figureRegistry.get(entryIds[b]);
     const typeA = regA?.type ?? "";
     const typeB = regB?.type ?? "";
-    // Primary: informational type wins (0) over photo (1)
-    const typeScoreA = CHART_TYPES.has(typeA) ? 0 : 1;
-    const typeScoreB = CHART_TYPES.has(typeB) ? 0 : 1;
-    if (typeScoreA !== typeScoreB) return typeScoreA - typeScoreB;
-    // Secondary: higher credibility score wins (sort DESC)
+
+    // ★ Tier 1: 证据可信度分数（高分优先）— 统一使用证据权重体系
+    // credibilityScore 已包含来源域名、内容质量等综合评估
     const credA =
       regA && regA.evidenceIndex > 0
         ? (evidenceData[regA.evidenceIndex - 1]?.credibilityScore ?? 0)
@@ -151,7 +160,27 @@ export function buildFiguresSummary(
       regB && regB.evidenceIndex > 0
         ? (evidenceData[regB.evidenceIndex - 1]?.credibilityScore ?? 0)
         : 0;
-    return credB - credA;
+    if (credA !== credB) return credB - credA;
+
+    // ★ Tier 2: 图表类型（chart/table/diagram > photo）
+    const typeScoreA = CHART_TYPES.has(typeA) ? 0 : 1;
+    const typeScoreB = CHART_TYPES.has(typeB) ? 0 : 1;
+    if (typeScoreA !== typeScoreB) return typeScoreA - typeScoreB;
+
+    // ★ Tier 3: caption 质量（真实 figure caption > 文章标题 fallback）
+    const fallbackA = isFallbackCaption(
+      regA?.caption ?? "",
+      regA?.evidenceTitle ?? "",
+    )
+      ? 1
+      : 0;
+    const fallbackB = isFallbackCaption(
+      regB?.caption ?? "",
+      regB?.evidenceTitle ?? "",
+    )
+      ? 1
+      : 0;
+    return fallbackA - fallbackB;
   });
   const sortedEntries = sortedIndices.map((i) => entries[i]);
 

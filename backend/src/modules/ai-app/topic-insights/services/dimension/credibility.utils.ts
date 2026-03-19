@@ -6,8 +6,6 @@
  * Extracted from DimensionMissionService to reduce god-object size.
  */
 
-import type { EvidenceData } from "../../types/research.types";
-
 /** Top authority domains (government, education, premier academic) */
 const TOP_AUTHORITY = [
   ".gov",
@@ -69,6 +67,17 @@ const MEDIUM_AUTHORITY = [
 ];
 
 /**
+ * assessCredibility 实际使用的字段子集
+ * 允许 EvidenceData 和 DataSourceResult 等结构直接传入，无需强转
+ */
+export interface CredibilityInput {
+  domain?: string | null;
+  sourceType?: string | null;
+  snippet?: string | null;
+  publishedAt?: Date | string | null;
+}
+
+/**
  * Assess evidence credibility score (15-100).
  *
  * Scoring dimensions:
@@ -77,7 +86,7 @@ const MEDIUM_AUTHORITY = [
  * 3. Content depth based on snippet length (max 15)
  * 4. Timeliness based on publication date (max 15)
  */
-export function assessCredibility(evidence: EvidenceData): number {
+export function assessCredibility(evidence: CredibilityInput): number {
   let score = 0;
 
   // 1. Domain authority (max 40)

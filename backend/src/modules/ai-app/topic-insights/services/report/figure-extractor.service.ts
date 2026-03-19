@@ -555,9 +555,34 @@ export class FigureExtractorService {
       /\/customization\//i,
       /\/default-source\//i,
       /sfimages/i,
+      // ★ v7: 营销/活动/直播海报（非研究内容）
+      /直播/i,
+      /报名/i,
+      /活动预告/i,
+      /webinar/i,
+      /live[-_]?stream/i,
+      /register[-_]?now/i,
     ];
 
     if (excludePatterns.some((pattern) => pattern.test(combinedText))) {
+      return false;
+    }
+
+    // ★ v7: 检测文章标题卡/封面图 — 博客平台的文章头图通常是装饰性大字标题
+    // 特征：caption 很长（>50字）且包含平台名称或 emoji，说明 caption 是文章标题而非图表说明
+    const captionText = `${caption || ""} ${alt || ""}`;
+    const blogPlatformNames =
+      /掘金|知乎|CSDN|简书|segmentfault|InfoQ|博客园|开源中国|腾讯云社区|阿里云开发者|Heywhale|和鲸|稀土/i;
+    if (captionText.length > 50 && blogPlatformNames.test(captionText)) {
+      return false;
+    }
+    // 含 emoji 的长文本 caption 通常是博客文章标题，不是图表描述
+    if (
+      captionText.length > 40 &&
+      /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(
+        captionText,
+      )
+    ) {
       return false;
     }
 
@@ -622,6 +647,24 @@ export class FigureExtractorService {
   ): "chart" | "table" | "diagram" | "photo" {
     if (!text) return "photo";
     const lowerText = text.toLowerCase();
+
+    // ★ v7: 博客文章标题/营销文案不应被提升为信息图表类型
+    // 特征：很长的文本（>40字）、含平台名称、含 emoji、含营销词汇
+    // 即使包含"架构"等关键词，也是文章标题而非图表描述
+    const isBlogTitle =
+      text.length > 40 &&
+      (/掘金|知乎|CSDN|简书|InfoQ|博客园|Heywhale|和鲸|腾讯云|阿里云/i.test(
+        lowerText,
+      ) ||
+        /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(
+          text,
+        ) ||
+        /深度解析|一文读懂|万字|保姆级|手把手|从入门到|实战指南|完全指南|最全|合集/i.test(
+          lowerText,
+        ));
+    if (isBlogTitle) {
+      return "photo";
+    }
 
     // 表格
     if (/table|表格|数据表/i.test(lowerText)) {
