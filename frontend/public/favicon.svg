@@ -34,18 +34,44 @@
     </filter>
   </defs>
 
-  <!-- Hexagonal ring — 正六边形，所有顶点等距中心 -->
-  <polygon
-    points="32,10 51,21 51,43 32,54 13,43 13,21"
-    stroke="url(#gR)" stroke-width="1.4" fill="none" opacity="0.75"/>
+  <style>
+    /* 信号从中心向节点流动：dashoffset 正→0 */
+    @keyframes flow {
+      0%   { stroke-dashoffset: 28; stroke-opacity: 0.25; }
+      60%  { stroke-opacity: 0.75; }
+      100% { stroke-dashoffset: 0;  stroke-opacity: 0.25; }
+    }
+    /* 六边形轮廓缓慢旋转 opacity */
+    @keyframes ring-pulse {
+      0%, 100% { opacity: 0.55; }
+      50%       { opacity: 0.9; }
+    }
+    .spoke {
+      stroke-dasharray: 5 4;
+      animation: flow 1.8s linear infinite;
+    }
+    .s1 { animation-delay: 0s; }
+    .s2 { animation-delay: -0.3s; }
+    .s3 { animation-delay: -0.6s; }
+    .s4 { animation-delay: -0.9s; }
+    .s5 { animation-delay: -1.2s; }
+    .s6 { animation-delay: -1.5s; }
+    .ring { animation: ring-pulse 3s ease-in-out infinite; }
+  </style>
 
-  <!-- Spokes: center → each node -->
-  <line x1="32" y1="32" x2="32" y2="10" stroke="#0EA5E9" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="51" y2="21" stroke="#6366F1" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="51" y2="43" stroke="#7C3AED" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="32" y2="54" stroke="#0EA5E9" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="13" y2="43" stroke="#7C3AED" stroke-width="1.1" stroke-opacity="0.55"/>
-  <line x1="32" y1="32" x2="13" y2="21" stroke="#6366F1" stroke-width="1.1" stroke-opacity="0.55"/>
+  <!-- Hexagonal ring -->
+  <polygon
+    class="ring"
+    points="32,10 51,21 51,43 32,54 13,43 13,21"
+    stroke="url(#gR)" stroke-width="1.4" fill="none"/>
+
+  <!-- Spokes: center → each node (animated) -->
+  <line class="spoke s1" x1="32" y1="32" x2="32" y2="10" stroke="#0EA5E9" stroke-width="1.2"/>
+  <line class="spoke s2" x1="32" y1="32" x2="51" y2="21" stroke="#6366F1" stroke-width="1.2"/>
+  <line class="spoke s3" x1="32" y1="32" x2="51" y2="43" stroke="#7C3AED" stroke-width="1.2"/>
+  <line class="spoke s4" x1="32" y1="32" x2="32" y2="54" stroke="#0EA5E9" stroke-width="1.2"/>
+  <line class="spoke s5" x1="32" y1="32" x2="13" y2="43" stroke="#7C3AED" stroke-width="1.2"/>
+  <line class="spoke s6" x1="32" y1="32" x2="13" y2="21" stroke="#6366F1" stroke-width="1.2"/>
 
   <!-- Top (32, 10) -->
   <circle cx="32" cy="10" r="5.5" fill="white"/>
