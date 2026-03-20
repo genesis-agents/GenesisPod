@@ -350,7 +350,10 @@ export class AiConnectionTestService {
           );
           break;
 
-        // Chinese providers (OpenAI-compatible format)
+        // OpenAI-compatible providers
+        case "groq":
+        case "openrouter":
+        case "minimax":
         case "deepseek":
         case "qwen":
         case "alibaba":
