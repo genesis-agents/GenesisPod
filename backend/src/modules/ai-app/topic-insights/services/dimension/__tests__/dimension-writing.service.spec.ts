@@ -22,6 +22,8 @@ import { SectionWriterService } from "../section-writer.service";
 import { ResearchEventEmitterService } from "../../core/research/research-event-emitter.service";
 import { AgentActivityService } from "../../monitoring/agent-activity.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
+import { SectionSelfEvalService } from "../../quality/section-self-eval.service";
+import { SectionRemediationService } from "../../quality/section-remediation.service";
 import { DimensionStatus } from "@prisma/client";
 
 // ============================================================
@@ -235,6 +237,21 @@ const mockQualityGate = {
   }),
 };
 
+const mockSelfEval = {
+  evaluateSection: jest.fn().mockResolvedValue({
+    overall: 85,
+    dimensions: {},
+    needsRemediation: false,
+    remediationHints: [],
+  }),
+  determineRemediationActions: jest.fn().mockReturnValue([]),
+};
+
+const mockRemediation = {
+  getRemediationModelId: jest.fn().mockResolvedValue(""),
+  remediate: jest.fn().mockResolvedValue({ content: "", improved: false }),
+};
+
 // ============================================================
 // Test suite
 // ============================================================
@@ -284,6 +301,8 @@ describe("DimensionWritingService", () => {
           provide: ReportQualityGateService,
           useValue: mockQualityGate,
         },
+        { provide: SectionSelfEvalService, useValue: mockSelfEval },
+        { provide: SectionRemediationService, useValue: mockRemediation },
       ],
     }).compile();
 
