@@ -32,6 +32,7 @@ interface TaskResultJson {
   detailedContent?: string;
   figureReferences?: DimensionAnalysisResult["figureReferences"];
   generatedCharts?: DimensionAnalysisResult["generatedCharts"];
+  modelUsed?: string;
 }
 
 @Injectable()
@@ -93,6 +94,7 @@ export class SynthesisReportExecutor implements ITaskExecutor {
                 []) as DimensionAnalysisResult["figureReferences"],
               generatedCharts: (taskResult.generatedCharts ||
                 []) as DimensionAnalysisResult["generatedCharts"],
+              modelUsed: taskResult.modelUsed || dimTask.modelId || undefined,
             },
           );
           this.logger.log(

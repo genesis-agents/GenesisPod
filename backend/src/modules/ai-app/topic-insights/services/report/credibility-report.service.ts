@@ -181,16 +181,42 @@ export class CredibilityReportService {
     if (this.evaluationService) {
       try {
         // 从 dimensionAnalyses 构建章节输入
+        // ★ 对 modelUsed 为空的旧数据，从 ResearchTask 回填模型信息
+        let taskModelMap: Map<string, string> | undefined;
+        const hasMissingModels = report.dimensionAnalyses.some(
+          (da) => !da.modelUsed,
+        );
+        if (hasMissingModels) {
+          const tasks = await this.prisma.researchTask.findMany({
+            where: {
+              dimensionId: {
+                in: report.dimensionAnalyses
+                  .map((da) => da.dimensionId)
+                  .filter(Boolean),
+              },
+              taskType: "dimension_research",
+              status: "COMPLETED",
+            },
+            select: { dimensionId: true, modelId: true },
+          });
+          taskModelMap = new Map(
+            tasks
+              .filter((t) => t.dimensionId && t.modelId)
+              .map((t) => [t.dimensionId!, t.modelId!]),
+          );
+        }
+
         const chapters = report.dimensionAnalyses.map((da) => {
           const dataPoints = da.dataPoints as Record<string, unknown> | null;
           const detailedContent =
             typeof dataPoints?.detailedContent === "string"
               ? dataPoints.detailedContent
               : (da.summary ?? "");
+          const dimId = da.dimensionId ?? da.id;
           return {
-            chapterId: da.dimensionId ?? da.id,
+            chapterId: dimId,
             chapterTitle: da.dimension?.name ?? "未知维度",
-            writerModel: da.modelUsed ?? "unknown",
+            writerModel: da.modelUsed ?? taskModelMap?.get(dimId) ?? "unknown",
             content: detailedContent,
             sourcesUsed: da.sourcesUsed ?? 0,
           };

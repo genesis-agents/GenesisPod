@@ -152,6 +152,7 @@ export class MissionQueryService {
       leaderModelId: mission.leaderModelId ?? undefined,
       leaderModelName: mission.leaderModelName ?? undefined,
       startedAt: mission.startedAt?.toISOString() ?? undefined,
+      completedAt: mission.completedAt?.toISOString() ?? undefined,
       createdAt: mission.createdAt?.toISOString() ?? undefined,
     };
   }
