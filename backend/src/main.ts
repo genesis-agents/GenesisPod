@@ -153,7 +153,9 @@ async function bootstrap() {
       } else {
         const logger = new Logger("CORS");
         logger.warn(`CORS rejected origin: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
+        // 返回 false 而非抛异常 — 浏览器收到无 CORS 头的响应后自行拒绝，
+        // 不会触发 500 INTERNAL_ERROR 污染日志
+        callback(null, false);
       }
     },
     credentials: true,
