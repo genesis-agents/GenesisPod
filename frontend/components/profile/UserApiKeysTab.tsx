@@ -39,6 +39,15 @@ const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   xai: { color: 'bg-gray-100 text-gray-700', icon: '/icons/ai/grok.svg' },
   qwen: { color: 'bg-purple-100 text-purple-700', icon: '/icons/ai/qwen.svg' },
   cohere: { color: 'bg-indigo-100 text-indigo-700', icon: '' },
+  groq: { color: 'bg-red-100 text-red-600', icon: '/icons/ai/groq.svg' },
+  openrouter: {
+    color: 'bg-violet-100 text-violet-700',
+    icon: '/icons/ai/openrouter.svg',
+  },
+  minimax: {
+    color: 'bg-slate-100 text-slate-700',
+    icon: '/icons/ai/minimax.svg',
+  },
 };
 
 function ProviderKeyCard({

@@ -745,6 +745,9 @@ export class UserApiKeysService {
       xai: "xAI (Grok)",
       qwen: "Qwen",
       cohere: "Cohere",
+      groq: "Groq",
+      openrouter: "OpenRouter",
+      minimax: "MiniMax",
     };
     return names[provider] || provider;
   }
