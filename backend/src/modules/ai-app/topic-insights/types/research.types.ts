@@ -50,6 +50,8 @@ export interface DimensionAnalysisResult {
   figureReferences?: FigureReference[];
   /** AI 补充生成的图表 */
   generatedCharts?: GeneratedChart[];
+  /** 实际使用的 LLM 模型 ID */
+  modelUsed?: string;
 }
 
 // ==================== Key Finding ====================

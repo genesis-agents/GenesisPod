@@ -405,6 +405,12 @@ export class DimensionWritingService {
         }
       }
 
+      // ★ 提取最后一个章节的实际模型ID（在 convertToAnalysisResult 前提取，以便写入结果）
+      const lastActualModel = sectionResults
+        .map((r) => r.actualModelId)
+        .filter(Boolean)
+        .pop();
+
       // 6. 转换为标准结果格式
       const analysisResult = this.convertToAnalysisResult(
         dimension.id,
@@ -412,6 +418,7 @@ export class DimensionWritingService {
         savedEvidenceIds,
         allFigureReferences,
         allGeneratedCharts,
+        lastActualModel,
       );
 
       // 7. 更新维度状态为 COMPLETED
@@ -462,12 +469,6 @@ export class DimensionWritingService {
       );
 
       this.logger.log(`${logPrefix} Writing phase completed successfully`);
-
-      // ★ 提取最后一个章节的实际模型ID
-      const lastActualModel = sectionResults
-        .map((r) => r.actualModelId)
-        .filter(Boolean)
-        .pop();
 
       return {
         success: true,
@@ -1341,6 +1342,7 @@ export class DimensionWritingService {
     evidenceIds: string[],
     figureReferences: FigureReference[] = [],
     generatedCharts: GeneratedChart[] = [],
+    modelUsed?: string,
   ): DimensionAnalysisResult {
     const content = integratedResult.content || "";
 
@@ -1366,6 +1368,7 @@ export class DimensionWritingService {
       detailedContent: content,
       figureReferences,
       generatedCharts,
+      modelUsed,
     };
   }
 

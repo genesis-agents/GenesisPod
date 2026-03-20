@@ -207,6 +207,7 @@ export class ReportSynthesisService {
       detailedContent?: string;
       figureReferences?: FigureReference[];
       generatedCharts?: GeneratedChart[];
+      modelUsed?: string;
     },
   ): Promise<DimensionAnalysis> {
     // ★ Preprocess detailedContent before storing — applies all context-free
@@ -263,6 +264,7 @@ export class ReportSynthesisService {
           generatedCharts: result.generatedCharts || [],
         }),
         sourcesUsed: result.evidenceUsed,
+        modelUsed: result.modelUsed,
       },
     });
 

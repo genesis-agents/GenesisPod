@@ -142,6 +142,7 @@ export class ReportDataService {
       detailedContent?: string;
       figureReferences?: FigureReference[];
       generatedCharts?: GeneratedChart[];
+      modelUsed?: string;
     },
   ): Promise<DimensionAnalysis> {
     const analysis = await this.prisma.dimensionAnalysis.create({
@@ -169,6 +170,7 @@ export class ReportDataService {
           generatedCharts: result.generatedCharts || [],
         }),
         sourcesUsed: result.evidenceUsed,
+        modelUsed: result.modelUsed,
       },
     });
 
