@@ -70,8 +70,7 @@ import { CredibilityPanel } from '../panels/CredibilityPanel';
 import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborationPanel';
 // 研究历史组件 - 简化版，显示会话列表 + 对比功能
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
-// ★ v5: 质量探针面板
-import { QualityProbePanel } from '../collaboration/QualityProbePanel';
+// ★ v5: 质量探针面板 — 已集成到 CredibilityPanel 中，不再单独渲染
 // ★ v8: Pipeline 阶段指示器
 import {
   PipelinePhaseIndicator,
@@ -1966,18 +1965,7 @@ export function TopicContentPanel({
           {activeTab === 'credibility' && (
             <div className="h-full overflow-y-auto p-4">
               {report ? (
-                <>
-                  <CredibilityPanel topicId={topicId} reportId={report.id} />
-                  {/* ★ 报告质量探针 - 可信度评估之后、局限性说明之前 */}
-                  {topicId && report.id && (
-                    <div className="mt-4">
-                      <QualityProbePanel
-                        topicId={topicId}
-                        reportId={report.id}
-                      />
-                    </div>
-                  )}
-                </>
+                <CredibilityPanel topicId={topicId} reportId={report.id} />
               ) : (
                 <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">

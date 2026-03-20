@@ -157,6 +157,7 @@ export class ReportEvaluationService {
     reportTitle: string;
     topicType: string;
     chapters: ChapterInput[];
+    language?: string; // zh/en，评审语言自适应
   }): Promise<EvaluationResult> {
     // 1. 获取评审模型
     const { modelId: evaluatorModelId, isEvaluator } =
@@ -176,6 +177,7 @@ export class ReportEvaluationService {
             input.topicType,
             evaluatorModelId,
             isEvaluator,
+            input.language,
           ),
         ),
       );
@@ -226,6 +228,7 @@ export class ReportEvaluationService {
     topicType: string,
     evaluatorModel: string,
     isEvaluator: boolean,
+    language?: string,
   ): Promise<ChapterEvaluation> {
     const truncatedContent =
       chapter.content.length > MAX_CHAPTER_CHARS
@@ -238,9 +241,14 @@ export class ReportEvaluationService {
         `${i + 1}. **${d.name}** (${d.nameEn}, ${(d.weight * 100).toFixed(0)}%): ${d.description}`,
     ).join("\n");
 
-    const systemPrompt = `你是专业的研究报告质量评审专家。你需要对报告的单个章节进行结构化质量评审。
+    const isEnglish = language?.startsWith("en");
+    const systemPrompt = isEnglish
+      ? `You are a professional research report quality reviewer. Evaluate the following chapter with structured quality assessment.
+Be objective and strict, scoring based on actual content quality.
+Output must be a valid JSON object. All comments and feedback must be in English.`
+      : `你是专业的研究报告质量评审专家。你需要对报告的单个章节进行结构化质量评审。
 评审必须客观、严格，基于内容实际质量打分。
-输出必须是合法的 JSON 对象。`;
+输出必须是合法的 JSON 对象。所有评语和反馈必须使用中文。`;
 
     const userPrompt = `## 待评审章节
 

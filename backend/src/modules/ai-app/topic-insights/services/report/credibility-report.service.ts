@@ -195,6 +195,7 @@ export class CredibilityReportService {
           reportTitle: report.topic.name,
           topicType: report.topic.type,
           chapters,
+          language: (report.topic as { language?: string }).language ?? "zh",
         });
 
         // 综合评分：来源可信度 ×0.4 + AI 评审 ×0.6
