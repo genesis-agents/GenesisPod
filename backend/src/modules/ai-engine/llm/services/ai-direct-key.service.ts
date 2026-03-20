@@ -285,6 +285,43 @@ export class AiDirectKeyService {
             responseFormat,
           );
 
+        // OpenAI-compatible providers (Groq, OpenRouter, MiniMax, etc.)
+        case "groq":
+        case "openrouter":
+        case "minimax":
+        case "deepseek":
+        case "qwen":
+        case "alibaba":
+        case "doubao":
+        case "bytedance":
+        case "zhipu":
+        case "glm":
+        case "kimi":
+        case "moonshot": {
+          if (!apiEndpoint) {
+            throw new Error(
+              `API endpoint is required for provider: ${provider}`,
+            );
+          }
+          return await this.callApiWithKey(
+            apiEndpoint,
+            {
+              model: modelId || "",
+              messages: fullMessages.map((m) => ({
+                role: m.role,
+                content: m.content,
+              })),
+              max_tokens: maxTokens,
+              temperature,
+              ...(responseFormat === "json"
+                ? { response_format: { type: "json_object" } }
+                : {}),
+            },
+            { Authorization: `Bearer ${apiKey}` },
+            modelId || "",
+          );
+        }
+
         default:
           this.logger.warn(`Unknown provider: ${provider}, using Grok`);
           return await this.callApiWithKey(

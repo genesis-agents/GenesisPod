@@ -66,6 +66,21 @@ const PROVIDER_DEFAULTS: Record<
     testModel: "command-r",
     apiFormat: "openai",
   },
+  groq: {
+    endpoint: "https://api.groq.com/openai/v1",
+    testModel: "llama-3.3-70b-versatile",
+    apiFormat: "openai",
+  },
+  openrouter: {
+    endpoint: "https://openrouter.ai/api/v1",
+    testModel: "openrouter/auto",
+    apiFormat: "openai",
+  },
+  minimax: {
+    endpoint: "https://api.minimax.chat/v1",
+    testModel: "MiniMax-Text-01",
+    apiFormat: "openai",
+  },
 };
 
 /** 捐赠奖励积分 */
