@@ -158,10 +158,11 @@ export class ReportEvaluationService {
     topicType: string;
     chapters: ChapterInput[];
   }): Promise<EvaluationResult> {
-    // 1. 获取 EVALUATOR 模型，fallback 到 CHAT
-    const evaluatorModel = await this.resolveEvaluatorModel();
+    // 1. 获取评审模型
+    const { modelId: evaluatorModelId, isEvaluator } =
+      await this.resolveEvaluatorModel();
     this.logger.log(
-      `[evaluateReport] Evaluating ${input.chapters.length} chapters with model: ${evaluatorModel || "default"}`,
+      `[evaluateReport] Evaluating ${input.chapters.length} chapters with model: ${evaluatorModelId || "default"} (type: ${isEvaluator ? "EVALUATOR" : "CHAT"})`,
     );
 
     // 2. 按章节并行评审（限流）
@@ -170,7 +171,12 @@ export class ReportEvaluationService {
       const batch = input.chapters.slice(i, i + MAX_CONCURRENT_EVALUATIONS);
       const batchResults = await Promise.all(
         batch.map((chapter) =>
-          this.evaluateChapter(chapter, input.topicType, evaluatorModel),
+          this.evaluateChapter(
+            chapter,
+            input.topicType,
+            evaluatorModelId,
+            isEvaluator,
+          ),
         ),
       );
       chapterResults.push(...batchResults);
@@ -200,7 +206,7 @@ export class ReportEvaluationService {
       grade: this.scoreToGrade(overallScore),
       feedback,
       modelComparison,
-      evaluatorModel,
+      evaluatorModel: evaluatorModelId,
       evaluatedAt: new Date().toISOString(),
     };
 
@@ -219,6 +225,7 @@ export class ReportEvaluationService {
     chapter: ChapterInput,
     topicType: string,
     evaluatorModel: string,
+    isEvaluator: boolean,
   ): Promise<ChapterEvaluation> {
     const truncatedContent =
       chapter.content.length > MAX_CHAPTER_CHARS
@@ -266,7 +273,7 @@ ${dimensionsList}
           { role: "user", content: userPrompt },
         ],
         model: evaluatorModel || undefined,
-        modelType: evaluatorModel ? AIModelType.EVALUATOR : AIModelType.CHAT,
+        modelType: isEvaluator ? AIModelType.EVALUATOR : AIModelType.CHAT,
         skipGuardrails: true,
         responseFormat: "json",
         taskProfile: {
@@ -400,12 +407,19 @@ ${dimensionsList}
 
   // ==================== 工具方法 ====================
 
-  private async resolveEvaluatorModel(): Promise<string> {
+  /**
+   * 解析评审模型：优先 EVALUATOR 类型，fallback 到 CHAT
+   * 返回 { modelId, isEvaluator } 以便调用时正确设置 modelType
+   */
+  private async resolveEvaluatorModel(): Promise<{
+    modelId: string;
+    isEvaluator: boolean;
+  }> {
     try {
       const model = await this.chatFacade.getDefaultModelByType(
         AIModelType.EVALUATOR,
       );
-      if (model?.modelId) return model.modelId;
+      if (model?.modelId) return { modelId: model.modelId, isEvaluator: true };
     } catch {
       // fallback
     }
@@ -413,9 +427,9 @@ ${dimensionsList}
       const fallback = await this.chatFacade.getDefaultModelByType(
         AIModelType.CHAT,
       );
-      return fallback?.modelId ?? "";
+      return { modelId: fallback?.modelId ?? "", isEvaluator: false };
     } catch {
-      return "";
+      return { modelId: "", isEvaluator: false };
     }
   }
 
