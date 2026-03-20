@@ -10,6 +10,9 @@ import {
   XAIQuotaProvider,
   CohereQuotaProvider,
   DeepSeekQuotaProvider,
+  GroqQuotaProvider,
+  OpenRouterQuotaProvider,
+  MiniMaxQuotaProvider,
 } from "../providers";
 import {
   QuotaStatus,
@@ -115,6 +118,10 @@ describe("QuotaService", () => {
     mockCohere = makeProviderMock("cohere");
     mockDeepSeek = makeProviderMock("deepseek");
 
+    const mockGroq = makeProviderMock("groq");
+    const mockOpenRouter = makeProviderMock("openrouter");
+    const mockMiniMax = makeProviderMock("minimax");
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QuotaService,
@@ -126,6 +133,9 @@ describe("QuotaService", () => {
         { provide: XAIQuotaProvider, useValue: mockXAI },
         { provide: CohereQuotaProvider, useValue: mockCohere },
         { provide: DeepSeekQuotaProvider, useValue: mockDeepSeek },
+        { provide: GroqQuotaProvider, useValue: mockGroq },
+        { provide: OpenRouterQuotaProvider, useValue: mockOpenRouter },
+        { provide: MiniMaxQuotaProvider, useValue: mockMiniMax },
       ],
     }).compile();
 

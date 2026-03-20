@@ -80,3 +80,56 @@ export class DeepSeekQuotaProvider extends BaseQuotaProvider {
     };
   }
 }
+
+/**
+ * Groq Quota Provider
+ * Groq 暂不提供公开的配额查询 API
+ */
+@Injectable()
+export class GroqQuotaProvider extends BaseQuotaProvider {
+  readonly provider = "groq";
+  readonly supportsApiQuery = false;
+
+  async fetchQuota(_apiKey: string): Promise<QuotaFetchResult> {
+    return {
+      success: true,
+      quota: this.createUnavailableQuota("请在 Groq Console 查看 API 用量"),
+    };
+  }
+}
+
+/**
+ * OpenRouter Quota Provider
+ * OpenRouter 暂不提供公开的配额查询 API
+ */
+@Injectable()
+export class OpenRouterQuotaProvider extends BaseQuotaProvider {
+  readonly provider = "openrouter";
+  readonly supportsApiQuery = false;
+
+  async fetchQuota(_apiKey: string): Promise<QuotaFetchResult> {
+    return {
+      success: true,
+      quota: this.createUnavailableQuota(
+        "请在 OpenRouter Dashboard 查看 API 用量",
+      ),
+    };
+  }
+}
+
+/**
+ * MiniMax Quota Provider
+ * MiniMax 暂不提供公开的配额查询 API
+ */
+@Injectable()
+export class MiniMaxQuotaProvider extends BaseQuotaProvider {
+  readonly provider = "minimax";
+  readonly supportsApiQuery = false;
+
+  async fetchQuota(_apiKey: string): Promise<QuotaFetchResult> {
+    return {
+      success: true,
+      quota: this.createUnavailableQuota("请在 MiniMax 控制台查看 API 配额"),
+    };
+  }
+}

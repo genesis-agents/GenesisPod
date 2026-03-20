@@ -17,4 +17,7 @@ export {
   XAIQuotaProvider,
   CohereQuotaProvider,
   DeepSeekQuotaProvider,
+  GroqQuotaProvider,
+  OpenRouterQuotaProvider,
+  MiniMaxQuotaProvider,
 } from "./unavailable-quota.provider";

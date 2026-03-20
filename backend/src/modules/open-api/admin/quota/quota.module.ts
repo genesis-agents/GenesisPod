@@ -15,6 +15,9 @@ import {
   XAIQuotaProvider,
   CohereQuotaProvider,
   DeepSeekQuotaProvider,
+  GroqQuotaProvider,
+  OpenRouterQuotaProvider,
+  MiniMaxQuotaProvider,
 } from "./providers";
 
 @Module({
@@ -28,6 +31,9 @@ import {
     XAIQuotaProvider,
     CohereQuotaProvider,
     DeepSeekQuotaProvider,
+    GroqQuotaProvider,
+    OpenRouterQuotaProvider,
+    MiniMaxQuotaProvider,
   ],
   exports: [QuotaService],
 })

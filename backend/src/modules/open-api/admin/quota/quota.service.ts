@@ -27,6 +27,9 @@ import {
   XAIQuotaProvider,
   CohereQuotaProvider,
   DeepSeekQuotaProvider,
+  GroqQuotaProvider,
+  OpenRouterQuotaProvider,
+  MiniMaxQuotaProvider,
 } from "./providers";
 
 @Injectable()
@@ -43,6 +46,9 @@ export class QuotaService implements OnModuleInit {
     private readonly xaiProvider: XAIQuotaProvider,
     private readonly cohereProvider: CohereQuotaProvider,
     private readonly deepseekProvider: DeepSeekQuotaProvider,
+    private readonly groqProvider: GroqQuotaProvider,
+    private readonly openrouterProvider: OpenRouterQuotaProvider,
+    private readonly minimaxProvider: MiniMaxQuotaProvider,
   ) {}
 
   async onModuleInit() {
@@ -53,6 +59,9 @@ export class QuotaService implements OnModuleInit {
     this.registerProvider(this.xaiProvider);
     this.registerProvider(this.cohereProvider);
     this.registerProvider(this.deepseekProvider);
+    this.registerProvider(this.groqProvider);
+    this.registerProvider(this.openrouterProvider);
+    this.registerProvider(this.minimaxProvider);
 
     this.logger.log(
       `[onModuleInit] Registered ${this.providers.size} quota providers`,
@@ -216,6 +225,10 @@ export class QuotaService implements OnModuleInit {
     if (lower.includes("xai") || lower.includes("grok")) return "xai";
     if (lower.includes("cohere")) return "cohere";
     if (lower.includes("deepseek")) return "deepseek";
+    if (lower.includes("groq")) return "groq";
+    if (lower.includes("openrouter") || lower.includes("open-router"))
+      return "openrouter";
+    if (lower.includes("minimax")) return "minimax";
     return lower;
   }
 
@@ -389,6 +402,9 @@ export class QuotaService implements OnModuleInit {
       xai: "xAI (Grok)",
       cohere: "Cohere",
       deepseek: "DeepSeek",
+      groq: "Groq",
+      openrouter: "OpenRouter",
+      minimax: "MiniMax",
     };
     return names[provider.toLowerCase()] || provider;
   }
@@ -406,6 +422,9 @@ export class QuotaService implements OnModuleInit {
       doubao: "/icons/ai/doubao.svg",
       zhipu: "/icons/ai/zhipu.svg",
       kimi: "/icons/ai/kimi.svg",
+      groq: "/icons/ai/groq.svg",
+      openrouter: "/icons/ai/openrouter.svg",
+      minimax: "/icons/ai/minimax.svg",
     };
     return icons[provider.toLowerCase()] || "/icons/ai/default.svg";
   }
@@ -418,6 +437,9 @@ export class QuotaService implements OnModuleInit {
       xai: "https://console.x.ai/",
       cohere: "https://dashboard.cohere.com/",
       deepseek: "https://platform.deepseek.com/",
+      groq: "https://console.groq.com/settings/billing",
+      openrouter: "https://openrouter.ai/settings/credits",
+      minimax: "https://platform.minimaxi.com/",
     };
     return urls[provider.toLowerCase()] || "";
   }
