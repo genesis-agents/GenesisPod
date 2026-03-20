@@ -8,6 +8,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { toast } from '@/stores';
+import { logger } from '@/lib/utils/logger';
 
 // ==================== 类型定义 ====================
 
@@ -236,6 +238,15 @@ export function useExport(): UseExportResult {
             actualRequest.options?.renderMode === 'wysiwyg' &&
             actualRequest.options?.wysiwygHtml
           ) {
+            logger.warn(
+              '[useExport] WYSIWYG export failed, falling back to editable mode:',
+              postError
+            );
+            toast.warning(
+              '导出模式降级',
+              '所见所得导出失败（网络或请求体过大），已切换为标准模式导出'
+            );
+
             const fallbackOptions = { ...actualRequest.options };
             delete fallbackOptions.wysiwygHtml;
             delete fallbackOptions.wysiwygCss;
