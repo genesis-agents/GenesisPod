@@ -146,6 +146,20 @@ export class AIProviderFactory {
       ],
     });
 
+    // MiniMax (OpenAI-compatible)
+    this.registerProvider({
+      providerId: "minimax",
+      providerAliases: ["minimax-text", "abab"],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
     // Groq (OpenAI-compatible, ultra-fast inference)
     this.registerProvider({
       providerId: "groq",

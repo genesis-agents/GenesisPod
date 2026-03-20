@@ -62,6 +62,7 @@ export class AiModelDiscoveryService {
    */
   getEnvVarNameForProvider(provider: string): string {
     const providerLower = provider.toLowerCase();
+    if (providerLower === "minimax") return "MINIMAX_API_KEY";
     if (providerLower === "openrouter") return "OPENROUTER_API_KEY";
     if (providerLower === "groq") return "GROQ_API_KEY";
     if (providerLower === "xai" || providerLower === "grok")
@@ -144,6 +145,14 @@ export class AiModelDiscoveryService {
             "https://api.moonshot.cn/v1/models",
             apiKey,
             "Moonshot",
+            modelType,
+          );
+
+        case "minimax":
+          return await this.fetchOpenAICompatibleModels(
+            "https://api.minimax.chat/v1/models",
+            apiKey,
+            "MiniMax",
             modelType,
           );
 

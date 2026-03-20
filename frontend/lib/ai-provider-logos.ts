@@ -83,6 +83,12 @@ const PROVIDER_BRANDS: Record<string, ProviderBrand> = {
     color: '#6366f1',
     gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
   },
+  minimax: {
+    name: 'MiniMax',
+    logo: '/icons/ai/minimax.svg',
+    color: '#1a1a2e',
+    gradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+  },
   groq: {
     name: 'Groq',
     logo: '/icons/ai/groq.svg',
