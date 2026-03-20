@@ -318,6 +318,61 @@ export const DEFAULT_CRITIQUE_REFINE_CONFIG: CritiqueRefineConfig = {
   },
 };
 
+// ==================== Section Self-Evaluation Types ====================
+
+/** 4 维自评维度（从 10 维中选最可补救的 4 个） */
+export type SelfEvalDimension =
+  | "analytical_depth"
+  | "evidence_coverage"
+  | "actionability"
+  | "writing_quality";
+
+/** 单 section 自评结果 */
+export interface SectionSelfEvalResult {
+  scores: Record<SelfEvalDimension, number>; // 1-10
+  weakAreas: SelfEvalDimension[]; // score < threshold 的维度
+  overallOk: boolean; // 所有维度 >= threshold
+}
+
+/** 补救动作类型 */
+export type RemediationActionType =
+  | "deepen_analysis"
+  | "inject_evidence"
+  | "add_recommendations"
+  | "improve_style";
+
+/** 单个补救动作 */
+export interface RemediationAction {
+  type: RemediationActionType;
+  dimension: SelfEvalDimension;
+  score: number; // 自评分数
+  guidance: string; // 补救指令
+}
+
+/** 补救执行结果 */
+export interface RemediationResult {
+  content: string; // 补救后的内容
+  actionsApplied: RemediationAction[];
+  skipped: boolean;
+  skipReason?: string;
+}
+
+/** 补救过程追踪（附加到 ChapterEvaluation） */
+export interface RemediationTrace {
+  sectionTitle: string;
+  originalModel: string;
+  remediationModel?: string; // 补救使用的模型（升级后的 STRONG 模型）
+  selfEvalScores: Record<string, number>; // 4 维自评分数
+  actions: Array<{
+    type: string; // deepen_analysis | inject_evidence | ...
+    dimension: string;
+    scoreBefore: number;
+    guidance: string;
+  }>;
+  wasRemediated: boolean; // 是否执行了补救
+  skippedReason?: string; // 跳过原因
+}
+
 // ==================== Combined Quality Enhancement Types ====================
 
 /**

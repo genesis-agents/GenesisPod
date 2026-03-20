@@ -96,6 +96,8 @@ export { CritiqueRefineService } from "./quality/critique-refine.service";
 export { ReportQualityGateService } from "./quality/report-quality-gate.service";
 export { ReportQualityTraceService } from "./quality/report-quality-trace.service";
 export { ReportEvaluationService } from "./quality/report-evaluation.service";
+export { SectionSelfEvalService } from "./quality/section-self-eval.service";
+export { SectionRemediationService } from "./quality/section-remediation.service";
 
 // ==================== Monitoring ====================
 export { AgentActivityService } from "./monitoring/agent-activity.service";

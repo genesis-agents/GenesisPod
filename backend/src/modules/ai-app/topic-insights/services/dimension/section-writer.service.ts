@@ -38,6 +38,8 @@ import {
   getWritingStandards,
   getDimensionResearchStandards,
 } from "@/modules/ai-app/shared/report-template";
+import { classifyModelTier } from "../../config/model-tier.config";
+import { TIER_ADAPTATIONS } from "../../config/prompt-adaptation.config";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import {
   sanitizeSectionOutput,
@@ -106,6 +108,7 @@ export interface SectionWriteResult {
   generatedCharts?: GeneratedChart[];
   figureReferences?: FigureReference[];
   actualModelId?: string; // ★ 实际使用的模型（可能与分配的不同）
+  remediationTrace?: import("../../types/quality.types").RemediationTrace;
 }
 
 /**
@@ -182,9 +185,20 @@ export class SectionWriterService {
       `[writeSection] Writing section: ${section.title} (${section.targetWords} words)${modelId ? `, model: ${modelId}` : ""}`,
     );
 
+    // ★ Direction A: 模型 tier 自适应 — 证据截断 + prompt suffix + taskProfile
+    const tier = classifyModelTier(modelId ?? "");
+    const tierAdaptation = TIER_ADAPTATIONS[tier];
+
+    // 对弱模型截断证据条数，避免上下文过长导致质量下降
+    const effectiveEvidence =
+      tierAdaptation.maxEvidenceItems > 0 &&
+      evidenceData.length > tierAdaptation.maxEvidenceItems
+        ? evidenceData.slice(0, tierAdaptation.maxEvidenceItems)
+        : evidenceData;
+
     // ★ 连续编号：将不连续的全局编号映射为 1, 2, 3...，降低 LLM 混淆概率
     const { formatted: evidenceContiguous, localToGlobalMap } =
-      formatEvidenceForPromptContiguous(evidenceData);
+      formatEvidenceForPromptContiguous(effectiveEvidence);
     let evidenceFormatted = evidenceContiguous;
 
     // 格式化要点为编号列表（LLM 理解编号列表更好，裸 bullets 由后处理铁墙删除）
@@ -314,10 +328,15 @@ export class SectionWriterService {
         : `\n\n⚠️ **你不是本维度的第一节**：禁止在输出中添加 > **核心判断** 行，直接从 ### 标题或正文内容开始。`;
 
     // V5: Inject validation context if available
-    const finalUserPrompt =
+    let finalUserPrompt =
       (input.validationContext
         ? `${userPrompt}\n\n${input.validationContext}`
         : userPrompt) + openingInstruction;
+
+    // ★ Direction A: prompt suffix 追加
+    if (tierAdaptation.promptSuffix) {
+      finalUserPrompt += tierAdaptation.promptSuffix;
+    }
 
     // 调用 AI 写作
     // ★ 支持指定模型实现 Agent 多元化
@@ -356,10 +375,7 @@ export class SectionWriterService {
       model: modelId, // ★ 使用指定模型（如果提供）
       skipGuardrails: true, // 内部系统调用，章节写作含外部研究数据
       cachePolicy: "auto",
-      taskProfile: {
-        creativity: "medium",
-        outputLength: "long", // 支持 800-1500 字的章节
-      },
+      taskProfile: tierAdaptation.taskProfile,
     });
     const latencyMs = Date.now() - startTime;
 

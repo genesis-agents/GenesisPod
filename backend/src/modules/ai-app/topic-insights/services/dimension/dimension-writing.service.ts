@@ -44,6 +44,9 @@ import type {
 import { AgentActivityType } from "@prisma/client";
 import type { SearchPhaseResult } from "./dimension-search.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
+import { SectionSelfEvalService } from "../quality/section-self-eval.service";
+import { SectionRemediationService } from "../quality/section-remediation.service";
+import type { RemediationTrace } from "../../types/quality.types";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 
 /**
@@ -74,6 +77,8 @@ export class DimensionWritingService {
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly agentActivity: AgentActivityService,
     private readonly qualityGate: ReportQualityGateService,
+    private readonly selfEval: SectionSelfEvalService,
+    private readonly remediation: SectionRemediationService,
   ) {}
 
   /**
@@ -411,6 +416,11 @@ export class DimensionWritingService {
         .filter(Boolean)
         .pop();
 
+      // ★ 收集补救追踪记录
+      const remediationTraces = sectionResults
+        .map((r) => r.remediationTrace)
+        .filter((t): t is RemediationTrace => t !== undefined);
+
       // 6. 转换为标准结果格式
       const analysisResult = this.convertToAnalysisResult(
         dimension.id,
@@ -419,6 +429,7 @@ export class DimensionWritingService {
         allFigureReferences,
         allGeneratedCharts,
         lastActualModel,
+        remediationTraces.length > 0 ? remediationTraces : undefined,
       );
 
       // 7. 更新维度状态为 COMPLETED
@@ -735,6 +746,85 @@ export class DimensionWritingService {
           } catch (rewriteError) {
             this.logger.warn(
               `${logPrefix} [QualityGate] Rewrite failed for "${section.title}", keeping auto-fixed content: ${rewriteError instanceof Error ? rewriteError.message : String(rewriteError)}`,
+            );
+          }
+        }
+
+        // ★ Direction B: 自评 + 补救（仅当 QG 有 violation 时触发，节省成本）
+        if (!qc.passed) {
+          try {
+            const evalResult = await this.selfEval.evaluateSection({
+              content: result.content,
+              sectionTitle: section.title,
+              topicName: dimension.name,
+              language: topic?.language ?? "zh",
+            });
+
+            const trace: RemediationTrace = {
+              sectionTitle: section.title,
+              originalModel: modelId ?? "unknown",
+              selfEvalScores: { ...evalResult.scores },
+              actions: [],
+              wasRemediated: false,
+            };
+
+            if (!evalResult.overallOk) {
+              const actions = this.selfEval.determineRemediationActions(
+                evalResult,
+                7,
+                topic?.language ?? "zh",
+              );
+
+              if (actions.length > 0) {
+                const remediationModelId =
+                  await this.remediation.getRemediationModelId(modelId ?? "");
+                trace.remediationModel = remediationModelId || undefined;
+                trace.actions = actions.map((a) => ({
+                  type: a.type,
+                  dimension: a.dimension,
+                  scoreBefore: a.score,
+                  guidance: a.guidance,
+                }));
+
+                const remResult = await this.remediation.remediate({
+                  content: result.content,
+                  sectionTitle: section.title,
+                  actions,
+                  originalModelId: modelId,
+                  resolvedRemediationModelId: remediationModelId,
+                  language: topic?.language ?? "zh",
+                });
+
+                if (!remResult.skipped) {
+                  // 补救后再跑一次 QG auto-fix
+                  const qcFinal = this.qualityGate.validateDimensionContent(
+                    remResult.content,
+                    topic?.language || "zh",
+                    topic?.type,
+                  );
+                  result = {
+                    ...result,
+                    content: qcFinal.wasAutoFixed
+                      ? qcFinal.fixedContent
+                      : remResult.content,
+                  };
+                  trace.wasRemediated = true;
+
+                  this.logger.log(
+                    `${logPrefix} [Remediation] Section "${section.title}" remediated: ${actions.map((a) => a.type).join(", ")}`,
+                  );
+                } else {
+                  trace.skippedReason = remResult.skipReason;
+                }
+              }
+            } else {
+              trace.skippedReason = "all_scores_above_threshold";
+            }
+
+            result = { ...result, remediationTrace: trace };
+          } catch (evalError) {
+            this.logger.warn(
+              `${logPrefix} [Remediation] Self-eval/remediation failed for "${section.title}", keeping content: ${evalError instanceof Error ? evalError.message : String(evalError)}`,
             );
           }
         }
@@ -1343,6 +1433,7 @@ export class DimensionWritingService {
     figureReferences: FigureReference[] = [],
     generatedCharts: GeneratedChart[] = [],
     modelUsed?: string,
+    remediationTraces?: RemediationTrace[],
   ): DimensionAnalysisResult {
     const content = integratedResult.content || "";
 
@@ -1369,6 +1460,7 @@ export class DimensionWritingService {
       figureReferences,
       generatedCharts,
       modelUsed,
+      remediationTraces,
     };
   }
 

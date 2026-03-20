@@ -11,7 +11,12 @@
  * 5. 识别并声明局限性
  */
 
-import { Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ReportEvaluationService,
@@ -180,8 +185,8 @@ export class CredibilityReportService {
           const dataPoints = da.dataPoints as Record<string, unknown> | null;
           const detailedContent =
             typeof dataPoints?.detailedContent === "string"
-              ? (dataPoints.detailedContent as string)
-              : da.summary ?? "";
+              ? dataPoints.detailedContent
+              : (da.summary ?? "");
           return {
             chapterId: da.dimensionId ?? da.id,
             chapterTitle: da.dimension?.name ?? "未知维度",
@@ -197,6 +202,21 @@ export class CredibilityReportService {
           chapters,
           language: (report.topic as { language?: string }).language ?? "zh",
         });
+
+        // ★ 附加补救记录：从 dataPoints.remediationTraces 读取
+        for (const chEval of aiEvaluation.chapters) {
+          const da = report.dimensionAnalyses.find(
+            (d) => (d.dimensionId ?? d.id) === chEval.chapterId,
+          );
+          if (da) {
+            const dp = da.dataPoints as Record<string, unknown> | null;
+            const traces = dp?.remediationTraces;
+            if (Array.isArray(traces) && traces.length > 0) {
+              chEval.remediationTraces =
+                traces as import("../../types/quality.types").RemediationTrace[];
+            }
+          }
+        }
 
         // 综合评分：来源可信度 ×0.4 + AI 评审 ×0.6
         if (aiEvaluation.overallScore > 0) {
@@ -931,10 +951,18 @@ export class CredibilityReportService {
         coverageDetails: coverageDetailsJson,
         aiQualityMetrics: aiQualityMetricsJson,
         limitations: data.limitations,
-        ...(aiEvaluationJson !== undefined && { aiEvaluation: aiEvaluationJson }),
-        ...(data.combinedScore !== undefined && { combinedScore: data.combinedScore }),
-        ...(data.combinedGrade !== undefined && { combinedGrade: data.combinedGrade }),
-        ...(data.summaryText !== undefined && { summaryText: data.summaryText }),
+        ...(aiEvaluationJson !== undefined && {
+          aiEvaluation: aiEvaluationJson,
+        }),
+        ...(data.combinedScore !== undefined && {
+          combinedScore: data.combinedScore,
+        }),
+        ...(data.combinedGrade !== undefined && {
+          combinedGrade: data.combinedGrade,
+        }),
+        ...(data.summaryText !== undefined && {
+          summaryText: data.summaryText,
+        }),
       },
       update: {
         overallScore: data.overallScore,
@@ -947,10 +975,18 @@ export class CredibilityReportService {
         coverageDetails: coverageDetailsJson,
         aiQualityMetrics: aiQualityMetricsJson,
         limitations: data.limitations,
-        ...(aiEvaluationJson !== undefined && { aiEvaluation: aiEvaluationJson }),
-        ...(data.combinedScore !== undefined && { combinedScore: data.combinedScore }),
-        ...(data.combinedGrade !== undefined && { combinedGrade: data.combinedGrade }),
-        ...(data.summaryText !== undefined && { summaryText: data.summaryText }),
+        ...(aiEvaluationJson !== undefined && {
+          aiEvaluation: aiEvaluationJson,
+        }),
+        ...(data.combinedScore !== undefined && {
+          combinedScore: data.combinedScore,
+        }),
+        ...(data.combinedGrade !== undefined && {
+          combinedGrade: data.combinedGrade,
+        }),
+        ...(data.summaryText !== undefined && {
+          summaryText: data.summaryText,
+        }),
         updatedAt: new Date(),
       },
     });

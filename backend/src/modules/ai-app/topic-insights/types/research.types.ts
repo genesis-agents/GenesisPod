@@ -52,6 +52,8 @@ export interface DimensionAnalysisResult {
   generatedCharts?: GeneratedChart[];
   /** 实际使用的 LLM 模型 ID */
   modelUsed?: string;
+  /** 补救过程追踪 */
+  remediationTraces?: import("./quality.types").RemediationTrace[];
 }
 
 // ==================== Key Finding ====================

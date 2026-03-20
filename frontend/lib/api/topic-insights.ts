@@ -1350,6 +1350,24 @@ export interface EvaluationDimension {
 }
 
 /**
+ * 补救过程追踪
+ */
+export interface RemediationTrace {
+  sectionTitle: string;
+  originalModel: string;
+  remediationModel?: string;
+  selfEvalScores: Record<string, number>;
+  actions: Array<{
+    type: string;
+    dimension: string;
+    scoreBefore: number;
+    guidance: string;
+  }>;
+  wasRemediated: boolean;
+  skippedReason?: string;
+}
+
+/**
  * 单章节评审结果
  */
 export interface ChapterEvaluation {
@@ -1360,6 +1378,7 @@ export interface ChapterEvaluation {
   chapterScore: number;
   grade: string;
   feedback: string;
+  remediationTraces?: RemediationTrace[];
 }
 
 /**

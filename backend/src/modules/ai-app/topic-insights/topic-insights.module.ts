@@ -108,6 +108,8 @@ import {
   ReportQualityGateService,
   ReportQualityTraceService,
   ReportEvaluationService,
+  SectionSelfEvalService,
+  SectionRemediationService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,
@@ -217,6 +219,9 @@ const services = [
   ReportQualityTraceService,
   // ★ 10 维报告质量评审
   ReportEvaluationService,
+  // ★ 写中自评 + 补救
+  SectionSelfEvalService,
+  SectionRemediationService,
   CitationFormatterService,
   ResearchExportService,
   ResearchTemplateService,

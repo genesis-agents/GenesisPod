@@ -208,6 +208,7 @@ export class ReportSynthesisService {
       figureReferences?: FigureReference[];
       generatedCharts?: GeneratedChart[];
       modelUsed?: string;
+      remediationTraces?: import("../../types/quality.types").RemediationTrace[];
     },
   ): Promise<DimensionAnalysis> {
     // ★ Preprocess detailedContent before storing — applies all context-free
@@ -262,6 +263,9 @@ export class ReportSynthesisService {
           detailedContent: processedContent,
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],
+          ...(result.remediationTraces?.length
+            ? { remediationTraces: result.remediationTraces }
+            : {}),
         }),
         sourcesUsed: result.evidenceUsed,
         modelUsed: result.modelUsed,

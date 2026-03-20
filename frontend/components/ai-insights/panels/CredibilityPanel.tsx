@@ -23,6 +23,8 @@ import {
   GraduationCap,
   Newspaper,
   FileText,
+  Wrench,
+  ArrowRight,
 } from 'lucide-react';
 import { cn, safeString } from '@/lib/utils/common';
 import { logger } from '@/lib/utils/logger';
@@ -33,6 +35,7 @@ import {
   type CredibilityReportData,
   type EvaluationDimension,
   type ChapterEvaluation,
+  type RemediationTrace,
 } from '@/lib/api/topic-insights';
 
 // ==================== Types ====================
@@ -216,7 +219,7 @@ function ScoreBar({
         </span>
       </div>
       {comment && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 pl-[7.5rem]">
+        <p className="pl-[7.5rem] text-xs text-gray-500 dark:text-gray-400">
           {comment}
         </p>
       )}
@@ -242,7 +245,7 @@ function ChapterScoreCard({ chapter }: { chapter: ChapterEvaluation }) {
             className={cn(
               'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold',
               gradeColors.bg,
-              gradeColors.text,
+              gradeColors.text
             )}
           >
             {chapter.grade}
@@ -250,12 +253,17 @@ function ChapterScoreCard({ chapter }: { chapter: ChapterEvaluation }) {
           <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
             {chapter.chapterTitle}
           </span>
-          <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+          <span className="font-mono shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
             {chapter.writerModel}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className={cn('text-sm font-medium', getScoreColor(chapter.chapterScore))}>
+          <span
+            className={cn(
+              'text-sm font-medium',
+              getScoreColor(chapter.chapterScore)
+            )}
+          >
             {chapter.chapterScore}
           </span>
           {expanded ? (
@@ -276,7 +284,7 @@ function ChapterScoreCard({ chapter }: { chapter: ChapterEvaluation }) {
                   score={dim.score}
                   comment={dim.comment}
                 />
-              ) : null,
+              ) : null
             )}
           </div>
           {chapter.feedback && (
@@ -284,8 +292,81 @@ function ChapterScoreCard({ chapter }: { chapter: ChapterEvaluation }) {
               {chapter.feedback}
             </div>
           )}
+          {chapter.remediationTraces &&
+            chapter.remediationTraces.length > 0 && (
+              <RemediationTraceSection traces={chapter.remediationTraces} />
+            )}
         </div>
       )}
+    </div>
+  );
+}
+
+const REMEDIATION_ACTION_LABELS: Record<string, string> = {
+  deepen_analysis: '深化分析',
+  inject_evidence: '补充证据',
+  add_recommendations: '追加建议',
+  improve_style: '改善风格',
+};
+
+function RemediationTraceSection({ traces }: { traces: RemediationTrace[] }) {
+  const remediatedTraces = traces.filter((t) => t.wasRemediated);
+  if (remediatedTraces.length === 0) return null;
+
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-2 dark:border-gray-700">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500">
+        <Wrench className="h-3 w-3" />
+        <span>补救记录</span>
+      </div>
+      <div className="space-y-2">
+        {remediatedTraces.map((trace, i) => (
+          <div
+            key={i}
+            className="rounded border border-gray-100 bg-gray-50/50 px-2.5 py-1.5 dark:border-gray-700 dark:bg-gray-800/50"
+          >
+            <div className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+              {trace.sectionTitle}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+              <span className="font-mono rounded bg-gray-100 px-1 dark:bg-gray-700">
+                {trace.originalModel}
+              </span>
+              {trace.remediationModel &&
+                trace.remediationModel !== trace.originalModel && (
+                  <>
+                    <ArrowRight className="h-3 w-3" />
+                    <span className="font-mono rounded bg-blue-50 px-1 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                      {trace.remediationModel}
+                    </span>
+                  </>
+                )}
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+              {Object.entries(trace.selfEvalScores).map(([dim, score]) => (
+                <span
+                  key={dim}
+                  className={cn(
+                    'rounded px-1 py-0.5',
+                    score < 7
+                      ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                  )}
+                >
+                  {dim.replace(/_/g, ' ')} {String(score)}/10
+                </span>
+              ))}
+            </div>
+            {trace.actions.length > 0 && (
+              <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                {trace.actions
+                  .map((a) => REMEDIATION_ACTION_LABELS[a.type] || a.type)
+                  .join(' + ')}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -483,9 +564,7 @@ function TimelinessDistribution({ breakdown }: { breakdown: TimeBreakdown }) {
   ].filter((p) => p.count > 0);
 
   if (periods.length === 0) {
-    return (
-      <p className="py-2 text-sm text-gray-500">暂无时效性数据</p>
-    );
+    return <p className="py-2 text-sm text-gray-500">暂无时效性数据</p>;
   }
 
   return (
@@ -555,9 +634,7 @@ export function CredibilityPanel({
         },
       });
     } catch (err) {
-      setFetchError(
-        err instanceof Error ? err.message : '加载可信度报告失败'
-      );
+      setFetchError(err instanceof Error ? err.message : '加载可信度报告失败');
     } finally {
       setIsFetching(false);
     }
@@ -572,9 +649,7 @@ export function CredibilityPanel({
         const data = await regenerateCredibilityReport(topicId, reportId);
         setFetchedCredibility(data);
       } catch (err) {
-        setFetchError(
-          err instanceof Error ? err.message : '重新生成报告失败'
-        );
+        setFetchError(err instanceof Error ? err.message : '重新生成报告失败');
       } finally {
         setIsFetching(false);
       }
@@ -614,7 +689,9 @@ export function CredibilityPanel({
         <div className="mb-1 text-lg font-medium text-gray-900 dark:text-white">
           加载失败
         </div>
-        <div className="mb-3 text-sm text-gray-500">{safeString(fetchError)}</div>
+        <div className="mb-3 text-sm text-gray-500">
+          {safeString(fetchError)}
+        </div>
         <button
           onClick={() => void fetchData()}
           className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-600"
@@ -868,11 +945,16 @@ export function CredibilityPanel({
                           key={m.modelId}
                           className="border-b border-gray-50 dark:border-gray-800"
                         >
-                          <td className="px-3 py-2 font-mono text-xs">
+                          <td className="font-mono px-3 py-2 text-xs">
                             {m.modelId}
                           </td>
                           <td className="px-3 py-2">{m.chapterCount}</td>
-                          <td className={cn('px-3 py-2 font-medium', getScoreColor(m.avgScore))}>
+                          <td
+                            className={cn(
+                              'px-3 py-2 font-medium',
+                              getScoreColor(m.avgScore)
+                            )}
+                          >
                             {m.avgScore}
                           </td>
                           <td className="hidden px-3 py-2 text-xs text-gray-500 sm:table-cell">

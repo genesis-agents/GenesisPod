@@ -143,6 +143,7 @@ export class ReportDataService {
       figureReferences?: FigureReference[];
       generatedCharts?: GeneratedChart[];
       modelUsed?: string;
+      remediationTraces?: import("../../types/quality.types").RemediationTrace[];
     },
   ): Promise<DimensionAnalysis> {
     const analysis = await this.prisma.dimensionAnalysis.create({
@@ -168,6 +169,9 @@ export class ReportDataService {
             : "",
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],
+          ...(result.remediationTraces?.length
+            ? { remediationTraces: result.remediationTraces }
+            : {}),
         }),
         sourcesUsed: result.evidenceUsed,
         modelUsed: result.modelUsed,

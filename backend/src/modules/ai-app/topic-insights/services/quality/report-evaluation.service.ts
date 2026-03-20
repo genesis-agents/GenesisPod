@@ -34,6 +34,7 @@ export interface ChapterEvaluation {
   chapterScore: number; // 1-100 加权总分
   grade: string; // A/B/C/D/F
   feedback: string; // 该章节的评语
+  remediationTraces?: import("../../types/quality.types").RemediationTrace[];
 }
 
 /** 整体评审结果（含按章节明细） */
@@ -168,7 +169,11 @@ export class ReportEvaluationService {
 
     // 2. 按章节并行评审（限流）
     const chapterResults: ChapterEvaluation[] = [];
-    for (let i = 0; i < input.chapters.length; i += MAX_CONCURRENT_EVALUATIONS) {
+    for (
+      let i = 0;
+      i < input.chapters.length;
+      i += MAX_CONCURRENT_EVALUATIONS
+    ) {
       const batch = input.chapters.slice(i, i + MAX_CONCURRENT_EVALUATIONS);
       const batchResults = await Promise.all(
         batch.map((chapter) =>
@@ -197,10 +202,7 @@ export class ReportEvaluationService {
     const modelComparison = this.buildModelComparison(chapterResults);
 
     // 5. 整体评语
-    const feedback = this.buildOverallFeedback(
-      chapterResults,
-      modelComparison,
-    );
+    const feedback = this.buildOverallFeedback(chapterResults, modelComparison);
 
     const result: EvaluationResult = {
       chapters: chapterResults,
@@ -451,12 +453,8 @@ ${dimensionsList}
     } else if (cleaned.startsWith("```")) {
       cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```$/, "");
     }
-    cleaned = cleaned
-      .replace(/<think>[\s\S]*?<\/think>/gi, "")
-      .trim();
-    cleaned = cleaned
-      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
-      .trim();
+    cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "").trim();
 
     const parsed = JSON.parse(cleaned) as {
       dimensions?: Array<{ id: string; score: number; comment: string }>;
