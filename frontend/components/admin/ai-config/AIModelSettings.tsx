@@ -17,7 +17,8 @@ type AIModelType =
   | 'IMAGE_EDITING'
   | 'MULTIMODAL'
   | 'EMBEDDING'
-  | 'RERANK';
+  | 'RERANK'
+  | 'EVALUATOR';
 
 // 模型类型选项 - 按 Tier 分组
 const MODEL_TYPE_OPTIONS = [
@@ -75,6 +76,13 @@ const MODEL_TYPE_OPTIONS = [
     label: '重排序',
     description: 'Cohere rerank - 用于搜索结果重排序',
     tier: 'embedding',
+  },
+  // === 评估 Tier ===
+  {
+    value: 'EVALUATOR',
+    label: '报告评审',
+    description: '报告质量 10 维评审专用 - 确保跨报告评分一致性',
+    tier: 'text',
   },
 ];
 
