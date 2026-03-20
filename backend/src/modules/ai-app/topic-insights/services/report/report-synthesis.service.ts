@@ -955,9 +955,18 @@ export class ReportSynthesisService {
       citationIndexMapping.size > 0
         ? remapCitationIndices(cleanedReport, citationIndexMapping)
         : cleanedReport;
+
+    this.logger.log(
+      `[synthesizeReport] Step 11a: remappedReport=${remappedReport.length}c, refsSection=${referencesSection.length}c`,
+    );
+
     // ★ Finalize: wrap bare LaTeX, add reference anchors, linkify citations
-    let finalReport = this.assembler.finalizeReportWithCitations(
-      remappedReport + referencesSection,
+    const combinedReport = remappedReport + referencesSection;
+    let finalReport =
+      this.assembler.finalizeReportWithCitations(combinedReport);
+
+    this.logger.log(
+      `[synthesizeReport] Step 11b: combined=${combinedReport.length}c → finalized=${finalReport.length}c`,
     );
 
     // ★ 孤儿引用清理（必须在参考文献追加后执行）
@@ -967,8 +976,23 @@ export class ReportSynthesisService {
         ...refEntryMatches.map((r) => parseInt(r.match(/\d+/)?.[0] || "0", 10)),
       );
       if (maxIdx > 0) {
+        const beforeOrphan = finalReport.length;
         finalReport = removeOrphanCitations(finalReport, maxIdx);
+        this.logger.log(
+          `[synthesizeReport] Step 11c: orphan cleanup maxIdx=${maxIdx}, ${beforeOrphan}c → ${finalReport.length}c`,
+        );
       }
+    }
+
+    // ★ Safety net: 如果 finalReport 异常缩小（>50% 丢失），回退到 cleanedReport + refs
+    if (
+      finalReport.length < cleanedReport.length * 0.5 &&
+      cleanedReport.length > 1000
+    ) {
+      this.logger.error(
+        `[synthesizeReport] ★ SAFETY NET: finalReport=${finalReport.length}c is <50% of cleanedReport=${cleanedReport.length}c. Falling back to cleanedReport + refs.`,
+      );
+      finalReport = cleanedReport + referencesSection;
     }
 
     // ★ Probe 3: 后处理修复统计（从 assembler 的 postProcessFinalReport 获取）
