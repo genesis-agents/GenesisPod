@@ -326,7 +326,15 @@ export class AiModelConfigService {
       return inferred;
     }
 
-    // 其他情况信任数据库值（如用户有意配置 OpenAI 兼容代理）
+    // 反向矛盾：OpenAI 兼容 provider 存了非 openai format（如 OpenRouter 误存 "google"）
+    if (dbApiFormat !== "openai" && inferred === "openai") {
+      this.logger.warn(
+        `[resolveApiFormat] Model ${modelId}: apiFormat="${dbApiFormat}" conflicts with OpenAI-compatible provider="${provider}", forcing "openai"`,
+      );
+      return "openai";
+    }
+
+    // 其他情况信任数据库值
     return dbApiFormat;
   }
 
