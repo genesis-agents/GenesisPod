@@ -62,6 +62,8 @@ export class AiModelDiscoveryService {
    */
   getEnvVarNameForProvider(provider: string): string {
     const providerLower = provider.toLowerCase();
+    if (providerLower === "openrouter") return "OPENROUTER_API_KEY";
+    if (providerLower === "groq") return "GROQ_API_KEY";
     if (providerLower === "xai" || providerLower === "grok")
       return "XAI_API_KEY";
     if (providerLower === "openai" || providerLower === "gpt")
@@ -145,6 +147,23 @@ export class AiModelDiscoveryService {
             modelType,
           );
 
+        case "openrouter":
+        case "open-router":
+          return await this.fetchOpenAICompatibleModels(
+            "https://openrouter.ai/api/v1/models",
+            apiKey,
+            "OpenRouter",
+            modelType,
+          );
+
+        case "groq":
+          return await this.fetchOpenAICompatibleModels(
+            "https://api.groq.com/openai/v1/models",
+            apiKey,
+            "Groq",
+            modelType,
+          );
+
         case "cohere":
           return this.getCohereModels(modelType);
 
@@ -152,12 +171,21 @@ export class AiModelDiscoveryService {
           return { success: false, error: `Unknown provider: ${provider}` };
       }
     } catch (error: unknown) {
-      const errorResponse = (error as { response?: { data?: { error?: { message?: string } | string; message?: string }; status?: number } }).response;
+      const errorResponse = (
+        error as {
+          response?: {
+            data?: { error?: { message?: string } | string; message?: string };
+            status?: number;
+          };
+        }
+      ).response;
       const errorData = errorResponse?.data;
       const apiError =
-        (typeof errorData?.error === 'object' && errorData.error !== null ? (errorData.error as { message?: string }).message : null) ||
+        (typeof errorData?.error === "object" && errorData.error !== null
+          ? (errorData.error as { message?: string }).message
+          : null) ||
         errorData?.message ||
-        (typeof errorData?.error === 'string' ? errorData.error : null) ||
+        (typeof errorData?.error === "string" ? errorData.error : null) ||
         null;
       const statusCode = errorResponse?.status;
 
@@ -166,7 +194,9 @@ export class AiModelDiscoveryService {
       );
 
       const errorMessage =
-        (typeof apiError === "string" ? apiError : (apiError as { message?: string } | null)?.message) ||
+        (typeof apiError === "string"
+          ? apiError
+          : (apiError as { message?: string } | null)?.message) ||
         (error instanceof Error ? error.message : null) ||
         "Unknown error";
       return { success: false, error: errorMessage };
@@ -249,7 +279,9 @@ export class AiModelDiscoveryService {
       modelType === "IMAGE_GENERATION" ||
       modelType === "IMAGE_EDITING"
     ) {
-      filteredModels = allModels.filter((m: { id: string }) => m.id.startsWith("dall-e"));
+      filteredModels = allModels.filter((m: { id: string }) =>
+        m.id.startsWith("dall-e"),
+      );
     } else if (modelType === "CHAT_FAST") {
       filteredModels = allModels.filter(
         (m: { id: string }) =>
@@ -342,17 +374,24 @@ export class AiModelDiscoveryService {
     );
 
     const allModels = response.data?.models || [];
-    let filteredModels: Array<{ name: string; displayName?: string; description?: string; supportedGenerationMethods?: string[] }>;
+    let filteredModels: Array<{
+      name: string;
+      displayName?: string;
+      description?: string;
+      supportedGenerationMethods?: string[];
+    }>;
 
     if (modelType === "EMBEDDING") {
-      filteredModels = allModels.filter((m: { name: string; supportedGenerationMethods?: string[] }) => {
-        const name = m.name.toLowerCase();
-        return (
-          name.includes("embedding") ||
-          name.includes("text-embedding") ||
-          m.supportedGenerationMethods?.includes("embedContent")
-        );
-      });
+      filteredModels = allModels.filter(
+        (m: { name: string; supportedGenerationMethods?: string[] }) => {
+          const name = m.name.toLowerCase();
+          return (
+            name.includes("embedding") ||
+            name.includes("text-embedding") ||
+            m.supportedGenerationMethods?.includes("embedContent")
+          );
+        },
+      );
     } else if (
       modelType === "IMAGE_GENERATION" ||
       modelType === "IMAGE_EDITING"
@@ -362,22 +401,26 @@ export class AiModelDiscoveryService {
         return name.includes("imagen");
       });
     } else if (modelType === "MULTIMODAL") {
-      filteredModels = allModels.filter((m: { name: string; supportedGenerationMethods?: string[] }) => {
-        const name = m.name.toLowerCase();
-        return (
-          name.includes("gemini") &&
-          m.supportedGenerationMethods?.includes("generateContent")
-        );
-      });
+      filteredModels = allModels.filter(
+        (m: { name: string; supportedGenerationMethods?: string[] }) => {
+          const name = m.name.toLowerCase();
+          return (
+            name.includes("gemini") &&
+            m.supportedGenerationMethods?.includes("generateContent")
+          );
+        },
+      );
     } else {
-      filteredModels = allModels.filter((m: { name: string; supportedGenerationMethods?: string[] }) => {
-        const name = m.name.toLowerCase();
-        return (
-          name.includes("gemini") &&
-          m.supportedGenerationMethods?.includes("generateContent") &&
-          !name.includes("embedding")
-        );
-      });
+      filteredModels = allModels.filter(
+        (m: { name: string; supportedGenerationMethods?: string[] }) => {
+          const name = m.name.toLowerCase();
+          return (
+            name.includes("gemini") &&
+            m.supportedGenerationMethods?.includes("generateContent") &&
+            !name.includes("embedding")
+          );
+        },
+      );
     }
 
     filteredModels.sort((a, b) =>

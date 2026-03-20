@@ -31,6 +31,8 @@ describe("AIProviderFactory", () => {
       expect(providerIds).toContain("google-gemini");
       expect(providerIds).toContain("google-imagen");
       expect(providerIds).toContain("xai");
+      expect(providerIds).toContain("groq");
+      expect(providerIds).toContain("openrouter");
     });
   });
 
@@ -63,6 +65,34 @@ describe("AIProviderFactory", () => {
       const provider = factory.getProvider("unknown-provider");
 
       expect(provider).toBeUndefined();
+    });
+
+    it("should get Groq provider by ID", () => {
+      const provider = factory.getProvider("groq");
+
+      expect(provider).toBeDefined();
+      expect(provider?.providerId).toBe("openai");
+    });
+
+    it("should get OpenRouter provider by ID", () => {
+      const provider = factory.getProvider("openrouter");
+
+      expect(provider).toBeDefined();
+      expect(provider?.providerId).toBe("openai");
+    });
+
+    it("should get Groq provider by alias", () => {
+      const provider = factory.getProvider("groq-cloud");
+
+      expect(provider).toBeDefined();
+      expect(provider?.providerId).toBe("openai");
+    });
+
+    it("should get OpenRouter provider by alias", () => {
+      const provider = factory.getProvider("open-router");
+
+      expect(provider).toBeDefined();
+      expect(provider?.providerId).toBe("openai");
     });
   });
 

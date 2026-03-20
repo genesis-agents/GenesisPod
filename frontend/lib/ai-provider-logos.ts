@@ -77,6 +77,18 @@ const PROVIDER_BRANDS: Record<string, ProviderBrand> = {
     color: '#0668e1',
     gradient: 'linear-gradient(135deg, #0668e1 0%, #0553b8 100%)',
   },
+  openrouter: {
+    name: 'OpenRouter',
+    logo: '/icons/ai/openrouter.svg',
+    color: '#6366f1',
+    gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+  },
+  groq: {
+    name: 'Groq',
+    logo: '/icons/ai/groq.svg',
+    color: '#f55036',
+    gradient: 'linear-gradient(135deg, #f55036 0%, #c4402b 100%)',
+  },
   deepseek: {
     name: 'DeepSeek',
     logo: '/icons/ai/deepseek.svg',

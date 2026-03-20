@@ -87,9 +87,9 @@ describe("AiModelDiscoveryService", () => {
     });
 
     it("should format Claude Sonnet", () => {
-      expect(
-        service.formatModelDisplayName("claude-3-5-sonnet-20241022"),
-      ).toBe("Claude Sonnet");
+      expect(service.formatModelDisplayName("claude-3-5-sonnet-20241022")).toBe(
+        "Claude Sonnet",
+      );
     });
 
     it("should format Claude Haiku", () => {
@@ -161,6 +161,16 @@ describe("AiModelDiscoveryService", () => {
         "DEEPSEEK_API_KEY",
       );
     });
+
+    it("should return GROQ_API_KEY for groq", () => {
+      expect(service.getEnvVarNameForProvider("groq")).toBe("GROQ_API_KEY");
+    });
+
+    it("should return OPENROUTER_API_KEY for openrouter", () => {
+      expect(service.getEnvVarNameForProvider("openrouter")).toBe(
+        "OPENROUTER_API_KEY",
+      );
+    });
   });
 
   // ==================== fetchAvailableModels ====================
@@ -201,10 +211,7 @@ describe("AiModelDiscoveryService", () => {
 
     it("should filter xAI embedding models", async () => {
       const mockModels = {
-        data: [
-          { id: "grok-2" },
-          { id: "v1-embeddings" },
-        ],
+        data: [{ id: "grok-2" }, { id: "v1-embeddings" }],
       };
       mockHttpService.get.mockReturnValueOnce(
         of(makeHttpResponse(mockModels)) as any,
@@ -219,18 +226,13 @@ describe("AiModelDiscoveryService", () => {
       expect(result.success).toBe(true);
       // Should only have embedding model
       expect(
-        result.models?.every(
-          (m) => m.id.includes("embed") || m.id === "v1",
-        ),
+        result.models?.every((m) => m.id.includes("embed") || m.id === "v1"),
       ).toBe(true);
     });
 
     it("should filter xAI CHAT models (exclude embeddings)", async () => {
       const mockModels = {
-        data: [
-          { id: "grok-2" },
-          { id: "v1-embeddings" },
-        ],
+        data: [{ id: "grok-2" }, { id: "v1-embeddings" }],
       };
       mockHttpService.get.mockReturnValueOnce(
         of(makeHttpResponse(mockModels)) as any,
@@ -286,7 +288,11 @@ describe("AiModelDiscoveryService", () => {
       );
       expect(result.success).toBe(true);
       expect(
-        result.models?.every((m) => m.id.includes("embedding") || (m.id.includes("ada") && m.id.includes("002"))),
+        result.models?.every(
+          (m) =>
+            m.id.includes("embedding") ||
+            (m.id.includes("ada") && m.id.includes("002")),
+        ),
       ).toBe(true);
     });
 
@@ -309,9 +315,7 @@ describe("AiModelDiscoveryService", () => {
         "IMAGE_GENERATION",
       );
       expect(result.success).toBe(true);
-      expect(result.models?.every((m) => m.id.startsWith("dall-e"))).toBe(
-        true,
-      );
+      expect(result.models?.every((m) => m.id.startsWith("dall-e"))).toBe(true);
     });
 
     it("should fetch OpenAI CHAT_FAST models", async () => {
@@ -491,10 +495,7 @@ describe("AiModelDiscoveryService", () => {
     // DeepSeek
     it("should fetch DeepSeek models via OpenAI-compatible API", async () => {
       const mockModels = {
-        data: [
-          { id: "deepseek-chat" },
-          { id: "deepseek-reasoner" },
-        ],
+        data: [{ id: "deepseek-chat" }, { id: "deepseek-reasoner" }],
       };
       mockHttpService.get.mockReturnValueOnce(
         of(makeHttpResponse(mockModels)) as any,
@@ -579,9 +580,7 @@ describe("AiModelDiscoveryService", () => {
         "EMBEDDING",
       );
       expect(result.success).toBe(true);
-      expect(result.models?.some((m) => m.id.includes("embedding"))).toBe(
-        true,
-      );
+      expect(result.models?.some((m) => m.id.includes("embedding"))).toBe(true);
     });
 
     it("should return GLM models for glm provider", async () => {
@@ -619,6 +618,77 @@ describe("AiModelDiscoveryService", () => {
 
       const result = await service.fetchAvailableModels("moonshot", "test-key");
       expect(result.success).toBe(true);
+    });
+
+    // Groq
+    it("should fetch Groq models via OpenAI-compatible API", async () => {
+      const mockModels = {
+        data: [{ id: "llama-3.3-70b-versatile" }, { id: "mixtral-8x7b-32768" }],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels("groq", "test-key");
+      expect(result.success).toBe(true);
+      expect(result.models!.length).toBe(2);
+      expect(mockHttpService.get).toHaveBeenCalledWith(
+        "https://api.groq.com/openai/v1/models",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-key" },
+        }),
+      );
+    });
+
+    it("should return empty for Groq IMAGE_GENERATION", async () => {
+      const result = await service.fetchAvailableModels(
+        "groq",
+        "test-key",
+        undefined,
+        "IMAGE_GENERATION",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models).toHaveLength(0);
+    });
+
+    // OpenRouter
+    it("should fetch OpenRouter models via OpenAI-compatible API", async () => {
+      const mockModels = {
+        data: [
+          { id: "openai/gpt-4o", description: "OpenAI GPT-4o" },
+          { id: "anthropic/claude-3.5-sonnet", description: "Claude 3.5" },
+        ],
+      };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "openrouter",
+        "test-key",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models!.length).toBe(2);
+      expect(mockHttpService.get).toHaveBeenCalledWith(
+        "https://openrouter.ai/api/v1/models",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-key" },
+        }),
+      );
+    });
+
+    it("should fetch OpenRouter models via open-router alias", async () => {
+      const mockModels = { data: [{ id: "meta-llama/llama-3-70b" }] };
+      mockHttpService.get.mockReturnValueOnce(
+        of(makeHttpResponse(mockModels)) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "open-router",
+        "test-key",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models!.length).toBe(1);
     });
 
     // Error handling

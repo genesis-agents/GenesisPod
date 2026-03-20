@@ -132,6 +132,34 @@ export class AIProviderFactory {
       supportedTaskTypes: [AiTaskType.IMAGE_GENERATION],
     });
 
+    // OpenRouter (OpenAI-compatible, multi-provider aggregator)
+    this.registerProvider({
+      providerId: "openrouter",
+      providerAliases: ["open-router"],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
+    // Groq (OpenAI-compatible, ultra-fast inference)
+    this.registerProvider({
+      providerId: "groq",
+      providerAliases: ["groq-cloud"],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
     // xAI Grok
     this.registerProvider({
       providerId: "xai",
