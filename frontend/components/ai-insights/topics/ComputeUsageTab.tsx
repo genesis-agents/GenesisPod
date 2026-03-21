@@ -22,7 +22,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { useI18n } from '@/lib/i18n';
 import { getProviderBrand } from '@/lib/ai-provider-logos';
@@ -119,7 +118,7 @@ function formatNumberFull(n: number | null | undefined): string {
 function formatTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString('zh-CN', {
+    return new Date(iso).toLocaleString(undefined, {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
@@ -241,8 +240,8 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
       .filter((d) => d.tokensUsed != null && d.tokensUsed > 0)
       .map((d) => ({
         name:
-          d.dimensionName.length > 8
-            ? d.dimensionName.substring(0, 8) + '...'
+          d.dimensionName.length > 12
+            ? d.dimensionName.substring(0, 12) + '...'
             : d.dimensionName,
         fullName: d.dimensionName,
         tokens: d.tokensUsed ?? 0,
@@ -352,7 +351,7 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
           <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
               <Zap className="h-4 w-4 text-gray-400" />
-              Input / Output Token
+              {t('topicResearch.computeUsage.inputOutputChart')}
             </h3>
             <div className="flex items-center gap-4">
               <ResponsiveContainer width={140} height={140}>
@@ -491,13 +490,13 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                       {t('topicResearch.computeUsage.calls')}
                     </th>
                     <th className="pb-2 text-right text-xs font-medium text-gray-500">
-                      Input
+                      {t('topicResearch.computeUsage.input')}
                     </th>
                     <th className="pb-2 text-right text-xs font-medium text-gray-500">
-                      Output
+                      {t('topicResearch.computeUsage.output')}
                     </th>
                     <th className="pb-2 text-right text-xs font-medium text-gray-500">
-                      Total
+                      {t('topicResearch.computeUsage.total')}
                     </th>
                   </tr>
                 </thead>
@@ -523,7 +522,9 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                   ))}
                   {/* Totals Row */}
                   <tr className="border-t-2 border-gray-200 bg-gray-50 font-medium">
-                    <td className="py-2.5 pr-4 text-xs text-gray-700">Total</td>
+                    <td className="py-2.5 pr-4 text-xs text-gray-700">
+                      {t('topicResearch.computeUsage.total')}
+                    </td>
                     <td className="py-2.5 text-right text-xs tabular-nums text-gray-700">
                       {formatNumberFull(
                         modelDistribution.reduce((s, m) => s + m.callCount, 0)

@@ -5938,7 +5938,11 @@
       "avgTokenPerDim": "Avg per dimension",
       "startTime": "Start time",
       "endTime": "End time",
-      "totalCredits": "Total credits"
+      "totalCredits": "Total credits",
+      "inputOutputChart": "Input / Output Token Distribution",
+      "input": "Input",
+      "output": "Output",
+      "total": "Total"
     },
     "topics": {
       "credibilityPanel": {
