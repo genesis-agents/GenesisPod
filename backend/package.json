@@ -6,7 +6,7 @@
   "scripts": {
     "build": "prisma generate --schema=prisma/schema && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
+    "start": "node --max-old-space-size=3072 dist/main",
     "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node scripts/migrate-deploy.js && node --max-old-space-size=3072 dist/main",
