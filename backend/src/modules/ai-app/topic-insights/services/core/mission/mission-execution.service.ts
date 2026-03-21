@@ -687,7 +687,10 @@ export class MissionExecutionService {
       where: {
         missionId,
         taskType: "report_synthesis",
-        status: ResearchTaskStatus.PENDING,
+        // PENDING 或 ASSIGNED：synthesis 依赖未满足时一定是 PENDING
+        status: {
+          in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.ASSIGNED],
+        },
       },
       select: { id: true, dependencies: true },
     });
