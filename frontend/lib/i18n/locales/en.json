@@ -603,7 +603,7 @@
     "chat": "Chat",
     "artifacts": "Artifacts",
     "newResearch": "New Research",
-    "researchHistory": "Research History",
+    "researchHistory": "Insights History",
     "startResearch": "Start Research",
     "researchPlaceholder": "What would you like to research?",
     "generating": "Generating...",
@@ -5072,11 +5072,11 @@
         }
       },
       "timeline": {
-        "title": "Research History Timeline",
+        "title": "Insights History Timeline",
         "filterAll": "All",
         "filterCurrent": "Current",
         "filterPrevious": "History",
-        "totalResearch": "{{count}} researches total",
+        "totalResearch": "{{count}} insights total",
         "successCount": "{{count}} succeeded",
         "researchSession": "Research Session {{number}}",
         "status": {

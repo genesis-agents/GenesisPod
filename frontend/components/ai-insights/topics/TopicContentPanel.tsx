@@ -67,7 +67,7 @@ import { AIEditPreviewModal } from '../ai-edit/AIEditPreviewModal';
 import { CredibilityPanel } from '../panels/CredibilityPanel';
 // Phase TODO UX 优化组件 - 新的研究协作面板（合并原 thinking/history/collaboration）
 import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborationPanel';
-// 研究历史组件 - 简化版，显示会话列表 + 对比功能
+// 洞察历史组件 - 简化版，显示会话列表 + 对比功能
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
 // ★ v5: 质量探针面板 — 已集成到 CredibilityPanel 中，不再单独渲染
 // ★ v8: Pipeline 阶段指示器
@@ -1049,7 +1049,7 @@ export function TopicContentPanel({
   const safeEvents = Array.isArray(researchEvents) ? researchEvents : [];
   const safeThinkings = Array.isArray(agentThinkings) ? agentThinkings : [];
 
-  // Tab 配置 - 顺序: TODO LIST → 协作动态 → 洞察报告 → 研究历史 → 可信度 → 参考文献
+  // Tab 配置 - 顺序: TODO LIST → 协作动态 → 洞察报告 → 洞察历史 → 可信度 → 参考文献
   const tabs: {
     key: TabType;
     label: string;

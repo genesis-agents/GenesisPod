@@ -603,7 +603,7 @@
     "chat": "对话",
     "artifacts": "制品",
     "newResearch": "新建研究",
-    "researchHistory": "研究历史",
+    "researchHistory": "洞察历史",
     "startResearch": "开始研究",
     "researchPlaceholder": "你想研究什么？",
     "generating": "生成中...",
@@ -4474,7 +4474,7 @@
         "todoList": "待办列表",
         "collaboration": "协作动态",
         "report": "洞察报告",
-        "history": "研究历史",
+        "history": "洞察历史",
         "credibility": "可信度",
         "references": "参考文献"
       },
@@ -5012,13 +5012,13 @@
     },
     "collaboration": {
       "timeline": {
-        "title": "研究历史时间线",
+        "title": "洞察历史时间线",
         "filterAll": "全部",
         "filterCurrent": "本次",
         "filterPrevious": "历史",
         "totalResearch": "共 {{count}} 次研究",
         "successCount": "{{count}} 次成功",
-        "researchSession": "第 {{number}} 次研究",
+        "researchSession": "第 {{number}} 次洞察",
         "status": {
           "completed": "已完成",
           "failed": "失败",
@@ -5048,8 +5048,8 @@
         "collapseDetails": "收起详情",
         "viewReport": "查看报告 v{{version}}",
         "compareVersions": "对比版本",
-        "loading": "加载研究历史...",
-        "noHistory": "暂无研究历史",
+        "loading": "加载洞察历史...",
+        "noHistory": "暂无洞察历史",
         "noHistoryHint": "开始研究后，历史记录将显示在这里",
         "phaseLabels": {
           "understanding": "理解",
