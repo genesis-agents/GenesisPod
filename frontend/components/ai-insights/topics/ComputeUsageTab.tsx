@@ -345,10 +345,14 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
             icon={<Zap className="h-4 w-4 text-indigo-600" />}
             label={t('topicResearch.computeUsage.totalTokens')}
             value={formatNumber(summary.totalTokens)}
-            subText={`${t('topicResearch.computeUsage.inputOutput', {
-              input: formatNumber(summary.inputTokens),
-              output: formatNumber(summary.outputTokens),
-            })}`}
+            subText={
+              summary.inputTokens > 0 || summary.outputTokens > 0
+                ? t('topicResearch.computeUsage.inputOutput', {
+                    input: formatNumber(summary.inputTokens),
+                    output: formatNumber(summary.outputTokens),
+                  })
+                : `${summary.totalDimensions} ${t('topicResearch.computeUsage.dimension')}`
+            }
             colorClass="bg-indigo-50"
           />
           <SummaryCard
