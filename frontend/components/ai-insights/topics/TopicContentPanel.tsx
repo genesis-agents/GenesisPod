@@ -3214,7 +3214,14 @@ function ReviewCard({ msg }: { msg: UIMessage }) {
   // ★ 安全处理：确保 content 是字符串
   const safeContent = safeString(msg.content);
   const isPassed =
-    safeContent.includes('通过') || safeContent.includes('passed');
+    safeContent.includes('通过') ||
+    safeContent.includes('passed') ||
+    safeContent.includes('excellent') ||
+    safeContent.includes('good') ||
+    safeContent.includes('优秀') ||
+    safeContent.includes('良好') ||
+    safeContent.includes('可接受') ||
+    safeContent.includes('acceptable');
 
   return (
     <div
