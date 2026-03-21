@@ -6010,7 +6010,12 @@
       "leaderModel": "Leader 模型",
       "depth": "研究深度",
       "tasks": "任务",
-      "noData": "暂无算力消耗数据"
+      "noData": "暂无算力消耗数据",
+      "reportGen": "报告生成",
+      "avgTokenPerDim": "维度均耗",
+      "startTime": "开始时间",
+      "endTime": "结束时间",
+      "totalCredits": "积分总计"
     },
     "topics": {
       "credibilityPanel": {

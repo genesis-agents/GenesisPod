@@ -5933,7 +5933,12 @@
       "leaderModel": "Leader Model",
       "depth": "Research Depth",
       "tasks": "Tasks",
-      "noData": "No compute usage data available"
+      "noData": "No compute usage data available",
+      "reportGen": "Report generation",
+      "avgTokenPerDim": "Avg per dimension",
+      "startTime": "Start time",
+      "endTime": "End time",
+      "totalCredits": "Total credits"
     },
     "topics": {
       "credibilityPanel": {
