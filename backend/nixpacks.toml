@@ -22,4 +22,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npm run deploy && node --max-old-space-size=3072 dist/main"
+cmd = "npm run deploy && node dist/main"
