@@ -1326,7 +1326,21 @@ export function repairLatexCommands(content: string): string {
   // Fix 3: Stray double-closing braces after \text{...}} → \text{...}
   // ★ Exclude legitimate nesting: X_{\text{...}} or X^{\text{...}} where
   // the second } closes the outer _{...} or ^{...} group, not the \text.
-  result = result.replace(/(?<![_^]\{)\\text\{([^}]*)\}\}/g, "\\text{$1}");
+  result = result.replace(/\\text\{([^}]*)\}\}/g, (match, inner, offset) => {
+    // Count open/close braces in surrounding context to detect nesting
+    const ctx = result.substring(
+      Math.max(0, offset - 200),
+      Math.min(result.length, offset + match.length + 200),
+    );
+    const opens = (ctx.match(/\{/g) || []).length;
+    const closes = (ctx.match(/\}/g) || []).length;
+    // Only strip the extra } when braces are genuinely unbalanced (more closes)
+    if (closes > opens) {
+      return `\\text{${inner}}`;
+    }
+    // Otherwise the second } belongs to an outer group — keep it
+    return match;
+  });
 
   // Fix 4: Unbalanced braces in inline math — auto-close missing }
   // e.g. `$\mathbb{R}^{n \times n$` → `$\mathbb{R}^{n \times n}$`

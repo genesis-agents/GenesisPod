@@ -1381,6 +1381,39 @@ describe("deduplicateIdenticalSections", () => {
 });
 
 // ============================================================
+// repairLatexCommands — Fix 3: \text{...}} stray double braces
+// ============================================================
+
+describe("repairLatexCommands — Fix 3 (\\text{} double braces)", () => {
+  it("should NOT strip } when \\text{} is inside subscript C_{\\text{task}}", () => {
+    const input = "$C_{\\text{task}}$";
+    expect(repairLatexCommands(input)).toBe(input);
+  });
+
+  it("should NOT strip } when \\text{} is inside superscript T^{\\text{max}}", () => {
+    const input = "$T^{\\text{max}}$";
+    expect(repairLatexCommands(input)).toBe(input);
+  });
+
+  it("should NOT strip } when \\text{} is inside \\frac{}", () => {
+    const input = "$\\frac{\\text{num}}{\\text{den}}$";
+    expect(repairLatexCommands(input)).toBe(input);
+  });
+
+  it("should NOT strip } in complex nested formula", () => {
+    const input =
+      "$C_{\\text{task}} \\approx \\frac{E[\\text{步数}] \\times C_{\\text{step}}}{P(\\text{完成})}$";
+    expect(repairLatexCommands(input)).toBe(input);
+  });
+
+  it("should strip genuinely stray }} from \\text{abc}}", () => {
+    const input = "$\\text{hello}}$";
+    const result = repairLatexCommands(input);
+    expect(result).toBe("$\\text{hello}$");
+  });
+});
+
+// ============================================================
 // repairLatexCommands — Fix 5: \frac denominator split
 // ============================================================
 
