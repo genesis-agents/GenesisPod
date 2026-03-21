@@ -17,6 +17,8 @@ import {
   Cell,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -257,6 +259,55 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
       tokens: m.totalTokens,
       color: CHART_COLORS[i % CHART_COLORS.length],
     }));
+  }, [data]);
+
+  // ── Token consumption timeline (line chart by model) ──
+  const tokenTimelineData = useMemo(() => {
+    if (!data || data.creditHistory.length === 0)
+      return {
+        chartData: [] as Record<string, unknown>[],
+        models: [] as string[],
+      };
+
+    // Collect unique models
+    const modelSet = new Set<string>();
+    data.creditHistory.forEach((c) => {
+      if (c.modelName && c.tokenCount && c.tokenCount > 0)
+        modelSet.add(c.modelName);
+    });
+    const models = Array.from(modelSet);
+
+    // Group by minute (sort chronologically)
+    const sorted = [...data.creditHistory]
+      .filter((c) => c.tokenCount && c.tokenCount > 0 && c.modelName)
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+    // Accumulate tokens per model over time
+    const cumulative: Record<string, number> = {};
+    models.forEach((m) => {
+      cumulative[m] = 0;
+    });
+
+    const chartData: Record<string, unknown>[] = [];
+    for (const item of sorted) {
+      const model = item.modelName!;
+      cumulative[model] = (cumulative[model] || 0) + (item.tokenCount || 0);
+      const point: Record<string, unknown> = {
+        time: new Date(item.createdAt).toLocaleTimeString(undefined, {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      };
+      models.forEach((m) => {
+        point[m] = cumulative[m];
+      });
+      chartData.push(point);
+    }
+
+    return { chartData, models };
   }, [data]);
 
   // ── Loading / Error states ──
@@ -618,7 +669,59 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
         </section>
       )}
 
-      {/* ═══ Section 5: Credit History ═══ */}
+      {/* ═══ Section 5: Token Consumption Timeline (Line Chart) ═══ */}
+      {tokenTimelineData.chartData.length > 2 && (
+        <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <TrendingUp className="h-4 w-4 text-gray-400" />
+            {t('topicResearch.computeUsage.tokenTimeline')}
+          </h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart
+              data={tokenTimelineData.chartData}
+              margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="time" tick={{ fontSize: 10 }} />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                tickFormatter={(v: number) => formatNumber(v)}
+              />
+              <Tooltip
+                formatter={(value) =>
+                  formatNumberFull(Number(value)) + ' tokens'
+                }
+              />
+              {tokenTimelineData.models.map((model, i) => (
+                <Line
+                  key={model}
+                  type="monotone"
+                  dataKey={model}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                  name={model}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {tokenTimelineData.models.map((model, i) => (
+              <div key={model} className="flex items-center gap-1.5">
+                <div
+                  className="h-2 w-4 rounded"
+                  style={{
+                    backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                  }}
+                />
+                <span className="text-xs text-gray-500">{model}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ═══ Section 6: Credit History ═══ */}
       {creditHistory.length > 0 && (
         <section className="rounded-xl border border-gray-100 bg-white shadow-sm">
           <h3 className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700">

@@ -5942,7 +5942,8 @@
       "inputOutputChart": "Input / Output Token Distribution",
       "input": "Input",
       "output": "Output",
-      "total": "Total"
+      "total": "Total",
+      "tokenTimeline": "Token Consumption Trend"
     },
     "topics": {
       "credibilityPanel": {

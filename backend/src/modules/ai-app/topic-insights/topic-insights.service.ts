@@ -1544,32 +1544,26 @@ export class TopicInsightsService {
       },
     });
 
-    // 4. 按 modelId 聚合 AIEngineMetric（只查与 mission 关联的记录，使用 raw SQL 避免 groupBy 类型问题）
-    type MetricRow = {
-      model_id: string | null;
+    // 4. 按 modelName 聚合 CreditTransaction（ai_engine_metrics 的 missionId 大多为 null，不可靠）
+    type CreditAggRow = {
+      model_name: string | null;
       call_count: bigint;
       total_tokens: bigint | null;
-      input_tokens: bigint | null;
-      output_tokens: bigint | null;
-      estimated_cost: string | null;
     };
 
-    const metricGroups: MetricRow[] = latestMission
-      ? await this.prisma.$queryRaw<MetricRow[]>`
-          SELECT
-            model_id,
-            COUNT(*) AS call_count,
-            SUM(total_tokens) AS total_tokens,
-            SUM(input_tokens) AS input_tokens,
-            SUM(output_tokens) AS output_tokens,
-            SUM(estimated_cost) AS estimated_cost
-          FROM ai_engine_metrics
-          WHERE mission_id = ${latestMission.id}
-            AND metric_type = 'llm_call'
-          GROUP BY model_id
-          ORDER BY call_count DESC
-        `
-      : [];
+    const creditAggGroups: CreditAggRow[] = await this.prisma.$queryRaw<
+      CreditAggRow[]
+    >`
+        SELECT
+          model_name,
+          COUNT(*) AS call_count,
+          SUM(COALESCE(token_count, 0)) AS total_tokens
+        FROM credit_transactions
+        WHERE reference_id = ${topicId}
+          AND amount < 0
+        GROUP BY model_name
+        ORDER BY call_count DESC
+      `;
 
     // 5. 查询 CreditTransaction（referenceId = topicId）
     const creditTransactions = await this.prisma.creditTransaction.findMany({
@@ -1592,25 +1586,22 @@ export class TopicInsightsService {
       .filter((t) => t.amount < 0)
       .reduce((acc, t) => acc + Math.abs(t.amount), 0);
 
-    // totalLlmCalls / estimatedCostUsd / inputTokens / outputTokens from metrics
+    // totalLlmCalls / totalTokens from credit aggregation
     let totalLlmCalls = 0;
-    let metricsInputTokens = 0;
-    let metricsOutputTokens = 0;
-    let metricsTotal = 0;
-    let estimatedCostUsd = 0;
+    let creditTotalTokens = 0;
 
-    for (const g of metricGroups) {
+    for (const g of creditAggGroups) {
       totalLlmCalls += Number(g.call_count);
-      metricsInputTokens += Number(g.input_tokens ?? 0);
-      metricsOutputTokens += Number(g.output_tokens ?? 0);
-      metricsTotal += Number(g.total_tokens ?? 0);
-      estimatedCostUsd += Number(g.estimated_cost ?? 0);
+      creditTotalTokens += Number(g.total_tokens ?? 0);
     }
 
-    // 优先使用 TopicReport 的 totalTokens（整体汇总），fallback 到 metric 聚合
+    // 优先使用 CreditTransaction 的 token 汇总（最可靠），fallback 到 TopicReport.totalTokens
     const reportTotalTokens = latestReport?.totalTokens ?? 0;
     const finalTotalTokens =
-      reportTotalTokens > 0 ? reportTotalTokens : metricsTotal;
+      creditTotalTokens > 0 ? creditTotalTokens : reportTotalTokens;
+    // 预估 USD（基于 token 总量和平均 $2/1M token 估算）
+    const estimatedCostUsd =
+      finalTotalTokens > 0 ? (finalTotalTokens * 2) / 1_000_000 : 0;
 
     // researchDurationMs: mission.startedAt → completedAt
     let researchDurationMs = 0;
@@ -1620,32 +1611,31 @@ export class TopicInsightsService {
         new Date(latestMission.startedAt).getTime();
     }
 
-    // modelDistribution percentage 计算
-    const totalCallCount = metricGroups.reduce(
-      (acc, g) => acc + Number(g.call_count),
-      0,
-    );
-    const modelDistribution = metricGroups
-      .filter((g) => g.model_id !== null)
-      .map((g) => ({
-        modelId: g.model_id as string,
-        callCount: Number(g.call_count),
-        totalTokens: Number(g.total_tokens ?? 0),
-        inputTokens: Number(g.input_tokens ?? 0),
-        outputTokens: Number(g.output_tokens ?? 0),
-        estimatedCost: Number(g.estimated_cost ?? 0),
-        percentage:
-          totalCallCount > 0
-            ? Math.round((Number(g.call_count) / totalCallCount) * 100)
-            : 0,
-      }))
+    // modelDistribution from credit aggregation
+    const modelDistribution = creditAggGroups
+      .filter((g) => g.model_name !== null)
+      .map((g) => {
+        const tokens = Number(g.total_tokens ?? 0);
+        return {
+          modelId: g.model_name as string,
+          callCount: Number(g.call_count),
+          totalTokens: tokens,
+          inputTokens: 0, // CreditTransaction does not split input/output
+          outputTokens: 0,
+          estimatedCost: tokens > 0 ? (tokens * 2) / 1_000_000 : 0,
+          percentage:
+            totalLlmCalls > 0
+              ? Math.round((Number(g.call_count) / totalLlmCalls) * 100)
+              : 0,
+        };
+      })
       .sort((a, b) => b.callCount - a.callCount);
 
     return {
       summary: {
         totalTokens: finalTotalTokens,
-        inputTokens: metricsInputTokens,
-        outputTokens: metricsOutputTokens,
+        inputTokens: 0, // CreditTransaction does not split input/output
+        outputTokens: 0,
         totalCreditsConsumed,
         estimatedCostUsd,
         totalLlmCalls,
