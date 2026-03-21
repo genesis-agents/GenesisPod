@@ -311,6 +311,7 @@ test_plan:
     - usability-walkthrough.scenarios.yaml # DFX-USE-001~010
     - compatibility-browser.scenarios.yaml # DFX-CMP-001~005, DFX-RES-007
     - throughput-resource.scenarios.yaml # PERF-BD-001~008, PERF-LR-001~005
+    - ai-insights.scenarios.yaml # Insights report rendering, export, controls, regression
     - ai-research.scenarios.yaml # Research page scenarios
     - ai-teams.scenarios.yaml # Teams page scenarios
     - library.scenarios.yaml # Library page scenarios
@@ -332,6 +333,10 @@ test_plan:
     - e2e-image-writing-workflow.journey.yaml
     - search-library.journey.yaml
     - research-topic-all-tabs.journey.yaml
+    - ai-insights-all-tabs.journey.yaml
+    - ai-insights-report-rendering.journey.yaml
+    - ai-insights-report-export.journey.yaml
+    - ai-insights-create-topic.journey.yaml
     - admin-monitoring-check.journey.yaml
     - full-site-i18n-check.journey.yaml
 
@@ -364,6 +369,7 @@ groups:
     description: "Core AI application list pages"
     routes:
       - /ai-ask
+      - /ai-insights
       - /ai-research
       - /ai-writing
       - /ai-image
@@ -377,7 +383,10 @@ groups:
   core-detail:
     description: "AI application detail and action pages (need sample IDs)"
     routes:
-      # Research
+      # Insights (Topic Research)
+      - /ai-insights/topic/:topicId # sample: 8a5a6aeb-b2dd-4673-80cd-73687db4f96c
+      - /ai-insights/topic-research
+      # Research (legacy)
       - /ai-research/topic/:topicId # sample: 475fea3c-bd61-4c99-9498-4e09edc11eed
       - /ai-research/:projectId
       - /ai-research/topic-research
