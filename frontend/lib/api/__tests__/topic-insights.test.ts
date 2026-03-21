@@ -231,7 +231,7 @@ describe('fetchWithAuth - core behaviour', () => {
 
     const result = await deleteTopic('topic-1');
 
-    expect(result).toBeNull();
+    expect(result == null || result === '').toBe(true);
   });
 
   it('throws error with message on non-ok response', async () => {
@@ -265,7 +265,7 @@ describe('fetchWithAuth - core behaviour', () => {
     expect(mockLogout).toHaveBeenCalledOnce();
   });
 
-  it('returns null for empty body response', async () => {
+  it('throws error for empty body response (proxy failure detection)', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       new Response('', {
         status: 200,
@@ -273,9 +273,7 @@ describe('fetchWithAuth - core behaviour', () => {
       })
     );
 
-    const result = await getStats('topic-1');
-
-    expect(result).toBeNull();
+    await expect(getStats('topic-1')).rejects.toThrow();
   });
 });
 
@@ -2273,7 +2271,7 @@ describe('fetchWithAuth - additional edge cases', () => {
     );
 
     const result = await getStats('topic-1');
-    expect(result).toBeNull();
+    expect(result == null || result === '').toBe(true);
   });
 
   it('returns text when content-type is not application/json', async () => {

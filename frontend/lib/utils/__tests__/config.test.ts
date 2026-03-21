@@ -19,10 +19,10 @@ describe('config — brand constants', () => {
     vi.resetModules();
   });
 
-  it('should use default brand name "Gens.Team" when env var not set', async () => {
+  it('should use default brand name "Genesis" when env var not set', async () => {
     vi.resetModules();
     const { config } = await import('../config');
-    expect(config.brand.name).toBe('Gens.Team');
+    expect(config.brand.name).toBe('Genesis');
   });
 
   it('should use NEXT_PUBLIC_BRAND_NAME env var when set', async () => {
@@ -32,10 +32,10 @@ describe('config — brand constants', () => {
     expect(config.brand.name).toBe('Raven');
   });
 
-  it('should use default fullName "Gens.Team" when env var not set', async () => {
+  it('should use default fullName "Genesis" when env var not set', async () => {
     vi.resetModules();
     const { config } = await import('../config');
-    expect(config.brand.fullName).toBe('Gens.Team');
+    expect(config.brand.fullName).toBe('Genesis');
   });
 
   it('should use NEXT_PUBLIC_BRAND_FULL_NAME env var when set', async () => {
