@@ -1324,7 +1324,9 @@ export function repairLatexCommands(content: string): string {
   result = result.replace(/([^\n$]{2,})\$\$(?!\$)(\\[a-zA-Z])/g, "$1$$$2");
 
   // Fix 3: Stray double-closing braces after \text{...}} → \text{...}
-  result = result.replace(/\\text\{([^}]*)\}\}/g, "\\text{$1}");
+  // ★ Exclude legitimate nesting: X_{\text{...}} or X^{\text{...}} where
+  // the second } closes the outer _{...} or ^{...} group, not the \text.
+  result = result.replace(/(?<![_^]\{)\\text\{([^}]*)\}\}/g, "\\text{$1}");
 
   // Fix 4: Unbalanced braces in inline math — auto-close missing }
   // e.g. `$\mathbb{R}^{n \times n$` → `$\mathbb{R}^{n \times n}$`
