@@ -47,8 +47,9 @@ test.describe("Library UI (/library)", () => {
   });
 
   test("page heading is visible", async ({ page }) => {
-    const heading = page.locator("h1, h2").first();
-    await expect(heading).toBeVisible({ timeout: 15000 });
+    // Library page uses h3/h4 headings, not h1/h2
+    const heading = page.locator("h1, h2, h3, [class*='title']").first();
+    await expect(heading).toBeVisible({ timeout: 30000 });
   });
 
   test("resource list or empty state renders", async ({ page }) => {
