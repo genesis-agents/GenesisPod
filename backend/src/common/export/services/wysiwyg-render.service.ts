@@ -83,6 +83,7 @@ export class WysiwygRenderService {
         const resourceType = request.resourceType();
         if (
           url.startsWith("data:") ||
+          url.startsWith("file:") ||
           url === "about:blank" ||
           url.includes("fonts.googleapis.com") ||
           url.includes("fonts.gstatic.com") ||
@@ -94,12 +95,47 @@ export class WysiwygRenderService {
         }
       });
 
-      const fullHtml = this.wrapHtml(html, css, {});
+      // ★ Extract base64 data URLs to temp files to reduce Node.js heap pressure.
+      // A 35MB HTML with 39 inline images can OOM the 1.5GB heap when
+      // setContent serializes the full string to Chromium via CDP.
+      const tempFiles: string[] = [];
+      let processedHtml = html;
+      try {
+        const fs = require("fs") as typeof import("fs");
+        const path = require("path") as typeof import("path");
+        const os = require("os") as typeof import("os");
+        const tmpDir = os.tmpdir();
+        let imgIndex = 0;
+        processedHtml = html.replace(
+          /src="data:image\/([^;]+);base64,([^"]+)"/g,
+          (_match: string, ext: string, base64Data: string) => {
+            const safeExt =
+              ext === "svg+xml" ? "svg" : ext.replace(/[^a-z]/g, "");
+            const fileName = `wysiwyg-${Date.now()}-${imgIndex++}.${safeExt}`;
+            const filePath = path.join(tmpDir, fileName);
+            fs.writeFileSync(filePath, Buffer.from(base64Data, "base64"));
+            tempFiles.push(filePath);
+            return `src="file://${filePath}"`;
+          },
+        );
+        if (tempFiles.length > 0) {
+          this.logger.log(
+            `[renderToPdf] Extracted ${tempFiles.length} base64 images to temp files (saved ~${Math.round((html.length - processedHtml.length) / 1024 / 1024)}MB heap)`,
+          );
+        }
+      } catch (extractErr) {
+        this.logger.warn(
+          `[renderToPdf] Failed to extract base64 images: ${extractErr}`,
+        );
+        processedHtml = html;
+      }
+
+      const fullHtml = this.wrapHtml(processedHtml, css, {});
       await page.setContent(fullHtml, {
         waitUntil: "domcontentloaded",
-        timeout: 30000,
+        timeout: 60000,
       });
-      // Wait for images to load (max 10s); continue with broken images on timeout
+      // Wait for images to load (max 15s); continue with broken images on timeout
       await page
         .evaluate(() =>
           Promise.all(
@@ -117,6 +153,15 @@ export class WysiwygRenderService {
         .catch(() => {});
       // Wait for fonts to load (max 5s); fall back to system fonts on timeout
       await page.evaluate(() => document.fonts.ready).catch(() => {});
+
+      // ★ Cleanup temp files after rendering
+      for (const f of tempFiles) {
+        try {
+          require("fs").unlinkSync(f);
+        } catch {
+          /* ignore */
+        }
+      }
 
       const pageFormat = this.mapPageSize(options.pageSize);
       const margin = {
