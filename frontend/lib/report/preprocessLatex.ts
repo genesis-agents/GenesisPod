@@ -120,6 +120,21 @@ function fixSpuriousDollarSigns(input: string): string {
  * - Are not already inside $...$ or $$...$$
  */
 function wrapInlineLatex(input: string): string {
+  // ★ Protect existing $...$ and $$...$$ blocks from being modified.
+  // Without this, CJK chars inside \text{中文} act as boundaries and
+  // wrapInlineLatex fragments the formula (e.g. $...\text{步数}] \times...$
+  // gets split at 数/重 boundary and \times is re-wrapped).
+  const mathSlots: string[] = [];
+  let text = input;
+  text = text.replace(/\$\$[\s\S]*?\$\$/g, (m) => {
+    mathSlots.push(m);
+    return `\uE020S${mathSlots.length - 1}\uE021`;
+  });
+  text = text.replace(/\$(?!\$)(?:[^$\n]|\\\$)+\$/g, (m) => {
+    mathSlots.push(m);
+    return `\uE020S${mathSlots.length - 1}\uE021`;
+  });
+
   const LATEX_COMMANDS =
     /\\(?:dots|ldots|cdots|tilde|hat|bar|frac|sqrt|sum|prod|int|log|exp|theta|phi|psi|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|omega|pi|mathcal|text|mathbb|mathbf|mathit|mathrm|operatorname|subset|supset|in|mid|cdot|quad|left|right|leq|geq|neq|approx|infty|forall|exists|partial|nabla|times|div|pm|mp|cup|cap|vee|wedge|oplus|otimes|to|rightarrow|leftarrow|Rightarrow|Leftarrow|rho|eta|kappa|nu|xi|zeta|ll|gg|sim|propto|lim|min|max|sup|inf|det|dim|ker|gcd)/;
 
@@ -136,7 +151,7 @@ function wrapInlineLatex(input: string): string {
     'g'
   );
 
-  return input.replace(pattern, (_m, expr) => {
+  text = text.replace(pattern, (_m, expr) => {
     const trimmed = expr.trim();
     if (!trimmed) return _m;
     // Strip trailing citation markers [N] that shouldn't be inside math
@@ -144,6 +159,16 @@ function wrapInlineLatex(input: string): string {
     if (!cleaned) return _m;
     return ` $${cleaned}$ `;
   });
+
+  // Restore protected math blocks
+  const slotRe = /\uE020S(\d+)\uE021/g;
+  for (let pass = 0; pass < mathSlots.length + 1; pass++) {
+    const before = text;
+    text = text.replace(slotRe, (_, idx) => mathSlots[parseInt(idx, 10)] ?? _);
+    if (text === before) break;
+  }
+
+  return text;
 }
 
 /**
