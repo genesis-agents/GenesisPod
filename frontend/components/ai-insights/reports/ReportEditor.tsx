@@ -640,8 +640,19 @@ function ReportEditorInner({
       );
     }
 
-    // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)
-    if (resolvedFullReport && resolvedFullReport.trim().length > 100) {
+    // ★ Priority 1: Use resolvedFullReport if it's valid AND complete
+    // Check if fullReport contains all dimensions — if not, fall through to Priority 1.5
+    const expectedDimCount = report.dimensionAnalyses?.length || 0;
+    const actualDimCount = (resolvedFullReport?.match(/^## \d+\./gm) || [])
+      .length;
+    const isFullReportComplete =
+      expectedDimCount <= 1 || actualDimCount >= expectedDimCount;
+
+    if (
+      resolvedFullReport &&
+      resolvedFullReport.trim().length > 100 &&
+      isFullReportComplete
+    ) {
       const hasChartPlaceholders = resolvedFullReport.includes('<!-- chart:');
       const looksLikeMarkdown =
         resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
@@ -654,6 +665,38 @@ function ReportEditorInner({
         // ★ Runtime cleanup: strip prose bullets (shared with chapter view)
         return stripProseBullets(stripped);
       }
+    }
+
+    // ★ Priority 1.5: fullReport is truncated — rebuild from dimensionAnalyses
+    if (
+      report.dimensionAnalyses &&
+      report.dimensionAnalyses.length > 0 &&
+      report.dimensionAnalyses.some((da) => da.detailedContent)
+    ) {
+      const parts: string[] = [];
+      if (report.title) {
+        parts.push(`# ${report.title}\n`);
+      }
+      // Add executive summary if available
+      if (report.executiveSummary) {
+        parts.push(
+          `## ${t('topicResearch.reportEditor.summary')}\n\n${report.executiveSummary}\n`
+        );
+      }
+      // Add each dimension's detailedContent
+      report.dimensionAnalyses.forEach((da, idx) => {
+        const dimName = da.dimension?.name || `Dimension ${idx + 1}`;
+        const content = da.detailedContent || da.summary || '';
+        if (content.trim()) {
+          parts.push(`## ${idx + 1}. ${dimName}\n\n${content}\n`);
+        }
+      });
+      const assembled = preprocessLatex(parts.join('\n'));
+      const boldFixed = assembled.replace(
+        /\*\*([^*\n]+?)\*\*/g,
+        '<strong>$1</strong>'
+      );
+      return stripProseBullets(boldFixed);
     }
 
     // ★ Priority 2: Build markdown from report structure (default for old reports)
