@@ -470,6 +470,33 @@ export class MissionExecutionService {
         },
       );
 
+      // ★ 质量审核完成后，检查是否有低分维度需要修订
+      // 注意：此处同步 await，确保新的 PENDING 任务在 executeTask 返回前已写入 DB，
+      // 避免 scheduler 在本任务完成后立即退出（因检测到 remainingPending=0）
+      if (task.taskType === "quality_review") {
+        const revisionTargets = result?.revisionTargets;
+        const revisionRound = result?.revisionRound ?? 1;
+
+        if (revisionTargets && revisionTargets.length > 0) {
+          this.logger.log(
+            `[executeTask] quality_review round ${revisionRound} triggered revision for ${revisionTargets.length} dimension(s)`,
+          );
+          try {
+            await this.handleRevisionTargets(
+              missionId,
+              topic.id,
+              revisionTargets,
+              reportId,
+              revisionRound,
+            );
+          } catch (err) {
+            this.logger.error(
+              `[executeTask] handleRevisionTargets failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+      }
+
       // ★ 当实际模型与分配模型不同时，更新该 agent 所有活动记录的 agentName
       // 包括 emitAgentWorking（带旧模型标签）和 emitAgentCompleted（无标签）的记录
       if (actualModelId && actualModelId !== assignedModelId) {
@@ -549,6 +576,158 @@ export class MissionExecutionService {
           );
         }
       }
+    }
+  }
+
+  /**
+   * ★ 处理修订目标
+   *
+   * 当质量审核发现低分维度时，此方法：
+   * 1. 将低分维度的 dimension_research task 重置为 PENDING（标记 leaderReview 和 revisionCount）
+   * 2. 创建新一轮 quality_review task（依赖被修订的维度 task IDs）
+   * 3. 将 report_synthesis task 的 dependencies 更新为包含新 quality_review task ID
+   * 4. 通知前端修订开始
+   */
+  private async handleRevisionTargets(
+    missionId: string,
+    topicId: string,
+    targets: Array<{
+      taskId: string;
+      dimensionId: string;
+      dimensionName: string;
+      score: number;
+      feedback: string;
+    }>,
+    _reportId: string,
+    currentRound: number,
+  ): Promise<void> {
+    this.logger.log(
+      `[handleRevisionTargets] Initiating revision round ${currentRound + 1} for ${targets.length} dimension(s) in mission ${missionId}`,
+    );
+
+    const revisedTaskIds: string[] = [];
+
+    // 1. 对每个低分维度 task：存入 leaderReview，重置状态为 PENDING，递增 revisionCount
+    for (const target of targets) {
+      try {
+        // 先读取当前 revisionCount
+        const currentTask = await this.prisma.researchTask.findUnique({
+          where: { id: target.taskId },
+          select: { revisionCount: true, status: true },
+        });
+
+        if (!currentTask) {
+          this.logger.warn(
+            `[handleRevisionTargets] Task ${target.taskId} not found, skipping`,
+          );
+          continue;
+        }
+
+        // 写入审核反馈并重置为 PENDING
+        await this.prisma.researchTask.update({
+          where: { id: target.taskId },
+          data: {
+            status: ResearchTaskStatus.PENDING,
+            revisionCount: currentTask.revisionCount + 1,
+            leaderReview: toPrismaJson({
+              round: currentRound,
+              score: target.score,
+              feedback: target.feedback,
+              reviewedAt: new Date().toISOString(),
+            }),
+            reviewStatus: "needs_revision",
+            // 清空上次结果，避免审核员拿旧结果打分
+            result: Prisma.JsonNull,
+            resultSummary: `修订中（第 ${currentRound + 1} 轮）：${target.feedback.substring(0, 100)}`,
+          },
+        });
+
+        revisedTaskIds.push(target.taskId);
+
+        this.logger.log(
+          `[handleRevisionTargets] Reset task ${target.taskId} (${target.dimensionName}) to PENDING for revision`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `[handleRevisionTargets] Failed to reset task ${target.taskId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    if (revisedTaskIds.length === 0) {
+      this.logger.warn(
+        `[handleRevisionTargets] No tasks were successfully reset, skipping new quality_review creation`,
+      );
+      return;
+    }
+
+    // 2. 创建新的 quality_review task（round+1），依赖被修订的维度 task IDs
+    const nextRound = currentRound + 1;
+    const newReviewTask = await this.prisma.researchTask.create({
+      data: {
+        missionId,
+        title: `质量审核（第 ${nextRound} 轮）`,
+        description: `审核修订后的维度研究质量，验证关键发现 [revision:${nextRound}]`,
+        taskType: "quality_review",
+        assignedAgent: "Reviewer",
+        status: ResearchTaskStatus.PENDING,
+        priority: 100,
+        // ★ 依赖所有被修订的维度 task，确保它们完成后才执行
+        dependencies: revisedTaskIds,
+      },
+    });
+
+    this.logger.log(
+      `[handleRevisionTargets] Created new quality_review task ${newReviewTask.id} (round ${nextRound}), depends on ${revisedTaskIds.length} task(s)`,
+    );
+
+    // 3. 更新 report_synthesis task 的 dependencies，添加新 quality_review task ID
+    // 找到当前 mission 的 report_synthesis task
+    const synthTask = await this.prisma.researchTask.findFirst({
+      where: {
+        missionId,
+        taskType: "report_synthesis",
+        status: ResearchTaskStatus.PENDING,
+      },
+      select: { id: true, dependencies: true },
+    });
+
+    if (synthTask) {
+      const updatedDeps = Array.from(
+        new Set([...synthTask.dependencies, newReviewTask.id]),
+      );
+      await this.prisma.researchTask.update({
+        where: { id: synthTask.id },
+        data: { dependencies: updatedDeps },
+      });
+
+      this.logger.log(
+        `[handleRevisionTargets] Updated report_synthesis task ${synthTask.id} dependencies to include new review task`,
+      );
+    } else {
+      this.logger.warn(
+        `[handleRevisionTargets] No PENDING report_synthesis task found for mission ${missionId}`,
+      );
+    }
+
+    // 4. 通知前端修订开始
+    try {
+      await this.researchEventEmitter.emitAgentWorking(
+        topicId,
+        {
+          agentId: "Reviewer",
+          agentName: "质量审核员",
+          agentRole: "reviewer",
+          status: "working",
+          taskDescription: `发现 ${targets.length} 个维度质量不达标，启动第 ${nextRound} 轮修订研究`,
+          progress: 0,
+        },
+        missionId,
+      );
+    } catch (emitErr) {
+      this.logger.warn(
+        `[handleRevisionTargets] Failed to emit revision event: ${emitErr}`,
+      );
     }
   }
 

@@ -55,6 +55,16 @@ export interface TaskExecutionResult {
   figureReferences?: unknown;
   generatedCharts?: unknown;
   actualModelId?: string;
+  /** ★ 质量审核修订决策（由 ReviewDimensionExecutor 填充，MissionExecutionService 消费） */
+  revisionTargets?: Array<{
+    taskId: string;
+    dimensionId: string;
+    dimensionName: string;
+    score: number;
+    feedback: string;
+  }>;
+  /** ★ 当前审核轮次（1=首轮，2=修订后复审） */
+  revisionRound?: number;
 }
 
 export interface ITaskExecutor {

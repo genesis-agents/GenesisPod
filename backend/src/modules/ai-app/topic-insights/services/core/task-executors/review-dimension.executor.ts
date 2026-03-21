@@ -685,6 +685,22 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
       .filter(Boolean)
       .pop();
 
+    // ★ 确定修订轮次（从 task.description 中读取，默认 round=1）
+    const currentRound = this.parseRevisionRound(task.description);
+
+    // ★ 决定是否需要修订
+    const revisionDecision = this.determineRevisionTargets(
+      dimensionReviews,
+      completedTasks,
+      currentRound,
+    );
+
+    if (revisionDecision.needsRevision) {
+      this.logger.log(
+        `[ReviewDimensionExecutor] Round ${currentRound}: ${revisionDecision.targets.length} dimension(s) need revision`,
+      );
+    }
+
     return {
       reviewedTasks: completedTasks.length,
       dimensionReviews: dimensionReviews.map((r) => ({
@@ -707,6 +723,110 @@ export class ReviewDimensionExecutor implements ITaskExecutor {
         overallReview?.recommendations?.join("; ") ||
         `已审核 ${completedTasks.length} 个维度研究结果`,
       actualModelId: lastReviewModel, // ★ 记录实际使用的模型
+      // ★ 修订决策信息（供 MissionExecutionService 消费）
+      revisionTargets: revisionDecision.targets,
+      revisionRound: currentRound,
+    };
+  }
+
+  /**
+   * 从任务描述中解析当前修订轮次
+   * 格式：描述末尾追加 " [revision:N]"
+   */
+  private parseRevisionRound(description: string): number {
+    const match = /\[revision:(\d+)\]/.exec(description);
+    return match ? parseInt(match[1], 10) : 1;
+  }
+
+  /**
+   * 确定哪些维度需要修订
+   *
+   * 触发条件：
+   * - overallScore < 60，或
+   * - evidence < 40，depth < 35，breadth < 35，coherence < 30（硬底线）
+   *
+   * 限制：最大修订 2 轮（currentRound >= 2 时不再触发）
+   */
+  private determineRevisionTargets(
+    dimensionReviews: DimensionReviewResult[],
+    completedTasks: Array<{ id: string; dimensionId: string | null }>,
+    currentRound: number,
+  ): {
+    needsRevision: boolean;
+    targets: Array<{
+      taskId: string;
+      dimensionId: string;
+      dimensionName: string;
+      score: number;
+      feedback: string;
+    }>;
+  } {
+    // 硬上限：已经是第 2 轮审核，不再修订（降级通过）
+    if (currentRound >= 2) {
+      return { needsRevision: false, targets: [] };
+    }
+
+    const targets: Array<{
+      taskId: string;
+      dimensionId: string;
+      dimensionName: string;
+      score: number;
+      feedback: string;
+    }> = [];
+
+    for (const review of dimensionReviews) {
+      const failsOverall = review.overallScore < 60;
+      const failsEvidence = review.scores.evidence < 40;
+      const failsDepth = review.scores.depth < 35;
+      const failsBreadth = review.scores.breadth < 35;
+      const failsCoherence = review.scores.coherence < 30;
+
+      const needsRevision =
+        failsOverall ||
+        failsEvidence ||
+        failsDepth ||
+        failsBreadth ||
+        failsCoherence;
+
+      if (!needsRevision) continue;
+
+      // 找到对应的 dimension_research task
+      const matchingTask = completedTasks.find(
+        (t) => t.dimensionId === review.dimensionId,
+      );
+      if (!matchingTask) {
+        this.logger.warn(
+          `[determineRevisionTargets] No task found for dimensionId=${review.dimensionId}, skipping`,
+        );
+        continue;
+      }
+
+      // 组建反馈说明
+      const failureReasons: string[] = [];
+      if (failsOverall) failureReasons.push(`总分 ${review.overallScore} < 60`);
+      if (failsEvidence)
+        failureReasons.push(`证据分 ${review.scores.evidence} < 40`);
+      if (failsDepth) failureReasons.push(`深度分 ${review.scores.depth} < 35`);
+      if (failsBreadth)
+        failureReasons.push(`广度分 ${review.scores.breadth} < 35`);
+      if (failsCoherence)
+        failureReasons.push(`连贯分 ${review.scores.coherence} < 30`);
+
+      const topSuggestions = review.suggestions.slice(0, 3).join("；");
+      const feedback = `质量不达标（${failureReasons.join("，")}）。改进建议：${topSuggestions || "请补充证据和深度分析"}`;
+
+      targets.push({
+        taskId: matchingTask.id,
+        dimensionId: review.dimensionId,
+        dimensionName: review.dimensionName,
+        score: review.overallScore,
+        feedback,
+      });
+    }
+
+    return {
+      needsRevision: targets.length > 0,
+      targets,
     };
   }
 
