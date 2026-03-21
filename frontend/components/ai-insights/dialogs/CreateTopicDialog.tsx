@@ -597,9 +597,18 @@ export function CreateTopicDialog({
                   placeholder={t(
                     'topicResearch.createDialog.topicDescPlaceholder'
                   )}
-                  rows={2}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  rows={4}
+                  maxLength={10000}
+                  className="mt-1 w-full resize-y rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  style={{ minHeight: '80px', maxHeight: '400px' }}
                 />
+                {description.length > 0 && (
+                  <p
+                    className={`mt-1 text-right text-xs ${description.length > 9500 ? 'text-red-500' : 'text-gray-400'}`}
+                  >
+                    {description.length.toLocaleString()} / 10,000
+                  </p>
+                )}
               </div>
 
               {/* ★ EVENT 类型专属：URL/粘贴输入 */}

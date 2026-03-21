@@ -2271,7 +2271,7 @@ describe('fetchWithAuth - additional edge cases', () => {
     );
 
     const result = await getStats('topic-1');
-    expect(result == null || result === '').toBe(true);
+    expect(result == null || String(result) === '').toBe(true);
   });
 
   it('returns text when content-type is not application/json', async () => {
