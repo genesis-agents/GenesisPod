@@ -74,6 +74,7 @@ export class WysiwygRenderService {
     this.logger.debug("WYSIWYG: Rendering HTML to PDF...");
     const browser = await this.getBrowser();
     const page = await browser.newPage();
+    const tempFiles: string[] = [];
 
     try {
       await page.setJavaScriptEnabled(false);
@@ -98,7 +99,6 @@ export class WysiwygRenderService {
       // ★ Extract base64 data URLs to temp files to reduce Node.js heap pressure.
       // A 35MB HTML with 39 inline images can OOM the 1.5GB heap when
       // setContent serializes the full string to Chromium via CDP.
-      const tempFiles: string[] = [];
       let processedHtml = html;
       try {
         const fs = require("fs") as typeof import("fs");
@@ -154,15 +154,6 @@ export class WysiwygRenderService {
       // Wait for fonts to load (max 5s); fall back to system fonts on timeout
       await page.evaluate(() => document.fonts.ready).catch(() => {});
 
-      // ★ Cleanup temp files after rendering
-      for (const f of tempFiles) {
-        try {
-          require("fs").unlinkSync(f);
-        } catch {
-          /* ignore */
-        }
-      }
-
       const pageFormat = this.mapPageSize(options.pageSize);
       const margin = {
         top: `${options.marginTop || 40}px`,
@@ -193,6 +184,14 @@ export class WysiwygRenderService {
       return Buffer.from(pdfBuffer);
     } finally {
       await page.close();
+      // ★ Cleanup temp files AFTER PDF is generated and page is closed
+      for (const f of tempFiles) {
+        try {
+          require("fs").unlinkSync(f);
+        } catch {
+          /* ignore */
+        }
+      }
     }
   }
 
