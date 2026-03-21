@@ -625,6 +625,31 @@ export class TopicController {
     return this.topicResearchService.getLogs(userId, id, query);
   }
 
+  // ==================== Compute Usage ====================
+
+  /**
+   * 获取专题算力消耗数据
+   */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Get("topics/:topicId/compute-usage")
+  @ApiOperation({
+    summary: "获取专题算力消耗",
+    description: "返回专题的 Token 消耗、模型分布、Credit 历史和研究任务信息",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回算力消耗数据" })
+  @ApiResponse({ status: 401, description: "未认证" })
+  async getComputeUsage(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getComputeUsage(topicId);
+  }
+
   // ==================== Stats ====================
 
   /**

@@ -2566,3 +2566,10 @@ export async function getResumableMissions(): Promise<{
 }> {
   return fetchWithAuth(`${API_PREFIX}/resumable-missions`);
 }
+
+/**
+ * 获取专题的算力消耗统计
+ */
+export async function getComputeUsage(topicId: string): Promise<unknown> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/compute-usage`);
+}

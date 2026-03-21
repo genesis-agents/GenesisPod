@@ -23,7 +23,6 @@ import {
   RefreshCw,
   Zap,
   Link2,
-  FolderOpen,
   CheckCircle2,
   Search,
   Loader2,
@@ -76,8 +75,8 @@ import {
   PipelinePhaseIndicator,
   derivePipelinePhase,
 } from '../collaboration/PipelinePhaseIndicator';
-// 相关研究 Tab - 显示关联的 AI Research 项目
-import { RelatedResearchTab } from './RelatedResearchTab';
+// 算力消耗 Tab - 显示 LLM 调用、Token 消耗、积分记录
+import { ComputeUsageTab } from './ComputeUsageTab';
 // 反馈API - 用于将批注提交为反馈（统一使用 Core Feedback）
 import { apiClient } from '@/lib/api/client';
 // ★ 使用共享模块的引用导航回调
@@ -99,7 +98,7 @@ type TabType =
   | 'credibility'
   | 'research_collab'
   | 'history'
-  | 'related_research';
+  | 'compute_usage';
 
 // 研究事件类型
 export interface ResearchEvent {
@@ -1104,9 +1103,9 @@ export function TopicContentPanel({
       badge: report?.totalSources || safeEvidence.length,
     },
     {
-      key: 'related_research',
-      label: '相关研究',
-      icon: <FolderOpen className="h-4 w-4" />,
+      key: 'compute_usage',
+      label: t('topicResearch.computeUsage.title'),
+      icon: <Zap className="h-4 w-4" />,
     },
   ];
 
@@ -2007,11 +2006,9 @@ export function TopicContentPanel({
               onAutoExpandHandled={() => setAutoExpandEvidenceId(null)}
             />
           )}
-          {activeTab === 'related_research' && (
+          {activeTab === 'compute_usage' && (
             <div className="h-full overflow-y-auto">
-              <RelatedResearchTab
-                topicName={topicName ?? report?.title ?? ''}
-              />
+              <ComputeUsageTab topicId={topicId || ''} />
             </div>
           )}
         </div>

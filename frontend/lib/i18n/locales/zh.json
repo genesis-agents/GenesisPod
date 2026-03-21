@@ -5991,6 +5991,27 @@
         }
       }
     },
+    "computeUsage": {
+      "title": "算力消耗",
+      "totalTokens": "Token 消耗",
+      "inputOutput": "输入 {{input}} / 输出 {{output}}",
+      "creditsConsumed": "积分消耗",
+      "llmCalls": "LLM 调用",
+      "researchDuration": "研究耗时",
+      "dimensionBreakdown": "维度消耗明细",
+      "modelDistribution": "模型分布",
+      "missionInfo": "研究任务",
+      "creditHistory": "积分消耗记录",
+      "dimension": "维度",
+      "model": "模型",
+      "tokens": "Token",
+      "sources": "数据源",
+      "calls": "次调用",
+      "leaderModel": "Leader 模型",
+      "depth": "研究深度",
+      "tasks": "任务",
+      "noData": "暂无算力消耗数据"
+    },
     "topics": {
       "credibilityPanel": {
         "noReport": "暂无可信度报告",

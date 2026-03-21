@@ -1441,6 +1441,248 @@ export class TopicInsightsService {
     }
   }
 
+  // ==================== Compute Usage ====================
+
+  /**
+   * 获取专题算力消耗数据
+   */
+  async getComputeUsage(topicId: string): Promise<{
+    summary: {
+      totalTokens: number;
+      inputTokens: number;
+      outputTokens: number;
+      totalCreditsConsumed: number;
+      estimatedCostUsd: number;
+      totalLlmCalls: number;
+      totalDimensions: number;
+      researchDurationMs: number;
+      reportGenerationMs: number;
+    };
+    dimensions: Array<{
+      dimensionName: string;
+      modelUsed: string | null;
+      tokensUsed: number | null;
+      sourcesUsed: number;
+    }>;
+    modelDistribution: Array<{
+      modelId: string;
+      callCount: number;
+      totalTokens: number;
+      inputTokens: number;
+      outputTokens: number;
+      estimatedCost: number;
+      percentage: number;
+    }>;
+    creditHistory: Array<{
+      operationType: string;
+      amount: number;
+      tokenCount: number | null;
+      modelName: string | null;
+      createdAt: string;
+    }>;
+    mission: {
+      leaderModel: string;
+      researchDepth: string;
+      startedAt: string | null;
+      completedAt: string | null;
+      totalTasks: number;
+      completedTasks: number;
+    } | null;
+  }> {
+    this.logger.log(`[getComputeUsage] topicId=${topicId}`);
+
+    // 1. 获取最新报告的 totalTokens / generationTimeMs / totalDimensions
+    const latestReport = await this.prisma.topicReport.findFirst({
+      where: { topicId },
+      orderBy: { generatedAt: "desc" },
+      select: {
+        totalTokens: true,
+        generationTimeMs: true,
+        totalDimensions: true,
+      },
+    });
+
+    // 2. 获取最新报告的维度分析（join dimension name）
+    const dimensionAnalyses = await this.prisma.dimensionAnalysis.findMany({
+      where: {
+        report: {
+          topicId,
+        },
+        reportId: {
+          in: await this.prisma.topicReport
+            .findFirst({
+              where: { topicId },
+              orderBy: { generatedAt: "desc" },
+              select: { id: true },
+            })
+            .then((r) => (r ? [r.id] : [])),
+        },
+      },
+      select: {
+        tokensUsed: true,
+        modelUsed: true,
+        sourcesUsed: true,
+        dimension: {
+          select: { name: true },
+        },
+      },
+    });
+
+    // 3. 获取最新 ResearchMission
+    const latestMission = await this.prisma.researchMission.findFirst({
+      where: { topicId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        leaderModelId: true,
+        leaderModelName: true,
+        researchDepth: true,
+        startedAt: true,
+        completedAt: true,
+        totalTasks: true,
+        completedTasks: true,
+      },
+    });
+
+    // 4. 按 modelId 聚合 AIEngineMetric（只查与 mission 关联的记录，使用 raw SQL 避免 groupBy 类型问题）
+    type MetricRow = {
+      model_id: string | null;
+      call_count: bigint;
+      total_tokens: bigint | null;
+      input_tokens: bigint | null;
+      output_tokens: bigint | null;
+      estimated_cost: string | null;
+    };
+
+    const metricGroups: MetricRow[] = latestMission
+      ? await this.prisma.$queryRaw<MetricRow[]>`
+          SELECT
+            model_id,
+            COUNT(*) AS call_count,
+            SUM(total_tokens) AS total_tokens,
+            SUM(input_tokens) AS input_tokens,
+            SUM(output_tokens) AS output_tokens,
+            SUM(estimated_cost) AS estimated_cost
+          FROM ai_engine_metrics
+          WHERE mission_id = ${latestMission.id}
+            AND metric_type = 'llm_call'
+          GROUP BY model_id
+          ORDER BY call_count DESC
+        `
+      : [];
+
+    // 5. 查询 CreditTransaction（referenceId = topicId）
+    const creditTransactions = await this.prisma.creditTransaction.findMany({
+      where: { referenceId: topicId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        operationType: true,
+        amount: true,
+        tokenCount: true,
+        modelName: true,
+        createdAt: true,
+      },
+    });
+
+    // ---- 汇总计算 ----
+
+    // totalCreditsConsumed: 所有 credit 交易中负数部分的绝对值之和
+    const totalCreditsConsumed = creditTransactions
+      .filter((t) => t.amount < 0)
+      .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+
+    // totalLlmCalls / estimatedCostUsd / inputTokens / outputTokens from metrics
+    let totalLlmCalls = 0;
+    let metricsInputTokens = 0;
+    let metricsOutputTokens = 0;
+    let metricsTotal = 0;
+    let estimatedCostUsd = 0;
+
+    for (const g of metricGroups) {
+      totalLlmCalls += Number(g.call_count);
+      metricsInputTokens += Number(g.input_tokens ?? 0);
+      metricsOutputTokens += Number(g.output_tokens ?? 0);
+      metricsTotal += Number(g.total_tokens ?? 0);
+      estimatedCostUsd += Number(g.estimated_cost ?? 0);
+    }
+
+    // 优先使用 TopicReport 的 totalTokens（整体汇总），fallback 到 metric 聚合
+    const reportTotalTokens = latestReport?.totalTokens ?? 0;
+    const finalTotalTokens =
+      reportTotalTokens > 0 ? reportTotalTokens : metricsTotal;
+
+    // researchDurationMs: mission.startedAt → completedAt
+    let researchDurationMs = 0;
+    if (latestMission?.startedAt && latestMission?.completedAt) {
+      researchDurationMs =
+        new Date(latestMission.completedAt).getTime() -
+        new Date(latestMission.startedAt).getTime();
+    }
+
+    // modelDistribution percentage 计算
+    const totalCallCount = metricGroups.reduce(
+      (acc, g) => acc + Number(g.call_count),
+      0,
+    );
+    const modelDistribution = metricGroups
+      .filter((g) => g.model_id !== null)
+      .map((g) => ({
+        modelId: g.model_id as string,
+        callCount: Number(g.call_count),
+        totalTokens: Number(g.total_tokens ?? 0),
+        inputTokens: Number(g.input_tokens ?? 0),
+        outputTokens: Number(g.output_tokens ?? 0),
+        estimatedCost: Number(g.estimated_cost ?? 0),
+        percentage:
+          totalCallCount > 0
+            ? Math.round((Number(g.call_count) / totalCallCount) * 100)
+            : 0,
+      }))
+      .sort((a, b) => b.callCount - a.callCount);
+
+    return {
+      summary: {
+        totalTokens: finalTotalTokens,
+        inputTokens: metricsInputTokens,
+        outputTokens: metricsOutputTokens,
+        totalCreditsConsumed,
+        estimatedCostUsd,
+        totalLlmCalls,
+        totalDimensions: latestReport?.totalDimensions ?? 0,
+        researchDurationMs,
+        reportGenerationMs: latestReport?.generationTimeMs ?? 0,
+      },
+      dimensions: dimensionAnalyses.map((da) => ({
+        dimensionName: da.dimension.name,
+        modelUsed: da.modelUsed,
+        tokensUsed: da.tokensUsed,
+        sourcesUsed: da.sourcesUsed,
+      })),
+      modelDistribution,
+      creditHistory: creditTransactions.map((t) => ({
+        operationType: t.operationType ?? "",
+        amount: t.amount,
+        tokenCount: t.tokenCount,
+        modelName: t.modelName,
+        createdAt: t.createdAt.toISOString(),
+      })),
+      mission: latestMission
+        ? {
+            leaderModel:
+              latestMission.leaderModelName ??
+              latestMission.leaderModelId ??
+              "",
+            researchDepth: latestMission.researchDepth ?? "",
+            startedAt: latestMission.startedAt?.toISOString() ?? null,
+            completedAt: latestMission.completedAt?.toISOString() ?? null,
+            totalTasks: latestMission.totalTasks,
+            completedTasks: latestMission.completedTasks,
+          }
+        : null,
+    };
+  }
+
   /**
    * 检查用户是否有权访问专题
    */

@@ -5914,6 +5914,27 @@
         "pendingAssignment": "Pending Leader assignment"
       }
     },
+    "computeUsage": {
+      "title": "Compute Usage",
+      "totalTokens": "Token Usage",
+      "inputOutput": "Input {{input}} / Output {{output}}",
+      "creditsConsumed": "Credits Used",
+      "llmCalls": "LLM Calls",
+      "researchDuration": "Research Duration",
+      "dimensionBreakdown": "Dimension Breakdown",
+      "modelDistribution": "Model Distribution",
+      "missionInfo": "Research Mission",
+      "creditHistory": "Credit History",
+      "dimension": "Dimension",
+      "model": "Model",
+      "tokens": "Tokens",
+      "sources": "Sources",
+      "calls": "calls",
+      "leaderModel": "Leader Model",
+      "depth": "Research Depth",
+      "tasks": "Tasks",
+      "noData": "No compute usage data available"
+    },
     "topics": {
       "credibilityPanel": {
         "noReport": "No Credibility Report",
