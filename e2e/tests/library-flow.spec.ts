@@ -34,7 +34,8 @@ async function getAuthHeader(
 test.describe("Library UI (/library)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/library", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await page.waitForTimeout(2000);
   });
 
   test("page loads without errors or error boundary", async ({ page }) => {

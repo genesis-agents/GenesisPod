@@ -116,7 +116,8 @@ test.describe("Explore / Library (/explore)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/explore", { waitUntil: "domcontentloaded" });
     // Wait for the dynamic ExploreContent to finish loading
-    await page.waitForTimeout(1500);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await page.waitForTimeout(2000);
   });
 
   test("page loads with AppShell sidebar visible", async ({ page }) => {

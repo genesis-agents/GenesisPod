@@ -145,7 +145,8 @@ test.describe("Insights API — Topics", () => {
       {
         headers: { ...headers, "Content-Type": "application/json" },
         data: {
-          title: "E2E Test Topic",
+          name: "E2E Test Topic",
+          type: "TECHNOLOGY",
           description: "Test topic created by Playwright E2E",
         },
         timeout: 15000,

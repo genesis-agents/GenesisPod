@@ -31,7 +31,8 @@ async function getAuthHeader(
 test.describe("Profile Page (/profile)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/profile", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await page.waitForTimeout(2000);
   });
 
   test("page loads without errors", async ({ page }) => {
