@@ -1,0 +1,672 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+    - generic [ref=e2]:
+        - generic [ref=e5]:
+            - link "v29.0.0 released · 415 changesView changelog" [ref=e6] [cursor=pointer]:
+                - /url: /changelog
+                - img [ref=e7]
+                - paragraph [ref=e11]:
+                    - text: v29.0.0 released
+                    - generic [ref=e12]: · 415 changes
+                    - text: View changelog
+            - button "Close banner" [ref=e13] [cursor=pointer]:
+                - img [ref=e14]
+        - generic [ref=e17]:
+            - complementary [ref=e18]:
+                - generic [ref=e19]:
+                    - link "Genesis Genesis v29.0.0" [ref=e20] [cursor=pointer]:
+                        - /url: /
+                        - generic [ref=e21]:
+                            - img "Genesis" [ref=e23]
+                            - generic [ref=e24]:
+                                - generic [ref=e26]: Genesis
+                                - link "v29.0.0" [ref=e27]:
+                                    - /url: /changelog
+                    - button "Collapse sidebar" [ref=e28] [cursor=pointer]:
+                        - img [ref=e29]
+                - navigation [ref=e33]:
+                    - generic [ref=e34]:
+                        - link "AI Ask" [ref=e35] [cursor=pointer]:
+                            - /url: /ai-ask
+                            - img [ref=e36]
+                            - generic [ref=e38]: AI Ask
+                        - generic [ref=e39]: Knowledge
+                        - link "AI Explore" [ref=e40] [cursor=pointer]:
+                            - /url: /explore
+                            - img [ref=e41]
+                            - generic [ref=e43]: AI Explore
+                        - link "My Library" [ref=e44] [cursor=pointer]:
+                            - /url: /library
+                            - img [ref=e45]
+                            - generic [ref=e47]: My Library
+                        - generic [ref=e48]: Research & Analysis
+                        - link "AI Insights" [ref=e49] [cursor=pointer]:
+                            - /url: /ai-insights
+                            - img [ref=e50]
+                            - generic [ref=e53]: AI Insights
+                        - link "AI Research" [ref=e54] [cursor=pointer]:
+                            - /url: /ai-research
+                            - img [ref=e55]
+                            - generic [ref=e57]: AI Research
+                        - link "AI Reports" [ref=e58] [cursor=pointer]:
+                            - /url: /ai-office
+                            - img [ref=e59]
+                            - generic [ref=e62]: AI Reports
+                        - generic [ref=e63]: Planning & Decision
+                        - link "AI Discuss" [ref=e64] [cursor=pointer]:
+                            - /url: /ai-teams
+                            - img [ref=e65]
+                            - generic [ref=e67]: AI Discuss
+                        - link "AI Planning" [ref=e68] [cursor=pointer]:
+                            - /url: /ai-planning
+                            - img [ref=e69]
+                            - generic [ref=e71]: AI Planning
+                        - link "AI Decision" [ref=e72] [cursor=pointer]:
+                            - /url: /ai-simulation
+                            - img [ref=e73]
+                            - generic [ref=e80]: AI Decision
+                        - generic [ref=e81]: Creative Writing
+                        - link "AI Writing" [ref=e82] [cursor=pointer]:
+                            - /url: /ai-writing
+                            - img [ref=e83]
+                            - generic [ref=e85]: AI Writing
+                        - link "AI Social" [ref=e86] [cursor=pointer]:
+                            - /url: /ai-social
+                            - img [ref=e87]
+                            - generic [ref=e89]: AI Social
+                        - generic [ref=e90]: Tool Store
+                        - link "AI Store" [ref=e91] [cursor=pointer]:
+                            - /url: /ai-store
+                            - img [ref=e92]
+                            - generic [ref=e94]: AI Store
+                        - link "Admin" [ref=e95] [cursor=pointer]:
+                            - /url: /admin/overview
+                            - img [ref=e96]
+                            - generic [ref=e99]: Admin
+                - generic [ref=e100]:
+                    - link "Notifications" [ref=e101] [cursor=pointer]:
+                        - /url: /notifications
+                        - img [ref=e102]
+                        - generic [ref=e104]: Notifications
+                    - button "e2e-tester" [ref=e107] [cursor=pointer]:
+                        - img [ref=e109]
+                        - generic [ref=e112]: e2e-tester
+                    - button "中文" [ref=e113] [cursor=pointer]:
+                        - img [ref=e114]
+                        - generic [ref=e117]: 中文
+            - main [ref=e118]:
+                - generic [ref=e120]:
+                    - generic [ref=e123]:
+                        - img [ref=e125]
+                        - textbox "Ask or search anything..." [ref=e127]
+                    - generic [ref=e128]:
+                        - generic [ref=e129]:
+                            - button "YouTube" [ref=e130] [cursor=pointer]:
+                                - img [ref=e131]
+                                - generic [ref=e134]: YouTube
+                            - button "Papers" [ref=e135] [cursor=pointer]:
+                                - img [ref=e136]
+                                - generic [ref=e139]: Papers
+                            - button "Blogs" [ref=e140] [cursor=pointer]:
+                                - img [ref=e141]
+                                - generic [ref=e145]: Blogs
+                            - button "Reports" [ref=e146] [cursor=pointer]:
+                                - img [ref=e147]
+                                - generic [ref=e150]: Reports
+                            - button "Policy" [ref=e151] [cursor=pointer]:
+                                - img [ref=e152]
+                                - generic [ref=e156]: Policy
+                            - button "News" [ref=e157] [cursor=pointer]:
+                                - img [ref=e158]
+                                - generic [ref=e161]: News
+                        - generic [ref=e162]:
+                            - button "Import" [ref=e164] [cursor=pointer]:
+                                - img [ref=e165]
+                            - button "Filter" [ref=e166] [cursor=pointer]:
+                                - img [ref=e167]
+                            - button "Sort" [ref=e170] [cursor=pointer]:
+                                - img [ref=e171]
+                - generic [ref=e175]:
+                    - article [ref=e176] [cursor=pointer]:
+                        - generic [ref=e177]:
+                            - img "“We've lived through 3 ice ages - here's what we learned” - how Indigenous wisdom can help us all" [ref=e179]
+                            - generic [ref=e180]:
+                                - generic [ref=e181]:
+                                    - generic [ref=e182]: Mar 19, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e183]':
+                                        - generic [ref=e184]: World Economic Forum
+                                    - generic [ref=e185]:
+                                        - img [ref=e186]
+                                        - text: "0"
+                                - heading "“We've lived through 3 ice ages - here's what we learned” - how Indigenous wisdom can help us all" [level=2] [ref=e188]
+                                - paragraph [ref=e189]:
+                                    - generic [ref=e190]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e192]:
+                                    - button "Bookmark" [ref=e193]:
+                                        - img [ref=e194]
+                                        - text: Bookmark
+                                    - button "0" [ref=e196]:
+                                        - img [ref=e197]
+                                        - text: "0"
+                                    - button "0" [ref=e199]:
+                                        - img [ref=e200]
+                                        - text: "0"
+                                    - button "Delete" [ref=e202]:
+                                        - img [ref=e203]
+                                        - text: Delete
+                    - article [ref=e205] [cursor=pointer]:
+                        - generic [ref=e206]:
+                            - img "Web3 101串台｜“龙虾热”背后，如何防范OpenClaw系统级风险" [ref=e208]
+                            - generic [ref=e209]:
+                                - generic [ref=e210]:
+                                    - generic [ref=e211]: Mar 18, 2026
+                                    - 'generic "Source: 硅谷101播客" [ref=e212]':
+                                        - generic [ref=e213]: 硅谷101播客
+                                    - generic [ref=e214]:
+                                        - img [ref=e215]
+                                        - text: "0"
+                                - heading "Web3 101串台｜“龙虾热”背后，如何防范OpenClaw系统级风险" [level=2] [ref=e217]
+                                - paragraph [ref=e218]:
+                                    - generic [ref=e219]: "Source: youtube.com • By: 硅谷101播客"
+                                - generic [ref=e221]:
+                                    - button "Bookmark" [ref=e222]:
+                                        - img [ref=e223]
+                                        - text: Bookmark
+                                    - button "0" [ref=e225]:
+                                        - img [ref=e226]
+                                        - text: "0"
+                                    - button "0" [ref=e228]:
+                                        - img [ref=e229]
+                                        - text: "0"
+                                    - button "Delete" [ref=e231]:
+                                        - img [ref=e232]
+                                        - text: Delete
+                    - article [ref=e234] [cursor=pointer]:
+                        - generic [ref=e235]:
+                            - 'img "Matt Damon and Gary White: Why the Global Water Crisis Is Really a Finance Problem" [ref=e237]'
+                            - generic [ref=e238]:
+                                - generic [ref=e239]:
+                                    - generic [ref=e240]: Mar 16, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e241]':
+                                        - generic [ref=e242]: World Economic Forum
+                                    - generic [ref=e243]:
+                                        - img [ref=e244]
+                                        - text: "0"
+                                - 'heading "Matt Damon and Gary White: Why the Global Water Crisis Is Really a Finance Problem" [level=2] [ref=e246]'
+                                - paragraph [ref=e247]:
+                                    - generic [ref=e248]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e250]:
+                                    - button "Bookmark" [ref=e251]:
+                                        - img [ref=e252]
+                                        - text: Bookmark
+                                    - button "0" [ref=e254]:
+                                        - img [ref=e255]
+                                        - text: "0"
+                                    - button "0" [ref=e257]:
+                                        - img [ref=e258]
+                                        - text: "0"
+                                    - button "Delete" [ref=e260]:
+                                        - img [ref=e261]
+                                        - text: Delete
+                    - article [ref=e263] [cursor=pointer]:
+                        - generic [ref=e264]:
+                            - img "ChatGPT – The Super Assistant Era | BG2 Guest Interview" [ref=e266]
+                            - generic [ref=e267]:
+                                - generic [ref=e268]:
+                                    - generic [ref=e269]: Mar 15, 2026
+                                    - 'generic "Source: Bg2 Pod" [ref=e270]':
+                                        - generic [ref=e271]: Bg2 Pod
+                                    - generic [ref=e272]:
+                                        - img [ref=e273]
+                                        - text: "0"
+                                - heading "ChatGPT – The Super Assistant Era | BG2 Guest Interview" [level=2] [ref=e275]
+                                - paragraph [ref=e276]:
+                                    - generic [ref=e277]: "Source: youtube.com • By: Bg2 Pod"
+                                - generic [ref=e279]:
+                                    - button "Bookmark" [ref=e280]:
+                                        - img [ref=e281]
+                                        - text: Bookmark
+                                    - button "0" [ref=e283]:
+                                        - img [ref=e284]
+                                        - text: "0"
+                                    - button "0" [ref=e286]:
+                                        - img [ref=e287]
+                                        - text: "0"
+                                    - button "Delete" [ref=e289]:
+                                        - img [ref=e290]
+                                        - text: Delete
+                    - article [ref=e292] [cursor=pointer]:
+                        - generic [ref=e293]:
+                            - img "The Air Quality Data Gap & How Booth Design Impacts Voting | WEF | Top Stories of the Week" [ref=e295]
+                            - generic [ref=e296]:
+                                - generic [ref=e297]:
+                                    - generic [ref=e298]: Mar 14, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e299]':
+                                        - generic [ref=e300]: World Economic Forum
+                                    - generic [ref=e301]:
+                                        - img [ref=e302]
+                                        - text: "0"
+                                - heading "The Air Quality Data Gap & How Booth Design Impacts Voting | WEF | Top Stories of the Week" [level=2] [ref=e304]
+                                - paragraph [ref=e305]:
+                                    - generic [ref=e306]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e308]:
+                                    - button "Bookmark" [ref=e309]:
+                                        - img [ref=e310]
+                                        - text: Bookmark
+                                    - button "0" [ref=e312]:
+                                        - img [ref=e313]
+                                        - text: "0"
+                                    - button "0" [ref=e315]:
+                                        - img [ref=e316]
+                                        - text: "0"
+                                    - button "Delete" [ref=e318]:
+                                        - img [ref=e319]
+                                        - text: Delete
+                    - article [ref=e321] [cursor=pointer]:
+                        - generic [ref=e322]:
+                            - img "How Indigenous data combined with new technology is protecting the Amazon" [ref=e324]
+                            - generic [ref=e325]:
+                                - generic [ref=e326]:
+                                    - generic [ref=e327]: Mar 13, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e328]':
+                                        - generic [ref=e329]: World Economic Forum
+                                    - generic [ref=e330]:
+                                        - img [ref=e331]
+                                        - text: "0"
+                                - heading "How Indigenous data combined with new technology is protecting the Amazon" [level=2] [ref=e333]
+                                - paragraph [ref=e334]:
+                                    - generic [ref=e335]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e337]:
+                                    - button "Bookmark" [ref=e338]:
+                                        - img [ref=e339]
+                                        - text: Bookmark
+                                    - button "0" [ref=e341]:
+                                        - img [ref=e342]
+                                        - text: "0"
+                                    - button "0" [ref=e344]:
+                                        - img [ref=e345]
+                                        - text: "0"
+                                    - button "Delete" [ref=e347]:
+                                        - img [ref=e348]
+                                        - text: Delete
+                    - article [ref=e350] [cursor=pointer]:
+                        - generic [ref=e351]:
+                            - 'img "Suleika Jaouad: Harnessing Creativity and Curiosity to Lead Through Uncertainty" [ref=e353]'
+                            - generic [ref=e354]:
+                                - generic [ref=e355]:
+                                    - generic [ref=e356]: Mar 13, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e357]':
+                                        - generic [ref=e358]: World Economic Forum
+                                    - generic [ref=e359]:
+                                        - img [ref=e360]
+                                        - text: "0"
+                                - 'heading "Suleika Jaouad: Harnessing Creativity and Curiosity to Lead Through Uncertainty" [level=2] [ref=e362]'
+                                - paragraph [ref=e363]:
+                                    - generic [ref=e364]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e366]:
+                                    - button "Bookmark" [ref=e367]:
+                                        - img [ref=e368]
+                                        - text: Bookmark
+                                    - button "0" [ref=e370]:
+                                        - img [ref=e371]
+                                        - text: "0"
+                                    - button "0" [ref=e373]:
+                                        - img [ref=e374]
+                                        - text: "0"
+                                    - button "Delete" [ref=e376]:
+                                        - img [ref=e377]
+                                        - text: Delete
+                    - article [ref=e379] [cursor=pointer]:
+                        - generic [ref=e380]:
+                            - img "Dylan Patel — The single biggest bottleneck to scaling AI compute" [ref=e382]
+                            - generic [ref=e383]:
+                                - generic [ref=e384]:
+                                    - generic [ref=e385]: Mar 13, 2026
+                                    - 'generic "Source: Dwarkesh Patel" [ref=e386]':
+                                        - generic [ref=e387]: Dwarkesh Patel
+                                    - generic [ref=e388]:
+                                        - img [ref=e389]
+                                        - text: "0"
+                                - heading "Dylan Patel — The single biggest bottleneck to scaling AI compute" [level=2] [ref=e391]
+                                - paragraph [ref=e392]:
+                                    - generic [ref=e393]: "Source: youtube.com • By: Dwarkesh Patel"
+                                - generic [ref=e395]:
+                                    - button "Bookmark" [ref=e396]:
+                                        - img [ref=e397]
+                                        - text: Bookmark
+                                    - button "0" [ref=e399]:
+                                        - img [ref=e400]
+                                        - text: "0"
+                                    - button "0" [ref=e402]:
+                                        - img [ref=e403]
+                                        - text: "0"
+                                    - button "Delete" [ref=e405]:
+                                        - img [ref=e406]
+                                        - text: Delete
+                    - article [ref=e408] [cursor=pointer]:
+                        - generic [ref=e409]:
+                            - img "E228｜谷歌TPU能撼动英伟达吗？前TPU工程师首次揭秘" [ref=e411]
+                            - generic [ref=e412]:
+                                - generic [ref=e413]:
+                                    - generic [ref=e414]: Mar 12, 2026
+                                    - 'generic "Source: 硅谷101播客" [ref=e415]':
+                                        - generic [ref=e416]: 硅谷101播客
+                                    - generic [ref=e417]:
+                                        - img [ref=e418]
+                                        - text: "0"
+                                - heading "E228｜谷歌TPU能撼动英伟达吗？前TPU工程师首次揭秘" [level=2] [ref=e420]
+                                - paragraph [ref=e421]:
+                                    - generic [ref=e422]: "Source: youtube.com • By: 硅谷101播客"
+                                - generic [ref=e424]:
+                                    - button "Bookmark" [ref=e425]:
+                                        - img [ref=e426]
+                                        - text: Bookmark
+                                    - button "0" [ref=e428]:
+                                        - img [ref=e429]
+                                        - text: "0"
+                                    - button "0" [ref=e431]:
+                                        - img [ref=e432]
+                                        - text: "0"
+                                    - button "Delete" [ref=e434]:
+                                        - img [ref=e435]
+                                        - text: Delete
+                    - article [ref=e437] [cursor=pointer]:
+                        - generic [ref=e438]:
+                            - 'img "Scott Galloway: why tackling the ''crisis of masculinity'' would also help close the gender gap" [ref=e440]'
+                            - generic [ref=e441]:
+                                - generic [ref=e442]:
+                                    - generic [ref=e443]: Mar 12, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e444]':
+                                        - generic [ref=e445]: World Economic Forum
+                                    - generic [ref=e446]:
+                                        - img [ref=e447]
+                                        - text: "0"
+                                - 'heading "Scott Galloway: why tackling the ''crisis of masculinity'' would also help close the gender gap" [level=2] [ref=e449]'
+                                - paragraph [ref=e450]:
+                                    - generic [ref=e451]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e453]:
+                                    - button "Bookmark" [ref=e454]:
+                                        - img [ref=e455]
+                                        - text: Bookmark
+                                    - button "0" [ref=e457]:
+                                        - img [ref=e458]
+                                        - text: "0"
+                                    - button "0" [ref=e460]:
+                                        - img [ref=e461]
+                                        - text: "0"
+                                    - button "Delete" [ref=e463]:
+                                        - img [ref=e464]
+                                        - text: Delete
+                    - article [ref=e466] [cursor=pointer]:
+                        - generic [ref=e467]:
+                            - img "AI医疗独角兽OpenEvidence，120亿估值“护城河”有多宽？" [ref=e469]
+                            - generic [ref=e470]:
+                                - generic [ref=e471]:
+                                    - generic [ref=e472]: Mar 12, 2026
+                                    - 'generic "Source: 硅谷101播客" [ref=e473]':
+                                        - generic [ref=e474]: 硅谷101播客
+                                    - generic [ref=e475]:
+                                        - img [ref=e476]
+                                        - text: "0"
+                                - heading "AI医疗独角兽OpenEvidence，120亿估值“护城河”有多宽？" [level=2] [ref=e478]
+                                - paragraph [ref=e479]:
+                                    - generic [ref=e480]: "Source: youtube.com • By: 硅谷101播客"
+                                - generic [ref=e482]:
+                                    - button "Bookmark" [ref=e483]:
+                                        - img [ref=e484]
+                                        - text: Bookmark
+                                    - button "0" [ref=e486]:
+                                        - img [ref=e487]
+                                        - text: "0"
+                                    - button "0" [ref=e489]:
+                                        - img [ref=e490]
+                                        - text: "0"
+                                    - button "Delete" [ref=e492]:
+                                        - img [ref=e493]
+                                        - text: Delete
+                    - article [ref=e495] [cursor=pointer]:
+                        - generic [ref=e496]:
+                            - img "The Department of War is making a huge mistake." [ref=e498]
+                            - generic [ref=e499]:
+                                - generic [ref=e500]:
+                                    - generic [ref=e501]: Mar 11, 2026
+                                    - 'generic "Source: Dwarkesh Patel" [ref=e502]':
+                                        - generic [ref=e503]: Dwarkesh Patel
+                                    - generic [ref=e504]:
+                                        - img [ref=e505]
+                                        - text: "0"
+                                - heading "The Department of War is making a huge mistake." [level=2] [ref=e507]
+                                - paragraph [ref=e508]:
+                                    - generic [ref=e509]: "Source: youtube.com • By: Dwarkesh Patel"
+                                - generic [ref=e511]:
+                                    - button "Bookmark" [ref=e512]:
+                                        - img [ref=e513]
+                                        - text: Bookmark
+                                    - button "0" [ref=e515]:
+                                        - img [ref=e516]
+                                        - text: "0"
+                                    - button "0" [ref=e518]:
+                                        - img [ref=e519]
+                                        - text: "0"
+                                    - button "Delete" [ref=e521]:
+                                        - img [ref=e522]
+                                        - text: Delete
+                    - article [ref=e524] [cursor=pointer]:
+                        - generic [ref=e525]:
+                            - 'img "Experts Explain: Why does the gender gap persist?" [ref=e527]'
+                            - generic [ref=e528]:
+                                - generic [ref=e529]:
+                                    - generic [ref=e530]: Mar 11, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e531]':
+                                        - generic [ref=e532]: World Economic Forum
+                                    - generic [ref=e533]:
+                                        - img [ref=e534]
+                                        - text: "0"
+                                - 'heading "Experts Explain: Why does the gender gap persist?" [level=2] [ref=e536]'
+                                - paragraph [ref=e537]:
+                                    - generic [ref=e538]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e540]:
+                                    - button "Bookmark" [ref=e541]:
+                                        - img [ref=e542]
+                                        - text: Bookmark
+                                    - button "0" [ref=e544]:
+                                        - img [ref=e545]
+                                        - text: "0"
+                                    - button "0" [ref=e547]:
+                                        - img [ref=e548]
+                                        - text: "0"
+                                    - button "Delete" [ref=e550]:
+                                        - img [ref=e551]
+                                        - text: Delete
+                    - article [ref=e553] [cursor=pointer]:
+                        - generic [ref=e554]:
+                            - img "Anthropic盯上医疗“金矿”，但它挖的是你看不见的那层" [ref=e556]
+                            - generic [ref=e557]:
+                                - generic [ref=e558]:
+                                    - generic [ref=e559]: Mar 11, 2026
+                                    - 'generic "Source: 硅谷101播客" [ref=e560]':
+                                        - generic [ref=e561]: 硅谷101播客
+                                    - generic [ref=e562]:
+                                        - img [ref=e563]
+                                        - text: "0"
+                                - heading "Anthropic盯上医疗“金矿”，但它挖的是你看不见的那层" [level=2] [ref=e565]
+                                - paragraph [ref=e566]:
+                                    - generic [ref=e567]: "Source: youtube.com • By: 硅谷101播客"
+                                - generic [ref=e569]:
+                                    - button "Bookmark" [ref=e570]:
+                                        - img [ref=e571]
+                                        - text: Bookmark
+                                    - button "0" [ref=e573]:
+                                        - img [ref=e574]
+                                        - text: "0"
+                                    - button "0" [ref=e576]:
+                                        - img [ref=e577]
+                                        - text: "0"
+                                    - button "Delete" [ref=e579]:
+                                        - img [ref=e580]
+                                        - text: Delete
+                    - article [ref=e582] [cursor=pointer]:
+                        - generic [ref=e583]:
+                            - img "Fuels of the Future & Materials Driving the AI Revolution | WEF | Top Stories of the Week" [ref=e585]
+                            - generic [ref=e586]:
+                                - generic [ref=e587]:
+                                    - generic [ref=e588]: Mar 7, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e589]':
+                                        - generic [ref=e590]: World Economic Forum
+                                    - generic [ref=e591]:
+                                        - img [ref=e592]
+                                        - text: "0"
+                                - heading "Fuels of the Future & Materials Driving the AI Revolution | WEF | Top Stories of the Week" [level=2] [ref=e594]
+                                - paragraph [ref=e595]:
+                                    - generic [ref=e596]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e598]:
+                                    - button "Bookmark" [ref=e599]:
+                                        - img [ref=e600]
+                                        - text: Bookmark
+                                    - button "0" [ref=e602]:
+                                        - img [ref=e603]
+                                        - text: "0"
+                                    - button "0" [ref=e605]:
+                                        - img [ref=e606]
+                                        - text: "0"
+                                    - button "Delete" [ref=e608]:
+                                        - img [ref=e609]
+                                        - text: Delete
+                    - article [ref=e611] [cursor=pointer]:
+                        - generic [ref=e612]:
+                            - img "【保姆级】OpenClaw 全网最细教学：安装→Skills实战→多Agent协作，1 小时全精通！" [ref=e614]
+                            - generic [ref=e615]:
+                                - generic [ref=e616]:
+                                    - generic [ref=e617]: Mar 7, 2026
+                                    - 'generic "Source: YouTube" [ref=e618]':
+                                        - generic [ref=e619]: YouTube
+                                    - generic [ref=e620]:
+                                        - img [ref=e621]
+                                        - text: "0"
+                                - heading "【保姆级】OpenClaw 全网最细教学：安装→Skills实战→多Agent协作，1 小时全精通！" [level=2] [ref=e623]
+                                - paragraph [ref=e624]: "Enjoy this YouTube video. Video ID: 2ZZCyHzo9as"
+                                - generic [ref=e626]:
+                                    - button "Bookmark" [ref=e627]:
+                                        - img [ref=e628]
+                                        - text: Bookmark
+                                    - button "0" [ref=e630]:
+                                        - img [ref=e631]
+                                        - text: "0"
+                                    - button "0" [ref=e633]:
+                                        - img [ref=e634]
+                                        - text: "0"
+                                    - button "Delete" [ref=e636]:
+                                        - img [ref=e637]
+                                        - text: Delete
+                    - article [ref=e639] [cursor=pointer]:
+                        - generic [ref=e640]:
+                            - img "5 questions with Bonnie Y. Chan, CEO, HKEX" [ref=e642]
+                            - generic [ref=e643]:
+                                - generic [ref=e644]:
+                                    - generic [ref=e645]: Mar 6, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e646]':
+                                        - generic [ref=e647]: World Economic Forum
+                                    - generic [ref=e648]:
+                                        - img [ref=e649]
+                                        - text: "0"
+                                - heading "5 questions with Bonnie Y. Chan, CEO, HKEX" [level=2] [ref=e651]
+                                - paragraph [ref=e652]:
+                                    - generic [ref=e653]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e655]:
+                                    - button "Bookmark" [ref=e656]:
+                                        - img [ref=e657]
+                                        - text: Bookmark
+                                    - button "0" [ref=e659]:
+                                        - img [ref=e660]
+                                        - text: "0"
+                                    - button "0" [ref=e662]:
+                                        - img [ref=e663]
+                                        - text: "0"
+                                    - button "Delete" [ref=e665]:
+                                        - img [ref=e666]
+                                        - text: Delete
+                    - article [ref=e668] [cursor=pointer]:
+                        - generic [ref=e669]:
+                            - img "The Renaissance Was Absolutely Crazy – Ada Palmer" [ref=e671]
+                            - generic [ref=e672]:
+                                - generic [ref=e673]:
+                                    - generic [ref=e674]: Mar 6, 2026
+                                    - 'generic "Source: Dwarkesh Patel" [ref=e675]':
+                                        - generic [ref=e676]: Dwarkesh Patel
+                                    - generic [ref=e677]:
+                                        - img [ref=e678]
+                                        - text: "0"
+                                - heading "The Renaissance Was Absolutely Crazy – Ada Palmer" [level=2] [ref=e680]
+                                - paragraph [ref=e681]:
+                                    - generic [ref=e682]: "Source: youtube.com • By: Dwarkesh Patel"
+                                - generic [ref=e684]:
+                                    - button "Bookmark" [ref=e685]:
+                                        - img [ref=e686]
+                                        - text: Bookmark
+                                    - button "0" [ref=e688]:
+                                        - img [ref=e689]
+                                        - text: "0"
+                                    - button "0" [ref=e691]:
+                                        - img [ref=e692]
+                                        - text: "0"
+                                    - button "Delete" [ref=e694]:
+                                        - img [ref=e695]
+                                        - text: Delete
+                    - article [ref=e697] [cursor=pointer]:
+                        - generic [ref=e698]:
+                            - img "Why AI is about much more than tech" [ref=e700]
+                            - generic [ref=e701]:
+                                - generic [ref=e702]:
+                                    - generic [ref=e703]: Mar 5, 2026
+                                    - 'generic "Source: World Economic Forum" [ref=e704]':
+                                        - generic [ref=e705]: World Economic Forum
+                                    - generic [ref=e706]:
+                                        - img [ref=e707]
+                                        - text: "0"
+                                - heading "Why AI is about much more than tech" [level=2] [ref=e709]
+                                - paragraph [ref=e710]:
+                                    - generic [ref=e711]: "Source: youtube.com • By: World Economic Forum"
+                                - generic [ref=e713]:
+                                    - button "Bookmark" [ref=e714]:
+                                        - img [ref=e715]
+                                        - text: Bookmark
+                                    - button "0" [ref=e717]:
+                                        - img [ref=e718]
+                                        - text: "0"
+                                    - button "0" [ref=e720]:
+                                        - img [ref=e721]
+                                        - text: "0"
+                                    - button "Delete" [ref=e723]:
+                                        - img [ref=e724]
+                                        - text: Delete
+                    - article [ref=e726] [cursor=pointer]:
+                        - generic [ref=e727]:
+                            - img "E227｜美国医疗市场AI争夺战：巨头押注，创业公司能赢吗？" [ref=e729]
+                            - generic [ref=e730]:
+                                - generic [ref=e731]:
+                                    - generic [ref=e732]: Mar 3, 2026
+                                    - 'generic "Source: 硅谷101播客" [ref=e733]':
+                                        - generic [ref=e734]: 硅谷101播客
+                                    - generic [ref=e735]:
+                                        - img [ref=e736]
+                                        - text: "0"
+                                - heading "E227｜美国医疗市场AI争夺战：巨头押注，创业公司能赢吗？" [level=2] [ref=e738]
+                                - paragraph [ref=e739]:
+                                    - generic [ref=e740]: "Source: youtube.com • By: 硅谷101播客"
+                                - generic [ref=e742]:
+                                    - button "Bookmark" [ref=e743]:
+                                        - img [ref=e744]
+                                        - text: Bookmark
+                                    - button "0" [ref=e746]:
+                                        - img [ref=e747]
+                                        - text: "0"
+                                    - button "0" [ref=e749]:
+                                        - img [ref=e750]
+                                        - text: "0"
+                                    - button "Delete" [ref=e752]:
+                                        - img [ref=e753]
+                                        - text: Delete
+    - alert [ref=e756]
+```

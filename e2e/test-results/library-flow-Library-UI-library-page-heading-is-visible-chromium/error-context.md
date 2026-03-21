@@ -1,0 +1,235 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+    - alert [ref=e2]
+    - generic [ref=e3]:
+        - generic [ref=e6]:
+            - link "v29.0.0 released · 415 changesView changelog" [ref=e7] [cursor=pointer]:
+                - /url: /changelog
+                - img [ref=e8]
+                - paragraph [ref=e12]:
+                    - text: v29.0.0 released
+                    - generic [ref=e13]: · 415 changes
+                    - text: View changelog
+            - button "Close banner" [ref=e14] [cursor=pointer]:
+                - img [ref=e15]
+        - generic [ref=e18]:
+            - complementary [ref=e19]:
+                - generic [ref=e20]:
+                    - link "Genesis Genesis v29.0.0" [ref=e21] [cursor=pointer]:
+                        - /url: /
+                        - generic [ref=e22]:
+                            - img "Genesis" [ref=e24]
+                            - generic [ref=e25]:
+                                - generic [ref=e27]: Genesis
+                                - link "v29.0.0" [ref=e28]:
+                                    - /url: /changelog
+                    - button "Collapse sidebar" [ref=e29] [cursor=pointer]:
+                        - img [ref=e30]
+                - navigation [ref=e34]:
+                    - generic [ref=e35]:
+                        - link "AI Ask" [ref=e36] [cursor=pointer]:
+                            - /url: /ai-ask
+                            - img [ref=e37]
+                            - generic [ref=e39]: AI Ask
+                        - generic [ref=e40]: Knowledge
+                        - link "AI Explore" [ref=e41] [cursor=pointer]:
+                            - /url: /explore
+                            - img [ref=e42]
+                            - generic [ref=e44]: AI Explore
+                        - link "My Library" [ref=e45] [cursor=pointer]:
+                            - /url: /library
+                            - img [ref=e46]
+                            - generic [ref=e48]: My Library
+                        - generic [ref=e49]: Research & Analysis
+                        - link "AI Insights" [ref=e50] [cursor=pointer]:
+                            - /url: /ai-insights
+                            - img [ref=e51]
+                            - generic [ref=e54]: AI Insights
+                        - link "AI Research" [ref=e55] [cursor=pointer]:
+                            - /url: /ai-research
+                            - img [ref=e56]
+                            - generic [ref=e58]: AI Research
+                        - link "AI Reports" [ref=e59] [cursor=pointer]:
+                            - /url: /ai-office
+                            - img [ref=e60]
+                            - generic [ref=e63]: AI Reports
+                        - generic [ref=e64]: Planning & Decision
+                        - link "AI Discuss" [ref=e65] [cursor=pointer]:
+                            - /url: /ai-teams
+                            - img [ref=e66]
+                            - generic [ref=e68]: AI Discuss
+                        - link "AI Planning" [ref=e69] [cursor=pointer]:
+                            - /url: /ai-planning
+                            - img [ref=e70]
+                            - generic [ref=e72]: AI Planning
+                        - link "AI Decision" [ref=e73] [cursor=pointer]:
+                            - /url: /ai-simulation
+                            - img [ref=e74]
+                            - generic [ref=e81]: AI Decision
+                        - generic [ref=e82]: Creative Writing
+                        - link "AI Writing" [ref=e83] [cursor=pointer]:
+                            - /url: /ai-writing
+                            - img [ref=e84]
+                            - generic [ref=e86]: AI Writing
+                        - link "AI Social" [ref=e87] [cursor=pointer]:
+                            - /url: /ai-social
+                            - img [ref=e88]
+                            - generic [ref=e90]: AI Social
+                        - generic [ref=e91]: Tool Store
+                        - link "AI Store" [ref=e92] [cursor=pointer]:
+                            - /url: /ai-store
+                            - img [ref=e93]
+                            - generic [ref=e95]: AI Store
+                        - link "Admin" [ref=e96] [cursor=pointer]:
+                            - /url: /admin/overview
+                            - img [ref=e97]
+                            - generic [ref=e100]: Admin
+                - generic [ref=e101]:
+                    - link "Notifications" [ref=e102] [cursor=pointer]:
+                        - /url: /notifications
+                        - img [ref=e103]
+                        - generic [ref=e105]: Notifications
+                    - button "e2e-tester" [ref=e108] [cursor=pointer]:
+                        - img [ref=e110]
+                        - generic [ref=e113]: e2e-tester
+                    - button "中文" [ref=e114] [cursor=pointer]:
+                        - img [ref=e115]
+                        - generic [ref=e118]: 中文
+            - main [ref=e119]:
+                - generic [ref=e121]:
+                    - generic [ref=e124]:
+                        - img [ref=e126]
+                        - textbox "Search all resources..." [ref=e128]
+                    - generic [ref=e129]:
+                        - button "Sources" [ref=e130] [cursor=pointer]:
+                            - img [ref=e131]
+                            - text: Sources
+                        - button "Personal" [ref=e133] [cursor=pointer]:
+                            - img [ref=e134]
+                            - text: Personal
+                        - button "Team" [ref=e137] [cursor=pointer]:
+                            - img [ref=e138]
+                            - text: Team
+                - generic [ref=e144]:
+                    - generic [ref=e146]:
+                        - button "Overview" [ref=e147] [cursor=pointer]:
+                            - img [ref=e148]
+                            - text: Overview
+                        - button "Bookmarks" [ref=e151] [cursor=pointer]:
+                            - img [ref=e152]
+                            - text: Bookmarks
+                        - button "Notes" [ref=e154] [cursor=pointer]:
+                            - img [ref=e155]
+                            - text: Notes
+                        - button "Images" [ref=e158] [cursor=pointer]:
+                            - img [ref=e159]
+                            - text: Images
+                        - button "Notion" [ref=e163] [cursor=pointer]:
+                            - img [ref=e164]
+                            - text: Notion
+                        - button "Google Drive" [ref=e167] [cursor=pointer]:
+                            - img [ref=e168]
+                            - text: Google Drive
+                    - generic [ref=e170]:
+                        - generic [ref=e171]:
+                            - generic [ref=e172]:
+                                - heading "Data Sources Overview" [level=3] [ref=e173]
+                                - paragraph [ref=e174]: Manage your data source connections, these can be imported into knowledge bases
+                            - generic [ref=e175]:
+                                - button "RAG OK" [ref=e177] [cursor=pointer]:
+                                    - generic [ref=e179]: RAG OK
+                                    - img [ref=e180]
+                                - button "Refresh Status" [ref=e182] [cursor=pointer]:
+                                    - img [ref=e183]
+                                    - text: Refresh Status
+                        - generic [ref=e188]:
+                            - heading "External Data Sources" [level=4] [ref=e189]:
+                                - img [ref=e190]
+                                - text: External Data Sources
+                            - generic [ref=e194]:
+                                - generic [ref=e195]:
+                                    - generic [ref=e197]:
+                                        - img [ref=e198]
+                                        - generic [ref=e202]: Not Connected
+                                    - generic [ref=e203]:
+                                        - img [ref=e205]
+                                        - generic [ref=e207]:
+                                            - heading "Google Drive" [level=4] [ref=e208]
+                                            - paragraph [ref=e209]: Sync Google Drive files to knowledge base
+                                    - link "Connect" [ref=e211] [cursor=pointer]:
+                                        - /url: /profile?tab=integrations
+                                - generic [ref=e212]:
+                                    - generic [ref=e214]:
+                                        - img [ref=e215]
+                                        - generic [ref=e219]: Not Connected
+                                    - generic [ref=e220]:
+                                        - img [ref=e222]
+                                        - generic [ref=e225]:
+                                            - heading "Notion" [level=4] [ref=e226]
+                                            - paragraph [ref=e227]: Sync Notion pages to knowledge base
+                                    - link "Connect" [ref=e229] [cursor=pointer]:
+                                        - /url: /profile?tab=integrations
+                                - generic [ref=e230]:
+                                    - generic [ref=e232]:
+                                        - img [ref=e234]
+                                        - generic [ref=e237]: Connected
+                                    - generic [ref=e238]:
+                                        - img [ref=e240]
+                                        - generic [ref=e242]:
+                                            - heading "Feishu" [level=4] [ref=e243]
+                                            - paragraph [ref=e244]: Sync Feishu Wiki and Docs content
+                                    - generic [ref=e245]:
+                                        - button "Browse" [ref=e246] [cursor=pointer]:
+                                            - img [ref=e247]
+                                            - text: Browse
+                                        - button "More actions" [ref=e250] [cursor=pointer]:
+                                            - img [ref=e251]
+                        - generic [ref=e255]:
+                            - heading "Platform Data" [level=4] [ref=e256]:
+                                - img [ref=e257]
+                                - text: Platform Data
+                            - generic [ref=e259]:
+                                - button "Bookmarks Click to browse" [ref=e260] [cursor=pointer]:
+                                    - img [ref=e262]
+                                    - img [ref=e266]
+                                    - paragraph [ref=e268]: Bookmarks
+                                    - paragraph [ref=e269]: Click to browse
+                                - button "Notes Click to browse" [ref=e270] [cursor=pointer]:
+                                    - img [ref=e272]
+                                    - img [ref=e276]
+                                    - paragraph [ref=e279]: Notes
+                                    - paragraph [ref=e280]: Click to browse
+                                - button "Images Click to browse" [ref=e281] [cursor=pointer]:
+                                    - img [ref=e283]
+                                    - img [ref=e287]
+                                    - paragraph [ref=e291]: Images
+                                    - paragraph [ref=e292]: Click to browse
+                                - button "Uploaded Files Add content" [disabled] [ref=e293]:
+                                    - img [ref=e295]
+                                    - paragraph [ref=e298]: Uploaded Files
+                                    - paragraph [ref=e299]: Add content
+                                - button "URL Crawl Import URL" [disabled] [ref=e300]:
+                                    - img [ref=e302]
+                                    - paragraph [ref=e305]: URL Crawl
+                                    - paragraph [ref=e306]: Import URL
+                        - generic [ref=e308]:
+                            - img [ref=e310]
+                            - generic [ref=e313]:
+                                - heading "How to use data sources?" [level=4] [ref=e314]
+                                - list [ref=e315]:
+                                    - listitem [ref=e316]:
+                                        - generic [ref=e317]: "1"
+                                        - generic [ref=e318]: After connecting external data sources, you can select them as data sources when creating knowledge bases
+                                    - listitem [ref=e319]:
+                                        - generic [ref=e320]: "2"
+                                        - generic [ref=e321]: Platform data (bookmarks, notes, etc.) can be directly imported into knowledge bases
+                                    - listitem [ref=e322]:
+                                        - generic [ref=e323]: "3"
+                                        - generic [ref=e324]: Sync function will automatically update the content in knowledge bases
+                                - link "Learn More" [ref=e325] [cursor=pointer]:
+                                    - /url: "#"
+                                    - text: Learn More
+                                    - img [ref=e326]
+```
