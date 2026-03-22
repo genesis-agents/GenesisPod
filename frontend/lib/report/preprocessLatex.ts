@@ -657,6 +657,21 @@ export function preprocessLatex(markdown: string): string {
   // Step 7: Remove spurious $ signs inside formulas
   result = fixSpuriousDollarSigns(result);
 
+  // Step 7.5: Merge fragmented formulas where $ delimiters are at wrong positions.
+  // LLM produces: $C_{total}$=\sum_i C_$i^{exec}+...+C_{overhead}$
+  // Should be:    $C_{total} = \sum_i C_i^{exec}+...+C_{overhead}$
+  for (let i = 0; i < 5; i++) {
+    const before = result;
+    result = result.replace(
+      /\$([^$\n]+)\$([^$\n]{1,60}\\[a-zA-Z][^$\n]{0,60})\$([^$\n]+)\$/g,
+      (match, a, mid, b) => {
+        if (/[\u4e00-\u9fff]/.test(mid)) return match; // CJK = prose gap
+        return `$${a}${mid}${b}$`;
+      }
+    );
+    if (result === before) break;
+  }
+
   // Step 8: Wrap bare inline LaTeX in Chinese prose with $...$
   result = wrapInlineLatex(result);
 
