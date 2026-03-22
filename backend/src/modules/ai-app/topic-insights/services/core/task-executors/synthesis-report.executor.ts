@@ -71,16 +71,31 @@ export class SynthesisReportExecutor implements ITaskExecutor {
       orderBy: { createdAt: "asc" },
     });
 
+    // ★ 查询维度的 sortOrder 用于正确的章节编号
+    const dimensionSortOrders = new Map<string, number>();
+    if (dimensionTasks.length > 0) {
+      const dimIds = dimensionTasks
+        .map((t) => t.dimensionId)
+        .filter(Boolean) as string[];
+      const dims = await this.prisma.topicDimension.findMany({
+        where: { id: { in: dimIds } },
+        select: { id: true, sortOrder: true },
+      });
+      dims.forEach((d) => dimensionSortOrders.set(d.id, d.sortOrder));
+    }
+
     for (let di = 0; di < dimensionTasks.length; di++) {
       const dimTask = dimensionTasks[di];
       if (dimTask.result && dimTask.dimensionId) {
         const taskResult = dimTask.result as TaskResultJson;
+        const chapterIndex =
+          (dimensionSortOrders.get(dimTask.dimensionId) ?? di + 1) - 1;
         try {
           await this.reportSynthesisService.saveDimensionAnalysis(
             reportId, // ★ 使用已有的 reportId
             dimTask.dimensionId,
             {
-              dimIndex: di,
+              dimIndex: chapterIndex,
               summary: taskResult.summary || "无摘要",
               keyFindings: (taskResult.keyFindings ||
                 []) as DimensionAnalysisResult["keyFindings"],

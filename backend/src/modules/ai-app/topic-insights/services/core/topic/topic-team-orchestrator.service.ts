@@ -586,12 +586,17 @@ export class TopicTeamOrchestratorService {
         if (result.status === "fulfilled") {
           const { dimensionId, analysisResult, evidenceIds } = result.value;
 
+          // ★ 使用维度的 sortOrder 作为章节编号，而非数组遍历索引。
+          // dimensions 的顺序可能因并行执行或过滤而与 sortOrder 不一致。
+          const dimension = dimensions.find((d) => d.id === dimensionId);
+          const chapterIndex = dimension ? (dimension.sortOrder ?? di) - 1 : di;
+
           // 保存维度分析（传入 dimIndex 以启用章节编号）
           const analysis =
             await this.reportSynthesisService.saveDimensionAnalysis(
               report.id,
               dimensionId,
-              { ...analysisResult, dimIndex: di },
+              { ...analysisResult, dimIndex: chapterIndex },
             );
 
           // 关联证据
