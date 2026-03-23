@@ -979,11 +979,13 @@ export class ProxyController {
       const isLowQuality =
         !usedJinaReader && (strippedText.length < 500 || urlRedirected);
       if (isLowQuality) {
+        // 使用原始 URL 重新获取，避免跟随服务器端重定向到错误页面
+        const fetchUrl = urlRedirected ? url : currentUrl;
         this.logger.log(
-          `Low quality extraction (stripped: ${strippedText.length} chars, redirected: ${urlRedirected}), likely SPA/CSR page. Trying Puppeteer...`,
+          `Low quality extraction (stripped: ${strippedText.length} chars, redirected: ${urlRedirected}), trying Puppeteer with original URL: ${fetchUrl}`,
         );
         const puppeteerResult = await this.puppeteerFetcher.fetchPage(
-          currentUrl,
+          fetchUrl,
           { timeout: 30000 },
         );
         if (puppeteerResult.success && puppeteerResult.html) {
@@ -993,13 +995,13 @@ export class ProxyController {
           html = puppeteerResult.html;
           contentResult = await this.advancedExtractor.extract(
             html,
-            currentUrl,
+            fetchUrl,
             30000,
           );
         } else {
           // Puppeteer 也失败，尝试 Jina Reader
           this.logger.log(`Puppeteer failed, trying Jina Reader...`);
-          const jinaResult = await this.fetchViaJinaReader(currentUrl);
+          const jinaResult = await this.fetchViaJinaReader(fetchUrl);
           if (jinaResult.success && jinaResult.content) {
             const titleMatch = jinaResult.content.match(/^#\s+(.+)$/m);
             const jinaTitle = titleMatch
