@@ -640,20 +640,23 @@ function ReportEditorInner({
       );
     }
 
-    // ★ Priority 1: Use resolvedFullReport if it's valid AND complete
-    // Check if fullReport contains all dimensions — if not, fall through to Priority 1.5
+    // ★ Priority 1: Use resolvedFullReport if it's valid AND reasonably complete
+    // Count all ## headings (not just "## N." — cross-dimension, risk, strategy sections don't have numbers)
     const expectedDimCount = report.dimensionAnalyses?.length || 0;
-    const actualDimCount = (resolvedFullReport?.match(/^## \d+\./gm) || [])
-      .length;
+    const actualH2Count = (resolvedFullReport?.match(/^## /gm) || []).length;
+    const hasChartPlaceholders =
+      resolvedFullReport?.includes('<!-- chart:') || false;
+    // Consider complete if: enough h2 headings, OR has chart placeholders (fullReport with embedded figures)
     const isFullReportComplete =
-      expectedDimCount <= 1 || actualDimCount >= expectedDimCount;
+      expectedDimCount <= 1 ||
+      actualH2Count >= expectedDimCount ||
+      hasChartPlaceholders;
 
     if (
       resolvedFullReport &&
       resolvedFullReport.trim().length > 100 &&
       isFullReportComplete
     ) {
-      const hasChartPlaceholders = resolvedFullReport.includes('<!-- chart:');
       const looksLikeMarkdown =
         resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
       if (hasChartPlaceholders || looksLikeMarkdown) {
