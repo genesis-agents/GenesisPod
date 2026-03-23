@@ -71,35 +71,33 @@ export default function ExploreDetail() {
 
           {/* Right: View Mode Toggle + Info Button */}
           <div className="flex items-center gap-2">
-            {/* View Mode Toggle for HTML */}
-            {isHTML &&
-              selectedResource.type !== 'YOUTUBE' &&
-              selectedResource.type !== 'YOUTUBE_VIDEO' && (
-                <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
-                  <button
-                    onClick={() => setHtmlViewMode('reader')}
-                    className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
-                      htmlViewMode === 'reader'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Book className="h-3.5 w-3.5" />
-                    Reader
-                  </button>
-                  <button
-                    onClick={() => setHtmlViewMode('original')}
-                    className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
-                      htmlViewMode === 'original'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Globe className="h-3.5 w-3.5" />
-                    Original
-                  </button>
-                </div>
-              )}
+            {/* View Mode Toggle for HTML (YouTube already excluded via displayMode) */}
+            {isHTML && (
+              <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
+                <button
+                  onClick={() => setHtmlViewMode('reader')}
+                  className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
+                    htmlViewMode === 'reader'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Book className="h-3.5 w-3.5" />
+                  Reader
+                </button>
+                <button
+                  onClick={() => setHtmlViewMode('original')}
+                  className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
+                    htmlViewMode === 'original'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  Original
+                </button>
+              </div>
+            )}
 
             {/* Toggle Info Panel */}
             <button

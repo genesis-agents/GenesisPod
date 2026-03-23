@@ -88,7 +88,7 @@ export default function ContentPreview({
             </div>
           );
         })()
-      ) : selectedResource.sourceUrl ? (
+      ) : displayMode === 'html' ? (
         // HTML Viewer (Reader or Original)
         htmlViewMode === 'reader' ? (
           <TextSelectionToolbar

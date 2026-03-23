@@ -2588,7 +2588,7 @@ function HomeContent() {
                       </div>
                     );
                   })()
-                ) : selectedResource.sourceUrl ? (
+                ) : getResourceDisplayMode(selectedResource) === 'html' ? (
                   htmlViewMode === 'reader' ? (
                     <TextSelectionToolbar
                       resourceId={selectedResource.id}

@@ -11,11 +11,7 @@
  * Uses p-limit for lightweight, zero-dependency queuing.
  */
 
-import {
-  Injectable,
-  Logger,
-  InternalServerErrorException,
-} from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { createConcurrencyLimiter } from "@/common/utils/concurrency.utils";
 import type { ThrottleStats } from "./search.types";
 
@@ -92,9 +88,7 @@ export class GlobalSourceThrottleService {
 
     // Fast fail if already aborted
     if (signal?.aborted) {
-      throw new InternalServerErrorException(
-        `Search cancelled for ${sourceId}`,
-      );
+      throw new Error(`Search cancelled for ${sourceId}`);
     }
 
     entry.pendingCount++;
@@ -113,9 +107,7 @@ export class GlobalSourceThrottleService {
 
         // Check abort after waiting in queue
         if (signal?.aborted) {
-          throw new InternalServerErrorException(
-            `Search cancelled for ${sourceId} after queuing`,
-          );
+          throw new Error(`Search cancelled for ${sourceId} after queuing`);
         }
 
         const waitMs = Date.now() - queueStartTime;
