@@ -1283,7 +1283,11 @@ function ReportEditorInner({
                       (a, b) => (a.citationIndex || 0) - (b.citationIndex || 0)
                     )
                     .map((ev) => (
-                      <div key={ev.id} className="flex gap-2.5 leading-relaxed">
+                      <div
+                        key={ev.id}
+                        id={`ref-${ev.citationIndex}`}
+                        className="flex gap-2.5 leading-relaxed"
+                      >
                         <span className="font-mono shrink-0 text-xs text-gray-400 dark:text-gray-500">
                           [{ev.citationIndex}]
                         </span>

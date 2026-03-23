@@ -19,6 +19,7 @@ export interface CitationBadgeProps {
 export function CitationBadge({ index, evidence }: CitationBadgeProps) {
   const { t } = useI18n();
   const [isHovered, setIsHovered] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{
     top: number;
     left: number;
@@ -58,10 +59,58 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
     }, 150);
   }, []);
 
+  // Scroll to in-page reference entry [N]
+  const scrollToRef = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsHovered(false);
+    const refEl = document.getElementById(`ref-${index}`);
+    if (!refEl) return;
+    let container: HTMLElement | null = refEl.parentElement;
+    while (container) {
+      const style = getComputedStyle(container);
+      if (
+        (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+        container.scrollHeight > container.clientHeight
+      ) {
+        break;
+      }
+      container = container.parentElement;
+    }
+    if (container) {
+      const cRect = container.getBoundingClientRect();
+      const tRect = refEl.getBoundingClientRect();
+      container.scrollTo({
+        top: container.scrollTop + tRect.top - cRect.top,
+        behavior: 'smooth',
+      });
+    } else {
+      refEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    refEl.style.backgroundColor = '#fef3c7';
+    setTimeout(() => {
+      refEl.style.backgroundColor = '';
+    }, 2000);
+  };
+
+  // Switch to references TAB
+  const goToReferencesTab = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsHovered(false);
+    if (evidence.id) {
+      triggerCitationClick(evidence.id);
+    }
+  };
+
+  // Default click: scroll to page ref, fallback to TAB
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (evidence.id) {
+    const refEl = document.getElementById(`ref-${index}`);
+    if (refEl) {
+      scrollToRef(e);
+    } else if (evidence.id) {
       triggerCitationClick(evidence.id);
     }
   };
@@ -124,9 +173,28 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+            <div className="flex items-center gap-3 border-t border-gray-100 bg-gray-50 px-3 py-2">
               <button
-                onClick={handleClick}
+                onClick={scrollToRef}
+                className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-800"
+              >
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                  />
+                </svg>
+                {t('topicResearch.citation.scrollToRef') || '跳转到页内'}
+              </button>
+              <button
+                onClick={goToReferencesTab}
                 className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
               >
                 {t('topicResearch.citation.viewFullSource')}
