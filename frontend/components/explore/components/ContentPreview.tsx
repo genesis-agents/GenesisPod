@@ -122,6 +122,7 @@ export default function ContentPreview({
             <HTMLViewer
               url={selectedResource.sourceUrl}
               title={selectedResource.title}
+              isImportedResource={true}
               className="h-full w-full"
             />
           </TextSelectionToolbar>

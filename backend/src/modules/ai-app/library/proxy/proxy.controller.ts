@@ -10,10 +10,6 @@ import {
 import { Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import axios from "axios";
-import {
-  isDomainAllowed,
-  WHITELISTED_DOMAINS,
-} from "../../../../config/domain-whitelist.config";
 import { AdvancedExtractorService } from "../../../../common/content-processing/advanced-extractor.service";
 import { NewsExtractorService } from "./news-extractor.service";
 import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
@@ -398,16 +394,14 @@ export class ProxyController {
       );
     }
 
-    // 安全检查：使用可配置的域名白名单
+    // 安全检查：只拦截内网地址（防 SSRF），域名白名单已移除
+    // ★ 内容已通过 AI 筛选流程，用户主动导入的 URL 无需域名限制
     try {
       const urlObj = new URL(url);
 
-      if (!isDomainAllowed(urlObj.hostname)) {
-        this.logger.warn(
-          `HTML proxy blocked - domain not allowed: ${urlObj.hostname}`,
-        );
+      if (this.isBlockedAddress(urlObj.hostname)) {
         throw new HttpException(
-          `Domain ${urlObj.hostname} is not allowed. Allowed domains: ${WHITELISTED_DOMAINS.join(", ")}`,
+          "Access to internal addresses is not allowed",
           HttpStatus.FORBIDDEN,
         );
       }
@@ -538,16 +532,13 @@ export class ProxyController {
       );
     }
 
-    // 安全检查：使用可配置的域名白名单
+    // 安全检查：只拦截内网地址
     try {
       const urlObj = new URL(url);
 
-      if (!isDomainAllowed(urlObj.hostname)) {
-        this.logger.warn(
-          `Reader Mode blocked - domain not allowed: ${urlObj.hostname}`,
-        );
+      if (this.isBlockedAddress(urlObj.hostname)) {
         throw new HttpException(
-          `Domain ${urlObj.hostname} is not allowed. Allowed domains: ${WHITELISTED_DOMAINS.join(", ")}`,
+          "Access to internal addresses is not allowed",
           HttpStatus.FORBIDDEN,
         );
       }

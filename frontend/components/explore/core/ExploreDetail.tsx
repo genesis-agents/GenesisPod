@@ -219,7 +219,10 @@ export default function ExploreDetail() {
         )}
 
         {isHTML && htmlViewMode === 'original' && (
-          <HTMLViewer url={selectedResource.sourceUrl} />
+          <HTMLViewer
+            url={selectedResource.sourceUrl}
+            isImportedResource={true}
+          />
         )}
 
         {!isPDF && !isHTML && (
