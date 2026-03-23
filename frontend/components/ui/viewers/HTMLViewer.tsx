@@ -8,7 +8,6 @@ interface HTMLViewerProps {
   url: string;
   title?: string;
   className?: string;
-  isImportedResource?: boolean;
 }
 
 /**
@@ -25,7 +24,6 @@ export default function HTMLViewer({
   url,
   title = 'HTML Preview',
   className = '',
-  isImportedResource = false,
 }: HTMLViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,8 +54,7 @@ export default function HTMLViewer({
       setBlobUrl(null);
 
       try {
-        const importedParam = isImportedResource ? '&imported=1' : '';
-        const proxyUrl = `${config.apiUrl}/proxy/html?url=${encodeURIComponent(url)}${importedParam}`;
+        const proxyUrl = `${config.apiUrl}/proxy/html?url=${encodeURIComponent(url)}`;
         logger.debug(`Fetching HTML from proxy: ${proxyUrl}`);
 
         const response = await fetch(proxyUrl);
