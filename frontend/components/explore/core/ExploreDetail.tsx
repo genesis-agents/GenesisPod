@@ -7,6 +7,7 @@ import ReaderView from '@/components/ui/ReaderView';
 import { useExplore } from './ExploreContext';
 import ExploreActions from './ExploreActions';
 import { ClientDate } from '@/components/common/ClientDate';
+import { getResourceDisplayMode } from '../utils';
 
 export default function ExploreDetail() {
   const {
@@ -23,14 +24,9 @@ export default function ExploreDetail() {
     return null;
   }
 
-  const isPDF =
-    selectedResource.type === 'PAPER' &&
-    !selectedResource.sourceUrl?.includes('/html/') &&
-    !selectedResource.pdfUrl?.includes('/html/') &&
-    (selectedResource.sourceUrl?.endsWith('.pdf') ||
-      selectedResource.pdfUrl?.endsWith('.pdf') ||
-      selectedResource.pdfUrl?.includes('/pdf/'));
-  const isHTML = !isPDF && selectedResource.sourceUrl;
+  const displayMode = getResourceDisplayMode(selectedResource);
+  const isPDF = displayMode === 'pdf';
+  const isHTML = displayMode === 'html';
 
   return (
     <div className="flex h-full w-full flex-1 flex-col overflow-hidden">

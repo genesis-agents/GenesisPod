@@ -57,6 +57,7 @@ import {
   extractArxivId,
   getResourceThumbnail,
   parseMarkdownToInsights,
+  getResourceDisplayMode,
 } from '../utils/utils';
 import { Base64Image } from '../resources/Base64Image';
 import { getSourceName, getSourceBadgeColor } from '../utils/resourceHelpers';
@@ -2526,13 +2527,8 @@ function HomeContent() {
               {/* Embedded Content - 移除Preview头部，直接显示内容以最大化阅读区域 */}
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
                 {/* Display preview - 使用客户端渲染避免浏览器阻止iframe */}
-                {/* PDF 预览 - 仅当 pdfUrl 指向真实 PDF 且 sourceUrl 非 HTML 页面 */}
-                {(selectedResource.pdfUrl &&
-                  !selectedResource.sourceUrl?.includes('/html/') &&
-                  !selectedResource.pdfUrl?.includes('/html/') &&
-                  (selectedResource.pdfUrl.endsWith('.pdf') ||
-                    selectedResource.pdfUrl.includes('/pdf/'))) ||
-                selectedResource.sourceUrl?.toLowerCase().endsWith('.pdf') ? (
+                {/* Content viewer — routed by getResourceDisplayMode */}
+                {getResourceDisplayMode(selectedResource) === 'pdf' ? (
                   <TextSelectionToolbar
                     resourceId={selectedResource.id}
                     onAddToNotes={(text) => {
@@ -2554,8 +2550,7 @@ function HomeContent() {
                       className="h-full w-full"
                     />
                   </TextSelectionToolbar>
-                ) : selectedResource.type === 'YOUTUBE' ||
-                  selectedResource.type === 'YOUTUBE_VIDEO' ? (
+                ) : getResourceDisplayMode(selectedResource) === 'youtube' ? (
                   // YouTube 视频播放器
                   (() => {
                     const videoId = extractYouTubeVideoId(

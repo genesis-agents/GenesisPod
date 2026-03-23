@@ -5,6 +5,52 @@
 import type { Resource, AIInsight } from './types';
 
 /**
+ * Determine the content display mode for a resource.
+ *
+ * Single source of truth — used by ExploreContent, ExploreDetail, and ContentPreview.
+ *
+ * Rules:
+ *  1. sourceUrl or pdfUrl containing "/html/" → always HTML (never PDF)
+ *  2. sourceUrl ending with ".pdf" → PDF
+ *  3. pdfUrl ending with ".pdf" or containing "/pdf/" → PDF
+ *  4. YouTube URLs → YOUTUBE
+ *  5. Everything else with a sourceUrl → HTML
+ *  6. No sourceUrl → NONE
+ */
+export function getResourceDisplayMode(
+  resource: Pick<Resource, 'type' | 'sourceUrl' | 'pdfUrl'>
+): 'pdf' | 'html' | 'youtube' | 'none' {
+  const { sourceUrl, pdfUrl } = resource;
+
+  // YouTube detection (before PDF — some YouTube URLs could have .pdf in query)
+  if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO') {
+    return 'youtube';
+  }
+
+  // HTML override: if either URL points to an HTML page, never use PDF viewer
+  if (sourceUrl?.includes('/html/') || pdfUrl?.includes('/html/')) {
+    return sourceUrl ? 'html' : 'none';
+  }
+
+  // PDF detection: sourceUrl itself is a PDF file
+  if (sourceUrl?.toLowerCase().endsWith('.pdf')) {
+    return 'pdf';
+  }
+
+  // PDF detection: pdfUrl points to a real PDF
+  if (pdfUrl && (pdfUrl.endsWith('.pdf') || pdfUrl.includes('/pdf/'))) {
+    return 'pdf';
+  }
+
+  // Fallback: any resource with a sourceUrl → HTML viewer
+  if (sourceUrl) {
+    return 'html';
+  }
+
+  return 'none';
+}
+
+/**
  * Extract base64 images from markdown content
  */
 export function extractImagesFromMarkdown(content: string): {

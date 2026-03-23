@@ -1,7 +1,7 @@
 'use client';
 
 import { Resource } from '../utils/types';
-import { extractYouTubeVideoId } from '../utils';
+import { extractYouTubeVideoId, getResourceDisplayMode } from '../utils';
 import PDFViewer from '@/components/ui/PDFViewer';
 import HTMLViewer from '@/components/ui/HTMLViewer';
 import ReaderView from '@/components/ui/ReaderView';
@@ -32,15 +32,12 @@ export default function ContentPreview({
   onAddToNotes,
   onAskAI,
 }: ContentPreviewProps) {
+  const displayMode = getResourceDisplayMode(selectedResource);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
-      {/* PDF Viewer — only if source is not HTML and pdfUrl points to real PDF */}
-      {selectedResource.type === 'PAPER' &&
-      selectedResource.pdfUrl &&
-      !selectedResource.sourceUrl?.includes('/html/') &&
-      !selectedResource.pdfUrl?.includes('/html/') &&
-      (selectedResource.pdfUrl.endsWith('.pdf') ||
-        selectedResource.pdfUrl.includes('/pdf/')) ? (
+      {/* PDF Viewer — only when displayMode is 'pdf' */}
+      {displayMode === 'pdf' && selectedResource.pdfUrl ? (
         <TextSelectionToolbar
           resourceId={selectedResource.id}
           onAddToNotes={onAddToNotes}
@@ -54,8 +51,7 @@ export default function ContentPreview({
             className="h-full w-full"
           />
         </TextSelectionToolbar>
-      ) : selectedResource.type === 'YOUTUBE' ||
-        selectedResource.type === 'YOUTUBE_VIDEO' ? (
+      ) : displayMode === 'youtube' ? (
         // YouTube Video Player
         (() => {
           const videoId = extractYouTubeVideoId(selectedResource.sourceUrl);
