@@ -120,8 +120,44 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       const handleHashClick = isHash
         ? (e: React.MouseEvent) => {
             e.preventDefault();
-            const id = decodeURIComponent(href!.slice(1));
-            const target = document.getElementById(id);
+            const raw = decodeURIComponent(href!.slice(1));
+
+            // 1. Try exact ID match
+            let target = document.getElementById(raw);
+
+            // 2. Fuzzy: normalize the hash the same way headingSlug does, then try
+            if (!target) {
+              const normalized = raw
+                .toLowerCase()
+                .trim()
+                .replace(/[#*`~^|\\[\]{}<>&=+!@$%;"'?,]/g, '')
+                .replace(/\./g, '-')
+                .replace(/\s/g, '-')
+                .replace(/^-|-$/g, '');
+              if (normalized !== raw) {
+                target = document.getElementById(normalized);
+              }
+            }
+
+            // 3. Fallback: search all headings for text content match
+            if (!target) {
+              const clean = (s: string) =>
+                s
+                  .replace(/^\d+[\s.、:：]+/, '')
+                  .replace(/\s+/g, '')
+                  .toLowerCase();
+              const needle = clean(raw);
+              const headings = document.querySelectorAll(
+                'h1[id], h2[id], h3[id], h4[id]'
+              );
+              for (const h of headings) {
+                if (clean(h.textContent || '') === needle) {
+                  target = h as HTMLElement;
+                  break;
+                }
+              }
+            }
+
             if (target) {
               // Find the nearest scrollable ancestor
               let container: HTMLElement | null = target.parentElement;
