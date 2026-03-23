@@ -18,6 +18,18 @@ import { ReportChartRenderer } from './ReportChartRenderer';
 import { ChartErrorBoundary } from './ChartErrorBoundary';
 import { CitationBadge } from '../citations/CitationBadge';
 import { useI18n } from '@/lib/i18n';
+import { config } from '@/lib/utils/config';
+
+/**
+ * Convert external image URL to proxy URL to avoid CORS/hotlink issues.
+ * data: URLs and already-proxied URLs are returned as-is.
+ */
+function toProxyImageUrl(url: string): string {
+  if (url.startsWith('data:') || url.includes('/proxy/image')) {
+    return url;
+  }
+  return `${config.apiUrl}/proxy/image?url=${encodeURIComponent(url)}`;
+}
 
 /** Evidence data for citation hover tooltip */
 export interface FigureEvidenceInfo {
@@ -144,6 +156,9 @@ function ReferenceFigureRenderer({
     return null;
   }
 
+  // 通过后端代理加载外部图片，避免 CORS/hotlink 问题
+  const proxiedUrl = toProxyImageUrl(chart.imageUrl);
+
   return (
     <>
       <div className="relative">
@@ -178,7 +193,7 @@ function ReferenceFigureRenderer({
           }
         >
           <Image
-            src={chart.imageUrl}
+            src={proxiedUrl}
             alt={altText}
             width={800}
             height={450}
@@ -210,7 +225,7 @@ function ReferenceFigureRenderer({
         >
           <div className="relative max-h-[90vh] max-w-[90vw]">
             <Image
-              src={chart.imageUrl}
+              src={proxiedUrl}
               alt={altText}
               width={1200}
               height={800}
