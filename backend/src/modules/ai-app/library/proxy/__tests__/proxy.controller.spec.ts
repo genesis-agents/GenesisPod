@@ -245,23 +245,7 @@ describe("ProxyController - PDF Proxy", () => {
       );
     });
 
-    it("should throw FORBIDDEN for non-whitelisted domain", async () => {
-      const res = mockRes();
-      await expect(
-        controller.proxyHtml("https://blocked-site.com/page", res as never),
-      ).rejects.toThrow(HttpException);
-
-      try {
-        await controller.proxyHtml(
-          "https://blocked-site.com/page",
-          res as never,
-        );
-      } catch (e) {
-        expect((e as HttpException).getStatus()).toBe(HttpStatus.FORBIDDEN);
-      }
-    });
-
-    it("should proxy HTML successfully for whitelisted domain", async () => {
+    it("should proxy HTML successfully for any public domain", async () => {
       mockedAxios.get.mockResolvedValueOnce({
         status: 200,
         data: "<html><head><title>Test</title></head><body><p>Content</p></body></html>",
@@ -457,12 +441,6 @@ describe("ProxyController - PDF Proxy", () => {
       await expect(controller.proxyHtmlReader("")).rejects.toThrow(
         HttpException,
       );
-    });
-
-    it("should throw FORBIDDEN for non-whitelisted domain", async () => {
-      await expect(
-        controller.proxyHtmlReader("https://private-site.net/page"),
-      ).rejects.toThrow(HttpException);
     });
 
     it("should return content on success", async () => {
