@@ -2268,54 +2268,51 @@ function HomeContent() {
 
                   {/* 右侧：视图切换 + 操作按钮 */}
                   <div className="flex items-center gap-2">
-                    {/* View Mode Toggle - 简洁的 Segmented Control (不显示在PDF和YouTube上) */}
-                    {selectedResource.type !== 'PAPER' &&
-                      selectedResource.type !== 'YOUTUBE' &&
-                      selectedResource.type !== 'YOUTUBE_VIDEO' &&
-                      selectedResource.sourceUrl && (
-                        <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
-                          <button
-                            onClick={() => setHtmlViewMode('reader')}
-                            className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
-                              htmlViewMode === 'reader'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                    {/* View Mode Toggle - 简洁的 Segmented Control (仅在 HTML 模式显示) */}
+                    {getResourceDisplayMode(selectedResource) === 'html' && (
+                      <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
+                        <button
+                          onClick={() => setHtmlViewMode('reader')}
+                          className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
+                            htmlViewMode === 'reader'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
                           >
-                            <svg
-                              className="h-3.5 w-3.5"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-                            </svg>
-                            Reader
-                          </button>
-                          <button
-                            onClick={() => setHtmlViewMode('original')}
-                            className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
-                              htmlViewMode === 'original'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                            <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                          </svg>
+                          Reader
+                        </button>
+                        <button
+                          onClick={() => setHtmlViewMode('original')}
+                          className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
+                            htmlViewMode === 'original'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
                           >
-                            <svg
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                              />
-                            </svg>
-                            Original
-                          </button>
-                        </div>
-                      )}
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                            />
+                          </svg>
+                          Original
+                        </button>
+                      </div>
+                    )}
 
                     {/* 展开/收起详情 */}
                     <button
