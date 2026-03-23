@@ -7,6 +7,7 @@ export interface Resource {
   type: string;
   title: string;
   abstract?: string;
+  content?: string;
   aiSummary?: string;
   keyInsights?: AIInsight[];
   methodology?: string;

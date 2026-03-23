@@ -570,6 +570,16 @@ export class ResourcesService {
 
       this.logger.log(`Resource imported successfully: ${resource.id}`);
 
+      // ★ 异步抓取网页全文（fire-and-forget，不阻塞导入响应）
+      // 存入 content 字段供离线阅读/代理失败降级使用
+      if (type !== "PAPER" && !resource.content) {
+        void this.fetchAndStoreContent(resource.id, finalUrl).catch((err) => {
+          this.logger.debug(
+            `[importFromUrl] Async content fetch failed for ${finalUrl}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+      }
+
       return resource;
     } catch (error) {
       const err = ensureError(error);
@@ -582,6 +592,51 @@ export class ResourcesService {
    * 从URL中提取PDF URL
    * 支持 arXiv, OpenReview 等常见论文网站
    */
+  /**
+   * 异步抓取网页全文并存入 content 字段
+   * 用于离线阅读和代理加载失败时的降级显示
+   */
+  private async fetchAndStoreContent(
+    resourceId: string,
+    url: string,
+  ): Promise<void> {
+    try {
+      const axios = (await import("axios")).default;
+      const response = await axios.get(url, {
+        responseType: "text",
+        timeout: 15000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,*/*",
+        },
+      });
+
+      const html = response.data as string;
+      if (!html || html.length < 100) return;
+
+      // 提取纯文本（简单去标签）
+      const textContent = html
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim()
+        .substring(0, 50000); // 限制 50K 字符
+
+      if (textContent.length > 200) {
+        await this.repository.update(resourceId, {
+          content: textContent,
+        });
+        this.logger.log(
+          `[fetchAndStoreContent] Stored ${textContent.length} chars for resource ${resourceId}`,
+        );
+      }
+    } catch {
+      // 静默失败——content 是增强功能，不是必需
+    }
+  }
+
   private extractPdfUrl(url: string): string | null {
     try {
       const urlObj = new URL(url);

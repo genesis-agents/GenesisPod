@@ -208,6 +208,10 @@ export default function ExploreDetail() {
         {isHTML && htmlViewMode === 'reader' && (
           <ReaderView
             url={selectedResource.sourceUrl}
+            isImportedResource={true}
+            fallbackContent={
+              selectedResource.content || selectedResource.abstract
+            }
             onArticleLoaded={(article) =>
               setArticleTextContent(article.textContent || '')
             }

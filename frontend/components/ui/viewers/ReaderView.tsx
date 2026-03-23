@@ -12,6 +12,7 @@ interface ReaderViewProps {
   className?: string;
   category?: string; // 资源类别，用于选择合适的API端点
   isImportedResource?: boolean; // 是否为已导入的资源（来自数据库），如果是则不限制域名
+  fallbackContent?: string; // 当代理加载失败时显示的预存内容
   onArticleLoaded?: (article: Article) => void;
 }
 
@@ -242,6 +243,7 @@ export default function ReaderView({
   className = '',
   category,
   isImportedResource = false,
+  fallbackContent,
   onArticleLoaded,
 }: ReaderViewProps) {
   const [loading, setLoading] = useState(true);
@@ -569,9 +571,17 @@ export default function ReaderView({
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-900">
-                无法提取内容
+                预览不可用
               </h3>
-              <p className="mt-2 text-sm text-gray-600">{error}</p>
+              <p className="mt-2 text-sm text-gray-600">
+                该网站限制了内容代理访问，请点击下方按钮在浏览器中直接打开。
+              </p>
+              {fallbackContent && (
+                <div className="mt-4 max-h-40 overflow-y-auto rounded-lg bg-white p-4 text-left text-sm text-gray-700 shadow-inner">
+                  {fallbackContent.substring(0, 500)}
+                  {fallbackContent.length > 500 && '...'}
+                </div>
+              )}
               <div className="mt-6 flex justify-center gap-3">
                 <button
                   onClick={handleRetry}

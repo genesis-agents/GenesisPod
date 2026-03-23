@@ -105,6 +105,9 @@ export default function ContentPreview({
               title={selectedResource.title}
               category={selectedResource.type}
               isImportedResource={true}
+              fallbackContent={
+                selectedResource.content || selectedResource.abstract
+              }
               className="h-full w-full"
               onArticleLoaded={onArticleLoaded}
             />
