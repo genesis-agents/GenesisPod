@@ -26,6 +26,7 @@ export default function ExploreDetail() {
   const isPDF =
     selectedResource.type === 'PAPER' &&
     !selectedResource.sourceUrl?.includes('/html/') &&
+    !selectedResource.pdfUrl?.includes('/html/') &&
     (selectedResource.sourceUrl?.endsWith('.pdf') ||
       selectedResource.pdfUrl?.endsWith('.pdf') ||
       selectedResource.pdfUrl?.includes('/pdf/'));

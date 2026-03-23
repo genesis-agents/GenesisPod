@@ -641,16 +641,18 @@ export class ResourcesService {
     try {
       const urlObj = new URL(url);
 
-      // arXiv: 支持 /abs/, /html/ 格式
+      // arXiv: 只从 /abs/ 格式提取 PDF URL
       // https://arxiv.org/abs/2311.12345v1 -> https://arxiv.org/pdf/2311.12345v1.pdf
-      // https://arxiv.org/html/2311.12345v1 -> https://arxiv.org/pdf/2311.12345v1.pdf
+      // /html/ URL 不转换 — 用户明确想看 HTML 版本，不应强制 PDF
       if (
         urlObj.hostname === "arxiv.org" ||
         urlObj.hostname === "www.arxiv.org"
       ) {
-        const arxivIdMatch = url.match(
-          /arxiv\.org\/(?:abs|html)\/(.+?)(?:\.pdf)?$/,
-        );
+        // 跳过 /html/ URL — 保持作为 HTML 资源
+        if (url.includes("/html/")) {
+          return null;
+        }
+        const arxivIdMatch = url.match(/arxiv\.org\/abs\/(.+?)(?:\.pdf)?$/);
         if (arxivIdMatch) {
           return `https://arxiv.org/pdf/${arxivIdMatch[1]}.pdf`;
         }

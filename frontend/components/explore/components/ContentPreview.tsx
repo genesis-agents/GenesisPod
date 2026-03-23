@@ -38,6 +38,7 @@ export default function ContentPreview({
       {selectedResource.type === 'PAPER' &&
       selectedResource.pdfUrl &&
       !selectedResource.sourceUrl?.includes('/html/') &&
+      !selectedResource.pdfUrl?.includes('/html/') &&
       (selectedResource.pdfUrl.endsWith('.pdf') ||
         selectedResource.pdfUrl.includes('/pdf/')) ? (
         <TextSelectionToolbar
