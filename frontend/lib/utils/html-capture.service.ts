@@ -605,6 +605,10 @@ export class HtmlCaptureService {
 
   /**
    * ★ v4.3: 为标题元素添加 ID 锚点，支持 TOC 内链跳转
+   * ★ v5.0: 同时将角标 <sup>[N]</sup> 转为 <a href="#ref-N"> 实现导出文档内角标跳转
+   *
+   * Slug 算法必须与 createMarkdownComponents.tsx headingSlug() 完全一致，
+   * 确保 TOC 链接的 href 和 heading id 在导出文档中能匹配。
    */
   private static addHeadingAnchors(clone: HTMLElement): void {
     const headings = clone.querySelectorAll('h1, h2, h3, h4, h5, h6');
@@ -616,18 +620,19 @@ export class HtmlCaptureService {
         continue;
       }
 
-      // 从标题文本生成 slug ID
       const text = heading.textContent?.trim() || '';
       if (!text) continue;
 
+      // ★ Must match createMarkdownComponents.tsx headingSlug() exactly
       const slug = text
         .toLowerCase()
-        .replace(/[^\w\u4e00-\u9fff\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 60);
+        .trim()
+        .replace(/[#*`~^|\\[\]{}<>&=+!@$%;"'?,]/g, '')
+        .replace(/\./g, '-')
+        .replace(/\s/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^-|-$/g, '');
 
-      // 去重
       let finalSlug = slug;
       let counter = 1;
       while (usedIds.has(finalSlug)) {
@@ -635,6 +640,22 @@ export class HtmlCaptureService {
       }
       usedIds.add(finalSlug);
       heading.id = finalSlug;
+    }
+
+    // ★ Convert citation badges (<sup>[N]</sup>) into clickable anchor links
+    // In React, citations use onClick (lost in export). Convert to native <a href>.
+    const sups = clone.querySelectorAll('sup');
+    for (const sup of Array.from(sups)) {
+      const text = sup.textContent?.trim() || '';
+      const match = text.match(/^\[(\d+)\]$/);
+      if (match) {
+        const anchor = clone.ownerDocument.createElement('a');
+        anchor.href = `#ref-${match[1]}`;
+        anchor.className = sup.className;
+        anchor.textContent = text;
+        anchor.style.textDecoration = 'none';
+        sup.replaceWith(anchor);
+      }
     }
   }
 
