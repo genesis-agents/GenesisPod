@@ -34,8 +34,12 @@ export default function ContentPreview({
 }: ContentPreviewProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
-      {/* PDF Viewer */}
-      {selectedResource.type === 'PAPER' && selectedResource.pdfUrl ? (
+      {/* PDF Viewer — only if source is not HTML and pdfUrl points to real PDF */}
+      {selectedResource.type === 'PAPER' &&
+      selectedResource.pdfUrl &&
+      !selectedResource.sourceUrl?.includes('/html/') &&
+      (selectedResource.pdfUrl.endsWith('.pdf') ||
+        selectedResource.pdfUrl.includes('/pdf/')) ? (
         <TextSelectionToolbar
           resourceId={selectedResource.id}
           onAddToNotes={onAddToNotes}
