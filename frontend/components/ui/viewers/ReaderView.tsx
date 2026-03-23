@@ -628,10 +628,7 @@ export default function ReaderView({
 
         {/* 文章内容 - 优化的阅读样式 */}
         {article && !loading && !error && (
-          <div
-            className="relative mx-auto w-full"
-            style={{ maxWidth: '900px' }}
-          >
+          <div className="relative mx-auto w-full max-w-[900px] 2xl:max-w-[1100px]">
             {/* 悬浮目录导航 - 放在文章左侧 */}
             <TableOfContents
               content={article.content}
@@ -642,10 +639,7 @@ export default function ReaderView({
             />
 
             {/* 文章内容区域 */}
-            <article
-              className="mx-auto px-4 py-8 sm:px-6 md:px-8 lg:px-12"
-              style={{ maxWidth: '720px' }}
-            >
+            <article className="mx-auto max-w-[720px] px-4 py-8 sm:px-6 md:px-8 lg:px-12 2xl:max-w-[860px]">
               {/* 文章元信息 - 紧凑的头部设计 */}
               <header className={`mb-6 ${currentTheme.border}`}>
                 <h1
