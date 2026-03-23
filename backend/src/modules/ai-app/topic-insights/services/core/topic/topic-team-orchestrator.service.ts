@@ -544,7 +544,9 @@ export class TopicTeamOrchestratorService {
               depthConfig?.maxRevisionRounds,
             );
           if (!result.success) {
-            throw new Error(result.error || `Failed: ${dimension.name}`);
+            throw new InternalServerErrorException(
+              result.error || `Failed: ${dimension.name}`,
+            );
           }
           return {
             dimensionId: dimension.id,
@@ -574,7 +576,7 @@ export class TopicTeamOrchestratorService {
 
       // 检查是否被取消
       if (abortController.signal.aborted) {
-        throw new Error("Refresh cancelled");
+        throw new BadRequestException("Refresh cancelled");
       }
 
       // 4. 保存分析结果（优先保存，确保即使后续步骤崩溃数据也不丢失）

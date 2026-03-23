@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
+import { sanitize } from "./utils/prompt-sanitizer";
 import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { RESEARCH_INTERNAL_EVENTS } from "./services/core/research/research-event-emitter.service";
@@ -895,7 +896,7 @@ export class TopicInsightsService {
     if (useNewMode) {
       // 新模式：使用增强提示词
       prompt = buildEnhancedEditPrompt(dto.operation, textToEdit, {
-        userInstruction: dto.context,
+        userInstruction: dto.context ? sanitize(dto.context) : undefined,
         fullContent: dto.fullContent,
         styleGuide: dto.styleGuide,
         targetStyle: dto.targetStyle,
@@ -904,7 +905,9 @@ export class TopicInsightsService {
       // 旧模式：使用简单提示词（向后兼容）
       prompt = buildEditPrompt(dto.operation, textToEdit, {
         targetStyle: dto.targetStyle,
-        customInstruction: dto.customInstruction,
+        customInstruction: dto.customInstruction
+          ? sanitize(dto.customInstruction)
+          : undefined,
       });
     }
 

@@ -8,7 +8,13 @@
  * - 解析失败不阻塞：降级为无锚定文章模式
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ForbiddenException,
+  BadGatewayException,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { ChatFacade } from "@/modules/ai-engine/facade";
@@ -137,10 +143,10 @@ export class EventSourceParsingService {
     try {
       parsed = new URL(url);
     } catch {
-      throw new Error(`Invalid URL: ${url}`);
+      throw new BadRequestException(`Invalid URL: ${url}`);
     }
     if (!["http:", "https:"].includes(parsed.protocol)) {
-      throw new Error(`Disallowed protocol: ${parsed.protocol}`);
+      throw new BadRequestException(`Disallowed protocol: ${parsed.protocol}`);
     }
     const hostname = parsed.hostname;
     const blocklist = [
@@ -154,7 +160,9 @@ export class EventSourceParsingService {
       /^169\.254\./,
     ];
     if (blocklist.some((r) => r.test(hostname))) {
-      throw new Error(`Blocked private/internal host: ${hostname}`);
+      throw new BadRequestException(
+        `Blocked private/internal host: ${hostname}`,
+      );
     }
   }
 
@@ -167,7 +175,7 @@ export class EventSourceParsingService {
       contentLength &&
       parseInt(contentLength, 10) > EventSourceParsingService.MAX_RESPONSE_BYTES
     ) {
-      throw new Error(
+      throw new BadRequestException(
         `Response too large: ${contentLength} bytes (limit ${EventSourceParsingService.MAX_RESPONSE_BYTES})`,
       );
     }
@@ -189,7 +197,7 @@ export class EventSourceParsingService {
         totalBytes += value.byteLength;
         if (totalBytes > EventSourceParsingService.MAX_RESPONSE_BYTES) {
           await reader.cancel();
-          throw new Error(
+          throw new BadRequestException(
             `Response exceeded ${EventSourceParsingService.MAX_RESPONSE_BYTES} bytes during streaming`,
           );
         }
@@ -249,7 +257,7 @@ export class EventSourceParsingService {
       });
 
       if (!response.ok) {
-        throw new Error(`WeChat HTTP ${response.status}`);
+        throw new BadGatewayException(`WeChat HTTP ${response.status}`);
       }
 
       const html = await this.safeReadResponseText(response);
@@ -261,7 +269,9 @@ export class EventSourceParsingService {
         html.includes("请完成验证") ||
         html.includes("weixin110.qq.com")
       ) {
-        throw new Error("WeChat anti-scraping triggered — content blocked");
+        throw new ForbiddenException(
+          "WeChat anti-scraping triggered — content blocked",
+        );
       }
 
       // 提取微信文章结构化内容
@@ -436,7 +446,7 @@ export class EventSourceParsingService {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new BadGatewayException(`HTTP ${response.status}`);
       }
 
       const html = await this.safeReadResponseText(response);

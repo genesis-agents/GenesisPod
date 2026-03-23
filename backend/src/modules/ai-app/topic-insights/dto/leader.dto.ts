@@ -7,7 +7,10 @@ import {
   MaxLength,
   IsIn,
   IsNotEmpty,
+  IsArray,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
 
 /**
  * 研究启动模式
@@ -99,6 +102,23 @@ export class MissionRetryDto {
 }
 
 /**
+ * 单个维度调整 DTO
+ */
+export class DimensionAdjustDto {
+  @ApiProperty({ description: "维度名称", example: "开源模型分析" })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  name!: string;
+
+  @ApiProperty({ description: "维度描述", example: "分析主流开源大模型" })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  description!: string;
+}
+
+/**
  * Mission 调整 DTO
  */
 export class MissionAdjustDto {
@@ -107,8 +127,10 @@ export class MissionAdjustDto {
     example: [{ name: "开源模型分析", description: "分析主流开源大模型" }],
   })
   @IsOptional()
-  @IsObject({ each: true })
-  addDimensions?: Array<{ name: string; description: string }>;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DimensionAdjustDto)
+  addDimensions?: DimensionAdjustDto[];
 
   @ApiPropertyOptional({
     description: "移除的维度ID",

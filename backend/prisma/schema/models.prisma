@@ -6694,6 +6694,7 @@ model TopicDimension {
 
   // ========== 索引 ==========
   @@index([topicId, sortOrder]) // 按专题和顺序查询
+  @@index([topicId]) // 单独 topicId 查询（高频操作）
   @@index([status]) // 按状态过滤
   @@index([topicId, name]) // 按专题和名称查询
   @@map("topic_dimensions")
