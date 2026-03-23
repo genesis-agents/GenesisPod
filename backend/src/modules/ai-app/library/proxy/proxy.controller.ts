@@ -446,7 +446,13 @@ export class ProxyController {
 
       // 修改 HTML，移除限制性头部并添加 base 标签
       let html = response.data as string;
-      const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+      // 构建 base URL — 使用页面完整路径（非仅 hostname）
+      // 例如 https://arxiv.org/html/2602.14516v1 的图片用相对路径 ./extracted/figure.png
+      // base 需要是 https://arxiv.org/html/2602.14516v1/ 而非 https://arxiv.org/
+      const pathDir = urlObj.pathname.endsWith("/")
+        ? urlObj.pathname
+        : urlObj.pathname + "/";
+      const baseUrl = `${urlObj.protocol}//${urlObj.hostname}${pathDir}`;
 
       // 移除阻止 iframe 嵌入的 meta 标签
       // 这些标签会阻止内容在 iframe 中显示，即使使用 Blob URL
@@ -461,9 +467,9 @@ export class ProxyController {
 
       // 在 <head> 标签后插入 <base> 标签以正确加载相对路径资源
       if (html.includes("<head>")) {
-        html = html.replace("<head>", `<head><base href="${baseUrl}/">`);
+        html = html.replace("<head>", `<head><base href="${baseUrl}">`);
       } else if (html.includes("<HEAD>")) {
-        html = html.replace("<HEAD>", `<HEAD><base href="${baseUrl}/">`);
+        html = html.replace("<HEAD>", `<HEAD><base href="${baseUrl}">`);
       }
 
       this.logger.log(

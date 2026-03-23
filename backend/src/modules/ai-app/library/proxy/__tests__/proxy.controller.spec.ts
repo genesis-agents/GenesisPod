@@ -279,7 +279,7 @@ describe("ProxyController - PDF Proxy", () => {
       await controller.proxyHtml("https://arxiv.org/abs/1234", res as never);
 
       const sentHtml = res.send.mock.calls[0][0] as string;
-      expect(sentHtml).toContain('<base href="https://arxiv.org/"');
+      expect(sentHtml).toContain('<base href="https://arxiv.org/abs/1234/"');
     });
 
     it("should handle uppercase HEAD tag", async () => {
