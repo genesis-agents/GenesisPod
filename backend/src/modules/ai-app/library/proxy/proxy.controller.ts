@@ -665,7 +665,26 @@ export class ProxyController {
       }
 
       // 使用高级提取服务，实现4层容错机制
-      const result = await this.advancedExtractor.extract(html, url, 30000);
+      let result = await this.advancedExtractor.extract(html, url, 30000);
+
+      // SPA/CSR 检测：内容过短或置信度过低时，用 Puppeteer 执行 JS 后重试
+      const isLowQualityReader =
+        !usedJinaReader && (result.length < 200 || result.confidence < 50);
+      if (isLowQualityReader) {
+        this.logger.log(
+          `Low quality extraction (${result.length} chars, confidence: ${result.confidence}%), likely SPA/CSR. Trying Puppeteer...`,
+        );
+        const puppeteerResult = await this.puppeteerFetcher.fetchPage(url, {
+          timeout: 30000,
+        });
+        if (puppeteerResult.success && puppeteerResult.html) {
+          this.logger.log(
+            `Puppeteer re-fetch successful (${puppeteerResult.loadTime}ms), re-extracting...`,
+          );
+          html = puppeteerResult.html;
+          result = await this.advancedExtractor.extract(html, url, 30000);
+        }
+      }
 
       if (!result.success || result.length === 0) {
         this.logger.warn(
@@ -940,11 +959,55 @@ export class ProxyController {
 
       // 统一使用 AdvancedExtractorService (Readability) 提取 HTML 内容
       // 这样可以保留图片、表格等富媒体内容
-      const contentResult = await this.advancedExtractor.extract(
+      let contentResult = await this.advancedExtractor.extract(
         html!,
         currentUrl,
         30000,
       );
+
+      // SPA/CSR 检测：如果直接 HTML 提取内容过短或置信度过低，
+      // 说明页面可能是客户端渲染（如 TrendForce、React SPA），
+      // 需要用 Puppeteer 执行 JS 后再提取
+      const isLowQuality =
+        !usedJinaReader &&
+        (contentResult.length < 200 || contentResult.confidence < 50);
+      if (isLowQuality) {
+        this.logger.log(
+          `Low quality extraction (${contentResult.length} chars, confidence: ${contentResult.confidence}%), likely SPA/CSR page. Trying Puppeteer...`,
+        );
+        const puppeteerResult = await this.puppeteerFetcher.fetchPage(
+          currentUrl,
+          { timeout: 30000 },
+        );
+        if (puppeteerResult.success && puppeteerResult.html) {
+          this.logger.log(
+            `Puppeteer re-fetch successful (${puppeteerResult.loadTime}ms), re-extracting...`,
+          );
+          html = puppeteerResult.html;
+          contentResult = await this.advancedExtractor.extract(
+            html,
+            currentUrl,
+            30000,
+          );
+        } else {
+          // Puppeteer 也失败，尝试 Jina Reader
+          this.logger.log(`Puppeteer failed, trying Jina Reader...`);
+          const jinaResult = await this.fetchViaJinaReader(currentUrl);
+          if (jinaResult.success && jinaResult.content) {
+            const titleMatch = jinaResult.content.match(/^#\s+(.+)$/m);
+            const jinaTitle = titleMatch
+              ? titleMatch[1]
+              : new URL(currentUrl).hostname;
+            html = this.markdownToHtml(jinaResult.content, jinaTitle);
+            usedJinaReader = true;
+            contentResult = await this.advancedExtractor.extract(
+              html,
+              currentUrl,
+              30000,
+            );
+          }
+        }
+      }
 
       // 同时使用 NewsExtractorService 提取元数据（作者、日期等）
       const newsMetadata = await this.newsExtractor.extractNews(
