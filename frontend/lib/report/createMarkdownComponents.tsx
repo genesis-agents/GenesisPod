@@ -50,6 +50,7 @@ function headingSlug(
     .replace(/[#*`~^|\\[\]{}<>&=+!@$%;"'?,]/g, '') // strip markdown/special ASCII symbols
     .replace(/\./g, '-') // dots → dashes
     .replace(/\s/g, '-') // spaces → dashes
+    .replace(/-{2,}/g, '-') // collapse consecutive dashes
     .replace(/^-|-$/g, ''); // trim leading/trailing dashes
 
   if (!slugCounts) return base;
@@ -133,6 +134,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
                 .replace(/[#*`~^|\\[\]{}<>&=+!@$%;"'?,]/g, '')
                 .replace(/\./g, '-')
                 .replace(/\s/g, '-')
+                .replace(/-{2,}/g, '-')
                 .replace(/^-|-$/g, '');
               if (normalized !== raw) {
                 target = document.getElementById(normalized);
